@@ -7,19 +7,6 @@ use super::wire::{
 use crate::{wire::serialize_json, WasmRuntimeDocument, WasmRuntimeError};
 
 impl WasmRuntimeDocument {
-    pub fn get_chapter_local_frame_json(
-        &mut self,
-        owner_json: &str,
-        local_spread_index: usize,
-    ) -> Result<String, WasmRuntimeError> {
-        let owner = parse_owner(owner_json)?;
-        let frame = self
-            .document
-            .get_chapter_local_frame(&owner, local_spread_index)
-            .map_err(WasmRuntimeError::from_chapter_local)?;
-        serialize_json(&frame)
-    }
-
     pub fn get_chapter_local_frame_command_buffer_metadata_json(
         &mut self,
         owner_json: &str,
@@ -196,8 +183,8 @@ mod tests {
     #[test]
     fn resource_payload_reports_the_lookup_href_not_the_canonical_manifest_href() {
         let mut document = fixture::pinned_fixture_wasm_document();
-        let advance = document
-            .create_bounded_chapter_local_revision_json(
+        let created = document
+            .create_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": fixture::layout(),
                     "targetChapterIndex": 0,
@@ -208,12 +195,12 @@ mod tests {
                 .to_string(),
             )
             .expect("local revision");
-        let advance: Value = serde_json::from_str(&advance).expect("advance JSON");
+        let created: Value = serde_json::from_str(&created).expect("created JSON");
         let owner = super::parse_owner(
             &json!({
-                "revisionId": advance["revision"]["revisionId"],
-                "revisionVersion": advance["revision"]["revisionVersion"],
-                "coordinate": advance["revision"]["coordinate"]
+                "revisionId": created["revision"]["revisionId"],
+                "revisionVersion": created["revision"]["revisionVersion"],
+                "coordinate": created["revision"]["coordinate"]
             })
             .to_string(),
         )
@@ -230,8 +217,8 @@ mod tests {
     #[test]
     fn resource_payload_encoder_failure_rolls_back_only_its_new_exact_lease() {
         let mut document = fixture::pinned_fixture_wasm_document();
-        let advance = document
-            .create_bounded_chapter_local_revision_json(
+        let created = document
+            .create_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": fixture::layout(),
                     "targetChapterIndex": 0,
@@ -242,12 +229,12 @@ mod tests {
                 .to_string(),
             )
             .expect("local revision");
-        let advance: Value = serde_json::from_str(&advance).expect("advance JSON");
+        let created: Value = serde_json::from_str(&created).expect("created JSON");
         let owner = super::parse_owner(
             &json!({
-                "revisionId": advance["revision"]["revisionId"],
-                "revisionVersion": advance["revision"]["revisionVersion"],
-                "coordinate": advance["revision"]["coordinate"]
+                "revisionId": created["revision"]["revisionId"],
+                "revisionVersion": created["revision"]["revisionVersion"],
+                "coordinate": created["revision"]["coordinate"]
             })
             .to_string(),
         )

@@ -4,7 +4,7 @@
  */
 
 import type { TextQuoteSelector } from './model';
-import type { ChapterTextIndex } from './chapter-text-index';
+import type { ChapterTextIndex } from '../layout-types';
 
 const CONTEXT_LENGTH = 32;
 

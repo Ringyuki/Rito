@@ -8,33 +8,29 @@ import {
   createState as createCompleteState,
   createWorker,
 } from './browser-reader-reflow-fixtures';
-import type { BrowserReaderBoundedSessionOwner } from '../../src/bindings/browser/reader/types';
+import type { BrowserReaderRevisionSessionOwner } from '../../src/bindings/browser/reader/types';
 import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
-  completeBrowserReaderBoundedSession: vi.fn(
-    (): Promise<boolean | undefined> => Promise.resolve(true),
-  ),
-  ensureBrowserReaderBoundedLocator: vi.fn(() => Promise.resolve(undefined)),
+  ensureBrowserReaderRevisionLocator: vi.fn(() => Promise.resolve(undefined)),
   cancelBrowserReaderReflow: vi.fn(),
   disposeBrowserReaderPinnedFonts: vi.fn(),
   ensureFrameLoaded: vi.fn(),
   loadFrame: vi.fn(),
-  preloadReaderFonts: vi.fn(() => Promise.resolve(false)),
+  preloadReaderFonts: vi.fn(() => Promise.resolve()),
   unregisterReaderFonts: vi.fn(),
   resetFrameCache: vi.fn(),
   warmBrowserReaderFrameWindow: vi.fn(),
 }));
 
-vi.mock('../../src/bindings/browser/reader/pipeline/bounded-reflow', () => ({
+vi.mock('../../src/bindings/browser/reader/pipeline/revision-reflow', () => ({
   cancelBrowserReaderReflow: mocks.cancelBrowserReaderReflow,
   scheduleBrowserReaderReflow: mocks.scheduleBrowserReaderReflow,
 }));
 
-vi.mock('../../src/bindings/browser/bounded-session-runtime', () => ({
-  completeBrowserReaderBoundedSession: mocks.completeBrowserReaderBoundedSession,
-  ensureBrowserReaderBoundedLocator: mocks.ensureBrowserReaderBoundedLocator,
+vi.mock('../../src/bindings/browser/revision-session-runtime', () => ({
+  ensureBrowserReaderRevisionLocator: mocks.ensureBrowserReaderRevisionLocator,
 }));
 
 vi.mock('../../src/bindings/browser/pinned-fonts', () => ({
@@ -57,8 +53,7 @@ vi.mock('../../src/bindings/browser/resources', () => ({
 describe('Browser reader methods', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.completeBrowserReaderBoundedSession.mockResolvedValue(true);
-    mocks.ensureBrowserReaderBoundedLocator.mockResolvedValue(undefined);
+    mocks.ensureBrowserReaderRevisionLocator.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -79,11 +74,10 @@ describe('Browser reader methods', () => {
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     expect(methods.updateLayout(900, 700, 'single')).toBe(false);
-    expect(methods.setLineBreaking('optimal')).toBe(false);
     expect(methods.setTypography({ fontSize: 18 })).toBe(false);
     methods.resize(920, 720);
 
-    expect(mocks.scheduleBrowserReaderReflow).toHaveBeenCalledTimes(4);
+    expect(mocks.scheduleBrowserReaderReflow).toHaveBeenCalledTimes(3);
   });
 
   it('clears theme overrides when returning to the default theme', () => {
@@ -119,7 +113,7 @@ describe('Browser reader methods', () => {
     expect(methods.getChapterTextIndices().get('chapter')?.normalizedText).toBe('Hello');
   });
 
-  it('forwards atomic locator navigation to bounded session growth', async () => {
+  it('forwards atomic locator navigation to a current-session revision mutation', async () => {
     const state = createState();
     const methods = buildBrowserReaderMethods(state, readerOptions());
     const locator = { href: 'chapter.xhtml', sourcePoint: { nodePath: [1], textOffset: 2 } };
@@ -127,14 +121,14 @@ describe('Browser reader methods', () => {
 
     await methods.navigateToLocator?.(locator, controller.signal);
 
-    expect(mocks.ensureBrowserReaderBoundedLocator).toHaveBeenCalledWith(
+    expect(mocks.ensureBrowserReaderRevisionLocator).toHaveBeenCalledWith(
       state,
       locator,
       controller.signal,
     );
   });
 
-  it('binds search reads to the complete current revision handle', async () => {
+  it('binds search reads to the current committed revision handle', async () => {
     const state = createState();
     const revision = { revisionId: 'rev', revisionVersion: 3 };
     const searchAtRevision = vi.fn(() =>
@@ -164,15 +158,11 @@ describe('Browser reader methods', () => {
 
     await expect(methods.search?.('needle')).resolves.toEqual([]);
 
-    expect(mocks.completeBrowserReaderBoundedSession).toHaveBeenCalledWith(state);
     expect(searchAtRevision).toHaveBeenCalledWith(revision, {
       query: 'needle',
       caseSensitive: false,
       wholeWord: false,
     });
-    expect(mocks.completeBrowserReaderBoundedSession.mock.invocationCallOrder[0]).toBeLessThan(
-      searchAtRevision.mock.invocationCallOrder[0] ?? 0,
-    );
   });
 
   it('maps durable sources from a revision-bound search without eagerly resolving geometry', async () => {
@@ -271,19 +261,25 @@ describe('Browser reader methods', () => {
     expect(resolveExactSourceRangeAtRevision).not.toHaveBeenCalled();
   });
 
-  it('does not issue an exact search when bounded completion is cancelled', async () => {
+  it('does not issue a search once the reader is disposed', async () => {
     const state = createState();
     const searchAtRevision = vi.fn();
     state.worker = {
-      sessionId: 'cancelled-search-session',
+      sessionId: 'disposed-search-session',
       searchAtRevision,
     } as unknown as BrowserReaderState['worker'];
-    mocks.completeBrowserReaderBoundedSession.mockResolvedValueOnce(undefined);
+    state.revisionHandle = {
+      workerSessionId: 'disposed-search-session',
+      revisionId: 'rev',
+      revisionVersion: 3,
+      publicationGeneration: 4,
+      commitGeneration: 4,
+    };
+    state.disposed = true;
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     await expect(methods.search?.('needle')).resolves.toEqual([]);
 
-    expect(mocks.completeBrowserReaderBoundedSession).toHaveBeenCalledWith(state);
     expect(searchAtRevision).not.toHaveBeenCalled();
   });
 
@@ -379,7 +375,6 @@ describe('Browser reader methods', () => {
     const footnotes = state.footnotes;
     const chapterTextIndices = state.chapterTextIndices;
     const tocTargets = state.tocTargets;
-    state.fontMetrics.fontFamilies['book-face'] = { advances: {}, pairAdjustments: {} };
     const failedImageClose = vi.fn(() => {
       throw new Error('image close failed');
     });
@@ -404,7 +399,6 @@ describe('Browser reader methods', () => {
     expect(state.footnotes).not.toBe(footnotes);
     expect(state.chapterTextIndices).not.toBe(chapterTextIndices);
     expect(state.tocTargets).not.toBe(tocTargets);
-    expect(state.fontMetrics.fontFamilies).toEqual({});
     expect(failedImageClose).toHaveBeenCalledOnce();
     expect(remainingImageClose).toHaveBeenCalledOnce();
     expect(state.images.size).toBe(0);
@@ -494,7 +488,7 @@ describe('Browser reader methods', () => {
     Object.defineProperty(state, 'workerFactory', {
       value: Object.assign(() => current.worker, { dispose: disposeFactory }),
     });
-    state.boundedSessions.candidate = boundedOwner(candidate.worker, Promise.resolve());
+    state.revisionSessions.candidate = revisionOwner(candidate.worker, Promise.resolve());
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     void methods.dispose();
@@ -552,21 +546,21 @@ describe('Browser reader methods', () => {
     expect(opening.whenDisposed).toHaveBeenCalled();
   });
 
-  it('drains bounded sessions before disposing their workers', async () => {
-    const current = createWorker(() => undefined, 'current-bounded-worker');
-    const candidate = createWorker(() => undefined, 'candidate-bounded-worker');
+  it('drains revision sessions before disposing their workers', async () => {
+    const current = createWorker(() => undefined, 'current-revision-worker');
+    const candidate = createWorker(() => undefined, 'candidate-revision-worker');
     const currentDrain = createDeferred<undefined>();
     const candidateDrain = createDeferred<undefined>();
     const state = createCompleteState(current.worker);
-    state.boundedSessions.current = boundedOwner(current.worker, currentDrain.promise);
-    state.boundedSessions.candidate = boundedOwner(candidate.worker, candidateDrain.promise);
+    state.revisionSessions.current = revisionOwner(current.worker, currentDrain.promise);
+    state.revisionSessions.candidate = revisionOwner(candidate.worker, candidateDrain.promise);
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     void methods.dispose();
     void methods.dispose();
 
     expect(state.disposed).toBe(true);
-    expect(state.boundedSessions).toEqual({ current: undefined, candidate: undefined });
+    expect(state.revisionSessions).toEqual({ current: undefined, candidate: undefined });
     expect(current.dispose).not.toHaveBeenCalled();
     expect(candidate.dispose).not.toHaveBeenCalled();
 
@@ -580,10 +574,10 @@ describe('Browser reader methods', () => {
     expect(candidate.dispose).toHaveBeenCalledOnce();
   });
 
-  it('still closes workers when bounded cleanup rejects', async () => {
-    const worker = createWorker(() => undefined, 'rejected-bounded-worker');
+  it('still closes workers when revision session cleanup rejects', async () => {
+    const worker = createWorker(() => undefined, 'rejected-revision-worker');
     const state = createCompleteState(worker.worker);
-    state.boundedSessions.current = boundedOwner(
+    state.revisionSessions.current = revisionOwner(
       worker.worker,
       Promise.reject(new Error('cleanup failed')),
     );
@@ -593,37 +587,37 @@ describe('Browser reader methods', () => {
     await state.disposeTask;
 
     expect(state.logger.warn).toHaveBeenCalledWith(
-      'bounded reader dispose failed',
+      'revision session dispose failed',
       expect.objectContaining({ message: 'cleanup failed' }),
     );
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
-  it('still closes workers when bounded cleanup throws synchronously', async () => {
-    const worker = createWorker(() => undefined, 'throwing-bounded-worker');
+  it('still closes workers when revision session cleanup throws synchronously', async () => {
+    const worker = createWorker(() => undefined, 'throwing-revision-worker');
     const state = createCompleteState(worker.worker);
-    const owner = boundedOwner(worker.worker, Promise.resolve());
+    const owner = revisionOwner(worker.worker, Promise.resolve());
     const failure = new Error('synchronous cleanup failed');
     Object.defineProperty(owner.controller, 'dispose', {
       value: vi.fn(() => {
         throw failure;
       }),
     });
-    state.boundedSessions.current = owner;
+    state.revisionSessions.current = owner;
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     void methods.dispose();
     await state.disposeTask;
 
-    expect(state.logger.warn).toHaveBeenCalledWith('bounded reader dispose failed', failure);
+    expect(state.logger.warn).toHaveBeenCalledWith('revision session dispose failed', failure);
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
-  it('forces worker disposal when bounded cleanup never settles', async () => {
+  it('forces worker disposal when revision session cleanup never settles', async () => {
     vi.useFakeTimers();
-    const worker = createWorker(() => undefined, 'stalled-bounded-worker');
+    const worker = createWorker(() => undefined, 'stalled-revision-worker');
     const state = createCompleteState(worker.worker);
-    state.boundedSessions.current = boundedOwner(
+    state.revisionSessions.current = revisionOwner(
       worker.worker,
       createDeferred<undefined>().promise,
     );
@@ -634,24 +628,23 @@ describe('Browser reader methods', () => {
     await state.disposeTask;
 
     expect(state.logger.warn).toHaveBeenCalledWith(
-      'bounded reader dispose failed',
-      expect.objectContaining({ message: 'bounded reader dispose timed out after 1000ms' }),
+      'revision session dispose failed',
+      expect.objectContaining({ message: 'revision session dispose timed out after 1000ms' }),
     );
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 });
 
-function boundedOwner(
+function revisionOwner(
   worker: BrowserReaderState['worker'],
   dispose: Promise<void>,
-): BrowserReaderBoundedSessionOwner {
+): BrowserReaderRevisionSessionOwner {
   return {
     controller: {
       start: vi.fn(),
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      calibrateFontVerticalMetrics: vi.fn(),
       currentSnapshot: vi.fn(),
       cancel: vi.fn(),
       dispose: vi.fn(() => dispose),
@@ -669,7 +662,6 @@ function readerOptions(): ReaderOptions {
     height: 600,
     margin: 40,
     spread: 'single',
-    lineBreaking: 'greedy',
   };
 }
 
@@ -682,7 +674,6 @@ async function waitForCall(mock: ReturnType<typeof vi.fn>): Promise<void> {
 
 function createState(): BrowserReaderState {
   return {
-    lineBreaking: 'greedy',
     spreadMode: 'single',
     fontSizeOverride: undefined,
     lineHeightOverride: undefined,
@@ -708,9 +699,6 @@ function createState(): BrowserReaderState {
         revisionId: 'rev',
         revisionVersion: 0,
         layoutKey: 'layout',
-        status: 'complete',
-        knownExtent: { pageCount: 0, spreadCount: 0 },
-        finalExtent: { pageCount: 0, spreadCount: 0 },
         pageCount: 0,
         spreadCount: 0,
       },
@@ -731,7 +719,7 @@ function createState(): BrowserReaderState {
     footnotes: new Map(),
     chapterTextIndices: new Map(),
     activeSpreadIndex: 0,
-    boundedSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),

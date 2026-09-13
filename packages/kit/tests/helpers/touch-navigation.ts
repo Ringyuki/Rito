@@ -89,7 +89,6 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
-    isPaginationComplete: () => reader.pagination?.complete ?? true,
     commitPendingTransition: () => {
       if (td.isAnimating) td.forceSettle();
     },
@@ -202,14 +201,7 @@ function createPoolHarness(isContentReady: () => boolean): PoolHarness {
 }
 
 function spread(index: number): Spread {
-  return {
-    index,
-    left: {
-      index,
-      bounds: { x: 0, y: 0, width: 300, height: 400 },
-      content: [],
-    },
-  };
+  return { index, pageIndexes: [index], leftPageIndex: index };
 }
 
 function selectionStub(): SelectionEngine {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ReaderTextSelectionInteractions } from '@ritojs/core';
 import { createSelectionEngine } from '../src/interaction';
 import type { ReaderControllerEvents } from '../src/controller/types';
+import { createCoordinatorState } from '../src/controller/core/coordinator-state';
 import type { WiringDeps } from '../src/controller/core/wiring-deps';
 import { wireEngineEvents } from '../src/controller/wiring/engine-events';
 import { createDisposableCollection } from '../src/utils/disposable';
@@ -15,7 +16,7 @@ import {
 } from './helpers/native-selection';
 
 describe('native selection controller event', () => {
-  it('reports exact selection independently of the legacy TextRange', async () => {
+  it('reports the exact selection with its projected rects and durable endpoints', async () => {
     const anchor = caret(1);
     const focus = caret(5);
     const range = exactRange(anchor, focus);
@@ -29,7 +30,7 @@ describe('native selection controller event', () => {
       resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'miss' }),
     });
     const selection = createSelectionEngine(capability);
-    selection.setSpread({} as never, {} as never, {} as never, {
+    selection.setSpread({
       spreadContentToPage: (x, y) => ({ pageIndex: 0, x, y }),
       isPageVisible: (pageIndex) => pageIndex === 0,
       pageContentToSpread: (_pageIndex, rect) => rect,
@@ -51,6 +52,7 @@ describe('native selection controller event', () => {
       },
       emitter,
       coordState: {
+        ...createCoordinatorState(),
         mapper: {
           spreadContentRectToViewport: (rect: { x: number; y: number }) => ({
             ...rect,
@@ -58,7 +60,6 @@ describe('native selection controller event', () => {
             y: rect.y + 40,
           }),
         },
-        annotationStore: null,
       },
       frameDriver: { markOverlayDirty: vi.fn() },
       getCurrentSpread: () => 0,
@@ -71,7 +72,6 @@ describe('native selection controller event', () => {
     await flushMicrotasks();
 
     expect(listener).toHaveBeenLastCalledWith({
-      range: null,
       sourceLocator: range.sourceLocator,
       sourceSpan: range.sourceSpan,
       hasSelection: true,

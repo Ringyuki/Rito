@@ -1,21 +1,16 @@
 mod chapter_local;
-mod continuation;
-mod continuation_locator;
 pub(crate) mod fixture;
-mod font_vertical_metrics;
 mod pinned_font;
 mod versioned;
+mod whole_book;
 
-use fixture::{
-    fixture_document, layout, minimal_png, multi_chapter_document, resource_payload, revision_id,
-};
+use fixture::{layout, minimal_png, pinned_fixture_wasm_document, resource_payload, revision_id};
 use rito_core::runtime::{
-    decode_runtime_bundle, RuntimeResourceKind, RuntimeResourceTransferPayload,
-    RuntimeRevisionHandle, RuntimeViewRevisionMetadata,
+    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeRevisionHandle,
 };
 use serde_json::Value;
 
-use super::{WasmRuntimeDocument, WasmRuntimeError, WasmRuntimeErrorCode};
+use super::WasmRuntimeErrorCode;
 
 #[test]
 fn links_against_core() {
@@ -24,166 +19,8 @@ fn links_against_core() {
 }
 
 #[test]
-fn creates_revision_and_frame_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let revision_json = document
-        .create_full_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "activeSpreadIndex": 0
-            })
-            .to_string(),
-        )
-        .expect("revision JSON is created");
-    let revision: Value = serde_json::from_str(&revision_json).expect("revision JSON parses");
-    let revision_id = revision["bundle"]["revision"]["revisionId"]
-        .as_str()
-        .expect("revision id is available");
-
-    let frame_json = document
-        .get_frame_json(revision_id, 0)
-        .expect("frame JSON is created");
-    let frame: Value = serde_json::from_str(&frame_json).expect("frame JSON parses");
-
-    assert_eq!(revision_id, "rev-1");
-    assert_eq!(frame["revisionId"], "rev-1");
-    assert_eq!(frame["spreadIndex"], 0);
-    assert!(frame["commands"]
-        .as_array()
-        .is_some_and(|commands| !commands.is_empty()));
-    assert!(frame["commands"]
-        .as_array()
-        .expect("commands are available")
-        .iter()
-        .any(|command| command["kind"] == "paintText" && command["text"].as_str().is_some()));
-    assert!(frame["commandHash"]
-        .as_str()
-        .is_some_and(|hash| !hash.is_empty()));
-}
-
-#[test]
-fn creates_revision_from_structured_request_with_line_breaking() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "optimal",
-        "activeSpreadIndex": 0,
-    });
-
-    let revision_json = document
-        .create_full_revision_bundle_json(&request.to_string())
-        .expect("structured revision request is accepted");
-    let revision: Value = serde_json::from_str(&revision_json).expect("revision JSON parses");
-
-    assert_eq!(revision["bundle"]["revision"]["revisionId"], "rev-1");
-    assert_eq!(revision["bundle"]["revision"]["pageCount"], 2);
-    assert_eq!(revision["bundle"]["revision"]["revisionVersion"], 0);
-    assert_eq!(revision["bundle"]["revision"]["status"], "complete");
-    assert_eq!(
-        revision["bundle"]["revision"]["knownExtent"],
-        serde_json::json!({
-            "pageCount": revision["bundle"]["revision"]["pageCount"],
-            "spreadCount": revision["bundle"]["revision"]["spreadCount"],
-        })
-    );
-    assert_eq!(
-        revision["bundle"]["revision"]["finalExtent"],
-        revision["bundle"]["revision"]["knownExtent"]
-    );
-}
-
-#[test]
-fn creates_initial_preview_revision_bundle_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(multi_chapter_document());
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-    });
-
-    let bundle_json = document
-        .create_initial_preview_revision_bundle_json(&request.to_string())
-        .expect("initial preview bundle JSON is created");
-    let response: Value = serde_json::from_str(&bundle_json).expect("bundle JSON parses");
-
-    assert_eq!(response["bundle"]["revision"]["revisionId"], "rev-1");
-    assert!(response["bundle"]["fontFamilies"]
-        .as_array()
-        .is_some_and(|families| !families.is_empty()));
-    assert_eq!(
-        response["bundle"]["tocTargets"]["targets"],
-        Value::Array(Vec::new())
-    );
-    assert!(response.get("initialFrame").is_none());
-    assert_eq!(response["frameSelection"]["spreadIndex"], 0);
-    assert_eq!(response["frameSelection"]["displaySpreadIndex"], 0);
-    assert_eq!(
-        response["initialFrameWindow"]["plan"]["revisionId"],
-        "rev-1"
-    );
-    assert_eq!(
-        response["initialFrameWindow"]["plan"]["centerSpreadIndex"],
-        0
-    );
-    assert_eq!(
-        response["initialFrameWindow"]["plan"]["displaySpreadIndex"],
-        0
-    );
-    assert!(response["initialFrameWindow"]["spreads"]
-        .as_array()
-        .is_some_and(|spreads| !spreads.is_empty()));
-    assert!(response.get("displaySpreadIndex").is_none());
-    assert_eq!(response["preview"], true);
-    assert_eq!(response["releasedPreviousRevisionTransferCount"], 0);
-}
-
-#[test]
-fn creates_full_revision_bundle_json_with_planned_initial_window() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 99,
-    });
-
-    let bundle_json = document
-        .create_full_revision_bundle_json(&request.to_string())
-        .expect("full revision bundle JSON is created");
-    let response: Value = serde_json::from_str(&bundle_json).expect("bundle JSON parses");
-
-    assert_eq!(response["bundle"]["revision"]["revisionId"], "rev-1");
-    assert_eq!(response["preview"], false);
-    assert!(response.get("initialFrame").is_none());
-    assert_eq!(
-        response["initialFrameWindow"]["plan"]["revisionId"],
-        "rev-1"
-    );
-    assert_eq!(
-        response["initialFrameWindow"]["plan"]["centerSpreadIndex"].as_u64(),
-        Some(
-            response["bundle"]["revision"]["spreadCount"]
-                .as_u64()
-                .unwrap()
-                - 1
-        )
-    );
-    assert_eq!(
-        response["initialFrameWindow"]["plan"]["displaySpreadIndex"].as_u64(),
-        response["initialFrameWindow"]["plan"]["centerSpreadIndex"].as_u64()
-    );
-    assert_eq!(
-        response["frameSelection"]["spreadIndex"].as_u64(),
-        response["initialFrameWindow"]["plan"]["centerSpreadIndex"].as_u64()
-    );
-    assert_eq!(
-        response["frameSelection"]["displaySpreadIndex"].as_u64(),
-        response["initialFrameWindow"]["plan"]["displaySpreadIndex"].as_u64()
-    );
-    assert!(response.get("displaySpreadIndex").is_none());
-}
-
-#[test]
 fn returns_packed_frame_command_buffer_metadata_and_bytes() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let metadata_json = document
@@ -194,594 +31,30 @@ fn returns_packed_frame_command_buffer_metadata_and_bytes() {
     let bytes = document
         .read_frame_command_buffer(&revision_id, 0)
         .expect("command buffer bytes are returned");
-    let frame = document
-        .get_frame_json(&revision_id, 0)
-        .expect("frame JSON is returned after packed warmup");
-    let frame: Value = serde_json::from_str(&frame).expect("frame JSON parses");
 
     assert_eq!(metadata["revisionId"], revision_id);
     assert_eq!(metadata["spreadIndex"], 0);
-    assert_eq!(metadata["commandCount"], frame["commandCount"]);
-    assert_eq!(metadata["commandHash"], frame["commandHash"]);
-    assert_eq!(metadata["fontFamilies"], frame["fontFamilies"]);
+    assert!(metadata["commandCount"]
+        .as_u64()
+        .is_some_and(|count| count > 0));
+    assert!(metadata["commandHash"]
+        .as_str()
+        .is_some_and(|hash| !hash.is_empty()));
+    assert!(metadata["fontFamilies"]
+        .as_array()
+        .is_some_and(|families| !families.is_empty()));
     assert_eq!(metadata["byteLength"], bytes.len());
-    assert_eq!(&bytes[0..8], b"RITOFCB2");
-    assert!(metadata["payloadTable"]
-        .as_array()
-        .is_some_and(|payloads| !payloads.is_empty()));
-}
-
-#[test]
-fn creates_active_chapter_preview_revision_bundle_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-    let full_json = document
-        .create_full_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "activeSpreadIndex": 1
-            })
-            .to_string(),
-        )
-        .expect("full revision bundle is returned");
-    let full: Value = serde_json::from_str(&full_json).expect("full bundle JSON parses");
-    let full_revision_id = full["bundle"]["revision"]["revisionId"]
-        .as_str()
-        .expect("full revision id is present");
-
-    let preview_json = document
-        .create_active_chapter_preview_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "previousRevisionId": full_revision_id,
-                "activeSpreadIndex": 1
-            })
-            .to_string(),
-        )
-        .expect("active preview bundle is returned");
-    let preview: Value = serde_json::from_str(&preview_json).expect("preview JSON parses");
-
-    assert_eq!(preview["preview"], true);
-    assert_eq!(
-        preview["bundle"]["tocTargets"]["targets"],
-        serde_json::json!([])
-    );
-    assert_eq!(
-        preview["bundle"]["chapterTextIndices"]["entries"]
-            .as_object()
-            .map(|entries| entries.keys().cloned().collect::<Vec<_>>()),
-        Some(vec!["chapter-2".to_owned()])
-    );
-    assert!(preview.get("initialFrame").is_none());
-    assert_eq!(preview["frameSelection"]["spreadIndex"], 0);
-    assert_eq!(preview["frameSelection"]["displaySpreadIndex"], 1);
-    assert_eq!(
-        preview["initialFrameWindow"]["plan"]["displaySpreadIndex"],
-        1
-    );
-    assert!(preview.get("displaySpreadIndex").is_none());
-}
-
-#[test]
-fn creates_unified_preview_revision_bundle_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-    let initial_json = document
-        .create_preview_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "lineBreaking": "greedy"
-            })
-            .to_string(),
-        )
-        .expect("initial preview bundle is returned");
-    let initial: Value = serde_json::from_str(&initial_json).expect("initial JSON parses");
-    let initial_revision_id = initial["bundle"]["revision"]["revisionId"]
-        .as_str()
-        .expect("initial revision id is present");
-    let active_json = document
-        .create_preview_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "previousRevisionId": initial_revision_id,
-                "activeSpreadIndex": 1
-            })
-            .to_string(),
-        )
-        .expect("active preview bundle is returned");
-    let active: Value = serde_json::from_str(&active_json).expect("active JSON parses");
-
-    assert_eq!(initial["preview"], true);
-    assert_eq!(initial["frameSelection"]["spreadIndex"], 0);
-    assert_eq!(active["preview"], true);
-    assert_eq!(active["frameSelection"]["displaySpreadIndex"], 1);
-    assert_eq!(active["releasedPreviousRevisionTransferCount"], 0);
-}
-
-#[test]
-fn create_view_revision_json_declares_display_policy() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-    let initial_json = document
-        .create_view_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "lineBreaking": "optimal",
-                "activeSpreadIndex": 0,
-                "mode": "preview"
-            })
-            .to_string(),
-        )
-        .expect("initial view JSON is returned");
-    let initial: Value = serde_json::from_str(&initial_json).expect("initial JSON parses");
-    let initial_revision_id = initial["result"]["bundle"]["revision"]["revisionId"]
-        .as_str()
-        .expect("initial revision id is present");
-    let active_json = document
-        .create_view_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "lineBreaking": "optimal",
-                "activeSpreadIndex": 1,
-                "previousRevisionId": initial_revision_id,
-                "mode": "preview"
-            })
-            .to_string(),
-        )
-        .expect("active view JSON is returned");
-    let active: Value = serde_json::from_str(&active_json).expect("active JSON parses");
-
-    assert_eq!(initial["display"], "revision");
-    assert_eq!(active["display"], "visualPreview");
-    assert_eq!(active["kind"], "preview");
-    assert_eq!(
-        initial["followUp"]["request"]["previousRevisionId"],
-        initial["result"]["bundle"]["revision"]["revisionId"]
-    );
-    assert_eq!(
-        active["followUp"]["request"]["previousRevisionId"],
-        initial["result"]["bundle"]["revision"]["revisionId"]
-    );
-    assert_eq!(
-        initial["followUp"]["request"]["layoutConfig"],
-        serde_json::to_value(layout()).expect("layout serializes")
-    );
-    assert_eq!(initial["followUp"]["request"]["lineBreaking"], "optimal");
-    assert_eq!(initial["followUp"]["request"]["activeSpreadIndex"], 0);
-    assert_eq!(
-        active["followUp"]["request"]["layoutConfig"],
-        serde_json::to_value(layout()).expect("layout serializes")
-    );
-    assert_eq!(active["followUp"]["request"]["lineBreaking"], "optimal");
-    assert_eq!(active["followUp"]["request"]["activeSpreadIndex"], 1);
-    assert_eq!(active["followUp"]["request"]["mode"], "full");
-}
-
-#[test]
-fn create_view_revision_json_preserves_host_font_metric_bits() {
-    let expected = 0.44299983978271484_f64;
-    let mut request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 0,
-        "mode": "preview"
-    });
-    request["layoutConfig"]["fontFamilyAdvances"] = serde_json::json!({
-        "main": { "1": expected }
-    });
-    let request_json = request.to_string();
-    assert!(request_json.contains("0.44299983978271484"));
-
-    let mut document = WasmRuntimeDocument::from_loaded_document(multi_chapter_document());
-    let response_json = document
-        .create_view_revision_bundle_json(&request_json)
-        .expect("preview view JSON is returned");
-    let response: Value = serde_json::from_str(&response_json).expect("preview JSON parses");
-    let actual = response["followUp"]["request"]["layoutConfig"]["fontFamilyAdvances"]["main"]["1"]
-        .as_f64()
-        .expect("host font advance is returned");
-
-    assert_eq!(actual.to_bits(), expected.to_bits());
-}
-
-#[test]
-fn create_view_revision_ritorb1_matches_json_across_revision_modes() {
-    let mut json_document =
-        WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-    let mut binary_document =
-        WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-
-    let initial = assert_view_revision_wire_agreement(
-        &mut json_document,
-        &mut binary_document,
-        serde_json::json!({
-            "layoutConfig": layout(),
-            "lineBreaking": "greedy",
-            "activeSpreadIndex": 0,
-            "mode": "preview"
-        }),
-    );
-    let initial_revision_id = initial["result"]["bundle"]["revision"]["revisionId"]
-        .as_str()
-        .expect("initial revision id is present");
-    assert_eq!(initial["kind"], "preview");
-    assert_eq!(initial["display"], "revision");
-    assert_eq!(initial["followUp"]["request"]["mode"], "full");
-    assert_eq!(
-        initial["followUp"]["request"]["layoutConfig"],
-        serde_json::to_value(layout()).expect("layout serializes")
-    );
-    assert_eq!(initial["followUp"]["request"]["lineBreaking"], "greedy");
-    assert_eq!(initial["followUp"]["request"]["activeSpreadIndex"], 0);
-    assert_eq!(
-        initial["followUp"]["request"]["previousRevisionId"],
-        initial_revision_id
-    );
-
-    let active = assert_view_revision_wire_agreement(
-        &mut json_document,
-        &mut binary_document,
-        serde_json::json!({
-            "layoutConfig": layout(),
-            "lineBreaking": "greedy",
-            "activeSpreadIndex": 1,
-            "previousRevisionId": initial_revision_id,
-            "mode": "preview"
-        }),
-    );
-    let active_revision_id = active["result"]["bundle"]["revision"]["revisionId"]
-        .as_str()
-        .expect("active revision id is present");
-    assert_eq!(active["kind"], "preview");
-    assert_eq!(active["display"], "visualPreview");
-    assert_eq!(
-        active["followUp"]["request"]["previousRevisionId"],
-        initial_revision_id
-    );
-    assert_eq!(
-        active["followUp"]["request"]["layoutConfig"],
-        serde_json::to_value(layout()).expect("layout serializes")
-    );
-    assert_eq!(active["followUp"]["request"]["lineBreaking"], "greedy");
-    assert_eq!(active["followUp"]["request"]["activeSpreadIndex"], 1);
-    assert_eq!(active["followUp"]["request"]["mode"], "full");
-
-    let full = assert_view_revision_wire_agreement(
-        &mut json_document,
-        &mut binary_document,
-        serde_json::json!({
-            "layoutConfig": layout(),
-            "lineBreaking": "greedy",
-            "activeSpreadIndex": 1,
-            "previousRevisionId": active_revision_id,
-            "mode": "full"
-        }),
-    );
-    assert_eq!(full["kind"], "full");
-    assert_eq!(full["display"], "revision");
-    assert!(full["followUp"].is_null());
-    assert!(full["result"]["bundle"]["chapterTextIndices"]["entries"]
-        .as_object()
-        .is_some_and(|entries| !entries.is_empty()));
-    assert!(full["result"]["bundle"]["chapterTextIndices"]
-        .get("scopeKey")
-        .is_none());
-}
-
-#[test]
-fn reader_preview_view_revision_preserves_public_shape() {
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 0,
-        "mode": "preview"
-    })
-    .to_string();
-    let mut public_document =
-        WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-    let mut reader_document =
-        WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-
-    let public: Value = serde_json::from_str(
-        &public_document
-            .create_view_revision_bundle_json(&request)
-            .expect("public preview is returned"),
-    )
-    .expect("public preview parses");
-    let reader: Value = serde_json::from_str(
-        &reader_document
-            .create_reader_view_revision_bundle_json(&request, true)
-            .expect("reader preview is returned"),
-    )
-    .expect("reader preview parses");
-
-    assert_eq!(reader["kind"], "preview");
-    assert_eq!(reader, public);
-}
-
-#[test]
-fn reader_preview_request_uses_full_projection_when_preview_falls_back() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
-    let initial_request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 0,
-        "mode": "preview"
-    })
-    .to_string();
-    let initial: Value = serde_json::from_str(
-        &document
-            .create_reader_view_revision_bundle_json(&initial_request, true)
-            .expect("initial reader preview is returned"),
-    )
-    .expect("initial reader preview parses");
-    let fallback_request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 99,
-        "previousRevisionId": initial["result"]["bundle"]["revision"]["revisionId"],
-        "mode": "preview"
-    })
-    .to_string();
-    let fallback: Value = serde_json::from_str(
-        &document
-            .create_reader_view_revision_bundle_json(&fallback_request, true)
-            .expect("fallback reader full revision is returned"),
-    )
-    .expect("fallback reader full revision parses");
-    let indices = &fallback["result"]["bundle"]["chapterTextIndices"];
-
-    assert_eq!(fallback["kind"], "full");
-    assert_eq!(indices["scopeKey"], "chapter-text-v1:full");
-    assert!(indices.get("entries").is_none());
-}
-
-#[test]
-fn reader_full_view_revision_supports_inline_and_scoped_index_reference() {
-    let request = full_view_revision_request();
-    let mut inline_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let mut reference_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    let inline: Value = serde_json::from_str(
-        &inline_document
-            .create_reader_view_revision_bundle_json(&request, false)
-            .expect("inline reader full revision is returned"),
-    )
-    .expect("inline reader full revision parses");
-    let reference: Value = serde_json::from_str(
-        &reference_document
-            .create_reader_view_revision_bundle_json(&request, true)
-            .expect("referenced reader full revision is returned"),
-    )
-    .expect("referenced reader full revision parses");
-    let inline_indices = &inline["result"]["bundle"]["chapterTextIndices"];
-    let reference_indices = &reference["result"]["bundle"]["chapterTextIndices"];
-
-    assert_eq!(inline["kind"], "full");
-    assert_eq!(inline_indices["scopeKey"], "chapter-text-v1:full");
-    assert_eq!(
-        inline_indices["entries"]["chapter"]["normalizedText"],
-        "Hello WASM1"
-    );
-    assert_eq!(reference["kind"], "full");
-    assert_eq!(reference_indices["scopeKey"], "chapter-text-v1:full");
-    assert!(reference_indices.get("entries").is_none());
-
-    let revision_id = reference_indices["revisionId"]
-        .as_str()
-        .expect("referenced revision id is present");
-    let fetched: Value = serde_json::from_str(
-        &reference_document
-            .get_chapter_text_indices_json(revision_id)
-            .expect("full chapter indices remain fetchable"),
-    )
-    .expect("fetched chapter indices parse");
-    assert_eq!(
-        fetched["entries"]["chapter"],
-        inline_indices["entries"]["chapter"]
-    );
-}
-
-#[test]
-fn reader_full_ritorb1_decodes_and_omitting_indices_reduces_bytes() {
-    let mut loaded = fixture_document();
-    let large_text = "reader transport index ".repeat(2_000);
-    loaded.chapters[0].xhtml_source = format!(
-        r#"<html><head><style>.index-only {{ display: none; }}</style></head><body><p>Hello WASM</p><div class="index-only">{large_text}</div></body></html>"#
-    );
-    let mut inline_document = WasmRuntimeDocument::from_loaded_document(loaded.clone());
-    let mut reference_document = WasmRuntimeDocument::from_loaded_document(loaded);
-    let request = full_view_revision_request();
-
-    let inline_bytes = inline_document
-        .create_reader_view_revision_bundle_bytes(&request, false)
-        .expect("inline reader RITORB1 is returned");
-    let reference_bytes = reference_document
-        .create_reader_view_revision_bundle_bytes(&request, true)
-        .expect("referenced reader RITORB1 is returned");
-    let inline = decode_runtime_bundle(&inline_bytes).expect("inline reader RITORB1 decodes");
-    let reference =
-        decode_runtime_bundle(&reference_bytes).expect("referenced reader RITORB1 decodes");
-
-    assert_eq!(inline.payload["kind"], "full");
-    assert_eq!(
-        inline.payload["result"]["bundle"]["revision"]["revisionVersion"],
-        0
-    );
-    assert_eq!(
-        inline.payload["result"]["bundle"]["revision"]["status"],
-        "complete"
-    );
-    assert_eq!(
-        inline.payload["result"]["bundle"]["revision"]["finalExtent"],
-        inline.payload["result"]["bundle"]["revision"]["knownExtent"]
-    );
-    assert_eq!(
-        inline.payload["result"]["bundle"]["chapterTextIndices"]["scopeKey"],
-        "chapter-text-v1:full"
-    );
-    assert!(inline.payload["result"]["bundle"]["chapterTextIndices"]["entries"].is_object());
-    assert!(reference.payload["result"]["bundle"]["chapterTextIndices"]
-        .get("entries")
-        .is_none());
-    assert!(reference_bytes.len() * 2 < inline_bytes.len());
-}
-
-#[test]
-fn create_view_revision_ritorb1_matches_json_with_resource_metadata() {
-    let mut json_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let mut binary_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    let full = assert_view_revision_wire_agreement(
-        &mut json_document,
-        &mut binary_document,
-        serde_json::json!({
-            "layoutConfig": layout(),
-            "lineBreaking": "greedy",
-            "activeSpreadIndex": 0,
-            "mode": "full"
-        }),
-    );
-
-    let initial_window = &full["result"]["initialFrameWindow"];
-    assert!(initial_window["spreads"]
-        .as_array()
-        .is_some_and(|spreads| !spreads.is_empty()));
-    assert!(initial_window["spreads"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .flat_map(|spread| spread["payloads"].as_array().into_iter().flatten())
-        .any(|payload| payload["href"] == "Images/cover.png"));
-}
-
-#[test]
-fn measures_json_view_revision_wire_once() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let request = full_view_revision_request();
-
-    document.measure_next_view_revision_wire();
-    let payload = document
-        .create_view_revision_bundle_json(&request)
-        .expect("JSON view bundle is returned");
-    document
-        .create_view_revision_bundle_bytes(&request)
-        .expect("unarmed RITORB1 view bundle is returned");
-
-    assert_view_revision_wire_metrics(&mut document, "json", payload.len());
-    assert_eq!(take_view_revision_wire_metrics(&mut document), Value::Null);
-}
-
-#[test]
-fn measures_ritorb1_view_revision_wire_bytes() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    document.measure_next_view_revision_wire();
-    let payload = document
-        .create_view_revision_bundle_bytes(&full_view_revision_request())
-        .expect("RITORB1 view bundle is returned");
-
-    assert_view_revision_wire_metrics(&mut document, "ritorb1", payload.len());
-}
-
-#[test]
-fn measures_reader_view_revision_wires() {
-    let request = full_view_revision_request();
-    let mut json_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let mut binary_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    json_document.measure_next_view_revision_wire();
-    let json_payload = json_document
-        .create_reader_view_revision_bundle_json(&request, true)
-        .expect("reader JSON is returned");
-    assert_view_revision_wire_metrics(&mut json_document, "json", json_payload.len());
-
-    binary_document.measure_next_view_revision_wire();
-    let binary_payload = binary_document
-        .create_reader_view_revision_bundle_bytes(&request, true)
-        .expect("reader RITORB1 is returned");
-    assert_view_revision_wire_metrics(&mut binary_document, "ritorb1", binary_payload.len());
-}
-
-#[test]
-fn leaves_view_revision_wire_metrics_empty_when_unarmed() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    document
-        .create_view_revision_bundle_json(&full_view_revision_request())
-        .expect("JSON view bundle is returned");
-
-    assert_eq!(take_view_revision_wire_metrics(&mut document), Value::Null);
-}
-
-#[test]
-fn clears_view_revision_wire_metrics_when_an_armed_request_fails() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    document.measure_next_view_revision_wire();
-    document
-        .create_view_revision_bundle_json(&full_view_revision_request())
-        .expect("JSON view bundle is returned");
-
-    document.measure_next_view_revision_wire();
-    assert!(document
-        .create_view_revision_bundle_json("not JSON")
-        .is_err());
-
-    assert_eq!(take_view_revision_wire_metrics(&mut document), Value::Null);
-}
-
-fn full_view_revision_request() -> String {
-    serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 0,
-        "mode": "full"
-    })
-    .to_string()
-}
-
-fn assert_view_revision_wire_metrics(
-    document: &mut WasmRuntimeDocument,
-    expected_wire: &str,
-    expected_bytes: usize,
-) {
-    let metrics = take_view_revision_wire_metrics(document);
-    assert_eq!(metrics["wire"], expected_wire);
-    assert_eq!(metrics["rawWireBytes"], expected_bytes);
-    let rust_encode_ms = metrics["rustEncodeMs"]
-        .as_f64()
-        .expect("Rust encode duration is a number");
-    assert!(rust_encode_ms.is_finite());
-    assert!(rust_encode_ms >= 0.0);
-}
-
-fn take_view_revision_wire_metrics(document: &mut WasmRuntimeDocument) -> Value {
-    let json = document
-        .take_view_revision_wire_metrics_json()
-        .expect("wire metrics JSON is returned");
-    serde_json::from_str(&json).expect("wire metrics JSON parses")
-}
-
-fn assert_view_revision_wire_agreement(
-    json_document: &mut WasmRuntimeDocument,
-    binary_document: &mut WasmRuntimeDocument,
-    request: Value,
-) -> Value {
-    let request = request.to_string();
-    let json_payload = json_document
-        .create_view_revision_bundle_json(&request)
-        .expect("JSON view bundle is returned");
-    let json_value: Value = serde_json::from_str(&json_payload).expect("JSON view parses");
-    let binary_payload = binary_document
-        .create_view_revision_bundle_bytes(&request)
-        .expect("RITORB1 view bundle is returned");
-    let decoded = decode_runtime_bundle(&binary_payload).expect("RITORB1 view decodes");
-
-    assert_eq!(&binary_payload[0..7], b"RITORB1");
-    assert_eq!(decoded.payload, json_value);
-    json_value
+    assert_eq!(&bytes[0..7], b"RITODL1");
+    assert_eq!(metadata["protocolVersion"], 2);
+    assert_eq!(metadata["ratio"], 1.0);
+    assert!(metadata["primitiveCount"]
+        .as_u64()
+        .is_some_and(|count| count > 0));
 }
 
 #[test]
 fn returns_publication_json_before_revision_creation() {
-    let document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let document = pinned_fixture_wasm_document();
 
     let publication_json = document
         .publication_json()
@@ -807,7 +80,7 @@ fn returns_publication_json_before_revision_creation() {
 
 #[test]
 fn separates_resource_payload_json_from_bytes() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let payload_json = document
@@ -839,7 +112,7 @@ fn separates_resource_payload_json_from_bytes() {
 
 #[test]
 fn takes_resource_bytes_and_consumes_the_transfer_lease() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
     let first = resource_payload(&mut document, &revision_id);
     let second = resource_payload(&mut document, &revision_id);
@@ -862,7 +135,7 @@ fn takes_resource_bytes_and_consumes_the_transfer_lease() {
 
 #[test]
 fn gives_reused_resources_independent_transfer_leases() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let first = resource_payload(&mut document, &revision_id);
@@ -884,7 +157,7 @@ fn gives_reused_resources_independent_transfer_leases() {
 
 #[test]
 fn releases_revision_state_and_its_pending_transfers() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
     let payload = resource_payload(&mut document, &revision_id);
 
@@ -900,57 +173,8 @@ fn releases_revision_state_and_its_pending_transfers() {
 }
 
 #[test]
-fn failed_view_transport_preserves_previous_transfers_and_rolls_back_the_candidate() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let previous_revision_id = revision_id(&mut document);
-    let previous_transfer = resource_payload(&mut document, &previous_revision_id);
-    let error = WasmRuntimeError::internal_error("injected view encoder failure");
-    let mut candidate_transfer_ids = Vec::new();
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 0,
-        "previousRevisionId": previous_revision_id,
-        "mode": "full",
-    });
-
-    let result = document.finish_view_revision_transport(
-        &request.to_string(),
-        RuntimeViewRevisionMetadata::Complete,
-        |response| {
-            candidate_transfer_ids = response
-                .result
-                .initial_frame_window
-                .as_ref()
-                .expect("candidate initial frame is prefetched")
-                .spreads
-                .iter()
-                .flat_map(|spread| &spread.payloads)
-                .map(|payload| payload.transfer_id.clone())
-                .collect();
-            assert!(!candidate_transfer_ids.is_empty());
-            Err::<String, _>(error.clone())
-        },
-    );
-
-    assert_eq!(result, Err(error));
-    assert_eq!(document.document.revision_count(), 1);
-    assert!(document.document.has_revision(&previous_revision_id));
-    assert!(!document.document.has_revision("rev-2"));
-    assert_eq!(document.pending_resource_transfer_count(), 1);
-    assert_eq!(
-        document
-            .read_resource_transfer(&previous_transfer.transfer_id)
-            .expect("previous transfer remains"),
-        minimal_png()
-    );
-    let next_transfer = resource_payload(&mut document, &previous_revision_id);
-    assert!(!candidate_transfer_ids.contains(&next_transfer.transfer_id));
-}
-
-#[test]
 fn successful_transport_releases_previous_transfers_only_after_finish() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let previous_revision_id = revision_id(&mut document);
     let previous_transfer = resource_payload(&mut document, &previous_revision_id);
     let revision = document
@@ -989,92 +213,8 @@ fn successful_transport_releases_previous_transfers_only_after_finish() {
 }
 
 #[test]
-fn full_transport_preserves_previous_release_and_pending_count_semantics() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let previous_revision_id = revision_id(&mut document);
-    let previous_transfer = resource_payload(&mut document, &previous_revision_id);
-    let unrelated_revision_id = revision_id(&mut document);
-    let unrelated_transfer = resource_payload(&mut document, &unrelated_revision_id);
-
-    let response = document
-        .create_full_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "lineBreaking": "greedy",
-                "activeSpreadIndex": 0,
-                "previousRevisionId": previous_revision_id,
-            })
-            .to_string(),
-        )
-        .expect("replacement transport commits");
-    let response: Value = serde_json::from_str(&response).expect("replacement response parses");
-    let pending_count = response["initialFrameWindow"]["pendingTransferCount"]
-        .as_u64()
-        .expect("pending transfer count is present") as usize;
-
-    assert_eq!(response["releasedPreviousRevisionTransferCount"], 1);
-    assert_eq!(pending_count, document.pending_resource_transfer_count());
-    let spread_pending_counts = response["initialFrameWindow"]["spreads"]
-        .as_array()
-        .expect("warm spreads are present")
-        .iter()
-        .map(|spread| {
-            spread["pendingTransferCount"]
-                .as_u64()
-                .expect("spread pending count is present") as usize
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(spread_pending_counts.last(), Some(&pending_count));
-    assert!(pending_count > 1);
-    assert!(document
-        .read_resource_transfer(&previous_transfer.transfer_id)
-        .is_err());
-    assert_eq!(
-        document
-            .read_resource_transfer(&unrelated_transfer.transfer_id)
-            .expect("unrelated transfer remains"),
-        minimal_png()
-    );
-}
-
-#[test]
-fn matching_previous_id_cannot_release_candidate_transfers() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    let response = document
-        .create_full_revision_bundle_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-                "lineBreaking": "greedy",
-                "activeSpreadIndex": 0,
-                "previousRevisionId": "rev-1",
-            })
-            .to_string(),
-        )
-        .expect("colliding stale previous ID does not release candidate leases");
-    let response: Value = serde_json::from_str(&response).expect("replacement response parses");
-    let initial_window = &response["initialFrameWindow"];
-    let pending_count = initial_window["pendingTransferCount"]
-        .as_u64()
-        .expect("pending transfer count is present") as usize;
-    let transfer_id = initial_window["spreads"][0]["payloads"][0]["transferId"]
-        .as_str()
-        .expect("candidate transfer ID is present");
-
-    assert_eq!(response["bundle"]["revision"]["revisionId"], "rev-1");
-    assert_eq!(response["releasedPreviousRevisionTransferCount"], 0);
-    assert_eq!(pending_count, document.pending_resource_transfer_count());
-    assert_eq!(
-        document
-            .read_resource_transfer(transfer_id)
-            .expect("candidate transfer remains readable"),
-        minimal_png()
-    );
-}
-
-#[test]
 fn prefetches_resource_transfer_payloads() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let prefetch_json = document
@@ -1108,7 +248,7 @@ fn prefetches_resource_transfer_payloads() {
 
 #[test]
 fn prefetches_planned_frame_resource_transfers() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let prefetch_json = document
@@ -1130,7 +270,13 @@ fn prefetches_planned_frame_resource_transfers() {
         prefetch["spreads"][0]["payloads"][0]["href"],
         "Images/cover.png"
     );
-    assert_eq!(prefetch["pendingTransferCount"], 2);
+    let payload_count: usize = prefetch["spreads"]
+        .as_array()
+        .expect("spreads array")
+        .iter()
+        .map(|spread| spread["payloads"].as_array().map_or(0, Vec::len))
+        .sum();
+    assert_eq!(prefetch["pendingTransferCount"], payload_count);
     assert_eq!(
         document
             .read_resource_transfer(transfer_id)
@@ -1141,7 +287,7 @@ fn prefetches_planned_frame_resource_transfers() {
 
 #[test]
 fn resource_prefetch_is_revision_gated_and_validated() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let bad_request = document
@@ -1164,7 +310,7 @@ fn resource_prefetch_is_revision_gated_and_validated() {
 
 #[test]
 fn searches_revision_text_as_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let search_json = document
@@ -1199,7 +345,7 @@ fn searches_revision_text_as_json() {
 
 #[test]
 fn resolves_locator_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let locator_json = document
@@ -1225,7 +371,7 @@ fn resolves_locator_json() {
 
 #[test]
 fn rejects_malformed_locator_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let error = document
@@ -1238,7 +384,7 @@ fn rejects_malformed_locator_json() {
 
 #[test]
 fn returns_page_targets_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let targets_json = document
@@ -1263,7 +409,7 @@ fn returns_page_targets_json() {
 
 #[test]
 fn returns_page_text_positions_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let positions_json = document
@@ -1289,7 +435,7 @@ fn returns_page_text_positions_json() {
 
 #[test]
 fn returns_text_range_geometry_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
     let search_json = document
         .search_json(
@@ -1329,7 +475,7 @@ fn returns_text_range_geometry_json() {
 
 #[test]
 fn returns_footnote_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let footnote_json = document
@@ -1369,47 +515,12 @@ fn returns_footnote_json() {
 }
 
 #[test]
-fn reports_bad_request_for_invalid_layout_json() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-
-    let error = document
-        .create_full_revision_bundle_json(
-            r#"{"layoutConfig":{"viewportWidth":400},"activeSpreadIndex":0}"#,
-        )
-        .expect_err("invalid layout JSON fails");
-
-    assert_eq!(error.code(), WasmRuntimeErrorCode::BadRequest);
-    assert!(error
-        .message()
-        .contains("invalid full revision bundle request JSON"));
-}
-
-#[test]
-fn rejects_unknown_revision_line_breaking_mode() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "balanced",
-        "activeSpreadIndex": 0,
-    });
-
-    let error = document
-        .create_full_revision_bundle_json(&request.to_string())
-        .expect_err("unknown line breaking mode fails");
-
-    assert_eq!(error.code(), WasmRuntimeErrorCode::BadRequest);
-    assert!(error
-        .message()
-        .contains("invalid full revision bundle request JSON"));
-}
-
-#[test]
 fn reports_engine_errors_for_unknown_revision() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let _ = revision_id(&mut document);
 
     let error = document
-        .get_frame_json("rev-missing", 0)
+        .get_frame_command_buffer_metadata_json("rev-missing", 0)
         .expect_err("unknown revision fails");
 
     assert_eq!(error.code(), WasmRuntimeErrorCode::EngineError);

@@ -14,6 +14,7 @@ export function decodeBrowserReaderFrame(
     spreadIndex,
     width: buffer.metadata.width,
     height: buffer.metadata.height,
+    ratio: decoded.ratio,
     commands: decoded.commands,
     commandHash: buffer.metadata.commandHash,
     resourceRefs: { images: buffer.metadata.resourceTable },

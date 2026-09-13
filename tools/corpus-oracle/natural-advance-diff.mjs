@@ -1,7 +1,10 @@
-// Natural (unjustified, unconstrained) per-char advances of the
-// melancholy paragraph: real chapter file (with pixel-walk pin rewrite)
-// vs synthetic replica (pins directly). Prints the first advances that
-// differ — the char whose measurement diverges between the two stacks.
+// Natural (unjustified, unconstrained) per-char advances of one
+// paragraph: the real chapter file (with the pixel-walk pin rewrite) vs a
+// synthetic replica of the same text (pins directly). Prints the first
+// advances that differ — the char whose measurement diverges between the
+// two font stacks.
+// usage: node natural-advance-diff.mjs <chapter.xhtml> [marker=melancholy]
+//   <marker> selects the first text node containing it.
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -9,9 +12,14 @@ const REPO = new URL('../..', import.meta.url).pathname;
 const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
 const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
-const CHAPTER = path.resolve('walk-b20-v7/book/OEBPS/Text/chapter3.xhtml');
 
-const MARKER = 'melancholy';
+const [, , chapterFile, markerArg] = process.argv;
+if (!chapterFile) {
+  console.error('usage: node natural-advance-diff.mjs <chapter.xhtml> [marker=melancholy]');
+  process.exit(1);
+}
+const CHAPTER = path.resolve(chapterFile);
+const MARKER = markerArg ?? 'melancholy';
 
 async function measureReal(browser) {
   const context = await browser.newContext({

@@ -1,13 +1,13 @@
 use std::{fmt, sync::Arc};
 
 use crate::{
-    AbsoluteColor, ComputedColorV1, CssPx, LengthPercentage, NonNegativeCssPx, TransformListV1,
-    UnitInterval, RESOLVED_URL_BYTE_LIMIT_V1,
+    AbsoluteColor, ComputedColor, CssPx, LengthPercentage, NonNegativeCssPx, TransformList,
+    UnitInterval, RESOLVED_URL_BYTE_LIMIT,
 };
 
 /// Error returned when a resolved URL violates the bounded V1 contract.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ResolvedUrlErrorV1 {
+pub enum ResolvedUrlError {
     /// A computed URL must contain a non-empty absolute URL.
     Empty,
     /// The value does not begin with an RFC 3986 URL scheme.
@@ -21,7 +21,7 @@ pub enum ResolvedUrlErrorV1 {
     },
 }
 
-impl fmt::Display for ResolvedUrlErrorV1 {
+impl fmt::Display for ResolvedUrlError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Empty => formatter.write_str("resolved URL must not be empty"),
@@ -36,7 +36,7 @@ impl fmt::Display for ResolvedUrlErrorV1 {
     }
 }
 
-impl std::error::Error for ResolvedUrlErrorV1 {}
+impl std::error::Error for ResolvedUrlError {}
 
 /// A bounded absolute URL already resolved against its owning stylesheet.
 ///
@@ -44,23 +44,23 @@ impl std::error::Error for ResolvedUrlErrorV1 {}
 /// policy and resource lookup belong to the consumer, not this engine-neutral
 /// computed-value contract.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct ResolvedUrlV1(Arc<str>);
+pub struct ResolvedUrl(Arc<str>);
 
-impl ResolvedUrlV1 {
+impl ResolvedUrl {
     /// Validates and owns one serialized absolute URL.
-    pub fn new(value: impl AsRef<str>) -> Result<Self, ResolvedUrlErrorV1> {
+    pub fn new(value: impl AsRef<str>) -> Result<Self, ResolvedUrlError> {
         let value = value.as_ref();
         if value.is_empty() {
-            return Err(ResolvedUrlErrorV1::Empty);
+            return Err(ResolvedUrlError::Empty);
         }
-        if value.len() > RESOLVED_URL_BYTE_LIMIT_V1 {
-            return Err(ResolvedUrlErrorV1::ByteLimitExceeded {
+        if value.len() > RESOLVED_URL_BYTE_LIMIT {
+            return Err(ResolvedUrlError::ByteLimitExceeded {
                 byte_len: value.len(),
-                limit: RESOLVED_URL_BYTE_LIMIT_V1,
+                limit: RESOLVED_URL_BYTE_LIMIT,
             });
         }
         if !has_absolute_url_scheme(value) {
-            return Err(ResolvedUrlErrorV1::NotAbsolute);
+            return Err(ResolvedUrlError::NotAbsolute);
         }
         Ok(Self(Arc::from(value)))
     }
@@ -86,7 +86,7 @@ fn has_absolute_url_scheme(value: &str) -> bool {
 
 /// Supported computed `background-size` values for a URL image.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BackgroundImageSizeV1 {
+pub enum BackgroundImageSize {
     /// Intrinsic image dimensions (`auto auto`).
     Auto,
     /// Fill the positioning area while preserving aspect ratio.
@@ -96,14 +96,14 @@ pub enum BackgroundImageSizeV1 {
     /// Explicit per-axis sizes (`<length-percentage | auto>{2}`); an auto
     /// axis scales from the other by the intrinsic aspect ratio.
     Explicit {
-        x: BackgroundSizeAxisV1,
-        y: BackgroundSizeAxisV1,
+        x: BackgroundSizeAxis,
+        y: BackgroundSizeAxis,
     },
 }
 
 /// One axis of an explicit `background-size`.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BackgroundSizeAxisV1 {
+pub enum BackgroundSizeAxis {
     /// Derive from the other axis by the intrinsic aspect ratio.
     Auto,
     /// Resolved length or percentage of the positioning area.
@@ -112,7 +112,7 @@ pub enum BackgroundSizeAxisV1 {
 
 /// Supported computed `background-repeat` behavior for a URL image.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum BackgroundImageRepeatV1 {
+pub enum BackgroundImageRepeat {
     /// Tile the image on both axes (the CSS initial value).
     Repeat,
     /// Paint one image without tiling either axis.
@@ -121,7 +121,7 @@ pub enum BackgroundImageRepeatV1 {
 
 /// Physical computed position for one background URL image.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct BackgroundImagePositionV1 {
+pub struct BackgroundImagePosition {
     /// Horizontal offset in CSS pixels or positioning-area percentage.
     pub x: LengthPercentage,
     /// Vertical offset in CSS pixels or positioning-area percentage.
@@ -130,15 +130,15 @@ pub struct BackgroundImagePositionV1 {
 
 /// One fully coupled, single-layer background URL image.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct BackgroundImagePaintV1 {
+pub struct BackgroundImagePaint {
     /// Absolute URL resolved by the CSS engine against the owning stylesheet.
-    pub url: ResolvedUrlV1,
+    pub url: ResolvedUrl,
     /// Supported image sizing mode.
-    pub size: BackgroundImageSizeV1,
+    pub size: BackgroundImageSize,
     /// Supported image repetition mode.
-    pub repeat: BackgroundImageRepeatV1,
+    pub repeat: BackgroundImageRepeat,
     /// Physical image position.
-    pub position: BackgroundImagePositionV1,
+    pub position: BackgroundImagePosition,
 }
 
 /// Computed border line style.
@@ -174,7 +174,7 @@ pub struct BorderEdge {
     /// The computed border style.
     pub style: BorderStyle,
     /// The computed border color with `currentColor` retained symbolically.
-    pub color: ComputedColorV1,
+    pub color: ComputedColor,
 }
 
 /// Four physical border edges before writing-mode mapping by a consumer.
@@ -245,7 +245,7 @@ pub struct TextDecoration {
     /// Shared stroke style for the decoration lines.
     pub style: TextDecorationStyle,
     /// Computed decoration color with `currentColor` retained symbolically.
-    pub color: ComputedColorV1,
+    pub color: ComputedColor,
 }
 
 /// One computed text shadow.
@@ -258,7 +258,7 @@ pub struct TextShadow {
     /// Non-negative CSS shadow blur radius.
     pub blur_radius: NonNegativeCssPx,
     /// Computed shadow color with `currentColor` retained symbolically.
-    pub color: ComputedColorV1,
+    pub color: ComputedColor,
 }
 
 /// One computed box shadow retained as a reusable paint foundation.
@@ -273,24 +273,24 @@ pub struct BoxShadow {
     /// Signed spread radius.
     pub spread_radius: CssPx,
     /// Computed shadow color with `currentColor` retained symbolically.
-    pub color: ComputedColorV1,
+    pub color: ComputedColor,
     /// Whether this is an inset shadow.
     pub inset: bool,
 }
 
 /// Foreground and inline paint inputs consumed after text layout.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct InlinePaintStyleV1 {
+pub struct InlinePaintStyle {
     /// Computed foreground color.
     pub foreground: AbsoluteColor,
     /// Computed element-group opacity in the inclusive unit interval.
     pub opacity: UnitInterval,
     /// Computed background color with `currentColor` retained symbolically.
-    pub background: ComputedColorV1,
+    pub background: ComputedColor,
     /// A coupled single-layer URL background, absent for computed `none`.
-    pub background_image: Option<BackgroundImagePaintV1>,
+    pub background_image: Option<BackgroundImagePaint>,
     /// Ordered visual transforms; an empty list represents computed `none`.
-    pub transform: TransformListV1,
+    pub transform: TransformList,
     /// This element's own computed text-decoration longhands.
     ///
     /// Decoration propagation follows the CSS box tree, not the source-node
@@ -304,18 +304,18 @@ pub struct InlinePaintStyleV1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{ResolvedUrlErrorV1, ResolvedUrlV1};
-    use crate::RESOLVED_URL_BYTE_LIMIT_V1;
+    use super::{ResolvedUrl, ResolvedUrlError};
+    use crate::RESOLVED_URL_BYTE_LIMIT;
 
     #[test]
     fn resolved_url_requires_an_absolute_bounded_value() {
-        assert_eq!(ResolvedUrlV1::new(""), Err(ResolvedUrlErrorV1::Empty));
+        assert_eq!(ResolvedUrl::new(""), Err(ResolvedUrlError::Empty));
         assert_eq!(
-            ResolvedUrlV1::new("../Images/cover.jpg"),
-            Err(ResolvedUrlErrorV1::NotAbsolute)
+            ResolvedUrl::new("../Images/cover.jpg"),
+            Err(ResolvedUrlError::NotAbsolute)
         );
         assert_eq!(
-            ResolvedUrlV1::new("https://example.test/Images/cover.jpg")
+            ResolvedUrl::new("https://example.test/Images/cover.jpg")
                 .unwrap()
                 .as_str(),
             "https://example.test/Images/cover.jpg"
@@ -326,13 +326,13 @@ mod tests {
     fn resolved_url_budget_counts_utf8_bytes() {
         let oversized = format!(
             "https://example.test/{}",
-            "x".repeat(RESOLVED_URL_BYTE_LIMIT_V1)
+            "x".repeat(RESOLVED_URL_BYTE_LIMIT)
         );
         assert_eq!(
-            ResolvedUrlV1::new(oversized.as_str()),
-            Err(ResolvedUrlErrorV1::ByteLimitExceeded {
+            ResolvedUrl::new(oversized.as_str()),
+            Err(ResolvedUrlError::ByteLimitExceeded {
                 byte_len: oversized.len(),
-                limit: RESOLVED_URL_BYTE_LIMIT_V1,
+                limit: RESOLVED_URL_BYTE_LIMIT,
             })
         );
     }

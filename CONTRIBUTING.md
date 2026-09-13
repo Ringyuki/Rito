@@ -2,32 +2,30 @@
 
 Thanks for contributing to Rito.
 
-The project is organized as a small set of public packages with strict architecture boundaries and a Changesets-based release flow.
+The project is one Rust engine with several hosts, strict architecture
+boundaries and a Changesets-based release flow.
 
 ## Repository Overview
 
-This monorepo contains:
-
-- `crates/rito-core` — the production EPUB, style, layout, render-payload, and reader runtime engine
+- `crates/rito-core` — the engine: EPUB, XHTML, style projection, the
+  fragment bridge, paint, lowering, the wire, interaction and the runtime
+- `crates/rito-source`, `rito-style-contract`, `rito-stylo`,
+  `rito-fragment`, `rito-block`, `rito-inline` — the source tree, typed
+  style, the Stylo cascade and the layout crates
 - `crates/rito-wasm` — the browser-target WASM binding
-- `packages/rito` — `@ritojs/core`, the public reader facade and browser binding shell
-- `packages/rito-core-wasm` — private WASM build/decoder workspace whose output is bundled into `@ritojs/core`
+- `crates/rito-ffi` — the C ABI for native hosts
+- `packages/rito` — `@ritojs/core`, the public reader facade and browser
+  binding
+- `packages/rito-core-wasm` — private WASM build and decoder workspace
+  whose output is bundled into `@ritojs/core`
 - `packages/kit` — `@ritojs/kit`, the framework-agnostic controller layer
 - `packages/react` — `@ritojs/react`, the React integration layer
-- `apps/reader` — `@ritojs/reader`, a demo app that is not published to npm
+- `packages/rito_flutter` — the Flutter adapter, published to pub.dev
+- `apps/reader` — `@ritojs/reader`, the demo app; not published
 
-The previous TypeScript engine is kept under
-`packages/rito/src/reference/ts-core` for parity, goldens, and diagnostics. It
-is not a production package entry or fallback implementation.
-
-Public releases are lockstep-versioned across:
-
-- `@ritojs/core`
-- `@ritojs/kit`
-- `@ritojs/react`
-- `rito_flutter` (Dart/Flutter package, versioned independently, published to pub.dev)
-
-`@ritojs/reader` is intentionally excluded from npm publishing.
+Public npm releases are lockstep-versioned across `@ritojs/core`,
+`@ritojs/kit` and `@ritojs/react`. `rito_flutter` is versioned
+independently.
 
 ## Before You Start
 
@@ -35,9 +33,10 @@ Requirements:
 
 - Node.js 24
 - pnpm 10.22.0 (pinned by the root `packageManager` field)
-- a Rust toolchain compatible with the workspace `rust-version`
-- the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI version matching
-  the Rust dependency when building the real browser artifact
+- the Rust toolchain pinned by the workspace `rust-version`
+- the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI matching the
+  Rust dependency when building the real browser artifact
+- Flutter 3.41.7 or newer for `packages/rito_flutter`
 
 Install dependencies:
 
@@ -65,207 +64,87 @@ pnpm --filter @ritojs/reader dev
 
 ## Contribution Workflow
 
-Use pull requests for normal contributions.
-
-Typical flow:
+Use pull requests for normal contributions:
 
 1. create a branch from `master`
 2. make a focused change
-3. add or update tests when behavior changes
+3. add or update tests when behaviour changes
 4. run local checks
 5. open a PR targeting `master`
 
-CI runs on pull requests targeting `master` (master is protected: all jobs
-are required checks and branches must be up to date before merging, so the PR
-round verifies the exact merge result). The pipeline fans out into parallel
-jobs:
+CI runs on pull requests targeting `master` (master is protected: all
+jobs are required checks and branches must be up to date before merging).
+The pipeline fans out into parallel jobs: Rust Checks, WASM Bindings,
+Static Checks, Unit & Golden Tests, Build & Pack, Reader E2E (sharded four
+ways), Pixel Golden and the Coverage Gate. A separate non-blocking Pixel
+E2E workflow observes the canvas-pixel suites on master pushes.
 
-- Rust Checks (fmt, clippy, workspace tests)
-- WASM Bindings (wasm target check, bindings build and node tests)
-- Static Checks (dependency audit, typecheck, lint, format)
-- Unit & Golden Tests
-- Build & Pack (full build, DOM-free reference check, `release:pack-check`)
-- Reader E2E, sharded four ways
-- Pixel Golden on macOS, split by book range
-- Coverage Gate
+Keep PRs focused. Small, single-purpose changes are easier to review and
+less likely to cross the engine/host boundary.
 
-A separate non-blocking Pixel E2E workflow observes the canvas-pixel suites on
-master pushes.
+## Layout and paint changes
 
-Please keep PRs focused. Small, single-purpose changes are easier to review and less likely to break the layout/render boundary.
+The engine is measured against pinned Chromium. A change to layout,
+paint or lowering is verified with the pixel walk on real books before it
+lands, and a change to a pen or the lowering also runs the paint-parity
+instrument. See
+[Verification Instruments](./docs/development/verification-instruments.md).
+A rule is stated as a measured engineering fact in code comments — what
+the browser does and how it was measured — not as an internal label.
 
 ## Changesets and Releases
 
-Rito uses Changesets as the source of truth for version bumps.
-
-If your change affects a published package, include a changeset in the same PR.
-
-Published packages:
-
-- `@ritojs/core`
-- `@ritojs/kit`
-- `@ritojs/react`
-
-Non-published app:
-
-- `@ritojs/reader`
-
-### When You Need a Changeset
-
-Add a changeset when your PR changes behavior, API, packaging, or user-facing docs for any published package.
-
-You usually do not need a changeset when:
-
-- the PR only touches `apps/reader`
-- the PR is internal-only cleanup with no published-package impact
-- the PR changes tests only
-
-Create a changeset with:
+Rito uses Changesets as the source of truth for version bumps. Include a
+changeset in the same PR when your change affects behaviour, API,
+packaging or user-facing docs of a published package. You usually do not
+need one when the PR only touches `apps/reader`, is internal-only cleanup
+with no published-package impact, or changes tests only.
 
 ```bash
 pnpm changeset
 ```
 
-For public releases, select all three public packages:
+For public releases select all three public packages. Versioning follows
+semver from 1.0.0: `patch` for fixes, docs and packaging cleanup, `minor`
+for backwards-compatible additions, `major` for breaking API changes,
+renamed packages, runtime behaviour changes that require migration and
+export-surface reshaping.
 
-- `@ritojs/core`
-- `@ritojs/kit`
-- `@ritojs/react`
-
-Versioning guidance (the packages follow semver from 1.0.0):
-
-- `patch` — bug fixes, docs, packaging cleanup
-- `minor` — backwards-compatible additions
-- `major` — breaking API changes, renamed packages, runtime behavior changes that require migration, export-surface reshaping
-
-### How Publishing Works
-
-Publishing flow:
-
-1. contributors merge normal PRs that include code and any needed changesets
-2. every master push triggers the Release workflow; with pending changesets it
-   opens or updates the automated `release: version packages` PR
-3. maintainers review and merge that release PR
-4. the next Release run detects the unpublished version, reruns the full check,
-   publishes to npm (`latest`), creates GitHub releases, and tags
-   `rito_flutter-vX.Y.Z` for the pub.dev OIDC workflow when needed
+Publishing: every master push runs the Release workflow; with pending
+changesets it opens or updates the `release: version packages` PR, and
+the next run after that PR merges reruns the full check, publishes to
+npm, creates GitHub releases and tags the Flutter release. Details are in
+[Release & Versioning](./docs/development/releasing.md).
 
 ## Architecture Rules
 
-These boundaries are not optional. Contributions should preserve them.
+These boundaries are not optional:
 
-Core priorities:
-
-1. strong typing
-2. clear module boundaries
-3. testability
-4. maintainability
-5. small public API
-
-Key rules:
-
-- keep EPUB, style, layout, render-payload, and runtime modules separated in Rust
-- layout code must not depend on Canvas or browser APIs
-- keep WASM bindings thin; reader policy belongs in `rito-core`
+- Rust owns parsing, style, layout, pagination, paint and interaction
+  geometry; hosts transport bytes and blit
+- keep EPUB, style, layout, render and runtime modules separated in Rust
+- layout and paint code must not depend on Canvas or browser APIs
+- the display list is typed end to end; no JSON or CSS strings on the
+  production path
+- keep WASM and FFI bindings thin; reader policy belongs in `rito-core`
 - keep browser APIs inside `packages/rito/src/bindings/browser`
-- all public TypeScript exports must go through `packages/rito/src/index.ts`
+- all public TypeScript exports go through `packages/rito/src/index.ts`
+- the engine, the wire encoder and every decoder change in the same commit
 - do not expose unstable internals
-- do not import the TypeScript reference tree from production entries
 
-### Engine / Presentation Boundary
-
-The production Rust engine emits typed, paint-ready frame commands. The
-TypeScript browser shell transfers and executes them; it must not reconstruct
-layout or parse CSS values.
-
-The TypeScript reference engine preserves its own layout/render boundary for
-parity work. In practice:
-
-- `render/**` must not import `ComputedStyle`
-- `render/**` must not parse CSS strings
-- render-only data belongs in paint objects, not top-level layout nodes
-- `TextRun` carries `paint: RunPaint`, not `style: ComputedStyle`
-
-These invariants are enforced by tests in:
-
-- `packages/rito/tests/unit/architecture-invariants.test.ts`
-
-If a change seems to require bypassing one of these rules, extend the paint types instead of collapsing layers.
+These invariants are enforced by
+`crates/rito-core/tests/render_architecture_invariants.rs`,
+`packages/rito/tests/unit/architecture-invariants.test.ts`,
+`packages/rito/tests/unit/browser-reader-architecture-invariants.test.ts`
+and `packages/rito_flutter/test/architecture_test.dart`. If a change
+seems to require bypassing one of them, extend the typed paint model
+instead of collapsing layers.
 
 ## Code Expectations
 
-Please match the repository conventions:
-
-- use strict, warning-free Rust in the engine crates
-- use TypeScript with strict typing in package and application code
-- do not use `any` in `src`
-- do not use default exports in `src`
-- do not use `enum`
-- prefer named exports
-- prefer small, focused files
-- soft file limit: 300 lines
-- soft function limit: 40 lines
-
-When changing public behavior, favor small, explicit APIs over broad surface expansion.
-
-## Testing Expectations
-
-Before opening a PR, run the relevant checks locally. Before considering a change done, the repository expectation is:
-
-- lint passes
-- typecheck passes
-- tests pass
-- Rust formatting, Clippy, and tests pass for native-core changes
-- the project still builds
-
-The standard command is:
-
-```bash
-pnpm run check
-```
-
-Native-core changes must additionally run:
-
-```bash
-pnpm run rust:check
-pnpm run rust:wasm:verify
-```
-
-If your change is localized, it is fine to use narrower package-level commands while iterating. The final state should still satisfy the full workspace checks.
-
-## Documentation Expectations
-
-Update documentation when needed, especially if your PR changes:
-
-- install names
-- imports
-- public APIs
-- expected runtime behavior
-- release or versioning behavior
-
-Useful references:
-
-- `README.md`
-- `docs/development/architecture.md`
-- `docs/development/releasing.md`
-- `docs/integrations/kit.md`
-- `docs/integrations/react.md`
-
-## Pull Request Checklist
-
-Before requesting review, confirm that:
-
-- the change is scoped and described clearly
-- tests were added or updated when behavior changed
-- `pnpm run check` passes locally
-- a changeset is included if a published package changed
-- public API additions are intentional and minimal
-- architecture boundaries were preserved
-
-## Maintainer Notes
-
-Maintainers should treat matching versions of `@ritojs/core`, `@ritojs/kit`, and `@ritojs/react` as the supported combination.
-
-If you are preparing a release manually, see:
-
-- `docs/development/releasing.md`
+- strict, warning-free Rust in the engine crates; `cargo clippy -D
+warnings` is a gate
+- TypeScript with strict typing, no `any`, no default exports, no enums,
+  small focused files
+- Prettier formatting and the ESLint flat config
+- tests for behaviour changes in every suite that encodes the behaviour

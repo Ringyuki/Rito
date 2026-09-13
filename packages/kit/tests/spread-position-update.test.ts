@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Page, Spread } from '@ritojs/core';
+import type { Spread } from '@ritojs/core';
 import { createCoordinatorState } from '../src/controller/core';
 import { coordinateOnSpreadRendered } from '../src/controller/wiring/spread';
 import { createPositionTracker } from '../src/interaction/position/tracker';
@@ -10,16 +10,10 @@ import {
   withSelectionGestureProjection,
 } from '../src/interaction/selection/selection-interaction-owner';
 
-const page: Page = {
-  index: 0,
-  bounds: { x: 0, y: 0, width: 300, height: 400 },
-  content: [],
-};
-const spread: Spread = { index: 0, left: page };
+const spread: Spread = { index: 0, pageIndexes: [0], leftPageIndex: 0 };
 
 function createReader() {
   return {
-    measurer: {},
     getChapterTextIndices: vi.fn(() => new Map()),
     getLayoutGeometry: vi.fn(() => ({
       viewportWidth: 300,
@@ -61,12 +55,7 @@ describe('coordinateOnSpreadRendered position updates', () => {
       1,
     );
 
-    expect(setSpread).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(setSpread).toHaveBeenCalledWith(state.mapper);
     expect(state.selectionProjectionTransfer).toBe(transfer);
   });
 
@@ -145,7 +134,7 @@ describe('coordinateOnSpreadRendered position updates', () => {
     const tracker = createPositionTracker(
       () =>
         ({
-          pages: [page],
+          pageCount: 1,
           spreads: [spread],
           chapterMap: new Map(),
         }) as never,

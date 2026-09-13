@@ -34,13 +34,11 @@ Supporting exports:
 - `createLocalStoragePositionAdapter`
 - `PositionStorageAdapter`
 
-Interaction data tools (moved here from the retired `@ritojs/core`
-subpaths — this is their production home):
+Interaction data tools:
 
-- `buildHitMap(page)` — hit map for a production `reader.pages` page
-- `resolveAnnotations(records, context)`
 - `parseReadingPosition` and the `ReadingPosition` type
-- `AnnotationRecord`, `AnnotationRecordPatch`, `RecordStorageAdapter`
+- `AnnotationRecord`, `AnnotationRecordPatch`, `RecordStorageAdapter`, `ResolvedAnnotation`
+- `SearchResult`
 - `OverlayLayer`
 - `Rect`
 - `TransitionDriverOptions`
@@ -89,53 +87,61 @@ overlay canvas, and interaction bindings are attached under that container.
 - pointer/touch/keyboard wiring
 - optional storage-backed position and annotations
 
-When the Reader exposes `interactions.textSelection`, Kit treats that capability
-as authoritative: pointer samples are resolved asynchronously against the committed
-Rust revision, exact rectangles drive the overlay, selected source text drives copy,
-and the returned source range anchors annotations. `selectionRange` remains available
-for legacy readers but is intentionally `null` for an exact native selection; use
-`hasSelection` and `selectionSourceLocator` instead. Layout revision invalidation, spread
-changes, render-scale changes, cancellation, and disposal discard late async results. A
-content-only resource repaint, such as an image decode or frame warmup completing, keeps
-the committed selection because its Rust revision and source range remain valid.
-Append-only bounded pagination also preserves the native selection session: Kit
-invalidates reads from the older revision, replays only the latest pointer or
-handle sample through the atomic caret-to-point API, and can continue a captured
-handle or active primary mouse/pen/touch drag into a newly published spread after
-edge dwell. The projection handoff is authorized by the exact active gesture and
-is consumed once, so a released or replacement selection cannot inherit it. A
-replacement layout or new worker session still invalidates the selection before it is painted.
+Every interaction reads the reader's committed revision through `reader.interactions`;
+the controller holds no page geometry of its own. `Reader.spreads` is the navigation
+record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`, and every revision is
+laid out complete, so `totalSpreads` is final and a navigation target beyond it is simply
+out of range. The controller maps pointer input to page-local coordinates from the layout
+geometry and that record. `createController` requires `reader.interactions.textSelection`
+and throws without it.
+
+Text selection: pointer samples are resolved asynchronously against the committed
+revision through `interactions.textSelection`, exact rectangles drive the overlay,
+selected source text drives copy, and the returned source range anchors annotations.
+Use `hasSelection` for presence, `selectionSourceLocator` for the durable source range
+(present when both endpoints share a resource), and `selectionSourceSpan` for the
+resource-qualified endpoints. Layout revision invalidation, spread changes, render-scale
+changes, cancellation, and disposal discard late async results. A content-only resource
+repaint, such as an image decode or frame warmup completing, keeps the committed
+selection because its revision and source range remain valid. A captured handle or an
+active primary mouse/pen/touch drag can continue into an adjacent spread after edge
+dwell; the projection handoff is authorized by the exact active gesture and consumed
+once, so a released or replacement selection cannot inherit it. The dwell stops at the
+first and last spread. A replacement layout or new worker session invalidates the
+selection before it is painted.
 While the Canvas owns focus, Kit also maps the host platform's Shift-modified
 character, word, line, paragraph, and chapter-edge chords onto the native movement
 capability. Commands are serialized around one fixed anchor, retain sticky visual-line
-x, retry append-only pagination (including a complete final miss with no new spread),
-and reveal an offscreen focus spread without releasing the exact highlight. Disabling
+x, and reveal an offscreen focus spread without releasing the exact highlight. Disabling
 or disposing `controller.keyboard`, blurring the Canvas, newer navigation, or a new
 physical selection gesture cancels the queue before a late result can publish.
 The initial `pointerdown`, `touchstart`, or valid handle press also owns a private latest-input barrier.
 It retires older deferred navigation and portable-position work before coordinate mapping; semantic
 mouse restarts and delayed long-press selection inherit that same barrier, while a stable serialized
 reading position remains valid. This prevents an older physical press from resuming after newer input.
-Persistent annotation target creation now preserves the exact native source range;
-when `interactions.resolveExactSourceRange` is present, Kit also treats it as
-authoritative for annotation re-projection. It resolves selector fallbacks to a
-durable source range with a canonical manifest resource href first, then obtains
-page-content rectangles from the committed Rust revision. Preview, stale, pending,
-unavailable, and failed reads never fall back to legacy HitMaps or leave old
-rectangles installed. Geometry is cached only for the active revision and invalidated
-before a replacement layout is painted. Readers without this capability retain the
-legacy synchronous annotation path.
-Native `ResolvedAnnotationSegment.range` is intentionally `null`; consumers must
-use its exact page-content `rects` and durable selectors instead of assuming a
-legacy layout-local `TextRange` exists.
 
-When `interactions.getPageSemantics` is present, the optional accessibility mirror
-also becomes native-authoritative. Kit loads both visible pages against the active
-committed revision, rejects late or mismatched results, clears the mirror during
-visual previews, and routes accessible link activation through native page targets
-instead of allowing raw EPUB-relative browser navigation. An empty image `alt` is
-treated as decorative; a missing `alt` remains an image with unknown alternative
-text. Readers without the capability retain the legacy layout-derived mirror.
+Annotations: a persistent annotation target is created from the selection's exact
+source range. Re-projection goes through `interactions.resolveExactSourceRange`: Kit
+resolves selector fallbacks to a durable source range with a canonical manifest resource
+href first, then obtains page-content rectangles from the committed revision. Preview,
+stale, pending, unavailable, and failed reads leave no rectangles installed. Geometry is
+cached only for the active revision and invalidated before a replacement layout is
+painted. `ResolvedAnnotationSegment` carries a page index and page-content `rects`.
+
+Clicks: links, footnotes, and images are the reader's page targets
+(`interactions.getPageTargets`), hit-tested in reverse paint order after annotations.
+While a visual preview disables the interactions, clicks are dropped rather than tested
+against stale geometry.
+
+Search: results come from `reader.search()`; highlight rectangles for the visible spread
+are resolved from each result's source range through `interactions.resolveExactSourceRange`.
+
+Accessibility: the optional mirror loads both visible pages' semantics
+(`interactions.getPageSemantics`) against the committed revision, rejects late or
+mismatched results, stays empty during visual previews, and routes accessible link
+activation through page targets instead of raw EPUB-relative browser navigation. An
+empty image `alt` is treated as decorative; a missing `alt` remains an image with
+unknown alternative text.
 
 Position persistence: Kit stores the visible spread's reading position and
 restores it through the asynchronous `goToPosition`
@@ -153,22 +159,20 @@ of entering a dependency cycle; adapters must not rely on reentrant restore or
 navigation. Outside adapter callbacks, concurrent restores and navigation retain
 their normal latest-wins behavior.
 
-The current native projection accepts exact source-backed ranges across retained
-logical text flows in document order within one chapter and requires deterministic
-shapes. Cross-chapter ranges and host-measured text remain typed unavailable rather
-than using interpolated geometry.
+Exact source-backed ranges are accepted across logical text flows in document order
+within one chapter and require deterministic shapes. Cross-chapter ranges and
+host-measured text are typed unavailable rather than given interpolated geometry.
 
 ## When Not To Use It
 
 Skip `@ritojs/kit` when:
 
 - you only need the core reader without controller orchestration
-- you are doing source-level diagnostics against the old TypeScript reference implementation
 - you already have a controller/orchestration layer
 - you want a very custom interaction model and only need core primitives
 
 ## Related Docs
 
 - [Reader API](../api/reader.md)
-- [Specialized Subpaths](../api/subpaths.md)
+- [Public Entry](../api/subpaths.md)
 - [Using `@ritojs/react`](./react.md)

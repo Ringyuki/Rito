@@ -1,122 +1,35 @@
-# Golden Pixel Fixtures
+# Pixel Suite
 
-This directory contains the Playwright-based pixel regression tests. The suite
-renders curated real-book spreads through the source-only TypeScript reference
-reader and compares the final Canvas PNG output with checked-in image goldens.
-A focused differential also renders the same synthetic spread through the
-published Rust-backed browser build and the reference reader in one Chromium
-page, requiring exact pixel equality. A full-book matrix is still available as
-an opt-in external-baseline mode.
+This directory holds the Playwright pixel suite of `@ritojs/core`. It runs
+the production browser reader — the built `dist/` bundle, the WASM engine
+in its Worker and the Canvas pen — in Chromium and checks what reaches the
+canvas against what the engine reports.
 
-## Fixture Layout
+The suite has one spec today:
 
-- Pixel profiles live in `tests/golden-pixel/helpers/pixel-profile-config.ts`;
-  run selection lives in `pixel-cases.ts` and `pixel-spread-selection.ts`.
-- Books used by pixel cases must include the `render` tier in
-  `tests/fixtures/books/manifest.json`.
-- Generated PNG goldens live under
-  `tests/golden/pixels/{book}/{profile}/{lineBreaking}/`.
-- Each run directory contains `summary.json` plus selected `spread-0000.png`
-  files. The summary still records the full spread count so pagination changes
-  remain visible.
-- Rare platform-specific fallback glyph differences can be represented by
-  `spread-0000.alt-{label}.png`; compare mode accepts the primary spread or any
-  alternate image within the same threshold. Update mode preserves these
-  alternates because they are manually reviewed platform baselines; remove stale
-  alternates explicitly when a platform fallback is no longer valid.
-- `production-canvas-parity.test.ts` does not add another platform PNG. It renders
-  a ready frame from `dist` and compares it directly with the reference renderer.
-  Its one-glyph test font is a deterministic subset of the CC BY 4.0 Codicon
-  font shipped with Playwright; attribution is recorded in
-  `CODICON-FONT-NOTICE.md`. Rust measurement and browser rasterization therefore
-  use identical font data without system-font fallback. The fixture also asserts
-  that its fractional block opacity reaches the reference layout before comparing
-  pixels, guarding semantic paint values from geometry-oriented precision
-  rounding.
-- The real-book reader parity review first compares spread 0 from the production
-  reader's initial bounded snapshot. Each selected spread is then requested
-  through `reader.pagination.ensureSpread(spreadIndex)` and rendered lazily. A
-  render miss caused by a late font-metrics reflow re-ensures that spread before
-  retrying. After the selected spreads are captured, requesting the first
-  out-of-range spread drives the bounded Rust session to exact completion and
-  verifies its final spread count against the TypeScript reference.
+- `production-exact-fallback-selection.test.ts` builds a minimal EPUB whose
+  text needs both the author's embedded face and a pinned fallback face
+  (the glyphs are chosen so each face is the only one that has them),
+  renders it, and asserts that the exact text ranges the Rust engine
+  resolves land on the glyphs the Canvas painted, within a width drift of
+  0.05 px, across author and pinned faces, wrapped lines and variable
+  Latin; it also checks that fragment search resolves durable source
+  ranges for those samples.
+
+`helpers/render-server.ts` serves the built package to the page;
+`helpers/sfnt-cmap.ts` reads a font's character map so a fixture can prove
+which face covers which code point instead of assuming it.
 
 ## Commands
 
-- `pnpm test:golden:pixel`: compare pixel goldens.
-- `pnpm test:golden:pixel:review`: render a human-reviewable comparison report without updating goldens.
-- `pnpm test:golden:pixel:reader-parity-review`: render the built-in demo EPUB through the
-  TypeScript reference and Rust production readers into an isolated comparison report.
-- `pnpm test:golden:pixel:update`: regenerate pixel goldens.
-
-Useful filters:
-
-- `RITO_PIXEL_BOOKS=book-03 pnpm test:golden:pixel`
-- `RITO_PIXEL_PROFILES=single-narrow pnpm test:golden:pixel:review`
-- `RITO_PIXEL_LINE_BREAKING=optimal pnpm test:golden:pixel`
-- `RITO_PIXEL_SPREADS=0,1 pnpm test:golden:pixel:review`
-- `RITO_PIXEL_WORKERS=4 pnpm test:golden:pixel`
-- `RITO_PIXEL_DIAGNOSTICS=1 pnpm test:golden:pixel`
-- `RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update`
-- `RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:golden:pixel`
-- `RITO_READER_PARITY_PROFILES=single-default pnpm test:golden:pixel:reader-parity-review`
-- `RITO_READER_PARITY_SPREADS=35 pnpm test:golden:pixel:reader-parity-review`
-- `RITO_READER_PARITY_QUERY_ONLY=1 pnpm test:golden:pixel:reader-parity-review`
-- `RITO_READER_PARITY_CAPTURE_TEXT_DRAWS=1 pnpm test:golden:pixel:reader-parity-review`
-
-Compare and update mode use 2 workers by default. Increase
-`RITO_PIXEL_WORKERS` only when the machine has enough CPU, memory, and disk I/O
-for parallel full-book PNG rendering. Review mode is forced to 1 worker because
-it writes one combined HTML report.
-
-Default scope is `curated`: every render-tier book, both line breakers on the
-text-primary profiles, and focused supplemental profile coverage:
-
-- `single-default`: `greedy`, `optimal`.
-- `single-narrow`: `greedy`, `optimal`.
-- `single-wide`: `greedy`.
-- `single-default-dpr2`: `greedy`.
-- `double-default`: `greedy`.
-
-Every committed run samples the first three spreads, the final declared
-frontmatter spread, and the start, middle, and end of the body. This keeps
-frontmatter, body, and tail coverage across every book/profile combination
-without checking hundreds of megabytes of repeated viewport variants into Git.
-Use full scope when every spread is required for a release investigation.
-
-`RITO_PIXEL_SCOPE=full` switches to every profile and every spread. Its default
-baseline root is `packages/rito/test-results/pixel-full-baselines`, not the
-committed `tests/golden/pixels` tree, so full baselines do not inflate the git
-repository. Use `RITO_PIXEL_BASELINE_ROOT` to compare against a restored
-external baseline.
-
-The review command writes a static report to:
-
-```text
-packages/rito/test-results/pixel-review/index.html
+```bash
+pnpm test:golden:pixel
+RITO_PIXEL_WORKERS=4 pnpm test:golden:pixel
 ```
 
-The real-book reader parity review writes the same report format to
-`packages/rito/test-results/reader-parity-review/index.html`. In that report,
-`expected.png` is the live TypeScript reference render and `actual.png` is the
-live Rust-backed production render; it does not read or update committed PNG
-baselines. The demo-book gate covers every spread in the default single-page
-profile, plus key and semantic regression spreads across narrow, wide, DPR 2,
-and double-page profiles. This parity report uses a strict zero-threshold diff
-with anti-aliased pixels included; any changed pixel is reported instead of
-being absorbed by the normal golden tolerances.
-
-Each spread directory contains `expected.png`, `actual.png`, `diff.png`, and
-`metadata.json`. Review mode may also add `reference.png` for single-page DPR 1
-runs; this is a browser-rendered XHTML reference for human judgement only and
-is not used by compare or update mode. The report can switch by book, profile,
-line-breaking mode, and spread. The command uses the checked-in baselines only
-as inputs; it does not update or overwrite them.
-
-`RITO_PIXEL_DIAGNOSTICS=1` makes compare mode write `expected.png`,
-`actual.png`, `diff.png`, and `metadata.json` for every spread with non-zero
-diff pixels. CI enables this flag for the dedicated pixel job and uploads
-`packages/rito/test-results/` when the job fails.
+The command builds `@ritojs/core` first. There are no checked-in PNG
+baselines: the spec compares the live render against the engine's own
+geometry, so it never needs updating when the browser is upgraded.
 
 ## Browser Setup
 
@@ -126,13 +39,13 @@ Install Playwright's Chromium before running the suite locally:
 pnpm exec playwright install chromium
 ```
 
-Pixel baselines are committed for Playwright's bundled Chromium on macOS, which
-matches the dedicated CI pixel job. If the bundled browser is unavailable but a
-compatible local browser is installed, pass a channel for local diagnosis only:
+The CI workflow runs this suite in a separate macOS job after installing
+Chromium. If the bundled browser is unavailable but a compatible local
+browser is installed, pass a channel for local diagnosis only:
 
 ```bash
 PLAYWRIGHT_BROWSER_CHANNEL=msedge pnpm test:golden:pixel
 ```
 
-The CI workflow runs this suite in a separate macOS job after installing
-Chromium.
+Whole-book pixel verification against pinned Chromium is the pixel walk in
+`tools/corpus-oracle`; see `docs/development/verification-instruments.md`.

@@ -65,10 +65,8 @@ extension _ArtifactFields on RitoArtifactDecoder {
     final value = reader.uint32('adjacent availability');
     return switch (value) {
       0 => RitoAdjacentAvailability.available,
-      1 => RitoAdjacentAvailability.pending,
-      2 => RitoAdjacentAvailability.chapterBoundary,
-      3 => RitoAdjacentAvailability.terminal,
-      4 => RitoAdjacentAvailability.blocked,
+      1 => RitoAdjacentAvailability.chapterBoundary,
+      2 => RitoAdjacentAvailability.terminal,
       _ => reader.fail('unknown adjacent availability: $value'),
     };
   }

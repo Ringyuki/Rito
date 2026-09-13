@@ -25,8 +25,8 @@ fn resolves_destination_labels_without_a_paginated_target_chapter() {
 
 #[test]
 fn page_targets_carry_core_resolved_toc_destination_labels() {
-    let mut document =
-        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
+        .expect("document opens");
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
@@ -39,7 +39,10 @@ fn page_targets_carry_core_resolved_toc_destination_labels() {
                 .expect("page targets are available")
                 .entries
         })
-        .find(|target| target.label == "chapter one")
+        // The fragment engine reports one link target per painted run,
+        // so the link's words arrive as separate entries that share the
+        // destination.
+        .find(|target| target.label.trim() == "chapter")
         .expect("cross-chapter link target");
 
     assert_eq!(target.destination_label.as_deref(), Some("Two"));

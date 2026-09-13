@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt};
 
-use crate::InlineFormattingStyleV1;
+use crate::InlineFormattingStyle;
 
 mod fingerprint;
 mod payload;
@@ -108,18 +108,18 @@ impl std::error::Error for StyleTableError {}
 /// New IDs are assigned in first-seen input order. Hash-map iteration order is
 /// never exposed, so random hash seeding cannot affect IDs or [`Self::styles`].
 #[derive(Clone)]
-pub struct InlineStyleTableV1 {
-    styles: Vec<InlineFormattingStyleV1>,
+pub struct InlineStyleTable {
+    styles: Vec<InlineFormattingStyle>,
     interned: HashMap<u64, Vec<StyleId>>,
     node_styles: Vec<Option<StyleId>>,
     payloads: PayloadInterners,
 }
 
-impl fmt::Debug for InlineStyleTableV1 {
+impl fmt::Debug for InlineStyleTable {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let assigned_count = self.node_styles.iter().flatten().count();
         formatter
-            .debug_struct("InlineStyleTableV1")
+            .debug_struct("InlineStyleTable")
             .field("style_count", &self.styles.len())
             .field("node_count", &self.node_styles.len())
             .field("assigned_node_count", &assigned_count)
@@ -127,7 +127,7 @@ impl fmt::Debug for InlineStyleTableV1 {
     }
 }
 
-impl InlineStyleTableV1 {
+impl InlineStyleTable {
     /// Creates an empty style table with a fixed number of node slots.
     pub fn new(node_count: usize) -> Self {
         Self {
@@ -139,7 +139,7 @@ impl InlineStyleTableV1 {
     }
 
     /// Interns a style, returning the first ID assigned to an equal value.
-    pub fn intern(&mut self, style: InlineFormattingStyleV1) -> Result<StyleId, StyleTableError> {
+    pub fn intern(&mut self, style: InlineFormattingStyle) -> Result<StyleId, StyleTableError> {
         let style = self.payloads.canonicalize(style);
         let fingerprint = style_fingerprint(&style);
         if let Some(ids) = self.interned.get(&fingerprint) {
@@ -174,7 +174,7 @@ impl InlineStyleTableV1 {
     pub fn intern_for_node(
         &mut self,
         node_index: usize,
-        style: InlineFormattingStyleV1,
+        style: InlineFormattingStyle,
     ) -> Result<StyleId, StyleTableError> {
         self.check_node_index(node_index)?;
         self.check_node_unassigned(node_index)?;
@@ -184,7 +184,7 @@ impl InlineStyleTableV1 {
     }
 
     /// Returns a style by checked identifier.
-    pub fn style(&self, style_id: StyleId) -> Result<&InlineFormattingStyleV1, StyleTableError> {
+    pub fn style(&self, style_id: StyleId) -> Result<&InlineFormattingStyle, StyleTableError> {
         self.styles
             .get(style_id.index())
             .ok_or(StyleTableError::StyleIdOutOfBounds {
@@ -203,13 +203,13 @@ impl InlineStyleTableV1 {
     pub fn style_for_node(
         &self,
         node_index: usize,
-    ) -> Result<&InlineFormattingStyleV1, StyleTableError> {
+    ) -> Result<&InlineFormattingStyle, StyleTableError> {
         let style_id = self.node_style_id(node_index)?;
         self.style(style_id)
     }
 
     /// Returns styles in deterministic ID order.
-    pub fn styles(&self) -> &[InlineFormattingStyleV1] {
+    pub fn styles(&self) -> &[InlineFormattingStyle] {
         &self.styles
     }
 

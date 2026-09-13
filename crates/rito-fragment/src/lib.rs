@@ -27,12 +27,13 @@ pub use context::{
     CancelFlag, EscapedFloat, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
 };
 pub use formatting_tree::{
-    allocate_ruby_annotation, FormattingNode, FormattingNodeContent, FormattingNodeId,
-    FormattingTree, FormattingTreeStyles, InlineItem, RubyAnnotation,
+    allocate_ruby_annotation, allocate_ruby_annotation_range, distribute_ruby_annotation,
+    FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
+    InlineItem, RubyAnnotation,
 };
 pub use fragment::{
-    BoxFragment, BoxSnap, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment,
-    MarkerFragment, TextFragment,
+    BoxFragment, BoxSnap, ClusterPosition, Fragment, FragmentRect, FragmentTree, ImageFragment,
+    LineFragment, MarkerFragment, TextFragment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
 

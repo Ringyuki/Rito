@@ -1,13 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createInProcessBrowserReaderSession } from '../../src/bindings/browser/reader/worker-client';
-import type { CoreViewRevisionRequest } from '../../src/bindings/browser/core-contracts';
 import type { BrowserReaderBindingModule } from '../../src/bindings/browser/reader/types';
 
 describe('Browser reader in-process client', () => {
-  afterEach(() => {
-    delete readerWireGlobal().__RITO_CORE_WASM_READER_WIRE__;
-  });
-
   it('rejects malformed locators the same way as the worker message path', async () => {
     const client = createInProcessBrowserReaderSession(bindingModule(documentRuntime()));
 
@@ -70,41 +65,6 @@ describe('Browser reader in-process client', () => {
     });
   });
 
-  it('uses JSON view revision wire by default', async () => {
-    const readerWorkerPayload = vi.fn(() => createViewRevisionPayload());
-    const client = createInProcessBrowserReaderSession(
-      bindingModule(documentRuntime({ readerWorkerPayload })),
-    );
-
-    await client.open(new ArrayBuffer(0));
-    await client.createViewRevision(viewRevisionRequest());
-
-    expect(readerWorkerPayload).toHaveBeenCalledWith({
-      id: 0,
-      kind: 'createViewRevision',
-      request: viewRevisionRequest(),
-      wire: 'json',
-    });
-  });
-
-  it('uses RITORB1 view revision wire only behind the private switch', async () => {
-    readerWireGlobal().__RITO_CORE_WASM_READER_WIRE__ = 'ritorb1';
-    const readerWorkerPayload = vi.fn(() => createViewRevisionPayload());
-    const client = createInProcessBrowserReaderSession(
-      bindingModule(documentRuntime({ readerWorkerPayload })),
-    );
-
-    await client.open(new ArrayBuffer(0));
-    await client.createViewRevision(viewRevisionRequest());
-
-    expect(readerWorkerPayload).toHaveBeenCalledWith({
-      id: 0,
-      kind: 'createViewRevision',
-      request: viewRevisionRequest(),
-      wire: 'ritorb1',
-    });
-  });
-
   it('releases a complete revision through the in-process worker boundary', async () => {
     const readerWorkerPayload = vi.fn(() => ({ kind: 'releaseRevision' }));
     const client = createInProcessBrowserReaderSession(
@@ -129,23 +89,16 @@ function frameMetadata(spreadIndex: number) {
     width: 800,
     height: 600,
     protocolVersion: 2,
+    ratio: 1,
     commandCount: 0,
     commandCounts: {},
-    recordStats: {
-      geometryRecords: 0,
-      paintRecords: 0,
-      payloadRecords: 0,
-      primaryStringRecords: 0,
-      secondaryStringRecords: 0,
-    },
-    byteLength: 0,
+    primitiveCount: 0,
+    byteLength: 23,
     commandHash: 'hash',
     resourceRefCount: 0,
     resourceTable: [],
     fontFamilies: [],
     imageDominated: false,
-    stringTable: [],
-    payloadTable: [],
   };
 }
 
@@ -188,71 +141,4 @@ function documentRuntime(overrides: Record<string, unknown> = {}): unknown {
 
 function emptyPinnedFontPolicy() {
   return { schemaVersion: 1 as const, policyId: '01'.repeat(32), faces: [] };
-}
-
-function viewRevisionRequest(): CoreViewRevisionRequest {
-  return {
-    layoutConfig: {
-      viewportWidth: 800,
-      viewportHeight: 600,
-      pageWidth: 720,
-      pageHeight: 520,
-      marginTop: 40,
-      marginRight: 40,
-      marginBottom: 40,
-      marginLeft: 40,
-      spreadMode: 'single',
-      firstPageAlone: false,
-      spreadGap: 0,
-      rootFontSize: 16,
-      textMeasurement: 'fixtureCompatible',
-    },
-    activeSpreadIndex: 0,
-    mode: 'preview',
-  };
-}
-
-function createViewRevisionPayload(): unknown {
-  return {
-    kind: 'createViewRevision',
-    result: {
-      kind: 'preview',
-      display: 'revision',
-      result: {
-        bundle: {
-          revision: {
-            revisionId: 'rev-1',
-            revisionVersion: 0,
-            layoutKey: 'layout',
-            status: 'complete',
-            knownExtent: { pageCount: 0, spreadCount: 0 },
-            finalExtent: { pageCount: 0, spreadCount: 0 },
-            pageCount: 0,
-            spreadCount: 0,
-          },
-          navigation: {
-            revisionId: 'rev-1',
-            pageCount: 0,
-            spreadCount: 0,
-            spreads: [],
-            chapters: [],
-            chapterMap: {},
-          },
-          tocTargets: { revisionId: 'rev-1', targets: [] },
-          footnotes: { revisionId: 'rev-1', complete: true, pendingKeys: [], entries: {} },
-          chapterTextIndices: { revisionId: 'rev-1', entries: {} },
-          fontFamilies: [],
-        },
-        preview: true,
-      },
-    },
-  };
-}
-
-function readerWireGlobal(): typeof globalThis & {
-  __RITO_CORE_WASM_READER_WIRE__?: 'json' | 'ritorb1';
-} {
-  return globalThis as typeof globalThis & {
-    __RITO_CORE_WASM_READER_WIRE__?: 'json' | 'ritorb1';
-  };
 }

@@ -12,9 +12,6 @@ version.workspace = true
 crate-type = ["cdylib", "rlib"]
 path = "src/lib.rs"
 
-[features]
-legacy-css-diagnostics = ["rito-core/legacy-css-diagnostics"]
-
 [dependencies]
 js-sys = { version = "=0.3.97", default-features = false }
 rito-core = { path = "../rito-core" }

@@ -48,11 +48,6 @@ final next = await session.turn(
   from: session.firstArtifact,
   requestId: session.nextRequestId,
   direction: RitoAdjacentDirection.next,
-  work: const RitoWorkBudget(
-    maxTopLevelNodesPerQuantum: 8,
-    maxForegroundQuanta: 2,
-    localPageCap: 16,
-  ),
 );
 final image = await session.readResource(next, next.resources.first);
 
@@ -80,24 +75,23 @@ it; releasing the currently visible artifact is rejected. `readPublication`,
 `advanceBackground`, and `adoptBackground` expose the typed publication and
 host-scheduled background path without implicitly adopting raw candidates.
 
-An exact open or seek is never replaced with a page-one artifact. If Core
-reports `RITO_STATUS_EXACT_SEEK_PENDING_V1`, the persistent worker advances one
-bounded quantum per asynchronous host turn until the exact artifact is ready,
-the target becomes terminal, or the operation is superseded/disposed. These
+An exact open or seek is never replaced with a page-one artifact: the target
+chapter is paginated whole in one native call, so the result is either the
+exact artifact or a terminal error.
+
+An unpublished adjacent turn is cooperative. Only
+`RITO_STATUS_ADJACENT_PENDING` resumes the retained source/direction
+intent, with one native call per asynchronous host turn and a
+4096-continuation hard cap; plain `TARGET_NOT_PUBLISHED` is terminal. These
 continuations consume request IDs, so subsequent navigation should use
 `session.nextRequestId` rather than assuming that one public operation consumed
-only one native ID.
+only one native ID. Foreground replacement or disposal cancels the old owner,
+background work yields while it is retained, and the source artifact remains
+live after the final candidate is prepared and adopted so page-turn animation
+can finish.
 
-An unpublished adjacent turn follows the same cooperative rule. Only
-`RITO_STATUS_ADJACENT_PENDING_V1` resumes the retained
-source/direction/local-page-cap intent, with one native quantum per host turn
-and a 4096-continuation hard cap; plain `TARGET_NOT_PUBLISHED` is terminal.
-Foreground replacement or disposal cancels the old owner, background work
-yields while it is retained, and the source artifact remains live after the
-final candidate is prepared and adopted so page-turn animation can finish.
-
-`turn` always emits the fixed 60-byte `RITONAV1` request and calls
-`rito_request_adjacent_v1` on the persistent worker isolate. It does not call
+`turn` always emits the fixed 48-byte `RITONAV1` request and calls
+`rito_request_adjacent` on the persistent worker isolate. It does not call
 `requestArtifact` or repeat locator seek/layout. `requestArtifact` remains an
 explicit API for seek or reflow requests. Image hrefs are passed to
 `RitoImageResolver` exactly as declared by the artifact, including relative
@@ -114,7 +108,7 @@ or downloads a toolchain itself.
 
 `RitoNativeBindings` is the blocking low-level ABI projection and is exposed
 from `package:rito_flutter/rito_flutter_native.dart` for custom embedders. It
-copies every native output before calling `rito_buffer_free_v1`; applications
+copies every native output before calling `rito_buffer_free`; applications
 should normally use the isolate gateway. Tests and embedder diagnostics may opt
 out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 `RitoNativeBindings.fromDynamicLibrary(...)`.

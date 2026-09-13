@@ -13,13 +13,13 @@ void main() {
     final first = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 100, height: 50)],
+      commands: <RitoPrimitive>[directImage(href, width: 100, height: 50)],
     );
     final next = imageArtifact(
       artifactId: 7002,
       requestId: 13,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href, width: 100, height: 50)],
+      commands: <RitoPrimitive>[directImage(href, width: 100, height: 50)],
     );
     final decoder = TestImageDecoder(const <TestImageSpec>[spec]);
     final gateway = _ImageGateway(
@@ -50,7 +50,6 @@ void main() {
       from: session.firstArtifact,
       requestId: 13,
       direction: RitoAdjacentDirection.next,
-      work: _work,
     );
 
     expect(session.firstArtifact.hasPreparedImages, isTrue);
@@ -83,13 +82,13 @@ void main() {
       final first = imageArtifact(
         artifactId: 7001,
         hrefs: const <String>[firstHref],
-        commands: <RitoCommand>[directImage(firstHref)],
+        commands: <RitoPrimitive>[directImage(firstHref)],
       );
       final next = imageArtifact(
         artifactId: 7002,
         requestId: 13,
         hrefs: const <String>[nextHref],
-        commands: <RitoCommand>[directImage(nextHref)],
+        commands: <RitoPrimitive>[directImage(nextHref)],
       );
       final decoder = TestImageDecoder(const <TestImageSpec>[
         firstSpec,
@@ -121,7 +120,6 @@ void main() {
           from: session.firstArtifact,
           requestId: 13,
           direction: RitoAdjacentDirection.next,
-          work: _work,
         );
       } finally {
         FlutterError.onError = priorOnError;
@@ -136,12 +134,6 @@ void main() {
     },
   );
 }
-
-const _work = RitoWorkBudget(
-  maxTopLevelNodesPerQuantum: 1,
-  maxForegroundQuanta: 1,
-  localPageCap: 2,
-);
 
 RitoArtifactRequest _request(int requestId) {
   return RitoArtifactRequest(
@@ -160,7 +152,6 @@ RitoArtifactRequest _request(int requestId) {
       rootFontSize: 16,
     ),
     locator: const RitoLocator(href: 'chapter.xhtml'),
-    work: _work,
   );
 }
 

@@ -3,7 +3,7 @@ use std::{error::Error, fmt};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    RuntimeDocument, RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
+    RuntimeDocument, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
     RuntimeFrameResourceWarmPlan, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
     RuntimePrefetchRequest, RuntimePrefetchResponse, RuntimeResource, RuntimeResourceKind,
     RuntimeRevisionSummary,
@@ -118,23 +118,13 @@ impl RuntimeDocument {
         Ok(self.release_revision(&handle.revision_id))
     }
 
-    pub fn get_frame_at(
-        &mut self,
+    pub fn spread_page_indexes_at(
+        &self,
         handle: &RuntimeRevisionHandle,
         spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrame>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame(revision_id, spread_index)
-        })
-    }
-
-    pub fn get_frame_summary_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrame>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_summary(revision_id, spread_index)
+    ) -> Result<RuntimeVersioned<Vec<usize>>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.spread_page_indexes(revision_id, spread_index)
         })
     }
 

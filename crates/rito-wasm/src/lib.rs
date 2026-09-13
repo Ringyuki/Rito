@@ -11,17 +11,16 @@ mod error;
 mod frame;
 mod interaction;
 mod pinned_font;
-mod reader_v1;
+mod reader_session;
 mod resource;
 mod revision;
 mod versioned;
 mod wire;
-mod wire_metrics;
 
 pub use binding::RitoWasmDocument;
 pub use document::WasmRuntimeDocument;
 pub use error::{WasmRuntimeError, WasmRuntimeErrorCode};
-pub use reader_v1::RitoReaderSessionV1;
+pub use reader_session::RitoReaderSession;
 pub use wire::WasmResourcePrefetchRequest;
 
 pub const BOUNDARY_NAME: &str = "rito-wasm";

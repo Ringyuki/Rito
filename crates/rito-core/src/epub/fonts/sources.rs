@@ -1,10 +1,10 @@
 use std::cell::OnceCell;
 
-use rito_stylo::{parse_font_faces_v1, FontFaceStylesheetInputV1};
+use rito_stylo::{parse_font_faces, FontFaceStylesheetInput};
 
-use crate::{layout::TextMeasurementFontFace, resources::hash_bytes};
+use crate::resources::hash_bytes;
 
-use super::super::{paths::normalize_href_path, LoadedBinaryResource, LoadedEpubDocument};
+use super::super::{paths::normalize_href_path, LoadedEpubDocument};
 
 #[derive(Debug)]
 pub(crate) struct ResolvedFontFaceSource {
@@ -27,35 +27,6 @@ impl ResolvedFontFaceSource {
         self.resource_index
     }
 
-    pub(super) fn measurement_face<'a>(
-        &self,
-        resource: &'a LoadedBinaryResource,
-    ) -> TextMeasurementFontFace<'a> {
-        match resource
-            .byte_hash
-            .as_deref()
-            .and_then(parse_font_fingerprint)
-            .or_else(|| {
-                self.shape_fingerprint
-                    .get()
-                    .and_then(|value| parse_font_fingerprint(value))
-            }) {
-            Some(fingerprint) => TextMeasurementFontFace::new_with_fingerprint(
-                self.family.clone(),
-                self.style.clone(),
-                self.weight,
-                resource.bytes.as_slice(),
-                fingerprint,
-            ),
-            None => TextMeasurementFontFace::new(
-                self.family.clone(),
-                self.style.clone(),
-                self.weight,
-                resource.bytes.as_slice(),
-            ),
-        }
-    }
-
     pub(super) fn catalog_fingerprint(&self, bytes: &[u8]) -> String {
         self.shape_fingerprint
             .get_or_init(|| {
@@ -75,13 +46,13 @@ pub(crate) fn resolve_font_face_sources(
         .iter()
         .map(|stylesheet| {
             record_stylesheet_parse();
-            FontFaceStylesheetInputV1::author(
+            FontFaceStylesheetInput::author(
                 &stylesheet.text,
                 "https://rito.invalid/publication.css",
             )
         })
         .collect::<Vec<_>>();
-    let Ok(rules) = parse_font_faces_v1(&stylesheet_inputs) else {
+    let Ok(rules) = parse_font_faces(&stylesheet_inputs) else {
         return sources;
     };
     for (source_order, rule) in rules.into_iter().enumerate() {
@@ -134,17 +105,6 @@ fn parse_font_face_weight(value: &str) -> Option<u16> {
     }
 }
 
-fn parse_font_fingerprint(value: &str) -> Option<[u8; 8]> {
-    if value.len() != 16 {
-        return None;
-    }
-    let mut fingerprint = [0_u8; 8];
-    for (index, byte) in fingerprint.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16).ok()?;
-    }
-    Some(fingerprint)
-}
-
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct FontFaceSourceCacheMetrics {
@@ -162,17 +122,6 @@ thread_local! {
             catalog_hash_count: 0,
         }) };
 }
-
-#[cfg(test)]
-pub(crate) fn reset_font_face_source_cache_metrics() {
-    FONT_FACE_SOURCE_CACHE_METRICS.with(|metrics| metrics.set(Default::default()));
-}
-
-#[cfg(test)]
-pub(crate) fn font_face_source_cache_metrics() -> FontFaceSourceCacheMetrics {
-    FONT_FACE_SOURCE_CACHE_METRICS.with(std::cell::Cell::get)
-}
-
 #[cfg(test)]
 fn update_test_metrics(update: impl FnOnce(&mut FontFaceSourceCacheMetrics)) {
     FONT_FACE_SOURCE_CACHE_METRICS.with(|metrics| {
@@ -199,24 +148,11 @@ fn record_catalog_hash() {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        parse_font_face_weight, parse_font_fingerprint, resolve_font_face_href,
-        resolve_font_face_sources,
-    };
+    use super::{parse_font_face_weight, resolve_font_face_href, resolve_font_face_sources};
     use crate::epub::{
         LoadedBinaryResource, LoadedEpubDocument, LoadedTextResource, PackageDocument,
         PackageMetadata,
     };
-
-    #[test]
-    fn parses_cached_resource_hash_as_font_fingerprint() {
-        assert_eq!(
-            parse_font_fingerprint("0011223344556677"),
-            Some([0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77])
-        );
-        assert_eq!(parse_font_fingerprint("0011"), None);
-        assert_eq!(parse_font_fingerprint("00112233445566zz"), None);
-    }
 
     #[test]
     fn resolves_font_face_href_relative_to_stylesheet() {

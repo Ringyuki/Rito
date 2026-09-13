@@ -6,16 +6,11 @@ use style::{
     stylesheets::{CssRuleType, UrlExtraData},
 };
 
-/// Reports whether a `body@bgcolor` value can be represented exactly by the
-/// DOM-independent Stylo adapter.
+/// Parses a `body@bgcolor` value with HTML's legacy colour algorithm rather
+/// than CSS declaration parsing.
 ///
-/// This follows HTML's legacy colour algorithm rather than CSS declaration
-/// parsing. Callers can therefore use the same fail-closed predicate before
-/// selecting the Stylo path without depending on a browser DOM or Stylo type.
-pub fn supports_body_bgcolor_presentational_hint(value: &str) -> bool {
-    parse_body_bgcolor_presentational_hint(value).is_some()
-}
-
+/// `None` means HTML itself produces no colour for the value; document
+/// construction then fails closed instead of guessing.
 pub(crate) fn parse_body_bgcolor_presentational_hint(value: &str) -> Option<AbsoluteColor> {
     // Stylo implements the WHATWG algorithm exactly, but its 0.19 parser
     // assumes that stripping HTML spaces cannot make a non-empty input empty.
@@ -47,21 +42,16 @@ impl SvgGeometryAxis {
     }
 }
 
-/// Reports whether an SVG `width`/`height` attribute value can be
-/// represented exactly as a presentational hint by the DOM-independent
-/// Stylo adapter.
+/// Parses an SVG `width`/`height` attribute value into the presentational
+/// hint declaration it maps to.
 ///
 /// `width` and `height` on `<svg>` are presentation attributes that map to
 /// the CSS properties of the same name (SVG 2 §7.2), parsed per the
 /// property's own grammar with SVG user units meaning `px`. A value the
 /// grammar rejects makes the attribute invalid, and an invalid presentation
 /// attribute is ignored — that is the browser behaviour, not a fail-open
-/// shortcut, so `false` here means "no declaration", never "refuse the
+/// shortcut, so `None` here means "no declaration", never "refuse the
 /// publication".
-pub fn supports_svg_geometry_presentational_hint(value: &str) -> bool {
-    parse_svg_geometry_presentational_hint(SvgGeometryAxis::Width, value).is_some()
-}
-
 pub(crate) fn parse_svg_geometry_presentational_hint(
     axis: SvgGeometryAxis,
     value: &str,
@@ -115,7 +105,6 @@ mod tests {
 
     use super::{
         parse_body_bgcolor_presentational_hint, parse_svg_geometry_presentational_hint,
-        supports_body_bgcolor_presentational_hint, supports_svg_geometry_presentational_hint,
         SvgGeometryAxis,
     };
 
@@ -130,10 +119,9 @@ mod tests {
             "#",           // legacy error recovery produces black
         ] {
             assert!(
-                supports_body_bgcolor_presentational_hint(value),
+                parse_body_bgcolor_presentational_hint(value).is_some(),
                 "expected exact support for {value:?}"
             );
-            assert!(parse_body_bgcolor_presentational_hint(value).is_some());
         }
     }
 
@@ -141,10 +129,9 @@ mod tests {
     fn rejects_values_for_which_html_produces_no_colour() {
         for value in ["", " \t\n\u{000c}\r", "transparent", " TRANSPARENT\t"] {
             assert!(
-                !supports_body_bgcolor_presentational_hint(value),
+                parse_body_bgcolor_presentational_hint(value).is_none(),
                 "expected fail-closed rejection for {value:?}"
             );
-            assert!(parse_body_bgcolor_presentational_hint(value).is_none());
         }
     }
 
@@ -160,10 +147,6 @@ mod tests {
             "auto",   // width/height accept auto
             "10em",   // font-relative lengths are valid CSS widths
         ] {
-            assert!(
-                supports_svg_geometry_presentational_hint(value),
-                "expected support for {value:?}"
-            );
             for axis in [SvgGeometryAxis::Width, SvgGeometryAxis::Height] {
                 assert!(
                     parse_svg_geometry_presentational_hint(axis, value).is_some(),
@@ -200,10 +183,12 @@ mod tests {
             "nan",              // f64-parseable but not an SVG number
             "inf",              // likewise
         ] {
-            assert!(
-                !supports_svg_geometry_presentational_hint(value),
-                "expected rejection for {value:?}"
-            );
+            for axis in [SvgGeometryAxis::Width, SvgGeometryAxis::Height] {
+                assert!(
+                    parse_svg_geometry_presentational_hint(axis, value).is_none(),
+                    "expected {axis:?} rejection for {value:?}"
+                );
+            }
         }
     }
 

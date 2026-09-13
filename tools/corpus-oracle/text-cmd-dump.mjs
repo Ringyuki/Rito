@@ -1,7 +1,9 @@
-// Dumps the reader's paint commands for one spread, filtered to commands
-// whose text matches a needle — rect + spacing fields, to compare run
-// geometry against Blink Range measurements.
+// Dumps the reader's text primitives for one spread, filtered to the
+// `text` / `ruby` primitives whose JSON matches a needle: run text, rect,
+// paint, and the per-cluster origins the engine placed — to compare run
+// geometry against Blink Range measurements of the same text.
 // usage: node text-cmd-dump.mjs <book.epub> <spread> <needle...>
+//   env RITO_READER_URL (default http://localhost:5173/)
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -31,14 +33,10 @@ while (Date.now() - lastNav < 2000) await page.waitForTimeout(250);
 await page.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
 await page.setInputFiles('input[type=file]', path.resolve(bookPath));
 await page.waitForSelector('[data-testid=reader-shell][data-loaded=true]', { timeout: 300000 });
-await page.waitForFunction(
-  () => document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-  { timeout: 300000 },
-);
 await page.waitForTimeout(1500);
 
 // Warm traversal so lazy font registrations have reflowed, like the walk.
-const total = await page.evaluate(() => window.__ritoController.reader.spreads.length);
+const total = await page.evaluate(() => window.__ritoController.reader.totalSpreads);
 for (let s = 0; s < total; s += 1) {
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(60);
@@ -55,24 +53,16 @@ await page.waitForTimeout(1500);
 const dump = await page.evaluate(
   async ({ spread, needles }) => {
     const frame = await globalThis.__ritoReaderDiagnostics.frame(spread);
+    if (!frame) return { error: `no frame for spread ${spread}` };
     const hits = [];
-    const scan = (obj, label) => {
-      const commands = obj?.commands ?? obj?.displayCommands ?? null;
-      if (!Array.isArray(commands)) return false;
-      for (const cmd of commands) {
-        const text = JSON.stringify(cmd);
-        if (needles.some((n) => text.includes(n))) hits.push({ label, cmd });
-      }
-      return true;
-    };
-    if (!scan(frame, 'frame')) {
-      for (const key of Object.keys(frame ?? {})) {
-        const value = frame[key];
-        if (Array.isArray(value)) value.forEach((entry, i) => scan(entry, `${key}[${i}]`));
-        else if (value && typeof value === 'object') scan(value, key);
-      }
+    for (const command of frame.commands) {
+      if (command.kind !== 'text' && command.kind !== 'ruby') continue;
+      const json = JSON.stringify(command, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      );
+      if (needles.some((needle) => json.includes(needle))) hits.push(JSON.parse(json));
     }
-    return hits;
+    return { spread, ratio: frame.ratio, commandCount: frame.commands.length, hits };
   },
   { spread: SPREAD, needles },
 );

@@ -114,7 +114,7 @@ function runSummary(report: ReaderMemoryGateReport) {
     checkpoints: {
       baseline: summarize(report.checkpoints.baseline),
       loaded: summarize(report.checkpoints.loaded),
-      growth: summarize(report.checkpoints.growth),
+      traversed: summarize(report.checkpoints.traversed),
       reflow: summarize(report.checkpoints.reflow),
       replacements: report.checkpoints.replacements.map(summarize),
       disposed: summarize(report.checkpoints.disposed),

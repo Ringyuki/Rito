@@ -4,7 +4,7 @@
  */
 
 import type { TextPositionSelector } from './model';
-import type { ChapterTextIndex } from './chapter-text-index';
+import type { ChapterTextIndex } from '../layout-types';
 
 export function createTextPositionSelector(start: number, end: number): TextPositionSelector {
   return { type: 'TextPositionSelector', start, end };

@@ -3,7 +3,7 @@ import '../protocol/request_models.dart';
 import 'bindings.dart';
 import 'session_lane.dart';
 
-const int ritoPendingAdjacentContinuationCapV1 = 4096;
+const int ritoPendingAdjacentContinuationCap = 4096;
 
 final class RitoPendingAdjacentLimitException implements Exception {
   const RitoPendingAdjacentLimitException({
@@ -30,7 +30,7 @@ final class RitoPendingAdjacentLimitException implements Exception {
 /// turn. Only the dedicated adjacent-pending status is retryable.
 final class RitoPendingAdjacentDriver {
   const RitoPendingAdjacentDriver({
-    this.maxContinuationQuanta = ritoPendingAdjacentContinuationCapV1,
+    this.maxContinuationQuanta = ritoPendingAdjacentContinuationCap,
   }) : assert(maxContinuationQuanta > 0);
 
   final int maxContinuationQuanta;
@@ -69,7 +69,10 @@ final class RitoPendingAdjacentDriver {
         Error.throwWithStackTrace(failure, stackTrace);
       }
       requestId += 1;
-      final continuation = oneQuantumAdjacentRequest(initialRequest, requestId);
+      final continuation = adjacentContinuationRequest(
+        initialRequest,
+        requestId,
+      );
       try {
         final artifact = await requestOneQuantum(continuation);
         _requireCurrent(
@@ -107,7 +110,8 @@ final class RitoPendingAdjacentDriver {
   }
 }
 
-RitoAdjacentRequest oneQuantumAdjacentRequest(
+/// [request] re-issued under [requestId] for one more continuation call.
+RitoAdjacentRequest adjacentContinuationRequest(
   RitoAdjacentRequest request,
   int requestId,
 ) {
@@ -116,17 +120,12 @@ RitoAdjacentRequest oneQuantumAdjacentRequest(
     requestId: requestId,
     fromArtifactId: request.fromArtifactId,
     direction: request.direction,
-    work: RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: request.work.maxTopLevelNodesPerQuantum,
-      maxForegroundQuanta: 1,
-      localPageCap: request.work.localPageCap,
-    ),
   );
 }
 
 bool _isAdjacentPending(Object error) {
   return error is RitoNativeException &&
-      error.status == ritoNativeStatusAdjacentPendingV1;
+      error.status == ritoNativeStatusAdjacentPending;
 }
 
 void _requireCurrent(

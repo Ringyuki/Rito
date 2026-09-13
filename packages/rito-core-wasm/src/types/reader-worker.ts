@@ -19,7 +19,6 @@ import type {
   RitoCoreWasmResourcePayload,
 } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
-import type { RitoCoreWasmReaderRuntimeWire } from './runtime-bundle';
 import type {
   RitoCoreWasmReaderVersionedClient,
   RitoCoreWasmReaderVersionedDocumentRuntime,
@@ -28,13 +27,7 @@ import type {
   RitoCoreWasmReaderVersionedWorkerRequestPayload,
   RitoCoreWasmReaderVersionedWorkerResponse,
 } from './reader-worker-versioned';
-import type {
-  RitoCoreWasmRevisionBundle,
-  RitoCoreWasmRevisionFrameSelection,
-  RitoCoreWasmViewRevisionFollowUp,
-  RitoCoreWasmViewRevisionRequest,
-  RitoCoreWasmViewRevisionResponse,
-} from './revision';
+import type { RitoCoreWasmRevisionBundle, RitoCoreWasmRevisionFrameSelection } from './revision';
 
 /** One (family, size) pair whose normal-line metrics the host must measure. */
 export interface RitoCoreWasmHostLineMetricRequest {
@@ -96,9 +89,6 @@ export interface RitoCoreWasmReaderWorkerClient
     data: ArrayBuffer,
     options?: RitoCoreWasmReaderWorkerOpenOptions,
   ): Promise<RitoCoreWasmReaderOpenResult>;
-  createViewRevision(
-    request: RitoCoreWasmViewRevisionRequest,
-  ): Promise<RitoCoreWasmReaderViewRevisionResult>;
   readResource(
     revisionId: string,
     kind: RitoCoreWasmResourceKind,
@@ -134,6 +124,8 @@ export interface RitoCoreWasmReaderWorkerClient
    * layout, and the caller forces a reflow so committed pages follow.
    */
   setUnavailableFontFaces(families: readonly string[]): Promise<void>;
+  /** Device pixels per CSS pixel frames are painted at (zoom × dpr); paint snaps land on that grid. */
+  setRenderRatio(ratio: number): Promise<void>;
   /**
    * Diagnostic: one chapter's page-by-page ink-less lines through the
    * revision's own fragment engine and content box, for diffing the wasm
@@ -170,13 +162,6 @@ export type RitoCoreWasmReaderRevisionResultTransport = Omit<
   'bundle'
 > & {
   readonly bundle: RitoCoreWasmReaderRevisionBundleTransport;
-};
-
-export type RitoCoreWasmReaderViewRevisionResultTransport = Omit<
-  RitoCoreWasmReaderViewRevisionResult,
-  'result'
-> & {
-  readonly result: RitoCoreWasmReaderRevisionResultTransport;
 };
 
 export interface RitoCoreWasmReaderWorkerErrorPayload extends RitoCoreWasmReaderVersionedErrorMetadata {
@@ -239,12 +224,6 @@ export interface RitoCoreWasmReaderDocumentRuntime
   free(): void;
   publication(): RitoCoreWasmPublicationInfo;
   pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;
-  createViewRevisionBundle(
-    request: RitoCoreWasmViewRevisionRequest,
-  ): RitoCoreWasmViewRevisionResponse;
-  createViewRevisionBundleBytes(
-    request: RitoCoreWasmViewRevisionRequest,
-  ): RitoCoreWasmViewRevisionResponse;
   readerWorkerPayload(
     request: RitoCoreWasmReaderWorkerRequest,
   ): RitoCoreWasmReaderWorkerResponsePayload;
@@ -269,13 +248,6 @@ export interface RitoCoreWasmReaderRevisionResult {
   readonly preview: boolean;
 }
 
-export interface RitoCoreWasmReaderViewRevisionResult {
-  readonly kind: RitoCoreWasmViewRevisionResponse['kind'];
-  readonly display: RitoCoreWasmViewRevisionResponse['display'];
-  readonly followUp?: RitoCoreWasmViewRevisionFollowUp | undefined;
-  readonly result: RitoCoreWasmReaderRevisionResult;
-}
-
 export interface RitoCoreWasmReaderWorkerPinnedFontFaceInput {
   /** Dedicated transferable buffer; it must not be shared with another face or the EPUB. */
   readonly bytes: ArrayBuffer;
@@ -291,12 +263,6 @@ export interface RitoCoreWasmReaderWorkerPinnedFontPolicyInput {
 
 export interface RitoCoreWasmReaderWorkerOpenOptions {
   readonly pinnedFontPolicy?: RitoCoreWasmReaderWorkerPinnedFontPolicyInput | undefined;
-  /**
-   * Cutover lever: lets completed whole-book revisions hand pagination
-   * to the fragment engine. Off by default while the fragment backend's
-   * interaction surface is still incomplete.
-   */
-  readonly fragmentPageTable?: boolean | undefined;
 }
 
 export interface RitoCoreWasmReaderWorkerPinnedFontFaceMetadata {
@@ -374,12 +340,6 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
     | RitoCoreWasmReaderVersionedWorkerRequestPayload
     | RitoCoreWasmReaderChapterLocalWorkerRequestPayload
     | {
-        readonly kind: 'createViewRevision';
-        readonly request: RitoCoreWasmViewRevisionRequest;
-        readonly wire?: RitoCoreWasmReaderRuntimeWire | undefined;
-        readonly knownFullChapterTextIndicesScopeKey?: 'chapter-text-v1:full' | undefined;
-      }
-    | {
         readonly kind: 'readResource';
         readonly revisionId: string;
         readonly resourceKind: RitoCoreWasmResourceKind;
@@ -409,10 +369,6 @@ export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'open'; readonly result: RitoCoreWasmReaderOpenResult }
   | RitoCoreWasmReaderVersionedWorkerResponse
   | RitoCoreWasmReaderChapterLocalWorkerResponse
-  | {
-      readonly kind: 'createViewRevision';
-      readonly result: RitoCoreWasmReaderViewRevisionResultTransport;
-    }
   | { readonly kind: 'readResource'; readonly result: RitoCoreWasmReaderResourceBytes }
   | { readonly kind: 'warmFrameWindow'; readonly result: RitoCoreWasmReaderFrameWindowWarmResult }
   | { readonly kind: 'resolveLocator'; readonly result: RitoCoreWasmReaderTocTarget }

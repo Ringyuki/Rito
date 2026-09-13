@@ -27,6 +27,7 @@ export function decodeBrowserReaderChapterLocalFrame(
     spreadIndex: mountSpreadIndex,
     width: metadata.width,
     height: metadata.height,
+    ratio: decoded.ratio,
     commands: decoded.commands,
     commandHash: metadata.commandHash,
     resourceRefs: { images: metadata.resourceTable },

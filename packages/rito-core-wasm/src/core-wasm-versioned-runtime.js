@@ -1,22 +1,15 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
-import {
-  runBoundedCompositeMutation,
-  runBoundedMutation,
-  runCancelMutation,
-} from './core-wasm-versioned-mutation-runtime.js';
+import { runRevisionMutation } from './core-wasm-versioned-mutation-runtime.js';
 import {
   encodeJson,
   parseObject,
-  requireFlatRevisionHandle,
   requireMatchingHandle,
   requireMatchingRevisionSummary,
   requireObjectInput,
   requireRevisionHandle,
-  requireRevisionWorkBudget,
   requireVersionedValueIdentity,
 } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
-import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
 import {
   requireTextCaretResponse,
   requireTextPointRequest,
@@ -48,98 +41,11 @@ import {
   requireSearchRequest,
   requireSearchResponse,
 } from './reader-worker-versioned-read-validation-runtime.js';
-import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
-import { requireSourceLocatorContinuationResult } from './source-locator-continuation-validation-runtime.js';
-import {
-  requireFontVerticalMetricCalibrationRequest,
-  requireFontVerticalMetricCalibrationTransferResult,
-} from './font-vertical-metric-calibration-validation-runtime.js';
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
-    createBoundedRevision(request) {
-      return boundedRequest(
-        this,
-        'createBoundedRevision',
-        request,
-        'createBoundedRevisionJson',
-        undefined,
-        0,
-      );
-    },
-    continueRevision(request) {
-      const input = requireObjectInput(request, 'continueRevision');
-      const handle = requireFlatRevisionHandle(input, 'continueRevision');
-      return boundedRequest(
-        this,
-        'continueRevision',
-        input,
-        'continueRevisionJson',
-        handle.revisionId,
-        handle.revisionVersion + 1,
-      );
-    },
-    continueRevisionTowardSourceLocator(request) {
-      const operation = 'continueRevisionTowardSourceLocator';
-      const input = requireObjectInput(request, operation);
-      const previous = requireFlatRevisionHandle(input, operation);
-      const maximum = requireRevisionWorkBudget(input.budget, operation);
-      const locator = requireSourceLocatorRequest(input.locator, operation);
-      const revision = nextRevisionHandle(previous, operation);
-      return callRitoCoreWasm(operation, () =>
-        runBoundedCompositeMutation(
-          this,
-          'continueRevisionTowardSourceLocatorJson',
-          operation,
-          { ...input, locator },
-          revision,
-          (result) =>
-            requireSourceLocatorContinuationResult(
-              result,
-              previous,
-              revision,
-              locator,
-              operation,
-              maximum,
-            ),
-        ),
-      );
-    },
-    calibrateRevisionFontVerticalMetrics(request) {
-      const operation = 'calibrateRevisionFontVerticalMetrics';
-      const input = requireFontVerticalMetricCalibrationRequest(request, operation);
-      const previous = requireFlatRevisionHandle(input, operation);
-      const revision = nextRevisionHandle(previous, operation);
-      return callRitoCoreWasm(operation, () =>
-        runBoundedCompositeMutation(
-          this,
-          'calibrateRevisionFontVerticalMetricsJson',
-          operation,
-          input,
-          revision,
-          (result) =>
-            requireFontVerticalMetricCalibrationTransferResult(
-              result,
-              previous,
-              revision,
-              operation,
-            ),
-        ),
-      );
-    },
-    cancelRevision(request) {
-      const input = requireObjectInput(request, 'cancelRevision');
-      const handle = requireFlatRevisionHandle(input, 'cancelRevision');
-      return callRitoCoreWasm('cancelRevision', () => runCancelMutation(this, input, handle));
-    },
-    getFrameAtRevision(handle, spreadIndex) {
-      return versionedJson(this, 'getFrameAtRevision', handle, (revision) =>
-        this._inner.getFrameAtRevisionJson(
-          revision.revisionId,
-          revision.revisionVersion,
-          spreadIndex,
-        ),
-      );
+    createRevision(layoutConfig) {
+      return revisionRequest(this, 'createRevision', layoutConfig, 'createRevisionJson');
     },
     getFrameCommandBufferMetadataAtRevision(handle, spreadIndex) {
       return versionedJson(this, 'getFrameCommandBufferMetadataAtRevision', handle, (revision) =>
@@ -383,14 +289,6 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
     getRevisionSummaryAtRevision(handle) {
       return versionedNoArg(this, 'getRevisionSummaryAtRevision', handle, requireSummaryValue);
     },
-    getShapeProvenanceDiagnosticAtRevision(handle) {
-      return versionedNoArg(
-        this,
-        'getShapeProvenanceDiagnosticAtRevision',
-        handle,
-        requireShapeProvenanceDiagnostic,
-      );
-    },
     getStyleTableSummaryAtRevision(handle) {
       return versionedNoArg(
         this,
@@ -455,26 +353,10 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   );
 }
 
-function boundedRequest(
-  document,
-  operation,
-  request,
-  rawMethod,
-  expectedRevisionId,
-  expectedRevisionVersion,
-) {
+function revisionRequest(document, operation, request, rawMethod) {
   return callRitoCoreWasm(operation, () => {
     const input = requireObjectInput(request, operation);
-    const maximum = requireRevisionWorkBudget(input.budget, operation);
-    return runBoundedMutation(
-      document,
-      rawMethod,
-      operation,
-      input,
-      maximum,
-      expectedRevisionId,
-      expectedRevisionVersion,
-    );
+    return runRevisionMutation(document, rawMethod, operation, input);
   });
 }
 
@@ -540,17 +422,9 @@ function requireSummaryValue(value, revision, operation) {
   return requireMatchingRevisionSummary(value, revision, operation);
 }
 
-function nextRevisionHandle(revision, operation) {
-  if (revision.revisionVersion === 0xffff_ffff) {
-    throw new Error(`${operation} cannot advance revisionVersion beyond u32`);
-  }
-  return { ...revision, revisionVersion: revision.revisionVersion + 1 };
-}
-
 /**
  * Minimal envelope check shared by schema-v1 engine diagnostics whose full
- * shapes are owned by the core: an object with schemaVersion 1 and a
- * boolean isComplete.
+ * shapes are owned by the core: an object with schemaVersion 1.
  */
 function requireSchemaOneDiagnostic(value, _revision, operation) {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -558,9 +432,6 @@ function requireSchemaOneDiagnostic(value, _revision, operation) {
   }
   if (value.schemaVersion !== 1) {
     throw new Error(`${operation} returned an unsupported diagnostic schemaVersion`);
-  }
-  if (typeof value.isComplete !== 'boolean') {
-    throw new Error(`${operation} returned an invalid diagnostic isComplete`);
   }
   return value;
 }

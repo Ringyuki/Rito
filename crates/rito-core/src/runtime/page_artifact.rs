@@ -6,7 +6,6 @@
 
 mod fragment;
 mod interaction;
-mod legacy;
 
 pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord};
 
@@ -138,7 +137,15 @@ pub(super) enum PageArtifactSemanticRole {
     Paragraph,
     List,
     ListItem,
+    #[expect(
+        dead_code,
+        reason = "the fragment page semantics expose paragraph nodes only; link and image nodes are a recorded gap"
+    )]
     Image,
+    #[expect(
+        dead_code,
+        reason = "the fragment page semantics expose paragraph nodes only; link and image nodes are a recorded gap"
+    )]
     Link,
     Blockquote,
     Table,

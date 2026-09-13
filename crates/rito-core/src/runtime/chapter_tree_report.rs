@@ -18,7 +18,7 @@ use crate::epub::EpubResult;
 use crate::fragment_bridge::{build_chapter_formatting_tree, ChapterFormattingTree};
 use crate::xhtml::DocumentNode;
 
-use super::{RuntimeDocument, RuntimeRevisionStatus};
+use super::{frame::RuntimeChapterStyleTables, RuntimeDocument};
 
 pub const RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION: u32 = 1;
 
@@ -40,16 +40,13 @@ pub struct RuntimeChapterTreeChapter {
     pub tree_fingerprint: Option<String>,
 }
 
-/// Fragment-engine representability of a revision's chapters.
-///
-/// `is_complete == false` means later chapters may not have retained style
-/// tables yet; only chapters with tables are measured. Nothing here feeds
-/// back into production layout.
+/// Fragment-engine representability of a revision's chapters: every
+/// chapter the revision retains style tables for is measured. Nothing
+/// here feeds back into production layout.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterTreeReport {
     pub schema_version: u32,
-    pub is_complete: bool,
     /// Chapters measured (those with retained style tables).
     pub chapter_count: usize,
     /// Chapters that built into a formatting tree.
@@ -74,7 +71,6 @@ impl RuntimeDocument {
         }
         Ok(RuntimeChapterTreeReport {
             schema_version: RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
-            is_complete: revision.status == RuntimeRevisionStatus::Complete,
             chapter_count: chapters.len(),
             representable_chapter_count: representable,
             chapters,
@@ -135,7 +131,23 @@ impl RuntimeDocument {
         let revision = self.any_revision(revision_id).ok_or_else(|| {
             crate::epub::EpubError::new(format!("unknown revision: {revision_id}"))
         })?;
-        let tables = revision.chapter_style_tables.get(idref).ok_or_else(|| {
+        self.prepared_chapter_formatting_tree(
+            &revision.chapter_style_tables,
+            idref,
+            filter_footnotes,
+        )
+    }
+
+    /// Builds one chapter's formatting tree from the whole-book
+    /// preparation and the given per-chapter style tables; the whole-book
+    /// page table is built from this before its revision exists.
+    pub(super) fn prepared_chapter_formatting_tree(
+        &self,
+        chapter_style_tables: &BTreeMap<String, std::rc::Rc<RuntimeChapterStyleTables>>,
+        idref: &str,
+        filter_footnotes: bool,
+    ) -> EpubResult<ChapterFormattingTree> {
+        let tables = chapter_style_tables.get(idref).ok_or_else(|| {
             crate::epub::EpubError::new(format!(
                 "revision retains no style tables for chapter {idref}"
             ))
@@ -152,43 +164,84 @@ impl RuntimeDocument {
     pub(super) fn formatting_tree_from_prepared(
         &self,
         prepared: &crate::epub::PreparedLoadedDocument,
-        tables: &super::frame::RuntimeChapterStyleTables,
+        tables: &RuntimeChapterStyleTables,
         idref: &str,
         filter_footnotes: bool,
     ) -> EpubResult<ChapterFormattingTree> {
-        let chapter = prepared
-            .chapters
-            .iter()
-            .find(|chapter| chapter.source.idref == idref)
-            .ok_or_else(|| {
-                crate::epub::EpubError::new(format!("chapter {idref} is not prepared"))
-            })?;
-        let Some(body) = chapter.parsed.body_source_node_id else {
-            // Malformed or empty markup: render an empty chapter rather
-            // than blocking the whole book on it.
-            return crate::fragment_bridge::empty_chapter_formatting_tree();
-        };
-        // The reader-semantic content flow: footnote asides leave the flow
-        // before layout, the same selection production pagination uses.
-        let nodes = if filter_footnotes {
-            prepared
-                .filtered_footnote_nodes
-                .get(idref)
-                .map(Vec::as_slice)
-                .unwrap_or(&chapter.parsed.nodes)
-        } else {
-            &chapter.parsed.nodes
-        };
-        let mut image_dimensions = BTreeMap::new();
-        collect_image_dimensions(nodes, &self.document, &mut image_dimensions);
-        build_chapter_formatting_tree(
-            nodes,
-            body.index(),
-            &tables.layout,
-            &tables.inline,
-            &image_dimensions,
-        )
+        let image_dimensions = self.chapter_image_dimensions(prepared, idref, filter_footnotes)?;
+        chapter_formatting_tree(prepared, tables, idref, filter_footnotes, &image_dimensions)
     }
+
+    /// Intrinsic sizes the document has decoded for every image in the
+    /// chapter's content flow. A page table records these beside the
+    /// chapter so a rebuilt chapter bridges against the sizes the first
+    /// build saw.
+    pub(super) fn chapter_image_dimensions(
+        &self,
+        prepared: &crate::epub::PreparedLoadedDocument,
+        idref: &str,
+        filter_footnotes: bool,
+    ) -> EpubResult<BTreeMap<String, (u32, u32)>> {
+        let mut image_dimensions = BTreeMap::new();
+        if let Some((nodes, _)) = chapter_flow_nodes(prepared, idref, filter_footnotes)? {
+            collect_image_dimensions(nodes, &self.document, &mut image_dimensions);
+        }
+        Ok(image_dimensions)
+    }
+}
+
+/// Bridges one chapter of a prepared window with image sizes supplied by
+/// the caller. Everything the bridge reads is an argument, so a chapter
+/// rebuilt from a recorded set of inputs produces the same tree as the
+/// build that recorded them.
+pub(super) fn chapter_formatting_tree(
+    prepared: &crate::epub::PreparedLoadedDocument,
+    tables: &RuntimeChapterStyleTables,
+    idref: &str,
+    filter_footnotes: bool,
+    image_dimensions: &BTreeMap<String, (u32, u32)>,
+) -> EpubResult<ChapterFormattingTree> {
+    let Some((nodes, body)) = chapter_flow_nodes(prepared, idref, filter_footnotes)? else {
+        // Malformed or empty markup: render an empty chapter rather than
+        // blocking the whole book on it.
+        return crate::fragment_bridge::empty_chapter_formatting_tree();
+    };
+    build_chapter_formatting_tree(
+        nodes,
+        body,
+        &tables.layout,
+        &tables.inline,
+        image_dimensions,
+    )
+}
+
+/// The chapter's content flow and its body node index: footnote asides
+/// leave the flow before layout when the caller filters them, the same
+/// selection production pagination uses. `None` when the chapter has no
+/// body element.
+fn chapter_flow_nodes<'a>(
+    prepared: &'a crate::epub::PreparedLoadedDocument,
+    idref: &str,
+    filter_footnotes: bool,
+) -> EpubResult<Option<(&'a [DocumentNode], usize)>> {
+    let chapter = prepared
+        .chapters
+        .iter()
+        .find(|chapter| chapter.source.idref == idref)
+        .ok_or_else(|| crate::epub::EpubError::new(format!("chapter {idref} is not prepared")))?;
+    let Some(body) = chapter.parsed.body_source_node_id else {
+        return Ok(None);
+    };
+    let nodes = if filter_footnotes {
+        prepared
+            .filtered_footnote_nodes
+            .get(idref)
+            .map(Vec::as_slice)
+            .unwrap_or(&chapter.parsed.nodes)
+    } else {
+        &chapter.parsed.nodes
+    };
+    Ok(Some((nodes, body.index())))
 }
 
 /// Collects already-loaded dimensions for every image referenced by the

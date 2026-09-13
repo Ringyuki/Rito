@@ -1,21 +1,12 @@
 // Browser-pen half of the paint-parity instrument. Bundled by vite into
-// an IIFE and injected into a Playwright page; renders one fixture's
-// command list through the calibrated browser painter and hands the
-// bitmap back as a PNG data URL. The painter itself is the oracle — this
-// file must add nothing to the raster beyond the optional background
-// fill both pens share.
-import { renderFrameCommandsToCanvas } from '../../../packages/rito/src/bindings/browser/frame-command-renderer';
-import type { CoreFrameCommand } from '../../../packages/rito/src/bindings/browser/core-contracts';
-
-interface ParityFixture {
-  readonly name: string;
-  readonly width: number;
-  readonly height: number;
-  readonly background?: string;
-  /** Host theme override (dark/sepia) applied by both pens. */
-  readonly theme?: { readonly foreground: string; readonly background: string };
-  readonly commands: readonly unknown[];
-}
+// an IIFE and injected into a Playwright page; decodes one fixture's
+// engine-lowered `RITODL1` bytes with the production decoder, blits them
+// through the production primitive renderer, and hands the bitmap back as
+// a PNG data URL. The blitter itself is the oracle — this file must add
+// nothing to the raster beyond the optional background fill both pens
+// share.
+import { renderReaderPrimitivesToCanvas } from '../../../packages/rito/src/bindings/browser/primitive-renderer';
+import { decodeRitoReaderPrimitiveList } from '../../../packages/rito-core-wasm/src/reader-session-primitive-decoder-runtime.js';
 
 // Synthetic image sources shared with the Flutter renderer. Pixel
 // definitions are integer-exact; any drift between the two generators
@@ -88,18 +79,34 @@ function fillPixels(
   return { width, height, rgba };
 }
 
-function renderParityFixture(fixture: ParityFixture): string {
+interface LoweredFixture {
+  readonly name: string;
+  readonly width: number;
+  readonly height: number;
+  /** Device pixels per CSS pixel the list was lowered at. */
+  readonly ratio: number;
+  readonly background?: string;
+  /** Host theme override (dark/sepia) applied by both pens. */
+  readonly theme?: { readonly foreground: string; readonly background: string };
+}
+
+/** The engine's `RITODL1` format-2 bytes decoded by the production decoder
+ * and blitted onto a device-sized canvas. */
+function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+  const list = decodeRitoReaderPrimitiveList(bytes);
   const canvas = document.createElement('canvas');
-  canvas.width = fixture.width;
-  canvas.height = fixture.height;
+  canvas.width = Math.round(fixture.width * fixture.ratio);
+  canvas.height = Math.round(fixture.height * fixture.ratio);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2d context unavailable');
   if (fixture.background) {
     ctx.fillStyle = fixture.background;
-    ctx.fillRect(0, 0, fixture.width, fixture.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  renderFrameCommandsToCanvas(fixture.commands as readonly CoreFrameCommand[], ctx, {
-    pixelRatio: 1,
+  renderReaderPrimitivesToCanvas(list, ctx, {
     resolveImage: makeSyntheticImage,
     ...(fixture.theme
       ? {
@@ -113,8 +120,8 @@ function renderParityFixture(fixture: ParityFixture): string {
 
 declare global {
   interface Window {
-    __renderParityFixture: typeof renderParityFixture;
+    __renderLoweredFixture: typeof renderLoweredFixture;
   }
 }
 
-window.__renderParityFixture = renderParityFixture;
+window.__renderLoweredFixture = renderLoweredFixture;

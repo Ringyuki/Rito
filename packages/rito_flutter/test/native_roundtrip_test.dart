@@ -7,7 +7,6 @@ import 'package:rito_flutter/rito_flutter.dart';
 import 'package:rito_flutter/rito_flutter_native.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
-
 RitoPinnedFontPolicy _testPinnedPolicy() {
   final pinned = File(
     '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
@@ -28,11 +27,6 @@ void main() {
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
     const sessionId = 9001;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     const request = RitoArtifactRequest(
       sessionId: sessionId,
       requestId: 1,
@@ -49,7 +43,6 @@ void main() {
         rootFontSize: 16,
       ),
       locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
-      work: work,
     );
     const encoder = RitoRequestEncoder();
     const foregroundEncoder = RitoForegroundEncoder();
@@ -90,7 +83,6 @@ void main() {
             requestId: 2,
             fromArtifactId: first.artifactId,
             direction: RitoAdjacentDirection.next,
-            work: work,
           ),
         ),
       );
@@ -153,11 +145,6 @@ void main() {
         rootFontSize: 16,
       ),
       locator: RitoLocator(href: 'OEBPS/Text/Section001.xhtml'),
-      work: RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 64,
-        localPageCap: 16,
-      ),
     );
     final bindings = RitoNativeBindings();
     RitoArtifact? artifact;
@@ -203,11 +190,6 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9003;
-      const work = RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 64,
-        localPageCap: 16,
-      );
       final gateway = RitoIsolateGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
@@ -228,7 +210,6 @@ void main() {
             rootFontSize: 16,
           ),
           locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-          work: work,
         ),
         pinnedFontPolicy: _testPinnedPolicy(),
       );
@@ -238,7 +219,6 @@ void main() {
           from: first,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
 
         // Peek the previous neighbor: no visible change, fully prepared.
@@ -246,7 +226,6 @@ void main() {
           from: second,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.previous,
-          work: work,
         );
         expect(peeked, isNotNull);
         expect(session.visibleArtifactId, second.artifactId);
@@ -257,7 +236,6 @@ void main() {
           from: second,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.previous,
-          work: work,
         );
         expect(committed.artifactId, peeked.artifactId);
         expect(session.visibleArtifactId, peeked.artifactId);
@@ -267,7 +245,6 @@ void main() {
           from: committed,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.previous,
-          work: work,
         );
         if (far != null) {
           await session.releaseArtifact(far);
@@ -288,11 +265,6 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9004;
-      const work = RitoWorkBudget(
-        maxTopLevelNodesPerQuantum: 32,
-        maxForegroundQuanta: 8,
-        localPageCap: 16,
-      );
       final gateway = RitoIsolateGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
@@ -313,7 +285,6 @@ void main() {
             rootFontSize: 16,
           ),
           locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-          work: work,
         ),
         pinnedFontPolicy: _testPinnedPolicy(),
       );
@@ -343,14 +314,12 @@ void main() {
           from: candidate!,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
         await session.releaseArtifact(candidate);
         final peeked = await session.peek(
           from: inBody,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
         expect(peeked, isNotNull, reason: 'in-book peek must hit');
         expect(session.visibleArtifactId, inBody.artifactId);
@@ -364,7 +333,6 @@ void main() {
           from: inBody,
           requestId: session.nextRequestId,
           direction: RitoAdjacentDirection.next,
-          work: work,
         );
         expect(committed.artifactId, peeked.artifactId);
         expect(session.visibleArtifactId, peeked.artifactId);
@@ -377,187 +345,175 @@ void main() {
     },
   );
 
-  test('footnote hits read back and book pages number the whole book', () async {
-    // book-01 Section002 carries an image-marked noteref on its first
-    // page. Text-only markers whose glyph is CSS-generated leave no hit
-    // to tap, so the corpus choice matters here.
-    final publication = File(
-      '../rito/tests/fixtures/books/book-01.epub',
-    ).readAsBytesSync();
-    const sessionId = 9005;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
-    final gateway = RitoIsolateGateway();
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: publication,
-      request: const RitoArtifactRequest(
-        sessionId: sessionId,
-        requestId: 1,
-        layout: RitoLayoutRequest(
-          viewportWidth: 420,
-          viewportHeight: 640,
-          marginTop: 24,
-          marginRight: 24,
-          marginBottom: 24,
-          marginLeft: 24,
-          spreadMode: RitoSpreadMode.single,
-          firstPageAlone: true,
-          spreadGap: 0,
-          rootFontSize: 16,
+  test(
+    'footnote hits read back and book pages number the whole book',
+    () async {
+      // book-01 Section002 carries an image-marked noteref on its first
+      // page. Text-only markers whose glyph is CSS-generated leave no hit
+      // to tap, so the corpus choice matters here.
+      final publication = File(
+        '../rito/tests/fixtures/books/book-01.epub',
+      ).readAsBytesSync();
+      const sessionId = 9005;
+      final gateway = RitoIsolateGateway();
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: publication,
+        request: const RitoArtifactRequest(
+          sessionId: sessionId,
+          requestId: 1,
+          layout: RitoLayoutRequest(
+            viewportWidth: 420,
+            viewportHeight: 640,
+            marginTop: 24,
+            marginRight: 24,
+            marginBottom: 24,
+            marginLeft: 24,
+            spreadMode: RitoSpreadMode.single,
+            firstPageAlone: true,
+            spreadGap: 0,
+            rootFontSize: 16,
+          ),
+          locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
         ),
-        locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
-        work: work,
-      ),
-      pinnedFontPolicy: _testPinnedPolicy(),
+        pinnedFontPolicy: _testPinnedPolicy(),
       );
-    try {
-      var current = session.firstArtifact;
-      // A chapter-local artifact has no book-wide numbering: its page
-      // index is a rollover-window ordinal, so the fields stay absent.
-      expect(current.artifact.bookPageIndex, isNull);
-      expect(current.artifact.bookPageCount, isNull);
+      try {
+        var current = session.firstArtifact;
+        // A chapter-local artifact has no book-wide numbering: its page
+        // index is a rollover-window ordinal, so the fields stay absent.
+        expect(current.artifact.bookPageIndex, isNull);
+        expect(current.artifact.bookPageCount, isNull);
 
-      // Walk forward looking for a noteref, reading each one back with
-      // the key exactly as the hit published it.
-      var read = 0;
-      for (var step = 0; step < 12; step++) {
-        final keys = current.artifact.pages
-            .expand((page) => page.hits)
-            .where((hit) => hit.footnoteKey != null && !hit.footnotePending)
-            .map((hit) => hit.footnoteKey!)
-            .toSet();
-        for (final key in keys) {
-          final footnote = await session.readFootnote(current, key);
-          expect(footnote.key, key, reason: 'the key round-trips verbatim');
-          expect(footnote.text, isNotEmpty);
-          read += 1;
-        }
-        final RitoPreparedArtifact next;
-        try {
-          next = await session.turn(
-            from: current,
-            requestId: session.nextRequestId,
-            direction: RitoAdjacentDirection.next,
-            work: work,
-          );
-        } on Object {
-          break;
-        }
-        if (!identical(current, session.firstArtifact)) {
-          await session.releaseArtifact(current);
-        }
-        current = next;
-      }
-      // The corpus book carries notes; a zero here means the hit never
-      // classified one and the whole surface is dead.
-      expect(read, greaterThan(0), reason: 'at least one footnote resolved');
-
-      // An unknown key fails as "not published" (status 6) rather than
-      // taking down the session — the same shape a pending definition
-      // reports, so a host retries with one path.
-      await expectLater(
-        session.readFootnote(current, 'OEBPS/Text/nope.xhtml#missing'),
-        throwsA(
-          isA<RitoNativeException>().having((e) => e.status, 'status', 6),
-        ),
-      );
-    } finally {
-      await session.dispose();
-      await gateway.close();
-    }
-  });
-
-  test('a reader who never turns a page still receives the book total', () async {
-    final publication = File(
-      '../rito/tests/fixtures/books/book-10.epub',
-    ).readAsBytesSync();
-    const sessionId = 9006;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
-    final gateway = RitoIsolateGateway();
-    final session = await RitoReaderSession.open(
-      gateway: gateway,
-      publicationBytes: publication,
-      request: const RitoArtifactRequest(
-        sessionId: sessionId,
-        requestId: 1,
-        layout: RitoLayoutRequest(
-          viewportWidth: 420,
-          viewportHeight: 640,
-          marginTop: 24,
-          marginRight: 24,
-          marginBottom: 24,
-          marginLeft: 24,
-          spreadMode: RitoSpreadMode.single,
-          firstPageAlone: true,
-          spreadGap: 0,
-          rootFontSize: 16,
-        ),
-        locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
-        work: work,
-      ),
-      pinnedFontPolicy: _testPinnedPolicy(),
-      );
-    try {
-      final first = session.firstArtifact;
-      expect(first.artifact.bookPageIndex, isNull);
-
-      // Pump to completion, adopting every candidate, never turning.
-      RitoPreparedArtifact? visible;
-      int? total;
-      for (var quantum = 0; quantum < 4096; quantum++) {
-        final advance = await session.advanceBackground(
-          maxTopLevelNodesPerQuantum: 64,
-        );
-        final candidate = advance.artifact;
-        if (candidate != null) {
-          await session.adoptBackground(advance);
-          final previous = visible ?? first;
-          if (!identical(previous, first)) {
-            await session.releaseArtifact(previous);
+        // Walk forward looking for a noteref, reading each one back with
+        // the key exactly as the hit published it.
+        var read = 0;
+        for (var step = 0; step < 12; step++) {
+          final keys = current.artifact.pages
+              .expand((page) => page.hits)
+              .where((hit) => hit.footnoteKey != null && !hit.footnotePending)
+              .map((hit) => hit.footnoteKey!)
+              .toSet();
+          for (final key in keys) {
+            final footnote = await session.readFootnote(current, key);
+            expect(footnote.key, key, reason: 'the key round-trips verbatim');
+            expect(footnote.text, isNotEmpty);
+            read += 1;
           }
-          visible = candidate;
-          total = candidate.artifact.bookPageCount;
+          final RitoPreparedArtifact next;
+          try {
+            next = await session.turn(
+              from: current,
+              requestId: session.nextRequestId,
+              direction: RitoAdjacentDirection.next,
+            );
+          } on Object {
+            break;
+          }
+          if (!identical(current, session.firstArtifact)) {
+            await session.releaseArtifact(current);
+          }
+          current = next;
         }
-        if (advance.advance.state == RitoBackgroundState.complete &&
-            total != null) {
-          break;
-        }
-      }
-      expect(visible, isNotNull, reason: 'the pump must hand off');
-      expect(visible!.artifact.bookPageIndex, isNotNull);
-      expect(
-        total,
-        isNotNull,
-        reason: 'completion must deliver the book page count without a turn',
-      );
-      expect(total, greaterThan(0));
-      expect(visible.artifact.bookPageIndex, lessThan(total!));
+        // The corpus book carries notes; a zero here means the hit never
+        // classified one and the whole surface is dead.
+        expect(read, greaterThan(0), reason: 'at least one footnote resolved');
 
-      await session.releaseArtifact(first);
-    } finally {
-      await session.dispose();
-      await gateway.close();
-    }
-  });
+        // An unknown key fails as "not published" (status 6) rather than
+        // taking down the session — the same shape a pending definition
+        // reports, so a host retries with one path.
+        await expectLater(
+          session.readFootnote(current, 'OEBPS/Text/nope.xhtml#missing'),
+          throwsA(
+            isA<RitoNativeException>().having((e) => e.status, 'status', 6),
+          ),
+        );
+      } finally {
+        await session.dispose();
+        await gateway.close();
+      }
+    },
+  );
+
+  test(
+    'a reader who never turns a page still receives the book total',
+    () async {
+      final publication = File(
+        '../rito/tests/fixtures/books/book-10.epub',
+      ).readAsBytesSync();
+      const sessionId = 9006;
+      final gateway = RitoIsolateGateway();
+      final session = await RitoReaderSession.open(
+        gateway: gateway,
+        publicationBytes: publication,
+        request: const RitoArtifactRequest(
+          sessionId: sessionId,
+          requestId: 1,
+          layout: RitoLayoutRequest(
+            viewportWidth: 420,
+            viewportHeight: 640,
+            marginTop: 24,
+            marginRight: 24,
+            marginBottom: 24,
+            marginLeft: 24,
+            spreadMode: RitoSpreadMode.single,
+            firstPageAlone: true,
+            spreadGap: 0,
+            rootFontSize: 16,
+          ),
+          locator: RitoLocator(href: 'OEBPS/Text/Section011.xhtml'),
+        ),
+        pinnedFontPolicy: _testPinnedPolicy(),
+      );
+      try {
+        final first = session.firstArtifact;
+        expect(first.artifact.bookPageIndex, isNull);
+
+        // Pump to completion, adopting every candidate, never turning.
+        RitoPreparedArtifact? visible;
+        int? total;
+        for (var quantum = 0; quantum < 4096; quantum++) {
+          final advance = await session.advanceBackground(
+            maxTopLevelNodesPerQuantum: 64,
+          );
+          final candidate = advance.artifact;
+          if (candidate != null) {
+            await session.adoptBackground(advance);
+            final previous = visible ?? first;
+            if (!identical(previous, first)) {
+              await session.releaseArtifact(previous);
+            }
+            visible = candidate;
+            total = candidate.artifact.bookPageCount;
+          }
+          if (advance.advance.state == RitoBackgroundState.complete &&
+              total != null) {
+            break;
+          }
+        }
+        expect(visible, isNotNull, reason: 'the pump must hand off');
+        expect(visible!.artifact.bookPageIndex, isNotNull);
+        expect(
+          total,
+          isNotNull,
+          reason: 'completion must deliver the book page count without a turn',
+        );
+        expect(total, greaterThan(0));
+        expect(visible.artifact.bookPageIndex, lessThan(total!));
+
+        await session.releaseArtifact(first);
+      } finally {
+        await session.dispose();
+        await gateway.close();
+      }
+    },
+  );
 
   test('text range geometry paints where the page was drawn', () async {
     final publication = File(
       '../rito/tests/fixtures/books/book-01.epub',
     ).readAsBytesSync();
     const sessionId = 9007;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     final gateway = RitoIsolateGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
@@ -578,10 +534,9 @@ void main() {
           rootFontSize: 16,
         ),
         locator: RitoLocator(href: 'OEBPS/Text/Section002.xhtml'),
-        work: work,
       ),
       pinnedFontPolicy: _testPinnedPolicy(),
-      );
+    );
     try {
       final prepared = session.firstArtifact;
       final page = prepared.artifact.pages.firstWhere(
@@ -610,9 +565,20 @@ void main() {
 
       // The decisive property for highlighting: the rect sits inside
       // the same painted text run, in the same coordinates.
-      final painted = prepared.artifact.displayList.displayList.commands
-          .whereType<RitoPaintText>()
-          .map((command) => command.rect)
+      // Painted runs are on the device grid at the list's ratio; geometry
+      // rects are CSS pixels, so bring the runs back to that space.
+      final list = prepared.artifact.displayList.displayList;
+      final painted = list.commands
+          .whereType<RitoPrimitiveText>()
+          .map((primitive) => primitive.command.rect)
+          .map(
+            (r) => (
+              x: r.x / list.ratio,
+              y: r.y / list.ratio,
+              width: r.width / list.ratio,
+              height: r.height / list.ratio,
+            ),
+          )
           .toList();
       expect(painted, isNotEmpty);
       final rect = geometry.rects.first;
@@ -630,7 +596,8 @@ void main() {
               rect.bounds.y + rect.bounds.height > candidate.y,
         ),
         isTrue,
-        reason: 'geometry must overlap a painted run, not sit offset by margins',
+        reason:
+            'geometry must overlap a painted run, not sit offset by margins',
       );
     } finally {
       await session.dispose();
@@ -643,11 +610,6 @@ void main() {
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
     const sessionId = 9008;
-    const work = RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 32,
-      maxForegroundQuanta: 64,
-      localPageCap: 16,
-    );
     final gateway = RitoIsolateGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
@@ -668,10 +630,9 @@ void main() {
           rootFontSize: 16,
         ),
         locator: RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
-        work: work,
       ),
       pinnedFontPolicy: _testPinnedPolicy(),
-      );
+    );
     try {
       final prepared = session.firstArtifact;
       final needle = prepared.artifact.pages
@@ -681,16 +642,9 @@ void main() {
       final response = await session.search(prepared, needle, limit: 16);
       expect(response.query, needle);
       expect(response.results, isNotEmpty);
-      // Scope is reportable, so two runs that differ are explainable
-      // rather than looking like two complete-but-different lists.
+      // The response says how many pages the list came from: the whole
+      // chapter behind a chapter-local artifact.
       expect(response.searchedPageCount, greaterThan(0));
-      expect(
-        response.scopeComplete,
-        isTrue,
-        reason:
-            'a one-pass chapter-local revision holds its whole chapter, '
-            'so a chapter-scoped search reports a complete scope',
-      );
       final hit = response.results.first;
       expect(hit.context, contains(needle));
       // A durable anchor is what a host stores; page indexes move.
@@ -707,10 +661,7 @@ void main() {
       expect(geometry.rects, isNotEmpty);
 
       // An empty query is a host mistake, caught before the ABI.
-      expect(
-        () => session.search(prepared, ''),
-        throwsA(isA<ArgumentError>()),
-      );
+      expect(() => session.search(prepared, ''), throwsA(isA<ArgumentError>()));
 
       // A superseded artifact is a different, retryable failure — not
       // the same ArgumentError a wrong artifact raises. Turning adopts a
@@ -719,7 +670,6 @@ void main() {
         from: prepared,
         requestId: session.nextRequestId,
         direction: RitoAdjacentDirection.next,
-        work: work,
       );
       await session.releaseArtifact(prepared);
       await expectLater(

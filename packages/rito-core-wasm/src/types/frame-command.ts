@@ -63,23 +63,18 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
   readonly href?: string;
   readonly sourceText?: string;
   readonly sourceTextOffset?: number;
-  /** Right-aligned draw: rect.x is the text's RIGHT edge; the renderer
-   * measures the string to place the pen (outside list markers). */
-  readonly alignRight?: boolean;
-  /** Vertical writing: draw as one downward column, upright glyphs, the
-   * pen stepping one font size per cluster; rect.x is the glyph column's
-   * left edge and rect.y the first glyph's top. */
-  readonly vertical?: boolean;
+  /** The origin of every cluster (byte offset into the UTF-8 text, CSS
+   * x and alphabetic-baseline y) in text order; the pen draws each
+   * cluster there. Absent only for a run the pen still places itself. */
+  readonly clusters?: readonly { readonly byte: number; readonly x: number; readonly y: number }[];
 }
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {
   readonly kind: 'paintRuby';
-  /** Non-initial ruby-align keyword; absent means space-around. */
-  readonly rubyAlign?: 'start' | 'center' | 'space-between';
-  /** Vertical writing: the annotation draws as a downward column beside
-   * its base; rect.x is the annotation column's left edge, rect.y the
-   * base span's top, height the span to distribute over. */
-  readonly vertical?: boolean;
+  /** The origin of every cluster (byte offset into the UTF-8 text, CSS x
+   * and em-box-top y) the engine distributed over the base by the
+   * computed ruby-align; the pen draws each cluster there. */
+  readonly clusters?: readonly { readonly byte: number; readonly x: number; readonly y: number }[];
 }
 
 export interface RitoCoreWasmTextPaintCommand {

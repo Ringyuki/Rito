@@ -1,8 +1,8 @@
 use std::{collections::HashSet, hash::Hash, sync::Arc};
 
 use crate::{
-    BoxShadow, FontFamilies, InlineFormattingStyleV1, LanguageTag, ResolvedUrlV1, TextShadow,
-    TransformListV1,
+    BoxShadow, FontFamilies, InlineFormattingStyle, LanguageTag, ResolvedUrl, TextShadow,
+    TransformList,
 };
 
 #[derive(Clone, Default)]
@@ -11,15 +11,15 @@ pub(super) struct PayloadInterners {
     languages: PayloadInterner<LanguageTag>,
     text_shadows: PayloadInterner<Arc<[TextShadow]>>,
     box_shadows: PayloadInterner<Arc<[BoxShadow]>>,
-    resolved_urls: PayloadInterner<ResolvedUrlV1>,
-    transforms: PayloadInterner<TransformListV1>,
+    resolved_urls: PayloadInterner<ResolvedUrl>,
+    transforms: PayloadInterner<TransformList>,
 }
 
 impl PayloadInterners {
     pub(super) fn canonicalize(
         &mut self,
-        mut style: InlineFormattingStyleV1,
-    ) -> InlineFormattingStyleV1 {
+        mut style: InlineFormattingStyle,
+    ) -> InlineFormattingStyle {
         style.font.families = self
             .font_families
             .intern(style.font.families, FontFamilies::storage_identity);
@@ -36,11 +36,11 @@ impl PayloadInterners {
         if let Some(image) = &mut style.paint.background_image {
             image.url = self
                 .resolved_urls
-                .intern(image.url.clone(), ResolvedUrlV1::storage_identity);
+                .intern(image.url.clone(), ResolvedUrl::storage_identity);
         }
         style.paint.transform = self
             .transforms
-            .intern(style.paint.transform, TransformListV1::storage_identity);
+            .intern(style.paint.transform, TransformList::storage_identity);
         style
     }
 }

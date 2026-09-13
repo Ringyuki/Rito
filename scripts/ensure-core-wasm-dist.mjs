@@ -7,13 +7,11 @@ const requiredFiles = [
   'decoder.mjs',
   'decoder.d.mts',
   'core-wasm-error-runtime.js',
-  'reader-compat-runtime.js',
+  'reader-navigation-runtime.js',
   'reader-worker-client-runtime.js',
-  'runtime-bundle-decoder-runtime.js',
-  'frame-command-buffer-decoder-constants.js',
-  'frame-command-buffer-decoder-records.js',
   'frame-command-buffer-decoder-runtime.js',
-  'frame-command-buffer-decoder-validation.js',
+  'reader-session-display-decoder-runtime.js',
+  'reader-session-primitive-decoder-runtime.js',
 ];
 
 const missingFiles = [];

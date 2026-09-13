@@ -99,6 +99,8 @@ Use this hook when you want a full reader lifecycle in React.
 Important behavior:
 
 - rendering the hook itself is SSR-safe
+- `spreads` is the reader's navigation record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`,
+  and `totalSpreads` is the final count of the committed layout
 - `load()` still needs a browser document and should run in an effect or event handler
 - replacement `load()` calls wait for the previous Reader's Worker/native release before opening
   the next document
@@ -129,12 +131,11 @@ The controller remains the source of truth.
 
 ## `useSelection`
 
-Use `selection.hasSelection` as the selection-presence signal. For Readers with
-native exact text interaction, `selection.range` is intentionally `null` because
-opaque Rust carets cannot be represented as the legacy layout-local `TextRange`.
-`selection.sourceLocator` carries the durable source range, while `text`,
-`viewportRects`, and `focusRect` remain ready for copy and selection UI. The hook
-clears all selection state when its controller is replaced so data cannot leak
+Use `selection.hasSelection` as the selection-presence signal.
+`selection.sourceLocator` carries the durable source range when both endpoints share
+a resource and `selection.sourceSpan` the resource-qualified endpoints, while `text`,
+`viewportRects`, `focusRect`, and `handles` are ready for copy and selection UI. The
+hook clears all selection state when its controller is replaced so data cannot leak
 between books.
 
 ## Guidance
@@ -142,8 +143,6 @@ between books.
 - Use `@ritojs/react` if you want fast app integration and React state bindings.
 - Use `@ritojs/kit` directly if you want non-React UI or a custom state layer.
 - Use `@ritojs/core` if you only need the core reader without React state wiring.
-- Use source-level diagnostics inside this repository when you intentionally
-  need the old TypeScript reference implementation.
 
 ## Related Docs
 

@@ -1,9 +1,6 @@
 import type { Spread } from '@ritojs/core';
 import type { WiringDeps } from '../core/wiring-deps';
-import {
-  scheduleNativeSearchGeometryForSpread,
-  usesNativeSearchGeometry,
-} from '../search-resolution';
+import { scheduleNativeSearchGeometryForSpread } from '../search-resolution';
 
 export function scheduleNativeSearchForCurrentSpread(deps: WiringDeps): void {
   const spread = deps.reader.spreads[deps.getCurrentSpread()];
@@ -11,7 +8,6 @@ export function scheduleNativeSearchForCurrentSpread(deps: WiringDeps): void {
 }
 
 export function scheduleNativeSearchForSpread(spread: Spread, deps: WiringDeps): void {
-  if (!usesNativeSearchGeometry(deps.reader)) return;
   scheduleNativeSearchGeometryForSpread(
     spread,
     deps.reader,

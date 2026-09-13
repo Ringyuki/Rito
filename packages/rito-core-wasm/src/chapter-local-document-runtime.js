@@ -2,15 +2,12 @@ import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
 import { encodeJson, parseObject } from './core-wasm-versioned-validation-runtime.js';
 import {
   requireChapterLocalRelease,
-  requireContinuedChapterLocalAdvance,
-  requireCreatedChapterLocalAdvance,
-} from './chapter-local-advance-validation-runtime.js';
+  requireCreatedChapterLocalRevision,
+} from './chapter-local-creation-validation-runtime.js';
 import {
-  requireBoundedChapterLocalRequest,
+  requireChapterLocalRequest,
   requireChapterLocalIndex,
   requireChapterLocalOwner,
-  requireContinueChapterLocalRequest,
-  nextChapterLocalOwner,
 } from './chapter-local-owner-validation-runtime.js';
 import {
   requireChapterLocalFrameBuffer,
@@ -21,51 +18,18 @@ import {
 
 export function installRitoCoreWasmChapterLocalDocumentMethods(Document) {
   const methods = {
-    createBoundedChapterLocalRevision(request) {
-      const operation = 'createBoundedChapterLocalRevision';
+    createChapterLocalRevision(request) {
+      const operation = 'createChapterLocalRevision';
       return callRitoCoreWasm(operation, () => {
-        const normalized = requireBoundedChapterLocalRequest(request, operation);
+        const normalized = requireChapterLocalRequest(request, operation);
         return committedChapterLocalMutation(
           this,
           operation,
           undefined,
           () =>
-            this._inner.createBoundedChapterLocalRevisionJson(
-              encodeJson(normalized.request, operation),
-            ),
+            this._inner.createChapterLocalRevisionJson(encodeJson(normalized.request, operation)),
           (value, bindOwner) =>
-            requireCreatedChapterLocalAdvance(
-              value,
-              normalized.request,
-              normalized.maximum,
-              operation,
-              bindOwner,
-            ),
-        );
-      });
-    },
-    continueChapterLocalRevision(request) {
-      const operation = 'continueChapterLocalRevision';
-      return callRitoCoreWasm(operation, () => {
-        const normalized = requireContinueChapterLocalRequest(request, operation);
-        const rollbackOwner = nextChapterLocalOwner(
-          normalized.request.continuation.owner,
-          operation,
-        );
-        return committedChapterLocalMutation(
-          this,
-          operation,
-          rollbackOwner,
-          () =>
-            this._inner.continueChapterLocalRevisionJson(encodeJson(normalized.request, operation)),
-          (value, bindOwner) =>
-            requireContinuedChapterLocalAdvance(
-              value,
-              normalized.request,
-              normalized.maximum,
-              operation,
-              bindOwner,
-            ),
+            requireCreatedChapterLocalRevision(value, normalized.request, operation, bindOwner),
         );
       });
     },

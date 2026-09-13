@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReaderLocator } from '../../src/reader';
-import { startBrowserReaderBoundedCandidate } from '../../src/bindings/browser/bounded-session-runtime';
+import { startBrowserReaderRevisionCandidate } from '../../src/bindings/browser/revision-session-runtime';
 import { makeBrowserReaderLayoutConfig } from '../../src/bindings/browser/reader-layout';
 import {
   recordBrowserReaderAcceptedRevision,
-  type BrowserReaderBoundedSessionOwner,
+  type BrowserReaderRevisionSessionOwner,
 } from '../../src/bindings/browser/reader-session-host';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 import {
-  boundedOwner,
+  revisionOwner,
   locatorSnapshot,
   mockLocatorAggregates,
-} from './browser-reader-bounded-locator-fixtures';
+} from './browser-reader-revision-locator-fixtures';
 import { createState, createWorker } from './browser-reader-reflow-fixtures';
 
 type PositionName = 'start' | 'middle' | 'tail';
@@ -82,11 +82,11 @@ describe('Browser reader initial exact-locator matrix', () => {
 
       const locator = exactLocator(position);
       const snapshot = exactLocatorSnapshot(fixture.worker.sessionId, locator, spreadIndex);
-      const start = vi.fn<BrowserReaderBoundedSessionOwner['controller']['start']>(() =>
+      const start = vi.fn<BrowserReaderRevisionSessionOwner['controller']['start']>(() =>
         Promise.resolve(snapshot),
       );
       const ensureLocator = vi.fn();
-      const owner = boundedOwner(fixture.worker, { start, ensureLocator });
+      const owner = revisionOwner(fixture.worker, { start, ensureLocator });
       recordBrowserReaderAcceptedRevision(owner, snapshot.revision);
       mockLocatorAggregates(fixture.worker);
       const publications: Array<{
@@ -128,13 +128,12 @@ describe('Browser reader initial exact-locator matrix', () => {
 
 function startInitialCandidate(
   state: BrowserReaderState,
-  owner: BrowserReaderBoundedSessionOwner,
+  owner: BrowserReaderRevisionSessionOwner,
   locator: ReaderLocator,
 ) {
-  return startBrowserReaderBoundedCandidate(state, owner, {
+  return startBrowserReaderRevisionCandidate(state, owner, {
     config: state.config,
     spreadMode: state.spreadMode,
-    lineBreaking: state.lineBreaking,
     targetSpreadIndex: 0,
     preserveLocator: locator,
     fallbackOnLocatorFailure: true,
@@ -176,6 +175,7 @@ function seedStaleFrames(state: BrowserReaderState, targetSpreadIndex: number): 
       spreadIndex,
       width: state.config.viewportWidth,
       height: state.config.viewportHeight,
+      ratio: 1,
       commands: [],
       commandHash: 'stale',
       resourceRefs: { images: [] },

@@ -17,6 +17,7 @@
 //
 // Usage: node tools/corpus-oracle/pixel-walk.mjs <book.epub> <outDir> [maxPages]
 //   env RITO_READER_URL (default http://localhost:5173/)
+//   env RITO_WALK_DSF   device pixels per CSS pixel on both sides (default 1)
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -37,6 +38,16 @@ const MAX_PAGES = Number(maxPagesArg ?? 400);
 const BASE = process.env.RITO_READER_URL ?? 'http://localhost:5173/';
 const VIEWPORT = { width: 1500, height: 950 };
 const MARGIN = 50; // readerViewportMargin at this viewport
+// Device pixels per CSS pixel on both sides: the reader's canvas renders
+// at this ratio (the engine receives it as the render ratio) and the
+// truth browser rasters at the same deviceScaleFactor, so the two are
+// compared on the device grid. Layout stays in CSS pixels; only the
+// captured bitmaps and every index into them scale.
+const DSF = Number(process.env.RITO_WALK_DSF ?? 1);
+if (!Number.isInteger(DSF) || DSF < 1) {
+  console.error(`RITO_WALK_DSF must be a positive integer, got ${process.env.RITO_WALK_DSF}`);
+  process.exit(1);
+}
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(path.join(outDir, 'gallery'), { recursive: true });
 mkdirSync(path.join(outDir, 'engine'), { recursive: true });
@@ -134,7 +145,7 @@ const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-R
 const browser = await chromium.launch();
 
 // ---- Engine side: load the book, read the chapter map, walk and shoot --
-const reader = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+const reader = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: DSF });
 await reader.goto(BASE);
 // A dist rebuild right before the walk makes vite re-optimize deps and
 // hard-reload the page once via HMR. If that reload lands after the book
@@ -152,10 +163,6 @@ await reader.setInputFiles('input[type=file]', path.resolve(bookPath));
 await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
   timeout: 300000,
 });
-await reader.waitForFunction(
-  () => document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-  { timeout: 300000 },
-);
 // Shell overlays (the engine badge) float over the canvas and would be
 // captured into the element screenshot as phantom page diffs — the title
 // page once measured 3102 diff pixels that were ALL badge.
@@ -175,11 +182,6 @@ await reader
     await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
       timeout: 300000,
     });
-    await reader.waitForFunction(
-      () =>
-        document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-      { timeout: 300000 },
-    );
     await reader.addStyleTag({
       content: '[data-testid=engine-badge] { display: none !important; }',
     });
@@ -190,13 +192,13 @@ await reader
 // once BEFORE reading the plan so every face is registered and the
 // pagination has settled; the shoot pass then walks a stable book.
 {
-  const total = await reader.evaluate(() => window.__ritoController.reader.spreads.length);
+  const total = await reader.evaluate(() => window.__ritoController.reader.totalSpreads);
   for (let s = 0; s < total; s += 1) {
     await reader.keyboard.press('ArrowRight');
     await reader.waitForTimeout(45);
   }
   await reader.waitForTimeout(1500);
-  const settledTotal = await reader.evaluate(() => window.__ritoController.reader.spreads.length);
+  const settledTotal = await reader.evaluate(() => window.__ritoController.reader.totalSpreads);
   for (let s = 0; s < Math.max(total, settledTotal); s += 1) {
     await reader.keyboard.press('ArrowLeft');
     await reader.waitForTimeout(30);
@@ -212,14 +214,15 @@ const readPlan = () =>
     chapters.sort((a, b) => a.startPage - b.startPage);
     const spreadOfPage = new Map();
     r.spreads.forEach((s, i) => {
-      for (const side of ['left', 'right']) {
-        const p = s[side]?.index;
-        if (p !== undefined && p !== null) spreadOfPage.set(p, { spread: i, side });
+      spreadOfPage.set(s.leftPageIndex, { spread: i, side: 'left' });
+      if (s.rightPageIndex !== undefined) {
+        spreadOfPage.set(s.rightPageIndex, { spread: i, side: 'right' });
       }
     });
+    const geometry = r.getLayoutGeometry();
     return {
-      pageCount: r.pages.length,
-      pageBounds: r.pages[0]?.bounds,
+      pageCount: r.pageCount,
+      pageBounds: { width: geometry.pageWidth, height: geometry.pageHeight },
       chapters,
       pages: [...spreadOfPage.entries()].map(([page, at]) => ({ page, ...at })),
     };
@@ -229,8 +232,14 @@ const pageW = Math.round(plan.pageBounds.width);
 const pageH = Math.round(plan.pageBounds.height);
 const contentW = pageW - 2 * MARGIN;
 const contentH = pageH - 2 * MARGIN;
+// The same geometry on the device grid, for every index into a capture.
+const pageWd = pageW * DSF;
+const pageHd = pageH * DSF;
+const contentWd = contentW * DSF;
+const contentHd = contentH * DSF;
+const marginD = MARGIN * DSF;
 console.log(
-  `pages ${plan.pageCount}, page ${pageW}x${pageH}, content ${contentW}x${contentH}, chapters ${plan.chapters.length}`,
+  `pages ${plan.pageCount}, page ${pageW}x${pageH}, content ${contentW}x${contentH}, chapters ${plan.chapters.length}, device scale ${DSF}`,
 );
 let pageAt = new Map(plan.pages.map((p) => [p.page, p]));
 
@@ -240,8 +249,10 @@ const enginePages = new Map();
 const TAP_PAGE = process.env.RITO_WALK_TAP ? Number(process.env.RITO_WALK_TAP) : undefined;
 if (TAP_PAGE !== undefined) {
   // Record the organic paint pass of each spread as the walk reaches it:
-  // a full-canvas paintPage opens a pass and resets the log, so after a
-  // spread settles the log holds exactly its last complete paint.
+  // the page-ground fill opens a pass and resets the side translate, so
+  // after a spread settles the log holds exactly its last complete paint.
+  // The stream is the engine's device-resolved primitive list: every
+  // coordinate is a device pixel.
   await reader.evaluate(() => {
     const scope = globalThis;
     scope.__ritoTapLog = [];
@@ -251,20 +262,23 @@ if (TAP_PAGE !== undefined) {
       // screen shows their blit — an on-screen-only tap records nothing
       // at all (measured: a full walk's organic log came back empty).
       // Record every pass with its flag, keep the whole session (a
-      // paintPage reset raced the NEXT spread's pre-render and wiped
+      // page-ground reset raced the NEXT spread's pre-render and wiped
       // the page under observation), and let the analyst slice.
-      if (c.kind === 'paintPage') dx = 0;
-      if (c.kind === 'transform') {
-        for (const t of c.transforms ?? []) if (t.kind === 'translate') dx = t.dx;
-      } else if (c.rect) {
+      if (c.kind === 'fill-rect' && c.ground === 'page') dx = 0;
+      if (c.kind === 'translate') {
+        dx = c.dx;
+        return;
+      }
+      const rect = c.rect ?? c.dest;
+      if (rect) {
         scope.__ritoTapLog.push({
           dx,
           onScreen,
           kind: c.kind,
-          x: c.rect.x,
-          y: c.rect.y,
-          w: c.rect.width,
-          h: c.rect.height,
+          x: rect.x,
+          y: rect.y,
+          w: rect.width,
+          h: rect.height,
           text: (c.text ?? '').slice(0, 12),
         });
       }
@@ -335,16 +349,16 @@ const shootSpread = async (spreadIndex) => {
     return canvas.screenshot({ timeout: 90000 });
   });
   const png = PNG.sync.read(shot);
-  const rightX = png.width - pageW;
+  const rightX = png.width - pageWd;
   for (const side of ['left', 'right']) {
     const at = plan.pages.find((p) => p.spread === spreadIndex && p.side === side);
     if (!at || enginePages.has(at.page)) continue;
     const x0 = side === 'left' ? 0 : rightX;
-    const out = new PNG({ width: pageW, height: pageH });
-    for (let y = 0; y < pageH; y += 1) {
-      for (let x = 0; x < pageW; x += 1) {
+    const out = new PNG({ width: pageWd, height: pageHd });
+    for (let y = 0; y < pageHd; y += 1) {
+      for (let x = 0; x < pageWd; x += 1) {
         const si = (y * png.width + (x0 + x)) * 4;
-        const di = (y * pageW + x) * 4;
+        const di = (y * pageWd + x) * 4;
         for (let k = 0; k < 4; k += 1) out.data[di + k] = png.data[si + k];
       }
     }
@@ -364,11 +378,6 @@ const recoverToSpread = async (spreadIndex) => {
   await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
     timeout: 300000,
   });
-  await reader.waitForFunction(
-    () =>
-      document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-    { timeout: 300000 },
-  );
   await reader.addStyleTag({
     content: '[data-testid=engine-badge] { display: none !important; }',
   });
@@ -392,7 +401,7 @@ const recoverToSpread = async (spreadIndex) => {
 const paginationSignature = () =>
   reader.evaluate(() => {
     const r = window.__ritoController.reader;
-    return `${r.pages.length}|${[...r.chapterMap.entries()]
+    return `${r.pageCount}|${[...r.chapterMap.entries()]
       .map(([href, range]) => `${href}:${range.startPage}`)
       .join(',')}`;
   });
@@ -485,7 +494,7 @@ const truthColumns = new Map(); // idref -> PNG[] (one per column)
 const truthBrowser = await chromium.launch();
 const truthContext = await truthBrowser.newContext({
   viewport: { width: contentW + 200, height: contentH },
-  deviceScaleFactor: 1,
+  deviceScaleFactor: DSF,
   javaScriptEnabled: false,
 });
 const truth = await truthContext.newPage();
@@ -903,12 +912,12 @@ img { object-fit: contain; }`;
       const full = PNG.sync.read(await truth.screenshot({ fullPage: true }));
       for (let k = 0; k <= expected + 1; k += 1) {
         if (k >= vertical.pages.length) break;
-        const clipX = Math.round(vertical.pages[k] - contentW + docOffset);
-        const out = new PNG({ width: contentW, height: contentH });
-        for (let yy = 0; yy < contentH && yy < full.height; yy += 1) {
+        const clipX = Math.round((vertical.pages[k] - contentW + docOffset) * DSF);
+        const out = new PNG({ width: contentWd, height: contentHd });
+        for (let yy = 0; yy < contentHd && yy < full.height; yy += 1) {
           const srcStart = (yy * full.width + Math.max(0, clipX)) * 4;
-          const srcEnd = (yy * full.width + Math.min(full.width, clipX + contentW)) * 4;
-          if (srcEnd > srcStart) full.data.copy(out.data, yy * contentW * 4, srcStart, srcEnd);
+          const srcEnd = (yy * full.width + Math.min(full.width, clipX + contentWd)) * 4;
+          if (srcEnd > srcStart) full.data.copy(out.data, yy * contentWd * 4, srcStart, srcEnd);
         }
         columns.push(out);
       }
@@ -989,8 +998,8 @@ for (const chapter of plan.chapters) {
     // Compose the truth page: the page ground sampled from the engine's
     // own corner (theme paper), the column at the content origin.
     const ground = [engine.data[0], engine.data[1], engine.data[2]];
-    const truthPage = new PNG({ width: pageW, height: pageH });
-    for (let p = 0; p < pageW * pageH; p += 1) {
+    const truthPage = new PNG({ width: pageWd, height: pageHd });
+    for (let p = 0; p < pageWd * pageHd; p += 1) {
       const i = p * 4;
       truthPage.data[i] = ground[0];
       truthPage.data[i + 1] = ground[1];
@@ -998,10 +1007,10 @@ for (const chapter of plan.chapters) {
       truthPage.data[i + 3] = 255;
     }
     if (column) {
-      for (let y = 0; y < contentH; y += 1) {
-        for (let x = 0; x < column.width && MARGIN + x < pageW; x += 1) {
+      for (let y = 0; y < contentHd; y += 1) {
+        for (let x = 0; x < column.width && marginD + x < pageWd; x += 1) {
           const si = (y * column.width + x) * 4;
-          const di = ((MARGIN + y) * pageW + (MARGIN + x)) * 4;
+          const di = ((marginD + y) * pageWd + (marginD + x)) * 4;
           for (let j = 0; j < 4; j += 1) truthPage.data[di + j] = column.data[si + j];
         }
       }
@@ -1013,7 +1022,7 @@ for (const chapter of plan.chapters) {
     // reproduction models pixel-falsified (task dossier). A defect the
     // engine can act on moves ink, and moved ink exceeds that ceiling.
     let beyondFloor = 0;
-    for (let p = 0; p < pageW * pageH; p += 1) {
+    for (let p = 0; p < pageWd * pageHd; p += 1) {
       const i = p * 4;
       const delta = Math.max(
         Math.abs(engine.data[i] - truthPage.data[i]),
@@ -1045,7 +1054,7 @@ const lines = [
   '# Pixel walk: new engine vs Chromium, per page',
   '',
   `book: ${path.basename(bookPath)}`,
-  `gold standard: 0 diff pixels; page ${pageW}x${pageH}, content ${contentW}x${contentH}`,
+  `gold standard: 0 diff pixels; page ${pageW}x${pageH}, content ${contentW}x${contentH}, device scale ${DSF} (${pageWd}x${pageHd} device px)`,
   '',
   '## Chapter pagination drift (truth columns with ink − engine pages)',
   '',
@@ -1073,17 +1082,17 @@ results.forEach((r, rank) => {
   );
   if ((rank < GALLERY || bestNonzero.has(r.pageIndex)) && r.diff > 0) {
     const sep = 4;
-    const comp = new PNG({ width: pageW * 2 + sep, height: pageH });
+    const comp = new PNG({ width: pageWd * 2 + sep, height: pageHd });
     comp.data.fill(255);
-    for (let y = 0; y < pageH; y += 1) {
-      for (let x = 0; x < pageW; x += 1) {
-        const si = (y * pageW + x) * 4;
+    for (let y = 0; y < pageHd; y += 1) {
+      for (let x = 0; x < pageWd; x += 1) {
+        const si = (y * pageWd + x) * 4;
         const di = (y * comp.width + x) * 4;
         for (let j = 0; j < 4; j += 1) comp.data[di + j] = r.engine.data[si + j];
-        const di2 = (y * comp.width + pageW + sep + x) * 4;
+        const di2 = (y * comp.width + pageWd + sep + x) * 4;
         for (let j = 0; j < 4; j += 1) comp.data[di2 + j] = r.truthPage.data[si + j];
       }
-      for (let x = pageW; x < pageW + sep; x += 1) {
+      for (let x = pageWd; x < pageWd + sep; x += 1) {
         const di = (y * comp.width + x) * 4;
         comp.data[di] = 255;
         comp.data[di + 1] = 0;

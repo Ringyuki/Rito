@@ -53,17 +53,6 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = getShapeProvenanceDiagnosticAtRevisionJson)]
-    pub fn get_shape_provenance_diagnostic_at_revision_json(
-        &self,
-        revision_id: &str,
-        revision_version: u32,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .get_shape_provenance_diagnostic_at_revision_json(revision_id, revision_version)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = getStyleTableSummaryAtRevisionJson)]
     pub fn get_style_table_summary_at_revision_json(
         &self,

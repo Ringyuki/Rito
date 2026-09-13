@@ -1,4 +1,4 @@
-import type { ReaderProfileStageInput, ReaderProfileTransition } from './reader-profile-model';
+import type { ReaderProfileStageInput } from './reader-profile-model';
 import {
   buildTocSupersedeTransition,
   type ReaderProfileTocSupersedeTransitionInput,
@@ -13,16 +13,9 @@ import {
   type ReaderWorkerOperationObservation,
 } from './reader-worker-probe';
 
-const CONTINUATION_KINDS = [
-  'continueRevision',
-  'continueRevisionAfterTransferRelease',
-  'continueRevisionTowardSourceLocator',
-] as const;
-
 export function requireProfileProtocol(
   initial: InitialProfileResult,
   cached: TransitionProfileResult,
-  growth: TransitionProfileResult,
   supersede: TocSupersedeProfileResult,
   reflow: ReaderProfileStageInput,
   freshFar: FreshFarBootstrapResult,
@@ -32,19 +25,17 @@ export function requireProfileProtocol(
 ): void {
   requireKinds(initial.stage.operations, [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
     'getFootnotesAtRevision',
     'getChapterTextIndicesAtRevision',
   ]);
-  rejectKinds(cached.stage.operations, ['open', 'createBoundedRevision', ...CONTINUATION_KINDS]);
-  requireKinds(growth.stage.operations, ['warmFrameWindowAtRevision']);
-  requireAnyKind(growth.stage.operations, CONTINUATION_KINDS);
+  rejectKinds(cached.stage.operations, ['open', 'createRevision']);
   requireTocSupersede(supersede);
   requireKinds(reflow.operations, [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
   ]);
@@ -52,7 +43,6 @@ export function requireProfileProtocol(
   requireFarToc(farToc, supersede.transition.supersededHref);
   requireChapterLocalPreviewMode(previewMode, farToc, operations);
   rejectKinds(operations, ['createViewRevision']);
-  requireExtentGrowth(growth.transition);
   const failed = operations.filter((entry) => entry.ok === false);
   if (failed.length > 0) {
     throw new Error(`Reader profile observed failed worker operations: ${operationIds(failed)}`);
@@ -102,11 +92,8 @@ export function requireChapterLocalPreviewOperations(
 
 function requireTocSupersede(supersede: TocSupersedeProfileResult): void {
   const heldCategories = new Set(supersede.transition.heldResponses.map((entry) => entry.category));
-  if (
-    heldCategories.size !== supersede.transition.heldResponses.length ||
-    !heldCategories.has('mainContinuation')
-  ) {
-    throw new Error('Reader TOC supersede stage did not record one exact main response hold');
+  if (heldCategories.size !== supersede.transition.heldResponses.length) {
+    throw new Error('Reader TOC supersede stage recorded more than one response hold per category');
   }
   for (const held of supersede.transition.heldResponses) {
     const operation = supersede.stage.operations.find(
@@ -121,12 +108,6 @@ function requireTocSupersede(supersede: TocSupersedeProfileResult): void {
         `Reader TOC supersede stage did not complete held ${held.category} ${held.kind}#${String(held.requestId)}`,
       );
     }
-  }
-  const heldMain = supersede.transition.heldResponses.find(
-    (entry) => entry.category === 'mainContinuation',
-  );
-  if (heldMain?.requestId !== supersede.transition.heldContinuationRequestId) {
-    throw new Error('Reader TOC supersede legacy continuation id disagrees with held response');
   }
   requireChangedTocTarget(supersede.transition);
   requireTocSupersedeTimeline(supersede.transition);
@@ -149,7 +130,7 @@ export function requireTocSupersedeTimeline(input: ReaderProfileTocSupersedeTran
 function requireFreshFar(fresh: FreshFarBootstrapResult): void {
   requireKinds(fresh.stage.operations, [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
   ]);
@@ -180,7 +161,7 @@ function requireFreshFar(fresh: FreshFarBootstrapResult): void {
   if (
     open?.kind !== 'open' ||
     open.ok !== true ||
-    revision?.kind !== 'createBoundedRevision' ||
+    revision?.kind !== 'createRevision' ||
     revision.ok !== true ||
     open.workerId !== revision.workerId ||
     open.completedAt === null ||
@@ -195,7 +176,6 @@ function requireFarToc(farToc: FarTocProfileResult, intendedHref: string): void 
   if (farToc.transition.toHref !== intendedHref) {
     throw new Error('Reader fresh far-TOC stage targeted a different intended href');
   }
-  requireAnyKind(farToc.stage.operations, CONTINUATION_KINDS);
   if (farToc.stage.workerRequestsToFirstFrame < 1) {
     throw new Error('Reader far-TOC stage reached first frame without a worker request');
   }
@@ -212,17 +192,6 @@ function requireChangedTocTarget(transition: {
   }
   if (transition.checksumBefore === transition.checksumAfter) {
     throw new Error('Reader TOC profile did not paint different content');
-  }
-}
-
-export function requireIncompleteRevision(
-  operations: readonly ReaderWorkerOperationObservation[],
-): void {
-  const status = operations
-    .filter((entry) => entry.revision !== null && entry.revision.status !== null)
-    .at(-1)?.revision?.status;
-  if (status === 'complete') {
-    throw new Error('Reader profile fixture completed before deferred growth could be measured');
   }
 }
 
@@ -244,21 +213,6 @@ function rejectKinds(
   const found = operations.filter((entry) => rejected.includes(entry.kind));
   if (found.length > 0) {
     throw new Error(`Reader profile stage unexpectedly ran ${operationIds(found)}`);
-  }
-}
-
-function requireAnyKind(
-  operations: readonly ReaderWorkerOperationObservation[],
-  required: readonly string[],
-): void {
-  if (!operations.some((entry) => required.includes(entry.kind) && entry.ok === true)) {
-    throw new Error(`Reader profile stage did not complete any of ${required.join(', ')}`);
-  }
-}
-
-function requireExtentGrowth(transition: ReaderProfileTransition): void {
-  if (transition.knownSpreadCountAfter <= transition.knownSpreadCountBefore) {
-    throw new Error('Reader deferred-growth profile did not increase the known spread extent');
   }
 }
 

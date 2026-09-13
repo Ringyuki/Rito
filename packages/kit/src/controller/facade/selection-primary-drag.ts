@@ -121,7 +121,6 @@ function createPrimaryEdgeNavigation(
     getSurfaceRect: () => canvas.getBoundingClientRect(),
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => internals.reader.totalSpreads,
-    canGrowForward: () => internals.reader.pagination?.complete === false,
     navigate: (target, direction, point, signal) =>
       transferSelectionGesture(
         internals,

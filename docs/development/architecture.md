@@ -1,147 +1,120 @@
 # Architecture
 
-Rito's production engine is Rust. TypeScript provides the browser package
-facade and UI integration layers; the previous TypeScript engine is retained
-only as a source-level reference oracle.
+One Rust engine lays out and paints every page. Hosts transport its
+output and blit it; none of them owns a layout or paint rule.
 
-## Product Shape
-
-```text
-crates/rito-core/
-  EPUB/XHTML/CSS/style/layout/pagination
-  display commands, runtime revisions, frames, resources, search, geometry
-
-crates/rito-wasm/
-  thin wasm-bindgen boundary over rito-core
-
-packages/rito-core-wasm/
-  private WASM build and decoder workspace
-
-packages/rito/
-  public @ritojs/core reader facade
-  browser worker, resource, and Canvas bindings
-  source-only TypeScript reference implementation
-
-packages/kit/
-  framework-agnostic controller and interaction orchestration
-
-packages/react/
-  React lifecycle and state integration over core + kit
-
-apps/reader/
-  demonstration application
-```
-
-Application and integration layers depend toward the engine layers above them.
-Rust core never depends on browser, Canvas, React, or application code. The
-public core package must not depend on Kit or React.
-
-## Rust Core Boundaries
-
-`crates/rito-core` owns the production document model and policy:
-
-1. EPUB archive and publication parsing
-2. XHTML parsing and CSS/style resolution
-3. layout, line breaking, and pagination
-4. paint-ready display commands
-5. document, revision, frame, and resource lifecycle
-6. locator resolution, search, and interaction geometry
-
-Keep these layers explicit. Layout must not acquire browser or Canvas
-dependencies. Rendering payloads must be derived from typed paint-ready Rust
-models rather than reparsing CSS or reconstructing layout in JavaScript.
-
-The runtime boundary is a long-lived document handle. A layout change creates
-a revision, and clients request spread frames and resources for that revision.
-Page and spread indexes are revision-local; durable positions use source
-locators.
-
-## Browser Boundary
-
-`crates/rito-wasm` exposes a narrow browser-target binding. It translates
-typed Rust results into the transport representations consumed by the browser
-shell; it does not own reader policy.
-
-`packages/rito/src/bindings/browser/**` is the allowed browser-specific shell:
-
-- load the WASM module
-- run the document runtime in a Worker when available
-- transfer frame and resource payloads
-- register fonts and decode images with browser APIs
-- execute paint commands on Canvas
-
-Browser APIs such as `Worker`, `FontFace`, `createImageBitmap`, `Blob`, Canvas,
-and `document.fonts` stay in this binding layer. The shell must not duplicate
-pagination, navigation, cache, or revision policy that belongs in Rust.
-
-`RITOFCB2` is the packed frame-command ABI. Rust revision-cache entries serving
-production frame windows retain this packed owner without eagerly retaining the
-legacy JSON command tree; the browser separately keeps decoded Canvas frames.
-Exact JSON frames are derived from the immutable revision model on
-compatibility demand. `RITORB1` is an experimental, private metadata wire and
-must remain opt-in until real-session A/B testing shows no interaction
-regression. JSON and binary diagnostic views must derive from the same typed
-Rust model.
-
-## TypeScript Reference Boundary
-
-The historical TypeScript engine lives under:
+## Shape
 
 ```text
-packages/rito/src/reference/ts-core/**
+crates/rito-source           immutable XHTML source arena
+crates/rito-style-contract   typed, versioned style values and tables
+crates/rito-stylo            the Stylo cascade behind a private facade
+crates/rito-fragment         the layout contract: tree + constraints + break token -> fragments
+crates/rito-block            block flow, floats, tables, fragmentation into pages
+crates/rito-inline           Parley-backed inline flows
+crates/rito-core             EPUB, XHTML, style projection, the bridge, paint,
+                             lowering, the wire, interaction, resources, runtime
+crates/rito-wasm             wasm-bindgen facade over rito-core for the browser
+crates/rito-ffi              the C ABI actor for native hosts
+crates/rito-inline-spike     a line-break parity instrument, never a dependency
+
+packages/rito-core-wasm      private WASM build and decoder workspace
+packages/rito                @ritojs/core: the browser reader and Canvas pen
+packages/kit                 @ritojs/kit: controller, transitions, overlays
+packages/react               @ritojs/react: hooks and a mount component
+packages/rito_flutter        the Flutter adapter and pen (pub.dev)
+apps/reader                  the demo reader and its e2e harness
+tools/corpus-oracle          the pixel walk and corpus probes
+tools/paint-parity           the two-pen raster diff
 ```
 
-It exists for parity comparisons, golden generation, and focused diagnostics.
-It is not a production fallback and must not be imported by public package
-entries, Kit, React, or the demo app. The guarded Canvas presentation adapter
-is the current temporary exception and should remain explicit.
+Dependencies point toward the engine. The Rust crates never depend on
+browser, Canvas, React or application code; `@ritojs/core` never depends
+on kit or react.
 
-Do not recreate production implementations under root `src/parser`,
-`src/style`, `src/layout`, `src/render`, or `src/runtime`. Fixes learned from
-the reference implementation must be ported into Rust rather than making the
-reference tree authoritative again.
+## Rust engine boundaries
 
-## Public Package Boundary
+`rito-core` owns, in order:
 
-The public `@ritojs/core` package exposes the root reader facade and
-`./package.json` only. Its stable surface includes `createReader()`,
-`preloadReaderRuntime()`, reader types, and small reader-facing helpers.
+1. EPUB archive and publication parsing (`epub`)
+2. XHTML source trees and document semantics (`xhtml`, over `rito-source`)
+3. style resolution and the typed projection (`style`, over `rito-stylo`)
+4. the formatting tree and its capability gates (`fragment_bridge`)
+5. pagination through the fragment crates (`fragment_pagination`)
+6. paint: typed display commands from fragment trees (`fragment_paint`)
+7. lowering to device primitives and the `RITODL1` wire (`render`)
+8. document handles, revisions, frame caches, resources (`runtime`)
+9. locators, search, selection, annotations, footnotes (`interaction`)
 
-Legacy `web`, `advanced`, `integration`, `selection`, `search`, `annotations`,
-`position`, `a11y`, and `dom` subpaths are not public APIs. Controller-level
-selection, search, annotations, accessibility, storage, transitions, and DOM
-wiring belong in `@ritojs/kit`; React glue belongs in `@ritojs/react`.
+`layout` holds only the layout configuration and the page ranges a
+revision publishes per chapter. The `ENGINE_MODULES` inventory in
+`lib.rs` is checked by `tests/workspace_smoke.rs`.
 
-`packages/rito-core-wasm` is a private build workspace, not a runtime package.
-The `@ritojs/core` build bundles its JavaScript binding/decoder modules and
-copies the generated `.wasm` into the public package's `dist/`. Release pack
-checks reject private workspace runtime dependencies or imports and exercise an
-isolated install. The private workspace must not become an accidental fourth
-public package.
+The runtime boundary is a long-lived document handle. A layout change
+creates a revision; hosts request spread frames and resources against
+that revision. Page and spread indexes are revision-local; durable
+positions use source locators.
 
-## Required Invariants
+A revision holds its page table, not its pages: pagination is
+whole-book, so page numbers are final immediately, while the fragment
+trees and interaction artifacts behind those numbers are rebuilt into a
+bounded working set as queries reach them. Memory is therefore
+proportional to what is being read, not to the length of the book,
+which matters most in the browser, where a WebAssembly heap only grows
+and a peak becomes a floor.
 
-- Rust owns production parsing, style, layout, pagination, runtime, and
-  interaction geometry.
-- Layout code has no Canvas or browser dependencies.
-- JavaScript does not infer semantic targets from paint commands.
-- A frame and every resource lease are associated with a revision.
-- Stale revision responses cannot replace the active revision.
-- Revision and frame caches have explicit bounded lifecycles.
-- Public exports go through `packages/rito/src/index.ts` and stay small.
-- Source-only reference code never leaks into published entry points.
-- Debug JSON and compact wire formats derive from one typed model.
+## Host boundaries
 
-## Verification Strategy
+`rito-wasm` is a narrow binding: it serializes typed results and moves
+bytes across the boundary, and owns no reader policy. `rito-ffi` runs a
+session on one actor thread and exchanges fixed-width values and owned
+byte buffers; the artifact protocol (open, seek, adjacent turn,
+candidate adoption, background advance, resources) is the same one
+`openBrowserReaderSession()` exposes in the browser.
 
-Changes must be checked at each boundary:
+`packages/rito/src/bindings/browser/**` is the only place browser APIs
+live: it loads the WASM module, runs the document runtime in a Worker,
+transfers frame bytes and resources, registers fonts and decodes images,
+and blits primitives on Canvas. It must not paginate, parse CSS, place a
+glyph or infer semantics from paint.
 
-- Rust unit tests for parsing, layout, runtime, wire validation, and lifecycle
-- parity fixtures and render-command hashes against the TypeScript oracle
-- WASM build, decoder, and browser-worker tests
-- TypeScript architecture-invariant, integration, and public-API tests
-- Canvas pixel goldens and reader end-to-end tests
-- package tarball checks before release
+`rito_flutter` decodes the same owned wire messages in Dart and paints
+them with a `CustomPainter`; the engine is compiled by Flutter's Native
+Assets hook from the tracked Rust source closure.
 
-See [Current Development Status](./current-status.md) for the active migration
-handoff and [Testing Pipeline](./testing-pipeline.md) for the detailed gates.
+## Required invariants
+
+- Rust owns parsing, style, layout, pagination, paint and interaction
+  geometry; hosts blit.
+- Layout and paint code has no Canvas or browser dependency.
+- The display list is typed end to end; JSON exists only in the
+  test-support fixture codec.
+- The render module depends on no style, DOM or CSS engine.
+- A frame and every resource lease belong to a revision; a stale revision
+  response cannot replace the active one.
+- A page rebuilt into the working set is identical to the page the
+  whole-book pass produced; a disagreement fails the read.
+- Revision and frame caches have explicit lifecycles and budgeted
+  cleanup.
+- Public TypeScript exports go through `packages/rito/src/index.ts` and
+  stay small.
+- Engine, wire encoder and every decoder come from the same commit.
+
+The guards that enforce them are listed in
+[Verification Instruments](./verification-instruments.md#architecture-guards).
+
+## Verification strategy
+
+Every change is checked at the boundary it touches, and every layout or
+paint change is checked against the browser:
+
+- Rust unit and integration tests for parsing, style, layout, lowering,
+  wire validation and runtime lifecycle
+- WASM build, decoder and Worker tests; TypeScript architecture, unit and
+  integration tests; Dart protocol and pen tests
+- pixel goldens and reader end-to-end tests in Chromium
+- the pixel walk over real books against pinned Chromium and the two-pen
+  paint-parity diff
+
+See [Testing Pipeline](./testing-pipeline.md) and
+[Verification Instruments](./verification-instruments.md).

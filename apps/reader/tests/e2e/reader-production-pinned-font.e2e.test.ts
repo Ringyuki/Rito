@@ -29,7 +29,7 @@ test.describe('reader app production pinned fallback', () => {
     await reloadDemo(page);
     await forceTargetCanvasPaint(page);
 
-    // One app load opens more than one engine session (the bounded
+    // One app load opens more than one engine session (the revision
     // pagination session opens with the same policy), so the invariant is
     // buffer identity across EVERY open, not an exact open count.
     const probe = await waitForPolicyCycles(page, 2);

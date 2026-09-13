@@ -1,4 +1,4 @@
-import type { LogLevel, TextMeasurer } from '../../reader';
+import type { LogLevel } from '../../reader';
 
 export interface BrowserHostLogger {
   readonly debug: (message: string, ...args: readonly unknown[]) => void;
@@ -35,9 +35,3 @@ function consoleMethod(
     console[method](`[rito] ${message}`, ...args);
   };
 }
-
-export const fallbackBrowserTextMeasurer: TextMeasurer = {
-  measureText(text) {
-    return { width: text.length * 8, height: 16 };
-  },
-};

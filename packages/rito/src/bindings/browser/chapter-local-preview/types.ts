@@ -1,12 +1,10 @@
 import type { ReaderLocator, TocEntry } from '../../../reader';
 import type {
   BrowserReaderWorkerClient,
-  CoreBoundedChapterLocalRevisionRequest,
+  CoreChapterLocalRevisionRequest,
   CoreChapterLocalOwner,
-  CoreChapterLocalRevisionAdvance,
   CoreChapterLocalRevisionRelease,
-  CoreContinueChapterLocalRevisionRequest,
-  CoreContinuedChapterLocalRevisionAdvance,
+  CoreCreatedChapterLocalRevision,
   CoreLayoutConfig,
   CoreReaderChapterLocalFrame,
   CoreReaderChapterLocalMutationResult,
@@ -16,10 +14,8 @@ import type { BrowserReaderFrame } from '../reader/types';
 // Keep browser preview ownership on the canonical core-wasm protocol. These
 // aliases deliberately do not recreate a second wire contract in `rito`.
 export type BrowserReaderChapterLocalOwner = CoreChapterLocalOwner;
-export type BrowserReaderChapterLocalCreateRequest = CoreBoundedChapterLocalRevisionRequest;
-export type BrowserReaderChapterLocalContinueRequest = CoreContinueChapterLocalRevisionRequest;
-export type BrowserReaderChapterLocalAdvance = CoreChapterLocalRevisionAdvance;
-export type BrowserReaderContinuedChapterLocalAdvance = CoreContinuedChapterLocalRevisionAdvance;
+export type BrowserReaderChapterLocalCreateRequest = CoreChapterLocalRevisionRequest;
+export type BrowserReaderChapterLocalCreated = CoreCreatedChapterLocalRevision;
 export type BrowserReaderChapterLocalFrameBuffer = Pick<
   CoreReaderChapterLocalFrame,
   'owner' | 'localSpreadIndex' | 'metadata' | 'bytes'
@@ -28,20 +24,17 @@ export type BrowserReaderChapterLocalResolvedFrame = CoreReaderChapterLocalFrame
 export type BrowserReaderChapterLocalResourceBytes =
   CoreReaderChapterLocalFrame['resources'][number];
 export type BrowserReaderChapterLocalMutationResult<
-  Advance extends CoreChapterLocalRevisionAdvance = CoreChapterLocalRevisionAdvance,
-> = CoreReaderChapterLocalMutationResult<Advance>;
+  Created extends CoreCreatedChapterLocalRevision = CoreCreatedChapterLocalRevision,
+> = CoreReaderChapterLocalMutationResult<Created>;
 export type BrowserReaderChapterLocalRelease = CoreChapterLocalRevisionRelease;
 
 /** Optional Worker capability; absent clients take the ordinary absolute path only. */
 export interface BrowserReaderChapterLocalTransport {
   readonly workerSessionId: string;
   disposeSession(): void;
-  createBoundedChapterLocalRevision(
+  createChapterLocalRevision(
     request: BrowserReaderChapterLocalCreateRequest,
   ): Promise<BrowserReaderChapterLocalMutationResult>;
-  continueChapterLocalRevision(
-    request: BrowserReaderChapterLocalContinueRequest,
-  ): Promise<BrowserReaderChapterLocalMutationResult<BrowserReaderContinuedChapterLocalAdvance>>;
   releaseChapterLocalRevision(
     owner: BrowserReaderChapterLocalOwner,
   ): Promise<BrowserReaderChapterLocalRelease>;
@@ -57,7 +50,6 @@ export interface BrowserReaderChapterLocalPreviewRequest {
   readonly direction: 'forward' | 'backward';
   readonly layoutConfig: CoreLayoutConfig;
   readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: 'greedy' | 'optimal';
   readonly workerSessionId: string;
   readonly tocEntry: TocEntry | undefined;
   readonly transport: BrowserReaderChapterLocalTransport;
@@ -85,7 +77,5 @@ export interface BrowserReaderChapterLocalPreviewState {
 export type BrowserReaderChapterLocalCapableWorker = BrowserReaderWorkerClient &
   Pick<
     BrowserReaderChapterLocalTransport,
-    | 'createBoundedChapterLocalRevision'
-    | 'continueChapterLocalRevision'
-    | 'releaseChapterLocalRevision'
+    'createChapterLocalRevision' | 'releaseChapterLocalRevision'
   >;

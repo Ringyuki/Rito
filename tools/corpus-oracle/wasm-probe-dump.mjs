@@ -28,15 +28,11 @@ while (Date.now() - lastNav < 2000) await page.waitForTimeout(250);
 await page.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
 await page.setInputFiles('input[type=file]', path.resolve(bookPath));
 await page.waitForSelector('[data-testid=reader-shell][data-loaded=true]', { timeout: 300000 });
-await page.waitForFunction(
-  () => document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-  { timeout: 300000 },
-);
 await page.waitForTimeout(1500);
 
 if (warmFlag !== '--no-warm') {
   // Lazy font registrations reflow; traverse everything first like the walk.
-  const total = await page.evaluate(() => window.__ritoController.reader.spreads.length);
+  const total = await page.evaluate(() => window.__ritoController.reader.totalSpreads);
   for (let s = 0; s < total; s += 1) {
     await page.keyboard.press('ArrowRight');
     await page.waitForTimeout(120);

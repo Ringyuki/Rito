@@ -1,9 +1,10 @@
-import type {
-  ReaderLoadProfileReport,
-  ReaderProfileEnvironment,
-  ReaderProfileMilestones,
-  ReaderProfileStage,
-  ReaderProfileTransition,
+import {
+  READER_PROFILE_SCHEMA_VERSION,
+  type ReaderLoadProfileReport,
+  type ReaderProfileEnvironment,
+  type ReaderProfileMilestones,
+  type ReaderProfileStage,
+  type ReaderProfileTransition,
 } from './reader-profile-model';
 import type { ReaderUsabilityMetrics } from './reader-usability-metrics';
 
@@ -49,7 +50,7 @@ export function readerGateTestProfile(
 ): ReaderLoadProfileReport {
   const transition = profileTransition();
   return {
-    schemaVersion: 5,
+    schemaVersion: READER_PROFILE_SCHEMA_VERSION,
     generatedAt: '2026-07-16T00:00:00.000Z',
     environment: overrides.environment ?? READER_GATE_TEST_ENVIRONMENT,
     fixture: {
@@ -75,7 +76,6 @@ export function readerGateTestProfile(
     stages: {
       initial: profileStage(value),
       cachedTurn: profileStage(value),
-      deferredGrowth: profileStage(value),
       tocSupersede: profileStage(value),
       freshFarBootstrap: profileStage(value),
       farToc: { ...profileStage(value), workerRequestsToFirstFrame: value },
@@ -83,7 +83,6 @@ export function readerGateTestProfile(
     },
     transitions: {
       cachedTurn: transition,
-      deferredGrowth: transition,
       tocSupersede: {
         fromHref: 'chapter-2.xhtml',
         toHref: 'chapter-1.xhtml',
@@ -91,12 +90,11 @@ export function readerGateTestProfile(
         observedHrefs: ['chapter-1.xhtml'],
         observedHrefObservations: [{ href: 'chapter-1.xhtml', observedAt: 2 }],
         supersededAt: 1,
-        heldContinuationRequestId: 1,
         heldResponses: [
           {
             workerId: 1,
-            category: 'mainContinuation',
-            kind: 'continueRevision',
+            category: 'chapterLocalMutation',
+            kind: 'createChapterLocalRevision',
             requestId: 1,
             heldAt: 1,
             releasedAt: 2,
@@ -162,12 +160,11 @@ export function readerGateTestMetrics(value: number): ReaderUsabilityMetrics {
     navigationToFirstCanvasMs: value,
     startupMaxLongTaskMs: value,
     openRoundTripMs: value,
-    boundedToPresentationMs: value,
+    revisionToPresentationMs: value,
     frameWarmRoundTripMs: value,
     canvasReadyMs: value,
     cachedTurnFirstFrameMs: value,
     cachedTurnStableMs: value,
-    deferredGrowthFirstFrameMs: value,
     tocSupersedeFirstFrameMs: value,
     farTocFirstFrameMs: value,
     farTocWorkerRequestsToFirstFrame: value,
@@ -228,7 +225,7 @@ function profileMilestones(value: number): ReaderProfileMilestones {
   return {
     inputToOpenMs: 0,
     openRoundTripMs: value,
-    boundedToPresentationMs: value,
+    revisionToPresentationMs: value,
     frameWarmRoundTripMs: value,
     aggregateReadMs: 0,
     hostCommitGapMs: 0,
@@ -242,8 +239,8 @@ function profileTransition(): ReaderProfileTransition {
   return {
     fromSpread: 0,
     toSpread: 1,
-    knownSpreadCountBefore: 1,
-    knownSpreadCountAfter: 2,
+    spreadCountBefore: 1,
+    spreadCountAfter: 2,
     checksumBefore: 'before',
     checksumAfter: 'after',
   };

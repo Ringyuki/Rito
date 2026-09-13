@@ -35,10 +35,10 @@ import type {
 import {
   armReaderWorkerResponseHolds,
   captureReaderProbeCursor,
-  readHeldReaderWorkerContinuations,
+  readHeldReaderWorkerMutations,
   readReaderWorkerOperations,
   readReaderProbeSlice,
-  releaseHeldReaderWorkerContinuations,
+  releaseHeldReaderWorkerMutations,
   readerWorkerTocResponseHoldPlan,
   waitForHeldReaderWorkerResponses,
   waitForReaderProbeIdle,
@@ -83,8 +83,8 @@ export async function runTocSupersedeProfile(
     const chapterLocalPreviewEnabled =
       (await readReaderChapterLocalPreviewMode(page)) === 'enabled';
     const expectedHoldCategories = chapterLocalPreviewEnabled
-      ? (['mainContinuation', 'chapterLocalMutation'] as const)
-      : (['mainContinuation'] as const);
+      ? (['chapterLocalMutation'] as const)
+      : [];
     await armReaderWorkerResponseHolds(
       page,
       readerWorkerTocResponseHoldPlan(chapterLocalPreviewEnabled),
@@ -97,14 +97,12 @@ export async function runTocSupersedeProfile(
       READER_TOC_TIMEOUT_MS,
     );
     const startedAt = await clickReaderTocButtonAcceptedAt(firstTocButton(page), true);
-    await releaseHeldReaderWorkerContinuations(page);
+    await releaseHeldReaderWorkerMutations(page);
     const firstFrame = await waitForTocTargetFrame(page, nearHref, previousChecksum);
     const settled = await settleTocStage(page);
     const slice = await readReaderProbeSlice(page, cursor);
-    const releasedHolds = await readHeldReaderWorkerContinuations(page);
+    const releasedHolds = await readHeldReaderWorkerMutations(page);
     const observedHrefObservations = await stopReaderActiveHrefObserver(page);
-    const heldMain = held.find((entry) => entry.category === 'mainContinuation');
-    if (!heldMain) throw new Error('Reader TOC supersede stage did not hold main continuation');
     return {
       checksum: settled.checksum,
       stage: stageInput(slice, startedAt, firstFrame.capturedAt, settled.observedUntil),
@@ -117,14 +115,10 @@ export async function runTocSupersedeProfile(
         observedHrefs: observedHrefObservations.map((entry) => entry.href),
         observedHrefObservations,
         supersededAt: startedAt,
-        heldContinuationRequestId: heldMain.requestId,
         heldResponses: held.map(({ workerId, category, kind, requestId, heldAt }) => {
           const released = releasedHolds.find(
             (entry) =>
-              entry.workerId === workerId &&
-              entry.requestId === requestId &&
-              entry.kind === kind &&
-              entry.category === category,
+              entry.workerId === workerId && entry.requestId === requestId && entry.kind === kind,
           );
           if (released?.releasedAt === null || released?.releasedAt === undefined) {
             throw new Error(`Reader worker hold was not released: ${kind}#${String(requestId)}`);
@@ -141,7 +135,7 @@ export async function runTocSupersedeProfile(
       },
     };
   } finally {
-    await releaseHeldReaderWorkerContinuations(page);
+    await releaseHeldReaderWorkerMutations(page);
     await stopReaderActiveHrefObserver(page);
   }
 }
@@ -350,14 +344,12 @@ async function waitForTocTargetFrame(
     workerId: operation.workerId,
     requestId: operation.requestId,
     kind: operation.kind,
-    maxQuanta: operation.maxQuanta,
-    advancedQuanta: operation.advancedQuanta,
     requestedRevision: operation.requestedRevision,
     revision: operation.revision,
     ok: operation.ok,
     error: operation.error,
   }));
-  const heldResponses = (await readHeldReaderWorkerContinuations(page)).slice(-8);
+  const heldResponses = (await readHeldReaderWorkerMutations(page)).slice(-8);
   throw new Error(
     `Reader TOC target never painted: ${JSON.stringify({ expectedHref, previousChecksum, lastSample, shell, operations, heldResponses })}`,
   );

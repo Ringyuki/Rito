@@ -4,9 +4,9 @@ use std::{
 };
 
 use rito_core::runtime::{
-    ReaderAdjacentRequestV1, ReaderArtifactRequestV1, ReaderBackgroundHandoffV1,
-    ReaderBackgroundRequestV1, ReaderForegroundHandoffV1, ReaderResourceKindV1,
-    ReaderSearchRequestV1, ReaderTextRangeRequestV1, RuntimePinnedFontPolicyInput,
+    ReaderAdjacentRequest, ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
+    ReaderForegroundHandoff, ReaderResourceKind, ReaderSearchRequest, ReaderTextRangeRequest,
+    RuntimePinnedFontPolicyInput,
 };
 
 use crate::{
@@ -70,7 +70,7 @@ pub(crate) fn reserve_open(session_id: u64) -> Result<OpenReservation, FfiError>
 pub(crate) fn open(
     reservation: OpenReservation,
     publication: Vec<u8>,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Vec<u8>, FfiError> {
     let session_id = request.session_id;
@@ -94,7 +94,7 @@ fn start_registered(
     session_id: u64,
     generation: u64,
     publication: Vec<u8>,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Receiver<InitialArtifactReply>, FfiError> {
     let mut registry = lock_registry();
@@ -125,7 +125,9 @@ fn receive_initial(
     initial_artifact: Receiver<InitialArtifactReply>,
 ) -> Result<Vec<u8>, FfiError> {
     match initial_artifact.recv() {
-        Ok(InitialArtifactReply::Ready(result)) if mark_ready(session_id, generation) => result,
+        Ok(InitialArtifactReply::Ready(artifact)) if mark_ready(session_id, generation) => {
+            Ok(artifact)
+        }
         Ok(InitialArtifactReply::Ready(_)) => {
             join_failed(session_id, generation);
             Err(FfiError::not_found(format!(
@@ -200,49 +202,49 @@ pub(crate) fn try_admit(session_id: u64) -> Result<CommandAdmission, FfiError> {
 
 pub(crate) fn request_artifact(
     admission: CommandAdmission,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_artifact(admission, request)
 }
 
 pub(crate) fn request_adjacent(
     admission: CommandAdmission,
-    request: ReaderAdjacentRequestV1,
+    request: ReaderAdjacentRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_adjacent(admission, request)
 }
 
 pub(crate) fn peek_adjacent(
     admission: CommandAdmission,
-    request: ReaderAdjacentRequestV1,
+    request: ReaderAdjacentRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::peek_adjacent(admission, request)
 }
 
 pub(crate) fn adopt_foreground_candidate(
     admission: CommandAdmission,
-    request: ReaderForegroundHandoffV1,
+    request: ReaderForegroundHandoff,
 ) -> Result<Vec<u8>, FfiError> {
     actor::adopt_foreground_candidate(admission, request)
 }
 
 pub(crate) fn commit_peeked_artifact(
     admission: CommandAdmission,
-    request: ReaderForegroundHandoffV1,
+    request: ReaderForegroundHandoff,
 ) -> Result<Vec<u8>, FfiError> {
     actor::commit_peeked_artifact(admission, request)
 }
 
 pub(crate) fn advance_background(
     admission: CommandAdmission,
-    request: ReaderBackgroundRequestV1,
+    request: ReaderBackgroundRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::advance_background(admission, request)
 }
 
 pub(crate) fn adopt_background_candidate(
     admission: CommandAdmission,
-    request: ReaderBackgroundHandoffV1,
+    request: ReaderBackgroundHandoff,
 ) -> Result<Vec<u8>, FfiError> {
     actor::adopt_background_candidate(admission, request)
 }
@@ -254,7 +256,7 @@ pub(crate) fn read_publication(admission: CommandAdmission) -> Result<Vec<u8>, F
 pub(crate) fn read_resource(
     admission: CommandAdmission,
     artifact_id: u64,
-    kind: ReaderResourceKindV1,
+    kind: ReaderResourceKind,
     href: String,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_resource(admission, artifact_id, kind, href)
@@ -262,14 +264,14 @@ pub(crate) fn read_resource(
 
 pub(crate) fn search(
     admission: CommandAdmission,
-    request: ReaderSearchRequestV1,
+    request: ReaderSearchRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_search(admission, request)
 }
 
 pub(crate) fn text_range_geometry(
     admission: CommandAdmission,
-    request: ReaderTextRangeRequestV1,
+    request: ReaderTextRangeRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_text_range_geometry(admission, request)
 }

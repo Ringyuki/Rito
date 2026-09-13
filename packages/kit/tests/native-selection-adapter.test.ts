@@ -4,10 +4,8 @@ import type {
   ReaderTextRange,
   ReaderTextCaret,
   ReaderTextSelectionInteractions,
-  TextMeasurer,
 } from '@ritojs/core';
 import { createSelectionEngine } from '../src/interaction';
-import type { Spread } from '../src/interaction';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 import type { NativeSelectionProjection } from '../src/interaction/selection/engine';
 import {
@@ -25,21 +23,6 @@ import {
   flushMicrotasks,
 } from './helpers/native-selection';
 
-const config = createLayoutConfig({
-  width: 620,
-  height: 400,
-  margin: 0,
-  spread: 'double',
-  spreadGap: 20,
-});
-const spread: Spread = {
-  index: 0,
-  left: { index: 0, bounds: rect(0, 0), content: [] },
-  right: { index: 1, bounds: rect(0, 0), content: [] },
-};
-const measurer: TextMeasurer = {
-  measureText: (text) => ({ width: text.length * 10, height: 20 }),
-};
 const projection: NativeSelectionProjection = {
   spreadContentToPage(x, y) {
     if (x >= 320 && x <= 620) return { pageIndex: 1, x: x - 320, y };
@@ -63,7 +46,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 10, y: 12 });
     const lease = captureSelectionGesture(engine);
@@ -87,7 +70,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
     await flushMicrotasks();
@@ -111,7 +94,7 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getState()).toBe('selected');
   });
 
-  it('maps right-page points and exact rects without exposing a legacy range', async () => {
+  it('maps right-page points and projects exact rects into spread-content space', async () => {
     const anchor = caret(10, 1);
     const focus = caret(40, 1);
     const range = exactRange(anchor, focus);
@@ -125,7 +108,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 330, y: 12 });
     engine.handlePointerUp({ x: 360, y: 12 });
@@ -143,8 +126,6 @@ describe('native SelectionEngine adapter', () => {
     });
     expect(engine.getState()).toBe('selected');
     expect(engine.hasSelection()).toBe(true);
-    expect(engine.getSelection()).toBeNull();
-    expect(engine.getSnapshot()).toBeNull();
     expect(engine.getText()).toBe('exact text');
     expect(engine.getSourceLocator()).toEqual(range.sourceLocator);
     expect(engine.getRects()).toEqual([{ x: 330, y: 2, width: 30, height: 18 }]);
@@ -170,7 +151,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 390, y: 12 });
     engine.handlePointerUp({ x: 6, y: 12 });
@@ -205,7 +186,7 @@ describe('native SelectionEngine adapter', () => {
         .mockResolvedValue({ status: 'resolved', range: baseline }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
     await flushMicrotasks();
     engine.handlePointerUp({ x: 10, y: 12 });
@@ -245,7 +226,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
     engine.handlePointerUp({ x: 10, y: 12 });
     await flushMicrotasks();
@@ -261,7 +242,7 @@ describe('native SelectionEngine adapter', () => {
     stop();
   });
 
-  it('keeps capability presence authoritative when the native revision is unavailable', async () => {
+  it('settles empty when the native revision is unavailable', async () => {
     const resolveTextRange = vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>();
     const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn().mockResolvedValue(undefined),
@@ -269,7 +250,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 10, y: 12 });
     engine.handlePointerUp({ x: 50, y: 12 });
@@ -300,7 +281,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 1, y: 10 });
     engine.handlePointerUp({ x: 330, y: 10 });
@@ -311,37 +292,6 @@ describe('native SelectionEngine adapter', () => {
       { x: 321, y: 2, width: 30, height: 18 },
     ]);
     expect(engine.getFocusRect()).toEqual({ x: 330, y: 0, width: 0, height: 18 });
-  });
-
-  it('forwards an append revision and replays the latest projected sample', async () => {
-    const range = exactRange(caret(10), caret(40));
-    const resolveTextRangeFromPoints = vi
-      .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
-      .mockResolvedValue({ status: 'resolved', range });
-    const capability = capabilityWithRangeToPoint({
-      resolveCaret: vi.fn(),
-      resolveTextRange: vi.fn(),
-      resolveTextRangeFromPoints,
-    });
-    const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
-    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
-    await flushMicrotasks();
-    engine.handlePointerMove({ x: 40, y: 12 });
-    await flushMicrotasks();
-
-    engine.acceptRevisionAppend();
-    await flushMicrotasks();
-
-    expect(resolveTextRangeFromPoints).toHaveBeenCalledTimes(3);
-    expect(resolveTextRangeFromPoints).toHaveBeenLastCalledWith({
-      anchor: { pageIndex: 0, x: 10, y: 12 },
-      focus: { pageIndex: 0, x: 40, y: 12 },
-      granularity: 'paragraph',
-    });
-    expect(engine.getState()).toBe('selecting');
-    expect(engine.getText()).toBe('exact text');
-    expect(engine.getRects()).toEqual([{ x: 330, y: 2, width: 30, height: 18 }]);
   });
 
   it('reprojects only the exact active primary gesture authorized by its lease', async () => {
@@ -361,14 +311,14 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.setSpread(singlePageProjection(0));
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
     await flushMicrotasks();
     const lease = captureSelectionGesture(engine);
     if (!lease) throw new Error('missing active primary selection lease');
 
     withSelectionGestureProjection(engine, lease, () => {
-      engine.setSpread(spread, config, measurer, singlePageProjection(1));
+      engine.setSpread(singlePageProjection(1));
     });
     engine.handlePointerMove({ x: 80, y: 12 });
     await flushMicrotasks();
@@ -388,27 +338,7 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getState()).toBe('selected');
   });
 
-  it('does not let the handle-only compatibility flag preserve a primary gesture', async () => {
-    const range = exactRange(caret(10), caret(20));
-    const capability = capabilityWithRangeToPoint({
-      resolveCaret: vi.fn(),
-      resolveTextRange: vi.fn(),
-      resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
-    });
-    const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, singlePageProjection(0));
-    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
-    await flushMicrotasks();
-
-    engine.setSpread(spread, config, measurer, singlePageProjection(1), {
-      preserveNativeHandleDrag: true,
-    });
-
-    expect(engine.getState()).toBe('idle');
-    expect(engine.hasSelection()).toBe(false);
-  });
-
-  it('reprojects an active handle session onto a known spread without invalidating it', async () => {
+  it('reprojects an active handle session onto a known spread through its lease', async () => {
     const start = caret(10);
     const end = caret(40);
     const movedEnd = caret(80, 1);
@@ -425,15 +355,17 @@ describe('native SelectionEngine adapter', () => {
         .mockResolvedValue({ status: 'resolved', range: baseline }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.setSpread(singlePageProjection(0));
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
     engine.handlePointerUp({ x: 10, y: 12 });
     await flushMicrotasks();
 
     const drag = engine.beginHandleDrag('end');
     expect(drag).not.toBeNull();
-    engine.setSpread(spread, config, measurer, singlePageProjection(1), {
-      preserveNativeHandleDrag: true,
+    const lease = captureSelectionGesture(engine);
+    if (!lease) throw new Error('missing active handle lease');
+    withSelectionGestureProjection(engine, lease, () => {
+      engine.setSpread(singlePageProjection(1));
     });
 
     expect(engine.getState()).toBe('selecting');
@@ -457,7 +389,7 @@ describe('native SelectionEngine adapter', () => {
     });
   });
 
-  it('does not preserve a retained range when no handle session owns the transfer', async () => {
+  it('discards a committed selection when the spread changes without a gesture lease', async () => {
     const range = exactRange(caret(10), caret(40));
     const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn(),
@@ -465,14 +397,12 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.setSpread(singlePageProjection(0));
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
     engine.handlePointerUp({ x: 10, y: 12 });
     await flushMicrotasks();
 
-    engine.setSpread(spread, config, measurer, singlePageProjection(1), {
-      preserveNativeHandleDrag: true,
-    });
+    engine.setSpread(singlePageProjection(1));
 
     expect(engine.getState()).toBe('idle');
     expect(engine.hasSelection()).toBe(false);
@@ -488,11 +418,11 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
     engine.handlePointerDown({ x: 10, y: 12 });
     engine.handlePointerUp({ x: 50, y: 12 });
 
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
     pending.resolve({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: caret(10) });
     await flushMicrotasks();
 
@@ -514,7 +444,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
     engine.handlePointerDown({ x: 10, y: 12 });
 
     engine.dispose();
@@ -551,15 +481,15 @@ describe('native SelectionEngine adapter', () => {
       margin: 0,
       spread: 'single',
     });
-    const singleSpread: Spread = {
-      index: 0,
-      left: { index: 0, bounds: rect(0, 0), content: [] },
-    };
-    const singleMapper = createCoordinateMapper(singleConfig, singleSpread, 1);
+    const singleMapper = createCoordinateMapper(
+      singleConfig,
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      1,
+    );
     const engine = createSelectionEngine(capability);
     const onError = vi.fn();
     engine.onError(onError);
-    engine.setSpread(singleSpread, singleMapper.selectionConfig, measurer, singleMapper);
+    engine.setSpread(singleMapper);
 
     engine.handlePointerDown({ x: 1, y: 10 }, 'paragraph');
     engine.handlePointerUp({ x: 1, y: 10 });
@@ -597,7 +527,7 @@ describe('native SelectionEngine adapter', () => {
       resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(projection);
 
     engine.handlePointerDown({ x: 1, y: 10 }, 'paragraph');
     engine.handlePointerUp({ x: 1, y: 10 });
@@ -605,10 +535,6 @@ describe('native SelectionEngine adapter', () => {
 
     expect(engine.getSourceSpan()).toEqual(range.sourceSpan);
     expect(engine.getSourceLocator()).toBeNull();
-  });
-
-  it('does not synthesize exact handle carets for the legacy layout path', () => {
-    expect(createSelectionEngine().getHandleCarets()).toBeNull();
   });
 });
 
@@ -638,10 +564,6 @@ function exactRange(
     },
     rects: [{ pageIndex: 1, spreadIndex: 0, x: 10, y: 2, width: 30, height: 18 }],
   };
-}
-
-function rect(x: number, y: number) {
-  return { x, y, width: 300, height: 400 };
 }
 
 function singlePageProjection(pageIndex: number): NativeSelectionProjection {

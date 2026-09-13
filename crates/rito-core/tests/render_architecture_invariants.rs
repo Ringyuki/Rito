@@ -7,9 +7,8 @@ const FORBIDDEN_RENDER_DEPENDENCIES: &[(&str, &str)] = &[
     ("rito_stylo", "the Stylo adapter"),
     ("rito_style_contract", "the style-engine contract crate"),
     ("crate::style", "the legacy style module"),
-    ("crate::css", "the legacy CSS module"),
     (
-        "InlineFormattingStyleV1",
+        "InlineFormattingStyle",
         "the computed inline-style contract",
     ),
     ("ComputedValues", "Stylo computed values"),
@@ -63,16 +62,16 @@ fn render_text_commands_keep_the_typed_run_paint_input() {
     let source = fs::read_to_string(&commands_path)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", commands_path.display()));
     let compact = without_whitespace(&source);
-    let input = compact_struct_body(&compact, "pub(crate)structDisplayTextCommandInput{");
+    let input = compact_struct_body(&compact, "pub(crate)structDisplayTextCommand{");
 
     assert!(
         input.contains("pubpaint:RunPaint,"),
-        "DisplayTextCommandInput.paint must remain RunPaint: {input}",
+        "DisplayTextCommand.paint must remain RunPaint: {input}",
     );
     assert!(
-        compact.contains("PaintText(DisplayTextCommandInput)")
-            && compact.contains("PaintRuby(DisplayTextCommandInput)"),
-        "PaintText and PaintRuby must both consume DisplayTextCommandInput",
+        compact.contains("PaintText(DisplayTextCommand)")
+            && compact.contains("PaintRuby(DisplayTextCommand)"),
+        "PaintText and PaintRuby must both consume DisplayTextCommand",
     );
 }
 
@@ -148,6 +147,18 @@ fn collect_rust_sources(directory: &Path, paths: &mut Vec<PathBuf>) {
 
     for entry in entries {
         let path = entry.path();
+        // Test modules are instruments, not the render boundary: a fixture
+        // writer may read the style contract and traverse JSON. The crate
+        // names its `#[cfg(test)]` fixture builders `test_support`.
+        let is_test_module = path.file_name().is_some_and(|name| {
+            name == "tests"
+                || name == "tests.rs"
+                || name == "test_support"
+                || name == "test_support.rs"
+        });
+        if is_test_module {
+            continue;
+        }
         if path.is_dir() {
             collect_rust_sources(&path, paths);
         } else if path.extension().is_some_and(|extension| extension == "rs") {

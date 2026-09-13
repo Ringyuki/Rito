@@ -1,108 +1,27 @@
 import 'display_geometry.dart';
 import 'display_paint.dart';
 
-final class RitoDisplayList {
-  RitoDisplayList({
-    required this.formatVersion,
-    required List<RitoCommand> commands,
-  }) : commands = List<RitoCommand>.unmodifiable(commands);
-
-  final int formatVersion;
-  final List<RitoCommand> commands;
-
-  int get commandCount => commands.length;
-}
-
-sealed class RitoCommand {
-  const RitoCommand();
-
-  int get opcode;
-}
-
-final class RitoPushState extends RitoCommand {
-  const RitoPushState();
-
-  @override
-  int get opcode => 1;
-}
-
-final class RitoPopState extends RitoCommand {
-  const RitoPopState();
-
-  @override
-  int get opcode => 2;
-}
-
-final class RitoTranslate extends RitoCommand {
-  const RitoTranslate({required this.dx, required this.dy});
-
-  final double dx;
-  final double dy;
-
-  @override
-  int get opcode => 3;
-}
-
-final class RitoOpacity extends RitoCommand {
-  const RitoOpacity(this.value);
-
-  final double value;
-
-  @override
-  int get opcode => 4;
-}
-
-final class RitoTransform extends RitoCommand {
-  RitoTransform({
-    required this.origin,
-    required this.boxSize,
-    required List<RitoTransformOperation> transforms,
-  }) : transforms = List<RitoTransformOperation>.unmodifiable(transforms);
-
-  final RitoDisplayPoint origin;
-  final RitoDisplaySize boxSize;
-  final List<RitoTransformOperation> transforms;
-
-  @override
-  int get opcode => 5;
-}
-
-final class RitoClipRect extends RitoCommand {
-  const RitoClipRect({required this.rect, this.radius});
-
-  final RitoDisplayRect rect;
-  final RitoCornerRadius? radius;
-
-  @override
-  int get opcode => 6;
-}
-
-final class RitoPaintPage extends RitoCommand {
-  const RitoPaintPage({required this.rect, required this.paint});
-
-  final RitoDisplayRect rect;
-  final RitoPagePaint paint;
-
-  @override
-  int get opcode => 7;
-}
-
-final class RitoPaintBlock extends RitoCommand {
-  const RitoPaintBlock({
-    required this.rect,
-    required this.paint,
-    this.borderBox,
+/// The text run body the `RITODL1` text and ruby primitives carry: every
+/// length is in CSS pixels, painted under the list's ratio.
+/// Where one cluster of a run paints: the origin of the cluster starting
+/// at [byte] of the run's text, in CSS pixels, spacing and justification
+/// already applied.
+/// Where one cluster of a run paints: the origin of the cluster starting
+/// at [byte] of the run's UTF-8 text — [y] is the alphabetic baseline,
+/// for a text run and an annotation alike.
+final class RitoClusterPosition {
+  const RitoClusterPosition({
+    required this.byte,
+    required this.x,
+    required this.y,
   });
 
-  final RitoDisplayRect rect;
-  final RitoBlockPaint paint;
-  final RitoBorderBox? borderBox;
-
-  @override
-  int get opcode => 8;
+  final int byte;
+  final double x;
+  final double y;
 }
 
-sealed class RitoTextPaintCommand extends RitoCommand {
+sealed class RitoTextPaintCommand {
   const RitoTextPaintCommand({
     required this.text,
     required this.rect,
@@ -111,7 +30,7 @@ sealed class RitoTextPaintCommand extends RitoCommand {
     this.href,
     this.sourceText,
     this.sourceTextOffset,
-    this.rubyAlign,
+    this.clusters = const <RitoClusterPosition>[],
   });
 
   final String text;
@@ -122,9 +41,9 @@ sealed class RitoTextPaintCommand extends RitoCommand {
   final String? sourceText;
   final int? sourceTextOffset;
 
-  /// The annotation's computed `ruby-align` keyword, when the engine
-  /// sends one (wire tail field added with the ruby-align law).
-  final String? rubyAlign;
+  /// The origin of every cluster in text order; empty only for a run the
+  /// pen still places itself.
+  final List<RitoClusterPosition> clusters;
 }
 
 final class RitoPaintText extends RitoTextPaintCommand {
@@ -136,11 +55,8 @@ final class RitoPaintText extends RitoTextPaintCommand {
     super.href,
     super.sourceText,
     super.sourceTextOffset,
-    super.rubyAlign,
+    super.clusters,
   });
-
-  @override
-  int get opcode => 9;
 }
 
 final class RitoPaintRuby extends RitoTextPaintCommand {
@@ -152,42 +68,6 @@ final class RitoPaintRuby extends RitoTextPaintCommand {
     super.href,
     super.sourceText,
     super.sourceTextOffset,
-    super.rubyAlign,
+    super.clusters,
   });
-
-  @override
-  int get opcode => 10;
-}
-
-final class RitoPaintImage extends RitoCommand {
-  const RitoPaintImage({
-    required this.src,
-    required this.rect,
-    this.alt,
-    this.href,
-    this.sourceRect,
-  });
-
-  final String src;
-  final RitoDisplayRect rect;
-  final String? alt;
-  final String? href;
-
-  /// Raster sub-region to sample instead of the full bitmap — the
-  /// clamp-bleed guard an SVG letterbox needs (see the engine's
-  /// append_image_command).
-  final RitoDisplayRect? sourceRect;
-
-  @override
-  int get opcode => 11;
-}
-
-final class RitoPaintHorizontalRule extends RitoCommand {
-  const RitoPaintHorizontalRule({required this.rect, required this.paint});
-
-  final RitoDisplayRect rect;
-  final RitoHorizontalRulePaint paint;
-
-  @override
-  int get opcode => 12;
 }

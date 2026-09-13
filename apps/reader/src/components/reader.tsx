@@ -10,7 +10,6 @@ import { LinkDialog } from '@/components/link-dialog';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ReaderContextMenu } from '@/components/reader-context-menu';
 import { type useReader } from '@/hooks/use-reader';
-import { EngineBadge } from '@/components/engine-badge';
 import { Button } from '@/components/ui/button';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 
@@ -45,12 +44,10 @@ export function Reader({
       data-loading={reader.isLoading ? 'true' : 'false'}
       data-current-spread={reader.currentSpread}
       data-total-spreads={reader.totalSpreads}
-      data-pagination-complete={reader.controller?.paginationComplete === true ? 'true' : 'false'}
       data-transitioning={reader.isTransitioning ? 'true' : 'false'}
       data-book-title={reader.bookTitle}
       data-active-chapter-href={reader.activeChapterHref}
       data-spread-mode={reader.spreadMode}
-      data-line-breaking={reader.lineBreaking}
       data-theme={theme}
       data-search-query={reader.search.query}
       data-search-results={reader.search.results.length}
@@ -64,7 +61,6 @@ export function Reader({
       data-render-scale={reader.controller?.renderScale ?? ''}
       className="relative flex flex-1 bg-muted/30 select-none"
     >
-      <EngineBadge />
       {reader.isLoading && (
         <div
           data-testid="reader-loading"

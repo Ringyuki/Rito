@@ -96,7 +96,7 @@ fn open_document_with_chapter_loading_owned(
         images,
         chapters,
         archive_source: Some(LoadedArchiveSource {
-            bytes: Arc::from(bytes),
+            bytes: Arc::new(bytes),
             opf_dir: opf_dir.to_owned(),
             archive_image_entries,
         }),

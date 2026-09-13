@@ -52,7 +52,7 @@ controller.goToSpread(0);
 
 - [Kit Integration Guide](https://github.com/Ringyuki/Rito/blob/master/docs/integrations/kit.md)
 - [Reader API](https://github.com/Ringyuki/Rito/blob/master/docs/api/reader.md)
-- [Specialized Subpaths](https://github.com/Ringyuki/Rito/blob/master/docs/api/subpaths.md)
+- [Public Entry](https://github.com/Ringyuki/Rito/blob/master/docs/api/subpaths.md)
 
 ## Related Packages
 

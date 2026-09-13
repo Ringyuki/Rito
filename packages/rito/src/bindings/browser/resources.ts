@@ -10,11 +10,6 @@ import type {
   CoreRevisionHandle,
   CoreResourceKind,
 } from './core-contracts';
-import {
-  ensureHostFontFamilyMetrics,
-  ensureHostFontVerticalMetrics,
-  ensureHostGenericSerifMetrics,
-} from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './reader-host-tasks';
 import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
@@ -55,51 +50,30 @@ export interface BrowserReaderMissingFrameResource {
   readonly message: string;
 }
 
-export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
-  const verticalDemands = state.revisionBundle.fontVerticalMetricDemands ?? [];
-  if (state.pinnedFonts.summary.faces.length > 0) {
-    return ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, verticalDemands);
-  }
+export async function preloadReaderFonts(state: BrowserReaderState): Promise<void> {
+  if (state.pinnedFonts.summary.faces.length > 0) return;
   const revision = state.revisionHandle;
-  if (!revision) return false;
+  if (!revision) return;
   const worker = state.worker;
   if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision))
-    return false;
+    return;
   const registeredBefore = state.registeredFontFaces.size;
-  let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
-  const publicationFontsReady = await prepareBrowserReaderRevisionFonts(
-    state,
-    worker,
-    revision,
-    () => isCurrentRevisionHandle(state, revision),
+  await prepareBrowserReaderRevisionFonts(state, worker, revision, () =>
+    isCurrentRevisionHandle(state, revision),
   );
-  if (!isCurrentRevisionHandle(state, revision)) return false;
-  if (publicationFontsReady) {
-    metricsChanged =
-      ensureHostFontFamilyMetrics(
-        state.fontMetrics,
-        state.ctx,
-        [...state.registeredFontFaces.values()].map((face) => face.family),
-      ) || metricsChanged;
-    metricsChanged =
-      ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, verticalDemands) ||
-      metricsChanged;
-  }
+  if (!isCurrentRevisionHandle(state, revision)) return;
   if (state.registeredFontFaces.size > registeredBefore) {
     for (const spreadIndex of [...state.frames.keys()])
       notifySpreadContentInvalidated(state, spreadIndex);
   }
-  return metricsChanged;
 }
 
-export async function preloadCurrentReaderFonts(state: BrowserReaderState): Promise<boolean> {
+export async function preloadCurrentReaderFonts(state: BrowserReaderState): Promise<void> {
   let revision: BrowserReaderRevisionHandle | undefined;
-  let metricsChanged = false;
   do {
     revision = state.revisionHandle;
-    metricsChanged = (await preloadReaderFonts(state)) || metricsChanged;
+    await preloadReaderFonts(state);
   } while (!state.disposed && revision !== state.revisionHandle);
-  return metricsChanged;
 }
 
 export async function preloadFrameResourceBytes(
@@ -147,15 +121,39 @@ export function markSpreadImageResourcesSettled(
   revision: BrowserReaderRevisionHandle,
   spreadIndex: number,
 ): boolean {
-  const key = JSON.stringify([
+  const key = spreadImageSettlementKey(revision, spreadIndex);
+  if (state.settledImageResourceSpreads.has(key)) return false;
+  state.settledImageResourceSpreads.add(key);
+  return true;
+}
+
+/**
+ * Re-arms a spread's settlement notice: a paint that had to skip an
+ * undecoded image (the bitmap evicted under the byte budget after the
+ * spread once settled, then wanted again) needs the next settlement to
+ * invalidate it, and the once-latch set by the earlier settlement would
+ * otherwise keep that repaint quiet forever — the spread stayed on its
+ * degraded paint, an illustration page blank, on every book whose
+ * plates outgrow the budget between a traversal and a return.
+ */
+export function unmarkSpreadImageResourcesSettled(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  spreadIndex: number,
+): void {
+  state.settledImageResourceSpreads.delete(spreadImageSettlementKey(revision, spreadIndex));
+}
+
+function spreadImageSettlementKey(
+  revision: BrowserReaderRevisionHandle,
+  spreadIndex: number,
+): string {
+  return JSON.stringify([
     revision.workerSessionId,
     revision.revisionId,
     revision.revisionVersion,
     spreadIndex,
   ]);
-  if (state.settledImageResourceSpreads.has(key)) return false;
-  state.settledImageResourceSpreads.add(key);
-  return true;
 }
 
 export function frameImageResourcesAreLoadingOrSettled(

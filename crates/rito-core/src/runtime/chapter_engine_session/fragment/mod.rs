@@ -12,9 +12,9 @@
 
 mod movement;
 
-use std::{collections::BTreeMap, ops::Range};
+use std::{collections::BTreeMap, ops::Range, rc::Rc};
 
-use movement::{build_scope_page, move_focus, Moved, MovementRequest, StreamPosition};
+use movement::{move_focus, Moved, MovementRequest, ScopePages, StreamPosition};
 
 use crate::interaction::{
     plain_word_bounds, TextCaretAddress, TextCaretAffinity, TextCaretGeometry,
@@ -24,12 +24,16 @@ use crate::interaction::{
 use super::super::page_artifact::{
     PageArtifactTextSelectionMovement, PageArtifactTextSelectionMovementTarget,
 };
-use crate::layout::{build_spread_slots, SpreadMode};
-use crate::render::DisplayCommand;
+use crate::layout::SpreadMode;
+use crate::render::{
+    contract::{ReaderBlockPaint, ReaderColor},
+    display_number, display_rect, DisplayCommand,
+};
+use crate::runtime::spread::build_spread_slots;
 
 use super::super::{
     fragment_backend::FragmentBuiltLayout,
-    fragment_frame::{number_value, paint_rect_command, rect_value},
+    fragment_frame::paint_rect_command,
     page_artifact::{
         FragmentPageArtifact, FragmentRunRecord, PageArtifact, PageArtifactChapterRange,
         PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange,
@@ -62,13 +66,12 @@ impl<'a> FragmentChapterEngineSession<'a> {
         }
     }
 
-    pub(super) fn page(&self, page_index: usize) -> Option<&'a dyn PageArtifact> {
-        self.layout
-            .page(page_index)
-            .map(|page| &page.artifact as &dyn PageArtifact)
+    pub(super) fn page(&self, page_index: usize) -> Option<Rc<dyn PageArtifact>> {
+        self.artifact(page_index)
+            .map(|artifact| artifact as Rc<dyn PageArtifact>)
     }
 
-    pub(super) fn frame(&self, spread_index: usize) -> Option<PageArtifactFrame> {
+    pub(super) fn spread_pages(&self, spread_index: usize) -> Option<Vec<usize>> {
         let config = &self.revision.layout_config;
         let spreads = build_spread_slots(
             self.layout.page_count(),
@@ -76,6 +79,29 @@ impl<'a> FragmentChapterEngineSession<'a> {
             config,
         );
         let spread = spreads.get(spread_index)?;
+        let mut page_indexes = vec![spread.left_page_index];
+        if config.spread_mode == SpreadMode::Double {
+            if let Some(right) = spread.right_page_index {
+                page_indexes.push(right);
+            }
+        }
+        Some(page_indexes)
+    }
+
+    pub(super) fn frame(
+        &self,
+        spread_index: usize,
+        ratio: f64,
+    ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
+        let config = &self.revision.layout_config;
+        let spreads = build_spread_slots(
+            self.layout.page_count(),
+            self.layout.chapter_start_pages(),
+            config,
+        );
+        let Some(spread) = spreads.get(spread_index) else {
+            return Ok(None);
+        };
         let mut page_indexes = vec![spread.left_page_index];
         if config.spread_mode == SpreadMode::Double {
             if let Some(right) = spread.right_page_index {
@@ -93,18 +119,20 @@ impl<'a> FragmentChapterEngineSession<'a> {
             0.0,
             config.viewport_width,
             config.viewport_height,
-            "#ffffff",
+            ReaderColor::WHITE,
         ));
         let dual = page_indexes.len() == 2;
         for (slot, page_index) in page_indexes.iter().enumerate() {
-            let (page, chapter) = self.layout.page_with_chapter(*page_index)?;
-            let metadata = page.artifact.metadata();
+            let Some((page, chapter)) = self.layout.page_with_chapter(*page_index)? else {
+                return Ok(None);
+            };
+            let metadata = page.artifact().metadata();
             let offset_x = slot as f64 * (config.page_width + config.spread_gap);
-            commands.push(DisplayCommand::push_state());
-            commands.push(DisplayCommand::translate(
-                number_value(offset_x),
-                number_value(0.0),
-            ));
+            commands.push(DisplayCommand::PushState);
+            commands.push(DisplayCommand::Translate {
+                dx: display_number(offset_x),
+                dy: display_number(0.0),
+            });
             // The spread gap belongs to the sheet, not the backdrop: each
             // page's background wash extends to the middle of the gap so a
             // full-bleed chapter reads as one continuous spread instead of
@@ -125,7 +153,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 0.0,
                 wash_width,
                 metadata.height,
-                chapter.page_background.as_deref().unwrap_or("#ffffff"),
+                chapter.page_background.unwrap_or(ReaderColor::WHITE),
             ));
             if let Some(paint) = &chapter.page_background_image {
                 // The body's box is the page CONTENT box: percentage
@@ -133,18 +161,21 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 // against it, not the page canvas (Blink anchors the
                 // propagated image to the body box; the margins stay
                 // outside the positioning area).
-                commands.push(DisplayCommand::paint_block(
-                    rect_value(
+                commands.push(DisplayCommand::PaintBlock {
+                    rect: display_rect(
                         config.margin_left,
                         config.margin_top,
                         metadata.width - config.margin_left - config.margin_right,
                         metadata.height - config.margin_top - config.margin_bottom,
                     ),
-                    paint.clone(),
-                    None,
-                ));
+                    paint: ReaderBlockPaint {
+                        background: Some(paint.clone()),
+                        ..ReaderBlockPaint::default()
+                    },
+                    border_box: None,
+                });
             }
-            commands.push(DisplayCommand::push_state());
+            commands.push(DisplayCommand::PushState);
             // The fragmentainer clips BLOCK-axis ink overflow: content
             // above the page content box (a flex-centered cover taller
             // than its box) or below it (a force-placed taller-than-page
@@ -156,24 +187,24 @@ impl<'a> FragmentChapterEngineSession<'a> {
             // b9 regression that a fold-guard bug actually caused). The
             // inline END keeps the page-wide clip for the right bleed,
             // ruby overhang and glyph AA.
-            commands.push(DisplayCommand::clip_rect(
-                rect_value(
+            commands.push(DisplayCommand::ClipRect {
+                rect: display_rect(
                     config.margin_left,
                     config.margin_top,
                     metadata.width - config.margin_left,
                     metadata.height - config.margin_top - config.margin_bottom,
                 ),
-                None,
-            ));
-            commands.extend(page.commands.iter().cloned());
-            commands.push(DisplayCommand::pop_state());
-            commands.push(DisplayCommand::pop_state());
+                radius: None,
+            });
+            commands.extend(page.commands_for(ratio)?.iter().cloned());
+            commands.push(DisplayCommand::PopState);
+            commands.push(DisplayCommand::PopState);
         }
-        Some(PageArtifactFrame {
+        Ok(Some(PageArtifactFrame {
             spread_index: spread.index,
             page_indexes,
             commands,
-        })
+        }))
     }
 
     pub(super) fn spreads(&self) -> Vec<PageArtifactSpread> {
@@ -195,7 +226,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         self.layout
             .chapters()
             .filter_map(|(chapter, start_page)| {
-                chapter_range(chapter.pages.len(), start_page, chapter.block_count)
+                chapter_range(chapter.page_count, start_page, chapter.block_count)
                     .map(|range| (chapter.idref.clone(), range))
             })
             .collect()
@@ -203,7 +234,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     pub(super) fn known_chapter(&self, idref: &str) -> Option<PageArtifactChapterRange> {
         let (chapter, start_page) = self.layout.chapter(idref)?;
-        chapter_range(chapter.pages.len(), start_page, chapter.block_count)
+        chapter_range(chapter.page_count, start_page, chapter.block_count)
     }
 
     pub(super) fn anchor_pages(&self, range: Range<usize>) -> Option<BTreeMap<String, usize>> {
@@ -250,34 +281,8 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Some(starts)
     }
 
-    pub(super) fn search_page_index(&self) -> Vec<crate::layout::SearchPageText> {
-        (0..self.layout.page_count())
-            .filter_map(|page_index| {
-                let artifact = self.artifact(page_index)?;
-                let runs = artifact
-                    .interaction_runs()
-                    .iter()
-                    .map(|run| crate::layout::SearchPrebuiltRun {
-                        start: run.start,
-                        end: run.end,
-                        block_index: run.block_index,
-                        line_index: run.line_index,
-                        run_index: run.run_index,
-                        source: run.source.as_ref().map(|source| {
-                            crate::layout::SearchPrebuiltRunSource {
-                                node_path: source.path.clone(),
-                                segments: source.segments.clone(),
-                            }
-                        }),
-                    })
-                    .collect();
-                Some(crate::layout::SearchPageText::from_parts(
-                    page_index,
-                    artifact.page_text().to_owned(),
-                    runs,
-                ))
-            })
-            .collect()
+    pub(super) fn search_page_index(&self) -> &'a [crate::runtime::search::SearchPageText] {
+        self.layout.search_page_index()
     }
 
     pub(super) fn resolve_exact_source_range(
@@ -386,7 +391,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let Some(artifact) = self.artifact(query.page_index) else {
             return Some(PageArtifactTextCaretResolution::Miss);
         };
-        match caret_from_point(artifact, query.page_index, query.x, query.y) {
+        match caret_from_point(&artifact, query.page_index, query.x, query.y) {
             Some(caret) => Some(PageArtifactTextCaretResolution::Resolved(caret)),
             None => Some(PageArtifactTextCaretResolution::Miss),
         }
@@ -541,28 +546,35 @@ impl<'a> FragmentChapterEngineSession<'a> {
             }
             PageArtifactTextSelectionMovementTarget::Scope(_) => None,
         };
-        let mut pages = Vec::with_capacity(last - first + 1);
-        for page_index in first..=last {
-            let Some(artifact) = self.artifact(page_index) else {
-                return Resolution::Unavailable(
-                    TextInteractionUnavailableReason::VisualGeometryUnavailable,
-                );
-            };
-            pages.push(build_scope_page(page_index, artifact));
-        }
+        // The scope spans the whole book for most movements, and a page
+        // is built only when the movement reads it: the focus page, the
+        // anchor's, and the pages a step lands on.
+        let load = |page_index: usize| self.artifact(page_index);
+        let pages = ScopePages::new(first, last - first + 1, &load);
+        let unavailable = |fallback| {
+            if pages.load_failed() {
+                TextInteractionUnavailableReason::VisualGeometryUnavailable
+            } else {
+                fallback
+            }
+        };
         let position_in_scope = |address: &TextCaretAddress| -> Option<StreamPosition> {
             if address.page_index < first || address.page_index > last {
                 return None;
             }
             let slot = address.page_index - first;
-            let offset = position_of(pages[slot].artifact, address)?;
+            let offset = position_of(pages.page(slot).artifact()?, address)?;
             Some(StreamPosition { slot, offset })
         };
         let Some(focus) = position_in_scope(&query.focus_address) else {
-            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+            return Resolution::Unavailable(unavailable(
+                TextInteractionUnavailableReason::InvalidCaret,
+            ));
         };
         if position_in_scope(&query.anchor_address).is_none() {
-            return Resolution::Unavailable(TextInteractionUnavailableReason::InvalidCaret);
+            return Resolution::Unavailable(unavailable(
+                TextInteractionUnavailableReason::InvalidCaret,
+            ));
         }
         let moved = move_focus(
             &pages,
@@ -575,16 +587,23 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 target_slot,
             },
         );
+        if pages.load_failed() {
+            // A page the movement stepped through has no text to move
+            // over; its result would be a step over a hole.
+            return Resolution::Unavailable(
+                TextInteractionUnavailableReason::VisualGeometryUnavailable,
+            );
+        }
         let outcome = match moved {
             Moved::Boundary(boundary) => return Resolution::Boundary(boundary),
             Moved::To(outcome) => outcome,
         };
-        let target_page = pages[outcome.focus.slot].page_index;
-        let Some(focus_address) = address_of(
-            pages[outcome.focus.slot].artifact,
-            target_page,
-            outcome.focus.offset,
-        ) else {
+        let target = pages.page(outcome.focus.slot);
+        let target_page = target.page_index;
+        let Some(focus_address) = target
+            .artifact()
+            .and_then(|artifact| address_of(artifact, target_page, outcome.focus.offset))
+        else {
             return Resolution::Unavailable(
                 TextInteractionUnavailableReason::VisualGeometryUnavailable,
             );
@@ -607,8 +626,13 @@ impl<'a> FragmentChapterEngineSession<'a> {
         }))
     }
 
-    fn artifact(&self, page_index: usize) -> Option<&'a FragmentPageArtifact> {
-        self.layout.page(page_index).map(|page| &page.artifact)
+    /// The page's query artifact, materializing its chapter if needed.
+    /// The handle outlives the chapter's eviction, so a caller can hold
+    /// several pages' artifacts at once.
+    fn artifact(&self, page_index: usize) -> Option<Rc<FragmentPageArtifact>> {
+        self.layout
+            .page(page_index)
+            .map(|page| page.artifact_handle())
     }
 
     /// The caret for an exact address, with its geometry recomputed from
@@ -629,7 +653,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     fn caret_near_point(&self, point: PageArtifactTextPoint) -> Option<PageArtifactTextCaret> {
         let artifact = self.artifact(point.page_index)?;
-        caret_from_point(artifact, point.page_index, point.x, point.y)
+        caret_from_point(&artifact, point.page_index, point.x, point.y)
     }
 
     /// Builds the full range payload between two caret addresses,
@@ -654,12 +678,12 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 continue;
             };
             let page_start = if page_index == start.page_index {
-                position_of(artifact, &start)?
+                position_of(&artifact, &start)?
             } else {
                 0
             };
             let page_end = if page_index == end.page_index {
-                position_of(artifact, &end)?
+                position_of(&artifact, &end)?
             } else {
                 artifact.page_text().encode_utf16().count()
             };
@@ -742,13 +766,16 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let source_point_at = |address: &TextCaretAddress| {
             self.artifact(address.page_index)
                 .and_then(|artifact| {
-                    artifact.interaction_runs().iter().find(|run| {
-                        run.block_index == address.block_index
-                            && run.line_index == address.line_index
-                            && run.run_index == address.run_index
-                    })
+                    artifact
+                        .interaction_runs()
+                        .iter()
+                        .find(|run| {
+                            run.block_index == address.block_index
+                                && run.line_index == address.line_index
+                                && run.run_index == address.run_index
+                        })
+                        .map(|run| run_source_point(run, address.char_index))
                 })
-                .map(|run| run_source_point(run, address.char_index))
                 .unwrap_or(PageArtifactSourcePoint {
                     node_path: Vec::new(),
                     text_offset: 0,
@@ -761,7 +788,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let source_start = self
             .artifact(start.page_index)
             .and_then(|artifact| {
-                let offset = position_of(artifact, &start)?;
+                let offset = position_of(&artifact, &start)?;
                 artifact
                     .interaction_runs()
                     .iter()
@@ -804,8 +831,8 @@ impl<'a> FragmentChapterEngineSession<'a> {
             return None;
         }
         let artifact = self.artifact(anchor.page_index)?;
-        let anchor_hit = position_of(artifact, &anchor)?;
-        let focus_hit = position_of(artifact, &focus)?;
+        let anchor_hit = position_of(&artifact, &anchor)?;
+        let focus_hit = position_of(&artifact, &focus)?;
         // Each endpoint expands to ITS OWN word: a word-granularity drag
         // spans from the anchor word's outer edge to the focus word's
         // outer edge (a single word interval never contains a multi-word
@@ -820,8 +847,8 @@ impl<'a> FragmentChapterEngineSession<'a> {
             (focus_word.0, anchor_word.1)
         };
         Some((
-            address_of(artifact, anchor.page_index, start as usize)?,
-            address_of(artifact, anchor.page_index, end as usize)?,
+            address_of(&artifact, anchor.page_index, start as usize)?,
+            address_of(&artifact, anchor.page_index, end as usize)?,
         ))
     }
 
@@ -850,8 +877,8 @@ impl<'a> FragmentChapterEngineSession<'a> {
             end = Some(end.map_or(run.end, |value| value.max(run.end)));
         }
         Some((
-            address_of(artifact, anchor.page_index, start?)?,
-            address_of(artifact, anchor.page_index, end?)?,
+            address_of(&artifact, anchor.page_index, start?)?,
+            address_of(&artifact, anchor.page_index, end?)?,
         ))
     }
 

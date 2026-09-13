@@ -46,7 +46,6 @@ final class RitoSearchResponse {
     required this.query,
     required this.truncated,
     required this.searchedPageCount,
-    required this.scopeComplete,
     required List<RitoSearchResult> results,
   }) : results = List<RitoSearchResult>.unmodifiable(results);
 
@@ -57,18 +56,11 @@ final class RitoSearchResponse {
   /// prefix rather than every match in scope.
   final bool truncated;
 
-  /// Pages that existed to be searched when this ran.
-  ///
-  /// Scope grows as background pagination lays out more of the book, so
-  /// the same query run twice legitimately returns different lists.
-  /// [truncated] cannot express that — it only reports the `limit`. Use
-  /// this together with [scopeComplete] to decide whether a result list
-  /// is worth showing as final.
+  /// Pages the search covered: the page table of the revision behind
+  /// the artifact — one chapter for a chapter-local artifact, the whole
+  /// book for a publication one. [truncated] only reports the `limit`;
+  /// this says how much of the book the list came from.
   final int searchedPageCount;
-
-  /// True once the book behind this artifact has finished laying out,
-  /// so re-running the query cannot find more.
-  final bool scopeComplete;
   final List<RitoSearchResult> results;
 }
 
@@ -115,7 +107,6 @@ final class RitoSearchDecoder {
     final query = reader.string('search query');
     final truncated = reader.boolean('search truncated');
     final searchedPageCount = reader.uint32('searched page count');
-    final scopeComplete = reader.boolean('search scope complete');
     final count = reader.count('search results');
     final results = <RitoSearchResult>[
       for (var index = 0; index < count; index += 1) _result(reader),
@@ -125,7 +116,6 @@ final class RitoSearchDecoder {
       query: query,
       truncated: truncated,
       searchedPageCount: searchedPageCount,
-      scopeComplete: scopeComplete,
       results: results,
     );
     reader.finish('search response wire message');
@@ -140,10 +130,7 @@ final class RitoSearchDecoder {
       start: _position(record, 'start'),
       end: _position(record, 'end'),
       context: record.string('search context'),
-      locator: record.option(
-        'search locator',
-        () => readRitoLocator(record),
-      ),
+      locator: record.option('search locator', () => readRitoLocator(record)),
     );
     record.finish('search result');
     return result;

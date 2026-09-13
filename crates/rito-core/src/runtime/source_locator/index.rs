@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use crate::{epub::parsed_loaded_chapter_source, xhtml::DocumentNode};
 
@@ -69,7 +70,7 @@ impl RuntimeDocument {
                 .ok_or_else(|| {
                     RuntimeSourceLocatorError::href_not_found(&format!("chapter-{chapter_index}"))
                 })?;
-            self.parsed_chapters.insert(chapter_index, parsed);
+            self.parsed_chapters.insert(chapter_index, Rc::new(parsed));
         }
         let chapter_href = self
             .document

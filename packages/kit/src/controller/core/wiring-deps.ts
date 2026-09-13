@@ -20,7 +20,7 @@ export interface WiringDeps {
   positionPersistence: PositionPersistence;
   /** Navigate to a spread with transition animation. */
   goToSpread: (index: number) => void;
-  /** Resolve bounded content and navigate under the controller's latest-wins owner. */
+  /** Resolve the locator's content and navigate under the controller's latest-wins owner. */
   navigateToLocator: (locator: ReaderLocator) => void;
   /**
    * `true` once {@link ReaderController.restorePosition} has resolved at least once.

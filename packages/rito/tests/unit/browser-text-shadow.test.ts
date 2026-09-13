@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { drawTextShadows as drawProductionTextShadows } from '../../src/bindings/browser/canvas-text/text-shadow';
-import { drawTextShadows as drawReferenceTextShadows } from '../../src/reference/ts-core/render/backends/canvas/text/text-shadow';
 import {
   createMockCanvasContext,
   isCall,
@@ -71,8 +70,10 @@ describe('production Canvas text shadows', () => {
     expect(snapshot.domCreateElementCalls).toEqual([]);
     expect(propertyValues(scratch.records, 'shadowColor')).toEqual(['#2244ff', '#cc3300']);
     expect(propertyValues(scratch.records, 'shadowBlur')).toEqual([2.1875, 3.5]);
-    expect(propertyValues(scratch.records, 'wordSpacing')).toEqual(['2.5px']);
-    expect(propertyValues(scratch.records, 'letterSpacing')).toEqual(['-0.75px']);
+    // The caster draws the pen's pieces at the pen's origins: every
+    // spacing is already in them.
+    expect(propertyValues(scratch.records, 'wordSpacing')).toEqual(['0px']);
+    expect(propertyValues(scratch.records, 'letterSpacing')).toEqual(['0px']);
     expect(propertyValues(scratch.records, 'globalCompositeOperation')).toEqual([]);
     expect(propertyValues(scratch.records, 'shadowOffsetY')).toEqual([
       (6 + 20000) * 1.75,
@@ -105,8 +106,8 @@ describe('production Canvas text shadows', () => {
     expect(snapshot.domCreateElementCalls).toEqual(['canvas']);
   });
 
-  it('matches the reference early return when no canvas implementation exists', () => {
-    const snapshot = expectProductionToMatchReference({
+  it('returns early without drawing when no canvas implementation exists', () => {
+    const snapshot = renderProduction({
       offscreen: 'missing',
       dom: 'missing',
     });
@@ -116,7 +117,7 @@ describe('production Canvas text shadows', () => {
   });
 
   it('does not fall back to DOM when OffscreenCanvas getContext returns null', () => {
-    const snapshot = expectProductionToMatchReference({
+    const snapshot = renderProduction({
       offscreen: 'null',
       dom: 'context',
     });
@@ -148,16 +149,6 @@ describe('production Canvas text shadows', () => {
 
 function renderProduction(options: ScratchCanvasEnvironmentOptions): CanvasRecordsSnapshot {
   return renderWith(drawProductionTextShadows, options);
-}
-
-function expectProductionToMatchReference(
-  options: ScratchCanvasEnvironmentOptions,
-): CanvasRecordsSnapshot {
-  const reference = renderWith(drawReferenceTextShadows, options);
-  vi.unstubAllGlobals();
-  const production = renderWith(drawProductionTextShadows, options);
-  expect(production).toEqual(reference);
-  return production;
 }
 
 function renderWith(

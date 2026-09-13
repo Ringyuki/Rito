@@ -70,7 +70,6 @@ function wireFixture(selection: SelectionEngine): WiringFixture {
   const keyboard = createKeyboardManager(document.documentElement);
   const internals = createInternals(selection);
   const nav = {
-    ensureSelectionSpread: vi.fn(() => Promise.resolve(false)),
     jumpToSpreadIfReady: vi.fn(() => 'committed' as const),
     prepareSpreadForJump: vi.fn(() => 'ready' as const),
     supersedeForSelectionIntent: vi.fn(() => {
@@ -98,9 +97,9 @@ function createInternals(selection: SelectionEngine): Internals {
   return {
     currentSpread: 0,
     reader: {
-      spreads: [{ left: { index: 0 }, right: null }],
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
       totalSpreads: 1,
-      pagination: { complete: true },
+      findSpread: (pageIndex: number) => (pageIndex === 0 ? 0 : undefined),
     },
     engines: { selection },
     coordState: { contentInteractionGeneration: 0 },

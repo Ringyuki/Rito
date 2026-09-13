@@ -1,7 +1,4 @@
-use crate::{
-    epub::{EpubError, EpubResult, LoadedEpubDocument},
-    layout::{SearchTextPosition, TextRangeRect, TextRunOffset},
-};
+use crate::epub::{EpubError, EpubResult, LoadedEpubDocument};
 
 use super::{
     navigation::spread_index_for_page,
@@ -10,7 +7,7 @@ use super::{
     },
     page_target::{runtime_page_targets, RuntimePageTargetContext},
     RuntimePageTargets, RuntimePageTextPositions, RuntimeRevision, RuntimeTextRangeGeometry,
-    RuntimeTextRangeGeometryRequest,
+    RuntimeTextRangeGeometryRequest, SearchTextPosition, TextRangeRect, TextRunOffset,
 };
 
 pub(super) fn page_targets(

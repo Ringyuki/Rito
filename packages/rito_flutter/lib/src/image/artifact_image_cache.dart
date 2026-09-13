@@ -7,8 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../protocol/artifact_models.dart';
 import '../protocol/display_geometry.dart';
-import '../protocol/display_models.dart';
-import '../protocol/display_paint.dart';
+import '../protocol/primitive_models.dart';
 import 'image_decoder.dart';
 import 'image_limits.dart';
 
@@ -72,10 +71,9 @@ final class RitoArtifactImageCache {
   Future<RitoArtifactImageLease> prepare({
     required RitoArtifact artifact,
     required RitoArtifactImageResourceReader readResource,
-    required double pixelRatio,
   }) async {
     _requireOpen();
-    final plan = _ImageTargetPlan.collect(artifact, pixelRatio: pixelRatio);
+    final plan = _ImageTargetPlan.collect(artifact);
     final declarations = _imageDeclarations(artifact);
     for (final href in plan.hrefs) {
       if (!declarations.containsKey(href)) {

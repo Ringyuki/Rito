@@ -9,7 +9,6 @@ use crate::epub::{
 use super::RuntimeDocument;
 
 mod types;
-mod wiring;
 
 pub use types::{
     RuntimePinnedFontFaceInput, RuntimePinnedFontFaceSummary, RuntimePinnedFontGenericRole,
@@ -107,6 +106,39 @@ impl RuntimeDocument {
         ))
     }
 
+    /// Opens a document pinned to the bundled serif text face, the way
+    /// every host opens one: the fragment engine shapes with pinned faces
+    /// only, so a test that paginates must pin at least one.
+    #[cfg(test)]
+    pub(crate) fn open_pinned_for_tests(bytes: &[u8]) -> EpubResult<Self> {
+        let font = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"),
+        )
+        .expect("bundled serif text font reads");
+        let expected_sha256 = {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(&font);
+            hasher
+                .finalize()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        };
+        Self::open_with_pinned_font_policy(
+            bytes,
+            RuntimePinnedFontPolicyInput {
+                faces: vec![RuntimePinnedFontFaceInput {
+                    bytes: font,
+                    expected_sha256,
+                    generic_role: RuntimePinnedFontGenericRole::Serif,
+                    language: None,
+                }],
+            },
+        )
+    }
+
     pub fn open_owned_with_pinned_font_policy(
         bytes: Vec<u8>,
         input: RuntimePinnedFontPolicyInput,
@@ -150,7 +182,7 @@ fn validate_face(input: RuntimePinnedFontFaceInput) -> EpubResult<RuntimePinnedF
         .map_err(|_| EpubError::new("pinned font face is not a parseable TTF/OTF face 0"))?;
     if !parsed.variation_axes().is_empty() {
         return Err(EpubError::new(
-            "pinned font policy v1 does not support variable font faces",
+            "the pinned font policy does not support variable font faces",
         ));
     }
     if rustybuzz::Face::from_slice(&input.bytes, 0).is_none() {
@@ -222,7 +254,7 @@ fn policy_identity(faces: &[RuntimePinnedFontFace]) -> Vec<u8> {
         identity.push(role_identity(face.summary.generic_role));
         identity.push(face.summary.language.len() as u8);
         identity.extend_from_slice(face.summary.language.as_bytes());
-        identity.push(0); // v1 style: normal
+        identity.push(0); // style: normal
         identity.extend_from_slice(&PINNED_FONT_WEIGHT.to_be_bytes());
         identity.extend_from_slice(&face.sha256_bytes);
     }

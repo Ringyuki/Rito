@@ -19,10 +19,10 @@ const PROFILE_REFLOW_VIEWPORT = { width: 1120, height: 720 } as const;
 
 test.use({ trace: 'off', video: 'off' });
 
-test.describe('production bounded reader load profile', () => {
+test.describe('production reader load profile', () => {
   test.skip(PROFILE_EPUB === undefined, 'Set RITO_READER_PROFILE_EPUB to an absolute EPUB path');
 
-  test('records first paint, growth, TOC latency and supersede, and reflow', async ({
+  test('records first paint, cached turn, TOC latency and supersede, and reflow', async ({
     page,
     browser,
   }, testInfo) => {
@@ -55,7 +55,7 @@ test.describe('production bounded reader load profile', () => {
     const json = JSON.stringify(report, null, 2);
     writeConfiguredProfileOutput(json);
     console.log(
-      `Rito bounded reader load profile (${previewMode} chapter-local preview)\n${JSON.stringify(consoleSummary(report), null, 2)}`,
+      `Rito reader load profile (${previewMode} chapter-local preview)\n${JSON.stringify(consoleSummary(report), null, 2)}`,
     );
     await attachReport(testInfo, json, previewMode, execution.abPairId, execution.abOrder);
 
@@ -73,14 +73,12 @@ function consoleSummary(report: ReaderLoadProfileReport) {
     stages: {
       initial: stageSummary(report.stages.initial),
       cachedTurn: stageSummary(report.stages.cachedTurn),
-      deferredGrowth: stageSummary(report.stages.deferredGrowth),
       tocSupersede: stageSummary(report.stages.tocSupersede),
       freshFarBootstrap: stageSummary(report.stages.freshFarBootstrap),
       farToc: {
         ...stageSummary(report.stages.farToc),
         workerRequestsToFirstFrame: report.stages.farToc.workerRequestsToFirstFrame,
         operationsByKind: report.stages.farToc.operationsByKind,
-        continuationDiagnostics: continuationDiagnostics(report.stages.farToc),
         chapterLocalDiagnostics: chapterLocalDiagnostics(report.stages.farToc),
       },
       reflow: stageSummary(report.stages.reflow),
@@ -99,43 +97,12 @@ function writeConfiguredProfileOutput(json: string): void {
   writeFileSync(path, `${json}\n`, { flag: 'wx' });
 }
 
-function continuationDiagnostics(stage: ReaderLoadProfileReport['stages']['farToc']) {
-  const continuationKinds = new Set([
-    'continueRevision',
-    'continueRevisionAfterTransferRelease',
-    'continueRevisionTowardSourceLocator',
-  ]);
-  const operations = stage.operations.filter((entry) => continuationKinds.has(entry.kind));
-  return {
-    count: operations.length,
-    budgetHistogram: histogram(operations.map((entry) => entry.maxTopLevelNodes)),
-    batchLimitHistogram: histogram(operations.map((entry) => entry.maxQuanta)),
-    advancedQuantaHistogram: histogram(operations.map((entry) => entry.advancedQuanta)),
-    totalAdvancedQuanta: operations.reduce(
-      (total, entry) => total + (entry.advancedQuanta ?? 1),
-      0,
-    ),
-    processedTopLevelNodesHistogram: histogram(
-      operations.map((entry) => entry.processedTopLevelNodes),
-    ),
-    totalProcessedTopLevelNodes: operations.reduce(
-      (total, entry) => total + (entry.processedTopLevelNodes ?? 0),
-      0,
-    ),
-  };
-}
-
 function chapterLocalDiagnostics(stage: ReaderLoadProfileReport['stages']['farToc']) {
   const operations = stage.operations.filter(
-    (entry) =>
-      entry.kind === 'createBoundedChapterLocalRevision' ||
-      entry.kind === 'continueChapterLocalRevision',
+    (entry) => entry.kind === 'createChapterLocalRevision',
   );
   return {
     count: operations.length,
-    processedTopLevelNodesHistogram: histogram(
-      operations.map((entry) => entry.processedTopLevelNodes),
-    ),
     owners: operations.flatMap((entry) =>
       entry.chapterLocalRevision
         ? [
@@ -145,23 +112,13 @@ function chapterLocalDiagnostics(stage: ReaderLoadProfileReport['stages']['farTo
               revisionVersion: entry.chapterLocalRevision.revisionVersion,
               chapterIndex: entry.chapterLocalRevision.chapterIndex,
               href: entry.chapterLocalRevision.href,
-              status: entry.chapterLocalRevision.status,
-              knownLocalPageCount: entry.chapterLocalRevision.knownLocalPageCount,
-              knownLocalSpreadCount: entry.chapterLocalRevision.knownLocalSpreadCount,
+              localPageCount: entry.chapterLocalRevision.localPageCount,
+              localSpreadCount: entry.chapterLocalRevision.localSpreadCount,
             },
           ]
         : [],
     ),
   };
-}
-
-function histogram(values: readonly (number | null)[]): Record<string, number> {
-  const result: Record<string, number> = {};
-  for (const value of values) {
-    const key = value === null ? 'unavailable' : String(value);
-    result[key] = (result[key] ?? 0) + 1;
-  }
-  return result;
 }
 
 function stageSummary(stage: ReaderLoadProfileReport['stages']['initial']) {

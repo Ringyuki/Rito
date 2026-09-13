@@ -115,9 +115,7 @@ void _spineItem(
 }) {
   writer.record((item) {
     item.uint32(spineIndex);
-    item.option(
-      linearIndex == null ? null : () => item.uint32(linearIndex),
-    );
+    item.option(linearIndex == null ? null : () => item.uint32(linearIndex));
     item
       ..string(idref)
       ..string(href);

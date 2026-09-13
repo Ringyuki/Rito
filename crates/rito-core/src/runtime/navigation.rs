@@ -6,9 +6,9 @@ use crate::{
 };
 
 use super::{
-    page_artifact::PageArtifactChapterRange, ResolvedRuntimeLocator, RuntimeActiveChapterPreview,
-    RuntimeChapterNavigation, RuntimeLocatorRequest, RuntimeRevision, RuntimeRevisionNavigation,
-    RuntimeSpreadNavigation, RuntimeTocTarget, RuntimeTocTargets,
+    page_artifact::PageArtifactChapterRange, ResolvedRuntimeLocator, RuntimeChapterNavigation,
+    RuntimeLocatorRequest, RuntimeRevision, RuntimeRevisionNavigation, RuntimeSpreadNavigation,
+    RuntimeTocTarget, RuntimeTocTargets,
 };
 
 pub(super) fn runtime_revision_navigation(
@@ -50,37 +50,6 @@ fn runtime_spread_navigation(revision: &RuntimeRevision) -> Vec<RuntimeSpreadNav
             }
         })
         .collect()
-}
-
-pub(super) fn active_chapter_preview(
-    document: &LoadedEpubDocument,
-    revision: &RuntimeRevision,
-    spread_index: usize,
-) -> Option<RuntimeActiveChapterPreview> {
-    if document.chapters.len() <= 1 {
-        return None;
-    }
-    let page_index = runtime_spread_navigation(revision)
-        .into_iter()
-        .find(|spread| spread.spread_index == spread_index)?
-        .left_page_index;
-    let chapter_map = known_chapter_map(revision);
-    for (chapter_index, chapter) in document.chapters.iter().enumerate() {
-        let Some(range) = chapter_map.get(&chapter.idref) else {
-            continue;
-        };
-        if page_index < range.start_page || page_index > range.end_page {
-            continue;
-        }
-        let span = range.end_page.saturating_sub(range.start_page).max(1) as f64;
-        let progress =
-            ((page_index.saturating_sub(range.start_page)) as f64 / span).clamp(0.0, 1.0);
-        return Some(RuntimeActiveChapterPreview {
-            chapter_index,
-            progress,
-        });
-    }
-    None
 }
 
 pub(super) fn runtime_toc_targets(

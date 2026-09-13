@@ -1,30 +1,23 @@
-import type {
-  PackageMetadata,
-  Reader,
-  ReaderIncrementalPagination,
-  ReaderOptions,
-} from '../../../reader';
+import type { PackageMetadata, Reader, ReaderOptions } from '../../../reader';
 import type { CanvasRenderingTarget } from '../rendering';
 import {
   applyLayoutOverrides,
   browserReaderChapterMap,
   browserReaderManifestHrefMap,
-  browserReaderPages,
   browserReaderSpreads,
   makeBrowserReaderLayoutConfig,
 } from '../reader-layout';
 import {
   scheduleBrowserReaderReflow,
   startBrowserReaderInitialReflow,
-} from './pipeline/bounded-reflow';
+} from './pipeline/revision-reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { disposeBrowserReaderState } from './reader-dispose';
-import { completeBrowserReaderBoundedSession } from '../bounded-session-runtime';
+import { refreshBrowserReaderHostLineMetrics } from '../revision-session-runtime';
 import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { trackBrowserReaderHostTask } from './host-tasks';
-import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
 import {
   type BrowserReaderBindingModule,
@@ -42,7 +35,6 @@ import {
   registerBrowserReaderPinnedFonts,
   type BrowserReaderPinnedFonts,
 } from '../pinned-fonts';
-import { ensureBrowserReaderBoundedSpread } from '../bounded-session-runtime';
 import {
   createEmptyBrowserReaderReflowState,
   createEmptyBrowserReaderRevisionState,
@@ -74,7 +66,8 @@ export async function createReader(
     const worker = workerFactory();
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
-    const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy, true);
+    const dpr = options.devicePixelRatio ?? fallbackDevicePixelRatio();
+    const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy, dpr);
     pinnedFonts = opened.pinnedFonts;
     state = createInitialState(
       worker,
@@ -89,7 +82,7 @@ export async function createReader(
     );
     installBrowserReaderDiagnostics(state);
     await startInitialReflow(state, options);
-    scheduleFragmentPaginationCompletion(state, readerLayoutOptions(options));
+    scheduleHostLineMetricsConvergence(state, readerLayoutOptions(options));
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     installBrowserReaderChapterLocalPresentation(reader, state);
@@ -115,54 +108,43 @@ export async function createReader(
 }
 
 /**
- * The fragment page table attaches when a bounded session completes, but
- * reading alone never completes one. With the lever on, finish the book
- * in the background shortly after the first layout so the takeover
- * happens while the reader is still near the front of the book.
+ * The first layout converged on one round of host line metrics before
+ * createReader resolved; a layout built with those metrics can record
+ * further metric keys. Finish that convergence in the background shortly
+ * after the reader appears.
  */
-function scheduleFragmentPaginationCompletion(
+function scheduleHostLineMetricsConvergence(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): void {
-  if (!state.fragmentPagination) return;
   setTimeout(() => {
     if (state.disposed) return;
-    completeWithHostLineMetrics(state, options).catch((error: unknown) => {
-      state.logger.warn('rito: background fragment-pagination completion failed', error);
+    convergeHostLineMetricsUntilQuiet(state, options).catch((error: unknown) => {
+      state.logger.warn('rito: background host line metric convergence failed', error);
     });
   }, 1_000);
 }
 
 /**
- * Completes the book, then converges on host line metrics: the completed
- * layout is the first to have visited every chapter, so it has recorded
- * every (family, size) pair layout needed. Measure, inject, force one
- * reflow, and complete again — the second round drains nothing and the
- * loop ends with a fully repaginated, metric-faithful page table.
+ * Measures, injects and reflows round after round until a round changes
+ * nothing. From the second round on, the measured cache is first pushed
+ * into the revision worker itself and the book re-laid with it: the final
+ * page table must be built AFTER the last injection, because a table laid
+ * out with an unmet metric sets the affected lines with the shaped
+ * fallback and paints their baselines one row off.
  */
-async function completeWithHostLineMetrics(
+async function convergeHostLineMetricsUntilQuiet(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): Promise<void> {
   // Each round can surface a new generation of metric keys (the strut
   // fonts first, then run samples, then atom struts introduced by the
   // metrics of the previous round); the loop already exits on the first
-  // quiet round, so the bound only caps pathological churn. The final
-  // completed page table must be built AFTER the last injection — a table
-  // completed with an unmet metric lays affected lines with the shaped
-  // fallback and paints their baselines one row off.
-  let refreshHostLineMetrics = false;
+  // quiet round, so the bound only caps pathological churn.
   for (let round = 0; round < 12; round += 1) {
-    if (
-      (await completeBrowserReaderBoundedSession(state, undefined, {
-        refreshHostLineMetrics,
-      })) !== true
-    )
-      return;
+    if (round > 0 && (await refreshBrowserReaderHostLineMetrics(state)) === undefined) return;
     const spreadMode = options.spread ?? state.spreadMode;
-    const lineBreaking = options.lineBreaking ?? state.lineBreaking;
-    refreshHostLineMetrics = true;
-    if (!(await convergeHostLineMetrics(state, options, spreadMode, lineBreaking))) {
+    if (!(await convergeHostLineMetrics(state, options, spreadMode))) {
       const unmet = await state.worker.takeHostLineMetricRequests().catch(() => []);
       if (unmet.length > 0) {
         state.logger.warn(
@@ -184,7 +166,6 @@ async function convergeHostLineMetrics(
   state: BrowserReaderState,
   options: ReaderOptions,
   spreadMode: BrowserReaderState['spreadMode'],
-  lineBreaking: BrowserReaderState['lineBreaking'],
 ): Promise<boolean> {
   const changed = await syncBrowserHostLineMetrics(state.worker).catch((error: unknown) => {
     state.logger.warn('rito: host line metric sync failed', error);
@@ -193,14 +174,7 @@ async function convergeHostLineMetrics(
   if (!changed || state.disposed) return false;
   state.hostLineMetricsEpoch += 1;
   await new Promise<void>((resolve) => {
-    const scheduled = scheduleBrowserReaderReflow(
-      state,
-      options,
-      spreadMode,
-      lineBreaking,
-      resolve,
-      true,
-    );
+    const scheduled = scheduleBrowserReaderReflow(state, options, spreadMode, resolve, true);
     if (!scheduled) resolve();
   });
   return true;
@@ -220,17 +194,15 @@ async function openBrowserReaderDocument(
   worker: BrowserReaderWorkerClient,
   data: ArrayBuffer,
   policy: ReaderOptions['pinnedFontPolicy'],
-  fragmentPagination: boolean,
+  renderRatio: number,
 ): Promise<OpenedBrowserReaderDocument> {
   const prepared = prepareBrowserReaderPinnedFonts(policy);
+  // A reflow or a replacement opens a second worker and has to open the
+  // book in it again, so the reader keeps this copy and spends the
+  // caller's buffer on the first worker. One copy, not two: the transfer
+  // moves the bytes rather than cloning them on top of this one.
   const documentData = data.slice(0);
-  const openResult = await openBrowserReaderWorker(
-    worker,
-    data,
-    prepared.policy,
-    undefined,
-    fragmentPagination,
-  );
+  const openResult = await openBrowserReaderWorker(worker, data, prepared.policy, renderRatio);
   const pinnedFonts = await registerBrowserReaderPinnedFonts(prepared, openResult.pinnedFontPolicy);
   return { documentData, openResult, pinnedFonts };
 }
@@ -253,15 +225,12 @@ function createInitialState(
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     pinnedFonts,
-    fragmentPagination: true,
     canvas,
     ctx,
-    fontMetrics: createHostFontMetrics(),
     publication: openResult.publication,
     logger: createBrowserHostLogger(options.logLevel ?? 'warn'),
     config: makeBrowserReaderLayoutConfig(options, spreadMode),
     spreadMode,
-    lineBreaking: options.lineBreaking ?? 'greedy',
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
@@ -324,8 +293,7 @@ async function startInitialReflow(
   options: ReaderOptions,
 ): Promise<void> {
   const spreadMode = options.spread ?? 'single';
-  const lineBreaking = options.lineBreaking ?? 'greedy';
-  await startBrowserReaderInitialReflow(state, options, spreadMode, lineBreaking);
+  await startBrowserReaderInitialReflow(state, options, spreadMode);
   // The first layout is what discovers which (family, size, sample) metric
   // keys this book needs, so converge on them before returning: createReader
   // has not resolved yet and the host is still showing its loading state, so
@@ -333,40 +301,32 @@ async function startInitialReflow(
   // the background completion pass instead would repaginate the page under
   // the reader's eyes a second after it appeared. The metric cache is
   // session-wide, so only a book introducing new keys pays this pass.
-  await convergeHostLineMetrics(state, options, spreadMode, lineBreaking);
+  await convergeHostLineMetrics(state, options, spreadMode);
   void trackBrowserReaderHostTask(
     state,
-    warmInitialResources(state)
-      .then((metricsChanged) => {
-        if (metricsChanged) {
-          scheduleBrowserReaderReflow(state, options, spreadMode, lineBreaking, undefined, true);
-        }
-      })
-      .catch((error: unknown) => {
-        state.logger.warn('initial reader resource warm failed', error);
-      }),
+    warmInitialResources(state).catch((error: unknown) => {
+      state.logger.warn('initial reader resource warm failed', error);
+    }),
   );
 }
 
-async function warmInitialResources(state: BrowserReaderState): Promise<boolean> {
-  const metricsChanged = await preloadCurrentReaderFonts(state);
+async function warmInitialResources(state: BrowserReaderState): Promise<void> {
+  await preloadCurrentReaderFonts(state);
   void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
-  return metricsChanged;
 }
 
 export function defineBrowserReaderAccessors(
   reader: Partial<Reader>,
   state: BrowserReaderState,
 ): void {
-  const pagination = createBrowserReaderIncrementalPagination(state);
   Object.defineProperties(reader, {
     metadata: {
       enumerable: true,
       get: () => normalizePackageMetadata(state.publication.package.metadata),
     },
     totalSpreads: { enumerable: true, get: () => state.revisionBundle.revision.spreadCount },
+    pageCount: { enumerable: true, get: () => state.revisionBundle.navigation.pageCount },
     activeSpreadIndex: { enumerable: true, get: () => state.activeSpreadIndex },
-    pagination: { enumerable: true, value: pagination },
     toc: { enumerable: true, get: () => state.publication.package.toc },
     chapterMap: {
       enumerable: true,
@@ -376,23 +336,9 @@ export function defineBrowserReaderAccessors(
       enumerable: true,
       get: () => browserReaderManifestHrefMap(state),
     },
-    pages: { enumerable: true, get: () => browserReaderPages(state) },
     spreads: { enumerable: true, get: () => browserReaderSpreads(state) },
     dpr: { enumerable: true, get: () => state.dpr },
   });
-}
-
-export function createBrowserReaderIncrementalPagination(
-  state: BrowserReaderState,
-): ReaderIncrementalPagination {
-  return {
-    get complete() {
-      return state.revisionBundle.revision.status === 'complete';
-    },
-    ensureSpread(spreadIndex, signal) {
-      return ensureBrowserReaderBoundedSpread(state, spreadIndex, signal);
-    },
-  };
 }
 
 function normalizePackageMetadata(metadata: {

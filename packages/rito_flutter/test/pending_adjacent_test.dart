@@ -12,7 +12,7 @@ void main() {
       var hostYields = 0;
       var terminalCalls = 0;
       const pending = RitoNativeException(
-        status: ritoNativeStatusAdjacentPendingV1,
+        status: ritoNativeStatusAdjacentPending,
         message: 'retained adjacent work remains',
       );
 
@@ -44,18 +44,6 @@ void main() {
         requests.map((request) => request.direction),
         everyElement(RitoAdjacentDirection.next),
       );
-      expect(
-        requests.map((request) => request.work.maxForegroundQuanta),
-        everyElement(1),
-      );
-      expect(
-        requests.map((request) => request.work.maxTopLevelNodesPerQuantum),
-        everyElement(8),
-      );
-      expect(
-        requests.map((request) => request.work.localPageCap),
-        everyElement(16),
-      );
       expect(hostYields, 3);
       expect(terminalCalls, 0);
       expect(artifact.requestId, 15);
@@ -67,7 +55,7 @@ void main() {
   test('plain target-not-published is terminal and is not retried', () async {
     const driver = RitoPendingAdjacentDriver(maxContinuationQuanta: 8);
     const terminal = RitoNativeException(
-      status: ritoNativeStatusTargetNotPublishedV1,
+      status: ritoNativeStatusTargetNotPublished,
       message: 'wording must not control retry',
     );
     var attempts = 0;
@@ -103,7 +91,7 @@ void main() {
       requestOneQuantum: (request) async {
         requestIds.add(request.requestId);
         throw const RitoNativeException(
-          status: ritoNativeStatusAdjacentPendingV1,
+          status: ritoNativeStatusAdjacentPending,
           message: 'still retained',
         );
       },
@@ -177,7 +165,7 @@ void main() {
         attempts += 1;
         current = false;
         throw const RitoNativeException(
-          status: ritoNativeStatusAdjacentPendingV1,
+          status: ritoNativeStatusAdjacentPending,
           message: 'superseded after native quantum',
         );
       },
@@ -209,11 +197,6 @@ RitoAdjacentRequest _request(int requestId) {
     requestId: requestId,
     fromArtifactId: 7001,
     direction: RitoAdjacentDirection.next,
-    work: const RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: 8,
-      maxForegroundQuanta: 9,
-      localPageCap: 16,
-    ),
   );
 }
 

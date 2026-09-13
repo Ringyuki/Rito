@@ -389,36 +389,29 @@ Uint8List _open(
   _OpenOperation operation,
   Set<int> liveSessions,
 ) {
-  try {
-    final faces = operation.pinnedFontFaces;
-    final wireBytes = bindings.openEncoded(
-      publicationBytes: RitoOwnedByteTransfer.materialize(
-        operation.publicationBytes,
-      ),
-      requestBytes: operation.requestBytes,
-      pinnedFontPolicy: faces == null
-          ? null
-          : RitoPinnedFontPolicy(
-              faces: <RitoPinnedFontFace>[
-                for (final face in faces)
-                  RitoPinnedFontFace(
-                    bytes: RitoOwnedByteTransfer.materialize(face.bytes),
-                    sha256Hex: face.sha256Hex,
-                    genericRole: face.genericRole,
-                    language: face.language,
-                  ),
-              ],
-            ),
-    );
-    liveSessions.add(operation.sessionId);
-    return wireBytes;
-  } on RitoNativeException catch (error) {
-    if (error.status == ritoNativeStatusExactSeekPendingV1) {
-      // This typed status proves FFI retained a resumable pending-open actor.
-      liveSessions.add(operation.sessionId);
-    }
-    rethrow;
-  }
+  // A failed open registers no native session, so only success is tracked.
+  final faces = operation.pinnedFontFaces;
+  final wireBytes = bindings.openEncoded(
+    publicationBytes: RitoOwnedByteTransfer.materialize(
+      operation.publicationBytes,
+    ),
+    requestBytes: operation.requestBytes,
+    pinnedFontPolicy: faces == null
+        ? null
+        : RitoPinnedFontPolicy(
+            faces: <RitoPinnedFontFace>[
+              for (final face in faces)
+                RitoPinnedFontFace(
+                  bytes: RitoOwnedByteTransfer.materialize(face.bytes),
+                  sha256Hex: face.sha256Hex,
+                  genericRole: face.genericRole,
+                  language: face.language,
+                ),
+            ],
+          ),
+  );
+  liveSessions.add(operation.sessionId);
+  return wireBytes;
 }
 
 Object? _release(

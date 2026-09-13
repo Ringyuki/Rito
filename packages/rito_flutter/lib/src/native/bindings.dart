@@ -15,18 +15,18 @@ import 'pinned_font_policy.dart';
 
 part 'ffi_types.dart';
 
-const int ritoNativeStatusInvalidArgumentV1 = 1;
-const int ritoNativeStatusNotFoundV1 = 2;
-const int ritoNativeStatusAlreadyExistsV1 = 3;
-const int ritoNativeStatusEngineErrorV1 = 4;
-const int ritoNativeStatusStaleRequestV1 = 5;
-const int ritoNativeStatusTargetNotPublishedV1 = 6;
-const int ritoNativeStatusUnsupportedProfileV1 = 7;
-const int ritoNativeStatusBusyV1 = 8;
-const int ritoNativeStatusExactSeekPendingV1 = 9;
-const int ritoNativeStatusAdjacentPendingV1 = 10;
-const int ritoNativeStatusSessionTerminatedV1 = 11;
-const int ritoNativeStatusPanicV1 = 255;
+const int ritoNativeStatusInvalidArgument = 1;
+const int ritoNativeStatusNotFound = 2;
+const int ritoNativeStatusAlreadyExists = 3;
+const int ritoNativeStatusEngineError = 4;
+const int ritoNativeStatusStaleRequest = 5;
+const int ritoNativeStatusTargetNotPublished = 6;
+const int ritoNativeStatusUnsupportedProfile = 7;
+const int ritoNativeStatusBusy = 8;
+// Status value 9 is retired and is never reassigned.
+const int ritoNativeStatusAdjacentPending = 10;
+const int ritoNativeStatusSessionTerminated = 11;
+const int ritoNativeStatusPanic = 255;
 
 final class RitoNativeException implements Exception {
   const RitoNativeException({required this.status, required this.message});
@@ -38,8 +38,8 @@ final class RitoNativeException implements Exception {
   String toString() => 'RitoNativeException($status): $message';
 }
 
-@Native<_OpenNative>(symbol: 'rito_open_v1', assetId: ritoNativeAssetId)
-external int _ritoOpenV1(
+@Native<_OpenNative>(symbol: 'rito_open', assetId: ritoNativeAssetId)
+external int _ritoOpen(
   Pointer<Uint8> publication,
   int publicationLength,
   Pointer<Uint8> request,
@@ -49,10 +49,10 @@ external int _ritoOpenV1(
 );
 
 @Native<_OpenWithPinnedFontsNative>(
-  symbol: 'rito_open_with_pinned_fonts_v1',
+  symbol: 'rito_open_with_pinned_fonts',
   assetId: ritoNativeAssetId,
 )
-external int _ritoOpenWithPinnedFontsV1(
+external int _ritoOpenWithPinnedFonts(
   Pointer<Uint8> publication,
   int publicationLength,
   Pointer<Uint8> request,
@@ -64,10 +64,10 @@ external int _ritoOpenWithPinnedFontsV1(
 );
 
 @Native<_RequestArtifactNative>(
-  symbol: 'rito_request_artifact_v1',
+  symbol: 'rito_request_artifact',
   assetId: ritoNativeAssetId,
 )
-external int _ritoRequestArtifactV1(
+external int _ritoRequestArtifact(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -76,10 +76,10 @@ external int _ritoRequestArtifactV1(
 );
 
 @Native<_RequestAdjacentNative>(
-  symbol: 'rito_request_adjacent_v1',
+  symbol: 'rito_request_adjacent',
   assetId: ritoNativeAssetId,
 )
-external int _ritoRequestAdjacentV1(
+external int _ritoRequestAdjacent(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -88,10 +88,10 @@ external int _ritoRequestAdjacentV1(
 );
 
 @Native<_RequestAdjacentNative>(
-  symbol: 'rito_peek_adjacent_v1',
+  symbol: 'rito_peek_adjacent',
   assetId: ritoNativeAssetId,
 )
-external int _ritoPeekAdjacentV1(
+external int _ritoPeekAdjacent(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -100,10 +100,10 @@ external int _ritoPeekAdjacentV1(
 );
 
 @Native<_OwnedWireRequestNative>(
-  symbol: 'rito_commit_peeked_artifact_v1',
+  symbol: 'rito_commit_peeked_artifact',
   assetId: ritoNativeAssetId,
 )
-external int _ritoCommitPeekedArtifactV1(
+external int _ritoCommitPeekedArtifact(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -112,20 +112,20 @@ external int _ritoCommitPeekedArtifactV1(
 );
 
 @Native<_ReadPublicationNative>(
-  symbol: 'rito_read_publication_v1',
+  symbol: 'rito_read_publication',
   assetId: ritoNativeAssetId,
 )
-external int _ritoReadPublicationV1(
+external int _ritoReadPublication(
   int sessionId,
   Pointer<_RitoOwnedBuffer> publicationOut,
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
 @Native<_OwnedWireRequestNative>(
-  symbol: 'rito_adopt_foreground_candidate_v1',
+  symbol: 'rito_adopt_foreground_candidate',
   assetId: ritoNativeAssetId,
 )
-external int _ritoAdoptForegroundCandidateV1(
+external int _ritoAdoptForegroundCandidate(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -134,10 +134,10 @@ external int _ritoAdoptForegroundCandidateV1(
 );
 
 @Native<_OwnedWireRequestNative>(
-  symbol: 'rito_advance_background_v1',
+  symbol: 'rito_advance_background',
   assetId: ritoNativeAssetId,
 )
-external int _ritoAdvanceBackgroundV1(
+external int _ritoAdvanceBackground(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -146,10 +146,10 @@ external int _ritoAdvanceBackgroundV1(
 );
 
 @Native<_OwnedWireRequestNative>(
-  symbol: 'rito_adopt_background_candidate_v1',
+  symbol: 'rito_adopt_background_candidate',
   assetId: ritoNativeAssetId,
 )
-external int _ritoAdoptBackgroundCandidateV1(
+external int _ritoAdoptBackgroundCandidate(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -158,10 +158,10 @@ external int _ritoAdoptBackgroundCandidateV1(
 );
 
 @Native<_ReadResourceNative>(
-  symbol: 'rito_read_resource_v1',
+  symbol: 'rito_read_resource',
   assetId: ritoNativeAssetId,
 )
-external int _ritoReadResourceV1(
+external int _ritoReadResource(
   int sessionId,
   int artifactId,
   int kind,
@@ -172,10 +172,10 @@ external int _ritoReadResourceV1(
 );
 
 @Native<_OwnedWireRequestNative>(
-  symbol: 'rito_search_v1',
+  symbol: 'rito_search',
   assetId: ritoNativeAssetId,
 )
-external int _ritoSearchV1(
+external int _ritoSearch(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -184,10 +184,10 @@ external int _ritoSearchV1(
 );
 
 @Native<_OwnedWireRequestNative>(
-  symbol: 'rito_get_text_range_geometry_v1',
+  symbol: 'rito_get_text_range_geometry',
   assetId: ritoNativeAssetId,
 )
-external int _ritoGetTextRangeGeometryV1(
+external int _ritoGetTextRangeGeometry(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -196,10 +196,10 @@ external int _ritoGetTextRangeGeometryV1(
 );
 
 @Native<_ReadFootnoteNative>(
-  symbol: 'rito_read_footnote_v1',
+  symbol: 'rito_read_footnote',
   assetId: ritoNativeAssetId,
 )
-external int _ritoReadFootnoteV1(
+external int _ritoReadFootnote(
   int sessionId,
   int artifactId,
   Pointer<Uint8> key,
@@ -209,23 +209,23 @@ external int _ritoReadFootnoteV1(
 );
 
 @Native<_ReleaseNative>(
-  symbol: 'rito_release_artifact_v1',
+  symbol: 'rito_release_artifact',
   assetId: ritoNativeAssetId,
 )
-external int _ritoReleaseArtifactV1(
+external int _ritoReleaseArtifact(
   int sessionId,
   int artifactId,
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
-@Native<_DisposeNative>(symbol: 'rito_dispose_v1', assetId: ritoNativeAssetId)
-external int _ritoDisposeV1(int sessionId, Pointer<_RitoOwnedBuffer> errorOut);
+@Native<_DisposeNative>(symbol: 'rito_dispose', assetId: ritoNativeAssetId)
+external int _ritoDispose(int sessionId, Pointer<_RitoOwnedBuffer> errorOut);
 
 @Native<_BufferFreeNative>(
-  symbol: 'rito_buffer_free_v1',
+  symbol: 'rito_buffer_free',
   assetId: ritoNativeAssetId,
 )
-external void _ritoBufferFreeV1(Pointer<_RitoOwnedBuffer> buffer);
+external void _ritoBufferFree(Pointer<_RitoOwnedBuffer> buffer);
 
 /// Blocking C ABI binding. Applications should normally use
 /// `RitoIsolateGateway`, which constructs this binding on a worker isolate.
@@ -234,23 +234,23 @@ final class RitoNativeBindings {
     this.artifactDecoder = const RitoArtifactDecoder(),
     this.resourceDecoder = const RitoResourceDecoder(),
     this.footnoteDecoder = const RitoFootnoteDecoder(),
-  }) : _open = _ritoOpenV1,
-       _openWithPinnedFonts = _ritoOpenWithPinnedFontsV1,
-       _requestArtifact = _ritoRequestArtifactV1,
-       _requestAdjacent = _ritoRequestAdjacentV1,
-       _peekAdjacent = _ritoPeekAdjacentV1,
-       _commitPeeked = _ritoCommitPeekedArtifactV1,
-       _readPublication = _ritoReadPublicationV1,
-       _adoptForeground = _ritoAdoptForegroundCandidateV1,
-       _advanceBackground = _ritoAdvanceBackgroundV1,
-       _adoptBackground = _ritoAdoptBackgroundCandidateV1,
-       _readResource = _ritoReadResourceV1,
-       _readFootnote = _ritoReadFootnoteV1,
-       _textRangeGeometry = _ritoGetTextRangeGeometryV1,
-       _search = _ritoSearchV1,
-       _release = _ritoReleaseArtifactV1,
-       _dispose = _ritoDisposeV1,
-       _bufferFree = _ritoBufferFreeV1;
+  }) : _open = _ritoOpen,
+       _openWithPinnedFonts = _ritoOpenWithPinnedFonts,
+       _requestArtifact = _ritoRequestArtifact,
+       _requestAdjacent = _ritoRequestAdjacent,
+       _peekAdjacent = _ritoPeekAdjacent,
+       _commitPeeked = _ritoCommitPeekedArtifact,
+       _readPublication = _ritoReadPublication,
+       _adoptForeground = _ritoAdoptForegroundCandidate,
+       _advanceBackground = _ritoAdvanceBackground,
+       _adoptBackground = _ritoAdoptBackgroundCandidate,
+       _readResource = _ritoReadResource,
+       _readFootnote = _ritoReadFootnote,
+       _textRangeGeometry = _ritoGetTextRangeGeometry,
+       _search = _ritoSearch,
+       _release = _ritoReleaseArtifact,
+       _dispose = _ritoDispose,
+       _bufferFree = _ritoBufferFree;
 
   /// Opens symbols from an explicitly supplied library for tests and native
   /// embedding diagnostics. Product callers should use the default constructor
@@ -260,68 +260,68 @@ final class RitoNativeBindings {
     this.artifactDecoder = const RitoArtifactDecoder(),
     this.resourceDecoder = const RitoResourceDecoder(),
     this.footnoteDecoder = const RitoFootnoteDecoder(),
-  }) : _open = library.lookupFunction<_OpenNative, _OpenDart>('rito_open_v1'),
+  }) : _open = library.lookupFunction<_OpenNative, _OpenDart>('rito_open'),
        _openWithPinnedFonts = library
            .lookupFunction<
              _OpenWithPinnedFontsNative,
              _OpenWithPinnedFontsDart
-           >('rito_open_with_pinned_fonts_v1'),
+           >('rito_open_with_pinned_fonts'),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
-             'rito_request_artifact_v1',
+             'rito_request_artifact',
            ),
        _requestAdjacent = library
            .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
-             'rito_request_adjacent_v1',
+             'rito_request_adjacent',
            ),
        _peekAdjacent = library
            .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
-             'rito_peek_adjacent_v1',
+             'rito_peek_adjacent',
            ),
        _commitPeeked = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
-             'rito_commit_peeked_artifact_v1',
+             'rito_commit_peeked_artifact',
            ),
        _readPublication = library
            .lookupFunction<_ReadPublicationNative, _ReadPublicationDart>(
-             'rito_read_publication_v1',
+             'rito_read_publication',
            ),
        _adoptForeground = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
-             'rito_adopt_foreground_candidate_v1',
+             'rito_adopt_foreground_candidate',
            ),
        _advanceBackground = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
-             'rito_advance_background_v1',
+             'rito_advance_background',
            ),
        _adoptBackground = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
-             'rito_adopt_background_candidate_v1',
+             'rito_adopt_background_candidate',
            ),
        _readResource = library
            .lookupFunction<_ReadResourceNative, _ReadResourceDart>(
-             'rito_read_resource_v1',
+             'rito_read_resource',
            ),
        _readFootnote = library
            .lookupFunction<_ReadFootnoteNative, _ReadFootnoteDart>(
-             'rito_read_footnote_v1',
+             'rito_read_footnote',
            ),
        _textRangeGeometry = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
-             'rito_get_text_range_geometry_v1',
+             'rito_get_text_range_geometry',
            ),
        _search = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
-             'rito_search_v1',
+             'rito_search',
            ),
        _release = library.lookupFunction<_ReleaseNative, _ReleaseDart>(
-         'rito_release_artifact_v1',
+         'rito_release_artifact',
        ),
        _dispose = library.lookupFunction<_DisposeNative, _DisposeDart>(
-         'rito_dispose_v1',
+         'rito_dispose',
        ),
        _bufferFree = library.lookupFunction<_BufferFreeNative, _BufferFreeDart>(
-         'rito_buffer_free_v1',
+         'rito_buffer_free',
        );
 
   final RitoArtifactDecoder artifactDecoder;
@@ -443,7 +443,7 @@ final class RitoNativeBindings {
     }
   }
 
-  /// Marshals the pinned-face array for `rito_open_with_pinned_fonts_v1`.
+  /// Marshals the pinned-face array for `rito_open_with_pinned_fonts`.
   /// Every allocation is appended to [allocations] so the caller frees
   /// them after the native call returns (the ABI copies before then).
   Pointer<_RitoPinnedFontFace> _marshalPinnedFontFaces(
@@ -583,11 +583,11 @@ final class RitoNativeBindings {
     required Uint8List requestBytes,
   }) {
     _validateId(sessionId, 'session id');
-    if (requestBytes.length != 60) {
+    if (requestBytes.length != 48) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
-        'RITONAV1 must be exactly 60 bytes',
+        'RITONAV1 must be exactly 48 bytes',
       );
     }
     final request = _copyInput(requestBytes);
@@ -656,11 +656,11 @@ final class RitoNativeBindings {
     required Uint8List requestBytes,
   }) {
     _validateId(sessionId, 'session id');
-    if (requestBytes.length != 60) {
+    if (requestBytes.length != 48) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
-        'RITONAV1 must be exactly 60 bytes',
+        'RITONAV1 must be exactly 48 bytes',
       );
     }
     final request = _copyInput(requestBytes);
@@ -1061,7 +1061,7 @@ final class RitoNativeBindings {
         message: '$field buffer pointer is null',
       );
     }
-    // Copy before rito_buffer_free_v1. No native pointer escapes this method.
+    // Copy before rito_buffer_free. No native pointer escapes this method.
     return Uint8List.fromList(output.ref.data.asTypedList(length));
   }
 
@@ -1081,7 +1081,7 @@ final class RitoNativeBindings {
     Object error,
   ) {
     return RitoNativeException(
-      status: ritoNativeStatusSessionTerminatedV1,
+      status: ritoNativeStatusSessionTerminated,
       message:
           'Native $outputName result could not be trusted; the session was '
           'terminated: $error',
@@ -1305,10 +1305,8 @@ final class RitoNativeWireBindings {
   Uint8List searchEncoded({
     required int sessionId,
     required Uint8List requestBytes,
-  }) => _bindings.searchEncoded(
-    sessionId: sessionId,
-    requestBytes: requestBytes,
-  );
+  }) =>
+      _bindings.searchEncoded(sessionId: sessionId, requestBytes: requestBytes);
 
   Uint8List textRangeGeometryEncoded({
     required int sessionId,

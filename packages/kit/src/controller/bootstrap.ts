@@ -8,7 +8,7 @@ import type { ConstructionOwner } from './construction-owner';
 import { commitCurrentSpread } from './core/current-spread';
 import { buildWiringDeps } from './core/wiring-deps';
 import { syncCanvasSize, type Internals } from './facade';
-import { commitLayoutChange, publishPaginationChange } from './facade/layout-actions';
+import { commitLayoutChange } from './facade/layout-actions';
 import { createPrimarySelectionDragNavigation } from './facade/selection-primary-drag';
 import type { RuntimeComponents } from './facade/types';
 import { createNavigation } from './navigation/index';
@@ -103,9 +103,6 @@ function createRuntimeNavigation(
     onNavigationCancelled: () => {
       internals.engines.position?.update(internals.currentSpread);
     },
-    onPaginationChanged: () => {
-      publishPaginationChange(internals, emitter, frameDriver);
-    },
     beginSelectionProjectionTransfer: (targetSpreadIndex, gesture) => {
       const transfer = { targetSpreadIndex, gesture };
       internals.coordState.selectionProjectionTransfer = transfer;
@@ -135,7 +132,6 @@ function wireRuntimeEvents(
     disposables.add(
       internals.reader.onLayoutCommitted((activeSpreadIndex) => {
         commitLayoutChange(internals, emitter, runtime, undefined, activeSpreadIndex);
-        nav.notifyLayoutCommitted();
         scheduleControllerPrerender(internals, runtime, contentRenderer);
       }),
     );

@@ -2,15 +2,9 @@ import type { DisposableCollection } from '../../utils/disposable';
 import type { WiringDeps } from '../core/wiring-deps';
 import {
   refreshNativeAnnotations,
-  resolveVisibleAnnotations,
   scheduleNativeAnnotationsForSpread,
-  usesNativeAnnotationGeometry,
 } from '../annotation-resolution';
-import {
-  disposeNativeSearchGeometry,
-  replaceNativeSearchResults,
-  usesNativeSearchGeometry,
-} from '../search-resolution';
+import { disposeNativeSearchGeometry, replaceNativeSearchResults } from '../search-resolution';
 import { scheduleNativeSearchForCurrentSpread } from './native-search';
 import type { ReaderControllerEvents } from '../types';
 
@@ -31,7 +25,7 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
 function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const { engines, emitter } = deps;
   disposables.add(
-    engines.selection.onSelectionChange((range) => {
+    engines.selection.onSelectionChange(() => {
       const rawRects = engines.selection.getRects();
       const { mapper } = deps.coordState;
       const viewportRects = mapper
@@ -42,7 +36,6 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
       const handles = computeSelectionHandles(engines.selection, mapper);
 
       emitter.emit('selectionChange', {
-        range,
         sourceLocator: engines.selection.getSourceLocator(),
         sourceSpan: engines.selection.getSourceSpan(),
         hasSelection: engines.selection.hasSelection(),
@@ -91,17 +84,13 @@ function computeFocusRect(
 
 function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const { engines, emitter } = deps;
-  if (usesNativeSearchGeometry(deps.reader)) {
-    disposables.add(() => {
-      disposeNativeSearchGeometry(deps.coordState);
-    });
-  }
+  disposables.add(() => {
+    disposeNativeSearchGeometry(deps.coordState);
+  });
   disposables.add(
     engines.search.onResultsChange((results) => {
-      if (usesNativeSearchGeometry(deps.reader)) {
-        replaceNativeSearchResults(deps.coordState, results);
-        scheduleNativeSearchForCurrentSpread(deps);
-      }
+      replaceNativeSearchResults(deps.coordState, results);
+      scheduleNativeSearchForCurrentSpread(deps);
       emitContainedSearchEvent(
         emitter,
         'searchResults',
@@ -157,30 +146,22 @@ function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableColl
   disposables.add(
     store.onChange((records) => {
       deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-      if (usesNativeAnnotationGeometry(deps.reader)) {
-        refreshNativeAnnotations(deps.reader, deps.coordState);
-        const spread = deps.reader.spreads[deps.getCurrentSpread()];
-        if (spread) {
-          scheduleNativeAnnotationsForSpread(
-            spread,
-            deps.reader,
-            deps.coordState,
-            () => {
-              deps.frameDriver.markAllOverlaysDirty();
-            },
-            (error) => {
-              deps.emitter.emit('error', {
-                message: error instanceof Error ? error.message : String(error),
-                source: 'native-annotation-geometry',
-              });
-            },
-          );
-        }
-      } else {
-        deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
-          store,
-          deps.coordState,
+      refreshNativeAnnotations(deps.reader, deps.coordState);
+      const spread = deps.reader.spreads[deps.getCurrentSpread()];
+      if (spread) {
+        scheduleNativeAnnotationsForSpread(
+          spread,
           deps.reader,
+          deps.coordState,
+          () => {
+            deps.frameDriver.markAllOverlaysDirty();
+          },
+          (error) => {
+            deps.emitter.emit('error', {
+              message: error instanceof Error ? error.message : String(error),
+              source: 'native-annotation-geometry',
+            });
+          },
         );
       }
       deps.emitter.emit('annotationsChange', { annotations: records });

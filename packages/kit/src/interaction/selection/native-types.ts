@@ -15,11 +15,6 @@ export type NativeSelectionCapability = ReaderTextSelectionInteractions;
 export type NativeSelectionState = 'idle' | 'selecting' | 'selected' | 'disposed';
 export type NativeSelectionFocusDirection = 'forward' | 'backward';
 
-export interface SelectionSpreadUpdate {
-  /** Keep an active native handle session while only the visible projection changes. */
-  readonly preserveNativeHandleDrag?: boolean;
-}
-
 /** Exact native selection data. Rectangles remain in page-content coordinates. */
 export interface NativeSelectionSnapshot {
   readonly range: ReaderTextRange;
@@ -72,8 +67,6 @@ export interface NativeSelectionEngine {
   handlePointerDown(point: NativeSelectionPoint, granularity?: NativeSelectionGranularity): void;
   handlePointerMove(point: NativeSelectionPoint): void;
   handlePointerUp(point: NativeSelectionPoint): void;
-  /** Preserve revision-stable state and replay the latest gesture sample on an appended revision. */
-  acceptRevisionAppend(): void;
   clear(): void;
   invalidate(): void;
   dispose(): void;

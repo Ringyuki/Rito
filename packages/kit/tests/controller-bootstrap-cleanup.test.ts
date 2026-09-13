@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
+import { readerInteractions } from './helpers/native-selection';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -68,12 +69,12 @@ describe('controller bootstrap cleanup', () => {
   it('releases the pool when engine construction fails', () => {
     const buffers = stubOffscreenBuffers();
     const canvas = createCanvas();
-    const sentinel = new Error('page snapshot failed');
+    const sentinel = new Error('locator navigator lookup failed');
     const reader = createReaderStub({
       listeners: new Set(),
       unsubscribe: vi.fn(),
     });
-    Object.defineProperty(reader, 'pages', {
+    Object.defineProperty(reader, 'navigateToLocator', {
       get() {
         throw sentinel;
       },
@@ -172,8 +173,9 @@ function createReaderStub(input: {
     toc: [],
     chapterMap: new Map(),
     manifestHrefMap: new Map(),
-    pages: [],
-    spreads: [{ left: { index: 0 }, right: undefined }],
+    pageCount: 1,
+    spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
+    interactions: readerInteractions(),
     dpr: 1,
     renderSpread: vi.fn(),
     renderSpreadTo: vi.fn(() => true),
@@ -197,7 +199,6 @@ function createReaderStub(input: {
     getChapterTextIndices: vi.fn(() => new Map()),
     getFootnotes: vi.fn(() => new Map()),
     getImageBlobUrl: vi.fn(),
-    measurer: {},
     setTypography: vi.fn(() => false),
     onSpreadRendered: vi.fn((listener: (spreadIndex: number, spread: unknown) => void) => {
       input.listeners.add(listener);

@@ -1,13 +1,30 @@
-import { canvasSpacingValue } from './spacing';
 import type { CanvasTextFragment, CanvasTextShadow } from './types';
 
-/** Render text-shadow layers through a scratch canvas, leaving the glyph itself transparent. */
+/** One drawn stretch of a run: its text and the origin its pen draws it
+ * at (x, alphabetic baseline y). */
+export interface ShadowPiece {
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Render text-shadow layers through a scratch canvas, leaving the glyph
+ * itself transparent. A run the engine placed cluster by cluster hands
+ * its `pieces`: every shadow layer is ONE bitmap holding all of them, the
+ * way the browser blurs the whole run's mask at once — blurring each
+ * cluster on its own composited the glows of neighbouring glyphs over
+ * each other and read darker where they overlap.
+ */
 export function drawTextShadows(
   ctx: CanvasRenderingContext2D,
   fragment: CanvasTextFragment,
   x: number,
   y: number,
   color: string,
+  pieces: readonly ShadowPiece[] = [
+    { text: fragment.text, x, y: y + 0.8 * fragment.paint.font.sizePx },
+  ],
 ): void {
   const shadows = fragment.paint.textShadow ?? [];
   if (shadows.length === 0) return;
@@ -27,7 +44,7 @@ export function drawTextShadows(
   const pixelRatio = Math.hypot(transform.a || 0, transform.b || 0) || 1;
   const rotated = Math.abs(transform.b || 0) > 1e-6 || Math.abs(transform.c || 0) > 1e-6;
   if (!rotated) {
-    drawSnappedShadows(ctx, transform, fragment, x, y, color, shadows, {
+    drawSnappedShadows(ctx, transform, fragment, x, y, color, shadows, pieces, {
       padLeft,
       padRight,
       padTop,
@@ -41,7 +58,7 @@ export function drawTextShadows(
   if (!scratch) return;
 
   scratch.ctx.scale(pixelRatio, pixelRatio);
-  syncTextState(scratch.ctx, ctx, fragment, color);
+  syncTextState(scratch.ctx, ctx, color);
   // The caster must sit EXACTLY where the glyph paint will: alphabetic
   // baseline at em-top + 0.8·size, the same convention as the renderer.
   // A 'top'-baseline caster hung the shadow fontAscent − 0.8·size lower
@@ -50,9 +67,11 @@ export function drawTextShadows(
   renderShadowLayers(
     scratch.ctx,
     shadows,
-    fragment.text,
-    padLeft,
-    padTop + 0.8 * fragment.paint.font.sizePx,
+    pieces.map((piece) => ({
+      text: piece.text,
+      x: padLeft + (piece.x - x),
+      y: padTop + (piece.y - y),
+    })),
     pixelRatio,
   );
   ctx.drawImage(
@@ -96,6 +115,7 @@ function drawSnappedShadows(
   y: number,
   color: string,
   shadows: readonly CanvasTextShadow[],
+  pieces: readonly ShadowPiece[],
   { padLeft, padRight, padTop, padBottom }: ShadowPadding,
 ): void {
   const logicalWidth = fragment.rect.width + padLeft + padRight;
@@ -123,13 +143,15 @@ function drawSnappedShadows(
   const scratch = createScratchCanvas(physicalWidth, physicalHeight);
   if (!scratch) return;
   scratch.ctx.scale(pixelRatio, pixelRatio);
-  syncTextState(scratch.ctx, ctx, fragment, color);
+  syncTextState(scratch.ctx, ctx, color);
   renderShadowLayers(
     scratch.ctx,
     shadows,
-    fragment.text,
-    padLeft + fractionX,
-    padTop + fractionY + 0.8 * fragment.paint.font.sizePx,
+    pieces.map((piece) => ({
+      text: piece.text,
+      x: padLeft + fractionX + (piece.x - x),
+      y: padTop + fractionY + (piece.y - y),
+    })),
     pixelRatio,
   );
   ctx.save();
@@ -143,9 +165,7 @@ const SHADOW_CAST_OFFSET = 20000;
 function renderShadowLayers(
   ctx: ScratchCanvasContext,
   shadows: readonly CanvasTextShadow[],
-  text: string,
-  x: number,
-  baselineY: number,
+  pieces: readonly ShadowPiece[],
   pixelRatio: number,
 ): void {
   for (let index = shadows.length - 1; index >= 0; index -= 1) {
@@ -155,7 +175,9 @@ function renderShadowLayers(
     ctx.shadowBlur = shadow.blur * pixelRatio;
     ctx.shadowOffsetX = shadow.offsetX * pixelRatio;
     ctx.shadowOffsetY = (shadow.offsetY + SHADOW_CAST_OFFSET) * pixelRatio;
-    ctx.fillText(text, x, baselineY - SHADOW_CAST_OFFSET);
+    for (const piece of pieces) {
+      ctx.fillText(piece.text, piece.x, piece.y - SHADOW_CAST_OFFSET);
+    }
   }
 }
 
@@ -207,12 +229,13 @@ function createScratchCanvas(width: number, height: number): ScratchCanvas | nul
 function syncTextState(
   destination: ScratchCanvasContext,
   source: CanvasRenderingContext2D,
-  fragment: CanvasTextFragment,
   color: string,
 ): void {
   destination.font = source.font;
   destination.textBaseline = 'alphabetic';
   destination.fillStyle = color;
-  destination.wordSpacing = canvasSpacingValue(fragment.paint.wordSpacingPx);
-  destination.letterSpacing = canvasSpacingValue(fragment.paint.letterSpacingPx);
+  // The caster draws the same cluster pieces at the same origins as the
+  // glyph pen, with every spacing already in those origins.
+  destination.wordSpacing = '0px';
+  destination.letterSpacing = '0px';
 }

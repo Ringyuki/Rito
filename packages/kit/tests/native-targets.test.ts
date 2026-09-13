@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createLayoutConfig } from '@ritojs/core';
-import type { Page, Reader, ReaderInteractions, ReaderPageTargets, Spread } from '@ritojs/core';
+import type { Reader, ReaderInteractions, ReaderPageTargets, Spread } from '@ritojs/core';
 import { createCoordinatorState } from '../src/controller/core';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 import {
@@ -9,21 +9,9 @@ import {
   loadNativeTargetsForSpread,
 } from '../src/controller/wiring/native-targets';
 
-const leftPage: Page = {
-  index: 6,
-  bounds: { x: 0, y: 0, width: 300, height: 400 },
-  content: [],
-};
-const rightPage: Page = {
-  index: 7,
-  bounds: { x: 0, y: 0, width: 300, height: 400 },
-  content: [],
-};
-const spread: Spread = {
-  index: 3,
-  left: leftPage,
-  right: rightPage,
-};
+const spread: Spread = { index: 3, pageIndexes: [6, 7], leftPageIndex: 6, rightPageIndex: 7 };
+const singleSpread: Spread = { index: 3, pageIndexes: [6], leftPageIndex: 6 };
+const currentSpread: Spread = { index: 4, pageIndexes: [8], leftPageIndex: 8 };
 
 describe('native visible-spread target loading', () => {
   it('installs a double-page target set atomically', async () => {
@@ -46,13 +34,12 @@ describe('native visible-spread target loading', () => {
 
   it('does not let an older spread read replace a newer one', async () => {
     const old = deferred<ReaderPageTargets | undefined>();
-    const currentSpread: Spread = { index: 4, left: { ...leftPage, index: 8 } };
     const interactions = interactionsFor((pageIndex) =>
       pageIndex === 6 ? old.promise : Promise.resolve(pageTargets(8, 'current', 4)),
     );
     const reader = readerWith(interactions);
     const state = createCoordinatorState();
-    const oldTask = loadNativeTargetsForSpread({ index: 3, left: leftPage }, reader, state);
+    const oldTask = loadNativeTargetsForSpread(singleSpread, reader, state);
     await loadNativeTargetsForSpread(currentSpread, reader, state);
 
     old.resolve(pageTargets(6, 'old'));
@@ -67,8 +54,8 @@ describe('native visible-spread target loading', () => {
     );
     const reader = readerWith(interactions);
     const state = createCoordinatorState();
-    const oldTask = loadNativeTargetsForSpread({ index: 3, left: leftPage }, reader, state);
-    await loadNativeTargetsForSpread({ index: 4, left: { ...leftPage, index: 8 } }, reader, state);
+    const oldTask = loadNativeTargetsForSpread(singleSpread, reader, state);
+    await loadNativeTargetsForSpread(currentSpread, reader, state);
 
     old.reject(new Error('obsolete worker failure'));
     await expect(oldTask).resolves.toBeUndefined();
@@ -83,11 +70,7 @@ describe('native visible-spread target loading', () => {
       () => enabled,
     );
     const state = createCoordinatorState();
-    const task = loadNativeTargetsForSpread(
-      { index: 3, left: leftPage },
-      readerWith(interactions),
-      state,
-    );
+    const task = loadNativeTargetsForSpread(singleSpread, readerWith(interactions), state);
 
     enabled = false;
     result.resolve(pageTargets(6, 'stale'));
@@ -100,7 +83,7 @@ describe('native visible-spread target loading', () => {
     const state = createCoordinatorState();
     state.nativeTargetsByPage.set(2, []);
     const task = loadNativeTargetsForSpread(
-      { index: 3, left: leftPage },
+      singleSpread,
       readerWith(interactionsFor(() => result.promise)),
       state,
     );

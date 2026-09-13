@@ -19,12 +19,6 @@ export interface Rect {
   readonly height: number;
 }
 
-export interface PaginationPolicy {
-  readonly enabled?: boolean;
-  readonly defaultOrphans?: number;
-  readonly defaultWidows?: number;
-}
-
 export interface LayoutConfig {
   readonly viewportWidth: number;
   readonly viewportHeight: number;
@@ -42,13 +36,6 @@ export interface LayoutConfig {
   readonly lineHeightForce?: boolean | undefined;
   readonly fontFamilyOverride?: string | undefined;
   readonly fontFamilyForce?: boolean | undefined;
-  readonly paginationPolicy?: PaginationPolicy | undefined;
-  /**
-   * How the engine measures text. Reader layouts measure with real font
-   * glyphs; the legacy estimator exists only for fixture parity and
-   * misplaces real-book line breaks.
-   */
-  readonly textMeasurement?: 'fontAware' | undefined;
 }
 
 export interface LayoutConfigInput {
@@ -71,19 +58,15 @@ export interface LayoutConfigInput {
   readonly lineHeightForce?: boolean;
   readonly fontFamilyOverride?: string;
   readonly fontFamilyForce?: boolean;
-  readonly paginationPolicy?: PaginationPolicy;
 }
 
-export interface Page {
-  readonly index: number;
-  readonly bounds: Rect;
-  readonly content: readonly unknown[];
-}
-
+/** One spread of the committed layout: the engine's navigation record, page indexes only. */
 export interface Spread {
   readonly index: number;
-  readonly left?: Page;
-  readonly right?: Page;
+  /** Every page shown on this spread, in reading order. */
+  readonly pageIndexes: readonly number[];
+  readonly leftPageIndex: number;
+  readonly rightPageIndex?: number;
 }
 
 export interface ChapterRange {
@@ -269,25 +252,3 @@ export interface SearchResult {
 export type ReaderSearchSourceResolution =
   | { readonly status: 'resolved'; readonly href: string; readonly sourceRange: ReaderSourceRange }
   | { readonly status: 'unavailable'; readonly reason: 'sourceUnavailable' };
-
-export interface FontShorthand {
-  readonly style: 'normal' | 'italic';
-  readonly weight: number;
-  readonly sizePx: number;
-  readonly family: string;
-}
-
-export interface MeasurePaint {
-  readonly font: FontShorthand;
-  readonly wordSpacingPx?: number;
-  readonly letterSpacingPx?: number;
-}
-
-export interface TextMetrics {
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface TextMeasurer {
-  measureText(text: string, paint: MeasurePaint): TextMetrics;
-}

@@ -1,7 +1,14 @@
 use std::sync::Arc;
 
-use rito_source::SourceArena;
-use rito_stylo::{ColorScheme, StyleDocument, StyleOrigin, StylesheetInput, Viewport};
+use rito_source::{NodeId, SourceArena};
+use rito_style_contract::{
+    BoxSizing, Direction, FontSlant, InlineFormattingStyle, LayoutDisplay, LayoutDisplayInside,
+    LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, LineHeight, TextWrapMode,
+    UnicodeBidi, WhiteSpaceCollapse,
+};
+use rito_stylo::{
+    epub_ua_stylesheet, ColorScheme, StyleDocument, StyleOrigin, StylesheetInput, Viewport,
+};
 
 const DOCUMENT_URL: &str = "https://example.test/book/chapter.xhtml";
 
@@ -284,16 +291,8 @@ fn respects_normal_and_important_cascade_origin_order() {
         ),
         StylesheetInput::author("#target { font-size: 22px }", DOCUMENT_URL),
     ];
-    let mut normal =
-        StyleDocument::from_source(source(xhtml), DOCUMENT_URL, Viewport::default(), &sheets)
-            .unwrap();
     assert_eq!(
-        normal
-            .resolve()
-            .unwrap()
-            .element_by_id("target")
-            .unwrap()
-            .font_size_px,
+        target_font_size_px(&source(xhtml), Viewport::default(), &sheets).unwrap(),
         22.0
     );
 
@@ -310,22 +309,207 @@ fn respects_normal_and_important_cascade_origin_order() {
         ),
         StylesheetInput::author("#target { font-size: 23px !important }", DOCUMENT_URL),
     ];
-    let mut important = StyleDocument::from_source(
-        source(xhtml),
-        DOCUMENT_URL,
-        Viewport::default(),
-        &important_sheets,
-    )
-    .unwrap();
     assert_eq!(
-        important
-            .resolve()
-            .unwrap()
-            .element_by_id("target")
-            .unwrap()
-            .font_size_px,
+        target_font_size_px(&source(xhtml), Viewport::default(), &important_sheets).unwrap(),
         25.0
     );
+}
+
+#[test]
+fn epub_ua_stylesheet_supplies_html_box_generation_semantics() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml">
+            <head id="head"><title>Hidden</title></head>
+            <body>
+              <article id="article"><span id="span">Inline</span></article>
+              <ol><li id="item">Item</li></ol>
+              <table id="table"><tbody><tr><td id="cell">Cell</td></tr></tbody></table>
+              <dialog id="closed-dialog">Closed</dialog>
+              <dialog id="open-dialog" open="open">Open</dialog>
+              <details>
+                <summary id="summary">Summary</summary>
+                <summary id="second-summary">Second summary</summary>
+              </details>
+              <svg xmlns="http://www.w3.org/2000/svg"><g id="svg-hidden" hidden="hidden" /></svg>
+            </body>
+          </html>"#,
+    );
+    let (_, layout) = epub_document(&source, "")
+        .resolve_production_slice()
+        .expect("resolved styles")
+        .into_parts();
+    let display_of = |id: &str| layout_style(layout.table(), &source, id).display;
+
+    assert_eq!(
+        display_of("article"),
+        display(
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Flow,
+            false
+        )
+    );
+    assert_eq!(
+        display_of("span"),
+        display(
+            LayoutDisplayOutside::Inline,
+            LayoutDisplayInside::Flow,
+            false
+        )
+    );
+    assert_eq!(
+        display_of("item"),
+        display(LayoutDisplayOutside::Block, LayoutDisplayInside::Flow, true)
+    );
+    assert_eq!(
+        display_of("table"),
+        display(
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Table,
+            false
+        )
+    );
+    assert_eq!(
+        display_of("cell"),
+        display(
+            LayoutDisplayOutside::InternalTable,
+            LayoutDisplayInside::TableCell,
+            false,
+        )
+    );
+    assert_eq!(
+        display_of("head"),
+        display(LayoutDisplayOutside::None, LayoutDisplayInside::None, false)
+    );
+    assert_eq!(
+        display_of("closed-dialog"),
+        display(LayoutDisplayOutside::None, LayoutDisplayInside::None, false)
+    );
+    assert_eq!(
+        display_of("open-dialog"),
+        display(
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Flow,
+            false
+        )
+    );
+    assert_eq!(
+        display_of("summary"),
+        display(LayoutDisplayOutside::Block, LayoutDisplayInside::Flow, true)
+    );
+    assert_eq!(
+        display_of("second-summary"),
+        display(
+            LayoutDisplayOutside::Block,
+            LayoutDisplayInside::Flow,
+            false
+        )
+    );
+    // `hidden` is an HTML attribute; the UA rule does not match SVG elements.
+    assert_eq!(
+        display_of("svg-hidden"),
+        display(
+            LayoutDisplayOutside::Inline,
+            LayoutDisplayInside::Flow,
+            false
+        )
+    );
+}
+
+#[test]
+fn author_display_overrides_epub_ua_origin() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target" hidden="hidden">Text</p></body></html>"#,
+    );
+    let (_, layout) = epub_document(&source, "p[hidden] { display: inline }")
+        .resolve_production_slice()
+        .expect("resolved styles")
+        .into_parts();
+    assert_eq!(
+        layout_style(layout.table(), &source, "target").display,
+        display(
+            LayoutDisplayOutside::Inline,
+            LayoutDisplayInside::Flow,
+            false
+        )
+    );
+}
+
+#[test]
+fn html_dir_is_an_inherited_zero_specificity_presentational_hint() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>
+          <section dir="RTL"><p id="inherited">Inherited</p></section>
+          <p id="overridden" dir="rtl">Overridden</p>
+          <bdi id="bdi">BiDi isolate</bdi>
+          <bdo id="bdo" dir="ltr">BiDi override</bdo>
+          <span id="embed">Embed</span>
+          <span id="bidi-override">Override</span>
+          <svg xmlns="http://www.w3.org/2000/svg" dir="rtl"><text id="svg">SVG</text></svg>
+        </body></html>"#,
+    );
+    let (inline, _) = epub_document(
+        &source,
+        "#overridden { direction: ltr; unicode-bidi: normal } #embed { unicode-bidi: embed } #bidi-override { unicode-bidi: bidi-override }",
+    )
+    .resolve_production_slice()
+    .expect("resolved styles")
+    .into_parts();
+    let bidi_of = |id: &str| inline_style(inline.table(), &source, id).bidi;
+
+    assert_eq!(bidi_of("inherited").direction, Direction::RightToLeft);
+    assert_eq!(bidi_of("overridden").direction, Direction::LeftToRight);
+    assert_eq!(bidi_of("inherited").unicode_bidi, UnicodeBidi::Isolate);
+    assert_eq!(bidi_of("overridden").unicode_bidi, UnicodeBidi::Normal);
+    assert_eq!(bidi_of("bdi").unicode_bidi, UnicodeBidi::Isolate);
+    assert_eq!(bidi_of("bdo").unicode_bidi, UnicodeBidi::IsolateOverride);
+    assert_eq!(bidi_of("embed").unicode_bidi, UnicodeBidi::Embed);
+    assert_eq!(
+        bidi_of("bidi-override").unicode_bidi,
+        UnicodeBidi::BidiOverride
+    );
+    // `dir` is an HTML attribute; on an SVG element it is not a hint.
+    assert_eq!(bidi_of("svg").direction, Direction::LeftToRight);
+}
+
+#[test]
+fn shorthands_and_keywords_project_into_the_production_tables() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">Text</p></body></html>"#,
+    );
+    let (inline, layout) = epub_document(
+        &source,
+        r#"#target {
+          box-sizing: border-box;
+          margin-left: auto;
+          margin-right: 12px;
+          font-style: oblique -12.5deg;
+          white-space: pre-line;
+          line-height: normal;
+        }"#,
+    )
+    .resolve_production_slice()
+    .expect("resolved styles")
+    .into_parts();
+    let inline = inline_style(inline.table(), &source, "target");
+    let layout = layout_style(layout.table(), &source, "target");
+
+    assert_eq!(layout.box_sizing, BoxSizing::BorderBox);
+    assert_eq!(layout.margin.left, LengthPercentageOrAuto::Auto);
+    assert!(matches!(
+        layout.margin.right,
+        LengthPercentageOrAuto::Value(_)
+    ));
+    assert!(matches!(
+        inline.font.slant,
+        FontSlant::Oblique(angle) if (angle.degrees() + 12.5).abs() < 0.01
+    ));
+    // `white-space: pre-line` expands to its two longhands.
+    assert_eq!(
+        inline.text_flow.white_space_collapse,
+        WhiteSpaceCollapse::PreserveBreaks
+    );
+    assert_eq!(inline.text_flow.text_wrap_mode, TextWrapMode::Wrap);
+    assert_eq!(inline.font.line_height, LineHeight::Normal);
 }
 
 fn run_case(case: &CssCase) -> Option<String> {
@@ -333,26 +517,98 @@ fn run_case(case: &CssCase) -> Option<String> {
         r#"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body>{}</body></html>"#,
         case.body
     );
-    let mut document = StyleDocument::from_source(
-        source(&xhtml),
-        DOCUMENT_URL,
+    let actual = target_font_size_px(
+        &source(&xhtml),
         case.viewport,
         &[StylesheetInput::author(case.css, DOCUMENT_URL)],
     )
     .unwrap_or_else(|error| panic!("{}: {error}", case.name));
-    let resolved = document
-        .resolve()
-        .unwrap_or_else(|error| panic!("{}: {error}", case.name));
-    let actual = resolved
-        .element_by_id("target")
-        .unwrap_or_else(|| panic!("{}: target was not projected", case.name))
-        .font_size_px;
     (actual != case.expected_font_size_px).then(|| {
         format!(
             "{}: expected {}px, got {}px",
             case.name, case.expected_font_size_px, actual
         )
     })
+}
+
+/// Resolves the document through the production path and reads the computed
+/// font size of the element with `id="target"` from the inline style table.
+fn target_font_size_px(
+    source: &Arc<SourceArena>,
+    viewport: Viewport,
+    stylesheets: &[StylesheetInput],
+) -> Result<f32, Box<dyn std::error::Error>> {
+    let target = source
+        .find_element_by_id("target")
+        .ok_or("target element missing")?;
+    let mut document = StyleDocument::from_source_with_root_font_size(
+        Arc::clone(source),
+        DOCUMENT_URL,
+        viewport,
+        16.0,
+        stylesheets,
+    )?;
+    let (inline, _) = document.resolve_production_slice()?.into_parts();
+    Ok(inline
+        .table()
+        .style_for_node(target.index())?
+        .font
+        .size
+        .get())
+}
+
+/// Builds a document the way production does: the EPUB user-agent stylesheet
+/// first, then the author stylesheet.
+fn epub_document(source: &Arc<SourceArena>, css: &str) -> StyleDocument {
+    StyleDocument::from_source_with_root_font_size(
+        Arc::clone(source),
+        DOCUMENT_URL,
+        Viewport::default(),
+        16.0,
+        &[
+            StylesheetInput::new(epub_ua_stylesheet(), DOCUMENT_URL, StyleOrigin::UserAgent),
+            StylesheetInput::author(css, DOCUMENT_URL),
+        ],
+    )
+    .expect("style document")
+}
+
+fn element(source: &SourceArena, id: &str) -> NodeId {
+    source
+        .find_element_by_id(id)
+        .unwrap_or_else(|| panic!("element #{id} missing"))
+}
+
+fn inline_style<'a>(
+    table: &'a rito_style_contract::InlineStyleTable,
+    source: &SourceArena,
+    id: &str,
+) -> &'a InlineFormattingStyle {
+    table
+        .style_for_node(element(source, id).index())
+        .unwrap_or_else(|error| panic!("#{id} inline style: {error}"))
+}
+
+fn layout_style(
+    table: &rito_style_contract::LayoutStyleTable,
+    source: &SourceArena,
+    id: &str,
+) -> LayoutFormattingStyle {
+    *table
+        .style_for_node(element(source, id).index())
+        .unwrap_or_else(|error| panic!("#{id} layout style: {error}"))
+}
+
+fn display(
+    outside: LayoutDisplayOutside,
+    inside: LayoutDisplayInside,
+    is_list_item: bool,
+) -> LayoutDisplay {
+    LayoutDisplay {
+        outside,
+        inside,
+        is_list_item,
+    }
 }
 
 fn source(xhtml: &str) -> Arc<SourceArena> {

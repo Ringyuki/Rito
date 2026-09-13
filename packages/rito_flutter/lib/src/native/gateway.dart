@@ -23,7 +23,6 @@ import 'bindings.dart';
 import 'gateway_queue.dart';
 import 'owned_byte_transfer.dart';
 import 'pending_adjacent.dart';
-import 'pending_open.dart';
 import 'pinned_font_policy.dart';
 import 'session_lane.dart';
 import 'worker_lifecycle.dart';
@@ -35,12 +34,7 @@ export 'pending_adjacent.dart'
     show
         RitoPendingAdjacentDriver,
         RitoPendingAdjacentLimitException,
-        ritoPendingAdjacentContinuationCapV1;
-export 'pending_open.dart'
-    show
-        RitoPendingExactSeekDriver,
-        RitoPendingExactSeekLimitException,
-        ritoPendingExactSeekContinuationCapV1;
+        ritoPendingAdjacentContinuationCap;
 export 'pinned_font_policy.dart'
     show RitoPinnedFontFace, RitoPinnedFontGenericRole, RitoPinnedFontPolicy;
 export 'session_lane.dart'
@@ -121,8 +115,12 @@ abstract interface class RitoReaderGateway {
   Future<void> dispose({required int sessionId});
 }
 
-/// Marker contract for gateways that may consume additional native request IDs
-/// while cooperatively resolving an exact open or seek.
+/// Marker contract for gateways that may send an exact open or seek under a
+/// strictly newer native request ID than the caller's. The gateway substitutes
+/// one when the caller's ID was already consumed on the native side (an
+/// adjacent continuation the session has not learned about yet consumes IDs),
+/// so the returned artifact carries the substituted ID and the session adopts
+/// it as its new request baseline.
 abstract interface class RitoResumableExactSeekGateway {
   bool acceptsResumedExactSeekArtifact({
     required RitoArtifactRequest request,
@@ -207,8 +205,6 @@ final class RitoIsolateGateway
   final RitoSearchDecoder _searchDecoder = const RitoSearchDecoder();
   final RitoRequestEncoder _requestEncoder = const RitoRequestEncoder();
   final RitoNativeGatewayQueue _queue = RitoNativeGatewayQueue();
-  final RitoPendingExactSeekDriver _pendingExactSeek =
-      const RitoPendingExactSeekDriver();
   final RitoPendingAdjacentDriver _pendingAdjacent =
       const RitoPendingAdjacentDriver();
   final Map<int, _GatewayIntent> _intents = <int, _GatewayIntent>{};
@@ -226,7 +222,7 @@ final class RitoIsolateGateway
   }) async {
     _requestEncoder.encode(request);
     final intent = _claimExactSeekIntent(request.sessionId, request.requestId);
-    final nativeRequest = _oneQuantumRequestWithId(request, intent.requestId);
+    final nativeRequest = request.withRequestId(intent.requestId);
     final requestBytes = _requestEncoder.encode(nativeRequest);
     final pinnedFontFaces = pinnedFontPolicy == null
         ? null
@@ -239,14 +235,10 @@ final class RitoIsolateGateway
                 language: face.language,
               ),
           ];
-    return _runExactSeekIntent(
-      intent: intent,
-      request: nativeRequest,
-      opening: true,
-      initialOperation: () => _queue.open<RitoArtifact>(
+    try {
+      return await _queue.open<RitoArtifact>(
         sessionId: request.sessionId,
         requestId: nativeRequest.requestId,
-        nativeSessionMayExistOnError: _isExactSeekPending,
         onSupersededResult: _releaseSupersededArtifact,
         disposeAfterCleanupFailure: (_, _) =>
             _disposeNativeSession(request.sessionId),
@@ -270,8 +262,13 @@ final class RitoIsolateGateway
             );
           },
         ),
-      ),
-    );
+      );
+    } on Object {
+      // A failed open registers no native session, so nothing consumed
+      // the request ID.
+      _forgetIntent(intent);
+      rethrow;
+    }
   }
 
   @override
@@ -280,52 +277,22 @@ final class RitoIsolateGateway
   }) async {
     _requestEncoder.encode(request);
     final intent = _claimExactSeekIntent(request.sessionId, request.requestId);
-    final nativeRequest = _oneQuantumRequestWithId(request, intent.requestId);
-    return _runExactSeekIntent(
-      intent: intent,
-      request: nativeRequest,
-      opening: false,
-      initialOperation: () => _requestArtifactOnce(nativeRequest),
-    );
-  }
-
-  Future<RitoArtifact> _runExactSeekIntent({
-    required _GatewayIntent intent,
-    required RitoArtifactRequest request,
-    required bool opening,
-    required Future<RitoArtifact> Function() initialOperation,
-  }) async {
+    final nativeRequest = request.withRequestId(intent.requestId);
     try {
-      return await initialOperation();
-    } on RitoNativeException catch (error, stackTrace) {
-      if (!_isExactSeekPending(error)) {
-        if (opening) {
-          _forgetIntent(intent);
-        }
-        Error.throwWithStackTrace(error, stackTrace);
+      return await _requestArtifactNative(nativeRequest);
+    } on Object catch (error) {
+      // A typed native failure may still have consumed the request ID on
+      // the native side; the intent stays so a later claim never reuses it.
+      if (error is! RitoNativeException) {
+        _forgetIntent(intent);
       }
-      if (!_isCurrent(intent)) {
-        throw _superseded(intent);
-      }
-      return _pendingExactSeek.resume(
-        initialRequest: request,
-        requestOneQuantum: (continuation) {
-          intent.requestId = continuation.requestId;
-          return _requestArtifactOnce(continuation);
-        },
-        yieldHostTurn: _yieldHostTurn,
-        isCurrent: () => _isCurrent(intent),
-        replacementRequestId: () => _replacementRequestId(intent),
-        onTerminal: (error, _) =>
-            _finishPendingExactSeek(intent, error, opening: opening),
-      );
-    } on Object {
-      _forgetIntent(intent);
       rethrow;
     }
   }
 
-  Future<RitoArtifact> _requestArtifactOnce(RitoArtifactRequest request) async {
+  Future<RitoArtifact> _requestArtifactNative(
+    RitoArtifactRequest request,
+  ) async {
     final requestBytes = _requestEncoder.encode(request);
     return _queue.navigate<RitoArtifact>(
       sessionId: request.sessionId,
@@ -360,7 +327,10 @@ final class RitoIsolateGateway
   }) async {
     _requestEncoder.encodeAdjacent(request);
     final intent = _claimAdjacentIntent(request);
-    final nativeRequest = oneQuantumAdjacentRequest(request, intent.requestId);
+    final nativeRequest = adjacentContinuationRequest(
+      request,
+      intent.requestId,
+    );
     return _runAdjacentIntent(intent: intent, request: nativeRequest);
   }
 
@@ -464,7 +434,7 @@ final class RitoIsolateGateway
         ),
       );
     } on RitoNativeException catch (error) {
-      if (error.status == ritoNativeStatusTargetNotPublishedV1) {
+      if (error.status == ritoNativeStatusTargetNotPublished) {
         return null;
       }
       rethrow;
@@ -1001,24 +971,6 @@ final class RitoIsolateGateway
     );
   }
 
-  Future<void> _finishPendingExactSeek(
-    _GatewayIntent intent,
-    Object error, {
-    required bool opening,
-  }) async {
-    if (!_isCurrent(intent)) {
-      throw _superseded(intent);
-    }
-    if (!opening && _isTargetNotPublished(error)) {
-      return;
-    }
-    _forgetIntent(intent);
-    await _queue.dispose(
-      sessionId: intent.sessionId,
-      operation: () => _disposeNativeSession(intent.sessionId),
-    );
-  }
-
   Future<void> _finishPendingAdjacent(
     _GatewayIntent intent,
     Object error,
@@ -1036,19 +988,14 @@ final class RitoIsolateGateway
     );
   }
 
-  static bool _isExactSeekPending(Object error) {
-    return error is RitoNativeException &&
-        error.status == ritoNativeStatusExactSeekPendingV1;
-  }
-
   static bool _isAdjacentPending(Object error) {
     return error is RitoNativeException &&
-        error.status == ritoNativeStatusAdjacentPendingV1;
+        error.status == ritoNativeStatusAdjacentPending;
   }
 
   static bool _isTargetNotPublished(Object error) {
     return error is RitoNativeException &&
-        error.status == ritoNativeStatusTargetNotPublishedV1;
+        error.status == ritoNativeStatusTargetNotPublished;
   }
 
   static Future<void> _yieldHostTurn() {
@@ -1097,20 +1044,19 @@ final class RitoIsolateGateway
       // prove whether the actor committed the mutation before transport died.
       return true;
     }
-    if (error.status == ritoNativeStatusSessionTerminatedV1 ||
-        error.status == ritoNativeStatusPanicV1) {
+    if (error.status == ritoNativeStatusSessionTerminated ||
+        error.status == ritoNativeStatusPanic) {
       return true;
     }
-    return error.status != ritoNativeStatusInvalidArgumentV1 &&
-        error.status != ritoNativeStatusNotFoundV1 &&
-        error.status != ritoNativeStatusAlreadyExistsV1 &&
-        error.status != ritoNativeStatusEngineErrorV1 &&
-        error.status != ritoNativeStatusStaleRequestV1 &&
-        error.status != ritoNativeStatusTargetNotPublishedV1 &&
-        error.status != ritoNativeStatusUnsupportedProfileV1 &&
-        error.status != ritoNativeStatusBusyV1 &&
-        error.status != ritoNativeStatusExactSeekPendingV1 &&
-        error.status != ritoNativeStatusAdjacentPendingV1;
+    return error.status != ritoNativeStatusInvalidArgument &&
+        error.status != ritoNativeStatusNotFound &&
+        error.status != ritoNativeStatusAlreadyExists &&
+        error.status != ritoNativeStatusEngineError &&
+        error.status != ritoNativeStatusStaleRequest &&
+        error.status != ritoNativeStatusTargetNotPublished &&
+        error.status != ritoNativeStatusUnsupportedProfile &&
+        error.status != ritoNativeStatusBusy &&
+        error.status != ritoNativeStatusAdjacentPending;
   }
 
   Future<T> _decodeSessionWire<T>({
@@ -1224,31 +1170,8 @@ enum _GatewayIntentKind { exactSeek, adjacent }
 typedef _AdjacentIntentKey = ({
   int fromArtifactId,
   RitoAdjacentDirection direction,
-  int localPageCap,
 });
 
 _AdjacentIntentKey _adjacentIntentKey(RitoAdjacentRequest request) {
-  return (
-    fromArtifactId: request.fromArtifactId,
-    direction: request.direction,
-    localPageCap: request.work.localPageCap,
-  );
-}
-
-RitoArtifactRequest _oneQuantumRequestWithId(
-  RitoArtifactRequest request,
-  int requestId,
-) {
-  return RitoArtifactRequest(
-    sessionId: request.sessionId,
-    requestId: requestId,
-    layout: request.layout,
-    locator: request.locator,
-    work: RitoWorkBudget(
-      maxTopLevelNodesPerQuantum: request.work.maxTopLevelNodesPerQuantum,
-      maxForegroundQuanta: 1,
-      localPageCap: request.work.localPageCap,
-    ),
-    textProfile: request.textProfile,
-  );
+  return (fromArtifactId: request.fromArtifactId, direction: request.direction);
 }

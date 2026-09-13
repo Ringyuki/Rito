@@ -10,7 +10,7 @@ pub const RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION: u32 = 1;
 pub enum RuntimePinnedFontGenericRole {
     Serif,
     SansSerif,
-    /// Reserved in v1 so a later policy does not need a new role schema.
+    /// Reserved so a later policy does not need a new role schema.
     Monospace,
 }
 
@@ -70,7 +70,7 @@ impl TryFrom<String> for RuntimePinnedFontLanguageTag {
 /// Owned face input accepted only when opting into a pinned runtime font policy.
 ///
 /// An absent language means `und`. Style and weight are fixed to `normal` and
-/// `400` in policy schema v1.
+/// `400`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimePinnedFontFaceInput {
     pub bytes: Vec<u8>,

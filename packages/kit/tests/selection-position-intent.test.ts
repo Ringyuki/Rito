@@ -353,15 +353,11 @@ function expectSerializableCurrentPosition(
 }
 
 function layout(): PositionLayout {
-  const pages = [
-    { index: 0, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-    { index: 1, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-  ] as const;
   return {
-    pages,
+    pageCount: 2,
     spreads: [
-      { index: 0, left: pages[0] },
-      { index: 1, left: pages[1] },
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      { index: 1, pageIndexes: [1], leftPageIndex: 1 },
     ],
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 1 }]]),
   };

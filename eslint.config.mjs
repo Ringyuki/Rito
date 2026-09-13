@@ -16,7 +16,6 @@ export default defineConfig([
       '**/playwright-report/',
       '**/test-results/',
       '**/target/',
-      'benchmarks/**/artifact-snapshot/',
       'apps/reader/src/components/ui/',
     ],
   },
@@ -28,7 +27,6 @@ export default defineConfig([
         projectService: {
           allowDefaultProject: [
             'eslint.config.mjs',
-            'benchmarks/*/*.mjs',
             'scripts/*.mjs',
             'packages/*/scripts/*.mjs',
             'packages/rito-core-wasm/src/*.js',
@@ -43,7 +41,7 @@ export default defineConfig([
     files: [
       'packages/rito-core-wasm/src/**/*.js',
       'packages/rito/src/bindings/browser/reader/worker-entry.mjs',
-      'packages/rito/src/bindings/browser/reader-v1-worker-entry.mjs',
+      'packages/rito/src/bindings/browser/reader-session-worker-entry.mjs',
     ],
     languageOptions: {
       ...tseslint.configs.disableTypeChecked.languageOptions,
@@ -54,10 +52,6 @@ export default defineConfig([
   },
   {
     files: [
-      'apps/reader/tests/e2e/reader-preview-ab-model.mjs',
-      'apps/reader/tests/e2e/reader-preview-ab-model.node.mjs',
-      'apps/reader/tests/e2e/run-reader-preview-ab.mjs',
-      'benchmarks/**/*.mjs',
       'scripts/**/*.mjs',
       'packages/*/scripts/**/*.mjs',
       'packages/*/tests/**/*.mjs',
@@ -142,27 +136,6 @@ export default defineConfig([
       complexity: ['warn', 24],
       'max-lines': ['warn', 300],
       'max-lines-per-function': ['warn', 50],
-    },
-  },
-  {
-    // Layout / render boundary enforcement (see AGENTS.md "Layout / Render
-    // boundary"). render/ must consume paint-ready layout types instead of
-    // the raw CSS-level ComputedStyle.
-    files: ['packages/rito/src/reference/ts-core/render/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex: 'style/core/types$',
-              importNames: ['ComputedStyle'],
-              message:
-                'render/ must not consume ComputedStyle. Use paint-ready types from layout/core (RunPaint / BlockPaint / HrPaint / PagePaint) and shared structured paint primitives from style/core/paint-types instead.',
-            },
-          ],
-        },
-      ],
     },
   },
   {

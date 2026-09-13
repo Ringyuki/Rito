@@ -11,10 +11,15 @@ export interface ResolvedPositionIntent {
   readonly position: ReadingPosition;
 }
 
+/**
+ * How the tracker carries the current position across a layout commit:
+ * `portable` resolves the source locator against the new revision asynchronously,
+ * `synchronous` re-projects the preserved position by chapter progress at commit time.
+ */
 export type LayoutPositionPlan =
   | { readonly kind: 'portable' }
   | {
-      readonly kind: 'legacy';
+      readonly kind: 'synchronous';
       readonly intent: PositionIntent;
       readonly position: ReadingPosition | null;
     };

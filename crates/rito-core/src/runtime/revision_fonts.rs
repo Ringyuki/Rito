@@ -1,11 +1,8 @@
 use std::collections::BTreeSet;
 
-use crate::{
-    epub::{
-        resolve_font_face_sources, text_measurement_font_assembly_for_layout_with_sources,
-        ResolvedFontFaceSource, ShapeablePublicationFontFace,
-    },
-    layout::{parse_font_family_list, LayoutConfig, TextMeasurementMode},
+use crate::epub::{
+    parse_font_family_list, publication_font_face_catalog, resolve_font_face_sources,
+    ResolvedFontFaceSource,
 };
 
 use super::{
@@ -14,40 +11,13 @@ use super::{
 };
 
 impl RuntimeDocument {
-    pub(super) fn required_font_face_catalog_for_layout(
-        &self,
-        layout_config: &LayoutConfig,
-    ) -> Option<Vec<RuntimeRequiredFontFace>> {
-        if self.pinned_font_policy.is_empty() {
-            return None;
-        }
-        if layout_config.text_measurement == TextMeasurementMode::FixtureCompatible {
-            return self.required_font_face_catalog_from_faces(Vec::new());
-        }
-        let pinned_faces = self
-            .pinned_font_policy
-            .measurement_faces_for_layout(layout_config);
-        let assembly = text_measurement_font_assembly_for_layout_with_sources(
-            &self.document,
-            self.resolved_font_face_sources(),
-            layout_config,
-            self.text_measurement_cache.clone(),
-            pinned_faces,
-        );
-        self.required_font_face_catalog_from_faces(assembly.shapeable_publication_faces)
-    }
-
-    pub(super) fn resolved_font_face_sources(&self) -> &[ResolvedFontFaceSource] {
-        self.font_face_sources
-            .get_or_init(|| resolve_font_face_sources(&self.document))
-    }
-
-    pub(super) fn required_font_face_catalog_from_faces(
-        &self,
-        faces: Vec<ShapeablePublicationFontFace>,
-    ) -> Option<Vec<RuntimeRequiredFontFace>> {
+    /// The publication faces a revision asks the host to register: every
+    /// `@font-face` binding, because the fragment engine shapes with them
+    /// all. `None` without a pinned font policy, where the host does not
+    /// paint from the engine's faces.
+    pub(super) fn required_font_face_catalog(&self) -> Option<Vec<RuntimeRequiredFontFace>> {
         (!self.pinned_font_policy.is_empty()).then(|| {
-            faces
+            publication_font_face_catalog(&self.document, self.resolved_font_face_sources())
                 .into_iter()
                 .map(|face| RuntimeRequiredFontFace {
                     family: face.family,
@@ -60,6 +30,11 @@ impl RuntimeDocument {
                 })
                 .collect()
         })
+    }
+
+    pub(super) fn resolved_font_face_sources(&self) -> &[ResolvedFontFaceSource] {
+        self.font_face_sources
+            .get_or_init(|| resolve_font_face_sources(&self.document))
     }
 }
 

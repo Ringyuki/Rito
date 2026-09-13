@@ -1,17 +1,15 @@
 import type {
   decodeRitoFrameCommandBuffer,
   CoreRevisionBundle,
-  CoreFrameCommand,
+  CoreReaderPrimitive,
   CoreJsonObject,
   CoreLayoutConfig,
-  CoreLineBreaking,
   CorePublicationInfo,
   CoreReaderBindingRuntimeModule,
   normalizeRitoCoreWasmError,
 } from '../core-contracts';
 import type { BrowserReaderWorkerClient } from '../core-contracts';
 import type { BrowserReaderPinnedFonts } from '../pinned-fonts';
-import type { HostFontMetrics } from '../font-metrics';
 import type { CanvasRenderingTarget } from '../rendering';
 import type {
   ChapterTextIndex,
@@ -23,8 +21,8 @@ import type {
 } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type {
-  BrowserReaderBoundedSessionOwner,
-  BrowserReaderBoundedSessionSlots,
+  BrowserReaderRevisionSessionOwner,
+  BrowserReaderRevisionSessionSlots,
 } from '../reader-session-host';
 import type { BrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/types';
 import type { BrowserReaderDecodedImage } from '../decoded-image-cache';
@@ -33,16 +31,18 @@ import type {
   BrowserReaderImageResourceError,
 } from '../image-resource-error';
 
-export type { BrowserReaderBoundedSessionOwner, BrowserReaderBoundedSessionSlots };
+export type { BrowserReaderRevisionSessionOwner, BrowserReaderRevisionSessionSlots };
 
-export type { CoreJsonObject, CoreLayoutConfig, CoreLineBreaking, CorePublicationInfo };
+export type { CoreJsonObject, CoreLayoutConfig, CorePublicationInfo };
 
 export interface BrowserReaderFrame {
   readonly revisionId: string;
   readonly spreadIndex: number;
   readonly width: number;
   readonly height: number;
-  readonly commands: readonly CoreFrameCommand[];
+  /** Device pixels per CSS pixel the frame's primitives are resolved at. */
+  readonly ratio: number;
+  readonly commands: readonly CoreReaderPrimitive[];
   readonly commandHash: string;
   readonly resourceRefs: {
     readonly images: readonly string[];
@@ -104,7 +104,6 @@ export type Logger = BrowserHostLogger;
 export interface BrowserReaderQueuedReflow {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: CoreLineBreaking;
   readonly token: number;
   readonly onCommitted?: (() => void) | undefined;
 }
@@ -128,23 +127,19 @@ export interface BrowserReaderState {
   readonly decodeFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
   documentData: ArrayBuffer;
   readonly pinnedFonts: BrowserReaderPinnedFonts;
-  /** Whether reopened worker sessions re-arm the fragment page table. */
-  readonly fragmentPagination: boolean;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;
-  readonly fontMetrics: HostFontMetrics;
   readonly publication: CorePublicationInfo;
   readonly logger: Logger;
   config: LayoutConfig;
   spreadMode: 'single' | 'double';
-  lineBreaking: CoreLineBreaking;
   bgColor: string;
   fgColor: string | undefined;
   dpr: number;
   revisionBundle: CoreRevisionBundle;
   revisionHandle: BrowserReaderRevisionHandle | undefined;
   commitGeneration: number;
-  readonly boundedSessions: BrowserReaderBoundedSessionSlots;
+  readonly revisionSessions: BrowserReaderRevisionSessionSlots;
   readonly chapterLocalPreview: BrowserReaderChapterLocalPreviewState;
   disposeTask: Promise<void> | undefined;
   readonly interaction: BrowserReaderInteractionState;

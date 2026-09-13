@@ -125,6 +125,12 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     out.extend_from_slice(&descent.to_bits().to_le_bytes());
                 }
             }
+            out.extend_from_slice(&(fragment.clusters.len() as u32).to_le_bytes());
+            for cluster in &fragment.clusters {
+                out.extend_from_slice(&cluster.byte.to_le_bytes());
+                out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
+            }
+            out.push(u8::from(fragment.cluster_grid));
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -210,6 +216,19 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 1 => Some((reader.f64()?, reader.f64()?)),
                 tag => return Err(format!("unknown text font-grid tag {tag}")),
             };
+            let cluster_count = reader.u32()? as usize;
+            let mut clusters = Vec::with_capacity(cluster_count.min(4096));
+            for _ in 0..cluster_count {
+                clusters.push(crate::ClusterPosition {
+                    byte: reader.u32()?,
+                    x: reader.f64()?,
+                });
+            }
+            let cluster_grid = match reader.u8()? {
+                0 => false,
+                1 => true,
+                tag => return Err(format!("unknown text cluster-grid tag {tag}")),
+            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -223,6 +242,8 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 font_grid,
                 ruby_center_shift_px,
                 ruby_overhang_right_px,
+                clusters,
+                cluster_grid,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -471,6 +492,8 @@ mod tests {
                             text_end: 42,
                             box_snap: None,
                             font_grid: None,
+                            clusters: Vec::new(),
+                            cluster_grid: false,
                             ruby_center_shift_px: 0.0,
                             justify_px: 0.25,
                             ruby_gap_px: 1.5,

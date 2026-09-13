@@ -1,4 +1,4 @@
-/// Rito's EPUB support-profile user-agent stylesheet.
+/// Rito's EPUB user-agent stylesheet.
 ///
 /// This is deliberately a document policy rather than browser chrome. It
 /// supplies the HTML box-generation defaults needed by publication content,
@@ -6,13 +6,11 @@
 /// widgets to hosts. It is not a complete browser HTML UA stylesheet.
 /// Keeping it as CSS lets Stylo apply normal cascade/origin rules over the
 /// DOM-independent `rito-source` arena.
-pub const EPUB_UA_PROFILE_ID: &str = "rito-epub-support-profile-v2";
-
 pub fn epub_ua_stylesheet() -> &'static str {
     EPUB_UA_STYLESHEET
 }
 
-pub(crate) const EPUB_UA_STYLESHEET: &str = r#"
+const EPUB_UA_STYLESHEET: &str = r#"
 @namespace url(http://www.w3.org/1999/xhtml);
 
 html, body,
@@ -80,12 +78,10 @@ sub { vertical-align: sub; font-size: smaller; }
    css/dist/ReadiumCSS-before.css — `img, svg|svg, video { object-fit:
    contain; ... }`; semantics per CSS Images 3 §5.4. An auto-sized box
    resolves to the raster ratio, where contain equals fill, so only an
-   author box that contradicts the raster changes. The legacy JSON
-   pipeline carries the same policy as a hardcoded default
-   (rito-core stylo_materialize: "Replaced-element defaults are Rito
-   layout policy"); this rule is the cascade-visible, author-overridable
-   form for the fragment pipeline. The pixel-walk truth harness injects
-   the same declaration (guarded by a rito-core integration test). */
+   author box that contradicts the raster changes. This rule is the
+   cascade-visible, author-overridable form of that policy; the pixel-walk
+   truth harness injects the same declaration (guarded by a rito-core
+   integration test). */
 img { object-fit: contain; }
 
 /* Chromium's light-mode UA link styling (measured rgb(0,0,238) on the

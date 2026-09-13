@@ -1,16 +1,57 @@
 # Rito
 
-A Rust-backed EPUB reader core with TypeScript package bindings.
+A Rust EPUB reader engine with web, Flutter and C ABI hosts.
 
-Rito is an EPUB-focused reader engine. It opens EPUB archives, resolves a
-book-oriented CSS subset, creates layout revisions, builds paint-ready frames,
-and renders pages or spreads through the browser package facade.
+Rito opens EPUB archives, resolves CSS through Stylo, lays chapters out
+with its own fragment engine (Parley-backed inline text, block flow and
+pagination) and lowers every page to a device-resolved display list that
+hosts blit without interpreting. Layout and paint are measured against
+pinned Chromium page by page; the target is pixel identity.
 
-The repository also includes:
+The repository ships:
 
-- `@ritojs/core` — the Rust-backed core reader package
-- `@ritojs/kit` — a framework-agnostic controller layer with transitions and overlays
-- `@ritojs/react` — React hooks and components on top of the core packages
+- `@ritojs/core` — the browser reader: the engine as WASM in a Worker plus
+  a Canvas presenter
+- `@ritojs/kit` — a framework-agnostic controller with transitions,
+  overlays, selection, search, annotations, keyboard and storage
+- `@ritojs/react` — React hooks and a mount component over core and kit
+- `rito_flutter` — the Flutter adapter over the engine's C ABI (pub.dev)
+- `crates/rito-ffi` — the C ABI for other native hosts
+
+## Architecture
+
+One Rust engine parses, styles, lays out and paints every page. Hosts move
+its bytes and blit them; no host owns a layout or paint rule.
+
+```mermaid
+flowchart TB
+  subgraph hosts["Hosts (blit only)"]
+    react["@ritojs/react"] --> kit["@ritojs/kit<br/>controller, overlays, selection, search"]
+    kit --> core["@ritojs/core<br/>Worker runtime + Canvas pen"]
+    flutter["rito_flutter<br/>Dart decoder + CustomPainter pen"]
+    native["other native hosts"]
+  end
+  core --> wasm["rito-wasm<br/>wasm-bindgen facade"]
+  flutter --> ffi["rito-ffi<br/>C ABI actor"]
+  native --> ffi
+  wasm --> runtime
+  ffi --> runtime
+  subgraph engine["rito-core (Rust)"]
+    runtime["runtime<br/>document handle, revisions, frames, resources, interaction"]
+    runtime --> epub["epub + xhtml<br/>archive, package, chapter sources (rito-source)"]
+    epub --> style["style<br/>Stylo cascade (rito-stylo) → typed tables (rito-style-contract)"]
+    style --> bridge["fragment_bridge<br/>formatting tree + capability gates"]
+    bridge --> layout["fragment_pagination<br/>rito-fragment · rito-block · rito-inline (Parley)"]
+    layout --> paint["fragment_paint<br/>typed display commands"]
+    paint --> render["render<br/>device primitives → RITODL1 wire"]
+    render --> runtime
+  end
+```
+
+Every layout and paint rule is proven against pinned Chromium page by
+page. The crate and package boundaries, the invariants and the guards
+that enforce them are in [Architecture](./docs/development/architecture.md)
+and [Engine Pipeline](./docs/development/engine-pipeline.md).
 
 ## Install
 
@@ -48,26 +89,26 @@ reader.dispose();
 - [Documentation Index](./docs/README.md)
 - [Getting Started](./docs/getting-started.md)
 - [Reader API](./docs/api/reader.md)
-- [Reference Primitives](./docs/api/primitives.md)
-- [Advanced Entry](./docs/api/advanced.md)
-- [Specialized Subpaths](./docs/api/subpaths.md)
+- [Migrating to 2.0](./docs/migration/v2.md)
 - [Capabilities](./docs/capabilities.md)
 - [Limitations](./docs/limitations.md)
 - [Using `@ritojs/kit`](./docs/integrations/kit.md)
 - [Using `@ritojs/react`](./docs/integrations/react.md)
+- [Direct FFI integration](./docs/integrations/ffi.md)
 - [Development Docs](./docs/development/README.md)
 
-## Release Scope
+## Scope
 
 Rito is optimized for EPUB book layout, not browser-equivalent web layout.
 
-- EPUB-first rendering model
-- small, stable reader API on the main `@ritojs/core` entry
-- source-only TypeScript reference implementation for golden and parity work
-- optional higher-level integration packages for controllers and React
-- deliberate CSS/layout subset focused on book pagination
+- EPUB-first rendering model with a reading-system UA stylesheet
+- one engine for every host: the same page on web, Flutter and native
+- a small, stable reader API on the main `@ritojs/core` entry
+- a deliberate CSS and layout subset focused on paginated books; what the
+  engine cannot honour is degraded with a recorded reason or fails closed
 
-See the detailed scope in [Capabilities](./docs/capabilities.md) and [Limitations](./docs/limitations.md).
+See [Capabilities](./docs/capabilities.md) and
+[Limitations](./docs/limitations.md).
 
 ## Development
 

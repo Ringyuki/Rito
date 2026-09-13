@@ -15,8 +15,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { FontFamilyCombobox } from '@/components/font-family-combobox';
 
-export type ReaderLineBreaking = 'greedy' | 'optimal';
-
 export interface ReaderSettings {
   /** Root font size in px, passed to `setTypography`; changing it re-lays the text. */
   fontSize: number;
@@ -28,7 +26,6 @@ export interface ReaderSettings {
   /** CSS font-family value passed to setTypography. null = use book's own font. */
   fontFamily: string | null;
   spreadMode: 'single' | 'double';
-  lineBreaking: ReaderLineBreaking;
   theme: 'light' | 'dark';
 }
 
@@ -39,7 +36,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   lineHeightForce: false,
   fontFamily: null,
   spreadMode: 'double',
-  lineBreaking: 'greedy',
   theme: 'light',
 };
 
@@ -53,7 +49,6 @@ interface SettingsPanelProps {
   onUseBookLineHeight: () => void;
   onFontFamilyChange: (value: string | null) => void;
   onSpreadModeChange: (value: 'single' | 'double') => void;
-  onLineBreakingChange: (value: ReaderLineBreaking) => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onRestoreDefaults: () => void;
 }
@@ -68,7 +63,6 @@ export function SettingsPanel({
   onUseBookLineHeight,
   onFontFamilyChange,
   onSpreadModeChange,
-  onLineBreakingChange,
   onThemeChange,
   onRestoreDefaults,
 }: SettingsPanelProps) {
@@ -162,17 +156,6 @@ export function SettingsPanel({
               options={[
                 { value: 'single', label: 'Single Page' },
                 { value: 'double', label: 'Double Page' },
-              ]}
-            />
-          </Section>
-
-          <Section label="Line Breaking">
-            <SegmentedControl
-              value={settings.lineBreaking}
-              onChange={onLineBreakingChange}
-              options={[
-                { value: 'greedy', label: 'Greedy' },
-                { value: 'optimal', label: 'Optimal' },
               ]}
             />
           </Section>

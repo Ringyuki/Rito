@@ -21,7 +21,10 @@ describe('annotation hit projection', () => {
         height: 0,
       }),
     } as never;
-    const deps = { coordState: state, reader: {} } as unknown as WiringDeps;
+    const deps = {
+      coordState: state,
+      reader: { interactions: { enabled: true } },
+    } as unknown as WiringDeps;
 
     const hit = findAnnotationHitAtPos({ x: 0, y: 0 }, deps);
     expect(hit?.segment.pageIndex).toBe(1);
@@ -68,7 +71,10 @@ describe('annotation hit projection', () => {
     state.mapper = {
       spreadContentToPage: () => ({ pageIndex: 1, x: 15, y: 25 }),
     } as never;
-    const deps = { coordState: state, reader: {} } as unknown as WiringDeps;
+    const deps = {
+      coordState: state,
+      reader: { interactions: { enabled: true } },
+    } as unknown as WiringDeps;
 
     expect(findAnnotationHitAtPos({ x: 0, y: 0 }, deps)?.annotation.id).toBe('upper');
   });
@@ -100,12 +106,10 @@ function resolvedAnnotation(): ResolvedAnnotation {
     segments: [
       {
         pageIndex: 0,
-        range: null,
         rects: [{ x: 100, y: 200, width: 80, height: 20 }],
       },
       {
         pageIndex: 1,
-        range: null,
         rects: [{ x: 10, y: 20, width: 10, height: 10 }],
       },
     ],

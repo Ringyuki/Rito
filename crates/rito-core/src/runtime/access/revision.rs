@@ -1,8 +1,7 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
     RuntimeChapterTreeReport, RuntimeDocument, RuntimeRevisionBundle, RuntimeRevisionNavigation,
-    RuntimeRevisionPresentation, RuntimeRevisionSummary, RuntimeShapeProvenanceDiagnostic,
-    RuntimeStyleTableSummary,
+    RuntimeRevisionPresentation, RuntimeRevisionSummary, RuntimeStyleTableSummary,
 };
 
 impl RuntimeDocument {
@@ -39,16 +38,6 @@ impl RuntimeDocument {
         handle: &RuntimeRevisionHandle,
     ) -> Result<RuntimeVersioned<RuntimeRevisionPresentation>, RuntimeRevisionAccessError> {
         self.versioned_read(handle, RuntimeDocument::revision_presentation)
-    }
-
-    pub fn shape_provenance_diagnostic_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<RuntimeShapeProvenanceDiagnostic>, RuntimeRevisionAccessError>
-    {
-        self.versioned_read(handle, |document, revision_id| {
-            document.shape_provenance_diagnostic(revision_id)
-        })
     }
 
     pub fn style_table_summary_at(

@@ -14,17 +14,11 @@ export function buildReaderProxies(internals: Internals): ReaderProxiesSlice {
     get spreads() {
       return internals.reader.spreads;
     },
-    get pages() {
-      return internals.reader.pages;
-    },
     get currentSpread() {
       return internals.currentSpread;
     },
     get totalSpreads() {
       return internals.reader.totalSpreads;
-    },
-    get paginationComplete() {
-      return internals.reader.pagination?.complete ?? true;
     },
   };
 }

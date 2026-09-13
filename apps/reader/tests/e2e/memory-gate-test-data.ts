@@ -29,7 +29,7 @@ export const MEMORY_GATE_TEST_ENVIRONMENT: ReaderMemoryEnvironment = {
 
 export function memoryGateTestManifest(): Record<string, unknown> {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     machine: {
       id: 'test-mac',
       platform: 'darwin',
@@ -79,7 +79,7 @@ export function memoryGateTestReport(
 ): ReaderMemoryGateReport {
   const baseline = memoryGateTestCheckpoint('app-ready', 100 + footprintOffsetMiB);
   const loaded = memoryGateTestCheckpoint('loaded', 110 + footprintOffsetMiB);
-  const growth = memoryGateTestCheckpoint('growth', 115 + footprintOffsetMiB);
+  const traversed = memoryGateTestCheckpoint('traversed', 115 + footprintOffsetMiB);
   const reflow = memoryGateTestCheckpoint('reflow', 120 + footprintOffsetMiB);
   const replacements = [
     memoryGateTestCheckpoint('replacement-1', 120 + footprintOffsetMiB),
@@ -98,7 +98,7 @@ export function memoryGateTestReport(
       sha256: gate.fixture.sha256,
     },
     scenario: gate.scenario,
-    checkpoints: { baseline, loaded, growth, reflow, replacements, disposed },
+    checkpoints: { baseline, loaded, traversed, reflow, replacements, disposed },
     workerLifecycle: {
       createdWorkers: [{ workerId: 1, createdAt: 1 }],
       sessions: memoryGateTestSessions(gate.scenario.replacementRounds + 2),

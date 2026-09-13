@@ -22,9 +22,7 @@ export function browserReaderChapterLocalTransport(
     disposeSession: () => {
       worker.dispose();
     },
-    createBoundedChapterLocalRevision: (request) =>
-      worker.createBoundedChapterLocalRevision(request),
-    continueChapterLocalRevision: (request) => worker.continueChapterLocalRevision(request),
+    createChapterLocalRevision: (request) => worker.createChapterLocalRevision(request),
     releaseChapterLocalRevision: (owner) => worker.releaseChapterLocalRevision(owner),
   };
 }
@@ -34,8 +32,7 @@ function isCapableWorker(
 ): worker is BrowserReaderChapterLocalCapableWorker {
   const candidate = worker as Partial<BrowserReaderChapterLocalCapableWorker>;
   return (
-    typeof candidate.createBoundedChapterLocalRevision === 'function' &&
-    typeof candidate.continueChapterLocalRevision === 'function' &&
+    typeof candidate.createChapterLocalRevision === 'function' &&
     typeof candidate.releaseChapterLocalRevision === 'function'
   );
 }

@@ -6,22 +6,43 @@ use serde_json::Value;
 use super::source_locator::{
     RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
 };
+use super::{SearchRuntimeResult, SearchTextPosition};
 
 use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
-    layout::{
-        FontVerticalMetricDemand, FontVerticalMetricSample, LayoutConfig, LineBreaking,
-        PaginationFlowChapterRange, SearchRuntimeResult, SearchTextPosition, TextRangeRect,
-        TextRunOffset,
-    },
-    render::{DisplayListResourceRefs, PackedDisplayCommandRecordStats},
+    layout::{LayoutConfig, PaginationFlowChapterRange},
     resources::PublicationResources,
     xhtml::ChapterSource,
 };
 
-pub const DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT: usize = 8;
-pub const DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS: u64 = 1000;
+/// One painted rectangle of a text range on a page, addressed by the
+/// run it belongs to and the run-local UTF-16 offsets it covers.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextRangeRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub block_index: usize,
+    pub line_index: usize,
+    pub run_index: usize,
+    pub start_char_index: usize,
+    pub end_char_index: usize,
+}
+
+/// One text run's span inside a page's concatenated text, in UTF-16
+/// offsets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextRunOffset {
+    pub start: usize,
+    pub end: usize,
+    pub block_index: usize,
+    pub line_index: usize,
+    pub run_index: usize,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,6 +78,7 @@ impl RuntimeResource {
     }
 }
 
+/// The page and spread counts of a revision's page table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionExtent {
@@ -64,53 +86,17 @@ pub struct RuntimeRevisionExtent {
     pub spread_count: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeRevisionStatus {
-    Warming,
-    Ready,
-    Complete,
-    Cancelled,
-    Failed,
-}
-
+/// A published whole-book revision: its identity, the layout it was
+/// paginated under and the size of its page table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionSummary {
     pub revision_id: String,
     pub revision_version: u32,
     pub layout_key: String,
-    pub status: RuntimeRevisionStatus,
-    pub known_extent: RuntimeRevisionExtent,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub final_extent: Option<RuntimeRevisionExtent>,
-    /// Backward-compatible alias for `known_extent.page_count`.
     pub page_count: usize,
-    /// Backward-compatible alias for `known_extent.spread_count`.
     pub spread_count: usize,
-    /// Which engine owns this revision's pagination. Hosts must drop
-    /// every cached frame when this changes on one revision: the same
-    /// page numbers now describe different pages.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pagination_backend: Option<String>,
 }
-
-/// Maximum top-level source nodes that one continuation quantum may accept.
-///
-/// Greedy leaf paragraphs at the root and inside ordinary transparent
-/// containers share internal descendant-node and line-box quanta. Visually
-/// decorated or floated containers, tables, optimal paragraphs, paragraph
-/// or container preparation, and individual shaping calls remain atomic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionWorkBudget {
-    pub max_top_level_nodes: usize,
-}
-
-/// Hard memory bound for a provisional chapter-local revision.
-///
-/// A caller may choose a smaller cap, but cannot request a larger window.
-pub const RUNTIME_CHAPTER_LOCAL_PAGE_CAP_MAX: usize = 16;
 
 /// Explicit identity for the only chapter represented by a chapter-local
 /// revision. Page and spread coordinates in that revision are local to this
@@ -131,20 +117,10 @@ pub enum RuntimeChapterLocalCoordinateKind {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeBoundedChapterLocalRevisionRequest {
+pub struct RuntimeChapterLocalRevisionRequest {
     pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
     pub target_chapter_index: usize,
     pub target_locator: RuntimeSourceLocator,
-    pub local_page_cap: usize,
-    pub budget: RuntimeRevisionWorkBudget,
-    /// Optional number of internal work meters one request may run before it
-    /// publishes. Advancing stops early the moment the target resolves, so a
-    /// larger cap front-loads target-seeking work without overshoot. Absent
-    /// means one meter: the original single-quantum behavior.
-    #[serde(default)]
-    pub max_quanta: Option<std::num::NonZeroUsize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,75 +131,26 @@ pub struct RuntimeChapterLocalRevisionHandle {
     pub coordinate: RuntimeChapterLocalCoordinate,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalRevisionCursor {
-    pub owner: RuntimeChapterLocalRevisionHandle,
-    pub cursor: String,
-    pub target_locator: RuntimeSourceLocator,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeContinueChapterLocalRevisionRequest {
-    pub continuation: RuntimeChapterLocalRevisionCursor,
-    pub budget: RuntimeRevisionWorkBudget,
-    /// See [`RuntimeBoundedChapterLocalRevisionRequest::max_quanta`].
-    #[serde(default)]
-    pub max_quanta: Option<std::num::NonZeroUsize>,
-}
-
-/// Transfers a chapter-local break token into a fresh bounded revision.
-///
-/// The source revision remains immutable and independently releasable. The
-/// layout session itself is moved, so the destination window resumes at the
-/// exact page boundary without replaying the chapter prefix.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRolloverChapterLocalRevisionRequest {
-    pub continuation: RuntimeChapterLocalRevisionCursor,
-    pub budget: RuntimeRevisionWorkBudget,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalRevisionExtent {
-    pub local_page_count: usize,
-    pub local_spread_count: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalPageRange {
-    pub start_local_page: usize,
-    pub end_local_page_exclusive: usize,
-}
-
+/// A published chapter-local revision: its identity, the chapter it
+/// paginated and the size of that chapter's page table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterLocalRevisionSummary {
     pub revision_id: String,
     pub revision_version: u32,
     pub layout_key: String,
-    pub status: RuntimeRevisionStatus,
     pub coordinate: RuntimeChapterLocalCoordinate,
-    pub local_page_cap: usize,
-    pub known_extent: RuntimeChapterLocalRevisionExtent,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub final_extent: Option<RuntimeChapterLocalRevisionExtent>,
-    pub page_cap_reached: bool,
+    pub local_page_count: usize,
+    pub local_spread_count: usize,
 }
 
+/// The result of creating a chapter-local revision: its summary and where
+/// the requested locator landed on the chapter's page table.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalRevisionAdvance {
+pub struct RuntimeCreatedChapterLocalRevision {
     pub revision: RuntimeChapterLocalRevisionSummary,
-    pub previous_known_extent: RuntimeChapterLocalRevisionExtent,
-    pub newly_known_local_pages: RuntimeChapterLocalPageRange,
-    pub processed_top_level_nodes: usize,
     pub target: RuntimeChapterLocalSourceLocatorResolution,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeChapterLocalRevisionCursor>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -253,241 +180,25 @@ pub enum RuntimeChapterLocalSourceLocatorResolution {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterLocalRevisionError {
-    pub kind: RuntimeContinuationErrorKind,
+    pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision: Option<Box<RuntimeChapterLocalRevisionSummary>>,
-}
-
-/// Request for the experimental core-only bounded revision path.
-///
-/// The first bounded request scans every spine XHTML source once to establish
-/// exact publication-wide footnote targets and definitions. The scan is cached
-/// and does not mark lazy chapters or binary resources as loaded. Unreadable
-/// future spine resources are skipped so their failure remains deferred until
-/// continuation reaches them. Malformed XHTML contributes no footnote data,
-/// matching eager preparation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeBoundedRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub budget: RuntimeRevisionWorkBudget,
-}
-
-/// Opaque one-shot handle bound to one revision version.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionCursor {
-    pub revision_id: String,
-    pub revision_version: u32,
-    pub cursor: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeContinueRevisionRequest {
-    pub revision_id: String,
-    pub revision_version: u32,
-    pub cursor: String,
-    pub budget: RuntimeRevisionWorkBudget,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCalibrateRevisionFontVerticalMetricsRequest {
-    pub revision_id: String,
-    pub revision_version: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeRevisionCursor>,
-    pub font_vertical_metrics: Vec<FontVerticalMetricSample>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionFontVerticalMetricCalibration {
-    pub revision: RuntimeRevisionSummary,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeRevisionCursor>,
-    pub calibrated_published_run_count: usize,
-    pub calibrated_unpublished_run_count: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCancelRevisionRequest {
-    pub revision_id: String,
-    pub revision_version: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionPageRange {
-    pub start_page: usize,
-    pub end_page_exclusive: usize,
-}
-
-/// The newly published stable prefix and the cursor for the next quantum.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionAdvance {
-    pub revision: RuntimeRevisionSummary,
-    pub previous_known_extent: RuntimeRevisionExtent,
-    pub newly_known_pages: RuntimeRevisionPageRange,
-    /// Top-level source nodes accepted during this quantum. A continuation
-    /// that only resumes an accepted paragraph can report zero while still
-    /// making deterministic line-layout progress.
-    pub processed_top_level_nodes: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub continuation: Option<RuntimeRevisionCursor>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeContinuationErrorKind {
-    InvalidBudget,
+pub enum RuntimeRevisionErrorKind {
     InvalidChapterLocalTarget,
-    InvalidPageCap,
     UnknownRevision,
     StaleRevisionVersion,
-    UnknownCursor,
-    CursorOwnerMismatch,
     ChapterLocalOwnerMismatch,
-    ChapterLocalTargetMismatch,
-    RevisionNotContinuable,
     EngineFailure,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeContinuationError {
-    pub kind: RuntimeContinuationErrorKind,
+pub struct RuntimeRevisionError {
+    pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revision: Option<Box<RuntimeRevisionSummary>>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct RuntimeRevisionRequest {
-    pub layout_config: LayoutConfig,
-    pub line_breaking: LineBreaking,
-    pub preview_chapter_limit: Option<usize>,
-    pub preview_chapter_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeInitialPreviewRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFullRevisionBundleRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub active_spread_index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeActiveChapterPreviewRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub previous_revision_id: String,
-    pub active_spread_index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimePreviewRevisionBundleRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_revision_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub active_spread_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeViewRevisionMode {
-    Preview,
-    Full,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeViewRevisionRequest {
-    pub layout_config: LayoutConfig,
-    #[serde(default = "default_revision_line_breaking")]
-    pub line_breaking: LineBreaking,
-    pub active_spread_index: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_revision_id: Option<String>,
-    /// Durable source identity to project before publishing the replacement view.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preserve_locator: Option<RuntimeSourceLocator>,
-    pub mode: RuntimeViewRevisionMode,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeViewRevisionKind {
-    Preview,
-    Full,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeViewRevisionDisplay {
-    Revision,
-    VisualPreview,
-}
-
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuntimeViewRevisionMetadata {
-    Complete,
-    OmitFullChapterTextIndices,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCreatedViewRevision {
-    pub kind: RuntimeViewRevisionKind,
-    pub display: RuntimeViewRevisionDisplay,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub follow_up: Option<RuntimeViewRevisionFollowUp>,
-    pub revision: RuntimeCreatedRevisionBundle,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeViewRevisionFollowUp {
-    pub delay_ms: u64,
-    pub request: RuntimeViewRevisionRequest,
-}
-
-impl RuntimeRevisionRequest {
-    pub fn is_preview(&self) -> bool {
-        self.preview_chapter_limit.is_some() || self.preview_chapter_index.is_some()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeCreatedRevisionBundle {
-    pub bundle: RuntimeRevisionBundle,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub initial_frame: Option<RuntimeInitialFrameDecision>,
-    pub preview: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -497,8 +208,6 @@ pub struct RuntimeRevisionPresentation {
     pub navigation: RuntimeRevisionNavigation,
     pub toc_targets: RuntimeTocTargets,
     pub font_families: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_vertical_metric_demands: Option<Vec<FontVerticalMetricDemand>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
 }
@@ -512,8 +221,6 @@ pub struct RuntimeRevisionBundle {
     pub footnotes: RuntimeFootnotes,
     pub chapter_text_indices: RuntimeChapterTextIndices,
     pub font_families: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_vertical_metric_demands: Option<Vec<FontVerticalMetricDemand>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
 }
@@ -559,13 +266,6 @@ pub struct RuntimeSpreadNavigation {
     pub left_page_index: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub right_page_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeActiveChapterPreview {
-    pub chapter_index: usize,
-    pub progress: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -617,42 +317,13 @@ pub struct RuntimeFontFaceSummary {
     pub weight: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFrame {
-    pub revision_id: String,
-    pub spread_index: usize,
-    pub page_indexes: Vec<usize>,
-    pub width: Value,
-    pub height: Value,
-    pub commands: Vec<Value>,
-    pub command_count: usize,
-    pub command_counts: BTreeMap<String, usize>,
-    pub command_hash: String,
-    pub resource_refs: DisplayListResourceRefs,
-    pub font_families: Vec<String>,
-    pub image_dominated: bool,
-}
-
-/// Paint-ready frame whose indexes are explicitly chapter-local.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalFrame {
-    pub owner: RuntimeChapterLocalRevisionHandle,
-    pub local_spread_index: usize,
-    pub local_page_indexes: Vec<usize>,
-    pub width: Value,
-    pub height: Value,
-    pub commands: Vec<Value>,
-    pub command_count: usize,
-    pub command_counts: BTreeMap<String, usize>,
-    pub command_hash: String,
-    pub resource_refs: DisplayListResourceRefs,
-    pub font_families: Vec<String>,
-    pub image_dominated: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Describes one cached frame's bytes: the `RITODL1` primitive list the
+/// frame's display commands lower to at `ratio` device pixels per CSS
+/// pixel. The command count, kind counts and hash describe the semantic
+/// display list the bytes were lowered from — the frame's identity, which
+/// the JSON projection is validated against — while `primitive_count`
+/// and `byte_length` describe the bytes themselves.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeFrameCommandBufferMetadata {
     pub revision_id: String,
@@ -660,20 +331,19 @@ pub struct RuntimeFrameCommandBufferMetadata {
     pub width: Value,
     pub height: Value,
     pub protocol_version: u32,
+    pub ratio: f64,
     pub command_count: usize,
     pub command_counts: BTreeMap<String, usize>,
-    pub record_stats: PackedDisplayCommandRecordStats,
+    pub primitive_count: usize,
     pub byte_length: usize,
     pub command_hash: String,
     pub resource_ref_count: usize,
     pub resource_table: Vec<String>,
     pub font_families: Vec<String>,
     pub image_dominated: bool,
-    pub string_table: Vec<String>,
-    pub payload_table: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeFrameCommandBuffer {
     pub metadata: RuntimeFrameCommandBufferMetadata,
     pub bytes: Vec<u8>,
@@ -937,8 +607,4 @@ pub struct RuntimeChapterTextIndex {
 pub struct RuntimeChapterTextIndices {
     pub revision_id: String,
     pub entries: BTreeMap<String, RuntimeChapterTextIndex>,
-}
-
-fn default_revision_line_breaking() -> LineBreaking {
-    LineBreaking::Greedy
 }

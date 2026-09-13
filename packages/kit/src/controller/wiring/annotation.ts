@@ -1,6 +1,5 @@
 import type { ResolvedAnnotation, ResolvedAnnotationSegment } from '../../interaction/index';
 import type { WiringDeps } from '../core/wiring-deps';
-import { usesNativeAnnotationGeometry } from '../annotation-resolution';
 
 export interface AnnotationHit {
   readonly annotation: ResolvedAnnotation;
@@ -35,9 +34,7 @@ export function findAnnotationHitAtPos(
   deps: WiringDeps,
 ): AnnotationHit | undefined {
   const { coordState } = deps;
-  if (usesNativeAnnotationGeometry(deps.reader) && !deps.reader.interactions?.enabled) {
-    return undefined;
-  }
+  if (!deps.reader.interactions?.enabled) return undefined;
   const { mapper } = coordState;
   if (!mapper) return undefined;
 

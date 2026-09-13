@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { defaultYieldControl } from '../src/reader-bounded-session-support-runtime.js';
+import { defaultYieldControl } from '../src/reader-revision-session-support-runtime.js';
 
 test('default Reader continuation yield resumes on a later host task', async () => {
   let synchronous = true;

@@ -82,10 +82,6 @@ async function prepareSinglePageFixture(
 
   const shell = page.getByTestId('reader-shell');
   await expect(shell).toHaveAttribute('data-spread-mode', 'single');
-  // One-pass pagination lays the whole book out up front, so the settled
-  // state is complete with every spread already published; the old lazy
-  // window between mode switch and completion no longer exists to observe.
-  await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
   await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(totalSpreads);
   await expect.poll(() => currentReaderSpread(page)).toBe(0);
   await waitForVisibleDocumentText(page, firstPageText);

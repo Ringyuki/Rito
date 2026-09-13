@@ -3,7 +3,7 @@ import { createReader } from '../../src/bindings/browser/reader/reader';
 import type { BrowserReaderWorkerOpenOptions } from '../../src/bindings/browser/core-contracts';
 
 type InitialReflow =
-  (typeof import('../../src/bindings/browser/reader/pipeline/bounded-reflow'))['startBrowserReaderInitialReflow'];
+  (typeof import('../../src/bindings/browser/reader/pipeline/revision-reflow'))['startBrowserReaderInitialReflow'];
 
 const mocks = vi.hoisted(() => ({
   buildBrowserReaderMethods: vi.fn(() => ({})),
@@ -58,7 +58,7 @@ vi.mock('../../src/bindings/browser/reader/wasm-module', () => ({
   loadRuntimeCoreModule: mocks.loadRuntimeCoreModule,
 }));
 
-vi.mock('../../src/bindings/browser/reader/pipeline/bounded-reflow', () => ({
+vi.mock('../../src/bindings/browser/reader/pipeline/revision-reflow', () => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
   startBrowserReaderInitialReflow: mocks.startBrowserReaderInitialReflow,
 }));
@@ -128,23 +128,13 @@ describe('Browser reader creation', () => {
       return fontRegistration.promise;
     });
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
     installWorkerFactory(worker);
-    const measureText = vi.fn(() => ({ width: 16 }));
-    const canvas = {
-      getContext: vi.fn(() => ({
-        save: vi.fn(),
-        restore: vi.fn(),
-        font: '',
-        wordSpacing: '',
-        letterSpacing: '',
-        measureText,
-      })),
-    } as unknown as HTMLCanvasElement;
 
-    const readerPromise = createReader(new ArrayBuffer(0), canvas, {
+    const readerPromise = createReader(new ArrayBuffer(0), readerCanvas(), {
       width: 800,
       height: 600,
       pinnedFontPolicy: {
@@ -169,9 +159,6 @@ describe('Browser reader creation', () => {
 
     expect(settled).toBe(true);
     expect(mocks.buildBrowserReaderMethods).toHaveBeenCalledOnce();
-    // Font metrics depend on the actual styles and sizes discovered by Rust,
-    // so all probes remain behind the initial revision.
-    expect(measureText).not.toHaveBeenCalled();
     expect(mocks.warmBrowserReaderFrameWindow).not.toHaveBeenCalled();
 
     fontRegistration.resolve();
@@ -185,6 +172,7 @@ describe('Browser reader creation', () => {
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
     const cleanup = deferredVoid();
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(() => {
         throw new Error('cleanup failed');
@@ -228,6 +216,7 @@ describe('Browser reader creation', () => {
       throw primaryError;
     });
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
@@ -273,6 +262,7 @@ describe('Browser reader creation', () => {
     mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: remove });
     const summary = pinnedFontPolicySummary();
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
         Promise.resolve({ publication: publicationWithFont(), pinnedFontPolicy: summary }),
       ),
@@ -338,6 +328,7 @@ describe('Browser reader creation', () => {
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
     const summary = pinnedFontPolicySummary();
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
         Promise.resolve({ publication: publicationWithFont(), pinnedFontPolicy: summary }),
       ),
@@ -368,6 +359,45 @@ describe('Browser reader creation', () => {
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
+  it('retains its own publication buffer when the open transfers the one it is given', async () => {
+    // The worker client posts the publication in the transfer list, so the
+    // buffer handed to the open is detached by the time it resolves. The
+    // reader's retained buffer is the only source a later candidate worker
+    // can be opened from, so it must survive that transfer intact.
+    const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
+      open: vi.fn((data: ArrayBuffer) => {
+        structuredClone(data, { transfer: [data] });
+        return Promise.resolve(openResultWithFont());
+      }),
+      dispose: vi.fn(),
+    };
+    installWorkerFactory(worker);
+    const callerData = readerData();
+
+    await expect(
+      createReader(callerData, readerCanvas(), {
+        width: 800,
+        height: 600,
+        pinnedFontPolicy: {
+          schemaVersion: 1,
+          faces: [
+            { bytes: new ArrayBuffer(3), expectedSha256: 'a'.repeat(64), genericRole: 'serif' },
+          ],
+        },
+      }),
+    ).resolves.toBeDefined();
+
+    expect(callerData.byteLength).toBe(0);
+    const buildCalls = mocks.buildBrowserReaderMethods.mock.calls as unknown as readonly (readonly [
+      { readonly documentData: ArrayBuffer },
+      unknown,
+    ])[];
+    const retained = buildCalls[0]?.[0].documentData;
+    expect(retained).not.toBe(callerData);
+    expect(new Uint8Array(retained ?? new ArrayBuffer(0))).toEqual(new Uint8Array([4, 5, 6]));
+  });
+
   it('disposes the worker without registering faces when pinned open fails', async () => {
     class LoadedFontFace {
       constructor(readonly family: string) {}
@@ -380,6 +410,7 @@ describe('Browser reader creation', () => {
     mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: vi.fn(() => true) });
     const openError = new Error('pinned worker open failed');
     const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
       open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
         Promise.reject(openError),
       ),
@@ -450,9 +481,6 @@ function readerCanvas(): HTMLCanvasElement {
       save: vi.fn(),
       restore: vi.fn(),
       font: '',
-      wordSpacing: '',
-      letterSpacing: '',
-      measureText: vi.fn(() => ({ width: 16 })),
     })),
   } as unknown as HTMLCanvasElement;
 }

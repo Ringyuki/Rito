@@ -1,42 +1,16 @@
-import type {
-  RitoCoreWasmFontVerticalMetricSample,
-  RitoCoreWasmLayoutConfig,
-  RitoCoreWasmLineBreaking,
-} from './common';
-import type {
-  RitoCoreWasmChapterTextIndices,
-  RitoCoreWasmFootnotes,
-  RitoCoreWasmSourceLocator,
-  RitoCoreWasmSourceLocatorResolution,
-} from './interaction';
+import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
-import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 
-export type RitoCoreWasmRevisionStatus = 'warming' | 'ready' | 'complete' | 'cancelled' | 'failed';
-
-export interface RitoCoreWasmRevisionExtent {
-  readonly pageCount: number;
-  readonly spreadCount: number;
-}
-
+/**
+ * A published whole-book revision: its identity, the layout it was
+ * paginated under and the size of its page table.
+ */
 export interface RitoCoreWasmRevisionSummary {
   readonly revisionId: string;
   readonly revisionVersion: number;
   readonly layoutKey: string;
-  readonly status: RitoCoreWasmRevisionStatus;
-  readonly knownExtent: RitoCoreWasmRevisionExtent;
-  readonly finalExtent?: RitoCoreWasmRevisionExtent | undefined;
-  /** Backward-compatible alias for `knownExtent.pageCount`. */
   readonly pageCount: number;
-  /** Backward-compatible alias for `knownExtent.spreadCount`. */
   readonly spreadCount: number;
-  /**
-   * Which engine owns this revision's pagination. When this changes on
-   * one revision (a completed book handing pagination to the fragment
-   * engine), every cached frame describes the old page table and must be
-   * dropped.
-   */
-  readonly paginationBackend?: 'fragment' | 'retained' | undefined;
 }
 
 /** Stable identity for one published revision version. */
@@ -49,106 +23,6 @@ export interface RitoCoreWasmRevisionHandle {
 export interface RitoCoreWasmVersioned<T> {
   readonly revision: RitoCoreWasmRevisionHandle;
   readonly value: T;
-}
-
-export interface RitoCoreWasmRevisionWorkBudget {
-  /**
-   * Maximum top-level source nodes accepted by one continuation quantum.
-   * Rust separately meters transparent descendants and Greedy line boxes.
-   */
-  readonly maxTopLevelNodes: number;
-}
-
-export interface RitoCoreWasmBoundedRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly budget: RitoCoreWasmRevisionWorkBudget;
-}
-
-export interface RitoCoreWasmRevisionCursor extends RitoCoreWasmRevisionHandle {
-  readonly cursor: string;
-}
-
-export interface RitoCoreWasmContinueRevisionRequest extends RitoCoreWasmRevisionHandle {
-  readonly cursor: string;
-  readonly budget: RitoCoreWasmRevisionWorkBudget;
-}
-
-/** Exact-version vertical font-box calibration without repaginating horizontal geometry. */
-export interface RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest extends RitoCoreWasmRevisionHandle {
-  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
-  readonly fontVerticalMetrics: readonly RitoCoreWasmFontVerticalMetricSample[];
-}
-
-export interface RitoCoreWasmRevisionFontVerticalMetricCalibration {
-  readonly revision: RitoCoreWasmRevisionSummary;
-  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
-  readonly calibratedPublishedRunCount: number;
-  readonly calibratedUnpublishedRunCount: number;
-}
-
-export interface RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease extends RitoCoreWasmRevisionFontVerticalMetricCalibration {
-  readonly releasedRevision: RitoCoreWasmRevisionHandle;
-  readonly releasedTransferCount: number;
-}
-
-export type RitoCoreWasmCancelRevisionRequest = RitoCoreWasmRevisionHandle;
-
-export interface RitoCoreWasmRevisionPageRange {
-  readonly startPage: number;
-  readonly endPageExclusive: number;
-}
-
-export interface RitoCoreWasmRevisionAdvance {
-  readonly revision: RitoCoreWasmRevisionSummary;
-  readonly previousKnownExtent: RitoCoreWasmRevisionExtent;
-  readonly newlyKnownPages: RitoCoreWasmRevisionPageRange;
-  /**
-   * Top-level source nodes accepted in this advance. Batched worker responses
-   * sum the committed quanta. Line-only paragraph continuation can report zero
-   * while still making deterministic progress.
-   */
-  readonly processedTopLevelNodes: number;
-  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
-}
-
-/** One or more continuation commits with predecessor transfers released in the same dispatch. */
-export interface RitoCoreWasmRevisionAdvanceWithTransferRelease {
-  readonly advance: RitoCoreWasmRevisionAdvance;
-  readonly releasedRevision: RitoCoreWasmRevisionHandle;
-  readonly releasedTransferCount: number;
-  /** Native quanta committed by this dispatch; absent responses are one quantum. */
-  readonly advancedQuanta?: number | undefined;
-}
-
-export interface RitoCoreWasmContinueRevisionTowardSourceLocatorRequest extends RitoCoreWasmContinueRevisionRequest {
-  readonly locator: RitoCoreWasmSourceLocator;
-}
-
-export type RitoCoreWasmSourceLocatorAdvanceOutcome =
-  | {
-      readonly kind: 'resolved';
-      readonly resolution: RitoCoreWasmSourceLocatorResolution;
-    }
-  | {
-      /** An invariant failure after the next revision was already committed. */
-      readonly kind: 'failed';
-      readonly code:
-        | 'bad-request'
-        | 'engine-error'
-        | 'internal-error'
-        | 'unknown-revision'
-        | 'stale-revision-version';
-      readonly message: string;
-      readonly revision?: RitoCoreWasmRevisionSummary | undefined;
-    };
-
-export interface RitoCoreWasmRevisionAdvanceTowardSourceLocator extends RitoCoreWasmRevisionAdvanceWithTransferRelease {
-  /** Original validated locator supplied by the caller. */
-  readonly request: RitoCoreWasmSourceLocator;
-  /** Canonical target used for the exact post-advance projection. */
-  readonly canonicalRequest: RitoCoreWasmSourceLocator;
-  readonly locatorOutcome: RitoCoreWasmSourceLocatorAdvanceOutcome;
 }
 
 export interface RitoCoreWasmRevisionReleaseResult {
@@ -166,31 +40,22 @@ export interface RitoCoreWasmRevisionBundle {
   readonly footnotes: RitoCoreWasmFootnotes;
   readonly chapterTextIndices: RitoCoreWasmChapterTextIndices;
   readonly fontFamilies: readonly string[];
-  readonly fontVerticalMetricDemands?: readonly RitoCoreWasmFontVerticalMetricDemand[] | undefined;
   readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
 }
 
 /**
  * Paint-ready metadata for one exact revision version.
  *
- * Unlike `RitoCoreWasmRevisionBundle`, this deliberately omits cumulative
- * interaction aggregates so bounded growth does not retransmit chapter text
- * indices and publication-wide footnotes on every visible snapshot.
+ * Unlike `RitoCoreWasmRevisionBundle`, this deliberately omits the
+ * interaction aggregates (chapter text indices, publication-wide
+ * footnotes) a visible snapshot does not need.
  */
 export interface RitoCoreWasmRevisionPresentation {
   readonly revision: RitoCoreWasmRevisionSummary;
   readonly navigation: RitoCoreWasmRevisionNavigation;
   readonly tocTargets: RitoCoreWasmTocTargets;
   readonly fontFamilies: readonly string[];
-  readonly fontVerticalMetricDemands?: readonly RitoCoreWasmFontVerticalMetricDemand[] | undefined;
   readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
-}
-
-export interface RitoCoreWasmFontVerticalMetricDemand {
-  readonly fontFamily: string;
-  readonly fontStyle: 'normal' | 'italic';
-  readonly fontWeight: number;
-  readonly fontSizePx: number;
 }
 
 export interface RitoCoreWasmRequiredFontFaces {
@@ -209,72 +74,9 @@ export interface RitoCoreWasmRequiredFontFace {
   readonly sourceOrder: number;
 }
 
-export interface RitoCoreWasmInitialPreviewRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-}
-
-export interface RitoCoreWasmFullRevisionBundleRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly activeSpreadIndex: number;
-  readonly previousRevisionId?: string | undefined;
-}
-
-export interface RitoCoreWasmActiveChapterPreviewRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly previousRevisionId: string;
-  readonly activeSpreadIndex: number;
-}
-
-export interface RitoCoreWasmPreviewRevisionBundleRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly previousRevisionId?: string | undefined;
-  readonly activeSpreadIndex?: number | undefined;
-}
-
-export type RitoCoreWasmViewRevisionMode = 'preview' | 'full';
-export type RitoCoreWasmViewRevisionKind = 'preview' | 'full';
-export type RitoCoreWasmViewRevisionDisplay = 'revision' | 'visualPreview';
-
-export interface RitoCoreWasmViewRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
-  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
-  readonly activeSpreadIndex: number;
-  readonly previousRevisionId?: string | undefined;
-  /** Durable source identity to preserve while replacing the current revision. */
-  readonly preserveLocator?: RitoCoreWasmSourceLocator | undefined;
-  readonly mode: RitoCoreWasmViewRevisionMode;
-}
-
-export interface RitoCoreWasmViewRevisionFollowUp {
-  readonly delayMs: number;
-  readonly request: RitoCoreWasmViewRevisionRequest & {
-    readonly mode: 'full';
-    readonly previousRevisionId: string;
-  };
-}
-
 export interface RitoCoreWasmRevisionFrameSelection {
   readonly spreadIndex: number;
   readonly displaySpreadIndex: number;
-}
-
-export interface RitoCoreWasmRevisionBundleResponse {
-  readonly bundle: RitoCoreWasmRevisionBundle;
-  readonly frameSelection?: RitoCoreWasmRevisionFrameSelection | undefined;
-  readonly initialFrameWindow?: RitoCoreWasmPlannedFrameResourcePrefetchResponse | undefined;
-  readonly preview: boolean;
-  readonly releasedPreviousRevisionTransferCount: number;
-}
-
-export interface RitoCoreWasmViewRevisionResponse {
-  readonly kind: RitoCoreWasmViewRevisionKind;
-  readonly display: RitoCoreWasmViewRevisionDisplay;
-  readonly followUp?: RitoCoreWasmViewRevisionFollowUp | undefined;
-  readonly result: RitoCoreWasmRevisionBundleResponse;
 }
 
 export interface RitoCoreWasmChapterPageRange {

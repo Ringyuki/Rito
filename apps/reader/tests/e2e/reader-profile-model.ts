@@ -34,7 +34,7 @@ export type {
   ReaderProfileStartup,
 } from './reader-profile-startup';
 
-export const READER_PROFILE_SCHEMA_VERSION = 5;
+export const READER_PROFILE_SCHEMA_VERSION = 7;
 
 export interface ReaderProfileArtifactIdentity {
   readonly schemaVersion: 1;
@@ -98,7 +98,7 @@ export interface ReaderProfileStage {
 export interface ReaderProfileMilestones {
   readonly inputToOpenMs: number;
   readonly openRoundTripMs: number;
-  readonly boundedToPresentationMs: number;
+  readonly revisionToPresentationMs: number;
   readonly frameWarmRoundTripMs: number;
   readonly aggregateReadMs: number;
   readonly hostCommitGapMs: number;
@@ -110,8 +110,8 @@ export interface ReaderProfileMilestones {
 export interface ReaderProfileTransition {
   readonly fromSpread: number;
   readonly toSpread: number;
-  readonly knownSpreadCountBefore: number;
-  readonly knownSpreadCountAfter: number;
+  readonly spreadCountBefore: number;
+  readonly spreadCountAfter: number;
   readonly checksumBefore: string;
   readonly checksumAfter: string;
 }
@@ -126,7 +126,6 @@ export interface ReaderLoadProfileReport {
   readonly stages: {
     readonly initial: ReaderProfileStage;
     readonly cachedTurn: ReaderProfileStage;
-    readonly deferredGrowth: ReaderProfileStage;
     readonly tocSupersede: ReaderProfileStage;
     readonly freshFarBootstrap: ReaderProfileStage;
     readonly farToc: ReaderProfileFarTocStage;
@@ -134,7 +133,6 @@ export interface ReaderLoadProfileReport {
   };
   readonly transitions: {
     readonly cachedTurn: ReaderProfileTransition;
-    readonly deferredGrowth: ReaderProfileTransition;
     readonly tocSupersede: ReaderProfileTocSupersedeTransition;
     readonly freshFarGeneration: ReaderProfileFreshFarGeneration;
     readonly farToc: ReaderProfileFarTocTransition;
@@ -163,13 +161,11 @@ export interface ReaderLoadProfileReportInput {
   readonly canvasAt: number;
   readonly initial: ReaderProfileStageInput;
   readonly cachedTurn: ReaderProfileStageInput;
-  readonly deferredGrowth: ReaderProfileStageInput;
   readonly tocSupersede: ReaderProfileStageInput;
   readonly freshFarBootstrap: ReaderProfileStageInput;
   readonly farToc: ReaderProfileFarTocStageInput;
   readonly reflow: ReaderProfileStageInput;
   readonly cachedTurnTransition: ReaderProfileTransition;
-  readonly deferredGrowthTransition: ReaderProfileTransition;
   readonly tocSupersedeTransition: ReaderProfileTocSupersedeTransitionInput;
   readonly freshFarGeneration: ReaderProfileFreshFarGeneration;
   readonly farTocTransition: ReaderProfileFarTocTransition;
@@ -191,7 +187,6 @@ export function buildReaderLoadProfileReport(
     stages: {
       initial: profileStage(input.initial),
       cachedTurn: profileStage(input.cachedTurn),
-      deferredGrowth: profileStage(input.deferredGrowth),
       tocSupersede: profileStage(input.tocSupersede),
       freshFarBootstrap: profileStage(input.freshFarBootstrap),
       farToc: {
@@ -202,7 +197,6 @@ export function buildReaderLoadProfileReport(
     },
     transitions: {
       cachedTurn: input.cachedTurnTransition,
-      deferredGrowth: input.deferredGrowthTransition,
       tocSupersede: buildTocSupersedeTransition(input.tocSupersedeTransition),
       freshFarGeneration: copyFreshFarGeneration(input.freshFarGeneration),
       farToc: input.farTocTransition,
@@ -216,7 +210,7 @@ export function buildReaderLoadProfileReport(
 
 function profileMilestones(input: ReaderLoadProfileReportInput): ReaderProfileMilestones {
   const open = firstOperation(input.initial.operations, 'open');
-  const bounded = firstOperation(input.initial.operations, 'createBoundedRevision');
+  const created = firstOperation(input.initial.operations, 'createRevision');
   const presentation = firstOperation(
     input.initial.operations,
     'getRevisionPresentationAtRevision',
@@ -234,9 +228,9 @@ function profileMilestones(input: ReaderLoadProfileReportInput): ReaderProfileMi
   return {
     inputToOpenMs: rounded((open?.startedAt ?? input.startedAt) - input.startedAt),
     openRoundTripMs: rounded(open?.durationMs ?? 0),
-    boundedToPresentationMs: rounded(
-      (presentation?.completedAt ?? bounded?.startedAt ?? input.startedAt) -
-        (bounded?.startedAt ?? input.startedAt),
+    revisionToPresentationMs: rounded(
+      (presentation?.completedAt ?? created?.startedAt ?? input.startedAt) -
+        (created?.startedAt ?? input.startedAt),
     ),
     frameWarmRoundTripMs: rounded(frame?.durationMs ?? 0),
     aggregateReadMs: rounded(operationInterval(aggregates)),

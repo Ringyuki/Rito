@@ -1,8 +1,24 @@
-//! Private direct Stylo integration boundary for Rito.
+//! Rito's private adapter over the Stylo CSS engine.
 //!
-//! This crate is deliberately not re-exported from `rito-core`. Its public
-//! items are a crate-to-crate facade and never become part of Rito's JS or
-//! Rust consumer API. Stylo types are confined to private modules.
+//! `rito-core` hands this crate a parsed chapter (a `rito-source` arena) with
+//! its stylesheets and gets back the two typed style tables the fragment
+//! engine reads (`rito-style-contract`):
+//! [`StyleDocument::resolve_production_slice`] runs the cascade once and
+//! projects every element into an inline-formatting style and a layout
+//! style. Around that one path the crate provides:
+//!
+//! - [`parse_font_faces`], which extracts `@font-face` rules from
+//!   stylesheets with Stylo's own parser;
+//! - [`epub_ua_stylesheet`], the user-agent stylesheet that supplies the HTML
+//!   box-generation and typography defaults publication content assumes;
+//! - [`css_defines_property`], which tells the source gate whether a
+//!   declaration's property name exists in CSS at all;
+//! - [`canonicalize_font_family_value`], which re-serializes a reader-supplied
+//!   `font-family` value through Stylo's grammar before it is embedded in an
+//!   internal stylesheet.
+//!
+//! Stylo types never cross this crate's boundary: every public input and
+//! output is a Rito-owned type, and `rito-core` does not re-export this crate.
 
 #![deny(unsafe_code)]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -18,28 +34,17 @@ mod session;
 mod traversal;
 mod ua;
 
-pub use font_faces::{parse_font_faces_v1, FontFaceRuleV1, FontFaceStylesheetInputV1};
-pub use presentational_hints::{
-    supports_body_bgcolor_presentational_hint, supports_svg_geometry_presentational_hint,
-};
+pub use font_faces::{parse_font_faces, FontFaceRule, FontFaceStylesheetInput};
 pub use projection::{
-    BoxSizingV2, ComputedDisplayV1, ComputedElementStyleV0, ComputedElementStyleV1,
-    ComputedElementStyleV2, ComputedLineHeightV1, DirectionV2, DisplayCategory, DisplayInsideV1,
-    DisplayOutsideV1, FontStyleV2, InlineStyleDispositionV1, InlineStyleFieldV1,
-    InlineStyleProjectionReasonV1, InlineStyleProjectionV1, LayoutStyleDispositionV1,
-    LayoutStyleFieldV1, LayoutStyleProjectionReasonV1, LayoutStyleProjectionV1, LineBreakV2,
-    OverflowWrapV2, ProductionStyleProjectionV1, ResolvedStylesV0, ResolvedStylesV1,
-    ResolvedStylesV2, SrgbaV1, TextAlignV2, TextJustifyV2, TextTransformCaseV2, TextTransformV2,
-    TextWrapModeV2, UnicodeBidiV2, WhiteSpaceCollapseV2, WordBreakV2, WritingModeV2,
+    InlineStyleDisposition, InlineStyleField, InlineStyleProjection, InlineStyleProjectionReason,
+    LayoutStyleDisposition, LayoutStyleField, LayoutStyleProjection, LayoutStyleProjectionReason,
+    ProductionStyleProjection,
 };
 pub use session::{
     canonicalize_font_family_value, ColorScheme, StyleDocument, StyleError, StyleOrigin,
     StylesheetInput, Viewport,
 };
-pub use ua::{epub_ua_stylesheet, EPUB_UA_PROFILE_ID};
-
-/// Exact upstream engine version compiled into this adapter.
-pub const STYLO_VERSION: &str = "0.19.0";
+pub use ua::epub_ua_stylesheet;
 
 /// Reports whether CSS itself defines this property name.
 ///

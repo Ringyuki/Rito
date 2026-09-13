@@ -1,11 +1,11 @@
 use std::{num::NonZeroUsize, vec};
 
-use crate::layout::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayoutConfigCleanup};
+use crate::runtime::cleanup::CleanupProgress;
 
 use super::{
     super::{
         frame::{RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionCoordinateSpace},
-        RuntimeRequiredFontFace, RuntimeRevisionExtent, RuntimeRevisionStatus,
+        RuntimeRequiredFontFace, RuntimeRevisionExtent,
     },
     PendingRuntimeFrameCacheCleanup, PendingRuntimeRevisionInteractionsCleanup,
 };
@@ -15,26 +15,23 @@ use super::{
 struct RuntimeRevisionShell {
     coordinate_space: RuntimeRevisionCoordinateSpace,
     revision_version: u32,
-    status: RuntimeRevisionStatus,
-    known_extent: RuntimeRevisionExtent,
-    final_extent: Option<RuntimeRevisionExtent>,
+    extent: RuntimeRevisionExtent,
 }
 
-/// Releases derived frames before the recursive built layout and flat fields.
+/// Releases derived frames before the flat fields.
 ///
-/// If frame-cache cleanup costs `FC`, built-layout cleanup costs `BL`, layout
-/// configuration cleanup costs `LC`, the catalog contains `RF` faces, and
+/// If frame-cache cleanup costs `FC`, the catalog contains `RF` faces, and
 /// interaction cleanup costs `RI`, this cursor costs exactly
-/// `FC + BL + LC + RF + RI + 7` units. Cached-frame table entries are
-/// scheduled inside `FC`; individual legacy JSON values and flat allocation
-/// releases remain atomic residuals, so this is not an end-to-end wall-clock
-/// bound.
+/// `FC + RF + RI + 5` units. The layout configuration and the fragment page
+/// table are dropped in place with the decomposition unit: the configuration
+/// is a handful of scalars and one family string, and the pages are flat
+/// command buffers, not a recursive tree. Cached-frame table entries are
+/// scheduled inside `FC`; flat allocation releases remain atomic residuals,
+/// so this is not an end-to-end wall-clock bound.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
     owner: Option<RuntimeRevision>,
     frame_cache: Option<PendingRuntimeFrameCacheCleanup>,
-    layout: Option<PendingBuiltLayoutCleanup>,
-    layout_config: Option<PendingLayoutConfigCleanup>,
     required_font_face_catalog: Option<vec::IntoIter<RuntimeRequiredFontFace>>,
     interactions: Option<PendingRuntimeRevisionInteractionsCleanup>,
     shell: Option<RuntimeRevisionShell>,
@@ -45,8 +42,6 @@ pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
 enum RuntimeRevisionCleanupStage {
     RevisionSource,
     FrameCache,
-    Layout,
-    LayoutConfig,
     RequiredFontFaceCatalog,
     Interactions,
     Owner,
@@ -58,8 +53,6 @@ impl PendingRuntimeRevisionCleanup {
         Self {
             owner: Some(owner),
             frame_cache: None,
-            layout: None,
-            layout_config: None,
             required_font_face_catalog: None,
             interactions: None,
             shell: None,
@@ -87,8 +80,6 @@ impl PendingRuntimeRevisionCleanup {
         match self.stage {
             RuntimeRevisionCleanupStage::RevisionSource => self.start_revision(),
             RuntimeRevisionCleanupStage::FrameCache => self.advance_frame_cache(),
-            RuntimeRevisionCleanupStage::Layout => self.advance_layout(),
-            RuntimeRevisionCleanupStage::LayoutConfig => self.advance_layout_config(),
             RuntimeRevisionCleanupStage::RequiredFontFaceCatalog => {
                 self.release_required_font_face_catalog()
             }
@@ -129,18 +120,16 @@ impl PendingRuntimeRevisionCleanup {
         let RuntimeRevision {
             coordinate_space,
             revision_version,
-            status,
-            known_extent,
-            final_extent,
-            layout,
-            layout_config,
-            // Small interned records; dropped in place, no staged cleanup.
+            extent,
+            // The flat configuration, small interned records and the flat
+            // page table; dropped in place, no staged cleanup.
+            layout_config: _,
             chapter_style_tables: _,
+            fragment_layout: _,
             required_font_face_catalog,
             interactions,
             frame_cache,
             frame_cache_order,
-            fragment_layout: _,
         } = owner;
         self.frame_cache = Some(PendingRuntimeFrameCacheCleanup::new(
             RuntimeFrameCacheOwner {
@@ -148,16 +137,12 @@ impl PendingRuntimeRevisionCleanup {
                 order: frame_cache_order,
             },
         ));
-        self.layout = Some(PendingBuiltLayoutCleanup::new(layout));
-        self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
         self.required_font_face_catalog = required_font_face_catalog.map(Vec::into_iter);
         self.interactions = Some(PendingRuntimeRevisionInteractionsCleanup::new(interactions));
         self.shell = Some(RuntimeRevisionShell {
             coordinate_space,
             revision_version,
-            status,
-            known_extent,
-            final_extent,
+            extent,
         });
         self.stage = RuntimeRevisionCleanupStage::FrameCache;
         true
@@ -170,38 +155,11 @@ impl PendingRuntimeRevisionCleanup {
             .expect("frame-cache cleanup exists");
         if frame_cache.is_complete() {
             self.frame_cache = None;
-            self.stage = RuntimeRevisionCleanupStage::Layout;
+            self.stage = RuntimeRevisionCleanupStage::RequiredFontFaceCatalog;
             return true;
         }
         let advanced = frame_cache.advance_one();
         debug_assert!(advanced, "incomplete frame-cache cleanup has work");
-        true
-    }
-
-    fn advance_layout(&mut self) -> bool {
-        let layout = self.layout.as_mut().expect("built-layout cleanup exists");
-        if layout.is_complete() {
-            self.layout = None;
-            self.stage = RuntimeRevisionCleanupStage::LayoutConfig;
-            return true;
-        }
-        let advanced = layout.advance_one();
-        debug_assert!(advanced, "incomplete built-layout cleanup has work");
-        true
-    }
-
-    fn advance_layout_config(&mut self) -> bool {
-        let layout_config = self
-            .layout_config
-            .as_mut()
-            .expect("layout-config cleanup exists");
-        if layout_config.is_complete() {
-            self.layout_config = None;
-            self.stage = RuntimeRevisionCleanupStage::RequiredFontFaceCatalog;
-            return true;
-        }
-        let advanced = layout_config.advance_one();
-        debug_assert!(advanced, "incomplete layout-config cleanup has work");
         true
     }
 
@@ -242,17 +200,9 @@ impl PendingRuntimeRevisionCleanup {
         let RuntimeRevisionShell {
             coordinate_space,
             revision_version,
-            status,
-            known_extent,
-            final_extent,
+            extent,
         } = shell;
-        let _ = (
-            coordinate_space,
-            revision_version,
-            status,
-            known_extent,
-            final_extent,
-        );
+        let _ = (coordinate_space, revision_version, extent);
         self.stage = RuntimeRevisionCleanupStage::Complete;
         true
     }

@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReaderLocator } from '../../src/reader';
-import { startBrowserReaderBoundedCandidate } from '../../src/bindings/browser/bounded-session-runtime';
+import { startBrowserReaderRevisionCandidate } from '../../src/bindings/browser/revision-session-runtime';
 import { recordBrowserReaderAcceptedRevision } from '../../src/bindings/browser/reader-session-host';
-import type { BrowserReaderBoundedSessionOwner } from '../../src/bindings/browser/reader-session-host';
+import type { BrowserReaderRevisionSessionOwner } from '../../src/bindings/browser/reader-session-host';
 import {
-  boundedOwner,
+  revisionOwner,
   locatorSnapshot,
   mockLocatorAggregates,
   spreadSnapshot,
-} from './browser-reader-bounded-locator-fixtures';
+} from './browser-reader-revision-locator-fixtures';
 import { createState, createWorker } from './browser-reader-reflow-fixtures';
 
 describe('Browser reader initial locator', () => {
@@ -20,11 +20,11 @@ describe('Browser reader initial locator', () => {
       sourcePoint: { nodePath: [1], textOffset: 4 },
     };
     const snapshot = locatorSnapshot('initial-locator', locator, 1, 3);
-    const start = vi.fn<BrowserReaderBoundedSessionOwner['controller']['start']>(() =>
+    const start = vi.fn<BrowserReaderRevisionSessionOwner['controller']['start']>(() =>
       Promise.resolve(snapshot),
     );
     const ensureLocator = vi.fn();
-    const owner = boundedOwner(fixture.worker, { start, ensureLocator });
+    const owner = revisionOwner(fixture.worker, { start, ensureLocator });
     recordBrowserReaderAcceptedRevision(owner, snapshot.revision);
     mockLocatorAggregates(fixture.worker);
     const committed = vi.fn<(spreadIndex: number) => void>();
@@ -33,11 +33,7 @@ describe('Browser reader initial locator', () => {
     await expect(startInitialCandidate(state, owner, locator)).resolves.toBe(snapshot);
 
     const request = start.mock.calls[0]?.[0];
-    expect(request).toMatchObject({
-      targetLocator: locator,
-      budget: { maxTopLevelNodes: 32 },
-      growthBudget: { maxTopLevelNodes: 32 },
-    });
+    expect(request).toMatchObject({ targetLocator: locator });
     expect(request).not.toHaveProperty('targetSpreadIndex');
     expect(request?.targetLocator).not.toBe(locator);
     expect(ensureLocator).not.toHaveBeenCalled();
@@ -62,10 +58,10 @@ describe('Browser reader initial locator', () => {
     const fallback = spreadSnapshot(revisionId, 1);
     const locatorError = new Error('initial locator is invalid');
     const start = vi.fn(() => Promise.reject(locatorError));
-    const ensureSpread = vi.fn<BrowserReaderBoundedSessionOwner['controller']['ensureSpread']>(() =>
-      Promise.resolve(fallback),
+    const ensureSpread = vi.fn<BrowserReaderRevisionSessionOwner['controller']['ensureSpread']>(
+      () => Promise.resolve(fallback),
     );
-    const owner = boundedOwner(fixture.worker, { start, ensureSpread });
+    const owner = revisionOwner(fixture.worker, { start, ensureSpread });
     recordBrowserReaderAcceptedRevision(owner, fallback.revision);
     mockLocatorAggregates(fixture.worker);
     const committed = vi.fn();
@@ -94,7 +90,7 @@ describe('Browser reader initial locator', () => {
     const start = vi.fn(() => Promise.resolve(noPage));
     const ensureLocator = vi.fn(() => Promise.resolve(resolved));
     const ensureSpread = vi.fn();
-    const owner = boundedOwner(fixture.worker, { start, ensureLocator, ensureSpread });
+    const owner = revisionOwner(fixture.worker, { start, ensureLocator, ensureSpread });
     recordBrowserReaderAcceptedRevision(owner, resolved.revision);
     mockLocatorAggregates(fixture.worker);
     const committed = vi.fn();
@@ -125,7 +121,7 @@ describe('Browser reader initial locator', () => {
     const start = vi.fn(() => Promise.reject(locatorError));
     const ensureLocator = vi.fn(() => Promise.resolve(resolved));
     const ensureSpread = vi.fn();
-    const owner = boundedOwner(fixture.worker, { start, ensureLocator, ensureSpread });
+    const owner = revisionOwner(fixture.worker, { start, ensureLocator, ensureSpread });
     recordBrowserReaderAcceptedRevision(owner, resolved.revision);
     mockLocatorAggregates(fixture.worker);
     const committed = vi.fn();
@@ -147,10 +143,10 @@ describe('Browser reader initial locator', () => {
     const fallback = spreadSnapshot(revisionId, 1);
     const noPage = noPageSnapshot(revisionId, locator);
     const start = vi.fn(() => Promise.resolve(noPage));
-    const ensureSpread = vi.fn<BrowserReaderBoundedSessionOwner['controller']['ensureSpread']>(() =>
-      Promise.resolve(fallback),
+    const ensureSpread = vi.fn<BrowserReaderRevisionSessionOwner['controller']['ensureSpread']>(
+      () => Promise.resolve(fallback),
     );
-    const owner = boundedOwner(fixture.worker, { start, ensureSpread });
+    const owner = revisionOwner(fixture.worker, { start, ensureSpread });
     recordBrowserReaderAcceptedRevision(owner, fallback.revision);
     mockLocatorAggregates(fixture.worker);
     const committed = vi.fn();
@@ -176,16 +172,15 @@ describe('Browser reader initial locator', () => {
     const state = createState(fixture.worker);
     const locatorError = new Error('reflow locator failed');
     const ensureSpread = vi.fn();
-    const owner = boundedOwner(fixture.worker, {
+    const owner = revisionOwner(fixture.worker, {
       start: vi.fn(() => Promise.reject(locatorError)),
       ensureSpread,
     });
 
     await expect(
-      startBrowserReaderBoundedCandidate(state, owner, {
+      startBrowserReaderRevisionCandidate(state, owner, {
         config: state.config,
         spreadMode: state.spreadMode,
-        lineBreaking: state.lineBreaking,
         targetSpreadIndex: 2,
         preserveLocator: { href: 'chapter.xhtml' },
       }),
@@ -196,13 +191,12 @@ describe('Browser reader initial locator', () => {
 
 function startInitialCandidate(
   state: ReturnType<typeof createState>,
-  owner: BrowserReaderBoundedSessionOwner,
+  owner: BrowserReaderRevisionSessionOwner,
   locator: ReaderLocator,
 ) {
-  return startBrowserReaderBoundedCandidate(state, owner, {
+  return startBrowserReaderRevisionCandidate(state, owner, {
     config: state.config,
     spreadMode: state.spreadMode,
-    lineBreaking: state.lineBreaking,
     targetSpreadIndex: 0,
     preserveLocator: locator,
     fallbackOnLocatorFailure: true,

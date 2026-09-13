@@ -3,7 +3,7 @@
  *
  * Coordinate spaces (see COORDINATE_SYSTEM_REMEDIATION.md):
  *
- *   page-content      – layout primitives; origin = page content top-left (no margins)
+ *   page-content      – reader geometry; origin = page content top-left (no margins)
  *   spread-content    – synthetic space fed to SelectionEngine (content areas + content gap)
  *   viewport-logical  – rendered spread; origin = canvas logical top-left (includes margins)
  *   display-css       – CSS pixels on screen (viewport-logical × renderScale)
@@ -14,7 +14,6 @@
 
 import type { LayoutConfig, Spread } from '@ritojs/core';
 import type { Rect } from '../../interaction/index';
-import { buildSelectionConfig } from './selection-config';
 import { resolveSpreadPage } from './page-resolution';
 import {
   pageContentRectToSpread,
@@ -54,8 +53,6 @@ export interface PageGeometry {
 
 export interface CoordinateMapper {
   readonly layout: LayoutGeometry;
-  /** Synthetic LayoutConfig for SelectionEngine (pageWidth = contentWidth). */
-  readonly selectionConfig: LayoutConfig;
   /** Pages in the current spread, keyed by pageIndex. */
   getPage(pageIndex: number): PageGeometry | undefined;
   /** All page geometries in the current spread. */
@@ -106,14 +103,12 @@ export function createCoordinateMapper(
 
   const pages = buildPageGeometries(spread, g, contentWidth, contentHeight, contentGap);
   const pageMap = new Map(pages.map((p) => [p.pageIndex, p]));
-  const selectionCfg = buildSelectionConfig(g, contentWidth, contentHeight, contentGap);
 
-  return buildMapperObject(g, selectionCfg, pages, pageMap, renderScale);
+  return buildMapperObject(g, pages, pageMap, renderScale);
 }
 
 function buildMapperObject(
   g: LayoutGeometry,
-  selectionConfig: LayoutConfig,
   pages: readonly PageGeometry[],
   pageMap: ReadonlyMap<number, PageGeometry>,
   renderScale: number,
@@ -124,7 +119,6 @@ function buildMapperObject(
   });
   return {
     layout: g,
-    selectionConfig,
     getPage: (pageIndex) => pageMap.get(pageIndex),
     getPages: () => pages,
     cssToSpreadContent,
@@ -173,23 +167,21 @@ function buildPageGeometries(
   contentHeight: number,
   contentGap: number,
 ): PageGeometry[] {
-  const pages: PageGeometry[] = [];
-
-  if (spread.left) {
-    pages.push({
-      pageIndex: spread.left.index,
+  const pages: PageGeometry[] = [
+    {
+      pageIndex: spread.leftPageIndex,
       side: g.spreadMode === 'double' ? 'left' : 'single',
       contentOriginX: g.marginLeft,
       contentOriginY: g.marginTop,
       spreadContentOriginX: 0,
       contentWidth,
       contentHeight,
-    });
-  }
+    },
+  ];
 
-  if (spread.right) {
+  if (spread.rightPageIndex !== undefined) {
     pages.push({
-      pageIndex: spread.right.index,
+      pageIndex: spread.rightPageIndex,
       side: 'right',
       contentOriginX: g.pageWidth + g.spreadGap + g.marginLeft,
       contentOriginY: g.marginTop,

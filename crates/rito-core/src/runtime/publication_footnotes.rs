@@ -11,13 +11,6 @@ use crate::{
 
 use super::RuntimeDocument;
 
-/// `(footnotes, pending_keys, complete)` as installed on bounded revisions.
-pub(super) type PublicationFootnoteSnapshot = (
-    Option<Arc<BTreeMap<String, FootnoteEntry>>>,
-    BTreeSet<String>,
-    bool,
-);
-
 #[derive(Debug, Clone)]
 pub(super) struct PublicationFootnoteIndex {
     pub(super) targets: FootnoteTargetSet,
@@ -179,7 +172,7 @@ impl PublicationFootnoteProgress {
 
 impl RuntimeDocument {
     /// Explicit compatibility API. It drains the cooperative index to a final
-    /// immutable snapshot; Reader-v1 foreground paths never call this method.
+    /// immutable snapshot; reader session foreground paths never call this method.
     pub(super) fn publication_footnote_index(&mut self) -> EpubResult<&PublicationFootnoteIndex> {
         while self.publication_footnotes.get().is_none() {
             self.advance_publication_footnote_index_once()?;
@@ -296,27 +289,6 @@ impl RuntimeDocument {
             .map(|progress| progress.chapter_interactions(chapter_index))
             .unwrap_or_else(|| (BTreeMap::new(), BTreeSet::new(), false))
     }
-
-    pub(super) fn publication_footnote_snapshot(&self) -> PublicationFootnoteSnapshot {
-        if let Some(index) = self.publication_footnotes.get() {
-            let pending = index
-                .targets
-                .iter()
-                .filter(|key| !index.footnotes.contains_key(key.as_str()))
-                .cloned()
-                .collect();
-            return (Some(Arc::clone(&index.footnotes)), pending, true);
-        }
-        // Partial publication state stays private to the cooperative builder.
-        // Foreground revisions install only their bounded chapter-local overlay.
-        (None, BTreeSet::new(), false)
-    }
-
-    #[cfg(test)]
-    pub(super) fn publication_footnote_scan_count(&self) -> usize {
-        self.publication_footnote_scan_count
-    }
-
     #[cfg(test)]
     pub(super) fn publication_footnote_source_scan_count(&self) -> usize {
         self.publication_footnotes

@@ -1,9 +1,14 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    epub::{parsed_loaded_chapter_source, LoadedChapter, LoadedEpubDocument},
-    layout::{search_runtime_pages, SearchRuntimeMatch, SearchSourcePoint},
+use crate::epub::{parsed_loaded_chapter_source, LoadedChapter, LoadedEpubDocument};
+
+mod page_text;
+
+pub(in crate::runtime) use page_text::{
+    search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource,
+    SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
 };
+pub use page_text::{SearchRuntimeResult, SearchTextPosition};
 
 use super::{
     chapter_text::build_chapter_text_index, navigation::spread_index_for_page,
@@ -23,29 +28,17 @@ pub(super) fn search_revision(
         return runtime_search_response(revision_id, request, Vec::new());
     }
 
-    // A fragment page table is the pagination authority; its artifacts
-    // carry the page text and run table the retained walk would have
-    // derived from `layout.pages` (which stays empty once the handover
-    // clears the retained frames — searching it found nothing).
-    let matches = if revision.fragment_layout.is_some() {
-        let session = revision.chapter_engine_session();
-        let index = session.search_page_index();
-        crate::layout::search_prebuilt_runtime_pages(
-            &index,
-            &request.query,
-            request.case_sensitive,
-            request.whole_word,
-            request.limit,
-        )
-    } else {
-        search_runtime_pages(
-            &revision.layout.pages,
-            &request.query,
-            request.case_sensitive,
-            request.whole_word,
-            request.limit,
-        )
-    };
+    // The revision recorded every page's text and run table when it
+    // paginated, so a query walks that slice and rebuilds no chapter.
+    let session = revision.chapter_engine_session();
+    let index = session.search_page_index();
+    let matches = search_prebuilt_runtime_pages(
+        index,
+        &request.query,
+        request.case_sensitive,
+        request.whole_word,
+        request.limit,
+    );
     let mut source_indices = BTreeMap::new();
     let results = matches
         .into_iter()
@@ -100,7 +93,7 @@ fn runtime_search_source(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
     page_index: usize,
-    source_range: Option<crate::layout::SearchSourceRange>,
+    source_range: Option<SearchSourceRange>,
     selected_text: &str,
     source_indices: &mut BTreeMap<String, RuntimeChapterTextIndex>,
 ) -> RuntimeSearchSource {

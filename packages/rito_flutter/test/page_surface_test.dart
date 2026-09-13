@@ -63,25 +63,22 @@ void main() {
     final artifact = imageArtifact(
       artifactId: 7001,
       hrefs: const <String>[href],
-      commands: <RitoCommand>[directImage(href)],
+      commands: <RitoPrimitive>[directImage(href)],
     );
-    final fonts = await RitoArtifactFontCache(
-      registrar: const _NoopFontRegistrar(),
-    ).prepare(
-      artifact: artifact,
-      readResource: (_) => throw StateError('No fonts expected.'),
-    );
+    final fonts =
+        await RitoArtifactFontCache(
+          registrar: const _NoopFontRegistrar(),
+        ).prepare(
+          artifact: artifact,
+          readResource: (_) => throw StateError('No fonts expected.'),
+        );
     final cache = RitoArtifactImageCache(
       decoder: TestImageDecoder(const <TestImageSpec>[spec]),
     );
     final images = await cache.prepare(
       artifact: artifact,
-      pixelRatio: 1,
-      readResource: (reference) async => imageResource(
-        artifact: artifact,
-        reference: reference,
-        spec: spec,
-      ),
+      readResource: (reference) async =>
+          imageResource(artifact: artifact, reference: reference, spec: spec),
     );
     final prepared = RitoPreparedArtifact.withImageLease(
       fontPrepared: fonts,

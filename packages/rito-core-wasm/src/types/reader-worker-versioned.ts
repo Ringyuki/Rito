@@ -1,4 +1,4 @@
-import type { RitoCoreWasmFontVerticalMetricSample, RitoCoreWasmResourceKind } from './common';
+import type { RitoCoreWasmLayoutConfig, RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type {
   RitoCoreWasmChapterTextIndices,
@@ -34,62 +34,23 @@ import type {
   RitoCoreWasmReaderResourceBytes,
 } from './reader-worker';
 import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
-import type { RitoCoreWasmShapeProvenanceDiagnostic } from './shape-provenance';
 import type { RitoCoreWasmResourcePayload } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type {
-  RitoCoreWasmBoundedRevisionRequest,
-  RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,
-  RitoCoreWasmCancelRevisionRequest,
-  RitoCoreWasmContinueRevisionTowardSourceLocatorRequest,
-  RitoCoreWasmContinueRevisionRequest,
-  RitoCoreWasmRevisionAdvance,
-  RitoCoreWasmRevisionAdvanceWithTransferRelease,
-  RitoCoreWasmRevisionAdvanceTowardSourceLocator,
   RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
   RitoCoreWasmRevisionPresentation,
-  RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease,
-  RitoCoreWasmRevisionCursor,
   RitoCoreWasmRevisionRelease,
   RitoCoreWasmRevisionReleaseResult,
   RitoCoreWasmRevisionSummary,
   RitoCoreWasmRevisionTransferRelease,
-  RitoCoreWasmRevisionWorkBudget,
   RitoCoreWasmVersioned,
 } from './revision';
 
-type RitoCoreWasmReaderBatchedContinueRevisionRequest = RitoCoreWasmContinueRevisionRequest & {
-  readonly maxQuanta?: number | undefined;
-  readonly targetSpreadIndex?: number | undefined;
-};
-
-type RitoCoreWasmReaderBatchedLocatorContinuationRequest =
-  RitoCoreWasmContinueRevisionTowardSourceLocatorRequest & {
-    readonly maxQuanta?: number | undefined;
-  };
-
 export interface RitoCoreWasmReaderVersionedClient {
-  createBoundedRevision(
-    request: RitoCoreWasmBoundedRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
-  continueRevision(
-    request: RitoCoreWasmContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
-  continueRevisionAfterTransferRelease?(
-    request: RitoCoreWasmReaderBatchedContinueRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvanceWithTransferRelease>>;
-  continueRevisionTowardSourceLocator?(
-    request: RitoCoreWasmReaderBatchedLocatorContinuationRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvanceTowardSourceLocator>>;
-  calibrateRevisionFontVerticalMetrics(
-    request: RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,
-  ): Promise<
-    RitoCoreWasmVersioned<RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease>
-  >;
-  cancelRevision(
-    request: RitoCoreWasmCancelRevisionRequest,
+  createRevision(
+    layoutConfig: RitoCoreWasmLayoutConfig,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
@@ -101,9 +62,6 @@ export interface RitoCoreWasmReaderVersionedClient {
   getRevisionPresentationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>>;
-  getShapeProvenanceDiagnosticAtRevision(
-    revision: RitoCoreWasmRevisionHandle,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>>;
   getRevisionNavigationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>>;
@@ -195,15 +153,7 @@ export interface RitoCoreWasmReaderVersionedClient {
 }
 
 export interface RitoCoreWasmReaderVersionedDocumentRuntime {
-  createBoundedRevision(request: RitoCoreWasmBoundedRevisionRequest): RitoCoreWasmRevisionAdvance;
-  continueRevision(request: RitoCoreWasmContinueRevisionRequest): RitoCoreWasmRevisionAdvance;
-  continueRevisionTowardSourceLocator(
-    request: RitoCoreWasmContinueRevisionTowardSourceLocatorRequest,
-  ): RitoCoreWasmRevisionAdvanceTowardSourceLocator;
-  calibrateRevisionFontVerticalMetrics(
-    request: RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,
-  ): RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease;
-  cancelRevision(request: RitoCoreWasmCancelRevisionRequest): RitoCoreWasmRevisionSummary;
+  createRevision(layoutConfig: RitoCoreWasmLayoutConfig): RitoCoreWasmRevisionSummary;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>;
@@ -214,9 +164,6 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
   getRevisionPresentationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>;
-  getShapeProvenanceDiagnosticAtRevision(
-    revision: RitoCoreWasmRevisionHandle,
-  ): RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>;
   getRevisionNavigationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>;
@@ -389,40 +336,11 @@ type RevisionRequest<K extends string> = VersionedWorkerRequestId & {
   readonly revision: RitoCoreWasmRevisionHandle;
 };
 
-export type RitoCoreWasmReaderWorkerCreateBoundedRevisionRequest = VersionedWorkerRequestId & {
-  readonly kind: 'createBoundedRevision';
-  readonly request: RitoCoreWasmBoundedRevisionRequest;
+export type RitoCoreWasmReaderWorkerCreateRevisionRequest = VersionedWorkerRequestId & {
+  readonly kind: 'createRevision';
+  readonly layoutConfig: RitoCoreWasmLayoutConfig;
 };
 
-export type RitoCoreWasmReaderWorkerContinueRevisionRequest =
-  RevisionRequest<'continueRevision'> & {
-    readonly cursor: string;
-    readonly budget: RitoCoreWasmRevisionWorkBudget;
-  };
-
-export type RitoCoreWasmReaderWorkerContinueRevisionAfterTransferReleaseRequest =
-  RevisionRequest<'continueRevisionAfterTransferRelease'> & {
-    readonly cursor: string;
-    readonly budget: RitoCoreWasmRevisionWorkBudget;
-    readonly maxQuanta?: number | undefined;
-    readonly targetSpreadIndex?: number | undefined;
-  };
-
-export type RitoCoreWasmReaderWorkerContinueRevisionTowardSourceLocatorRequest =
-  RevisionRequest<'continueRevisionTowardSourceLocator'> & {
-    readonly cursor: string;
-    readonly budget: RitoCoreWasmRevisionWorkBudget;
-    readonly locator: RitoCoreWasmSourceLocator;
-    readonly maxQuanta?: number | undefined;
-  };
-
-export type RitoCoreWasmReaderWorkerCalibrateRevisionFontVerticalMetricsRequest =
-  RevisionRequest<'calibrateRevisionFontVerticalMetrics'> & {
-    readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
-    readonly fontVerticalMetrics: readonly RitoCoreWasmFontVerticalMetricSample[];
-  };
-
-export type RitoCoreWasmReaderWorkerCancelRevisionRequest = RevisionRequest<'cancelRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionSummaryRequest =
   RevisionRequest<'getRevisionSummaryAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionBundleRequest =
@@ -431,8 +349,6 @@ export type RitoCoreWasmReaderWorkerGetRevisionBundleRequest =
   };
 export type RitoCoreWasmReaderWorkerGetRevisionPresentationRequest =
   RevisionRequest<'getRevisionPresentationAtRevision'>;
-export type RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest =
-  RevisionRequest<'getShapeProvenanceDiagnosticAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionNavigationRequest =
   RevisionRequest<'getRevisionNavigationAtRevision'>;
 export type RitoCoreWasmReaderWorkerReadFrameBufferRequest =
@@ -504,16 +420,10 @@ export type RitoCoreWasmReaderWorkerReleaseRevisionAtRevisionRequest =
   RevisionRequest<'releaseRevisionAtRevision'>;
 
 export type RitoCoreWasmReaderVersionedWorkerRequest =
-  | RitoCoreWasmReaderWorkerCreateBoundedRevisionRequest
-  | RitoCoreWasmReaderWorkerContinueRevisionRequest
-  | RitoCoreWasmReaderWorkerContinueRevisionAfterTransferReleaseRequest
-  | RitoCoreWasmReaderWorkerContinueRevisionTowardSourceLocatorRequest
-  | RitoCoreWasmReaderWorkerCalibrateRevisionFontVerticalMetricsRequest
-  | RitoCoreWasmReaderWorkerCancelRevisionRequest
+  | RitoCoreWasmReaderWorkerCreateRevisionRequest
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
   | RitoCoreWasmReaderWorkerGetRevisionBundleRequest
   | RitoCoreWasmReaderWorkerGetRevisionPresentationRequest
-  | RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest
   | RitoCoreWasmReaderWorkerGetRevisionNavigationRequest
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
   | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
@@ -550,21 +460,7 @@ export interface RitoCoreWasmReaderWorkerVersionedResponse<Kind extends string, 
 }
 
 export type RitoCoreWasmReaderVersionedWorkerResponse =
-  | RitoCoreWasmReaderWorkerVersionedResponse<'createBoundedRevision', RitoCoreWasmRevisionAdvance>
-  | RitoCoreWasmReaderWorkerVersionedResponse<'continueRevision', RitoCoreWasmRevisionAdvance>
-  | RitoCoreWasmReaderWorkerVersionedResponse<
-      'continueRevisionAfterTransferRelease',
-      RitoCoreWasmRevisionAdvanceWithTransferRelease
-    >
-  | RitoCoreWasmReaderWorkerVersionedResponse<
-      'continueRevisionTowardSourceLocator',
-      RitoCoreWasmRevisionAdvanceTowardSourceLocator
-    >
-  | RitoCoreWasmReaderWorkerVersionedResponse<
-      'calibrateRevisionFontVerticalMetrics',
-      RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease
-    >
-  | RitoCoreWasmReaderWorkerVersionedResponse<'cancelRevision', RitoCoreWasmRevisionSummary>
+  | RitoCoreWasmReaderWorkerVersionedResponse<'createRevision', RitoCoreWasmRevisionSummary>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionSummaryAtRevision',
       RitoCoreWasmRevisionSummary
@@ -576,10 +472,6 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionPresentationAtRevision',
       RitoCoreWasmRevisionPresentation
-    >
-  | RitoCoreWasmReaderWorkerVersionedResponse<
-      'getShapeProvenanceDiagnosticAtRevision',
-      RitoCoreWasmShapeProvenanceDiagnostic
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionNavigationAtRevision',

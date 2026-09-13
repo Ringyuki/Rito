@@ -52,7 +52,7 @@ export function measureReaderMemoryMetrics(
   const all = [
     checkpoints.baseline,
     checkpoints.loaded,
-    checkpoints.growth,
+    checkpoints.traversed,
     checkpoints.reflow,
     ...checkpoints.replacements,
     checkpoints.disposed,

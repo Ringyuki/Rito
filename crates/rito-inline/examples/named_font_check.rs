@@ -5,11 +5,11 @@ use rito_fragment::{
 };
 use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
-    FontFamilies, FontFamily, FontFamilyName, InlineStyleTableV1, LayoutStyleTableV1,
+    FontFamilies, FontFamily, FontFamilyName, InlineStyleTable, LayoutStyleTable,
 };
 
 fn width(context: &ParleyInlineContext, family: &str) -> f64 {
-    let mut inline = InlineStyleTableV1::new(1);
+    let mut inline = InlineStyleTable::new(1);
     let style = inline
         .intern_for_node(
             0,
@@ -36,7 +36,7 @@ fn width(context: &ParleyInlineContext, family: &str) -> f64 {
         nodes,
         FormattingNodeId(0),
         rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTableV1::new(0),
+            layout: LayoutStyleTable::new(0),
             inline,
         },
     )

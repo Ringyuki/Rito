@@ -50,6 +50,11 @@
       "kind": "paintRuby",
       "text": "かんじ",
       "rect": { "x": 60, "y": 138, "width": 44, "height": 11 },
+      "clusters": [
+        [0, 62.333333333333336, 147],
+        [3, 77, 147],
+        [6, 91.66666666666667, 147]
+      ],
       "paint": {
         "color": "#000000",
         "font": { "family": "Source Han Serif CN", "sizePx": 10, "style": "normal", "weight": 400 }

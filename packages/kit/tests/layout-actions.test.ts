@@ -2,16 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ReadingPosition } from '../src/interaction/index';
 import type { LayoutPositionPlan } from '../src/interaction/position/tracker';
 import type { Internals } from '../src/controller/core/internals';
-import {
-  buildLayoutActions,
-  commitLayoutChange,
-  publishPaginationChange,
-} from '../src/controller/facade/layout-actions';
+import { buildLayoutActions, commitLayoutChange } from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
 
 function createMocks(options?: {
   readonly setTypographyChanged?: boolean;
-  readonly setLineBreakingChanged?: boolean;
   readonly setSpreadModeChanged?: boolean;
   readonly currentSpread?: number;
   readonly totalSpreads?: number;
@@ -20,24 +15,20 @@ function createMocks(options?: {
 }) {
   const getCanvasSize = vi.fn(() => ({ width: 800, height: 600 }));
   const setTypography = vi.fn(() => options?.setTypographyChanged ?? true);
-  const setLineBreaking = vi.fn(() => options?.setLineBreakingChanged ?? true);
   const setSpreadMode = vi.fn(() => options?.setSpreadModeChanged ?? true);
   const setTheme = vi.fn();
   const notifyActiveSpread = vi.fn();
   const updateLayout = vi.fn(() => false);
   const spreads = Array.from({ length: options?.totalSpreads ?? 3 }, (_, index) => ({ index }));
-  const pages = spreads.map((_, index) => ({ index }));
   const reader = {
     totalSpreads: spreads.length,
     spreads,
-    pages,
     chapterMap: new Map(),
     manifestHrefMap: new Map(),
     dpr: 2,
     getCanvasSize,
     getChapterTextIndices: vi.fn(() => new Map()),
     setTypography,
-    setLineBreaking,
     setSpreadMode,
     setTheme,
     notifyActiveSpread,
@@ -67,7 +58,6 @@ function createMocks(options?: {
         readonly resolvedCount: number;
       }
     | undefined;
-  const setPages = vi.fn();
   const resolve = vi.fn(() => options?.resolvedSpread);
   const getCurrent = vi.fn<() => ReadingPosition | null>(() => null);
   const getPreservableCurrent = vi.fn<() => ReadingPosition | null>(() => getCurrent());
@@ -75,13 +65,12 @@ function createMocks(options?: {
   const claimPositionIntent = vi.fn(() => positionIntent);
   const prepareLayoutCommit = vi.fn(
     (position: ReadingPosition | null | undefined): LayoutPositionPlan => ({
-      kind: 'legacy',
+      kind: 'synchronous',
       intent: claimPositionIntent(),
       position: position === undefined ? getPreservableCurrent() : position,
     }),
   );
   const invalidateSelection = vi.fn();
-  const acceptRevisionAppend = vi.fn();
   const coordState = {
     contentInteractionGeneration: 6,
     selectionProjectionTransfer: null,
@@ -118,8 +107,8 @@ function createMocks(options?: {
     renderScale: 1,
     options: {},
     engines: {
-      selection: { acceptRevisionAppend, invalidate: invalidateSelection },
-      search: { setPages },
+      selection: { invalidate: invalidateSelection },
+      search: {},
       position: {
         getCurrent,
         getPreservableCurrent,
@@ -156,16 +145,13 @@ function createMocks(options?: {
       emit,
       notifyActiveSpread,
       setTypography,
-      setLineBreaking,
       setTheme,
-      setPages,
       resolve,
       getCurrent,
       getPreservableCurrent,
       claimPositionIntent,
       prepareLayoutCommit,
       positionIntent,
-      acceptRevisionAppend,
       invalidateSelection,
     },
     get annotationStateAtComposite() {
@@ -175,87 +161,6 @@ function createMocks(options?: {
 }
 
 describe('buildLayoutActions', () => {
-  it('publishes pagination resources without resetting stable layout state', () => {
-    const fixture = createMocks();
-    const chapter = {
-      href: 'chapter.xhtml',
-      normalizedText: 'text',
-      spans: [
-        {
-          nodePath: [0],
-          sourceStart: 0,
-          sourceEnd: 4,
-          normalizedStart: 0,
-          normalizedEnd: 4,
-        },
-      ],
-    };
-    const annotation = {
-      id: 'annotation',
-      kind: 'highlight',
-      target: {
-        href: chapter.href,
-        selectors: {
-          sourceRange: {
-            type: 'SourceRangeSelector',
-            start: { nodePath: [0], textOffset: 0 },
-            end: { nodePath: [0], textOffset: 1 },
-          },
-          textQuote: { type: 'TextQuoteSelector', exact: 't' },
-          textPosition: { type: 'TextPositionSelector', start: 0, end: 1 },
-          progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 0 },
-        },
-        text: { highlight: 't' },
-      },
-      createdAt: 1,
-    } as const;
-    fixture.reader.getChapterTextIndices.mockReturnValue(new Map([['chapter', chapter]]));
-    fixture.internals.coordState.chapterIndices = new Map();
-    fixture.internals.coordState.hitMaps = new Map();
-    fixture.internals.coordState.annotationStore = {
-      getAll: () => [annotation],
-    } as never;
-    fixture.internals.coordState.resolvedAnnotations = [];
-    const markAllOverlaysDirty = vi.fn();
-
-    publishPaginationChange(fixture.internals, fixture.emitter, { markAllOverlaysDirty });
-
-    expect(fixture.internals.coordState.chapterIndices.get(chapter.href)).toBe(chapter);
-    expect(fixture.internals.coordState.resolvedAnnotations).toHaveLength(1);
-    expect(fixture.internals.coordState.resolvedAnnotations[0]?.record).toBe(annotation);
-    expect(fixture.spies.setPages).toHaveBeenCalledWith(fixture.reader.pages);
-    expect(fixture.spies.acceptRevisionAppend).toHaveBeenCalledOnce();
-    expect(fixture.spies.invalidateSelection).not.toHaveBeenCalled();
-    expect(fixture.internals.coordState.contentInteractionGeneration).toBe(6);
-    expect(markAllOverlaysDirty).toHaveBeenCalledOnce();
-    expect(fixture.spies.invalidateAllContent).not.toHaveBeenCalled();
-    expect(fixture.spies.reset).not.toHaveBeenCalled();
-    expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalled();
-    expect(fixture.spies.emit).toHaveBeenCalledWith('layoutChange', {
-      spreads: fixture.reader.spreads,
-      totalSpreads: fixture.reader.totalSpreads,
-    });
-  });
-
-  it('invalidates revision-bound native annotation geometry during pagination growth', () => {
-    const fixture = createMocks({ nativeAnnotationGeometry: true });
-    fixture.internals.coordState.annotationStore = { getAll: () => [] } as never;
-    const markAllOverlaysDirty = vi.fn();
-
-    publishPaginationChange(fixture.internals, fixture.emitter, { markAllOverlaysDirty });
-
-    expect(fixture.internals.coordState.nativeAnnotationGeometry.generation).toBe(5);
-    expect(fixture.internals.coordState.nativeAnnotationGeometry.cache.size).toBe(0);
-    expect(fixture.internals.coordState.nativeAnnotationGeometry.misses.size).toBe(0);
-    expect(fixture.internals.coordState.nativeAnnotationGeometry.pending.size).toBe(0);
-    expect(fixture.internals.coordState.nativeSearchGeometry.generation).toBe(5);
-    expect(fixture.spies.emit).toHaveBeenCalledWith('annotationHover', {
-      annotation: null,
-      x: 0,
-      y: 0,
-    });
-  });
-
   it('forwards cleared theme overrides and invalidates rendered content', () => {
     const { internals, runtime, emitter, spies } = createMocks();
     const actions = buildLayoutActions(internals, emitter, runtime);
@@ -274,7 +179,6 @@ describe('buildLayoutActions', () => {
     expect(actions.setTypography({ fontSize: 18, lineHeight: 1.6 })).toBe(true);
 
     expect(spies.setTypography).toHaveBeenCalledWith({ fontSize: 18, lineHeight: 1.6 });
-    expect(spies.setPages).toHaveBeenCalledWith(reader.pages);
     expect(spies.setSize).toHaveBeenCalledWith(800, 600, 2);
     expect(spies.resize).toHaveBeenCalledWith(800, 600, 2);
     expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
@@ -287,7 +191,6 @@ describe('buildLayoutActions', () => {
     });
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
     expect(spies.invalidateSelection).toHaveBeenCalledOnce();
-    expect(spies.acceptRevisionAppend).not.toHaveBeenCalled();
     expect(internals.coordState.contentInteractionGeneration).toBe(7);
   });
 
@@ -324,31 +227,6 @@ describe('buildLayoutActions', () => {
     expect(spies.setSize).not.toHaveBeenCalled();
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(spies.compositeNow).not.toHaveBeenCalled();
-    expect(spies.emit).not.toHaveBeenCalled();
-  });
-
-  it('refreshes layout state when line breaking commits synchronously', () => {
-    const { reader, internals, runtime, emitter, spies } = createMocks();
-    const actions = buildLayoutActions(internals, emitter, runtime);
-
-    expect(actions.setLineBreaking('optimal')).toBe(true);
-
-    expect(spies.setLineBreaking).toHaveBeenCalledWith('optimal');
-    expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
-      spreads: reader.spreads,
-      totalSpreads: reader.totalSpreads,
-    });
-  });
-
-  it('does nothing when line breaking waits for an async commit', () => {
-    const { internals, runtime, emitter, spies } = createMocks({
-      setLineBreakingChanged: false,
-    });
-    const actions = buildLayoutActions(internals, emitter, runtime);
-
-    expect(actions.setLineBreaking('greedy')).toBe(false);
-    expect(spies.setSize).not.toHaveBeenCalled();
-    expect(spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
   });
 
@@ -434,13 +312,11 @@ describe('buildLayoutActions', () => {
         kind: 'skip',
         spreadIndex: 1,
       });
-      expect(fixture.spies.setPages).not.toHaveBeenCalled();
       expect(fixture.spies.compositeNow).not.toHaveBeenCalled();
     });
     fixture.spies.emit.mockImplementation((event: string) => {
       order.push(event);
       if (event !== 'layoutChange') return;
-      expect(fixture.spies.setPages).toHaveBeenCalledWith(fixture.reader.pages);
       expect(fixture.spies.compositeNow).toHaveBeenCalledOnce();
       fixture.internals.currentSpread = 2;
     });
@@ -448,11 +324,11 @@ describe('buildLayoutActions', () => {
     commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
 
     expect(fixture.internals.currentSpread).toBe(2);
-    expect(order).toEqual(['notify:1', 'layoutChange']);
+    expect(order).toEqual(['notify:1', 'annotationHover', 'layoutChange']);
     expect(fixture.spies.emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
   });
 
-  it('does not overwrite navigation triggered while clearing active search results', () => {
+  it('does not overwrite navigation triggered while invalidating the selection', () => {
     const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
     const order: string[] = [];
     fixture.internals.coordState.selectionProjectionTransfer = {
@@ -468,15 +344,11 @@ describe('buildLayoutActions', () => {
         kind: 'skip',
         spreadIndex: 1,
       });
+      fixture.internals.currentSpread = 2;
     });
     fixture.spies.invalidateSelection.mockImplementation(() => {
       order.push('selection');
       expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalled();
-    });
-    fixture.spies.setPages.mockImplementation(() => {
-      order.push('search');
-      expect(fixture.internals.currentSpread).toBe(1);
-      fixture.internals.currentSpread = 2;
     });
     fixture.spies.compositeNow.mockImplementation(() => {
       order.push('composite');
@@ -488,7 +360,13 @@ describe('buildLayoutActions', () => {
     commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
 
     expect(fixture.internals.currentSpread).toBe(2);
-    expect(order).toEqual(['selection', 'notify:1', 'search', 'composite', 'layoutChange']);
+    expect(order).toEqual([
+      'selection',
+      'notify:1',
+      'composite',
+      'annotationHover',
+      'layoutChange',
+    ]);
     expect(fixture.spies.emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
   });
 
@@ -606,7 +484,14 @@ describe('buildLayoutActions', () => {
     commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
 
     expect(finish).toHaveBeenCalledOnce();
-    expect(order).toEqual(['notify', 'composite', 'end', 'layoutChange', 'spreadChange']);
+    expect(order).toEqual([
+      'notify',
+      'composite',
+      'end',
+      'annotationHover',
+      'layoutChange',
+      'spreadChange',
+    ]);
   });
 
   it('releases a layout-owned preview even when an exact reader listener throws', () => {

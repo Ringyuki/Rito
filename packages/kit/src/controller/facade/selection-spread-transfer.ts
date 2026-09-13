@@ -94,7 +94,7 @@ export function startSelectionIntent<T>(
   return { kind: 'captured', value, intent: { generation, gesture: expectedGesture } };
 }
 
-/** Grow/snap one adjacent spread while retaining the captured native selection session. */
+/** Snap to one adjacent spread while retaining the captured native selection session. */
 export function transferSelectionGesture(
   internals: Internals,
   nav: Nav,
@@ -105,19 +105,9 @@ export function transferSelectionGesture(
   resolveInput: () => SelectionContentPoint,
   replay: (point: SelectionContentPoint) => void,
   onSpreadTransfer?: () => void,
-): SelectionEdgeNavigationOutcome | Promise<SelectionEdgeNavigationOutcome> {
+): SelectionEdgeNavigationOutcome {
   if (selectionTransferWasAborted(signal) || !ownsSelectionIntent(internals, intent)) return 'stop';
-  if (target >= internals.reader.totalSpreads) {
-    return nav
-      .ensureSelectionSpread(target, signal)
-      .then((available) =>
-        available === true &&
-        !selectionTransferWasAborted(signal) &&
-        ownsSelectionIntent(internals, intent)
-          ? 'retry'
-          : 'stop',
-      );
-  }
+  if (target >= internals.reader.totalSpreads) return 'stop';
   const readiness = nav.prepareSpreadForJump(target);
   if (readiness !== 'ready') return readiness === 'not-ready' ? 'retry' : 'stop';
   if (selectionTransferWasAborted(signal) || !ownsSelectionIntent(internals, intent)) return 'stop';

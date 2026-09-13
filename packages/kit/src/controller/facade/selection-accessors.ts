@@ -29,9 +29,6 @@ export function buildSelectionAccessors(
     get selectionText() {
       return internals.engines.selection.getText();
     },
-    get selectionRange() {
-      return internals.engines.selection.getSelection();
-    },
     get selectionSourceLocator() {
       return internals.engines.selection.getSourceLocator();
     },
@@ -95,7 +92,6 @@ function createHandleEdgeNavigation(
     getSurfaceRect: () => canvas.getBoundingClientRect(),
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => internals.reader.totalSpreads,
-    canGrowForward: () => internals.reader.pagination?.complete === false,
     navigate: (target, direction, point, signal) =>
       transferSelectionGesture(
         internals,

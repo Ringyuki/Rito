@@ -115,7 +115,7 @@ fn pinned_font_policy_rejects_duplicate_selector_and_hash() {
 }
 
 #[test]
-fn pinned_font_policy_v1_rejects_variable_faces() {
+fn pinned_font_policy_rejects_variable_faces() {
     let variable = variable_title_font();
     let parsed = ttf_parser::Face::parse(&variable, 0).expect("variable fixture parses");
     assert!(!parsed.variation_axes().is_empty());

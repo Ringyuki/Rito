@@ -1,7 +1,7 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
-import { scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
+import { scheduleBrowserReaderReflow } from './pipeline/revision-reflow';
 import { getImageObjectUrl, preloadReaderFonts } from '../resources';
 import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { browserReaderSpreads } from '../reader-layout';
@@ -11,17 +11,13 @@ import {
   findRitoCoreWasmReaderTocTarget,
 } from '../core-contracts';
 import type { BrowserReaderState } from './types';
-import { fallbackBrowserTextMeasurer } from '../host-runtime';
 import { createBrowserReaderInteractions } from './interaction';
 import {
   captureCommittedSourceRead,
   copyReaderSourcePoint,
   readCapturedSource,
 } from './interaction-capture';
-import {
-  completeBrowserReaderBoundedSession,
-  ensureBrowserReaderBoundedLocator,
-} from '../bounded-session-runtime';
+import { ensureBrowserReaderRevisionLocator } from '../revision-session-runtime';
 import { disposeBrowserReaderState } from './reader-dispose';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { browserReaderChapterLocalPreviewTocEntry } from '../chapter-local-preview/state';
@@ -30,12 +26,11 @@ import { browserReaderRenderingMethods } from '../reader-rendering-methods';
 export type BrowserReaderAccessorKey =
   | 'metadata'
   | 'totalSpreads'
+  | 'pageCount'
   | 'activeSpreadIndex'
-  | 'pagination'
   | 'toc'
   | 'chapterMap'
   | 'manifestHrefMap'
-  | 'pages'
   | 'spreads'
   | 'dpr';
 
@@ -50,17 +45,15 @@ export function buildBrowserReaderMethods(
   const reflow: Reflow = (next = layoutOptions, force = false) => {
     layoutOptions = next;
     const spreadMode = layoutOptions.spread ?? state.spreadMode;
-    const lineBreaking = layoutOptions.lineBreaking ?? state.lineBreaking;
     scheduleBrowserReaderReflow(
       state,
       layoutOptions,
       spreadMode,
-      lineBreaking,
       () => {
         void trackBrowserReaderHostTask(
           state,
           preloadReaderFonts(state)
-            .then(async (metricsChanged) => {
+            .then(async () => {
               // Host-measured normal line metrics discovered by this
               // layout: measure, inject, and force one reflow so the
               // committed pagination was built with them.
@@ -70,8 +63,10 @@ export function buildBrowserReaderMethods(
                   return false;
                 },
               );
-              if (hostMetricsChanged) state.hostLineMetricsEpoch += 1;
-              if (metricsChanged || hostMetricsChanged) reflow(layoutOptions, true);
+              if (hostMetricsChanged) {
+                state.hostLineMetricsEpoch += 1;
+                reflow(layoutOptions, true);
+              }
               return warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
             })
             .catch((error: unknown) => {
@@ -84,7 +79,6 @@ export function buildBrowserReaderMethods(
   };
 
   return {
-    measurer: fallbackBrowserTextMeasurer,
     interactions: createBrowserReaderInteractions(state),
     ...browserReaderRenderingMethods(state),
     ...layoutMethods(state, () => layoutOptions, reflow),
@@ -104,7 +98,7 @@ function layoutMethods(
   reflow: Reflow,
 ): Pick<
   BrowserReaderMethodSurface,
-  'resize' | 'setSpreadMode' | 'setLineBreaking' | 'updateLayout' | 'setTheme' | 'setTypography'
+  'resize' | 'setSpreadMode' | 'updateLayout' | 'setTheme' | 'setTypography'
 > {
   return {
     resize(width, height) {
@@ -112,11 +106,6 @@ function layoutMethods(
     },
     setSpreadMode(mode) {
       reflow({ ...layoutOptions(), spread: mode });
-      return false;
-    },
-    setLineBreaking(lineBreaking) {
-      if ((layoutOptions().lineBreaking ?? state.lineBreaking) === lineBreaking) return false;
-      reflow({ ...layoutOptions(), lineBreaking });
       return false;
     },
     updateLayout(width, height, spreadMode = layoutOptions().spread ?? state.spreadMode, margin) {
@@ -199,7 +188,7 @@ function navigationMethods(
       );
     },
     navigateToLocator(locator, signal) {
-      return ensureBrowserReaderBoundedLocator(state, locator, signal);
+      return ensureBrowserReaderRevisionLocator(state, locator, signal);
     },
   };
 }
@@ -213,7 +202,6 @@ function resourceMethods(
   return {
     async search(query, searchOptions) {
       if (query.length === 0) return [];
-      if ((await completeBrowserReaderBoundedSession(state)) !== true) return [];
       const capture = captureCommittedSourceRead(state);
       if (!capture) return [];
       const response = await readCapturedSource(state, capture, (worker, revision) =>

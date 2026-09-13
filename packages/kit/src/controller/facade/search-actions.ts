@@ -51,12 +51,8 @@ interface SearchState {
 function runSearch(q: string, internals: Internals, emitter: Emitter, state: SearchState): void {
   if (!internals.coordState.nativeInteractionsAlive) return;
   state.serial += 1;
-  if (typeof internals.reader.search !== 'function') {
-    internals.engines.search.search(q);
-    return;
-  }
-  const search = internals.reader.search.bind(internals.reader);
-  if (q.length === 0) {
+  const search = internals.reader.search?.bind(internals.reader);
+  if (q.length === 0 || !search) {
     internals.engines.search.clear();
     return;
   }

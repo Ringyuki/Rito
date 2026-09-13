@@ -18,105 +18,45 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('bounded control accepts only sequential Rust revision transitions', () => {
+test('revision control publishes the created revision at version zero', () => {
   const requests = [];
   const raw = {
-    createBoundedRevisionJson: (json) => {
+    createRevisionJson: (json) => {
       requests.push(JSON.parse(json));
-      return JSON.stringify(advance(0, 'ready', true));
-    },
-    continueRevisionJson: (json) => {
-      requests.push(JSON.parse(json));
-      return JSON.stringify(advance(1, 'complete', false));
-    },
-    cancelRevisionJson: (json) => {
-      requests.push(JSON.parse(json));
-      return JSON.stringify(summary(2, 'cancelled'));
+      return JSON.stringify(summary(0));
     },
   };
   const document = new RitoCoreWasmDocument(raw);
-  const created = document.createBoundedRevision({ layoutConfig: {}, budget: budget() });
-  const continued = document.continueRevision({
-    revisionId: 'rev-1',
-    revisionVersion: 0,
-    cursor: 'cursor-1',
-    budget: budget(),
-  });
-  const cancelled = document.cancelRevision({ revisionId: 'rev-1', revisionVersion: 1 });
+  const created = document.createRevision({});
 
-  assert.equal(created.revision.revisionVersion, 0);
-  assert.deepEqual(created.continuation, {
-    revisionId: 'rev-1',
-    revisionVersion: 0,
-    cursor: 'cursor-1',
-  });
-  assert.equal(continued.revision.revisionVersion, 1);
-  assert.equal(cancelled.revisionVersion, 2);
-  assert.equal(cancelled.status, 'cancelled');
-  assert.deepEqual(requests[1], {
-    revisionId: 'rev-1',
-    revisionVersion: 0,
-    cursor: 'cursor-1',
-    budget: budget(),
-  });
+  assert.deepEqual(created, summary(0));
+  assert.deepEqual(requests, [{}]);
 });
 
-test('bounded control rejects skipped versions, malformed summaries, and wrong cancel status', () => {
+test('revision control rejects skipped versions and malformed summaries', () => {
   const document = new RitoCoreWasmDocument({
-    createBoundedRevisionJson: () => JSON.stringify(advance(1, 'ready', true)),
-    continueRevisionJson: () => JSON.stringify(advance(3, 'ready', true)),
-    cancelRevisionJson: () => JSON.stringify(summary(2, 'ready')),
+    createRevisionJson: () => JSON.stringify(summary(1)),
   });
 
-  assert.throws(
-    () => document.createBoundedRevision({ layoutConfig: {}, budget: budget() }),
-    /non-sequential revisionVersion/,
-  );
-  assert.throws(
-    () =>
-      document.continueRevision({
-        revisionId: 'rev-1',
-        revisionVersion: 1,
-        cursor: 'cursor-2',
-        budget: budget(),
-      }),
-    /non-sequential revisionVersion/,
-  );
-  assert.throws(
-    () => document.cancelRevision({ revisionId: 'rev-1', revisionVersion: 1 }),
-    /invalid revision status/,
-  );
+  assert.throws(() => document.createRevision({}), /non-sequential revisionVersion/);
 
   const inconsistent = new RitoCoreWasmDocument({
-    createBoundedRevisionJson: () =>
-      JSON.stringify({
-        ...advance(0, 'ready', false),
-        revision: { ...summary(0, 'ready'), pageCount: 9 },
-      }),
+    createRevisionJson: () => JSON.stringify({ ...summary(0), spreadCount: 9 }),
   });
-  assert.throws(
-    () => inconsistent.createBoundedRevision({ layoutConfig: {}, budget: budget() }),
-    /inconsistent revision extent aliases/,
-  );
+  assert.throws(() => inconsistent.createRevision({}), /more spreads than pages/);
 
-  const base = summary(0, 'ready');
+  const base = summary(0);
   const malformed = [
     { ...base, layoutKey: '' },
-    {
-      ...base,
-      knownExtent: { pageCount: 1, spreadCount: 2 },
-      pageCount: 1,
-      spreadCount: 2,
-    },
-    { ...base, finalExtent: base.knownExtent },
-    { ...summary(0, 'complete'), finalExtent: undefined },
-    { ...summary(0, 'complete'), finalExtent: { pageCount: 0, spreadCount: 0 } },
+    { ...base, pageCount: -1 },
+    { ...base, spreadCount: undefined },
+    { ...base, pageCount: 1.5 },
   ];
   for (const revision of malformed) {
     const invalid = new RitoCoreWasmDocument({
-      createBoundedRevisionJson: () => JSON.stringify({ ...advance(0, 'ready', false), revision }),
+      createRevisionJson: () => JSON.stringify(revision),
     });
-    assert.throws(() => invalid.createBoundedRevision({ layoutConfig: {}, budget: budget() }));
+    assert.throws(() => invalid.createRevision({}));
   }
 });
 
@@ -147,7 +87,6 @@ test('all versioned direct methods validate and echo the complete handle', () =>
   );
   const document = new RitoCoreWasmDocument(raw);
   const invocations = [
-    () => document.getFrameAtRevision(handle, 0),
     () => document.getFrameCommandBufferMetadataAtRevision(handle, 0),
     () => document.getResourcePayloadAtRevision(handle, 'image', 'cover.png'),
     () => document.prefetchResourcesAtRevision(handle, { resources: [] }),
@@ -171,7 +110,6 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getFootnotesAtRevision(handle),
     () => document.getChapterTextIndicesAtRevision(handle),
     () => document.getRevisionSummaryAtRevision(handle),
-    () => document.getShapeProvenanceDiagnosticAtRevision(handle),
     () => document.getRevisionBundleAtRevision(handle, true),
     () => document.getRevisionPresentationAtRevision(handle),
     () => document.getRevisionNavigationAtRevision(handle),
@@ -197,7 +135,7 @@ test('versioned direct methods reject invalid input and mismatched raw envelopes
     getRevisionSummaryAtRevisionJson: () =>
       JSON.stringify({
         revision: { revisionId: 'rev-other', revisionVersion: 1 },
-        value: summary(1, 'ready'),
+        value: summary(1),
       }),
   });
 
@@ -215,70 +153,19 @@ test('versioned direct methods reject invalid input and mismatched raw envelopes
   );
 });
 
-function shapeDiagnostic() {
-  return {
-    schemaVersion: 1,
-    isComplete: true,
-    knownPageCount: 1,
-    totalTextRuns: 1,
-    exactTextRuns: 0,
-    unavailableTextRuns: 1,
-    totalTextUtf16CodeUnitCount: 1,
-    exactTextUtf16CodeUnitCount: 0,
-    unavailableTextUtf16CodeUnitCount: 1,
-    excludedRubyTextRunCount: 0,
-    excludedRubyTextUtf16CodeUnitCount: 0,
-    singleFontTextRuns: 0,
-    mixedFontTextRuns: 0,
-    unavailableReasonCounts: { hostMetricsFallback: 1 },
-    unavailableReasonUtf16CodeUnitCounts: { hostMetricsFallback: 1 },
-    singleFontFingerprints: {},
-    mixedFontFingerprints: {},
-    unavailableAffectedCodepoints: [
-      { codepoint: 'U+0041', count: 1, reasonCounts: { hostMetricsFallback: 1 } },
-    ],
-    unavailableAffectedCodepointOccurrenceCount: 1,
-    unavailableAffectedCodepointDistinctCount: 1,
-    unavailableAffectedCodepointOmittedCount: 0,
-  };
-}
-
-function advance(version, status, continuing) {
-  const revision = summary(version, status);
-  return {
-    revision,
-    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
-    newlyKnownPages: { startPage: 0, endPageExclusive: revision.pageCount },
-    processedTopLevelNodes: 1,
-    ...(continuing
-      ? {
-          continuation: {
-            revisionId: revision.revisionId,
-            revisionVersion: version,
-            cursor: `cursor-${String(version + 1)}`,
-          },
-        }
-      : {}),
-  };
-}
-
-function summary(version, status, revisionId = 'rev-1') {
-  const knownExtent = { pageCount: 1, spreadCount: 1 };
+function summary(version, revisionId = 'rev-1') {
   return {
     revisionId,
     revisionVersion: version,
     layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
-    pageCount: knownExtent.pageCount,
-    spreadCount: knownExtent.spreadCount,
+    pageCount: 1,
+    spreadCount: 1,
   };
 }
 
 function bundle(version, revisionId = 'rev-1') {
   return {
-    revision: summary(version, 'ready', revisionId),
+    revision: summary(version, revisionId),
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
@@ -288,12 +175,13 @@ function bundle(version, revisionId = 'rev-1') {
 }
 
 function presentation(version, revisionId = 'rev-1') {
-  const revision = summary(version, 'ready', revisionId);
+  const revision = summary(version, revisionId);
   return {
     revision,
     navigation: {
       revisionId,
-      ...revision.knownExtent,
+      pageCount: revision.pageCount,
+      spreadCount: revision.spreadCount,
       spreads: [{ spreadIndex: 0, pageIndexes: [0], leftPageIndex: 0 }],
       chapters: [],
       chapterMap: {},
@@ -306,13 +194,12 @@ function presentation(version, revisionId = 'rev-1') {
 function versionedValue(property, args, version) {
   const revisionId = args[0];
   if (property === 'getRevisionSummaryAtRevisionJson') {
-    return summary(version, 'ready', revisionId);
+    return summary(version, revisionId);
   }
   if (property === 'getRevisionBundleAtRevisionJson') return bundle(version, revisionId);
   if (property === 'getRevisionPresentationAtRevisionJson') {
     return presentation(version, revisionId);
   }
-  if (property === 'getShapeProvenanceDiagnosticAtRevisionJson') return shapeDiagnostic();
   if (property === 'resolveTextCaretAtRevisionJson') return caretResponse({ revisionId });
   if (property === 'resolveTextRangeAtRevisionJson') {
     return rangeResponse(JSON.parse(args[2]), { revisionId });
@@ -334,10 +221,6 @@ function versionedValue(property, args, version) {
     return { revisionId, ...request, resultCount: 0, results: [] };
   }
   return { rawMethod: property };
-}
-
-function budget() {
-  return { maxTopLevelNodes: 1 };
 }
 
 function unusedRawDocument() {

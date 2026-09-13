@@ -120,6 +120,14 @@ pub struct TextFragment {
     /// ruby, a flow edge) absorbs its edge share into the column instead
     /// and paints no overhang there.
     pub ruby_overhang_right_px: f64,
+    /// Where each cluster paints, in text order: the origin offsets the
+    /// browser's pen steps to from the run's start. Spacing and
+    /// justification shares are already in them.
+    pub clusters: Vec<ClusterPosition>,
+    /// Whether the painter floors each cluster's absolute origin onto the
+    /// 1/64 CSS-pixel grid: the browser does so for an all-CJK run at a
+    /// fractional font size, and accumulates in float everywhere else.
+    pub cluster_grid: bool,
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.
@@ -141,6 +149,16 @@ pub struct BoxSnap {
     pub edge_top: f64,
     /// Bottom border width plus LayoutUnit-quantized bottom padding.
     pub edge_bottom: f64,
+}
+
+/// Where one cluster of a text run paints: the offset of its origin from
+/// the run rect's left edge, in CSS pixels, before any pixel snapping.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ClusterPosition {
+    /// Start byte of the cluster in the inline flow's concatenated text.
+    pub byte: u32,
+    /// Origin offset from the run rect's left edge.
+    pub x: f64,
 }
 
 /// One laid-out atomic inline (an image) inside a line.

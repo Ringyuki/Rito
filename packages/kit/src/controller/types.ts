@@ -1,7 +1,6 @@
 import type {
   FootnoteEntry,
   PackageMetadata,
-  Page,
   ReaderDocumentSourceSpan,
   ReaderLocator,
   Spread,
@@ -16,7 +15,6 @@ import type {
 } from '../interaction/index';
 import type { ReadingPosition } from '../interaction/index';
 import type { SearchResult } from '../interaction/index';
-import type { TextRange } from '../interaction/index';
 import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
@@ -31,14 +29,14 @@ export interface SelectionClientPoint {
   readonly clientY: number;
 }
 
-/** Exact native selection endpoints in viewport-logical coordinates. */
+/** Exact selection endpoints in viewport-logical coordinates. */
 export interface SelectionHandleState {
   readonly start: Rect | null;
   readonly end: Rect | null;
   readonly focusEdge: SelectionHandleEdge | null;
 }
 
-/** An epoch-bound drag of one existing native selection endpoint. */
+/** An epoch-bound drag of one existing selection endpoint. */
 export interface SelectionHandleDrag {
   update(point: SelectionClientPoint): void;
   finish(point: SelectionClientPoint): void;
@@ -69,22 +67,19 @@ export interface ControllerOptions {
 export interface ReaderControllerEvents {
   spreadChange: { spreadIndex: number; spread: Spread };
   selectionChange: {
-    /** Legacy layout-local range. Null for an exact native selection. */
-    range: TextRange | null;
-    /** Durable source locator for an exact native selection. */
+    /** Durable source locator of the selection, when both endpoints share a resource. */
     sourceLocator: ReaderLocator | null;
-    /** Resource-qualified durable endpoints for an exact native selection. */
+    /** Resource-qualified durable endpoints of the selection. */
     sourceSpan: ReaderDocumentSourceSpan | null;
-    /** Explicit because a native selection intentionally has no legacy TextRange. */
     hasSelection: boolean;
     text: string;
-    /** Selection rects in spread-content space (legacy — prefer viewportRects). */
+    /** Selection rects in spread-content space (content areas only, no margins). */
     rects: readonly Rect[];
     /** Selection rects in viewport-logical space (includes margins, ready for overlay/UI). */
     viewportRects: readonly Rect[];
     /** Rect of the active endpoint (focus / drag end) in viewport-logical space. Follows the user's pointer. */
     focusRect: Rect | null;
-    /** Exact range endpoints in viewport-logical space. Null for legacy selection. */
+    /** Exact range endpoints in viewport-logical space. */
     handles: SelectionHandleState | null;
   };
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
@@ -152,12 +147,11 @@ export interface ReaderController {
   readonly reader: Reader;
   readonly metadata: PackageMetadata;
   readonly toc: readonly TocEntry[];
+  /** Navigation records of the committed layout, indexed by spread. */
   readonly spreads: readonly Spread[];
-  readonly pages: readonly Page[];
   readonly currentSpread: number;
+  /** Final spread count of the committed layout; every revision is laid out complete. */
   readonly totalSpreads: number;
-  /** Whether `totalSpreads` is the final publication extent. */
-  readonly paginationComplete: boolean;
 
   goToSpread(index: number): void;
   nextSpread(): void;
@@ -173,7 +167,6 @@ export interface ReaderController {
   /** Re-paginate with new viewport dimensions (and optional margin). Also syncs canvas size using renderScale. */
   resize(width: number, height: number, margin?: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
-  setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean;
   setTheme(options: ReaderThemeOptions): void;
   /**
    * Update typography overrides. For each value field:
@@ -208,15 +201,13 @@ export interface ReaderController {
   clearSelection(): void;
   readonly hasSelection: boolean;
   readonly selectionText: string;
-  /** Legacy layout-local range. Null when the native exact selector is authoritative. */
-  readonly selectionRange: TextRange | null;
-  /** Durable source locator for a native exact selection. */
+  /** Durable source locator of the selection, when both endpoints share a resource. */
   readonly selectionSourceLocator: ReaderLocator | null;
-  /** Resource-qualified durable endpoints for a native exact selection. */
+  /** Resource-qualified durable endpoints of the selection. */
   readonly selectionSourceSpan: ReaderDocumentSourceSpan | null;
   /**
-   * Begin dragging an exact native selection endpoint from a client-space pointer.
-   * Returns null when the endpoint is unavailable or the current selection is legacy.
+   * Begin dragging a selection endpoint from a client-space pointer.
+   * Returns null when there is no selection or the endpoint's page is not visible.
    */
   beginSelectionHandleDrag(
     edge: SelectionHandleEdge,

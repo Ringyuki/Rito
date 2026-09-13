@@ -247,20 +247,23 @@ function resolvedPosition(): ReaderLocatorResolution {
 }
 
 function positionLayout(): PositionLayout {
-  const pages = Array.from({ length: 5 }, (_, index) => ({
-    index,
-    bounds: { x: 0, y: 0, width: 300, height: 400 },
-    content: [],
-  }));
   return {
-    pages,
-    spreads: pages.map((page, index) => ({ index, left: page })),
+    pageCount: 5,
+    spreads: Array.from({ length: 5 }, (_, index) => ({
+      index,
+      pageIndexes: [index],
+      leftPageIndex: index,
+    })),
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 4 }]]),
-  } as PositionLayout;
+  };
 }
 
 function createReader(notifyActiveSpread: (spreadIndex: number) => void, searchSpread = 4): Reader {
-  const spreads = Array.from({ length: 5 }, (_, index) => ({ index })) as Spread[];
+  const spreads: Spread[] = Array.from({ length: 5 }, (_, index) => ({
+    index,
+    pageIndexes: [index],
+    leftPageIndex: index,
+  }));
   return {
     totalSpreads: spreads.length,
     spreads,

@@ -7,7 +7,7 @@ import 'support/artifact_fixture.dart';
 import 'support/display_fixture.dart';
 
 void main() {
-  test('decodes a non-first exact artifact and every display opcode', () {
+  test('decodes a non-first exact artifact and every primitive opcode', () {
     final artifact = const RitoArtifactDecoder().decode(artifactFixture());
 
     expect(artifact.sessionId, 91);
@@ -37,38 +37,40 @@ void main() {
     );
     expect(artifact.fonts.single.shapeFingerprint, 'shape-v1');
     expect(artifact.navigation.previous, RitoAdjacentAvailability.available);
-    expect(artifact.navigation.next, RitoAdjacentAvailability.pending);
-    expect(artifact.displayList.displayList.commandCount, 12);
+    expect(artifact.navigation.next, RitoAdjacentAvailability.chapterBoundary);
+    expect(artifact.displayList.formatVersion, 2);
+    final list = artifact.displayList.displayList;
+    expect(list.ratio, 1);
+    expect(list.commandCount, 13);
     expect(
-      artifact.displayList.displayList.commands.map(
-        (command) => command.opcode,
-      ),
-      List<int>.generate(12, (index) => index + 1),
+      list.commands.map((primitive) => primitive.opcode),
+      List<int>.generate(13, (index) => index + 1),
     );
-    final commands = artifact.displayList.displayList.commands;
-    expect((commands[2] as RitoTranslate).dx, 1);
-    final transform = commands[4] as RitoTransform;
+    expect((list.commands[2] as RitoPrimitiveTranslate).dx, 1);
+    final transform = list.commands[4] as RitoPrimitiveTransform;
     expect(transform.origin.x, 0);
-    expect(transform.boxSize.height, 30);
     expect(transform.transforms, <Matcher>[
-      isA<RitoRotateTransform>(),
-      isA<RitoScaleTransform>(),
-      isA<RitoTranslateTransform>(),
+      isA<RitoDeviceRotate>(),
+      isA<RitoDeviceScale>(),
+      isA<RitoDeviceTranslate>(),
     ]);
-    final block = commands[7] as RitoPaintBlock;
-    expect(block.paint.background?.image, testRelativeImageHref);
-    expect(block.paint.background?.size, RitoBackgroundSize.cover);
-    expect(block.paint.boxShadows.single.inset, isFalse);
-    final text = commands[8] as RitoPaintText;
-    expect(text.text, 'body');
-    expect(text.paint.font.family, 'Rito Serif');
-    expect(text.paint.color.space, RitoColorSpace.srgb);
-    expect(text.sourceText, 'source body');
-    expect(text.sourceTextOffset, 9);
-    final image = commands[10] as RitoPaintImage;
+    final fill = list.commands[6] as RitoPrimitiveFillRect;
+    expect(fill.ground, RitoFillGround.page);
+    expect(fill.color.space, RitoColorSpace.srgb);
+    final fillPath = list.commands[7] as RitoPrimitiveFillPath;
+    expect(fillPath.rule, RitoFillRule.evenOdd);
+    expect(fillPath.groundRect?.x, 4);
+    final image = list.commands[10] as RitoPrimitiveDrawImage;
     expect(image.src, testRelativeImageHref);
     expect(image.sourceRect?.x, 4);
-    expect(image.sourceRect?.height, 30);
+    expect(image.tiles?.rows, 3);
+    final text = list.commands[11] as RitoPrimitiveText;
+    expect(text.command.text, 'body');
+    expect(text.command.paint.font.family, 'Rito Serif');
+    expect(text.command.paint.color.space, RitoColorSpace.srgb);
+    expect(text.command.sourceText, 'source body');
+    expect(text.command.sourceTextOffset, 9);
+    expect(list.commands[12], isA<RitoPrimitiveRuby>());
   });
 
   test('rejects every truncated artifact prefix and trailing bytes', () {
@@ -109,83 +111,73 @@ void main() {
   });
 
   test('accepts every frozen typed enum tag', () {
-    const decoder = RitoDisplayListDecoder();
+    const decoder = RitoPrimitiveListDecoder();
     for (var tag = 1; tag <= 15; tag += 1) {
-      final display = decoder.decode(displayFixture(pageColorSpaceTag: tag));
-      final page = display.commands[6] as RitoPaintPage;
-      expect(page.paint.backgroundColor, isNotNull);
+      final list = decoder.decode(primitiveFixture(fillColorSpaceTag: tag));
+      final fill = list.commands[6] as RitoPrimitiveFillRect;
+      expect(fill.color.alpha, 1);
     }
-    for (var tag = 1; tag <= 10; tag += 1) {
-      decoder.decode(displayFixture(horizontalRuleStyleTag: tag));
-    }
+    final p3 = decoder.decode(primitiveFixture(fillColorSpaceTag: 9));
+    expect(
+      (p3.commands[6] as RitoPrimitiveFillRect).color.space,
+      RitoColorSpace.displayP3,
+    );
     for (var tag = 1; tag <= 6; tag += 1) {
-      decoder.decode(displayFixture(backgroundRepeatTag: tag));
+      decoder.decode(primitiveFixture(pathOpTag: tag));
     }
     for (var tag = 1; tag <= 3; tag += 1) {
-      decoder.decode(displayFixture(backgroundSizeTag: tag));
+      decoder.decode(primitiveFixture(transformTag: tag));
+      decoder.decode(primitiveFixture(groundTag: tag));
     }
-    final explicit = decoder.decode(displayFixture(backgroundSizeTag: 4));
-    final explicitSize =
-        (explicit.commands[7] as RitoPaintBlock).paint.background!.size!;
-    expect(explicitSize.isExplicit, isTrue);
-    expect(explicitSize.x, isNull);
-    expect(explicitSize.y, isA<RitoPercentLength>());
-    expect(explicitSize.y!.value, 40);
     for (var tag = 1; tag <= 2; tag += 1) {
-      decoder.decode(displayFixture(fontStyleTag: tag));
-      decoder.decode(displayFixture(decorationKindTag: tag));
-      decoder.decode(displayFixture(blockRadiusTag: tag));
-      decoder.decode(displayFixture(transformLengthTag: tag));
+      decoder.decode(primitiveFixture(fontStyleTag: tag));
+      decoder.decode(primitiveFixture(fillRuleTag: tag));
+      decoder.decode(primitiveFixture(strokeCapTag: tag));
     }
-    final cornered = decoder.decode(displayFixture(blockRadiusTag: 3));
-    final corners =
-        ((cornered.commands[7] as RitoPaintBlock).paint.radius!
-                as RitoBlockCornersRadius)
-            .corners;
-    expect(corners, <double>[4, 3, 2, 3]);
+    final none = decoder.decode(primitiveFixture(groundTag: 1));
+    expect(
+      (none.commands[6] as RitoPrimitiveFillRect).ground,
+      RitoFillGround.none,
+    );
   });
 
-  test('rejects every truncated display-list prefix', () {
-    const decoder = RitoDisplayListDecoder();
-    final fixture = displayFixture();
+  test('rejects every truncated primitive-list prefix', () {
+    const decoder = RitoPrimitiveListDecoder();
+    final fixture = primitiveFixture();
     for (var end = 0; end < fixture.length; end += 1) {
       expect(
         () => decoder.decode(Uint8List.sublistView(fixture, 0, end)),
         throwsA(isA<FormatException>()),
-        reason: 'display prefix $end must fail',
+        reason: 'primitive prefix $end must fail',
       );
     }
   });
 
-  test('rejects malformed typed display fields and trailing bytes', () {
-    const decoder = RitoDisplayListDecoder();
-    final invalidVersion = displayFixture()..setRange(7, 11, <int>[2, 0, 0, 0]);
-    final invalidUtf8 = displayFixture();
+  test('rejects malformed typed primitive fields and trailing bytes', () {
+    const decoder = RitoPrimitiveListDecoder();
+    final invalidUtf8 = primitiveFixture();
     invalidUtf8[_indexOf(invalidUtf8, testRelativeImageHref.codeUnits)] = 0xff;
     final malformed = <Uint8List>[
-      invalidVersion,
+      primitiveFixture(version: 1),
+      primitiveFixture(ratio: 0),
       invalidUtf8,
-      displayFixture(unknownOpcode: 65535),
-      displayFixture(transformTag: 255),
-      displayFixture(transformLengthTag: 3),
-      displayFixture(pageColorOptionTag: 2),
-      displayFixture(pageColorSpaceTag: 16),
-      displayFixture(pageColorFlags: 0x10),
-      displayFixture(pageColorRed: double.infinity),
-      displayFixture(backgroundSizeTag: 5),
-      displayFixture(backgroundRepeatTag: 7),
-      displayFixture(blockRadiusTag: 4),
-      displayFixture(shadowInsetTag: 2),
-      displayFixture(fontStyleTag: 3),
-      displayFixture(decorationKindTag: 3),
-      displayFixture(horizontalRuleStyleTag: 11),
-      displayFixture(translateDx: double.nan),
+      primitiveFixture(unknownOpcode: 65535),
+      primitiveFixture(transformTag: 255),
+      primitiveFixture(pathOpTag: 7),
+      primitiveFixture(groundTag: 4),
+      primitiveFixture(fillRuleTag: 3),
+      primitiveFixture(strokeCapTag: 3),
+      primitiveFixture(fillColorSpaceTag: 16),
+      primitiveFixture(fillColorFlags: 0x10),
+      primitiveFixture(fillColorRed: double.infinity),
+      primitiveFixture(fontStyleTag: 3),
+      primitiveFixture(translateDx: double.nan),
     ];
     for (final bytes in malformed) {
       expect(() => decoder.decode(bytes), throwsA(isA<FormatException>()));
     }
     expect(
-      () => decoder.decode(Uint8List.fromList(<int>[...displayFixture(), 0])),
+      () => decoder.decode(Uint8List.fromList(<int>[...primitiveFixture(), 0])),
       throwsA(isA<FormatException>()),
     );
   });
@@ -209,11 +201,7 @@ void main() {
     final mediaLengthOffset = 36 + hrefLength;
     final mediaLength = view.getUint32(mediaLengthOffset, Endian.little);
     final blobLengthOffset = mediaLengthOffset + 4 + mediaLength;
-    view.setUint64(
-      blobLengthOffset,
-      32 * 1024 * 1024 + 1,
-      Endian.little,
-    );
+    view.setUint64(blobLengthOffset, 32 * 1024 * 1024 + 1, Endian.little);
     expect(() => decoder.decode(oversized), throwsA(isA<FormatException>()));
 
     expect(

@@ -6,14 +6,9 @@ mod probe;
 #[cfg(test)]
 use probe::RuntimeCleanupProbe;
 
-use crate::layout::{CleanupProgress, LayoutConfig};
+use crate::runtime::cleanup::CleanupProgress;
 
-use super::super::{
-    continuation::{
-        RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationWork,
-    },
-    frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},
-};
+use super::super::frame::{RuntimeCachedFrame, RuntimeRevision};
 use job::RuntimeCleanupJob;
 
 pub(in crate::runtime) const RUNTIME_CLEANUP_QUANTUM: usize = 64;
@@ -48,38 +43,12 @@ impl Default for RuntimeCleanupQueue {
 }
 
 impl RuntimeCleanupQueue {
-    pub(in crate::runtime) fn enqueue_continuation(&mut self, owner: RuntimeContinuationRecord) {
-        self.enqueue(RuntimeCleanupJob::continuation(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_completed_chapter(
-        &mut self,
-        owner: RuntimeChapterContinuation,
-    ) {
-        self.enqueue(RuntimeCleanupJob::completed_chapter(owner));
-    }
-
     pub(in crate::runtime) fn enqueue_revision(&mut self, owner: RuntimeRevision) {
         self.enqueue(RuntimeCleanupJob::revision(owner));
     }
 
-    pub(in crate::runtime) fn enqueue_continuation_work(&mut self, owner: RuntimeContinuationWork) {
-        if !owner.has_cleanup_owners() {
-            return;
-        }
-        self.enqueue(RuntimeCleanupJob::continuation_work(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_frame_cache(&mut self, owner: RuntimeFrameCacheOwner) {
-        self.enqueue(RuntimeCleanupJob::frame_cache(owner));
-    }
-
     pub(in crate::runtime) fn enqueue_cached_frame(&mut self, owner: RuntimeCachedFrame) {
         self.enqueue(RuntimeCleanupJob::cached_frame(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_layout_config(&mut self, owner: LayoutConfig) {
-        self.enqueue(RuntimeCleanupJob::layout_config(owner));
     }
 
     pub(in crate::runtime) fn is_empty(&self) -> bool {

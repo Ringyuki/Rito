@@ -167,10 +167,6 @@ async function runMovement(
         cancelOwnedKeyboardSelectionQueue(state, generation);
         return;
       }
-      if (outcome.status === 'pending' && outcome.boundary === 'end') {
-        if (await growSelectionExtent(state, command, internals, nav, generation)) continue;
-        return;
-      }
       if (outcome.status !== 'resolved') return;
       await revealFocusPage(state, command, internals, nav, gesture, outcome.range.focus.pageIndex);
       return;
@@ -185,34 +181,6 @@ async function runMovement(
   }
 }
 
-async function growSelectionExtent(
-  state: KeyboardSelectionState,
-  command: NativeSelectionKeyboardCommand,
-  internals: Internals,
-  nav: Nav,
-  generation: number,
-): Promise<boolean> {
-  const abort = new AbortController();
-  state.waitAbort = abort;
-  const paginationWasIncomplete = internals.reader.pagination?.complete === false;
-  try {
-    const target = internals.reader.totalSpreads;
-    const available = await nav.ensureSelectionSpread(target, abort.signal);
-    const completedFinalMiss =
-      available === false &&
-      paginationWasIncomplete &&
-      internals.reader.pagination?.complete === true;
-    return (
-      (available === true || completedFinalMiss) &&
-      ownsWork(state, internals, generation) &&
-      command.isActive() &&
-      !abort.signal.aborted
-    );
-  } finally {
-    if (state.waitAbort === abort) state.waitAbort = undefined;
-  }
-}
-
 async function revealFocusPage(
   state: KeyboardSelectionState,
   command: NativeSelectionKeyboardCommand,
@@ -221,8 +189,8 @@ async function revealFocusPage(
   gesture: SelectionGestureLease,
   pageIndex: number,
 ): Promise<void> {
-  const target = spreadIndexForPage(internals, pageIndex);
-  if (target === null || target === internals.currentSpread) return;
+  const target = internals.reader.findSpread(pageIndex);
+  if (target === undefined || target === internals.currentSpread) return;
   const abort = new AbortController();
   state.waitAbort = abort;
   try {
@@ -243,13 +211,6 @@ async function revealFocusPage(
   } finally {
     if (state.waitAbort === abort) state.waitAbort = undefined;
   }
-}
-
-function spreadIndexForPage(internals: Internals, pageIndex: number): number | null {
-  const index = internals.reader.spreads.findIndex(
-    (spread) => spread.left?.index === pageIndex || spread.right?.index === pageIndex,
-  );
-  return index >= 0 ? index : null;
 }
 
 function ownsCommand(

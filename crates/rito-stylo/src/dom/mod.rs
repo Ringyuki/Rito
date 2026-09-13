@@ -186,10 +186,6 @@ impl DomStorage {
             node.mark_ancestors_dirty();
         }
     }
-
-    pub(crate) fn mark_full_restyle(&self) {
-        self.mark_restyle(self.source.root_element(), RestyleHint::restyle_subtree());
-    }
 }
 
 impl ElementMetadata {
@@ -381,10 +377,6 @@ impl<'a> DomNode<'a> {
 
     fn with(self, id: NodeId) -> Self {
         self.dom().handle(id)
-    }
-
-    pub(crate) fn id_attribute(self) -> Option<&'a str> {
-        self.metadata().and_then(|metadata| metadata.id.as_deref())
     }
 
     pub(crate) fn local_name_string(self) -> &'a str {

@@ -29,7 +29,7 @@ typedef _OpenDart =
       Pointer<_RitoOwnedBuffer>,
     );
 
-/// Mirrors `RitoPinnedFontFaceV1` in the native ABI: face bytes, a
+/// Mirrors `RitoPinnedFontFace` in the native ABI: face bytes, a
 /// 64-hex-byte SHA-256, a generic-role tag, and an optional language
 /// tag. All pointers stay owned by the Dart caller; the native side
 /// copies before returning.

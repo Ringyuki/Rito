@@ -136,45 +136,6 @@ describe('native exact keyboard selection', () => {
     expect(engine.getSnapshot()?.text).toBe('reversed');
   });
 
-  it('keeps the projection lease active and retries one movement after a revision append', async () => {
-    const stale = deferred<ReaderTextSelectionMovementResolution | undefined>();
-    const current = deferred<ReaderTextSelectionMovementResolution | undefined>();
-    const anchor = caret(1);
-    const focus = caret(5);
-    const resolveMovement = vi
-      .fn<NonNullable<ReaderTextSelectionInteractions['resolveTextSelectionMovement']>>()
-      .mockReturnValueOnce(stale.promise)
-      .mockReturnValueOnce(current.promise);
-    const engine = await selectedEngine(anchor, focus, resolveMovement);
-    const command = engine.beginKeyboardMovement('chapterEnd');
-    const lease = engine.captureActiveGesture();
-
-    expect(command?.isActive()).toBe(true);
-    expect(lease?.isActive()).toBe(true);
-    engine.acceptRevisionAppend();
-    stale.resolve({
-      status: 'resolved',
-      range: exactRange(anchor, caret(20), 'forward', 'stale'),
-    });
-    await flushMicrotasks();
-    expect(resolveMovement).toHaveBeenCalledTimes(2);
-    expect(engine.getSnapshot()?.range.focus).toBe(focus);
-
-    const movedFocus = caret(24);
-    current.resolve({
-      status: 'resolved',
-      range: exactRange(anchor, movedFocus, 'forward', 'current'),
-    });
-
-    await expect(command?.result).resolves.toMatchObject({ status: 'resolved' });
-    expect(engine.getSnapshot()?.range.focus).toBe(focus);
-    expect(command?.commit()).toBe(true);
-    expect(engine.getSnapshot()?.range.focus).toBe(movedFocus);
-    expect(lease?.isActive()).toBe(true);
-    command?.finish();
-    expect(lease?.isActive()).toBe(false);
-  });
-
   it('does not start without the optional movement capability', async () => {
     const engine = await selectedEngine(caret(1), caret(3));
     expect(engine.canExtendKeyboardSelection()).toBe(false);

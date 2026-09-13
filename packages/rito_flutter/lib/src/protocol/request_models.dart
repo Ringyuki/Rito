@@ -16,6 +16,7 @@ final class RitoLayoutRequest {
     required this.rootFontSize,
     this.lineHeightOverride,
     this.fontFamilyOverride,
+    this.renderRatio,
   });
 
   final double viewportWidth;
@@ -36,6 +37,30 @@ final class RitoLayoutRequest {
   /// the book's own line heights alone.
   final double? lineHeightOverride;
 
+  /// Device pixels per CSS pixel the artifact is rasterized at. Every
+  /// raster snap in the display list lands on that grid; pagination is
+  /// identical at every ratio. Null means the session's pixel ratio
+  /// (`RitoReaderSession.open`'s `imagePixelRatio`), which is what a
+  /// host painting 1:1 on its device wants.
+  final double? renderRatio;
+
+  /// This layout at [renderRatio].
+  RitoLayoutRequest withRenderRatio(double renderRatio) => RitoLayoutRequest(
+    viewportWidth: viewportWidth,
+    viewportHeight: viewportHeight,
+    marginTop: marginTop,
+    marginRight: marginRight,
+    marginBottom: marginBottom,
+    marginLeft: marginLeft,
+    spreadMode: spreadMode,
+    firstPageAlone: firstPageAlone,
+    spreadGap: spreadGap,
+    rootFontSize: rootFontSize,
+    lineHeightOverride: lineHeightOverride,
+    fontFamilyOverride: fontFamilyOverride,
+    renderRatio: renderRatio,
+  );
+
   /// Reader font family, applied as a UA `font-family: <list>
   /// !important` over the whole publication, so it replaces the book's
   /// own families rather than sitting behind them. The value is a
@@ -55,18 +80,6 @@ final class RitoLayoutRequest {
   final String? fontFamilyOverride;
 }
 
-final class RitoWorkBudget {
-  const RitoWorkBudget({
-    required this.maxTopLevelNodesPerQuantum,
-    required this.maxForegroundQuanta,
-    required this.localPageCap,
-  });
-
-  final int maxTopLevelNodesPerQuantum;
-  final int maxForegroundQuanta;
-  final int localPageCap;
-}
-
 final class RitoAdjacentDirection {
   const RitoAdjacentDirection._(this.name);
 
@@ -84,14 +97,12 @@ final class RitoAdjacentRequest {
     required this.requestId,
     required this.fromArtifactId,
     required this.direction,
-    required this.work,
   });
 
   final int sessionId;
   final int requestId;
   final int fromArtifactId;
   final RitoAdjacentDirection direction;
-  final RitoWorkBudget work;
 }
 
 final class RitoArtifactRequest {
@@ -100,7 +111,6 @@ final class RitoArtifactRequest {
     required this.requestId,
     required this.layout,
     required this.locator,
-    required this.work,
     this.textProfile = RitoTextProfile.platformStringRuns,
   });
 
@@ -108,6 +118,24 @@ final class RitoArtifactRequest {
   final int requestId;
   final RitoLayoutRequest layout;
   final RitoLocator locator;
-  final RitoWorkBudget work;
   final RitoTextProfile textProfile;
+
+  /// This request with [layout] in place of its own.
+  RitoArtifactRequest withLayout(RitoLayoutRequest layout) =>
+      RitoArtifactRequest(
+        sessionId: sessionId,
+        requestId: requestId,
+        layout: layout,
+        locator: locator,
+        textProfile: textProfile,
+      );
+
+  /// This request under [requestId] in place of its own.
+  RitoArtifactRequest withRequestId(int requestId) => RitoArtifactRequest(
+    sessionId: sessionId,
+    requestId: requestId,
+    layout: layout,
+    locator: locator,
+    textProfile: textProfile,
+  );
 }

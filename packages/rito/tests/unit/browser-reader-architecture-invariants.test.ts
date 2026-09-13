@@ -1,35 +1,25 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import type { RitoCoreWasmFrameCommand } from '@ritojs/core-wasm';
-
-import type { DrawCommand } from '../../src/reference/ts-core/render/display-list';
 
 const SRC = join(import.meta.dirname, '../../src');
 const READER_ROOT = join(SRC, 'reader');
 const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
 const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
-const BROWSER_CANVAS_PATH = join(SRC, 'bindings/browser/canvas-path.ts');
-const BROWSER_CANVAS_BLOCK = join(SRC, 'bindings/browser/canvas-block');
 const BROWSER_CANVAS_TEXT = join(SRC, 'bindings/browser/canvas-text');
-const BROWSER_THEME = join(SRC, 'bindings/browser/theme');
-const BROWSER_FRAME_COMMAND_RENDERER = join(SRC, 'bindings/browser/frame-command-renderer.ts');
-const BROWSER_IMAGE_HREF_RESOLVER = join(SRC, 'bindings/browser/image-href-resolver.ts');
+const BROWSER_PRIMITIVE_RENDERER = join(SRC, 'bindings/browser/primitive-renderer.ts');
+const BROWSER_PRIMITIVE_BLITS = join(SRC, 'bindings/browser/primitive-blits.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
-const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
+const BROWSER_COMMIT_FRAME = join(SRC, 'bindings/browser/commit-frame.ts');
 const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
 const BROWSER_READER_FACADE = join(BROWSER_READER_BINDING, 'reader.ts');
 const BROWSER_READER_TYPES = join(BROWSER_READER_BINDING, 'types.ts');
 const BROWSER_READER_WORKER_CLIENT = join(BROWSER_READER_BINDING, 'worker-client.ts');
 const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.mjs');
-const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/bounded-reflow.ts');
+const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/revision-reflow.ts');
 const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
-const BROWSER_BOUNDED_REVISION_COMMIT = join(SRC, 'bindings/browser/bounded-revision-commit.ts');
-const BROWSER_BOUNDED_FONT_GEOMETRY_PUBLICATION = join(
-  SRC,
-  'bindings/browser/bounded-font-geometry-publication.ts',
-);
+const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
 const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
 const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
 const BROWSER_READER_SOURCE_RANGE = join(BROWSER_READER_BINDING, 'source-range.ts');
@@ -75,7 +65,9 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // so it reports the invalidation the host already listens for.
 // +12 lines (2026-07-27): element-sourced natural image decode — the only
 // drawImage source that reproduces the browser raster bit for bit.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3330;
+// +4 lines (2026-09-07): every worker open hands the engine the canvas
+// device pixel ratio, so raster snaps land on the device grid.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3334;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.
@@ -121,14 +113,6 @@ function scan(
 }
 
 describe('Browser reader architecture invariant: browser reader binding stays product-facing', () => {
-  it('keeps the reference Canvas contract a subset of decoded frame commands', () => {
-    // The wasm frame contract grew past the frozen reference (vertical
-    // rotate/scale transforms, underline paint); every command the
-    // reference renderer knows must still decode identically, while the
-    // production-only kinds are allowed to extend the union.
-    expectTypeOf<DrawCommand>().toExtend<RitoCoreWasmFrameCommand>();
-  });
-
   it('stays within the counted thin-shell budget', () => {
     expect(BROWSER_READER_BINDING_FILES.length).toBeLessThanOrEqual(
       BROWSER_READER_THIN_SHELL_FILE_BUDGET,
@@ -201,14 +185,14 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps browser reader bindings independent of the legacy TypeScript core', () => {
+  it('keeps browser reader bindings free of engine-level modules', () => {
     const hits = scan(
       BROWSER_READER_BINDING_FILES,
-      /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){3,}(?:reference\/ts-core|layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
+      /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){3,}(?:layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
     );
     expect(
       hits,
-      `Browser reader binding imported legacy TypeScript core modules:\n${JSON.stringify(
+      `Browser reader binding imported engine-level TypeScript modules:\n${JSON.stringify(
         hits,
         null,
         2,
@@ -216,38 +200,42 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps the Canvas renderer adapter independent of reference paint code', () => {
+  it('keeps the Canvas renderer adapter a primitive blitter', () => {
     const source = read(BROWSER_RENDERING);
-    expect(source).not.toContain('reference/ts-core');
     expect(source).not.toContain('drawTextFragment');
     expect(source).not.toContain('drawRubyFragment');
     expect(source).toContain("from './image-href-resolver'");
-    expect(source).toContain('renderFrameCommandsToCanvas');
+    expect(source).toContain('renderReaderPrimitivesToCanvas');
     expect(source).not.toContain('canvasDisplayListRenderer');
     expect(source).not.toContain('as unknown as');
   });
 
-  it('keeps production Canvas command helpers independent of the reference core', () => {
-    const helpers = [
-      BROWSER_FRAME_COMMAND_RENDERER,
-      BROWSER_CANVAS_PATH,
-      BROWSER_IMAGE_HREF_RESOLVER,
-      ...walkTs(BROWSER_CANVAS_BLOCK),
-      ...walkTs(BROWSER_CANVAS_TEXT),
-      ...walkTs(BROWSER_THEME),
-    ];
-    expect(scan(helpers, /reference\/ts-core/g)).toEqual([]);
-    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-path'");
-    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-block/renderer'");
-    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-text/renderer'");
+  it('keeps production Canvas command helpers wired through the primitive renderer', () => {
+    expect(read(BROWSER_PRIMITIVE_RENDERER)).toContain("from './primitive-blits'");
+    expect(read(BROWSER_PRIMITIVE_RENDERER)).toContain("from './canvas-text/renderer'");
+  });
+
+  it('keeps the browser pen a blitter: no block geometry law lives in the binding', () => {
+    // Every raster decision for blocks (border bands, dot cadences, radius
+    // outlines, shadow spread, background tiling) is the engine's; the
+    // binding only traces device paths. A block-painting module returning
+    // here means a law was re-implemented on the host.
+    const browserRoot = join(SRC, 'bindings/browser');
+    const entries = readdirSync(browserRoot);
+    expect(entries.filter((entry) => /^canvas-block$|^canvas-path\.ts$/.test(entry))).toEqual([]);
+    expect(existsSync(join(browserRoot, 'frame-command-renderer.ts'))).toBe(false);
+    const hits = scan(
+      [BROWSER_PRIMITIVE_RENDERER, BROWSER_PRIMITIVE_BLITS],
+      /Math\.(?:round|floor|ceil)\(/g,
+    );
+    expect(
+      hits,
+      `The primitive blitter must not snap; the engine resolved every coordinate:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
   });
 
   it('keeps production Canvas paint helpers on paint-ready values', () => {
-    const paintHelpers = [
-      BROWSER_CANVAS_PATH,
-      ...walkTs(BROWSER_CANVAS_BLOCK),
-      ...walkTs(BROWSER_CANVAS_TEXT),
-    ];
+    const paintHelpers = [BROWSER_PRIMITIVE_BLITS, ...walkTs(BROWSER_CANVAS_TEXT)];
     const hits = scan(
       paintHelpers,
       /\.split\(|\bnew\s+RegExp\s*\(|^\s*const\s+[A-Z_]+_RE\s*=\s*\//gm,
@@ -313,24 +301,6 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps production reader frame loads off the legacy JSON frame APIs', () => {
-    const hits = scan(
-      [...BROWSER_READER_BINDING_FILES, BROWSER_READER_SESSION_HOST, BROWSER_CORE_CONTRACTS],
-      /\bgetFrame(?:AtRevision)?(?:Json)?\b/g,
-    );
-    expect(
-      hits,
-      `Browser reader must consume packed frame buffers instead of materializing legacy JSON frames:\n${JSON.stringify(
-        hits,
-        null,
-        2,
-      )}`,
-    ).toEqual([]);
-    expect(read(join(BROWSER_READER_BINDING, 'frame-cache.ts'))).toContain(
-      'warmFrameWindowAtRevision',
-    );
-  });
-
   it('keeps reflow scheduler state behind a nested runtime state object', () => {
     const source = read(BROWSER_READER_TYPES);
     const stateBody = source.match(/export interface BrowserReaderState \{([\s\S]*?)\n\}/)?.[1];
@@ -357,19 +327,19 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(stateBody).not.toContain('navigation: CoreRevisionNavigation');
   });
 
-  it('centralizes bounded session ownership and exact-read gating in the Browser host', () => {
+  it('centralizes revision session ownership and exact-read gating in the Browser host', () => {
     const contracts = read(BROWSER_CORE_CONTRACTS);
     const state = read(BROWSER_READER_TYPES);
     const host = read(BROWSER_READER_SESSION_HOST);
     const handles = read(join(BROWSER_READER_BINDING, 'pipeline/revision-handle.ts'));
 
-    expect(contracts).toContain('createRitoCoreWasmBoundedReaderSession');
-    expect(state).toContain('boundedSessions: BrowserReaderBoundedSessionSlots');
+    expect(contracts).toContain('createRitoCoreWasmReaderRevisionSession');
+    expect(state).toContain('revisionSessions: BrowserReaderRevisionSessionSlots');
     expect(host).toContain('slots.current');
     expect(host).toContain('slots.candidate');
     expect(host).toContain('suspendBrowserReaderExactReads');
     expect(host).toContain('Promise.allSettled');
-    expect(handles).toContain('boundedOwnerAllowsRead');
+    expect(handles).toContain('revisionOwnerAllowsRead');
   });
 
   it('keeps reader-methods as the Reader API facade', () => {
@@ -379,10 +349,10 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).toContain('scheduleBrowserReaderReflow');
   });
 
-  it('keeps production reflow on bounded Rust session candidates', () => {
+  it('keeps production reflow on Rust revision session candidates', () => {
     const source = read(BROWSER_READER_REFLOW);
-    expect(source).toContain('startBrowserReaderBoundedCandidate');
-    expect(source).toContain('createBrowserReaderBoundedSessionOwner');
+    expect(source).toContain('startBrowserReaderRevisionCandidate');
+    expect(source).toContain('createBrowserReaderRevisionSessionOwner');
     expect(source).not.toContain('createViewRevision');
     expect(source).not.toContain('visualPreview');
     expect(source).not.toContain('deferred');
@@ -395,7 +365,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       read(BROWSER_READER_REVISION),
       read(BROWSER_RENDERING),
       read(BROWSER_RESOURCE_ADAPTER),
-      read(BROWSER_REVISION_COMMIT),
+      read(BROWSER_COMMIT_FRAME),
     ];
     for (const source of sources) {
       expect(source).not.toContain('visualPreview');
@@ -406,7 +376,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(read(BROWSER_READER_REVISION)).not.toContain('releaseRevisionAtRevision');
   });
 
-  it('keeps semantic interaction reads exact-versioned and bounded-gated', () => {
+  it('keeps semantic interaction reads exact-versioned and gated', () => {
     const source = read(BROWSER_READER_INTERACTION);
     const captureSource = read(BROWSER_READER_INTERACTION_CAPTURE);
     const sourceRangeSource = read(BROWSER_READER_SOURCE_RANGE);
@@ -428,20 +398,15 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
 
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {
     const reflowSource = read(BROWSER_READER_REFLOW);
-    const boundedCommitSource = read(BROWSER_BOUNDED_REVISION_COMMIT);
-    const fontGeometryPublicationSource = read(BROWSER_BOUNDED_FONT_GEOMETRY_PUBLICATION);
     const revisionCommitSource = read(BROWSER_REVISION_COMMIT);
+    const commitFrameSource = read(BROWSER_COMMIT_FRAME);
     expect(reflowSource).not.toContain('warmFrameWindow');
-    expect(reflowSource).toContain('startBrowserReaderBoundedCandidate');
+    expect(reflowSource).toContain('startBrowserReaderRevisionCandidate');
     expect(reflowSource).not.toContain('decodeBrowserReaderFrame');
-    expect(boundedCommitSource).not.toContain('warmFrameWindow');
-    expect(boundedCommitSource).toContain('prepareBrowserReaderFontGeometryPublication');
-    expect(fontGeometryPublicationSource).not.toContain('warmFrameWindow');
-    expect(fontGeometryPublicationSource).toContain(
-      'prepareControllerOwnedBrowserReaderCommitFrame',
-    );
-    expect(revisionCommitSource).toContain('decodeBrowserReaderFrame');
-    expect(revisionCommitSource).toContain('result.selectedFrame');
+    expect(revisionCommitSource).not.toContain('warmFrameWindow');
+    expect(revisionCommitSource).toContain('prepareControllerOwnedBrowserReaderCommitFrame');
+    expect(commitFrameSource).toContain('decodeBrowserReaderFrame');
+    expect(commitFrameSource).toContain('result.selectedFrame');
   });
 
   it('does not keep a TypeScript resource scheduler layer for frame windows', () => {
@@ -483,11 +448,11 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     );
   });
 
-  it('uses bounded Rust sessions instead of browser-owned revision variants', () => {
+  it('uses Rust revision sessions instead of browser-owned revision variants', () => {
     const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
     const reflowSource = read(BROWSER_READER_REFLOW);
     expect(workerClientSource).toContain('createRitoCoreWasmWorkerReaderClient');
-    expect(reflowSource).toContain('startBrowserReaderBoundedCandidate');
+    expect(reflowSource).toContain('startBrowserReaderRevisionCandidate');
     expect(reflowSource).not.toContain('createViewRevision');
     for (const legacyName of [
       'createRevision',
@@ -543,7 +508,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       ...BROWSER_READER_BINDING_FILES,
       BROWSER_RESOURCE_ADAPTER,
       join(SRC, 'bindings/browser/required-fonts.ts'),
-      BROWSER_REVISION_COMMIT,
+      BROWSER_COMMIT_FRAME,
     ];
     const hits = scan(
       files,

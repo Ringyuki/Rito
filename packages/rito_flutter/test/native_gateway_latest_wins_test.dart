@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rito_flutter/src/native/bindings.dart';
 import 'package:rito_flutter/src/native/gateway_queue.dart';
 import 'package:rito_flutter/src/native/session_lane.dart';
 
@@ -215,37 +214,6 @@ void main() {
   );
 
   test(
-    'pending open ownership is retained until explicit disposal',
-    () async {
-      final transport = _FakeTransport();
-      final queue = RitoNativeGatewayQueue();
-      const pending = RitoNativeException(
-        status: ritoNativeStatusExactSeekPendingV1,
-        message: 'initial exact target is pending',
-      );
-
-      await expectLater(
-        queue.open<int>(
-          sessionId: 25,
-          requestId: 1,
-          operation: () async {
-            transport.calls.add('open-pending:25');
-            throw pending;
-          },
-          nativeSessionMayExistOnError: (error) => identical(error, pending),
-        ),
-        throwsA(same(pending)),
-      );
-      await queue.dispose(
-        sessionId: 25,
-        operation: () => transport.dispose(25),
-      );
-
-      expect(transport.calls, <String>['open-pending:25', 'dispose:25']);
-    },
-  );
-
-  test(
     'stale cleanup failure disposes once and invalidates queued work',
     () async {
       final transport = _FakeTransport();
@@ -354,11 +322,7 @@ void main() {
         operation: () => transport.dispose(28),
       );
 
-      expect(transport.calls, <String>[
-        'open:28',
-        'mutation:28',
-        'dispose:28',
-      ]);
+      expect(transport.calls, <String>['open:28', 'mutation:28', 'dispose:28']);
     },
   );
 
@@ -367,14 +331,8 @@ void main() {
     () async {
       final transport = _FakeTransport();
       final queue = RitoNativeGatewayQueue();
-      expect(
-        await _openQueue(queue, 29, () => transport.open(29)),
-        29,
-      );
-      expect(
-        await _openQueue(queue, 31, () => transport.open(31)),
-        31,
-      );
+      expect(await _openQueue(queue, 29, () => transport.open(29)), 29);
+      expect(await _openQueue(queue, 31, () => transport.open(31)), 31);
 
       await queue.close(
         disposeSession: transport.dispose,
@@ -488,7 +446,6 @@ Future<T> _openQueue<T>(
     sessionId: sessionId,
     requestId: 1,
     operation: operation,
-    nativeSessionMayExistOnError: (_) => false,
   );
 }
 

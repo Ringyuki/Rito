@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-runtime.js';
-import { RitoCoreWasmError } from '../dist/core-wasm-error-runtime.js';
 import {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmReaderWorkerHandler,
@@ -15,41 +14,34 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('in-process bounded worker primitives preserve exact revision handles', async () => {
+test('in-process worker primitives preserve exact revision handles', async () => {
   const { document, calls } = fixtureDocument();
   const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
   await client.open(new ArrayBuffer(0));
 
-  const created = await client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+  const created = await client.createRevision({});
   assert.deepEqual(created.revision, handle(0));
-  const continued = await client.continueRevision({
-    ...created.revision,
-    cursor: created.value.continuation.cursor,
-    budget: budget(),
-  });
-  assert.deepEqual(continued.revision, handle(1));
+  assert.deepEqual(created.value, summary(0));
 
-  const summaryResult = await client.getRevisionSummaryAtRevision(handle(1));
-  const bundleResult = await client.getRevisionBundleAtRevision(handle(1), true);
-  const presentationResult = await client.getRevisionPresentationAtRevision(handle(1));
-  const shapeDiagnosticResult = await client.getShapeProvenanceDiagnosticAtRevision(handle(1));
-  const navigation = await client.getRevisionNavigationAtRevision(handle(1));
-  const frame = await client.readFrameBufferAtRevision(handle(1), 0);
-  const resource = await client.readResourceAtRevision(handle(1), 'image', 'cover.png');
-  const source = await client.resolveSourceLocatorAtRevision(handle(1), {
+  const summaryResult = await client.getRevisionSummaryAtRevision(handle(0));
+  const bundleResult = await client.getRevisionBundleAtRevision(handle(0), true);
+  const presentationResult = await client.getRevisionPresentationAtRevision(handle(0));
+  const navigation = await client.getRevisionNavigationAtRevision(handle(0));
+  const frame = await client.readFrameBufferAtRevision(handle(0), 0);
+  const resource = await client.readResourceAtRevision(handle(0), 'image', 'cover.png');
+  const source = await client.resolveSourceLocatorAtRevision(handle(0), {
     href: 'chapter.xhtml',
   });
-  const footnotes = await client.getFootnotesAtRevision(handle(1));
-  const chapterTextIndices = await client.getChapterTextIndicesAtRevision(handle(1));
-  const search = await client.searchAtRevision(handle(1), searchRequest());
-  const transferRelease = await client.releaseRevisionTransfersAtRevision(handle(1));
-  const revisionRelease = await client.releaseRevisionAtRevision(handle(1));
+  const footnotes = await client.getFootnotesAtRevision(handle(0));
+  const chapterTextIndices = await client.getChapterTextIndicesAtRevision(handle(0));
+  const search = await client.searchAtRevision(handle(0), searchRequest());
+  const transferRelease = await client.releaseRevisionTransfersAtRevision(handle(0));
+  const revisionRelease = await client.releaseRevisionAtRevision(handle(0));
 
   for (const result of [
     summaryResult,
     bundleResult,
     presentationResult,
-    shapeDiagnosticResult,
     navigation,
     frame,
     resource,
@@ -60,7 +52,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
     transferRelease,
     revisionRelease,
   ]) {
-    assert.deepEqual(result.revision, handle(1));
+    assert.deepEqual(result.revision, handle(0));
   }
   assert.deepEqual(frame.value.bytes, Uint8Array.of(4, 5));
   assert.deepEqual(resource.value.bytes, Uint8Array.of(6, 7, 8));
@@ -71,339 +63,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   assert.ok(
     calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
   );
-  assert.ok(calls.some(([name, args]) => name === 'releaseRevisionAtRevision' && args[1] === 1));
-  client.dispose();
-});
-
-test('in-process continuation releases predecessor transfers inside one dispatch', async () => {
-  const { document, calls } = fixtureDocument();
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  const continued = await client.continueRevisionAfterTransferRelease({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-  });
-
-  assert.deepEqual(continued.revision, handle(1));
-  assert.deepEqual(continued.value.advance, advance(1, false));
-  assert.deepEqual(continued.value.releasedRevision, handle(0));
-  assert.equal(continued.value.releasedTransferCount, 1);
-  assert.deepEqual(
-    calls
-      .filter(([name]) =>
-        ['releaseRevisionTransfersAtRevision', 'continueRevisionJson'].includes(name),
-      )
-      .map(([name]) => name),
-    ['continueRevisionJson', 'releaseRevisionTransfersAtRevision'],
-  );
-  client.dispose();
-});
-
-test('in-process atomic continuation batches native quanta and aggregates the advance', async () => {
-  const continuedVersions = [];
-  const releasedVersions = [];
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: (requestJson) => {
-      const request = JSON.parse(requestJson);
-      const version = request.revisionVersion + 1;
-      continuedVersions.push(version);
-      return JSON.stringify(growingAdvance(version));
-    },
-    releaseRevisionTransfersAtRevision: (_revisionId, version) => {
-      releasedVersions.push(version);
-      return envelope(version, 1);
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  const continued = await client.continueRevisionAfterTransferRelease({
-    ...handle(0),
-    cursor: 'cursor-0',
-    budget: budget(),
-    maxQuanta: 8,
-  });
-
-  assert.deepEqual(continued.revision, handle(8));
-  assert.equal(continued.value.advancedQuanta, 8);
-  assert.equal(continued.value.releasedTransferCount, 8);
-  assert.deepEqual(continued.value.releasedRevision, handle(0));
-  assert.deepEqual(continued.value.advance.previousKnownExtent, extent(0));
-  assert.deepEqual(continued.value.advance.newlyKnownPages, {
-    startPage: 0,
-    endPageExclusive: 8,
-  });
-  assert.equal(continued.value.advance.processedTopLevelNodes, 8);
-  assert.equal(continued.value.advance.continuation.cursor, 'cursor-8');
-  assert.deepEqual(continuedVersions, [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.deepEqual(releasedVersions, [0, 1, 2, 3, 4, 5, 6, 7]);
-  client.dispose();
-});
-
-test('in-process locator continuation stops its batch as soon as the locator resolves', async () => {
-  const continuedVersions = [];
-  const locator = { href: 'chapter.xhtml' };
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionTowardSourceLocatorJson: (requestJson) => {
-      const request = JSON.parse(requestJson);
-      const version = request.revisionVersion + 1;
-      continuedVersions.push(version);
-      return JSON.stringify({
-        advance: growingAdvance(version),
-        releasedRevision: handle(request.revisionVersion),
-        releasedTransferCount: 1,
-        request: request.locator,
-        canonicalRequest: request.locator,
-        locatorOutcome: {
-          kind: 'resolved',
-          resolution: growingSourceResolution(version, request.locator),
-        },
-      });
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  const continued = await client.continueRevisionTowardSourceLocator({
-    ...handle(0),
-    cursor: 'cursor-0',
-    budget: budget(),
-    locator,
-    maxQuanta: 8,
-  });
-
-  assert.deepEqual(continued.revision, handle(4));
-  assert.equal(continued.value.advancedQuanta, 4);
-  assert.equal(continued.value.releasedTransferCount, 4);
-  assert.deepEqual(continued.value.advance.previousKnownExtent, extent(0));
-  assert.equal(continued.value.advance.processedTopLevelNodes, 4);
-  assert.equal(continued.value.locatorOutcome.resolution.status, 'resolved');
-  assert.deepEqual(continuedVersions, [1, 2, 3, 4]);
-  client.dispose();
-});
-
-test('in-process atomic continuation does not release transfers when continuation rejects', async () => {
-  const calls = [];
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: () => {
-      calls.push('continueRevisionJson');
-      throw new Error('forged continuation cursor');
-    },
-    releaseRevisionTransfersAtRevision: () => {
-      calls.push('releaseRevisionTransfersAtRevision');
-      return envelope(0, 1);
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  await assert.rejects(
-    client.continueRevisionAfterTransferRelease({
-      ...handle(0),
-      cursor: 'forged-cursor',
-      budget: budget(),
-    }),
-    /forged continuation cursor/,
-  );
-
-  assert.deepEqual(calls, ['continueRevisionJson']);
-  client.dispose();
-});
-
-test('in-process atomic continuation releases predecessor transfers after a committed failure', async () => {
-  const calls = [];
-  const failedRevision = summary(1, 'failed');
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: () => {
-      calls.push('continueRevisionJson');
-      throw new Error(
-        JSON.stringify({
-          code: 'engine-error',
-          message: 'layout failed',
-          revision: failedRevision,
-        }),
-      );
-    },
-    releaseRevisionTransfersAtRevision: (_revisionId, version) => {
-      calls.push('releaseRevisionTransfersAtRevision');
-      return envelope(version, 1);
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  await assert.rejects(
-    client.continueRevisionAfterTransferRelease({
-      ...handle(0),
-      cursor: 'cursor-1',
-      budget: budget(),
-    }),
-    (error) => {
-      assert.deepEqual(error.revision, failedRevision);
-      return true;
-    },
-  );
-
-  assert.deepEqual(calls, ['continueRevisionJson', 'releaseRevisionTransfersAtRevision']);
-  client.dispose();
-});
-
-test('in-process atomic continuation rolls back the committed revision when transfer release validation fails', async () => {
-  const calls = [];
-  const document = new RitoCoreWasmDocument({
-    publicationJson: () => JSON.stringify({ title: 'fixture' }),
-    pinnedFontPolicyJson,
-    free() {},
-    continueRevisionJson: () => {
-      calls.push(['continueRevisionJson', 1]);
-      return JSON.stringify(advance(1, false));
-    },
-    releaseRevisionTransfersAtRevision: () => {
-      calls.push(['releaseRevisionTransfersAtRevision', 0]);
-      return envelope(99, 1);
-    },
-    releaseRevisionAtRevision: (_revisionId, version) => {
-      calls.push(['releaseRevisionAtRevision', version]);
-      return envelope(version, { releasedRevision: true, releasedTransferCount: 0 });
-    },
-  });
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-
-  await assert.rejects(
-    client.continueRevisionAfterTransferRelease({
-      ...handle(0),
-      cursor: 'cursor-1',
-      budget: budget(),
-    }),
-    /mismatched revision handle/,
-  );
-
-  assert.deepEqual(calls, [
-    ['continueRevisionJson', 1],
-    ['releaseRevisionTransfersAtRevision', 0],
-    ['releaseRevisionAtRevision', 1],
-  ]);
-  client.dispose();
-});
-
-test('in-process locator continuation returns the next exact locator projection', async () => {
-  const { document, calls } = fixtureDocument();
-  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
-  await client.open(new ArrayBuffer(0));
-  const locator = { href: 'chapter.xhtml' };
-
-  const continued = await client.continueRevisionTowardSourceLocator({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-    locator,
-  });
-
-  assert.deepEqual(continued.revision, handle(1));
-  assert.deepEqual(continued.value.releasedRevision, handle(0));
-  assert.deepEqual(continued.value.canonicalRequest, locator);
-  assert.equal(continued.value.locatorOutcome.kind, 'resolved');
-  assert.equal(continued.value.locatorOutcome.resolution.status, 'resolved');
-  assert.deepEqual(
-    calls
-      .filter(([name]) => ['continueRevisionTowardSourceLocatorJson'].includes(name))
-      .map(([name]) => name),
-    ['continueRevisionTowardSourceLocatorJson'],
-  );
-  client.dispose();
-});
-
-test('worker client sends atomic transfer release and continuation as one request', async () => {
-  const worker = new ManualWorker();
-  const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const opening = client.open(new ArrayBuffer(0));
-  await Promise.resolve();
-  worker.respond(worker.messages[0].id, {
-    kind: 'open',
-    result: readerOpenResult({ title: 'fixture' }),
-  });
-  await opening;
-
-  const messageCount = worker.messages.length;
-  const pending = client.continueRevisionAfterTransferRelease({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-  });
-  const request = worker.messages.at(-1);
-  assert.equal(worker.messages.length, messageCount + 1);
-  assert.equal(request.kind, 'continueRevisionAfterTransferRelease');
-  worker.respond(request.id, {
-    kind: request.kind,
-    revision: handle(1),
-    result: {
-      advance: advance(1, false),
-      releasedRevision: handle(0),
-      releasedTransferCount: 2,
-    },
-  });
-
-  const continued = await pending;
-  assert.deepEqual(continued.revision, handle(1));
-  assert.equal(continued.value.releasedTransferCount, 2);
-  client.dispose();
-});
-
-test('worker client advances toward a locator with one request per quantum', async () => {
-  const worker = new ManualWorker();
-  const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const opening = client.open(new ArrayBuffer(0));
-  await Promise.resolve();
-  worker.respond(worker.messages[0].id, {
-    kind: 'open',
-    result: readerOpenResult({ title: 'fixture' }),
-  });
-  await opening;
-  const locator = { href: 'chapter.xhtml#' };
-  const canonicalLocator = { href: 'chapter.xhtml' };
-
-  const messageCount = worker.messages.length;
-  const pending = client.continueRevisionTowardSourceLocator({
-    ...handle(0),
-    cursor: 'cursor-1',
-    budget: budget(),
-    locator,
-  });
-  const request = worker.messages.at(-1);
-  assert.equal(worker.messages.length, messageCount + 1);
-  assert.equal(request.kind, 'continueRevisionTowardSourceLocator');
-  worker.respond(request.id, {
-    kind: request.kind,
-    revision: handle(1),
-    result: {
-      advance: advance(1, false),
-      releasedRevision: handle(0),
-      releasedTransferCount: 1,
-      request: locator,
-      canonicalRequest: canonicalLocator,
-      locatorOutcome: { kind: 'resolved', resolution: sourceResolution(1, canonicalLocator) },
-    },
-  });
-
-  const continued = await pending;
-  assert.equal(continued.value.locatorOutcome.kind, 'resolved');
-  assert.deepEqual(continued.value.request, locator);
-  assert.deepEqual(continued.value.canonicalRequest, canonicalLocator);
+  assert.ok(calls.some(([name, args]) => name === 'releaseRevisionAtRevision' && args[1] === 0));
   client.dispose();
 });
 
@@ -425,7 +85,7 @@ test('in-process exact bundle reads reject a stale raw revision envelope', async
   client.dispose();
 });
 
-test('real worker handler uses the same bounded dispatch and transfers versioned bytes', async () => {
+test('real worker handler uses the same dispatch and transfers versioned bytes', async () => {
   const { document, calls } = fixtureDocument();
   const scope = new HandlerScope();
   createRitoCoreWasmReaderWorkerHandler(scope, {
@@ -435,8 +95,8 @@ test('real worker handler uses the same bounded dispatch and transfers versioned
   assert.equal((await scope.send({ id: 1, kind: 'open', data: new ArrayBuffer(0) })).ok, true);
   const created = await scope.send({
     id: 2,
-    kind: 'createBoundedRevision',
-    request: { layoutConfig: {}, budget: budget() },
+    kind: 'createRevision',
+    layoutConfig: {},
   });
   assert.equal(created.ok, true);
   assert.deepEqual(created.payload.revision, handle(0));
@@ -604,39 +264,6 @@ test('worker client rejects cross-version races even when responses arrive out o
   client.dispose();
 });
 
-test('failed revision recovery state survives the worker error round trip', async () => {
-  const worker = new ManualWorker();
-  const client = createRitoCoreWasmWorkerReaderClient(worker);
-  const opening = client.open(new ArrayBuffer(0));
-  await Promise.resolve();
-  worker.respond(worker.messages[0].id, {
-    kind: 'open',
-    result: readerOpenResult({ title: 'fixture' }),
-  });
-  await opening;
-
-  const continuing = client.continueRevision({
-    ...handle(1),
-    cursor: 'cursor-2',
-    budget: budget(),
-  });
-  const failedRevision = summary(2, 'failed');
-  worker.fail(worker.messages.at(-1).id, {
-    name: 'RitoCoreWasmError',
-    message: 'layout failed',
-    code: 'engine-error',
-    revision: failedRevision,
-  });
-
-  await assert.rejects(continuing, (error) => {
-    assert.ok(error instanceof RitoCoreWasmError);
-    assert.equal(error.code, 'engine-error');
-    assert.deepEqual(error.revision, failedRevision);
-    return true;
-  });
-  client.dispose();
-});
-
 function fixtureDocument() {
   const calls = [];
   const transferId = 'transfer-1';
@@ -645,30 +272,12 @@ function fixtureDocument() {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
       pinnedFontPolicyJson,
       free() {},
-      createBoundedRevisionJson: () => JSON.stringify(advance(0, true)),
-      continueRevisionJson: () => JSON.stringify(advance(1, false)),
-      continueRevisionTowardSourceLocatorJson: (requestJson) => {
-        const request = JSON.parse(requestJson);
-        return JSON.stringify({
-          advance: advance(1, false),
-          releasedRevision: handle(0),
-          releasedTransferCount: 1,
-          request: request.locator,
-          canonicalRequest: request.locator,
-          locatorOutcome: {
-            kind: 'resolved',
-            resolution: sourceResolution(1, request.locator),
-          },
-        });
-      },
+      createRevisionJson: () => JSON.stringify(summary(0)),
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
-        envelope(version, summary(version, 'complete')),
-      getRevisionBundleAtRevisionJson: (_revisionId, version) =>
-        envelope(version, bundle(version, 'complete')),
+        envelope(version, summary(version)),
+      getRevisionBundleAtRevisionJson: (_revisionId, version) => envelope(version, bundle(version)),
       getRevisionPresentationAtRevisionJson: (_revisionId, version) =>
-        envelope(version, presentation(version, 'complete')),
-      getShapeProvenanceDiagnosticAtRevisionJson: (_revisionId, version) =>
-        envelope(version, shapeDiagnostic()),
+        envelope(version, presentation(version)),
       getRevisionNavigationAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1' }),
       getFootnotesAtRevisionJson: (_revisionId, version) =>
@@ -715,42 +324,14 @@ function moduleFor(document) {
   return { initRitoCoreWasmEngine: async () => ({ openDocument: () => document }) };
 }
 
-function shapeDiagnostic() {
-  return {
-    schemaVersion: 1,
-    isComplete: true,
-    knownPageCount: 1,
-    totalTextRuns: 1,
-    exactTextRuns: 0,
-    unavailableTextRuns: 1,
-    totalTextUtf16CodeUnitCount: 1,
-    exactTextUtf16CodeUnitCount: 0,
-    unavailableTextUtf16CodeUnitCount: 1,
-    excludedRubyTextRunCount: 0,
-    excludedRubyTextUtf16CodeUnitCount: 0,
-    singleFontTextRuns: 0,
-    mixedFontTextRuns: 0,
-    unavailableReasonCounts: { hostMetricsFallback: 1 },
-    unavailableReasonUtf16CodeUnitCounts: { hostMetricsFallback: 1 },
-    singleFontFingerprints: {},
-    mixedFontFingerprints: {},
-    unavailableAffectedCodepoints: [
-      { codepoint: 'U+0041', count: 1, reasonCounts: { hostMetricsFallback: 1 } },
-    ],
-    unavailableAffectedCodepointOccurrenceCount: 1,
-    unavailableAffectedCodepointDistinctCount: 1,
-    unavailableAffectedCodepointOmittedCount: 0,
-  };
-}
-
 function versionedPayload(kind, version) {
-  return { kind, revision: handle(version), result: summary(version, 'ready') };
+  return { kind, revision: handle(version), result: summary(version) };
 }
 
-function bundle(version, status = 'ready') {
+function bundle(version) {
   const revisionId = 'rev-1';
   return {
-    revision: summary(version, status),
+    revision: summary(version),
     navigation: { revisionId, pageCount: 1, spreadCount: 1 },
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
@@ -759,10 +340,10 @@ function bundle(version, status = 'ready') {
   };
 }
 
-function presentation(version, status = 'ready') {
+function presentation(version) {
   const revisionId = 'rev-1';
   return {
-    revision: summary(version, status),
+    revision: summary(version),
     navigation: {
       revisionId,
       pageCount: 1,
@@ -831,76 +412,10 @@ function envelope(version, value) {
   return JSON.stringify({ revision: handle(version), value });
 }
 
-function advance(version, continuing) {
-  return {
-    revision: summary(version, continuing ? 'ready' : 'complete'),
-    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
-    newlyKnownPages: { startPage: 0, endPageExclusive: 1 },
-    processedTopLevelNodes: 1,
-    ...(continuing ? { continuation: { ...handle(version), cursor: 'cursor-1' } } : {}),
-  };
-}
-
-function growingAdvance(version) {
-  const previousKnownExtent = extent(version - 1);
-  const knownExtent = extent(version);
-  return {
-    revision: growingSummary(version, knownExtent),
-    previousKnownExtent,
-    newlyKnownPages: {
-      startPage: previousKnownExtent.pageCount,
-      endPageExclusive: knownExtent.pageCount,
-    },
-    processedTopLevelNodes: 1,
-    continuation: { ...handle(version), cursor: `cursor-${String(version)}` },
-  };
-}
-
-function growingSummary(version, knownExtent) {
+function summary(version) {
   return {
     ...handle(version),
     layoutKey: 'layout',
-    status: 'ready',
-    knownExtent,
-    pageCount: knownExtent.pageCount,
-    spreadCount: knownExtent.spreadCount,
-  };
-}
-
-function growingSourceResolution(version, locator) {
-  if (version < 4) {
-    return {
-      status: 'pending',
-      revisionId: 'rev-1',
-      locator,
-      spineIdref: 'chapter',
-      reason: 'notPaginated',
-      matchedBy: 'href',
-    };
-  }
-  return {
-    status: 'resolved',
-    revisionId: 'rev-1',
-    locator,
-    spineIdref: 'chapter',
-    pageIndex: 3,
-    spreadIndex: 3,
-    matchedBy: 'href',
-  };
-}
-
-function extent(count) {
-  return { pageCount: count, spreadCount: count };
-}
-
-function summary(version, status) {
-  const knownExtent = { pageCount: 1, spreadCount: 1 };
-  return {
-    ...handle(version),
-    layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
     pageCount: 1,
     spreadCount: 1,
   };
@@ -908,10 +423,6 @@ function summary(version, status) {
 
 function handle(revisionVersion) {
   return { revisionId: 'rev-1', revisionVersion };
-}
-
-function budget() {
-  return { maxTopLevelNodes: 1 };
 }
 
 function normalizeError(error) {

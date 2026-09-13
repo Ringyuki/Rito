@@ -7,11 +7,6 @@ use super::{add_file, minimal_png};
 pub fn cross_chapter_footnote_fixture_epub() -> Vec<u8> {
     build_cross_chapter_footnote_epub(true)
 }
-
-pub fn missing_future_chapter_fixture_epub() -> Vec<u8> {
-    build_cross_chapter_footnote_epub(false)
-}
-
 fn build_cross_chapter_footnote_epub(include_second_chapter: bool) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();

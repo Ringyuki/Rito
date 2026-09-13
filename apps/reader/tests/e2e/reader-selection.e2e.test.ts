@@ -282,7 +282,6 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
   test('continues a mouse drag across an edge page turn and preserves exact copy', async ({
     page,
   }) => {
-    const shell = page.getByTestId('reader-shell');
     const firstLine = requireBand(await requireTextBands(page, 1), 0);
     const surface = await readerSurfaceBounds(page);
     const edgePoint = { x: surface.right - EDGE_INSET_PX, y: firstLine.centerY };
@@ -293,7 +292,6 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
 
     await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
     await stableReaderCanvasChecksum(page);
     const secondLine = requireBand(await requireTextBands(page, 1), 0);
@@ -346,7 +344,6 @@ test.describe('reader primary selection edge autoscroll acceptance', () => {
 
     const shell = page.getByTestId('reader-shell');
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     await expect.poll(() => currentReaderSpread(page)).toBe(1);
     await waitForReaderTransitionEnd(page);
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
@@ -426,7 +423,6 @@ test.describe('reader cross-chapter keyboard selection acceptance', () => {
 
     const shell = page.getByTestId('reader-shell');
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     await expect.poll(() => currentReaderSpread(page)).toBe(1);
     await waitForReaderTransitionEnd(page);
     await waitForVisibleDocumentText(page, DOCUMENT_SECOND_CHAPTER_TEXT);

@@ -227,7 +227,7 @@ mod tests {
 
 /// Text shaping, transformation, spacing, and line-breaking inputs.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct InlineTextFlowV1 {
+pub struct InlineTextFlow {
     /// Alignment applied when inline content is placed into a line box.
     pub text_align: TextAlign,
     /// Justification strategy.

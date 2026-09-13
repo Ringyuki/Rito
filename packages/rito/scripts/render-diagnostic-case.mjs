@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,24 +12,11 @@ import { PNG } from 'pngjs';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, '..');
 const DIST_ROOT = resolve(PACKAGE_ROOT, 'dist');
-const REFERENCE_DIST_ROOT = resolve(PACKAGE_ROOT, '.output/reference-build');
 const CORE_WASM_DIST_ROOT = resolve(PACKAGE_ROOT, '../rito-core-wasm/dist');
 const CASE_ROOT = resolve(PACKAGE_ROOT, 'test-results/render-diagnostics/cases');
-const require = createRequire(import.meta.url);
-const FFLATE_ROOT = dirname(dirname(require.resolve('fflate/browser')));
-const FFLATE_BROWSER_PATH = resolve(FFLATE_ROOT, 'esm/browser.js');
-const CSS_LINE_BREAK_PATH = require.resolve('css-line-break/dist/css-line-break.es5.js');
 const COMPARISON_THRESHOLD = 0.1;
 const ENGINE_CONFIGS = new Map([
   ['production', { id: 'production', label: 'Rust production', importPath: '/dist/index.mjs' }],
-  [
-    'reference',
-    {
-      id: 'reference',
-      label: 'TypeScript reference',
-      importPath: '/reference-dist/tooling/web.mjs',
-    },
-  ],
 ]);
 
 const PROFILES = new Map([
@@ -74,7 +60,6 @@ async function run() {
   const artifactsDir = resolve(caseDir, 'artifacts');
   const browserDir = resolve(artifactsDir, 'browser');
   const comparisonDir = resolve(artifactsDir, 'comparison');
-  const parityDir = resolve(artifactsDir, 'parity');
   const extractedDir = resolve(browserDir, 'extracted');
   const caseConfig = await readCaseConfig(resolve(caseDir, 'case.json'));
   const bookPath = process.env.RITO_DIAG_EPUB
@@ -82,7 +67,6 @@ async function run() {
     : resolve(caseDir, 'book.epub');
   const bookBytes = await readFile(bookPath);
   const profile = resolveProfile(caseConfig);
-  const lineBreaking = resolveLineBreaking(caseConfig);
   const spreadIndex = resolveSpreadIndex(caseConfig);
   const engines = resolveDiagnosticEngines();
 
@@ -111,14 +95,12 @@ async function run() {
         engine,
         bookBytes,
         profile,
-        lineBreaking,
         spreadIndex,
       });
       engineResults[engine.id] = await writeEngineArtifacts(engineDir, {
         caseId,
         bookPath,
         profile,
-        lineBreaking,
         spreadIndex,
         engine,
         result,
@@ -138,7 +120,6 @@ async function run() {
     const comparison = await writeComparisonArtifacts(comparisonDir, artifactsDir, {
       caseId,
       profile,
-      lineBreaking,
       spreadIndex,
       actualPng: primaryEngine.png,
       actualLabel: primaryEngine.engine.label,
@@ -146,17 +127,6 @@ async function run() {
       actualPageDetailPath: `${primaryEngine.engine.id}/page-detail.json`,
       reference,
     });
-    const parity =
-      engineResults.production && engineResults.reference
-        ? await writeParityArtifacts(parityDir, artifactsDir, {
-            caseId,
-            profile,
-            lineBreaking,
-            spreadIndex,
-            production: engineResults.production,
-            reference: engineResults.reference,
-          })
-        : { skipped: 'Set RITO_DIAG_ENGINE=both to compare production and reference readers' };
     await writeJson(resolve(artifactsDir, 'report.json'), {
       caseId,
       engines: Object.fromEntries(
@@ -173,7 +143,6 @@ async function run() {
       ),
       browser: reference,
       comparison,
-      parity,
     });
     console.log(`Rendering diagnostic artifacts: ${artifactsDir}`);
   } finally {
@@ -193,11 +162,10 @@ async function renderRitoSpread(page, origin, input) {
   await waitForRenderApi(page, diagnostics);
 
   const result = await page.evaluate(
-    async ({ bookBase64, engine, lineBreaking, profile, spreadIndex }) => {
+    async ({ bookBase64, engine, profile, spreadIndex }) => {
       return window.renderRitoDiagnostic({
         bookBase64,
         engine,
-        lineBreaking,
         profile,
         spreadIndex,
       });
@@ -205,7 +173,6 @@ async function renderRitoSpread(page, origin, input) {
     {
       bookBase64: input.bookBytes.toString('base64'),
       engine: input.engine.id,
-      lineBreaking: input.lineBreaking,
       profile: input.profile,
       spreadIndex: input.spreadIndex,
     },
@@ -230,7 +197,6 @@ async function writeEngineArtifacts(engineDir, input) {
     bookPath: input.bookPath,
     engine: input.engine,
     profile: input.profile,
-    lineBreaking: input.lineBreaking,
     spreadIndex: input.spreadIndex,
     totalSpreads: input.result.totalSpreads,
     spread: input.result.spread,
@@ -244,7 +210,6 @@ async function writeEngineArtifacts(engineDir, input) {
   const frameSummary = {
     engine: input.engine.id,
     profile: input.profile.id,
-    lineBreaking: input.lineBreaking,
     spreadIndex: input.spreadIndex,
     totalSpreads: input.result.totalSpreads,
     canvas: input.result.canvas,
@@ -507,68 +472,6 @@ async function writeComparisonArtifacts(comparisonDir, artifactsDir, input) {
   };
 }
 
-async function writeParityArtifacts(parityDir, artifactsDir, input) {
-  await rm(parityDir, { recursive: true, force: true });
-  await mkdir(parityDir, { recursive: true });
-  const result = createPngDiff(input.reference.png, input.production.png);
-  const summaryDiff = compareFrameSummaries(
-    input.reference.frameSummary,
-    input.production.frameSummary,
-  );
-  await writeJson(resolve(parityDir, 'frame-summary.json'), {
-    caseId: input.caseId,
-    profile: input.profile,
-    lineBreaking: input.lineBreaking,
-    spreadIndex: input.spreadIndex,
-    reference: input.reference.frameSummary,
-    production: input.production.frameSummary,
-    diff: summaryDiff,
-  });
-
-  if ('dimensionMismatch' in result) {
-    await writeParityReport(parityDir, input, result, summaryDiff);
-    return {
-      report: 'parity/report.md',
-      frameSummary: 'parity/frame-summary.json',
-      dimensionMismatch: result.dimensionMismatch,
-      summaryDiff,
-    };
-  }
-
-  await writeFile(resolve(parityDir, 'diff.png'), result.diffPng);
-  await writeParityReport(parityDir, input, result, summaryDiff);
-  return {
-    report: 'parity/report.md',
-    diff: 'parity/diff.png',
-    frameSummary: 'parity/frame-summary.json',
-    width: result.width,
-    height: result.height,
-    diffPixels: result.diffPixels,
-    diffRatio: result.diffRatio,
-    threshold: COMPARISON_THRESHOLD,
-    summaryDiff,
-  };
-}
-
-function compareFrameSummaries(reference, production) {
-  const keys = [
-    'totalSpreads',
-    'canvas',
-    'spread',
-    'page',
-    'chapterMapHash',
-    'manifestHrefMapHash',
-    'pngHash',
-  ];
-  return Object.fromEntries(
-    keys
-      .map((key) => [key, { reference: reference[key], production: production[key] }])
-      .filter(
-        ([, values]) => JSON.stringify(values.reference) !== JSON.stringify(values.production),
-      ),
-  );
-}
-
 function createPngDiff(referencePngBytes, actualPngBytes) {
   const reference = PNG.sync.read(referencePngBytes);
   const actual = PNG.sync.read(actualPngBytes);
@@ -606,7 +509,6 @@ async function writeComparisonReport(comparisonDir, input, result) {
     '',
     `- Case: \`${input.caseId}\``,
     `- Profile: \`${input.profile.id}\``,
-    `- Line breaking: \`${input.lineBreaking}\``,
     `- Spread index: \`${String(input.spreadIndex)}\``,
     '',
     '## Artifacts',
@@ -644,60 +546,6 @@ async function writeComparisonReport(comparisonDir, input, result) {
   }
 
   await writeFile(resolve(comparisonDir, 'report.md'), `${lines.join('\n')}\n`, 'utf8');
-}
-
-async function writeParityReport(parityDir, input, result, summaryDiff) {
-  const lines = [
-    '# Reader Parity Diagnostic',
-    '',
-    `- Case: \`${input.caseId}\``,
-    `- Profile: \`${input.profile.id}\``,
-    `- Line breaking: \`${input.lineBreaking}\``,
-    `- Spread index: \`${String(input.spreadIndex)}\``,
-    '',
-    '## Artifacts',
-    '',
-    '- Production actual: `../production/actual.png`',
-    '- Production summary: `../production/summary.json`',
-    '- Production frame summary: `../production/frame-summary.json`',
-    '- Reference actual: `../reference/actual.png`',
-    '- Reference summary: `../reference/summary.json`',
-    '- Reference frame summary: `../reference/frame-summary.json`',
-    '- Frame summary comparison: `frame-summary.json`',
-  ];
-
-  if ('dimensionMismatch' in result) {
-    lines.push(
-      '',
-      '## Pixel Diff',
-      '',
-      'Diff image was not generated because screenshot dimensions differ.',
-      '',
-      `- Reference: \`${result.dimensionMismatch.reference}\``,
-      `- Production: \`${result.dimensionMismatch.actual}\``,
-    );
-  } else {
-    lines.push(
-      '- Pixel diff: `diff.png`',
-      '',
-      '## Pixel Diff',
-      '',
-      `- Size: \`${String(result.width)}x${String(result.height)}\``,
-      `- Threshold: \`${String(COMPARISON_THRESHOLD)}\``,
-      `- Diff pixels: \`${String(result.diffPixels)}\``,
-      `- Diff ratio: \`${result.diffRatio.toFixed(6)}\``,
-    );
-  }
-
-  const summaryDiffKeys = Object.keys(summaryDiff);
-  lines.push('', '## Frame Summary Diff', '');
-  if (summaryDiffKeys.length === 0) {
-    lines.push('No frame-summary differences.');
-  } else {
-    for (const key of summaryDiffKeys) lines.push(`- \`${key}\``);
-  }
-
-  await writeFile(resolve(parityDir, 'report.md'), `${lines.join('\n')}\n`, 'utf8');
 }
 
 async function applyBrowserReferencePageFrame(page, profile) {
@@ -781,20 +629,8 @@ async function handleDiagnosticRequest(referenceRoot, requestUrl, response) {
     await sendStaticFile(response, DIST_ROOT, pathname.slice('/dist/'.length));
     return;
   }
-  if (pathname.startsWith('/reference-dist/')) {
-    await sendStaticFile(response, REFERENCE_DIST_ROOT, pathname.slice('/reference-dist/'.length));
-    return;
-  }
   if (pathname.startsWith('/core-wasm/')) {
     await sendStaticFile(response, CORE_WASM_DIST_ROOT, pathname.slice('/core-wasm/'.length));
-    return;
-  }
-  if (pathname === '/vendor/fflate/browser.js') {
-    await sendAbsoluteFile(response, FFLATE_BROWSER_PATH);
-    return;
-  }
-  if (pathname === '/vendor/css-line-break.js') {
-    await sendAbsoluteFile(response, CSS_LINE_BREAK_PATH);
     return;
   }
   if (pathname.startsWith('/reference/')) {
@@ -942,13 +778,6 @@ function resolveProfile(caseConfig) {
   return { ...base, devicePixelRatio: dpr };
 }
 
-function resolveLineBreaking(caseConfig) {
-  const value =
-    process.env.RITO_DIAG_LINE_BREAKING || readOptionalString(caseConfig.lineBreaking) || 'greedy';
-  if (value === 'greedy' || value === 'optimal') return value;
-  throw new Error(`Invalid lineBreaking: ${value}`);
-}
-
 function resolveSpreadIndex(caseConfig) {
   const location = readRecord(caseConfig.location);
   const value = process.env.RITO_DIAG_SPREAD ?? location?.spreadIndex ?? 0;
@@ -960,7 +789,6 @@ function resolveSpreadIndex(caseConfig) {
 
 function resolveDiagnosticEngines() {
   const value = process.env.RITO_DIAG_ENGINE || 'production';
-  if (value === 'both') return [ENGINE_CONFIGS.get('production'), ENGINE_CONFIGS.get('reference')];
   const engine = ENGINE_CONFIGS.get(value);
   if (!engine) throw new Error(`Invalid diagnostic engine: ${value}`);
   return [engine];
@@ -1006,15 +834,11 @@ Inputs:
 Optional environment:
   RITO_DIAG_EPUB=/absolute/path/book.epub
   RITO_DIAG_PROFILE=single-default|single-narrow|single-wide|double-default
-  RITO_DIAG_LINE_BREAKING=greedy|optimal
   RITO_DIAG_SPREAD=0
   RITO_DIAG_DPR=1
-  RITO_DIAG_ENGINE=production|reference|both
   PLAYWRIGHT_BROWSER_CHANNEL=msedge
 
 Notes:
-  Use RITO_DIAG_ENGINE=both, or pnpm diagnose:reader-parity, to compare the
-  Rust-backed production reader against the TypeScript reference reader.
   Use a single-page profile for Rito-vs-browser XHTML comparisons.
   Use double-default only for spread composition and page parity diagnosis.
 `);
@@ -1037,8 +861,6 @@ function renderHtml() {
 <script type="importmap">
   {
     "imports": {
-      "css-line-break": "/vendor/css-line-break.js",
-      "fflate": "/vendor/fflate/browser.js",
       "@ritojs/core-wasm": "/core-wasm/index.mjs",
       "@ritojs/core-wasm/decoder": "/core-wasm/decoder.mjs"
     }
@@ -1055,17 +877,14 @@ function renderHtml() {
   window.renderRitoDiagnosticReady = 'loading';
 
   const readerModules = new Map();
-  const moduleImports = [
-    ['production', import('/dist/index.mjs')],
-    ['reference', import('/reference-dist/tooling/web.mjs')],
-  ];
+  const moduleImports = [['production', import('/dist/index.mjs')]];
 
   Promise.all(moduleImports.map(async ([engine, promise]) => {
     readerModules.set(engine, await promise);
   }))
     .then(() => {
       window.renderRitoDiagnosticReady = 'ready';
-      window.renderRitoDiagnostic = async ({ bookBase64, engine, profile, lineBreaking, spreadIndex }) => {
+      window.renderRitoDiagnostic = async ({ bookBase64, engine, profile, spreadIndex }) => {
         const module = readerModules.get(engine);
         if (!module || typeof module.createReader !== 'function') {
           throw new Error(\`Unknown diagnostic reader engine: \${engine}\`);
@@ -1079,7 +898,6 @@ function renderHtml() {
           margin: profile.margin,
           spread: profile.spread,
           spreadGap: profile.spreadGap,
-          lineBreaking,
           devicePixelRatio: profile.devicePixelRatio,
           backgroundColor: '#ffffff',
           logLevel: 'silent',
@@ -1097,8 +915,10 @@ function renderHtml() {
         const dataUrl = canvas.toDataURL('image/png');
         const diagnostics = await collectRenderDiagnostics();
         const totalSpreads = reader.totalSpreads;
-        const spread = spreadFacts(reader.spreads[spreadIndex]);
-        const page = spreadPage(reader.spreads[spreadIndex], profile.spread);
+        // The navigation record of the rendered spread; its left page is
+        // the one this case is about in both spread modes.
+        const spread = reader.spreads[spreadIndex];
+        const page = spread ? { index: spread.leftPageIndex } : undefined;
         const chapterMap = Array.from(reader.chapterMap, ([idref, range]) => ({
           idref,
           startPage: range.startPage,
@@ -1153,47 +973,6 @@ function renderHtml() {
       weight: face.weight,
       style: face.style,
     }));
-  }
-
-  function spreadFacts(spread) {
-    if (!spread) return undefined;
-    return {
-      index: spread.index,
-      left: pageFacts(spread.left),
-      right: pageFacts(spread.right),
-    };
-  }
-
-  function spreadPage(spread, spreadMode) {
-    if (!spread) return undefined;
-    if (spreadMode === 'double') return spread.left;
-    return spread.left || spread.right;
-  }
-
-  function pageFacts(page) {
-    if (!page) return undefined;
-    return {
-      index: page.index,
-      textPreview: pageTextPreview(page),
-    };
-  }
-
-  function pageTextPreview(page) {
-    const parts = [];
-    for (const block of page.content || []) collectBlockText(block, parts);
-    return parts.join('').replace(/\\s+/g, ' ').trim().slice(0, 240);
-  }
-
-  function collectBlockText(block, parts) {
-    for (const child of block.children || []) {
-      if (child.type === 'line-box') {
-        for (const run of child.runs || []) {
-          if (run.type === 'text-run') parts.push(run.text);
-        }
-      } else if (child.type === 'layout-block') {
-        collectBlockText(child, parts);
-      }
-    }
   }
 </script>`;
 }

@@ -21,7 +21,6 @@ pub(in crate::runtime) struct PageArtifactTextCaret {
 #[derive(Debug, Clone, PartialEq)]
 pub(in crate::runtime) enum PageArtifactTextCaretResolution {
     Resolved(PageArtifactTextCaret),
-    Unavailable(TextInteractionUnavailableReason),
     Miss,
 }
 

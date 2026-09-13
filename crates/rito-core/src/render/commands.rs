@@ -1,177 +1,101 @@
 use std::collections::BTreeMap;
 
-use serde_json::Value;
+use sha2::{Digest, Sha256};
 
-use crate::layout::RunPaint;
+use super::RunPaint;
 
-mod json;
-mod packed;
-mod reader_wire_v1;
+mod reader_wire;
 mod refs;
-mod stable_json;
-
-pub(crate) use packed::pack_display_commands;
-pub use packed::{
-    PackedDisplayCommandBuffer, PackedDisplayCommandBufferMetadata, PackedDisplayCommandRecordStats,
-};
-pub(crate) use reader_wire_v1::{encode_reader_display_list_v1, ReaderEncodedDisplayListV1};
-pub use refs::DisplayListResourceRefs;
-pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
-use stable_json::hash_json;
-
 #[cfg(test)]
-pub(super) use packed::{
-    PACKED_DISPLAY_COMMAND_BUFFER_VERSION, PACKED_DISPLAY_COMMAND_RECORD_BYTES,
+pub(crate) mod test_support;
+
+pub(crate) use reader_wire::{contract, encode_reader_primitive_list, ReaderEncodedDisplayList};
+pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
+
+use contract::{
+    ReaderBlockPaint, ReaderBorderBox, ReaderCornerRadius, ReaderHorizontalRulePaint,
+    ReaderPagePaint, ReaderPoint, ReaderRect, ReaderSize, ReaderTransform,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DisplayCommandKind {
-    PushState,
-    PopState,
-    Translate,
-    Opacity,
-    Transform,
-    ClipRect,
-    PaintPage,
-    PaintBlock,
-    PaintText,
-    PaintRuby,
-    PaintImage,
-    PaintHorizontalRule,
-}
-
-impl DisplayCommandKind {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::PushState => "pushState",
-            Self::PopState => "popState",
-            Self::Translate => "translate",
-            Self::Opacity => "opacity",
-            Self::Transform => "transform",
-            Self::ClipRect => "clipRect",
-            Self::PaintPage => "paintPage",
-            Self::PaintBlock => "paintBlock",
-            Self::PaintText => "paintText",
-            Self::PaintRuby => "paintRuby",
-            Self::PaintImage => "paintImage",
-            Self::PaintHorizontalRule => "paintHorizontalRule",
-        }
-    }
-
-    fn opcode(self) -> u16 {
-        match self {
-            Self::PushState => 1,
-            Self::PopState => 2,
-            Self::Translate => 3,
-            Self::Opacity => 4,
-            Self::Transform => 5,
-            Self::ClipRect => 6,
-            Self::PaintPage => 7,
-            Self::PaintBlock => 8,
-            Self::PaintText => 9,
-            Self::PaintRuby => 10,
-            Self::PaintImage => 11,
-            Self::PaintHorizontalRule => 12,
-        }
-    }
-}
-
+/// One command of a frame's display list, in CSS pixels. The painter
+/// emits these from the fragment tree; the lowering resolves them to
+/// device-pixel primitives, which the wire encodes and the hosts blit.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum DisplayCommand {
     PushState,
     PopState,
     Translate {
-        dx: Value,
-        dy: Value,
+        dx: f64,
+        dy: f64,
     },
     Opacity {
         value: f64,
     },
     Transform {
-        origin: Value,
-        box_value: Value,
-        transforms: Value,
+        origin: ReaderPoint,
+        box_size: ReaderSize,
+        transforms: Vec<ReaderTransform>,
     },
     ClipRect {
-        rect: Value,
-        radius: Option<Value>,
+        rect: ReaderRect,
+        radius: Option<ReaderCornerRadius>,
     },
     PaintPage {
-        rect: Value,
-        paint: Value,
+        rect: ReaderRect,
+        paint: ReaderPagePaint,
     },
     PaintBlock {
-        rect: Value,
-        paint: Value,
-        border_box: Option<Value>,
+        rect: ReaderRect,
+        paint: ReaderBlockPaint,
+        border_box: Option<ReaderBorderBox>,
     },
-    PaintText(DisplayTextCommandInput),
-    PaintRuby(DisplayTextCommandInput),
+    PaintText(DisplayTextCommand),
+    PaintRuby(DisplayTextCommand),
     PaintImage {
         src: String,
-        rect: Value,
+        rect: ReaderRect,
         alt: Option<String>,
         href: Option<String>,
-        source_rect: Option<Value>,
+        source_rect: Option<ReaderRect>,
     },
     PaintHorizontalRule {
-        rect: Value,
-        paint: Value,
+        rect: ReaderRect,
+        paint: ReaderHorizontalRulePaint,
     },
 }
 
+/// A painted text run or ruby annotation.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct DisplayTextCommand {
+    pub text: String,
+    pub rect: ReaderRect,
+    pub paint: RunPaint,
+    pub line_height_px: Option<f64>,
+    pub href: Option<String>,
+    pub source_text: Option<String>,
+    pub source_text_offset: Option<u64>,
+    /// Where each cluster of the text paints, in text order: byte offset
+    /// into `text` and the absolute CSS origin the pen draws it at — its
+    /// alphabetic baseline, for a text run and an annotation alike.
+    /// Empty only for a run the renderer still places itself.
+    pub clusters: Vec<(u32, f64, f64)>,
+}
+
 impl DisplayCommand {
-    pub(crate) fn push_state() -> Self {
-        Self::PushState
-    }
-
-    pub(crate) fn pop_state() -> Self {
-        Self::PopState
-    }
-
-    pub(crate) fn translate(dx: Value, dy: Value) -> Self {
-        Self::Translate { dx, dy }
-    }
-
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "opacity lowers to the wire and both pens paint it, but fragment paint does not emit it yet"
+        )
+    )]
     pub(crate) fn opacity(value: f64) -> Self {
         Self::Opacity { value }
     }
 
-    pub(crate) fn transform(origin: Value, box_value: Value, transforms: Value) -> Self {
-        Self::Transform {
-            origin,
-            box_value,
-            transforms,
-        }
-    }
-
-    pub(crate) fn clip_rect(rect: Value, radius: Option<Value>) -> Self {
-        Self::ClipRect { rect, radius }
-    }
-
-    pub(crate) fn paint_page(rect: Value, paint: Value) -> Self {
-        Self::PaintPage { rect, paint }
-    }
-
-    pub(crate) fn paint_block(rect: Value, paint: Value, border_box: Option<Value>) -> Self {
-        Self::PaintBlock {
-            rect,
-            paint,
-            border_box,
-        }
-    }
-
-    pub(crate) fn paint_text(input: DisplayTextCommandInput) -> Self {
-        Self::PaintText(input)
-    }
-
-    pub(crate) fn paint_ruby(input: DisplayTextCommandInput) -> Self {
-        Self::PaintRuby(input)
-    }
-
     pub(crate) fn paint_image(
         src: String,
-        rect: Value,
+        rect: ReaderRect,
         alt: Option<String>,
         href: Option<String>,
     ) -> Self {
@@ -186,7 +110,11 @@ impl DisplayCommand {
 
     /// An image command that samples only `source_rect` (raster pixels)
     /// — the clamp-bleed strip an svg letterbox smears across its sliver.
-    pub(crate) fn paint_image_slice(src: String, rect: Value, source_rect: Value) -> Self {
+    pub(crate) fn paint_image_slice(
+        src: String,
+        rect: ReaderRect,
+        source_rect: ReaderRect,
+    ) -> Self {
         Self::PaintImage {
             src,
             rect,
@@ -196,126 +124,73 @@ impl DisplayCommand {
         }
     }
 
-    pub(crate) fn paint_horizontal_rule(rect: Value, paint: Value) -> Self {
-        Self::PaintHorizontalRule { rect, paint }
-    }
-
-    fn kind(&self) -> &'static str {
-        self.kind_enum().as_str()
-    }
-
-    fn kind_enum(&self) -> DisplayCommandKind {
+    /// The command's kind, as the frame metadata counts it.
+    pub(crate) fn kind_name(&self) -> &'static str {
         match self {
-            Self::PushState => DisplayCommandKind::PushState,
-            Self::PopState => DisplayCommandKind::PopState,
-            Self::Translate { .. } => DisplayCommandKind::Translate,
-            Self::Opacity { .. } => DisplayCommandKind::Opacity,
-            Self::Transform { .. } => DisplayCommandKind::Transform,
-            Self::ClipRect { .. } => DisplayCommandKind::ClipRect,
-            Self::PaintPage { .. } => DisplayCommandKind::PaintPage,
-            Self::PaintBlock { .. } => DisplayCommandKind::PaintBlock,
-            Self::PaintText(_) => DisplayCommandKind::PaintText,
-            Self::PaintRuby(_) => DisplayCommandKind::PaintRuby,
-            Self::PaintImage { .. } => DisplayCommandKind::PaintImage,
-            Self::PaintHorizontalRule { .. } => DisplayCommandKind::PaintHorizontalRule,
-        }
-    }
-
-    fn to_value(&self) -> Value {
-        json::command_value(self)
-    }
-
-    fn rect(&self) -> Option<&Value> {
-        match self {
-            Self::ClipRect { rect, .. }
-            | Self::PaintPage { rect, .. }
-            | Self::PaintBlock { rect, .. }
-            | Self::PaintImage { rect, .. }
-            | Self::PaintHorizontalRule { rect, .. } => Some(rect),
-            Self::PaintText(input) | Self::PaintRuby(input) => Some(&input.rect),
-            _ => None,
-        }
-    }
-
-    fn text(&self) -> Option<&Value> {
-        match self {
-            Self::PaintText(input) | Self::PaintRuby(input) => Some(&input.text),
-            _ => None,
-        }
-    }
-
-    fn has_paint(&self) -> bool {
-        matches!(
-            self,
-            Self::PaintPage { .. }
-                | Self::PaintBlock { .. }
-                | Self::PaintText(_)
-                | Self::PaintRuby(_)
-                | Self::PaintHorizontalRule { .. }
-        )
-    }
-
-    fn primary_href(&self) -> Option<&str> {
-        match self {
-            Self::PaintText(input) | Self::PaintRuby(input) => input.href.as_deref(),
-            Self::PaintImage { href, .. } => href.as_deref(),
-            _ => None,
+            Self::PushState => "pushState",
+            Self::PopState => "popState",
+            Self::Translate { .. } => "translate",
+            Self::Opacity { .. } => "opacity",
+            Self::Transform { .. } => "transform",
+            Self::ClipRect { .. } => "clipRect",
+            Self::PaintPage { .. } => "paintPage",
+            Self::PaintBlock { .. } => "paintBlock",
+            Self::PaintText(_) => "paintText",
+            Self::PaintRuby(_) => "paintRuby",
+            Self::PaintImage { .. } => "paintImage",
+            Self::PaintHorizontalRule { .. } => "paintHorizontalRule",
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct DisplayTextCommandInput {
-    pub text: Value,
-    pub rect: Value,
-    pub paint: RunPaint,
-    pub line_height_px: Option<Value>,
-    pub href: Option<String>,
-    pub source_text: Option<Value>,
-    pub source_text_offset: Option<usize>,
-    /// A ruby command's non-initial `ruby-align`; `None` (the initial
-    /// `space-around`) stays off the wire. Always `None` for plain text.
-    pub ruby_align: Option<RubyAlignPaint>,
-    /// Right-aligned draw: `rect.x` is the text's RIGHT edge and the
-    /// renderer measures the string to place the pen (outside list
-    /// markers, whose width only the canvas can measure). Off the wire
-    /// when false.
-    pub align_right: bool,
-    /// Vertical writing: the renderer draws the string as one downward
-    /// column — upright glyphs, the pen stepping one font-size per
-    /// cluster — with `rect.x` the column's left edge and `rect.y` the
-    /// first glyph's top. Off the wire when false.
-    pub vertical: bool,
+/// A display coordinate rounded to six decimals: every 1/64 LayoutUnit
+/// position exactly, float noise from the paint arithmetic removed.
+///
+/// Three decimals proved too coarse for text positions: a run x of
+/// 840.65625 shipped as 840.656, pulling every glyph 0.00025px below its
+/// LayoutUnit position — invisible everywhere except characters whose
+/// position lands exactly on a quarter-pixel raster tie (fraction 1/8,
+/// 3/8, 5/8, 7/8), where the browser rounds the exact value UP and the
+/// depressed value rounded DOWN, flipping the glyph one raster bucket
+/// left on a ~125px page lattice (measured: restoring the lost 0.00025
+/// made the engine's canvas replay bit-identical to the browser's page).
+pub(crate) fn display_number(value: f64) -> f64 {
+    (value * 1e6).round() / 1e6
 }
 
-/// A non-initial `ruby-align` keyword carried by a ruby paint command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct RubyAlignPaint(&'static str);
-
-impl RubyAlignPaint {
-    pub(crate) const START: Self = Self("start");
-    pub(crate) const CENTER: Self = Self("center");
-    pub(crate) const SPACE_BETWEEN: Self = Self("space-between");
-
-    pub(crate) const fn as_str(self) -> &'static str {
-        self.0
+/// A command rectangle with every edge at display precision.
+pub(crate) fn display_rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRect {
+    ReaderRect {
+        x: display_number(x),
+        y: display_number(y),
+        width: display_number(width),
+        height: display_number(height),
     }
-}
-
-pub(crate) fn display_command_values(commands: &[DisplayCommand]) -> Vec<Value> {
-    commands.iter().map(DisplayCommand::to_value).collect()
 }
 
 pub(crate) fn count_display_commands(commands: &[DisplayCommand]) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::new();
     for command in commands {
-        *counts.entry(command.kind().to_owned()).or_insert(0) += 1;
+        *counts.entry(command.kind_name().to_owned()).or_insert(0) += 1;
     }
     counts
 }
 
+/// Identifies a display list within one engine build: the SHA-256 of
+/// every command's complete `Debug` rendering, which serializes each
+/// typed field deterministically. The digest names a frame to hosts and
+/// caches; it is not a wire contract across builds.
 pub(crate) fn hash_display_commands(commands: &[DisplayCommand]) -> String {
-    hash_json(&Value::Array(display_command_values(commands)))
+    let mut digest = Sha256::new();
+    for command in commands {
+        digest.update(format!("{command:?}\n").as_bytes());
+    }
+    digest
+        .finalize()
+        .iter()
+        .take(8)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[cfg(test)]

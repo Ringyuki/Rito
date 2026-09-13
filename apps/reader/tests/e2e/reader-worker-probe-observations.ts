@@ -6,17 +6,15 @@ export interface ReaderWorkerRevisionHandleObservation {
 }
 
 export interface ReaderWorkerRevisionObservation extends ReaderWorkerRevisionHandleObservation {
-  readonly status: string | null;
-  readonly knownPageCount: number | null;
-  readonly knownSpreadCount: number | null;
+  readonly pageCount: number | null;
+  readonly spreadCount: number | null;
 }
 
 export interface ReaderWorkerChapterLocalRevisionObservation extends ReaderWorkerRevisionHandleObservation {
   readonly chapterIndex: number;
   readonly href: string;
-  readonly status: string | null;
-  readonly knownLocalPageCount: number | null;
-  readonly knownLocalSpreadCount: number | null;
+  readonly localPageCount: number | null;
+  readonly localSpreadCount: number | null;
 }
 
 export interface ReaderWorkerOperationObservation {
@@ -25,10 +23,6 @@ export interface ReaderWorkerOperationObservation {
   readonly kind: string;
   readonly startedAt: number;
   readonly requestBytes: number | null;
-  readonly maxTopLevelNodes: number | null;
-  readonly maxQuanta: number | null;
-  processedTopLevelNodes: number | null;
-  advancedQuanta: number | null;
   readonly spreadIndex: number | null;
   completedAt: number | null;
   durationMs: number | null;
@@ -49,7 +43,7 @@ export interface ReaderLongTaskObservation {
   readonly name: string;
 }
 
-export interface ReaderWorkerHeldContinuationObservation {
+export interface ReaderWorkerHeldMutationObservation {
   readonly workerId: number;
   readonly requestId: number;
   readonly kind: string;
@@ -58,30 +52,17 @@ export interface ReaderWorkerHeldContinuationObservation {
   releasedAt: number | null;
 }
 
-export type ReaderWorkerResponseHoldCategory = 'mainContinuation' | 'chapterLocalMutation';
+export type ReaderWorkerResponseHoldCategory = 'chapterLocalMutation';
 
-export const READER_WORKER_MAIN_CONTINUATION_KINDS = [
-  'continueRevision',
-  'continueRevisionAfterTransferRelease',
-  'continueRevisionTowardSourceLocator',
-] as const;
-
-export const READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS = [
-  'createBoundedChapterLocalRevision',
-  'continueChapterLocalRevision',
-] as const;
+export const READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS = ['createChapterLocalRevision'] as const;
 
 export interface ReaderWorkerResponseHoldPlan {
-  readonly mainContinuation: boolean;
   readonly chapterLocalMutation: boolean;
 }
 
 export function readerWorkerResponseHoldCategory(
   kind: string,
 ): ReaderWorkerResponseHoldCategory | undefined {
-  if (READER_WORKER_MAIN_CONTINUATION_KINDS.some((candidate) => candidate === kind)) {
-    return 'mainContinuation';
-  }
   if (READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS.some((candidate) => candidate === kind)) {
     return 'chapterLocalMutation';
   }
@@ -91,10 +72,7 @@ export function readerWorkerResponseHoldCategory(
 export function readerWorkerTocResponseHoldPlan(
   chapterLocalPreviewEnabled: boolean,
 ): ReaderWorkerResponseHoldPlan {
-  return {
-    mainContinuation: true,
-    chapterLocalMutation: chapterLocalPreviewEnabled,
-  };
+  return { chapterLocalMutation: chapterLocalPreviewEnabled };
 }
 
 export interface ReaderWorkerCreationObservation {
@@ -128,10 +106,10 @@ export interface ReaderProbeIdleOptions {
 interface ReaderWorkerProbeGlobal {
   __RITO_READER_WORKER_OPERATIONS__?: ReaderWorkerOperationObservation[];
   __RITO_READER_WORKER_CREATIONS__?: ReaderWorkerCreationObservation[];
-  __RITO_READER_WORKER_HELD_CONTINUATIONS__?: ReaderWorkerHeldContinuationObservation[];
+  __RITO_READER_WORKER_HELD_MUTATIONS__?: ReaderWorkerHeldMutationObservation[];
   __RITO_READER_WORKER_TERMINATIONS__?: ReaderWorkerTerminationObservation[];
   __RITO_READER_WORKER_RESPONSE_HOLD_PLAN__?: ReaderWorkerResponseHoldPlan;
-  __RITO_READER_WORKER_RELEASE_CONTINUATIONS__?: () => void;
+  __RITO_READER_WORKER_RELEASE_MUTATIONS__?: () => void;
   __RITO_READER_LONG_TASKS__?: ReaderLongTaskObservation[];
   __RITO_READER_LONG_TASK_OBSERVER__?: PerformanceObserver;
   __RITO_READER_FLUSH_LONG_TASKS__?: () => void;
@@ -146,13 +124,6 @@ export async function readReaderWorkerCreations(
   });
 }
 
-export async function holdNextReaderWorkerContinuation(page: Page): Promise<void> {
-  await armReaderWorkerResponseHolds(page, {
-    mainContinuation: true,
-    chapterLocalMutation: false,
-  });
-}
-
 export async function armReaderWorkerResponseHolds(
   page: Page,
   plan: ReaderWorkerResponseHoldPlan,
@@ -163,59 +134,43 @@ export async function armReaderWorkerResponseHolds(
   }, plan);
 }
 
-export async function waitForHeldReaderWorkerContinuation(
-  page: Page,
-  timeoutMs = 15_000,
-): Promise<ReaderWorkerHeldContinuationObservation> {
-  const held = (await waitForHeldReaderWorkerResponses(page, ['mainContinuation'], timeoutMs))[0];
-  if (!held) throw new Error('Reader worker continuation was not held');
-  return held;
-}
-
 export async function waitForHeldReaderWorkerResponses(
   page: Page,
   categories: readonly ReaderWorkerResponseHoldCategory[],
   timeoutMs = 15_000,
-): Promise<ReaderWorkerHeldContinuationObservation[]> {
+): Promise<ReaderWorkerHeldMutationObservation[]> {
   const expected = new Set(categories);
   await expect
     .poll(
       async () => {
-        const held = await readHeldReaderWorkerContinuations(page);
-        return [...expected].every((category) =>
-          held.some((entry) => entry.category === category && entry.releasedAt === null),
-        );
+        const held = await readHeldReaderWorkerMutations(page);
+        return [...expected].every(() => held.some((entry) => entry.releasedAt === null));
       },
       { timeout: timeoutMs },
     )
     .toBe(true);
-  const held = await readHeldReaderWorkerContinuations(page);
+  const held = await readHeldReaderWorkerMutations(page);
   return categories.map((category) => {
-    const entry = held.find(
-      (candidate) => candidate.category === category && candidate.releasedAt === null,
-    );
+    const entry = held.find((candidate) => candidate.releasedAt === null);
     if (!entry) throw new Error(`Reader worker response was not held for ${category}`);
     return entry;
   });
 }
 
-export async function releaseHeldReaderWorkerContinuations(page: Page): Promise<void> {
+export async function releaseHeldReaderWorkerMutations(page: Page): Promise<void> {
   await page.evaluate(() => {
     const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
-    runtime.__RITO_READER_WORKER_RESPONSE_HOLD_PLAN__ = {
-      mainContinuation: false,
-      chapterLocalMutation: false,
-    };
-    runtime.__RITO_READER_WORKER_RELEASE_CONTINUATIONS__?.();
+    runtime.__RITO_READER_WORKER_RESPONSE_HOLD_PLAN__ = { chapterLocalMutation: false };
+    runtime.__RITO_READER_WORKER_RELEASE_MUTATIONS__?.();
   });
 }
 
-export async function readHeldReaderWorkerContinuations(
+export async function readHeldReaderWorkerMutations(
   page: Page,
-): Promise<ReaderWorkerHeldContinuationObservation[]> {
+): Promise<ReaderWorkerHeldMutationObservation[]> {
   return page.evaluate(() => {
     const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
-    return runtime.__RITO_READER_WORKER_HELD_CONTINUATIONS__?.map((entry) => ({ ...entry })) ?? [];
+    return runtime.__RITO_READER_WORKER_HELD_MUTATIONS__?.map((entry) => ({ ...entry })) ?? [];
   });
 }
 

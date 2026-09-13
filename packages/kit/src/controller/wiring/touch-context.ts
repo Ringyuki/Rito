@@ -33,7 +33,6 @@ export interface GestureDeps {
   ) => GestureNavigationToken;
   readonly getCurrentSpread: () => number;
   readonly getTotalSpreads: () => number;
-  readonly isPaginationComplete: () => boolean;
   /** Commits an active same-direction transition before a rapid flip. */
   readonly commitPendingTransition: () => void;
 }

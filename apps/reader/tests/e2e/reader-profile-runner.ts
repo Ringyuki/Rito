@@ -16,12 +16,7 @@ import { buildReaderProfileStartup } from './reader-profile-startup';
 import { readReaderChapterLocalPreviewMode } from './reader-chapter-local-preview-mode';
 import { runFreshFarBootstrap } from './reader-profile-fresh-far';
 import { readReaderLongTasks, readReaderWorkerOperations } from './reader-worker-probe';
-import {
-  runCachedTurnProfile,
-  runDeferredGrowthProfile,
-  runInitialProfile,
-  runReflowProfile,
-} from './reader-profile-stages';
+import { runCachedTurnProfile, runInitialProfile, runReflowProfile } from './reader-profile-stages';
 import { runFarTocProfile, runTocSupersedeProfile } from './reader-profile-toc-stages';
 import { requireProfileProtocol } from './reader-profile-protocol';
 import {
@@ -63,8 +58,7 @@ export async function runReaderLoadProfile(
     const startup = await prepareProfilePage(page, options.viewport);
     const initial = await runInitialProfile(page, options.epubPath);
     const cachedTurn = await runCachedTurnProfile(page, initial.checksum);
-    const deferredGrowth = await runDeferredGrowthProfile(page, cachedTurn.checksum);
-    const tocSupersede = await runTocSupersedeProfile(page, deferredGrowth.checksum);
+    const tocSupersede = await runTocSupersedeProfile(page, cachedTurn.checksum);
     const reflow = await runReflowProfile(page, options.reflowViewport, tocSupersede.checksum);
     const mainOperations = await readReaderWorkerOperations(page);
     const mainLongTasks = await readReaderLongTasks(page);
@@ -94,7 +88,6 @@ export async function runReaderLoadProfile(
     requireProfileProtocol(
       initial,
       cachedTurn,
-      deferredGrowth,
       tocSupersede,
       reflow,
       freshFarBootstrap,
@@ -116,13 +109,11 @@ export async function runReaderLoadProfile(
       canvasAt: initial.canvasAt,
       initial: initial.stage,
       cachedTurn: cachedTurn.stage,
-      deferredGrowth: deferredGrowth.stage,
       tocSupersede: tocSupersede.stage,
       freshFarBootstrap: freshFarBootstrap.stage,
       farToc: farToc.stage,
       reflow,
       cachedTurnTransition: cachedTurn.transition,
-      deferredGrowthTransition: deferredGrowth.transition,
       tocSupersedeTransition: tocSupersede.transition,
       freshFarGeneration: freshFarBootstrap.generation,
       farTocTransition: farToc.transition,

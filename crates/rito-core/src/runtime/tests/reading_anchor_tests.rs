@@ -1,20 +1,16 @@
 use super::fixture::{
     image_only_fixture_epub, image_plates_before_text_fixture_epub, layout,
-    long_source_text_fixture_epub, multi_chapter_fixture_epub,
+    long_source_text_fixture_epub,
 };
-use crate::{
-    layout::LineBreaking,
-    runtime::{
-        RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePageReadingAnchor,
-        RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
-        RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
-        RuntimeSourceLocatorResolution,
-    },
+use crate::runtime::{
+    RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevisionAccessErrorKind,
+    RuntimeRevisionHandle, RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy,
+    RuntimeSourceLocatorResolution,
 };
 
 #[test]
 fn exact_page_anchor_round_trips_to_the_same_source_after_reflow() {
-    let mut document = RuntimeDocument::open(&long_source_text_fixture_epub())
+    let mut document = RuntimeDocument::open_pinned_for_tests(&long_source_text_fixture_epub())
         .expect("long source document opens");
     let first = document
         .create_revision(&layout())
@@ -88,8 +84,9 @@ fn every_page_reading_anchor_resolves_back_to_its_own_page() {
     // text-free plate pages here used to capture a chapter-position
     // progression that resolution then projected onto the chapter's
     // TEXT, collapsing every plate onto the caption page.
-    let mut document = RuntimeDocument::open(&image_plates_before_text_fixture_epub())
-        .expect("plates document opens");
+    let mut document =
+        RuntimeDocument::open_pinned_for_tests(&image_plates_before_text_fixture_epub())
+            .expect("plates document opens");
     let revision = document
         .create_revision(&layout())
         .expect("plates revision is created");
@@ -131,8 +128,8 @@ fn image_only_page_resolves_a_durable_fallback_anchor() {
     // degrades like the chapter-local reader: paint-target source
     // identity when the page carries it, else chapter-relative
     // progression — and must resolve back to the same page.
-    let mut document =
-        RuntimeDocument::open(&image_only_fixture_epub()).expect("image-only document opens");
+    let mut document = RuntimeDocument::open_pinned_for_tests(&image_only_fixture_epub())
+        .expect("image-only document opens");
     let revision = document
         .create_revision(&layout())
         .expect("image-only revision is created");
@@ -164,50 +161,6 @@ fn image_only_page_resolves_a_durable_fallback_anchor() {
         invalid.kind,
         RuntimeRevisionAccessErrorKind::OperationFailed
     );
-}
-
-#[test]
-fn durable_anchor_is_pending_when_the_new_revision_has_not_paginated_its_source() {
-    let mut document =
-        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("multi-chapter document opens");
-    let full = document
-        .create_revision(&layout())
-        .expect("full revision is created");
-    let full_handle = RuntimeRevisionHandle::from(&full);
-    let locator = (0..full.page_count)
-        .find_map(|page_index| {
-            let response = document
-                .get_page_reading_anchor_at(&full_handle, page_index)
-                .expect("full page anchor is returned");
-            let RuntimePageReadingAnchor::Resolved { locator, .. } = response.value else {
-                return None;
-            };
-            (locator.href == "chapter-3.xhtml").then_some(locator)
-        })
-        .expect("full revision exposes chapter three source identity");
-    let partial = document
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
-            budget: RuntimeRevisionWorkBudget {
-                max_top_level_nodes: 1,
-            },
-        })
-        .expect("partial revision starts");
-    let partial_handle = RuntimeRevisionHandle::from(&partial.revision);
-
-    let projection = document
-        .resolve_source_locator_at(&partial_handle, locator)
-        .expect("durable locator remains valid before its pages exist");
-
-    assert!(matches!(
-        projection.value,
-        RuntimeSourceLocatorResolution::Pending {
-            reason: RuntimeSourceLocatorPendingReason::NotPaginated,
-            matched_by: RuntimeSourceLocatorMatchedBy::SourcePoint,
-            ..
-        }
-    ));
 }
 
 fn resolved_anchor(anchor: RuntimePageReadingAnchor) -> (usize, usize, RuntimeSourceLocator) {

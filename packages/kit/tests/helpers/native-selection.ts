@@ -1,9 +1,25 @@
+import { vi } from 'vitest';
 import type {
+  ReaderInteractions,
   ReaderTextRange,
   ReaderTextCaret,
   ReaderTextCaretResolution,
   ReaderTextSelectionInteractions,
 } from '@ritojs/core';
+
+/** The reader interaction surface a controller requires, with every read settling empty. */
+export function readerInteractions(): ReaderInteractions {
+  return {
+    enabled: true,
+    textSelection: capabilityFrom(
+      vi.fn(() => Promise.resolve(undefined)),
+      vi.fn(() => Promise.resolve(undefined)),
+    ),
+    getPageTargets: vi.fn(() => Promise.resolve(undefined)),
+    getFootnote: vi.fn(() => Promise.resolve(undefined)),
+    resolveLocator: vi.fn(() => Promise.resolve(undefined)),
+  };
+}
 
 export function capabilityFrom(
   resolveCaret: ReaderTextSelectionInteractions['resolveCaret'],

@@ -1,4 +1,4 @@
-export const READER_MEMORY_GATE_SCHEMA_VERSION = 2;
+export const READER_MEMORY_GATE_SCHEMA_VERSION = 3;
 
 export const READER_MEMORY_METRIC_KEYS = [
   'baselinePhysFootprintMiB',
@@ -177,7 +177,7 @@ export interface ReaderMemoryGateReport {
   readonly checkpoints: {
     readonly baseline: ReaderMemoryCheckpoint;
     readonly loaded: ReaderMemoryCheckpoint;
-    readonly growth: ReaderMemoryCheckpoint;
+    readonly traversed: ReaderMemoryCheckpoint;
     readonly reflow: ReaderMemoryCheckpoint;
     readonly replacements: readonly ReaderMemoryCheckpoint[];
     readonly disposed: ReaderMemoryCheckpoint;

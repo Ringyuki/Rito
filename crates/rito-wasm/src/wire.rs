@@ -1,13 +1,10 @@
+use rito_core::layout::LayoutConfig;
 use rito_core::runtime::{
-    RuntimeActiveChapterPreviewRevisionRequest, RuntimeBoundedRevisionRequest,
-    RuntimeCalibrateRevisionFontVerticalMetricsRequest, RuntimeCancelRevisionRequest,
-    RuntimeContinueRevisionRequest, RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan,
-    RuntimeFullRevisionBundleRequest, RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
-    RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
-    RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextPointRequest,
-    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
-    RuntimeTextRangeToPointRequest, RuntimeTextSelectionMovementRequest,
-    RuntimeViewRevisionRequest,
+    RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan, RuntimeLocatorRequest,
+    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeSearchRequest,
+    RuntimeSourceLocator, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
+    RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeTextRangeToPointRequest,
+    RuntimeTextSelectionMovementRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,23 +14,6 @@ use crate::WasmRuntimeError;
 #[serde(rename_all = "camelCase")]
 pub struct WasmResourcePrefetchRequest {
     pub resources: Vec<WasmResourceRequest>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WasmFullRevisionBundleRequest {
-    #[serde(flatten)]
-    pub runtime: RuntimeFullRevisionBundleRequest,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_revision_id: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WasmContinueRevisionTowardSourceLocatorRequest {
-    #[serde(flatten)]
-    pub continuation: RuntimeContinueRevisionRequest,
-    pub locator: RuntimeSourceLocator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,93 +63,9 @@ pub struct WasmMissingResource {
     pub message: String,
 }
 
-pub fn parse_full_revision_bundle_request(
-    json: &str,
-) -> Result<WasmFullRevisionBundleRequest, WasmRuntimeError> {
+pub fn parse_layout_config(json: &str) -> Result<LayoutConfig, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid full revision bundle request JSON: {error}"
-        ))
-    })
-}
-
-pub fn parse_active_chapter_preview_revision_request(
-    json: &str,
-) -> Result<RuntimeActiveChapterPreviewRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid active chapter preview revision request JSON: {error}"
-        ))
-    })
-}
-
-pub fn parse_initial_preview_revision_request(
-    json: &str,
-) -> Result<RuntimeInitialPreviewRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid initial preview revision request JSON: {error}"
-        ))
-    })
-}
-
-pub fn parse_preview_revision_bundle_request(
-    json: &str,
-) -> Result<RuntimePreviewRevisionBundleRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid preview revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_view_revision_request(
-    json: &str,
-) -> Result<RuntimeViewRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid view revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_bounded_revision_request(
-    json: &str,
-) -> Result<RuntimeBoundedRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid bounded revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_continue_revision_request(
-    json: &str,
-) -> Result<RuntimeContinueRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid continue revision request JSON: {error}"))
-    })
-}
-
-pub fn parse_calibrate_revision_font_vertical_metrics_request(
-    json: &str,
-) -> Result<RuntimeCalibrateRevisionFontVerticalMetricsRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid revision font vertical metric calibration request JSON: {error}"
-        ))
-    })
-}
-
-pub fn parse_continue_revision_toward_source_locator_request(
-    json: &str,
-) -> Result<WasmContinueRevisionTowardSourceLocatorRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid source locator continuation request JSON: {error}"
-        ))
-    })
-}
-
-pub fn parse_cancel_revision_request(
-    json: &str,
-) -> Result<RuntimeCancelRevisionRequest, WasmRuntimeError> {
-    serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid cancel revision request JSON: {error}"))
+        WasmRuntimeError::bad_request(format!("invalid layout config JSON: {error}"))
     })
 }
 

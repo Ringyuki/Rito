@@ -19,35 +19,29 @@ It performs the standard reader pipeline:
 4. build spread frames and resource schedules
 5. bind rendering to the provided Canvas target
 
-Use this when you want the normal app-facing API instead of assembling the pipeline manually.
-For non-Web runtimes, target the Rust runtime contract behind the root package
-instead of the legacy TypeScript Canvas helper path.
-
-The older TypeScript Canvas reader is retained only as source reference code
-inside this repository. New app-facing reader code should depend on the root
-package entry.
+Use this when you want the normal app-facing API instead of driving the
+artifact protocol yourself. Flutter apps use `rito_flutter`; other native
+hosts bridge the C ABI (see [Direct FFI integration](../integrations/ffi.md)).
 
 ## `ReaderOptions`
 
-| Option             | Type                     | Default                          | Notes                                  |
-| ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
-| `width`            | `number`                 | required                         | Viewport width in logical pixels       |
-| `height`           | `number`                 | required                         | Viewport height in logical pixels      |
-| `margin`           | `number`                 | `40`                             | Page margin                            |
-| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
-| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
-| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
-| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
-| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
-| `lineBreaking`     | `'greedy' \| 'optimal'`  | `'greedy'`                       | `'optimal'` currently equals greedy    |
-| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                  |
-| `paginationPolicy` | `PaginationPolicy`       | unset                            | Widow/orphan configuration             |
-| `fontSize`         | `number`                 | unset                            | Initial root font-size override        |
-| `lineHeight`       | `number`                 | unset                            | Initial line-height override           |
-| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node        |
-| `fontFamily`       | `string`                 | unset                            | Accepted but inert today (see below)   |
-| `fontFamilyForce`  | `boolean`                | `false`                          | Accepted but inert today (see below)   |
-| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces |
+| Option             | Type                     | Default                          | Notes                                   |
+| ------------------ | ------------------------ | -------------------------------- | --------------------------------------- |
+| `width`            | `number`                 | required                         | Viewport width in logical pixels        |
+| `height`           | `number`                 | required                         | Viewport height in logical pixels       |
+| `margin`           | `number`                 | `40`                             | Page margin                             |
+| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                   |
+| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode        |
+| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white  |
+| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it  |
+| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                     |
+| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                   |
+| `fontSize`         | `number`                 | unset                            | Initial root font-size override         |
+| `lineHeight`       | `number`                 | unset                            | Initial line-height override            |
+| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node         |
+| `fontFamily`       | `string`                 | unset                            | Body `font-family` override (see below) |
+| `fontFamilyForce`  | `boolean`                | `false`                          | Apply the override with `!important`    |
+| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces  |
 
 `pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
 the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
@@ -60,8 +54,7 @@ reader to replace it.
 
 A missing or empty policy makes `createReader` **throw**: the WASM engine
 shapes text with exactly these bytes and cannot start without them (there
-is no reachable system font inside the runtime, and no legacy fallback
-pipeline anymore).
+is no reachable system font inside the runtime).
 
 The core intentionally does not bundle, download, or choose fallback assets.
 The application owns their licensing, distribution, locale policy, and offline
@@ -115,7 +108,6 @@ loads a new Reader.
 | `renderSpreadTo(index, ctx)`                        | Render to a Canvas 2D target                     |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
-| `setLineBreaking(lineBreaking)`                     | Re-paginate with a new line-breaking strategy    |
 | `updateLayout(width, height, spreadMode?, margin?)` | Update viewport and spread settings in one pass  |
 | `getCanvasSize(scale?)`                             | Return CSS canvas size for the current layout    |
 | `getLayoutGeometry()`                               | Return the active `LayoutConfig`                 |
@@ -139,12 +131,14 @@ coarse:
 EPUB element-level rules continue to win in coarse mode. Set
 `lineHeightForce` to apply the line-height override to every element.
 
-> **Known limitation:** `fontFamily` does not change the rendered faces yet.
-> The engine shapes and paints with the pinned font policy's faces applied in
-> policy order, and selecting faces by the override's generic family is not
-> implemented. Hosts that offer a font choice should open the reader with a
-> pinned font policy containing the chosen faces instead (the pattern the
-> Flutter reader uses).
+> **Face selection:** the engine shapes only with the pinned font policy's
+> faces and the publication's `@font-face` fonts; there are no system fonts.
+> Every generic family (`serif`, `sans-serif`, `monospace`, ...) resolves to
+> the pinned faces in policy order, so a generic `fontFamily` override does
+> not pick a different pinned face. A publication `@font-face` family name
+> does select that font. Hosts that offer a font choice open the reader with
+> a pinned font policy containing the chosen faces (the pattern the Flutter
+> reader uses).
 
 For `setTheme()`, omitted fields remain unchanged. Pass `null` to clear a
 foreground override or restore the default white background; this is useful
@@ -163,19 +157,25 @@ when switching from a dark theme back to a book-authored light theme.
 | `resolveTocEntry(entry)`        | Resolve a TOC entry to page + spread |
 | `findActiveTocEntry(pageIndex)` | Find the active TOC entry for a page |
 
-### Pagination / interaction data
+### Layout / interaction data
 
-| Member                    | What it does                                         |
-| ------------------------- | ---------------------------------------------------- |
-| `pages`                   | Paginated pages                                      |
-| `spreads`                 | Presentation-layer spreads                           |
-| `totalSpreads`            | Number of spreads                                    |
-| `dpr`                     | Device pixel ratio used by rendering                 |
-| `measurer`                | Text measurer used by interaction APIs               |
-| `getChapterTextIndices()` | Source-based chapter text indices                    |
-| `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment` |
-| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL   |
-| `interactions`            | Optional revision-safe semantic interaction provider |
+| Member                    | What it does                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `spreads`                 | Navigation record per spread: `{ index, pageIndexes, leftPageIndex, rightPageIndex? }` |
+| `totalSpreads`            | Number of spreads in the committed layout                                              |
+| `pageCount`               | Number of pages in the committed layout                                                |
+| `dpr`                     | Device pixel ratio used by rendering                                                   |
+| `getChapterTextIndices()` | Source-based chapter text indices                                                      |
+| `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment`                                   |
+| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL                                     |
+| `interactions`            | Optional revision-safe semantic interaction provider                                   |
+
+Every revision is laid out complete in one step, so `totalSpreads`, `pageCount`
+and `spreads` describe the whole book as soon as `createReader()` resolves. A
+spread carries page indexes only; page geometry comes from `getLayoutGeometry()`
+and page content from the rendered frame and `interactions`. Page and spread
+indexes are projections of the current layout and change on reflow — persist
+a `ReaderLocator`, not an index.
 
 When present, `interactions` exposes typed page-content targets plus exact-revision
 footnote and source-locator reads. Its `enabled` flag is false while a visual-only
@@ -191,15 +191,12 @@ point. `resolveTextRangeFromPoints()` expands two raw points to complete ICU wor
 or retained logical-flow paragraph units; missing or malformed package-language
 metadata falls back to locale-invariant word boundaries. Paragraph carets remain
 exact text/source positions rather than forging the DOM's structural
-next-block boundary. When the following flow is retained in the same chapter,
-`selectedText` still includes the native paragraph separator; at a bounded
-retention edge that trailing separator can appear only after the following flow
-has been retained.
-`resolveTextRangeToPoint()` is the atomic continuation path for an exact caret
-whose bounded revision has since appended an immutable page prefix. It rebinds
-that opaque caret and resolves the live point against one currently committed
-revision, so callers never combine geometry from two versions. A replacement
-layout, worker session, or unrelated revision still fails closed.
+next-block boundary. When the following flow belongs to the same chapter,
+`selectedText` includes the native paragraph separator.
+`resolveTextRangeToPoint()` rebinds an opaque caret and resolves the live point
+against one currently committed revision, so callers never combine geometry from
+two versions. A replacement layout, worker session, or unrelated revision fails
+closed.
 `resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
 anchor and live focus, advances the focus by a typed character, word, visual-line,
 line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
@@ -251,11 +248,14 @@ Reader implementations may return `void`, which is also safe to `await`.
 - you want one object that handles loading, pagination, and rendering
 - you do not need custom orchestration between parse/layout/render stages
 
-### Prefer source-only reference tooling when
+### Prefer `openBrowserReaderSession()` when
 
-- you are doing diagnostics, parity work, or migration tooling
-- you intentionally need the legacy TypeScript parser/layout/render primitives
-- you understand that this is not the production reader path
+- your host drives the artifact protocol itself: it opens a session,
+  prepares each candidate's resources, adopts it with a compare-and-swap
+  on the visible artifact, drives the background publication step itself
+  and keeps a replaced artifact alive through its own page-turn animation
+- you want the same protocol the Flutter adapter and the C ABI expose,
+  with `createBrowserReaderSessionCanvasPresenter()` as the Canvas pen
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 
@@ -264,6 +264,6 @@ Reader implementations may return `void`, which is also safe to `await`.
 
 ## Related Docs
 
-- [Reference Primitives](./primitives.md)
-- [Advanced Internals](./advanced.md)
-- [Specialized Subpaths](./subpaths.md)
+- [Public Entry](./subpaths.md)
+- [Using `@ritojs/kit`](../integrations/kit.md)
+- [Direct FFI integration](../integrations/ffi.md)

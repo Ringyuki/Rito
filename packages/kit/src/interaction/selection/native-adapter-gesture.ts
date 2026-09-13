@@ -27,16 +27,14 @@ export function registerNativeAdapterGestureOwner(
   return registered;
 }
 
-/** Consume a one-shot gesture transfer while retaining the legacy handle-only opt-in. */
+/** Consume the one-shot projection transfer; only an exact active gesture or handle drag survives a spread change. */
 export function shouldPreserveNativeAdapterGesture(
   owner: SelectionEngine | undefined,
   native: NativeSelectionEngine,
-  preserveNativeHandleDrag: boolean,
 ): boolean {
   const authorizedGesture = owner ? consumeSelectionGestureProjection(owner) : false;
   return (
-    (authorizedGesture && native.captureActiveGesture() !== null) ||
-    ((authorizedGesture || preserveNativeHandleDrag) && native.hasActiveHandleDrag())
+    authorizedGesture && (native.captureActiveGesture() !== null || native.hasActiveHandleDrag())
   );
 }
 

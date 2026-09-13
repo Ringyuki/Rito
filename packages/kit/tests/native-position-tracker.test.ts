@@ -37,7 +37,7 @@ describe('native reading-position tracker', () => {
     });
   });
 
-  it('publishes a pending native anchor against the latest appended pagination', async () => {
+  it('publishes a pending native anchor against the layout committed by the time it settles', async () => {
     const capture = deferred<unknown>();
     const initialLayout = layout();
     let currentLayout = initialLayout;
@@ -50,7 +50,7 @@ describe('native reading-position tracker', () => {
     );
 
     tracker.update(1);
-    currentLayout = appendedLayout(initialLayout);
+    currentLayout = largerLayout(initialLayout);
     capture.resolve({ status: 'resolved', pageIndex: 1, spreadIndex: 1, locator });
     await tracker.settle();
 
@@ -227,7 +227,7 @@ describe('native reading-position tracker', () => {
     expect(tracker.getPreservableCurrent()).toBeNull();
   });
 
-  it('projects an old archive through the legacy locator when native source identity is absent', async () => {
+  it('projects an old archive through its spine locator when native source identity is absent', async () => {
     const resolveLocator = vi.fn(() =>
       Promise.resolve({
         status: 'resolved',
@@ -275,7 +275,7 @@ describe('native reading-position tracker', () => {
     expect(tracker.getCurrent()?.projection).toEqual({ pageIndex: 1, spreadIndex: 1 });
   });
 
-  it('carries a distant legacy archive through preview into the full native layout', async () => {
+  it('carries a distant spine-locator archive through preview into the full native layout', async () => {
     const resolveLocator = vi
       .fn()
       .mockResolvedValueOnce({
@@ -509,7 +509,7 @@ describe('native reading-position tracker', () => {
     expect(tracker.serialize()).toBeUndefined();
   });
 
-  it('ignores a legacy locator rejection superseded in the same tick', async () => {
+  it('ignores a spine locator rejection superseded in the same tick', async () => {
     const pending = deferred<unknown>();
     const tracker = createTracker({
       getPageReadingAnchor: vi.fn(),
@@ -517,7 +517,7 @@ describe('native reading-position tracker', () => {
     });
     const resolving = tracker.resolveForNavigation(position(locator));
 
-    pending.reject(new Error('late legacy resolver failure'));
+    pending.reject(new Error('late spine locator resolver failure'));
     tracker.claimIntent();
 
     await expect(resolving).resolves.toBeUndefined();
@@ -610,7 +610,7 @@ describe('native reading-position tracker', () => {
     expect(tracker.getCurrent()).toBeNull();
   });
 
-  it('keeps the synchronous legacy capture and projection path without the capability', async () => {
+  it('keeps the synchronous capture and projection path without the capability', async () => {
     const tracker = createPositionTracker(() => layout());
     tracker.update(1);
 
@@ -642,15 +642,11 @@ function createTracker(
 }
 
 function layout(): PositionLayout {
-  const pages = [
-    { index: 0, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-    { index: 1, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-  ] as const;
   return {
-    pages,
+    pageCount: 2,
     spreads: [
-      { index: 0, left: pages[0] },
-      { index: 1, left: pages[1] },
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      { index: 1, pageIndexes: [1], leftPageIndex: 1 },
     ],
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 1 }]]),
     manifestHrefMap: new Map([['chapter', 'chapter.xhtml']]),
@@ -658,25 +654,22 @@ function layout(): PositionLayout {
 }
 
 function doubleLayout(): PositionLayout {
-  const base = layout();
-  const left = base.pages[0];
-  const right = base.pages[1];
-  if (!left || !right) throw new Error('double-page test layout is incomplete');
   return {
-    ...base,
-    spreads: [{ index: 0, left, right }],
+    ...layout(),
+    spreads: [{ index: 0, pageIndexes: [0, 1], leftPageIndex: 0, rightPageIndex: 1 }],
   };
 }
 
-function appendedLayout(base: PositionLayout): PositionLayout {
-  const template = base.pages[0];
-  if (!template) throw new Error('appended test layout is missing its template page');
-  const third = { ...template, index: 2 };
-  const fourth = { ...template, index: 3 };
+/** A four-page layout committed after the two-page one: progress must use the layout current at publish time. */
+function largerLayout(base: PositionLayout): PositionLayout {
   return {
     ...base,
-    pages: [...base.pages, third, fourth],
-    spreads: [...base.spreads, { index: 2, left: third }, { index: 3, left: fourth }],
+    pageCount: 4,
+    spreads: [
+      ...base.spreads,
+      { index: 2, pageIndexes: [2], leftPageIndex: 2 },
+      { index: 3, pageIndexes: [3], leftPageIndex: 3 },
+    ],
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 3 }]]),
   };
 }

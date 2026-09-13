@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderLocatorResolution } from '@ritojs/core';
 import { createController } from '../src/controller';
+import { readerInteractions } from './helpers/native-selection';
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -200,12 +201,7 @@ function createReaderFixture(activeSpreadIndex: number | 'missing'): {
   readonly renderSpreadTo: ReturnType<typeof vi.fn>;
   readonly notifyActiveSpread: ReturnType<typeof vi.fn>;
 } {
-  const pages = [0, 1, 2].map((index) => ({
-    index,
-    bounds: { x: 0, y: 0, width: 300, height: 400 },
-    content: [],
-  }));
-  const spreads = pages.map((left, index) => ({ index, left }));
+  const spreads = [0, 1, 2].map((index) => ({ index, pageIndexes: [index], leftPageIndex: index }));
   const renderSpreadTo = vi.fn(() => true);
   const notifyActiveSpread = vi.fn();
   const base = {
@@ -214,15 +210,15 @@ function createReaderFixture(activeSpreadIndex: number | 'missing'): {
     toc: [],
     chapterMap: new Map(),
     manifestHrefMap: new Map(),
-    pages,
+    pageCount: spreads.length,
     spreads,
+    interactions: readerInteractions(),
     dpr: 1,
     renderSpread: vi.fn(),
     renderSpreadTo,
     notifyActiveSpread,
     resize: vi.fn(),
     setSpreadMode: vi.fn(),
-    setLineBreaking: vi.fn(),
     updateLayout: vi.fn(() => false),
     setTheme: vi.fn(),
     findPage: vi.fn(),
@@ -240,7 +236,6 @@ function createReaderFixture(activeSpreadIndex: number | 'missing'): {
     getChapterTextIndices: vi.fn(() => new Map()),
     getFootnotes: vi.fn(() => new Map()),
     getImageBlobUrl: vi.fn(),
-    measurer: {},
     setTypography: vi.fn(() => false),
     onSpreadRendered: vi.fn(() => () => undefined),
     dispose: vi.fn(),

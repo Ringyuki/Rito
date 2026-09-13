@@ -6,7 +6,7 @@ import {
 } from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import { applyBrowserReaderRevisionState } from '../../src/bindings/browser/reader/revision';
-import { prepareBrowserReaderBoundedFrameCache } from '../../src/bindings/browser/bounded-frame-cache';
+import { prepareBrowserReaderRevisionFrameCache } from '../../src/bindings/browser/revision-frame-cache';
 import { preloadFrameResourceBytes } from '../../src/bindings/browser/resources';
 import { BrowserReaderImageResourceError } from '../../src/bindings/browser/image-resource-error';
 import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
@@ -180,14 +180,13 @@ describe('Browser reader frame window adapter', () => {
     const oldPending = new Promise<void>(() => undefined);
     state.pendingFrameLoads.set(2, oldPending);
     const advanced = withRevisionVersion(revisionResult('rev', 4, 4), 4);
-    const frameCache = prepareBrowserReaderBoundedFrameCache(state, fixture.worker, advanced, {
+    const frameCache = prepareBrowserReaderRevisionFrameCache(state, fixture.worker, advanced, {
       ...selectedFrame,
       commandHash: 'replacement',
     });
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       result: advanced,
       worker: fixture.worker,
       ...frameCache,
@@ -226,7 +225,6 @@ describe('Browser reader frame window adapter', () => {
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       result: withRevisionVersion(revisionResult('rev', 1, 1), 1),
       worker: candidate.worker,
     });
@@ -246,7 +244,6 @@ describe('Browser reader frame window adapter', () => {
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
-      lineBreaking: state.lineBreaking,
       result: withRevisionVersion(revisionResult('next', 1, 1), 1),
       worker: fixture.worker,
     });
@@ -712,7 +709,7 @@ describe('Browser reader frame window adapter', () => {
       disposed: false,
     } as unknown as BrowserReaderState;
 
-    if (frame(['paintImage', 'paintText'], ['cover.jpg']).imageDominated) {
+    if (frame(['draw-image', 'text'], ['cover.jpg']).imageDominated) {
       await preloadFrameResourceBytes(state, []);
     }
 
@@ -757,9 +754,6 @@ function frameWindowState(
         revisionId: 'rev',
         revisionVersion: 0,
         layoutKey: 'layout',
-        status: 'complete',
-        knownExtent: { pageCount: spreadCount, spreadCount },
-        finalExtent: { pageCount: spreadCount, spreadCount },
         pageCount: spreadCount,
         spreadCount,
       },
@@ -783,7 +777,7 @@ function frameWindowState(
       commitGeneration: 1,
     },
     commitGeneration: 1,
-    boundedSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
@@ -901,7 +895,7 @@ async function flushPromises(): Promise<void> {
 }
 
 function frame(
-  commandKinds: readonly ('paintImage' | 'paintRuby' | 'paintText')[],
+  commandKinds: readonly ('draw-image' | 'ruby' | 'text')[],
   imageRefs: readonly string[],
 ): BrowserReaderFrame {
   return {
@@ -909,30 +903,35 @@ function frame(
     spreadIndex: 0,
     width: 800,
     height: 600,
+    ratio: 1,
     commandHash: 'hash',
     commands: commandKinds.map(frameCommand),
     resourceRefs: { images: imageRefs },
     fontFamilies: [],
     imageDominated:
-      imageRefs.length > 0 &&
-      !commandKinds.some((kind) => kind === 'paintText' || kind === 'paintRuby'),
+      imageRefs.length > 0 && !commandKinds.some((kind) => kind === 'text' || kind === 'ruby'),
   };
 }
 
 function frameCommand(
-  kind: 'paintImage' | 'paintRuby' | 'paintText',
+  kind: 'draw-image' | 'ruby' | 'text',
 ): BrowserReaderFrame['commands'][number] {
   const rect = { x: 0, y: 0, width: 10, height: 10 };
-  if (kind === 'paintImage') return { kind, src: 'cover.jpg', rect };
+  if (kind === 'draw-image') return { kind, src: 'cover.jpg', dest: rect };
   const paint = {
-    color: '#000',
+    color: {
+      space: 'srgb' as const,
+      component0: 0,
+      component1: 0,
+      component2: 0,
+      alpha: 1,
+      none: { component0: false, component1: false, component2: false, alpha: false },
+    },
     font: { style: 'normal' as const, weight: 400, sizePx: 16, family: 'serif' },
+    textShadows: [],
   };
-  if (kind === 'paintRuby') return { kind, text: 'ruby', rect, paint };
-  return {
-    kind,
-    text: 'text',
-    rect,
-    paint,
-  };
+  if (kind === 'ruby') {
+    return { kind, text: 'ruby', rect, paint, clusters: [] };
+  }
+  return { kind, text: 'text', rect, paint, clusters: [] };
 }

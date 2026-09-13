@@ -12,7 +12,7 @@ import {
   createLocalStoragePositionAdapter,
   createLocalStorageAnnotationAdapter,
 } from '@ritojs/kit';
-import { DEFAULT_SETTINGS, type ReaderLineBreaking } from '@/components/settings-panel';
+import { DEFAULT_SETTINGS } from '@/components/settings-panel';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
@@ -40,7 +40,6 @@ export function useReader(
   const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
   const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
   const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
-  const [lineBreaking, setLineBreakingState] = useState(DEFAULT_SETTINGS.lineBreaking);
 
   const vpWidth = containerWidth > 0 ? Math.round(containerWidth) : 0;
   const vpHeight = containerHeight > 0 ? Math.round(containerHeight) : 0;
@@ -52,7 +51,6 @@ export function useReader(
       height: vpHeight,
       margin,
       spread: spreadMode,
-      lineBreaking,
       pinnedFontPolicy,
       ...getThemeOptions(theme),
     },
@@ -67,8 +65,7 @@ export function useReader(
   });
 
   if (typeof window !== 'undefined') {
-    // Debug probe for the fragment-pagination cutover: lets headless
-    // verification drive and inspect the controller directly.
+    // Exposes the controller so headless verification can drive and inspect it directly.
     (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;
   }
   const selection = useSelection(rito.controller);
@@ -169,17 +166,6 @@ export function useReader(
     [rito],
   );
 
-  const setLineBreaking = useCallback(
-    (mode: ReaderLineBreaking) => {
-      setLineBreakingState((prev) => {
-        if (prev === mode) return prev;
-        rito.setLineBreaking(mode);
-        return mode;
-      });
-    },
-    [rito],
-  );
-
   // Moving the slider activates the override (a no-op slider would be confusing).
   const setLineHeight = useCallback((v: number) => {
     setLineHeightState(v);
@@ -215,7 +201,7 @@ export function useReader(
     const ctrl = rito.controller;
     if (!ctrl || rito.spreads.length === 0) return '';
     const spread = rito.spreads[rito.currentSpread];
-    const pageIndex = spread?.left?.index ?? 0;
+    const pageIndex = spread?.leftPageIndex ?? 0;
     return ctrl.reader.findActiveTocEntry(pageIndex)?.href ?? '';
   })();
 
@@ -231,7 +217,6 @@ export function useReader(
     lineHeightActive,
     lineHeightForce,
     fontFamily,
-    lineBreaking,
     isTransitioning,
     bookTitle,
     activeChapterHref,
@@ -240,7 +225,6 @@ export function useReader(
     navigateToTocEntry,
     toggleSpreadMode,
     setSpreadMode,
-    setLineBreaking,
     setLineHeight,
     setLineHeightForce,
     useBookLineHeight,

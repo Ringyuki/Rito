@@ -6,10 +6,7 @@ import {
   versionedReaderWorkerPayload,
   warmVersionedReaderFrameWindow,
 } from './reader-worker-versioned-payload-runtime.js';
-import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
 import { decodePinnedFontPolicySummary, openRawDocument } from './pinned-font-policy-runtime.js';
-import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
-import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
   let wasmExports;
@@ -66,18 +63,6 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       );
     }
 
-    createFullRevisionBundle(request) {
-      return jsonMethod('createFullRevisionBundle', () =>
-        this._inner.createFullRevisionBundleJson(encodeJson(request, 'createFullRevisionBundle')),
-      );
-    }
-
-    // Host-measured `line-height: normal` metrics: the surrounding browser
-    // measures its own two-level normal line heights (plain strut, and the
-    // lifted height a line containing CJK glyphs gets) because those
-    // integers come from the host font scaler and are not derivable from
-    // font tables. The engine records (family, size) misses; the host
-    // drains them, measures, injects, and relayouts.
     takeHostLineMetricRequests() {
       return callRitoCoreWasm('takeHostLineMetricRequests', () =>
         JSON.parse(this._inner.takeHostLineMetricRequestsJson()),
@@ -96,64 +81,19 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       });
     }
 
+    // Device pixels per CSS pixel frames are painted at (zoom × dpr): every
+    // raster snap lands on that grid, pagination never changes with it, and
+    // frames cached on the old grid are dropped engine-side.
+    setRenderRatio(ratio) {
+      return callRitoCoreWasm('setRenderRatio', () => {
+        this._inner.setRenderRatio(ratio);
+      });
+    }
+
     chapterFragmentProbe(revisionId, idref) {
       return callRitoCoreWasm('chapterFragmentProbe', () =>
         JSON.parse(this._inner.chapterFragmentProbeJson(revisionId, idref)),
       );
-    }
-
-    createInitialPreviewRevisionBundle(request) {
-      return jsonMethod('createInitialPreviewRevisionBundle', () =>
-        this._inner.createInitialPreviewRevisionBundleJson(
-          encodeJson(request, 'createInitialPreviewRevisionBundle'),
-        ),
-      );
-    }
-
-    createActiveChapterPreviewRevisionBundle(request) {
-      return callRitoCoreWasm('createActiveChapterPreviewRevisionBundle', () => {
-        const payload = this._inner.createActiveChapterPreviewRevisionBundleJson(
-          encodeJson(request, 'createActiveChapterPreviewRevisionBundle'),
-        );
-        if (payload === 'null') return undefined;
-        return parseObjectPayload(payload, 'createActiveChapterPreviewRevisionBundle');
-      });
-    }
-
-    createPreviewRevisionBundle(request) {
-      return callRitoCoreWasm('createPreviewRevisionBundle', () => {
-        const payload = this._inner.createPreviewRevisionBundleJson(
-          encodeJson(request, 'createPreviewRevisionBundle'),
-        );
-        if (payload === 'null') return undefined;
-        return parseObjectPayload(payload, 'createPreviewRevisionBundle');
-      });
-    }
-
-    createViewRevisionBundle(request) {
-      requireViewRevisionPreserveLocator(request, 'createViewRevisionBundle');
-      return callRitoCoreWasm('createViewRevisionBundle', () =>
-        decodeJsonViewRevisionBundle(
-          this._inner.createViewRevisionBundleJson(encodeJson(request, 'createViewRevisionBundle')),
-          'createViewRevisionBundle',
-        ),
-      );
-    }
-
-    createViewRevisionBundleBytes(request) {
-      requireViewRevisionPreserveLocator(request, 'createViewRevisionBundleBytes');
-      return callRitoCoreWasm('createViewRevisionBundleBytes', () =>
-        decodeBinaryViewRevisionBundle(
-          this._inner.createViewRevisionBundleBytes(
-            encodeJson(request, 'createViewRevisionBundleBytes'),
-          ),
-          'createViewRevisionBundleBytes',
-        ),
-      );
-    }
-
-    getFrame(revisionId, spreadIndex) {
-      return jsonMethod('getFrame', () => this._inner.getFrameJson(revisionId, spreadIndex));
     }
 
     getFrameCommandBufferMetadata(revisionId, spreadIndex) {
@@ -286,14 +226,6 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
 
 function readerWorkerPayload(document, request) {
   switch (request.kind) {
-    case 'createViewRevision':
-      return createReaderViewRevision(
-        document,
-        request.request,
-        request.wire,
-        request.__ritoCollectWireMetrics === true,
-        request.knownFullChapterTextIndicesScopeKey,
-      );
     case 'readResource':
       return readReaderResource(document, request.revisionId, request.resourceKind, request.href);
     case 'warmFrameWindow':
@@ -319,6 +251,9 @@ function readerWorkerPayload(document, request) {
     case 'setUnavailableFontFaces':
       document.setUnavailableFontFaces(request.families);
       return { kind: 'setUnavailableFontFaces' };
+    case 'setRenderRatio':
+      document.setRenderRatio(request.ratio);
+      return { kind: 'setRenderRatio' };
     case 'chapterFragmentProbe':
       return {
         kind: 'chapterFragmentProbe',
@@ -332,239 +267,6 @@ function readerWorkerPayload(document, request) {
       throw new Error(`Unsupported reader worker request: ${String(request.kind)}`);
     }
   }
-}
-
-function createReaderViewRevision(document, request, wire, collectWireMetrics, knownScopeKey) {
-  requireViewRevisionPreserveLocator(request, 'createReaderViewRevision');
-  const omitFullIndices = knownScopeKey === 'chapter-text-v1:full';
-  const measured = collectWireMetrics
-    ? createMeasuredReaderViewRevisionBundle(document, request, wire, omitFullIndices)
-    : undefined;
-  const view =
-    measured?.view ??
-    createUnmeasuredReaderViewRevisionBundle(document, request, wire, omitFullIndices);
-  return {
-    kind: 'createViewRevision',
-    ...(measured !== undefined ? { __ritoWireMetrics: measured.metrics } : {}),
-    result: {
-      kind: view.kind,
-      display: view.display,
-      ...(view.followUp !== undefined ? { followUp: view.followUp } : {}),
-      result: revisionResult(document, view.result),
-    },
-  };
-}
-
-function createMeasuredReaderViewRevisionBundle(document, request, wire, omitFullIndices) {
-  const selectedWire = wire === 'ritorb1' ? 'ritorb1' : 'json';
-  const operation =
-    selectedWire === 'ritorb1'
-      ? 'createReaderViewRevisionBundleBytes'
-      : 'createReaderViewRevisionBundleJson';
-  return callRitoCoreWasm(operation, () =>
-    createMeasuredViewRevisionBundle(
-      document._inner,
-      request,
-      selectedWire,
-      operation,
-      omitFullIndices,
-    ),
-  );
-}
-
-function createUnmeasuredReaderViewRevisionBundle(document, request, wire, omitFullIndices) {
-  const operation =
-    wire === 'ritorb1'
-      ? 'createReaderViewRevisionBundleBytes'
-      : 'createReaderViewRevisionBundleJson';
-  return callRitoCoreWasm(operation, () => {
-    const requestJson = encodeJson(request, operation);
-    const rawPayload =
-      wire === 'ritorb1'
-        ? document._inner.createReaderViewRevisionBundleBytes(requestJson, omitFullIndices)
-        : document._inner.createReaderViewRevisionBundleJson(requestJson, omitFullIndices);
-    return decodeReaderViewRevision(rawPayload, wire, operation);
-  });
-}
-
-function createMeasuredViewRevisionBundle(inner, request, wire, operation, omitFullIndices) {
-  const requestJson = encodeJson(request, operation);
-  requireWireMetricsMethods(inner);
-  inner.measureNextViewRevisionWire();
-  const wasmStartedAt = monotonicNow();
-  const rawPayload =
-    wire === 'ritorb1'
-      ? inner.createReaderViewRevisionBundleBytes(requestJson, omitFullIndices)
-      : inner.createReaderViewRevisionBundleJson(requestJson, omitFullIndices);
-  const wasmMethodMs = elapsedMilliseconds(wasmStartedAt);
-  const rustMetrics = takeViewRevisionWireMetrics(inner, wire);
-  const decoded = decodeMeasuredViewRevision(rawPayload, wire, operation);
-  return {
-    view: decoded.view,
-    metrics: {
-      ...rustMetrics,
-      wasmMethodMs,
-      jsDecodeMs: decoded.jsDecodeMs,
-    },
-  };
-}
-
-function requireWireMetricsMethods(inner) {
-  if (
-    typeof inner.measureNextViewRevisionWire !== 'function' ||
-    typeof inner.takeViewRevisionWireMetricsJson !== 'function'
-  ) {
-    throw new Error('Rito core WASM binding does not support view-revision wire metrics');
-  }
-}
-
-function takeViewRevisionWireMetrics(inner, expectedWire) {
-  const value = parseJsonPayload(
-    inner.takeViewRevisionWireMetricsJson(),
-    'takeViewRevisionWireMetrics',
-  );
-  if (value === null) {
-    throw new Error('View-revision wire metrics were not recorded after measurement was armed');
-  }
-  const metrics = requireObjectPayload(value, 'takeViewRevisionWireMetrics');
-  if (metrics.wire !== expectedWire) {
-    throw new Error(`View-revision wire metrics reported unexpected wire: ${String(metrics.wire)}`);
-  }
-  requireNonNegativeInteger(metrics.rawWireBytes, 'rawWireBytes');
-  requireNonNegativeNumber(metrics.rustEncodeMs, 'rustEncodeMs');
-  return {
-    wire: metrics.wire,
-    rawWireBytes: metrics.rawWireBytes,
-    rustEncodeMs: metrics.rustEncodeMs,
-  };
-}
-
-function decodeMeasuredViewRevision(rawPayload, wire, operation) {
-  const decodeStartedAt = monotonicNow();
-  const view = decodeReaderViewRevision(rawPayload, wire, operation);
-  const jsDecodeMs = elapsedMilliseconds(decodeStartedAt);
-  return { view, jsDecodeMs };
-}
-
-function decodeReaderViewRevision(rawPayload, wire, operation) {
-  return wire === 'ritorb1'
-    ? decodeBinaryViewRevisionBundle(rawPayload, operation)
-    : decodeJsonViewRevisionBundle(rawPayload, operation);
-}
-
-function decodeBinaryViewRevisionBundle(rawPayload, operation) {
-  return requireViewRevisionPayload(decodeRitoRuntimeBundle(rawPayload).payload, operation);
-}
-
-function decodeJsonViewRevisionBundle(rawPayload, operation) {
-  return requireViewRevisionPayload(parseJsonPayload(rawPayload, operation), operation);
-}
-
-function requireViewRevisionPayload(value, operation) {
-  const view = requireObjectPayload(value, operation);
-  if (view.kind !== 'preview' && view.kind !== 'full') {
-    throw new Error(`${operation} returned an invalid view revision kind`);
-  }
-  if (view.display !== 'revision' && view.display !== 'visualPreview') {
-    throw new Error(`${operation} returned an invalid view revision display`);
-  }
-  const result = requireObjectPayload(view.result, `${operation} result`);
-  const bundle = requireObjectPayload(result.bundle, `${operation} result bundle`);
-  const revision = requireObjectPayload(bundle.revision, `${operation} bundle revision`);
-  if (typeof revision.revisionId !== 'string' || revision.revisionId.length === 0) {
-    throw new Error(`${operation} returned a view revision without a revisionId`);
-  }
-  requireRequiredFontFaces(bundle.requiredFontFaces, revision.revisionId, operation);
-  if (typeof result.preview !== 'boolean') {
-    throw new Error(`${operation} returned a view revision without a preview flag`);
-  }
-  requireViewRevisionFollowUp(view.followUp, operation);
-  return view;
-}
-
-function requireViewRevisionFollowUp(value, operation) {
-  if (value === undefined) return;
-  const followUp = requireObjectPayload(value, `${operation} follow-up`);
-  if (!Number.isSafeInteger(followUp.delayMs) || followUp.delayMs < 0) {
-    throw new Error(`${operation} returned an invalid view revision follow-up`);
-  }
-  const request = requireObjectPayload(followUp.request, `${operation} follow-up request`);
-  requireObjectPayload(request.layoutConfig, `${operation} follow-up request layoutConfig`);
-  if (request.preserveLocator !== undefined) {
-    requireSourceLocatorRequest(request.preserveLocator, `${operation} follow-up request`);
-  }
-  if (
-    request.mode !== 'full' ||
-    (request.lineBreaking !== undefined &&
-      request.lineBreaking !== 'greedy' &&
-      request.lineBreaking !== 'optimal') ||
-    !Number.isSafeInteger(request.activeSpreadIndex) ||
-    request.activeSpreadIndex < 0 ||
-    typeof request.previousRevisionId !== 'string' ||
-    request.previousRevisionId.length === 0
-  ) {
-    throw new Error(`${operation} returned an invalid view revision follow-up`);
-  }
-}
-
-function requireViewRevisionPreserveLocator(request, operation) {
-  if (request?.preserveLocator === undefined) return;
-  requireSourceLocatorRequest(request.preserveLocator, operation);
-}
-
-function requireNonNegativeInteger(value, field) {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`View-revision wire metrics ${field} must be a non-negative integer`);
-  }
-}
-
-function requireNonNegativeNumber(value, field) {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`View-revision wire metrics ${field} must be a non-negative finite number`);
-  }
-}
-
-function monotonicNow() {
-  return globalThis.performance.now();
-}
-
-function elapsedMilliseconds(startedAt) {
-  const elapsed = monotonicNow() - startedAt;
-  return Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : 0;
-}
-
-function revisionResult(document, result) {
-  return {
-    bundle: result.bundle,
-    ...(result.frameSelection !== undefined ? { frameSelection: result.frameSelection } : {}),
-    ...selectedFrameWindowResult(
-      document,
-      result.bundle.revision.revisionId,
-      result.frameSelection,
-      result.initialFrameWindow,
-    ),
-    preview: result.preview,
-  };
-}
-
-function selectedFrameWindowResult(document, revisionId, frameSelection, frameWindow) {
-  if (frameWindow === undefined || frameSelection === undefined) return {};
-  if (frameWindow.plan.revisionId !== revisionId) throw new Error('frame window revision mismatch');
-  const warmed = frameWindowResult(document, frameWindow);
-  const frame = warmed.frames.find(
-    (frame) => frame.metadata.spreadIndex === frameSelection.spreadIndex,
-  );
-  if (!frame) {
-    throw new Error('planned frame window missing selected frame');
-  }
-  return {
-    frameWindow: warmed,
-    selectedFrame: {
-      spreadIndex: frameSelection.spreadIndex,
-      displaySpreadIndex: frameSelection.displaySpreadIndex,
-      frame,
-    },
-  };
 }
 
 function warmReaderFrameWindow(document, revisionId, spreadIndex) {

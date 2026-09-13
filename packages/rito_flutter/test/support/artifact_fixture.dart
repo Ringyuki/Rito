@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:rito_flutter/rito_flutter_native.dart' show RitoArtifactDecoder;
+
 import 'display_fixture.dart';
 import 'wire_writer.dart';
 
@@ -18,10 +20,10 @@ Uint8List artifactFixture({
   String locatorHref = 'chapter-4.xhtml',
   int localPageIndex = 7,
 }) {
-  final display = displayFixture();
+  final display = primitiveFixture();
   final writer = TestWireWriter.message('RITOART1');
   writer
-    ..uint32(2)
+    ..uint32(RitoArtifactDecoder.protocolVersion)
     ..uint32(1)
     ..uint64(sessionId)
     ..uint64(requestId)
@@ -37,7 +39,6 @@ Uint8List artifactFixture({
     ..uint32(localPageIndex)
     ..float64(360)
     ..float64(640)
-    ..boolean(false)
     ..option(null)
     ..option(null)
     ..uint32(previousAvailability)
@@ -45,8 +46,8 @@ Uint8List artifactFixture({
     ..uint32(0);
   writer.record((record) {
     record
-      ..uint32(1)
-      ..uint32(12)
+      ..uint32(2)
+      ..uint32(13)
       ..fixed(List<int>.filled(32, 0x5a))
       ..blob(display);
   });

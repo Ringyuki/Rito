@@ -65,8 +65,7 @@ export function ownsBrowserReaderChapterLocalPreviewRequest(
     !request.mainSettled &&
     request.id === state.chapterLocalPreview.latestRequestId &&
     request.workerSessionId === state.worker.sessionId &&
-    request.spreadMode === state.spreadMode &&
-    request.lineBreaking === state.lineBreaking
+    request.spreadMode === state.spreadMode
   );
 }
 
@@ -109,7 +108,7 @@ export function sameBrowserReaderLocator(
   );
 }
 
-/** Normalize legacy `chapter#anchor` locators only for the bounded local path. */
+/** Normalize `chapter#anchor` locators only for the chapter-local path. */
 export function canonicalizeBrowserReaderChapterLocalLocator(
   locator: ComparableReaderLocator,
 ): ReaderLocator {

@@ -1,4 +1,4 @@
-import { validateFrameCommandBufferMetadata } from './frame-command-buffer-decoder-validation.js';
+import { validateFrameCommandBufferMetadata } from './frame-command-buffer-decoder-runtime.js';
 import {
   requireChapterLocalIndex,
   requireChapterLocalTransferCount,

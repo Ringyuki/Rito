@@ -15,7 +15,6 @@ describe('controller navigation surface', () => {
     const selectionMocks = {
       hasSelection: vi.fn<SelectionEngine['hasSelection']>(() => false),
       getText: vi.fn<SelectionEngine['getText']>(() => ''),
-      getSelection: vi.fn<SelectionEngine['getSelection']>(() => null),
       getSourceLocator: vi.fn<SelectionEngine['getSourceLocator']>(() => null),
       getSourceSpan: vi.fn<SelectionEngine['getSourceSpan']>(() => null),
     };
@@ -40,11 +39,7 @@ describe('controller navigation surface', () => {
         'jumpToSpread',
       ]),
     );
-    for (const internalMethod of [
-      'startGestureNavigation',
-      'notifyContentReady',
-      'notifyLayoutCommitted',
-    ]) {
+    for (const internalMethod of ['startGestureNavigation', 'notifyContentReady']) {
       expect(controller).not.toHaveProperty(internalMethod);
     }
 
@@ -65,7 +60,7 @@ describe('controller navigation surface', () => {
     expect(controller.selectionText).toBe('live selection');
     expect(controller.selectionSourceLocator?.href).toBe('chapter.xhtml');
     expect(controller.selectionSourceSpan?.end.sourcePoint.textOffset).toBe(2);
-    expect(controller.paginationComplete).toBe(true);
+    expect(controller.totalSpreads).toBe(0);
   });
 });
 
@@ -78,7 +73,6 @@ function createNavigationStub(): Nav {
     navigateToTocEntry: vi.fn(),
     jumpToSpread: vi.fn(),
     notifyContentReady: vi.fn(),
-    notifyLayoutCommitted: vi.fn(),
     dispose: vi.fn(),
   } as unknown as Nav;
 }
@@ -88,7 +82,6 @@ function createReaderStub(): Reader {
     metadata: {},
     toc: [],
     spreads: [],
-    pages: [],
     totalSpreads: 0,
     renderSpreadTo: vi.fn(),
   } as unknown as Reader;
@@ -97,7 +90,7 @@ function createReaderStub(): Reader {
 function createInternalsStub(
   selection: Pick<
     SelectionEngine,
-    'hasSelection' | 'getText' | 'getSelection' | 'getSourceLocator' | 'getSourceSpan'
+    'hasSelection' | 'getText' | 'getSourceLocator' | 'getSourceSpan'
   >,
 ): Internals {
   return {

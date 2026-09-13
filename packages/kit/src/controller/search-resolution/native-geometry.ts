@@ -42,10 +42,6 @@ export function createNativeSearchGeometryState(): NativeSearchGeometryState {
   };
 }
 
-export function usesNativeSearchGeometry(reader: Reader): boolean {
-  return reader.interactions?.resolveExactSourceRange !== undefined;
-}
-
 export function replaceNativeSearchResults(
   state: CoordinatorState,
   results: readonly SearchResult[],
@@ -104,7 +100,7 @@ export function collectNativeSearchGeometry(
 ): NativeSearchGeometry {
   const native = state.nativeSearchGeometry;
   if (!native.alive || native.results !== results) return { matches: [], active: [] };
-  const visiblePages = new Set(pageIndices(spread));
+  const visiblePages = new Set(spread.pageIndexes);
   const matches: ReaderExactTextRangeRect[] = [];
   const active: ReaderExactTextRangeRect[] = [];
   for (const [index, result] of results.entries()) {
@@ -196,7 +192,7 @@ function installVisibleSpread(
   spread: Spread,
   state: NativeSearchGeometryState,
 ): VisibleSearchSpread {
-  const nextPages = pageIndices(spread);
+  const nextPages = spread.pageIndexes;
   const current = state.visible;
   if (
     current?.index === spread.index &&
@@ -209,12 +205,6 @@ function installVisibleSpread(
   const next = { index: spread.index, pageIndices: nextPages };
   state.visible = next;
   return next;
-}
-
-function pageIndices(spread: Spread): readonly number[] {
-  return [spread.left?.index, spread.right?.index].filter(
-    (pageIndex): pageIndex is number => pageIndex !== undefined,
-  );
 }
 
 function hasOwnedOutcome(result: SearchResult, state: NativeSearchGeometryState): boolean {

@@ -6,12 +6,11 @@ use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 
 mod access;
 mod bundle;
-mod bundle_wire;
 mod chapter_engine_session;
+mod chapter_local;
 mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
-mod continuation;
 mod fragment_backend;
 mod fragment_frame;
 mod fragment_probe;
@@ -24,34 +23,25 @@ mod page_semantics;
 mod page_target;
 mod pinned_font_policy;
 mod publication_footnotes;
-mod reader_v1;
+mod reader_session;
 mod resource;
 mod revision;
 mod revision_fonts;
 mod search;
-mod shape_provenance_diagnostic;
 mod source_locator;
+mod spread;
 mod style_table_summary;
 mod text_interaction;
 mod transfer_store;
 mod types;
 
-use crate::{
-    epub::{
-        open_runtime_document, open_runtime_document_owned, EpubError, EpubResult,
-        LoadedEpubDocument,
-    },
-    layout::{LayoutConfig, TextMeasurementCache},
+use crate::epub::{
+    open_runtime_document, open_runtime_document_owned, EpubError, EpubResult, LoadedEpubDocument,
 };
 
 pub use access::{
     RuntimeRevisionAccessError, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
     RuntimeVersioned,
-};
-pub use bundle_wire::{
-    decode_runtime_bundle, encode_runtime_bundle, DecodedRuntimeBundle,
-    RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_MAGIC_TEXT,
-    RUNTIME_BUNDLE_VERSION,
 };
 use chapter_text::runtime_chapter_text_index_entries;
 pub use chapter_tree_report::{
@@ -61,7 +51,7 @@ pub use chapter_tree_report::{
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
 use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
-use navigation::{active_chapter_preview, resolve_href_locator};
+use navigation::resolve_href_locator;
 use page::{page_targets, page_text_positions, text_range_geometry};
 use page_semantics::page_semantics;
 pub use page_semantics::{
@@ -73,16 +63,13 @@ pub use pinned_font_policy::{
     RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
 };
 use publication_footnotes::{PublicationFootnoteIndex, PublicationFootnoteProgress};
-pub use reader_v1::*;
+pub use reader_session::*;
 use resource::{
     find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
     runtime_text_resource,
 };
 use search::search_revision;
-pub use shape_provenance_diagnostic::{
-    RuntimeShapeAffectedCodepointFrequency, RuntimeShapeProvenanceDiagnostic,
-    RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
-};
+pub use search::{SearchRuntimeResult, SearchTextPosition};
 pub use style_table_summary::{
     RuntimeChapterStyleTableSummary, RuntimeStyleTableSummary,
     RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION,
@@ -111,7 +98,7 @@ pub use types::*;
 #[derive(Debug)]
 pub struct RuntimeDocument {
     document: LoadedEpubDocument,
-    prepared: Option<crate::epub::PreparedLoadedDocument>,
+    prepared: Option<std::rc::Rc<crate::epub::PreparedLoadedDocument>>,
     prepared_base: Option<crate::epub::PreparedLoadedDocumentBase>,
     publication_footnotes: OnceCell<PublicationFootnoteIndex>,
     publication_footnote_progress: Option<PublicationFootnoteProgress>,
@@ -120,9 +107,9 @@ pub struct RuntimeDocument {
     full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
     page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
-    parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
+    parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
-    fragment_engine: OnceCell<Option<fragment_frame::RuntimeFragmentEngine>>,
+    fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
     /// Host-measured normal line metrics recorded before the fragment
     /// engine exists; applied on engine initialization. The engine
     /// initializes lazily from resolved @font-face sources, so metric
@@ -130,20 +117,15 @@ pub struct RuntimeDocument {
     pending_host_line_metrics:
         std::cell::RefCell<Vec<(String, f64, String, rito_inline::HostNormalLineMetric)>>,
     applied_host_line_metrics: std::cell::Cell<usize>,
-    text_measurement_cache: TextMeasurementCache,
+    /// Device pixels per CSS pixel frames are painted at through the
+    /// document-level frame API (the reader session carries its own).
+    /// Paint snaps land on that grid; pagination never reads it.
+    render_ratio: std::cell::Cell<f64>,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
-    next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
     chapter_local_revisions: BTreeMap<String, RuntimeRevision>,
-    continuations: continuation::RuntimeContinuationStore,
     cleanup_queue: RuntimeCleanupQueue,
-    /// Whether completed whole-book revisions may hand pagination to the
-    /// fragment engine. Off by default while the fragment backend's
-    /// interaction surface (selection, source locators) is still
-    /// unimplemented: routing would trade working interactions for
-    /// fragment pagination. Probes and tests opt in.
-    fragment_page_table_enabled: bool,
     /// Publication faces the host's font decoder rejected (normalized
     /// family names). The browser cannot paint these faces — its
     /// sanitizer refuses the bytes — so the engine must not shape with
@@ -191,15 +173,12 @@ impl RuntimeDocument {
             fragment_engine: OnceCell::new(),
             pending_host_line_metrics: std::cell::RefCell::new(Vec::new()),
             applied_host_line_metrics: std::cell::Cell::new(0),
-            text_measurement_cache: TextMeasurementCache::default(),
+            render_ratio: std::cell::Cell::new(1.0),
             pinned_font_policy,
             next_revision_index: 1,
-            next_continuation_index: 1,
             revisions: BTreeMap::new(),
             chapter_local_revisions: BTreeMap::new(),
-            continuations: continuation::RuntimeContinuationStore::default(),
             cleanup_queue: RuntimeCleanupQueue::default(),
-            fragment_page_table_enabled: false,
             unavailable_font_families: std::collections::BTreeSet::new(),
         }
     }
@@ -232,13 +211,6 @@ impl RuntimeDocument {
         }
     }
 
-    /// Opts completed whole-book revisions into fragment-engine
-    /// pagination. See the field's caveats; this is a cutover lever, not
-    /// a stable API.
-    pub fn set_fragment_page_table_enabled(&mut self, enabled: bool) {
-        self.fragment_page_table_enabled = enabled;
-    }
-
     pub fn document(&self) -> &LoadedEpubDocument {
         &self.document
     }
@@ -262,9 +234,6 @@ impl RuntimeDocument {
             return false;
         };
         self.cleanup_queue.enqueue_revision(revision);
-        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
-            self.cleanup_queue.enqueue_continuation(continuation);
-        }
         self.service_cleanup_queue();
         true
     }
@@ -275,9 +244,6 @@ impl RuntimeDocument {
             return false;
         };
         self.cleanup_queue.enqueue_revision(revision);
-        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
-            self.cleanup_queue.enqueue_continuation(continuation);
-        }
         self.service_cleanup_queue();
         true
     }
@@ -292,47 +258,8 @@ impl RuntimeDocument {
         );
     }
 
-    pub(super) fn enqueue_layout_config_cleanup(&mut self, layout_config: LayoutConfig) {
-        self.cleanup_queue.enqueue_layout_config(layout_config);
-    }
-
-    pub(super) fn retire_layout_config(&mut self, layout_config: LayoutConfig) {
-        self.enqueue_layout_config_cleanup(layout_config);
-        self.service_cleanup_queue();
-    }
-
-    pub(super) fn run_with_owned_layout_config<T, E>(
-        &mut self,
-        layout_config: LayoutConfig,
-        work: impl FnOnce(&mut Self, &LayoutConfig) -> Result<T, E>,
-    ) -> Result<(LayoutConfig, T), E> {
-        match work(self, &layout_config) {
-            Ok(value) => Ok((layout_config, value)),
-            Err(error) => {
-                self.retire_layout_config(layout_config);
-                Err(error)
-            }
-        }
-    }
-
     pub fn revision_count(&self) -> usize {
         self.revisions.len() + self.chapter_local_revisions.len()
-    }
-
-    pub(super) fn active_chapter_preview(
-        &self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> EpubResult<Option<RuntimeActiveChapterPreview>> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(active_chapter_preview(
-            &self.document,
-            revision,
-            spread_index,
-        ))
     }
 
     pub fn get_resource(
@@ -582,9 +509,6 @@ impl RuntimeDocument {
 impl Drop for RuntimeDocument {
     fn drop(&mut self) {
         self.cleanup_queue.drain_sync();
-        while let Some(continuation) = self.continuations.pop_first() {
-            continuation::PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
-        }
         while let Some((_revision_id, revision)) = self.revisions.pop_first() {
             PendingRuntimeRevisionCleanup::new(revision).drain();
         }

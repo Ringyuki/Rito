@@ -16,11 +16,9 @@ test.describe('production pinned fallback worker path', () => {
     await buildPinnedFallbackProductionCore();
   });
 
-  // FIXME(fragment-source-locator): pre-existing gap of the fragment
-  // cutover, on record since the backend landed ("source locators still
-  // resolve Unavailable" in chapter_engine_session/fragment). Tracked for
-  // the post-release fragment interaction pass together with search
-  // source resolution.
+  // Source locators still resolve Unavailable in the engine
+  // (chapter_engine_session/fragment), so the exact-geometry step of this
+  // scenario cannot resolve yet.
   test.fixme('keeps Rust shape identity, Canvas paint, exact geometry, and disposal stable', async ({
     page,
   }) => {
@@ -88,9 +86,9 @@ test.describe('production pinned fallback worker path', () => {
     expect(opens.length).toBeGreaterThanOrEqual(2);
     expect(new Set(opens.map((operation) => operation.workerId)).size).toBeGreaterThanOrEqual(2);
     expect(opens.every((operation) => operation.ok === true)).toBe(true);
-    expect(
-      operations.filter((operation) => operation.kind === 'createBoundedRevision'),
-    ).not.toHaveLength(0);
+    expect(operations.filter((operation) => operation.kind === 'createRevision')).not.toHaveLength(
+      0,
+    );
     expect(
       operations.filter((operation) => operation.kind === 'resolveExactSourceRangeAtRevision'),
     ).not.toHaveLength(0);

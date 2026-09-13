@@ -1,40 +1,40 @@
 # Documentation
 
-Rito is split into a core reader package and optional integration layers:
+Rito is one Rust engine with several hosts:
 
-- [`@ritojs/core`](../packages/rito/README.md) — app-facing Rust-backed reader contract
-- [`@ritojs/kit`](./integrations/kit.md) — framework-agnostic controller, transitions, overlays, keyboard, and storage helpers
-- [`@ritojs/react`](./integrations/react.md) — React hooks and mount component built on top of `@ritojs/core` and `@ritojs/kit`
-- [Direct FFI](./integrations/ffi.md) — bridging the engine's C ABI from hosts that are neither web nor Flutter (build `rito-ffi` from source, wire lockstep rules)
+- [`@ritojs/core`](../packages/rito/README.md) — the browser reader package
+- [`@ritojs/kit`](./integrations/kit.md) — framework-agnostic controller,
+  transitions, overlays, keyboard and storage helpers
+- [`@ritojs/react`](./integrations/react.md) — React hooks and mount
+  component built on core and kit
+- [`rito_flutter`](../packages/rito_flutter/README.md) — the Flutter
+  adapter over the engine's C ABI
+- [Direct FFI](./integrations/ffi.md) — bridging the C ABI from hosts that
+  are neither web nor Flutter
 
 ## Start Here
 
-- [Getting Started](./getting-started.md) — install, first render, common reader operations
-- [Capabilities](./capabilities.md) — what Rito supports today
+- [Getting Started](./getting-started.md) — install, fonts, first render,
+  common reader operations
+- [Capabilities](./capabilities.md) — what the engine lays out and paints
 - [Limitations](./limitations.md) — deliberate non-goals and current gaps
 
 ## API
 
-- [Reader API](./api/reader.md) — root `createReader()`, `ReaderOptions`, `Reader`
-- [Reference Primitives](./api/primitives.md) — source-only TS parser/layout/render primitives for diagnostics and migration
-- [Specialized Subpaths](./api/subpaths.md) — current public subpath policy
+- [Reader API](./api/reader.md) — `createReader()`, `ReaderOptions`,
+  `Reader`, and the lower-level session entry
+- [Migrating to 2.0](./migration/v2.md) — what 2.0 removes and what to
+  call instead
 
 ## Integrations
 
 - [Using `@ritojs/kit`](./integrations/kit.md)
 - [Using `@ritojs/react`](./integrations/react.md)
-
-## Recommended Reading Order
-
-1. [Getting Started](./getting-started.md)
-2. [Reader API](./api/reader.md) for browser Canvas apps, or [Reference Primitives](./api/primitives.md) for diagnostics and migration work
-3. [Capabilities](./capabilities.md)
-4. Integration docs if you are building UI on top of the core
+- [Direct FFI integration](./integrations/ffi.md)
 
 ## Development Docs
 
-Contributor, architecture, migration, diagnostic, testing, and release notes live under
-[`development/`](./development/README.md). If you are continuing implementation work,
-start with the development [current status handoff](./development/current-status.md).
-Development docs are source-level project documentation, not stable user-facing API
-documentation.
+Contributor documentation lives under [`development/`](./development/README.md):
+the architecture and engine pipeline, the wire format, the test pipeline,
+the verification instruments and the release process. Those pages describe
+the source, not a stable public API.

@@ -3,17 +3,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createLayoutConfig } from '@ritojs/core';
-import type { Page, Spread } from '@ritojs/core';
+import type { Spread } from '@ritojs/core';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 
-function makePage(index: number): Page {
-  return { index, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] };
-}
+const singleSpread: Spread = { index: 0, pageIndexes: [0], leftPageIndex: 0 };
+const doubleSpread: Spread = { index: 0, pageIndexes: [0, 1], leftPageIndex: 0, rightPageIndex: 1 };
 
 describe('CoordinateMapper', () => {
   describe('single mode, margin=40, renderScale=1', () => {
     const config = createLayoutConfig({ width: 800, height: 600, margin: 40, spread: 'single' });
-    const spread: Spread = { index: 0, left: makePage(0) };
+    const spread = singleSpread;
     const mapper = createCoordinateMapper(config, spread, 1);
 
     it('exposes layout geometry', () => {
@@ -90,17 +89,11 @@ describe('CoordinateMapper', () => {
       expect(s.x).toBe(100 + 50);
       expect(s.y).toBe(50 + 60);
     });
-
-    it('selectionConfig has contentWidth as pageWidth (no margins)', () => {
-      expect(mapper.selectionConfig.pageWidth).toBe(800 - 80);
-      expect(mapper.selectionConfig.marginLeft).toBe(0);
-      expect(mapper.selectionConfig.marginRight).toBe(0);
-    });
   });
 
   describe('single mode, margin=40, renderScale=1.5', () => {
     const config = createLayoutConfig({ width: 800, height: 600, margin: 40, spread: 'single' });
-    const spread: Spread = { index: 0, left: makePage(0) };
+    const spread = singleSpread;
     const mapper = createCoordinateMapper(config, spread, 1.5);
 
     it('cssToSpreadContent divides by scale then subtracts margin', () => {
@@ -140,7 +133,7 @@ describe('CoordinateMapper', () => {
       spread: 'double',
       spreadGap: 20,
     });
-    const spread: Spread = { index: 0, left: makePage(0), right: makePage(1) };
+    const spread = doubleSpread;
     const mapper = createCoordinateMapper(config, spread, 1);
 
     const pageWidth = (1600 - 20) / 2; // 790
@@ -221,12 +214,6 @@ describe('CoordinateMapper', () => {
       });
     });
 
-    it('selectionConfig uses content dimensions', () => {
-      expect(mapper.selectionConfig.pageWidth).toBe(contentWidth);
-      expect(mapper.selectionConfig.spreadGap).toBe(contentGap);
-      expect(mapper.selectionConfig.spreadMode).toBe('double');
-    });
-
     it('right page link at page-content (50,10) can be found via spreadContentToPage', () => {
       const rightOffset = contentWidth + contentGap;
       const result = mapper.spreadContentToPage(rightOffset + 50, 10);
@@ -244,7 +231,7 @@ describe('CoordinateMapper', () => {
       spread: 'double',
       spreadGap: 0,
     });
-    const spread: Spread = { index: 0, left: makePage(0), right: makePage(1) };
+    const spread = doubleSpread;
     const mapper = createCoordinateMapper(config, spread, 1);
 
     it('assigns the shared seam to the right page at local x=0', () => {
@@ -274,8 +261,7 @@ describe('CoordinateMapper', () => {
     'rejects invalid renderScale %s',
     (renderScale) => {
       const config = createLayoutConfig({ width: 800, height: 600, margin: 40 });
-      const spread: Spread = { index: 0, left: makePage(0) };
-      expect(() => createCoordinateMapper(config, spread, renderScale)).toThrow(
+      expect(() => createCoordinateMapper(config, singleSpread, renderScale)).toThrow(
         /renderScale must be a positive finite number/,
       );
     },

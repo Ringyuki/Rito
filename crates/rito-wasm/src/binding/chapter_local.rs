@@ -4,23 +4,13 @@ use super::{error_to_js_value, parse_resource_kind, RitoWasmDocument};
 
 #[wasm_bindgen(js_class = RitoWasmDocument)]
 impl RitoWasmDocument {
-    #[wasm_bindgen(js_name = createBoundedChapterLocalRevisionJson)]
-    pub fn create_bounded_chapter_local_revision_json(
+    #[wasm_bindgen(js_name = createChapterLocalRevisionJson)]
+    pub fn create_chapter_local_revision_json(
         &mut self,
         request_json: &str,
     ) -> Result<String, JsValue> {
         self.inner
-            .create_bounded_chapter_local_revision_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = continueChapterLocalRevisionJson)]
-    pub fn continue_chapter_local_revision_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .continue_chapter_local_revision_json(request_json)
+            .create_chapter_local_revision_json(request_json)
             .map_err(error_to_js_value)
     }
 
@@ -42,17 +32,6 @@ impl RitoWasmDocument {
     ) -> Result<String, JsValue> {
         self.inner
             .resolve_chapter_local_source_locator_json(owner_json, locator_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = getChapterLocalFrameJson)]
-    pub fn get_chapter_local_frame_json(
-        &mut self,
-        owner_json: &str,
-        local_spread_index: usize,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .get_chapter_local_frame_json(owner_json, local_spread_index)
             .map_err(error_to_js_value)
     }
 

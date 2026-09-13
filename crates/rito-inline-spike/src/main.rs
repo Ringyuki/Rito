@@ -18,7 +18,7 @@ use rito_fragment::{
 };
 use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
-    FontFamilies, FontFamily, FontFamilyName, InlineStyleTableV1, LayoutStyleId, LayoutStyleTableV1,
+    FontFamilies, FontFamily, FontFamilyName, InlineStyleTable, LayoutStyleId, LayoutStyleTable,
 };
 use serde::{Deserialize, Serialize};
 
@@ -84,7 +84,7 @@ fn main() {
     let cancel = CancelFlag::new();
     let mut paragraphs = Vec::with_capacity(request.paragraphs.len());
     for paragraph in &request.paragraphs {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let style = inline
             .intern_for_node(
                 0,
@@ -110,7 +110,7 @@ fn main() {
             }],
             FormattingNodeId(0),
             FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
                 inline,
             },
         )

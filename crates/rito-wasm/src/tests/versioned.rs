@@ -1,8 +1,8 @@
-use rito_core::{layout::TextMeasurementMode, runtime::RuntimeResourceKind};
+use rito_core::runtime::RuntimeResourceKind;
 use serde_json::{json, Value};
 
-use super::fixture::{fixture_document, layout, revision_id};
-use crate::{WasmRuntimeDocument, WasmRuntimeErrorCode};
+use super::fixture::{layout, pinned_fixture_wasm_document, revision_id};
+use crate::WasmRuntimeErrorCode;
 
 fn parse(response: String) -> Value {
     serde_json::from_str(&response).expect("versioned response parses")
@@ -15,7 +15,7 @@ fn assert_revision(response: &Value, revision_id: &str, revision_version: u32) {
 
 #[test]
 fn versioned_raw_reads_return_stamped_envelopes() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let metadata = parse(
@@ -29,14 +29,6 @@ fn versioned_raw_reads_return_stamped_envelopes() {
         .read_frame_command_buffer_at_revision(&revision_id, 0, 0)
         .expect("command bytes are returned")
         .is_empty());
-    let frame = parse(
-        document
-            .get_frame_at_revision_json(&revision_id, 0, 0)
-            .expect("frame is returned after packed warmup"),
-    );
-    assert_revision(&frame, &revision_id, 0);
-    assert_eq!(frame["value"]["spreadIndex"], 0);
-
     let search = parse(
         document
             .search_at_revision_json(
@@ -72,26 +64,6 @@ fn versioned_raw_reads_return_stamped_envelopes() {
     assert_revision(&source, &revision_id, 0);
     assert_eq!(source["value"]["status"], "resolved");
     assert_eq!(source["value"]["matchedBy"], "anchor");
-
-    let diagnostic = parse(
-        document
-            .get_shape_provenance_diagnostic_at_revision_json(&revision_id, 0)
-            .expect("shape provenance diagnostic"),
-    );
-    assert_revision(&diagnostic, &revision_id, 0);
-    assert_eq!(diagnostic["value"]["schemaVersion"], 1);
-    assert_eq!(diagnostic["value"]["isComplete"], true);
-    assert_eq!(
-        diagnostic["value"]["totalTextUtf16CodeUnitCount"]
-            .as_u64()
-            .unwrap(),
-        diagnostic["value"]["exactTextUtf16CodeUnitCount"]
-            .as_u64()
-            .unwrap()
-            + diagnostic["value"]["unavailableTextUtf16CodeUnitCount"]
-                .as_u64()
-                .unwrap()
-    );
 
     for response in [
         document
@@ -154,21 +126,14 @@ fn versioned_raw_reads_return_stamped_envelopes() {
 
 #[test]
 fn versioned_revision_presentation_is_slim_and_exact() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let mut config = layout();
-    config.text_measurement = TextMeasurementMode::FontAware;
+    let mut document = pinned_fixture_wasm_document();
+    let config = layout();
     let created = parse(
         document
-            .create_full_revision_bundle_json(
-                &json!({
-                    "layoutConfig": config,
-                    "activeSpreadIndex": 0,
-                })
-                .to_string(),
-            )
+            .create_revision_json(&json!(config).to_string())
             .expect("font-aware revision is created"),
     );
-    let revision_id = created["bundle"]["revision"]["revisionId"]
+    let revision_id = created["revisionId"]
         .as_str()
         .expect("font-aware revision id is present")
         .to_owned();
@@ -187,18 +152,12 @@ fn versioned_revision_presentation_is_slim_and_exact() {
     let value = presentation["value"]
         .as_object()
         .expect("presentation value is an object");
-    for field in [
-        "revision",
-        "navigation",
-        "tocTargets",
-        "fontFamilies",
-        "fontVerticalMetricDemands",
-    ] {
+    for field in ["revision", "navigation", "tocTargets", "fontFamilies"] {
         assert!(value.contains_key(field), "missing {field}");
     }
-    assert!(value["fontVerticalMetricDemands"]
-        .as_array()
-        .is_some_and(|demands| !demands.is_empty()));
+    // The fragment engine shapes with its own fonts and never asks the
+    // host for vertical-metric samples.
+    assert!(!value.contains_key("fontVerticalMetricDemands"));
     assert!(!value.contains_key("footnotes"));
     assert!(!value.contains_key("chapterTextIndices"));
     for field in [
@@ -215,7 +174,7 @@ fn versioned_revision_presentation_is_slim_and_exact() {
 
 #[test]
 fn page_semantics_raw_binding_preserves_the_versioned_envelope_and_typed_errors() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let response = parse(
@@ -244,7 +203,7 @@ fn page_semantics_raw_binding_preserves_the_versioned_envelope_and_typed_errors(
 
 #[test]
 fn page_reading_anchor_raw_binding_preserves_source_identity_and_typed_errors() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let response = parse(
@@ -278,7 +237,7 @@ fn page_reading_anchor_raw_binding_preserves_source_identity_and_typed_errors() 
 
 #[test]
 fn versioned_exact_text_reads_return_stamped_typed_responses() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
     let targets = parse(
         document
@@ -306,8 +265,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     assert_revision(&caret, &revision_id, 0);
     assert_eq!(caret["value"]["pageIndex"], 0);
     assert_eq!(caret["value"]["spreadIndex"], 0);
-    assert_eq!(caret["value"]["resolution"]["status"], "unavailable");
-    assert_eq!(caret["value"]["resolution"]["reason"], "shapeUnavailable");
+    assert_eq!(caret["value"]["resolution"]["status"], "resolved");
 
     let address = json!({
         "pageIndex": 0,
@@ -328,8 +286,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     );
 
     assert_revision(&range, &revision_id, 0);
-    assert_eq!(range["value"]["resolution"]["status"], "unavailable");
-    assert_eq!(range["value"]["resolution"]["reason"], "shapeUnavailable");
+    assert_eq!(range["value"]["resolution"]["status"], "resolved");
 
     let point_range = parse(
         document
@@ -346,11 +303,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
             .expect("point range response is returned"),
     );
     assert_revision(&point_range, &revision_id, 0);
-    assert_eq!(point_range["value"]["resolution"]["status"], "unavailable");
-    assert_eq!(
-        point_range["value"]["resolution"]["reason"],
-        "shapeUnavailable"
-    );
+    assert_eq!(point_range["value"]["resolution"]["status"], "resolved");
 
     let range_to_point = parse(
         document
@@ -366,14 +319,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
             .expect("range-to-point response is returned"),
     );
     assert_revision(&range_to_point, &revision_id, 0);
-    assert_eq!(
-        range_to_point["value"]["resolution"]["status"],
-        "unavailable"
-    );
-    assert_eq!(
-        range_to_point["value"]["resolution"]["reason"],
-        "shapeUnavailable"
-    );
+    assert_eq!(range_to_point["value"]["resolution"]["status"], "resolved");
 
     let movement_request = json!({
         "anchor": address,
@@ -391,11 +337,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     );
     assert_revision(&movement, &revision_id, 0);
     assert_eq!(movement["value"]["revisionId"], revision_id);
-    assert_eq!(movement["value"]["resolution"]["status"], "unavailable");
-    assert_eq!(
-        movement["value"]["resolution"]["reason"],
-        "shapeUnavailable"
-    );
+    assert_eq!(movement["value"]["resolution"]["status"], "resolved");
     for movement_name in ["paragraphPreviousStart", "paragraphNextStart"] {
         let response = parse(
             document
@@ -411,11 +353,12 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
                 )
                 .expect("paragraph start movement request is accepted"),
         );
-        assert_eq!(response["value"]["resolution"]["status"], "unavailable");
-        assert_eq!(
-            response["value"]["resolution"]["reason"],
-            "shapeUnavailable"
-        );
+        // A single-paragraph fixture reaches the document boundary in
+        // either direction; the typed, stamped response is the contract.
+        let status = response["value"]["resolution"]["status"]
+            .as_str()
+            .expect("movement status");
+        assert!(status == "resolved" || status == "boundary", "{status}");
     }
     let stale_movement = document
         .resolve_text_selection_movement_at_revision_json(
@@ -429,18 +372,13 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
         WasmRuntimeErrorCode::StaleRevisionVersion
     );
 
-    let source_point = &target["sourceLocator"]["sourcePoint"];
-    let source_offset = source_point["textOffset"]
-        .as_u64()
-        .expect("source text offset");
+    // The first character of the fixture paragraph's text node; page
+    // targets carry no click-source point of their own.
     let source_range_request = json!({
-        "href": target["sourceLocator"]["href"],
+        "href": "chapter.xhtml",
         "sourceRange": {
-            "start": source_point,
-            "end": {
-                "nodePath": source_point["nodePath"],
-                "textOffset": source_offset + 1,
-            },
+            "start": { "nodePath": [0, 0], "textOffset": 0 },
+            "end": { "nodePath": [0, 0], "textOffset": 1 },
         },
     });
     let source_range = parse(
@@ -455,11 +393,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
 
     assert_revision(&source_range, &revision_id, 0);
     assert_eq!(source_range["value"]["revisionId"], revision_id);
-    assert_eq!(source_range["value"]["resolution"]["status"], "unavailable");
-    assert_eq!(
-        source_range["value"]["resolution"]["reason"],
-        "shapeUnavailable"
-    );
+    assert_eq!(source_range["value"]["resolution"]["status"], "resolved");
 
     let bad_point = document
         .resolve_text_caret_at_revision_json(&revision_id, 0, r#"{"pageIndex":0,"x":"bad","y":0}"#)
@@ -522,254 +456,8 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
 }
 
 #[test]
-fn versioned_resources_are_leased_and_released_by_exact_version() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let initial = start_bounded(&mut document);
-    let advanced = continue_once(&mut document, &initial);
-    assert_eq!(advanced["revision"]["revisionVersion"], 1);
-
-    let payload = parse(
-        document
-            .get_resource_payload_at_revision_json(
-                "rev-1",
-                1,
-                RuntimeResourceKind::Image,
-                "Images/cover.png",
-            )
-            .expect("version one resource is leased"),
-    );
-    assert_revision(&payload, "rev-1", 1);
-    let transfer_id = payload["value"]["transferId"]
-        .as_str()
-        .expect("transfer id")
-        .to_owned();
-    let legacy_payload = parse(
-        document
-            .get_resource_payload_json("rev-1", RuntimeResourceKind::Image, "Images/cover.png")
-            .expect("versionless API leases against the current version"),
-    );
-    let legacy_transfer_id = legacy_payload["transferId"]
-        .as_str()
-        .expect("legacy transfer id")
-        .to_owned();
-    let prefetch = parse(
-        document
-            .prefetch_resources_at_revision_json(
-                "rev-1",
-                1,
-                r#"{"resources":[{"kind":"image","href":"Images/cover.png"}]}"#,
-            )
-            .expect("resource prefetch is versioned"),
-    );
-    assert_revision(&prefetch, "rev-1", 1);
-    assert_eq!(
-        prefetch["value"]["payloads"].as_array().map(Vec::len),
-        Some(1)
-    );
-    let planned = parse(
-        document
-            .prefetch_planned_frame_resources_at_revision_json("rev-1", 1, 0)
-            .expect("planned prefetch is versioned"),
-    );
-    assert_revision(&planned, "rev-1", 1);
-
-    let old_release = parse(
-        document
-            .release_revision_transfers_at_revision_json("rev-1", 0)
-            .expect("old release is scoped"),
-    );
-    assert_eq!(old_release["value"], 0);
-    assert!(document.read_resource_transfer(&transfer_id).is_ok());
-    assert!(document.read_resource_transfer(&legacy_transfer_id).is_ok());
-    let current_release = parse(
-        document
-            .release_revision_transfers_at_revision_json("rev-1", 1)
-            .expect("current release is scoped"),
-    );
-    assert!(current_release["value"]
-        .as_u64()
-        .is_some_and(|released| released >= 3));
-    assert!(document.read_resource_transfer(&transfer_id).is_err());
-    assert!(document
-        .read_resource_transfer(&legacy_transfer_id)
-        .is_err());
-    assert_eq!(document.pending_resource_transfer_count(), 0);
-}
-
-#[test]
-fn stale_unknown_and_exact_revision_release_are_distinct() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let initial = start_bounded(&mut document);
-    let _advanced = continue_once(&mut document, &initial);
-
-    let stale = document
-        .get_revision_summary_at_revision_json("rev-1", 0)
-        .expect_err("old revision handle is stale");
-    assert_eq!(stale.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
-    let stale_diagnostic = document
-        .get_shape_provenance_diagnostic_at_revision_json("rev-1", 0)
-        .expect_err("old diagnostic handle is stale");
-    assert_eq!(
-        stale_diagnostic.code(),
-        WasmRuntimeErrorCode::StaleRevisionVersion
-    );
-    let stale_presentation = document
-        .get_revision_presentation_at_revision_json("rev-1", 0)
-        .expect_err("old presentation handle is stale");
-    assert_eq!(
-        stale_presentation.code(),
-        WasmRuntimeErrorCode::StaleRevisionVersion
-    );
-    let unknown = document
-        .get_revision_summary_at_revision_json("rev-missing", 0)
-        .expect_err("missing revision is typed");
-    assert_eq!(unknown.code(), WasmRuntimeErrorCode::UnknownRevision);
-    let unknown_diagnostic = document
-        .get_shape_provenance_diagnostic_at_revision_json("rev-missing", 0)
-        .expect_err("missing diagnostic revision is typed");
-    assert_eq!(
-        unknown_diagnostic.code(),
-        WasmRuntimeErrorCode::UnknownRevision
-    );
-    let unknown_presentation = document
-        .get_revision_presentation_at_revision_json("rev-missing", 0)
-        .expect_err("missing presentation revision is typed");
-    assert_eq!(
-        unknown_presentation.code(),
-        WasmRuntimeErrorCode::UnknownRevision
-    );
-    let request = json!({ "pageIndex": 0, "x": 24.0, "y": 24.0 }).to_string();
-    let range_request = collapsed_range_request().to_string();
-    let point_range_request = json!({
-        "anchor": { "pageIndex": 0, "x": 24.0, "y": 24.0 },
-        "focus": { "pageIndex": 0, "x": 24.0, "y": 24.0 },
-        "granularity": "paragraph",
-    })
-    .to_string();
-    let range_to_point_request = json!({
-        "anchor": collapsed_range_request()["anchor"],
-        "focus": { "pageIndex": 0, "x": 24.0, "y": 24.0 },
-    })
-    .to_string();
-    let source_range_request = exact_source_range_request().to_string();
-    for error in [
-        document
-            .resolve_text_caret_at_revision_json("rev-1", 0, &request)
-            .expect_err("old caret handle is stale"),
-        document
-            .resolve_text_range_at_revision_json("rev-1", 0, &range_request)
-            .expect_err("old range handle is stale"),
-        document
-            .resolve_text_range_from_points_at_revision_json("rev-1", 0, &point_range_request)
-            .expect_err("old point range handle is stale"),
-        document
-            .resolve_text_range_to_point_at_revision_json("rev-1", 0, &range_to_point_request)
-            .expect_err("old range-to-point handle is stale"),
-        document
-            .resolve_exact_source_range_at_revision_json("rev-1", 0, &source_range_request)
-            .expect_err("old exact source range handle is stale"),
-    ] {
-        assert_eq!(error.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
-    }
-    for error in [
-        document
-            .resolve_text_caret_at_revision_json("rev-missing", 0, &request)
-            .expect_err("missing caret revision is typed"),
-        document
-            .resolve_text_range_at_revision_json("rev-missing", 0, &range_request)
-            .expect_err("missing range revision is typed"),
-        document
-            .resolve_text_range_from_points_at_revision_json("rev-missing", 0, &point_range_request)
-            .expect_err("missing point range revision is typed"),
-        document
-            .resolve_text_range_to_point_at_revision_json("rev-missing", 0, &range_to_point_request)
-            .expect_err("missing range-to-point revision is typed"),
-        document
-            .resolve_exact_source_range_at_revision_json("rev-missing", 0, &source_range_request)
-            .expect_err("missing exact source range revision is typed"),
-    ] {
-        assert_eq!(error.code(), WasmRuntimeErrorCode::UnknownRevision);
-    }
-
-    let stale_release = document
-        .release_revision_at_revision_json("rev-1", 0)
-        .expect_err("stale release cannot remove current revision");
-    assert_eq!(
-        stale_release.code(),
-        WasmRuntimeErrorCode::StaleRevisionVersion
-    );
-    document
-        .get_revision_summary_at_revision_json("rev-1", 1)
-        .expect("current revision survived stale release");
-
-    let released = parse(
-        document
-            .release_revision_at_revision_json("rev-1", 1)
-            .expect("current revision releases"),
-    );
-    assert_eq!(released["value"]["releasedRevision"], true);
-    let missing = document
-        .get_revision_summary_at_revision_json("rev-1", 1)
-        .expect_err("released revision is gone");
-    assert_eq!(missing.code(), WasmRuntimeErrorCode::UnknownRevision);
-}
-
-fn collapsed_range_request() -> Value {
-    let address = json!({
-        "pageIndex": 0,
-        "blockIndex": 0,
-        "lineIndex": 0,
-        "runIndex": 0,
-        "charIndex": 0,
-        "affinity": "downstream",
-    });
-    json!({ "anchor": address, "focus": address })
-}
-
-fn exact_source_range_request() -> Value {
-    json!({
-        "href": "chapter.xhtml",
-        "sourceRange": {
-            "start": { "nodePath": [0], "textOffset": 0 },
-            "end": { "nodePath": [0], "textOffset": 1 },
-        },
-    })
-}
-
-fn start_bounded(document: &mut WasmRuntimeDocument) -> Value {
-    parse(
-        document
-            .create_bounded_revision_json(
-                &json!({
-                    "layoutConfig": layout(),
-                    "lineBreaking": "greedy",
-                    "budget": { "maxTopLevelNodes": 1 }
-                })
-                .to_string(),
-            )
-            .expect("bounded revision starts"),
-    )
-}
-
-fn continue_once(document: &mut WasmRuntimeDocument, advance: &Value) -> Value {
-    parse(
-        document
-            .continue_revision_json(
-                &json!({
-                    "revisionId": advance["continuation"]["revisionId"],
-                    "revisionVersion": advance["continuation"]["revisionVersion"],
-                    "cursor": advance["continuation"]["cursor"],
-                    "budget": { "maxTopLevelNodes": 1 }
-                })
-                .to_string(),
-            )
-            .expect("revision advances"),
-    )
-}
-
-#[test]
 fn style_table_summary_is_versioned_and_deterministic() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let summary = parse(
@@ -779,7 +467,6 @@ fn style_table_summary_is_versioned_and_deterministic() {
     );
     assert_revision(&summary, &revision_id, 0);
     assert_eq!(summary["value"]["schemaVersion"], 1);
-    assert_eq!(summary["value"]["isComplete"], true);
     assert!(summary["value"]["chapterCount"].as_u64().unwrap() > 0);
     let chapters = summary["value"]["chapters"].as_array().expect("chapters");
     for chapter in chapters {
@@ -800,7 +487,7 @@ fn style_table_summary_is_versioned_and_deterministic() {
 
 #[test]
 fn chapter_tree_report_is_versioned_and_deterministic() {
-    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut document = pinned_fixture_wasm_document();
     let revision_id = revision_id(&mut document);
 
     let report = parse(
@@ -810,7 +497,6 @@ fn chapter_tree_report_is_versioned_and_deterministic() {
     );
     assert_revision(&report, &revision_id, 0);
     assert_eq!(report["value"]["schemaVersion"], 1);
-    assert_eq!(report["value"]["isComplete"], true);
     let chapters = report["value"]["chapters"].as_array().expect("chapters");
     assert!(!chapters.is_empty());
     for chapter in chapters {

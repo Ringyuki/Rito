@@ -1,25 +1,16 @@
 import { requireReaderChapterLocalFrame } from './chapter-local-frame-validation-runtime.js';
-import { requireChapterLocalRelease } from './chapter-local-advance-validation-runtime.js';
+import { requireChapterLocalRelease } from './chapter-local-creation-validation-runtime.js';
 import { requireChapterLocalOwner } from './chapter-local-owner-validation-runtime.js';
 
-const MUTATION_KINDS = new Set([
-  'createBoundedChapterLocalRevision',
-  'continueChapterLocalRevision',
-]);
+const MUTATION_KINDS = new Set(['createChapterLocalRevision']);
 
 export function chapterLocalReaderWorkerPayload(document, request) {
   switch (request.kind) {
-    case 'createBoundedChapterLocalRevision':
+    case 'createChapterLocalRevision':
       return mutationResponse(
         document,
         request.kind,
-        document.createBoundedChapterLocalRevision(request.request),
-      );
-    case 'continueChapterLocalRevision':
-      return mutationResponse(
-        document,
-        request.kind,
-        document.continueChapterLocalRevision(request.request),
+        document.createChapterLocalRevision(request.request),
       );
     case 'releaseChapterLocalRevision':
       return {
@@ -46,10 +37,10 @@ export function chapterLocalResponseTransfers(payload) {
   );
 }
 
-function mutationResponse(document, kind, advance) {
+function mutationResponse(document, kind, created) {
   let owner;
   try {
-    owner = requireChapterLocalOwner(advance.revision, `${kind} result`);
+    owner = requireChapterLocalOwner(created.revision, `${kind} result`);
   } catch (error) {
     // A committed revision without a valid owner identity can never be
     // released; free the document so its ownership cannot leak silently.
@@ -62,17 +53,17 @@ function mutationResponse(document, kind, advance) {
     throw error;
   }
   try {
-    const frame = resolvedFrame(document, advance, owner, kind);
-    return { kind, result: { advance, ...(frame === undefined ? {} : { frame }) } };
+    const frame = resolvedFrame(document, created, owner, kind);
+    return { kind, result: { created, ...(frame === undefined ? {} : { frame }) } };
   } catch (error) {
     containCommittedOwner(document, owner);
     throw error;
   }
 }
 
-function resolvedFrame(document, advance, owner, operation) {
-  if (advance.target.status !== 'resolved') return undefined;
-  const localSpreadIndex = advance.target.localSpreadIndex;
+function resolvedFrame(document, created, owner, operation) {
+  if (created.target.status !== 'resolved') return undefined;
+  const localSpreadIndex = created.target.localSpreadIndex;
   const buffer = document.readChapterLocalFrame(owner, localSpreadIndex);
   const resources = document.prefetchChapterLocalFrameResources(owner, localSpreadIndex);
   return requireReaderChapterLocalFrame(

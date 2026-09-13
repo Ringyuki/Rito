@@ -1,5 +1,5 @@
 import type {
-  BrowserReaderBoundedSession,
+  BrowserReaderRevisionSession,
   BrowserReaderWorkerClient,
   CoreRevisionHandle,
 } from './core-contracts';
@@ -15,11 +15,11 @@ import {
 import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
 
 const READER_SESSION_DISPOSE_TIMEOUT_MS = 1_000;
-const boundedOwnerRetirements = new WeakMap<BrowserReaderBoundedSessionOwner, Promise<void>>();
-const pendingBoundedOwnerRetirements = new WeakMap<BrowserReaderState, Set<Promise<void>>>();
+const revisionOwnerRetirements = new WeakMap<BrowserReaderRevisionSessionOwner, Promise<void>>();
+const pendingRevisionOwnerRetirements = new WeakMap<BrowserReaderState, Set<Promise<void>>>();
 
-export interface BrowserReaderBoundedSessionOwner {
-  readonly controller: BrowserReaderBoundedSession;
+export interface BrowserReaderRevisionSessionOwner {
+  readonly controller: BrowserReaderRevisionSession;
   readonly worker: BrowserReaderWorkerClient;
   acceptedRevision: BrowserReaderWorkerRevisionHandle | undefined;
   gateGeneration: number;
@@ -27,13 +27,13 @@ export interface BrowserReaderBoundedSessionOwner {
   terminalError?: Error | undefined;
 }
 
-export interface BrowserReaderBoundedSessionSlots {
-  current: BrowserReaderBoundedSessionOwner | undefined;
-  candidate: BrowserReaderBoundedSessionOwner | undefined;
+export interface BrowserReaderRevisionSessionSlots {
+  current: BrowserReaderRevisionSessionOwner | undefined;
+  candidate: BrowserReaderRevisionSessionOwner | undefined;
 }
 
 export interface BrowserReaderExactReadGate {
-  readonly owner: BrowserReaderBoundedSessionOwner;
+  readonly owner: BrowserReaderRevisionSessionOwner;
   readonly generation: number;
   readonly commitGeneration: number;
   /** The published layout identity that may be restored after a no-op mutation failure. */
@@ -41,7 +41,7 @@ export interface BrowserReaderExactReadGate {
 }
 
 export function recordBrowserReaderAcceptedRevision(
-  owner: BrowserReaderBoundedSessionOwner,
+  owner: BrowserReaderRevisionSessionOwner,
   revision: CoreRevisionHandle,
 ): void {
   owner.acceptedRevision = {
@@ -54,7 +54,7 @@ export function recordBrowserReaderAcceptedRevision(
 export function suspendBrowserReaderExactReads(
   state: BrowserReaderState,
 ): BrowserReaderExactReadGate | undefined {
-  const owner = state.boundedSessions.current;
+  const owner = state.revisionSessions.current;
   if (!owner) return undefined;
   const publicationGeneration = state.revisionHandle?.publicationGeneration;
   beginBrowserReaderSuspendedFrameMisses(state);
@@ -95,7 +95,7 @@ export function restoreBrowserReaderExactReads(
     state.revisionHandle ||
     gate.publicationGeneration === undefined ||
     state.commitGeneration !== gate.commitGeneration ||
-    state.boundedSessions.current !== gate.owner ||
+    state.revisionSessions.current !== gate.owner ||
     gate.owner.gateGeneration !== gate.generation ||
     gate.owner.terminalError ||
     gate.owner.worker !== state.worker ||
@@ -127,7 +127,7 @@ export function resumeBrowserReaderExactReads(
   if (
     state.disposed ||
     !revision ||
-    state.boundedSessions.current !== gate.owner ||
+    state.revisionSessions.current !== gate.owner ||
     gate.owner.gateGeneration !== gate.generation ||
     gate.owner.worker !== state.worker ||
     !sameWorkerRevision(gate.owner.acceptedRevision, revision)
@@ -139,8 +139,8 @@ export function resumeBrowserReaderExactReads(
   return true;
 }
 
-export function boundedOwnerAllowsRead(
-  owner: BrowserReaderBoundedSessionOwner | undefined,
+export function revisionOwnerAllowsRead(
+  owner: BrowserReaderRevisionSessionOwner | undefined,
   worker: BrowserReaderWorkerClient,
   handle: BrowserReaderRevisionHandle,
 ): boolean {
@@ -154,7 +154,7 @@ export function boundedOwnerAllowsRead(
 }
 
 export function disposeBrowserReaderSessionHosts(state: BrowserReaderState): void {
-  const slots = state.boundedSessions;
+  const slots = state.revisionSessions;
   const owners = [slots.current, slots.candidate].filter((owner) => owner !== undefined);
   slots.current = undefined;
   slots.candidate = undefined;
@@ -162,30 +162,30 @@ export function disposeBrowserReaderSessionHosts(state: BrowserReaderState): voi
   const controllers = new Set(owners.map(({ controller }) => controller));
   state.disposeTask = Promise.all([
     drainBrowserReaderControllers(state, controllers),
-    drainBrowserReaderBoundedOwnerRetirements(state),
+    drainBrowserReaderRevisionOwnerRetirements(state),
   ]).then(() => releaseBrowserReaderWorkers(state, workers));
 }
 
-export function scheduleBrowserReaderBoundedOwnerRetirement(
+export function scheduleBrowserReaderRevisionOwnerRetirement(
   state: BrowserReaderState,
-  owner: BrowserReaderBoundedSessionOwner,
+  owner: BrowserReaderRevisionSessionOwner,
   retire: () => Promise<void>,
 ): Promise<void> {
-  const existing = boundedOwnerRetirements.get(owner);
+  const existing = revisionOwnerRetirements.get(owner);
   if (existing) return existing;
   const task = Promise.resolve()
     .then(retire)
     .catch((error: unknown) => {
-      warnReaderDisposal(state, 'bounded reader owner retirement failed', error);
+      warnReaderDisposal(state, 'revision session owner retirement failed', error);
     });
-  boundedOwnerRetirements.set(owner, task);
-  const pending = pendingBoundedOwnerRetirements.get(state) ?? new Set<Promise<void>>();
+  revisionOwnerRetirements.set(owner, task);
+  const pending = pendingRevisionOwnerRetirements.get(state) ?? new Set<Promise<void>>();
   pending.add(task);
-  pendingBoundedOwnerRetirements.set(state, pending);
+  pendingRevisionOwnerRetirements.set(state, pending);
   void task.then(() => {
     pending.delete(task);
-    if (pending.size === 0 && pendingBoundedOwnerRetirements.get(state) === pending) {
-      pendingBoundedOwnerRetirements.delete(state);
+    if (pending.size === 0 && pendingRevisionOwnerRetirements.get(state) === pending) {
+      pendingRevisionOwnerRetirements.delete(state);
     }
   });
   return task;
@@ -196,7 +196,7 @@ export function withReaderSessionDisposeTimeout(task: Promise<void>): Promise<vo
     const timer = globalThis.setTimeout(() => {
       reject(
         new Error(
-          `bounded reader dispose timed out after ${String(READER_SESSION_DISPOSE_TIMEOUT_MS)}ms`,
+          `revision session dispose timed out after ${String(READER_SESSION_DISPOSE_TIMEOUT_MS)}ms`,
         ),
       );
     }, READER_SESSION_DISPOSE_TIMEOUT_MS);
@@ -215,7 +215,7 @@ export function withReaderSessionDisposeTimeout(task: Promise<void>): Promise<vo
 
 async function drainBrowserReaderControllers(
   state: BrowserReaderState,
-  controllers: ReadonlySet<BrowserReaderBoundedSession>,
+  controllers: ReadonlySet<BrowserReaderRevisionSession>,
 ): Promise<void> {
   const results = await Promise.allSettled(
     [...controllers].map((controller) =>
@@ -224,28 +224,30 @@ async function drainBrowserReaderControllers(
   );
   for (const result of results) {
     if (result.status === 'rejected') {
-      warnReaderDisposal(state, 'bounded reader dispose failed', result.reason);
+      warnReaderDisposal(state, 'revision session dispose failed', result.reason);
     }
   }
 }
 
-async function drainBrowserReaderBoundedOwnerRetirements(state: BrowserReaderState): Promise<void> {
+async function drainBrowserReaderRevisionOwnerRetirements(
+  state: BrowserReaderState,
+): Promise<void> {
   const drained = new Set<Promise<void>>();
   for (
-    let pending = unseenBoundedOwnerRetirements(state, drained);
+    let pending = unseenRevisionOwnerRetirements(state, drained);
     pending.length > 0;
-    pending = unseenBoundedOwnerRetirements(state, drained)
+    pending = unseenRevisionOwnerRetirements(state, drained)
   ) {
     for (const task of pending) drained.add(task);
     await Promise.allSettled(pending);
   }
 }
 
-function unseenBoundedOwnerRetirements(
+function unseenRevisionOwnerRetirements(
   state: BrowserReaderState,
   drained: ReadonlySet<Promise<void>>,
 ): Promise<void>[] {
-  const retirements = pendingBoundedOwnerRetirements.get(state);
+  const retirements = pendingRevisionOwnerRetirements.get(state);
   return [...(retirements ?? [])].filter((task) => !drained.has(task));
 }
 

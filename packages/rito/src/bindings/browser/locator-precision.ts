@@ -1,9 +1,9 @@
 import type { ReaderLocator } from '../../reader';
-import type { BrowserReaderBoundedSnapshot } from './core-contracts';
+import type { BrowserReaderRevisionSnapshot } from './core-contracts';
 import { copyReaderLocator } from './reader/interaction-capture';
 
 export type ReaderLocatorTargetOutcome =
-  | { readonly kind: 'snapshot'; readonly snapshot: BrowserReaderBoundedSnapshot }
+  | { readonly kind: 'snapshot'; readonly snapshot: BrowserReaderRevisionSnapshot }
   | { readonly kind: 'error'; readonly error: unknown };
 
 /** Drop one selector while preserving the locator's next-best durable chapter identity. */

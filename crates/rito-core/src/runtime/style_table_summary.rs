@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::epub::{EpubError, EpubResult};
 
-use super::{RuntimeDocument, RuntimeRevisionStatus};
+use super::RuntimeDocument;
 
 pub const RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION: u32 = 1;
 
@@ -36,14 +36,10 @@ pub struct RuntimeChapterStyleTableSummary {
 }
 
 /// Summary of every typed layout-style table a revision retains.
-///
-/// `is_complete == false` means later chapters may still be unresolved;
-/// tables appear as their chapters' work is published.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeStyleTableSummary {
     pub schema_version: u32,
-    pub is_complete: bool,
     /// Chapters with a retained table.
     pub chapter_count: usize,
     pub total_interned_style_count: usize,
@@ -92,7 +88,6 @@ impl RuntimeDocument {
         }
         Ok(RuntimeStyleTableSummary {
             schema_version: RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION,
-            is_complete: revision.status == RuntimeRevisionStatus::Complete,
             chapter_count: chapters.len(),
             total_interned_style_count: total_interned,
             total_inline_interned_style_count: total_inline_interned,

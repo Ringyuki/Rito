@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 
-use rito_style_contract::{InlineStyleTableV1, LayoutStyleId, LayoutStyleTableV1, StyleId};
+use rito_style_contract::{InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId};
 
 /// Stable identity of one node in a [`FormattingTree`].
 ///
@@ -27,12 +27,26 @@ pub struct FormattingNodeId(pub u32);
 /// Pure over its inputs so layout, line growth, and paint replay the
 /// same allocation without threading extra state.
 pub fn allocate_ruby_annotation(annotation: &str, start_ratio: f64, end_ratio: f64) -> String {
+    allocate_ruby_annotation_range(annotation, start_ratio, end_ratio)
+        .and_then(|range| annotation.get(range))
+        .map_or_else(String::new, str::to_owned)
+}
+
+/// The byte range of [`allocate_ruby_annotation`]'s words inside the
+/// annotation — the selected words are consecutive, so the allocation is
+/// one contiguous slice — or `None` when no word rides the segment.
+pub fn allocate_ruby_annotation_range(
+    annotation: &str,
+    start_ratio: f64,
+    end_ratio: f64,
+) -> Option<core::ops::Range<usize>> {
     let total = annotation.chars().count();
     if total == 0 {
-        return String::new();
+        return None;
     }
-    let mut allocated: Vec<&str> = Vec::new();
+    let mut allocated: Option<core::ops::Range<usize>> = None;
     let mut char_position = 0usize;
+    let mut byte = 0usize;
     for word in annotation.split(' ') {
         let len = word.chars().count();
         if len > 0 {
@@ -42,12 +56,147 @@ pub fn allocate_ruby_annotation(annotation: &str, start_ratio: f64, end_ratio: f
             // 异|禀 under Talent — midpoint 0.5 at a half-way split —
             // rewinds because Talent presses on 异's segment).
             if midpoint > start_ratio && midpoint <= end_ratio {
-                allocated.push(word);
+                let end = byte + word.len();
+                allocated = Some(allocated.map_or(byte..end, |range| range.start..end));
             }
         }
         char_position += len + 1;
+        byte += word.len() + 1;
     }
-    allocated.join(" ")
+    allocated
+}
+
+/// Where each cluster of an annotation paints over its base: the
+/// browser's `ruby-align` distribution replayed from the annotation's
+/// natural cluster origins (`natural`, from the slice's start, totalling
+/// `natural_advance`) across the base extent `width` wide starting at
+/// `start`, the annotation set at `annotation_size` px. Returns one
+/// absolute x per cluster, in `natural` order. Chromium's laws (LayoutNG
+/// `ApplyRubyAlign` and `ApplyJustificationInternal` with the ruby-text
+/// target), the slack being the extent less the annotation's width on
+/// the 1/64 layout grid:
+/// - `space-around` (the initial) justifies the annotation: its
+///   expansion opportunities are counted the way a justified line's are
+///   (after every space and CJK glyph, before a CJK glyph that follows
+///   neither, never at the line's edges); an inset of slack/(count+1),
+///   capped at twice the annotation's whole-pixel font size, stays half
+///   at each edge while the rest spreads over the opportunities — so a
+///   two-word Latin annotation keeps 8px at each edge of a wide base and
+///   opens the rest in its space (DOM-measured on a five-glyph base), a
+///   single Latin word centers, and CJK glyphs take one share each.
+///   With no opportunity the slack halves at the edges.
+/// - `space-between`: the same opportunities take every share, nothing
+///   at the edges; with no opportunity the annotation centers.
+/// - `center`: packed and centered, half the slack on the grid.
+/// - `start`: packed at the box's start.
+///
+/// A wider annotation than its extent packs from the start (its base
+/// spread to hold it).
+pub fn distribute_ruby_annotation(
+    text: &str,
+    natural: &[crate::ClusterPosition],
+    natural_advance: f64,
+    start: f64,
+    width: f64,
+    align: rito_style_contract::RubyAlign,
+    annotation_size: f64,
+) -> Vec<f64> {
+    use rito_style_contract::RubyAlign;
+    let trunc_64 = |value: f64| (value * 64.0).trunc() / 64.0;
+    let ceil_64 = |value: f64| (((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0).max(0.0);
+    let packed = || {
+        natural
+            .iter()
+            .map(|cluster| start + cluster.x)
+            .collect::<Vec<f64>>()
+    };
+    let space = width - ceil_64(natural_advance);
+    if natural.is_empty() || space <= 0.0 {
+        return packed();
+    }
+    // Each cluster's expansion opportunities (before, after), with the
+    // line's leading and trailing opportunities disallowed.
+    let mut is_after = true;
+    let mut flags: Vec<(bool, bool)> = natural
+        .iter()
+        .map(|cluster| {
+            let character = text
+                .get(cluster.byte as usize..)
+                .and_then(|rest| rest.chars().next())
+                .unwrap_or('\0');
+            if ruby_treat_as_space(character) {
+                is_after = true;
+                (false, true)
+            } else if ruby_glyph_expands(character) {
+                let before = !is_after;
+                is_after = true;
+                (before, true)
+            } else {
+                is_after = false;
+                (false, false)
+            }
+        })
+        .collect();
+    if is_after {
+        if let Some(last) = flags.last_mut() {
+            last.1 = false;
+        }
+    }
+    let count = flags
+        .iter()
+        .map(|(before, after)| u32::from(*before) + u32::from(*after))
+        .sum::<u32>();
+    let (edge, per_opportunity) = match align {
+        RubyAlign::Start => return packed(),
+        RubyAlign::Center => (trunc_64(space / 2.0), 0.0),
+        RubyAlign::SpaceBetween => {
+            if count == 0 {
+                (trunc_64(space / 2.0), 0.0)
+            } else {
+                (0.0, space / f64::from(count))
+            }
+        }
+        RubyAlign::SpaceAround => {
+            if count == 0 {
+                (trunc_64(space / 2.0), 0.0)
+            } else {
+                let cap = 2.0 * (annotation_size + 0.5).floor();
+                let inset = trunc_64(space / (f64::from(count) + 1.0)).min(cap);
+                (trunc_64(inset / 2.0), (space - inset) / f64::from(count))
+            }
+        }
+    };
+    let mut x = start + edge;
+    let mut origins = Vec::with_capacity(natural.len());
+    for (index, cluster) in natural.iter().enumerate() {
+        let (before, after) = flags[index];
+        let step = natural
+            .get(index + 1)
+            .map_or(natural_advance, |next| next.x)
+            - cluster.x;
+        // A before-opportunity's share moves the glyph's ink as well as
+        // widening its advance.
+        let shift = if before { per_opportunity } else { 0.0 };
+        origins.push(x + shift);
+        x += step + shift + if after { per_opportunity } else { 0.0 };
+    }
+    origins
+}
+
+/// The characters justification treats as spaces (Chromium's
+/// `Character::TreatAsSpace`): a share follows each.
+fn ruby_treat_as_space(character: char) -> bool {
+    matches!(character, ' ' | '\t' | '\n' | '\u{a0}')
+}
+
+/// Whether a glyph carries a per-glyph justification opportunity inside
+/// an annotation: the CJK blocks (the browser's justify opportunity
+/// classes applied inside the annotation box).
+fn ruby_glyph_expands(character: char) -> bool {
+    matches!(
+        u32::from(character),
+        0x2E80..=0x9FFF | 0xF900..=0xFAFF | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF
+    )
 }
 
 /// override it — 0.55em in the measured corpus).
@@ -129,7 +278,7 @@ pub enum InlineItem {
         /// letterboxes the raster inside it. Distinct from
         /// `fit_contain`, which is the SVG-fold geometry (two-stage
         /// viewBox + raster placement with clamp-bleed slivers).
-        object_fit: rito_style_contract::ObjectFitV1,
+        object_fit: rito_style_contract::ObjectFit,
     },
     /// An inline-block whose content is itself inline-only: an atomic
     /// inline laid out as its own mini paragraph (shrink-to-fit width,
@@ -219,9 +368,9 @@ pub struct FormattingNode {
 #[derive(Debug)]
 pub struct FormattingTreeStyles {
     /// Interned block/layout styles referenced by `FormattingNode::style`.
-    pub layout: LayoutStyleTableV1,
+    pub layout: LayoutStyleTable,
     /// Interned inline styles referenced by [`InlineItem::Text`].
-    pub inline: InlineStyleTableV1,
+    pub inline: InlineStyleTable,
 }
 
 /// The engine-input side of the durable layout contract.
@@ -628,14 +777,148 @@ mod tests {
         // Six words split three-quarters in: e and f go down.
         assert_eq!(alloc("a b c d e f", 0.0, 0.75), "a b c d");
         assert_eq!(alloc("a b c d e f", 0.75, f64::INFINITY), "e f");
+        // The same allocation as a byte range into the annotation.
+        assert_eq!(
+            allocate_ruby_annotation_range("Legal Brave", 0.0, 0.5),
+            Some(0..5)
+        );
+        assert_eq!(
+            allocate_ruby_annotation_range("Legal Brave", 0.5, f64::INFINITY),
+            Some(6..11)
+        );
+        assert_eq!(
+            allocate_ruby_annotation_range("Talent", 0.5, f64::INFINITY),
+            None
+        );
+        assert_eq!(
+            allocate_ruby_annotation_range("a b c d e f", 0.0, 0.75),
+            Some(0..7)
+        );
+    }
+
+    /// Every `ruby-align` law places the annotation's clusters over the
+    /// base extent from their natural origins: per-glyph shares for CJK,
+    /// whole-word units for Latin, packed starts and floored centers.
+    #[test]
+    fn ruby_annotation_distribution_follows_the_computed_alignment() {
+        let cluster = |byte: u32, x: f64| crate::ClusterPosition { byte, x };
+        let close = |actual: &[f64], expected: &[f64]| {
+            assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");
+            for (a, e) in actual.iter().zip(expected) {
+                assert!((a - e).abs() < 1e-9, "{actual:?} vs {expected:?}");
+            }
+        };
+        // Three 8px kana over a 32px base starting at 100: 8px of slack,
+        // two opportunities (after the first and second glyph).
+        let kana = [cluster(0, 0.0), cluster(3, 8.0), cluster(6, 16.0)];
+        let place =
+            |align| distribute_ruby_annotation("かんじ", &kana, 24.0, 100.0, 32.0, align, 8.0);
+        // An inset of slack/3 on the layout grid, half at each edge, the
+        // rest in the two gaps.
+        let inset = (8.0_f64 / 3.0 * 64.0).trunc() / 64.0;
+        let edge = (inset / 2.0 * 64.0).trunc() / 64.0;
+        let gap = (8.0 - inset) / 2.0;
+        close(
+            &place(RubyAlign::SpaceAround),
+            &[
+                100.0 + edge,
+                100.0 + edge + 8.0 + gap,
+                100.0 + edge + 16.0 + 2.0 * gap,
+            ],
+        );
+        // Interior shares only.
+        close(&place(RubyAlign::SpaceBetween), &[100.0, 112.0, 124.0]);
+        // Packed and centered on the 1/64 grid.
+        close(&place(RubyAlign::Center), &[104.0, 112.0, 120.0]);
+        // Packed at the start.
+        close(&place(RubyAlign::Start), &[100.0, 108.0, 116.0]);
+        // A Latin word has no opportunity: it centers whole, the slack
+        // halved onto the 1/64 grid, interior steps natural.
+        let word = [cluster(0, 0.0), cluster(1, 5.0), cluster(2, 9.33)];
+        close(
+            &distribute_ruby_annotation(
+                "abc",
+                &word,
+                14.0,
+                100.0,
+                40.0,
+                RubyAlign::SpaceAround,
+                8.0,
+            ),
+            &[113.0, 118.0, 122.33],
+        );
+        // Spaced words: the space is the one opportunity; the inset
+        // slack/2 stays half at each edge and the rest opens the space.
+        let words = [
+            cluster(0, 0.0),
+            cluster(1, 5.0),
+            cluster(2, 10.0),
+            cluster(3, 12.0),
+            cluster(4, 17.0),
+        ];
+        close(
+            &distribute_ruby_annotation(
+                "ab cd",
+                &words,
+                22.0,
+                100.0,
+                44.0,
+                RubyAlign::SpaceAround,
+                8.0,
+            ),
+            &[105.5, 110.5, 115.5, 128.5, 133.5],
+        );
+        // The inset caps at twice the annotation's whole-pixel font size
+        // (DOM-measured: "Regulu Ere" at 8px over an 80.36px base kept
+        // 8px at each edge and opened the rest, 28.16px, in its space).
+        let two_words = [
+            cluster(0, 0.0),
+            cluster(1, 5.34),
+            cluster(2, 8.89),
+            cluster(3, 12.89),
+            cluster(4, 16.89),
+            cluster(5, 19.11),
+            cluster(6, 23.11),
+            cluster(7, 25.11),
+            cluster(8, 30.0),
+            cluster(9, 32.66),
+        ];
+        let placed = distribute_ruby_annotation(
+            "Regulu Ere",
+            &two_words,
+            36.21,
+            38.390625,
+            80.359375,
+            RubyAlign::SpaceAround,
+            8.0,
+        );
+        assert!((placed[0] - (38.390625 + 8.0)).abs() < 1e-9, "{placed:?}");
+        let slack = 80.359375 - (((36.21 - 1.0 / 1024.0) * 64.0f64).ceil() / 64.0);
+        assert!(
+            (placed[7] - (38.390625 + 8.0 + 25.11 + (slack - 16.0))).abs() < 1e-9,
+            "{placed:?}"
+        );
+        // No slack: every law packs at the natural origins.
+        close(
+            &distribute_ruby_annotation(
+                "かんじ",
+                &kana,
+                24.0,
+                100.0,
+                24.0,
+                RubyAlign::SpaceAround,
+                8.0,
+            ),
+            &[100.0, 108.0, 116.0],
+        );
     }
 
     use super::*;
     use rito_style_contract::{
-        AlignItemsV1, ClearV1, FloatV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LengthPercentageOrAuto,
-        ListMarkerStyleV1, MaximumHeightV1, MaximumSizeV1, MinimumHeightV1, OverflowV1,
-        PageBreakV1, PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
+        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize, RubyAlign,
     };
 
     fn zero_padding() -> rito_style_contract::NonNegativeLengthPercentage {
@@ -646,11 +929,11 @@ mod tests {
         )
     }
 
-    fn layout_style(break_before: PageBreakV1) -> LayoutFormattingStyleV1 {
-        LayoutFormattingStyleV1 {
-            display: LayoutDisplayV1 {
-                outside: LayoutDisplayOutsideV1::Block,
-                inside: LayoutDisplayInsideV1::Flow,
+    fn layout_style(break_before: PageBreak) -> LayoutFormattingStyle {
+        LayoutFormattingStyle {
+            display: LayoutDisplay {
+                outside: LayoutDisplayOutside::Block,
+                inside: LayoutDisplayInside::Flow,
                 is_list_item: false,
             },
             margin: PhysicalSides {
@@ -665,28 +948,28 @@ mod tests {
                 bottom: zero_padding(),
                 left: zero_padding(),
             },
-            box_sizing: rito_style_contract::BoxSizingV1::ContentBox,
-            justify_content: JustifyContentV1::Normal,
-            align_items: AlignItemsV1::Normal,
+            box_sizing: rito_style_contract::BoxSizing::ContentBox,
+            justify_content: JustifyContent::Normal,
+            align_items: AlignItems::Normal,
             break_before,
-            break_after: PageBreakV1::Auto,
-            width: PreferredSizeV1::Auto,
-            height: PreferredSizeV1::Auto,
-            max_width: MaximumSizeV1::None,
-            min_height: MinimumHeightV1::Auto,
-            max_height: MaximumHeightV1::None,
-            clear: ClearV1::None,
-            float: FloatV1::None,
-            overflow: OverflowV1::Visible,
-            list_style_type: ListMarkerStyleV1::None,
-            position: PositionV1::Static,
-            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            break_after: PageBreak::Auto,
+            width: PreferredSize::Auto,
+            height: PreferredSize::Auto,
+            max_width: MaximumSize::None,
+            min_height: MinimumHeight::Auto,
+            max_height: MaximumHeight::None,
+            clear: Clear::None,
+            float: Float::None,
+            overflow: Overflow::Visible,
+            list_style_type: ListMarkerStyle::None,
+            position: Position::Static,
+            vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
-            object_fit: rito_style_contract::ObjectFitV1::Fill,
+            object_fit: rito_style_contract::ObjectFit::Fill,
             inset: PhysicalSides {
                 top: LengthPercentageOrAuto::Auto,
                 right: LengthPercentageOrAuto::Auto,
@@ -704,14 +987,14 @@ mod tests {
         }
     }
 
-    fn styles_with(break_before: PageBreakV1) -> FormattingTreeStyles {
-        let mut layout = LayoutStyleTableV1::new(1);
+    fn styles_with(break_before: PageBreak) -> FormattingTreeStyles {
+        let mut layout = LayoutStyleTable::new(1);
         layout
             .intern_for_node(0, layout_style(break_before))
             .expect("style interns");
         FormattingTreeStyles {
             layout,
-            inline: InlineStyleTableV1::new(0),
+            inline: InlineStyleTable::new(0),
         }
     }
 
@@ -743,8 +1026,8 @@ mod tests {
             nodes,
             FormattingNodeId(0),
             FormattingTreeStyles {
-                layout: LayoutStyleTableV1::new(0),
-                inline: InlineStyleTableV1::new(0),
+                layout: LayoutStyleTable::new(0),
+                inline: InlineStyleTable::new(0),
             },
         )
         .is_err());
@@ -755,13 +1038,13 @@ mod tests {
         let first = FormattingTree::with_styles(
             vec![block_node()],
             FormattingNodeId(0),
-            styles_with(PageBreakV1::Auto),
+            styles_with(PageBreak::Auto),
         )
         .expect("first tree builds");
         let second = FormattingTree::with_styles(
             vec![block_node()],
             FormattingNodeId(0),
-            styles_with(PageBreakV1::Always),
+            styles_with(PageBreak::Always),
         )
         .expect("second tree builds");
         assert_ne!(
@@ -773,7 +1056,7 @@ mod tests {
         let repeat = FormattingTree::with_styles(
             vec![block_node()],
             FormattingNodeId(0),
-            styles_with(PageBreakV1::Auto),
+            styles_with(PageBreak::Auto),
         )
         .expect("repeat tree builds");
         assert_eq!(first.fingerprint(), repeat.fingerprint());

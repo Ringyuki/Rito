@@ -111,10 +111,6 @@ jobs:
         run: pnpm run test:unit
       - name: Integration Tests
         run: pnpm run test:integration
-      - name: Golden Books
-        run: pnpm run test:golden:books
-      - name: Golden Render
-        run: pnpm run test:golden:render
 
   build-pack:
     name: Build & Pack
@@ -139,8 +135,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm run build
-      - name: DOM-free Reference Check
-        run: pnpm --filter @ritojs/core run test:dom-free:reference
       - name: Verify Packed Tarballs
         run: pnpm release:pack-check
 
@@ -189,16 +183,8 @@ jobs:
           retention-days: 7
 
   pixel-golden:
-    name: Pixel Golden (${{ matrix.slice }})
+    name: Pixel Golden
     runs-on: macos-26
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - slice: books-1-5
-            args: --grep "book-0[1-5]-"
-          - slice: books-6-10
-            args: --grep-invert "book-0[1-5]-"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -220,18 +206,17 @@ jobs:
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
       - name: Build Core Package
-        run: pnpm --filter @ritojs/core build && pnpm --filter @ritojs/core run build:reference
+        run: pnpm --filter @ritojs/core build
       - name: Run Pixel Golden
-        run: pnpm exec playwright test -c packages/rito/playwright.config.ts ${{ matrix.args }}
+        run: pnpm exec playwright test -c packages/rito/playwright.config.ts
         env:
           RITO_PIXEL_GOLDEN: 1
-          RITO_PIXEL_DIAGNOSTICS: 1
           RITO_PIXEL_WORKERS: 3
       - name: Upload Pixel Golden Artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: pixel-golden-results-${{ matrix.slice }}
+          name: pixel-golden-results
           path: packages/rito/test-results/
           if-no-files-found: ignore
           retention-days: 7

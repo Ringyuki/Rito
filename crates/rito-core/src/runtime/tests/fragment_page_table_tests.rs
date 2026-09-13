@@ -1,20 +1,22 @@
-//! End-to-end coverage for the fragment-engine page table: an eager
-//! whole-book revision on a representable book hands pagination to the
-//! fragment engine when the cutover lever is on.
+//! End-to-end coverage for the fragment-engine page table: a whole-book
+//! revision paginates every chapter through the fragment engine, and the
+//! page numbers, chapter ranges, frames and locators all come from it.
 
 use super::{
-    fixture::{fixture_epub_with_chapter_and_stylesheet, multi_chapter_fixture_epub},
-    pinned_font_policy_fixtures::{face, font_aware_layout, policy, serif_text_font},
+    fixture::{
+        chapter_eviction_fixture_epub, fixture_epub_with_chapter_and_stylesheet, layout,
+        multi_chapter_fixture_epub,
+    },
+    pinned_font_policy_fixtures::{face, policy, serif_text_font},
 };
 use crate::interaction::TextSelectionMovement;
+use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
 use crate::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
-    RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
-    RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
-    RuntimeTextRangeFromPointsResolution, RuntimeTextRangeToPointRequest,
-    RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
-    RuntimeTextSelectionMovementResolution,
+    RuntimeDocument, RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeTextPointRequest,
+    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
+    RuntimeTextRangeToPointRequest, RuntimeTextSelectionGranularity,
+    RuntimeTextSelectionMovementRequest, RuntimeTextSelectionMovementResolution,
 };
 use crate::runtime::{RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution};
 
@@ -28,8 +30,7 @@ fn fragment_routed_document() -> (RuntimeDocument, String) {
         )]),
     )
     .expect("multi-chapter document opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -45,15 +46,11 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
         .revisions
         .get(&revision_id)
         .expect("revision is retained");
-    let layout = revision
-        .fragment_layout
-        .as_ref()
-        .expect("the fragment page table attaches");
+    let layout = &revision.fragment_layout;
 
     // The advertised extent is the fragment page table's.
     assert!(layout.page_count() > 0);
-    assert_eq!(revision.known_extent.page_count, layout.page_count());
-    assert_eq!(revision.final_extent, Some(revision.known_extent));
+    assert_eq!(revision.extent.page_count, layout.page_count());
 
     let session = revision.chapter_engine_session();
     assert_eq!(session.metadata().page_count, layout.page_count());
@@ -80,7 +77,10 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
     );
 
     // Frames paint fragment commands.
-    let frame = session.frame(0).expect("spread 0 has a frame");
+    let frame = session
+        .frame(0, 1.0)
+        .expect("frame paints")
+        .expect("spread 0 has a frame");
     assert!(!frame.commands.is_empty());
     // Words paint as separate commands (runs split at spaces so the
     // canvas never shapes across one); the chapter text arrives as its
@@ -94,30 +94,6 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
         painted.contains("chapter") && painted.contains("one"),
         "spread 0 paints the first chapter's text"
     );
-}
-
-#[test]
-fn the_page_table_stays_retained_without_the_lever() {
-    let mut document = RuntimeDocument::open_with_pinned_font_policy(
-        &multi_chapter_fixture_epub(),
-        policy(vec![face(
-            serif_text_font(),
-            RuntimePinnedFontGenericRole::Serif,
-            Some("en"),
-        )]),
-    )
-    .expect("multi-chapter document opens");
-    let mut layout = font_aware_layout();
-    layout.font_family_override = Some("serif".to_owned());
-    layout.font_family_force = Some(true);
-    let summary = document
-        .create_revision(&layout)
-        .expect("revision is created");
-    let revision = document
-        .revisions
-        .get(&summary.revision_id)
-        .expect("revision is retained");
-    assert!(revision.fragment_layout.is_none());
 }
 
 #[test]
@@ -135,8 +111,7 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         )]),
     )
     .expect("target fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -146,11 +121,7 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         .revisions
         .get(&summary.revision_id)
         .expect("revision is retained");
-    assert!(
-        revision.fragment_layout.is_some(),
-        "the fixture book routes to the fragment engine: {:?}",
-        document.fragment_page_table_rejection_reason(&summary.revision_id),
-    );
+    assert!(revision.fragment_layout.page_count() > 0);
     let session = revision.chapter_engine_session();
 
     // The heading anchor resolves to its page.
@@ -204,8 +175,7 @@ fn fragment_pages_resolve_pointer_selection() {
         )]),
     )
     .expect("selection fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -216,11 +186,7 @@ fn fragment_pages_resolve_pointer_selection() {
         .revisions
         .get(&summary.revision_id)
         .expect("revision is retained");
-    assert!(
-        revision.fragment_layout.is_some(),
-        "the fixture routes to the fragment engine: {:?}",
-        document.fragment_page_table_rejection_reason(&summary.revision_id),
-    );
+    assert!(revision.fragment_layout.page_count() > 0);
 
     // Locate the word "quick" through the fragment page artifact itself.
     let session = revision.chapter_engine_session();
@@ -311,7 +277,7 @@ fn fragment_pages_resolve_pointer_selection() {
 }
 
 #[test]
-fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
+fn a_revision_reports_the_extent_of_its_fragment_page_table() {
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
         &multi_chapter_fixture_epub(),
         policy(vec![face(
@@ -321,53 +287,65 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
         )]),
     )
     .expect("multi-chapter document opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
-    let mut advance = document
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout,
-            line_breaking: crate::layout::LineBreaking::Greedy,
-            budget: RuntimeRevisionWorkBudget {
-                max_top_level_nodes: 1,
-            },
-        })
-        .expect("bounded revision starts");
-    // Progressive publication stays retained until the book completes.
-    while let Some(cursor) = advance.continuation.clone() {
-        assert_eq!(
-            advance.revision.pagination_backend.as_deref(),
-            Some("retained"),
-            "an incomplete bounded revision stays retained"
-        );
-        advance = document
-            .continue_revision(RuntimeContinueRevisionRequest {
-                revision_id: cursor.revision_id,
-                revision_version: cursor.revision_version,
-                cursor: cursor.cursor,
-                budget: RuntimeRevisionWorkBudget {
-                    max_top_level_nodes: 1,
-                },
-            })
-            .expect("bounded revision advances");
-    }
-    assert_eq!(
-        advance.revision.pagination_backend.as_deref(),
-        Some("fragment"),
-        "the completed bounded session hands over; rejection: {:?}",
-        document.fragment_page_table_rejection_reason(&advance.revision.revision_id),
-    );
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
     let revision = document
         .revisions
-        .get(&advance.revision.revision_id)
+        .get(&summary.revision_id)
         .expect("revision is retained");
-    let table = revision
-        .fragment_layout
-        .as_ref()
-        .expect("the fragment page table attached");
-    assert_eq!(advance.revision.page_count, table.page_count());
-    assert!(revision.frame_cache.is_empty(), "stale frames were dropped");
+    let table = &revision.fragment_layout;
+    assert_eq!(summary.page_count, table.page_count());
+    assert_eq!(summary.spread_count, revision.extent.spread_count);
+    assert!(
+        revision.frame_cache.is_empty(),
+        "a new revision has no cached frames"
+    );
+}
+
+#[test]
+fn a_book_that_cannot_paginate_fails_creation_and_leaves_no_revision() {
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &multi_chapter_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("multi-chapter document opens");
+    // Margins that leave no content box: the first chapter cannot
+    // paginate, so the whole page table is refused with that reason.
+    let mut layout = layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    layout.margin_left = layout.page_width;
+
+    let error = document
+        .create_revision(&layout)
+        .expect_err("a layout without a content box is refused");
+    assert_eq!(
+        error.kind,
+        crate::runtime::RuntimeRevisionErrorKind::EngineFailure
+    );
+    assert!(
+        error.message.starts_with("fragment pagination failed: "),
+        "{}",
+        error.message
+    );
+    assert!(
+        error.message.contains("page content box is empty"),
+        "{}",
+        error.message
+    );
+    assert_eq!(
+        document.revision_count(),
+        0,
+        "a refused revision is never inserted"
+    );
 }
 
 #[test]
@@ -385,20 +363,13 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         )]),
     )
     .expect("movement fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
         .create_revision(&layout)
         .expect("revision is created");
     let handle = RuntimeRevisionHandle::from(&summary);
-    assert_eq!(
-        document.revision_pagination_backend(&summary.revision_id),
-        Some("fragment"),
-        "rejection: {:?}",
-        document.fragment_page_table_rejection_reason(&summary.revision_id),
-    );
 
     // Select the word "quick" to obtain a live anchor/focus pair.
     let revision = document
@@ -534,18 +505,13 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         )]),
     )
     .expect("locator fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
         .create_revision(&layout)
         .expect("revision is created");
     let handle = RuntimeRevisionHandle::from(&summary);
-    assert_eq!(
-        document.revision_pagination_backend(&summary.revision_id),
-        Some("fragment"),
-    );
 
     // Select "quick" and capture its durable source range.
     let revision = document
@@ -609,18 +575,12 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
 
     // A different font size re-paginates the whole book (still fragment);
     // the durable range must land on the same word.
-    let mut reflowed = font_aware_layout();
-    reflowed.font_family_override = Some("serif".to_owned());
-    reflowed.font_family_force = Some(true);
+    let mut reflowed = layout.clone();
     reflowed.root_font_size = 22.0;
     let second = document
         .create_revision(&reflowed)
         .expect("reflowed revision is created");
     let second_handle = RuntimeRevisionHandle::from(&second);
-    assert_eq!(
-        document.revision_pagination_backend(&second.revision_id),
-        Some("fragment"),
-    );
     let projected = document
         .resolve_exact_source_range_at(
             &second_handle,
@@ -661,8 +621,7 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
     };
     let frame_for = |family: &str| {
         let mut document = open();
-        document.set_fragment_page_table_enabled(true);
-        let mut layout = font_aware_layout();
+        let mut layout = layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
         let summary = document
@@ -673,12 +632,13 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
             .get(&summary.revision_id)
             .expect("revision is retained");
         assert!(
-            revision.fragment_layout.is_some(),
+            revision.fragment_layout.page_count() > 0,
             "fragment page table attaches for the {family} override"
         );
         let frame = revision
             .chapter_engine_session()
-            .frame(0)
+            .frame(0, 1.0)
+            .expect("frame paints")
             .expect("spread 0 has a frame");
         format!("{:?}", frame.commands)
     };
@@ -696,81 +656,13 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
 }
 
 #[test]
-fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
-    use super::pinned_font_policy_fixtures::illustration_font;
-    let frame_for = |family: &str| {
-        let mut document = RuntimeDocument::open_with_pinned_font_policy(
-            &multi_chapter_fixture_epub(),
-            policy(vec![
-                face(
-                    serif_text_font(),
-                    RuntimePinnedFontGenericRole::Serif,
-                    Some("en"),
-                ),
-                face(
-                    illustration_font(),
-                    RuntimePinnedFontGenericRole::SansSerif,
-                    Some("en"),
-                ),
-            ]),
-        )
-        .expect("document opens");
-        document.set_fragment_page_table_enabled(true);
-        let mut layout = font_aware_layout();
-        layout.font_family_override = Some(family.to_owned());
-        layout.font_family_force = Some(true);
-        let mut advance = document
-            .create_bounded_revision(RuntimeBoundedRevisionRequest {
-                layout_config: layout,
-                line_breaking: crate::layout::LineBreaking::Greedy,
-                budget: RuntimeRevisionWorkBudget {
-                    max_top_level_nodes: 1,
-                },
-            })
-            .expect("bounded revision starts");
-        while let Some(cursor) = advance.continuation.clone() {
-            advance = document
-                .continue_revision(RuntimeContinueRevisionRequest {
-                    revision_id: cursor.revision_id,
-                    revision_version: cursor.revision_version,
-                    cursor: cursor.cursor,
-                    budget: RuntimeRevisionWorkBudget {
-                        max_top_level_nodes: 1,
-                    },
-                })
-                .expect("bounded revision advances");
-        }
-        assert_eq!(
-            advance.revision.pagination_backend.as_deref(),
-            Some("fragment"),
-            "the completed bounded session hands over for the {family} override"
-        );
-        let revision = document
-            .revisions
-            .get(&advance.revision.revision_id)
-            .expect("revision is retained");
-        let frame = revision
-            .chapter_engine_session()
-            .frame(0)
-            .expect("spread 0 has a frame");
-        format!("{:?}", frame.commands)
-    };
-    let serif = frame_for("serif");
-    let sans = frame_for("sans-serif");
-    assert_ne!(
-        serif, sans,
-        "a bounded session forced family switch must reach the painted frame"
-    );
-}
-
-#[test]
 fn search_finds_text_after_the_fragment_page_table_attaches() {
     let (document, revision_id) = fragment_routed_document();
     let revision = document
         .revisions
         .get(&revision_id)
         .expect("revision is retained");
-    assert!(revision.fragment_layout.is_some());
+    assert!(revision.fragment_layout.page_count() > 0);
     let handle = RuntimeRevisionHandle {
         revision_id: revision_id.clone(),
         revision_version: revision.revision_version,
@@ -807,8 +699,7 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
         )]),
     )
     .expect("image fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -818,9 +709,12 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
         .revisions
         .get(&summary.revision_id)
         .expect("revision is retained");
-    assert!(revision.fragment_layout.is_some());
+    assert!(revision.fragment_layout.page_count() > 0);
     let session = revision.chapter_engine_session();
-    let frame = session.frame(0).expect("spread 0 has a frame");
+    let frame = session
+        .frame(0, 1.0)
+        .expect("frame paints")
+        .expect("spread 0 has a frame");
     frame
         .commands
         .iter()
@@ -828,10 +722,7 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
             let crate::render::DisplayCommand::PaintImage { rect, .. } = command else {
                 return None;
             };
-            Some((
-                rect.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                rect.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            ))
+            Some((rect.width, rect.height))
         })
         .collect()
 }
@@ -875,8 +766,7 @@ fn pointer_selection_document_with_css(
         )]),
     )
     .expect("selection fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -890,7 +780,8 @@ fn pointer_selection_document_with_css(
             .get(&revision_id)
             .expect("revision is retained")
             .fragment_layout
-            .is_some(),
+            .page_count()
+            > 0,
         "the fixture routes to the fragment engine",
     );
     (document, handle, revision_id)
@@ -1064,7 +955,6 @@ fn fragment_selection_rects_span_the_injected_font_grid_box() {
                 )]),
             )
             .expect("selection fixture opens");
-            document.set_fragment_page_table_enabled(true);
             for (family, size, sample) in &known {
                 document.set_host_line_metric(
                     family,
@@ -1079,7 +969,7 @@ fn fragment_selection_rects_span_the_injected_font_grid_box() {
                     },
                 );
             }
-            let mut layout = font_aware_layout();
+            let mut layout = layout();
             layout.font_family_override = Some("serif".to_owned());
             layout.font_family_force = Some(true);
             let summary = document
@@ -1149,8 +1039,7 @@ fn pointer_selection_document_cjk(
         ]),
     )
     .expect("selection fixture opens");
-    document.set_fragment_page_table_enabled(true);
-    let mut layout = font_aware_layout();
+    let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
@@ -1210,4 +1099,379 @@ fn a_selection_crossing_a_hard_break_copies_the_line_break() {
             range.selected_text
         );
     }
+}
+
+#[test]
+fn painted_commands_carry_link_targets_and_image_alt() {
+    // A host resolves taps against the display list alone: every painted
+    // text run inside an <a> carries the link's target, and an image
+    // command carries its alt text plus the enclosing link. The fragment
+    // cutover shipped these as None and taps on links and note anchors
+    // fell through to the image viewer.
+    let epub = crate::runtime::tests::fixture::interaction_target_fixture_epub();
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("interaction fixture opens");
+    let mut layout = layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    assert!(
+        revision.fragment_layout.page_count() > 0,
+        "the fixture routes to the fragment engine",
+    );
+    let session = revision.chapter_engine_session();
+    let frame = session
+        .frame(0, 1.0)
+        .expect("frame paints")
+        .expect("first spread frame");
+
+    let mut text_hrefs = Vec::new();
+    let mut images = Vec::new();
+    for command in &frame.commands {
+        match command {
+            crate::render::DisplayCommand::PaintText(input) => {
+                if let Some(href) = &input.href {
+                    text_hrefs.push((format!("{:?}", input.text), href.clone()));
+                }
+            }
+            crate::render::DisplayCommand::PaintImage { src, alt, href, .. } => {
+                images.push((src.clone(), alt.clone(), href.clone()));
+            }
+            _ => {}
+        }
+    }
+    assert!(
+        text_hrefs.iter().any(|(_, href)| href == "#intro"),
+        "an internal link's text run carries its target, got {text_hrefs:?}"
+    );
+    assert!(
+        text_hrefs
+            .iter()
+            .any(|(_, href)| href == "https://example.com/help#reader"),
+        "an external link's text run carries its target, got {text_hrefs:?}"
+    );
+    assert!(
+        text_hrefs.iter().any(|(_, href)| href == "#fn1"),
+        "a noteref's text run carries its target, got {text_hrefs:?}"
+    );
+    assert!(
+        images
+            .iter()
+            .any(|(_, alt, href)| alt.as_deref() == Some("linked cover")
+                && href.as_deref() == Some("#intro")),
+        "a linked image carries alt and the enclosing link, got {images:?}"
+    );
+    assert!(
+        images
+            .iter()
+            .any(|(_, alt, href)| alt.as_deref() == Some("standalone cover") && href.is_none()),
+        "a bare image carries alt and no link, got {images:?}"
+    );
+}
+
+#[test]
+fn render_ratio_moves_raster_snaps_without_re_paginating() {
+    // A quarter-pixel line top: at ratio 1 the baseline snap rounds it
+    // down to the row; at ratio 2 the device row sits at the half pixel.
+    // Pagination is identical either way — only the raster snaps move.
+    let (document, _handle, revision_id) = pointer_selection_document_with_css(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><p class="a">Snap grid</p></body></html>"#,
+        "p { margin: 0; }\n.a { margin-top: 0.25px; font-size: 16px; line-height: 20px; }\n",
+    );
+    let revision = document
+        .revisions
+        .get(&revision_id)
+        .expect("revision is retained");
+    let session = revision.chapter_engine_session();
+    let first_text_y = |ratio: f64| -> f64 {
+        let frame = session
+            .frame(0, ratio)
+            .expect("frame paints")
+            .expect("spread 0 exists");
+        frame
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                crate::render::DisplayCommand::PaintText(input) => Some(input.rect.y),
+                _ => None,
+            })
+            .expect("a text command")
+    };
+    let at_one = first_text_y(1.0);
+    let at_two = first_text_y(2.0);
+    assert!(
+        ((at_one + 0.8 * 16.0) * 1.0).fract().abs() < 1e-9,
+        "ratio 1 baseline lands on a whole CSS pixel, got {at_one}"
+    );
+    assert!(
+        ((at_two + 0.8 * 16.0) * 2.0).fract().abs() < 1e-9,
+        "ratio 2 baseline lands on a half CSS pixel, got {at_two}"
+    );
+    // Both snap stages (line top, then the within-line baseline) move
+    // to the finer grid, so the painted baseline differs from the
+    // ratio-1 one by up to a whole CSS pixel — never by nothing.
+    assert!(
+        (at_two - at_one).abs() > 1e-9 && (at_two - at_one).abs() <= 1.0 + 1e-9,
+        "the quarter-pixel top snaps differently on the finer grid: {at_one} vs {at_two}"
+    );
+    assert_eq!(
+        session
+            .frame(0, 1.0)
+            .expect("frame paints")
+            .expect("spread")
+            .commands,
+        session
+            .frame(0, 1.0)
+            .expect("frame paints")
+            .expect("spread")
+            .commands,
+        "a repainted ratio is served from the page's paint cache"
+    );
+    assert_eq!(
+        revision.fragment_layout.page_count(),
+        1,
+        "the ratio never re-paginates"
+    );
+}
+
+#[test]
+fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
+    // The page table keeps page contents for a bounded set of chapters.
+    // Reading past a chapter big enough to fill that budget drops the
+    // chapter read before it, and reading the dropped chapter again
+    // rebuilds it: the rebuilt artifacts and painted geometry must be the
+    // pages the book paginated, not a second opinion about them.
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &chapter_eviction_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("eviction fixture opens");
+    // A small page makes the middle chapter paginate past the budget
+    // without laying out a book's worth of text.
+    let mut layout = create_layout_config(LayoutConfigInput {
+        width: 200.0,
+        height: 96.0,
+        margin: MarginInput::All(8.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+    });
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    let table = &revision.fragment_layout;
+    assert!(
+        table.materialized_chapter_indexes().is_empty(),
+        "the whole-book pass keeps no chapter materialized"
+    );
+
+    let session = revision.chapter_engine_session();
+    let chapters = session.known_chapters();
+    let start_page = |idref: &str| {
+        chapters
+            .get(idref)
+            .unwrap_or_else(|| panic!("{idref} has a range"))
+            .start_page
+    };
+    let middle_page = start_page("chapter-1");
+    let last_page = start_page("chapter-2");
+
+    let page_state = |page_index: usize| {
+        let page = session.page(page_index).expect("page resolves");
+        format!(
+            "{:?}|{:?}|{:?}",
+            page.metadata(),
+            page.text_positions(),
+            page.targets()
+        )
+    };
+    // Single-page spreads, so a spread index is its page index.
+    let frame_state = |spread_index: usize| {
+        format!(
+            "{:?}",
+            session
+                .frame(spread_index, 1.0)
+                .expect("frame paints")
+                .expect("the spread is published")
+                .commands
+        )
+    };
+
+    let first_page = page_state(0);
+    let first_frame = frame_state(0);
+    assert_eq!(table.materialized_chapter_indexes(), vec![0]);
+
+    let middle_state = page_state(middle_page);
+    let middle_frame = frame_state(middle_page);
+    page_state(last_page);
+    assert_eq!(
+        table.materialized_chapter_indexes(),
+        vec![1, 2],
+        "the middle chapter alone fills the budget, so chapter 0 is dropped"
+    );
+
+    assert_eq!(
+        page_state(0),
+        first_page,
+        "the rebuilt artifact is the same"
+    );
+    assert_eq!(
+        frame_state(0),
+        first_frame,
+        "the rebuilt geometry is the same"
+    );
+    assert_eq!(
+        table.materialized_chapter_indexes(),
+        vec![2, 0],
+        "reading chapter 0 again rebuilt it and dropped the middle chapter"
+    );
+
+    assert_eq!(
+        page_state(middle_page),
+        middle_state,
+        "the middle chapter's artifact survives its own eviction round trip"
+    );
+    assert_eq!(frame_state(middle_page), middle_frame);
+}
+
+#[test]
+fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
+    // The build pass records every page's text and run offsets, so a
+    // query reads that slice; a movement builds only the pages it steps
+    // onto. Neither may re-bridge and re-paginate the whole book, which
+    // is what walking the page table page by page would do.
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &chapter_eviction_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("eviction fixture opens");
+    let mut layout = create_layout_config(LayoutConfigInput {
+        width: 200.0,
+        height: 96.0,
+        margin: MarginInput::All(8.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+    });
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle {
+        revision_id: summary.revision_id.clone(),
+        revision_version: document
+            .revisions
+            .get(&summary.revision_id)
+            .expect("revision is retained")
+            .revision_version,
+    };
+
+    let response = document
+        .search_at(
+            &handle,
+            crate::runtime::RuntimeSearchRequest {
+                query: "paragraph 2.".to_owned(),
+                case_sensitive: false,
+                whole_word: false,
+                limit: Some(50),
+            },
+        )
+        .expect("search resolves");
+    assert_eq!(
+        response.value.result_count, 3,
+        "every chapter of the fixture carries the phrase once"
+    );
+    let pages: Vec<usize> = response
+        .value
+        .results
+        .iter()
+        .map(|result| result.page_index)
+        .collect();
+    assert!(
+        pages.iter().any(|page| *page > 0),
+        "the hits span the book, got {pages:?}"
+    );
+    let table = &document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained")
+        .fragment_layout;
+    assert!(
+        table.materialized_chapter_indexes().is_empty(),
+        "search reads the recorded page text, so it rebuilds no chapter"
+    );
+
+    let caret = |page_index| crate::interaction::TextCaretAddress {
+        page_index,
+        block_index: 0,
+        line_index: 0,
+        run_index: 0,
+        char_index: 0,
+        affinity: crate::interaction::TextCaretAffinity::Downstream,
+    };
+    let moved = document
+        .resolve_text_selection_movement_at(
+            &handle,
+            RuntimeTextSelectionMovementRequest {
+                anchor: caret(0),
+                focus: caret(0),
+                movement: TextSelectionMovement::CharacterRight,
+                preferred_inline_position: None,
+                preferred_block_position: None,
+            },
+        )
+        .expect("movement request is valid");
+    let RuntimeTextSelectionMovementResolution::Resolved { range, .. } = moved.value.resolution
+    else {
+        panic!("a character step on page 0 resolves");
+    };
+    assert_eq!(range.selected_text.chars().count(), 1);
+    let table = &document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained")
+        .fragment_layout;
+    assert_eq!(
+        table.materialized_chapter_indexes(),
+        vec![0],
+        "a step inside page 0 builds page 0's chapter and no other"
+    );
 }

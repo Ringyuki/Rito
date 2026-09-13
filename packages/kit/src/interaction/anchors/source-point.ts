@@ -3,7 +3,7 @@
  */
 
 import type { SourcePoint } from './model';
-import type { ChapterTextIndex } from './chapter-text-index';
+import type { ChapterTextIndex } from '../layout-types';
 
 /** Convert a SourcePoint to a normalized offset in the chapter text. */
 export function sourcePointToOffset(

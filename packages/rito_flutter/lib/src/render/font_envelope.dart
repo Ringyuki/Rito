@@ -7,13 +7,11 @@ import 'font_family_stack.dart';
 /// platform-independent (SkParagraph only exposes hhea-based line
 /// metrics, which match neither anchor).
 ///
-/// Two distinct sources, probed against pinned Chromium:
-/// - `textBaseline: 'top'` (ruby, the text-shadow scratch pass) drops
-///   from the anchor by the OS/2 `sTypoAscender` — the em-box top — and
-///   the raster still snaps the resulting baseline to a device row.
-/// - canvas `fontBoundingBoxAscent`/`Descent` (the inline background
-///   envelope) are `usWinAscent`/`usWinDescent` scaled and rounded to
-///   whole pixels.
+/// Probed against pinned Chromium: canvas `fontBoundingBoxAscent`/
+/// `Descent` (the inline background envelope) are `usWinAscent`/
+/// `usWinDescent` scaled and rounded to whole pixels. The OS/2 typo
+/// metrics ride along for the record; every glyph origin the engine
+/// sends is an alphabetic baseline, so the pen anchors nothing by them.
 final class RitoFontEnvelope {
   const RitoFontEnvelope({
     required this.typoAscender,
@@ -55,10 +53,6 @@ final class RitoFontEnvelope {
     fileWeightClass: fileWeightClass,
     declaredWeight: weight,
   );
-
-  /// Unrounded em-box ascent: the 'top' anchor descends by this before
-  /// the raster's whole-row baseline snap.
-  double topAnchorAscentPx(double sizePx) => typoAscender * sizePx / unitsPerEm;
 
   /// Chromium's canvas fontBoundingBoxAscent (grid-fit).
   double boundingAscentPx(double sizePx) =>

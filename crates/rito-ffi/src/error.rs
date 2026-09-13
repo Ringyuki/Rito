@@ -1,19 +1,19 @@
-use rito_core::runtime::{ReaderErrorKindV1, ReaderErrorV1};
+use rito_core::runtime::{ReaderError, ReaderErrorKind};
 
-pub const RITO_STATUS_OK_V1: u32 = 0;
-pub const RITO_STATUS_INVALID_ARGUMENT_V1: u32 = 1;
-pub const RITO_STATUS_NOT_FOUND_V1: u32 = 2;
-pub const RITO_STATUS_ALREADY_EXISTS_V1: u32 = 3;
-pub const RITO_STATUS_ENGINE_ERROR_V1: u32 = 4;
-pub const RITO_STATUS_STALE_REQUEST_V1: u32 = 5;
-pub const RITO_STATUS_TARGET_NOT_PUBLISHED_V1: u32 = 6;
-pub const RITO_STATUS_UNSUPPORTED_PROFILE_V1: u32 = 7;
-pub const RITO_STATUS_BUSY_V1: u32 = 8;
-pub const RITO_STATUS_QUEUE_FULL_V1: u32 = RITO_STATUS_BUSY_V1;
-pub const RITO_STATUS_EXACT_SEEK_PENDING_V1: u32 = 9;
-pub const RITO_STATUS_ADJACENT_PENDING_V1: u32 = 10;
-pub const RITO_STATUS_SESSION_TERMINATED_V1: u32 = 11;
-pub const RITO_STATUS_PANIC_V1: u32 = 255;
+pub const RITO_STATUS_OK: u32 = 0;
+pub const RITO_STATUS_INVALID_ARGUMENT: u32 = 1;
+pub const RITO_STATUS_NOT_FOUND: u32 = 2;
+pub const RITO_STATUS_ALREADY_EXISTS: u32 = 3;
+pub const RITO_STATUS_ENGINE_ERROR: u32 = 4;
+pub const RITO_STATUS_STALE_REQUEST: u32 = 5;
+pub const RITO_STATUS_TARGET_NOT_PUBLISHED: u32 = 6;
+pub const RITO_STATUS_UNSUPPORTED_PROFILE: u32 = 7;
+pub const RITO_STATUS_BUSY: u32 = 8;
+pub const RITO_STATUS_QUEUE_FULL: u32 = RITO_STATUS_BUSY;
+// Status value 9 is retired and is never reassigned.
+pub const RITO_STATUS_ADJACENT_PENDING: u32 = 10;
+pub const RITO_STATUS_SESSION_TERMINATED: u32 = 11;
+pub const RITO_STATUS_PANIC: u32 = 255;
 
 #[derive(Debug)]
 pub(crate) struct FfiError {
@@ -24,76 +24,76 @@ pub(crate) struct FfiError {
 impl FfiError {
     pub(crate) fn invalid(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_INVALID_ARGUMENT_V1,
+            status: RITO_STATUS_INVALID_ARGUMENT,
             message: message.into(),
         }
     }
 
     pub(crate) fn not_found(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_NOT_FOUND_V1,
+            status: RITO_STATUS_NOT_FOUND,
             message: message.into(),
         }
     }
 
     pub(crate) fn exists(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_ALREADY_EXISTS_V1,
+            status: RITO_STATUS_ALREADY_EXISTS,
             message: message.into(),
         }
     }
 
     pub(crate) fn engine(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_ENGINE_ERROR_V1,
+            status: RITO_STATUS_ENGINE_ERROR,
             message: message.into(),
         }
     }
 
     pub(crate) fn busy(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_BUSY_V1,
+            status: RITO_STATUS_BUSY,
             message: message.into(),
         }
     }
 
     pub(crate) fn stale(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_STALE_REQUEST_V1,
+            status: RITO_STATUS_STALE_REQUEST,
             message: message.into(),
         }
     }
 
     pub(crate) fn session_terminated(message: impl Into<String>) -> Self {
         Self {
-            status: RITO_STATUS_SESSION_TERMINATED_V1,
+            status: RITO_STATUS_SESSION_TERMINATED,
             message: message.into(),
         }
     }
 
     pub(crate) fn panic() -> Self {
         Self {
-            status: RITO_STATUS_PANIC_V1,
+            status: RITO_STATUS_PANIC,
             message: "panic contained at the Rito FFI boundary".to_owned(),
         }
     }
 }
 
-impl From<ReaderErrorV1> for FfiError {
-    fn from(error: ReaderErrorV1) -> Self {
+impl From<ReaderError> for FfiError {
+    fn from(error: ReaderError) -> Self {
         let status = match error.kind {
-            ReaderErrorKindV1::InvalidSession | ReaderErrorKindV1::UnknownArtifact => {
-                RITO_STATUS_NOT_FOUND_V1
+            ReaderErrorKind::InvalidSession | ReaderErrorKind::UnknownArtifact => {
+                RITO_STATUS_NOT_FOUND
             }
-            ReaderErrorKindV1::InvalidRequest
-            | ReaderErrorKindV1::InvalidLayout
-            | ReaderErrorKindV1::InvalidLocator
-            | ReaderErrorKindV1::NumericOverflow
-            | ReaderErrorKindV1::InvalidWire => RITO_STATUS_INVALID_ARGUMENT_V1,
-            ReaderErrorKindV1::StaleRequest => RITO_STATUS_STALE_REQUEST_V1,
-            ReaderErrorKindV1::TargetNotPublished => RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
-            ReaderErrorKindV1::UnsupportedTextProfile => RITO_STATUS_UNSUPPORTED_PROFILE_V1,
-            ReaderErrorKindV1::EngineFailure => RITO_STATUS_ENGINE_ERROR_V1,
+            ReaderErrorKind::InvalidRequest
+            | ReaderErrorKind::InvalidLayout
+            | ReaderErrorKind::InvalidLocator
+            | ReaderErrorKind::NumericOverflow
+            | ReaderErrorKind::InvalidWire => RITO_STATUS_INVALID_ARGUMENT,
+            ReaderErrorKind::StaleRequest => RITO_STATUS_STALE_REQUEST,
+            ReaderErrorKind::TargetNotPublished => RITO_STATUS_TARGET_NOT_PUBLISHED,
+            ReaderErrorKind::UnsupportedTextProfile => RITO_STATUS_UNSUPPORTED_PROFILE,
+            ReaderErrorKind::EngineFailure => RITO_STATUS_ENGINE_ERROR,
         };
         Self {
             status,

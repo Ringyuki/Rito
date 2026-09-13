@@ -119,9 +119,10 @@ final class _TestImageDecodeSource implements RitoImageDecodeSource {
 RitoArtifact imageArtifact({
   required int artifactId,
   required List<String> hrefs,
-  required List<RitoCommand> commands,
+  required List<RitoPrimitive> commands,
   int sessionId = 91,
   int requestId = 12,
+  double ratio = 1,
 }) {
   final source = const RitoArtifactDecoder().decode(
     artifactFixture(
@@ -131,7 +132,11 @@ RitoArtifact imageArtifact({
       includeFontResource: false,
     ),
   );
-  final displayList = RitoDisplayList(formatVersion: 1, commands: commands);
+  final displayList = RitoPrimitiveList(
+    formatVersion: 2,
+    ratio: ratio,
+    commands: commands,
+  );
   return RitoArtifact(
     protocolVersion: source.protocolVersion,
     capabilityProfileId: source.capabilityProfileId,
@@ -147,11 +152,10 @@ RitoArtifact imageArtifact({
     localPageIndexes: source.localPageIndexes,
     width: source.width,
     height: source.height,
-    terminalExtent: source.terminalExtent,
     navigation: source.navigation,
     textProfile: source.textProfile,
     displayList: RitoDisplayListPayload(
-      formatVersion: 1,
+      formatVersion: 2,
       commandCount: commands.length,
       semanticDigest: Uint8List(32),
       wireBytes: Uint8List(0),
@@ -159,10 +163,7 @@ RitoArtifact imageArtifact({
     ),
     resources: hrefs
         .map(
-          (href) => RitoResourceRef(
-            kind: RitoResourceKind.image,
-            href: href,
-          ),
+          (href) => RitoResourceRef(kind: RitoResourceKind.image, href: href),
         )
         .toList(growable: false),
     fonts: const <RitoFontRef>[],
@@ -170,49 +171,36 @@ RitoArtifact imageArtifact({
   );
 }
 
-RitoPaintImage directImage(
+/// A draw of [href] into a [width] by [height] device rect at the origin.
+RitoPrimitiveDrawImage directImage(
   String href, {
   double width = 20,
   double height = 20,
 }) {
-  return RitoPaintImage(
+  return RitoPrimitiveDrawImage(
     src: href,
-    rect: RitoDisplayRect(x: 0, y: 0, width: width, height: height),
+    dest: RitoDisplayRect(x: 0, y: 0, width: width, height: height),
   );
 }
 
-RitoPaintBlock coverBackground(
+/// A tiled draw of [href]: the engine sized the tile to [tileWidth] by
+/// [tileHeight] device pixels and repeats it over the box.
+RitoPrimitiveDrawImage tiledImage(
   String href, {
-  required double width,
-  required double height,
+  required double tileWidth,
+  required double tileHeight,
+  int columns = 1,
+  int rows = 1,
 }) {
-  return RitoPaintBlock(
-    rect: RitoDisplayRect(x: 0, y: 0, width: width, height: height),
-    paint: RitoBlockPaint(
-      background: RitoBackgroundPaint(
-        image: href,
-        size: RitoBackgroundSize.cover,
-        repeat: RitoBackgroundRepeat.noRepeat,
-      ),
-      boxShadows: const <RitoBoxShadow>[],
-    ),
-  );
-}
-
-RitoPaintBlock autoBackground(
-  String href, {
-  required double width,
-  required double height,
-}) {
-  return RitoPaintBlock(
-    rect: RitoDisplayRect(x: 0, y: 0, width: width, height: height),
-    paint: RitoBlockPaint(
-      background: RitoBackgroundPaint(
-        image: href,
-        size: RitoBackgroundSize.auto,
-        repeat: RitoBackgroundRepeat.repeat,
-      ),
-      boxShadows: const <RitoBoxShadow>[],
+  return RitoPrimitiveDrawImage(
+    src: href,
+    dest: RitoDisplayRect(x: 0, y: 0, width: tileWidth, height: tileHeight),
+    tiles: RitoTilePlan(
+      origin: const RitoDisplayPoint(x: 0, y: 0),
+      stepX: tileWidth,
+      stepY: tileHeight,
+      columns: columns,
+      rows: rows,
     ),
   );
 }

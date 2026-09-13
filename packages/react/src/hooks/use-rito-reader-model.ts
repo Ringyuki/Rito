@@ -34,7 +34,6 @@ export interface RitoReaderActions {
   readonly resize: (width: number, height: number, margin?: number) => void;
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
-  readonly setLineBreaking: (lineBreaking: 'greedy' | 'optimal') => boolean;
   readonly setTheme: (opts: Parameters<Reader['setTheme']>[0]) => void;
   readonly setTypography: (opts: {
     fontSize?: number | null;

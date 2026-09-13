@@ -1,39 +1,15 @@
-export {
-  buildHitMap,
-  buildLinkMap,
-  buildSemanticTree,
-  hitTest,
-  hitTestLink,
-  resolveCharPosition,
-} from './core';
+export { createSelectionEngine } from './selection';
 export type {
-  HitEntry,
-  HitMap,
-  LinkRegion,
-  SemanticNode,
-  SemanticRole,
-  TextPosition,
-  TextRange,
-} from './core';
-
-export { createSelectionEngine, getSelectedText, getSelectionRects } from './selection';
-export type {
-  PagedPosition,
   PointerInput,
   SelectionEngine,
   SelectionGranularity,
-  SelectionSnapshot,
   SelectionState,
 } from './selection';
 
-export { buildSearchIndex, createSearchEngine, search } from './search';
-export type { SearchEngine, SearchIndex, SearchOptions, SearchResult } from './search';
+export { createSearchEngine } from './search';
+export type { SearchEngine, SearchOptions, SearchResult } from './search';
 
-export {
-  createAnnotationStore,
-  resolveAnnotations,
-  resolveSourceRangeToSegments,
-} from './annotations';
+export { createAnnotationStore } from './annotations';
 export type {
   AnnotationDraft,
   AnnotationRecord,
@@ -42,15 +18,9 @@ export type {
   RecordStorageAdapter,
   ResolvedAnnotation,
   ResolvedAnnotationSegment,
-  ResolutionContext,
   ResolutionStatus,
 } from './annotations';
-export {
-  buildChapterTextIndex,
-  createAnnotationTarget,
-  offsetToSourcePoint,
-  sourcePointToOffset,
-} from './anchors';
+export { createAnnotationTarget, offsetToSourcePoint, sourcePointToOffset } from './anchors';
 export type {
   AnnotationTarget,
   ChapterTextIndex,
@@ -79,21 +49,5 @@ export type {
 export { createA11yMirror } from './dom/a11y-mirror';
 export type { A11yMirror, A11yMirrorOptions } from './dom/a11y-mirror';
 export { bindClipboard } from './dom/clipboard';
-export { bindLinkCursor } from './dom/link-cursor';
-export { bindPointerEvents } from './dom/pointer-events';
 
-export type {
-  DocumentNode,
-  ImageElement,
-  InlineAtom,
-  LayoutBlock,
-  LayoutConfig,
-  LineBox,
-  Page,
-  Rect,
-  SourceRef,
-  Spread,
-  TextMeasurer,
-  TextRun,
-} from './layout-types';
-export { DEFAULT_RUN_PAINT } from './layout-types';
+export type { LayoutConfig, Rect } from './layout-types';

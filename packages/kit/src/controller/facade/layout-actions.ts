@@ -1,20 +1,12 @@
 import type { Reader } from '@ritojs/core';
-import type { FrameDriver } from '../../driver/frame-driver';
 import type { ReadingPosition } from '../../interaction/index';
 import type { LayoutPositionPlan } from '../../interaction/position/tracker';
-import { asLegacyPages } from '../compat/legacy-page';
 import { commitCurrentSpread } from '../core/current-spread';
 import { publishSpreadChange } from '../core/spread-change';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
-import {
-  invalidateNativeAnnotationGeometry,
-  refreshNativeAnnotations,
-  resolveVisibleAnnotations,
-  syncChapterIndices,
-  usesNativeAnnotationGeometry,
-} from '../annotation-resolution';
-import { invalidateNativeSearchLayout, usesNativeSearchGeometry } from '../search-resolution';
+import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
+import { invalidateNativeSearchLayout } from '../search-resolution';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -33,11 +25,6 @@ export function buildLayoutActions(
       const anchor = currentPosition(internals);
       const result = internals.reader.setSpreadMode(mode);
       refreshLayoutWhenChanged(didCommitSynchronously(result), internals, emitter, runtime, anchor);
-    },
-    setLineBreaking(lineBreaking): boolean {
-      const anchor = currentPosition(internals);
-      const changed = internals.reader.setLineBreaking(lineBreaking);
-      return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
     setTheme(options: ReaderThemeOptions): void {
       internals.reader.setTheme(options);
@@ -111,23 +98,16 @@ export function commitLayoutChange(
 ): void {
   const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
   const previousSpread = internals.currentSpread;
-  let mutation: LayoutCommitMutation;
+  let committedSpread: number;
   try {
-    mutation = applyLayoutCommitMutation(internals, runtime, anchor, committedSpreadIndex);
+    committedSpread = applyLayoutCommitMutation(internals, runtime, anchor, committedSpreadIndex);
   } finally {
     finishChapterLocalTransition?.();
   }
 
-  if (mutation.clearedNativeAnnotationHover) {
-    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-  }
+  emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
   emitLayoutChange(internals, emitter);
-  emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, mutation.committedSpread);
-}
-
-interface LayoutCommitMutation {
-  readonly committedSpread: number;
-  readonly clearedNativeAnnotationHover: boolean;
+  emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, committedSpread);
 }
 
 function applyLayoutCommitMutation(
@@ -135,14 +115,15 @@ function applyLayoutCommitMutation(
   runtime: RuntimeComponents,
   anchor: ReadingPosition | null | undefined,
   committedSpreadIndex: number | undefined,
-): LayoutCommitMutation {
+): number {
   const tracker = internals.engines.position;
   const positionPlan = tracker?.prepareLayoutCommit(
     anchor,
     committedSpreadIndex ?? internals.currentSpread,
   );
-  const preserved = positionPlan?.kind === 'legacy' ? positionPlan.position : null;
-  const clearedNativeAnnotationHover = invalidateNativeLayoutGeometry(internals);
+  const preserved = positionPlan?.kind === 'synchronous' ? positionPlan.position : null;
+  invalidateNativeAnnotationGeometry(internals.coordState);
+  invalidateNativeSearchLayout(internals.coordState);
   commitCurrentSpread(
     internals,
     committedSpreadIndex === undefined
@@ -160,9 +141,8 @@ function applyLayoutCommitMutation(
   if (internals.currentSpread === committedSpread) {
     internals.reader.notifyActiveSpread(committedSpread);
   }
-  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
   runtime.frameDriver.compositeNow();
-  return { committedSpread, clearedNativeAnnotationHover };
+  return committedSpread;
 }
 
 function installLayoutPositionMode(
@@ -184,55 +164,10 @@ function installLayoutPositionMode(
   }
 }
 
-/** Publishes a larger known extent without resetting stable layout or transition state. */
-export function publishPaginationChange(
-  internals: Internals,
-  emitter: Emitter,
-  frameDriver: Pick<FrameDriver, 'markAllOverlaysDirty'>,
-): void {
-  internals.engines.selection.acceptRevisionAppend();
-  if (usesNativeSearchGeometry(internals.reader)) {
-    invalidateNativeSearchLayout(internals.coordState);
-  }
-  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
-  syncChapterIndices(internals.coordState, internals.reader);
-  const clearedNativeAnnotationHover = refreshPaginationAnnotations(internals);
-  frameDriver.markAllOverlaysDirty();
-  if (clearedNativeAnnotationHover) {
-    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-  }
-  emitLayoutChange(internals, emitter);
-}
-
 function invalidateSelectionForLayout(internals: Internals): void {
   internals.coordState.contentInteractionGeneration += 1;
   internals.coordState.selectionProjectionTransfer = null;
   internals.engines.selection.invalidate();
-}
-
-function invalidateNativeLayoutGeometry(internals: Internals): boolean {
-  const clearedAnnotationHover = usesNativeAnnotationGeometry(internals.reader);
-  if (clearedAnnotationHover) invalidateNativeAnnotationGeometry(internals.coordState);
-  if (usesNativeSearchGeometry(internals.reader)) {
-    invalidateNativeSearchLayout(internals.coordState);
-  }
-  return clearedAnnotationHover;
-}
-
-function refreshPaginationAnnotations(internals: Internals): boolean {
-  const store = internals.coordState.annotationStore;
-  if (!store) return false;
-  if (usesNativeAnnotationGeometry(internals.reader)) {
-    invalidateNativeAnnotationGeometry(internals.coordState);
-    refreshNativeAnnotations(internals.reader, internals.coordState);
-    return true;
-  }
-  internals.coordState.resolvedAnnotations = resolveVisibleAnnotations(
-    store,
-    internals.coordState,
-    internals.reader,
-  );
-  return false;
 }
 
 export function requireRenderScale(scale: number): void {

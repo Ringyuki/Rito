@@ -10,7 +10,7 @@ import {
 import type { ActiveChapterLocalTransition, NavigationMachine } from '../machine';
 import { publishSpreadChange } from '../../core/spread-change';
 import type { NavigationDeps } from '../index';
-import { continuePendingNavigation } from '../growth';
+import { continuePendingNavigation } from '../pending';
 import { finishChapterLocalLease, type ResolvedLocator } from './shared';
 import { resumeQueuedChapterLocalNavigation } from './start';
 

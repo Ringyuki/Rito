@@ -1,0 +1,317 @@
+{
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "pushState"
+    },
+    {
+      "box": {
+        "height": 16,
+        "width": 16
+      },
+      "kind": "transform",
+      "origin": {
+        "x": 204,
+        "y": 28
+      },
+      "transforms": [
+        {
+          "kind": "rotate",
+          "rad": 1.5707963267948966
+        }
+      ]
+    },
+    {
+      "clusters": [[0, 196.0, 32.8]],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000000",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 16,
+        "width": 16,
+        "x": 196,
+        "y": 20
+      },
+      "text": "「"
+    },
+    {
+      "kind": "popState"
+    },
+    {
+      "clusters": [
+        [0, 196.0, 48.8],
+        [3, 196.0, 64.8]
+      ],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000000",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 32,
+        "width": 16,
+        "x": 196,
+        "y": 36
+      },
+      "text": "春日"
+    },
+    {
+      "kind": "pushState"
+    },
+    {
+      "box": {
+        "height": 16,
+        "width": 16
+      },
+      "kind": "transform",
+      "origin": {
+        "x": 204,
+        "y": 76
+      },
+      "transforms": [
+        {
+          "kind": "rotate",
+          "rad": 1.5707963267948966
+        }
+      ]
+    },
+    {
+      "clusters": [[0, 196.0, 80.8]],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000000",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 16,
+        "width": 16,
+        "x": 196,
+        "y": 68
+      },
+      "text": "」"
+    },
+    {
+      "kind": "popState"
+    },
+    {
+      "clusters": [
+        [0, 204.0, 87.2],
+        [3, 196.0, 112.8],
+        [6, 196.0, 128.8],
+        [9, 204.0, 135.20000000000002]
+      ],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000000",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 64,
+        "width": 16,
+        "x": 196,
+        "y": 84
+      },
+      "text": "、剧场。"
+    },
+    {
+      "clusters": [
+        [0, 196.0, 160.8],
+        [3, 196.0, 176.8]
+      ],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#cc0000",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 32,
+        "width": 16,
+        "x": 196,
+        "y": 148
+      },
+      "text": "漢字"
+    },
+    {
+      "clusters": [
+        [0, 212.0, 155.42708333333334],
+        [3, 212.0, 166.09375],
+        [6, 212.0, 176.76041666666669]
+      ],
+      "kind": "paintRuby",
+      "paint": {
+        "color": "#cc0000",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 8,
+          "style": "normal",
+          "weight": 400
+        }
+      },
+      "rect": {
+        "height": 32,
+        "width": 8,
+        "x": 212,
+        "y": 148
+      },
+      "text": "かんじ"
+    },
+    {
+      "kind": "pushState"
+    },
+    {
+      "box": {
+        "height": 16,
+        "width": 16
+      },
+      "kind": "transform",
+      "origin": {
+        "x": 178,
+        "y": 28
+      },
+      "transforms": [
+        {
+          "kind": "rotate",
+          "rad": 1.5707963267948966
+        }
+      ]
+    },
+    {
+      "clusters": [[0, 170.0, 32.8]],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000080",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        },
+        "letterSpacingPx": 2
+      },
+      "rect": {
+        "height": 16,
+        "width": 16,
+        "x": 170,
+        "y": 20
+      },
+      "text": "…"
+    },
+    {
+      "kind": "popState"
+    },
+    {
+      "kind": "pushState"
+    },
+    {
+      "box": {
+        "height": 16,
+        "width": 16
+      },
+      "kind": "transform",
+      "origin": {
+        "x": 178,
+        "y": 46
+      },
+      "transforms": [
+        {
+          "kind": "rotate",
+          "rad": 1.5707963267948966
+        }
+      ]
+    },
+    {
+      "clusters": [[0, 170.0, 50.8]],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000080",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        },
+        "letterSpacingPx": 2
+      },
+      "rect": {
+        "height": 16,
+        "width": 16,
+        "x": 170,
+        "y": 38
+      },
+      "text": "—"
+    },
+    {
+      "kind": "popState"
+    },
+    {
+      "clusters": [
+        [0, 170.0, 68.8],
+        [1, 170.0, 86.8]
+      ],
+      "kind": "paintText",
+      "paint": {
+        "boxEnd": false,
+        "boxStart": false,
+        "color": "#000080",
+        "font": {
+          "family": "Tinos",
+          "sizePx": 16,
+          "style": "normal",
+          "weight": 400
+        },
+        "letterSpacingPx": 2
+      },
+      "rect": {
+        "height": 36,
+        "width": 16,
+        "x": 170,
+        "y": 56
+      },
+      "text": "ab"
+    }
+  ],
+  "height": 320,
+  "name": "text-vertical",
+  "width": 240
+}

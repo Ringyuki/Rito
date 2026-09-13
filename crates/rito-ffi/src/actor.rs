@@ -7,24 +7,19 @@ use std::{
 };
 
 use rito_core::runtime::{
-    encode_reader_artifact_v1, encode_reader_background_advance_v1,
-    encode_reader_background_handoff_ack_v1, encode_reader_footnote_v1,
-    encode_reader_foreground_handoff_ack_v1, encode_reader_publication_v1,
-    encode_reader_resource_v1, encode_reader_search_response_v1,
-    encode_reader_text_range_geometry_v1, ReaderAdjacentRequestV1, ReaderArtifactRequestV1,
-    ReaderBackgroundHandoffV1, ReaderBackgroundRequestV1, ReaderErrorV1, ReaderForegroundHandoffV1,
-    ReaderResourceKindV1, ReaderSearchRequestV1, ReaderSessionV1, ReaderTextRangeRequestV1,
-    RuntimePinnedFontPolicyInput,
+    encode_reader_artifact, encode_reader_background_advance, encode_reader_background_handoff_ack,
+    encode_reader_footnote, encode_reader_foreground_handoff_ack, encode_reader_publication,
+    encode_reader_resource, encode_reader_search_response, encode_reader_text_range_geometry,
+    ReaderAdjacentRequest, ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
+    ReaderError, ReaderForegroundHandoff, ReaderResourceKind, ReaderSearchRequest, ReaderSession,
+    ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
-use crate::error::{
-    FfiError, RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_EXACT_SEEK_PENDING_V1,
-    RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
-};
+use crate::error::{FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_TARGET_NOT_PUBLISHED};
 
-pub const RITO_ACTOR_MAX_IN_FLIGHT_V1: u32 = 8;
+pub const RITO_ACTOR_MAX_IN_FLIGHT: u32 = 8;
 
-const ACTOR_QUEUE_CAPACITY: usize = RITO_ACTOR_MAX_IN_FLIGHT_V1 as usize;
+const ACTOR_QUEUE_CAPACITY: usize = RITO_ACTOR_MAX_IN_FLIGHT as usize;
 
 type Reply<T> = SyncSender<Result<T, FfiError>>;
 
@@ -33,27 +28,27 @@ pub(crate) enum ActorCommand {
         marker_sequence: u64,
     },
     RequestAdjacent {
-        request: ReaderAdjacentRequestV1,
+        request: ReaderAdjacentRequest,
         reply: Reply<Vec<u8>>,
     },
     PeekAdjacent {
-        request: ReaderAdjacentRequestV1,
+        request: ReaderAdjacentRequest,
         reply: Reply<Vec<u8>>,
     },
     AdoptForegroundCandidate {
-        request: ReaderForegroundHandoffV1,
+        request: ReaderForegroundHandoff,
         reply: Reply<Vec<u8>>,
     },
     CommitPeekedArtifact {
-        request: ReaderForegroundHandoffV1,
+        request: ReaderForegroundHandoff,
         reply: Reply<Vec<u8>>,
     },
     AdvanceBackground {
-        request: ReaderBackgroundRequestV1,
+        request: ReaderBackgroundRequest,
         reply: Reply<Vec<u8>>,
     },
     AdoptBackgroundCandidate {
-        request: ReaderBackgroundHandoffV1,
+        request: ReaderBackgroundHandoff,
         reply: Reply<Vec<u8>>,
     },
     ReadPublication {
@@ -61,16 +56,16 @@ pub(crate) enum ActorCommand {
     },
     ReadResource {
         artifact_id: u64,
-        kind: ReaderResourceKindV1,
+        kind: ReaderResourceKind,
         href: String,
         reply: Reply<Vec<u8>>,
     },
     Search {
-        request: ReaderSearchRequestV1,
+        request: ReaderSearchRequest,
         reply: Reply<Vec<u8>>,
     },
     TextRangeGeometry {
-        request: ReaderTextRangeRequestV1,
+        request: ReaderTextRangeRequest,
         reply: Reply<Vec<u8>>,
     },
     ReadFootnote {
@@ -94,7 +89,7 @@ struct ActorEnvelope {
 // burst from filling the FIFO with work that is already obsolete.
 struct QueuedNavigation {
     marker_sequence: u64,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
     reply: Reply<Vec<u8>>,
     _permit: CommandPermit,
 }
@@ -143,7 +138,7 @@ impl ActorClient {
         }
         if state.in_flight >= ACTOR_QUEUE_CAPACITY {
             return Err(FfiError::busy(format!(
-                "reader actor already owns the maximum {RITO_ACTOR_MAX_IN_FLIGHT_V1} active and queued commands"
+                "reader actor already owns the maximum {RITO_ACTOR_MAX_IN_FLIGHT} active and queued commands"
             )));
         }
         state.in_flight += 1;
@@ -195,7 +190,7 @@ impl CommandAdmission {
 
     fn submit_navigation(
         self,
-        request: ReaderArtifactRequestV1,
+        request: ReaderArtifactRequest,
         reply: Reply<Vec<u8>>,
     ) -> Result<(), FfiError> {
         let request_id = request.request_id;
@@ -295,16 +290,15 @@ pub(crate) struct SpawnedActor {
 pub(crate) type ActorExitCallback = Box<dyn FnOnce() + Send + 'static>;
 
 pub(crate) enum InitialArtifactReply {
-    /// The actor owns a usable session. The result is either the first
-    /// artifact or `RITO_STATUS_EXACT_SEEK_PENDING_V1`.
-    Ready(Result<Vec<u8>, FfiError>),
+    /// The actor owns a usable session; this is its encoded first artifact.
+    Ready(Vec<u8>),
     /// No usable session survived initial request processing.
     Failed(FfiError),
 }
 
 pub(crate) fn spawn(
     publication: Vec<u8>,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     on_exit: ActorExitCallback,
 ) -> Result<SpawnedActor, FfiError> {
@@ -382,19 +376,19 @@ fn lock_admission(shared: &ActorShared) -> MutexGuard<'_, AdmissionState> {
 
 fn run(
     publication: Vec<u8>,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     initial_reply: SyncSender<InitialArtifactReply>,
     commands: Receiver<ActorEnvelope>,
     client: ActorClient,
 ) -> Result<(), FfiError> {
     let opened = match pinned_font_policy {
-        Some(policy) => ReaderSessionV1::open_owned_with_pinned_font_policy(
+        Some(policy) => ReaderSession::open_owned_with_pinned_font_policy(
             request.session_id,
             publication,
             policy,
         ),
-        None => ReaderSessionV1::open_owned(request.session_id, publication),
+        None => ReaderSession::open_owned(request.session_id, publication),
     };
     let mut reader = match opened {
         Ok(reader) => reader,
@@ -406,49 +400,21 @@ fn run(
     let initial = reader
         .request_artifact(request)
         .map_err(FfiError::from)
-        .and_then(|artifact| encode_reader_artifact_v1(&artifact).map_err(FfiError::from));
-    let initial = classify_exact_seek_result(initial, reader.has_pending_exact_seek_v1());
-    let session_is_ready = initial_session_is_ready(&initial);
-    if session_is_ready {
-        if initial_reply
-            .send(InitialArtifactReply::Ready(initial))
-            .is_err()
-        {
-            return reader.dispose().map(|_| ()).map_err(FfiError::from);
-        }
-        run_commands(reader, commands, client)
-    } else {
-        let error = initial.expect_err("a non-ready initial result cannot contain an artifact");
-        if initial_reply
-            .send(InitialArtifactReply::Failed(error))
-            .is_err()
-        {
-            return reader.dispose().map(|_| ()).map_err(FfiError::from);
-        }
-        reader.dispose().map(|_| ()).map_err(FfiError::from)
-    }
-}
-
-fn initial_session_is_ready(initial: &Result<Vec<u8>, FfiError>) -> bool {
+        .and_then(|artifact| encode_reader_artifact(&artifact).map_err(FfiError::from));
     match initial {
-        Ok(_) => true,
-        Err(error) => error.status == RITO_STATUS_EXACT_SEEK_PENDING_V1,
-    }
-}
-
-fn classify_exact_seek_result<T>(
-    result: Result<T, FfiError>,
-    has_pending_exact_seek: bool,
-) -> Result<T, FfiError> {
-    match result {
-        Err(mut error)
-            if error.status == RITO_STATUS_TARGET_NOT_PUBLISHED_V1 && has_pending_exact_seek =>
-        {
-            error.status = RITO_STATUS_EXACT_SEEK_PENDING_V1;
-            Err(error)
+        Ok(artifact) => {
+            if initial_reply
+                .send(InitialArtifactReply::Ready(artifact))
+                .is_ok()
+            {
+                return run_commands(reader, commands, client);
+            }
         }
-        result => result,
+        Err(error) => {
+            let _ = initial_reply.send(InitialArtifactReply::Failed(error));
+        }
     }
+    reader.dispose().map(|_| ()).map_err(FfiError::from)
 }
 
 fn classify_adjacent_result<T>(
@@ -457,9 +423,9 @@ fn classify_adjacent_result<T>(
 ) -> Result<T, FfiError> {
     match result {
         Err(mut error)
-            if error.status == RITO_STATUS_TARGET_NOT_PUBLISHED_V1 && has_pending_adjacent =>
+            if error.status == RITO_STATUS_TARGET_NOT_PUBLISHED && has_pending_adjacent =>
         {
-            error.status = RITO_STATUS_ADJACENT_PENDING_V1;
+            error.status = RITO_STATUS_ADJACENT_PENDING;
             Err(error)
         }
         result => result,
@@ -468,11 +434,11 @@ fn classify_adjacent_result<T>(
 
 /// Distinguishes a deterministic Core rejection from failures that can occur
 /// after a mutation has begun. Engine and identity-overflow failures are not
-/// transactional across every Reader v1 path, so they must terminate the
+/// transactional across every reader session path, so they must terminate the
 /// actor just like a wire failure after a successful ownership mutation.
 fn encode_mutation_result<T>(
-    result: Result<T, ReaderErrorV1>,
-    encode: impl FnOnce(&T) -> Result<Vec<u8>, ReaderErrorV1>,
+    result: Result<T, ReaderError>,
+    encode: impl FnOnce(&T) -> Result<Vec<u8>, ReaderError>,
 ) -> (Result<Vec<u8>, FfiError>, bool) {
     match result {
         Err(error) => {
@@ -491,11 +457,11 @@ fn encode_mutation_result<T>(
     }
 }
 
-fn classify_mutation_error(error: ReaderErrorV1) -> (FfiError, bool) {
+fn classify_mutation_error(error: ReaderError) -> (FfiError, bool) {
     if matches!(
         error.kind,
-        rito_core::runtime::ReaderErrorKindV1::NumericOverflow
-            | rito_core::runtime::ReaderErrorKindV1::EngineFailure
+        rito_core::runtime::ReaderErrorKind::NumericOverflow
+            | rito_core::runtime::ReaderErrorKind::EngineFailure
     ) {
         return (
             FfiError::session_terminated(format!(
@@ -508,7 +474,7 @@ fn classify_mutation_error(error: ReaderErrorV1) -> (FfiError, bool) {
 }
 
 fn run_commands(
-    mut session: ReaderSessionV1,
+    mut session: ReaderSession,
     commands: Receiver<ActorEnvelope>,
     client: ActorClient,
 ) -> Result<(), FfiError> {
@@ -520,10 +486,8 @@ fn run_commands(
                 };
                 let (result, terminate) = encode_mutation_result(
                     session.request_artifact(navigation.request),
-                    encode_reader_artifact_v1,
+                    encode_reader_artifact,
                 );
-                let result =
-                    classify_exact_seek_result(result, session.has_pending_exact_seek_v1());
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
                     let _ = navigation.reply.send(result);
@@ -534,9 +498,9 @@ fn run_commands(
             ActorCommand::RequestAdjacent { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.request_adjacent(request),
-                    encode_reader_artifact_v1,
+                    encode_reader_artifact,
                 );
-                let result = classify_adjacent_result(result, session.has_pending_adjacent_v1());
+                let result = classify_adjacent_result(result, session.has_pending_adjacent());
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
                     let _ = reply.send(result);
@@ -545,10 +509,8 @@ fn run_commands(
                 let _ = reply.send(result);
             }
             ActorCommand::PeekAdjacent { request, reply } => {
-                let (result, terminate) = encode_mutation_result(
-                    session.peek_adjacent(request),
-                    encode_reader_artifact_v1,
-                );
+                let (result, terminate) =
+                    encode_mutation_result(session.peek_adjacent(request), encode_reader_artifact);
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
                     let _ = reply.send(result);
@@ -559,7 +521,7 @@ fn run_commands(
             ActorCommand::AdoptForegroundCandidate { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.adopt_foreground_candidate(request),
-                    encode_reader_foreground_handoff_ack_v1,
+                    encode_reader_foreground_handoff_ack,
                 );
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
@@ -571,7 +533,7 @@ fn run_commands(
             ActorCommand::CommitPeekedArtifact { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.commit_peeked_artifact(request),
-                    encode_reader_foreground_handoff_ack_v1,
+                    encode_reader_foreground_handoff_ack,
                 );
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
@@ -583,7 +545,7 @@ fn run_commands(
             ActorCommand::AdvanceBackground { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.advance_background_once(request),
-                    encode_reader_background_advance_v1,
+                    encode_reader_background_advance,
                 );
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
@@ -595,7 +557,7 @@ fn run_commands(
             ActorCommand::AdoptBackgroundCandidate { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.adopt_background_candidate(request),
-                    encode_reader_background_handoff_ack_v1,
+                    encode_reader_background_handoff_ack,
                 );
                 if terminate {
                     let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
@@ -606,20 +568,20 @@ fn run_commands(
             }
             ActorCommand::ReadPublication { reply } => {
                 let result =
-                    encode_reader_publication_v1(session.publication_v1()).map_err(FfiError::from);
+                    encode_reader_publication(session.publication()).map_err(FfiError::from);
                 let _ = reply.send(result);
             }
             ActorCommand::Search { request, reply } => {
                 let result = session
                     .search(request)
-                    .and_then(|response| encode_reader_search_response_v1(&response))
+                    .and_then(|response| encode_reader_search_response(&response))
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
             ActorCommand::TextRangeGeometry { request, reply } => {
                 let result = session
                     .get_text_range_geometry(request)
-                    .and_then(|geometry| encode_reader_text_range_geometry_v1(&geometry))
+                    .and_then(|geometry| encode_reader_text_range_geometry(&geometry))
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
@@ -630,7 +592,7 @@ fn run_commands(
             } => {
                 let result = session
                     .read_footnote(artifact_id, &key)
-                    .and_then(|footnote| encode_reader_footnote_v1(&footnote))
+                    .and_then(|footnote| encode_reader_footnote(&footnote))
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
@@ -642,7 +604,7 @@ fn run_commands(
             } => {
                 let result = session
                     .read_resource(artifact_id, kind, &href)
-                    .and_then(|resource| encode_reader_resource_v1(&resource))
+                    .and_then(|resource| encode_reader_resource(&resource))
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
@@ -683,7 +645,7 @@ fn take_navigation(client: &ActorClient, marker_sequence: u64) -> Option<QueuedN
 
 pub(crate) fn request_artifact(
     admission: CommandAdmission,
-    request: ReaderArtifactRequestV1,
+    request: ReaderArtifactRequest,
 ) -> Result<Vec<u8>, FfiError> {
     let (reply_tx, reply_rx) = mpsc::sync_channel(1);
     admission.submit_navigation(request, reply_tx)?;
@@ -694,7 +656,7 @@ pub(crate) fn request_artifact(
 
 pub(crate) fn request_adjacent(
     admission: CommandAdmission,
-    request: ReaderAdjacentRequestV1,
+    request: ReaderAdjacentRequest,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -705,7 +667,7 @@ pub(crate) fn request_adjacent(
 
 pub(crate) fn peek_adjacent(
     admission: CommandAdmission,
-    request: ReaderAdjacentRequestV1,
+    request: ReaderAdjacentRequest,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -716,7 +678,7 @@ pub(crate) fn peek_adjacent(
 
 pub(crate) fn adopt_foreground_candidate(
     admission: CommandAdmission,
-    request: ReaderForegroundHandoffV1,
+    request: ReaderForegroundHandoff,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -727,7 +689,7 @@ pub(crate) fn adopt_foreground_candidate(
 
 pub(crate) fn commit_peeked_artifact(
     admission: CommandAdmission,
-    request: ReaderForegroundHandoffV1,
+    request: ReaderForegroundHandoff,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -738,7 +700,7 @@ pub(crate) fn commit_peeked_artifact(
 
 pub(crate) fn advance_background(
     admission: CommandAdmission,
-    request: ReaderBackgroundRequestV1,
+    request: ReaderBackgroundRequest,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -749,7 +711,7 @@ pub(crate) fn advance_background(
 
 pub(crate) fn adopt_background_candidate(
     admission: CommandAdmission,
-    request: ReaderBackgroundHandoffV1,
+    request: ReaderBackgroundHandoff,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -769,7 +731,7 @@ pub(crate) fn request_publication(admission: CommandAdmission) -> Result<Vec<u8>
 pub(crate) fn request_resource(
     admission: CommandAdmission,
     artifact_id: u64,
-    kind: ReaderResourceKindV1,
+    kind: ReaderResourceKind,
     href: String,
 ) -> Result<Vec<u8>, FfiError> {
     call(
@@ -786,7 +748,7 @@ pub(crate) fn request_resource(
 
 pub(crate) fn request_search(
     admission: CommandAdmission,
-    request: ReaderSearchRequestV1,
+    request: ReaderSearchRequest,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -797,7 +759,7 @@ pub(crate) fn request_search(
 
 pub(crate) fn request_text_range_geometry(
     admission: CommandAdmission,
-    request: ReaderTextRangeRequestV1,
+    request: ReaderTextRangeRequest,
 ) -> Result<Vec<u8>, FfiError> {
     call(
         admission,
@@ -875,93 +837,48 @@ mod tests {
     };
 
     use rito_core::runtime::{
-        ReaderAdjacentDirectionV1, ReaderErrorKindV1, ReaderLayoutV1, ReaderLocatorV1,
-        ReaderSpreadModeV1, ReaderTextRenderingProfileV1, ReaderWorkBudgetV1,
+        ReaderAdjacentDirection, ReaderErrorKind, ReaderLayout, ReaderLocator, ReaderSpreadMode,
+        ReaderTextRenderingProfile,
     };
 
     use super::*;
     use crate::error::{
-        RITO_STATUS_ADJACENT_PENDING_V1, RITO_STATUS_BUSY_V1, RITO_STATUS_ENGINE_ERROR_V1,
-        RITO_STATUS_NOT_FOUND_V1, RITO_STATUS_SESSION_TERMINATED_V1, RITO_STATUS_STALE_REQUEST_V1,
+        RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_BUSY, RITO_STATUS_ENGINE_ERROR,
+        RITO_STATUS_NOT_FOUND, RITO_STATUS_SESSION_TERMINATED, RITO_STATUS_STALE_REQUEST,
     };
-
-    #[test]
-    fn pending_exact_seek_becomes_terminal_when_core_owner_is_gone() {
-        let target_error = || FfiError {
-            status: RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
-            message: "terminal target".to_owned(),
-        };
-        let pending: Result<Vec<u8>, FfiError> =
-            classify_exact_seek_result(Err(target_error()), true);
-        assert_eq!(
-            pending
-                .as_ref()
-                .expect_err("pending remains an error")
-                .status,
-            RITO_STATUS_EXACT_SEEK_PENDING_V1
-        );
-        assert!(initial_session_is_ready(&pending));
-
-        let terminal: Result<Vec<u8>, FfiError> =
-            classify_exact_seek_result(Err(target_error()), false);
-        assert_eq!(
-            terminal
-                .as_ref()
-                .expect_err("completed unresolved seek is terminal")
-                .status,
-            RITO_STATUS_TARGET_NOT_PUBLISHED_V1
-        );
-        assert!(!initial_session_is_ready(&terminal));
-
-        assert!(initial_session_is_ready(&Ok(vec![1])));
-    }
-
-    #[test]
-    fn pending_query_cannot_reclassify_an_engine_failure() {
-        let engine: Result<Vec<u8>, FfiError> =
-            classify_exact_seek_result(Err(FfiError::engine("not pending")), true);
-        assert_eq!(
-            engine
-                .as_ref()
-                .expect_err("engine failure remains typed")
-                .status,
-            RITO_STATUS_ENGINE_ERROR_V1
-        );
-        assert!(!initial_session_is_ready(&engine));
-    }
 
     #[test]
     fn adjacent_pending_requires_a_core_retained_owner() {
         let target_error = || FfiError {
-            status: RITO_STATUS_TARGET_NOT_PUBLISHED_V1,
+            status: RITO_STATUS_TARGET_NOT_PUBLISHED,
             message: "wording is not an ABI contract".to_owned(),
         };
         let pending: Result<Vec<u8>, FfiError> =
             classify_adjacent_result(Err(target_error()), true);
         assert_eq!(
             pending.expect_err("retained adjacent stays pending").status,
-            RITO_STATUS_ADJACENT_PENDING_V1
+            RITO_STATUS_ADJACENT_PENDING
         );
 
         let terminal: Result<Vec<u8>, FfiError> =
             classify_adjacent_result(Err(target_error()), false);
         assert_eq!(
             terminal.expect_err("ownerless adjacent is terminal").status,
-            RITO_STATUS_TARGET_NOT_PUBLISHED_V1
+            RITO_STATUS_TARGET_NOT_PUBLISHED
         );
 
         let engine: Result<Vec<u8>, FfiError> =
             classify_adjacent_result(Err(FfiError::engine("not pending")), true);
         assert_eq!(
             engine.expect_err("engine failure remains typed").status,
-            RITO_STATUS_ENGINE_ERROR_V1
+            RITO_STATUS_ENGINE_ERROR
         );
     }
 
     #[test]
     fn ambiguous_core_or_wire_mutation_failure_requires_actor_termination() {
-        let operation_error = ReaderErrorV1 {
-            kind: ReaderErrorKindV1::InvalidRequest,
+        let operation_error = ReaderError {
+            kind: ReaderErrorKind::InvalidRequest,
             message: "operation failed before ownership changed".to_owned(),
         };
         let (operation_result, terminate) =
@@ -972,10 +889,10 @@ mod tests {
         assert!(!terminate);
 
         for kind in [
-            ReaderErrorKindV1::EngineFailure,
-            ReaderErrorKindV1::NumericOverflow,
+            ReaderErrorKind::EngineFailure,
+            ReaderErrorKind::NumericOverflow,
         ] {
-            let mutation_error = ReaderErrorV1 {
+            let mutation_error = ReaderError {
                 kind,
                 message: "mutation may already have changed owned state".to_owned(),
             };
@@ -987,20 +904,20 @@ mod tests {
                 mutation_result
                     .expect_err("ambiguous Core mutation failure must be terminal")
                     .status,
-                RITO_STATUS_SESSION_TERMINATED_V1
+                RITO_STATUS_SESSION_TERMINATED
             );
             assert!(terminate);
         }
 
-        let (release_error, terminate) = classify_mutation_error(ReaderErrorV1 {
-            kind: ReaderErrorKindV1::EngineFailure,
+        let (release_error, terminate) = classify_mutation_error(ReaderError {
+            kind: ReaderErrorKind::EngineFailure,
             message: "release cleanup failed after ownership work began".to_owned(),
         });
-        assert_eq!(release_error.status, RITO_STATUS_SESSION_TERMINATED_V1);
+        assert_eq!(release_error.status, RITO_STATUS_SESSION_TERMINATED);
         assert!(terminate);
 
-        let wire_error = ReaderErrorV1 {
-            kind: ReaderErrorKindV1::NumericOverflow,
+        let wire_error = ReaderError {
+            kind: ReaderErrorKind::NumericOverflow,
             message: "owned artifact exceeds wire limits".to_owned(),
         };
         let (wire_result, terminate) = encode_mutation_result(Ok(7_u8), |_| Err(wire_error));
@@ -1008,7 +925,7 @@ mod tests {
             wire_result
                 .expect_err("post-mutation wire failure must be terminal")
                 .status,
-            RITO_STATUS_SESSION_TERMINATED_V1
+            RITO_STATUS_SESSION_TERMINATED
         );
         assert!(terminate);
 
@@ -1034,7 +951,7 @@ mod tests {
             Ok(_) => panic!("closed actor cannot admit work"),
             Err(error) => error,
         };
-        assert_eq!(error.status, RITO_STATUS_NOT_FOUND_V1);
+        assert_eq!(error.status, RITO_STATUS_NOT_FOUND);
         drop(commands);
     }
 
@@ -1050,7 +967,7 @@ mod tests {
                 .try_recv()
                 .expect("superseded request is rejected immediately")
                 .expect_err("superseded request cannot produce an artifact");
-            assert_eq!(error.status, RITO_STATUS_STALE_REQUEST_V1);
+            assert_eq!(error.status, RITO_STATUS_STALE_REQUEST);
             assert!(error.message.contains(&(index + 1).to_string()));
         }
         assert!(matches!(replies[31].try_recv(), Err(TryRecvError::Empty)));
@@ -1081,7 +998,7 @@ mod tests {
             .try_recv()
             .expect("older navigation is rejected")
             .expect_err("older navigation cannot complete");
-        assert_eq!(stale.status, RITO_STATUS_STALE_REQUEST_V1);
+        assert_eq!(stale.status, RITO_STATUS_STALE_REQUEST);
         assert!(matches!(latest_reply.try_recv(), Err(TryRecvError::Empty)));
 
         let stale_marker = receive_navigation_marker(&commands);
@@ -1170,7 +1087,7 @@ mod tests {
                 .expect("old navigation is rejected")
                 .expect_err("old navigation is stale")
                 .status,
-            RITO_STATUS_STALE_REQUEST_V1
+            RITO_STATUS_STALE_REQUEST
         );
         assert!(matches!(latest_reply.try_recv(), Err(TryRecvError::Empty)));
         let stale_marker = receive_navigation_marker(&commands);
@@ -1212,12 +1129,12 @@ mod tests {
     #[test]
     fn queue_cap_rejects_without_owning_an_extra_command() {
         let (client, receiver) = actor_channel();
-        for artifact_id in 1..=u64::from(RITO_ACTOR_MAX_IN_FLIGHT_V1) {
+        for artifact_id in 1..=u64::from(RITO_ACTOR_MAX_IN_FLIGHT) {
             enqueue_release(&client, artifact_id).expect("bounded slot is admitted");
         }
 
         let error = enqueue_release(&client, 999).expect_err("overflow must fail closed");
-        assert_eq!(error.status, RITO_STATUS_BUSY_V1);
+        assert_eq!(error.status, RITO_STATUS_BUSY);
         assert_eq!(in_flight(&client), ACTOR_QUEUE_CAPACITY);
 
         client.close();
@@ -1253,7 +1170,7 @@ mod tests {
         assert_eq!(
             statuses
                 .iter()
-                .filter(|status| **status == Err(RITO_STATUS_BUSY_V1))
+                .filter(|status| **status == Err(RITO_STATUS_BUSY))
                 .count(),
             caller_count - ACTOR_QUEUE_CAPACITY
         );
@@ -1272,7 +1189,7 @@ mod tests {
             actor_gate.wait();
             receiver.into_iter().count()
         });
-        for artifact_id in 1..=u64::from(RITO_ACTOR_MAX_IN_FLIGHT_V1) {
+        for artifact_id in 1..=u64::from(RITO_ACTOR_MAX_IN_FLIGHT) {
             enqueue_release(&client, artifact_id).expect("bounded slot is admitted");
         }
 
@@ -1287,7 +1204,7 @@ mod tests {
             .try_admit()
             .err()
             .expect("closed actor rejects admission");
-        assert_eq!(error.status, RITO_STATUS_NOT_FOUND_V1);
+        assert_eq!(error.status, RITO_STATUS_NOT_FOUND);
     }
 
     #[test]
@@ -1298,7 +1215,7 @@ mod tests {
         let error = admission
             .submit(release_command(1))
             .expect_err("disconnected actor rejects command");
-        assert_eq!(error.status, RITO_STATUS_ENGINE_ERROR_V1);
+        assert_eq!(error.status, RITO_STATUS_ENGINE_ERROR);
         assert_eq!(in_flight(&client), 0);
     }
 
@@ -1311,7 +1228,7 @@ mod tests {
 
         let error = request_release(client.try_admit().expect("release slot is admitted"), 1)
             .expect_err("a dropped reply cannot prove mutation outcome");
-        assert_eq!(error.status, RITO_STATUS_SESSION_TERMINATED_V1);
+        assert_eq!(error.status, RITO_STATUS_SESSION_TERMINATED);
         actor.join().expect("reply-dropping actor exits");
     }
 
@@ -1335,7 +1252,7 @@ mod tests {
         let (reply, _receiver) = mpsc::sync_channel(1);
         client.try_admit()?.submit(ActorCommand::ReadResource {
             artifact_id,
-            kind: ReaderResourceKindV1::Image,
+            kind: ReaderResourceKind::Image,
             href: format!("images/{artifact_id}.jpg"),
             reply,
         })
@@ -1351,12 +1268,11 @@ mod tests {
     fn enqueue_adjacent(client: &ActorClient, request_id: u64) -> Result<(), FfiError> {
         let (reply, _receiver) = mpsc::sync_channel(1);
         client.try_admit()?.submit(ActorCommand::RequestAdjacent {
-            request: ReaderAdjacentRequestV1 {
+            request: ReaderAdjacentRequest {
                 session_id: 1,
                 request_id,
                 from_artifact_id: 1,
-                direction: ReaderAdjacentDirectionV1::Next,
-                work: work_budget(),
+                direction: ReaderAdjacentDirection::Next,
             },
             reply,
         })
@@ -1368,7 +1284,7 @@ mod tests {
     ) -> Result<(), FfiError> {
         let (reply, _receiver) = mpsc::sync_channel(1);
         client.try_admit()?.submit(ActorCommand::AdvanceBackground {
-            request: ReaderBackgroundRequestV1 {
+            request: ReaderBackgroundRequest {
                 session_id: 1,
                 expected_visible_artifact_id,
                 max_top_level_nodes_per_quantum: 1,
@@ -1386,7 +1302,7 @@ mod tests {
         client
             .try_admit()?
             .submit(ActorCommand::AdoptForegroundCandidate {
-                request: ReaderForegroundHandoffV1 {
+                request: ReaderForegroundHandoff {
                     session_id: 1,
                     expected_visible_artifact_id,
                     candidate_artifact_id,
@@ -1404,7 +1320,7 @@ mod tests {
         client
             .try_admit()?
             .submit(ActorCommand::AdoptBackgroundCandidate {
-                request: ReaderBackgroundHandoffV1 {
+                request: ReaderBackgroundHandoff {
                     session_id: 1,
                     expected_visible_artifact_id,
                     candidate_artifact_id,
@@ -1429,41 +1345,33 @@ mod tests {
         }
     }
 
-    fn navigation_request(request_id: u64) -> ReaderArtifactRequestV1 {
-        ReaderArtifactRequestV1 {
+    fn navigation_request(request_id: u64) -> ReaderArtifactRequest {
+        ReaderArtifactRequest {
             session_id: 1,
             request_id,
-            layout: ReaderLayoutV1 {
+            layout: ReaderLayout {
+                render_ratio: 1.0,
                 viewport_width: 420.0,
                 viewport_height: 640.0,
                 margin_top: 24.0,
                 margin_right: 24.0,
                 margin_bottom: 24.0,
                 margin_left: 24.0,
-                spread_mode: ReaderSpreadModeV1::Single,
+                spread_mode: ReaderSpreadMode::Single,
                 first_page_alone: true,
                 spread_gap: 0.0,
                 root_font_size: 16.0,
                 line_height_override: None,
                 font_family_override: None,
             },
-            locator: ReaderLocatorV1 {
+            locator: ReaderLocator {
                 href: "chapter.xhtml".to_owned(),
                 anchor_id: None,
                 source_point: None,
                 source_range: None,
                 progression: None,
             },
-            work: work_budget(),
-            text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,
-        }
-    }
-
-    fn work_budget() -> ReaderWorkBudgetV1 {
-        ReaderWorkBudgetV1 {
-            max_top_level_nodes_per_quantum: 32,
-            max_foreground_quanta: 64,
-            local_page_cap: 16,
+            text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
         }
     }
 

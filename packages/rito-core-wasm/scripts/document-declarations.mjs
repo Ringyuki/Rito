@@ -3,7 +3,7 @@ export function documentClassDeclarations(options = {}) {
   return [
     `${declaration} RitoCoreWasmDocument {`,
     ...revisionCreationDeclarations(),
-    ...boundedRevisionDeclarations(),
+    ...wholeBookRevisionDeclarations(),
     ...chapterLocalRevisionDeclarations(),
     ...versionedRevisionDeclarations(),
     ...legacyReadDeclarations(),
@@ -14,12 +14,9 @@ export function documentClassDeclarations(options = {}) {
 
 function chapterLocalRevisionDeclarations() {
   return [
-    '  createBoundedChapterLocalRevision(',
-    '    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,',
-    '  ): RitoCoreWasmChapterLocalRevisionAdvance;',
-    '  continueChapterLocalRevision(',
-    '    request: RitoCoreWasmContinueChapterLocalRevisionRequest,',
-    '  ): RitoCoreWasmContinuedChapterLocalRevisionAdvance;',
+    '  createChapterLocalRevision(',
+    '    request: RitoCoreWasmChapterLocalRevisionRequest,',
+    '  ): RitoCoreWasmCreatedChapterLocalRevision;',
     '  readChapterLocalFrame(',
     '    owner: RitoCoreWasmChapterLocalOwner,',
     '    localSpreadIndex: number,',
@@ -42,43 +39,13 @@ function revisionCreationDeclarations() {
     '  free(): void;',
     '  publication(): RitoCoreWasmPublicationInfo;',
     '  pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;',
-    '  createFullRevisionBundle(',
-    '    request: RitoCoreWasmFullRevisionBundleRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse;',
-    '  createInitialPreviewRevisionBundle(',
-    '    request: RitoCoreWasmInitialPreviewRevisionRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse;',
-    '  createActiveChapterPreviewRevisionBundle(',
-    '    request: RitoCoreWasmActiveChapterPreviewRevisionRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse | undefined;',
-    '  createPreviewRevisionBundle(',
-    '    request: RitoCoreWasmPreviewRevisionBundleRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse | undefined;',
-    '  createViewRevisionBundle(',
-    '    request: RitoCoreWasmViewRevisionRequest,',
-    '  ): RitoCoreWasmViewRevisionResponse;',
-    '  createViewRevisionBundleBytes(',
-    '    request: RitoCoreWasmViewRevisionRequest,',
-    '  ): RitoCoreWasmViewRevisionResponse;',
   ];
 }
 
-function boundedRevisionDeclarations() {
+function wholeBookRevisionDeclarations() {
   return [
-    '  createBoundedRevision(',
-    '    request: RitoCoreWasmBoundedRevisionRequest,',
-    '  ): RitoCoreWasmRevisionAdvance;',
-    '  continueRevision(',
-    '    request: RitoCoreWasmContinueRevisionRequest,',
-    '  ): RitoCoreWasmRevisionAdvance;',
-    '  continueRevisionTowardSourceLocator(',
-    '    request: RitoCoreWasmContinueRevisionTowardSourceLocatorRequest,',
-    '  ): RitoCoreWasmRevisionAdvanceTowardSourceLocator;',
-    '  calibrateRevisionFontVerticalMetrics(',
-    '    request: RitoCoreWasmCalibrateRevisionFontVerticalMetricsRequest,',
-    '  ): RitoCoreWasmRevisionFontVerticalMetricCalibrationWithTransferRelease;',
-    '  cancelRevision(',
-    '    request: RitoCoreWasmCancelRevisionRequest,',
+    '  createRevision(',
+    '    layoutConfig: RitoCoreWasmLayoutConfig,',
     '  ): RitoCoreWasmRevisionSummary;',
   ];
 }
@@ -98,13 +65,6 @@ function versionedRevisionDeclarations() {
     '  getRevisionNavigationAtRevision(',
     '    revision: RitoCoreWasmRevisionHandle,',
     '  ): RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>;',
-    '  getShapeProvenanceDiagnosticAtRevision(',
-    '    revision: RitoCoreWasmRevisionHandle,',
-    '  ): RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>;',
-    '  getFrameAtRevision(',
-    '    revision: RitoCoreWasmRevisionHandle,',
-    '    spreadIndex: number,',
-    '  ): RitoCoreWasmVersioned<RitoCoreWasmFrame>;',
     '  getFrameCommandBufferMetadataAtRevision(',
     '    revision: RitoCoreWasmRevisionHandle,',
     '    spreadIndex: number,',
@@ -207,7 +167,6 @@ function versionedRevisionDeclarations() {
 
 function legacyReadDeclarations() {
   return [
-    '  getFrame(revisionId: string, spreadIndex: number): RitoCoreWasmFrame;',
     '  getFrameCommandBufferMetadata(',
     '    revisionId: string,',
     '    spreadIndex: number,',

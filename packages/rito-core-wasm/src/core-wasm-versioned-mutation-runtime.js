@@ -1,66 +1,15 @@
 import {
   encodeJson,
   parseObject,
-  requireInitialRevisionAdvance,
-  requireRevisionAdvance,
   requireRevisionHandle,
   requireRevisionSummary,
 } from './core-wasm-versioned-validation-runtime.js';
 
-export function runBoundedMutation(
-  document,
-  rawMethod,
-  operation,
-  input,
-  maximum,
-  expectedRevisionId,
-  expectedRevisionVersion,
-) {
-  const fallback =
-    expectedRevisionId === undefined
-      ? undefined
-      : { revisionId: expectedRevisionId, revisionVersion: expectedRevisionVersion };
-  return runCommittedMutation(document, rawMethod, operation, input, fallback, (result) => {
-    const revision = requireRevisionSummary(
-      result.revision,
-      operation,
-      fallback?.revisionId,
-      fallback?.revisionVersion ?? 0,
-    );
-    return operation === 'createBoundedRevision'
-      ? requireInitialRevisionAdvance(result, revision, operation, maximum)
-      : requireRevisionAdvance(result, revision, operation, maximum);
-  });
-}
-
-export function runCancelMutation(document, input, handle) {
-  const next = { revisionId: handle.revisionId, revisionVersion: handle.revisionVersion + 1 };
-  return runCommittedMutation(
-    document,
-    'cancelRevisionJson',
-    'cancelRevision',
-    input,
-    next,
-    (result) =>
-      requireRevisionSummary(
-        result,
-        'cancelRevision',
-        next.revisionId,
-        next.revisionVersion,
-        'cancelled',
-      ),
+/** Creates a revision; the result is its summary at version zero. */
+export function runRevisionMutation(document, rawMethod, operation, input) {
+  return runCommittedMutation(document, rawMethod, operation, input, undefined, (result) =>
+    requireRevisionSummary(result, operation, undefined, 0),
   );
-}
-
-export function runBoundedCompositeMutation(
-  document,
-  rawMethod,
-  operation,
-  input,
-  fallbackHandle,
-  validate,
-) {
-  return runCommittedMutation(document, rawMethod, operation, input, fallbackHandle, validate);
 }
 
 function runCommittedMutation(document, rawMethod, operation, input, fallbackHandle, validate) {
@@ -81,7 +30,7 @@ function validateCommittedMutation(rawPayload, operation, fallbackHandle, releas
     result = parseObject(rawPayload, operation);
     return validate(result);
   } catch (error) {
-    const handle = fallbackHandle ?? recoverRevisionHandle(result?.revision);
+    const handle = fallbackHandle ?? recoverRevisionHandle(result);
     if (handle !== undefined) bestEffortRelease(handle, release);
     throw error;
   }

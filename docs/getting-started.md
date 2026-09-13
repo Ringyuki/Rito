@@ -2,15 +2,20 @@
 
 ## Scope
 
-Rito is an EPUB-focused rendering engine, not a general-purpose browser engine.
-It parses EPUB content, resolves a book-oriented CSS subset, paginates chapters,
-and builds paint-ready display lists. The Web preset renders those pages or spreads into Canvas.
+Rito is an EPUB-focused rendering engine, not a general-purpose browser
+engine. It parses EPUB content, resolves CSS through Stylo, paginates
+chapters with its own fragment engine and lowers every page to a
+device-resolved display list. The browser package renders those pages or
+spreads into a Canvas; Flutter and native hosts blit the same display list
+through the C ABI.
 
-If you want a ready-to-use rendering surface with transitions and overlays, use:
+If you want a ready-to-use reading surface with transitions and overlays,
+use:
 
-- `@ritojs/core` for the app-facing reader and core EPUB runtime
+- `@ritojs/core` for the app-facing reader
 - `@ritojs/kit` for a controller layer
 - `@ritojs/react` for React apps
+- `rito_flutter` for Flutter apps
 
 ## Install
 
@@ -24,7 +29,8 @@ Optional packages:
 pnpm add @ritojs/kit @ritojs/react
 ```
 
-If you are working inside this repository instead of consuming the published packages:
+If you are working inside this repository instead of consuming the
+published packages:
 
 ```bash
 pnpm install
@@ -36,8 +42,8 @@ pnpm run build
 The engine shapes text inside its WASM runtime, where no system font is
 reachable: layout metrics and Canvas paint must share the exact same font
 bytes, so `createReader` **requires** a `pinnedFontPolicy` with at least
-one face. Ship a Latin face and a CJK face (the reference reader pins
-Tinos and Source Han Serif CN) and load their bytes yourself:
+one face. Ship a Latin face and a CJK face (the demo reader pins Tinos and
+Source Han Serif CN) and load their bytes yourself:
 
 ```ts
 import type { ReaderPinnedFontPolicy } from '@ritojs/core';
@@ -60,7 +66,9 @@ async function loadPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy> {
 ```
 
 A missing or empty policy makes `createReader` throw immediately — the
-engine cannot start without shapeable font bytes.
+engine cannot start without shapeable font bytes. EPUB-embedded fonts
+still provide exact shapes for the runs they cover; the pinned faces are
+the fallback beneath them.
 
 ## Smallest Web Canvas Example
 
@@ -118,19 +126,19 @@ reader.dispose();
 
 ## When To Use Which Entry
 
-- Use `createReader()` from `@ritojs/core` if you want the standard reader flow.
-- Use the source-only TypeScript reference implementation inside this repository
-  only for diagnostics, parity work, or custom migration tools.
-- Use `@ritojs/kit` when you want transitions, overlays, pointer/keyboard wiring, and controller state.
+- Use `createReader()` from `@ritojs/core` for the standard browser reader
+  flow.
+- Use `openBrowserReaderSession()` from `@ritojs/core` when your host drives the
+  artifact protocol itself (candidates, adoption, background advance) —
+  the same protocol Flutter and the C ABI expose.
+- Use `@ritojs/kit` when you want transitions, overlays, pointer and
+  keyboard wiring and controller state.
 - Use `@ritojs/react` when you want React hooks and a mount component.
-
-For Flutter, Skia, native, server-side, or other non-Web runtimes, the target
-is the Rust runtime contract behind `@ritojs/core`, not the historical
-TypeScript Canvas reference.
+- Use `rito_flutter` in Flutter; use `crates/rito-ffi` from any other
+  native host.
 
 ## Next Steps
 
 - [Reader API](./api/reader.md)
-- [Reference Primitives](./api/primitives.md)
 - [Capabilities](./capabilities.md)
 - [Limitations](./limitations.md)

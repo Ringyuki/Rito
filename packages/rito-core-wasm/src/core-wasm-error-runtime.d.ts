@@ -1,5 +1,3 @@
-import type { RitoCoreWasmRevisionSummary } from './types/revision';
-
 export type RitoCoreWasmErrorCode =
   | 'bad-request'
   | 'engine-error'
@@ -9,13 +7,11 @@ export type RitoCoreWasmErrorCode =
 
 export interface RitoCoreWasmErrorOptions {
   readonly cause?: unknown;
-  readonly revision?: RitoCoreWasmRevisionSummary | undefined;
 }
 
 export declare class RitoCoreWasmError extends Error {
   readonly code: RitoCoreWasmErrorCode;
   readonly cause?: unknown;
-  readonly revision?: RitoCoreWasmRevisionSummary | undefined;
 
   constructor(code: RitoCoreWasmErrorCode, message: string, options?: RitoCoreWasmErrorOptions);
 }

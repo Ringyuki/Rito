@@ -81,7 +81,6 @@ export async function runPinnedFallbackCycle(
         height: 520,
         margin: 32,
         spread: 'single',
-        lineBreaking: 'greedy',
         devicePixelRatio: 1,
         logLevel: 'silent',
         pinnedFontPolicy: {

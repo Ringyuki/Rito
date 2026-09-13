@@ -52,18 +52,12 @@ impl FootnoteTargetSet {
         self.0.contains(target)
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &String> {
-        self.0.iter()
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
-    pub(crate) fn union(&self, other: &Self) -> Self {
-        if self.0.is_empty() {
-            return other.clone();
-        }
-        if other.0.is_empty() {
-            return self.clone();
-        }
-        Self::new(self.0.union(&other.0).cloned().collect())
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &String> {
+        self.0.iter()
     }
 }
 
@@ -115,6 +109,16 @@ pub(crate) fn extract_footnotes_for_targets(
     chapters: &[FootnoteFilterChapter<'_>],
     targets: &FootnoteTargetSet,
 ) -> FootnoteExtraction {
+    // With nothing to remove, every filtered chapter would be a full copy
+    // of its node tree that the caller then discards for being equal to
+    // the original. A book without footnote targets is the common case
+    // and copying its whole parse to prove nothing changed is not free.
+    if targets.is_empty() {
+        return FootnoteExtraction {
+            filtered_chapters: BTreeMap::new(),
+            footnotes: BTreeMap::new(),
+        };
+    }
     let mut footnotes = BTreeMap::new();
     let filtered_chapters = chapters
         .iter()
@@ -257,8 +261,14 @@ fn filtered_element(
     targets: &FootnoteTargetSet,
     footnotes: &mut BTreeMap<String, FootnoteEntry>,
 ) -> ElementNode {
-    let mut filtered = element.clone();
-    filtered.children =
-        remove_matching_footnotes(&element.children, chapter_href, targets, footnotes);
-    filtered
+    // Cloning the element would deep-copy the children twice over: once
+    // here and once for every nested element on the way down. Only the
+    // flat fields are copied; the children are the filtered ones.
+    ElementNode {
+        tag: element.tag.clone(),
+        attributes: element.attributes.clone(),
+        children: remove_matching_footnotes(&element.children, chapter_href, targets, footnotes),
+        source_ref: element.source_ref.clone(),
+        anchor_ref: element.anchor_ref.clone(),
+    }
 }

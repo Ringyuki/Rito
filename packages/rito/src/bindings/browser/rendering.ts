@@ -1,15 +1,19 @@
-import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame-command-renderer';
+import { renderReaderPrimitivesToCanvas, type CanvasRenderingTarget } from './primitive-renderer';
 import {
   touchBrowserReaderDecodedImages,
   type BrowserReaderDecodedImage,
 } from './decoded-image-cache';
 import { createCanvasImageResolver } from './image-href-resolver';
-import { browserReaderImageResourceFailed, ensureFrameImageResourceLoaded } from './resources';
+import {
+  browserReaderImageResourceFailed,
+  ensureFrameImageResourceLoaded,
+  unmarkSpreadImageResourcesSettled,
+} from './resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader-layout';
 
-export type { CanvasRenderingTarget } from './frame-command-renderer';
+export type { CanvasRenderingTarget } from './primitive-renderer';
 
 type CanvasImageResolver = ReturnType<typeof createCanvasImageResolver>;
 
@@ -144,6 +148,14 @@ function pendingFrameImages(
       // wedged the forward page turn forever on b69's missing 015 plate).
       if (browserReaderImageResourceFailed(state, href)) continue;
       pending.push(href);
+      // A degraded paint re-arms the spread's settlement notice: the
+      // spread may have settled once already (its bitmap decoded during
+      // an earlier visit, then evicted under the byte budget), and the
+      // once-latch from that settlement would keep the repaint that
+      // brings the bitmap back quiet forever.
+      if (state.revisionHandle) {
+        unmarkSpreadImageResourcesSettled(state, state.revisionHandle, index);
+      }
       // Two recovery lanes: the frame window re-warms siblings, and the
       // direct read covers a bitmap the window machinery never delivered
       // (an aborted prefetch, an evicted decode). Without the second lane
@@ -163,12 +175,34 @@ function renderFrameToCanvas(
   pixelRatio: number,
 ): void {
   publishFrameDiagnostics(frame, ctx, state, pixelRatio);
+  // The frame's primitives are resolved on the device grid at frame.ratio;
+  // a target sized to the viewport at that ratio takes them as they are.
+  // A target at another ratio (a host zoom) gets the resolved list
+  // uniformly scaled: geometry lands off-grid until the engine lowers the
+  // frame again at the target's ratio, exactly as a zoomed raster would.
+  const blit = blitScale(ctx, frame, pixelRatio);
+  const canvasCtx = ctx as CanvasRenderingContext2D;
+  canvasCtx.save();
   try {
-    renderFrameCommandsToCanvas(frame.commands, ctx, {
-      pixelRatio,
-      resolveImage,
-      ...(state.fgColor ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor } : {}),
-    });
+    if (blit !== 1) {
+      recordRatioMismatch(frame, pixelRatio);
+      canvasCtx.scale(blit, blit);
+    }
+    renderReaderPrimitivesToCanvas(
+      {
+        formatVersion: 2,
+        ratio: frame.ratio,
+        commandCount: frame.commands.length,
+        commands: frame.commands,
+      },
+      ctx,
+      {
+        resolveImage,
+        ...(state.fgColor
+          ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor }
+          : {}),
+      },
+    );
   } catch (error) {
     const scope = globalThis as { __ritoLastRenderError?: unknown };
     scope.__ritoLastRenderError = {
@@ -178,7 +212,31 @@ function renderFrameToCanvas(
       at: new Date().toISOString(),
     };
     throw error;
+  } finally {
+    canvasCtx.restore();
   }
+}
+
+/** One when the target is the viewport on the frame's own device grid;
+ * otherwise the uniform scale that maps the frame's grid onto the
+ * target's. */
+function blitScale(ctx: CanvasRenderingTarget, frame: BrowserReaderFrame, pixelRatio: number) {
+  const onGrid =
+    Math.round(frame.width * frame.ratio) === ctx.canvas.width &&
+    Math.round(frame.height * frame.ratio) === ctx.canvas.height;
+  return onGrid ? 1 : pixelRatio / frame.ratio;
+}
+
+/** A paint whose target grid differs from the frame's is recorded for
+ * support diagnostics: it is the one case the pen scales instead of
+ * blitting. */
+function recordRatioMismatch(frame: BrowserReaderFrame, pixelRatio: number): void {
+  const scope = globalThis as {
+    __ritoRatioMismatches?: { spreadIndex: number; frameRatio: number; targetRatio: number }[];
+  };
+  const log = (scope.__ritoRatioMismatches ??= []);
+  log.push({ spreadIndex: frame.spreadIndex, frameRatio: frame.ratio, targetRatio: pixelRatio });
+  if (log.length > 20) log.splice(0, log.length - 20);
 }
 
 /**
@@ -197,19 +255,16 @@ function publishFrameDiagnostics(
   const families: string[] = [];
   const runs: { t: string; x: number; y: number; w: number; n: number }[] = [];
   for (const command of frame.commands) {
-    if (command.kind === 'paintText' && typeof command.text === 'string') {
+    if (command.kind === 'text') {
       if (texts.length < 3) texts.push(command.text);
-      const paint = (command as { paint?: { font?: { family?: unknown } } }).paint;
-      const family = paint?.font?.family;
-      if (typeof family === 'string' && !families.includes(family)) families.push(family);
-      const rect = (command as { rect?: { x?: number; y?: number } }).rect;
-      if (runs.length < 300 && rect && typeof rect.x === 'number' && typeof rect.y === 'number') {
-        const width = (rect as { width?: number }).width;
+      const family = command.paint.font.family;
+      if (!families.includes(family)) families.push(family);
+      if (runs.length < 300) {
         runs.push({
           t: command.text.slice(0, 24),
-          x: rect.x,
-          y: rect.y,
-          w: typeof width === 'number' ? width : 0,
+          x: command.rect.x,
+          y: command.rect.y,
+          w: command.rect.width,
           n: command.text.length,
         });
       }
@@ -231,6 +286,7 @@ function publishFrameDiagnostics(
     firstFamilies: families,
     textRuns: runs,
     frameSize: { width: frame.width, height: frame.height },
+    frameRatio: frame.ratio,
     canvasSize: { width: ctx.canvas.width, height: ctx.canvas.height },
     canvasCssSize: {
       width: canvas.clientWidth ?? null,
@@ -238,9 +294,6 @@ function publishFrameDiagnostics(
     },
     pixelRatio,
     stateDpr: state.dpr,
-    paginationBackend: state.revisionBundle.revision.paginationBackend ?? null,
-    fragmentPaginationLever: state.fragmentPagination,
-    revisionStatus: state.revisionBundle.revision.status,
     revisionVersion: state.revisionBundle.revision.revisionVersion,
     canvasId: canvas.__ritoCanvasId,
     offscreen:

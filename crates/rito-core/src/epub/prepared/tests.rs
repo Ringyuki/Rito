@@ -1,23 +1,29 @@
 use std::sync::Arc;
 
-use serde_json::json;
+use rito_style_contract::{
+    Clear, ComputedColor, Float, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage,
+    LineHeight, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, TransformOperation,
+};
 
 use crate::{
-    css::CssViewport,
     epub::{
         LoadedChapter, LoadedEpubDocument, LoadedTextResource, PackageDocument, PackageMetadata,
     },
     style::{
-        resolve_prepared_chapter_style, style_backend_metrics, ChapterStyleOptions,
-        PreparedStyleChapterInput, StyleBackendError, StyledNode,
+        paint_color, resolve_prepared_chapter_style, serialize_font_families,
+        style_backend_metrics, ChapterStyleOptions, CssViewport, PreparedStyleChapterInput,
+        StyleBackendError,
     },
     xhtml::DocumentNode,
 };
 
-use super::{parse_loaded_chapter_source, prepare_loaded_document_base};
+use super::{
+    parse_loaded_chapter_source, prepare_loaded_document_base, ParsedLoadedChapterSource,
+    StylesheetSourceLedger,
+};
 
 #[test]
-fn prepared_base_keeps_legacy_css_unparsed() {
+fn prepared_base_keeps_the_raw_stylesheet_sources() {
     let document = document_with_stylesheet("styles/main.css", "p { color: red; }");
     let base = prepare_loaded_document_base(&document);
 
@@ -30,29 +36,6 @@ fn prepared_base_keeps_legacy_css_unparsed() {
         base.stylesheet_ledger.sources()[0].text(),
         "p { color: red; }"
     );
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[cfg(feature = "legacy-css-diagnostics")]
-#[test]
-fn prepared_clones_share_one_legacy_artifact_initialization() {
-    let document = document_with_stylesheet("book.css", "p { color: red; }");
-    let base = prepare_loaded_document_base(&document);
-    let cloned = base.clone();
-
-    assert!(Arc::ptr_eq(
-        &base.stylesheet_ledger.legacy,
-        &cloned.stylesheet_ledger.legacy
-    ));
-    let first = base.stylesheet_ledger.legacy_artifacts();
-    let second = cloned.stylesheet_ledger.legacy_artifacts();
-
-    assert!(std::ptr::eq(first, second));
-    assert_eq!(first.css().stylesheet_count, 1);
-    assert_eq!(first.stylesheet_rules().len(), 1);
 }
 
 #[test]
@@ -100,7 +83,7 @@ fn unparseable_chapter_still_degrades_to_the_warning_fallback() {
 }
 
 #[test]
-fn production_stylo_success_never_initializes_legacy_css_artifacts() {
+fn the_publication_stylesheet_resolves_into_typed_tables() {
     let before = style_backend_metrics();
     let document = document_with_stylesheet(
         "styles/main.css",
@@ -112,32 +95,13 @@ fn production_stylo_success_never_initializes_legacy_css_artifacts() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>styled</p></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert_eq!(
-        paragraph.style.get("color"),
-        Some(&serde_json::json!("#ff0000"))
-    );
-    assert_eq!(
-        paragraph.style.get("backgroundColor"),
-        Some(&serde_json::json!(""))
-    );
-    assert_eq!(
-        paragraph.style["borderTop"]["width"],
-        serde_json::json!(1.0)
-    );
-    assert_eq!(
-        paragraph.style["borderTop"]["style"],
-        serde_json::json!("solid")
-    );
-    assert_eq!(
-        paragraph.style["borderTop"]["color"],
-        serde_json::json!("#ff0000")
-    );
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let paragraph = resolved.inline_for_tag(&chapter, "p");
+    assert_eq!(color(paragraph.paint.foreground), "#ff0000");
+    assert!(is_transparent(paragraph.paint.background, paragraph));
+    let top = paragraph.fragment.border.top;
+    assert_eq!(top.resolved_width.get(), 1.0);
+    assert_eq!(top.color, ComputedColor::CurrentColor);
     assert!(style_backend_metrics().stylo_successes > before.stylo_successes);
 }
 
@@ -153,18 +117,14 @@ fn stylo_medium_border_keeps_the_browser_compatible_three_pixel_width() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><div class="cutline">content</div></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let cutline = find_tag(&resolved, "div").expect("styled cutline");
-    assert_eq!(cutline.style["borderTop"]["width"], json!(3.0));
-    assert_eq!(cutline.style["borderBottom"]["width"], json!(3.0));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let cutline = resolved.inline_for_tag(&chapter, "div");
+    assert_eq!(cutline.fragment.border.top.resolved_width.get(), 3.0);
+    assert_eq!(cutline.fragment.border.bottom.resolved_width.get(), 3.0);
 }
 
 #[test]
-fn audited_legacy_noops_and_safe_list_shorthand_stay_on_stylo() {
+fn unrepresentable_declarations_leave_the_representable_ones_intact() {
     let document = document_with_stylesheet(
         "styles/main.css",
         "p { color: navy; background: #cceead; background-attachment: fixed; \
@@ -179,20 +139,27 @@ fn audited_legacy_noops_and_safe_list_shorthand_stay_on_stylo() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>text</p><ol><li>item</li></ol></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    let list = find_tag(&resolved, "ol").expect("styled list");
-    assert_eq!(paragraph.style["color"], serde_json::json!("#000080"));
-    assert_eq!(paragraph.style["backgroundColor"], json!("#cceead"));
-    assert_eq!(list.style["listStyleType"], serde_json::json!("none"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let paragraph = resolved.inline_for_tag(&chapter, "p");
+    assert_eq!(color(paragraph.paint.foreground), "#000080");
+    assert_eq!(
+        color(
+            paragraph
+                .paint
+                .background
+                .resolve(paragraph.paint.foreground)
+        ),
+        "#cceead"
+    );
+    let list = resolved.layout_for_tag(&chapter, "ol");
+    assert_eq!(
+        list.list_style_type,
+        rito_style_contract::ListMarkerStyle::None
+    );
 }
 
 #[test]
-fn clear_and_max_width_use_the_typed_stylo_layout_bridge() {
+fn clear_and_max_width_project_into_the_typed_layout_style() {
     let document = document_with_stylesheet(
         "styles/main.css",
         "p { clear: both; max-width: 80%; color: green; }",
@@ -203,18 +170,20 @@ fn clear_and_max_width_use_the_typed_stylo_layout_bridge() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>text</p></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert_eq!(paragraph.style["clear"], serde_json::json!("both"));
-    assert_eq!(paragraph.style["maxWidthPct"], serde_json::json!(80.0));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let paragraph = resolved.layout_for_tag(&chapter, "p");
+    assert_eq!(paragraph.clear, Clear::Both);
+    let MaximumSize::Value(max_width) = paragraph.max_width else {
+        panic!("max-width projects a value: {:?}", paragraph.max_width);
+    };
+    let LengthPercentage::Percentage(percentage) = max_width.value() else {
+        panic!("max-width keeps its percentage: {:?}", max_width.value());
+    };
+    assert_eq!(percentage.percent(), 80.0);
 }
 
 #[test]
-fn height_float_and_overflow_use_the_typed_stylo_layout_bridge() {
+fn height_float_and_overflow_project_into_the_typed_layout_style() {
     let document = document_with_stylesheet(
         "styles/main.css",
         "p { min-height: 12px; max-height: 100%; float: right; overflow: hidden; }",
@@ -225,20 +194,25 @@ fn height_float_and_overflow_use_the_typed_stylo_layout_bridge() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>text</p></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert_eq!(paragraph.style["minHeight"], serde_json::json!(12.0));
-    assert!(!paragraph.style.contains_key("maxHeight"));
-    assert_eq!(paragraph.style["float"], serde_json::json!("right"));
-    assert_eq!(paragraph.style["overflow"], serde_json::json!("hidden"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let paragraph = resolved.layout_for_tag(&chapter, "p");
+    let MinimumHeight::Length(min_height) = paragraph.min_height else {
+        panic!("min-height keeps its length: {:?}", paragraph.min_height);
+    };
+    assert_eq!(min_height.get(), 12.0);
+    let MaximumHeight::Percentage(max_height) = paragraph.max_height else {
+        panic!(
+            "max-height keeps its percentage: {:?}",
+            paragraph.max_height
+        );
+    };
+    assert_eq!(max_height.percent(), 100.0);
+    assert_eq!(paragraph.float, Float::Right);
+    assert_eq!(paragraph.overflow, Overflow::Hidden);
 }
 
 #[test]
-fn page_break_aliases_materialize_from_stylo_without_legacy_css() {
+fn only_column_breaks_force_a_break_in_the_reader_column_context() {
     let document = document_with_stylesheet(
         "styles/main.css",
         "#standard { break-before: column; page-break-after: always; } \
@@ -254,146 +228,23 @@ fn page_break_aliases_materialize_from_stylo_without_legacy_css() {
         </body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
     // Only the `column` keyword forces a break in the reader's column
     // context; page/always aliases are ignored like Chromium's
     // continuous multicol ignores them.
-    let standard = find_id(&resolved, "standard").expect("styled paragraph");
-    assert_eq!(standard.style["pageBreakBefore"], json!("always"));
-    assert_eq!(standard.style["pageBreakAfter"], json!("auto"));
-    let legacy = find_id(&resolved, "legacy").expect("styled paragraph");
-    assert_eq!(legacy.style["pageBreakBefore"], json!("auto"));
-    assert_eq!(legacy.style["pageBreakAfter"], json!("always"));
-    let inline = find_id(&resolved, "inline").expect("styled paragraph");
-    assert_eq!(inline.style["pageBreakBefore"], json!("always"));
-    assert_eq!(inline.style["pageBreakAfter"], json!("always"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let standard = resolved.layout_for_id(&chapter, "standard");
+    assert_eq!(standard.break_before, PageBreak::Always);
+    assert_eq!(standard.break_after, PageBreak::Auto);
+    let legacy = resolved.layout_for_id(&chapter, "legacy");
+    assert_eq!(legacy.break_before, PageBreak::Auto);
+    assert_eq!(legacy.break_after, PageBreak::Always);
+    let inline = resolved.layout_for_id(&chapter, "inline");
+    assert_eq!(inline.break_before, PageBreak::Always);
+    assert_eq!(inline.break_after, PageBreak::Always);
 }
 
 #[test]
-fn unsupported_page_break_value_degrades_to_an_inherit_only_node() {
-    let document = document_with_stylesheet("styles/main.css", "p { break-before: left; }");
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>text</p></body></html>"#,
-    ));
-
-    // `left`/`right` page selection has no consumer slot; the paragraph
-    // renders with its defaults instead of refusing the chapter.
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert_eq!(paragraph.style["display"], json!("block"));
-    assert_eq!(paragraph.style["pageBreakBefore"], json!("auto"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn percentage_height_uses_the_explicit_consumer_compatibility_policy() {
-    let document = document_with_stylesheet("styles/main.css", "p { height: 93%; }");
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>text</p></body></html>"#,
-    ));
-
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    // The retired parser ignored percentage heights, so the consumer field
-    // keeps its zero default rather than being omitted.
-    assert_eq!(paragraph.style.get("height"), Some(&serde_json::json!(0.0)));
-    assert!(!paragraph.style.contains_key("heightPct"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn bounded_single_image_flex_wrapper_retains_exact_centering_contract() {
-    let document = document_with_stylesheet(
-        "styles/main.css",
-        ".duokan-image-single { display: flex; height: 93vh !important; \
-         justify-content: center; align-items: center; } \
-         .duokan-image-single .w { width: 100%; }",
-    );
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><div class="illus duokan-image-single"><img class="w" src="image.jpg" /></div></body></html>"#,
-    ));
-
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let wrapper = find_tag(&resolved, "div").expect("single-image wrapper");
-    assert_eq!(wrapper.style["display"], json!("flex"));
-    assert_eq!(wrapper.style["justifyContent"], json!("center"));
-    assert_eq!(wrapper.style["alignItems"], json!("center"));
-    assert_eq!(wrapper.style["flexDirection"], json!("row"));
-    assert_eq!(wrapper.style["flexWrap"], json!("nowrap"));
-    assert_eq!(wrapper.style["height"], json!(558.0));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn bounded_single_image_flex_with_multiple_items_lays_out_as_block() {
-    let document = document_with_stylesheet(
-        "styles/main.css",
-        ".duokan-image-single { display: flex; height: 93vh; \
-         justify-content: center; align-items: center; }",
-    );
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><div class="illus duokan-image-single"><img class="w" src="one.jpg" /><img class="w" src="two.jpg" /></div></body></html>"#,
-    ));
-
-    // Outside the bounded single-image subset, the flex container lays out
-    // as a block so both images still render in flow.
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let wrapper = find_tag(&resolved, "div").expect("flex wrapper");
-    assert_eq!(wrapper.style["display"], json!("block"));
-    assert_eq!(wrapper.children.len(), 2);
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn bounded_single_image_flex_with_auto_item_margins_degrades_to_flow() {
-    let document = document_with_stylesheet(
-        "styles/main.css",
-        ".single { display: flex; height: 240px; justify-content: center; \
-         align-items: center; } .single img { margin-left: auto; }",
-    );
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><div class="single"><img src="one.jpg" /></div></body></html>"#,
-    ));
-
-    // An auto-margin item disqualifies the bounded flex mode; the container
-    // degrades to flow layout instead of refusing the chapter.
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let wrapper = find_tag(&resolved, "div").expect("flex wrapper");
-    assert_eq!(wrapper.style["display"], json!("block"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn background_url_cluster_uses_stylesheet_base_and_typed_stylo_paint() {
+fn background_url_cluster_resolves_against_the_stylesheet_base() {
     let document = document_with_stylesheet(
         "Styles/main.css",
         ".card { background-image: url(../Images/paper.png); \
@@ -406,26 +257,36 @@ fn background_url_cluster_uses_stylesheet_base_and_typed_stylo_paint() {
         r#"<html><head><link rel="stylesheet" href="../Styles/main.css" /></head><body><div class="card">text</div></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let card = find_tag(&resolved, "div").expect("background card");
-    assert_eq!(card.style["backgroundImage"], json!("Images/paper.png"));
-    assert_eq!(card.style["backgroundRepeat"], json!("no-repeat"));
-    assert_eq!(card.style["backgroundSize"], json!("cover"));
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let card = resolved.inline_for_tag(&chapter, "div");
+    let image = card
+        .paint
+        .background_image
+        .as_ref()
+        .expect("the card keeps its background image");
     assert_eq!(
-        card.style["backgroundPosition"],
-        json!({
-            "x": { "unit": "percent", "value": 50.0 },
-            "y": { "unit": "percent", "value": 0.0 },
-        })
+        crate::style::background_publication_href(image.url.as_str()),
+        Ok("Images/paper.png")
     );
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    assert_eq!(
+        crate::style::background_repeat(image.repeat),
+        crate::render::contract::ReaderBackgroundRepeat::NoRepeat
+    );
+    assert_eq!(
+        crate::style::background_size(image.size),
+        crate::render::contract::ReaderBackgroundSize::Cover
+    );
+    let LengthPercentage::Percentage(x) = image.position.x else {
+        panic!("`center` keeps its percentage: {:?}", image.position.x);
+    };
+    let LengthPercentage::Percentage(y) = image.position.y else {
+        panic!("`top` keeps its percentage: {:?}", image.position.y);
+    };
+    assert_eq!((x.percent(), y.percent()), (50.0, 0.0));
 }
 
 #[test]
-fn rotate_transform_uses_the_typed_stylo_paint_bridge() {
+fn rotate_transforms_project_as_exact_radians() {
     let document =
         document_with_stylesheet("styles/main.css", ".badge { transform: rotate(-8deg); }");
     let base = prepare_loaded_document_base(&document);
@@ -434,67 +295,16 @@ fn rotate_transform_uses_the_typed_stylo_paint_bridge() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><span class="badge">text</span></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let badge = find_tag(&resolved, "span").expect("transformed badge");
-    let transform = badge.style["transform"]
-        .as_array()
-        .expect("transform array");
-    assert_eq!(transform.len(), 1);
-    assert_eq!(transform[0]["kind"], json!("rotate"));
-    assert!(
-        (transform[0]["rad"].as_f64().expect("finite radians") - (-8.0_f64).to_radians()).abs()
-            < 1.0e-7
-    );
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let badge = resolved.inline_for_tag(&chapter, "span");
+    let [TransformOperation::Rotate { radians }] = badge.paint.transform.as_slice() else {
+        panic!("one rotation projects: {:?}", badge.paint.transform);
+    };
+    assert!((f64::from(radians.get()) - (-8.0_f64).to_radians()).abs() < 1.0e-6);
 }
 
 #[test]
-fn border_radius_shorthand_uses_the_audited_first_component_contract() {
-    let document = document_with_stylesheet(
-        "styles/main.css",
-        ".badge { border-radius: 0 20px 20px 0; }",
-    );
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><span class="badge">text</span></body></html>"#,
-    ));
-
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let badge = find_tag(&resolved, "span").expect("rounded badge");
-    assert_eq!(badge.style["borderRadius"], json!(0.0));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn unsupported_transform_operation_degrades_to_an_inherit_only_node() {
-    let document = document_with_stylesheet("styles/main.css", ".badge { transform: scale(1.2); }");
-    let base = prepare_loaded_document_base(&document);
-    let chapter = parse_loaded_chapter_source(&chapter_with_href(
-        "chapter-1.xhtml",
-        r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><span class="badge">fallback</span></body></html>"#,
-    ));
-
-    // The projection cannot represent scale(); the span falls back to an
-    // inherit-only style and — being semantically inline — stays inline.
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let badge = find_tag(&resolved, "span").expect("styled span");
-    assert_eq!(badge.style["display"], json!("inline"));
-    assert_eq!(badge.style["transform"], json!([]));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
-}
-
-#[test]
-fn unsupported_background_value_drops_the_background_paint() {
+fn unsupported_background_values_drop_the_background_image() {
     let document = document_with_stylesheet(
         "styles/main.css",
         "p { background-image: linear-gradient(red, blue); }",
@@ -505,24 +315,23 @@ fn unsupported_background_value_drops_the_background_paint() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>fallback</p></body></html>"#,
     ));
 
-    // Gradients have no paint slot; the paragraph renders without its
-    // background instead of refusing the chapter.
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert!(!paragraph.style.contains_key("backgroundImage"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    // Gradients have no paint slot: the projection leaves the paragraph
+    // without an inline style of its own (the bridge inherits for it)
+    // instead of refusing the chapter.
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let paragraph = node_index_for_tag(&chapter, "p");
+    assert!(matches!(
+        resolved.inline.style_for_node(paragraph),
+        Err(rito_style_contract::StyleTableError::MissingNodeStyle { .. })
+    ));
 }
 
 #[test]
-fn body_background_url_uses_typed_page_paint_without_legacy_fallback() {
+fn body_background_resolves_into_the_typed_body_style() {
     let document = document_with_stylesheet(
         "Styles/main.css",
         "body { background-color: #123456; background-image: url(../Images/page.png); \
-         background-repeat: no-repeat; background-position: top center; \
-         background-size: cover; }",
+         background-repeat: no-repeat; }",
     );
     let base = prepare_loaded_document_base(&document);
     let chapter = parse_loaded_chapter_source(&chapter_with_href(
@@ -530,28 +339,25 @@ fn body_background_url_uses_typed_page_paint_without_legacy_fallback() {
         r#"<html><head><link rel="stylesheet" href="../Styles/main.css" /></head><body><p>page background</p></body></html>"#,
     ));
 
-    let (_, page_paint) = resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter);
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let body = resolved.inline_for_tag(&chapter, "body");
     assert_eq!(
-        page_paint,
-        Some(json!({
-            "backgroundColor": "#123456",
-            "backgroundImage": "Images/page.png",
-            "backgroundRepeat": "no-repeat",
-            "backgroundSize": "cover",
-            "backgroundPosition": {
-                "x": { "unit": "percent", "value": 50.0 },
-                "y": { "unit": "percent", "value": 0.0 },
-            },
-        }))
+        color(body.paint.background.resolve(body.paint.foreground)),
+        "#123456"
     );
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let image = body
+        .paint
+        .background_image
+        .as_ref()
+        .expect("the body keeps its background image");
+    assert_eq!(
+        crate::style::background_publication_href(image.url.as_str()),
+        Ok("Images/page.png")
+    );
 }
 
 #[test]
-fn body_bgcolor_uses_stylo_presentational_hint_without_legacy_fallback() {
+fn body_bgcolor_applies_as_a_presentational_hint() {
     let document = document_with_stylesheet("styles/main.css", "p { color: navy; }");
     let base = prepare_loaded_document_base(&document);
     let chapter = parse_loaded_chapter_source(&chapter_with_href(
@@ -559,16 +365,16 @@ fn body_bgcolor_uses_stylo_presentational_hint_without_legacy_fallback() {
         r##"<html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" href="styles/main.css" /></head><body bgcolor="#fff"><p>page background</p></body></html>"##,
     ));
 
-    let (_, page_paint) = resolve_prepared_with_page_paint(&base.stylesheet_ledger, &chapter);
-    assert_eq!(page_paint, Some(json!({ "backgroundColor": "#ffffff" })));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let body = resolved.inline_for_tag(&chapter, "body");
+    assert_eq!(
+        color(body.paint.background.resolve(body.paint.foreground)),
+        "#ffffff"
+    );
 }
 
 #[test]
-fn opacity_uses_the_typed_stylo_paint_bridge() {
+fn opacity_projects_into_the_typed_paint_style() {
     let document = document_with_stylesheet("styles/main.css", "p { opacity: 0.25; }");
     let base = prepare_loaded_document_base(&document);
     let chapter = parse_loaded_chapter_source(&chapter_with_href(
@@ -576,13 +382,9 @@ fn opacity_uses_the_typed_stylo_paint_bridge() {
         r#"<html><head><link rel="stylesheet" href="styles/main.css" /></head><body><p>quarter opacity</p></body></html>"#,
     ));
 
-    let resolved = resolve_prepared(&base.stylesheet_ledger, &chapter);
-    let paragraph = find_tag(&resolved, "p").expect("styled paragraph");
-    assert_eq!(paragraph.style["opacity"], json!(0.25));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = resolve(&base.stylesheet_ledger, &chapter);
+    let paragraph = resolved.inline_for_tag(&chapter, "p");
+    assert_eq!(paragraph.paint.opacity.get(), 0.25);
 }
 
 #[test]
@@ -604,15 +406,16 @@ fn configured_root_font_size_is_the_initial_em_and_computed_rem_basis() {
         font_family_force: false,
     };
 
-    let (resolved, _) =
-        try_resolve_prepared_with_options(&base.stylesheet_ledger, &chapter, options).unwrap();
-    let target = find_id(&resolved, "target").expect("target paragraph");
-    assert_eq!(target.style["fontSize"], json!(44.0));
-    assert_eq!(target.style["marginLeft"], json!(44.0));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = try_resolve_with_options(&base.stylesheet_ledger, &chapter, options).unwrap();
+    let target = resolved.inline_for_id(&chapter, "target");
+    assert_eq!(target.font.size.get(), 44.0);
+    let layout = resolved.layout_for_id(&chapter, "target");
+    let rito_style_contract::LengthPercentageOrAuto::Value(LengthPercentage::Length(margin_left)) =
+        layout.margin.left
+    else {
+        panic!("margin-left resolves to a length: {:?}", layout.margin.left);
+    };
+    assert_eq!(margin_left.get(), 44.0);
 }
 
 #[test]
@@ -635,18 +438,13 @@ fn non_force_typography_overrides_body_then_allows_descendant_declarations() {
         font_family_force: false,
     };
 
-    let (resolved, _) =
-        try_resolve_prepared_with_options(&base.stylesheet_ledger, &chapter, options).unwrap();
-    let inherited = find_id(&resolved, "inherited").expect("inherited paragraph");
-    let specific = find_id(&resolved, "specific").expect("specific paragraph");
-    assert_eq!(inherited.style["fontFamily"], json!("Georgia, serif"));
-    assert_eq!(inherited.style["lineHeight"], json!(1.6));
-    assert_eq!(specific.style["fontFamily"], json!("\"Book Face\""));
-    assert_eq!(specific.style["lineHeight"], json!(2.0));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
+    let resolved = try_resolve_with_options(&base.stylesheet_ledger, &chapter, options).unwrap();
+    let inherited = resolved.inline_for_id(&chapter, "inherited");
+    let specific = resolved.inline_for_id(&chapter, "specific");
+    assert_eq!(families(inherited), "Georgia, serif");
+    assert_eq!(line_height_number(inherited), 1.6);
+    assert_eq!(families(specific), "\"Book Face\"");
+    assert_eq!(line_height_number(specific), 2.0);
 }
 
 #[test]
@@ -668,11 +466,10 @@ fn force_typography_still_overwrites_descendant_declarations() {
         font_family_force: true,
     };
 
-    let (resolved, _) =
-        try_resolve_prepared_with_options(&base.stylesheet_ledger, &chapter, options).unwrap();
-    let target = find_id(&resolved, "target").expect("target paragraph");
-    assert_eq!(target.style["fontFamily"], json!("Georgia, serif"));
-    assert_eq!(target.style["lineHeight"], json!(1.4));
+    let resolved = try_resolve_with_options(&base.stylesheet_ledger, &chapter, options).unwrap();
+    let target = resolved.inline_for_id(&chapter, "target");
+    assert_eq!(families(target), "Georgia, serif");
+    assert_eq!(line_height_number(target), 1.4);
 }
 
 #[test]
@@ -690,35 +487,107 @@ fn invalid_font_family_override_is_rejected_before_stylesheet_injection() {
         font_family_force: false,
     };
 
-    let error = try_resolve_prepared_with_options(&base.stylesheet_ledger, &chapter, options)
+    let error = try_resolve_with_options(&base.stylesheet_ledger, &chapter, options)
         .expect_err("declaration injection must fail closed");
     assert!(error.to_string().contains("valid CSS font-family list"));
-    assert!(base
-        .stylesheet_ledger
-        .legacy_artifacts_if_initialized()
-        .is_none());
 }
 
-fn resolve_prepared(
-    stylesheet_ledger: &super::StylesheetSourceLedger,
-    chapter: &super::ParsedLoadedChapterSource,
-) -> Vec<StyledNode> {
-    resolve_prepared_with_page_paint(stylesheet_ledger, chapter).0
+#[derive(Debug)]
+struct Resolved {
+    layout: rito_style_contract::LayoutStyleTable,
+    inline: rito_style_contract::InlineStyleTable,
 }
 
-fn resolve_prepared_with_page_paint(
-    stylesheet_ledger: &super::StylesheetSourceLedger,
-    chapter: &super::ParsedLoadedChapterSource,
-) -> (Vec<StyledNode>, Option<serde_json::Value>) {
-    try_resolve_prepared_with_page_paint(stylesheet_ledger, chapter)
-        .expect("supported Stylo chapter resolves")
+impl Resolved {
+    fn inline_for_id(
+        &self,
+        chapter: &ParsedLoadedChapterSource,
+        id: &str,
+    ) -> &InlineFormattingStyle {
+        self.inline
+            .style_for_node(node_index_for_id(chapter, id))
+            .expect("the node resolved an inline style")
+    }
+
+    fn layout_for_id(
+        &self,
+        chapter: &ParsedLoadedChapterSource,
+        id: &str,
+    ) -> &LayoutFormattingStyle {
+        self.layout
+            .style_for_node(node_index_for_id(chapter, id))
+            .expect("the node resolved a layout style")
+    }
+
+    fn inline_for_tag(
+        &self,
+        chapter: &ParsedLoadedChapterSource,
+        tag: &str,
+    ) -> &InlineFormattingStyle {
+        self.inline
+            .style_for_node(node_index_for_tag(chapter, tag))
+            .expect("the element resolved an inline style")
+    }
+
+    fn layout_for_tag(
+        &self,
+        chapter: &ParsedLoadedChapterSource,
+        tag: &str,
+    ) -> &LayoutFormattingStyle {
+        self.layout
+            .style_for_node(node_index_for_tag(chapter, tag))
+            .expect("the element resolved a layout style")
+    }
 }
 
-fn try_resolve_prepared_with_page_paint(
-    stylesheet_ledger: &super::StylesheetSourceLedger,
-    chapter: &super::ParsedLoadedChapterSource,
-) -> Result<(Vec<StyledNode>, Option<serde_json::Value>), StyleBackendError> {
-    try_resolve_prepared_with_options(
+fn node_index_for_id(chapter: &ParsedLoadedChapterSource, id: &str) -> usize {
+    chapter
+        .source_arena
+        .as_ref()
+        .expect("canonical arena")
+        .find_element_by_id(id)
+        .expect("an element with the id")
+        .index()
+}
+
+fn node_index_for_tag(chapter: &ParsedLoadedChapterSource, tag: &str) -> usize {
+    chapter
+        .source_arena
+        .as_ref()
+        .expect("canonical arena")
+        .iter()
+        .find_map(|(node_id, node)| {
+            node.as_element()
+                .filter(|element| element.name.local_name == tag)
+                .map(|_| node_id.index())
+        })
+        .expect("an element with the tag")
+}
+
+fn color(value: rito_style_contract::AbsoluteColor) -> String {
+    crate::render::test_support::color_css(paint_color(value).expect("an sRGB colour"))
+}
+
+fn is_transparent(value: ComputedColor, style: &InlineFormattingStyle) -> bool {
+    value.resolve(style.paint.foreground).alpha().get() == 0.0
+}
+
+fn families(style: &InlineFormattingStyle) -> String {
+    serialize_font_families(&style.font).expect("a font-family list")
+}
+
+fn line_height_number(style: &InlineFormattingStyle) -> f32 {
+    let LineHeight::Number(number) = style.font.line_height else {
+        panic!("a unitless line-height: {:?}", style.font.line_height);
+    };
+    number.get()
+}
+
+fn resolve(
+    stylesheet_ledger: &StylesheetSourceLedger,
+    chapter: &ParsedLoadedChapterSource,
+) -> Resolved {
+    try_resolve_with_options(
         stylesheet_ledger,
         chapter,
         ChapterStyleOptions {
@@ -729,44 +598,28 @@ fn try_resolve_prepared_with_page_paint(
             font_family_force: false,
         },
     )
+    .expect("supported Stylo chapter resolves")
 }
 
-fn try_resolve_prepared_with_options(
-    stylesheet_ledger: &super::StylesheetSourceLedger,
-    chapter: &super::ParsedLoadedChapterSource,
+fn try_resolve_with_options(
+    stylesheet_ledger: &StylesheetSourceLedger,
+    chapter: &ParsedLoadedChapterSource,
     options: ChapterStyleOptions<'_>,
-) -> Result<(Vec<StyledNode>, Option<serde_json::Value>), StyleBackendError> {
+) -> Result<Resolved, StyleBackendError> {
     resolve_prepared_chapter_style(
         PreparedStyleChapterInput {
             stylesheet_ledger,
             chapter_href: &chapter.source.href,
             source_arena: chapter.source_arena.as_ref(),
             body_source_node_id: chapter.parsed.body_source_node_id,
-            nodes: &chapter.parsed.nodes,
-            pagination_nodes: None,
-            #[cfg(feature = "legacy-css-diagnostics")]
-            body_attributes: chapter.parsed.body_attributes.as_ref(),
             author_stylesheets: &chapter.parsed.author_stylesheets,
         },
         Some(CssViewport::new(800.0, 600.0)),
         options,
     )
-    .map(|resolved| (resolved.styled_nodes, resolved.page_paint))
-}
-
-fn find_id<'a>(nodes: &'a [StyledNode], id: &str) -> Option<&'a StyledNode> {
-    nodes.iter().find_map(|node| {
-        (node.id.as_deref() == Some(id))
-            .then_some(node)
-            .or_else(|| find_id(&node.children, id))
-    })
-}
-
-fn find_tag<'a>(nodes: &'a [StyledNode], tag: &str) -> Option<&'a StyledNode> {
-    nodes.iter().find_map(|node| {
-        (node.tag.as_deref() == Some(tag))
-            .then_some(node)
-            .or_else(|| find_tag(&node.children, tag))
+    .map(|resolved| Resolved {
+        layout: resolved.layout_style_table,
+        inline: resolved.inline_style_table,
     })
 }
 

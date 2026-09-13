@@ -108,8 +108,8 @@ describe('Browser reader interaction races', () => {
     fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
     const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
 
-    fixture.state.boundedSessions.candidate =
-      {} as BrowserReaderState['boundedSessions']['candidate'];
+    fixture.state.revisionSessions.candidate =
+      {} as BrowserReaderState['revisionSessions']['candidate'];
     deferred.resolve(versionedReadingAnchor(0, 0));
 
     await expect(pending).resolves.toMatchObject({

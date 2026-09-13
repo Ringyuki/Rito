@@ -89,7 +89,8 @@ fn preserves_manifest_identity_and_media_type_before_archive_fallbacks() {
 
 #[test]
 fn transfers_an_unmanifested_image_through_the_runtime_resource_path() {
-    let mut runtime = RuntimeDocument::open(&unmanifested_image_epub()).expect("runtime opens");
+    let mut runtime =
+        RuntimeDocument::open_pinned_for_tests(&unmanifested_image_epub()).expect("runtime opens");
     let before = runtime.publication_info();
     let summary = before
         .resources
@@ -104,13 +105,10 @@ fn transfers_an_unmanifested_image_through_the_runtime_resource_path() {
     let revision = runtime
         .create_revision(&layout())
         .expect("revision is created");
-    let frame = runtime
-        .get_frame(&revision.revision_id, 0)
+    let image_hrefs = runtime
+        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
         .expect("frame is available");
-    assert!(frame
-        .resource_refs
-        .images
-        .contains(&"../Images/Undeclared%20Tile.png".to_owned()));
+    assert!(image_hrefs.contains(&"../Images/Undeclared%20Tile.png".to_owned()));
 
     let resource = runtime
         .get_resource(
@@ -147,7 +145,8 @@ fn indexes_url_delimiters_in_physical_archive_image_names() {
 #[test]
 fn transfers_distinct_physical_url_delimiter_images() {
     let bytes = url_delimiter_image_epub();
-    let mut runtime = RuntimeDocument::open(&bytes).expect("delimiter runtime opens");
+    let mut runtime =
+        RuntimeDocument::open_pinned_for_tests(&bytes).expect("delimiter runtime opens");
     let revision = runtime
         .create_revision(&layout())
         .expect("delimiter revision is created");
@@ -282,7 +281,5 @@ fn layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     })
 }

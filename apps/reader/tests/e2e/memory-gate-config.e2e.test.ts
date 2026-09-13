@@ -35,7 +35,7 @@ test.afterEach(async () => {
 
 test('strictly parses the named-machine manifest and resolves its fixture', async () => {
   const gate = await loadReaderMemoryGate(await writeManifest(validManifest()));
-  expect(gate.schemaVersion).toBe(2);
+  expect(gate.schemaVersion).toBe(3);
   expect(gate.runs).toBe(3);
   expect(gate.browser.isolation).toBe('process-per-run');
   expect(gate.fixture.epub).toBe(resolve(directory, 'fixture.epub'));
@@ -231,11 +231,11 @@ test('selects only a stable physical-footprint window', () => {
 });
 
 test('derives footprint metrics without gating renderer diagnostics', () => {
-  const growth = checkpoint('growth', 125);
+  const traversed = checkpoint('traversed', 125);
   const metrics = measureReaderMemoryMetrics({
     baseline: checkpoint('baseline', 100),
     loaded: checkpoint('loaded', 120),
-    growth: { ...growth, samples: [sample(125), sample(140), sample(125)] },
+    traversed: { ...traversed, samples: [sample(125), sample(140), sample(125)] },
     reflow: checkpoint('reflow', 130),
     replacements: [checkpoint('replacement-1', 128), checkpoint('replacement-2', 131)],
     disposed: checkpoint('disposed', 106),
@@ -374,10 +374,6 @@ function workerOperation(
     kind: 'open',
     startedAt: 2,
     requestBytes: null,
-    maxTopLevelNodes: null,
-    maxQuanta: null,
-    processedTopLevelNodes: null,
-    advancedQuanta: null,
     spreadIndex: null,
     completedAt: 3,
     durationMs: 1,

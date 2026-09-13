@@ -8,7 +8,7 @@ use crate::layout::{
 
 mod footnotes;
 
-pub use footnotes::{cross_chapter_footnote_fixture_epub, missing_future_chapter_fixture_epub};
+pub use footnotes::cross_chapter_footnote_fixture_epub;
 
 pub fn layout() -> LayoutConfig {
     create_layout_config(LayoutConfigInput {
@@ -23,8 +23,6 @@ pub fn layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     })
 }
 
@@ -41,8 +39,6 @@ pub fn double_layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     })
 }
 
@@ -92,7 +88,7 @@ pub fn long_chapter_window_fixture_epub() -> Vec<u8> {
     let paragraphs = (0..520)
         .map(|index| {
             format!(
-                r#"<p id="window-point-{index}">Window paragraph {index:03} carries stable source text across bounded reader revision rollovers and adjacent navigation.</p>"#
+                r#"<p id="window-point-{index}">Window paragraph {index:03} carries stable source text across reader revision rollovers and adjacent navigation.</p>"#
             )
         })
         .collect::<String>();
@@ -101,19 +97,6 @@ pub fn long_chapter_window_fixture_epub() -> Vec<u8> {
     );
     fixture_epub_with_chapter(chapter.as_bytes())
 }
-
-pub fn nested_transparent_container_fixture_epub() -> Vec<u8> {
-    let paragraphs = (0..96)
-        .map(|index| {
-            format!("<p>Nested container paragraph {index} carries stable runtime content.</p>")
-        })
-        .collect::<String>();
-    let chapter = format!(
-        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><section><div>{paragraphs}</div></section></body></html>"#
-    );
-    fixture_epub_with_chapter(chapter.as_bytes())
-}
-
 pub fn image_only_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(
         br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><img src="Images/cover.png" alt="cover"/></body></html>"#,
@@ -439,13 +422,6 @@ pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
         chapter_fixture_xhtml(&format!("chapter {index}"))
     })
 }
-
-pub fn many_empty_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
-    many_chapter_fixture_epub_with(chapter_count, |_| {
-        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body></body></html>"#.to_owned()
-    })
-}
-
 pub fn retained_adjacent_fixture_epub() -> Vec<u8> {
     many_chapter_fixture_epub_with(2, |index| {
         if index == 0 {
@@ -462,6 +438,19 @@ pub fn retained_adjacent_fixture_epub() -> Vec<u8> {
         } else {
             chapter_fixture_xhtml("adjacent source chapter")
         }
+    })
+}
+
+/// Three chapters where the middle one alone paginates past the page
+/// table's materialization budget, so reading one of its pages evicts
+/// whatever was materialized before it.
+pub fn chapter_eviction_fixture_epub() -> Vec<u8> {
+    many_chapter_fixture_epub_with(3, |index| {
+        let paragraph_count = if index == 1 { 300 } else { 4 };
+        let paragraphs = (0..paragraph_count)
+            .map(|paragraph| format!("<p>Chapter {index} paragraph {paragraph}.</p>"))
+            .collect::<String>();
+        format!(r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>{paragraphs}</body></html>"#)
     })
 }
 
@@ -545,9 +534,8 @@ pub(super) fn add_file(
     writer.write_all(bytes).expect("file writes");
 }
 
-/// Two-chapter book whose first chapter is tiny enough to complete
-/// inside a single bounded quantum, in three tail shapes that exercise
-/// the previous-chapter-tail (progression 1.0) projection.
+/// Two-chapter book whose first chapter is tiny, in three tail shapes
+/// that exercise the previous-chapter-tail (progression 1.0) projection.
 pub fn short_previous_chapter_fixture_epub(tail: &str) -> Vec<u8> {
     let chapter_zero = match tail {
         "text" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>short chapter</p></body></html>"#.to_owned(),
@@ -603,7 +591,7 @@ pub fn pinned_test_font_policy() -> crate::runtime::RuntimePinnedFontPolicyInput
 
 /// One chapter exercising the breadth of the paint-command domain
 /// (border styles per edge, radius, shadows, hr, lists, table, ruby,
-/// inline decoration, image): every page must survive the reader-v1
+/// inline decoration, image): every page must survive the reader session
 /// display-list encoding, or a styled real book kills the session.
 pub fn paint_command_kitchen_sink_fixture_epub() -> Vec<u8> {
     let chapter = r##"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body style="background-image:url('Images/cover.png');background-repeat:no-repeat;background-position:center bottom;background-size:auto 40%">

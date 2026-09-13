@@ -296,97 +296,21 @@ describe('selection handle controller facade', () => {
     expect(nativeDrag.update).toHaveBeenCalledOnce();
   });
 
-  it('publishes a completed extent but does not revive growth across a newer navigation intent', async () => {
+  it('stays on the final spread when a handle dwells at its trailing edge', () => {
     vi.useFakeTimers();
-    const fixture = partialExtentHandleFixture();
+    const fixture = finalSpreadHandleFixture();
     const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
 
     drag?.update(fixture.edgePoint);
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    expect(fixture.ensureSelectionSpread).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
 
-    fixture.internals.coordState.contentInteractionGeneration += 1;
-    fixture.growth.resolve(true);
-    await settleTasks();
-
-    expect(fixture.publishExtent).toHaveBeenCalledOnce();
-    expect(fixture.reader.totalSpreads).toBe(2);
     expect(fixture.prepareSpreadForJump).not.toHaveBeenCalled();
     expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
-
-    drag?.update({ ...fixture.edgePoint, clientX: fixture.edgePoint.clientX - 1 });
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    expect(fixture.prepareSpreadForJump).not.toHaveBeenCalled();
-    expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
-  });
-
-  it('fails a pending growth closed when a full layout invalidates its handle session', async () => {
-    vi.useFakeTimers();
-    const fixture = partialExtentHandleFixture();
-    const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
-
-    drag?.update(fixture.edgePoint);
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    fixture.invalidateFullLayout();
-    fixture.growth.resolve(true);
-    await settleTasks();
-
-    expect(fixture.invalidateSelection).toHaveBeenCalledOnce();
-    expect(fixture.publishExtent).toHaveBeenCalledOnce();
-    expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
-  });
-
-  it('does not revive pending growth after the selection is cleared', async () => {
-    vi.useFakeTimers();
-    const fixture = partialExtentHandleFixture();
-    const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
-
-    drag?.update(fixture.edgePoint);
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    fixture.accessors.clearSelection();
-    fixture.growth.resolve(true);
-    await settleTasks();
-
-    expect(fixture.clearSelection).toHaveBeenCalledOnce();
-    expect(fixture.publishExtent).toHaveBeenCalledOnce();
-    expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
-  });
-
-  it('does not revive pending growth after a replacement selection starts', async () => {
-    vi.useFakeTimers();
-    const fixture = partialExtentHandleFixture();
-    const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
-
-    drag?.update(fixture.edgePoint);
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    fixture.startSelection();
-    fixture.growth.resolve(true);
-    await settleTasks();
-
-    expect(fixture.publishExtent).toHaveBeenCalledOnce();
-    expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
-  });
-
-  it('keeps an aborted growth publication without retrying its cancelled handle', async () => {
-    vi.useFakeTimers();
-    const fixture = partialExtentHandleFixture();
-    const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
-
-    drag?.update(fixture.edgePoint);
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    const signal = fixture.ensureSelectionSpread.mock.calls[0]?.[1];
-    drag?.cancel();
-    fixture.growth.resolve(true);
-    await settleTasks();
-
-    expect(signal?.aborted).toBe(true);
-    expect(fixture.publishExtent).toHaveBeenCalledOnce();
-    expect(fixture.reader.totalSpreads).toBe(2);
-    expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
+    expect(fixture.nativeDrag.update).toHaveBeenCalledOnce();
   });
 
   it('cancels an active handle as soon as a pending content intent supersedes it', () => {
-    const fixture = partialExtentHandleFixture();
+    const fixture = finalSpreadHandleFixture();
     const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
 
     fixture.internals.coordState.contentInteractionGeneration += 1;
@@ -395,26 +319,6 @@ describe('selection handle controller facade', () => {
 
     expect(fixture.nativeDrag.cancel).toHaveBeenCalledOnce();
     expect(fixture.nativeDrag.update).not.toHaveBeenCalled();
-    expect(fixture.nativeDrag.finish).not.toHaveBeenCalled();
-  });
-
-  it('rechecks handle ownership after edge cancellation reenters content intent', async () => {
-    vi.useFakeTimers();
-    const fixture = partialExtentHandleFixture();
-    const drag = fixture.accessors.beginSelectionHandleDrag('end', fixture.origin);
-    drag?.update(fixture.edgePoint);
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    const signal = fixture.ensureSelectionSpread.mock.calls[0]?.[1];
-    signal?.addEventListener('abort', () => {
-      fixture.internals.coordState.contentInteractionGeneration += 1;
-    });
-
-    drag?.finish({ clientX: fixture.edgePoint.clientX - 1, clientY: fixture.edgePoint.clientY });
-    fixture.growth.resolve(false);
-    await settleTasks();
-
-    expect(signal?.aborted).toBe(true);
-    expect(fixture.nativeDrag.cancel).toHaveBeenCalledOnce();
     expect(fixture.nativeDrag.finish).not.toHaveBeenCalled();
   });
 });
@@ -536,16 +440,12 @@ function navStub(internals?: Internals, afterClaim?: () => void) {
   };
 }
 
-function partialExtentHandleFixture() {
-  const growth = deferred<boolean>();
+/** A handle drag on the last spread of a one-spread layout: no forward edge target exists. */
+function finalSpreadHandleFixture() {
   const nativeDrag = { update: vi.fn(), finish: vi.fn(), cancel: vi.fn() };
   const invalidateSelection = vi.fn();
   const clearSelection = vi.fn();
-  const publishExtent = vi.fn();
-  const reader = {
-    totalSpreads: 1,
-    pagination: { complete: false },
-  };
+  const reader = { totalSpreads: 1 };
   const coordState = {
     mapper: mapperWithWidth(300),
     contentInteractionGeneration: 0,
@@ -599,13 +499,6 @@ function partialExtentHandleFixture() {
     engines: { selection },
     coordState,
   } as unknown as Internals;
-  const ensureSelectionSpread = vi.fn(async (_target: number, signal: AbortSignal) => {
-    const available = await growth.promise;
-    reader.totalSpreads = 2;
-    reader.pagination.complete = true;
-    publishExtent();
-    return signal.aborted ? undefined : available;
-  });
   const prepareSpreadForJump = vi.fn(() => 'ready' as const);
   const jumpToSpreadIfReady = vi.fn(() => 'committed' as const);
   const canvas = {
@@ -613,7 +506,6 @@ function partialExtentHandleFixture() {
   } as unknown as HTMLCanvasElement;
   return {
     accessors: buildSelectionAccessors(internals, canvas, {
-      ensureSelectionSpread,
       prepareSpreadForJump,
       jumpToSpreadIfReady,
       supersedeForSelectionIntent: () => {
@@ -623,23 +515,13 @@ function partialExtentHandleFixture() {
     } as never),
     edgePoint: { clientX: 298, clientY: 25 },
     clearSelection,
-    ensureSelectionSpread,
-    growth,
     internals,
-    invalidateFullLayout() {
-      coordState.contentInteractionGeneration += 1;
-      selection.invalidate();
-    },
     invalidateSelection,
     jumpToSpreadIfReady,
     nativeDrag,
     origin: { clientX: 30, clientY: 25 },
     prepareSpreadForJump,
-    publishExtent,
     reader,
-    startSelection() {
-      selection.handlePointerDown();
-    },
   };
 }
 
@@ -661,19 +543,6 @@ function registerStaticSelectionOwner<T extends object>(
     owns: (candidate) => candidate === activeGesture,
     supportsProjectionTransfer,
   });
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
-}
-
-async function settleTasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
 }
 
 function mapperWithWidth(contentWidth: number) {

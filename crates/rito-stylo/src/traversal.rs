@@ -20,13 +20,18 @@ use style::{
 
 use crate::{config::LayoutThreadGuard, dom::DomStorage};
 
+/// The cascade runs at animation-timeline time zero: this adapter has no
+/// clock, so an animated property computes to its value at the start of the
+/// animation and never advances.
+const ANIMATION_TIME_SECONDS: f64 = 0.0;
+
 pub(crate) fn resolve(
     dom: &DomStorage,
     stylist: &mut Stylist,
     animations: &DocumentAnimationSet,
     snapshots: &mut SnapshotMap,
-    now: f64,
 ) {
+    let now = ANIMATION_TIME_SECONDS;
     let _thread = LayoutThreadGuard::enter();
     let guard = dom.shared_lock().read();
     let guards = StylesheetGuards::same(&guard);

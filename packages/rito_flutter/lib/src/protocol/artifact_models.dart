@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'display_models.dart';
+import 'primitive_models.dart';
 
 enum RitoLocatorMatch { sourceRange, sourcePoint, anchor, progression, href }
 
@@ -13,19 +13,19 @@ final class RitoAdjacentAvailability {
 
   final String name;
 
+  /// The spread is on the same revision's page table and projects
+  /// without layout.
   static const RitoAdjacentAvailability available = RitoAdjacentAvailability._(
     'available',
   );
-  static const RitoAdjacentAvailability pending = RitoAdjacentAvailability._(
-    'pending',
-  );
+
+  /// The adjacent target is in another linear spine chapter.
   static const RitoAdjacentAvailability chapterBoundary =
       RitoAdjacentAvailability._('chapter-boundary');
+
+  /// No adjacent linear chapter exists in this direction.
   static const RitoAdjacentAvailability terminal = RitoAdjacentAvailability._(
     'terminal',
-  );
-  static const RitoAdjacentAvailability blocked = RitoAdjacentAvailability._(
-    'blocked',
   );
 }
 
@@ -93,6 +93,8 @@ final class RitoRect {
   final double height;
 }
 
+/// The artifact's paint: its display commands lowered to the host's
+/// device grid, carried as the `RITODL1` format-2 primitive list.
 final class RitoDisplayListPayload {
   RitoDisplayListPayload({
     required this.formatVersion,
@@ -107,7 +109,7 @@ final class RitoDisplayListPayload {
   final int commandCount;
   final Uint8List semanticDigest;
   final Uint8List wireBytes;
-  final RitoDisplayList displayList;
+  final RitoPrimitiveList displayList;
 }
 
 final class RitoResourceRef {
@@ -270,7 +272,6 @@ final class RitoArtifact {
     required List<int> localPageIndexes,
     required this.width,
     required this.height,
-    required this.terminalExtent,
     this.bookPageIndex,
     this.bookPageCount,
     required this.navigation,
@@ -298,7 +299,6 @@ final class RitoArtifact {
   final List<int> localPageIndexes;
   final double width;
   final double height;
-  final bool terminalExtent;
 
   /// Zero-based page number within the whole book. Null until the
   /// whole-book layout backs this artifact (before that, only
@@ -308,19 +308,16 @@ final class RitoArtifact {
   /// A fresh [RitoReaderSession.requestArtifact] — an exact seek, or a
   /// reflow at the same locator — is served chapter-local, so it
   /// **drops** book numbering: this and [bookPageCount] both return to
-  /// null until the background pump republishes a publication artifact
+  /// null until the background pump publishes a publication artifact
   /// and the host adopts it. Re-requesting the page you are already on
   /// loses the page number rather than refreshing it.
   final int? bookPageIndex;
 
-  /// Total pages in the book, present only once whole-book pagination
-  /// is complete. It appears strictly after [bookPageIndex] does, so a
-  /// host can render "page N" immediately and cross-fade in "of M".
-  ///
-  /// A reader who never turns a page still receives it: when pagination
-  /// completes, [RitoReaderSession.advanceBackground] returns one final
-  /// candidate for the same visible page carrying the total. Adopt it
-  /// through the ordinary [RitoReaderSession.adoptBackground] channel.
+  /// Total pages in the book, present together with [bookPageIndex] on
+  /// every artifact of a whole-book revision: the revision holds its
+  /// complete page table from the moment it exists, so the first
+  /// background candidate already carries the total. Null on
+  /// chapter-local artifacts.
   final int? bookPageCount;
   final RitoNavigation navigation;
   final RitoTextProfile textProfile;

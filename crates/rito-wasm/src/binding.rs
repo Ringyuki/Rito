@@ -5,7 +5,6 @@ use wasm_bindgen::prelude::*;
 use crate::{WasmRuntimeDocument, WasmRuntimeError};
 
 mod chapter_local;
-mod continuation;
 pub(crate) mod pinned_font;
 mod resource;
 mod versioned;
@@ -27,14 +26,6 @@ impl RitoWasmDocument {
     #[wasm_bindgen(js_name = publicationJson)]
     pub fn publication_json(&self) -> Result<String, JsValue> {
         self.inner.publication_json().map_err(error_to_js_value)
-    }
-
-    /// Cutover lever: lets completed whole-book revisions hand pagination
-    /// to the fragment engine. Off by default until the fragment
-    /// interaction surface is complete.
-    #[wasm_bindgen(js_name = setFragmentPageTableEnabled)]
-    pub fn set_fragment_page_table_enabled(&mut self, enabled: bool) {
-        self.inner.document.set_fragment_page_table_enabled(enabled);
     }
 
     /// Injects host-measured `line-height: normal` metrics: a JSON array
@@ -90,6 +81,18 @@ impl RitoWasmDocument {
     /// JSON array of family-name strings. The browser cannot paint these
     /// faces, so the engine stops shaping with them; an engine that
     /// already shaped with one is rebuilt on the next layout.
+    /// Sets the device pixels per CSS pixel frames are painted at (the
+    /// canvas backing ratio: zoom × devicePixelRatio). Every raster snap
+    /// lands on that grid; pagination is identical at every ratio, and
+    /// frames cached on the old grid are dropped.
+    #[wasm_bindgen(js_name = setRenderRatio)]
+    pub fn set_render_ratio(&mut self, ratio: f64) -> Result<(), JsValue> {
+        self.inner
+            .document
+            .set_render_ratio(ratio)
+            .map_err(|error| JsValue::from_str(error.message()))
+    }
+
     #[wasm_bindgen(js_name = setUnavailableFontFacesJson)]
     pub fn set_unavailable_font_faces_json(&mut self, families_json: &str) -> Result<(), JsValue> {
         let families: Vec<String> = serde_json::from_str(families_json)
@@ -159,94 +162,10 @@ impl RitoWasmDocument {
             .map_err(|error| error_to_js_value(WasmRuntimeError::from_engine(error)))
     }
 
-    /// Which backend owns a revision's pagination ("fragment" or
-    /// "retained"), for diagnostics.
-    #[wasm_bindgen(js_name = revisionPaginationBackend)]
-    pub fn revision_pagination_backend(&self, revision_id: &str) -> Option<String> {
+    #[wasm_bindgen(js_name = createRevisionJson)]
+    pub fn create_revision_json(&mut self, layout_config_json: &str) -> Result<String, JsValue> {
         self.inner
-            .document
-            .revision_pagination_backend(revision_id)
-            .map(str::to_owned)
-    }
-
-    #[wasm_bindgen(js_name = createFullRevisionBundleJson)]
-    pub fn create_full_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_full_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createInitialPreviewRevisionBundleJson)]
-    pub fn create_initial_preview_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_initial_preview_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createActiveChapterPreviewRevisionBundleJson)]
-    pub fn create_active_chapter_preview_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_active_chapter_preview_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createPreviewRevisionBundleJson)]
-    pub fn create_preview_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_preview_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createViewRevisionBundleJson)]
-    pub fn create_view_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_view_revision_bundle_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createViewRevisionBundleBytes)]
-    pub fn create_view_revision_bundle_bytes(
-        &mut self,
-        request_json: &str,
-    ) -> Result<Vec<u8>, JsValue> {
-        self.inner
-            .create_view_revision_bundle_bytes(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createBoundedRevisionJson)]
-    pub fn create_bounded_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
-        self.inner
-            .create_bounded_revision_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = continueRevisionJson)]
-    pub fn continue_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
-        self.inner
-            .continue_revision_json(request_json)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = cancelRevisionJson)]
-    pub fn cancel_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
-        self.inner
-            .cancel_revision_json(request_json)
+            .create_revision_json(layout_config_json)
             .map_err(error_to_js_value)
     }
 
@@ -254,51 +173,6 @@ impl RitoWasmDocument {
     pub fn get_revision_summary_json(&self, revision_id: &str) -> Result<String, JsValue> {
         self.inner
             .get_revision_summary_json(revision_id)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createReaderViewRevisionBundleJson)]
-    pub fn create_reader_view_revision_bundle_json(
-        &mut self,
-        request_json: &str,
-        omit_full_indices: bool,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .create_reader_view_revision_bundle_json(request_json, omit_full_indices)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = createReaderViewRevisionBundleBytes)]
-    pub fn create_reader_view_revision_bundle_bytes(
-        &mut self,
-        request_json: &str,
-        omit_full_indices: bool,
-    ) -> Result<Vec<u8>, JsValue> {
-        self.inner
-            .create_reader_view_revision_bundle_bytes(request_json, omit_full_indices)
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = measureNextViewRevisionWire)]
-    pub fn measure_next_view_revision_wire(&mut self) {
-        self.inner.measure_next_view_revision_wire();
-    }
-
-    #[wasm_bindgen(js_name = takeViewRevisionWireMetricsJson)]
-    pub fn take_view_revision_wire_metrics_json(&mut self) -> Result<String, JsValue> {
-        self.inner
-            .take_view_revision_wire_metrics_json()
-            .map_err(error_to_js_value)
-    }
-
-    #[wasm_bindgen(js_name = getFrameJson)]
-    pub fn get_frame_json(
-        &mut self,
-        revision_id: &str,
-        spread_index: usize,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .get_frame_json(revision_id, spread_index)
             .map_err(error_to_js_value)
     }
 
@@ -416,9 +290,6 @@ fn error_json_string(error: WasmRuntimeError) -> String {
     let payload = WasmErrorPayload {
         code: error.code().as_str(),
         message: error.message().to_owned(),
-        revision: error.revision().cloned(),
-        chapter_local_revision: error.chapter_local_revision().cloned(),
-        released_chapter_local_revision: error.released_chapter_local_revision().cloned(),
     };
     serde_json::to_string(&payload).unwrap_or_else(|_| "{\"code\":\"internal-error\"}".to_owned())
 }
@@ -428,12 +299,6 @@ fn error_json_string(error: WasmRuntimeError) -> String {
 struct WasmErrorPayload {
     code: &'static str,
     message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    revision: Option<rito_core::runtime::RuntimeRevisionSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    chapter_local_revision: Option<rito_core::runtime::RuntimeChapterLocalRevisionSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    released_chapter_local_revision: Option<rito_core::runtime::RuntimeChapterLocalRevisionSummary>,
 }
 
 #[cfg(test)]

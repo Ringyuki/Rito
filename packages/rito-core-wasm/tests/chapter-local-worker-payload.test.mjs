@@ -24,9 +24,9 @@ test('Worker aggregate transfers one full-owned frame buffer and every resource 
       calls.push(request.kind);
       return chapterLocalReaderWorkerPayload(this, request);
     },
-    createBoundedChapterLocalRevision() {
+    createChapterLocalRevision() {
       calls.push('create');
-      return completedAdvance(exactOwner);
+      return createdRevision(exactOwner);
     },
     readChapterLocalFrame(ownerValue, localSpreadIndex) {
       calls.push('frame');
@@ -68,12 +68,12 @@ test('Worker aggregate transfers one full-owned frame buffer and every resource 
 
   const response = await scope.send({
     id: 2,
-    kind: 'createBoundedChapterLocalRevision',
+    kind: 'createChapterLocalRevision',
     request: createRequest(),
   });
 
   assert.equal(response.ok, true);
-  assert.deepEqual(calls, ['createBoundedChapterLocalRevision', 'create', 'frame', 'resources']);
+  assert.deepEqual(calls, ['createChapterLocalRevision', 'create', 'frame', 'resources']);
   const frame = response.payload.result.frame;
   assert.equal(frame.bytes.byteOffset, 0);
   assert.equal(frame.bytes.byteLength, frame.bytes.buffer.byteLength);
@@ -90,7 +90,7 @@ test('post-commit aggregate failure rolls back the exact candidate owner', () =>
   const released = [];
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => completedAdvance(exactOwner),
+    createChapterLocalRevision: () => createdRevision(exactOwner),
     readChapterLocalFrame: () => {
       throw new Error('frame failed');
     },
@@ -106,7 +106,7 @@ test('post-commit aggregate failure rolls back the exact candidate owner', () =>
   assert.throws(
     () =>
       chapterLocalReaderWorkerPayload(document, {
-        kind: 'createBoundedChapterLocalRevision',
+        kind: 'createChapterLocalRevision',
         request: createRequest(),
       }),
     /frame failed/,
@@ -119,7 +119,7 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
   const exactOwner = owner(0);
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => completedAdvance(exactOwner),
+    createChapterLocalRevision: () => createdRevision(exactOwner),
     readChapterLocalFrame: () => {
       throw new Error('frame failed');
     },
@@ -135,18 +135,18 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
 
   assert.throws(() =>
     chapterLocalReaderWorkerPayload(document, {
-      kind: 'createBoundedChapterLocalRevision',
+      kind: 'createChapterLocalRevision',
       request: createRequest(),
     }),
   );
   assert.equal(freeCount, 1);
 });
 
-test('a committed advance without a valid owner identity disposes the document owner', () => {
+test('a created revision without a valid owner identity disposes the document owner', () => {
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => ({
-      ...completedAdvance(owner(0)),
+    createChapterLocalRevision: () => ({
+      ...createdRevision(owner(0)),
       revision: { revisionId: '', revisionVersion: -1 },
     }),
     free() {
@@ -156,7 +156,7 @@ test('a committed advance without a valid owner identity disposes the document o
 
   assert.throws(() =>
     chapterLocalReaderWorkerPayload(document, {
-      kind: 'createBoundedChapterLocalRevision',
+      kind: 'createChapterLocalRevision',
       request: createRequest(),
     }),
   );
@@ -225,11 +225,8 @@ test('post-take byte validation cleans only still-live later transfers', () => {
 function createRequest() {
   return {
     layoutConfig: { spreadMode: 'single' },
-    lineBreaking: 'greedy',
     targetChapterIndex: 3,
     targetLocator: { href: 'chapter.xhtml' },
-    localPageCap: 4,
-    budget: { maxTopLevelNodes: 1 },
   };
 }
 
@@ -241,21 +238,14 @@ function owner(revisionVersion) {
   };
 }
 
-function completedAdvance(exactOwner) {
-  const knownExtent = { localPageCount: 1, localSpreadCount: 1 };
+function createdRevision(exactOwner) {
   return {
     revision: {
       ...exactOwner,
       layoutKey: 'layout',
-      status: 'complete',
-      localPageCap: 4,
-      knownExtent,
-      finalExtent: knownExtent,
-      pageCapReached: false,
+      localPageCount: 1,
+      localSpreadCount: 1,
     },
-    previousKnownExtent: { localPageCount: 0, localSpreadCount: 0 },
-    newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
-    processedTopLevelNodes: 1,
     target: {
       status: 'resolved',
       owner: exactOwner,
@@ -275,32 +265,27 @@ function frameMetadata(exactOwner, localSpreadIndex, byteLength) {
     width: 320,
     height: 480,
     protocolVersion: 2,
+    ratio: 1,
     commandCount: 0,
     commandCounts: {},
-    recordStats: {
-      geometryRecords: 0,
-      paintRecords: 0,
-      payloadRecords: 0,
-      primaryStringRecords: 0,
-      secondaryStringRecords: 0,
-    },
+    primitiveCount: 0,
     byteLength,
     commandHash: 'empty-frame',
     resourceRefCount: 1,
     resourceTable: ['cover.png'],
     fontFamilies: [],
     imageDominated: true,
-    stringTable: [],
-    payloadTable: [],
   };
 }
 
 function packedFrameBytes() {
-  const bytes = new Uint8Array(16);
-  bytes.set(new TextEncoder().encode('RITOFCB2'));
+  // An empty RITODL1 format-2 list: magic, version 2, ratio 1, no primitives.
+  const bytes = new Uint8Array(23);
+  bytes.set(new TextEncoder().encode('RITODL1'));
   const view = new DataView(bytes.buffer);
-  view.setUint32(8, 2, true);
-  view.setUint32(12, 0, true);
+  view.setUint32(7, 2, true);
+  view.setFloat64(11, 1, true);
+  view.setUint32(19, 0, true);
   return bytes;
 }
 

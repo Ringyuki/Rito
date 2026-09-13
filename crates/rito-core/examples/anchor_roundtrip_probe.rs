@@ -1,10 +1,24 @@
+//! Round-trips every page's reading anchor through the production runtime.
+//!
+//! Usage: `anchor-roundtrip-probe <epub> <serif-font-path> [width] [height]`.
+//! The book is opened with the given face pinned as the serif fallback
+//! (the fragment engine shapes with pinned faces only, so a document
+//! without a pinned face cannot paginate) and paginated once as a
+//! single-page layout of the given size (default 420×640, 24px margins).
+//! For each page the probe captures the page's reading anchor, resolves
+//! that locator back to a page, and reports every page whose locator
+//! resolves elsewhere, plus the pages whose anchor was unavailable or
+//! whose resolution stayed pending.
+
 use std::{env, fs, process};
 
 use rito_core::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 use rito_core::runtime::{
-    RuntimeDocument, RuntimePageReadingAnchor, RuntimeRevisionHandle,
+    RuntimeDocument, RuntimePageReadingAnchor, RuntimePinnedFontFaceInput,
+    RuntimePinnedFontGenericRole, RuntimePinnedFontPolicyInput, RuntimeRevisionHandle,
     RuntimeSourceLocatorResolution,
 };
+use sha2::{Digest, Sha256};
 
 fn main() {
     if let Err(error) = run() {
@@ -15,18 +29,30 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args.is_empty() {
-        return Err("usage: anchor-roundtrip-probe <epub> [width] [height]".to_owned());
+    if args.len() < 2 || args.len() > 4 {
+        return Err(
+            "usage: anchor-roundtrip-probe <epub> <serif-font-path> [width] [height]".to_owned(),
+        );
     }
     let bytes = fs::read(&args[0]).map_err(|error| format!("read {}: {error}", args[0]))?;
+    let serif_bytes = fs::read(&args[1]).map_err(|error| format!("read {}: {error}", args[1]))?;
     let width: f64 = args
-        .get(1)
+        .get(2)
         .map_or(Ok(420.0), |v| v.parse().map_err(|e| format!("width: {e}")))?;
     let height: f64 = args
-        .get(2)
+        .get(3)
         .map_or(Ok(640.0), |v| v.parse().map_err(|e| format!("height: {e}")))?;
 
-    let mut document = RuntimeDocument::open(&bytes).map_err(|e| format!("open: {e:?}"))?;
+    let policy = RuntimePinnedFontPolicyInput {
+        faces: vec![RuntimePinnedFontFaceInput {
+            expected_sha256: format!("{:x}", Sha256::digest(&serif_bytes)),
+            bytes: serif_bytes,
+            generic_role: RuntimePinnedFontGenericRole::Serif,
+            language: None,
+        }],
+    };
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, policy)
+        .map_err(|e| format!("open: {e:?}"))?;
     let layout = create_layout_config(LayoutConfigInput {
         width,
         height,
@@ -39,8 +65,6 @@ fn run() -> Result<(), String> {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-        pagination_policy: None,
-        text_measurement: None,
     });
     let revision = document
         .create_revision(&layout)

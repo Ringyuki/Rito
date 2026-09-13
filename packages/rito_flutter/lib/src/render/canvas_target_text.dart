@@ -1,35 +1,37 @@
 part of 'canvas_target.dart';
 
-extension _TextPainting on RitoCanvasPaintTarget {
+extension _TextPainting on RitoPrimitiveCanvasTarget {
   void _paintText(RitoPaintText command) {
-    _paintStringRun(command, ruby: false);
+    _paintStringRun(command);
   }
 
   void _paintRuby(RitoPaintRuby command) {
-    _paintStringRun(command, ruby: true);
+    _paintStringRun(command);
   }
 
   /// The engine pre-composes the run rect so its em-top encodes
-  /// `baseline - 0.8 * sizePx` (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
-  /// The browser pen paints with `textBaseline: 'alphabetic'`, which
-  /// Chromium snaps to the nearest device row — bit-identical to Blink's
-  /// DOM raster. Mirror both stages: resolve the target row, then anchor
-  /// the laid-out run by its actual alphabetic baseline.
+  /// `baseline - 0.8 * sizePx` (fragment_paint::CANVAS_TOP_ASCENT_RATIO)
+  /// for a text run and an annotation alike. The browser pen paints with
+  /// `textBaseline: 'alphabetic'`, which Chromium snaps to the nearest
+  /// device row — bit-identical to Blink's DOM raster. Mirror both
+  /// stages: resolve the target row, then anchor the laid-out run by its
+  /// actual alphabetic baseline.
   static const double _canvasTopAscentRatio = 0.8;
 
-  void _paintStringRun(RitoTextPaintCommand command, {required bool ruby}) {
+  void _paintStringRun(RitoTextPaintCommand command) {
     final rect = _rect(command.rect);
     _validateRunPaint(command.paint);
-    // Browser pen order: background, borders, shadows, glyphs,
-    // decoration.
-    _paintInlineBackground(rect, command.paint);
-    _paintRunBorders(rect, command.paint);
+    if (command.clusters.isNotEmpty) {
+      _paintClusteredRun(command, rect);
+      return;
+    }
+    // A run that arrives without origins (a fixture written by hand)
+    // draws as one string at the rect's start; no placement law lives
+    // here.
     final painter = TextPainter(
       text: TextSpan(
         text: command.text,
-        // Ruby ignores run spacing, matching the browser pen's forced
-        // '0px' letter/word spacing.
-        style: _textStyle(command.paint, includeSpacing: !ruby, runRect: rect),
+        style: _textStyle(command.paint, runRect: rect),
       ),
       textDirection: ui.TextDirection.ltr,
       maxLines: 1,
@@ -37,41 +39,204 @@ extension _TextPainting on RitoCanvasPaintTarget {
     final baselineOffset = painter.computeDistanceToActualBaseline(
       TextBaseline.alphabetic,
     );
-    // SkParagraph splits letter spacing across both cluster edges where
-    // Chromium trails all of it after the cluster — same total advance,
-    // the whole run sits half a spacing to the right (measured via the
-    // parity corpus ink scan). Compensate at the glyph origin only; the
-    // rect geometry is spacing-free.
-    final x = ruby
-        ? rect.left + (rect.width - painter.width) / 2
-        : rect.left - (command.paint.letterSpacingPx ?? 0) / 2;
-    // Ruby anchors its em-box top at the rect (browser textBaseline
-    // 'top' = OS/2 sTypoAscender, probed against pinned Chromium);
-    // regular runs anchor their alphabetic baseline at the snapped row.
-    // Either way the raster lands the baseline on a whole device row.
+    final x = rect.left;
+    // The run anchors its alphabetic baseline at the snapped row, so
+    // the raster lands the baseline on a whole device row.
     final baselineRow =
         (rect.top + _canvasTopAscentRatio * command.paint.font.sizePx)
             .roundToDouble();
-    final topAscent =
-        _fontEnvelopes
-            ?.lookupFamilyStack(command.paint.font.family)
-            ?.topAnchorAscentPx(command.paint.font.sizePx) ??
-        baselineOffset;
-    final topAnchorY = (rect.top + topAscent).roundToDouble() - baselineOffset;
-    final origin = ruby
-        ? ui.Offset(x, topAnchorY)
-        : ui.Offset(x, baselineRow - baselineOffset);
+    final origin = ui.Offset(x, baselineRow - baselineOffset);
     if (command.paint.textShadows.isNotEmpty) {
       // Shadow ink must be congruent with the glyph ink it copies: the
       // browser pen's scratch blit lands the shadow at the same baseline
       // its own glyph paints on, offset only by the shadow's offsets.
-      // Anchoring the shadow at the ruby top anchor while the glyph
-      // paints at the snapped alphabetic row floated every glow a few
-      // pixels above its glyphs (b52 colorpages dialogue).
       _paintTextShadows(painter, command.paint, origin);
     }
     painter.paint(_canvas, origin);
-    _paintDecoration(rect, command.paint.decoration);
+  }
+
+  /// A run whose clusters the engine placed: every cluster draws at its
+  /// own origin, its alphabetic baseline — a text run's on a device row
+  /// already, an annotation's a whole number of pixels over its base's.
+  /// Spacing, justification, ruby distribution, column stepping and the
+  /// browser's fixed-point advances are already in the origins, so the
+  /// paragraphs carry no spacing and one laid-out paragraph per
+  /// (cluster, style) serves every paint — laying each cluster out per
+  /// paint costs twenty times what a run does.
+  void _paintClusteredRun(RitoTextPaintCommand command, ui.Rect rect) {
+    final paint = command.paint;
+    final color = _effectiveTextColor(paint, rect);
+    final pieces = _clusterPieces(command.text, command.clusters);
+    final placed = <(ui.Paragraph, ui.Offset)>[];
+    for (final piece in pieces) {
+      final paragraph = _clusterParagraph(piece.text, paint, color);
+      placed.add((
+        paragraph,
+        ui.Offset(piece.x, piece.y - paragraph.alphabeticBaseline),
+      ));
+    }
+    if (paint.textShadows.isNotEmpty) {
+      _paintClusterShadows(pieces, paint, placed);
+    }
+    for (final (paragraph, origin) in placed) {
+      _canvas.drawParagraph(paragraph, origin);
+    }
+  }
+
+  /// One laid-out paragraph per (cluster text, font, colour), kept across
+  /// paints; the map lives on the target, which a page surface keeps.
+  ui.Paragraph _clusterParagraph(
+    String text,
+    RitoRunPaint paint,
+    ui.Color color,
+  ) {
+    final font = paint.font;
+    final key = (
+      text,
+      font.family,
+      font.sizePx,
+      font.weight,
+      font.style == RitoFontStyle.italic,
+      color.toARGB32(),
+    );
+    return _clusterParagraphs.putIfAbsent(key, () {
+      return _buildClusterParagraph(text, paint, color: color);
+    });
+  }
+
+  ui.Paragraph _buildClusterParagraph(
+    String text,
+    RitoRunPaint paint, {
+    ui.Color? color,
+    ui.Paint? foreground,
+  }) {
+    final font = paint.font;
+    final families = ritoSplitFontFamilyStack(font.family);
+    final builder =
+        ui.ParagraphBuilder(
+            ui.ParagraphStyle(
+              fontFamily: families.isEmpty ? null : families.first,
+              fontSize: font.sizePx,
+              fontStyle: font.style == RitoFontStyle.italic
+                  ? FontStyle.italic
+                  : FontStyle.normal,
+              fontWeight: _paintWeight(families, font.weight),
+              maxLines: 1,
+            ),
+          )
+          ..pushStyle(
+            ui.TextStyle(
+              color: color,
+              foreground: foreground,
+              fontFamily: families.isEmpty ? null : families.first,
+              fontFamilyFallback: families.length > 1
+                  ? families.sublist(1)
+                  : null,
+              fontSize: font.sizePx,
+              fontStyle: font.style == RitoFontStyle.italic
+                  ? FontStyle.italic
+                  : FontStyle.normal,
+              fontWeight: _paintWeight(families, font.weight),
+            ),
+          )
+          ..addText(text);
+    return builder.build()
+      ..layout(const ui.ParagraphConstraints(width: double.infinity));
+  }
+
+  /// Shadow layers under the whole run, back to front, each one bitmap
+  /// holding every cluster the way the browser blurs a run's mask at
+  /// once: blurring each cluster on its own composited neighbouring
+  /// glows over each other and read darker where they overlap.
+  void _paintClusterShadows(
+    List<({String text, double x, double y})> pieces,
+    RitoRunPaint paint,
+    List<(ui.Paragraph, ui.Offset)> placed,
+  ) {
+    var bounds = ui.Rect.zero;
+    for (final (paragraph, origin) in placed) {
+      final box = ui.Rect.fromLTWH(
+        origin.dx,
+        origin.dy,
+        paragraph.longestLine,
+        paragraph.height,
+      );
+      bounds = bounds == ui.Rect.zero ? box : bounds.expandToInclude(box);
+    }
+    var pad = 0.0;
+    for (final shadow in paint.textShadows) {
+      pad = math.max(
+        pad,
+        shadow.blur * 2 + math.max(shadow.offsetX.abs(), shadow.offsetY.abs()),
+      );
+    }
+    final area = bounds.inflate(pad + 1);
+    for (final shadow in paint.textShadows.reversed) {
+      final layerPaint = ui.Paint();
+      if (shadow.blur > 0) {
+        layerPaint.imageFilter = ui.ImageFilter.blur(
+          sigmaX: shadow.blur / 2,
+          sigmaY: shadow.blur / 2,
+        );
+      }
+      _canvas.saveLayer(area, layerPaint);
+      try {
+        final ink = ui.Paint()..color = _color(shadow.color);
+        for (var index = 0; index < placed.length; index += 1) {
+          final layer = _buildClusterParagraph(
+            pieces[index].text,
+            paint,
+            foreground: ink,
+          );
+          _canvas.drawParagraph(
+            layer,
+            placed[index].$2.translate(shadow.offsetX, shadow.offsetY),
+          );
+        }
+      } finally {
+        _canvas.restore();
+      }
+    }
+  }
+
+  /// The run's text cut at its cluster origins: cluster boundaries are
+  /// UTF-8 byte offsets, so the cut walks the runes counting their UTF-8
+  /// lengths.
+  static List<({String text, double x, double y})> _clusterPieces(
+    String text,
+    List<RitoClusterPosition> clusters,
+  ) {
+    final starts = <int, int>{};
+    var byte = 0;
+    var index = 0;
+    for (final rune in text.runes) {
+      starts[byte] = index;
+      byte += rune < 0x80
+          ? 1
+          : rune < 0x800
+          ? 2
+          : rune < 0x10000
+          ? 3
+          : 4;
+      index += rune >= 0x10000 ? 2 : 1;
+    }
+    starts[byte] = index;
+    final pieces = <({String text, double x, double y})>[];
+    for (var at = 0; at < clusters.length; at += 1) {
+      final start = starts[clusters[at].byte];
+      final end = at + 1 < clusters.length
+          ? starts[clusters[at + 1].byte]
+          : text.length;
+      if (start == null || end == null || end <= start) {
+        continue;
+      }
+      pieces.add((
+        text: text.substring(start, end),
+        x: clusters[at].x,
+        y: clusters[at].y,
+      ));
+    }
+    return pieces;
   }
 
   /// Mirrors the browser pen's scratch-canvas shadow pass: layers render
@@ -144,7 +309,6 @@ extension _TextPainting on RitoCanvasPaintTarget {
   TextStyle _textStyle(
     RitoRunPaint paint, {
     ui.Paint? foreground,
-    bool includeSpacing = true,
     ui.Rect? runRect,
   }) {
     final font = paint.font;
@@ -163,8 +327,6 @@ extension _TextPainting on RitoCanvasPaintTarget {
           ? FontStyle.italic
           : FontStyle.normal,
       fontWeight: _paintWeight(families, font.weight),
-      wordSpacing: includeSpacing ? paint.wordSpacingPx : null,
-      letterSpacing: includeSpacing ? paint.letterSpacingPx : null,
     );
   }
 
@@ -206,8 +368,9 @@ extension _TextPainting on RitoCanvasPaintTarget {
   }
 
   /// Run ink is only re-resolved when its ground is theme-supplied
-  /// (R2): a declared ground — the run's own inline band, an opaque
-  /// block fill containing the run, or a book-owned page ground — means
+  /// (R2): a declared ground — the run's own inline band (an opaque fill
+  /// lowered just before the run), an opaque block fill containing the
+  /// run, or a book-owned page ground — means
   /// the color pair was the typesetter's choice and stays untouched.
   /// On the theme ground it follows the override's contrast policy
   /// (browser pen's resolveTextColor). Decoration and shadow layer
@@ -220,7 +383,7 @@ extension _TextPainting on RitoCanvasPaintTarget {
     }
     final effective = override.effectiveTextColor(
       color,
-      declaredGround: runRect == null ? null : _declaredGroundFor(paint, runRect),
+      declaredGround: runRect == null ? null : _declaredGroundFor(runRect),
     );
     // _color already carries the opacity stack; a theme substitution
     // must re-apply it (the browser pen's globalAlpha does this).
@@ -230,18 +393,21 @@ extension _TextPainting on RitoCanvasPaintTarget {
   }
 
   /// The ground a run's ink was typeset against, when the book
-  /// expressed one: the run's own inline background, else the nearest
-  /// opaque block background containing the run's rect, else the page
-  /// ground R1 kept for the book. Null means the theme supplies the
-  /// ground. Mirrors the browser pen's declaredGroundFor.
-  ui.Color? _declaredGroundFor(RitoRunPaint paint, ui.Rect rect) {
-    final runBackground = paint.backgroundColor;
-    if (runBackground != null) {
-      final ground = ritoUiColor(runBackground);
-      if (ground.a >= 1) {
-        return ground;
-      }
-    }
+  /// expressed one: the nearest opaque fill containing the run's rect —
+  /// the run's own inline band lowers to such a fill just before the
+  /// run — else the page ground R1 kept for the book. Null means the
+  /// theme supplies the ground. Mirrors the browser pen's
+  /// declaredGroundFor. The run's rect is in CSS pixels and the declared
+  /// grounds are device rects, so the containment test scales the run.
+  ui.Color? _declaredGroundFor(ui.Rect runRect) {
+    final rect = _ratio == 1
+        ? runRect
+        : ui.Rect.fromLTWH(
+            runRect.left * _ratio,
+            runRect.top * _ratio,
+            runRect.width * _ratio,
+            runRect.height * _ratio,
+          );
     for (var index = _blockGrounds.length - 1; index >= 0; index -= 1) {
       final ground = _blockGrounds[index];
       if (rect.left >= ground.rect.left &&
@@ -254,224 +420,6 @@ extension _TextPainting on RitoCanvasPaintTarget {
     return _bookOwnedPageGround;
   }
 
-  /// Content-height box for inline backgrounds and borders, mirroring
-  /// the browser pen's computeInlineBoxRect: the band spans the run
-  /// font's grid-fit ascent to descent around the baseline (canvas
-  /// fontBoundingBox = rounded OS/2 win metrics), not the em box, then
-  /// grows by padding and border widths. Without envelope metrics the
-  /// em box stands in, exactly like the browser fallback.
-  ui.Rect _inlineBoxRect(ui.Rect rect, RitoRunPaint paint) {
-    final padding = paint.padding;
-    final border = paint.border;
-    final paddingLeft = padding?.left ?? 0;
-    final paddingRight = padding?.right ?? 0;
-    final paddingTop = padding?.top ?? 0;
-    final paddingBottom = padding?.bottom ?? 0;
-    final borderLeft = border?.start?.widthPx ?? 0;
-    final borderRight = border?.end?.widthPx ?? 0;
-    final borderTop = border?.top?.widthPx ?? 0;
-    final borderBottom = border?.bottom?.widthPx ?? 0;
-
-    // The engine's own inline box extents are authoritative when the
-    // paint carries them (browser pen computeInlineBoxRect prefers
-    // paint.box); font metrics only cover paints without them.
-    final boxTop = paint.boxTopPx;
-    final boxBottom = paint.boxBottomPx;
-    if (boxTop != null && boxBottom != null) {
-      return ui.Rect.fromLTRB(
-        (rect.left - paddingLeft - borderLeft).roundToDouble(),
-        (rect.top + boxTop).roundToDouble(),
-        (rect.left + rect.width + paddingRight + borderRight).roundToDouble(),
-        (rect.top + boxBottom).roundToDouble(),
-      );
-    }
-    final size = paint.font.sizePx;
-    var contentTop = rect.top;
-    var contentHeight = size;
-    final envelope = _fontEnvelopes?.lookupFamilyStack(paint.font.family);
-    if (envelope != null) {
-      final ascent = envelope.boundingAscentPx(size);
-      final descent = envelope.boundingDescentPx(size);
-      contentTop = rect.top + _canvasTopAscentRatio * size - ascent;
-      contentHeight = ascent + descent;
-    }
-    // The inline box rasters on whole device pixels — all four edges
-    // round independently (browser pen computeInlineBoxRect), so band
-    // tops and bottoms are binary rows instead of AA smears.
-    return ui.Rect.fromLTRB(
-      (rect.left - paddingLeft - borderLeft).roundToDouble(),
-      (contentTop - paddingTop - borderTop).roundToDouble(),
-      (rect.left + rect.width + paddingRight + borderRight).roundToDouble(),
-      (contentTop + contentHeight + paddingBottom + borderBottom)
-          .roundToDouble(),
-    );
-  }
-
-  ui.RRect _inlineRoundedRect(
-    ui.Rect box,
-    double radius, {
-    bool roundStart = true,
-    bool roundEnd = true,
-  }) {
-    // An inline box split across shaping runs paints one continuous
-    // background: only the opening segment rounds its left corners and
-    // only the closing one its right corners (browser pen
-    // traceInlineRoundedRect).
-    final resolved = math.min(radius, math.min(box.width / 2, box.height / 2));
-    final start = roundStart ? ui.Radius.circular(resolved) : ui.Radius.zero;
-    final end = roundEnd ? ui.Radius.circular(resolved) : ui.Radius.zero;
-    return ui.RRect.fromRectAndCorners(
-      box,
-      topLeft: start,
-      bottomLeft: start,
-      topRight: end,
-      bottomRight: end,
-    );
-  }
-
-  void _paintInlineBackground(ui.Rect rect, RitoRunPaint paint) {
-    final color = paint.backgroundColor;
-    if (color == null) {
-      return;
-    }
-    final box = _inlineBoxRect(rect, paint);
-    final radius = paint.backgroundRadius ?? 0;
-    final fill = ui.Paint()..color = _color(color);
-    if (radius > 0) {
-      _canvas.drawRRect(
-        _inlineRoundedRect(
-          box,
-          radius,
-          roundStart: paint.boxStart,
-          roundEnd: paint.boxEnd,
-        ),
-        fill,
-      );
-    } else {
-      _canvas.drawRect(box, fill);
-    }
-  }
-
-  void _paintDecoration(ui.Rect rect, RitoRunDecoration? decoration) {
-    if (decoration == null || decoration.thickness <= 0) {
-      return;
-    }
-    final y = rect.top + decoration.y;
-    _canvas.drawLine(
-      ui.Offset(rect.left, y),
-      ui.Offset(rect.right, y),
-      ui.Paint()
-        ..color = _color(decoration.color)
-        ..strokeWidth = decoration.thickness,
-    );
-  }
-
-  void _paintRunBorders(ui.Rect rect, RitoRunPaint paint) {
-    final border = paint.border;
-    if (border == null) {
-      return;
-    }
-    final top = border.top;
-    final bottom = border.bottom;
-    final start = border.start;
-    final end = border.end;
-    if (top == null && bottom == null && start == null && end == null) {
-      return;
-    }
-    final box = _inlineBoxRect(rect, paint);
-    final radius = paint.backgroundRadius ?? 0;
-    if (top != null &&
-        bottom != null &&
-        start != null &&
-        end != null &&
-        radius > 0) {
-      _paintRoundedInlineBorders(box, radius, top, end, bottom, start);
-      return;
-    }
-    // Straight edges stroke centred half a width inside the box edge,
-    // unsnapped, matching the browser pen's drawStraightInlineBorders.
-    if (top != null) {
-      _inlineEdge(
-        ui.Offset(box.left, box.top + top.widthPx / 2),
-        ui.Offset(box.right, box.top + top.widthPx / 2),
-        top,
-      );
-    }
-    if (bottom != null) {
-      _inlineEdge(
-        ui.Offset(box.left, box.bottom - bottom.widthPx / 2),
-        ui.Offset(box.right, box.bottom - bottom.widthPx / 2),
-        bottom,
-      );
-    }
-    if (start != null) {
-      _inlineEdge(
-        ui.Offset(box.left + start.widthPx / 2, box.top),
-        ui.Offset(box.left + start.widthPx / 2, box.bottom),
-        start,
-      );
-    }
-    if (end != null) {
-      _inlineEdge(
-        ui.Offset(box.right - end.widthPx / 2, box.top),
-        ui.Offset(box.right - end.widthPx / 2, box.bottom),
-        end,
-      );
-    }
-  }
-
-  /// Full four-edge rounded case: each side clips a triangle from the
-  /// box centre and strokes the rounded outline at its own width,
-  /// mirroring drawRoundedInlineBorders.
-  void _paintRoundedInlineBorders(
-    ui.Rect box,
-    double radius,
-    RitoRunBorderEdge top,
-    RitoRunBorderEdge end,
-    RitoRunBorderEdge bottom,
-    RitoRunBorderEdge start,
-  ) {
-    final center = box.center;
-    final sides = <(RitoRunBorderEdge, ui.Offset, ui.Offset)>[
-      (top, box.topLeft, box.topRight),
-      (end, box.topRight, box.bottomRight),
-      (bottom, box.bottomRight, box.bottomLeft),
-      (start, box.bottomLeft, box.topLeft),
-    ];
-    final outline = _inlineRoundedRect(box, radius);
-    for (final (edge, corner1, corner2) in sides) {
-      _canvas.save();
-      try {
-        _canvas.clipPath(
-          ui.Path()
-            ..moveTo(center.dx, center.dy)
-            ..lineTo(corner1.dx, corner1.dy)
-            ..lineTo(corner2.dx, corner2.dy)
-            ..close(),
-        );
-        _canvas.drawRRect(
-          outline,
-          ui.Paint()
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = edge.widthPx
-            ..color = _color(edge.paint.color),
-        );
-      } finally {
-        _canvas.restore();
-      }
-    }
-  }
-
-  void _inlineEdge(ui.Offset from, ui.Offset to, RitoRunBorderEdge edge) {
-    _strokeStyledLine(
-      from,
-      to,
-      edge.widthPx,
-      edge.paint.color,
-      edge.paint.style,
-    );
-  }
-
   void _validateRunPaint(RitoRunPaint paint) {
     for (final shadow in paint.textShadows) {
       if (shadow.blur < 0) {
@@ -480,24 +428,5 @@ extension _TextPainting on RitoCanvasPaintTarget {
         );
       }
     }
-    final border = paint.border;
-    if (border == null) {
-      return;
-    }
-    _validateRunBorderEdge(border.top, 'top text border');
-    _validateRunBorderEdge(border.bottom, 'bottom text border');
-    _validateRunBorderEdge(border.start, 'start text border');
-    _validateRunBorderEdge(border.end, 'end text border');
-  }
-
-  void _validateRunBorderEdge(RitoRunBorderEdge? edge, String context) {
-    if (edge == null) {
-      return;
-    }
-    _validateBorderStyle(
-      edge.paint.style,
-      width: edge.widthPx,
-      context: context,
-    );
   }
 }

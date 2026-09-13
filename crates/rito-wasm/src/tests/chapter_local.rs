@@ -6,9 +6,9 @@ use crate::{WasmRuntimeDocument, WasmRuntimeErrorCode};
 #[test]
 fn packed_frame_transport_uses_only_explicit_local_coordinates() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document, 64);
-    let owner = owner(&advance);
-    let spread = advance["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
+    let created = create_local(&mut document);
+    let owner = owner(&created);
+    let spread = created["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
 
     let metadata: Value = parse(
         document
@@ -31,8 +31,8 @@ fn packed_frame_transport_uses_only_explicit_local_coordinates() {
 #[test]
 fn local_transfers_are_exact_owner_scoped_and_generic_release_cannot_see_them() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document, 64);
-    let owner = owner(&advance);
+    let created = create_local(&mut document);
+    let owner = owner(&created);
     let payload: Value = parse(
         document
             .get_chapter_local_resource_payload_json(
@@ -81,9 +81,9 @@ fn local_transfers_are_exact_owner_scoped_and_generic_release_cannot_see_them() 
 #[test]
 fn frame_resource_aggregate_and_take_preserve_exact_local_ownership() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document, 64);
-    let owner = owner(&advance);
-    let spread = advance["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
+    let created = create_local(&mut document);
+    let owner = owner(&created);
+    let spread = created["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
     let response: Value = parse(
         document
             .prefetch_chapter_local_frame_resources_json(&owner.to_string(), spread)
@@ -118,90 +118,10 @@ fn frame_resource_aggregate_and_take_preserve_exact_local_ownership() {
 }
 
 #[test]
-fn one_pass_advance_is_complete_and_a_replayed_continuation_fails_typed() {
-    // One-pass chapter-local revisions publish whole: the advance never
-    // carries a continuation, and replaying a stored cursor from the
-    // windowed era fails typed while every predecessor lease survives.
-    let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let initial = create_local(&mut document, 1);
-    let previous_owner = owner(&initial);
-    let payload: Value = parse(
-        document
-            .get_chapter_local_resource_payload_json(
-                &previous_owner.to_string(),
-                rito_core::runtime::RuntimeResourceKind::Image,
-                "Images/cover.png",
-            )
-            .expect("predecessor lease"),
-    );
-    let transfer_id = payload["transferId"].as_str().expect("transfer id");
-    assert!(
-        initial["continuation"].is_null(),
-        "a one-pass advance is complete: {initial:?}"
-    );
-
-    let error = document
-        .continue_chapter_local_revision_json(
-            &json!({
-                "continuation": {
-                    "owner": previous_owner,
-                    "cursor": "windowed-era-cursor",
-                    "targetLocator": { "href": "chapter.xhtml" }
-                },
-                "budget": { "maxTopLevelNodes": 32 }
-            })
-            .to_string(),
-        )
-        .expect_err("one-pass revisions are not continuable");
-    assert_eq!(error.code(), WasmRuntimeErrorCode::BadRequest);
-    assert!(document
-        .read_chapter_local_resource_transfer(&previous_owner.to_string(), transfer_id)
-        .is_ok());
-    assert!(document
-        .get_chapter_local_revision_summary_json(&previous_owner.to_string())
-        .is_ok());
-}
-
-#[test]
-fn forged_continuation_target_preserves_the_exact_owner_and_its_leases() {
-    let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let initial = create_local(&mut document, 1);
-    let previous_owner = owner(&initial);
-    let payload: Value = parse(
-        document
-            .get_chapter_local_resource_payload_json(
-                &previous_owner.to_string(),
-                rito_core::runtime::RuntimeResourceKind::Image,
-                "Images/cover.png",
-            )
-            .expect("predecessor lease"),
-    );
-    let transfer_id = payload["transferId"].as_str().expect("transfer id");
-
-    let error = document
-        .continue_chapter_local_revision_json(
-            &json!({
-                "continuation": {
-                    "owner": previous_owner,
-                    "cursor": "windowed-era-cursor",
-                    "targetLocator": { "href": "chapter.xhtml", "anchorId": "intro" }
-                },
-                "budget": { "maxTopLevelNodes": 32 }
-            })
-            .to_string(),
-        )
-        .expect_err("implicit local retarget is rejected");
-    assert_eq!(error.code(), WasmRuntimeErrorCode::BadRequest);
-    assert!(document
-        .read_chapter_local_resource_transfer(&previous_owner.to_string(), transfer_id)
-        .is_ok());
-}
-
-#[test]
 fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document, 64);
-    let owner = owner(&advance);
+    let created = create_local(&mut document);
+    let owner = owner(&created);
     let mut forged = owner.clone();
     forged["coordinate"]["chapterIndex"] = json!(1);
 
@@ -210,7 +130,7 @@ fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
             .get_chapter_local_revision_summary_json(&forged.to_string())
             .expect_err("forged summary owner fails"),
         document
-            .get_chapter_local_frame_json(&forged.to_string(), 0)
+            .get_chapter_local_frame_command_buffer_metadata_json(&forged.to_string(), 0)
             .expect_err("forged frame owner fails"),
         document
             .release_chapter_local_revision_json(&forged.to_string())
@@ -226,32 +146,26 @@ fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
         .is_err());
 }
 
-fn create_local(document: &mut WasmRuntimeDocument, budget: usize) -> Value {
-    let advance = parse(
+fn create_local(document: &mut WasmRuntimeDocument) -> Value {
+    parse(
         document
-            .create_bounded_chapter_local_revision_json(
+            .create_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": layout(),
-                    "lineBreaking": "greedy",
                     "targetChapterIndex": 0,
-                    "targetLocator": { "href": "chapter.xhtml" },
-                    "localPageCap": 4,
-                    "budget": { "maxTopLevelNodes": budget }
+                    "targetLocator": { "href": "chapter.xhtml" }
                 })
                 .to_string(),
             )
             .expect("chapter-local revision starts"),
-    );
-    assert!(advance.get("releasedPreviousOwner").is_none());
-    assert!(advance.get("releasedPreviousOwnerTransferCount").is_none());
-    advance
+    )
 }
 
-fn owner(advance: &Value) -> Value {
+fn owner(created: &Value) -> Value {
     json!({
-        "revisionId": advance["revision"]["revisionId"],
-        "revisionVersion": advance["revision"]["revisionVersion"],
-        "coordinate": advance["revision"]["coordinate"]
+        "revisionId": created["revision"]["revisionId"],
+        "revisionVersion": created["revision"]["revisionVersion"],
+        "coordinate": created["revision"]["coordinate"]
     })
 }
 

@@ -57,25 +57,8 @@ describe('native accessibility wiring', () => {
     expect(fixture.emit).not.toHaveBeenCalled();
   });
 
-  it('treats present-but-disabled native semantics as authoritative over legacy content', () => {
+  it('keeps the mirror empty while a preview disables the reader interactions', () => {
     const fixture = createFixture(() => Promise.resolve(pageSemantics('native paragraph')), false);
-    fixture.spread.left = {
-      ...fixture.spread.left,
-      content: [
-        {
-          type: 'layout-block',
-          semanticTag: 'p',
-          bounds,
-          children: [
-            {
-              type: 'line-box',
-              bounds,
-              runs: [{ type: 'text-run', text: 'legacy paragraph', bounds }],
-            },
-          ],
-        },
-      ],
-    };
     wireA11y(fixture.deps, fixture.disposables);
 
     expect(fixture.getPageSemantics).not.toHaveBeenCalled();
@@ -244,10 +227,7 @@ function createFixture(read: (pageIndex: number) => Promise<ReaderPageSemantics>
     getPageTargets,
   } as unknown as ReaderInteractions;
   const getImageBlobUrl = vi.fn<Reader['getImageBlobUrl']>(() => undefined);
-  const spread: Spread & { left: NonNullable<Spread['left']> } = {
-    index: 0,
-    left: { index: 0, bounds, content: [] },
-  };
+  const spread: Spread = { index: 0, pageIndexes: [0], leftPageIndex: 0 };
   let spreadRendered: ((index: number, spread: Spread) => void) | undefined;
   let layoutCommitted: ((activeSpreadIndex: number) => void) | undefined;
   const reader = {

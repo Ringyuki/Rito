@@ -1,4 +1,5 @@
 use crate::epub::{EpubError, LoadedBinaryResource, LoadedTextResource};
+use crate::render::ImageSize;
 use crate::resources::resolve_resource_href_index;
 
 use super::{RuntimeFrameResourceWarmPlan, RuntimeResource, RuntimeResourceKind};
@@ -15,7 +16,7 @@ impl super::RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let spread_count = revision.known_extent.spread_count;
+        let spread_count = revision.extent.spread_count;
         let spread_indexes = warm_spread_indexes(center_spread_index, spread_count);
         Ok(RuntimeFrameResourceWarmPlan {
             revision_id: revision_id.to_owned(),
@@ -55,6 +56,17 @@ pub(super) fn find_binary_resource_metadata(
     href: &str,
 ) -> Option<RuntimeBinaryResourceMetadata> {
     find_binary_resource(resources, href).map(RuntimeBinaryResourceMetadata::from)
+}
+
+/// An image's intrinsic size as the resource table records it, once its
+/// dimensions have been loaded; the paint lowering sizes and tiles
+/// background images against it.
+pub(super) fn find_image_size(resources: &[LoadedBinaryResource], href: &str) -> Option<ImageSize> {
+    let resource = find_binary_resource(resources, href)?;
+    Some(ImageSize {
+        width: resource.width?,
+        height: resource.height?,
+    })
 }
 
 pub(super) fn find_text_resource<'a>(

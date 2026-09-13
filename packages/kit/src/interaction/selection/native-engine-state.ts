@@ -13,7 +13,6 @@ import type {
 
 export interface NativeSelectionKeyboardSession {
   readonly epoch: number;
-  readGeneration: number;
 }
 
 export interface NativeSelectionFocusSample {
@@ -39,7 +38,6 @@ export interface NativeSelectionGestureSession {
   readonly granularity: NativeSelectionGranularity;
   readonly anchorPoint: NativeSelectionPoint | undefined;
   anchor: ReaderTextCaret | undefined;
-  readGeneration: number;
   latestSequence: number;
   latestSample: NativeSelectionFocusSample | undefined;
   queued: NativeSelectionFocusSample | undefined;
@@ -76,7 +74,6 @@ export function createNativeSelectionGestureSession(
     granularity,
     anchorPoint,
     anchor,
-    readGeneration: 0,
     latestSequence: 0,
     latestSample: undefined,
     queued: undefined,

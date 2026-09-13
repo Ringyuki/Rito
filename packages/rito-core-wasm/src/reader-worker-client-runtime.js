@@ -7,11 +7,10 @@ import {
 } from './reader-worker-session-runtime.js';
 import {
   commitReaderSessionCache,
-  createCachedReaderViewRevision,
   normalizeReaderSessionCache,
   prepareReaderSessionCache,
 } from './reader-worker-cache-runtime.js';
-import { isRitoCoreWasmRevisionSummary, RitoCoreWasmError } from './core-wasm-error-runtime.js';
+import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { createVersionedReaderClientMethods } from './reader-worker-versioned-client-runtime.js';
 import { createChapterLocalReaderClientMethods } from './reader-worker-chapter-local-client-runtime.js';
 import { chapterLocalResponseTransfers } from './reader-worker-chapter-local-payload-runtime.js';
@@ -252,8 +251,6 @@ function createRitoCoreWasmReaderClient(
   return {
     sessionId,
     open,
-    createViewRevision: (viewRequest) =>
-      createCachedReaderViewRevision(activeCache, viewRequest, readerRuntimeWire(), request),
     readResource: (revisionId, resourceKind, href) =>
       result(request, { kind: 'readResource', revisionId, resourceKind, href }, 'readResource'),
     warmFrameWindow: (revisionId, spreadIndex) =>
@@ -276,6 +273,12 @@ function createRitoCoreWasmReaderClient(
       const payload = await request({ kind: 'setUnavailableFontFaces', families });
       if (payload.kind !== 'setUnavailableFontFaces') {
         throw new Error(`Rito reader worker returned ${payload.kind} for setUnavailableFontFaces`);
+      }
+    },
+    setRenderRatio: async (ratio) => {
+      const payload = await request({ kind: 'setRenderRatio', ratio });
+      if (payload.kind !== 'setRenderRatio') {
+        throw new Error(`Rito reader worker returned ${payload.kind} for setRenderRatio`);
       }
     },
     releaseRevisionTransfers: async (revisionId) => {
@@ -326,57 +329,15 @@ function createWorkerRequestId(worker) {
   return id;
 }
 
-function readerRuntimeWire() {
-  return globalThis.__RITO_CORE_WASM_READER_WIRE__ === 'ritorb1' ? 'ritorb1' : 'json';
-}
-
 async function handleWorkerMessage(scope, deps, state, message) {
-  const workerStartedAt = wireMetricsRequest(message) ? monotonicNow() : undefined;
   if (!isRequest(message)) return;
   try {
-    const internalPayload = await handleWorkerRequest(deps, state, message);
-    const prepared = prepareWorkerPayload(internalPayload);
-    const transfer = responseTransfer(prepared.payload);
-    const response = { id: message.id, ok: true, payload: prepared.payload };
-    if (workerStartedAt !== undefined) {
-      response.__ritoWireMetrics = completeWorkerWireMetrics(prepared.metrics, workerStartedAt);
-    }
-    scope.postMessage(response, transfer);
+    const payload = await handleWorkerRequest(deps, state, message);
+    const transfer = responseTransfer(payload);
+    scope.postMessage({ id: message.id, ok: true, payload }, transfer);
   } catch (error) {
     scope.postMessage({ id: message.id, ok: false, error: toWorkerError(deps, error) });
   }
-}
-
-function wireMetricsRequest(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  return value.kind === 'createViewRevision' && value.__ritoCollectWireMetrics === true;
-}
-
-function prepareWorkerPayload(payload) {
-  if (!Object.hasOwn(payload, '__ritoWireMetrics')) {
-    return { payload, metrics: undefined };
-  }
-  const { __ritoWireMetrics: metrics, ...publicPayload } = payload;
-  return { payload: publicPayload, metrics };
-}
-
-function completeWorkerWireMetrics(metrics, workerStartedAt) {
-  if (metrics === null || typeof metrics !== 'object' || Array.isArray(metrics)) {
-    throw new Error('Rito reader worker did not receive view-revision wire metrics');
-  }
-  return {
-    ...metrics,
-    workerProcessingMs: elapsedMilliseconds(workerStartedAt),
-  };
-}
-
-function monotonicNow() {
-  return globalThis.performance.now();
-}
-
-function elapsedMilliseconds(startedAt) {
-  const elapsed = monotonicNow() - startedAt;
-  return Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : 0;
 }
 
 async function handleWorkerRequest(deps, state, request) {
@@ -414,39 +375,26 @@ async function result(request, input, kind, transfer) {
 
 function toWorkerError(deps, error) {
   const normalized = deps.normalizeRitoCoreWasmError(error, 'rito reader worker');
-  const revision = recoveryRevision(normalized.code, normalized.revision);
   return {
     name: normalized.name,
     message: normalized.message,
     code: normalized.code,
-    ...(revision !== undefined ? { revision } : {}),
   };
 }
 
 function workerError(error) {
   const payload = error !== null && typeof error === 'object' ? error : {};
   const code = workerErrorCode(payload.code);
-  const revision = recoveryRevision(code, payload.revision);
   const message =
     typeof payload.message === 'string' && payload.message.length > 0
       ? payload.message
       : 'Rito reader worker failed';
-  const out = new RitoCoreWasmError(code, message, {
-    ...(revision !== undefined ? { revision } : {}),
-  });
+  const out = new RitoCoreWasmError(code, message);
   out.name =
     typeof payload.name === 'string' && payload.name.length > 0
       ? payload.name
       : 'RitoCoreWasmError';
   return out;
-}
-
-function recoveryRevision(code, revision) {
-  return code === 'engine-error' &&
-    revision?.status === 'failed' &&
-    isRitoCoreWasmRevisionSummary(revision)
-    ? revision
-    : undefined;
 }
 
 function workerErrorCode(value) {
@@ -522,10 +470,6 @@ function responseTransfer(payload) {
   const chapterLocal = chapterLocalResponseTransfers(payload);
   if (chapterLocal.length > 0) return chapterLocal;
   switch (payload.kind) {
-    case 'createViewRevision':
-      return payload.result.result.frameWindow
-        ? frameWindowTransfers(payload.result.result.frameWindow)
-        : [];
     case 'warmFrameWindow':
       return frameWindowTransfers(payload.result);
     case 'warmFrameWindowAtRevision':

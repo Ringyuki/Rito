@@ -5,12 +5,10 @@ import type { ReaderControllerEvents } from '../src/controller/types';
 import { createEmitter } from '../src/utils/event-emitter';
 import {
   buildAnnotationTargetFromLocator,
-  resolveVisibleAnnotations,
   syncChapterIndices,
 } from '../src/controller/annotation-resolution';
 import type { Internals } from '../src/controller/core/internals';
 import type { CoordinatorState } from '../src/controller/core/coordinator-state';
-import type { AnnotationStore } from '../src/interaction';
 
 describe('native selection annotation target', () => {
   it('fails closed for a cross-resource selection without a compatible locator', () => {
@@ -23,7 +21,6 @@ describe('native selection annotation target', () => {
             start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 1 } },
             end: { href: 'next.xhtml', sourcePoint: { nodePath: [0], textOffset: 2 } },
           }),
-          getSnapshot: () => null,
         },
       },
       coordState: {
@@ -224,47 +221,5 @@ describe('native selection annotation target', () => {
       } as unknown as Internals,
     );
     expect(target).toBeDefined();
-    const store = {
-      getAll: () => [
-        {
-          id: '1',
-          kind: 'highlight' as const,
-          target,
-          createdAt: 1,
-        },
-      ],
-    } as unknown as AnnotationStore;
-    const state = {
-      chapterIndices: new Map([[href, chapterIndex]]),
-      hitMaps: new Map([
-        [
-          1,
-          {
-            pageIndex: 1,
-            entries: [
-              {
-                bounds: { x: 0, y: 0, width: 100, height: 20 },
-                blockIndex: 0,
-                lineIndex: 0,
-                runIndex: 0,
-                text: '0123456789',
-                measure: { font: { style: 'normal', weight: 400, sizePx: 16, family: 'serif' } },
-                sourceRef: { nodePath: [0] },
-                sourceTextOffset: 0,
-              },
-            ],
-          },
-        ],
-      ]),
-    } as unknown as CoordinatorState;
-    const reader = {
-      chapterMap: new Map([['chapter-item', { startPage: 1, endPage: 1 }]]),
-      manifestHrefMap: new Map([['chapter-item', href]]),
-      measurer: { measureText: (text: string) => ({ width: text.length * 10, height: 20 }) },
-    } as never;
-
-    expect(resolveVisibleAnnotations(store, state, reader)).toMatchObject([
-      { status: 'exact', segments: [{ pageIndex: 1 }] },
-    ]);
   });
 });

@@ -3,7 +3,7 @@ import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
 import { unregisterReaderFonts } from '../resources';
 import { resetFrameCache } from './frame-cache';
 import { resetBrowserReaderInteractionCache } from './interaction';
-import { cancelBrowserReaderReflow } from './pipeline/bounded-reflow';
+import { cancelBrowserReaderReflow } from './pipeline/revision-reflow';
 import { createEmptyBrowserReaderRevisionState } from './pipeline/initial-state';
 import type { BrowserReaderState } from './types';
 import { drainBrowserReaderHostTasks } from './host-tasks';
@@ -60,13 +60,6 @@ function releaseRetainedReaderData(state: BrowserReaderState): void {
   state.footnotes = new Map();
   state.chapterTextIndices = new Map();
   state.tocTargets = [];
-  state.fontMetrics.genericSerif = undefined;
-  for (const family of Object.keys(state.fontMetrics.fontFamilies)) {
-    Reflect.deleteProperty(state.fontMetrics.fontFamilies, family);
-  }
-  for (const key of Object.keys(state.fontMetrics.verticalMetrics)) {
-    Reflect.deleteProperty(state.fontMetrics.verticalMetrics, key);
-  }
   state.reflow.lastError = undefined;
 }
 

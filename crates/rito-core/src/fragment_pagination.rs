@@ -15,16 +15,52 @@ use crate::fragment_paint::{append_fragment_display_commands, FragmentPaintConte
 use crate::render::DisplayCommand;
 
 /// One paginated page: the sealed fragment tree that fit the page's
-/// content box, and the commands that paint it.
+/// content box. Paint is not part of pagination — a page paints on
+/// demand through [`paint_chapter_page`] for whatever device ratio the
+/// reader draws at, so a ratio change never re-paginates.
 pub(crate) struct FragmentChapterPage {
     /// Root fragment of this page's content, in content-box coordinates.
-    /// The frame bridge paints from `commands` alone; the fragment page
-    /// artifact (interaction geometry) will consume this tree.
-    #[allow(dead_code)]
     pub(crate) root: Fragment,
-    /// Paint commands for the page content, translated to the origin the
-    /// paginator was given (the page's content origin within its frame).
-    pub(crate) commands: Vec<DisplayCommand>,
+}
+
+/// Whether the chapter lays out vertical-rl: its first inline flow's
+/// strut declares the writing mode (chapters mix modes only via nested
+/// flows, which the capability gate still rejects).
+pub(crate) fn chapter_is_vertical(tree: &FormattingTree) -> bool {
+    tree.styles()
+        .and_then(|tables| {
+            let strut = first_inline_strut(tree, tree.root())?;
+            tables.inline.style(strut).ok()
+        })
+        .is_some_and(|style| {
+            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
+        })
+}
+
+/// Paints one paginated page into display commands at the page's content
+/// origin. A vertical-rl page laid out in the swapped frame maps back
+/// onto the device page through the vertical frame.
+pub(crate) fn paint_chapter_page(
+    tree: &FormattingTree,
+    root: &Fragment,
+    content_width: f64,
+    origin_x: f64,
+    origin_y: f64,
+    paint_context: FragmentPaintContext<'_>,
+    vertical: bool,
+) -> EpubResult<Vec<DisplayCommand>> {
+    let paint_context = FragmentPaintContext {
+        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
+        ..paint_context
+    };
+    let (origin_x, origin_y) = if vertical {
+        (0.0, 0.0)
+    } else {
+        (origin_x, origin_y)
+    };
+    let mut commands = Vec::new();
+    append_fragment_display_commands(&mut commands, tree, root, origin_x, origin_y, paint_context)?;
+    Ok(commands)
 }
 
 /// Pages a chapter can paginate into before the paginator treats the run
@@ -58,9 +94,6 @@ pub(crate) fn paginate_chapter(
     tree: &FormattingTree,
     content_width: f64,
     content_height: f64,
-    origin_x: f64,
-    origin_y: f64,
-    paint_context: FragmentPaintContext<'_>,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
     // A vertical-rl chapter lays out in the swapped page: the column
@@ -68,28 +101,11 @@ pub(crate) fn paginate_chapter(
     // fragmentainer, so a page fills with as many columns as fit across
     // it. The paint walk maps the swapped geometry back onto the device
     // page through the vertical frame.
-    let vertical = tree
-        .styles()
-        .and_then(|tables| {
-            let strut = first_inline_strut(tree, tree.root())?;
-            tables.inline.style(strut).ok()
-        })
-        .is_some_and(|style| {
-            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
-        });
+    let vertical = chapter_is_vertical(tree);
     let space = if vertical {
         ConstraintSpace::fragmented(content_height, content_width)
     } else {
         ConstraintSpace::fragmented(content_width, content_height)
-    };
-    let paint_context = FragmentPaintContext {
-        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
-        ..paint_context
-    };
-    let (origin_x, origin_y) = if vertical {
-        (0.0, 0.0)
-    } else {
-        (origin_x, origin_y)
     };
     let mut token = None;
     let mut pages = Vec::new();
@@ -102,18 +118,8 @@ pub(crate) fn paginate_chapter(
                     pages.len()
                 ))
             })?;
-        let mut commands = Vec::new();
-        append_fragment_display_commands(
-            &mut commands,
-            tree,
-            &outcome.fragments.root,
-            origin_x,
-            origin_y,
-            paint_context,
-        )?;
         pages.push(FragmentChapterPage {
             root: outcome.fragments.root,
-            commands,
         });
         match outcome.continuation {
             Some(continuation) => {
@@ -140,16 +146,14 @@ mod tests {
     };
     use rito_inline::{plain_paragraph_style, ParleyInlineContext};
     use rito_style_contract::{
-        AlignItemsV1, BoxSizingV1, ClearV1, CssPx, FloatV1, FontFamilies, FontFamily,
-        FontFamilyName, InlineStyleTableV1, JustifyContentV1, LayoutDisplayInsideV1,
-        LayoutDisplayOutsideV1, LayoutDisplayV1, LayoutFormattingStyleV1, LayoutStyleTableV1,
-        LengthPercentage, LengthPercentageOrAuto, ListMarkerStyleV1, MaximumHeightV1,
-        MaximumSizeV1, MinimumHeightV1, NonNegativeLengthPercentage, OverflowV1, PageBreakV1,
-        PhysicalSides, PositionV1, PreferredSizeV1,
+        AlignItems, BoxSizing, Clear, CssPx, Float, FontFamilies, FontFamily, FontFamilyName,
+        InlineStyleTable, JustifyContent, LayoutDisplay, LayoutDisplayInside, LayoutDisplayOutside,
+        LayoutFormattingStyle, LayoutStyleTable, LengthPercentage, LengthPercentageOrAuto,
+        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
+        Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
     };
-    use serde_json::Value;
 
-    fn plain_block_layout_style() -> LayoutFormattingStyleV1 {
+    fn plain_block_layout_style() -> LayoutFormattingStyle {
         let zero = LengthPercentageOrAuto::Value(LengthPercentage::Length(
             CssPx::new(0.0).expect("zero length"),
         ));
@@ -162,10 +166,10 @@ mod tests {
             bottom: value,
             left: value,
         };
-        LayoutFormattingStyleV1 {
-            display: LayoutDisplayV1 {
-                outside: LayoutDisplayOutsideV1::Block,
-                inside: LayoutDisplayInsideV1::Flow,
+        LayoutFormattingStyle {
+            display: LayoutDisplay {
+                outside: LayoutDisplayOutside::Block,
+                inside: LayoutDisplayInside::Flow,
                 is_list_item: false,
             },
             margin: sides(zero),
@@ -175,29 +179,29 @@ mod tests {
                 bottom: zero_padding,
                 left: zero_padding,
             },
-            box_sizing: BoxSizingV1::ContentBox,
-            justify_content: JustifyContentV1::Normal,
-            align_items: AlignItemsV1::Normal,
-            break_before: PageBreakV1::Auto,
-            break_after: PageBreakV1::Auto,
-            width: PreferredSizeV1::Auto,
-            height: PreferredSizeV1::Auto,
-            max_width: MaximumSizeV1::None,
-            min_height: MinimumHeightV1::Auto,
-            max_height: MaximumHeightV1::None,
-            clear: ClearV1::None,
-            float: FloatV1::None,
-            overflow: OverflowV1::Visible,
-            list_style_type: ListMarkerStyleV1::None,
-            position: PositionV1::Static,
+            box_sizing: BoxSizing::ContentBox,
+            justify_content: JustifyContent::Normal,
+            align_items: AlignItems::Normal,
+            break_before: PageBreak::Auto,
+            break_after: PageBreak::Auto,
+            width: PreferredSize::Auto,
+            height: PreferredSize::Auto,
+            max_width: MaximumSize::None,
+            min_height: MinimumHeight::Auto,
+            max_height: MaximumHeight::None,
+            clear: Clear::None,
+            float: Float::None,
+            overflow: Overflow::Visible,
+            list_style_type: ListMarkerStyle::None,
+            position: Position::Static,
             inset: sides(LengthPercentageOrAuto::Auto),
-            vertical_align: rito_style_contract::CellVerticalAlignV1::Baseline,
+            vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
             border_spacing: (
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
                 rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero"),
             ),
             border_collapse: false,
-            object_fit: rito_style_contract::ObjectFitV1::Fill,
+            object_fit: rito_style_contract::ObjectFit::Fill,
         }
     }
 
@@ -210,13 +214,13 @@ mod tests {
     }
 
     fn paragraph_tree(text: &str) -> FormattingTree {
-        let mut inline = InlineStyleTableV1::new(1);
+        let mut inline = InlineStyleTable::new(1);
         let families = FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Tinos"))])
             .expect("family list is non-empty");
         let style = inline
             .intern_for_node(0, plain_paragraph_style(families, 16.0, 0.0))
             .expect("style interns");
-        let mut layout = LayoutStyleTableV1::new(1);
+        let mut layout = LayoutStyleTable::new(1);
         let block = layout
             .intern_for_node(0, plain_block_layout_style())
             .expect("layout style interns");
@@ -247,14 +251,30 @@ mod tests {
         .expect("tree builds")
     }
 
-    fn painted_text(pages: &[FragmentChapterPage]) -> String {
+    fn paint(tree: &FormattingTree, pages: &[FragmentChapterPage]) -> Vec<Vec<DisplayCommand>> {
+        pages
+            .iter()
+            .map(|page| {
+                paint_chapter_page(
+                    tree,
+                    &page.root,
+                    200.0,
+                    24.0,
+                    32.0,
+                    FragmentPaintContext::default(),
+                    chapter_is_vertical(tree),
+                )
+                .expect("page paints")
+            })
+            .collect()
+    }
+
+    fn painted_text(painted: &[Vec<DisplayCommand>]) -> String {
         let mut text = String::new();
-        for page in pages {
-            for command in &page.commands {
+        for commands in painted {
+            for command in commands {
                 if let DisplayCommand::PaintText(input) = command {
-                    if let Value::String(run) = &input.text {
-                        text.push_str(run);
-                    }
+                    text.push_str(&input.text);
                 }
             }
         }
@@ -268,25 +288,17 @@ mod tests {
         let sample = "The quick brown fox jumps over the lazy dog. ".repeat(40);
         let tree = paragraph_tree(sample.trim_end());
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(
-            &engine,
-            &tree,
-            200.0,
-            100.0,
-            24.0,
-            32.0,
-            FragmentPaintContext::default(),
-            &cancel,
-        )
-        .expect("chapter paginates");
+        let pages =
+            paginate_chapter(&engine, &tree, 200.0, 100.0, &cancel).expect("chapter paginates");
         assert!(
             pages.len() > 1,
             "40 sentences at 200×100 must span pages, got {}",
             pages.len()
         );
+        let painted = paint(&tree, &pages);
         for (index, page) in pages.iter().enumerate() {
             assert!(
-                !page.commands.is_empty(),
+                !painted[index].is_empty(),
                 "page {index} painted no commands"
             );
             let Fragment::Box(root) = &page.root else {
@@ -296,7 +308,7 @@ mod tests {
         }
         // Whitespace collapsing happens before the tree is built, so the
         // pages' painted runs must reassemble the exact source text.
-        let reassembled = painted_text(&pages)
+        let reassembled = painted_text(&painted)
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ");
@@ -309,26 +321,14 @@ mod tests {
         let engine = BlockFormattingContext::new(context);
         let tree = paragraph_tree("One line.");
         let cancel = CancelFlag::new();
-        let pages = paginate_chapter(
-            &engine,
-            &tree,
-            200.0,
-            100.0,
-            24.0,
-            32.0,
-            FragmentPaintContext::default(),
-            &cancel,
-        )
-        .expect("chapter paginates");
+        let pages =
+            paginate_chapter(&engine, &tree, 200.0, 100.0, &cancel).expect("chapter paginates");
         assert_eq!(pages.len(), 1);
-        let DisplayCommand::PaintText(input) = &pages[0].commands[0] else {
-            panic!("expected a text command, got {:?}", pages[0].commands[0]);
+        let painted = paint(&tree, &pages);
+        let DisplayCommand::PaintText(input) = &painted[0][0] else {
+            panic!("expected a text command, got {:?}", painted[0][0]);
         };
-        let Value::Object(rect) = &input.rect else {
-            panic!("rect is an object");
-        };
-        let x = rect["x"].as_f64().expect("x is a number");
-        let y = rect["y"].as_f64().expect("y is a number");
+        let (x, y) = (input.rect.x, input.rect.y);
         assert!(x >= 24.0, "content starts at the x origin, got {x}");
         assert!(y >= 32.0, "content starts below the y origin, got {y}");
     }

@@ -45,7 +45,7 @@ export async function runFreshFarBootstrap(
   const freshWorkers = requireWorkerCount(page.workers(), 1, 'fresh reader page');
   const freshOperations = await readReaderWorkerOperations(page);
   const freshOpen = requireSuccessfulOperation(freshOperations, 'open');
-  const freshRevision = requireSuccessfulOperation(freshOperations, 'createBoundedRevision');
+  const freshRevision = requireSuccessfulOperation(freshOperations, 'createRevision');
   if (
     freshOpen.workerId !== freshRevision.workerId ||
     freshOpen.completedAt === null ||

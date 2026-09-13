@@ -8,15 +8,13 @@ use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 use zip::{write::FileOptions, ZipWriter};
 
-use crate::{
-    layout::{LayoutConfig, TextMeasurementMode},
-    runtime::{
-        RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
-        RuntimePinnedFontPolicyInput,
-    },
+use crate::runtime::{
+    RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
+    RuntimePinnedFontPolicyInput,
 };
 
-use super::fixture::{add_file, layout};
+use super::fixture::add_file;
+pub(super) use super::fixture::layout;
 
 pub(super) fn policy(faces: Vec<RuntimePinnedFontFaceInput>) -> RuntimePinnedFontPolicyInput {
     RuntimePinnedFontPolicyInput { faces }
@@ -66,12 +64,6 @@ pub(super) fn variable_title_font() -> Vec<u8> {
     append_sfnt_table(&title_font(), *b"fvar", &minimal_fvar_table())
 }
 
-pub(super) fn font_aware_layout() -> LayoutConfig {
-    let mut config = layout();
-    config.text_measurement = TextMeasurementMode::FontAware;
-    config
-}
-
 pub(super) fn content_epub(
     language: &str,
     body: &str,
@@ -108,14 +100,6 @@ pub(super) fn content_epub(
     }
     writer.finish().expect("zip finalizes").into_inner()
 }
-
-pub(super) fn unique_supported_character(primary: &[u8], fallback: &[u8]) -> char {
-    find_character(|character| {
-        !supports_character(primary, character) && supports_character(fallback, character)
-    })
-    .expect("fixture fonts have a fallback-only glyph")
-}
-
 pub(super) fn shared_supported_character(left: &[u8], right: &[u8]) -> char {
     find_character(|character| {
         supports_character(left, character) && supports_character(right, character)
@@ -176,15 +160,6 @@ pub(super) fn sha256_hex(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
-
-pub(super) fn short_sha256(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
 fn minimal_fvar_table() -> Vec<u8> {
     let mut table = Vec::new();
     table.extend_from_slice(&0x0001_0000_u32.to_be_bytes());

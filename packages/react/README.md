@@ -74,5 +74,6 @@ export function App() {
 - load any app-owned `ReaderPinnedFontPolicy` bytes before calling `load()`;
   changing the policy requires the next `load()` because it cannot mutate an
   existing Reader
-- use `useSelection().hasSelection` for presence; native exact selections expose
-  `sourceLocator` and intentionally leave the legacy layout-local `range` null
+- use `useSelection().hasSelection` for presence; `sourceLocator` carries the durable
+  source range and `viewportRects`/`handles` the geometry for selection UI
+- `useRitoReader().spreads` is the reader's navigation record (page indexes per spread)

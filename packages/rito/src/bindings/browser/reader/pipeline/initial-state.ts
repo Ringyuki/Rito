@@ -6,7 +6,7 @@ export function createEmptyBrowserReaderRevisionState(): Pick<
   | 'revisionBundle'
   | 'revisionHandle'
   | 'commitGeneration'
-  | 'boundedSessions'
+  | 'revisionSessions'
   | 'disposeTask'
   | 'interaction'
   | 'pendingHostTasks'
@@ -15,7 +15,7 @@ export function createEmptyBrowserReaderRevisionState(): Pick<
     revisionBundle: emptyRevisionBundle(),
     revisionHandle: undefined,
     commitGeneration: 0,
-    boundedSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
     interaction: createBrowserReaderInteractionState(),
     pendingHostTasks: new Set(),
@@ -38,9 +38,6 @@ function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {
       revisionId: '',
       revisionVersion: 0,
       layoutKey: '',
-      status: 'complete',
-      knownExtent: { pageCount: 0, spreadCount: 0 },
-      finalExtent: { pageCount: 0, spreadCount: 0 },
       pageCount: 0,
       spreadCount: 0,
     },

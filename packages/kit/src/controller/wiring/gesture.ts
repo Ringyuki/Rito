@@ -150,7 +150,7 @@ function beginGesture(context: TouchHandlerContext, dx: number, timestamp: numbe
   const target = direction === 'forward' ? current + 1 : current - 1;
   const session = createGestureSession(dx, timestamp);
   context.gesture = session;
-  if (target < 0 || (target >= deps.getTotalSpreads() && deps.isPaginationComplete())) {
+  if (target < 0 || target >= deps.getTotalSpreads()) {
     deps.td.startTracking(direction, current, null, timestamp);
     session.started = true;
     context.ownsTransition = true;

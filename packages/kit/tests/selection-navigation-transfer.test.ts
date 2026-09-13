@@ -7,11 +7,8 @@ const gesture = { generation: 1 } as SelectionGestureLease;
 
 const spreads: readonly Spread[] = [0, 1].map((index) => ({
   index,
-  left: {
-    index,
-    bounds: { x: 0, y: 0, width: 300, height: 400 },
-    content: [],
-  },
+  pageIndexes: [index],
+  leftPageIndex: index,
 }));
 
 describe('selection projection navigation scope', () => {

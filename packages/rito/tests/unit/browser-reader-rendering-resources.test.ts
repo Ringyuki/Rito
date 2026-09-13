@@ -4,6 +4,7 @@ import {
   preloadCurrentReaderFonts,
   preloadReaderFonts,
   unregisterReaderFonts,
+  markSpreadImageResourcesSettled,
 } from '../../src/bindings/browser/resources';
 import {
   renderSpreadToBoundCanvas,
@@ -11,7 +12,7 @@ import {
 } from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
-import type { CanvasRenderingTarget } from '../../src/bindings/browser/frame-command-renderer';
+import type { CanvasRenderingTarget } from '../../src/bindings/browser/primitive-renderer';
 import type {
   BrowserReaderFrame,
   BrowserReaderState,
@@ -62,7 +63,7 @@ describe('Browser reader resource-backed rendering', () => {
 
     closeExactRevisionReadGate(state);
 
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    await expect(preloadReaderFonts(state)).resolves.toBeUndefined();
     await expect(getImageObjectUrl(state, 'cover.png')).resolves.toBeUndefined();
     await flushPromises();
     expect(readResourceAtRevision).not.toHaveBeenCalled();
@@ -94,6 +95,36 @@ describe('Browser reader resource-backed rendering', () => {
       expect.objectContaining({ spreadIndex: 0, pending: ['cover.png'] }),
     ]);
 
+    await flushPromises();
+    expect(state.images.has('cover.png')).toBe(true);
+    expect(invalidated).toEqual([0]);
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
+    expect(ctx.drawImage).toHaveBeenCalledOnce();
+  });
+
+  it('repaints a spread whose evicted bitmap returns after an earlier settlement', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => Promise.resolve(fakeImageBitmap())),
+    );
+    const invalidated: number[] = [];
+    const state = createState({
+      frames: new Map([[0, frameWithImages('cover.png')]]),
+      spreadContentInvalidatedListeners: new Set([(index: number) => invalidated.push(index)]),
+    });
+    // The spread settled once before (its bitmap decoded on an earlier
+    // visit) and the bitmap was then evicted under the byte budget.
+    const revision = state.revisionHandle;
+    if (!revision) throw new Error('the fixture state carries a revision');
+    expect(markSpreadImageResourcesSettled(state, revision, 0)).toBe(true);
+    state.images.clear();
+    const ctx = fakeCanvasContext();
+
+    // The return visit paints degraded and re-arms the settlement
+    // notice; the bitmap's return invalidates the spread again instead
+    // of leaving it on the blank paint.
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
     await flushPromises();
     expect(state.images.has('cover.png')).toBe(true);
     expect(invalidated).toEqual([0]);
@@ -250,7 +281,7 @@ describe('Browser reader resource-backed rendering', () => {
       },
     });
 
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    await expect(preloadReaderFonts(state)).resolves.toBeUndefined();
 
     expect(readResource).not.toHaveBeenCalled();
     expect(state.registeredFontFaces.size).toBe(0);
@@ -329,49 +360,10 @@ describe('Browser reader resource-backed rendering', () => {
       },
     });
 
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    await expect(preloadReaderFonts(state)).resolves.toBeUndefined();
 
     expect(readResource).not.toHaveBeenCalled();
     expect(addFont).not.toHaveBeenCalled();
-  });
-
-  it('measures exact-size vertical metrics for an active pinned face', async () => {
-    const measureText = vi.fn(() => ({
-      width: 16,
-      fontBoundingBoxAscent: 4.5,
-      fontBoundingBoxDescent: 31.5,
-    }));
-    const state = createState({
-      ctx: Object.assign(fontMetricContext(), { measureText }),
-      pinnedFonts: {
-        policy: undefined,
-        summary: { ...emptyPinnedFontPolicySummary(), faces: [{}] },
-        registry: undefined,
-        faces: new Map(),
-      },
-    });
-    state.revisionBundle = {
-      ...state.revisionBundle,
-      fontVerticalMetricDemands: [
-        {
-          fontFamily: '__RitoPinned_face',
-          fontStyle: 'italic',
-          fontWeight: 700,
-          fontSizePx: 32,
-        },
-      ],
-    };
-
-    await expect(preloadReaderFonts(state)).resolves.toBe(true);
-    await expect(preloadReaderFonts(state)).resolves.toBe(false);
-
-    expect(measureText).toHaveBeenCalledOnce();
-    expect(state.fontMetrics.verticalMetrics).toMatchObject({
-      '["__ritopinned_face","italic",700,32]': {
-        topBaselineAscentPx: 4.5,
-        topBaselineDescentPx: 31.5,
-      },
-    });
   });
 
   it('retries font registration when the active revision changes during a slow load', async () => {
@@ -674,10 +666,11 @@ function frameWithImages(...images: string[]): BrowserReaderFrame {
     spreadIndex: 0,
     width: 320,
     height: 480,
+    ratio: 1,
     commands: images.map((src) => ({
-      kind: 'paintImage',
+      kind: 'draw-image',
       src,
-      rect: { x: 0, y: 0, width: 10, height: 10 },
+      dest: { x: 0, y: 0, width: 10, height: 10 },
     })),
     commandHash: 'hash',
     resourceRefs: { images },
@@ -694,9 +687,6 @@ function createState(overrides: object = {}): BrowserReaderState {
         revisionId: 'rev-1',
         revisionVersion: 0,
         layoutKey: 'layout',
-        status: 'complete',
-        knownExtent: { pageCount: 1, spreadCount: 3 },
-        finalExtent: { pageCount: 1, spreadCount: 3 },
         pageCount: 1,
         spreadCount: 3,
       },
@@ -720,7 +710,7 @@ function createState(overrides: object = {}): BrowserReaderState {
       commitGeneration: 1,
     },
     commitGeneration: 1,
-    boundedSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
@@ -737,12 +727,7 @@ function createState(overrides: object = {}): BrowserReaderState {
       registry: undefined,
       faces: new Map(),
     },
-    ctx: fontMetricContext(),
-    fontMetrics: {
-      genericSerif: { advances: {}, pairAdjustments: {} },
-      fontFamilies: {},
-      verticalMetrics: {},
-    },
+    ctx: {},
     spreadContentInvalidatedListeners: new Set(),
     disposed: false,
     publication: {
@@ -760,19 +745,6 @@ function useFontFamilies(state: BrowserReaderState, ...fontFamilies: string[]): 
 
 function emptyPinnedFontPolicySummary() {
   return { schemaVersion: 1 as const, policyId: '0'.repeat(64), faces: [] };
-}
-
-function fontMetricContext(): BrowserReaderState['ctx'] {
-  return {
-    font: '',
-    wordSpacing: '',
-    letterSpacing: '',
-    save() {},
-    restore() {},
-    measureText(text: string) {
-      return { width: Array.from(text).length * 16 } as TextMetrics;
-    },
-  } as BrowserReaderState['ctx'];
 }
 
 function createWorker(
