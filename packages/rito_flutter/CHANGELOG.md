@@ -1,4 +1,4 @@
-## Unreleased
+## 0.3.0 - 2026-09-14
 
 Breaking, and larger than a point release: a frame is no longer a list of
 paint commands, and the session no longer carries the bounded-work
@@ -67,6 +67,19 @@ artifact was resolved at. `withLayout`, `withRenderRatio` and
 - Every `V1` suffix leaves the Dart API, matching the engine and the C
   ABI. The names are otherwise unchanged.
 
+### Taps resolve against hit entries
+
+`RitoHitResolver` resolves taps against the artifact's hit entries — the
+engine's own account of links, note anchors (with their footnote key and
+pending state) and images, in display-list space. Hosts no longer read
+semantics off what they paint; a link's text band widens by `linkSlack`
+for coarse pointers and a link wrapping an image resolves as the link.
+
+A painted text run carries the enclosing link's `href` again, and a hit
+entry carries the image's alt text. 0.2.0's fragment cutover shipped both
+as null, so a host resolving taps saw no links — a tap on a note anchor
+fell through to the image viewer.
+
 ### Protocol
 
 `RitoArtifactDecoder.protocolVersion` is 5 (was 3). A hand-written
@@ -81,18 +94,6 @@ availability tags.
 A paginated book keeps its page table rather than its pages, so a
 2624-page book paginates in 239 MB instead of 471 and a whole-book
 search runs in 94 ms instead of 1888.
-
-## 0.3.0 - 2026-09-07
-
-- `RitoHitResolver` resolves taps against the artifact's hit entries — the
-  engine's own account of links, note anchors (with their footnote key and
-  pending state) and images, in display-list space. Hosts no longer read
-  semantics off paint commands; a link's text band widens by `linkSlack`
-  for coarse pointers and a link wrapping an image resolves as the link.
-- Painted text and image commands carry the enclosing link's target and an
-  image's alt text again. 0.2.0's fragment cutover shipped them as null, so a
-  host resolving taps against the display list saw no links — a tap on a note
-  anchor fell through to the image viewer.
 
 ## 0.2.0 - 2026-08-29
 
