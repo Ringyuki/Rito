@@ -7,9 +7,14 @@
 //! jumps) resolves through the runs' rectangles with linear character
 //! interpolation, exactly like the pointer resolvers.
 
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
 use crate::interaction::{plain_word_boundaries, TextSelectionBoundary, TextSelectionMovement};
 
-use super::super::super::page_artifact::FragmentPageArtifact;
+use super::super::super::page_artifact::{FragmentPageArtifact, FragmentRunRecord};
 
 /// One position in the scope's logical stream: a page slot (index into
 /// the scope's page list) and a UTF-16 offset into that page's text.
@@ -20,10 +25,83 @@ pub(super) struct StreamPosition {
 }
 
 /// One page of the movement scope.
-pub(super) struct ScopePage<'a> {
+pub(super) struct ScopePage {
     pub(super) page_index: usize,
-    pub(super) artifact: &'a FragmentPageArtifact,
+    /// Absent when the page's chapter could not be rebuilt. Such a page
+    /// reads as an empty one here and `ScopePages` records the failure,
+    /// so the caller reports the movement instead of answering from a
+    /// page whose text is missing.
+    artifact: Option<Rc<FragmentPageArtifact>>,
     lines: Vec<ScopeLine>,
+}
+
+impl ScopePage {
+    pub(super) fn artifact(&self) -> Option<&FragmentPageArtifact> {
+        self.artifact.as_deref()
+    }
+
+    fn text(&self) -> &str {
+        self.artifact().map_or("", FragmentPageArtifact::page_text)
+    }
+
+    fn runs(&self) -> &[FragmentRunRecord] {
+        self.artifact()
+            .map_or(&[], FragmentPageArtifact::interaction_runs)
+    }
+}
+
+/// The scope's pages, built the first time a movement reads one.
+///
+/// A movement reads the focus page and, at most, the pages it steps
+/// onto; the scope itself spans the whole book, and a page table that
+/// keeps only a bounded set of chapters materialized would re-bridge and
+/// re-paginate every chapter of the book if the scope were built up
+/// front.
+pub(super) struct ScopePages<'a> {
+    first_page: usize,
+    len: usize,
+    load: &'a dyn Fn(usize) -> Option<Rc<FragmentPageArtifact>>,
+    built: RefCell<Vec<Option<Rc<ScopePage>>>>,
+    load_failed: Cell<bool>,
+}
+
+impl<'a> ScopePages<'a> {
+    pub(super) fn new(
+        first_page: usize,
+        len: usize,
+        load: &'a dyn Fn(usize) -> Option<Rc<FragmentPageArtifact>>,
+    ) -> Self {
+        Self {
+            first_page,
+            len,
+            load,
+            built: RefCell::new(vec![None; len]),
+            load_failed: Cell::new(false),
+        }
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Whether any page this movement read failed to build.
+    pub(super) fn load_failed(&self) -> bool {
+        self.load_failed.get()
+    }
+
+    pub(super) fn page(&self, slot: usize) -> Rc<ScopePage> {
+        if let Some(page) = self.built.borrow()[slot].clone() {
+            return page;
+        }
+        let page_index = self.first_page + slot;
+        let artifact = (self.load)(page_index);
+        if artifact.is_none() {
+            self.load_failed.set(true);
+        }
+        let page = Rc::new(build_scope_page(page_index, artifact));
+        self.built.borrow_mut()[slot] = Some(Rc::clone(&page));
+        page
+    }
 }
 
 /// One line's offset span and geometry, in page coordinates. The span
@@ -57,12 +135,12 @@ pub(super) struct MovementRequest<'a> {
     pub(super) target_slot: Option<usize>,
 }
 
-pub(super) fn build_scope_page(
-    page_index: usize,
-    artifact: &FragmentPageArtifact,
-) -> ScopePage<'_> {
+fn build_scope_page(page_index: usize, artifact: Option<Rc<FragmentPageArtifact>>) -> ScopePage {
     let mut lines: Vec<ScopeLine> = Vec::new();
-    for run in artifact.interaction_runs() {
+    for run in artifact
+        .as_deref()
+        .map_or(&[][..], FragmentPageArtifact::interaction_runs)
+    {
         match lines.last_mut() {
             // Runs arrive in flow order; a run continues the current line
             // exactly when it starts where the line ends.
@@ -90,7 +168,7 @@ pub(super) fn build_scope_page(
 }
 
 pub(super) fn move_focus(
-    pages: &[ScopePage<'_>],
+    pages: &ScopePages<'_>,
     focus: StreamPosition,
     request: MovementRequest<'_>,
 ) -> Moved {
@@ -123,11 +201,11 @@ fn resolved(focus: StreamPosition) -> Moved {
     })
 }
 
-fn page_text_len(page: &ScopePage<'_>) -> usize {
-    page.artifact.page_text().encode_utf16().count()
+fn page_text_len(page: &ScopePage) -> usize {
+    page.text().encode_utf16().count()
 }
 
-fn step_character(pages: &[ScopePage<'_>], focus: StreamPosition, direction: isize) -> Moved {
+fn step_character(pages: &ScopePages<'_>, focus: StreamPosition, direction: isize) -> Moved {
     if direction < 0 {
         if focus.offset > 0 {
             return resolved(StreamPosition {
@@ -140,10 +218,10 @@ fn step_character(pages: &[ScopePage<'_>], focus: StreamPosition, direction: isi
         };
         return resolved(StreamPosition {
             slot: previous_slot,
-            offset: page_text_len(&pages[previous_slot]),
+            offset: page_text_len(&pages.page(previous_slot)),
         });
     }
-    let len = page_text_len(&pages[focus.slot]);
+    let len = page_text_len(&pages.page(focus.slot));
     if focus.offset < len {
         return resolved(StreamPosition {
             slot: focus.slot,
@@ -166,12 +244,13 @@ enum WordStep {
 }
 
 fn step_word(
-    pages: &[ScopePage<'_>],
+    pages: &ScopePages<'_>,
     focus: StreamPosition,
     language: Option<&str>,
     step: WordStep,
 ) -> Moved {
-    let text = pages[focus.slot].artifact.page_text();
+    let page = pages.page(focus.slot);
+    let text = page.text();
     let boundaries = plain_word_boundaries(text, language);
     let offset = focus.offset as u32;
     let next = match step {
@@ -219,8 +298,8 @@ fn step_word(
 }
 
 /// Global line addressing: (slot, line index within the page).
-fn line_of(pages: &[ScopePage<'_>], position: StreamPosition) -> Option<(usize, usize)> {
-    let page = &pages[position.slot];
+fn line_of(pages: &ScopePages<'_>, position: StreamPosition) -> Option<(usize, usize)> {
+    let page = pages.page(position.slot);
     page.lines
         .iter()
         .position(|line| line.start <= position.offset && position.offset <= line.end)
@@ -235,7 +314,7 @@ fn line_of(pages: &[ScopePage<'_>], position: StreamPosition) -> Option<(usize, 
 }
 
 fn step_line(
-    pages: &[ScopePage<'_>],
+    pages: &ScopePages<'_>,
     focus: StreamPosition,
     direction: isize,
     preferred_inline_position: Option<f64>,
@@ -248,7 +327,7 @@ fn step_line(
         });
     };
     let x = preferred_inline_position
-        .or_else(|| caret_x(&pages[slot], focus.offset))
+        .or_else(|| caret_x(&pages.page(slot), focus.offset))
         .unwrap_or(0.0);
     let Some((target_slot, target_line)) = adjacent_line(pages, slot, line_index, direction) else {
         return Moved::Boundary(if direction < 0 {
@@ -257,7 +336,7 @@ fn step_line(
             TextSelectionBoundary::End
         });
     };
-    let offset = offset_at_x(&pages[target_slot], target_line, x);
+    let offset = offset_at_x(&pages.page(target_slot), target_line, x);
     Moved::To(MovementOutcome {
         focus: StreamPosition {
             slot: target_slot,
@@ -269,7 +348,7 @@ fn step_line(
 }
 
 fn adjacent_line(
-    pages: &[ScopePage<'_>],
+    pages: &ScopePages<'_>,
     slot: usize,
     line_index: usize,
     direction: isize,
@@ -280,19 +359,20 @@ fn adjacent_line(
         }
         let mut slot = slot;
         while let Some(previous) = slot.checked_sub(1) {
-            if !pages[previous].lines.is_empty() {
-                return Some((previous, pages[previous].lines.len() - 1));
+            let lines = pages.page(previous).lines.len();
+            if lines > 0 {
+                return Some((previous, lines - 1));
             }
             slot = previous;
         }
         return None;
     }
-    if line_index + 1 < pages[slot].lines.len() {
+    if line_index + 1 < pages.page(slot).lines.len() {
         return Some((slot, line_index + 1));
     }
     let mut slot = slot + 1;
     while slot < pages.len() {
-        if !pages[slot].lines.is_empty() {
+        if !pages.page(slot).lines.is_empty() {
             return Some((slot, 0));
         }
         slot += 1;
@@ -301,14 +381,15 @@ fn adjacent_line(
 }
 
 fn snap_line_edge(
-    pages: &[ScopePage<'_>],
+    pages: &ScopePages<'_>,
     focus: StreamPosition,
     edge: TextSelectionBoundary,
 ) -> Moved {
     let Some((slot, line_index)) = line_of(pages, focus) else {
         return Moved::Boundary(edge);
     };
-    let line = &pages[slot].lines[line_index];
+    let page = pages.page(slot);
+    let line = &page.lines[line_index];
     resolved(StreamPosition {
         slot,
         offset: match edge {
@@ -328,7 +409,7 @@ enum ParagraphStep {
 /// Paragraph spans: consecutive lines of one block on one page. A block
 /// split across pages moves as per-page paragraphs, matching how the
 /// artifact scopes its blocks.
-fn paragraph_spans(page: &ScopePage<'_>) -> Vec<(usize, usize)> {
+fn paragraph_spans(page: &ScopePage) -> Vec<(usize, usize)> {
     let mut spans: Vec<(usize, usize, usize)> = Vec::new();
     for line in &page.lines {
         match spans.last_mut() {
@@ -342,8 +423,8 @@ fn paragraph_spans(page: &ScopePage<'_>) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn step_paragraph(pages: &[ScopePage<'_>], focus: StreamPosition, step: ParagraphStep) -> Moved {
-    let spans = paragraph_spans(&pages[focus.slot]);
+fn step_paragraph(pages: &ScopePages<'_>, focus: StreamPosition, step: ParagraphStep) -> Moved {
+    let spans = paragraph_spans(&pages.page(focus.slot));
     let current = spans
         .iter()
         .position(|(start, end)| *start <= focus.offset && focus.offset <= *end);
@@ -398,7 +479,7 @@ fn step_paragraph(pages: &[ScopePage<'_>], focus: StreamPosition, step: Paragrap
 /// The nearest paragraph edge on a neighbouring page, or the scope
 /// boundary when no page remains.
 fn cross_page_paragraph(
-    pages: &[ScopePage<'_>],
+    pages: &ScopePages<'_>,
     slot: usize,
     direction: TextSelectionBoundary,
 ) -> Moved {
@@ -406,7 +487,7 @@ fn cross_page_paragraph(
         TextSelectionBoundary::Start => {
             let mut slot = slot;
             while let Some(previous) = slot.checked_sub(1) {
-                let spans = paragraph_spans(&pages[previous]);
+                let spans = paragraph_spans(&pages.page(previous));
                 if let Some((start, _)) = spans.last() {
                     return resolved(StreamPosition {
                         slot: previous,
@@ -420,7 +501,7 @@ fn cross_page_paragraph(
         TextSelectionBoundary::End => {
             let mut slot = slot + 1;
             while slot < pages.len() {
-                let spans = paragraph_spans(&pages[slot]);
+                let spans = paragraph_spans(&pages.page(slot));
                 if let Some((start, _)) = spans.first() {
                     return resolved(StreamPosition {
                         slot,
@@ -434,33 +515,30 @@ fn cross_page_paragraph(
     }
 }
 
-fn jump_page(
-    pages: &[ScopePage<'_>],
-    focus: StreamPosition,
-    request: MovementRequest<'_>,
-) -> Moved {
+fn jump_page(pages: &ScopePages<'_>, focus: StreamPosition, request: MovementRequest<'_>) -> Moved {
     let Some(slot) = request.target_slot else {
         return Moved::Boundary(match request.movement {
             TextSelectionMovement::PageUp => TextSelectionBoundary::Start,
             _ => TextSelectionBoundary::End,
         });
     };
+    let focus_page = pages.page(focus.slot);
     let x = request
         .preferred_inline_position
-        .or_else(|| caret_x(&pages[focus.slot], focus.offset))
+        .or_else(|| caret_x(&focus_page, focus.offset))
         .unwrap_or(0.0);
     let y = request
         .preferred_block_position
-        .or_else(|| caret_y(&pages[focus.slot], focus.offset))
+        .or_else(|| caret_y(&focus_page, focus.offset))
         .unwrap_or(0.0);
-    let page = &pages[slot];
-    let Some(line_index) = nearest_line_at_y(page, y) else {
+    let page = pages.page(slot);
+    let Some(line_index) = nearest_line_at_y(&page, y) else {
         return Moved::Boundary(match request.movement {
             TextSelectionMovement::PageUp => TextSelectionBoundary::Start,
             _ => TextSelectionBoundary::End,
         });
     };
-    let offset = offset_at_x(page, line_index, x);
+    let offset = offset_at_x(&page, line_index, x);
     Moved::To(MovementOutcome {
         focus: StreamPosition { slot, offset },
         preferred_inline_position: Some(x),
@@ -468,55 +546,50 @@ fn jump_page(
     })
 }
 
-fn snap_scope_edge(pages: &[ScopePage<'_>], edge: TextSelectionBoundary) -> Moved {
-    match edge {
-        TextSelectionBoundary::Start => {
-            for (slot, page) in pages.iter().enumerate() {
-                if let Some(line) = page.lines.first() {
-                    return resolved(StreamPosition {
-                        slot,
-                        offset: line.start,
-                    });
-                }
-            }
-        }
-        TextSelectionBoundary::End => {
-            for (slot, page) in pages.iter().enumerate().rev() {
-                if let Some(line) = page.lines.last() {
-                    return resolved(StreamPosition {
-                        slot,
-                        offset: line.end,
-                    });
-                }
-            }
+fn snap_scope_edge(pages: &ScopePages<'_>, edge: TextSelectionBoundary) -> Moved {
+    let slots: Box<dyn Iterator<Item = usize>> = match edge {
+        TextSelectionBoundary::Start => Box::new(0..pages.len()),
+        TextSelectionBoundary::End => Box::new((0..pages.len()).rev()),
+    };
+    for slot in slots {
+        let page = pages.page(slot);
+        let line = match edge {
+            TextSelectionBoundary::Start => page.lines.first(),
+            TextSelectionBoundary::End => page.lines.last(),
+        };
+        if let Some(line) = line {
+            return resolved(StreamPosition {
+                slot,
+                offset: match edge {
+                    TextSelectionBoundary::Start => line.start,
+                    TextSelectionBoundary::End => line.end,
+                },
+            });
         }
     }
     Moved::Boundary(edge)
 }
 
-fn caret_x(page: &ScopePage<'_>, offset: usize) -> Option<f64> {
+fn caret_x(page: &ScopePage, offset: usize) -> Option<f64> {
     let run = run_at(page, offset)?;
     let length = (run.end - run.start).max(1) as f64;
     let ratio = (offset.clamp(run.start, run.end) - run.start) as f64 / length;
     Some(run.x + run.width * ratio)
 }
 
-fn caret_y(page: &ScopePage<'_>, offset: usize) -> Option<f64> {
+fn caret_y(page: &ScopePage, offset: usize) -> Option<f64> {
     run_at(page, offset).map(|run| run.y)
 }
 
-fn run_at<'a>(
-    page: &'a ScopePage<'_>,
-    offset: usize,
-) -> Option<&'a super::super::super::page_artifact::FragmentRunRecord> {
-    let runs = page.artifact.interaction_runs();
+fn run_at(page: &ScopePage, offset: usize) -> Option<&FragmentRunRecord> {
+    let runs = page.runs();
     runs.iter()
         .find(|run| run.start <= offset && offset <= run.end)
         .or_else(|| runs.iter().find(|run| run.start >= offset))
         .or_else(|| runs.last())
 }
 
-fn nearest_line_at_y(page: &ScopePage<'_>, y: f64) -> Option<usize> {
+fn nearest_line_at_y(page: &ScopePage, y: f64) -> Option<usize> {
     // Line bands are half-open [top, top + height): a caret y exactly on
     // a boundary belongs to the line STARTING there, the way a browser
     // maps a caret at a line edge (a page jump from a line top would
@@ -539,10 +612,10 @@ fn nearest_line_at_y(page: &ScopePage<'_>, y: f64) -> Option<usize> {
 }
 
 /// The closest character edge to `x` within one line.
-fn offset_at_x(page: &ScopePage<'_>, line_index: usize, x: f64) -> usize {
+fn offset_at_x(page: &ScopePage, line_index: usize, x: f64) -> usize {
     let line = &page.lines[line_index];
     let mut best = (f64::MAX, line.start);
-    for run in page.artifact.interaction_runs() {
+    for run in page.runs() {
         if run.end < line.start || run.start > line.end || run.block_index != line.block_index {
             continue;
         }

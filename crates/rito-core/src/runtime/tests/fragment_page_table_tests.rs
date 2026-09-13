@@ -3,10 +3,14 @@
 //! page numbers, chapter ranges, frames and locators all come from it.
 
 use super::{
-    fixture::{fixture_epub_with_chapter_and_stylesheet, layout, multi_chapter_fixture_epub},
+    fixture::{
+        chapter_eviction_fixture_epub, fixture_epub_with_chapter_and_stylesheet, layout,
+        multi_chapter_fixture_epub,
+    },
     pinned_font_policy_fixtures::{face, policy, serif_text_font},
 };
 use crate::interaction::TextSelectionMovement;
+use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
 use crate::runtime::{
     RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
@@ -1298,5 +1302,234 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
         revision.fragment_layout.page_count(),
         1,
         "the ratio never re-paginates"
+    );
+}
+
+#[test]
+fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
+    // The page table keeps page contents for a bounded set of chapters.
+    // Reading past a chapter big enough to fill that budget drops the
+    // chapter read before it, and reading the dropped chapter again
+    // rebuilds it: the rebuilt artifacts and painted geometry must be the
+    // pages the book paginated, not a second opinion about them.
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &chapter_eviction_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("eviction fixture opens");
+    // A small page makes the middle chapter paginate past the budget
+    // without laying out a book's worth of text.
+    let mut layout = create_layout_config(LayoutConfigInput {
+        width: 200.0,
+        height: 96.0,
+        margin: MarginInput::All(8.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+    });
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let revision = document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained");
+    let table = &revision.fragment_layout;
+    assert!(
+        table.materialized_chapter_indexes().is_empty(),
+        "the whole-book pass keeps no chapter materialized"
+    );
+
+    let session = revision.chapter_engine_session();
+    let chapters = session.known_chapters();
+    let start_page = |idref: &str| {
+        chapters
+            .get(idref)
+            .unwrap_or_else(|| panic!("{idref} has a range"))
+            .start_page
+    };
+    let middle_page = start_page("chapter-1");
+    let last_page = start_page("chapter-2");
+
+    let page_state = |page_index: usize| {
+        let page = session.page(page_index).expect("page resolves");
+        format!(
+            "{:?}|{:?}|{:?}",
+            page.metadata(),
+            page.text_positions(),
+            page.targets()
+        )
+    };
+    // Single-page spreads, so a spread index is its page index.
+    let frame_state = |spread_index: usize| {
+        format!(
+            "{:?}",
+            session
+                .frame(spread_index, 1.0)
+                .expect("frame paints")
+                .expect("the spread is published")
+                .commands
+        )
+    };
+
+    let first_page = page_state(0);
+    let first_frame = frame_state(0);
+    assert_eq!(table.materialized_chapter_indexes(), vec![0]);
+
+    let middle_state = page_state(middle_page);
+    let middle_frame = frame_state(middle_page);
+    page_state(last_page);
+    assert_eq!(
+        table.materialized_chapter_indexes(),
+        vec![1, 2],
+        "the middle chapter alone fills the budget, so chapter 0 is dropped"
+    );
+
+    assert_eq!(
+        page_state(0),
+        first_page,
+        "the rebuilt artifact is the same"
+    );
+    assert_eq!(
+        frame_state(0),
+        first_frame,
+        "the rebuilt geometry is the same"
+    );
+    assert_eq!(
+        table.materialized_chapter_indexes(),
+        vec![2, 0],
+        "reading chapter 0 again rebuilt it and dropped the middle chapter"
+    );
+
+    assert_eq!(
+        page_state(middle_page),
+        middle_state,
+        "the middle chapter's artifact survives its own eviction round trip"
+    );
+    assert_eq!(frame_state(middle_page), middle_frame);
+}
+
+#[test]
+fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
+    // The build pass records every page's text and run offsets, so a
+    // query reads that slice; a movement builds only the pages it steps
+    // onto. Neither may re-bridge and re-paginate the whole book, which
+    // is what walking the page table page by page would do.
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &chapter_eviction_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("eviction fixture opens");
+    let mut layout = create_layout_config(LayoutConfigInput {
+        width: 200.0,
+        height: 96.0,
+        margin: MarginInput::All(8.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+    });
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle {
+        revision_id: summary.revision_id.clone(),
+        revision_version: document
+            .revisions
+            .get(&summary.revision_id)
+            .expect("revision is retained")
+            .revision_version,
+    };
+
+    let response = document
+        .search_at(
+            &handle,
+            crate::runtime::RuntimeSearchRequest {
+                query: "paragraph 2.".to_owned(),
+                case_sensitive: false,
+                whole_word: false,
+                limit: Some(50),
+            },
+        )
+        .expect("search resolves");
+    assert_eq!(
+        response.value.result_count, 3,
+        "every chapter of the fixture carries the phrase once"
+    );
+    let pages: Vec<usize> = response
+        .value
+        .results
+        .iter()
+        .map(|result| result.page_index)
+        .collect();
+    assert!(
+        pages.iter().any(|page| *page > 0),
+        "the hits span the book, got {pages:?}"
+    );
+    let table = &document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained")
+        .fragment_layout;
+    assert!(
+        table.materialized_chapter_indexes().is_empty(),
+        "search reads the recorded page text, so it rebuilds no chapter"
+    );
+
+    let caret = |page_index| crate::interaction::TextCaretAddress {
+        page_index,
+        block_index: 0,
+        line_index: 0,
+        run_index: 0,
+        char_index: 0,
+        affinity: crate::interaction::TextCaretAffinity::Downstream,
+    };
+    let moved = document
+        .resolve_text_selection_movement_at(
+            &handle,
+            RuntimeTextSelectionMovementRequest {
+                anchor: caret(0),
+                focus: caret(0),
+                movement: TextSelectionMovement::CharacterRight,
+                preferred_inline_position: None,
+                preferred_block_position: None,
+            },
+        )
+        .expect("movement request is valid");
+    let RuntimeTextSelectionMovementResolution::Resolved { range, .. } = moved.value.resolution
+    else {
+        panic!("a character step on page 0 resolves");
+    };
+    assert_eq!(range.selected_text.chars().count(), 1);
+    let table = &document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained")
+        .fragment_layout;
+    assert_eq!(
+        table.materialized_chapter_indexes(),
+        vec![0],
+        "a step inside page 0 builds page 0's chapter and no other"
     );
 }

@@ -20,6 +20,10 @@ name = "anchor-roundtrip-probe"
 path = "examples/anchor_roundtrip_probe.rs"
 
 [[example]]
+name = "memory-stage-probe"
+path = "examples/memory_stage_probe.rs"
+
+[[example]]
 name = "layout-engine-bench"
 path = "examples/layout_engine_bench.rs"
 

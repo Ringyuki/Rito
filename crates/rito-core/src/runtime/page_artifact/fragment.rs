@@ -185,24 +185,6 @@ struct FragmentSemanticRecord {
 }
 
 impl FragmentPageArtifact {
-    /// A textless page for backend-storage tests that only need shape.
-    #[cfg(test)]
-    pub(in crate::runtime) fn empty_for_tests(page_index: usize, width: f64, height: f64) -> Self {
-        Self {
-            page_index,
-            width,
-            height,
-            text: String::new(),
-            text_length: 0,
-            text_hash: hash_page_text(""),
-            runs: Vec::new(),
-            images: Vec::new(),
-            links: Vec::new(),
-            semantics: Vec::new(),
-            hard_breaks: Vec::new(),
-        }
-    }
-
     /// Page-text offsets of interline separators standing for hard breaks.
     pub(in crate::runtime) fn hard_break_offsets(&self) -> &[usize] {
         &self.hard_breaks

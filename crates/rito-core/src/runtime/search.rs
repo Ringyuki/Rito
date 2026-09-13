@@ -28,12 +28,12 @@ pub(super) fn search_revision(
         return runtime_search_response(revision_id, request, Vec::new());
     }
 
-    // The page artifacts carry the page text and run table the search
-    // walks.
+    // The revision recorded every page's text and run table when it
+    // paginated, so a query walks that slice and rebuilds no chapter.
     let session = revision.chapter_engine_session();
     let index = session.search_page_index();
     let matches = search_prebuilt_runtime_pages(
-        &index,
+        index,
         &request.query,
         request.case_sensitive,
         request.whole_word,

@@ -160,7 +160,7 @@ fn build_reader_artifact_from_revision(
                 document,
                 revision,
                 *page_index,
-                page,
+                page.as_ref(),
                 page_origin(config, slot),
             )
         })

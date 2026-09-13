@@ -42,7 +42,7 @@ use box_paint::block_box_paint;
 use margins::fold_through_collapsing_margins;
 use styles::{anonymous_block_style, fallback_inline_formatting_style};
 #[cfg(test)]
-pub(crate) use test_support::{tests_block_style, tests_chapter_tree};
+pub(crate) use test_support::tests_block_style;
 
 /// One chapter's formatting tree plus the mapping back to source nodes.
 #[derive(Debug)]

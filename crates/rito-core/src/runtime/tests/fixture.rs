@@ -441,6 +441,19 @@ pub fn retained_adjacent_fixture_epub() -> Vec<u8> {
     })
 }
 
+/// Three chapters where the middle one alone paginates past the page
+/// table's materialization budget, so reading one of its pages evicts
+/// whatever was materialized before it.
+pub fn chapter_eviction_fixture_epub() -> Vec<u8> {
+    many_chapter_fixture_epub_with(3, |index| {
+        let paragraph_count = if index == 1 { 300 } else { 4 };
+        let paragraphs = (0..paragraph_count)
+            .map(|paragraph| format!("<p>Chapter {index} paragraph {paragraph}.</p>"))
+            .collect::<String>();
+        format!(r#"<html xmlns="http://www.w3.org/1999/xhtml"><body>{paragraphs}</body></html>"#)
+    })
+}
+
 fn many_chapter_fixture_epub_with(
     chapter_count: usize,
     chapter_xhtml: impl Fn(usize) -> String,

@@ -3,7 +3,7 @@
 //! Runtime consumers depend on this façade; no page-table representation
 //! escapes this module.
 
-use std::{collections::BTreeMap, ops::Range};
+use std::{collections::BTreeMap, ops::Range, rc::Rc};
 
 mod fragment;
 
@@ -37,7 +37,7 @@ impl<'a> ChapterEngineSession<'a> {
         self.backend.metadata()
     }
 
-    pub(super) fn page(&self, page_index: usize) -> Option<&'a dyn PageArtifact> {
+    pub(super) fn page(&self, page_index: usize) -> Option<Rc<dyn PageArtifact>> {
         self.backend.page(page_index)
     }
 
@@ -86,8 +86,9 @@ impl<'a> ChapterEngineSession<'a> {
         self.backend.resolve_exact_source_range(query)
     }
 
-    /// Search index built from the page artifacts.
-    pub(super) fn search_page_index(&self) -> Vec<crate::runtime::search::SearchPageText> {
+    /// The page text and run offsets the revision recorded when it
+    /// paginated, one entry per page.
+    pub(super) fn search_page_index(&self) -> &'a [crate::runtime::search::SearchPageText] {
         self.backend.search_page_index()
     }
 

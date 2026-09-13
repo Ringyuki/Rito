@@ -98,7 +98,7 @@ pub use types::*;
 #[derive(Debug)]
 pub struct RuntimeDocument {
     document: LoadedEpubDocument,
-    prepared: Option<crate::epub::PreparedLoadedDocument>,
+    prepared: Option<std::rc::Rc<crate::epub::PreparedLoadedDocument>>,
     prepared_base: Option<crate::epub::PreparedLoadedDocumentBase>,
     publication_footnotes: OnceCell<PublicationFootnoteIndex>,
     publication_footnote_progress: Option<PublicationFootnoteProgress>,
@@ -109,7 +109,7 @@ pub struct RuntimeDocument {
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
-    fragment_engine: OnceCell<Option<fragment_frame::RuntimeFragmentEngine>>,
+    fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
     /// Host-measured normal line metrics recorded before the fragment
     /// engine exists; applied on engine initialization. The engine
     /// initializes lazily from resolved @font-face sources, so metric

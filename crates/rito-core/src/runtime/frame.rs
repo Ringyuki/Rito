@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
+    rc::Rc,
     sync::Arc,
 };
 
@@ -54,7 +55,7 @@ pub(super) struct RuntimeRevision {
     /// Typed style tables per resolved chapter idref; the fragment
     /// pipeline and style diagnostics read these instead of any JSON
     /// style representation.
-    pub(super) chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
+    pub(super) chapter_style_tables: BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
     pub(super) required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
     pub(super) interactions: RuntimeRevisionInteractions,
     pub(super) frame_cache: BTreeMap<usize, RuntimeCachedFrame>,
@@ -136,7 +137,7 @@ impl RuntimeRevision {
     pub(super) fn new(
         coordinate_space: RuntimeRevisionCoordinateSpace,
         layout_config: LayoutConfig,
-        chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
+        chapter_style_tables: BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
         fragment_layout: FragmentBuiltLayout,

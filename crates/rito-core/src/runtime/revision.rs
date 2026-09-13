@@ -190,8 +190,8 @@ impl RuntimeDocument {
                 })
                 .collect::<Vec<_>>();
             let base = self.prepared_base().clone();
-            self.prepared = Some(crate::epub::prepare_loaded_document_with_base(
-                &base, chapters,
+            self.prepared = Some(std::rc::Rc::new(
+                crate::epub::prepare_loaded_document_with_base(&base, chapters),
             ));
         }
     }
@@ -240,16 +240,16 @@ fn runtime_revision_interactions_with_footnotes(
 
 fn chapter_style_table_map(
     tables: Vec<crate::epub::ChapterStyleTable>,
-) -> std::collections::BTreeMap<String, super::frame::RuntimeChapterStyleTables> {
+) -> std::collections::BTreeMap<String, std::rc::Rc<super::frame::RuntimeChapterStyleTables>> {
     tables
         .into_iter()
         .map(|chapter| {
             (
                 chapter.idref,
-                super::frame::RuntimeChapterStyleTables {
+                std::rc::Rc::new(super::frame::RuntimeChapterStyleTables {
                     layout: chapter.layout,
                     inline: chapter.inline,
-                },
+                }),
             )
         })
         .collect()
