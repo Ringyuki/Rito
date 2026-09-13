@@ -7,7 +7,7 @@
 use crate::{
     layout::LayoutConfig,
     runtime::{
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeCreatedChapterLocalRevision,
+        RuntimeChapterLocalRevisionRequest, RuntimeCreatedChapterLocalRevision,
         RuntimeSourceLocator,
     },
 };
@@ -248,7 +248,7 @@ impl ReaderSession {
             self.exact_layout_quantum_count += 1;
         }
         self.document
-            .create_bounded_chapter_local_revision(RuntimeBoundedChapterLocalRevisionRequest {
+            .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
                 layout_config: layout,
                 target_chapter_index: chapter_index,
                 target_locator: canonical_locator,

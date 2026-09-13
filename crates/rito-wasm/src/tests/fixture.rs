@@ -12,12 +12,7 @@ use crate::WasmRuntimeDocument;
 
 pub fn revision_id(document: &mut WasmRuntimeDocument) -> String {
     let json = document
-        .create_bounded_revision_json(
-            &serde_json::json!({
-                "layoutConfig": layout(),
-            })
-            .to_string(),
-        )
+        .create_revision_json(&serde_json::to_string(&layout()).expect("layout config serializes"))
         .expect("revision is created");
     let value: Value = serde_json::from_str(&json).expect("revision JSON parses");
     value["revisionId"]

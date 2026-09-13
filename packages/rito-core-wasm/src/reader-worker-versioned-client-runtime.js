@@ -53,14 +53,14 @@ import {
 
 export function createVersionedReaderClientMethods(send, disposeInvalid) {
   return {
-    createBoundedRevision: (request) =>
+    createRevision: (layoutConfig) =>
       versionedResult(
         send,
-        'createBoundedRevision',
-        { kind: 'createBoundedRevision', request },
+        'createRevision',
+        { kind: 'createRevision', layoutConfig },
         { revisionVersion: 0 },
         (result, revision) =>
-          requireMatchingRevisionSummary(result, revision, 'createBoundedRevision response'),
+          requireMatchingRevisionSummary(result, revision, 'createRevision response'),
         true,
         disposeInvalid,
       ),

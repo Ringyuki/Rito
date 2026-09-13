@@ -86,9 +86,9 @@ test.describe('production pinned fallback worker path', () => {
     expect(opens.length).toBeGreaterThanOrEqual(2);
     expect(new Set(opens.map((operation) => operation.workerId)).size).toBeGreaterThanOrEqual(2);
     expect(opens.every((operation) => operation.ok === true)).toBe(true);
-    expect(
-      operations.filter((operation) => operation.kind === 'createBoundedRevision'),
-    ).not.toHaveLength(0);
+    expect(operations.filter((operation) => operation.kind === 'createRevision')).not.toHaveLength(
+      0,
+    );
     expect(
       operations.filter((operation) => operation.kind === 'resolveExactSourceRangeAtRevision'),
     ).not.toHaveLength(0);

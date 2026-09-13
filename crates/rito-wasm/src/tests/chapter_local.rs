@@ -149,7 +149,7 @@ fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
 fn create_local(document: &mut WasmRuntimeDocument) -> Value {
     parse(
         document
-            .create_bounded_chapter_local_revision_json(
+            .create_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": layout(),
                     "targetChapterIndex": 0,

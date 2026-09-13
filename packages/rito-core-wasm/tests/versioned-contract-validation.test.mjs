@@ -10,7 +10,7 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('direct bounded revisions reject forged summaries', () => {
+test('direct revisions reject forged summaries', () => {
   const forgeries = [
     { ...summary(0), spreadCount: 2 },
     { ...summary(0), pageCount: -1 },
@@ -20,9 +20,9 @@ test('direct bounded revisions reject forged summaries', () => {
   ];
   for (const forged of forgeries) {
     const document = new RitoCoreWasmDocument({
-      createBoundedRevisionJson: () => JSON.stringify(forged),
+      createRevisionJson: () => JSON.stringify(forged),
     });
-    assert.throws(() => document.createBoundedRevision({ layoutConfig: {} }));
+    assert.throws(() => document.createRevision({}));
   }
 });
 
@@ -194,13 +194,13 @@ test('direct exact aggregate reads reject forged identities and request echoes',
   }
 });
 
-test('worker client rejects forged bounded and summary results behind a matching envelope', async () => {
+test('worker client rejects forged revision and summary results behind a matching envelope', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
 
-  let pending = client.createBoundedRevision({ layoutConfig: {} });
+  let pending = client.createRevision({});
   worker.respondLast({
-    kind: 'createBoundedRevision',
+    kind: 'createRevision',
     revision: handle(0),
     result: summary(1),
   });
@@ -211,9 +211,9 @@ test('worker client rejects forged bounded and summary results behind a matching
     /mismatched revision|non-sequential revisionVersion/,
   );
 
-  pending = client.createBoundedRevision({ layoutConfig: {} });
+  pending = client.createRevision({});
   worker.respondLast({
-    kind: 'createBoundedRevision',
+    kind: 'createRevision',
     revision: handle(0),
     result: { ...summary(0), spreadCount: 2 },
   });

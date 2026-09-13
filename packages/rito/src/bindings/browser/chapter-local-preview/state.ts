@@ -108,7 +108,7 @@ export function sameBrowserReaderLocator(
   );
 }
 
-/** Normalize legacy `chapter#anchor` locators only for the bounded local path. */
+/** Normalize `chapter#anchor` locators only for the chapter-local path. */
 export function canonicalizeBrowserReaderChapterLocalLocator(
   locator: ComparableReaderLocator,
 ): ReaderLocator {

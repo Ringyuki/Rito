@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use rito_core::runtime::{
-    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionHandle,
+    RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionRequest,
     RuntimeFrameCommandBufferMetadata, RuntimeResource, RuntimeResourceKind, RuntimeSourceLocator,
 };
 use serde::{Deserialize, Serialize};
@@ -123,8 +123,8 @@ pub(super) struct WasmChapterLocalRevisionRelease {
 
 pub(super) fn parse_create_request(
     json: &str,
-) -> Result<RuntimeBoundedChapterLocalRevisionRequest, WasmRuntimeError> {
-    parse_json(json, "bounded chapter-local revision request")
+) -> Result<RuntimeChapterLocalRevisionRequest, WasmRuntimeError> {
+    parse_json(json, "chapter-local revision request")
 }
 
 pub(super) fn parse_owner(

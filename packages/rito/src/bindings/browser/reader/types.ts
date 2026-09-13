@@ -21,8 +21,8 @@ import type {
 } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type {
-  BrowserReaderBoundedSessionOwner,
-  BrowserReaderBoundedSessionSlots,
+  BrowserReaderRevisionSessionOwner,
+  BrowserReaderRevisionSessionSlots,
 } from '../reader-session-host';
 import type { BrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/types';
 import type { BrowserReaderDecodedImage } from '../decoded-image-cache';
@@ -31,7 +31,7 @@ import type {
   BrowserReaderImageResourceError,
 } from '../image-resource-error';
 
-export type { BrowserReaderBoundedSessionOwner, BrowserReaderBoundedSessionSlots };
+export type { BrowserReaderRevisionSessionOwner, BrowserReaderRevisionSessionSlots };
 
 export type { CoreJsonObject, CoreLayoutConfig, CorePublicationInfo };
 
@@ -139,7 +139,7 @@ export interface BrowserReaderState {
   revisionBundle: CoreRevisionBundle;
   revisionHandle: BrowserReaderRevisionHandle | undefined;
   commitGeneration: number;
-  readonly boundedSessions: BrowserReaderBoundedSessionSlots;
+  readonly revisionSessions: BrowserReaderRevisionSessionSlots;
   readonly chapterLocalPreview: BrowserReaderChapterLocalPreviewState;
   disposeTask: Promise<void> | undefined;
   readonly interaction: BrowserReaderInteractionState;

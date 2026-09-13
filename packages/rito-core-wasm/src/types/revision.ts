@@ -1,4 +1,3 @@
-import type { RitoCoreWasmLayoutConfig } from './common';
 import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 
@@ -24,10 +23,6 @@ export interface RitoCoreWasmRevisionHandle {
 export interface RitoCoreWasmVersioned<T> {
   readonly revision: RitoCoreWasmRevisionHandle;
   readonly value: T;
-}
-
-export interface RitoCoreWasmBoundedRevisionRequest {
-  readonly layoutConfig: RitoCoreWasmLayoutConfig;
 }
 
 export interface RitoCoreWasmRevisionReleaseResult {

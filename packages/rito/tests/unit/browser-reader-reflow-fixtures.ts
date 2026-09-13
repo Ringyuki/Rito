@@ -179,7 +179,7 @@ export function createWorker(
   const worker: BrowserReaderWorkerClient = {
     sessionId,
     open,
-    createBoundedRevision: vi.fn<BrowserReaderWorkerClient['createBoundedRevision']>(),
+    createRevision: vi.fn<BrowserReaderWorkerClient['createRevision']>(),
     getRevisionSummaryAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
     getRevisionBundleAtRevision: vi.fn<BrowserReaderWorkerClient['getRevisionBundleAtRevision']>(),
@@ -227,8 +227,7 @@ export function createWorker(
       Promise.resolve(),
     ),
     setRenderRatio: vi.fn<BrowserReaderWorkerClient['setRenderRatio']>(() => Promise.resolve()),
-    createBoundedChapterLocalRevision:
-      vi.fn<BrowserReaderWorkerClient['createBoundedChapterLocalRevision']>(),
+    createChapterLocalRevision: vi.fn<BrowserReaderWorkerClient['createChapterLocalRevision']>(),
     releaseChapterLocalRevision: vi.fn<BrowserReaderWorkerClient['releaseChapterLocalRevision']>(),
     dispose,
     whenDisposed,

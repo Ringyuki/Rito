@@ -1,9 +1,10 @@
+use rito_core::layout::LayoutConfig;
 use rito_core::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan,
-    RuntimeLocatorRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
-    RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextPointRequest,
-    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
-    RuntimeTextRangeToPointRequest, RuntimeTextSelectionMovementRequest,
+    RuntimeExactSourceRangeRequest, RuntimeFrameResourceWarmPlan, RuntimeLocatorRequest,
+    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeSearchRequest,
+    RuntimeSourceLocator, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
+    RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeTextRangeToPointRequest,
+    RuntimeTextSelectionMovementRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -62,11 +63,9 @@ pub struct WasmMissingResource {
     pub message: String,
 }
 
-pub fn parse_bounded_revision_request(
-    json: &str,
-) -> Result<RuntimeBoundedRevisionRequest, WasmRuntimeError> {
+pub fn parse_layout_config(json: &str) -> Result<LayoutConfig, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!("invalid bounded revision request JSON: {error}"))
+        WasmRuntimeError::bad_request(format!("invalid layout config JSON: {error}"))
     })
 }
 

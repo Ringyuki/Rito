@@ -1,5 +1,5 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
-import { runBoundedMutation } from './core-wasm-versioned-mutation-runtime.js';
+import { runRevisionMutation } from './core-wasm-versioned-mutation-runtime.js';
 import {
   encodeJson,
   parseObject,
@@ -44,8 +44,8 @@ import {
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
-    createBoundedRevision(request) {
-      return boundedRequest(this, 'createBoundedRevision', request, 'createBoundedRevisionJson');
+    createRevision(layoutConfig) {
+      return revisionRequest(this, 'createRevision', layoutConfig, 'createRevisionJson');
     },
     getFrameCommandBufferMetadataAtRevision(handle, spreadIndex) {
       return versionedJson(this, 'getFrameCommandBufferMetadataAtRevision', handle, (revision) =>
@@ -353,10 +353,10 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   );
 }
 
-function boundedRequest(document, operation, request, rawMethod) {
+function revisionRequest(document, operation, request, rawMethod) {
   return callRitoCoreWasm(operation, () => {
     const input = requireObjectInput(request, operation);
-    return runBoundedMutation(document, rawMethod, operation, input);
+    return runRevisionMutation(document, rawMethod, operation, input);
   });
 }
 

@@ -8,8 +8,8 @@ export type RitoCoreWasmTextCaretAffinity = 'upstream' | 'downstream';
  * The wire value deliberately does not embed revision identity. Callers that
  * cache it must retain the owning reader `sessionId` and complete
  * `{ revisionId, revisionVersion }` handle alongside it. Detached addresses
- * must not be combined across sessions or handles. A bounded stable-prefix
- * advance may rebind an address only through an explicit higher-layer policy.
+ * must not be combined across sessions or handles. A stable-prefix advance
+ * may rebind an address only through an explicit higher-layer policy.
  */
 export interface RitoCoreWasmTextCaretAddress {
   readonly pageIndex: number;

@@ -1,7 +1,7 @@
 import type { ReaderLocator, TocEntry } from '../../../reader';
 import type {
   BrowserReaderWorkerClient,
-  CoreBoundedChapterLocalRevisionRequest,
+  CoreChapterLocalRevisionRequest,
   CoreChapterLocalOwner,
   CoreChapterLocalRevisionRelease,
   CoreCreatedChapterLocalRevision,
@@ -14,7 +14,7 @@ import type { BrowserReaderFrame } from '../reader/types';
 // Keep browser preview ownership on the canonical core-wasm protocol. These
 // aliases deliberately do not recreate a second wire contract in `rito`.
 export type BrowserReaderChapterLocalOwner = CoreChapterLocalOwner;
-export type BrowserReaderChapterLocalCreateRequest = CoreBoundedChapterLocalRevisionRequest;
+export type BrowserReaderChapterLocalCreateRequest = CoreChapterLocalRevisionRequest;
 export type BrowserReaderChapterLocalCreated = CoreCreatedChapterLocalRevision;
 export type BrowserReaderChapterLocalFrameBuffer = Pick<
   CoreReaderChapterLocalFrame,
@@ -32,7 +32,7 @@ export type BrowserReaderChapterLocalRelease = CoreChapterLocalRevisionRelease;
 export interface BrowserReaderChapterLocalTransport {
   readonly workerSessionId: string;
   disposeSession(): void;
-  createBoundedChapterLocalRevision(
+  createChapterLocalRevision(
     request: BrowserReaderChapterLocalCreateRequest,
   ): Promise<BrowserReaderChapterLocalMutationResult>;
   releaseChapterLocalRevision(
@@ -77,5 +77,5 @@ export interface BrowserReaderChapterLocalPreviewState {
 export type BrowserReaderChapterLocalCapableWorker = BrowserReaderWorkerClient &
   Pick<
     BrowserReaderChapterLocalTransport,
-    'createBoundedChapterLocalRevision' | 'releaseChapterLocalRevision'
+    'createChapterLocalRevision' | 'releaseChapterLocalRevision'
   >;

@@ -171,9 +171,8 @@ impl ReaderSession {
             ReaderRevisionBacking::ChapterLocal => {
                 self.peek_chapter_local_adjacent(source, request)?
             }
-            // Publication turns already resolve their neighbor with
-            // bounded cooperative pagination and no foreground effect,
-            // so peeking reuses that path verbatim.
+            // Publication turns already resolve their neighbor with no
+            // foreground effect, so peeking reuses that path verbatim.
             ReaderRevisionBacking::Publication => {
                 self.request_publication_adjacent(source, request.request_id, request.direction)?
             }

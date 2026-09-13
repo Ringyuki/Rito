@@ -88,7 +88,7 @@ pub fn long_chapter_window_fixture_epub() -> Vec<u8> {
     let paragraphs = (0..520)
         .map(|index| {
             format!(
-                r#"<p id="window-point-{index}">Window paragraph {index:03} carries stable source text across bounded reader revision rollovers and adjacent navigation.</p>"#
+                r#"<p id="window-point-{index}">Window paragraph {index:03} carries stable source text across reader revision rollovers and adjacent navigation.</p>"#
             )
         })
         .collect::<String>();
@@ -534,9 +534,8 @@ pub(super) fn add_file(
     writer.write_all(bytes).expect("file writes");
 }
 
-/// Two-chapter book whose first chapter is tiny enough to complete
-/// inside a single bounded quantum, in three tail shapes that exercise
-/// the previous-chapter-tail (progression 1.0) projection.
+/// Two-chapter book whose first chapter is tiny, in three tail shapes
+/// that exercise the previous-chapter-tail (progression 1.0) projection.
 pub fn short_previous_chapter_fixture_epub(tail: &str) -> Vec<u8> {
     let chapter_zero = match tail {
         "text" => r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p>short chapter</p></body></html>"#.to_owned(),

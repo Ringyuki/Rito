@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-mod bounded;
 mod error;
+mod whole_book;
 
 use crate::{
     epub::{EpubError, EpubResult},
@@ -21,12 +21,11 @@ use super::{
 };
 
 impl RuntimeDocument {
-    /// Builds a whole-book revision: style projection runs, the fragment
-    /// engine paginates every chapter, and the revision is inserted with
-    /// its complete page table; every query serves from it. A chapter
-    /// that fails to build or paginate fails the call with its reason and
-    /// leaves no revision behind.
-    pub fn create_revision(
+    /// Style projection runs, the fragment engine paginates every
+    /// chapter, and the revision is inserted with its complete page
+    /// table. A chapter that fails to build or paginate fails the call
+    /// with its reason and leaves no revision behind.
+    pub(super) fn build_revision(
         &mut self,
         layout_config: &LayoutConfig,
     ) -> EpubResult<RuntimeRevisionSummary> {

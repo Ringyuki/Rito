@@ -5,7 +5,7 @@ import {
   requireCreatedChapterLocalRevision,
 } from './chapter-local-creation-validation-runtime.js';
 import {
-  requireBoundedChapterLocalRequest,
+  requireChapterLocalRequest,
   requireChapterLocalIndex,
   requireChapterLocalOwner,
 } from './chapter-local-owner-validation-runtime.js';
@@ -18,18 +18,16 @@ import {
 
 export function installRitoCoreWasmChapterLocalDocumentMethods(Document) {
   const methods = {
-    createBoundedChapterLocalRevision(request) {
-      const operation = 'createBoundedChapterLocalRevision';
+    createChapterLocalRevision(request) {
+      const operation = 'createChapterLocalRevision';
       return callRitoCoreWasm(operation, () => {
-        const normalized = requireBoundedChapterLocalRequest(request, operation);
+        const normalized = requireChapterLocalRequest(request, operation);
         return committedChapterLocalMutation(
           this,
           operation,
           undefined,
           () =>
-            this._inner.createBoundedChapterLocalRevisionJson(
-              encodeJson(normalized.request, operation),
-            ),
+            this._inner.createChapterLocalRevisionJson(encodeJson(normalized.request, operation)),
           (value, bindOwner) =>
             requireCreatedChapterLocalRevision(value, normalized.request, operation, bindOwner),
         );

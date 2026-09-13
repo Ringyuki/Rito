@@ -1,8 +1,8 @@
-mod bounded;
 mod chapter_local;
 pub(crate) mod fixture;
 mod pinned_font;
 mod versioned;
+mod whole_book;
 
 use fixture::{layout, minimal_png, pinned_fixture_wasm_document, resource_payload, revision_id};
 use rito_core::runtime::{

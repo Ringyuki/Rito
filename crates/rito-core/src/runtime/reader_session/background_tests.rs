@@ -835,8 +835,8 @@ fn peek_and_fast_commit_work_from_publication_artifacts() {
         .expect("publication candidate adopts");
 
     // The adopted spread's neighbor may not be laid out by the
-    // background pump yet — peek must reach it with its own bounded
-    // cooperative pagination, exactly like a forward turn would.
+    // background pump yet — peek must reach it on its own, exactly like
+    // a forward turn would.
     let peeked = session
         .peek_adjacent(plate_adjacent(
             221,

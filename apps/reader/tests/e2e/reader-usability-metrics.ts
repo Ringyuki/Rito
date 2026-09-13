@@ -6,7 +6,7 @@ export interface ReaderUsabilityMetrics {
   readonly navigationToFirstCanvasMs: number;
   readonly startupMaxLongTaskMs: number;
   readonly openRoundTripMs: number;
-  readonly boundedToPresentationMs: number;
+  readonly revisionToPresentationMs: number;
   readonly frameWarmRoundTripMs: number;
   readonly canvasReadyMs: number;
   readonly cachedTurnFirstFrameMs: number;
@@ -24,7 +24,7 @@ export const READER_USABILITY_METRIC_KEYS = [
   'navigationToFirstCanvasMs',
   'startupMaxLongTaskMs',
   'openRoundTripMs',
-  'boundedToPresentationMs',
+  'revisionToPresentationMs',
   'frameWarmRoundTripMs',
   'canvasReadyMs',
   'cachedTurnFirstFrameMs',
@@ -47,7 +47,7 @@ export function readerUsabilityMetrics(report: ReaderLoadProfileReport): ReaderU
     navigationToFirstCanvasMs: report.startup.navigationToFirstCanvasMs,
     startupMaxLongTaskMs: report.startup.longTasks.maxMs,
     openRoundTripMs: report.milestones.openRoundTripMs,
-    boundedToPresentationMs: report.milestones.boundedToPresentationMs,
+    revisionToPresentationMs: report.milestones.revisionToPresentationMs,
     frameWarmRoundTripMs: report.milestones.frameWarmRoundTripMs,
     canvasReadyMs: report.milestones.canvasReadyMs,
     cachedTurnFirstFrameMs: report.stages.cachedTurn.durationMs,
@@ -76,7 +76,7 @@ export function mapReaderUsabilityMetrics(
     navigationToFirstCanvasMs: value('navigationToFirstCanvasMs'),
     startupMaxLongTaskMs: value('startupMaxLongTaskMs'),
     openRoundTripMs: value('openRoundTripMs'),
-    boundedToPresentationMs: value('boundedToPresentationMs'),
+    revisionToPresentationMs: value('revisionToPresentationMs'),
     frameWarmRoundTripMs: value('frameWarmRoundTripMs'),
     canvasReadyMs: value('canvasReadyMs'),
     cachedTurnFirstFrameMs: value('cachedTurnFirstFrameMs'),

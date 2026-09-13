@@ -3,7 +3,7 @@ import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
 import { unregisterReaderFonts } from '../resources';
 import { resetFrameCache } from './frame-cache';
 import { resetBrowserReaderInteractionCache } from './interaction';
-import { cancelBrowserReaderReflow } from './pipeline/bounded-reflow';
+import { cancelBrowserReaderReflow } from './pipeline/revision-reflow';
 import { createEmptyBrowserReaderRevisionState } from './pipeline/initial-state';
 import type { BrowserReaderState } from './types';
 import { drainBrowserReaderHostTasks } from './host-tasks';

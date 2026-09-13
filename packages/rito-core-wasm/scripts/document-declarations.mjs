@@ -3,7 +3,7 @@ export function documentClassDeclarations(options = {}) {
   return [
     `${declaration} RitoCoreWasmDocument {`,
     ...revisionCreationDeclarations(),
-    ...boundedRevisionDeclarations(),
+    ...wholeBookRevisionDeclarations(),
     ...chapterLocalRevisionDeclarations(),
     ...versionedRevisionDeclarations(),
     ...legacyReadDeclarations(),
@@ -14,8 +14,8 @@ export function documentClassDeclarations(options = {}) {
 
 function chapterLocalRevisionDeclarations() {
   return [
-    '  createBoundedChapterLocalRevision(',
-    '    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,',
+    '  createChapterLocalRevision(',
+    '    request: RitoCoreWasmChapterLocalRevisionRequest,',
     '  ): RitoCoreWasmCreatedChapterLocalRevision;',
     '  readChapterLocalFrame(',
     '    owner: RitoCoreWasmChapterLocalOwner,',
@@ -42,10 +42,10 @@ function revisionCreationDeclarations() {
   ];
 }
 
-function boundedRevisionDeclarations() {
+function wholeBookRevisionDeclarations() {
   return [
-    '  createBoundedRevision(',
-    '    request: RitoCoreWasmBoundedRevisionRequest,',
+    '  createRevision(',
+    '    layoutConfig: RitoCoreWasmLayoutConfig,',
     '  ): RitoCoreWasmRevisionSummary;',
   ];
 }

@@ -3,8 +3,7 @@ use super::pinned_font_policy_fixtures::{face, illustration_font, policy, sha256
 use crate::{
     epub::open_runtime_document,
     runtime::{
-        RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
-        RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
+        RuntimeDocument, RuntimePinnedFontGenericRole, RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
     },
 };
 
@@ -99,18 +98,16 @@ fn pinned_policy_changes_layout_identity_and_is_stable_across_runtime_paths() {
         .expect("illustration revision completes");
     assert_ne!(title_revision.layout_key, illustration_revision.layout_key);
 
-    let mut bounded = RuntimeDocument::open_with_pinned_font_policy(&bytes, title_policy)
-        .expect("bounded document opens");
-    let summary = bounded
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout(),
-        })
-        .expect("bounded revision is created");
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(&bytes, title_policy)
+        .expect("document opens");
+    let summary = document
+        .create_revision(&layout())
+        .expect("revision is created");
     assert_eq!(summary.layout_key, title_revision.layout_key);
     assert_eq!(
-        bounded
+        document
             .get_revision_summary(&summary.revision_id)
-            .expect("bounded summary")
+            .expect("revision summary")
             .layout_key,
         title_revision.layout_key
     );

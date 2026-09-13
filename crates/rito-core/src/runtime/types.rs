@@ -117,7 +117,7 @@ pub enum RuntimeChapterLocalCoordinateKind {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeBoundedChapterLocalRevisionRequest {
+pub struct RuntimeChapterLocalRevisionRequest {
     pub layout_config: LayoutConfig,
     pub target_chapter_index: usize,
     pub target_locator: RuntimeSourceLocator,
@@ -182,19 +182,6 @@ pub enum RuntimeChapterLocalSourceLocatorResolution {
 pub struct RuntimeChapterLocalRevisionError {
     pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-}
-
-/// Request for a whole-book revision through the host protocol.
-///
-/// The first request scans every spine XHTML source once to establish
-/// exact publication-wide footnote targets and definitions. The scan is
-/// cached and does not mark lazy chapters or binary resources as loaded.
-/// Malformed XHTML contributes no footnote data, matching eager
-/// preparation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeBoundedRevisionRequest {
-    pub layout_config: LayoutConfig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

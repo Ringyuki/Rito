@@ -48,7 +48,7 @@ test('requires strict no-rebuild execution for identified A/B pairs', () => {
 test('arms the chapter-local response hold only when chapter-local preview is enabled', () => {
   expect(readerWorkerTocResponseHoldPlan(true)).toEqual({ chapterLocalMutation: true });
   expect(readerWorkerTocResponseHoldPlan(false)).toEqual({ chapterLocalMutation: false });
-  expect(readerWorkerResponseHoldCategory('createBoundedChapterLocalRevision')).toBe(
+  expect(readerWorkerResponseHoldCategory('createChapterLocalRevision')).toBe(
     'chapterLocalMutation',
   );
   expect(readerWorkerResponseHoldCategory('releaseChapterLocalRevision')).toBeUndefined();
@@ -132,7 +132,7 @@ test('does not count a pending far commit synchronously flushed before near acce
       {
         workerId: 1,
         category: 'chapterLocalMutation',
-        kind: 'createBoundedChapterLocalRevision',
+        kind: 'createChapterLocalRevision',
         requestId: 41,
         heldAt: 5,
         releasedAt: 6,
@@ -165,7 +165,7 @@ test('counts a far TOC commit observed at or after supersede acceptance as stale
       {
         workerId: 1,
         category: 'chapterLocalMutation',
-        kind: 'createBoundedChapterLocalRevision',
+        kind: 'createChapterLocalRevision',
         requestId: 41,
         heldAt: 5,
         releasedAt: 6,
@@ -209,14 +209,14 @@ function chapterLocalOperation(): ReaderWorkerOperationObservation {
   return {
     workerId: 1,
     requestId: 7,
-    kind: 'createBoundedChapterLocalRevision',
+    kind: 'createChapterLocalRevision',
     startedAt: 10,
     requestBytes: 128,
     spreadIndex: null,
     completedAt: 15,
     durationMs: 5,
     ok: true,
-    responseKind: 'createBoundedChapterLocalRevision',
+    responseKind: 'createChapterLocalRevision',
     releasedDocument: null,
     wasmMemoryByteLength: null,
     requestedRevision: null,

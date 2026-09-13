@@ -1,7 +1,7 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
-import { scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
+import { scheduleBrowserReaderReflow } from './pipeline/revision-reflow';
 import { getImageObjectUrl, preloadReaderFonts } from '../resources';
 import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { browserReaderSpreads } from '../reader-layout';
@@ -17,7 +17,7 @@ import {
   copyReaderSourcePoint,
   readCapturedSource,
 } from './interaction-capture';
-import { ensureBrowserReaderBoundedLocator } from '../bounded-session-runtime';
+import { ensureBrowserReaderRevisionLocator } from '../revision-session-runtime';
 import { disposeBrowserReaderState } from './reader-dispose';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { browserReaderChapterLocalPreviewTocEntry } from '../chapter-local-preview/state';
@@ -188,7 +188,7 @@ function navigationMethods(
       );
     },
     navigateToLocator(locator, signal) {
-      return ensureBrowserReaderBoundedLocator(state, locator, signal);
+      return ensureBrowserReaderRevisionLocator(state, locator, signal);
     },
   };
 }

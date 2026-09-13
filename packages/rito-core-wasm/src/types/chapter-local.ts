@@ -18,7 +18,7 @@ export interface RitoCoreWasmChapterLocalOwner {
   readonly coordinate: RitoCoreWasmChapterLocalCoordinate;
 }
 
-export interface RitoCoreWasmBoundedChapterLocalRevisionRequest {
+export interface RitoCoreWasmChapterLocalRevisionRequest {
   readonly layoutConfig: RitoCoreWasmLayoutConfig;
   readonly targetChapterIndex: number;
   readonly targetLocator: RitoCoreWasmSourceLocator;
@@ -116,8 +116,8 @@ export interface RitoCoreWasmChapterLocalRevisionRelease {
 }
 
 export interface RitoCoreWasmReaderChapterLocalClient {
-  createBoundedChapterLocalRevision(
-    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,
+  createChapterLocalRevision(
+    request: RitoCoreWasmChapterLocalRevisionRequest,
   ): Promise<RitoCoreWasmReaderChapterLocalMutationResult<RitoCoreWasmCreatedChapterLocalRevision>>;
   releaseChapterLocalRevision(
     owner: RitoCoreWasmChapterLocalOwner,
@@ -125,8 +125,8 @@ export interface RitoCoreWasmReaderChapterLocalClient {
 }
 
 export interface RitoCoreWasmChapterLocalDocumentRuntime {
-  createBoundedChapterLocalRevision(
-    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,
+  createChapterLocalRevision(
+    request: RitoCoreWasmChapterLocalRevisionRequest,
   ): RitoCoreWasmCreatedChapterLocalRevision;
   readChapterLocalFrame(
     owner: RitoCoreWasmChapterLocalOwner,
@@ -146,8 +146,8 @@ export interface RitoCoreWasmChapterLocalDocumentRuntime {
 
 export type RitoCoreWasmReaderChapterLocalWorkerRequestPayload =
   | {
-      readonly kind: 'createBoundedChapterLocalRevision';
-      readonly request: RitoCoreWasmBoundedChapterLocalRevisionRequest;
+      readonly kind: 'createChapterLocalRevision';
+      readonly request: RitoCoreWasmChapterLocalRevisionRequest;
     }
   | {
       readonly kind: 'releaseChapterLocalRevision';
@@ -156,7 +156,7 @@ export type RitoCoreWasmReaderChapterLocalWorkerRequestPayload =
 
 export type RitoCoreWasmReaderChapterLocalWorkerResponse =
   | {
-      readonly kind: 'createBoundedChapterLocalRevision';
+      readonly kind: 'createChapterLocalRevision';
       readonly result: RitoCoreWasmReaderChapterLocalMutationResult<RitoCoreWasmCreatedChapterLocalRevision>;
     }
   | {

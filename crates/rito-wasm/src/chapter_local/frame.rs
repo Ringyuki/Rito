@@ -184,7 +184,7 @@ mod tests {
     fn resource_payload_reports_the_lookup_href_not_the_canonical_manifest_href() {
         let mut document = fixture::pinned_fixture_wasm_document();
         let created = document
-            .create_bounded_chapter_local_revision_json(
+            .create_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": fixture::layout(),
                     "targetChapterIndex": 0,
@@ -218,7 +218,7 @@ mod tests {
     fn resource_payload_encoder_failure_rolls_back_only_its_new_exact_lease() {
         let mut document = fixture::pinned_fixture_wasm_document();
         let created = document
-            .create_bounded_chapter_local_revision_json(
+            .create_chapter_local_revision_json(
                 &json!({
                     "layoutConfig": fixture::layout(),
                     "targetChapterIndex": 0,

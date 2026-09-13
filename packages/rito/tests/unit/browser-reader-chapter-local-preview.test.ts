@@ -88,7 +88,7 @@ describe('Browser reader chapter-local preview contract', () => {
     const capable = {
       sessionId: 'worker-session',
       dispose: vi.fn(),
-      createBoundedChapterLocalRevision: vi.fn(),
+      createChapterLocalRevision: vi.fn(),
       releaseChapterLocalRevision: vi.fn(),
     } as unknown as BrowserReaderWorkerClient;
 
@@ -146,9 +146,9 @@ describe('Browser reader chapter-local preview contract', () => {
     };
     const failure = new Error('release transport failed');
     const release = vi.fn(() => Promise.reject(failure));
-    state.boundedSessions.current = {
+    state.revisionSessions.current = {
       worker: fixture.worker,
-    } as NonNullable<BrowserReaderState['boundedSessions']['current']>;
+    } as NonNullable<BrowserReaderState['revisionSessions']['current']>;
     state.revisionHandle = {
       workerSessionId: fixture.worker.sessionId,
       revisionId: 'main',
@@ -176,7 +176,7 @@ describe('Browser reader chapter-local preview contract', () => {
     await Promise.allSettled([...state.pendingHostTasks]);
 
     expect(state.pendingHostTasks.size).toBe(0);
-    expect(state.boundedSessions.current).toBeUndefined();
+    expect(state.revisionSessions.current).toBeUndefined();
     expect(state.revisionHandle).toBeUndefined();
     expect(fixture.dispose).toHaveBeenCalledOnce();
     expect(state.logger.error).toHaveBeenCalledOnce();
@@ -220,7 +220,7 @@ describe('Browser reader chapter-local preview contract', () => {
     const fixture = createWorker(() => undefined, 'chapter-local-task-failure');
     const failure = new Error('create preview failed');
     Object.assign(fixture.worker, {
-      createBoundedChapterLocalRevision: vi.fn(() => Promise.reject(failure)),
+      createChapterLocalRevision: vi.fn(() => Promise.reject(failure)),
       releaseChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
     });
     const state = createState(fixture.worker, {
@@ -268,7 +268,7 @@ describe('Browser reader chapter-local preview contract', () => {
     const failure = new Error('release proof failed');
     const release = vi.fn(() => Promise.reject(failure));
     Object.assign(fixture.worker, {
-      createBoundedChapterLocalRevision: vi.fn(() =>
+      createChapterLocalRevision: vi.fn(() =>
         Promise.resolve(resolvedPreviewMutation(owner, locator)),
       ),
       releaseChapterLocalRevision: release,
@@ -286,15 +286,15 @@ describe('Browser reader chapter-local preview contract', () => {
     });
     const current = {
       worker: fixture.worker,
-    } as NonNullable<BrowserReaderState['boundedSessions']['current']>;
-    state.boundedSessions.current = current;
+    } as NonNullable<BrowserReaderState['revisionSessions']['current']>;
+    state.revisionSessions.current = current;
 
     expect(beginBrowserReaderChapterLocalPreview(state, locator)).toBeDefined();
     await Promise.allSettled([...state.pendingHostTasks]);
 
     expect(release).toHaveBeenCalledOnce();
     expect(current.terminalError).toBe(failure);
-    expect(state.boundedSessions.current).toBeUndefined();
+    expect(state.revisionSessions.current).toBeUndefined();
     expect(state.chapterLocalPreview.active).toBeUndefined();
     expect(fixture.dispose).toHaveBeenCalledOnce();
     expect(state.pendingHostTasks.size).toBe(0);
@@ -324,7 +324,7 @@ function installPaintablePresentation(
   const transport: BrowserReaderChapterLocalTransport = {
     workerSessionId: state.worker.sessionId,
     disposeSession,
-    createBoundedChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
+    createChapterLocalRevision: vi.fn(() => Promise.reject(new Error('unused'))),
     releaseChapterLocalRevision: release,
   };
   const request: BrowserReaderChapterLocalPreviewRequest = {

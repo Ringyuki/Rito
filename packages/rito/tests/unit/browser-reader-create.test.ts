@@ -3,7 +3,7 @@ import { createReader } from '../../src/bindings/browser/reader/reader';
 import type { BrowserReaderWorkerOpenOptions } from '../../src/bindings/browser/core-contracts';
 
 type InitialReflow =
-  (typeof import('../../src/bindings/browser/reader/pipeline/bounded-reflow'))['startBrowserReaderInitialReflow'];
+  (typeof import('../../src/bindings/browser/reader/pipeline/revision-reflow'))['startBrowserReaderInitialReflow'];
 
 const mocks = vi.hoisted(() => ({
   buildBrowserReaderMethods: vi.fn(() => ({})),
@@ -58,7 +58,7 @@ vi.mock('../../src/bindings/browser/reader/wasm-module', () => ({
   loadRuntimeCoreModule: mocks.loadRuntimeCoreModule,
 }));
 
-vi.mock('../../src/bindings/browser/reader/pipeline/bounded-reflow', () => ({
+vi.mock('../../src/bindings/browser/reader/pipeline/revision-reflow', () => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
   startBrowserReaderInitialReflow: mocks.startBrowserReaderInitialReflow,
 }));

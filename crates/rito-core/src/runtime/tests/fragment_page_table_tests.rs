@@ -13,11 +13,10 @@ use crate::interaction::TextSelectionMovement;
 use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
 use crate::runtime::page_artifact::PageArtifactSemanticRole;
 use crate::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
-    RuntimeRevisionHandle, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
-    RuntimeTextRangeFromPointsResolution, RuntimeTextRangeToPointRequest,
-    RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
-    RuntimeTextSelectionMovementResolution,
+    RuntimeDocument, RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeTextPointRequest,
+    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
+    RuntimeTextRangeToPointRequest, RuntimeTextSelectionGranularity,
+    RuntimeTextSelectionMovementRequest, RuntimeTextSelectionMovementResolution,
 };
 use crate::runtime::{RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution};
 
@@ -278,7 +277,7 @@ fn fragment_pages_resolve_pointer_selection() {
 }
 
 #[test]
-fn a_bounded_revision_reports_the_extent_of_its_fragment_page_table() {
+fn a_revision_reports_the_extent_of_its_fragment_page_table() {
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
         &multi_chapter_fixture_epub(),
         policy(vec![face(
@@ -292,10 +291,8 @@ fn a_bounded_revision_reports_the_extent_of_its_fragment_page_table() {
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
     let summary = document
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout,
-        })
-        .expect("bounded revision is created");
+        .create_revision(&layout)
+        .expect("revision is created");
     let revision = document
         .revisions
         .get(&summary.revision_id)
@@ -330,33 +327,25 @@ fn a_book_that_cannot_paginate_fails_creation_and_leaves_no_revision() {
     let error = document
         .create_revision(&layout)
         .expect_err("a layout without a content box is refused");
-    assert!(
-        error.message().starts_with("fragment pagination failed: "),
-        "{}",
-        error.message()
+    assert_eq!(
+        error.kind,
+        crate::runtime::RuntimeRevisionErrorKind::EngineFailure
     );
     assert!(
-        error.message().contains("page content box is empty"),
+        error.message.starts_with("fragment pagination failed: "),
         "{}",
-        error.message()
+        error.message
+    );
+    assert!(
+        error.message.contains("page content box is empty"),
+        "{}",
+        error.message
     );
     assert_eq!(
         document.revision_count(),
         0,
         "a refused revision is never inserted"
     );
-
-    let bounded = document
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout,
-        })
-        .expect_err("the request protocol reports the same failure");
-    assert_eq!(
-        bounded.kind,
-        crate::runtime::RuntimeRevisionErrorKind::EngineFailure
-    );
-    assert!(bounded.message.contains("page content box is empty"));
-    assert_eq!(document.revision_count(), 0);
 }
 
 #[test]
@@ -663,53 +652,6 @@ fn a_forced_sans_serif_override_changes_the_painted_frame() {
     assert_ne!(
         serif, sans,
         "switching the forced family must reach the painted frame"
-    );
-}
-
-#[test]
-fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
-    use super::pinned_font_policy_fixtures::illustration_font;
-    let frame_for = |family: &str| {
-        let mut document = RuntimeDocument::open_with_pinned_font_policy(
-            &multi_chapter_fixture_epub(),
-            policy(vec![
-                face(
-                    serif_text_font(),
-                    RuntimePinnedFontGenericRole::Serif,
-                    Some("en"),
-                ),
-                face(
-                    illustration_font(),
-                    RuntimePinnedFontGenericRole::SansSerif,
-                    Some("en"),
-                ),
-            ]),
-        )
-        .expect("document opens");
-        let mut layout = layout();
-        layout.font_family_override = Some(family.to_owned());
-        layout.font_family_force = Some(true);
-        let summary = document
-            .create_bounded_revision(RuntimeBoundedRevisionRequest {
-                layout_config: layout,
-            })
-            .expect("bounded revision is created");
-        let revision = document
-            .revisions
-            .get(&summary.revision_id)
-            .expect("revision is retained");
-        let frame = revision
-            .chapter_engine_session()
-            .frame(0, 1.0)
-            .expect("frame paints")
-            .expect("spread 0 has a frame");
-        format!("{:?}", frame.commands)
-    };
-    let serif = frame_for("serif");
-    let sans = frame_for("sans-serif");
-    assert_ne!(
-        serif, sans,
-        "a bounded session forced family switch must reach the painted frame"
     );
 }
 

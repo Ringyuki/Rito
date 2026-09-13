@@ -130,12 +130,7 @@ fn versioned_revision_presentation_is_slim_and_exact() {
     let config = layout();
     let created = parse(
         document
-            .create_bounded_revision_json(
-                &json!({
-                    "layoutConfig": config,
-                })
-                .to_string(),
-            )
+            .create_revision_json(&json!(config).to_string())
             .expect("font-aware revision is created"),
     );
     let revision_id = created["revisionId"]

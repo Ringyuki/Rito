@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  BrowserReaderBoundedSnapshot,
+  BrowserReaderRevisionSnapshot,
   CoreTextRangeResponse,
   CoreTextRangeFromPointsResponse,
   CoreTextCaretAddress,
@@ -9,7 +9,7 @@ import type {
 } from '../../src/bindings/browser/core-contracts';
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
 import type {
-  BrowserReaderBoundedSessionOwner,
+  BrowserReaderRevisionSessionOwner,
   BrowserReaderState,
 } from '../../src/bindings/browser/reader/types';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
@@ -104,13 +104,13 @@ describe('Browser reader exact text selection races', () => {
     const [anchor, , anchorAddress, focusAddress] = await bindCaretPair(fixture, textSelection);
     const before = fixture.state.revisionHandle;
     if (!before) throw new Error('Expected an initial exact revision handle');
-    const owner = installBoundedOwner(fixture.state);
+    const owner = installRevisionOwner(fixture.state);
     const gate = suspendBrowserReaderExactReads(fixture.state);
     if (!gate) throw new Error('Expected an exact read gate');
     expect(restoreBrowserReaderExactReads(fixture.state, gate)).toBe(true);
     expect(fixture.state.revisionHandle?.commitGeneration).not.toBe(before.commitGeneration);
     expect(fixture.state.revisionHandle?.publicationGeneration).toBe(before.publicationGeneration);
-    expect(fixture.state.boundedSessions.current).toBe(owner);
+    expect(fixture.state.revisionSessions.current).toBe(owner);
     fixture.resolveTextRangeToPointAtRevision.mockResolvedValue(
       versionedRangeToPoint(anchorAddress, focusAddress),
     );
@@ -189,15 +189,15 @@ function readyFixture(sessionId = 'text-selection-race-session') {
   return { ...fixture, state };
 }
 
-function installBoundedOwner(state: BrowserReaderState): BrowserReaderBoundedSessionOwner {
-  const owner: BrowserReaderBoundedSessionOwner = {
+function installRevisionOwner(state: BrowserReaderState): BrowserReaderRevisionSessionOwner {
+  const owner: BrowserReaderRevisionSessionOwner = {
     controller: {
       start: vi.fn(),
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
       currentSnapshot: vi.fn(
-        () => ({ revision: state.revisionBundle.revision }) as BrowserReaderBoundedSnapshot,
+        () => ({ revision: state.revisionBundle.revision }) as BrowserReaderRevisionSnapshot,
       ),
       cancel: vi.fn(),
       dispose: vi.fn(),
@@ -208,7 +208,7 @@ function installBoundedOwner(state: BrowserReaderState): BrowserReaderBoundedSes
     readsSuspended: false,
   };
   recordBrowserReaderAcceptedRevision(owner, state.revisionBundle.revision);
-  state.boundedSessions.current = owner;
+  state.revisionSessions.current = owner;
   return owner;
 }
 

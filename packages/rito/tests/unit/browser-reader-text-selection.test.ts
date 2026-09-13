@@ -213,7 +213,7 @@ describe('Browser reader exact text selection', () => {
     );
   });
 
-  it('atomically rebinds a stable-prefix caret in a later bounded revision', async () => {
+  it('atomically rebinds a stable-prefix caret in a later revision version', async () => {
     const fixture = readyFixture();
     const anchorAddress = caretAddress(0, 1, 'downstream');
     const focusAddress = caretAddress(0, 4, 'upstream');

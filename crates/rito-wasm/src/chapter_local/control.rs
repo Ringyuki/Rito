@@ -6,14 +6,14 @@ use super::wire::{
 use crate::{wire::serialize_json, WasmRuntimeDocument, WasmRuntimeError};
 
 impl WasmRuntimeDocument {
-    pub fn create_bounded_chapter_local_revision_json(
+    pub fn create_chapter_local_revision_json(
         &mut self,
         request_json: &str,
     ) -> Result<String, WasmRuntimeError> {
         let request = parse_create_request(request_json)?;
         let created = self
             .document
-            .create_bounded_chapter_local_revision(request)
+            .create_chapter_local_revision(request)
             .map_err(WasmRuntimeError::from_chapter_local)?;
         self.finish_created_local_transport(created, serialize_json)
     }
@@ -110,7 +110,7 @@ mod tests {
         let request = super::parse_create_request(&request_json()).expect("request");
         let created = document
             .document
-            .create_bounded_chapter_local_revision(request)
+            .create_chapter_local_revision(request)
             .expect("local revision");
         let owner = super::owner_from_created(&created);
         let injected = WasmRuntimeError::internal_error("injected create encoder failure");

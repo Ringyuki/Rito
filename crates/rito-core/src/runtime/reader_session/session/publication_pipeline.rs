@@ -4,10 +4,7 @@
 //! call) and the publication candidate the host may adopt in place of the
 //! visible artifact is minted from it.
 
-use crate::{
-    layout::LayoutConfig,
-    runtime::{RuntimeBoundedRevisionRequest, RuntimeSourceLocatorResolution},
-};
+use crate::{layout::LayoutConfig, runtime::RuntimeSourceLocatorResolution};
 
 use super::{
     errors::{
@@ -177,9 +174,7 @@ impl ReaderSession {
     fn start_publication_once(&mut self, layout: LayoutConfig) -> Result<u64, ReaderError> {
         let summary = self
             .document
-            .create_bounded_revision(RuntimeBoundedRevisionRequest {
-                layout_config: layout.clone(),
-            })
+            .create_revision(&layout)
             .map_err(engine_error)?;
         let reader_revision_id = match take_identity(&mut self.next_revision_id, "revisionId") {
             Ok(value) => value,

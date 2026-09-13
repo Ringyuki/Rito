@@ -186,7 +186,7 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
 }
 
 #[test]
-fn adjacent_projection_is_core_identical_across_three_bounded_turns() {
+fn adjacent_projection_is_core_identical_across_three_turns() {
     let publication = source_locator_fixture_epub();
     let first_request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-1");
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(

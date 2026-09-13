@@ -5,16 +5,16 @@ import {
 import { requireReaderChapterLocalFrame } from './chapter-local-frame-validation-runtime.js';
 import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import {
-  requireBoundedChapterLocalRequest,
+  requireChapterLocalRequest,
   requireChapterLocalOwner,
   requireRecord,
 } from './chapter-local-owner-validation-runtime.js';
 
 export function createChapterLocalReaderClientMethods(send, disposeInvalid) {
   return {
-    createBoundedChapterLocalRevision: (request) => {
-      const operation = 'createBoundedChapterLocalRevision';
-      const normalized = requireBoundedChapterLocalRequest(request, operation);
+    createChapterLocalRevision: (request) => {
+      const operation = 'createChapterLocalRevision';
+      const normalized = requireChapterLocalRequest(request, operation);
       return mutationResult(
         send,
         disposeInvalid,

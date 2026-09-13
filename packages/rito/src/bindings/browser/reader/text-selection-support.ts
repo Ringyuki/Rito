@@ -141,7 +141,7 @@ export function sameBoundRevision(left: BoundCaret, right: BoundCaret): boolean 
 }
 
 /**
- * A bounded continuation advance may reuse an exact stable-prefix address. A
+ * An advance to a later revision version may reuse an exact stable-prefix address. A
  * no-op mutation may also close and restore the exact-read lease without
  * changing the published layout that owns the address.
  */

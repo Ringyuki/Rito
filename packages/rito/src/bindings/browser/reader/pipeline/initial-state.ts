@@ -6,7 +6,7 @@ export function createEmptyBrowserReaderRevisionState(): Pick<
   | 'revisionBundle'
   | 'revisionHandle'
   | 'commitGeneration'
-  | 'boundedSessions'
+  | 'revisionSessions'
   | 'disposeTask'
   | 'interaction'
   | 'pendingHostTasks'
@@ -15,7 +15,7 @@ export function createEmptyBrowserReaderRevisionState(): Pick<
     revisionBundle: emptyRevisionBundle(),
     revisionHandle: undefined,
     commitGeneration: 0,
-    boundedSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
     interaction: createBrowserReaderInteractionState(),
     pendingHostTasks: new Set(),

@@ -15,7 +15,7 @@ The private `0.0.0` version is a workspace sentinel.
   writes a WASM-free surface for fast decoder and type tests
 - `src/` — the document runtime wrapper over the raw `*Json` and byte
   methods (`initRitoCoreWasmEngine()`), the versioned and chapter-local
-  runtimes, the bounded reader session, the `RITODL1` frame command buffer
+  runtimes, the revision reader session, the `RITODL1` frame command buffer
   decoder, and the typed shapes of every wire message
 - `tests/` — Node tests of the decoders, the Worker client helpers and the
   runtime wrappers; `tests/fixtures/reader-session-primitive-list.hex` holds

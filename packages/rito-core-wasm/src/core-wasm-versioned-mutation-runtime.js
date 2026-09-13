@@ -6,7 +6,7 @@ import {
 } from './core-wasm-versioned-validation-runtime.js';
 
 /** Creates a revision; the result is its summary at version zero. */
-export function runBoundedMutation(document, rawMethod, operation, input) {
+export function runRevisionMutation(document, rawMethod, operation, input) {
   return runCommittedMutation(document, rawMethod, operation, input, undefined, (result) =>
     requireRevisionSummary(result, operation, undefined, 0),
   );

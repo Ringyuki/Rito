@@ -162,10 +162,10 @@ impl RitoWasmDocument {
             .map_err(|error| error_to_js_value(WasmRuntimeError::from_engine(error)))
     }
 
-    #[wasm_bindgen(js_name = createBoundedRevisionJson)]
-    pub fn create_bounded_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
+    #[wasm_bindgen(js_name = createRevisionJson)]
+    pub fn create_revision_json(&mut self, layout_config_json: &str) -> Result<String, JsValue> {
         self.inner
-            .create_bounded_revision_json(request_json)
+            .create_revision_json(layout_config_json)
             .map_err(error_to_js_value)
     }
 

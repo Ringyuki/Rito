@@ -49,8 +49,8 @@ import {
 
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
-    case 'createBoundedRevision':
-      return summaryResponse(request.kind, document.createBoundedRevision(request.request));
+    case 'createRevision':
+      return summaryResponse(request.kind, document.createRevision(request.layoutConfig));
     case 'getRevisionSummaryAtRevision':
       return valueResponse(request.kind, document.getRevisionSummaryAtRevision(request.revision));
     case 'getRevisionBundleAtRevision':

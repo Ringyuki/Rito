@@ -98,7 +98,7 @@ export interface ReaderProfileStage {
 export interface ReaderProfileMilestones {
   readonly inputToOpenMs: number;
   readonly openRoundTripMs: number;
-  readonly boundedToPresentationMs: number;
+  readonly revisionToPresentationMs: number;
   readonly frameWarmRoundTripMs: number;
   readonly aggregateReadMs: number;
   readonly hostCommitGapMs: number;
@@ -210,7 +210,7 @@ export function buildReaderLoadProfileReport(
 
 function profileMilestones(input: ReaderLoadProfileReportInput): ReaderProfileMilestones {
   const open = firstOperation(input.initial.operations, 'open');
-  const bounded = firstOperation(input.initial.operations, 'createBoundedRevision');
+  const created = firstOperation(input.initial.operations, 'createRevision');
   const presentation = firstOperation(
     input.initial.operations,
     'getRevisionPresentationAtRevision',
@@ -228,9 +228,9 @@ function profileMilestones(input: ReaderLoadProfileReportInput): ReaderProfileMi
   return {
     inputToOpenMs: rounded((open?.startedAt ?? input.startedAt) - input.startedAt),
     openRoundTripMs: rounded(open?.durationMs ?? 0),
-    boundedToPresentationMs: rounded(
-      (presentation?.completedAt ?? bounded?.startedAt ?? input.startedAt) -
-        (bounded?.startedAt ?? input.startedAt),
+    revisionToPresentationMs: rounded(
+      (presentation?.completedAt ?? created?.startedAt ?? input.startedAt) -
+        (created?.startedAt ?? input.startedAt),
     ),
     frameWarmRoundTripMs: rounded(frame?.durationMs ?? 0),
     aggregateReadMs: rounded(operationInterval(aggregates)),

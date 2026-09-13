@@ -30,7 +30,7 @@ export function sameChapterLocalOwner(left, right) {
   );
 }
 
-export function requireBoundedChapterLocalRequest(value, operation) {
+export function requireChapterLocalRequest(value, operation) {
   const request = requireObjectInput(value, operation);
   requireRecord(request.layoutConfig, `${operation} layoutConfig`);
   const targetChapterIndex = requireCount(

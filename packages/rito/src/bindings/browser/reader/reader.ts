@@ -10,12 +10,12 @@ import {
 import {
   scheduleBrowserReaderReflow,
   startBrowserReaderInitialReflow,
-} from './pipeline/bounded-reflow';
+} from './pipeline/revision-reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { disposeBrowserReaderState } from './reader-dispose';
-import { refreshBrowserReaderHostLineMetrics } from '../bounded-session-runtime';
+import { refreshBrowserReaderHostLineMetrics } from '../revision-session-runtime';
 import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
@@ -128,7 +128,7 @@ function scheduleHostLineMetricsConvergence(
 /**
  * Measures, injects and reflows round after round until a round changes
  * nothing. From the second round on, the measured cache is first pushed
- * into the bounded worker itself and the book re-laid with it: the final
+ * into the revision worker itself and the book re-laid with it: the final
  * page table must be built AFTER the last injection, because a table laid
  * out with an unmet metric sets the affected lines with the shaped
  * fallback and paints their baselines one row off.

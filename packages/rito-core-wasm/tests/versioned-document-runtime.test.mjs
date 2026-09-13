@@ -18,38 +18,32 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('bounded control publishes the created revision at version zero', () => {
+test('revision control publishes the created revision at version zero', () => {
   const requests = [];
   const raw = {
-    createBoundedRevisionJson: (json) => {
+    createRevisionJson: (json) => {
       requests.push(JSON.parse(json));
       return JSON.stringify(summary(0));
     },
   };
   const document = new RitoCoreWasmDocument(raw);
-  const created = document.createBoundedRevision({ layoutConfig: {} });
+  const created = document.createRevision({});
 
   assert.deepEqual(created, summary(0));
-  assert.deepEqual(requests, [{ layoutConfig: {} }]);
+  assert.deepEqual(requests, [{}]);
 });
 
-test('bounded control rejects skipped versions and malformed summaries', () => {
+test('revision control rejects skipped versions and malformed summaries', () => {
   const document = new RitoCoreWasmDocument({
-    createBoundedRevisionJson: () => JSON.stringify(summary(1)),
+    createRevisionJson: () => JSON.stringify(summary(1)),
   });
 
-  assert.throws(
-    () => document.createBoundedRevision({ layoutConfig: {} }),
-    /non-sequential revisionVersion/,
-  );
+  assert.throws(() => document.createRevision({}), /non-sequential revisionVersion/);
 
   const inconsistent = new RitoCoreWasmDocument({
-    createBoundedRevisionJson: () => JSON.stringify({ ...summary(0), spreadCount: 9 }),
+    createRevisionJson: () => JSON.stringify({ ...summary(0), spreadCount: 9 }),
   });
-  assert.throws(
-    () => inconsistent.createBoundedRevision({ layoutConfig: {} }),
-    /more spreads than pages/,
-  );
+  assert.throws(() => inconsistent.createRevision({}), /more spreads than pages/);
 
   const base = summary(0);
   const malformed = [
@@ -60,9 +54,9 @@ test('bounded control rejects skipped versions and malformed summaries', () => {
   ];
   for (const revision of malformed) {
     const invalid = new RitoCoreWasmDocument({
-      createBoundedRevisionJson: () => JSON.stringify(revision),
+      createRevisionJson: () => JSON.stringify(revision),
     });
-    assert.throws(() => invalid.createBoundedRevision({ layoutConfig: {} }));
+    assert.throws(() => invalid.createRevision({}));
   }
 });
 

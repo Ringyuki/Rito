@@ -4,13 +4,13 @@ use super::{error_to_js_value, parse_resource_kind, RitoWasmDocument};
 
 #[wasm_bindgen(js_class = RitoWasmDocument)]
 impl RitoWasmDocument {
-    #[wasm_bindgen(js_name = createBoundedChapterLocalRevisionJson)]
-    pub fn create_bounded_chapter_local_revision_json(
+    #[wasm_bindgen(js_name = createChapterLocalRevisionJson)]
+    pub fn create_chapter_local_revision_json(
         &mut self,
         request_json: &str,
     ) -> Result<String, JsValue> {
         self.inner
-            .create_bounded_chapter_local_revision_json(request_json)
+            .create_chapter_local_revision_json(request_json)
             .map_err(error_to_js_value)
     }
 

@@ -191,7 +191,7 @@ async function requireValidCurrentSpread(page: Page): Promise<number> {
 function reflowSnapshotReady(operations: readonly ReaderWorkerOperationObservation[]): boolean {
   return [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
   ].every((kind) => operations.some((entry) => entry.kind === kind && entry.ok === true));

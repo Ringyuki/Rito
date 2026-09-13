@@ -8,7 +8,7 @@ import {
 } from './reader-session-background-runtime.js';
 import { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
-import { defaultYieldControl } from './reader-bounded-session-support-runtime.js';
+import { defaultYieldControl } from './reader-revision-session-support-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const MAX_PENDING_MESSAGES = 8;

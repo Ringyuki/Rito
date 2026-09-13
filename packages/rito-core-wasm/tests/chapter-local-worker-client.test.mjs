@@ -8,12 +8,12 @@ test('chapter-local create uses one Worker request and canonicalizes fragments',
   const worker = new ManualWorker();
   const client = await openClient(worker);
   const beforeCreate = worker.messages.length;
-  const creating = client.createBoundedChapterLocalRevision(
+  const creating = client.createChapterLocalRevision(
     createRequest({ href: 'chapter.xhtml#%E7%AB%A0' }),
   );
   const createMessage = worker.messages.at(-1);
   assert.equal(worker.messages.length, beforeCreate + 1);
-  assert.equal(createMessage.kind, 'createBoundedChapterLocalRevision');
+  assert.equal(createMessage.kind, 'createChapterLocalRevision');
   assert.deepEqual(createMessage.request.targetLocator, {
     href: 'chapter.xhtml',
     anchorId: '章',
@@ -36,15 +36,13 @@ test('chapter-local create rejects explicit and encoded fragment mismatches befo
   const before = worker.messages.length;
 
   assert.throws(() =>
-    client.createBoundedChapterLocalRevision(
+    client.createChapterLocalRevision(
       createRequest({ href: 'chapter.xhtml#%E7%AB%A0', anchorId: 'other' }),
     ),
   );
   assert.equal(worker.messages.length, before);
 
-  const creating = client.createBoundedChapterLocalRevision(
-    createRequest({ href: 'chapter.xhtml#%E7' }),
-  );
+  const creating = client.createChapterLocalRevision(createRequest({ href: 'chapter.xhtml#%E7' }));
   const message = worker.messages.at(-1);
   assert.deepEqual(message.request.targetLocator, { href: 'chapter.xhtml', anchorId: '%E7' });
   const created = createdRevision(owner(0), { href: 'chapter.xhtml', anchorId: '%E7' });
@@ -59,13 +57,11 @@ test('chapter-local create rejects explicit and encoded fragment mismatches befo
 test('malformed committed create with a bound owner rolls back that exact local owner', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
-  const creating = client.createBoundedChapterLocalRevision(
-    createRequest({ href: 'chapter.xhtml' }),
-  );
+  const creating = client.createChapterLocalRevision(createRequest({ href: 'chapter.xhtml' }));
   const messageCount = worker.messages.length;
   const created = createdRevision(owner(0), { href: 'chapter.xhtml' });
   worker.respondLast({
-    kind: 'createBoundedChapterLocalRevision',
+    kind: 'createChapterLocalRevision',
     result: {
       created: {
         ...created,
@@ -87,9 +83,7 @@ test('malformed committed create with a bound owner rolls back that exact local 
 test('unbound malformed create disposes the Worker session without guessing an owner', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
-  const creating = client.createBoundedChapterLocalRevision(
-    createRequest({ href: 'chapter.xhtml' }),
-  );
+  const creating = client.createChapterLocalRevision(createRequest({ href: 'chapter.xhtml' }));
   worker.respondLast({
     kind: 'unrelated',
     result: { created: createdRevision(owner(0), { href: 'chapter.xhtml' }) },
@@ -107,9 +101,7 @@ test('unbound malformed create disposes the Worker session without guessing an o
 test('typed create failure propagates without disposing the shared Worker session', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
-  const creating = client.createBoundedChapterLocalRevision(
-    createRequest({ href: 'chapter.xhtml' }),
-  );
+  const creating = client.createChapterLocalRevision(createRequest({ href: 'chapter.xhtml' }));
   const messageCount = worker.messages.length;
 
   worker.rejectLast('create failed in the worker');
@@ -123,9 +115,7 @@ test('typed create failure propagates without disposing the shared Worker sessio
 test('channel-level create failure still disposes the Worker session', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
-  const creating = client.createBoundedChapterLocalRevision(
-    createRequest({ href: 'chapter.xhtml' }),
-  );
+  const creating = client.createChapterLocalRevision(createRequest({ href: 'chapter.xhtml' }));
 
   worker.emit('error', { message: 'reader worker crashed' });
 

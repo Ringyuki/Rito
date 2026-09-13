@@ -4,7 +4,7 @@ mod preflight;
 mod publish;
 
 use crate::runtime::{
-    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionError,
+    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionRequest,
     RuntimeCreatedChapterLocalRevision, RuntimeDocument, RuntimeRevisionErrorKind,
 };
 
@@ -17,9 +17,9 @@ impl RuntimeDocument {
     /// The fragment engine paginates the whole chapter in one pass before
     /// the revision exists: the returned summary describes the complete
     /// chapter and the target is resolved against its page table.
-    pub fn create_bounded_chapter_local_revision(
+    pub fn create_chapter_local_revision(
         &mut self,
-        request: RuntimeBoundedChapterLocalRevisionRequest,
+        request: RuntimeChapterLocalRevisionRequest,
     ) -> Result<RuntimeCreatedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
         let prepared = prepare_chapter_local_revision(self, request)?;
         let built = self

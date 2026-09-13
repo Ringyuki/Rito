@@ -54,9 +54,7 @@ export interface ReaderWorkerHeldMutationObservation {
 
 export type ReaderWorkerResponseHoldCategory = 'chapterLocalMutation';
 
-export const READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS = [
-  'createBoundedChapterLocalRevision',
-] as const;
+export const READER_WORKER_CHAPTER_LOCAL_MUTATION_KINDS = ['createChapterLocalRevision'] as const;
 
 export interface ReaderWorkerResponseHoldPlan {
   readonly chapterLocalMutation: boolean;

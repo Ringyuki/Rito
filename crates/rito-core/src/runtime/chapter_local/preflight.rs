@@ -2,8 +2,8 @@ use crate::{
     layout::LayoutConfig,
     runtime::{
         frame::into_chapter_window_layout_config, metadata::layout_key,
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalCoordinate,
-        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle, RuntimeDocument,
+        RuntimeChapterLocalCoordinate, RuntimeChapterLocalRevisionError,
+        RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionRequest, RuntimeDocument,
         RuntimeRequiredFontFace, RuntimeRevisionErrorKind, RuntimeSourceLocator,
     },
 };
@@ -28,9 +28,9 @@ pub(super) struct PreparedChapterLocalRevision {
 /// layout configuration and font catalog. Nothing is inserted here.
 pub(super) fn prepare_chapter_local_revision(
     document: &mut RuntimeDocument,
-    request: RuntimeBoundedChapterLocalRevisionRequest,
+    request: RuntimeChapterLocalRevisionRequest,
 ) -> Result<PreparedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
-    let RuntimeBoundedChapterLocalRevisionRequest {
+    let RuntimeChapterLocalRevisionRequest {
         layout_config,
         target_chapter_index,
         target_locator,

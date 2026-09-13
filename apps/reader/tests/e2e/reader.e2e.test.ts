@@ -139,8 +139,8 @@ test.describe('reader app', () => {
   });
 });
 
-test.describe('reader app bounded worker session', () => {
-  test('loads the demo through the production bounded protocol', async ({ page }) => {
+test.describe('reader app revision worker session', () => {
+  test('loads the demo through the production revision protocol', async ({ page }) => {
     await installReaderWorkerProbe(page);
     await page.goto('/');
     await page.evaluate(() => {
@@ -156,7 +156,7 @@ test.describe('reader app bounded worker session', () => {
     expect(observations.map((entry) => entry.kind)).toEqual(
       expect.arrayContaining([
         'open',
-        'createBoundedRevision',
+        'createRevision',
         'getRevisionPresentationAtRevision',
         'warmFrameWindowAtRevision',
         'getFootnotesAtRevision',

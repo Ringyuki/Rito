@@ -25,17 +25,17 @@ export function requireProfileProtocol(
 ): void {
   requireKinds(initial.stage.operations, [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
     'getFootnotesAtRevision',
     'getChapterTextIndicesAtRevision',
   ]);
-  rejectKinds(cached.stage.operations, ['open', 'createBoundedRevision']);
+  rejectKinds(cached.stage.operations, ['open', 'createRevision']);
   requireTocSupersede(supersede);
   requireKinds(reflow.operations, [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
   ]);
@@ -130,7 +130,7 @@ export function requireTocSupersedeTimeline(input: ReaderProfileTocSupersedeTran
 function requireFreshFar(fresh: FreshFarBootstrapResult): void {
   requireKinds(fresh.stage.operations, [
     'open',
-    'createBoundedRevision',
+    'createRevision',
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
   ]);
@@ -161,7 +161,7 @@ function requireFreshFar(fresh: FreshFarBootstrapResult): void {
   if (
     open?.kind !== 'open' ||
     open.ok !== true ||
-    revision?.kind !== 'createBoundedRevision' ||
+    revision?.kind !== 'createRevision' ||
     revision.ok !== true ||
     open.workerId !== revision.workerId ||
     open.completedAt === null ||

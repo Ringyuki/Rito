@@ -94,7 +94,7 @@ export function readerGateTestProfile(
           {
             workerId: 1,
             category: 'chapterLocalMutation',
-            kind: 'createBoundedChapterLocalRevision',
+            kind: 'createChapterLocalRevision',
             requestId: 1,
             heldAt: 1,
             releasedAt: 2,
@@ -160,7 +160,7 @@ export function readerGateTestMetrics(value: number): ReaderUsabilityMetrics {
     navigationToFirstCanvasMs: value,
     startupMaxLongTaskMs: value,
     openRoundTripMs: value,
-    boundedToPresentationMs: value,
+    revisionToPresentationMs: value,
     frameWarmRoundTripMs: value,
     canvasReadyMs: value,
     cachedTurnFirstFrameMs: value,
@@ -225,7 +225,7 @@ function profileMilestones(value: number): ReaderProfileMilestones {
   return {
     inputToOpenMs: 0,
     openRoundTripMs: value,
-    boundedToPresentationMs: value,
+    revisionToPresentationMs: value,
     frameWarmRoundTripMs: value,
     aggregateReadMs: 0,
     hostCommitGapMs: 0,

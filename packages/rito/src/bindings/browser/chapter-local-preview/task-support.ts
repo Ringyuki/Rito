@@ -38,10 +38,10 @@ export function failClosedBrowserReaderChapterLocalSession(
   error: unknown,
 ): void {
   const failure = error instanceof Error ? error : new Error(String(error));
-  const current = state.boundedSessions.current;
+  const current = state.revisionSessions.current;
   if (current?.worker.sessionId === request.workerSessionId) {
     current.terminalError = failure;
-    state.boundedSessions.current = undefined;
+    state.revisionSessions.current = undefined;
     state.revisionHandle = undefined;
   }
   try {

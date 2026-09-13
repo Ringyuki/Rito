@@ -1,4 +1,4 @@
-import type { RitoCoreWasmResourceKind } from './common';
+import type { RitoCoreWasmLayoutConfig, RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type {
   RitoCoreWasmChapterTextIndices,
@@ -37,7 +37,6 @@ import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resourc
 import type { RitoCoreWasmResourcePayload } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type {
-  RitoCoreWasmBoundedRevisionRequest,
   RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
@@ -50,8 +49,8 @@ import type {
 } from './revision';
 
 export interface RitoCoreWasmReaderVersionedClient {
-  createBoundedRevision(
-    request: RitoCoreWasmBoundedRevisionRequest,
+  createRevision(
+    layoutConfig: RitoCoreWasmLayoutConfig,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
@@ -154,7 +153,7 @@ export interface RitoCoreWasmReaderVersionedClient {
 }
 
 export interface RitoCoreWasmReaderVersionedDocumentRuntime {
-  createBoundedRevision(request: RitoCoreWasmBoundedRevisionRequest): RitoCoreWasmRevisionSummary;
+  createRevision(layoutConfig: RitoCoreWasmLayoutConfig): RitoCoreWasmRevisionSummary;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>;
@@ -337,9 +336,9 @@ type RevisionRequest<K extends string> = VersionedWorkerRequestId & {
   readonly revision: RitoCoreWasmRevisionHandle;
 };
 
-export type RitoCoreWasmReaderWorkerCreateBoundedRevisionRequest = VersionedWorkerRequestId & {
-  readonly kind: 'createBoundedRevision';
-  readonly request: RitoCoreWasmBoundedRevisionRequest;
+export type RitoCoreWasmReaderWorkerCreateRevisionRequest = VersionedWorkerRequestId & {
+  readonly kind: 'createRevision';
+  readonly layoutConfig: RitoCoreWasmLayoutConfig;
 };
 
 export type RitoCoreWasmReaderWorkerGetRevisionSummaryRequest =
@@ -421,7 +420,7 @@ export type RitoCoreWasmReaderWorkerReleaseRevisionAtRevisionRequest =
   RevisionRequest<'releaseRevisionAtRevision'>;
 
 export type RitoCoreWasmReaderVersionedWorkerRequest =
-  | RitoCoreWasmReaderWorkerCreateBoundedRevisionRequest
+  | RitoCoreWasmReaderWorkerCreateRevisionRequest
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
   | RitoCoreWasmReaderWorkerGetRevisionBundleRequest
   | RitoCoreWasmReaderWorkerGetRevisionPresentationRequest
@@ -461,7 +460,7 @@ export interface RitoCoreWasmReaderWorkerVersionedResponse<Kind extends string, 
 }
 
 export type RitoCoreWasmReaderVersionedWorkerResponse =
-  | RitoCoreWasmReaderWorkerVersionedResponse<'createBoundedRevision', RitoCoreWasmRevisionSummary>
+  | RitoCoreWasmReaderWorkerVersionedResponse<'createRevision', RitoCoreWasmRevisionSummary>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionSummaryAtRevision',
       RitoCoreWasmRevisionSummary

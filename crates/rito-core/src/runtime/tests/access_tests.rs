@@ -4,11 +4,11 @@ use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
 use crate::{
     interaction::{TextCaretAddress, TextCaretAffinity},
     runtime::{
-        RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeInitialFrameRequest,
-        RuntimeLocatorRequest, RuntimePageTargetKind, RuntimePrefetchRequest, RuntimeResourceKind,
-        RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeSearchRequest,
-        RuntimeSemanticRole, RuntimeSourceLocator, RuntimeTextPointRequest,
-        RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeVersioned,
+        RuntimeDocument, RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
+        RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionAccessErrorKind,
+        RuntimeRevisionHandle, RuntimeSearchRequest, RuntimeSemanticRole, RuntimeSourceLocator,
+        RuntimeTextPointRequest, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
+        RuntimeVersioned,
     },
 };
 
@@ -253,10 +253,8 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
     let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
         .expect("document opens");
     let initial = document
-        .create_bounded_revision(RuntimeBoundedRevisionRequest {
-            layout_config: layout(),
-        })
-        .expect("bounded revision starts");
+        .create_revision(&layout())
+        .expect("revision is created");
     let handle = handle_for(&initial);
 
     let presentation = document

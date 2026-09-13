@@ -4,7 +4,7 @@ const MAX_SUSPENDED_FRAME_MISSES = 12;
 const missesByOwner = new WeakMap<object, Set<number>>();
 
 export function beginBrowserReaderSuspendedFrameMisses(state: BrowserReaderState): void {
-  const owner = state.boundedSessions.current;
+  const owner = state.revisionSessions.current;
   if (owner && !missesByOwner.has(owner)) missesByOwner.set(owner, new Set());
 }
 
@@ -12,7 +12,7 @@ export function recordBrowserReaderSuspendedFrameMiss(
   state: BrowserReaderState,
   spreadIndex: number,
 ): undefined {
-  const owner = state.boundedSessions.current;
+  const owner = state.revisionSessions.current;
   if (!owner?.readsSuspended) return;
   const misses = missesByOwner.get(owner) ?? new Set<number>();
   misses.delete(spreadIndex);
@@ -28,7 +28,7 @@ export function recordBrowserReaderSuspendedFrameMiss(
 
 export function resumeBrowserReaderSuspendedFrameMisses(
   state: BrowserReaderState,
-  owner: object | undefined = state.boundedSessions.current,
+  owner: object | undefined = state.revisionSessions.current,
 ): void {
   if (!owner) return;
   const misses = missesByOwner.get(owner);

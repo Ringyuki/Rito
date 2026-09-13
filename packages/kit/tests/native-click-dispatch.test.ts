@@ -194,7 +194,7 @@ describe('native click dispatch', () => {
     expect(fixture.navigateToLocator).not.toHaveBeenCalled();
   });
 
-  it('hands a pending internal target to bounded locator navigation', async () => {
+  it('hands a pending internal target to locator navigation', async () => {
     const resolveLocator = vi.fn(() =>
       Promise.resolve({
         status: 'pending' as const,

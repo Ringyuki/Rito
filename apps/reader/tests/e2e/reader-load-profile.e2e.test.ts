@@ -19,7 +19,7 @@ const PROFILE_REFLOW_VIEWPORT = { width: 1120, height: 720 } as const;
 
 test.use({ trace: 'off', video: 'off' });
 
-test.describe('production bounded reader load profile', () => {
+test.describe('production reader load profile', () => {
   test.skip(PROFILE_EPUB === undefined, 'Set RITO_READER_PROFILE_EPUB to an absolute EPUB path');
 
   test('records first paint, cached turn, TOC latency and supersede, and reflow', async ({
@@ -55,7 +55,7 @@ test.describe('production bounded reader load profile', () => {
     const json = JSON.stringify(report, null, 2);
     writeConfiguredProfileOutput(json);
     console.log(
-      `Rito bounded reader load profile (${previewMode} chapter-local preview)\n${JSON.stringify(consoleSummary(report), null, 2)}`,
+      `Rito reader load profile (${previewMode} chapter-local preview)\n${JSON.stringify(consoleSummary(report), null, 2)}`,
     );
     await attachReport(testInfo, json, previewMode, execution.abPairId, execution.abOrder);
 
@@ -99,7 +99,7 @@ function writeConfiguredProfileOutput(json: string): void {
 
 function chapterLocalDiagnostics(stage: ReaderLoadProfileReport['stages']['farToc']) {
   const operations = stage.operations.filter(
-    (entry) => entry.kind === 'createBoundedChapterLocalRevision',
+    (entry) => entry.kind === 'createChapterLocalRevision',
   );
   return {
     count: operations.length,

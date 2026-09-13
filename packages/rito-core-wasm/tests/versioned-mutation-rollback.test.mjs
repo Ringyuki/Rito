@@ -14,8 +14,8 @@ test('direct mutation facade rolls back committed malformed revisions by exact h
   const cases = [
     {
       expected: handle(0),
-      raw: { createBoundedRevisionJson: () => JSON.stringify(forgedSummary(0)) },
-      invoke: (document) => document.createBoundedRevision({ layoutConfig: {} }),
+      raw: { createRevisionJson: () => JSON.stringify(forgedSummary(0)) },
+      invoke: (document) => document.createRevision({}),
     },
   ];
 
@@ -37,8 +37,8 @@ test('worker client rolls back only matched malformed mutation responses', async
   const cases = [
     {
       expected: handle(0),
-      start: () => client.createBoundedRevision({ layoutConfig: {} }),
-      kind: 'createBoundedRevision',
+      start: () => client.createRevision({}),
+      kind: 'createRevision',
       result: forgedSummary(0),
     },
   ];
@@ -68,7 +68,7 @@ test('worker client rolls back only matched malformed mutation responses', async
 test('worker client disposes an unbound committed create envelope', async () => {
   for (const payload of [
     {
-      kind: 'createBoundedRevision',
+      kind: 'createRevision',
       revision: { revisionId: 7, revisionVersion: 0 },
       result: summary(0),
     },
@@ -76,7 +76,7 @@ test('worker client disposes an unbound committed create envelope', async () => 
   ]) {
     const worker = new ManualWorker();
     const client = await openClient(worker);
-    const pending = client.createBoundedRevision({ layoutConfig: {} });
+    const pending = client.createRevision({});
 
     worker.respondLast(payload);
 
@@ -93,11 +93,11 @@ test('worker client disposes an unbound committed create envelope', async () => 
 test('worker client disposes its owner when exact mutation rollback is not confirmed', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
-  const pending = client.createBoundedRevision({ layoutConfig: {} });
+  const pending = client.createRevision({});
   const mutationMessageCount = worker.messages.length;
 
   worker.respondLast({
-    kind: 'createBoundedRevision',
+    kind: 'createRevision',
     revision: handle(0),
     result: forgedSummary(0),
   });

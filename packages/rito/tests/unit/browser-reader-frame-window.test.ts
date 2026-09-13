@@ -6,7 +6,7 @@ import {
 } from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import { applyBrowserReaderRevisionState } from '../../src/bindings/browser/reader/revision';
-import { prepareBrowserReaderBoundedFrameCache } from '../../src/bindings/browser/bounded-frame-cache';
+import { prepareBrowserReaderRevisionFrameCache } from '../../src/bindings/browser/revision-frame-cache';
 import { preloadFrameResourceBytes } from '../../src/bindings/browser/resources';
 import { BrowserReaderImageResourceError } from '../../src/bindings/browser/image-resource-error';
 import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/browser/chapter-local-preview/state';
@@ -180,7 +180,7 @@ describe('Browser reader frame window adapter', () => {
     const oldPending = new Promise<void>(() => undefined);
     state.pendingFrameLoads.set(2, oldPending);
     const advanced = withRevisionVersion(revisionResult('rev', 4, 4), 4);
-    const frameCache = prepareBrowserReaderBoundedFrameCache(state, fixture.worker, advanced, {
+    const frameCache = prepareBrowserReaderRevisionFrameCache(state, fixture.worker, advanced, {
       ...selectedFrame,
       commandHash: 'replacement',
     });
@@ -777,7 +777,7 @@ function frameWindowState(
       commitGeneration: 1,
     },
     commitGeneration: 1,
-    boundedSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),

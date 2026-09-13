@@ -1,0 +1,279 @@
+import type { ReaderLocator, ReaderOptions } from '../../../../reader';
+import {
+  createBrowserReaderRevisionSessionOwner,
+  reclaimBrowserReaderStalledSession,
+  startBrowserReaderRevisionCandidate,
+} from '../../revision-session-runtime';
+import { openBrowserReaderWorker } from '../../pinned-fonts';
+import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../../reader-layout';
+import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
+import { trackBrowserReaderHostTask } from '../host-tasks';
+import { captureBrowserReaderReflowAnchor } from './reflow-anchor';
+import { copyReaderLocator } from '../interaction-capture';
+import {
+  isNoOpReflow,
+  isStaleReflow,
+  reportReflowError,
+  scheduleReaderMicrotask,
+} from './reflow-state';
+import { supersedeBrowserReaderChapterLocalPreview } from '../../chapter-local-preview/coordinator';
+import { yieldBrowserHostTask } from '../../host-yield';
+
+type State = BrowserReaderState;
+type Request = BrowserReaderQueuedReflow;
+type CandidateResult = 'committed' | 'retry' | 'cancelled';
+const activeAborts = new WeakMap<State, AbortController>();
+export function scheduleBrowserReaderReflow(
+  state: State,
+  options: ReaderOptions,
+  spreadMode: 'single' | 'double',
+  onCommitted?: () => void,
+  force = false,
+): boolean {
+  if (state.disposed) return false;
+  const config = applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode));
+  if (isNoOpReflow(state, config, spreadMode, force)) return false;
+  supersedeBrowserReaderChapterLocalPreview(state);
+  const request: Request = {
+    config,
+    spreadMode,
+    onCommitted,
+    token: ++state.reflow.token,
+  };
+  state.reflow.queued = request;
+  activeAborts.get(state)?.abort();
+  scheduleReflowDrain(state);
+  return true;
+}
+
+export async function startBrowserReaderInitialReflow(
+  state: State,
+  options: ReaderOptions,
+  spreadMode: 'single' | 'double',
+  onCommitted?: () => void,
+): Promise<void> {
+  let request: Request;
+  let owner: ReturnType<typeof createBrowserReaderRevisionSessionOwner>;
+  try {
+    if (state.revisionSessions.current || state.revisionBundle.revision.revisionId.length > 0) {
+      throw new Error('Browser reader initial reflow requires an empty session');
+    }
+    request = initialRequest(state, options, spreadMode, onCommitted);
+    owner = createBrowserReaderRevisionSessionOwner(state.worker);
+  } catch (error) {
+    state.worker.dispose();
+    throw reportReflowError(state, error, 'initial reader reflow');
+  }
+  const abort = new AbortController();
+  state.reflow.active = request;
+  activeAborts.set(state, abort);
+  try {
+    await runInitialCandidate(
+      state,
+      request,
+      owner,
+      spreadMode,
+      onCommitted,
+      options.initialLocator ? copyReaderLocator(options.initialLocator) : undefined,
+      abort.signal,
+    );
+  } catch (error) {
+    throw reportReflowError(state, error, 'initial reader reflow');
+  } finally {
+    finishActiveRequest(state, request, abort);
+  }
+}
+
+async function runInitialCandidate(
+  state: State,
+  request: Request,
+  owner: ReturnType<typeof createBrowserReaderRevisionSessionOwner>,
+  spreadMode: 'single' | 'double',
+  onCommitted: (() => void) | undefined,
+  initialLocator: ReaderLocator | undefined,
+  signal: AbortSignal,
+): Promise<void> {
+  const snapshot = await startBrowserReaderRevisionCandidate(
+    state,
+    owner,
+    {
+      config: request.config,
+      spreadMode,
+      targetSpreadIndex: 0,
+      onCommitted,
+      ...(initialLocator
+        ? { preserveLocator: initialLocator, fallbackOnLocatorFailure: true }
+        : {}),
+    },
+    signal,
+  );
+  if (!snapshot) throw new Error('Initial revision candidate was cancelled');
+}
+
+export function cancelBrowserReaderReflow(state: State): void {
+  state.reflow.token += 1;
+  state.reflow.queued = undefined;
+  activeAborts.get(state)?.abort();
+  activeAborts.delete(state);
+}
+
+function initialRequest(
+  state: State,
+  options: ReaderOptions,
+  spreadMode: 'single' | 'double',
+  onCommitted: (() => void) | undefined,
+): Request {
+  const request = {
+    config: applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode)),
+    spreadMode,
+    onCommitted,
+    token: ++state.reflow.token,
+  };
+  state.config = request.config;
+  state.spreadMode = spreadMode;
+  state.reflow.lastError = undefined;
+  return request;
+}
+
+async function drainReflowQueue(state: State): Promise<void> {
+  if (state.reflow.active) return;
+  while (!state.disposed && state.reflow.queued) {
+    const request = state.reflow.queued;
+    state.reflow.queued = undefined;
+    state.reflow.active = request;
+    state.reflow.lastError = undefined;
+    const abort = new AbortController();
+    activeAborts.set(state, abort);
+    try {
+      await runQueuedRequest(state, request, abort.signal);
+    } catch (error) {
+      if (!isStaleReflow(state, request) && !abort.signal.aborted) {
+        reportReflowError(state, error, 'queued reader reflow');
+      }
+    } finally {
+      finishActiveRequest(state, request, abort);
+    }
+  }
+}
+
+async function runQueuedRequest(
+  state: State,
+  request: Request,
+  signal: AbortSignal,
+): Promise<void> {
+  while (!isStaleReflow(state, request) && !signal.aborted) {
+    const result = await openRevisionCandidate(state, request, signal);
+    if (result !== 'retry') return;
+  }
+}
+
+async function openRevisionCandidate(
+  state: State,
+  request: Request,
+  signal: AbortSignal,
+): Promise<CandidateResult> {
+  const worker = state.workerFactory();
+  if (worker.sessionId === state.worker.sessionId) {
+    throw new Error('Browser reader reflow candidate requires an independent worker session');
+  }
+  let ownerCreated = false;
+  try {
+    await openBrowserReaderWorker(
+      worker,
+      // The open transfers the buffer it is given, and the retained one
+      // is what the candidate after this opens from.
+      state.documentData.slice(0),
+      state.pinnedFonts.policy,
+      state.dpr,
+      state.pinnedFonts.summary,
+    );
+    if (!requestIsLive(state, request, signal)) return 'cancelled';
+    await waitForExactReads(state, request, signal);
+    if (!requestIsLive(state, request, signal)) return 'cancelled';
+    const anchor = await captureBrowserReaderReflowAnchor(state);
+    if (anchor.status === 'stale') return 'retry';
+    const owner = createBrowserReaderRevisionSessionOwner(worker);
+    ownerCreated = true;
+    const snapshot = await startBrowserReaderRevisionCandidate(
+      state,
+      owner,
+      {
+        config: request.config,
+        spreadMode: request.spreadMode,
+        targetSpreadIndex: anchor.activeSpreadIndex,
+        expectedActiveSpreadIndex: anchor.activeSpreadIndex,
+        onCommitted: request.onCommitted,
+        ...(anchor.preserveLocator ? { preserveLocator: anchor.preserveLocator } : {}),
+        // Evaluated at COMMIT time, not capture time: if the reader
+        // navigated while this candidate laid out, the user's live
+        // spread wins over the request-time anchor (a whole-book
+        // candidate can take seconds; landing its stale anchor yanked
+        // the reader back one spread — measured on rapid keyboard turns
+        // during pagination). When the reader stayed put, the anchor
+        // resolution applies as before, so a genuine remap (config
+        // change shifting page boundaries) still repositions.
+        preserveActiveSpread: () => state.activeSpreadIndex !== anchor.activeSpreadIndex,
+      },
+      signal,
+    );
+    if (snapshot) return 'committed';
+    return requestIsLive(state, request, signal) ? 'retry' : 'cancelled';
+  } finally {
+    if (!ownerCreated) worker.dispose();
+  }
+}
+
+/// A suspended gate is reopened by whichever operation suspended it, so this
+/// wait depends on progress it cannot make itself. Bound it: a gate that never
+/// reopens is a defect somewhere upstream, and surfacing it as an error keeps
+/// a reader interaction from stalling with no explanation.
+const EXACT_READ_WAIT_LIMIT_MS = 5_000;
+
+async function waitForExactReads(
+  state: State,
+  request: Request,
+  signal: AbortSignal,
+): Promise<void> {
+  const owner = state.revisionSessions.current;
+  const deadline = nowMilliseconds() + EXACT_READ_WAIT_LIMIT_MS;
+  while (
+    owner?.readsSuspended &&
+    state.revisionSessions.current === owner &&
+    !isStaleReflow(state, request) &&
+    !signal.aborted
+  ) {
+    if (nowMilliseconds() >= deadline) {
+      // The session that holds the gate is not going to reopen it. Retire it
+      // so this reflow can rebuild from a fresh session instead of waiting
+      // out an interaction the reader can never finish.
+      await reclaimBrowserReaderStalledSession(state, owner);
+      break;
+    }
+    await yieldBrowserHostTask();
+  }
+  // A reflow builds its own candidate session, so a missing current session is
+  // not a failure here: it just means there are no in-flight exact reads to
+  // drain. The anchor capture falls back to the last active spread.
+}
+
+function nowMilliseconds(): number {
+  return typeof performance === 'object' ? performance.now() : Date.now();
+}
+
+function requestIsLive(state: State, request: Request, signal: AbortSignal): boolean {
+  return !isStaleReflow(state, request) && !signal.aborted;
+}
+
+function finishActiveRequest(state: State, request: Request, abort: AbortController): void {
+  if (activeAborts.get(state) === abort) activeAborts.delete(state);
+  if (state.reflow.active === request) state.reflow.active = undefined;
+  if (!state.disposed && state.reflow.queued) scheduleReflowDrain(state);
+}
+
+function scheduleReflowDrain(state: State): void {
+  if (state.disposed || state.reflow.active) return;
+  scheduleReaderMicrotask(state, () => {
+    if (state.disposed) return;
+    void trackBrowserReaderHostTask(state, drainReflowQueue(state));
+  });
+}

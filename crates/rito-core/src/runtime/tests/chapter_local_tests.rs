@@ -5,7 +5,7 @@ use crate::{
             cross_chapter_footnote_fixture_epub, layout, many_chapter_fixture_epub,
             source_locator_fixture_epub,
         },
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionHandle,
+        RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionRequest,
         RuntimeChapterLocalSourceLocatorResolution, RuntimeCreatedChapterLocalRevision,
         RuntimeDocument, RuntimeResourceKind, RuntimeRevisionErrorKind, RuntimeSourceLocator,
         RuntimeSourceLocatorErrorKind,
@@ -28,11 +28,7 @@ fn first_local_artifact_completes_the_footnote_index_and_parses_only_its_chapter
     let mut document = open_pinned_document(&many_chapter_fixture_epub(128)).expect("document");
 
     document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            127,
-            locator("chapter-127.xhtml"),
-        ))
+        .create_chapter_local_revision(local_request(layout(), 127, locator("chapter-127.xhtml")))
         .expect("target chapter publishes");
 
     assert!(document.publication_footnote_index_is_complete());
@@ -49,11 +45,7 @@ fn exact_revision_copies_only_targets_referenced_by_its_chapter() {
         .expect("publication index completes explicitly");
 
     let local = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            0,
-            locator("chapter-1.xhtml"),
-        ))
+        .create_chapter_local_revision(local_request(layout(), 0, locator("chapter-1.xhtml")))
         .expect("first chapter publishes");
     let stored = &document.chapter_local_revisions[&local.revision.revision_id]
         .interactions
@@ -71,11 +63,7 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
         .create_revision(&layout())
         .expect("absolute revision");
     let local = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            1,
-            locator("chapter-1.xhtml"),
-        ))
+        .create_chapter_local_revision(local_request(layout(), 1, locator("chapter-1.xhtml")))
         .expect("local revision");
     let owner = owner(&local);
     let json = serde_json::to_value(&local).expect("created revision serializes");
@@ -123,7 +111,7 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
 fn fragment_target_resolves_to_its_exact_local_spread() {
     let mut document = open_pinned_document(&source_locator_fixture_epub()).expect("document");
     let initial = document
-        .create_bounded_chapter_local_revision(local_request(
+        .create_chapter_local_revision(local_request(
             layout(),
             0,
             locator("chapter.xhtml#point-47"),
@@ -180,11 +168,7 @@ fn mismatched_target_fails_before_allocating_a_revision_or_cursor() {
     let mut document = open_pinned_document(&many_chapter_fixture_epub(2)).expect("document");
     let next_revision_index = document.next_revision_index;
     let error = document
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            0,
-            locator("chapter-1.xhtml"),
-        ))
+        .create_chapter_local_revision(local_request(layout(), 0, locator("chapter-1.xhtml")))
         .expect_err("chapter and locator mismatch");
 
     assert_eq!(
@@ -199,7 +183,7 @@ fn mismatched_target_fails_before_allocating_a_revision_or_cursor() {
 fn exact_owner_release_rejects_stale_and_forged_coordinates() {
     let mut document = open_pinned_document(&source_locator_fixture_epub()).expect("document");
     let local = document
-        .create_bounded_chapter_local_revision(local_request(layout(), 0, locator("chapter.xhtml")))
+        .create_chapter_local_revision(local_request(layout(), 0, locator("chapter.xhtml")))
         .expect("local starts");
     let exact = owner(&local);
     let mut stale = exact.clone();
@@ -239,11 +223,7 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
 
     let mut cold = open_pinned_document(&publication).expect("cold document");
     let advance = cold
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            1,
-            locator("chapter-2.xhtml"),
-        ))
+        .create_chapter_local_revision(local_request(layout(), 1, locator("chapter-2.xhtml")))
         .expect("cold chapter-local builds");
     let cold_frame = cold
         .frame_commands_for_tests(&handle(&advance).revision_id, 0)
@@ -254,11 +234,7 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
         .create_revision(&layout())
         .expect("whole-book layout");
     let advance = warmed
-        .create_bounded_chapter_local_revision(local_request(
-            layout(),
-            1,
-            locator("chapter-2.xhtml"),
-        ))
+        .create_chapter_local_revision(local_request(layout(), 1, locator("chapter-2.xhtml")))
         .expect("warmed chapter-local builds");
     let warmed_frame = warmed
         .frame_commands_for_tests(&handle(&advance).revision_id, 0)
@@ -312,8 +288,8 @@ fn local_request(
     layout_config: LayoutConfig,
     target_chapter_index: usize,
     target_locator: RuntimeSourceLocator,
-) -> RuntimeBoundedChapterLocalRevisionRequest {
-    RuntimeBoundedChapterLocalRevisionRequest {
+) -> RuntimeChapterLocalRevisionRequest {
+    RuntimeChapterLocalRevisionRequest {
         layout_config,
         target_chapter_index,
         target_locator,

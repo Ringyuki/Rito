@@ -14,12 +14,12 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('in-process bounded worker primitives preserve exact revision handles', async () => {
+test('in-process worker primitives preserve exact revision handles', async () => {
   const { document, calls } = fixtureDocument();
   const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
   await client.open(new ArrayBuffer(0));
 
-  const created = await client.createBoundedRevision({ layoutConfig: {} });
+  const created = await client.createRevision({});
   assert.deepEqual(created.revision, handle(0));
   assert.deepEqual(created.value, summary(0));
 
@@ -85,7 +85,7 @@ test('in-process exact bundle reads reject a stale raw revision envelope', async
   client.dispose();
 });
 
-test('real worker handler uses the same bounded dispatch and transfers versioned bytes', async () => {
+test('real worker handler uses the same dispatch and transfers versioned bytes', async () => {
   const { document, calls } = fixtureDocument();
   const scope = new HandlerScope();
   createRitoCoreWasmReaderWorkerHandler(scope, {
@@ -95,8 +95,8 @@ test('real worker handler uses the same bounded dispatch and transfers versioned
   assert.equal((await scope.send({ id: 1, kind: 'open', data: new ArrayBuffer(0) })).ok, true);
   const created = await scope.send({
     id: 2,
-    kind: 'createBoundedRevision',
-    request: { layoutConfig: {} },
+    kind: 'createRevision',
+    layoutConfig: {},
   });
   assert.equal(created.ok, true);
   assert.deepEqual(created.payload.revision, handle(0));
@@ -272,7 +272,7 @@ function fixtureDocument() {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
       pinnedFontPolicyJson,
       free() {},
-      createBoundedRevisionJson: () => JSON.stringify(summary(0)),
+      createRevisionJson: () => JSON.stringify(summary(0)),
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
         envelope(version, summary(version)),
       getRevisionBundleAtRevisionJson: (_revisionId, version) => envelope(version, bundle(version)),

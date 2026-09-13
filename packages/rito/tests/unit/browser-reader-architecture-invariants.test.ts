@@ -11,15 +11,15 @@ const BROWSER_CANVAS_TEXT = join(SRC, 'bindings/browser/canvas-text');
 const BROWSER_PRIMITIVE_RENDERER = join(SRC, 'bindings/browser/primitive-renderer.ts');
 const BROWSER_PRIMITIVE_BLITS = join(SRC, 'bindings/browser/primitive-blits.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
-const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
+const BROWSER_COMMIT_FRAME = join(SRC, 'bindings/browser/commit-frame.ts');
 const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
 const BROWSER_READER_FACADE = join(BROWSER_READER_BINDING, 'reader.ts');
 const BROWSER_READER_TYPES = join(BROWSER_READER_BINDING, 'types.ts');
 const BROWSER_READER_WORKER_CLIENT = join(BROWSER_READER_BINDING, 'worker-client.ts');
 const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.mjs');
-const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/bounded-reflow.ts');
+const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/revision-reflow.ts');
 const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
-const BROWSER_BOUNDED_REVISION_COMMIT = join(SRC, 'bindings/browser/bounded-revision-commit.ts');
+const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
 const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
 const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
 const BROWSER_READER_SOURCE_RANGE = join(BROWSER_READER_BINDING, 'source-range.ts');
@@ -327,19 +327,19 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(stateBody).not.toContain('navigation: CoreRevisionNavigation');
   });
 
-  it('centralizes bounded session ownership and exact-read gating in the Browser host', () => {
+  it('centralizes revision session ownership and exact-read gating in the Browser host', () => {
     const contracts = read(BROWSER_CORE_CONTRACTS);
     const state = read(BROWSER_READER_TYPES);
     const host = read(BROWSER_READER_SESSION_HOST);
     const handles = read(join(BROWSER_READER_BINDING, 'pipeline/revision-handle.ts'));
 
-    expect(contracts).toContain('createRitoCoreWasmBoundedReaderSession');
-    expect(state).toContain('boundedSessions: BrowserReaderBoundedSessionSlots');
+    expect(contracts).toContain('createRitoCoreWasmReaderRevisionSession');
+    expect(state).toContain('revisionSessions: BrowserReaderRevisionSessionSlots');
     expect(host).toContain('slots.current');
     expect(host).toContain('slots.candidate');
     expect(host).toContain('suspendBrowserReaderExactReads');
     expect(host).toContain('Promise.allSettled');
-    expect(handles).toContain('boundedOwnerAllowsRead');
+    expect(handles).toContain('revisionOwnerAllowsRead');
   });
 
   it('keeps reader-methods as the Reader API facade', () => {
@@ -349,10 +349,10 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).toContain('scheduleBrowserReaderReflow');
   });
 
-  it('keeps production reflow on bounded Rust session candidates', () => {
+  it('keeps production reflow on Rust revision session candidates', () => {
     const source = read(BROWSER_READER_REFLOW);
-    expect(source).toContain('startBrowserReaderBoundedCandidate');
-    expect(source).toContain('createBrowserReaderBoundedSessionOwner');
+    expect(source).toContain('startBrowserReaderRevisionCandidate');
+    expect(source).toContain('createBrowserReaderRevisionSessionOwner');
     expect(source).not.toContain('createViewRevision');
     expect(source).not.toContain('visualPreview');
     expect(source).not.toContain('deferred');
@@ -365,7 +365,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       read(BROWSER_READER_REVISION),
       read(BROWSER_RENDERING),
       read(BROWSER_RESOURCE_ADAPTER),
-      read(BROWSER_REVISION_COMMIT),
+      read(BROWSER_COMMIT_FRAME),
     ];
     for (const source of sources) {
       expect(source).not.toContain('visualPreview');
@@ -376,7 +376,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(read(BROWSER_READER_REVISION)).not.toContain('releaseRevisionAtRevision');
   });
 
-  it('keeps semantic interaction reads exact-versioned and bounded-gated', () => {
+  it('keeps semantic interaction reads exact-versioned and gated', () => {
     const source = read(BROWSER_READER_INTERACTION);
     const captureSource = read(BROWSER_READER_INTERACTION_CAPTURE);
     const sourceRangeSource = read(BROWSER_READER_SOURCE_RANGE);
@@ -398,15 +398,15 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
 
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {
     const reflowSource = read(BROWSER_READER_REFLOW);
-    const boundedCommitSource = read(BROWSER_BOUNDED_REVISION_COMMIT);
     const revisionCommitSource = read(BROWSER_REVISION_COMMIT);
+    const commitFrameSource = read(BROWSER_COMMIT_FRAME);
     expect(reflowSource).not.toContain('warmFrameWindow');
-    expect(reflowSource).toContain('startBrowserReaderBoundedCandidate');
+    expect(reflowSource).toContain('startBrowserReaderRevisionCandidate');
     expect(reflowSource).not.toContain('decodeBrowserReaderFrame');
-    expect(boundedCommitSource).not.toContain('warmFrameWindow');
-    expect(boundedCommitSource).toContain('prepareControllerOwnedBrowserReaderCommitFrame');
-    expect(revisionCommitSource).toContain('decodeBrowserReaderFrame');
-    expect(revisionCommitSource).toContain('result.selectedFrame');
+    expect(revisionCommitSource).not.toContain('warmFrameWindow');
+    expect(revisionCommitSource).toContain('prepareControllerOwnedBrowserReaderCommitFrame');
+    expect(commitFrameSource).toContain('decodeBrowserReaderFrame');
+    expect(commitFrameSource).toContain('result.selectedFrame');
   });
 
   it('does not keep a TypeScript resource scheduler layer for frame windows', () => {
@@ -448,11 +448,11 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     );
   });
 
-  it('uses bounded Rust sessions instead of browser-owned revision variants', () => {
+  it('uses Rust revision sessions instead of browser-owned revision variants', () => {
     const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
     const reflowSource = read(BROWSER_READER_REFLOW);
     expect(workerClientSource).toContain('createRitoCoreWasmWorkerReaderClient');
-    expect(reflowSource).toContain('startBrowserReaderBoundedCandidate');
+    expect(reflowSource).toContain('startBrowserReaderRevisionCandidate');
     expect(reflowSource).not.toContain('createViewRevision');
     for (const legacyName of [
       'createRevision',
@@ -508,7 +508,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       ...BROWSER_READER_BINDING_FILES,
       BROWSER_RESOURCE_ADAPTER,
       join(SRC, 'bindings/browser/required-fonts.ts'),
-      BROWSER_REVISION_COMMIT,
+      BROWSER_COMMIT_FRAME,
     ];
     const hits = scan(
       files,

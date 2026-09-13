@@ -40,7 +40,7 @@ fn serializes_stale_revision_as_a_stable_wire_code() {
 fn chapter_local_wasm_bindings_keep_the_raw_api_contract() {
     let source = include_str!("chapter_local.rs");
     for method in [
-        "createBoundedChapterLocalRevisionJson",
+        "createChapterLocalRevisionJson",
         "getChapterLocalRevisionSummaryJson",
         "resolveChapterLocalSourceLocatorJson",
         "getChapterLocalFrameCommandBufferMetadataJson",

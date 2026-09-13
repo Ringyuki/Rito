@@ -24,7 +24,7 @@ test('Worker aggregate transfers one full-owned frame buffer and every resource 
       calls.push(request.kind);
       return chapterLocalReaderWorkerPayload(this, request);
     },
-    createBoundedChapterLocalRevision() {
+    createChapterLocalRevision() {
       calls.push('create');
       return createdRevision(exactOwner);
     },
@@ -68,12 +68,12 @@ test('Worker aggregate transfers one full-owned frame buffer and every resource 
 
   const response = await scope.send({
     id: 2,
-    kind: 'createBoundedChapterLocalRevision',
+    kind: 'createChapterLocalRevision',
     request: createRequest(),
   });
 
   assert.equal(response.ok, true);
-  assert.deepEqual(calls, ['createBoundedChapterLocalRevision', 'create', 'frame', 'resources']);
+  assert.deepEqual(calls, ['createChapterLocalRevision', 'create', 'frame', 'resources']);
   const frame = response.payload.result.frame;
   assert.equal(frame.bytes.byteOffset, 0);
   assert.equal(frame.bytes.byteLength, frame.bytes.buffer.byteLength);
@@ -90,7 +90,7 @@ test('post-commit aggregate failure rolls back the exact candidate owner', () =>
   const released = [];
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => createdRevision(exactOwner),
+    createChapterLocalRevision: () => createdRevision(exactOwner),
     readChapterLocalFrame: () => {
       throw new Error('frame failed');
     },
@@ -106,7 +106,7 @@ test('post-commit aggregate failure rolls back the exact candidate owner', () =>
   assert.throws(
     () =>
       chapterLocalReaderWorkerPayload(document, {
-        kind: 'createBoundedChapterLocalRevision',
+        kind: 'createChapterLocalRevision',
         request: createRequest(),
       }),
     /frame failed/,
@@ -119,7 +119,7 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
   const exactOwner = owner(0);
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => createdRevision(exactOwner),
+    createChapterLocalRevision: () => createdRevision(exactOwner),
     readChapterLocalFrame: () => {
       throw new Error('frame failed');
     },
@@ -135,7 +135,7 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
 
   assert.throws(() =>
     chapterLocalReaderWorkerPayload(document, {
-      kind: 'createBoundedChapterLocalRevision',
+      kind: 'createChapterLocalRevision',
       request: createRequest(),
     }),
   );
@@ -145,7 +145,7 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
 test('a created revision without a valid owner identity disposes the document owner', () => {
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => ({
+    createChapterLocalRevision: () => ({
       ...createdRevision(owner(0)),
       revision: { revisionId: '', revisionVersion: -1 },
     }),
@@ -156,7 +156,7 @@ test('a created revision without a valid owner identity disposes the document ow
 
   assert.throws(() =>
     chapterLocalReaderWorkerPayload(document, {
-      kind: 'createBoundedChapterLocalRevision',
+      kind: 'createChapterLocalRevision',
       request: createRequest(),
     }),
   );

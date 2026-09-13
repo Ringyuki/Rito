@@ -4,7 +4,7 @@ export {
   createRitoCoreWasmReaderFootnoteMap,
   createRitoCoreWasmReaderManifestHrefMap,
   createRitoCoreWasmReaderSpreads,
-  createRitoCoreWasmBoundedReaderSession,
+  createRitoCoreWasmReaderRevisionSession,
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmWorkerReaderClient,
   decodeRitoFrameCommandBuffer,
@@ -16,7 +16,7 @@ export {
 
 export type {
   RitoCoreWasmChapterTextIndices as CoreChapterTextIndices,
-  RitoCoreWasmBoundedChapterLocalRevisionRequest as CoreBoundedChapterLocalRevisionRequest,
+  RitoCoreWasmChapterLocalRevisionRequest as CoreChapterLocalRevisionRequest,
   RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
   RitoCoreWasmCreatedChapterLocalRevision as CoreCreatedChapterLocalRevision,
   RitoCoreWasmChapterLocalRevisionRelease as CoreChapterLocalRevisionRelease,
@@ -44,8 +44,8 @@ export type {
   RitoCoreWasmReaderFrameWindowWarmResult as BrowserReaderFrameWindowWarmResult,
   RitoCoreWasmReaderBindingRuntimeModule as CoreReaderBindingRuntimeModule,
   RitoCoreWasmReaderSessionCache as BrowserReaderSessionCache,
-  RitoCoreWasmBoundedReaderSession as BrowserReaderBoundedSession,
-  RitoCoreWasmBoundedReaderSnapshot as BrowserReaderBoundedSnapshot,
+  RitoCoreWasmReaderRevisionSession as BrowserReaderRevisionSession,
+  RitoCoreWasmReaderRevisionSnapshot as BrowserReaderRevisionSnapshot,
   RitoCoreWasmReaderOpenResult as CoreReaderOpenResult,
   RitoCoreWasmReaderOpenResult as BrowserReaderOpenResult,
   RitoCoreWasmReaderWorkerOpenOptions as BrowserReaderWorkerOpenOptions,

@@ -293,8 +293,8 @@ describe('Browser reader interaction contract', () => {
 
   it('keeps durable current reads available while a layout candidate exists', async () => {
     const fixture = readyFixture();
-    fixture.state.boundedSessions.candidate =
-      {} as BrowserReaderState['boundedSessions']['candidate'];
+    fixture.state.revisionSessions.candidate =
+      {} as BrowserReaderState['revisionSessions']['candidate'];
     fixture.getPageReadingAnchorAtRevision.mockResolvedValue({
       revision: handle(),
       value: pageReadingAnchor(0, 0),
