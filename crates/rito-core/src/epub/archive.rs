@@ -21,14 +21,14 @@ pub(crate) struct EpubArchive<'a> {
 
 enum ArchiveBytes<'a> {
     Borrowed(&'a [u8]),
-    Shared(Arc<[u8]>),
+    Shared(Arc<Vec<u8>>),
 }
 
 impl AsRef<[u8]> for ArchiveBytes<'_> {
     fn as_ref(&self) -> &[u8] {
         match self {
             Self::Borrowed(bytes) => bytes,
-            Self::Shared(bytes) => bytes.as_ref(),
+            Self::Shared(bytes) => bytes.as_slice(),
         }
     }
 }
@@ -196,7 +196,7 @@ impl<'a> EpubArchive<'a> {
 }
 
 impl EpubArchive<'static> {
-    pub(crate) fn new_shared(bytes: Arc<[u8]>) -> EpubResult<Self> {
+    pub(crate) fn new_shared(bytes: Arc<Vec<u8>>) -> EpubResult<Self> {
         Self::from_storage(ArchiveBytes::Shared(bytes))
     }
 }

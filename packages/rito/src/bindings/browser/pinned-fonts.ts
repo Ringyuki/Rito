@@ -51,6 +51,10 @@ export function prepareBrowserReaderPinnedFonts(
  * CSS pixel the worker's frames are painted at (the canvas backing
  * ratio): every raster snap lands on that grid, and a worker opened
  * without it would paint on the 1:1 grid regardless of the screen.
+ *
+ * `data` is handed over, not shared: the worker client posts it in the
+ * transfer list, so it is detached here and the caller must pass a buffer
+ * it can lose. The pinned face bytes travel the same way.
  */
 export async function openBrowserReaderWorker(
   worker: BrowserReaderWorkerClient,

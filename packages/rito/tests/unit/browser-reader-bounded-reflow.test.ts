@@ -167,6 +167,37 @@ describe('Browser bounded reflow coordinator', () => {
     expect(anchorRead).toHaveBeenCalledWith({ revisionId: 'current', revisionVersion: 0 }, 1);
   });
 
+  it('opens the candidate with a copy so the reader can still open the one after it', async () => {
+    // The open transfers the buffer it is given. The reader keeps its own
+    // and spends a copy on each candidate: a reflow that failed after
+    // handing over the retained buffer could never open a worker again.
+    const current = currentFixture(2, 0);
+    const candidate = createWorker(() => undefined, 'publication-copy');
+    Object.assign(current.state, { workerFactory: () => candidate.worker });
+    current.state.documentData = new Uint8Array([7, 8, 9]).buffer;
+    const retained = current.state.documentData;
+    mocks.openWorker.mockImplementation((_worker, data) => {
+      structuredClone(data, { transfer: [data] });
+      return Promise.resolve({} as Awaited<ReturnType<OpenWorker>>);
+    });
+
+    expect(
+      scheduleBrowserReaderReflow(current.state, { ...BASE_READER_OPTIONS, width: 900 }, 'single'),
+    ).toBe(true);
+    await waitUntil(
+      () =>
+        mocks.startCandidate.mock.calls.length === 1 ||
+        current.state.reflow.lastError !== undefined,
+    );
+
+    expect(current.state.reflow.lastError).toBeUndefined();
+    const openedWith = mocks.openWorker.mock.calls[0]?.[1];
+    expect(openedWith).not.toBe(retained);
+    expect(openedWith?.byteLength).toBe(0);
+    expect(current.state.documentData).toBe(retained);
+    expect(new Uint8Array(current.state.documentData)).toEqual(new Uint8Array([7, 8, 9]));
+  });
+
   it('aborts an active candidate immediately and only lets the latest request commit', async () => {
     const current = currentFixture(2, 0);
     const first = createWorker(() => undefined, 'first');

@@ -101,6 +101,16 @@ a document without one cannot paginate. The reader pins
   unavailable, and resolutions left pending.
 - `layout-engine-bench <epub> <serif-font-path>` — one whole-book
   pagination at 420×640; prints wall-clock milliseconds and page count.
+- `memory-stage-probe <epub> <serif-font-path>` — resident bytes after
+  each stage of opening and paginating one book, then after releasing
+  the revision, paginating a second time, and dropping the document.
+  The second pagination is the reading that matters: if it costs only a
+  few megabytes, the first pass's memory was released and reused, so a
+  high number after the first pass is the allocator holding pages rather
+  than the engine retaining them. That distinction decides nothing on a
+  native host, where the allocator reuses what it holds, and everything
+  in the browser, where a WebAssembly heap only grows and the
+  high-water mark becomes the floor.
 - `chapter-fragment-probe < request.json` — the native side of the
   line-baseline instruments below; the request fields are documented in
   `crates/rito-core/examples/chapter_fragment_probe.rs`.

@@ -180,6 +180,8 @@ async function createBoundedCandidate(
   try {
     await openBrowserReaderWorker(
       worker,
+      // The open transfers the buffer it is given, and the retained one
+      // is what the candidate after this opens from.
       state.documentData.slice(0),
       state.pinnedFonts.policy,
       state.dpr,

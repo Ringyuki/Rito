@@ -7,7 +7,12 @@ use crate::epub::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedArchiveSource {
-    pub(super) bytes: Arc<[u8]>,
+    /// The whole EPUB archive, shared with every archive cursor opened over
+    /// it. `Arc<Vec<u8>>` takes ownership of the caller's buffer by moving
+    /// it; `Arc<[u8]>` would allocate a second buffer and copy the archive
+    /// into it, and in WASM that second allocation raises the heap
+    /// high-water mark for the rest of the session.
+    pub(super) bytes: Arc<Vec<u8>>,
     pub(super) opf_dir: String,
     pub(super) archive_image_entries: BTreeMap<String, ArchiveEntryMetadata>,
 }

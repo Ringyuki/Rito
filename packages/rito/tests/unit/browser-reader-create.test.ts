@@ -359,6 +359,45 @@ describe('Browser reader creation', () => {
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
+  it('retains its own publication buffer when the open transfers the one it is given', async () => {
+    // The worker client posts the publication in the transfer list, so the
+    // buffer handed to the open is detached by the time it resolves. The
+    // reader's retained buffer is the only source a later candidate worker
+    // can be opened from, so it must survive that transfer intact.
+    const worker = {
+      setRenderRatio: vi.fn(() => Promise.resolve()),
+      open: vi.fn((data: ArrayBuffer) => {
+        structuredClone(data, { transfer: [data] });
+        return Promise.resolve(openResultWithFont());
+      }),
+      dispose: vi.fn(),
+    };
+    installWorkerFactory(worker);
+    const callerData = readerData();
+
+    await expect(
+      createReader(callerData, readerCanvas(), {
+        width: 800,
+        height: 600,
+        pinnedFontPolicy: {
+          schemaVersion: 1,
+          faces: [
+            { bytes: new ArrayBuffer(3), expectedSha256: 'a'.repeat(64), genericRole: 'serif' },
+          ],
+        },
+      }),
+    ).resolves.toBeDefined();
+
+    expect(callerData.byteLength).toBe(0);
+    const buildCalls = mocks.buildBrowserReaderMethods.mock.calls as unknown as readonly (readonly [
+      { readonly documentData: ArrayBuffer },
+      unknown,
+    ])[];
+    const retained = buildCalls[0]?.[0].documentData;
+    expect(retained).not.toBe(callerData);
+    expect(new Uint8Array(retained ?? new ArrayBuffer(0))).toEqual(new Uint8Array([4, 5, 6]));
+  });
+
   it('disposes the worker without registering faces when pinned open fails', async () => {
     class LoadedFontFace {
       constructor(readonly family: string) {}

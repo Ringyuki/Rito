@@ -197,6 +197,10 @@ async function openBrowserReaderDocument(
   renderRatio: number,
 ): Promise<OpenedBrowserReaderDocument> {
   const prepared = prepareBrowserReaderPinnedFonts(policy);
+  // A reflow or a replacement opens a second worker and has to open the
+  // book in it again, so the reader keeps this copy and spends the
+  // caller's buffer on the first worker. One copy, not two: the transfer
+  // moves the bytes rather than cloning them on top of this one.
   const documentData = data.slice(0);
   const openResult = await openBrowserReaderWorker(worker, data, prepared.policy, renderRatio);
   const pinnedFonts = await registerBrowserReaderPinnedFonts(prepared, openResult.pinnedFontPolicy);
