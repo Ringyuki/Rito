@@ -1,8 +1,10 @@
 /**
- * Source-anchored annotation record.
- * Only this shape is persisted — pageIndex, TextRange, and Rect are runtime-only.
+ * Source-anchored annotation records and their resolved runtime projections.
+ * Only the record shape is persisted; page indexes and rectangles are
+ * re-resolved against each committed layout revision.
  */
 
+import type { Rect } from '../layout-types';
 import type { AnnotationTarget } from '../anchors/model';
 
 /** A persistent annotation record anchored to source content. */
@@ -28,4 +30,26 @@ export interface AnnotationDraft {
 export interface AnnotationRecordPatch {
   readonly color?: string;
   readonly note?: string;
+}
+
+/** Which selector of the record's cascade located it in the current source text. */
+export type ResolutionStatus =
+  | 'exact'
+  | 'quote-fallback'
+  | 'position-fallback'
+  | 'progression-fallback'
+  | 'orphaned';
+
+/** The record's rectangles on one page, in page-content coordinates from the committed revision. */
+export interface ResolvedAnnotationSegment {
+  readonly pageIndex: number;
+  readonly rects: readonly Rect[];
+}
+
+/** A record projected onto the current layout. */
+export interface ResolvedAnnotation {
+  readonly id: string;
+  readonly record: AnnotationRecord;
+  readonly status: ResolutionStatus;
+  readonly segments: readonly ResolvedAnnotationSegment[];
 }

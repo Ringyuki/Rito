@@ -227,7 +227,6 @@ function selectionEvent(
   handles: ReaderControllerEvents['selectionChange']['handles'] = defaultHandleProjection(),
 ): ReaderControllerEvents['selectionChange'] {
   return {
-    range: null,
     sourceLocator: {
       href: 'chapter.xhtml',
       sourceRange: {

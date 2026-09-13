@@ -1,9 +1,9 @@
 /**
  * Hidden DOM mirror for screen readers.
- * Creates an aria-live region that reflects the semantic tree of the current spread.
+ * Creates an aria-live region that reflects the reader's page semantics for the current spread.
  */
 
-import type { SemanticNode } from '../core';
+import type { ReaderSemanticNode as SemanticNode } from '@ritojs/core';
 
 /** A mounted accessibility mirror that can be updated on spread change. */
 export interface A11yMirror {

@@ -3,7 +3,6 @@ export {
   createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
   createRitoCoreWasmReaderManifestHrefMap,
-  createRitoCoreWasmReaderPages,
   createRitoCoreWasmReaderSpreads,
   createRitoCoreWasmBoundedReaderSession,
   createRitoCoreWasmInProcessReaderClient,

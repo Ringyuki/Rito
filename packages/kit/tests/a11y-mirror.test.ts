@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ReaderSemanticNode as SemanticNode } from '@ritojs/core';
 import { createA11yMirror } from '../src/interaction/dom/a11y-mirror';
-import type { SemanticNode } from '../src/interaction/core';
 
 const bounds = { x: 0, y: 0, width: 10, height: 10 };
 

@@ -7,7 +7,7 @@ import type { ReaderControllerEvents } from '../types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import * as machine from './machine';
 import * as jump from './jump';
-import * as growth from './growth';
+import { continuePendingNavigation } from './pending';
 import { claimNavigation } from './claim';
 import {
   supersedeNavigationForPositionIntent,
@@ -19,7 +19,7 @@ import {
   startGestureNavigation,
   startNavigation,
 } from './spread-navigation';
-import { navigateReaderLocator, navigateTocEntry, retryPendingTocEntry } from './toc-growth';
+import { navigateReaderLocator, navigateTocEntry } from './locator-navigation';
 import type { ProvisionalTransitionRuntime } from '../runtime-frame';
 import type { SettledEvent } from '../../driver/types';
 import {
@@ -41,8 +41,7 @@ type EntryActionName =
   | 'navigateToLocator'
   | 'jumpToSpread'
   | 'jumpToSpreadIfReady'
-  | 'prepareSpreadForJump'
-  | 'ensureSelectionSpread';
+  | 'prepareSpreadForJump';
 type RuntimeActionName = Exclude<keyof NavigationActions, EntryActionName>;
 
 export interface NavigationDeps {
@@ -61,8 +60,6 @@ export interface NavigationDeps {
   /** Supersedes pending content interactions for every accepted navigation/position intent. */
   onContentInteractionIntent?: () => void;
   onNavigationCancelled?: () => void;
-  /** Publishes a newly committed known/final spread extent without resetting layout state. */
-  onPaginationChanged?: () => void;
   /** Scope one exact native gesture projection transfer to one ready jump attempt. */
   beginSelectionProjectionTransfer?:
     | ((spreadIndex: number, lease: SelectionGestureLease) => () => void)
@@ -79,7 +76,7 @@ export interface NavigationActions {
   nextSpread(source?: machine.NavigationIntentSource): void;
   prevSpread(source?: machine.NavigationIntentSource): void;
   navigateToTocEntry(entry: TocEntry): void;
-  /** Grow and navigate to a durable locator under the shared latest-wins navigation owner. */
+  /** Resolve and navigate to a durable locator under the shared latest-wins navigation owner. */
   navigateToLocator(locator: ReaderLocator): void;
   /** Snap to a spread without playing a transition animation. */
   jumpToSpread(index: number, preservePositionIntent?: boolean): boolean;
@@ -90,8 +87,6 @@ export interface NavigationActions {
   ): jump.NavigationJumpOutcome;
   /** Prepare a paintable snap without claiming navigation or position ownership. */
   prepareSpreadForJump(index: number): jump.NavigationJumpReadiness;
-  /** Grow a selection-owned forward target without claiming navigation ownership. */
-  ensureSelectionSpread(index: number, signal: AbortSignal): Promise<boolean | undefined>;
   /** Continue a deferred navigation once its async content slot is ready. */
   notifyContentReady(spreadIndex: number): void;
   /** Route the private Reader preview signal before ordinary spread invalidation. */
@@ -100,8 +95,6 @@ export interface NavigationActions {
   handleTransitionSettled(event: SettledEvent): boolean;
   terminateChapterLocalForLayout(): (() => void) | undefined;
   refreshChapterLocalTheme(): void;
-  /** Retry a TOC target that was unavailable in a partial preview revision. */
-  notifyLayoutCommitted(): void;
   /** Silently retire older navigation work before starting a direct selection gesture. */
   supersedeForSelectionIntent(): NavigationSelectionInputBarrier | null;
   supersedeForPositionIntent(): void;
@@ -129,7 +122,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     machine.describeNavigationPhase(nav);
   return {
     ...createEntryActions(nav, deps, locatorNavigator),
-    ...createRuntimeActions(nav, deps, locatorNavigator),
+    ...createRuntimeActions(nav, deps),
   };
 }
 
@@ -171,21 +164,18 @@ function createEntryActions(
       if (machine.foregroundIsBusy(nav)) return 'not-ready';
       return jump.prepareSpreadForJump(deps, index);
     },
-    ensureSelectionSpread: (index, signal) =>
-      growth.ensureSelectionSpread(nav, deps, index, signal),
   };
 }
 
 function createRuntimeActions(
   nav: Machine,
   deps: NavigationDeps,
-  locatorNavigator: (spreadIndex: number) => void,
 ): Pick<NavigationActions, RuntimeActionName> {
   return {
     notifyContentReady(spreadIndex) {
       if (nav.disposed) return;
       if (notifyChapterLocalContentReady(nav, deps, spreadIndex)) return;
-      growth.continuePendingNavigation(nav, deps, spreadIndex);
+      continuePendingNavigation(nav, deps, spreadIndex);
     },
     presentChapterLocalInvalidation: (spreadIndex) =>
       presentChapterLocalInvalidation(nav, deps, spreadIndex),
@@ -193,10 +183,6 @@ function createRuntimeActions(
     terminateChapterLocalForLayout: () => terminateChapterLocalTransitionForLayout(nav, deps),
     refreshChapterLocalTheme: () => {
       refreshChapterLocalTransitionTheme(nav, deps);
-    },
-    notifyLayoutCommitted() {
-      if (nav.disposed) return;
-      retryPendingTocEntry(nav, deps, locatorNavigator);
     },
     supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(nav, deps),
     supersedeForPositionIntent: () => {

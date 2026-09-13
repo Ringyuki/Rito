@@ -8,19 +8,11 @@ import { wireSpreadRendered } from '../src/controller/wiring/spread';
 import { createDisposableCollection } from '../src/utils/disposable';
 import { createEmitter } from '../src/utils/event-emitter';
 
-const spread: Spread = {
-  index: 0,
-  left: { index: 0, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-};
+const spread: Spread = { index: 0, pageIndexes: [0], leftPageIndex: 0 };
 
 describe('native target spread lifecycle', () => {
   it('ignores a stale outer render after an earlier listener redirects recursively', () => {
-    const pageOne = {
-      index: 1,
-      bounds: { x: 0, y: 0, width: 300, height: 400 },
-      content: [],
-    };
-    const spreadOne = { index: 1, left: pageOne } as unknown as Spread;
+    const spreadOne: Spread = { index: 1, pageIndexes: [1], leftPageIndex: 1 };
     const listeners = new Set<(index: number, value: Spread) => void>();
     let currentSpread = 0;
     const notify = (index: number): void => {
@@ -34,7 +26,6 @@ describe('native target spread lifecycle', () => {
     });
     const reader = {
       spreads: [spread, spreadOne],
-      measurer: {},
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
       getChapterTextIndices: () => new Map(),
@@ -71,19 +62,14 @@ describe('native target spread lifecycle', () => {
     expect(update).toHaveBeenCalledOnce();
     expect(update).toHaveBeenCalledWith(1);
     expect(setSpread).toHaveBeenCalledOnce();
-    expect(state.hitMaps.has(1)).toBe(true);
-    expect(state.hitMaps.has(0)).toBe(false);
+    expect(state.mapper?.isPageVisible(1)).toBe(true);
+    expect(state.mapper?.isPageVisible(0)).toBe(false);
     expect(state.positionUpdateMode).toEqual({ kind: 'capture' });
     disposables.disposeAll();
   });
 
   it('does not schedule stale native work after position capture redirects recursively', async () => {
-    const pageOne = {
-      index: 1,
-      bounds: { x: 0, y: 0, width: 300, height: 400 },
-      content: [],
-    };
-    const spreadOne = { index: 1, left: pageOne } as unknown as Spread;
+    const spreadOne: Spread = { index: 1, pageIndexes: [1], leftPageIndex: 1 };
     const listeners = new Set<(index: number, value: Spread) => void>();
     let currentSpread = 0;
     const notify = (index: number): void => {
@@ -102,7 +88,6 @@ describe('native target spread lifecycle', () => {
     const reader = {
       interactions,
       spreads: [spread, spreadOne],
-      measurer: {},
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
       getChapterTextIndices: () => new Map(),
@@ -145,8 +130,8 @@ describe('native target spread lifecycle', () => {
     expect(getPageTargets).toHaveBeenCalledOnce();
     expect(getPageTargets).toHaveBeenCalledWith(1);
     expect(state.nativeTargetsByPage.has(0)).toBe(false);
-    expect(state.hitMaps.has(1)).toBe(true);
-    expect(state.hitMaps.has(0)).toBe(false);
+    expect(state.mapper?.isPageVisible(1)).toBe(true);
+    expect(state.mapper?.isPageVisible(0)).toBe(false);
     expect(markOverlayDirty).toHaveBeenCalledOnce();
     expect(markOverlayDirty).toHaveBeenCalledWith(1);
     disposables.disposeAll();
@@ -182,7 +167,6 @@ describe('native target spread lifecycle', () => {
     const reader = {
       interactions,
       spreads: [spread],
-      measurer: {},
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
       getChapterTextIndices: () => new Map(),

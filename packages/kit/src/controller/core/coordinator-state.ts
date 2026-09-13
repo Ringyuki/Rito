@@ -6,13 +6,7 @@ import type {
   ResolvedAnnotation,
   ChapterTextIndex,
 } from '../../interaction/index';
-import type {
-  HitMap,
-  LinkRegion,
-  PositionIntent,
-  PositionTracker,
-  ReadingPosition,
-} from '../../interaction/index';
+import type { PositionIntent, PositionTracker, ReadingPosition } from '../../interaction/index';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import {
@@ -51,10 +45,7 @@ export interface SelectionProjectionTransfer {
 export interface CoordinatorState {
   /** Invalidates an outer spread coordination pass when callbacks re-enter with a newer spread. */
   spreadCoordinationGeneration: number;
-  hitMaps: Map<number, HitMap>;
-  /** Link regions stored per-page (page-content coords). */
-  linksByPage: Map<number, readonly LinkRegion[]>;
-  /** Rust-owned semantic targets for the currently installed visible spread. */
+  /** Reader-owned semantic targets (links, footnotes, images) for the currently installed visible spread. */
   nativeTargetsByPage: Map<number, readonly ReaderInteractionTarget[]>;
   /** Invalidates async native-target reads across spread, revision, preview, and disposal changes. */
   nativeTargetLoadGeneration: number;
@@ -62,7 +53,7 @@ export interface CoordinatorState {
   nativeInteractionsAlive: boolean;
   /** Current coordinate mapper (rebuilt on each spread render). */
   mapper: CoordinateMapper | null;
-  /** Source-anchored annotation store (new system). */
+  /** Source-anchored annotation store. */
   annotationStore: AnnotationStore | null;
   /** Chapter text indices keyed by durable resource href, for annotation resolution. */
   chapterIndices: Map<string, ChapterTextIndex>;
@@ -87,8 +78,6 @@ export interface CoordinatorState {
 export function createCoordinatorState(): CoordinatorState {
   return {
     spreadCoordinationGeneration: 0,
-    hitMaps: new Map(),
-    linksByPage: new Map(),
     nativeTargetsByPage: new Map(),
     nativeTargetLoadGeneration: 0,
     nativeInteractionsAlive: true,

@@ -169,7 +169,7 @@ class PositionTrackerRuntime implements PositionTracker {
     }
     const intent = this.claimIntent();
     return this.owns(intent)
-      ? { kind: 'legacy', intent, position: preserved }
+      ? { kind: 'synchronous', intent, position: preserved }
       : { kind: 'portable' };
   }
 

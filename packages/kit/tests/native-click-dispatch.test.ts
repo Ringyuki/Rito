@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('native click dispatch', () => {
-  it('uses the exact Rust footnote key without legacy href guessing', async () => {
+  it('uses the exact Rust footnote key rather than guessing from the href', async () => {
     const getFootnote = vi.fn(() =>
       Promise.resolve({
         kind: 'footnote' as const,
@@ -377,10 +377,10 @@ describe('native click dispatch', () => {
     });
   });
 
-  it('never falls back to legacy link geometry when native targets are unavailable', () => {
+  it('drops clicks while a preview disables the reader interactions', () => {
     const fixture = createFixture(interactions({ enabled: false }));
-    fixture.state.linksByPage.set(0, [
-      { href: 'https://legacy.invalid', text: 'legacy', bounds: targetBounds() },
+    fixture.state.nativeTargetsByPage.set(0, [
+      { kind: 'link', label: 'stale', href: 'https://stale.invalid', bounds: targetBounds() },
     ]);
     const linkClick = vi.fn();
     const annotationClick = vi.fn();

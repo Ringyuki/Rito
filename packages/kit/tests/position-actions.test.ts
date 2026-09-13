@@ -33,7 +33,7 @@ describe('position actions ownership', () => {
     const restoring = actions.restorePosition();
     tracker.claimIntent();
     tracker.update(1);
-    loaded.resolve(JSON.stringify(legacyPosition(0)));
+    loaded.resolve(JSON.stringify(spineLocatorPosition(0)));
 
     await expect(restoring).resolves.toBeUndefined();
     expect(tracker.getCurrent()?.projection.spreadIndex).toBe(1);
@@ -149,7 +149,7 @@ describe('position actions ownership', () => {
     expect(internals.restoreCompleted).toBe(false);
     expect(save).not.toHaveBeenCalled();
 
-    secondLoad.resolve(JSON.stringify(legacyPosition(1)));
+    secondLoad.resolve(JSON.stringify(spineLocatorPosition(1)));
 
     await expect(secondRestore).resolves.toBe(1);
     expect(internals.restoreCompleted).toBe(true);
@@ -342,10 +342,10 @@ describe('position actions ownership', () => {
   });
 
   it.each(['goTo', 'restore'] as const)(
-    'keeps a legacy source point after cross-spread %s',
+    'keeps a spine-locator source point after cross-spread %s',
     async (operation) => {
       const tracker = createPositionTracker(layout);
-      const target = legacyExactPosition();
+      const target = spineLocatorExactPosition();
       const storage = {
         load: vi.fn(() => Promise.resolve(JSON.stringify(target))),
         save: vi.fn(() => Promise.resolve()),
@@ -495,18 +495,18 @@ describe('position actions ownership', () => {
     expect(navigateToLocator).not.toHaveBeenCalled();
   });
 
-  it('lets a synchronous layout commit supersede a legacy projection microtask', async () => {
+  it('lets a synchronous layout commit supersede a spine-locator projection microtask', async () => {
     let currentLayout = layout();
     const tracker = createPositionTracker(() => currentLayout);
     const jumpToSpread = vi.fn();
     const internals = createInternals(tracker, { load: vi.fn(), save: vi.fn() });
     const actions = buildPositionActions(internals, positionNav(jumpToSpread));
 
-    const going = actions.goToPosition(legacyPosition(1));
+    const going = actions.goToPosition(spineLocatorPosition(1));
     currentLayout = singleSpreadLayout();
     const layoutPlan = tracker.prepareLayoutCommit(undefined, 0);
 
-    expect(layoutPlan.kind).toBe('legacy');
+    expect(layoutPlan.kind).toBe('synchronous');
     await expect(going).resolves.toBeUndefined();
     expect(jumpToSpread).not.toHaveBeenCalled();
   });
@@ -674,62 +674,47 @@ function resolvedPosition(pageIndex: number, spreadIndex: number) {
 }
 
 function layout(): PositionLayout {
-  const pages = [
-    { index: 0, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-    { index: 1, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-  ] as const;
   return {
-    pages,
+    pageCount: 2,
     spreads: [
-      { index: 0, left: pages[0] },
-      { index: 1, left: pages[1] },
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      { index: 1, pageIndexes: [1], leftPageIndex: 1 },
     ],
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 1 }]]),
   };
 }
 
 function rightPageLayout(): PositionLayout {
-  const base = layout();
-  const extra = { index: 2, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] };
-  const first = base.pages[0];
-  const left = base.pages[1];
-  if (!first || !left) throw new Error('right-page test layout is incomplete');
   return {
-    ...base,
-    pages: [...base.pages, extra],
+    ...layout(),
+    pageCount: 3,
     spreads: [
-      { index: 0, left: first },
-      { index: 1, left, right: extra },
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      { index: 1, pageIndexes: [1, 2], leftPageIndex: 1, rightPageIndex: 2 },
     ],
   };
 }
 
 function singleSpreadLayout(): PositionLayout {
-  const base = layout();
-  const left = base.pages[0];
-  const right = base.pages[1];
-  if (!left || !right) throw new Error('single-spread test layout is incomplete');
-  return { ...base, spreads: [{ index: 0, left, right }] };
+  return {
+    ...layout(),
+    spreads: [{ index: 0, pageIndexes: [0, 1], leftPageIndex: 0, rightPageIndex: 1 }],
+  };
 }
 
 function threeSpreadLayout(): PositionLayout {
-  const base = layout();
-  const extra = { index: 2, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] };
-  const first = base.pages[0];
-  const second = base.pages[1];
-  if (!first || !second) throw new Error('three-spread test layout is incomplete');
   return {
-    pages: [...base.pages, extra],
+    pageCount: 3,
     spreads: [
-      { index: 0, left: first },
-      { index: 1, left: second },
-      { index: 2, left: extra },
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      { index: 1, pageIndexes: [1], leftPageIndex: 1 },
+      { index: 2, pageIndexes: [2], leftPageIndex: 2 },
     ],
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 2 }]]),
   };
 }
 
-function legacyPosition(spreadIndex: number): ReadingPosition {
+function spineLocatorPosition(spreadIndex: number): ReadingPosition {
   return {
     locator: { spineIdref: 'chapter', chapterProgress: spreadIndex },
     projection: { spreadIndex, pageIndex: spreadIndex },
@@ -738,9 +723,9 @@ function legacyPosition(spreadIndex: number): ReadingPosition {
   };
 }
 
-function legacyExactPosition(): ReadingPosition {
+function spineLocatorExactPosition(): ReadingPosition {
   return {
-    ...legacyPosition(1),
+    ...spineLocatorPosition(1),
     locator: {
       spineIdref: 'chapter',
       chapterProgress: 1,
@@ -762,7 +747,6 @@ function coordinatePosition(
     spread,
     { selection: { setSpread: vi.fn() }, search: {}, position: tracker } as never,
     {
-      measurer: {},
       getChapterTextIndices: vi.fn(() => new Map()),
       getLayoutGeometry: vi.fn(() => ({
         viewportWidth: 300,

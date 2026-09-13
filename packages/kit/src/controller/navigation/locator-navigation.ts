@@ -4,7 +4,6 @@ import type { NavigationDeps } from './index';
 import {
   enqueueIntent,
   queuedLocatorSeek,
-  queuedTocNavigation,
   type NavigationMachine,
   type PendingLocatorNavigation,
 } from './machine';
@@ -14,6 +13,7 @@ import { continueResolvedLocatorNavigation } from './locator-continuation';
 const TOC_FAILURE_SOURCE = 'reader TOC locator navigation';
 const LINK_FAILURE_SOURCE = 'reader link locator navigation';
 
+/** Navigate to a TOC entry: directly when the committed layout resolves it, otherwise through the reader's locator seek. */
 export function navigateTocEntry(
   machine: NavigationMachine,
   deps: NavigationDeps,
@@ -29,10 +29,11 @@ export function navigateTocEntry(
   }
   const attemptId = claimNavigation(machine, deps).id;
   if (!reader?.navigateToLocator) {
-    enqueueIntent(machine, { kind: 'toc', target: { attemptId, entry } });
+    deps.onNavigationCancelled?.();
+    reportLocatorFailure(deps, TOC_FAILURE_SOURCE, new Error('Reader cannot resolve a TOC target'));
     return;
   }
-  startLocatorGrowth(
+  startLocatorSeek(
     machine,
     deps,
     reader,
@@ -55,10 +56,14 @@ export function navigateReaderLocator(
   const attemptId = claimNavigation(machine, deps).id;
   if (!reader?.navigateToLocator) {
     deps.onNavigationCancelled?.();
-    reportLocatorFailure(deps, LINK_FAILURE_SOURCE, new Error('Reader cannot grow a link target'));
+    reportLocatorFailure(
+      deps,
+      LINK_FAILURE_SOURCE,
+      new Error('Reader cannot resolve a link target'),
+    );
     return;
   }
-  startLocatorGrowth(
+  startLocatorSeek(
     machine,
     deps,
     reader,
@@ -70,18 +75,7 @@ export function navigateReaderLocator(
   );
 }
 
-export function retryPendingTocEntry(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
-  onResolved: (spreadIndex: number) => void,
-): void {
-  const entry = pendingLegacyTocEntry(machine);
-  if (!entry) return;
-  const resolved = deps.getReader()?.resolveTocEntry(entry);
-  if (resolved) onResolved(resolved.spreadIndex);
-}
-
-function startLocatorGrowth(
+function startLocatorSeek(
   machine: NavigationMachine,
   deps: NavigationDeps,
   reader: Reader,
@@ -113,25 +107,21 @@ function startLocatorGrowth(
   }
   void task
     .then((resolution) => {
-      settleLocatorGrowth(machine, deps, reader, pending, resolution);
+      settleLocatorSeek(machine, deps, reader, pending, resolution);
     })
     .catch((error: unknown) => {
-      handleLocatorGrowthFailure(machine, deps, pending, error);
+      handleLocatorSeekFailure(machine, deps, pending, error);
     });
 }
 
-export function pendingLegacyTocEntry(machine: NavigationMachine): TocEntry | undefined {
-  return queuedTocNavigation(machine)?.entry;
-}
-
-function settleLocatorGrowth(
+function settleLocatorSeek(
   machine: NavigationMachine,
   deps: NavigationDeps,
   reader: Reader,
   pending: PendingLocatorNavigation,
   resolution: ReaderLocatorResolution | undefined,
 ): void {
-  if (!ownsLocatorGrowth(machine, pending)) return;
+  if (!ownsLocatorSeek(machine, pending)) return;
   if (!resolution) {
     if (failChapterLocalLocator(machine, deps, pending)) return;
     enqueueIntent(machine, undefined);
@@ -139,7 +129,7 @@ function settleLocatorGrowth(
     return;
   }
   if (resolution.status !== 'resolved') {
-    failOwnedLocatorGrowth(
+    failOwnedLocatorSeek(
       machine,
       deps,
       pending,
@@ -155,7 +145,7 @@ function settleLocatorGrowth(
     resolution.spreadIndex >= reader.totalSpreads ||
     !reader.spreads[resolution.spreadIndex]
   ) {
-    failOwnedLocatorGrowth(
+    failOwnedLocatorSeek(
       machine,
       deps,
       pending,
@@ -164,42 +154,40 @@ function settleLocatorGrowth(
     return;
   }
   try {
-    deps.onPaginationChanged?.();
-    if (machine.disposed || machine.claimSeq !== pending.attemptId) return;
     if (settleChapterLocalExact(machine, deps, pending, resolution)) return;
   } catch (error) {
-    handleLocatorGrowthFailure(machine, deps, pending, error);
+    handleLocatorSeekFailure(machine, deps, pending, error);
     return;
   }
   continueResolvedLocatorNavigation(machine, deps, pending, resolution.spreadIndex);
 }
 
-function failLocatorGrowth(
+function failLocatorSeek(
   machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
-  if (!ownsLocatorGrowth(machine, pending)) return;
+  if (!ownsLocatorSeek(machine, pending)) return;
   if (failChapterLocalLocator(machine, deps, pending, error)) return;
   enqueueIntent(machine, undefined);
-  failOwnedLocatorGrowth(machine, deps, pending, error);
+  failOwnedLocatorSeek(machine, deps, pending, error);
 }
 
-function handleLocatorGrowthFailure(
+function handleLocatorSeekFailure(
   machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
   try {
-    failLocatorGrowth(machine, deps, pending, error);
+    failLocatorSeek(machine, deps, pending, error);
   } catch {
-    if (ownsLocatorGrowth(machine, pending)) enqueueIntent(machine, undefined);
+    if (ownsLocatorSeek(machine, pending)) enqueueIntent(machine, undefined);
   }
 }
 
-function failOwnedLocatorGrowth(
+function failOwnedLocatorSeek(
   machine: NavigationMachine,
   deps: NavigationDeps,
   pending: PendingLocatorNavigation,
@@ -217,7 +205,7 @@ function reportLocatorFailure(deps: NavigationDeps, source: string, error: unkno
   });
 }
 
-function ownsLocatorGrowth(machine: NavigationMachine, pending: PendingLocatorNavigation): boolean {
+function ownsLocatorSeek(machine: NavigationMachine, pending: PendingLocatorNavigation): boolean {
   return (
     !machine.disposed &&
     queuedLocatorSeek(machine) === pending &&

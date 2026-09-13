@@ -13,7 +13,6 @@ interface SelectionEdgeNavigationOptions {
   readonly getSurfaceRect: () => Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>;
   readonly getCurrentSpread: () => number;
   readonly getTotalSpreads: () => number;
-  readonly canGrowForward?: (() => boolean) | undefined;
   readonly navigate: (
     target: number,
     direction: SelectionEdgeDirection,
@@ -137,10 +136,7 @@ function targetSpread(
   direction: SelectionEdgeDirection,
 ): number | null {
   const target = options.getCurrentSpread() + direction;
-  if (target < 0) return null;
-  const total = options.getTotalSpreads();
-  if (target < total) return target;
-  return direction === 1 && target === total && options.canGrowForward?.() === true ? target : null;
+  return target >= 0 && target < options.getTotalSpreads() ? target : null;
 }
 
 function isPromise(

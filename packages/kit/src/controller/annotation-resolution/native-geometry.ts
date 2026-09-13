@@ -23,10 +23,6 @@ export function createNativeAnnotationGeometryState(): NativeAnnotationGeometryS
   return { generation: 0, cache: new Map(), misses: new Set(), pending: new Map() };
 }
 
-export function usesNativeAnnotationGeometry(reader: Reader): boolean {
-  return reader.interactions?.resolveExactSourceRange !== undefined;
-}
-
 export function invalidateNativeAnnotationGeometry(state: CoordinatorState): void {
   const native = state.nativeAnnotationGeometry;
   native.generation += 1;
@@ -173,7 +169,6 @@ function resolvedFromCache(
       status: source.status,
       segments: [...rectsByPage].map(([pageIndex, rects]) => ({
         pageIndex,
-        range: null,
         rects: rects.map(({ x, y, width, height }) => ({ x, y, width, height })),
       })),
     },
@@ -185,9 +180,7 @@ function recordsForSpread(
   reader: Reader,
   state: CoordinatorState,
 ): readonly AnnotationRecord[] {
-  const pages = new Set(
-    [spread.left?.index, spread.right?.index].filter((page): page is number => page !== undefined),
-  );
+  const pages = spread.pageIndexes;
   const ranges = buildChapterPageRanges(reader);
   return (state.annotationStore?.getAll() ?? []).filter((record) => {
     const source = resolveAnnotationSource(record, state, reader);

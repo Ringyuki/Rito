@@ -19,7 +19,6 @@ import {
   type NativeSelectionFocusSample,
   type NativeSelectionGestureSession,
 } from './native-engine-state';
-import { isCurrentNativeSelectionRead } from './native-engine-read';
 import {
   finishEmptySelection,
   handleCancelledSample,
@@ -50,9 +49,6 @@ export function createNativeSelectionEngine(
     },
     handlePointerUp: (point) => {
       queuePointerFocusSample(data, point, true);
-    },
-    acceptRevisionAppend: () => {
-      acceptRevisionAppend(data);
     },
     clear: () => {
       cancelNativeSelection(data, 'idle', true);
@@ -103,10 +99,9 @@ async function resolveAnchor(
   session: NativeSelectionGestureSession,
   point: NativeSelectionPoint,
 ): Promise<void> {
-  const readGeneration = session.readGeneration;
   try {
     const result = await data.capability.resolveCaret(point);
-    if (!isCurrentNativeSelectionRead(data, session, readGeneration)) return;
+    if (!isCurrentNativeSelection(data, session)) return;
     if (!result || result.status !== 'resolved') {
       finishEmptySelection(data, session);
       return;
@@ -114,7 +109,7 @@ async function resolveAnchor(
     session.anchor = result.caret;
     pump(data, session);
   } catch (error: unknown) {
-    if (!isCurrentNativeSelectionRead(data, session, readGeneration)) return;
+    if (!isCurrentNativeSelection(data, session)) return;
     reportNativeSelectionError(data, error);
     finishEmptySelection(data, session);
   }
@@ -171,27 +166,26 @@ function pump(data: NativeSelectionEngineData, session: NativeSelectionGestureSe
     session.moveInFlight = true;
     session.moveFallback = undefined;
   }
-  void resolveSample(data, session, sample, session.readGeneration);
+  void resolveSample(data, session, sample);
 }
 
 async function resolveSample(
   data: NativeSelectionEngineData,
   session: NativeSelectionGestureSession,
   sample: NativeSelectionFocusSample,
-  readGeneration: number,
 ): Promise<void> {
   try {
     if (session.granularity === 'character') {
-      await resolveCharacterSample(data, session, sample, readGeneration);
+      await resolveCharacterSample(data, session, sample);
     } else {
-      await resolveSemanticSample(data, session, sample, readGeneration);
+      await resolveSemanticSample(data, session, sample);
     }
   } catch (error: unknown) {
-    if (!isRelevant(data, session, sample, readGeneration)) return;
+    if (!isRelevant(data, session, sample)) return;
     reportNativeSelectionError(data, error);
     handleUnresolvedSample(data, session, sample);
   } finally {
-    if (isCurrentNativeSelectionRead(data, session, readGeneration)) {
+    if (isCurrentNativeSelection(data, session)) {
       if (sample.final) session.finalInFlight = false;
       else session.moveInFlight = false;
       pump(data, session);
@@ -203,12 +197,11 @@ async function resolveCharacterSample(
   data: NativeSelectionEngineData,
   session: NativeSelectionGestureSession,
   sample: NativeSelectionFocusSample,
-  readGeneration: number,
 ): Promise<void> {
   const anchor = session.anchor;
   if (!anchor) return;
   const rangeResult = await data.capability.resolveTextRangeToPoint(anchor, sample.point);
-  if (!isRelevant(data, session, sample, readGeneration)) return;
+  if (!isRelevant(data, session, sample)) return;
   if (!rangeResult) {
     handleCancelledSample(data, session, sample);
     return;
@@ -225,7 +218,6 @@ async function resolveSemanticSample(
   data: NativeSelectionEngineData,
   session: NativeSelectionGestureSession,
   sample: NativeSelectionFocusSample,
-  readGeneration: number,
 ): Promise<void> {
   const anchor = session.anchorPoint;
   const granularity = session.granularity;
@@ -238,7 +230,7 @@ async function resolveSemanticSample(
     focus: sample.point,
     granularity,
   });
-  if (!isRelevant(data, session, sample, readGeneration)) return;
+  if (!isRelevant(data, session, sample)) return;
   if (!rangeResult) {
     handleCancelledSample(data, session, sample);
     return;
@@ -254,26 +246,8 @@ function isRelevant(
   data: NativeSelectionEngineData,
   session: NativeSelectionGestureSession,
   sample: NativeSelectionFocusSample,
-  readGeneration: number,
 ): boolean {
-  if (!isCurrentNativeSelectionRead(data, session, readGeneration)) return false;
+  if (!isCurrentNativeSelection(data, session)) return false;
   if (sample.sequence === session.latestSequence) return true;
   return !sample.final && session.ended;
-}
-
-function acceptRevisionAppend(data: NativeSelectionEngineData): void {
-  if (data.keyboardSession) data.keyboardSession.readGeneration += 1;
-  const session = data.session;
-  if (!session || data.state !== 'selecting') return;
-  session.readGeneration += 1;
-  session.queued = session.latestSample;
-  session.moveInFlight = false;
-  session.finalInFlight = false;
-  session.moveFallback = undefined;
-  session.finalFallbackRequested = false;
-  if (session.granularity !== 'character' || session.anchor) {
-    pump(data, session);
-    return;
-  }
-  if (session.anchorPoint) void resolveAnchor(data, session, session.anchorPoint);
 }

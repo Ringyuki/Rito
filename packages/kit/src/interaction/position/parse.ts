@@ -15,7 +15,7 @@ function isPosition(value: unknown): value is ReadingPosition {
   if (!isProgression(value['progress']) || !isTimestamp(value['timestamp'])) return false;
   if (value['sourceLocator'] !== undefined && !isSourceLocator(value['sourceLocator']))
     return false;
-  if (value['locator'] !== undefined && !isLegacyLocator(value['locator'])) return false;
+  if (value['locator'] !== undefined && !isSpineLocator(value['locator'])) return false;
   return true;
 }
 
@@ -34,7 +34,8 @@ function isSourceLocator(value: unknown): value is ReaderLocator {
   return value['progression'] === undefined || isProgression(value['progression']);
 }
 
-function isLegacyLocator(value: unknown): value is ReadingLocator {
+/** Spine-relative locator written by earlier releases; still accepted from storage. */
+function isSpineLocator(value: unknown): value is ReadingLocator {
   if (!isRecord(value) || typeof value['spineIdref'] !== 'string') return false;
   if (!isProgression(value['chapterProgress'])) return false;
   if (value['manifestHref'] !== undefined && typeof value['manifestHref'] !== 'string')

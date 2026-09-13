@@ -1,10 +1,7 @@
-//! The document-owned fragment engine and its shared frame helpers.
-//!
-//! The per-spread paint bridge that once lived here is gone: the fragment
-//! page table owns pagination outright and the retained engine no longer
-//! paints. What remains is the engine construction (pinned faces plus the
-//! publication's `@font-face` bindings), the paint family policy, and the
-//! frame-skeleton helpers the fragment session shares.
+//! The document-owned fragment engine and its shared frame helpers:
+//! engine construction (pinned faces plus the publication's `@font-face`
+//! bindings), the paint family policy, and the frame-skeleton helpers the
+//! fragment session shares.
 
 use rito_block::BlockFormattingContext;
 use rito_inline::ParleyInlineContext;
@@ -105,10 +102,10 @@ impl RuntimeDocument {
     /// lifetime. Chapters still paginating are left undecided so they are
     /// reconsidered once complete.
     /// The family policy fragment paint runs under, or `None` when the
-    /// publication names a face into the pinned alias namespace. The
-    /// retained pipeline resolves such collisions in the pinned face's
-    /// favor; the fragment pipeline registers fonts by declared name and
-    /// would let the publication face win, so those books stay retained.
+    /// publication names a face into the pinned alias namespace: the
+    /// engine registers fonts by declared name, so such a face would shadow
+    /// the pinned face it aliases and paint could not resolve what layout
+    /// measured with; the chapter build reports the collision instead.
     /// Painted family stacks must resolve to the same faces layout
     /// measured with: only engine-registered families survive, and the
     /// pinned faces ride along under the alias names the host registered

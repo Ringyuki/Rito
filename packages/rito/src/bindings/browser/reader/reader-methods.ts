@@ -11,17 +11,13 @@ import {
   findRitoCoreWasmReaderTocTarget,
 } from '../core-contracts';
 import type { BrowserReaderState } from './types';
-import { fallbackBrowserTextMeasurer } from '../host-runtime';
 import { createBrowserReaderInteractions } from './interaction';
 import {
   captureCommittedSourceRead,
   copyReaderSourcePoint,
   readCapturedSource,
 } from './interaction-capture';
-import {
-  completeBrowserReaderBoundedSession,
-  ensureBrowserReaderBoundedLocator,
-} from '../bounded-session-runtime';
+import { ensureBrowserReaderBoundedLocator } from '../bounded-session-runtime';
 import { disposeBrowserReaderState } from './reader-dispose';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { browserReaderChapterLocalPreviewTocEntry } from '../chapter-local-preview/state';
@@ -30,12 +26,11 @@ import { browserReaderRenderingMethods } from '../reader-rendering-methods';
 export type BrowserReaderAccessorKey =
   | 'metadata'
   | 'totalSpreads'
+  | 'pageCount'
   | 'activeSpreadIndex'
-  | 'pagination'
   | 'toc'
   | 'chapterMap'
   | 'manifestHrefMap'
-  | 'pages'
   | 'spreads'
   | 'dpr';
 
@@ -84,7 +79,6 @@ export function buildBrowserReaderMethods(
   };
 
   return {
-    measurer: fallbackBrowserTextMeasurer,
     interactions: createBrowserReaderInteractions(state),
     ...browserReaderRenderingMethods(state),
     ...layoutMethods(state, () => layoutOptions, reflow),
@@ -208,7 +202,6 @@ function resourceMethods(
   return {
     async search(query, searchOptions) {
       if (query.length === 0) return [];
-      if ((await completeBrowserReaderBoundedSession(state)) !== true) return [];
       const capture = captureCommittedSourceRead(state);
       if (!capture) return [];
       const response = await readCapturedSource(state, capture, (worker, revision) =>

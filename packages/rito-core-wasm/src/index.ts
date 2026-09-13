@@ -7,12 +7,11 @@ export {
   createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
   createRitoCoreWasmReaderManifestHrefMap,
-  createRitoCoreWasmReaderPages,
   createRitoCoreWasmReaderSpreads,
   findRitoCoreWasmReaderActiveTocEntry,
   findRitoCoreWasmReaderSpreadContainingPage,
   findRitoCoreWasmReaderTocTarget,
-} from './reader-compat-runtime.js';
+} from './reader-navigation-runtime.js';
 export {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmReaderWorkerHandler,

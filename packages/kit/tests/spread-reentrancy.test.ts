@@ -48,8 +48,8 @@ describe('spread coordination reentrancy', () => {
     expect(setSpread).toHaveBeenCalledTimes(2);
     expect(update).toHaveBeenCalledOnce();
     expect(update).toHaveBeenCalledWith(1);
-    expect(state.hitMaps.has(1)).toBe(true);
-    expect(state.hitMaps.has(0)).toBe(false);
+    expect(state.mapper?.isPageVisible(1)).toBe(true);
+    expect(state.mapper?.isPageVisible(0)).toBe(false);
     expect(markOverlayDirty).toHaveBeenCalledOnce();
     expect(markOverlayDirty).toHaveBeenCalledWith(1);
     disposables.disposeAll();
@@ -100,22 +100,15 @@ describe('spread coordination reentrancy', () => {
     expect(update).toHaveBeenCalledOnce();
     expect(getPageTargets).toHaveBeenCalledOnce();
     expect(getPageTargets).toHaveBeenCalledWith(1);
-    expect(state.hitMaps.has(1)).toBe(true);
-    expect(state.hitMaps.has(0)).toBe(false);
+    expect(state.mapper?.isPageVisible(1)).toBe(true);
+    expect(state.mapper?.isPageVisible(0)).toBe(false);
     expect(markOverlayDirty).toHaveBeenCalledOnce();
     disposables.disposeAll();
   });
 });
 
 function createSpread(index: number, pageIndex: number): Spread {
-  return {
-    index,
-    left: {
-      index: pageIndex,
-      bounds: { x: 0, y: 0, width: 300, height: 400 },
-      content: [],
-    },
-  };
+  return { index, pageIndexes: [pageIndex], leftPageIndex: pageIndex };
 }
 
 function createReader(
@@ -126,7 +119,6 @@ function createReader(
   return {
     spreads,
     ...(interactions ? { interactions } : {}),
-    measurer: {},
     getLayoutGeometry: () =>
       createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
     getChapterTextIndices: () => new Map(),

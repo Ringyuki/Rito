@@ -26,10 +26,8 @@ export type {
   ResolvedAnnotation,
   ReadingPosition,
   SearchResult,
-  TextRange,
 } from './interaction/index';
-export { parseReadingPosition, resolveAnnotations } from './interaction/index';
-export { buildHitMap } from './public-interaction';
+export { parseReadingPosition } from './interaction/index';
 
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';

@@ -27,7 +27,7 @@ void main() {
       // paints the decoded ui.Image into layout boxes sized from that
       // declaration, without any rotation step of its own — which is only
       // correct if dart:ui applies the EXIF orientation during decode.
-      // This pins that contract on the reference engine: the descriptor
+      // This pins that contract on dart:ui itself: the descriptor
       // reports oriented dimensions and the decoded raster is oriented.
       final bytes = Uint8List.fromList(base64Decode(exif8JpegBase64));
       const decoder = RitoUiImageDecoder();

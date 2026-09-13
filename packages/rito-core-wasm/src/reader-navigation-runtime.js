@@ -2,25 +2,13 @@ export function createRitoCoreWasmReaderManifestHrefMap(publication) {
   return new Map(publication.package.manifest.map((item) => [item.id, item.href]));
 }
 
-export function createRitoCoreWasmReaderPages(pageCount, config) {
-  return Array.from({ length: pageCount }, (_, index) => ({
-    index,
-    bounds: { x: 0, y: 0, width: config.pageWidth, height: config.pageHeight },
-    content: [],
+export function createRitoCoreWasmReaderSpreads(navigation) {
+  return navigation.spreads.map((spread) => ({
+    index: spread.spreadIndex,
+    pageIndexes: spread.pageIndexes,
+    leftPageIndex: spread.leftPageIndex,
+    ...(spread.rightPageIndex === undefined ? {} : { rightPageIndex: spread.rightPageIndex }),
   }));
-}
-
-export function createRitoCoreWasmReaderSpreads(pages, navigation) {
-  return navigation.spreads.map((spread) => {
-    const left = pageForNavigation(pages, spread.leftPageIndex, spread.spreadIndex, 'left');
-    const right =
-      spread.rightPageIndex === undefined
-        ? undefined
-        : pageForNavigation(pages, spread.rightPageIndex, spread.spreadIndex, 'right');
-    return right === undefined
-      ? { index: spread.spreadIndex, left }
-      : { index: spread.spreadIndex, left, right };
-  });
 }
 
 export function createRitoCoreWasmReaderChapterMap(navigation) {
@@ -44,9 +32,7 @@ export function findRitoCoreWasmReaderActiveTocEntry(targets, pageIndex) {
 }
 
 export function findRitoCoreWasmReaderSpreadContainingPage(spreads, pageIndex) {
-  return spreads.find(
-    (spread) => spread.left?.index === pageIndex || spread.right?.index === pageIndex,
-  )?.index;
+  return spreads.find((spread) => spread.pageIndexes.includes(pageIndex))?.index;
 }
 
 export function createRitoCoreWasmReaderFootnoteMap(footnotes) {
@@ -75,14 +61,4 @@ export function createRitoCoreWasmReaderChapterTextIndexMap(indices) {
       },
     ]),
   );
-}
-
-function pageForNavigation(pages, pageIndex, spreadIndex, side) {
-  const page = pages[pageIndex];
-  if (!page) {
-    throw new Error(
-      `Rito reader navigation references missing ${side} page ${pageIndex} for spread ${spreadIndex}`,
-    );
-  }
-  return page;
 }

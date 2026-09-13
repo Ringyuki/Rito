@@ -64,20 +64,14 @@ function createPositionNav(jumpToSpread = vi.fn()) {
 }
 
 function createLayout(): PositionLayout {
-  const pages = [0, 1].map((index) => ({
+  const spreads = [0, 1].map((index) => ({
     index,
-    bounds: { x: 0, y: 0, width: 300, height: 400 },
-    content: [],
+    pageIndexes: [index],
+    leftPageIndex: index,
   }));
-  const first = pages[0];
-  const second = pages[1];
-  if (!first || !second) throw new Error('position fixture pages are missing');
   return {
-    pages,
-    spreads: [
-      { index: 0, left: first },
-      { index: 1, left: second },
-    ],
+    pageCount: spreads.length,
+    spreads,
     chapterMap: new Map([['chapter', { startPage: 0, endPage: 1 }]]),
   };
 }

@@ -157,19 +157,25 @@ when switching from a dark theme back to a book-authored light theme.
 | `resolveTocEntry(entry)`        | Resolve a TOC entry to page + spread |
 | `findActiveTocEntry(pageIndex)` | Find the active TOC entry for a page |
 
-### Pagination / interaction data
+### Layout / interaction data
 
-| Member                    | What it does                                         |
-| ------------------------- | ---------------------------------------------------- |
-| `pages`                   | Paginated pages                                      |
-| `spreads`                 | Presentation-layer spreads                           |
-| `totalSpreads`            | Number of spreads                                    |
-| `dpr`                     | Device pixel ratio used by rendering                 |
-| `measurer`                | Text measurer used by interaction APIs               |
-| `getChapterTextIndices()` | Source-based chapter text indices                    |
-| `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment` |
-| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL   |
-| `interactions`            | Optional revision-safe semantic interaction provider |
+| Member                    | What it does                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `spreads`                 | Navigation record per spread: `{ index, pageIndexes, leftPageIndex, rightPageIndex? }` |
+| `totalSpreads`            | Number of spreads in the committed layout                                              |
+| `pageCount`               | Number of pages in the committed layout                                                |
+| `dpr`                     | Device pixel ratio used by rendering                                                   |
+| `getChapterTextIndices()` | Source-based chapter text indices                                                      |
+| `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment`                                   |
+| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL                                     |
+| `interactions`            | Optional revision-safe semantic interaction provider                                   |
+
+Every revision is laid out complete in one step, so `totalSpreads`, `pageCount`
+and `spreads` describe the whole book as soon as `createReader()` resolves. A
+spread carries page indexes only; page geometry comes from `getLayoutGeometry()`
+and page content from the rendered frame and `interactions`. Page and spread
+indexes are projections of the current layout and change on reflow — persist
+a `ReaderLocator`, not an index.
 
 When present, `interactions` exposes typed page-content targets plus exact-revision
 footnote and source-locator reads. Its `enabled` flag is false while a visual-only

@@ -1,7 +1,7 @@
 import type { Reader } from '@ritojs/core';
 import { claimNavigation } from './claim';
 import type { GestureNavigationToken, NavigationDeps } from './index';
-import * as growth from './growth';
+import { ensureIncomingSlot, navigationTarget } from './pending';
 import {
   clearQueuedIntent,
   enqueueIntent,
@@ -81,11 +81,11 @@ function goToSpread(
 ): NavigationAttempt {
   const initialReader = deps.getReader();
   if (machine.disposed || !initialReader) return { claimedIntent: false };
-  const initialTarget = growth.navigationTarget(initialReader, index);
+  const initialTarget = navigationTarget(initialReader, index);
   const initialPrevious = deps.getCurrentSpread();
   const claim = claimNavigation(machine, deps);
   if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
-  if (initialTarget.index === initialPrevious && !initialTarget.pagination) {
+  if (initialTarget === initialPrevious) {
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
 
@@ -94,16 +94,21 @@ function goToSpread(
   if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
   const reader = deps.getReader();
   if (!reader) return { claimedIntent: true, attemptId: claim.id };
-  const target = growth.navigationTarget(reader, index);
-  if (target.index === previous && !target.pagination) {
+  const target = navigationTarget(reader, index);
+  if (target === previous) {
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
-  return createResolvedSpreadAttempt(
+  const direction = target > previous ? 'forward' : 'backward';
+  if (foregroundIsBusy(machine)) {
+    return createLocalPreviewPendingAttempt(claim.id, target, direction, previous, source, gesture);
+  }
+  return createKnownSpreadAttempt(
     machine,
     deps,
     reader,
     claim.id,
     target,
+    direction,
     previous,
     continuityDx,
     source,
@@ -120,84 +125,22 @@ function navigationContinuity(
   return settleNavigationAttemptForContinuity(machine, deps.td, attemptId);
 }
 
-function createResolvedSpreadAttempt(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
-  reader: Reader,
-  attemptId: number,
-  target: ReturnType<typeof growth.navigationTarget>,
-  previous: number,
-  continuityDx: number,
-  source: NavigationIntentSource,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
-  if (foregroundIsBusy(machine)) {
-    return createLocalPreviewPendingAttempt(
-      machine,
-      deps,
-      attemptId,
-      target,
-      previous,
-      source,
-      gesture,
-    );
-  }
-  if (target.pagination) {
-    return growth.createSpreadGrowthAttempt(
-      machine,
-      deps,
-      target.pagination,
-      attemptId,
-      target.index,
-      previous,
-      continuityDx,
-      source,
-      gesture,
-    );
-  }
-  return createKnownSpreadAttempt(
-    machine,
-    deps,
-    reader,
-    attemptId,
-    target.index,
-    previous,
-    continuityDx,
-    source,
-    gesture,
-  );
-}
-
 /** A turn arriving while a chapter-local presentation owns the raster parks behind it. */
 function createLocalPreviewPendingAttempt(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
   attemptId: number,
-  target: ReturnType<typeof growth.navigationTarget>,
+  target: number,
+  direction: 'forward' | 'backward',
   previous: number,
   source: NavigationIntentSource,
   gesture?: GestureNavigationRequest,
 ): NavigationAttempt {
-  if (target.pagination) {
-    return growth.createSpreadGrowthAttempt(
-      machine,
-      deps,
-      target.pagination,
-      attemptId,
-      target.index,
-      previous,
-      0,
-      source,
-      gesture,
-    );
-  }
   return {
     claimedIntent: true,
     attemptId,
     pendingNavigation: {
       attemptId,
-      target: target.index,
-      direction: target.index > previous ? 'forward' : 'backward',
+      target,
+      direction,
       previous,
       continuityDx: 0,
       source,
@@ -212,13 +155,13 @@ function createKnownSpreadAttempt(
   reader: Reader,
   attemptId: number,
   target: number,
+  direction: 'forward' | 'backward',
   previous: number,
   continuityDx: number,
   source: NavigationIntentSource,
   gesture?: GestureNavigationRequest,
 ): NavigationAttempt {
-  const direction = target > previous ? 'forward' : 'backward';
-  if (!growth.ensureIncomingSlot(deps, target, direction)) {
+  if (!ensureIncomingSlot(deps, target, direction)) {
     deps.frameDriver.scheduleComposite();
     return {
       claimedIntent: true,

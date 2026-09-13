@@ -141,8 +141,6 @@ describe('navigation deferred content', () => {
     nav.navigateToTocEntry(entry);
     tocSpread = undefined;
     nav.navigateToTocEntry(entry);
-    tocSpread = 0;
-    nav.notifyLayoutCommitted();
     nav.startGestureNavigation(1, vi.fn());
     nav.jumpToSpread(0, true);
 
@@ -153,16 +151,13 @@ describe('navigation deferred content', () => {
   it('silently clears older pending work for selection and position intents', () => {
     let currentSpread = 0;
     let contentReady = false;
-    let tocReady = false;
     const onNavigationCancelled = vi.fn();
     const onContentInteractionIntent = vi.fn();
     const gestureStarted = vi.fn();
     const goToTarget = vi.fn();
-    const entry = { label: 'Target', href: 'target.xhtml', children: [] };
     const reader = {
       totalSpreads: 3,
       spreads: [{}, {}, {}],
-      resolveTocEntry: vi.fn(() => (tocReady ? { pageIndex: 2, spreadIndex: 2 } : undefined)),
       notifyActiveSpread: vi.fn(),
     } as unknown as Reader;
     const deps = {
@@ -192,11 +187,11 @@ describe('navigation deferred content', () => {
     nav.notifyContentReady(1);
     gesture.cancel();
 
-    tocReady = false;
-    nav.navigateToTocEntry(entry);
+    contentReady = false;
+    nav.goToSpread(2);
     nav.supersedeForPositionIntent();
-    tocReady = true;
-    nav.notifyLayoutCommitted();
+    contentReady = true;
+    nav.notifyContentReady(2);
 
     expect(currentSpread).toBe(0);
     expect(goToTarget).not.toHaveBeenCalled();
@@ -745,53 +740,5 @@ describe('navigation deferred content', () => {
     expect(jump).toHaveBeenCalledWith(0);
     expect(goToTarget).not.toHaveBeenCalled();
     expect(secondGestureStarted).not.toHaveBeenCalled();
-  });
-
-  it('retries a TOC target after a partial preview is replaced by a full layout', () => {
-    let currentSpread = 0;
-    const target = { spread: undefined as number | undefined };
-    const entry = { label: 'Chapter 1', href: 'chapter-1.xhtml', children: [] };
-    const spread = {} as Spread;
-    const goToTarget = vi.fn();
-    const reader = {
-      totalSpreads: 12,
-      spreads: Array.from({ length: 12 }, () => spread),
-      resolveTocEntry: vi.fn(() =>
-        target.spread === undefined ? undefined : { pageIndex: 8, spreadIndex: target.spread },
-      ),
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: {
-        isAnimating: false,
-        viewportWidth: 800,
-        forceSettle: vi.fn(() => 0),
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => true),
-      },
-      contentRenderer: vi.fn(() => true),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    nav.navigateToTocEntry(entry);
-    expect(currentSpread).toBe(0);
-    expect(goToTarget).not.toHaveBeenCalled();
-
-    target.spread = 4;
-    nav.notifyLayoutCommitted();
-
-    expect(currentSpread).toBe(4);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 4, 0);
   });
 });

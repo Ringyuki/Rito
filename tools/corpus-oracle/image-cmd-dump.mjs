@@ -32,10 +32,6 @@ while (Date.now() - lastNav < 2000) await page.waitForTimeout(250);
 await page.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
 await page.setInputFiles('input[type=file]', path.resolve(bookPath));
 await page.waitForSelector('[data-testid=reader-shell][data-loaded=true]', { timeout: 300000 });
-await page.waitForFunction(
-  () => document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-  { timeout: 300000 },
-);
 await page.waitForTimeout(1500);
 
 const dump = await page.evaluate(async (spreads) => {

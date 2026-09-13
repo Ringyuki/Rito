@@ -38,7 +38,6 @@ export interface BrowserReaderBoundedLayoutRequest {
   readonly preserveLocator?: ReaderLocator | undefined;
   /** Initial open may recover an invalid locator to its fallback spread. */
   readonly fallbackOnLocatorFailure?: boolean | undefined;
-  readonly complete?: boolean | undefined;
   readonly expectedActiveSpreadIndex?: number | undefined;
   readonly notifyLayoutCommitted?: boolean | undefined;
   readonly preserveActiveSpread?: (() => boolean) | undefined;
@@ -101,8 +100,7 @@ async function runCandidate(
   signal?: AbortSignal,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
   const startRequest = { layoutConfig: toCoreLayoutConfig(request.config) } as const;
-  let snapshot = await startBrowserReaderCandidateTarget(owner, request, startRequest);
-  if (request.complete) snapshot = await owner.controller.complete();
+  const snapshot = await startBrowserReaderCandidateTarget(owner, request, startRequest);
   if (!ownsBrowserReaderBoundedCandidate(state, owner, generation) || signal?.aborted) {
     await abandonBrowserReaderBoundedCandidate(state, owner);
     return undefined;
@@ -124,27 +122,6 @@ async function runCandidate(
   }
   if (result.retiredOwner) await retireBrowserReaderBoundedOwner(state, result.retiredOwner);
   return signal?.aborted ? undefined : snapshot;
-}
-
-/// The committed revision holds the whole book, so a spread is either in
-/// its table or beyond the book.
-export function ensureBrowserReaderBoundedSpread(
-  state: BrowserReaderState,
-  spreadIndex: number,
-  signal?: AbortSignal,
-): Promise<boolean | undefined> {
-  if (!Number.isSafeInteger(spreadIndex) || spreadIndex < 0) {
-    return Promise.reject(
-      new RangeError('Bounded reader spread index must be a non-negative integer'),
-    );
-  }
-  return enqueueBrowserReaderCurrentMutation(state, () =>
-    Promise.resolve(
-      signal?.aborted || state.disposed
-        ? undefined
-        : spreadIndex < state.revisionBundle.revision.spreadCount,
-    ),
-  );
 }
 
 export function ensureBrowserReaderBoundedLocator(
@@ -178,23 +155,22 @@ export function ensureBrowserReaderBoundedLocator(
   );
 }
 
-export function completeBrowserReaderBoundedSession(
+/// Host line metrics measured AFTER the bounded worker opened never reached
+/// it, so this pushes the full metric cache into that worker, lays the
+/// whole book out again with them and commits the result. Without this,
+/// lines whose metrics arrived late stay laid out with the shaped fallback
+/// forever (a footnote-marker line painted its baseline one row high).
+///
+/// The visible spread stays wherever the reader is at commit time: a
+/// request-time capture would be stale once the user turns mid-flight.
+/// Resolves `undefined` when the reader was disposed, the signal aborted,
+/// or another mutation superseded the commit.
+export function refreshBrowserReaderHostLineMetrics(
   state: BrowserReaderState,
   signal?: AbortSignal,
-  options?: { readonly refreshHostLineMetrics?: boolean },
-): Promise<boolean | undefined> {
+): Promise<BrowserReaderBoundedSnapshot | undefined> {
   return enqueueBrowserReaderCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
-    // The committed table stands — but host line metrics measured AFTER
-    // the bounded worker opened never reached it, so a refresh pushes the
-    // full metric cache into that worker and re-completes: without this,
-    // lines whose metrics arrived late stay laid out with the shaped
-    // fallback forever (a footnote-marker line painted its baseline one
-    // row high).
-    if (options?.refreshHostLineMetrics !== true) return true;
-    // Completion also only extends/settles the table; the visible spread
-    // stays wherever the reader is at commit time (the request-time
-    // capture below is stale once the user turns mid-flight).
     const snapshot = await mutateCurrent(
       state,
       async (owner) => {
@@ -212,9 +188,9 @@ export function completeBrowserReaderBoundedSession(
     );
     if (!snapshot || signal?.aborted) return undefined;
     if (snapshot.target.kind !== 'complete') {
-      throw new Error('Bounded reader completion mutation did not commit a completion target');
+      throw new Error('Bounded reader host line metric refresh did not commit a whole-book target');
     }
-    return true;
+    return snapshot;
   });
 }
 

@@ -7,7 +7,7 @@
  */
 
 import type { AnnotationTarget, LocatorTextContext, SourceRangeSelector } from './model';
-import type { ChapterTextIndex } from './chapter-text-index';
+import type { ChapterTextIndex } from '../layout-types';
 import { offsetToSourcePoint } from './source-point';
 import { createTextQuoteSelector } from './quote-match';
 import { createTextPositionSelector } from './text-position';

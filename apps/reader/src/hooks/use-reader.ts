@@ -65,8 +65,7 @@ export function useReader(
   });
 
   if (typeof window !== 'undefined') {
-    // Debug probe for the fragment-pagination cutover: lets headless
-    // verification drive and inspect the controller directly.
+    // Exposes the controller so headless verification can drive and inspect it directly.
     (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;
   }
   const selection = useSelection(rito.controller);
@@ -202,7 +201,7 @@ export function useReader(
     const ctrl = rito.controller;
     if (!ctrl || rito.spreads.length === 0) return '';
     const spread = rito.spreads[rito.currentSpread];
-    const pageIndex = spread?.left?.index ?? 0;
+    const pageIndex = spread?.leftPageIndex ?? 0;
     return ctrl.reader.findActiveTocEntry(pageIndex)?.href ?? '';
   })();
 

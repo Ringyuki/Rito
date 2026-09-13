@@ -64,7 +64,6 @@ export function createTouchSelectionHarness(
     startGestureNavigation,
     getCurrentSpread: () => 0,
     getTotalSpreads: () => 3,
-    isPaginationComplete: () => true,
     commitPendingTransition: vi.fn(),
   };
   const modeManager = {

@@ -1,0 +1,9 @@
+---
+'@ritojs/core': major
+'@ritojs/kit': major
+'@ritojs/react': major
+---
+
+`Reader` drops its fabricated page model. `Reader.pages` and the `Page` type are removed: the engine owns page content and geometry, and the projection carried an empty `content` array and a copy of the layout page size. `Spread` is now the engine's navigation record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`, instead of a wrapper around fake pages; `Reader.spreads`, `totalSpreads`, `findSpread()` and `findPage()` keep their signatures on that shape, and `Reader.pageCount` is added. `Reader.measurer` and the `TextMeasurer`, `TextMetrics`, `MeasurePaint` and `FontShorthand` types are removed: measurement lives in the engine and the stub measured a fixed 8px per character. `Reader.pagination` and `ReaderIncrementalPagination` are removed: every revision is laid out complete in one step, so `complete` was always `true` and `ensureSpread()` only compared an index against `totalSpreads`.
+
+In `@ritojs/kit`, `buildHitMap` and `resolveAnnotations` leave the entry point together with the page/hit-map path they served (the synchronous selection engine, link and hit maps, the page-walking accessibility mirror source, and the page-text search index): selection, clicks, search highlights, annotations, and the accessibility mirror read `reader.interactions`, `createController` throws when `reader.interactions.textSelection` is missing, and `ReaderController.pages`, `paginationComplete`, `selectionRange`, `selectionChange.range`, and `ResolvedAnnotationSegment.range` are removed. Growth navigation is removed with it (the pending-growth navigation state, `ensureSelectionSpread`, and the retry of a queued TOC target on layout commit): a target beyond `totalSpreads` is out of range. In `@ritojs/react`, `useSelection()` no longer reports `range`, and `useRitoReader().spreads` is the navigation record.

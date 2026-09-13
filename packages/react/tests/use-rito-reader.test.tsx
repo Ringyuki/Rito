@@ -140,7 +140,11 @@ function createDeferredLayoutReader(
       return overrides?.toc ?? [];
     },
     get spreads() {
-      return Array.from({ length: totalSpreads }, (_, index) => ({ left: { index } }));
+      return Array.from({ length: totalSpreads }, (_, index) => ({
+        index,
+        pageIndexes: [index],
+        leftPageIndex: index,
+      }));
     },
     onLayoutCommitted(cb: () => void) {
       listeners.add(cb);

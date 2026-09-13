@@ -11,11 +11,6 @@ import {
   type NativeSelectionKeyboardSession,
 } from './native-engine-state';
 
-interface PreparedKeyboardOutcome {
-  readonly outcome: NativeSelectionKeyboardOutcome;
-  readonly readGeneration: number;
-}
-
 export function canExtendNativeKeyboardSelection(data: NativeSelectionEngineData): boolean {
   return (
     data.state === 'selected' &&
@@ -31,10 +26,7 @@ export function beginNativeKeyboardMovement(
 ): NativeSelectionKeyboardCommand | null {
   const snapshot = data.snapshot;
   if (!canExtendNativeKeyboardSelection(data) || !snapshot || data.keyboardSession) return null;
-  const session: NativeSelectionKeyboardSession = {
-    epoch: ++data.epoch,
-    readGeneration: 0,
-  };
+  const session: NativeSelectionKeyboardSession = { epoch: ++data.epoch };
   const preferredInlinePosition =
     isVerticalLineMovement(movement) || isPageMovement(movement)
       ? data.keyboardPreferredInlinePosition
@@ -59,7 +51,7 @@ function createKeyboardCommand(
   preferredInlinePosition: number | undefined,
   preferredBlockPosition: number | undefined,
 ): NativeSelectionKeyboardCommand {
-  let prepared: PreparedKeyboardOutcome | undefined;
+  let prepared: NativeSelectionKeyboardOutcome | undefined;
   let committed = false;
   const result = resolveMovement(
     data,
@@ -69,7 +61,7 @@ function createKeyboardCommand(
     preferredBlockPosition,
   ).then((resolved) => {
     prepared = resolved;
-    return resolved.outcome;
+    return resolved;
   });
   return {
     result,
@@ -77,14 +69,13 @@ function createKeyboardCommand(
       if (
         committed ||
         !prepared ||
-        prepared.outcome.status === 'cancelled' ||
-        prepared.readGeneration !== session.readGeneration ||
+        prepared.status === 'cancelled' ||
         !isCurrentKeyboardSession(data, session)
       ) {
         return false;
       }
       committed = true;
-      commitMovement(data, movement, prepared.outcome);
+      commitMovement(data, movement, prepared);
       return true;
     },
     isActive: () => isCurrentKeyboardSession(data, session),
@@ -109,39 +100,25 @@ async function resolveMovement(
   movement: ReaderTextSelectionMovement,
   preferredInlinePosition: number | undefined,
   preferredBlockPosition: number | undefined,
-): Promise<PreparedKeyboardOutcome> {
+): Promise<NativeSelectionKeyboardOutcome> {
   const capability = data.capability;
-  if (!capability.resolveTextSelectionMovement) return cancelledOutcome(session);
-  while (isCurrentKeyboardSession(data, session)) {
-    const snapshot = data.snapshot;
-    if (!snapshot) return cancelledOutcome(session);
-    const readGeneration = session.readGeneration;
-    try {
-      const result = await capability.resolveTextSelectionMovement({
-        anchor: snapshot.range.anchor,
-        focus: snapshot.range.focus,
-        movement,
-        ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
-        ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
-      });
-      if (!isCurrentKeyboardSession(data, session)) return cancelledOutcome(session);
-      if (session.readGeneration !== readGeneration) continue;
-      return {
-        outcome: result ?? { status: 'cancelled' },
-        readGeneration,
-      };
-    } catch (error: unknown) {
-      if (!isCurrentKeyboardSession(data, session)) return cancelledOutcome(session);
-      if (session.readGeneration !== readGeneration) continue;
-      reportNativeSelectionError(data, error);
-      return cancelledOutcome(session);
-    }
+  const snapshot = data.snapshot;
+  if (!capability.resolveTextSelectionMovement || !snapshot) return { status: 'cancelled' };
+  if (!isCurrentKeyboardSession(data, session)) return { status: 'cancelled' };
+  try {
+    const result = await capability.resolveTextSelectionMovement({
+      anchor: snapshot.range.anchor,
+      focus: snapshot.range.focus,
+      movement,
+      ...(preferredInlinePosition === undefined ? {} : { preferredInlinePosition }),
+      ...(preferredBlockPosition === undefined ? {} : { preferredBlockPosition }),
+    });
+    if (!isCurrentKeyboardSession(data, session)) return { status: 'cancelled' };
+    return result ?? { status: 'cancelled' };
+  } catch (error: unknown) {
+    if (isCurrentKeyboardSession(data, session)) reportNativeSelectionError(data, error);
+    return { status: 'cancelled' };
   }
-  return cancelledOutcome(session);
-}
-
-function cancelledOutcome(session: NativeSelectionKeyboardSession): PreparedKeyboardOutcome {
-  return { outcome: { status: 'cancelled' }, readGeneration: session.readGeneration };
 }
 
 function commitMovement(

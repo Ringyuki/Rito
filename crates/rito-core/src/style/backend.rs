@@ -127,9 +127,9 @@ fn try_resolve_with_stylo(
 
     // The EPUB support profile is the UA policy: it supplies the HTML
     // box-generation defaults publication content assumes, including table
-    // box generation. The legacy pair it replaced (a minimal sheet plus
-    // `* { display: block }`) could not generate a table box at all, so
-    // every `<table>` laid out as a plain block.
+    // box generation (a minimal sheet with `* { display: block }` cannot
+    // generate a table box, so every `<table>` would lay out as a plain
+    // block).
     let mut stylesheets = Vec::with_capacity(selection.stylesheets.len() + 3);
     stylesheets.push(StylesheetInput::new(
         rito_stylo::epub_ua_stylesheet(),

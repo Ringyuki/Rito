@@ -4,7 +4,7 @@
  */
 
 import type { ProgressionSelector } from './model';
-import type { ChapterTextIndex } from './chapter-text-index';
+import type { ChapterTextIndex } from '../layout-types';
 
 export function createProgressionSelector(
   chapterIndex: number,

@@ -18,6 +18,41 @@ The repository ships:
 - `rito_flutter` — the Flutter adapter over the engine's C ABI (pub.dev)
 - `crates/rito-ffi` — the C ABI for other native hosts
 
+## Architecture
+
+One Rust engine parses, styles, lays out and paints every page. Hosts move
+its bytes and blit them; no host owns a layout or paint rule.
+
+```mermaid
+flowchart TB
+  subgraph hosts["Hosts (blit only)"]
+    react["@ritojs/react"] --> kit["@ritojs/kit<br/>controller, overlays, selection, search"]
+    kit --> core["@ritojs/core<br/>Worker runtime + Canvas pen"]
+    flutter["rito_flutter<br/>Dart decoder + CustomPainter pen"]
+    native["other native hosts"]
+  end
+  core --> wasm["rito-wasm<br/>wasm-bindgen facade"]
+  flutter --> ffi["rito-ffi<br/>C ABI actor"]
+  native --> ffi
+  wasm --> runtime
+  ffi --> runtime
+  subgraph engine["rito-core (Rust)"]
+    runtime["runtime<br/>document handle, revisions, frames, resources, interaction"]
+    runtime --> epub["epub + xhtml<br/>archive, package, chapter sources (rito-source)"]
+    epub --> style["style<br/>Stylo cascade (rito-stylo) → typed tables (rito-style-contract)"]
+    style --> bridge["fragment_bridge<br/>formatting tree + capability gates"]
+    bridge --> layout["fragment_pagination<br/>rito-fragment · rito-block · rito-inline (Parley)"]
+    layout --> paint["fragment_paint<br/>typed display commands"]
+    paint --> render["render<br/>device primitives → RITODL1 wire"]
+    render --> runtime
+  end
+```
+
+Every layout and paint rule is proven against pinned Chromium page by
+page. The crate and package boundaries, the invariants and the guards
+that enforce them are in [Architecture](./docs/development/architecture.md)
+and [Engine Pipeline](./docs/development/engine-pipeline.md).
+
 ## Install
 
 ```bash

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReaderDocumentSourceSpan, ReaderLocator } from '@ritojs/core';
-import type { ReaderController, SelectionHandleState, TextRange } from '@ritojs/kit';
+import type { ReaderController, SelectionHandleState } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 interface Rect {
@@ -11,23 +11,23 @@ interface Rect {
 }
 
 export interface SelectionState {
-  readonly range: TextRange | null;
+  /** Durable source locator of the selection, when both endpoints share a resource. */
   readonly sourceLocator: ReaderLocator | null;
+  /** Resource-qualified durable endpoints of the selection. */
   readonly sourceSpan: ReaderDocumentSourceSpan | null;
   readonly text: string;
-  /** Selection rects in spread-content space (legacy — prefer viewportRects). */
+  /** Selection rects in spread-content space (content areas only, no margins). */
   readonly rects: readonly Rect[];
   /** Selection rects in viewport-logical space (includes margins). */
   readonly viewportRects: readonly Rect[];
   /** Rect of the active endpoint (focus) in viewport-logical space. Follows the user's pointer. */
   readonly focusRect: Rect | null;
-  /** Exact native range endpoints in viewport-logical coordinates. */
+  /** Exact range endpoints in viewport-logical coordinates. */
   readonly handles: SelectionHandleState | null;
   readonly hasSelection: boolean;
 }
 
 const EMPTY_SELECTION_STATE: SelectionState = {
-  range: null,
   sourceLocator: null,
   sourceSpan: null,
   text: '',
@@ -51,7 +51,6 @@ export function useSelection(controller: ReaderController | null): SelectionStat
     controller,
     'selectionChange',
     ({
-      range,
       sourceLocator,
       sourceSpan,
       text,
@@ -62,7 +61,6 @@ export function useSelection(controller: ReaderController | null): SelectionStat
       hasSelection,
     }) => {
       setState({
-        range,
         sourceLocator,
         sourceSpan,
         text,

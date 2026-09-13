@@ -1,6 +1,6 @@
-//! End-to-end coverage for the fragment-engine page table: an eager
-//! whole-book revision on a representable book hands pagination to the
-//! fragment engine when the cutover lever is on.
+//! End-to-end coverage for the fragment-engine page table: a whole-book
+//! revision paginates every chapter through the fragment engine, and the
+//! page numbers, chapter ranges, frames and locators all come from it.
 
 use super::{
     fixture::{fixture_epub_with_chapter_and_stylesheet, layout, multi_chapter_fixture_epub},

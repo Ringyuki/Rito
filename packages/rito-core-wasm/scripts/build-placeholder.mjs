@@ -16,7 +16,7 @@ const runtimeSources = [
   'chapter-local-document-runtime.js',
   'revision-presentation-validation-runtime.js',
   'required-font-faces-validation-runtime.js',
-  'reader-compat-runtime.js',
+  'reader-navigation-runtime.js',
   'reader-bounded-session-runtime.js',
   'reader-bounded-session-support-runtime.js',
   'reader-worker-cache-runtime.js',
@@ -58,7 +58,10 @@ const runtimeSources = [
   target: new URL(name, dist),
 }));
 const errorDeclarationSource = new URL('../src/core-wasm-error-runtime.d.ts', import.meta.url);
-const compatDeclarationSource = new URL('../src/reader-compat-runtime.d.ts', import.meta.url);
+const navigationDeclarationSource = new URL(
+  '../src/reader-navigation-runtime.d.ts',
+  import.meta.url,
+);
 const decoderDeclarationSources = [
   'frame-command-buffer-decoder-runtime.d.ts',
   'reader-v1-runtime.d.ts',
@@ -93,7 +96,9 @@ await mkdir(dist, { recursive: true });
 await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, target)));
 
 const errorDeclarations = stripTypeOnlyImports(await readFile(errorDeclarationSource, 'utf8'));
-const compatDeclarations = stripTypeOnlyImports(await readFile(compatDeclarationSource, 'utf8'));
+const compatDeclarations = stripTypeOnlyImports(
+  await readFile(navigationDeclarationSource, 'utf8'),
+);
 const decoderDeclarations = await readTypeDeclarations(decoderDeclarationSources);
 const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
 await writeFile(new URL('decoder.mjs', dist), decoderEntry());
@@ -127,7 +132,7 @@ await writeFile(
 function decoderEntry() {
   return [
     "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-compat-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
     ...readerV1RuntimeExports(),
@@ -139,7 +144,7 @@ function decoderEntry() {
 function indexEntry() {
   return [
     "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-compat-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
     ...readerV1RuntimeExports(),

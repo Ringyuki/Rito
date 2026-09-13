@@ -65,7 +65,7 @@ describe('native search geometry', () => {
   it.each([
     { status: 'pending' as const, reason: 'notPaginated' as const },
     { status: 'unavailable' as const, reason: 'shapeUnavailable' as const },
-  ])('negative-caches typed $status without a legacy fallback', async (resolution) => {
+  ])('negative-caches typed $status', async (resolution) => {
     const result = nativeResult('match', 0);
     const fixture = createFixture(
       vi.fn(() => Promise.resolve(resolution)),
@@ -160,7 +160,7 @@ describe('native search geometry', () => {
     expect(async.state.nativeSearchGeometry.cache.size).toBe(0);
   });
 
-  it('never asks the legacy HitMap path for native source-unavailable results', () => {
+  it('requests no geometry for native source-unavailable results', () => {
     const result = unavailableResult('missing', 0);
     const fixture = createFixture(vi.fn(), [result]);
     const getHighlightRects = vi.fn(() => [{ x: 1, y: 2, width: 3, height: 4 }]);
@@ -196,7 +196,7 @@ function createFixture(resolve: ReturnType<typeof vi.fn>, results: readonly Sear
     getFootnote: vi.fn(),
     resolveLocator: vi.fn(),
   };
-  const reader = { interactions, measurer: {} } as unknown as Reader;
+  const reader = { interactions } as unknown as Reader;
   return { interactions, reader, resolve, results, state };
 }
 
@@ -219,7 +219,7 @@ function schedule(
 function nativeResult(id: string, pageIndex: number): SearchResult {
   return {
     pageIndex,
-    range: legacyRange(),
+    range: matchRange(),
     context: id,
     source: {
       status: 'resolved',
@@ -235,13 +235,13 @@ function nativeResult(id: string, pageIndex: number): SearchResult {
 function unavailableResult(id: string, pageIndex: number): SearchResult {
   return {
     pageIndex,
-    range: legacyRange(),
+    range: matchRange(),
     context: id,
     source: { status: 'unavailable', reason: 'sourceUnavailable' },
   };
 }
 
-function legacyRange(): SearchResult['range'] {
+function matchRange(): SearchResult['range'] {
   const position = { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 };
   return { start: position, end: { ...position, charIndex: 1 } };
 }
@@ -262,11 +262,11 @@ function resolvedGeometry(
 }
 
 function createSpread(index: number, left: number, right?: number): Spread {
-  const bounds = { x: 0, y: 0, width: 300, height: 400 };
   return {
     index,
-    left: { index: left, bounds, content: [] },
-    ...(right === undefined ? {} : { right: { index: right, bounds, content: [] } }),
+    pageIndexes: right === undefined ? [left] : [left, right],
+    leftPageIndex: left,
+    ...(right === undefined ? {} : { rightPageIndex: right }),
   };
 }
 

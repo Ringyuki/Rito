@@ -6,11 +6,6 @@ export interface NativeTargetHit {
   readonly target: ReaderInteractionTarget;
 }
 
-/** Native targets are authoritative whenever the Reader exposes the atomic capability. */
-export function usesNativeTargets(reader: Reader): boolean {
-  return reader.interactions !== undefined;
-}
-
 /** Clear installed targets and invalidate every outstanding visible-spread read. */
 export function invalidateNativeTargets(state: CoordinatorState): void {
   state.nativeTargetLoadGeneration += 1;
@@ -18,7 +13,7 @@ export function invalidateNativeTargets(state: CoordinatorState): void {
 }
 
 /**
- * Read both visible pages against one interaction capability and install them atomically.
+ * Read every visible page against one interaction capability and install them atomically.
  * The Reader performs exact-revision validation; this layer additionally guards spread races.
  */
 export async function loadNativeTargetsForSpread(
@@ -31,10 +26,12 @@ export async function loadNativeTargetsForSpread(
   const interactions = reader.interactions;
   if (!interactions?.enabled) return;
   const generation = state.nativeTargetLoadGeneration;
-  const pages = [spread.left, spread.right].filter((page) => page !== undefined);
+  const pageIndexes = spread.pageIndexes;
   let results: Awaited<ReturnType<ReaderInteractions['getPageTargets']>>[];
   try {
-    results = await Promise.all(pages.map((page) => interactions.getPageTargets(page.index)));
+    results = await Promise.all(
+      pageIndexes.map((pageIndex) => interactions.getPageTargets(pageIndex)),
+    );
   } catch (error) {
     if (!canInstall(state, reader, interactions, generation)) return;
     throw error;
@@ -44,14 +41,14 @@ export async function loadNativeTargetsForSpread(
   if (results.some((result) => result === undefined)) return;
 
   const next = new Map<number, readonly ReaderInteractionTarget[]>();
-  for (let index = 0; index < pages.length; index += 1) {
-    const page = pages[index];
+  for (let index = 0; index < pageIndexes.length; index += 1) {
+    const pageIndex = pageIndexes[index];
     const result = results[index];
-    if (!page || !result) return;
-    if (result.pageIndex !== page.index || result.spreadIndex !== spread.index) {
+    if (pageIndex === undefined || !result) return;
+    if (result.pageIndex !== pageIndex || result.spreadIndex !== spread.index) {
       throw new Error('Native page targets do not match the visible spread');
     }
-    next.set(page.index, result.targets);
+    next.set(pageIndex, result.targets);
   }
 
   if (!canInstall(state, reader, interactions, generation)) return;

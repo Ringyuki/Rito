@@ -117,82 +117,35 @@ describe('selection edge navigation', () => {
     expect(navigate).toHaveBeenCalledTimes(2);
   });
 
-  it('grows the next unpublished spread and resumes from a stationary point', async () => {
+  it('does not navigate past the final spread', () => {
     vi.useFakeTimers();
-    let currentSpread = 0;
-    let totalSpreads = 1;
-    let settleGrowth: ((outcome: 'retry') => void) | undefined;
-    const navigate = vi.fn((target: number) => {
-      if (target >= totalSpreads) {
-        return new Promise<'retry'>((resolve) => {
-          settleGrowth = resolve;
-        });
-      }
-      currentSpread = target;
-      return 'committed' as const;
-    });
-    const edge = createSelectionEdgeNavigation({
-      getSurfaceRect: () => surface,
-      getCurrentSpread: () => currentSpread,
-      getTotalSpreads: () => totalSpreads,
-      canGrowForward: () => true,
-      navigate,
-    });
-
-    edge.update({ clientX: 496, clientY: 200 });
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    expect(navigate).toHaveBeenCalledOnce();
-
-    totalSpreads = 2;
-    settleGrowth?.('retry');
-    await Promise.resolve();
-
-    expect(navigate).toHaveBeenCalledTimes(2);
-    expect(currentSpread).toBe(1);
-  });
-
-  it('aborts an unpublished-spread growth when the drag is cancelled', async () => {
-    vi.useFakeTimers();
-    let growthSignal: AbortSignal | undefined;
-    let settleGrowth: ((outcome: 'retry') => void) | undefined;
-    const navigate = vi.fn((_target, _direction, _point, signal: AbortSignal) => {
-      growthSignal = signal;
-      return new Promise<'retry'>((resolve) => {
-        settleGrowth = resolve;
-      });
-    });
+    const navigate = vi.fn(() => 'committed' as const);
     const edge = createSelectionEdgeNavigation({
       getSurfaceRect: () => surface,
       getCurrentSpread: () => 0,
       getTotalSpreads: () => 1,
-      canGrowForward: () => true,
       navigate,
     });
 
     edge.update({ clientX: 496, clientY: 200 });
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    edge.cancel();
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
 
-    expect(growthSignal?.aborted).toBe(true);
-    settleGrowth?.('retry');
-    await Promise.resolve();
-    expect(navigate).toHaveBeenCalledOnce();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('sees cancellation reentered while an async navigation is being constructed', async () => {
     vi.useFakeTimers();
-    let growthSignal: AbortSignal | undefined;
+    let navigationSignal: AbortSignal | undefined;
     const edgeRef: { current?: ReturnType<typeof createSelectionEdgeNavigation> } = {};
     const navigate = vi.fn((_target, _direction, _point, signal: AbortSignal) => {
-      growthSignal = signal;
+      navigationSignal = signal;
       edgeRef.current?.cancel();
       return Promise.resolve('retry' as const);
     });
     const edge = createSelectionEdgeNavigation({
       getSurfaceRect: () => surface,
       getCurrentSpread: () => 0,
-      getTotalSpreads: () => 1,
-      canGrowForward: () => true,
+      getTotalSpreads: () => 2,
       navigate,
     });
     edgeRef.current = edge;
@@ -200,7 +153,7 @@ describe('selection edge navigation', () => {
     edge.update({ clientX: 496, clientY: 200 });
     vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
 
-    expect(growthSignal?.aborted).toBe(true);
+    expect(navigationSignal?.aborted).toBe(true);
     await Promise.resolve();
     vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
     expect(navigate).toHaveBeenCalledOnce();

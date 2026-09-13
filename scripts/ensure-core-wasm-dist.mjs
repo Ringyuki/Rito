@@ -7,7 +7,7 @@ const requiredFiles = [
   'decoder.mjs',
   'decoder.d.mts',
   'core-wasm-error-runtime.js',
-  'reader-compat-runtime.js',
+  'reader-navigation-runtime.js',
   'reader-worker-client-runtime.js',
   'frame-command-buffer-decoder-runtime.js',
   'reader-v1-display-decoder-runtime.js',

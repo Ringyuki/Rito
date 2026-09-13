@@ -1,12 +1,10 @@
-import { createLayoutConfig } from '@ritojs/core';
-import type { ReaderTextSelectionInteractions, TextMeasurer } from '@ritojs/core';
+import type { ReaderTextSelectionInteractions } from '@ritojs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPrimarySelectionDragNavigation } from '../src/controller/facade/selection-primary-drag';
 import { SELECTION_EDGE_DWELL_MS } from '../src/controller/facade/selection-edge-navigation';
 import type { Internals } from '../src/controller/facade/types';
 import { bindPointerEvents } from '../src/controller/wiring/pointer';
 import { createSelectionEngine } from '../src/interaction';
-import type { Spread } from '../src/interaction';
 import type { NativeSelectionProjection } from '../src/interaction/selection/engine';
 import {
   withSelectionGestureProjection,
@@ -41,7 +39,7 @@ describe('primary selection native projection integration', () => {
       resolveTextRangeFromPoints: () => Promise.resolve({ status: 'miss' }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, singlePageProjection(0, 300));
+    engine.setSpread(singlePageProjection(0, 300));
     const dom = createDomTarget();
     const canvas = dom.target as HTMLCanvasElement;
     canvas.getBoundingClientRect = () => surfaceRect;
@@ -49,7 +47,6 @@ describe('primary selection native projection integration', () => {
     let released = false;
     const click = vi.fn();
     const navigation = createPrimarySelectionDragNavigation(internals, canvas, {
-      ensureSelectionSpread: vi.fn(),
       prepareSpreadForJump: vi.fn(() => 'ready'),
       supersedeForSelectionIntent: () => {
         internals.coordState.contentInteractionGeneration += 1;
@@ -62,7 +59,7 @@ describe('primary selection native projection integration', () => {
         internals.coordState.mapper = mapperWithWidth(100);
         try {
           withSelectionGestureProjection(engine, gesture, () => {
-            engine.setSpread(spread, config, measurer, singlePageProjection(1, 100));
+            engine.setSpread(singlePageProjection(1, 100));
           });
         } finally {
           internals.coordState.selectionProjectionTransfer = null;
@@ -112,7 +109,7 @@ describe('primary selection native projection integration', () => {
       resolveTextRangeFromPoints: () => Promise.resolve({ status: 'miss' }),
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread(spread, config, measurer, singlePageProjection(0, 300));
+    engine.setSpread(singlePageProjection(0, 300));
     const dom = createDomTarget();
     const canvas = dom.target as HTMLCanvasElement;
     canvas.getBoundingClientRect = () => surfaceRect;
@@ -120,7 +117,6 @@ describe('primary selection native projection integration', () => {
     (internals.reader as { totalSpreads: number }).totalSpreads = 3;
     const jumps: number[] = [];
     const navigation = createPrimarySelectionDragNavigation(internals, canvas, {
-      ensureSelectionSpread: vi.fn(),
       prepareSpreadForJump: vi.fn(() => 'ready'),
       supersedeForSelectionIntent: () => {
         internals.coordState.contentInteractionGeneration += 1;
@@ -134,7 +130,7 @@ describe('primary selection native projection integration', () => {
         jumps.push(target);
         try {
           withSelectionGestureProjection(engine, gesture, () => {
-            engine.setSpread(spread, config, measurer, singlePageProjection(target, 100));
+            engine.setSpread(singlePageProjection(target, 100));
           });
         } finally {
           internals.coordState.selectionProjectionTransfer = null;
@@ -166,14 +162,6 @@ describe('primary selection native projection integration', () => {
   });
 });
 
-const config = createLayoutConfig({ width: 300, height: 200, margin: 0, spread: 'single' });
-const spread: Spread = {
-  index: 0,
-  left: { index: 0, bounds: { x: 0, y: 0, width: 300, height: 200 }, content: [] },
-};
-const measurer: TextMeasurer = {
-  measureText: (text) => ({ width: text.length * 10, height: 20 }),
-};
 const surfaceRect = {
   left: 0,
   right: 300,
@@ -184,7 +172,7 @@ const surfaceRect = {
 function createInternals(engine: ReturnType<typeof createSelectionEngine>): Internals {
   return {
     currentSpread: 0,
-    reader: { totalSpreads: 2, pagination: { complete: true } },
+    reader: { totalSpreads: 2 },
     engines: { selection: engine },
     coordState: {
       mapper: mapperWithWidth(300),

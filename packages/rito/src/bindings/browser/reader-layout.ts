@@ -1,23 +1,17 @@
 import {
   createLayoutConfig,
   type LayoutConfig,
-  type Page,
   type ReaderOptions,
   type Spread,
 } from '../../reader';
 import {
   createRitoCoreWasmReaderChapterMap,
   createRitoCoreWasmReaderManifestHrefMap,
-  createRitoCoreWasmReaderPages,
   createRitoCoreWasmReaderSpreads,
 } from './core-contracts';
 import type { CoreLayoutConfig, BrowserReaderState } from './reader/types';
 
 interface BrowserReaderLayoutViewCache {
-  pagesRevision?: BrowserReaderState['revisionBundle']['revision'];
-  pagesConfig?: LayoutConfig;
-  pages?: readonly Page[];
-  spreadsPages?: readonly Page[];
   spreadsNavigation?: BrowserReaderState['revisionBundle']['navigation'];
   spreads?: readonly Spread[];
   chapterMapNavigation?: BrowserReaderState['revisionBundle']['navigation'];
@@ -67,34 +61,12 @@ export function applyLayoutOverrides(
   };
 }
 
-export function browserReaderPages(state: BrowserReaderState): readonly Page[] {
-  const cache = layoutViewCache(state);
-  const revision = state.revisionBundle.revision;
-  const config = state.config;
-  if (
-    cache.pages === undefined ||
-    cache.pagesRevision !== revision ||
-    cache.pagesConfig !== config
-  ) {
-    cache.pagesRevision = revision;
-    cache.pagesConfig = config;
-    cache.pages = createRitoCoreWasmReaderPages(revision.pageCount, config);
-  }
-  return cache.pages;
-}
-
 export function browserReaderSpreads(state: BrowserReaderState): readonly Spread[] {
   const cache = layoutViewCache(state);
-  const pages = browserReaderPages(state);
   const navigation = state.revisionBundle.navigation;
-  if (
-    cache.spreads === undefined ||
-    cache.spreadsPages !== pages ||
-    cache.spreadsNavigation !== navigation
-  ) {
-    cache.spreadsPages = pages;
+  if (cache.spreads === undefined || cache.spreadsNavigation !== navigation) {
     cache.spreadsNavigation = navigation;
-    cache.spreads = createRitoCoreWasmReaderSpreads(pages, navigation);
+    cache.spreads = createRitoCoreWasmReaderSpreads(navigation);
   }
   return cache.spreads;
 }

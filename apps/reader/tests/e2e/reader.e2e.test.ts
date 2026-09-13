@@ -50,36 +50,6 @@ test.describe('reader app', () => {
     await expect.poll(() => accessibilityMirrorContentCount(page)).toBeGreaterThan(0);
   });
 
-  // FIXME(fragment-source-locator): pre-existing gap of the fragment
-  // cutover, on record since the backend landed ("source locators still
-  // resolve Unavailable" in chapter_engine_session/fragment). Tracked for
-  // the post-release fragment interaction pass together with search
-  // source resolution.
-  test.fixme('grows and follows an internal native link beyond the known extent', async ({
-    page,
-  }) => {
-    await loadDemoBook(page);
-
-    const link = await findAccessibilityLink(page, 'Section014.xhtml');
-    const knownBeforeNavigation = await readerNumberAttribute(page, 'data-total-spreads');
-    await link.dispatchEvent('click');
-    await expect(page.getByRole('heading', { name: 'Navigate to Chapter' })).toBeVisible();
-    await expect(
-      page.getByRole('dialog').getByText('第14话　两人共度圣诞节', { exact: true }),
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Go' }).click();
-
-    await expect
-      .poll(() => readerAttribute(page, 'data-active-chapter-href'), {
-        timeout: READER_LOAD_TIMEOUT_MS,
-      })
-      .toContain('Section014.xhtml');
-    await expect
-      .poll(() => readerNumberAttribute(page, 'data-total-spreads'))
-      .toBeGreaterThan(knownBeforeNavigation);
-    await expect.poll(() => currentSpread(page)).toBeGreaterThanOrEqual(knownBeforeNavigation);
-  });
-
   test('opens the table of contents and navigates to a chapter', async ({ page }) => {
     await loadDemoBook(page);
 
@@ -113,11 +83,9 @@ test.describe('reader app', () => {
     await expect.poll(() => currentSpread(page)).toBeGreaterThan(beforeSearchJump);
   });
 
-  // FIXME(fragment-source-locator): pre-existing gap of the fragment
-  // cutover, on record since the backend landed ("source locators still
-  // resolve Unavailable" in chapter_engine_session/fragment). Tracked for
-  // the post-release fragment interaction pass together with search
-  // source resolution.
+  // Search results carry no resolved source range yet (source locators still
+  // resolve Unavailable in chapter_engine_session/fragment), so no exact
+  // highlight geometry can be requested for a match.
   test.fixme('paints an exact native search highlight from the committed source range', async ({
     page,
   }) => {
@@ -228,18 +196,6 @@ async function readerNumberAttribute(page: Page, name: string): Promise<number> 
 
 async function accessibilityMirrorContentCount(page: Page): Promise<number> {
   return page.locator('[role="document"][aria-live="polite"] > *').count();
-}
-
-async function findAccessibilityLink(page: Page, hrefSuffix: string) {
-  const mirror = page.locator('[role="document"][aria-live="polite"]');
-  for (let attempt = 0; attempt < 16; attempt += 1) {
-    const link = mirror.locator(`a[href$="${hrefSuffix}"]`).first();
-    if ((await link.count()) > 0) return link;
-    const before = await currentSpread(page);
-    await page.keyboard.press('ArrowRight');
-    await expect.poll(() => currentSpread(page)).toBeGreaterThan(before);
-  }
-  throw new Error(`Could not find accessibility link ending in ${hrefSuffix}`);
 }
 
 async function hasNonBlankCanvas(page: Page): Promise<boolean> {

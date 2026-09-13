@@ -1,9 +1,4 @@
-import type {
-  ReaderIncrementalPagination,
-  ReaderLocator,
-  ReaderLocatorResolution,
-  TocEntry,
-} from '@ritojs/core';
+import type { ReaderLocator, ReaderLocatorResolution } from '@ritojs/core';
 import type { TransitionDriver } from '../../driver/transition-driver';
 
 /** Where a navigation intent came from, for diagnostics. */
@@ -16,7 +11,7 @@ export interface GestureNavigationRequest {
   cancelled: boolean;
 }
 
-/** A spread turn waiting for its content slot or pagination growth. */
+/** A spread turn waiting for its incoming content slot to be painted. */
 export interface PendingNavigation {
   readonly attemptId: number;
   readonly target: number;
@@ -25,14 +20,6 @@ export interface PendingNavigation {
   readonly continuityDx: number;
   readonly source?: NavigationIntentSource;
   readonly gesture?: GestureNavigationRequest;
-  readonly growthPagination?: ReaderIncrementalPagination;
-  growthAbort?: AbortController | undefined;
-}
-
-/** A TOC target waiting for the publication to grow far enough to resolve. */
-export interface PendingTocNavigation {
-  readonly attemptId: number;
-  readonly entry: TocEntry;
 }
 
 /** A durable-locator seek waiting for engine-side resolution. */
@@ -93,7 +80,6 @@ export interface NavigationAttempt {
  */
 export type QueuedIntent =
   | { readonly kind: 'spread'; readonly turn: PendingNavigation }
-  | { readonly kind: 'toc'; readonly target: PendingTocNavigation }
   | { readonly kind: 'locator'; readonly seek: PendingLocatorNavigation };
 
 /**
@@ -143,8 +129,8 @@ const PARKED_INTENT_REPORT_MS = 8000;
 /**
  * The only writer of the queued slot. Arms a report-only watchdog: a
  * silently forever-parked intent is the failure mode this makes
- * visible. It reports; it never force-cancels (a large book's growth
- * can genuinely be slow).
+ * visible. It reports; it never force-cancels (a slow content paint or
+ * locator seek is the reader's to finish).
  */
 export function enqueueIntent(machine: NavigationMachine, intent: QueuedIntent | undefined): void {
   machine.queued = intent;
@@ -172,8 +158,6 @@ function describeQueuedIntent(intent: QueuedIntent): string {
         `navigation to spread ${String(intent.turn.target)} ` +
         `(source: ${intent.turn.source ?? 'unknown'}, attempt ${String(intent.turn.attemptId)})`
       );
-    case 'toc':
-      return `TOC navigation to ${intent.target.entry.href}`;
     case 'locator':
       return `locator navigation to ${intent.seek.targetLabel}`;
   }
@@ -186,7 +170,6 @@ export function clearQueuedIntent(machine: NavigationMachine): boolean {
   if (!queued) return false;
   switch (queued.kind) {
     case 'spread': {
-      queued.turn.growthAbort?.abort();
       const gesture = queued.turn.gesture;
       if (gesture && !gesture.started) {
         gesture.cancelled = true;
@@ -196,8 +179,6 @@ export function clearQueuedIntent(machine: NavigationMachine): boolean {
     }
     case 'locator':
       queued.seek.locatorAbort.abort();
-      break;
-    case 'toc':
       break;
   }
   return true;
@@ -209,10 +190,6 @@ export function clearQueuedIntent(machine: NavigationMachine): boolean {
 
 export function queuedSpreadTurn(machine: NavigationMachine): PendingNavigation | undefined {
   return machine.queued?.kind === 'spread' ? machine.queued.turn : undefined;
-}
-
-export function queuedTocNavigation(machine: NavigationMachine): PendingTocNavigation | undefined {
-  return machine.queued?.kind === 'toc' ? machine.queued.target : undefined;
 }
 
 export function queuedLocatorSeek(
@@ -268,11 +245,7 @@ export function describeNavigationPhase(machine: NavigationMachine): string {
     machine.foreground.kind === 'local-preview'
       ? `local-preview-${machine.foreground.active.phase}`
       : machine.foreground.kind;
-  const queued = machine.queued
-    ? machine.queued.kind === 'spread' && machine.queued.turn.growthPagination
-      ? 'spread-awaiting-growth'
-      : `${machine.queued.kind}-queued`
-    : 'none';
+  const queued = machine.queued ? `${machine.queued.kind}-queued` : 'none';
   return machine.foreground.kind === 'steady' && !machine.queued
     ? 'idle'
     : `${foreground} / ${queued}`;

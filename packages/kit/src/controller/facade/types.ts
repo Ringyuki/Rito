@@ -23,14 +23,7 @@ export type NavigationActionsSlice = Pick<
 >;
 export type ReaderProxiesSlice = Pick<
   ReaderController,
-  | 'reader'
-  | 'metadata'
-  | 'toc'
-  | 'spreads'
-  | 'pages'
-  | 'currentSpread'
-  | 'totalSpreads'
-  | 'paginationComplete'
+  'reader' | 'metadata' | 'toc' | 'spreads' | 'currentSpread' | 'totalSpreads'
 >;
 export type LayoutActionsSlice = Pick<
   ReaderController,
@@ -51,7 +44,6 @@ export type SelectionAccessorsSlice = Pick<
   | 'clearSelection'
   | 'hasSelection'
   | 'selectionText'
-  | 'selectionRange'
   | 'selectionSourceLocator'
   | 'selectionSourceSpan'
   | 'beginSelectionHandleDrag'

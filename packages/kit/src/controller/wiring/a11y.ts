@@ -1,12 +1,11 @@
-import type { ReaderInteractions, ReaderPageSemantics, Spread } from '@ritojs/core';
-import {
-  buildSemanticTree,
-  createA11yMirror,
-  type A11yMirror,
-  type SemanticNode,
-} from '../../interaction/index';
+import type {
+  ReaderInteractions,
+  ReaderPageSemantics,
+  ReaderSemanticNode,
+  Spread,
+} from '@ritojs/core';
+import { createA11yMirror, type A11yMirror } from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
-import { asLegacyPage } from '../compat/legacy-page';
 import type { WiringDeps } from '../core/wiring-deps';
 import { dispatchNativeClickTarget } from './native-click';
 import { supersedePendingImageRequest } from './image-click';
@@ -15,7 +14,7 @@ interface A11yLoadState {
   alive: boolean;
   generation: number;
   spreadIndex: number | null;
-  pageByNode: WeakMap<SemanticNode, number>;
+  pageByNode: WeakMap<ReaderSemanticNode, number>;
 }
 
 export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): void {
@@ -57,31 +56,25 @@ export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): v
   if (initial) updateA11ySpread(initial, deps, mirror, state);
 }
 
+/** Load both visible pages' semantics against the committed revision; the mirror stays empty until they arrive. */
 function updateA11ySpread(
   spread: Spread,
   deps: WiringDeps,
   mirror: A11yMirror,
   state: A11yLoadState,
 ): void {
-  const interactions = deps.reader.interactions;
-  if (!interactions?.getPageSemantics) {
-    invalidateA11y(state, mirror);
-    state.spreadIndex = spread.index;
-    mirror.update(legacySemanticTrees(spread));
-    return;
-  }
-  const readPageSemantics = interactions.getPageSemantics.bind(interactions);
-
   invalidateA11y(state, mirror);
-  if (!interactions.enabled) return;
+  const interactions = deps.reader.interactions;
+  const readPageSemantics = interactions?.getPageSemantics?.bind(interactions);
+  if (!interactions?.enabled || !readPageSemantics) return;
   state.spreadIndex = spread.index;
   const generation = state.generation;
-  const pages = [spread.left, spread.right].filter((page) => page !== undefined);
+  const pageIndexes = spread.pageIndexes;
   void Promise.resolve()
-    .then(() => Promise.all(pages.map((page) => readPageSemantics(page.index))))
+    .then(() => Promise.all(pageIndexes.map((pageIndex) => readPageSemantics(pageIndex))))
     .then((results) => {
       if (!canInstall(state, deps, interactions, generation)) return;
-      const semantics = requireMatchingSemantics(spread, pages, results);
+      const semantics = requireMatchingSemantics(spread, pageIndexes, results);
       for (const page of semantics) bindPageNodes(page.nodes, page.pageIndex, state.pageByNode);
       mirror.update(semantics.flatMap((page) => page.nodes));
     })
@@ -92,28 +85,22 @@ function updateA11ySpread(
 
 function requireMatchingSemantics(
   spread: Spread,
-  pages: readonly NonNullable<Spread['left']>[],
+  pageIndexes: readonly number[],
   results: readonly (ReaderPageSemantics | undefined)[],
 ): readonly ReaderPageSemantics[] {
   if (results.some((result) => result === undefined)) return [];
   return results.map((result, index) => {
-    const page = pages[index];
+    const pageIndex = pageIndexes[index];
     if (
       !result ||
-      !page ||
-      result.pageIndex !== page.index ||
+      pageIndex === undefined ||
+      result.pageIndex !== pageIndex ||
       result.spreadIndex !== spread.index
     ) {
       throw new Error('Native page semantics do not match the visible spread');
     }
     return result;
   });
-}
-
-function legacySemanticTrees(spread: Spread) {
-  return [spread.left, spread.right]
-    .filter((page) => page !== undefined)
-    .flatMap((page) => buildSemanticTree(asLegacyPage(page)));
 }
 
 function invalidateA11y(state: A11yLoadState, mirror: A11yMirror): void {
@@ -124,9 +111,9 @@ function invalidateA11y(state: A11yLoadState, mirror: A11yMirror): void {
 }
 
 function bindPageNodes(
-  nodes: readonly SemanticNode[],
+  nodes: readonly ReaderSemanticNode[],
   pageIndex: number,
-  target: WeakMap<SemanticNode, number>,
+  target: WeakMap<ReaderSemanticNode, number>,
 ): void {
   for (const node of nodes) {
     target.set(node, pageIndex);
@@ -134,7 +121,11 @@ function bindPageNodes(
   }
 }
 
-function activateNativeLink(node: SemanticNode, deps: WiringDeps, state: A11yLoadState): boolean {
+function activateNativeLink(
+  node: ReaderSemanticNode,
+  deps: WiringDeps,
+  state: A11yLoadState,
+): boolean {
   const pageIndex = state.pageByNode.get(node);
   const spreadIndex = state.spreadIndex;
   const interactions = deps.reader.interactions;
@@ -205,7 +196,10 @@ function containA11yFailure(
   }
 }
 
-function boundsIntersect(left: SemanticNode['bounds'], right: SemanticNode['bounds']): boolean {
+function boundsIntersect(
+  left: ReaderSemanticNode['bounds'],
+  right: ReaderSemanticNode['bounds'],
+): boolean {
   return (
     left.x <= right.x + right.width &&
     right.x <= left.x + left.width &&

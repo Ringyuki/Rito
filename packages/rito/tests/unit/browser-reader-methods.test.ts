@@ -13,9 +13,6 @@ import { createBrowserReaderChapterLocalPreviewState } from '../../src/bindings/
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
-  completeBrowserReaderBoundedSession: vi.fn(
-    (): Promise<boolean | undefined> => Promise.resolve(true),
-  ),
   ensureBrowserReaderBoundedLocator: vi.fn(() => Promise.resolve(undefined)),
   cancelBrowserReaderReflow: vi.fn(),
   disposeBrowserReaderPinnedFonts: vi.fn(),
@@ -33,7 +30,6 @@ vi.mock('../../src/bindings/browser/reader/pipeline/bounded-reflow', () => ({
 }));
 
 vi.mock('../../src/bindings/browser/bounded-session-runtime', () => ({
-  completeBrowserReaderBoundedSession: mocks.completeBrowserReaderBoundedSession,
   ensureBrowserReaderBoundedLocator: mocks.ensureBrowserReaderBoundedLocator,
 }));
 
@@ -57,7 +53,6 @@ vi.mock('../../src/bindings/browser/resources', () => ({
 describe('Browser reader methods', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.completeBrowserReaderBoundedSession.mockResolvedValue(true);
     mocks.ensureBrowserReaderBoundedLocator.mockResolvedValue(undefined);
   });
 
@@ -133,7 +128,7 @@ describe('Browser reader methods', () => {
     );
   });
 
-  it('binds search reads to the complete current revision handle', async () => {
+  it('binds search reads to the current committed revision handle', async () => {
     const state = createState();
     const revision = { revisionId: 'rev', revisionVersion: 3 };
     const searchAtRevision = vi.fn(() =>
@@ -163,15 +158,11 @@ describe('Browser reader methods', () => {
 
     await expect(methods.search?.('needle')).resolves.toEqual([]);
 
-    expect(mocks.completeBrowserReaderBoundedSession).toHaveBeenCalledWith(state);
     expect(searchAtRevision).toHaveBeenCalledWith(revision, {
       query: 'needle',
       caseSensitive: false,
       wholeWord: false,
     });
-    expect(mocks.completeBrowserReaderBoundedSession.mock.invocationCallOrder[0]).toBeLessThan(
-      searchAtRevision.mock.invocationCallOrder[0] ?? 0,
-    );
   });
 
   it('maps durable sources from a revision-bound search without eagerly resolving geometry', async () => {
@@ -270,19 +261,25 @@ describe('Browser reader methods', () => {
     expect(resolveExactSourceRangeAtRevision).not.toHaveBeenCalled();
   });
 
-  it('does not issue an exact search when bounded completion is cancelled', async () => {
+  it('does not issue a search once the reader is disposed', async () => {
     const state = createState();
     const searchAtRevision = vi.fn();
     state.worker = {
-      sessionId: 'cancelled-search-session',
+      sessionId: 'disposed-search-session',
       searchAtRevision,
     } as unknown as BrowserReaderState['worker'];
-    mocks.completeBrowserReaderBoundedSession.mockResolvedValueOnce(undefined);
+    state.revisionHandle = {
+      workerSessionId: 'disposed-search-session',
+      revisionId: 'rev',
+      revisionVersion: 3,
+      publicationGeneration: 4,
+      commitGeneration: 4,
+    };
+    state.disposed = true;
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     await expect(methods.search?.('needle')).resolves.toEqual([]);
 
-    expect(mocks.completeBrowserReaderBoundedSession).toHaveBeenCalledWith(state);
     expect(searchAtRevision).not.toHaveBeenCalled();
   });
 

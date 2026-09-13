@@ -1,15 +1,9 @@
-import type {
-  PackageMetadata,
-  Reader,
-  ReaderIncrementalPagination,
-  ReaderOptions,
-} from '../../../reader';
+import type { PackageMetadata, Reader, ReaderOptions } from '../../../reader';
 import type { CanvasRenderingTarget } from '../rendering';
 import {
   applyLayoutOverrides,
   browserReaderChapterMap,
   browserReaderManifestHrefMap,
-  browserReaderPages,
   browserReaderSpreads,
   makeBrowserReaderLayoutConfig,
 } from '../reader-layout';
@@ -21,7 +15,7 @@ import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { disposeBrowserReaderState } from './reader-dispose';
-import { completeBrowserReaderBoundedSession } from '../bounded-session-runtime';
+import { refreshBrowserReaderHostLineMetrics } from '../bounded-session-runtime';
 import { syncBrowserHostLineMetrics } from '../host-line-metrics';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
@@ -41,7 +35,6 @@ import {
   registerBrowserReaderPinnedFonts,
   type BrowserReaderPinnedFonts,
 } from '../pinned-fonts';
-import { ensureBrowserReaderBoundedSpread } from '../bounded-session-runtime';
 import {
   createEmptyBrowserReaderReflowState,
   createEmptyBrowserReaderRevisionState,
@@ -89,7 +82,7 @@ export async function createReader(
     );
     installBrowserReaderDiagnostics(state);
     await startInitialReflow(state, options);
-    scheduleFragmentPaginationCompletion(state, readerLayoutOptions(options));
+    scheduleHostLineMetricsConvergence(state, readerLayoutOptions(options));
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     installBrowserReaderChapterLocalPresentation(reader, state);
@@ -115,51 +108,42 @@ export async function createReader(
 }
 
 /**
- * The whole-book page table attaches when a bounded session completes,
- * but reading alone never completes one: finish the book in the
- * background shortly after the first layout so book-wide page numbers
- * arrive while the reader is still near the front of the book.
+ * The first layout converged on one round of host line metrics before
+ * createReader resolved; a layout built with those metrics can record
+ * further metric keys. Finish that convergence in the background shortly
+ * after the reader appears.
  */
-function scheduleFragmentPaginationCompletion(
+function scheduleHostLineMetricsConvergence(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): void {
   setTimeout(() => {
     if (state.disposed) return;
-    completeWithHostLineMetrics(state, options).catch((error: unknown) => {
-      state.logger.warn('rito: background fragment-pagination completion failed', error);
+    convergeHostLineMetricsUntilQuiet(state, options).catch((error: unknown) => {
+      state.logger.warn('rito: background host line metric convergence failed', error);
     });
   }, 1_000);
 }
 
 /**
- * Completes the book, then converges on host line metrics: the completed
- * layout is the first to have visited every chapter, so it has recorded
- * every (family, size) pair layout needed. Measure, inject, force one
- * reflow, and complete again — the second round drains nothing and the
- * loop ends with a fully repaginated, metric-faithful page table.
+ * Measures, injects and reflows round after round until a round changes
+ * nothing. From the second round on, the measured cache is first pushed
+ * into the bounded worker itself and the book re-laid with it: the final
+ * page table must be built AFTER the last injection, because a table laid
+ * out with an unmet metric sets the affected lines with the shaped
+ * fallback and paints their baselines one row off.
  */
-async function completeWithHostLineMetrics(
+async function convergeHostLineMetricsUntilQuiet(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): Promise<void> {
   // Each round can surface a new generation of metric keys (the strut
   // fonts first, then run samples, then atom struts introduced by the
   // metrics of the previous round); the loop already exits on the first
-  // quiet round, so the bound only caps pathological churn. The final
-  // completed page table must be built AFTER the last injection — a table
-  // completed with an unmet metric lays affected lines with the shaped
-  // fallback and paints their baselines one row off.
-  let refreshHostLineMetrics = false;
+  // quiet round, so the bound only caps pathological churn.
   for (let round = 0; round < 12; round += 1) {
-    if (
-      (await completeBrowserReaderBoundedSession(state, undefined, {
-        refreshHostLineMetrics,
-      })) !== true
-    )
-      return;
+    if (round > 0 && (await refreshBrowserReaderHostLineMetrics(state)) === undefined) return;
     const spreadMode = options.spread ?? state.spreadMode;
-    refreshHostLineMetrics = true;
     if (!(await convergeHostLineMetrics(state, options, spreadMode))) {
       const unmet = await state.worker.takeHostLineMetricRequests().catch(() => []);
       if (unmet.length > 0) {
@@ -331,15 +315,14 @@ export function defineBrowserReaderAccessors(
   reader: Partial<Reader>,
   state: BrowserReaderState,
 ): void {
-  const pagination = createBrowserReaderIncrementalPagination(state);
   Object.defineProperties(reader, {
     metadata: {
       enumerable: true,
       get: () => normalizePackageMetadata(state.publication.package.metadata),
     },
     totalSpreads: { enumerable: true, get: () => state.revisionBundle.revision.spreadCount },
+    pageCount: { enumerable: true, get: () => state.revisionBundle.navigation.pageCount },
     activeSpreadIndex: { enumerable: true, get: () => state.activeSpreadIndex },
-    pagination: { enumerable: true, value: pagination },
     toc: { enumerable: true, get: () => state.publication.package.toc },
     chapterMap: {
       enumerable: true,
@@ -349,23 +332,9 @@ export function defineBrowserReaderAccessors(
       enumerable: true,
       get: () => browserReaderManifestHrefMap(state),
     },
-    pages: { enumerable: true, get: () => browserReaderPages(state) },
     spreads: { enumerable: true, get: () => browserReaderSpreads(state) },
     dpr: { enumerable: true, get: () => state.dpr },
   });
-}
-
-export function createBrowserReaderIncrementalPagination(
-  state: BrowserReaderState,
-): ReaderIncrementalPagination {
-  return {
-    get complete() {
-      return true;
-    },
-    ensureSpread(spreadIndex, signal) {
-      return ensureBrowserReaderBoundedSpread(state, spreadIndex, signal);
-    },
-  };
 }
 
 function normalizePackageMetadata(metadata: {

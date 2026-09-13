@@ -915,8 +915,10 @@ function renderHtml() {
         const dataUrl = canvas.toDataURL('image/png');
         const diagnostics = await collectRenderDiagnostics();
         const totalSpreads = reader.totalSpreads;
-        const spread = spreadFacts(reader.spreads[spreadIndex]);
-        const page = spreadPage(reader.spreads[spreadIndex], profile.spread);
+        // The navigation record of the rendered spread; its left page is
+        // the one this case is about in both spread modes.
+        const spread = reader.spreads[spreadIndex];
+        const page = spread ? { index: spread.leftPageIndex } : undefined;
         const chapterMap = Array.from(reader.chapterMap, ([idref, range]) => ({
           idref,
           startPage: range.startPage,
@@ -971,47 +973,6 @@ function renderHtml() {
       weight: face.weight,
       style: face.style,
     }));
-  }
-
-  function spreadFacts(spread) {
-    if (!spread) return undefined;
-    return {
-      index: spread.index,
-      left: pageFacts(spread.left),
-      right: pageFacts(spread.right),
-    };
-  }
-
-  function spreadPage(spread, spreadMode) {
-    if (!spread) return undefined;
-    if (spreadMode === 'double') return spread.left;
-    return spread.left || spread.right;
-  }
-
-  function pageFacts(page) {
-    if (!page) return undefined;
-    return {
-      index: page.index,
-      textPreview: pageTextPreview(page),
-    };
-  }
-
-  function pageTextPreview(page) {
-    const parts = [];
-    for (const block of page.content || []) collectBlockText(block, parts);
-    return parts.join('').replace(/\\s+/g, ' ').trim().slice(0, 240);
-  }
-
-  function collectBlockText(block, parts) {
-    for (const child of block.children || []) {
-      if (child.type === 'line-box') {
-        for (const run of child.runs || []) {
-          if (run.type === 'text-run') parts.push(run.text);
-        }
-      } else if (child.type === 'layout-block') {
-        collectBlockText(child, parts);
-      }
-    }
   }
 </script>`;
 }

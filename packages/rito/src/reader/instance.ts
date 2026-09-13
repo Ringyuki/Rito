@@ -5,7 +5,6 @@ import type {
   LayoutConfig,
   LogLevel,
   PackageMetadata,
-  Page,
   ReaderDocumentSourceSpan,
   ReaderLocator,
   ReaderLocatorResolution,
@@ -17,7 +16,6 @@ import type {
   SearchOptions,
   SearchResult,
   Spread,
-  TextMeasurer,
   TocEntry,
 } from './model';
 
@@ -216,26 +214,19 @@ export interface ReaderThemeOptions {
   readonly backgroundColor?: string | null;
   readonly foregroundColor?: string | null;
 }
-export interface ReaderIncrementalPagination {
-  /** Whether `Reader.totalSpreads` is final. */
-  readonly complete: boolean;
-  /** `false` requires `complete === true` before resolution; `undefined` means cancelled. */
-  ensureSpread(spreadIndex: number, signal?: AbortSignal): Promise<boolean | undefined>;
-}
-
 export interface Reader {
   readonly metadata: PackageMetadata;
+  /** Whole-book counts of the committed layout; every revision is laid out complete. */
   readonly totalSpreads: number;
+  readonly pageCount: number;
   /** Spread selected by the latest committed layout/navigation transaction. */
   readonly activeSpreadIndex: number;
-  readonly pagination?: ReaderIncrementalPagination;
   readonly toc: readonly TocEntry[];
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   readonly manifestHrefMap: ReadonlyMap<string, string>;
-  readonly pages: readonly Page[];
+  /** Navigation records of the committed layout, indexed by spread. */
   readonly spreads: readonly Spread[];
   readonly dpr: number;
-  readonly measurer: TextMeasurer;
   readonly interactions?: ReaderInteractions;
   /** Atomically project a durable locator; cancellation or supersession resolves `undefined`. */
   navigateToLocator?(

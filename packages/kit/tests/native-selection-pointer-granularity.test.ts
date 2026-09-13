@@ -27,7 +27,7 @@ describe('native pointer granularity wiring', () => {
       resolveTextRangeFromPoints,
     });
     const engine = createSelectionEngine(capability);
-    engine.setSpread({} as never, {} as never, {} as never, {
+    engine.setSpread({
       spreadContentToPage: (x, y) => ({ pageIndex: 0, x, y }),
       isPageVisible: (pageIndex) => pageIndex === 0,
       pageContentToSpread: (_pageIndex, rect) => rect,

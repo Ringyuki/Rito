@@ -12,34 +12,27 @@ afterEach(() => {
 });
 
 describe('image click resource resolution', () => {
-  it.each(['native', 'legacy'] as const)(
-    'waits for the first asynchronous %s image URL before opening the UI',
-    async (mode) => {
-      const pending = deferred<string | undefined>();
-      const fixture = createFixture(
-        mode,
-        vi.fn(() => pending.promise),
-      );
+  it('waits for the first asynchronous image URL before opening the UI', async () => {
+    const pending = deferred<string | undefined>();
+    const fixture = createFixture(vi.fn(() => pending.promise));
 
-      dispatchClick(clickPoint, fixture.deps);
-      expect(fixture.imageClick).not.toHaveBeenCalled();
+    dispatchClick(clickPoint, fixture.deps);
+    expect(fixture.imageClick).not.toHaveBeenCalled();
 
-      pending.resolve('blob:cover');
-      await settleTasks();
+    pending.resolve('blob:cover');
+    await settleTasks();
 
-      expect(fixture.imageClick).toHaveBeenCalledWith({
-        src: 'Images/cover.jpg',
-        alt: 'Cover',
-        blobUrl: 'blob:cover',
-        screenBounds: { x: 110, y: 210, width: 20, height: 20 },
-      });
-    },
-  );
+    expect(fixture.imageClick).toHaveBeenCalledWith({
+      src: 'Images/cover.jpg',
+      alt: 'Cover',
+      blobUrl: 'blob:cover',
+      screenBounds: { x: 110, y: 210, width: 20, height: 20 },
+    });
+  });
 
   it('keeps the latest click and revokes a stale asynchronous URL', async () => {
     const requests: Deferred<string | undefined>[] = [];
     const fixture = createFixture(
-      'native',
       vi.fn(() => {
         const request = deferred<string | undefined>();
         requests.push(request);
@@ -62,12 +55,9 @@ describe('image click resource resolution', () => {
     expect(fixture.state.activeImageBlobUrl).toBe('blob:latest');
   });
 
-  it('drops a pending native image after a later canvas link click', async () => {
+  it('drops a pending image after a later canvas link click', async () => {
     const pending = deferred<string | undefined>();
-    const fixture = createFixture(
-      'native',
-      vi.fn(() => pending.promise),
-    );
+    const fixture = createFixture(vi.fn(() => pending.promise));
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { revokeObjectURL });
 
@@ -89,22 +79,22 @@ describe('image click resource resolution', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:stale-link');
   });
 
-  it('drops a pending legacy image after a later canvas footnote click', async () => {
+  it('drops a pending image after a later canvas footnote click', async () => {
     const pending = deferred<string | undefined>();
-    const fixture = createFixture(
-      'legacy',
-      vi.fn(() => pending.promise),
-    );
+    const fixture = createFixture(vi.fn(() => pending.promise));
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { revokeObjectURL });
-    fixture.footnotes.set('Text/chapter.xhtml#note', {
-      kind: 'footnote',
-      text: 'Note',
-      html: '<p>Note</p>',
-    });
 
     dispatchClick(clickPoint, fixture.deps);
-    fixture.state.linksByPage.set(0, [{ href: 'Text/chapter.xhtml#note', text: 'note', bounds }]);
+    fixture.state.nativeTargetsByPage.set(0, [
+      {
+        kind: 'footnote',
+        label: 'note',
+        href: '#note',
+        footnoteKey: 'Text/chapter.xhtml#note',
+        bounds,
+      },
+    ]);
     dispatchClick(clickPoint, fixture.deps);
     pending.resolve('blob:stale-footnote');
     await settleTasks();
@@ -115,10 +105,7 @@ describe('image click resource resolution', () => {
   });
 
   it('does not revoke an already displayed URL when another content target is clicked', () => {
-    const fixture = createFixture(
-      'native',
-      vi.fn(() => 'blob:displayed'),
-    );
+    const fixture = createFixture(vi.fn(() => 'blob:displayed'));
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { revokeObjectURL });
 
@@ -139,10 +126,7 @@ describe('image click resource resolution', () => {
 
   it('revokes both active and late URLs across controller disposal', async () => {
     const pending = deferred<string | undefined>();
-    const fixture = createFixture(
-      'legacy',
-      vi.fn(() => pending.promise),
-    );
+    const fixture = createFixture(vi.fn(() => pending.promise));
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { revokeObjectURL });
 
@@ -160,10 +144,7 @@ describe('image click resource resolution', () => {
   });
 
   it('does not emit an image click when the resource is unavailable', async () => {
-    const fixture = createFixture(
-      'native',
-      vi.fn(() => Promise.resolve(undefined)),
-    );
+    const fixture = createFixture(vi.fn(() => Promise.resolve(undefined)));
 
     dispatchClick(clickPoint, fixture.deps);
     await settleTasks();
@@ -177,7 +158,7 @@ describe('image click resource resolution', () => {
   ] as const)(
     'contains a throwing image listener on the %s resource path',
     async (_label, load) => {
-      const fixture = createFixture('native', vi.fn(load));
+      const fixture = createFixture(vi.fn(load));
       const errors = vi.fn<(event: ReaderControllerEvents['error']) => void>();
       fixture.deps.emitter.on('imageClick', () => {
         throw new Error('consumer image listener failure');
@@ -202,7 +183,7 @@ describe('image click resource resolution', () => {
 const clickPoint = { x: 15, y: 15 };
 const bounds = { x: 10, y: 10, width: 20, height: 20 };
 
-function createFixture(mode: 'native' | 'legacy', getImageBlobUrl: Reader['getImageBlobUrl']) {
+function createFixture(getImageBlobUrl: Reader['getImageBlobUrl']) {
   const emitter = createEmitter<ReaderControllerEvents>();
   const imageClick = vi.fn<(event: ReaderControllerEvents['imageClick']) => void>();
   const linkClick = vi.fn<(event: ReaderControllerEvents['linkClick']) => void>();
@@ -222,30 +203,10 @@ function createFixture(mode: 'native' | 'legacy', getImageBlobUrl: Reader['getIm
     imageAlt: 'Cover',
     bounds,
   };
-  if (mode === 'native') state.nativeTargetsByPage.set(0, [target]);
-  else {
-    state.hitMaps.set(0, {
-      pageIndex: 0,
-      entries: [
-        {
-          bounds,
-          blockIndex: 0,
-          lineIndex: 0,
-          runIndex: 0,
-          text: '',
-          imageSrc: 'Images/cover.jpg',
-          imageAlt: 'Cover',
-        },
-      ],
-    });
-  }
-  const footnotes = new Map<string, ReaderControllerEvents['footnoteClick']['content']>();
+  state.nativeTargetsByPage.set(0, [target]);
   const reader = {
-    ...(mode === 'native' ? { interactions: nativeInteractions() } : {}),
-    chapterMap: new Map(),
-    manifestHrefMap: new Map(),
+    interactions: nativeInteractions(),
     getImageBlobUrl,
-    getFootnotes: () => footnotes,
   } as unknown as Reader;
   const deps = {
     reader,
@@ -253,14 +214,16 @@ function createFixture(mode: 'native' | 'legacy', getImageBlobUrl: Reader['getIm
     emitter,
     canvas: { getBoundingClientRect: () => ({ left: 0, top: 0 }) },
   } as unknown as WiringDeps;
-  return { deps, footnoteClick, footnotes, imageClick, linkClick, state };
+  return { deps, footnoteClick, imageClick, linkClick, state };
 }
 
 function nativeInteractions(): ReaderInteractions {
   return {
     enabled: true,
     getPageTargets: vi.fn(),
-    getFootnote: vi.fn(() => Promise.resolve(undefined)),
+    getFootnote: vi.fn(() =>
+      Promise.resolve({ kind: 'footnote' as const, text: 'Note', html: '<p>Note</p>' }),
+    ),
     resolveLocator: vi.fn(),
   };
 }

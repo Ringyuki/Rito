@@ -552,14 +552,7 @@ function resolved(locator: ReaderLocator, spreadIndex: number): ReaderLocatorRes
 }
 
 function spread(index: number): Spread {
-  return {
-    index,
-    left: {
-      index,
-      bounds: { x: 0, y: 0, width: 300, height: 400 },
-      content: [],
-    },
-  };
+  return { index, pageIndexes: [index], leftPageIndex: index };
 }
 
 function deferred<T>() {

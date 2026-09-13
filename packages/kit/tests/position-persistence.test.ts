@@ -10,8 +10,8 @@ describe('position persistence wiring', () => {
     const failure = new Error('quota exceeded');
     const emit = vi.fn();
     const tracker = createPositionTracker(() => ({
-      spreads: [{ index: 0 }],
-      pages: [],
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      pageCount: 1,
       chapterMap: new Map(),
     }));
     const deps = {
@@ -37,8 +37,8 @@ describe('position persistence wiring', () => {
   it('does not emit when a pending save rejects after disposal', async () => {
     const pendingSave = deferred<undefined>();
     const tracker = createPositionTracker(() => ({
-      spreads: [{ index: 0 }],
-      pages: [],
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      pageCount: 1,
       chapterMap: new Map(),
     }));
     const emitter = createEmitter<ReaderControllerEvents>();
@@ -68,8 +68,8 @@ describe('position persistence wiring', () => {
 
   it('contains an error listener failure while reporting a rejected save', async () => {
     const tracker = createPositionTracker(() => ({
-      spreads: [{ index: 0 }],
-      pages: [],
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      pageCount: 1,
       chapterMap: new Map(),
     }));
     const emitter = createEmitter<ReaderControllerEvents>();

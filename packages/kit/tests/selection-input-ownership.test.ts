@@ -1,16 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPrimarySelectionDragNavigation } from '../src/controller/facade/selection-primary-drag';
-import { SELECTION_EDGE_DWELL_MS } from '../src/controller/facade/selection-edge-navigation';
-import type { Internals } from '../src/controller/facade/types';
 import { bindPointerEvents } from '../src/controller/wiring/pointer';
 import type { PrimarySelectionDragNavigation } from '../src/controller/wiring/selection-drag';
-import { registerLegacySelectionGestureOwner } from '../src/interaction/selection/legacy-engine-gesture';
-import {
-  captureSelectionGesture,
-  captureSelectionInteraction,
-  isSelectionGestureSuperseded,
-  ownsSelectionGesture,
-} from '../src/interaction/selection/selection-interaction-owner';
 import {
   createDomTarget,
   createSelectionHarness,
@@ -146,98 +136,6 @@ describe('selection physical input ownership', () => {
     expect(harness.selection.clear).toHaveBeenCalledOnce();
     expect(harness.tap).not.toHaveBeenCalled();
     harness.disposables.disposeAll();
-  });
-
-  it('gives the legacy engine an exact lease that distinguishes settlement from replacement', () => {
-    const selection = createSelectionHarness();
-    selection.down.mockImplementation(() => {
-      selection.setState('selecting');
-    });
-    selection.up.mockImplementation(() => {
-      selection.setState('selected');
-    });
-    const engine = registerLegacySelectionGestureOwner(selection.engine);
-    const before = captureSelectionInteraction(engine);
-
-    engine.handlePointerDown({ x: 10, y: 20 });
-    const first = captureSelectionGesture(engine);
-
-    expect(before).not.toBeNull();
-    expect(first?.generation).toBe((before?.generation ?? -1) + 1);
-    expect(first && ownsSelectionGesture(first)).toBe(true);
-
-    engine.handlePointerUp({ x: 10, y: 20 });
-    expect(first && ownsSelectionGesture(first)).toBe(false);
-    expect(first && isSelectionGestureSuperseded(first)).toBe(false);
-
-    engine.handlePointerDown({ x: 10, y: 20 });
-    expect(first && isSelectionGestureSuperseded(first)).toBe(true);
-  });
-
-  it('keeps legacy exact ownership without enabling unsupported spread projection', () => {
-    vi.useFakeTimers();
-    const selection = createSelectionHarness();
-    selection.down.mockImplementation(() => {
-      selection.setState('selecting');
-    });
-    const engine = registerLegacySelectionGestureOwner(selection.engine);
-    const internals = {
-      currentSpread: 0,
-      reader: { totalSpreads: 2, pagination: { complete: true } },
-      engines: { selection: engine },
-      coordState: {
-        contentInteractionGeneration: 0,
-        selectionProjectionTransfer: null,
-      },
-    } as unknown as Internals;
-    const prepareSpreadForJump = vi.fn(() => 'ready' as const);
-    const jumpToSpreadIfReady = vi.fn(() => 'committed' as const);
-    const canvas = {
-      getBoundingClientRect: () => ({ left: 0, right: 300, top: 0, bottom: 200 }),
-    } as unknown as HTMLCanvasElement;
-    const navigation = createPrimarySelectionDragNavigation(internals, canvas, {
-      ensureSelectionSpread: vi.fn(),
-      prepareSpreadForJump,
-      jumpToSpreadIfReady,
-      supersedeForSelectionIntent: () => {
-        internals.coordState.contentInteractionGeneration += 1;
-        return { owns: () => true };
-      },
-    } as never);
-    const input = navigation.claim();
-    if (!input) throw new Error('missing legacy selection input');
-    const session = navigation.begin(input, () => {
-      engine.handlePointerDown({ x: 10, y: 20 });
-    });
-
-    session?.update({ clientX: 299, clientY: 20 });
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-
-    expect(session?.owns()).toBe(true);
-    expect(engine.getState()).toBe('selecting');
-    expect(prepareSpreadForJump).not.toHaveBeenCalled();
-    expect(jumpToSpreadIfReady).not.toHaveBeenCalled();
-  });
-
-  it('settles a legacy lease even when pointer-up listeners throw', () => {
-    const selection = createSelectionHarness();
-    selection.down.mockImplementation(() => {
-      selection.setState('selecting');
-    });
-    selection.up.mockImplementation(() => {
-      selection.setState('selected');
-      throw new Error('listener failed');
-    });
-    const engine = registerLegacySelectionGestureOwner(selection.engine);
-    engine.handlePointerDown({ x: 10, y: 20 });
-    const lease = captureSelectionGesture(engine);
-    if (!lease) throw new Error('missing legacy selection lease');
-
-    expect(() => {
-      engine.handlePointerUp({ x: 10, y: 20 });
-    }).toThrow('listener failed');
-    expect(ownsSelectionGesture(lease)).toBe(false);
-    expect(isSelectionGestureSuperseded(lease)).toBe(false);
   });
 });
 

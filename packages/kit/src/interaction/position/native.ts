@@ -4,7 +4,7 @@ import type {
   ReaderLocatorResolution,
   ReaderPageReadingAnchor,
 } from '@ritojs/core';
-import type { PositionLayout, ReadingPosition } from './model';
+import { progressForPage, type PositionLayout, type ReadingPosition } from './model';
 
 export type PositionInteractions = ReaderInteractions;
 export type PositionLocatorNavigator = (
@@ -22,11 +22,7 @@ export function supportsNativePosition(
 
 export function spreadPageIndexes(layout: PositionLayout, spreadIndex: number): readonly number[] {
   const clamped = Math.max(0, Math.min(spreadIndex, layout.spreads.length - 1));
-  const spread = layout.spreads[clamped];
-  if (!spread) return [];
-  return [spread.left?.index, spread.right?.index]
-    .filter((pageIndex): pageIndex is number => pageIndex !== undefined)
-    .sort((left, right) => left - right);
+  return layout.spreads[clamped]?.pageIndexes ?? [];
 }
 
 export async function captureNativeSpreadPosition(
@@ -47,21 +43,22 @@ export async function captureNativeSpreadPosition(
   }
 }
 
+/** Give an older spine-relative position a source locator so it can be resolved natively. */
 export function withPortableLocator(
   position: ReadingPosition,
   layout: PositionLayout,
 ): ReadingPosition | undefined {
   if (position.sourceLocator) return position;
-  const legacy = position.locator;
-  if (!legacy) return undefined;
-  const href = legacy.manifestHref ?? layout.manifestHrefMap?.get(legacy.spineIdref);
+  const spineLocator = position.locator;
+  if (!spineLocator) return undefined;
+  const href = spineLocator.manifestHref ?? layout.manifestHrefMap?.get(spineLocator.spineIdref);
   if (!href) return undefined;
   return {
     ...position,
     sourceLocator: {
       href,
-      ...(legacy.sourcePoint ? { sourcePoint: legacy.sourcePoint } : {}),
-      progression: legacy.chapterProgress,
+      ...(spineLocator.sourcePoint ? { sourcePoint: spineLocator.sourcePoint } : {}),
+      progression: spineLocator.chapterProgress,
     },
   };
 }
@@ -90,8 +87,4 @@ export function positionFromResolution(
     progress: progressForPage(resolution.pageIndex, layout),
     timestamp: Date.now(),
   };
-}
-
-function progressForPage(pageIndex: number, layout: PositionLayout): number {
-  return layout.pages.length > 0 ? pageIndex / layout.pages.length : 0;
 }

@@ -97,7 +97,6 @@ function createGestureDeps(
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
-    isPaginationComplete: () => reader.pagination?.complete ?? true,
     commitPendingTransition: () => {
       if (runtime.td.isAnimating) runtime.td.forceSettle();
     },

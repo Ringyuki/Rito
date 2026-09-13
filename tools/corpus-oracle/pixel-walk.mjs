@@ -163,10 +163,6 @@ await reader.setInputFiles('input[type=file]', path.resolve(bookPath));
 await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
   timeout: 300000,
 });
-await reader.waitForFunction(
-  () => document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-  { timeout: 300000 },
-);
 // Shell overlays (the engine badge) float over the canvas and would be
 // captured into the element screenshot as phantom page diffs — the title
 // page once measured 3102 diff pixels that were ALL badge.
@@ -186,11 +182,6 @@ await reader
     await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
       timeout: 300000,
     });
-    await reader.waitForFunction(
-      () =>
-        document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-      { timeout: 300000 },
-    );
     await reader.addStyleTag({
       content: '[data-testid=engine-badge] { display: none !important; }',
     });
@@ -201,13 +192,13 @@ await reader
 // once BEFORE reading the plan so every face is registered and the
 // pagination has settled; the shoot pass then walks a stable book.
 {
-  const total = await reader.evaluate(() => window.__ritoController.reader.spreads.length);
+  const total = await reader.evaluate(() => window.__ritoController.reader.totalSpreads);
   for (let s = 0; s < total; s += 1) {
     await reader.keyboard.press('ArrowRight');
     await reader.waitForTimeout(45);
   }
   await reader.waitForTimeout(1500);
-  const settledTotal = await reader.evaluate(() => window.__ritoController.reader.spreads.length);
+  const settledTotal = await reader.evaluate(() => window.__ritoController.reader.totalSpreads);
   for (let s = 0; s < Math.max(total, settledTotal); s += 1) {
     await reader.keyboard.press('ArrowLeft');
     await reader.waitForTimeout(30);
@@ -223,14 +214,15 @@ const readPlan = () =>
     chapters.sort((a, b) => a.startPage - b.startPage);
     const spreadOfPage = new Map();
     r.spreads.forEach((s, i) => {
-      for (const side of ['left', 'right']) {
-        const p = s[side]?.index;
-        if (p !== undefined && p !== null) spreadOfPage.set(p, { spread: i, side });
+      spreadOfPage.set(s.leftPageIndex, { spread: i, side: 'left' });
+      if (s.rightPageIndex !== undefined) {
+        spreadOfPage.set(s.rightPageIndex, { spread: i, side: 'right' });
       }
     });
+    const geometry = r.getLayoutGeometry();
     return {
-      pageCount: r.pages.length,
-      pageBounds: r.pages[0]?.bounds,
+      pageCount: r.pageCount,
+      pageBounds: { width: geometry.pageWidth, height: geometry.pageHeight },
       chapters,
       pages: [...spreadOfPage.entries()].map(([page, at]) => ({ page, ...at })),
     };
@@ -386,11 +378,6 @@ const recoverToSpread = async (spreadIndex) => {
   await reader.waitForSelector('[data-testid=reader-shell][data-loaded=true]', {
     timeout: 300000,
   });
-  await reader.waitForFunction(
-    () =>
-      document.querySelector('[data-testid=reader-shell]')?.dataset.paginationComplete === 'true',
-    { timeout: 300000 },
-  );
   await reader.addStyleTag({
     content: '[data-testid=engine-badge] { display: none !important; }',
   });
@@ -414,7 +401,7 @@ const recoverToSpread = async (spreadIndex) => {
 const paginationSignature = () =>
   reader.evaluate(() => {
     const r = window.__ritoController.reader;
-    return `${r.pages.length}|${[...r.chapterMap.entries()]
+    return `${r.pageCount}|${[...r.chapterMap.entries()]
       .map(([href, range]) => `${href}:${range.startPage}`)
       .join(',')}`;
   });

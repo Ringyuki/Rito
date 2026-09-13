@@ -2,20 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderLocator, ReaderLocatorResolution, TocEntry } from '@ritojs/core';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
 
-describe('partial locator navigation', () => {
-  it('grows a generic internal-link locator through the same atomic owner', async () => {
+describe('locator navigation', () => {
+  it('resolves a generic internal-link locator through the same atomic owner', async () => {
     const fixture = createFixture();
     const locator = { href: 'chapter-4.xhtml', anchorId: 'target' };
 
     fixture.nav.navigateToLocator(locator);
 
     expect(fixture.navigateToLocator).toHaveBeenCalledWith(locator, expect.any(AbortSignal));
-    fixture.commitExtent(4);
     fixture.request(0).resolve(resolvedLocator(locator.href, 3));
     await settleTasks();
 
     expect(fixture.current()).toBe(3);
-    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
     expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 3, 0);
   });
 
@@ -39,7 +37,7 @@ describe('partial locator navigation', () => {
     });
   });
 
-  it('grows an unresolved TOC href atomically and navigates its committed spread', async () => {
+  it('resolves an unresolved TOC href atomically and navigates its committed spread', async () => {
     const fixture = createFixture();
 
     fixture.nav.navigateToTocEntry(fixture.entry('chapter-3.xhtml'));
@@ -49,12 +47,10 @@ describe('partial locator navigation', () => {
     expect(fixture.request(0).signal.aborted).toBe(false);
     expect(fixture.current()).toBe(0);
 
-    fixture.commitExtent(3);
     fixture.request(0).resolve(resolvedLocator('chapter-3.xhtml', 2));
     await settleTasks();
 
     expect(fixture.current()).toBe(2);
-    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
     expect(fixture.notifyActiveSpread).toHaveBeenCalledWith(2);
     expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
   });
@@ -68,7 +64,6 @@ describe('partial locator navigation', () => {
     expect(fixture.request(0).signal.aborted).toBe(true);
     expect(fixture.request(1).signal.aborted).toBe(false);
 
-    fixture.commitExtent(2);
     fixture.request(0).resolve(resolvedLocator('older.xhtml', 1));
     await settleTasks();
     expect(fixture.current()).toBe(0);
@@ -79,7 +74,7 @@ describe('partial locator navigation', () => {
     expect(fixture.goToTarget).toHaveBeenCalledOnce();
   });
 
-  it('lets a selection input cancel pending locator growth without a late jump', async () => {
+  it('lets a selection input cancel a pending locator seek without a late jump', async () => {
     const fixture = createFixture();
     const locator = { href: 'pending.xhtml' };
 
@@ -91,28 +86,10 @@ describe('partial locator navigation', () => {
     expect(pending.signal.aborted).toBe(true);
     expect(fixture.onNavigationCancelled).not.toHaveBeenCalled();
 
-    fixture.commitExtent(2);
     pending.resolve(resolvedLocator(locator.href, 1));
     await settleTasks();
 
     expect(fixture.current()).toBe(0);
-    expect(fixture.goToTarget).not.toHaveBeenCalled();
-  });
-
-  it('does not resume an old TOC target after pagination publication reenters navigation', async () => {
-    const fixture = createFixture();
-    fixture.onPaginationChanged.mockImplementationOnce(() => {
-      fixture.nav.navigateToTocEntry(fixture.entry('latest.xhtml'));
-    });
-
-    fixture.nav.navigateToTocEntry(fixture.entry('older.xhtml'));
-    fixture.commitExtent(2);
-    fixture.request(0).resolve(resolvedLocator('older.xhtml', 1));
-    await settleTasks();
-
-    expect(fixture.current()).toBe(0);
-    expect(fixture.navigateToLocator).toHaveBeenCalledTimes(2);
-    expect(fixture.request(1).signal.aborted).toBe(false);
     expect(fixture.goToTarget).not.toHaveBeenCalled();
   });
 
@@ -165,12 +142,26 @@ describe('partial locator navigation', () => {
     expect(fixture.onNavigationCancelled).toHaveBeenCalledOnce();
   });
 
+  it('rejects a resolution outside the committed spread extent', async () => {
+    const fixture = createFixture();
+
+    fixture.nav.navigateToTocEntry(fixture.entry('chapter.xhtml'));
+    fixture.request(0).resolve(resolvedLocator('chapter.xhtml', 9));
+    await settleTasks();
+
+    expect(fixture.current()).toBe(0);
+    expect(fixture.goToTarget).not.toHaveBeenCalled();
+    expect(fixture.emit).toHaveBeenCalledWith('error', {
+      message: 'Reader locator navigation resolved outside its committed spread extent',
+      source: 'reader TOC locator navigation',
+    });
+  });
+
   it('restores position ownership when resolved navigation continuation throws', async () => {
     const fixture = createFixture();
     fixture.setContentFailure(new Error('slot failed'));
 
     fixture.nav.navigateToTocEntry(fixture.entry('chapter.xhtml'));
-    fixture.commitExtent(2);
     fixture.request(0).resolve(resolvedLocator('chapter.xhtml', 1));
     await settleTasks();
 
@@ -181,27 +172,24 @@ describe('partial locator navigation', () => {
     });
   });
 
-  it('preserves layout-driven retry behavior for legacy readers', () => {
+  it('reports a TOC entry the committed layout cannot resolve when the reader has no locator seek', () => {
     const fixture = createFixture({ locatorNavigation: false });
-    const entry = fixture.entry('legacy.xhtml');
 
-    fixture.nav.navigateToTocEntry(entry);
+    fixture.nav.navigateToTocEntry(fixture.entry('unknown.xhtml'));
+
     expect(fixture.navigateToLocator).not.toHaveBeenCalled();
     expect(fixture.current()).toBe(0);
-
-    fixture.resolveToc.mockReturnValue({ pageIndex: 1, spreadIndex: 1 });
-    fixture.commitExtent(2);
-    fixture.nav.notifyLayoutCommitted();
-
-    expect(fixture.current()).toBe(1);
-    expect(fixture.goToTarget).toHaveBeenCalledOnce();
+    expect(fixture.onNavigationCancelled).toHaveBeenCalledOnce();
+    expect(fixture.emit).toHaveBeenCalledWith('error', {
+      message: 'Reader cannot resolve a TOC target',
+      source: 'reader TOC locator navigation',
+    });
   });
 });
 
 function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
   let currentSpread = 0;
-  let totalSpreads = 1;
-  const spreads: object[] = [{}];
+  const spreads: object[] = [{}, {}, {}, {}];
   const requests: DeferredLocator[] = [];
   const navigateToLocator = vi.fn((_locator: ReaderLocator, signal?: AbortSignal) => {
     const request = deferredLocator(signal ?? new AbortController().signal);
@@ -211,12 +199,8 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
   const resolveToc = vi.fn<Reader['resolveTocEntry']>(() => undefined);
   const notifyActiveSpread = vi.fn();
   const reader = {
-    get totalSpreads() {
-      return totalSpreads;
-    },
-    get spreads() {
-      return spreads;
-    },
+    totalSpreads: spreads.length,
+    spreads,
     resolveTocEntry: resolveToc,
     notifyActiveSpread,
     ...(options.locatorNavigation === false ? {} : { navigateToLocator }),
@@ -224,7 +208,6 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
   const goToTarget = vi.fn();
   const emit = vi.fn();
   const onNavigationCancelled = vi.fn();
-  const onPaginationChanged = vi.fn();
   let contentFailure: Error | undefined;
   const deps = {
     getReader: () => reader,
@@ -247,7 +230,6 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     contentRenderer: vi.fn(),
     onNavigationIntent: vi.fn(),
     onNavigationCancelled,
-    onPaginationChanged,
   } as unknown as NavigationDeps;
   return {
     nav: createNavigation(deps),
@@ -257,17 +239,12 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     goToTarget,
     emit,
     onNavigationCancelled,
-    onPaginationChanged,
     current: () => currentSpread,
     setContentFailure(error: Error) {
       contentFailure = error;
     },
     entry: (href: string): TocEntry => ({ label: href, href, children: [] }),
     request: (index: number) => requiredRequest(requests, index),
-    commitExtent(lastSpread: number) {
-      while (spreads.length <= lastSpread) spreads.push({});
-      totalSpreads = spreads.length;
-    },
   };
 }
 

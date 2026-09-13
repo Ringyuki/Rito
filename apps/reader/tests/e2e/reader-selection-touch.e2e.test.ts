@@ -63,13 +63,10 @@ test.describe('reader native touch selection acceptance', () => {
     expect(await copySelection(page)).toBe('ALPHA');
   });
 
-  // FIXME(fragment-selection): pre-existing gap, not a regression of the
-  // multi-line exact-range fix (verified by re-running against the engine
-  // from before that change: same failure). The e2e harness was blind from
-  // 2026-07-26 (the zoom-scaler removal dropped the data-render-scale
-  // attribute it reads) until this release hardening restored it, and the
-  // long-press drag-extend / edge-autoscroll behaviors drifted in that
-  // window. Tracked for the post-release fragment interaction pass.
+  // A long-press selection does not yet extend across lines when the touch
+  // is released immediately; the harness could not observe touch selection
+  // between 2026-07-26 and the release hardening (it reads data-render-scale,
+  // which was missing), and the behaviour drifted in that window.
   test.fixme('extends across lines and keeps an immediate release', async ({ page }) => {
     const bands = await requireTextBands(page, 2);
     const firstLine = requireBand(bands, 0);
@@ -171,13 +168,10 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
     touchInput = null;
   });
 
-  // FIXME(fragment-selection): pre-existing gap, not a regression of the
-  // multi-line exact-range fix (verified by re-running against the engine
-  // from before that change: same failure). The e2e harness was blind from
-  // 2026-07-26 (the zoom-scaler removal dropped the data-render-scale
-  // attribute it reads) until this release hardening restored it, and the
-  // long-press drag-extend / edge-autoscroll behaviors drifted in that
-  // window. Tracked for the post-release fragment interaction pass.
+  // An active long-press selection does not yet autoscroll across an edge
+  // page turn; the harness could not observe touch selection between
+  // 2026-07-26 and the release hardening (it reads data-render-scale, which
+  // was missing), and the behaviour drifted in that window.
   test.fixme('autoscrolls an active long-press selection across an edge page turn', async ({
     page,
   }) => {
@@ -198,7 +192,6 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
 
     await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
     await stableReaderCanvasChecksum(page);
     const secondLine = requireBand(await requireTextBands(page, 1), 0);
@@ -213,18 +206,13 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
     expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
   });
 
-  // FIXME(fragment-selection): pre-existing gap, not a regression of the
-  // multi-line exact-range fix (verified by re-running against the engine
-  // from before that change: same failure). The e2e harness was blind from
-  // 2026-07-26 (the zoom-scaler removal dropped the data-render-scale
-  // attribute it reads) until this release hardening restored it, and the
-  // long-press drag-extend / edge-autoscroll behaviors drifted in that
-  // window. Tracked for the post-release fragment interaction pass.
+  // A captured end handle does not yet autoscroll into the next spread; the
+  // harness could not observe touch selection between 2026-07-26 and the
+  // release hardening (it reads data-render-scale, which was missing), and
+  // the behaviour drifted in that window.
   test.fixme('autoscrolls a captured end handle into the next spread', async ({ page }) => {
     const input = requireTouchInput(touchInput);
-    const shell = page.getByTestId('reader-shell');
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     const firstLine = requireBand(await requireTextBands(page, 1), 0);
     await selectTouchWord(page, input, firstLine, EDGE_FIRST_PAGE_TEXT);
 
@@ -237,7 +225,6 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
 
     await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
     await stableReaderCanvasChecksum(page);
     const secondLine = requireBand(await requireTextBands(page, 1), 0);
@@ -253,21 +240,14 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
     expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
   });
 
-  // FIXME(fragment-selection): pre-existing gap, not a regression of the
-  // multi-line exact-range fix (verified by re-running against the engine
-  // from before that change: same failure). The e2e harness was blind from
-  // 2026-07-26 (the zoom-scaler removal dropped the data-render-scale
-  // attribute it reads) until this release hardening restored it, and the
-  // long-press drag-extend / edge-autoscroll behaviors drifted in that
-  // window. Tracked for the post-release fragment interaction pass.
+  // A captured start handle does not yet autoscroll into the previous
+  // spread; the harness could not observe touch selection between 2026-07-26
+  // and the release hardening (it reads data-render-scale, which was
+  // missing), and the behaviour drifted in that window.
   test.fixme('autoscrolls a captured start handle into the previous spread', async ({ page }) => {
     const input = requireTouchInput(touchInput);
     await page.keyboard.press('ArrowRight');
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-    await expect(page.getByTestId('reader-shell')).toHaveAttribute(
-      'data-pagination-complete',
-      'true',
-    );
     await expect.poll(() => currentReaderSpread(page)).toBe(1);
     await waitForReaderTransitionEnd(page);
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);

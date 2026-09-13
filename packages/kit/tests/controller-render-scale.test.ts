@@ -2,6 +2,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
 import { requireRenderScale } from '../src/controller/facade/layout-actions';
+import { readerInteractions } from './helpers/native-selection';
 
 beforeAll(() => {
   if (typeof globalThis['OffscreenCanvas'] === 'undefined') {
@@ -64,8 +65,9 @@ describe('createController', () => {
       toc: [],
       chapterMap: new Map(),
       manifestHrefMap: new Map(),
-      pages: [],
-      spreads: [{ left: { index: 0 }, right: undefined }],
+      pageCount: 1,
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      interactions: readerInteractions(),
       dpr: 2,
       renderSpread: vi.fn(),
       renderSpreadTo: vi.fn(() => true),
@@ -89,7 +91,6 @@ describe('createController', () => {
       getChapterTextIndices: vi.fn(() => new Map()),
       getFootnotes: vi.fn(() => new Map()),
       getImageBlobUrl: vi.fn(),
-      measurer: {},
       setTypography: vi.fn(() => false),
       onSpreadRendered: vi.fn(() => () => {}),
       dispose: vi.fn(),
@@ -121,9 +122,9 @@ describe('createController', () => {
       drawImage: vi.fn(),
     })) as unknown as typeof canvas.getContext;
 
-    const pages = [
-      { index: 0, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
-      { index: 1, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: [] },
+    const spreads = [
+      { index: 0, pageIndexes: [0], leftPageIndex: 0 },
+      { index: 1, pageIndexes: [1], leftPageIndex: 1 },
     ];
     const notifyActiveSpread = vi.fn();
     const reader = {
@@ -132,11 +133,9 @@ describe('createController', () => {
       toc: [],
       chapterMap: new Map([['ch1', { startPage: 0, endPage: 1 }]]),
       manifestHrefMap: new Map([['ch1', 'chapter1.xhtml']]),
-      pages,
-      spreads: [
-        { index: 0, left: pages[0] },
-        { index: 1, left: pages[1] },
-      ],
+      pageCount: 2,
+      spreads,
+      interactions: readerInteractions(),
       dpr: 1,
       renderSpread: vi.fn(),
       renderSpreadTo: vi.fn(() => true),
@@ -160,7 +159,6 @@ describe('createController', () => {
       getChapterTextIndices: vi.fn(() => new Map()),
       getFootnotes: vi.fn(() => new Map()),
       getImageBlobUrl: vi.fn(),
-      measurer: {},
       setTypography: vi.fn(() => false),
       onSpreadRendered: vi.fn(() => () => {}),
       dispose: vi.fn(),
@@ -199,8 +197,9 @@ describe('createController', () => {
       toc: [],
       chapterMap: new Map(),
       manifestHrefMap: new Map(),
-      pages: [],
-      spreads: [{ left: { index: 0 }, right: undefined }],
+      pageCount: 1,
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      interactions: readerInteractions(),
       dpr: 1,
       renderSpread: vi.fn(),
       renderSpreadTo: vi.fn(() => true),
@@ -226,7 +225,6 @@ describe('createController', () => {
       getChapterTextIndices: vi.fn(() => new Map()),
       getFootnotes: vi.fn(() => new Map()),
       getImageBlobUrl: vi.fn(),
-      measurer: {},
       setTypography: vi.fn(() => false),
       onSpreadRendered: vi.fn(() => unsubscribe),
       dispose: vi.fn(),

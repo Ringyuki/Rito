@@ -43,12 +43,10 @@ describe('native annotation geometry', () => {
         segments: [
           {
             pageIndex: 0,
-            range: null,
             rects: [{ x: 10, y: 20, width: 30, height: 12 }],
           },
           {
             pageIndex: 1,
-            range: null,
             rects: [{ x: 5, y: 8, width: 9, height: 12 }],
           },
         ],
@@ -266,11 +264,7 @@ function createFixture(resolve: ReturnType<typeof vi.fn>) {
     getFootnote: () => Promise.resolve(undefined),
     resolveLocator: () => Promise.resolve(undefined),
   };
-  const spread = {
-    index: 0,
-    left: { index: 0 },
-    right: { index: 1 },
-  } as unknown as Spread;
+  const spread: Spread = { index: 0, pageIndexes: [0, 1], leftPageIndex: 0, rightPageIndex: 1 };
   const reader = {
     interactions,
     chapterMap: new Map([['chapter-item', { startPage: 0, endPage: 1 }]]),

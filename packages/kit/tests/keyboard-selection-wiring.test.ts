@@ -89,31 +89,15 @@ describe('keyboard selection wiring ownership', () => {
     expect(fixture.begin).toHaveBeenCalledWith(movement);
   });
 
-  it('retries a pending movement after an incomplete revision commits a complete final miss', async () => {
-    const fixture = createFixture(
-      [Promise.resolve(pendingEnd()), Promise.resolve(endBoundary())],
-      true,
-      true,
-    );
-
-    fixture.focus();
-    fixture.press('ArrowRight');
-    await flushMicrotasks();
-
-    expect(fixture.ensureSelectionSpread).toHaveBeenCalledOnce();
-    expect(fixture.begin).toHaveBeenCalledTimes(2);
-    expect(fixture.begin).toHaveBeenNthCalledWith(2, 'characterRight');
-  });
-
-  it('does not grow pagination for a committed end boundary', async () => {
-    const fixture = createFixture([Promise.resolve(endBoundary())]);
+  it('commits a pending end boundary without retrying the movement', async () => {
+    const fixture = createFixture([Promise.resolve(pendingEnd()), Promise.resolve(endBoundary())]);
 
     fixture.focus();
     fixture.press('ArrowRight');
     await flushMicrotasks();
 
     expect(fixture.commit).toHaveBeenCalledOnce();
-    expect(fixture.ensureSelectionSpread).not.toHaveBeenCalled();
+    expect(fixture.begin).toHaveBeenCalledOnce();
   });
 
   it('obeys the shared keyboard manager enabled state and cancels active work', async () => {
@@ -153,7 +137,6 @@ interface WiringFixture {
   readonly begin: ReturnType<typeof createKeyboardSelectionHarness>['begin'];
   readonly claimSelectionIntent: ReturnType<typeof vi.fn>;
   readonly commit: ReturnType<typeof createKeyboardSelectionHarness>['commit'];
-  readonly ensureSelectionSpread: ReturnType<typeof vi.fn>;
   readonly keyboard: KeyboardManager;
   blur(): void;
   dispose(): void;
@@ -165,7 +148,6 @@ interface WiringFixture {
 function createFixture(
   results: readonly Promise<NativeSelectionKeyboardOutcome>[],
   canExtend = true,
-  completeOnFinalMiss = false,
 ): WiringFixture {
   const selectionHarness = createKeyboardSelectionHarness(results, canExtend);
   const keyboard = createKeyboardManager(document.documentElement);
@@ -174,18 +156,12 @@ function createFixture(
   canvas.tabIndex = 0;
   document.body.append(canvas, otherFocusTarget);
 
-  let paginationComplete = false;
-  const internals = createInternals(selectionHarness.selection, () => paginationComplete);
+  const internals = createInternals(selectionHarness.selection);
   const claimSelectionIntent = vi.fn(() => {
     const generation = ++internals.coordState.contentInteractionGeneration;
     return { owns: () => internals.coordState.contentInteractionGeneration === generation };
   });
-  const ensureSelectionSpread = vi.fn(() => {
-    if (completeOnFinalMiss) paginationComplete = true;
-    return Promise.resolve(false);
-  });
   const nav = {
-    ensureSelectionSpread,
     jumpToSpreadIfReady: vi.fn(() => 'committed' as const),
     prepareSpreadForJump: vi.fn(() => 'ready' as const),
     supersedeForSelectionIntent: claimSelectionIntent,
@@ -204,7 +180,6 @@ function createFixture(
     begin: selectionHarness.begin,
     claimSelectionIntent,
     commit: selectionHarness.commit,
-    ensureSelectionSpread,
     keyboard,
     blur: () => {
       otherFocusTarget.focus();
@@ -277,17 +252,13 @@ function createKeyboardSelectionHarness(
   return { selection, begin, commit };
 }
 
-function createInternals(selection: SelectionEngine, paginationComplete: () => boolean): Internals {
+function createInternals(selection: SelectionEngine): Internals {
   return {
     currentSpread: 0,
     reader: {
-      spreads: [{ left: { index: 0 }, right: null }],
+      spreads: [{ index: 0, pageIndexes: [0], leftPageIndex: 0 }],
       totalSpreads: 1,
-      pagination: {
-        get complete() {
-          return paginationComplete();
-        },
-      },
+      findSpread: (pageIndex: number) => (pageIndex === 0 ? 0 : undefined),
     },
     engines: { selection },
     coordState: { contentInteractionGeneration: 0 },

@@ -21,7 +21,7 @@ import type { NativeSelectionGranularity, NativeSelectionSnapshot } from './nati
 
 interface AdapterData {
   readonly native: ReturnType<typeof createNativeSelectionEngine>;
-  readonly listeners: Set<Parameters<SelectionEngine['onSelectionChange']>[0]>;
+  readonly listeners: Set<() => void>;
   readonly errorListeners: Set<(error: unknown) => void>;
   projection: NativeSelectionProjection | undefined;
   lastValidPoint: ReaderTextPoint | undefined;
@@ -85,16 +85,8 @@ function buildPointerMethods(
     handlePointerUp(input) {
       handleUp(data, input);
     },
-    setSpread(_spread, _config, _measurer, projection, update) {
-      setSpread(
-        data,
-        projection,
-        shouldPreserveNativeAdapterGesture(
-          data.owner,
-          data.native,
-          update?.preserveNativeHandleDrag === true,
-        ),
-      );
+    setSpread(projection) {
+      setSpread(data, projection, shouldPreserveNativeAdapterGesture(data.owner, data.native));
     },
   };
 }
@@ -110,8 +102,6 @@ function buildReadMethods(
   data: AdapterData,
 ): Pick<
   SelectionEngine,
-  | 'getSelection'
-  | 'getSnapshot'
   | 'hasSelection'
   | 'getText'
   | 'getSourceLocator'
@@ -123,8 +113,6 @@ function buildReadMethods(
   | 'getState'
 > {
   return {
-    getSelection: () => null,
-    getSnapshot: () => null,
     hasSelection: () => hasNonCollapsedSnapshot(data),
     getText: () => data.native.getSnapshot()?.text ?? '',
     getSourceLocator: () =>
@@ -141,15 +129,8 @@ function buildReadMethods(
 
 function buildLifecycleMethods(
   data: AdapterData,
-): Pick<
-  SelectionEngine,
-  'acceptRevisionAppend' | 'clear' | 'invalidate' | 'dispose' | 'onSelectionChange' | 'onError'
-> {
+): Pick<SelectionEngine, 'clear' | 'invalidate' | 'dispose' | 'onSelectionChange' | 'onError'> {
   return {
-    acceptRevisionAppend() {
-      if (data.disposed) return;
-      data.native.acceptRevisionAppend();
-    },
     clear() {
       data.lastValidPoint = undefined;
       data.native.clear();
@@ -204,7 +185,7 @@ function handleUp(data: AdapterData, input: PointerInput): void {
 
 function setSpread(
   data: AdapterData,
-  projection: NativeSelectionProjection | undefined,
+  projection: NativeSelectionProjection,
   preserveNativeGesture: boolean,
 ): void {
   if (data.disposed) return;
@@ -270,7 +251,7 @@ function clearProjectedSelection(data: AdapterData): void {
 }
 
 function notifySelection(data: AdapterData): void {
-  for (const listener of data.listeners) listener(null);
+  for (const listener of data.listeners) listener();
 }
 
 function notifyError(data: AdapterData, error: unknown): void {

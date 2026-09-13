@@ -60,16 +60,13 @@ export interface LayoutConfigInput {
   readonly fontFamilyForce?: boolean;
 }
 
-export interface Page {
-  readonly index: number;
-  readonly bounds: Rect;
-  readonly content: readonly unknown[];
-}
-
+/** One spread of the committed layout: the engine's navigation record, page indexes only. */
 export interface Spread {
   readonly index: number;
-  readonly left?: Page;
-  readonly right?: Page;
+  /** Every page shown on this spread, in reading order. */
+  readonly pageIndexes: readonly number[];
+  readonly leftPageIndex: number;
+  readonly rightPageIndex?: number;
 }
 
 export interface ChapterRange {
@@ -255,25 +252,3 @@ export interface SearchResult {
 export type ReaderSearchSourceResolution =
   | { readonly status: 'resolved'; readonly href: string; readonly sourceRange: ReaderSourceRange }
   | { readonly status: 'unavailable'; readonly reason: 'sourceUnavailable' };
-
-export interface FontShorthand {
-  readonly style: 'normal' | 'italic';
-  readonly weight: number;
-  readonly sizePx: number;
-  readonly family: string;
-}
-
-export interface MeasurePaint {
-  readonly font: FontShorthand;
-  readonly wordSpacingPx?: number;
-  readonly letterSpacingPx?: number;
-}
-
-export interface TextMetrics {
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface TextMeasurer {
-  measureText(text: string, paint: MeasurePaint): TextMetrics;
-}

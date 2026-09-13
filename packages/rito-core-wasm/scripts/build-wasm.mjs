@@ -23,7 +23,7 @@ const runtimeSources = [
   'chapter-local-document-runtime.js',
   'revision-presentation-validation-runtime.js',
   'required-font-faces-validation-runtime.js',
-  'reader-compat-runtime.js',
+  'reader-navigation-runtime.js',
   'reader-bounded-session-runtime.js',
   'reader-bounded-session-support-runtime.js',
   'reader-worker-cache-runtime.js',
@@ -65,7 +65,7 @@ const runtimeSources = [
   target: resolve(dist, name),
 }));
 const errorDeclarationSource = resolve(packageRoot, 'src/core-wasm-error-runtime.d.ts');
-const compatDeclarationSource = resolve(packageRoot, 'src/reader-compat-runtime.d.ts');
+const navigationDeclarationSource = resolve(packageRoot, 'src/reader-navigation-runtime.d.ts');
 const decoderDeclarationSources = [
   'frame-command-buffer-decoder-runtime.d.ts',
   'reader-v1-runtime.d.ts',
@@ -110,7 +110,9 @@ run('wasm-bindgen', [wasmInput, '--out-dir', dist, '--target', 'web', '--typescr
 await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, target)));
 
 const errorDeclarations = stripTypeOnlyImports(await readFile(errorDeclarationSource, 'utf8'));
-const compatDeclarations = stripTypeOnlyImports(await readFile(compatDeclarationSource, 'utf8'));
+const compatDeclarations = stripTypeOnlyImports(
+  await readFile(navigationDeclarationSource, 'utf8'),
+);
 const decoderDeclarations = await readTypeDeclarations(decoderDeclarationSources);
 const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
 await writeFile(resolve(dist, 'decoder.mjs'), decoderEntry());
@@ -146,7 +148,7 @@ await writeFile(
 function decoderEntry() {
   return [
     "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-compat-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
     ...readerV1RuntimeExports(),
@@ -164,7 +166,7 @@ function indexEntry() {
     '',
     "export { default as initRitoCoreWasm, RitoReaderSessionV1, RitoWasmDocument } from './rito_wasm.js';",
     "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-compat-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
     ...readerV1RuntimeExports(),

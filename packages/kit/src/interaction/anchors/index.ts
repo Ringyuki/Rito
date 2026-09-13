@@ -11,11 +11,7 @@ export type {
   LocatorTextContext,
 } from './model';
 
-export {
-  type ChapterTextIndex,
-  type ChapterTextSpan,
-  buildChapterTextIndex,
-} from './chapter-text-index';
+export type { ChapterTextIndex, ChapterTextSpan } from '../layout-types';
 export { sourcePointToOffset, offsetToSourcePoint } from './source-point';
 export { createTextQuoteSelector, resolveTextQuoteSelector } from './quote-match';
 export { createTextPositionSelector, resolveTextPositionSelector } from './text-position';

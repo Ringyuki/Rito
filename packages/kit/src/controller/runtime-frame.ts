@@ -9,7 +9,7 @@ import { syncCanvasSize, type Internals } from './facade';
 import type { Emitter, RuntimeComponents } from './facade/types';
 import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { mergeOverlayLayers } from './overlay/merger';
-import { buildAdjacentOverlayData, buildOverlayData } from './overlay/projection';
+import { buildOverlayData } from './overlay/projection';
 import type { PrerenderScheduler } from './prerender';
 import type { SettledEvent } from '../driver/types';
 
@@ -133,9 +133,14 @@ function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProv
         ? internals.coordState.mapper
         : createCoordinateMapper(reader.getLayoutGeometry(), spread, internals.renderScale);
 
-    const data = isCurrent
-      ? buildOverlayData(spread, internals.engines, reader, internals.coordState, mapper)
-      : buildAdjacentOverlayData(spread, internals.engines, reader, internals.coordState, mapper);
+    const data = buildOverlayData(
+      spread,
+      internals.engines,
+      reader,
+      internals.coordState,
+      mapper,
+      isCurrent,
+    );
 
     return mergeOverlayLayers(
       data.selectionRects,

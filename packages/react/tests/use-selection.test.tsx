@@ -45,7 +45,6 @@ describe('useSelection', () => {
     render(first.controller);
     act(() => {
       first.emit('selectionChange', {
-        range: null,
         sourceLocator: {
           href: 'old.xhtml',
           sourceRange: {
@@ -74,7 +73,6 @@ describe('useSelection', () => {
     render(second.controller);
 
     expect(latest).toMatchObject({
-      range: null,
       sourceLocator: null,
       sourceSpan: null,
       text: '',

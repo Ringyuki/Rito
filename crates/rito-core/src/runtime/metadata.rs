@@ -243,7 +243,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn streamed_layout_keys_match_the_legacy_vec_contract() {
+    fn streamed_layout_keys_match_the_buffered_reference() {
         let mut rich = test_layout();
         rich.line_height_override = Some(1.125);
         rich.line_height_force = Some(true);
@@ -255,8 +255,8 @@ mod tests {
                 assert_eq!(
                     layout_key_from_policy_identity(&layout_config, policy_identity)
                         .expect("streamed layout key succeeds"),
-                    legacy_vec_layout_key(&layout_config, policy_identity)
-                        .expect("legacy layout key succeeds")
+                    buffered_layout_key(&layout_config, policy_identity)
+                        .expect("buffered layout key succeeds")
                 );
             }
         }
@@ -277,7 +277,7 @@ mod tests {
         );
     }
 
-    fn legacy_vec_layout_key(
+    fn buffered_layout_key(
         layout_config: &LayoutConfig,
         policy_identity: Option<&[u8]>,
     ) -> EpubResult<String> {

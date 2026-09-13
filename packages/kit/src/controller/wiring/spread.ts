@@ -4,19 +4,16 @@
  */
 import type { Spread } from '@ritojs/core';
 import type { Reader } from '@ritojs/core';
-import { buildHitMap, buildLinkMap, type PositionTracker } from '../../interaction/index';
+import type { PositionTracker } from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
-import { asLegacyPage, asLegacySpread } from '../compat/legacy-page';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { WiringDeps } from '../core/wiring-deps';
 import {
   invalidateNativeAnnotationGeometry,
   refreshNativeAnnotations,
-  resolveVisibleAnnotations,
   scheduleNativeAnnotationsForSpread,
   syncChapterIndices,
-  usesNativeAnnotationGeometry,
 } from '../annotation-resolution';
 import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
 import { scheduleNativeSearchForSpread } from './native-search';
@@ -34,29 +31,17 @@ export function coordinateOnSpreadRendered(
   const mapper = createCoordinateMapper(reader.getLayoutGeometry(), spread, renderScale);
   state.mapper = mapper;
   const transfer = state.selectionProjectionTransfer;
-  const installSelectionSpread = (): void => {
-    engines.selection.setSpread(
-      asLegacySpread(spread),
-      mapper.selectionConfig,
-      reader.measurer,
-      mapper,
-    );
-  };
   if (transfer?.targetSpreadIndex === spreadIndex) {
-    withSelectionGestureProjection(engines.selection, transfer.gesture, installSelectionSpread);
+    withSelectionGestureProjection(engines.selection, transfer.gesture, () => {
+      engines.selection.setSpread(mapper);
+    });
   } else {
-    installSelectionSpread();
+    engines.selection.setSpread(mapper);
   }
   if (generation !== state.spreadCoordinationGeneration) return false;
-  rebuildHitMaps(spread, state);
-  rebuildLinksByPage(spread, state);
 
   syncChapterIndices(state, reader);
-  if (state.annotationStore) {
-    if (usesNativeAnnotationGeometry(reader)) refreshNativeAnnotations(reader, state);
-    else
-      state.resolvedAnnotations = resolveVisibleAnnotations(state.annotationStore, state, reader);
-  }
+  if (state.annotationStore) refreshNativeAnnotations(reader, state);
 
   updatePosition(spreadIndex, engines.position, state);
   return generation === state.spreadCoordinationGeneration;
@@ -89,20 +74,6 @@ function updatePosition(
   tracker.update(spreadIndex);
 }
 
-function rebuildHitMaps(spread: Spread, state: CoordinatorState): void {
-  state.hitMaps.clear();
-  for (const page of [spread.left, spread.right]) {
-    if (page) state.hitMaps.set(page.index, buildHitMap(asLegacyPage(page)));
-  }
-}
-
-function rebuildLinksByPage(spread: Spread, state: CoordinatorState): void {
-  state.linksByPage.clear();
-  for (const page of [spread.left, spread.right]) {
-    if (page) state.linksByPage.set(page.index, buildLinkMap(asLegacyPage(page)));
-  }
-}
-
 export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableCollection): void {
   disposables.add(
     deps.reader.onSpreadRendered((idx, spread) => {
@@ -130,7 +101,7 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
         if (deps.presentChapterLocalInvalidation(idx)) return;
         if (idx === deps.getCurrentSpread()) {
           invalidateNativeTargets(deps.coordState);
-          if (usesNativeAnnotationGeometry(deps.reader) && !deps.reader.interactions?.enabled) {
+          if (!deps.reader.interactions?.enabled) {
             invalidateNativeAnnotationGeometry(deps.coordState);
             deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
           }
@@ -153,7 +124,6 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
 }
 
 function scheduleNativeAnnotationLoad(spread: Spread, deps: WiringDeps): void {
-  if (!usesNativeAnnotationGeometry(deps.reader)) return;
   scheduleNativeAnnotationsForSpread(
     spread,
     deps.reader,

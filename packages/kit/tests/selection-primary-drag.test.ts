@@ -50,52 +50,18 @@ describe('primary selection edge navigation', () => {
     expect(session?.didNavigate()).toBe(true);
   });
 
-  it('grows a lazy tail, keeps the latest client sample, then snaps without another move', async () => {
+  it('stays on the final spread when the drag dwells at its trailing edge', () => {
     vi.useFakeTimers();
-    const growth = deferred<boolean>();
-    const fixture = primaryDragFixture({ totalSpreads: 1, paginationComplete: false });
-    fixture.ensureSelectionSpread.mockImplementation(async (_target, signal) => {
-      const available = await growth.promise;
-      fixture.reader.totalSpreads = 2;
-      fixture.reader.pagination.complete = true;
-      return signal.aborted ? undefined : available;
-    });
+    const fixture = primaryDragFixture({ totalSpreads: 1 });
     const session = fixture.begin();
 
     session?.update({ clientX: 298, clientY: 25 });
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    expect(fixture.ensureSelectionSpread).toHaveBeenCalledOnce();
-    session?.update({ clientX: 299, clientY: 60 });
-    growth.resolve(true);
-    await settleTasks();
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
 
-    expect(fixture.jumpToSpreadIfReady).toHaveBeenCalledOnce();
-    expect(fixture.selectionMove).toHaveBeenCalledWith({ x: 100, y: 60 });
-    expect(session?.didNavigate()).toBe(true);
-  });
-
-  it('aborts pending growth on finish and never revives the released gesture', async () => {
-    vi.useFakeTimers();
-    const growth = deferred<boolean>();
-    const fixture = primaryDragFixture({ totalSpreads: 1, paginationComplete: false });
-    fixture.ensureSelectionSpread.mockImplementation(async (_target, signal) => {
-      const available = await growth.promise;
-      fixture.reader.totalSpreads = 2;
-      return signal.aborted ? undefined : available;
-    });
-    const session = fixture.begin();
-
-    session?.update({ clientX: 298, clientY: 25 });
-    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
-    const signal = fixture.ensureSelectionSpread.mock.calls[0]?.[1];
-    session?.finish();
-    fixture.endSelection();
-    growth.resolve(true);
-    await settleTasks();
-
-    expect(signal?.aborted).toBe(true);
+    expect(fixture.prepareSpreadForJump).not.toHaveBeenCalled();
     expect(fixture.jumpToSpreadIfReady).not.toHaveBeenCalled();
     expect(fixture.selectionMove).not.toHaveBeenCalled();
+    expect(session?.didNavigate()).toBe(false);
   });
 
   it('fails closed when synchronous start listeners replace the new gesture', () => {
@@ -223,7 +189,7 @@ describe('primary selection edge navigation', () => {
     );
     const internals = {
       currentSpread: 0,
-      reader: { totalSpreads: 2, pagination: { complete: true } },
+      reader: { totalSpreads: 2 },
       engines: { selection },
       coordState: {
         mapper: mapperWithWidth(300),
@@ -232,7 +198,6 @@ describe('primary selection edge navigation', () => {
       },
     } as unknown as Internals;
     const navigation = createPrimarySelectionDragNavigation(internals, canvas, {
-      ensureSelectionSpread: vi.fn(),
       prepareSpreadForJump: vi.fn(() => 'ready'),
       supersedeForSelectionIntent: () => {
         internals.coordState.contentInteractionGeneration += 1;
@@ -326,7 +291,6 @@ describe('primary selection edge navigation', () => {
 interface PrimaryDragFixtureOptions {
   readonly currentSpread?: number;
   readonly totalSpreads?: number;
-  readonly paginationComplete?: boolean;
 }
 
 function primaryDragFixture(options: PrimaryDragFixtureOptions = {}) {
@@ -351,10 +315,7 @@ function primaryDragFixture(options: PrimaryDragFixtureOptions = {}) {
       supportsProjectionTransfer: true,
     },
   );
-  const reader = {
-    totalSpreads: options.totalSpreads ?? 2,
-    pagination: { complete: options.paginationComplete ?? true },
-  };
+  const reader = { totalSpreads: options.totalSpreads ?? 2 };
   const internals = {
     currentSpread: options.currentSpread ?? 0,
     reader,
@@ -364,9 +325,6 @@ function primaryDragFixture(options: PrimaryDragFixtureOptions = {}) {
       contentInteractionGeneration: 0,
     },
   } as unknown as Internals;
-  const ensureSelectionSpread = vi.fn<
-    (target: number, signal: AbortSignal) => Promise<boolean | undefined>
-  >(() => Promise.resolve(false));
   const prepareSpreadForJump = vi.fn(() => 'ready' as const);
   const supersedeForSelectionIntent = vi.fn<() => { readonly owns: () => boolean }>(() => {
     internals.coordState.contentInteractionGeneration += 1;
@@ -384,7 +342,6 @@ function primaryDragFixture(options: PrimaryDragFixtureOptions = {}) {
     getBoundingClientRect: () => ({ left: 0, right: 300, top: 0, bottom: 200 }),
   } as unknown as HTMLCanvasElement;
   const navigation = createPrimarySelectionDragNavigation(internals, canvas, {
-    ensureSelectionSpread,
     prepareSpreadForJump,
     supersedeForSelectionIntent,
     jumpToSpreadIfReady,
@@ -405,7 +362,6 @@ function primaryDragFixture(options: PrimaryDragFixtureOptions = {}) {
       activeGesture = null;
       state = 'idle';
     },
-    ensureSelectionSpread,
     internals,
     jumpToSpreadIfReady,
     navigation,
@@ -461,18 +417,4 @@ function twoPageMapper(): NonNullable<Internals['coordState']['mapper']> {
       },
     ],
   } as unknown as NonNullable<Internals['coordState']['mapper']>;
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
-}
-
-async function settleTasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
 }
