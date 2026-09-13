@@ -33,7 +33,7 @@ importers:
         specifier: ^6.0.5
         version: 6.0.5
       '@vitest/coverage-v8':
-        specifier: 4.1.2
+        specifier: ^4.1.2
         version: 4.1.2(vitest@4.1.2(@types/node@25.5.0)(happy-dom@20.10.6)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@6.4.3(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3)))
       eslint:
         specifier: ^10.1.0
@@ -160,6 +160,9 @@ importers:
         specifier: workspace:^
         version: link:../rito
     devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^4.1.2
+        version: 4.1.2(vitest@4.1.2(@types/node@25.5.0)(happy-dom@20.10.6)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@6.4.3(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3)))
       tsdown:
         specifier: ^0.21.7
         version: 0.21.7(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(typescript@6.0.2)
@@ -182,6 +185,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.1.6
         version: 19.2.3(@types/react@19.2.14)
+      '@vitest/coverage-v8':
+        specifier: ^4.1.2
+        version: 4.1.2(vitest@4.1.2(@types/node@25.5.0)(happy-dom@20.10.6)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@6.4.3(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3)))
       react:
         specifier: ^19.1.0
         version: 19.2.4
@@ -203,6 +209,9 @@ importers:
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.2
+        version: 4.1.2(vitest@4.1.2(@types/node@25.5.0)(happy-dom@20.10.6)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@6.4.3(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3)))
       fflate:
         specifier: ^0.8.2
         version: 0.8.2

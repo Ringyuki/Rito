@@ -59,6 +59,7 @@
     "@types/node": "^25.5.0",
     "fflate": "^0.8.2",
     "tsdown": "^0.21.7",
+    "@vitest/coverage-v8": "^4.1.2",
     "vitest": "^4.1.2"
   }
 }
