@@ -24,22 +24,14 @@ export interface RitoCoreWasmBoundedChapterLocalRevisionRequest {
   readonly targetLocator: RitoCoreWasmSourceLocator;
 }
 
-export interface RitoCoreWasmChapterLocalRevisionExtent {
-  readonly localPageCount: number;
-  readonly localSpreadCount: number;
-}
-
-export interface RitoCoreWasmChapterLocalPageRange {
-  readonly startLocalPage: number;
-  readonly endLocalPageExclusive: number;
-}
-
-/** A chapter-local revision paginates whole in one pass, so it is always complete. */
+/**
+ * A published chapter-local revision: its identity, the chapter it
+ * paginated and the size of that chapter's page table.
+ */
 export interface RitoCoreWasmChapterLocalRevisionSummary extends RitoCoreWasmChapterLocalOwner {
   readonly layoutKey: string;
-  readonly status: 'complete';
-  readonly knownExtent: RitoCoreWasmChapterLocalRevisionExtent;
-  readonly finalExtent: RitoCoreWasmChapterLocalRevisionExtent;
+  readonly localPageCount: number;
+  readonly localSpreadCount: number;
 }
 
 export type RitoCoreWasmChapterLocalSourceLocatorResolution =
@@ -61,10 +53,12 @@ export type RitoCoreWasmChapterLocalSourceLocatorResolution =
       readonly matchedBy: RitoCoreWasmSourceLocatorMatchedBy;
     };
 
-/** The complete chapter-local revision, its whole-chapter page range and the resolved target. */
-export interface RitoCoreWasmChapterLocalRevisionAdvance {
+/**
+ * The result of creating a chapter-local revision: its summary and where
+ * the requested locator landed on the chapter's page table.
+ */
+export interface RitoCoreWasmCreatedChapterLocalRevision {
   readonly revision: RitoCoreWasmChapterLocalRevisionSummary;
-  readonly newlyKnownLocalPages: RitoCoreWasmChapterLocalPageRange;
   readonly target: RitoCoreWasmChapterLocalSourceLocatorResolution;
 }
 
@@ -108,9 +102,9 @@ export interface RitoCoreWasmReaderChapterLocalFrame {
 }
 
 export interface RitoCoreWasmReaderChapterLocalMutationResult<
-  Advance extends RitoCoreWasmChapterLocalRevisionAdvance,
+  Created extends RitoCoreWasmCreatedChapterLocalRevision,
 > {
-  readonly advance: Advance;
+  readonly created: Created;
   /** Present in the same response whenever the target resolved. */
   readonly frame?: RitoCoreWasmReaderChapterLocalFrame | undefined;
 }
@@ -124,7 +118,7 @@ export interface RitoCoreWasmChapterLocalRevisionRelease {
 export interface RitoCoreWasmReaderChapterLocalClient {
   createBoundedChapterLocalRevision(
     request: RitoCoreWasmBoundedChapterLocalRevisionRequest,
-  ): Promise<RitoCoreWasmReaderChapterLocalMutationResult<RitoCoreWasmChapterLocalRevisionAdvance>>;
+  ): Promise<RitoCoreWasmReaderChapterLocalMutationResult<RitoCoreWasmCreatedChapterLocalRevision>>;
   releaseChapterLocalRevision(
     owner: RitoCoreWasmChapterLocalOwner,
   ): Promise<RitoCoreWasmChapterLocalRevisionRelease>;
@@ -133,7 +127,7 @@ export interface RitoCoreWasmReaderChapterLocalClient {
 export interface RitoCoreWasmChapterLocalDocumentRuntime {
   createBoundedChapterLocalRevision(
     request: RitoCoreWasmBoundedChapterLocalRevisionRequest,
-  ): RitoCoreWasmChapterLocalRevisionAdvance;
+  ): RitoCoreWasmCreatedChapterLocalRevision;
   readChapterLocalFrame(
     owner: RitoCoreWasmChapterLocalOwner,
     localSpreadIndex: number,
@@ -163,7 +157,7 @@ export type RitoCoreWasmReaderChapterLocalWorkerRequestPayload =
 export type RitoCoreWasmReaderChapterLocalWorkerResponse =
   | {
       readonly kind: 'createBoundedChapterLocalRevision';
-      readonly result: RitoCoreWasmReaderChapterLocalMutationResult<RitoCoreWasmChapterLocalRevisionAdvance>;
+      readonly result: RitoCoreWasmReaderChapterLocalMutationResult<RitoCoreWasmCreatedChapterLocalRevision>;
     }
   | {
       readonly kind: 'releaseChapterLocalRevision';

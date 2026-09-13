@@ -19,13 +19,13 @@ fn bounded_revision_json_validates_requests() {
 #[test]
 fn failed_bounded_create_transport_releases_the_revision() {
     let mut document = pinned_multi_chapter_wasm_document();
-    let advance = document
+    let summary = document
         .document
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout(),
         })
         .expect("bounded candidate is created");
-    let revision = RuntimeRevisionHandle::from(&advance.revision);
+    let revision = RuntimeRevisionHandle::from(&summary);
     let error = WasmRuntimeError::internal_error("injected bounded encoder failure");
 
     let result = document.finish_created_revision_transport(revision.clone(), None, |_, _, _| {

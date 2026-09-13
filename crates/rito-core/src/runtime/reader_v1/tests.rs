@@ -1781,10 +1781,10 @@ fn search_hits_feed_straight_into_text_geometry() {
 #[test]
 fn every_kitchen_sink_page_survives_display_list_encoding() {
     // Artifact publication encodes each spread's fragment commands into
-    // the V1 wire; any command shape outside the adapter's domain kills
-    // the whole session ("legacy display value is not representable").
-    // Walk every page of a style-heavy chapter so the full command
-    // stream crosses the encoder.
+    // the V1 wire; a value outside the encoder's domain fails the whole
+    // session ("<field> is not representable by protocol v1"). Walk
+    // every page of a style-heavy chapter so the full command stream
+    // crosses the encoder.
     let mut session = open_test_session(
         163,
         crate::runtime::tests::fixture::paint_command_kitchen_sink_fixture_epub(),

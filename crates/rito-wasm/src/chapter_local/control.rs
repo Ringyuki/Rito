@@ -11,22 +11,22 @@ impl WasmRuntimeDocument {
         request_json: &str,
     ) -> Result<String, WasmRuntimeError> {
         let request = parse_create_request(request_json)?;
-        let advance = self
+        let created = self
             .document
             .create_bounded_chapter_local_revision(request)
             .map_err(WasmRuntimeError::from_chapter_local)?;
-        self.finish_created_local_transport(advance, serialize_json)
+        self.finish_created_local_transport(created, serialize_json)
     }
 
     fn finish_created_local_transport<T>(
         &mut self,
-        advance: rito_core::runtime::RuntimeChapterLocalRevisionAdvance,
+        created: rito_core::runtime::RuntimeCreatedChapterLocalRevision,
         encode: impl FnOnce(
-            &rito_core::runtime::RuntimeChapterLocalRevisionAdvance,
+            &rito_core::runtime::RuntimeCreatedChapterLocalRevision,
         ) -> Result<T, WasmRuntimeError>,
     ) -> Result<T, WasmRuntimeError> {
-        let owner = owner_from_advance(&advance);
-        match encode(&advance) {
+        let owner = owner_from_created(&created);
+        match encode(&created) {
             Ok(json) => Ok(json),
             Err(error) => {
                 self.release_local_after_transport_failure(&owner);
@@ -88,13 +88,13 @@ impl WasmRuntimeDocument {
     }
 }
 
-fn owner_from_advance(
-    advance: &rito_core::runtime::RuntimeChapterLocalRevisionAdvance,
+fn owner_from_created(
+    created: &rito_core::runtime::RuntimeCreatedChapterLocalRevision,
 ) -> RuntimeChapterLocalRevisionHandle {
     RuntimeChapterLocalRevisionHandle {
-        revision_id: advance.revision.revision_id.clone(),
-        revision_version: advance.revision.revision_version,
-        coordinate: advance.revision.coordinate.clone(),
+        revision_id: created.revision.revision_id.clone(),
+        revision_version: created.revision.revision_version,
+        coordinate: created.revision.coordinate.clone(),
     }
 }
 
@@ -108,15 +108,15 @@ mod tests {
     fn create_encoder_failure_releases_the_new_local_revision() {
         let mut document = fixture::pinned_fixture_wasm_document();
         let request = super::parse_create_request(&request_json()).expect("request");
-        let advance = document
+        let created = document
             .document
             .create_bounded_chapter_local_revision(request)
             .expect("local revision");
-        let owner = super::owner_from_advance(&advance);
+        let owner = super::owner_from_created(&created);
         let injected = WasmRuntimeError::internal_error("injected create encoder failure");
 
         let result = document
-            .finish_created_local_transport(advance, |_| Err::<String, _>(injected.clone()));
+            .finish_created_local_transport(created, |_| Err::<String, _>(injected.clone()));
 
         assert_eq!(result, Err(injected));
         assert!(document

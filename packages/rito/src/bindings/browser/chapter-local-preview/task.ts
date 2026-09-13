@@ -15,14 +15,14 @@ import {
   releaseBrowserReaderChapterLocalOwner,
 } from './task-support';
 import type {
-  BrowserReaderChapterLocalAdvance,
+  BrowserReaderChapterLocalCreated,
   BrowserReaderChapterLocalMutationResult,
   BrowserReaderChapterLocalOwner,
   BrowserReaderChapterLocalPreviewRequest,
 } from './types';
 
-/// The chapter paginates whole in one request: the advance either resolved
-/// the target on the chapter's own page grid or never will.
+/// The chapter paginates whole in one request: the created revision either
+/// resolved the target on the chapter's own page grid or never will.
 export async function buildBrowserReaderChapterLocalPreview(
   state: BrowserReaderState,
   request: BrowserReaderChapterLocalPreviewRequest,
@@ -36,7 +36,7 @@ export async function buildBrowserReaderChapterLocalPreview(
   const releaseOwner = releaseChapterLocalOwnerOnce(state, request, owner);
   if (
     !ownsBrowserReaderChapterLocalPreviewRequest(state, request) ||
-    mutation.advance.target.status !== 'resolved'
+    mutation.created.target.status !== 'resolved'
   ) {
     await releaseOwner();
     return;
@@ -67,7 +67,7 @@ async function acceptMutation(
   }
   try {
     const mutation = value as BrowserReaderChapterLocalMutationResult;
-    requireAdvance(mutation.advance, request);
+    requireCreated(mutation.created, request);
     return { mutation, owner };
   } catch (error) {
     await releaseBrowserReaderChapterLocalOwner(state, request, owner);
@@ -83,10 +83,10 @@ async function publishResolvedPreview(
   releaseOwner: () => Promise<void>,
 ): Promise<void> {
   const resolved = mutation.frame;
-  if (!resolved || mutation.advance.target.status !== 'resolved') {
+  if (!resolved || mutation.created.target.status !== 'resolved') {
     throw new Error('Resolved chapter-local mutation omitted its atomic frame payload');
   }
-  const localSpreadIndex = mutation.advance.target.localSpreadIndex;
+  const localSpreadIndex = mutation.created.target.localSpreadIndex;
   const frame = decodeBrowserReaderChapterLocalFrame(
     state,
     owner,
@@ -130,22 +130,22 @@ function releaseChapterLocalOwnerOnce(
   };
 }
 
-function requireAdvance(
-  advance: BrowserReaderChapterLocalAdvance,
+function requireCreated(
+  created: BrowserReaderChapterLocalCreated,
   request: BrowserReaderChapterLocalPreviewRequest,
 ): BrowserReaderChapterLocalOwner {
   const owner: BrowserReaderChapterLocalOwner = {
-    revisionId: advance.revision.revisionId,
-    revisionVersion: advance.revision.revisionVersion,
-    coordinate: advance.revision.coordinate,
+    revisionId: created.revision.revisionId,
+    revisionVersion: created.revision.revisionVersion,
+    coordinate: created.revision.coordinate,
   };
   if (
     owner.coordinate.chapterIndex !== request.targetChapterIndex ||
     owner.coordinate.href !== request.targetChapterHref ||
-    !sameBrowserReaderChapterLocalOwner(advance.target.owner, owner) ||
-    !sameBrowserReaderLocator(advance.target.locator, request.locator)
+    !sameBrowserReaderChapterLocalOwner(created.target.owner, owner) ||
+    !sameBrowserReaderLocator(created.target.locator, request.locator)
   ) {
-    throw new Error('Reader chapter-local advance does not match its exact target owner');
+    throw new Error('Reader chapter-local revision does not match its exact target owner');
   }
   return owner;
 }
@@ -154,9 +154,9 @@ function extractMutationOwner(value: unknown): BrowserReaderChapterLocalOwner | 
   if (!isRecord(value)) {
     return undefined;
   }
-  const advance = value['advance'];
-  if (!isRecord(advance)) return undefined;
-  const revision = advance['revision'];
+  const created = value['created'];
+  if (!isRecord(created)) return undefined;
+  const revision = created['revision'];
   if (!isRecord(revision)) return undefined;
   const coordinate = revision['coordinate'];
   if (

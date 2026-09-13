@@ -226,9 +226,8 @@ function chapterLocalOperation(): ReaderWorkerOperationObservation {
       revisionVersion: 0,
       chapterIndex: 3,
       href: 'chapter.xhtml',
-      status: 'ready',
-      knownLocalPageCount: 1,
-      knownLocalSpreadCount: 1,
+      localPageCount: 1,
+      localSpreadCount: 1,
     },
     error: null,
   };

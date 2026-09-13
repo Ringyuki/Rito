@@ -20,7 +20,7 @@ pub fn revision_id(document: &mut WasmRuntimeDocument) -> String {
         )
         .expect("revision is created");
     let value: Value = serde_json::from_str(&json).expect("revision JSON parses");
-    value["revision"]["revisionId"]
+    value["revisionId"]
         .as_str()
         .expect("revision id is present")
         .to_owned()

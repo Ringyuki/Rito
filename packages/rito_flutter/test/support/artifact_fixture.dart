@@ -39,7 +39,6 @@ Uint8List artifactFixture({
     ..uint32(localPageIndex)
     ..float64(360)
     ..float64(640)
-    ..boolean(false)
     ..option(null)
     ..option(null)
     ..uint32(previousAvailability)

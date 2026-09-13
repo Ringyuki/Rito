@@ -29,7 +29,6 @@ pub(super) fn body(reader: &mut Reader<'_>) -> Result<ReaderArtifactV1, ReaderEr
         local_page_indexes: reader.collection("local page indexes", Reader::u32)?,
         width: reader.f64("artifact width")?,
         height: reader.f64("artifact height")?,
-        terminal_extent: reader.bool("terminal extent")?,
         book_page_index: reader.option("book page index", Reader::u32)?,
         book_page_count: reader.option("book page count", Reader::u32)?,
         navigation: ReaderNavigationV1 {
@@ -51,10 +50,8 @@ fn external_id(value: u64, field: &str) -> Result<u64, ReaderErrorV1> {
 fn adjacent_availability(value: u32) -> Result<ReaderAdjacentAvailabilityV1, ReaderErrorV1> {
     match value {
         0 => Ok(ReaderAdjacentAvailabilityV1::Available),
-        1 => Ok(ReaderAdjacentAvailabilityV1::Pending),
-        2 => Ok(ReaderAdjacentAvailabilityV1::ChapterBoundary),
-        3 => Ok(ReaderAdjacentAvailabilityV1::Terminal),
-        4 => Ok(ReaderAdjacentAvailabilityV1::Blocked),
+        1 => Ok(ReaderAdjacentAvailabilityV1::ChapterBoundary),
+        2 => Ok(ReaderAdjacentAvailabilityV1::Terminal),
         value => Err(invalid(format!("unknown adjacent availability: {value}"))),
     }
 }

@@ -1580,11 +1580,10 @@ function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
   writer.u32(0, 'page index');
   writer.f64(800, 'width');
   writer.f64(600, 'height');
-  writer.bool(false);
   writer.option(undefined, () => undefined);
   writer.option(undefined, () => undefined);
-  writer.u32(3, 'previous');
-  writer.u32(3, 'next');
+  writer.u32(2, 'previous');
+  writer.u32(2, 'next');
   writer.u32(0, 'text profile');
   writer.record((record) => {
     const display = displayWire(0);

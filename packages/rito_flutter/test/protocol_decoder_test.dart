@@ -37,7 +37,7 @@ void main() {
     );
     expect(artifact.fonts.single.shapeFingerprint, 'shape-v1');
     expect(artifact.navigation.previous, RitoAdjacentAvailability.available);
-    expect(artifact.navigation.next, RitoAdjacentAvailability.pending);
+    expect(artifact.navigation.next, RitoAdjacentAvailability.chapterBoundary);
     expect(artifact.displayList.formatVersion, 2);
     final list = artifact.displayList.displayList;
     expect(list.ratio, 1);

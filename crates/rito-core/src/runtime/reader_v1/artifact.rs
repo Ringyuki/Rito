@@ -207,7 +207,6 @@ fn build_reader_artifact_from_revision(
             .collect::<Result<Vec<_>, _>>()?,
         width: revision.layout_config.viewport_width,
         height: revision.layout_config.viewport_height,
-        terminal_extent: revision.final_extent.is_some(),
         // Whole-book numbering exists only in absolute coordinate space.
         // A chapter-local revision's page index is a window ordinal that
         // restarts at every rollover, so it must never be published as a
@@ -218,9 +217,7 @@ fn build_reader_artifact_from_revision(
             .transpose()?,
         book_page_count: revision
             .is_absolute_coordinate_space()
-            .then_some(revision.final_extent)
-            .flatten()
-            .map(|extent| u32_from_usize(extent.page_count, "book page count"))
+            .then(|| u32_from_usize(revision.extent.page_count, "book page count"))
             .transpose()?,
         navigation,
         text_profile: ReaderTextRenderingProfileV1::PlatformStringRuns,

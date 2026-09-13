@@ -101,15 +101,15 @@ fn pinned_policy_changes_layout_identity_and_is_stable_across_runtime_paths() {
 
     let mut bounded = RuntimeDocument::open_with_pinned_font_policy(&bytes, title_policy)
         .expect("bounded document opens");
-    let advance = bounded
+    let summary = bounded
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout(),
         })
-        .expect("bounded revision starts");
-    assert_eq!(advance.revision.layout_key, title_revision.layout_key);
+        .expect("bounded revision is created");
+    assert_eq!(summary.layout_key, title_revision.layout_key);
     assert_eq!(
         bounded
-            .get_revision_summary(&advance.revision.revision_id)
+            .get_revision_summary(&summary.revision_id)
             .expect("bounded summary")
             .layout_key,
         title_revision.layout_key

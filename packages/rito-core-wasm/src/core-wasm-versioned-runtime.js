@@ -424,8 +424,7 @@ function requireSummaryValue(value, revision, operation) {
 
 /**
  * Minimal envelope check shared by schema-v1 engine diagnostics whose full
- * shapes are owned by the core: an object with schemaVersion 1 and a
- * boolean isComplete.
+ * shapes are owned by the core: an object with schemaVersion 1.
  */
 function requireSchemaOneDiagnostic(value, _revision, operation) {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -433,9 +432,6 @@ function requireSchemaOneDiagnostic(value, _revision, operation) {
   }
   if (value.schemaVersion !== 1) {
     throw new Error(`${operation} returned an unsupported diagnostic schemaVersion`);
-  }
-  if (typeof value.isComplete !== 'boolean') {
-    throw new Error(`${operation} returned an invalid diagnostic isComplete`);
   }
   return value;
 }

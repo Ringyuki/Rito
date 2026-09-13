@@ -24,7 +24,6 @@ import { buildReaderMemoryGateReport } from './memory-gate-report';
 import { captureStableReaderMemory, type ReaderMemorySampler } from './memory-sampler';
 import {
   observedLiveReaderWorkerIds,
-  readerHasIncompleteRevision,
   readerSuccessfulOpenCount,
   requireCurrentReaderOpenSession,
   requireExactlyOneLiveReaderWorker,
@@ -81,8 +80,8 @@ async function runScenario(
   const baseline = await captureStableReaderMemory(sampler, 'app-ready');
   await loadFixture(page, gate.fixture.epub);
   const loaded = await captureStableReaderMemory(sampler, 'loaded');
-  await growBoundedRevision(page);
-  const growth = await captureStableReaderMemory(sampler, 'growth');
+  await traverseWholeBook(page);
+  const traversed = await captureStableReaderMemory(sampler, 'traversed');
   await reflowReader(page, gate.reflowViewport);
   const reflowPageEnvironment = await observePageEnvironment(page);
   const reflow = await captureStableReaderMemory(sampler, 'reflow');
@@ -105,7 +104,7 @@ async function runScenario(
     },
     fixture: fixtureReport(gate),
     scenario: gate.scenario,
-    checkpoints: { baseline, loaded, growth, reflow, replacements, disposed },
+    checkpoints: { baseline, loaded, traversed, reflow, replacements, disposed },
     workerLifecycle,
   });
 }
@@ -126,21 +125,19 @@ async function loadFixture(page: Page, epubPath: string): Promise<void> {
   await requireExactlyOneLiveReaderWorker(page);
 }
 
-async function growBoundedRevision(page: Page): Promise<void> {
-  await expect.poll(() => readerHasIncompleteRevision(page)).toBe(true);
-  const knownSpreadCount = await readerNumberAttribute(page, 'data-total-spreads');
-  const knownLastSpread = knownSpreadCount - 1;
-  await page.keyboard.press('End');
-  await expect.poll(() => currentSpread(page)).toBe(knownLastSpread);
+// Every frame cache and resource lease the book can hold is populated by
+// visiting its far end and coming back.
+async function traverseWholeBook(page: Page): Promise<void> {
+  const spreadCount = await readerNumberAttribute(page, 'data-total-spreads');
+  const lastSpread = spreadCount - 1;
   const checksum = await stableReaderCanvasSampleChecksum(page);
-  await page.keyboard.press('ArrowRight');
-  await expect
-    .poll(() => readerNumberAttribute(page, 'data-total-spreads'), { timeout: LOAD_TIMEOUT_MS })
-    .toBeGreaterThan(knownSpreadCount);
-  await expect
-    .poll(() => currentSpread(page), { timeout: LOAD_TIMEOUT_MS })
-    .toBeGreaterThan(knownLastSpread);
-  await waitForReaderSpreadPaint(page, await currentSpread(page), checksum);
+  await page.keyboard.press('End');
+  await expect.poll(() => currentSpread(page), { timeout: LOAD_TIMEOUT_MS }).toBe(lastSpread);
+  await waitForReaderSpreadPaint(page, lastSpread, checksum);
+  const lastChecksum = await stableReaderCanvasSampleChecksum(page);
+  await page.keyboard.press('Home');
+  await expect.poll(() => currentSpread(page), { timeout: LOAD_TIMEOUT_MS }).toBe(0);
+  await waitForReaderSpreadPaint(page, 0, lastChecksum);
   await waitForReaderProbeIdle(page);
 }
 

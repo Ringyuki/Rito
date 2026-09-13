@@ -34,7 +34,7 @@ export type {
   ReaderProfileStartup,
 } from './reader-profile-startup';
 
-export const READER_PROFILE_SCHEMA_VERSION = 6;
+export const READER_PROFILE_SCHEMA_VERSION = 7;
 
 export interface ReaderProfileArtifactIdentity {
   readonly schemaVersion: 1;
@@ -110,8 +110,8 @@ export interface ReaderProfileMilestones {
 export interface ReaderProfileTransition {
   readonly fromSpread: number;
   readonly toSpread: number;
-  readonly knownSpreadCountBefore: number;
-  readonly knownSpreadCountAfter: number;
+  readonly spreadCountBefore: number;
+  readonly spreadCountAfter: number;
   readonly checksumBefore: string;
   readonly checksumAfter: string;
 }

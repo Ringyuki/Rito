@@ -2,8 +2,8 @@ import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
 import { encodeJson, parseObject } from './core-wasm-versioned-validation-runtime.js';
 import {
   requireChapterLocalRelease,
-  requireCreatedChapterLocalAdvance,
-} from './chapter-local-advance-validation-runtime.js';
+  requireCreatedChapterLocalRevision,
+} from './chapter-local-creation-validation-runtime.js';
 import {
   requireBoundedChapterLocalRequest,
   requireChapterLocalIndex,
@@ -31,7 +31,7 @@ export function installRitoCoreWasmChapterLocalDocumentMethods(Document) {
               encodeJson(normalized.request, operation),
             ),
           (value, bindOwner) =>
-            requireCreatedChapterLocalAdvance(value, normalized.request, operation, bindOwner),
+            requireCreatedChapterLocalRevision(value, normalized.request, operation, bindOwner),
         );
       });
     },

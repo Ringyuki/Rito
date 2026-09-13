@@ -21,11 +21,11 @@ test('chapter-local create uses one Worker request and canonicalizes fragments',
   const locator = { href: 'chapter.xhtml', anchorId: '章' };
   worker.respond(createMessage.id, {
     kind: createMessage.kind,
-    result: { advance: completedAdvance(owner(0), locator), frame: resolvedFrame(owner(0), 0) },
+    result: { created: createdRevision(owner(0), locator), frame: resolvedFrame(owner(0), 0) },
   });
   const created = await creating;
 
-  assert.deepEqual(created.advance.target.locator, locator);
+  assert.deepEqual(created.created.target.locator, locator);
   assert.equal(created.frame.localSpreadIndex, 0);
   client.dispose();
 });
@@ -47,12 +47,12 @@ test('chapter-local create rejects explicit and encoded fragment mismatches befo
   );
   const message = worker.messages.at(-1);
   assert.deepEqual(message.request.targetLocator, { href: 'chapter.xhtml', anchorId: '%E7' });
-  const advance = completedAdvance(owner(0), { href: 'chapter.xhtml', anchorId: '%E7' });
+  const created = createdRevision(owner(0), { href: 'chapter.xhtml', anchorId: '%E7' });
   worker.respond(message.id, {
     kind: message.kind,
-    result: { advance, frame: resolvedFrame(owner(0), 0) },
+    result: { created, frame: resolvedFrame(owner(0), 0) },
   });
-  assert.equal((await creating).advance.target.locator.anchorId, '%E7');
+  assert.equal((await creating).created.target.locator.anchorId, '%E7');
   client.dispose();
 });
 
@@ -63,13 +63,13 @@ test('malformed committed create with a bound owner rolls back that exact local 
     createRequest({ href: 'chapter.xhtml' }),
   );
   const messageCount = worker.messages.length;
-  const advance = completedAdvance(owner(0), { href: 'chapter.xhtml' });
+  const created = createdRevision(owner(0), { href: 'chapter.xhtml' });
   worker.respondLast({
     kind: 'createBoundedChapterLocalRevision',
     result: {
-      advance: {
-        ...advance,
-        newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 2 },
+      created: {
+        ...created,
+        target: { ...created.target, localSpreadIndex: 2 },
       },
     },
   });
@@ -79,7 +79,7 @@ test('malformed committed create with a bound owner rolls back that exact local 
   assert.equal(rollback.kind, 'releaseChapterLocalRevision');
   assert.deepEqual(rollback.owner, owner(0));
   worker.respond(rollback.id, releasePayload(owner(0), true));
-  await assert.rejects(creating, /local range inconsistent with its extent/);
+  await assert.rejects(creating, /resolved target lies outside its local extent/);
   assert.equal(worker.terminateCount, 0);
   client.dispose();
 });
@@ -92,7 +92,7 @@ test('unbound malformed create disposes the Worker session without guessing an o
   );
   worker.respondLast({
     kind: 'unrelated',
-    result: { advance: completedAdvance(owner(0), { href: 'chapter.xhtml' }) },
+    result: { created: createdRevision(owner(0), { href: 'chapter.xhtml' }) },
   });
 
   await assert.rejects(creating);
@@ -162,10 +162,9 @@ function owner(revisionVersion) {
   };
 }
 
-function completedAdvance(exactOwner, locator) {
+function createdRevision(exactOwner, locator) {
   return {
     revision: summary(exactOwner),
-    newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
     target: {
       status: 'resolved',
       owner: exactOwner,
@@ -179,13 +178,11 @@ function completedAdvance(exactOwner, locator) {
 }
 
 function summary(exactOwner) {
-  const knownExtent = { localPageCount: 1, localSpreadCount: 1 };
   return {
     ...exactOwner,
     layoutKey: 'layout',
-    status: 'complete',
-    knownExtent,
-    finalExtent: knownExtent,
+    localPageCount: 1,
+    localSpreadCount: 1,
   };
 }
 

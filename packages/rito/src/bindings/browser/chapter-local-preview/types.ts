@@ -3,8 +3,8 @@ import type {
   BrowserReaderWorkerClient,
   CoreBoundedChapterLocalRevisionRequest,
   CoreChapterLocalOwner,
-  CoreChapterLocalRevisionAdvance,
   CoreChapterLocalRevisionRelease,
+  CoreCreatedChapterLocalRevision,
   CoreLayoutConfig,
   CoreReaderChapterLocalFrame,
   CoreReaderChapterLocalMutationResult,
@@ -15,7 +15,7 @@ import type { BrowserReaderFrame } from '../reader/types';
 // aliases deliberately do not recreate a second wire contract in `rito`.
 export type BrowserReaderChapterLocalOwner = CoreChapterLocalOwner;
 export type BrowserReaderChapterLocalCreateRequest = CoreBoundedChapterLocalRevisionRequest;
-export type BrowserReaderChapterLocalAdvance = CoreChapterLocalRevisionAdvance;
+export type BrowserReaderChapterLocalCreated = CoreCreatedChapterLocalRevision;
 export type BrowserReaderChapterLocalFrameBuffer = Pick<
   CoreReaderChapterLocalFrame,
   'owner' | 'localSpreadIndex' | 'metadata' | 'bytes'
@@ -24,8 +24,8 @@ export type BrowserReaderChapterLocalResolvedFrame = CoreReaderChapterLocalFrame
 export type BrowserReaderChapterLocalResourceBytes =
   CoreReaderChapterLocalFrame['resources'][number];
 export type BrowserReaderChapterLocalMutationResult<
-  Advance extends CoreChapterLocalRevisionAdvance = CoreChapterLocalRevisionAdvance,
-> = CoreReaderChapterLocalMutationResult<Advance>;
+  Created extends CoreCreatedChapterLocalRevision = CoreCreatedChapterLocalRevision,
+> = CoreReaderChapterLocalMutationResult<Created>;
 export type BrowserReaderChapterLocalRelease = CoreChapterLocalRevisionRelease;
 
 /** Optional Worker capability; absent clients take the ordinary absolute path only. */

@@ -24,7 +24,6 @@ fn eager_revision_retains_a_typed_table_per_chapter() {
         summary.schema_version,
         RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION
     );
-    assert!(summary.is_complete);
     assert!(summary.chapter_count > 0);
     assert_eq!(summary.chapters.len(), summary.chapter_count);
     for chapter in &summary.chapters {

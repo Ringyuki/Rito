@@ -3,7 +3,6 @@ import { test } from 'node:test';
 
 import { createRitoCoreWasmBoundedReaderSession } from '../src/reader-bounded-session-runtime.js';
 import {
-  advance,
   deferred,
   fixtureClient,
   locatorStartRequest,
@@ -11,6 +10,7 @@ import {
   revisionPresentation,
   sourceResolution,
   startRequest,
+  summary,
   versioned,
 } from './reader-bounded-session-fixture.mjs';
 
@@ -20,7 +20,7 @@ test('bounded startup targets a locator before publishing or warming any spread'
   let presentationCount = 0;
   const locator = { href: 'late.xhtml', progression: 0.5 };
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 4)),
+    create: async () => versioned(summary(0, 4)),
     locator: (revision, request, extent) => {
       locatorReads.push(revision.revisionVersion);
       return sourceResolution(revision, request, extent, 3);
@@ -56,7 +56,7 @@ test('bounded startup targets a locator before publishing or warming any spread'
 
 test('ensureLocator settles a typed no-page projection', async () => {
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1)),
+    create: async () => versioned(summary(0, 1)),
     locator: (revision, locator) => pending(revision, locator, 'noPageProjection'),
   });
   const session = createRitoCoreWasmBoundedReaderSession(client);
@@ -73,7 +73,7 @@ test('ensureLocator settles a typed no-page projection', async () => {
 
 test('ensureLocator accepts and publishes a canonicalized Rust locator', async () => {
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1)),
+    create: async () => versioned(summary(0, 1)),
     locator: (revision, _locator, extent) =>
       sourceResolution(revision, { href: 'chapter.xhtml', anchorId: 'target' }, extent),
   });
@@ -105,11 +105,10 @@ test('complete coalesces with startup on the one complete revision', async () =>
 
   const started = session.start(startRequest(0));
   const completed = session.complete();
-  created.resolve(versioned(advance(0, 1)));
+  created.resolve(versioned(summary(0, 1)));
   const [startSnapshot, completeSnapshot] = await Promise.all([started, completed]);
 
   assert.equal(startSnapshot.target.kind, 'complete');
-  assert.equal(completeSnapshot.revision.status, 'complete');
   assert.equal(completeSnapshot.revision.revisionVersion, 0);
   assert.equal(presentationCount, 1);
   await session.dispose();
@@ -121,7 +120,7 @@ test('a blocked locator probe yields to the latest spread target', async () => {
   const callerLocator = { href: 'late.xhtml', sourcePoint: { nodePath: [1], textOffset: 2 } };
   const seenLocators = [];
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 3)),
+    create: async () => versioned(summary(0, 3)),
     locator: async (revision, locator) => {
       seenLocators.push(locator);
       locatorStarted.resolve();
@@ -154,7 +153,7 @@ test('a rejected superseded locator probe cannot cancel the latest spread target
   const locatorResult = deferred();
   const released = [];
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 2)),
+    create: async () => versioned(summary(0, 2)),
     locator: async () => {
       locatorStarted.resolve();
       return locatorResult.promise;
@@ -180,7 +179,7 @@ test('recoverable locator and frame reads fail only their target', async () => {
   for (const kind of ['locator', 'frame']) {
     const released = [];
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 2)),
+      create: async () => versioned(summary(0, 2)),
       locator: () => {
         throw engineReadError('invalid locator');
       },
@@ -211,19 +210,19 @@ test('locator invariants fail on an unpaginated or out-of-range resolution', asy
   for (const fixture of [
     {
       locator: (revision, locator) => pending(revision, locator, 'notPaginated'),
-      pattern: /complete revision left a source locator unpaginated/,
+      pattern: /left a source locator unpaginated/,
     },
     {
       locator: (revision, locator) => ({
         ...sourceResolution(revision, locator, { pageCount: 2, spreadCount: 2 }, 1),
         pageIndex: 1,
       }),
-      pattern: /outside the known extent/,
+      pattern: /outside the revision extent/,
     },
   ]) {
     const released = [];
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1)),
+      create: async () => versioned(summary(0, 1)),
       locator: fixture.locator,
       release: (revision) => released.push(revision),
     });

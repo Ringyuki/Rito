@@ -182,8 +182,8 @@ describe('Browser bounded revision commit adapter', () => {
   });
 
   it.each([
-    ['final spread miss', { kind: 'spread', spreadIndex: 4 }, 'complete'],
-    ['completion', { kind: 'complete' }, 'complete'],
+    ['final spread miss', { kind: 'spread', spreadIndex: 4 }],
+    ['completion', { kind: 'complete' }],
     [
       'locator without a page projection',
       {
@@ -198,9 +198,8 @@ describe('Browser bounded revision commit adapter', () => {
           matchedBy: 'href',
         },
       },
-      'complete',
     ],
-  ] as const)('commits %s without inventing a selected frame', async (_label, target, status) => {
+  ] as const)('commits %s without inventing a selected frame', async (_label, target) => {
     const previous = createWorker(() => undefined, 'previous-session');
     const candidate = createWorker(() => undefined, 'candidate-session');
     const state = createState(previous.worker);
@@ -208,7 +207,7 @@ describe('Browser bounded revision commit adapter', () => {
     state.activeSpreadIndex = 2;
     const previousOwner = owner(previous.worker);
     recordBrowserReaderAcceptedRevision(previousOwner, state.revisionBundle.revision);
-    const snapshot = retargetWithoutFrame(boundedSnapshot('candidate', 2, 2, 1), target, status);
+    const snapshot = retargetWithoutFrame(boundedSnapshot('candidate', 2, 2, 1), target);
     const candidateOwner = owner(candidate.worker, true);
     recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
     state.boundedSessions.current = previousOwner;
@@ -474,7 +473,7 @@ function boundedSnapshot(
   revisionVersion = 3,
 ): BrowserReaderBoundedSnapshot {
   const result = revisionResult(revisionId, pageCount, spreadCount, spreadIndex);
-  const revision = { ...result.bundle.revision, revisionVersion, status: 'complete' as const };
+  const revision = { ...result.bundle.revision, revisionVersion };
   const navigation = result.bundle.navigation;
   const frameWindow =
     spreadCount > 0
@@ -529,14 +528,10 @@ function owner(
 function retargetWithoutFrame(
   snapshot: BrowserReaderBoundedSnapshot,
   target: BrowserReaderBoundedSnapshot['target'],
-  status: 'complete',
 ): BrowserReaderBoundedSnapshot {
   const { frameWindow: _frameWindow, ...rest } = snapshot;
-  const revision = { ...snapshot.revision, status };
   return {
     ...rest,
-    revision,
-    presentation: { ...snapshot.presentation, revision },
     target,
   };
 }

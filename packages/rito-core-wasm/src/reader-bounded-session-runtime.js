@@ -126,7 +126,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   async function runPump() {
     try {
       if (revision === undefined) {
-        acceptAdvance(await client.createBoundedRevision(initialRevisionRequest()));
+        acceptCreatedRevision(await client.createBoundedRevision(initialRevisionRequest()));
       }
       while (phase === 'running') {
         if (stopRequested !== undefined) return cleanupLatest();
@@ -182,15 +182,15 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     const { handle } = evaluation;
     const presentation = revisionPresentation ?? (await readRevisionPresentation(handle));
     if (
-      presentation.navigation.pageCount !== revision.knownExtent.pageCount ||
-      presentation.navigation.spreadCount !== revision.knownExtent.spreadCount
+      presentation.navigation.pageCount !== revision.pageCount ||
+      presentation.navigation.spreadCount !== revision.spreadCount
     ) {
       throw new Error('revision presentation returned an extent inconsistent with its revision');
     }
     if (stopRequested !== undefined || !isCurrentEvaluation(evaluation)) return;
     const target = evaluation.spreadIndex;
     let frameWindow;
-    if (revision.knownExtent.spreadCount > target) {
+    if (revision.spreadCount > target) {
       let frame;
       try {
         frame = await client.warmFrameWindowAtRevision(handle, target);
@@ -236,10 +236,10 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     return presentation;
   }
 
-  function acceptAdvance(envelope) {
-    requireAcceptedHandle(envelope, 'revision advance');
-    requireSameHandle(envelope.value.revision, envelope.revision, 'revision advance summary');
-    revision = envelope.value.revision;
+  function acceptCreatedRevision(envelope) {
+    requireAcceptedHandle(envelope, 'revision creation');
+    requireSameHandle(envelope.value, envelope.revision, 'revision creation summary');
+    revision = envelope.value;
     acceptRevision();
   }
 
@@ -304,7 +304,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       snapshot !== undefined &&
       snapshotTargetToken === evaluation.token &&
       evaluation.available &&
-      (snapshot.revision.knownExtent.spreadCount <= evaluation.spreadIndex ||
+      (snapshot.revision.spreadCount <= evaluation.spreadIndex ||
         snapshot.frameWindow !== undefined)
     );
   }

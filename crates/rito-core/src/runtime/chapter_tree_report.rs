@@ -18,7 +18,7 @@ use crate::epub::EpubResult;
 use crate::fragment_bridge::{build_chapter_formatting_tree, ChapterFormattingTree};
 use crate::xhtml::DocumentNode;
 
-use super::{RuntimeDocument, RuntimeRevisionStatus};
+use super::{frame::RuntimeChapterStyleTables, RuntimeDocument};
 
 pub const RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION: u32 = 1;
 
@@ -40,16 +40,13 @@ pub struct RuntimeChapterTreeChapter {
     pub tree_fingerprint: Option<String>,
 }
 
-/// Fragment-engine representability of a revision's chapters.
-///
-/// `is_complete == false` means later chapters may not have retained style
-/// tables yet; only chapters with tables are measured. Nothing here feeds
-/// back into production layout.
+/// Fragment-engine representability of a revision's chapters: every
+/// chapter the revision retains style tables for is measured. Nothing
+/// here feeds back into production layout.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterTreeReport {
     pub schema_version: u32,
-    pub is_complete: bool,
     /// Chapters measured (those with retained style tables).
     pub chapter_count: usize,
     /// Chapters that built into a formatting tree.
@@ -74,7 +71,6 @@ impl RuntimeDocument {
         }
         Ok(RuntimeChapterTreeReport {
             schema_version: RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
-            is_complete: revision.status == RuntimeRevisionStatus::Complete,
             chapter_count: chapters.len(),
             representable_chapter_count: representable,
             chapters,
@@ -135,7 +131,23 @@ impl RuntimeDocument {
         let revision = self.any_revision(revision_id).ok_or_else(|| {
             crate::epub::EpubError::new(format!("unknown revision: {revision_id}"))
         })?;
-        let tables = revision.chapter_style_tables.get(idref).ok_or_else(|| {
+        self.prepared_chapter_formatting_tree(
+            &revision.chapter_style_tables,
+            idref,
+            filter_footnotes,
+        )
+    }
+
+    /// Builds one chapter's formatting tree from the whole-book
+    /// preparation and the given per-chapter style tables; the whole-book
+    /// page table is built from this before its revision exists.
+    pub(super) fn prepared_chapter_formatting_tree(
+        &self,
+        chapter_style_tables: &BTreeMap<String, RuntimeChapterStyleTables>,
+        idref: &str,
+        filter_footnotes: bool,
+    ) -> EpubResult<ChapterFormattingTree> {
+        let tables = chapter_style_tables.get(idref).ok_or_else(|| {
             crate::epub::EpubError::new(format!(
                 "revision retains no style tables for chapter {idref}"
             ))
@@ -152,7 +164,7 @@ impl RuntimeDocument {
     pub(super) fn formatting_tree_from_prepared(
         &self,
         prepared: &crate::epub::PreparedLoadedDocument,
-        tables: &super::frame::RuntimeChapterStyleTables,
+        tables: &RuntimeChapterStyleTables,
         idref: &str,
         filter_footnotes: bool,
     ) -> EpubResult<ChapterFormattingTree> {

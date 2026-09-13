@@ -21,7 +21,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
 
   const created = await client.createBoundedRevision({ layoutConfig: {} });
   assert.deepEqual(created.revision, handle(0));
-  assert.equal(created.value.revision.status, 'complete');
+  assert.deepEqual(created.value, summary(0));
 
   const summaryResult = await client.getRevisionSummaryAtRevision(handle(0));
   const bundleResult = await client.getRevisionBundleAtRevision(handle(0), true);
@@ -272,13 +272,12 @@ function fixtureDocument() {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
       pinnedFontPolicyJson,
       free() {},
-      createBoundedRevisionJson: () => JSON.stringify(advance(0)),
+      createBoundedRevisionJson: () => JSON.stringify(summary(0)),
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
-        envelope(version, summary(version, 'complete')),
-      getRevisionBundleAtRevisionJson: (_revisionId, version) =>
-        envelope(version, bundle(version, 'complete')),
+        envelope(version, summary(version)),
+      getRevisionBundleAtRevisionJson: (_revisionId, version) => envelope(version, bundle(version)),
       getRevisionPresentationAtRevisionJson: (_revisionId, version) =>
-        envelope(version, presentation(version, 'complete')),
+        envelope(version, presentation(version)),
       getRevisionNavigationAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1' }),
       getFootnotesAtRevisionJson: (_revisionId, version) =>
@@ -326,13 +325,13 @@ function moduleFor(document) {
 }
 
 function versionedPayload(kind, version) {
-  return { kind, revision: handle(version), result: summary(version, 'complete') };
+  return { kind, revision: handle(version), result: summary(version) };
 }
 
-function bundle(version, status = 'complete') {
+function bundle(version) {
   const revisionId = 'rev-1';
   return {
-    revision: summary(version, status),
+    revision: summary(version),
     navigation: { revisionId, pageCount: 1, spreadCount: 1 },
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
@@ -341,10 +340,10 @@ function bundle(version, status = 'complete') {
   };
 }
 
-function presentation(version, status = 'complete') {
+function presentation(version) {
   const revisionId = 'rev-1';
   return {
-    revision: summary(version, status),
+    revision: summary(version),
     navigation: {
       revisionId,
       pageCount: 1,
@@ -413,21 +412,10 @@ function envelope(version, value) {
   return JSON.stringify({ revision: handle(version), value });
 }
 
-function advance(version) {
-  return {
-    revision: summary(version, 'complete'),
-    newlyKnownPages: { startPage: 0, endPageExclusive: 1 },
-  };
-}
-
-function summary(version, status) {
-  const knownExtent = { pageCount: 1, spreadCount: 1 };
+function summary(version) {
   return {
     ...handle(version),
     layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
     pageCount: 1,
     spreadCount: 1,
   };

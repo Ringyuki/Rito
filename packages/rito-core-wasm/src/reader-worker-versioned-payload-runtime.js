@@ -50,7 +50,7 @@ import {
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
     case 'createBoundedRevision':
-      return advanceResponse(request.kind, document.createBoundedRevision(request.request));
+      return summaryResponse(request.kind, document.createBoundedRevision(request.request));
     case 'getRevisionSummaryAtRevision':
       return valueResponse(request.kind, document.getRevisionSummaryAtRevision(request.revision));
     case 'getRevisionBundleAtRevision':
@@ -180,9 +180,9 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
   }
 }
 
-function advanceResponse(kind, advance) {
-  const revision = requireRevisionHandle(advance.revision, `${kind} result`);
-  return { kind, revision, result: advance };
+function summaryResponse(kind, summary) {
+  const revision = requireRevisionHandle(summary, `${kind} result`);
+  return { kind, revision, result: summary };
 }
 
 function valueResponse(kind, envelope) {

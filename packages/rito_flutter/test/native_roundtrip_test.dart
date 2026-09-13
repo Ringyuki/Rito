@@ -642,16 +642,9 @@ void main() {
       final response = await session.search(prepared, needle, limit: 16);
       expect(response.query, needle);
       expect(response.results, isNotEmpty);
-      // Scope is reportable, so two runs that differ are explainable
-      // rather than looking like two complete-but-different lists.
+      // The response says how many pages the list came from: the whole
+      // chapter behind a chapter-local artifact.
       expect(response.searchedPageCount, greaterThan(0));
-      expect(
-        response.scopeComplete,
-        isTrue,
-        reason:
-            'a one-pass chapter-local revision holds its whole chapter, '
-            'so a chapter-scoped search reports a complete scope',
-      );
       final hit = response.results.first;
       expect(hit.context, contains(needle));
       // A durable anchor is what a host stores; page indexes move.

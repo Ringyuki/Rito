@@ -52,23 +52,6 @@ export function requireMatchingRevisionSummary(value, expected, operation) {
   return requireRevisionSummary(value, operation, handle.revisionId, handle.revisionVersion);
 }
 
-/**
- * A revision advance: the whole book paginated in one step, so the advance
- * carries a complete revision and a page range covering its entire table.
- */
-export function requireRevisionAdvance(value, expected, operation) {
-  const advance = requireObjectInput(value, `${operation} result`);
-  const revision = requireMatchingRevisionSummary(advance.revision, expected, operation);
-  const range = requireRevisionPageRange(advance.newlyKnownPages, operation);
-  if (range.startPage !== 0 || range.endPageExclusive !== revision.knownExtent.pageCount) {
-    throw new Error(`${operation} returned a page range inconsistent with its extent`);
-  }
-  if (revision.status !== 'complete') {
-    throw new Error(`${operation} returned an incomplete revision`);
-  }
-  return advance;
-}
-
 export function requireRevisionTransferCount(value, operation) {
   if (!isSafeCount(value)) {
     throw new Error(`${operation} returned an invalid released transfer count`);
@@ -99,8 +82,8 @@ export function requireRevisionBundle(value, revision, operation) {
 }
 
 /**
- * A revision summary: every published revision is complete, so its final
- * extent equals its known extent.
+ * A revision summary: identity, layout key and the page and spread counts
+ * of its page table.
  */
 export function requireRevisionSummary(
   value,
@@ -116,25 +99,16 @@ export function requireRevisionSummary(
   if (expectedRevisionVersion !== undefined && handle.revisionVersion !== expectedRevisionVersion) {
     throw new Error(`${operation} returned a non-sequential revisionVersion`);
   }
-  if (summary.status !== 'complete') {
-    throw new Error(`${operation} returned an invalid revision status`);
-  }
   if (typeof summary.layoutKey !== 'string' || summary.layoutKey.length === 0) {
     throw new Error(`${operation} returned an invalid revision layoutKey`);
   }
-  const knownExtent = requireRevisionExtent(summary.knownExtent, `${operation} knownExtent`);
-  if (
-    summary.pageCount !== knownExtent.pageCount ||
-    summary.spreadCount !== knownExtent.spreadCount
-  ) {
-    throw new Error(`${operation} returned inconsistent revision extent aliases`);
+  for (const field of ['pageCount', 'spreadCount']) {
+    if (!isSafeCount(summary[field])) {
+      throw new Error(`${operation} returned an invalid revision ${field}`);
+    }
   }
-  const finalExtent = requireRevisionExtent(summary.finalExtent, `${operation} finalExtent`);
-  if (
-    finalExtent.pageCount !== knownExtent.pageCount ||
-    finalExtent.spreadCount !== knownExtent.spreadCount
-  ) {
-    throw new Error(`${operation} returned a mismatched final revision extent`);
+  if (summary.spreadCount > summary.pageCount) {
+    throw new Error(`${operation} returned more spreads than pages`);
   }
   return summary;
 }
@@ -165,30 +139,6 @@ export function encodeJson(value, operation) {
       { cause: error },
     );
   }
-}
-
-function requireRevisionExtent(value, operation) {
-  const extent = requireObjectInput(value, operation);
-  for (const field of ['pageCount', 'spreadCount']) {
-    if (!Number.isSafeInteger(extent[field]) || extent[field] < 0) {
-      throw new Error(`${operation} returned an invalid ${field}`);
-    }
-  }
-  if (extent.spreadCount > extent.pageCount) {
-    throw new Error(`${operation} returned more spreads than pages`);
-  }
-  return extent;
-}
-
-function requireRevisionPageRange(value, operation) {
-  const range = requireObjectInput(value, `${operation} newlyKnownPages`);
-  if (!isSafeCount(range.startPage) || !isSafeCount(range.endPageExclusive)) {
-    throw new Error(`${operation} returned an invalid newly known page range`);
-  }
-  if (range.endPageExclusive < range.startPage) {
-    throw new Error(`${operation} returned a reversed newly known page range`);
-  }
-  return range;
 }
 
 function requireMatchingRevisionId(value, revision, operation) {

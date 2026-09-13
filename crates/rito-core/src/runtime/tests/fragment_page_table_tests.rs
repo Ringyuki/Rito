@@ -47,8 +47,7 @@ fn a_representable_book_hands_pagination_to_the_fragment_engine() {
 
     // The advertised extent is the fragment page table's.
     assert!(layout.page_count() > 0);
-    assert_eq!(revision.known_extent.page_count, layout.page_count());
-    assert_eq!(revision.final_extent, Some(revision.known_extent));
+    assert_eq!(revision.extent.page_count, layout.page_count());
 
     let session = revision.chapter_engine_session();
     assert_eq!(session.metadata().page_count, layout.page_count());
@@ -119,11 +118,7 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         .revisions
         .get(&summary.revision_id)
         .expect("revision is retained");
-    assert!(
-        revision.fragment_layout.page_count() > 0,
-        "the fixture book routes to the fragment engine: {:?}",
-        document.fragment_page_table_rejection_reason(&summary.revision_id),
-    );
+    assert!(revision.fragment_layout.page_count() > 0);
     let session = revision.chapter_engine_session();
 
     // The heading anchor resolves to its page.
@@ -188,11 +183,7 @@ fn fragment_pages_resolve_pointer_selection() {
         .revisions
         .get(&summary.revision_id)
         .expect("revision is retained");
-    assert!(
-        revision.fragment_layout.page_count() > 0,
-        "the fixture routes to the fragment engine: {:?}",
-        document.fragment_page_table_rejection_reason(&summary.revision_id),
-    );
+    assert!(revision.fragment_layout.page_count() > 0);
 
     // Locate the word "quick" through the fragment page artifact itself.
     let session = revision.chapter_engine_session();
@@ -283,7 +274,7 @@ fn fragment_pages_resolve_pointer_selection() {
 }
 
 #[test]
-fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
+fn a_bounded_revision_reports_the_extent_of_its_fragment_page_table() {
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
         &multi_chapter_fixture_epub(),
         policy(vec![face(
@@ -296,24 +287,72 @@ fn a_completed_bounded_session_hands_pagination_to_the_fragment_engine() {
     let mut layout = layout();
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
-    let advance = document
+    let summary = document
         .create_bounded_revision(RuntimeBoundedRevisionRequest {
             layout_config: layout,
         })
-        .expect("bounded revision starts");
-    assert!(
-        document
-            .fragment_page_table_rejection_reason(&advance.revision.revision_id)
-            .is_none(),
-        "the completed bounded session hands over"
-    );
+        .expect("bounded revision is created");
     let revision = document
         .revisions
-        .get(&advance.revision.revision_id)
+        .get(&summary.revision_id)
         .expect("revision is retained");
     let table = &revision.fragment_layout;
-    assert_eq!(advance.revision.page_count, table.page_count());
-    assert!(revision.frame_cache.is_empty(), "stale frames were dropped");
+    assert_eq!(summary.page_count, table.page_count());
+    assert_eq!(summary.spread_count, revision.extent.spread_count);
+    assert!(
+        revision.frame_cache.is_empty(),
+        "a new revision has no cached frames"
+    );
+}
+
+#[test]
+fn a_book_that_cannot_paginate_fails_creation_and_leaves_no_revision() {
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &multi_chapter_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("multi-chapter document opens");
+    // Margins that leave no content box: the first chapter cannot
+    // paginate, so the whole page table is refused with that reason.
+    let mut layout = layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    layout.margin_left = layout.page_width;
+
+    let error = document
+        .create_revision(&layout)
+        .expect_err("a layout without a content box is refused");
+    assert!(
+        error.message().starts_with("fragment pagination failed: "),
+        "{}",
+        error.message()
+    );
+    assert!(
+        error.message().contains("page content box is empty"),
+        "{}",
+        error.message()
+    );
+    assert_eq!(
+        document.revision_count(),
+        0,
+        "a refused revision is never inserted"
+    );
+
+    let bounded = document
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout,
+        })
+        .expect_err("the request protocol reports the same failure");
+    assert_eq!(
+        bounded.kind,
+        crate::runtime::RuntimeRevisionErrorKind::EngineFailure
+    );
+    assert!(bounded.message.contains("page content box is empty"));
+    assert_eq!(document.revision_count(), 0);
 }
 
 #[test]
@@ -338,9 +377,6 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         .create_revision(&layout)
         .expect("revision is created");
     let handle = RuntimeRevisionHandle::from(&summary);
-    assert!(document
-        .fragment_page_table_rejection_reason(&summary.revision_id)
-        .is_none());
 
     // Select the word "quick" to obtain a live anchor/focus pair.
     let revision = document
@@ -483,9 +519,6 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         .create_revision(&layout)
         .expect("revision is created");
     let handle = RuntimeRevisionHandle::from(&summary);
-    assert!(document
-        .fragment_page_table_rejection_reason(&summary.revision_id)
-        .is_none());
 
     // Select "quick" and capture its durable source range.
     let revision = document
@@ -555,9 +588,6 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         .create_revision(&reflowed)
         .expect("reflowed revision is created");
     let second_handle = RuntimeRevisionHandle::from(&second);
-    assert!(document
-        .fragment_page_table_rejection_reason(&second.revision_id)
-        .is_none());
     let projected = document
         .resolve_exact_source_range_at(
             &second_handle,
@@ -655,20 +685,14 @@ fn a_bounded_forced_sans_serif_override_changes_the_painted_frame() {
         let mut layout = layout();
         layout.font_family_override = Some(family.to_owned());
         layout.font_family_force = Some(true);
-        let advance = document
+        let summary = document
             .create_bounded_revision(RuntimeBoundedRevisionRequest {
                 layout_config: layout,
             })
-            .expect("bounded revision starts");
-        assert!(
-            document
-                .fragment_page_table_rejection_reason(&advance.revision.revision_id)
-                .is_none(),
-            "the completed bounded session hands over for the {family} override"
-        );
+            .expect("bounded revision is created");
         let revision = document
             .revisions
-            .get(&advance.revision.revision_id)
+            .get(&summary.revision_id)
             .expect("revision is retained");
         let frame = revision
             .chapter_engine_session()

@@ -10,13 +10,13 @@ impl WasmRuntimeDocument {
         request_json: &str,
     ) -> Result<String, WasmRuntimeError> {
         let request = parse_bounded_revision_request(request_json)?;
-        let advance = self
+        let summary = self
             .document
             .create_bounded_revision(request)
             .map_err(WasmRuntimeError::from_revision)?;
-        let revision = rito_core::runtime::RuntimeRevisionHandle::from(&advance.revision);
+        let revision = rito_core::runtime::RuntimeRevisionHandle::from(&summary);
         self.finish_created_revision_transport(revision, None, move |_, _, _| {
-            serialize_json(&advance)
+            serialize_json(&summary)
         })
     }
 

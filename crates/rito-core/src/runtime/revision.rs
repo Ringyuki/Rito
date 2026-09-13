@@ -13,16 +13,18 @@ use super::{
     cleanup::PendingRuntimeRevisionCleanup,
     frame::{
         revision_summary, RuntimeChapterTextIndexSource, RuntimeRevision,
-        RuntimeRevisionInteractions,
+        RuntimeRevisionCoordinateSpace, RuntimeRevisionInteractions,
     },
     metadata::layout_key,
     RuntimeDocument, RuntimeRevisionSummary,
 };
 
 impl RuntimeDocument {
-    /// Builds a whole-book revision: style projection runs, then the
-    /// fragment engine paginates every chapter and attaches the page
-    /// table; every query serves from it.
+    /// Builds a whole-book revision: style projection runs, the fragment
+    /// engine paginates every chapter, and the revision is inserted with
+    /// its complete page table; every query serves from it. A chapter
+    /// that fails to build or paginate fails the call with its reason and
+    /// leaves no revision behind.
     pub fn create_revision(
         &mut self,
         layout_config: &LayoutConfig,
@@ -58,30 +60,24 @@ impl RuntimeDocument {
                 layout_key,
             )
         };
-        let revision = RuntimeRevision::completed(
+        let fragment_layout = self
+            .build_fragment_page_table(&layout_config, &chapter_style_tables)
+            .map_err(|reason| EpubError::new(format!("fragment pagination failed: {reason}")))?;
+        if fragment_layout.page_count() == 0 {
+            return Err(EpubError::new(
+                "fragment pagination failed: the publication paginated to no pages",
+            ));
+        }
+        let revision = RuntimeRevision::new(
+            RuntimeRevisionCoordinateSpace::Absolute,
             layout_config,
             chapter_style_tables,
             required_font_face_catalog,
             interactions,
+            fragment_layout,
         );
-        self.insert_new_revision(revision_id.clone(), revision);
-        self.try_attach_fragment_page_table(&revision_id);
-        let revision = self
-            .any_revision(&revision_id)
-            .expect("the revision was just inserted");
-        if revision.fragment_layout.page_count() == 0 {
-            let reason = self
-                .fragment_page_table_rejection_reason(&revision_id)
-                .unwrap_or_else(|| "unknown".to_owned());
-            self.release_revision(&revision_id);
-            return Err(EpubError::new(format!(
-                "fragment pagination failed: {reason}"
-            )));
-        }
-        let revision = self
-            .any_revision(&revision_id)
-            .expect("the revision was just inserted");
-        let summary = revision_summary(&revision_id, &layout_key, revision);
+        let summary = revision_summary(&revision_id, &layout_key, &revision);
+        self.insert_new_revision(revision_id, revision);
         Ok(summary)
     }
 

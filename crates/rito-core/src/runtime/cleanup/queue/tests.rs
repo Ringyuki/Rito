@@ -13,9 +13,10 @@ use crate::{
     layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
     runtime::{
         cleanup::test_support::{cached_frame, wide_resource_cached_frame},
+        fragment_backend::FragmentBuiltLayout,
         frame::{
-            RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionInteractions,
-            FRAME_CACHE_CAPACITY,
+            RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionCoordinateSpace,
+            RuntimeRevisionInteractions, FRAME_CACHE_CAPACITY,
         },
     },
 };
@@ -276,8 +277,10 @@ fn enqueue_real_job_fixtures(queue: &mut RuntimeCleanupQueue) {
 }
 
 fn empty_revision() -> RuntimeRevision {
-    RuntimeRevision::warming(
+    RuntimeRevision::new(
+        RuntimeRevisionCoordinateSpace::Absolute,
         test_layout(),
+        BTreeMap::new(),
         None,
         RuntimeRevisionInteractions {
             publication_footnotes: None,
@@ -287,6 +290,7 @@ fn empty_revision() -> RuntimeRevision {
             chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::new()),
             completed_chapter_idrefs: BTreeSet::new(),
         },
+        FragmentBuiltLayout::empty(),
     )
 }
 

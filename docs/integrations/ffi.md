@@ -99,6 +99,26 @@ bytes back the reader worker's frame command buffer, whose metadata
 carries the ratio and primitive count beside the semantic frame's
 command count, kind counts and hash.
 
+Wire changes landed when revisions became complete on creation (reader
+protocol version 5):
+
+- Artifacts and publications stamp protocol version 5; a decoder pinned
+  to 4 must move with it.
+- The artifact record no longer carries the `terminal extent` bool after
+  `height`: the `book page index` and `book page count` options follow
+  the height directly, and both are present on every artifact of a
+  whole-book revision (a revision holds its complete page table from the
+  moment it exists).
+- `adjacent availability` has three tags: 0 available, 1 chapter
+  boundary, 2 terminal. The former `pending` (1) and `blocked` (4) tags
+  described spreads a revision had not laid out yet; no revision is ever
+  in that state.
+- The search response (`RITOSRS1`) no longer carries the `scope complete`
+  bool after `searched page count`; the count is the page table of the
+  revision behind the artifact.
+- A `complete` background advance carries no artifact: the first
+  publication candidate already numbers its page against the book total.
+
 Wire changes landed with the paint-geometry lowering (reader protocol
 version 3, rito_flutter 0.3.0 era):
 

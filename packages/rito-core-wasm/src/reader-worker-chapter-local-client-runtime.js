@@ -1,7 +1,7 @@
 import {
   requireChapterLocalRelease,
-  requireCreatedChapterLocalAdvance,
-} from './chapter-local-advance-validation-runtime.js';
+  requireCreatedChapterLocalRevision,
+} from './chapter-local-creation-validation-runtime.js';
 import { requireReaderChapterLocalFrame } from './chapter-local-frame-validation-runtime.js';
 import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import {
@@ -22,7 +22,7 @@ export function createChapterLocalReaderClientMethods(send, disposeInvalid) {
         { kind: operation, request: normalized.request },
         undefined,
         (value, bindOwner) =>
-          requireCreatedChapterLocalAdvance(
+          requireCreatedChapterLocalRevision(
             value,
             normalized.request,
             `${operation} response`,
@@ -57,7 +57,7 @@ async function mutationResult(
   kind,
   request,
   fallbackRollbackOwner,
-  validateAdvance,
+  validateCreated,
 ) {
   let boundOwner;
   try {
@@ -66,14 +66,14 @@ async function mutationResult(
       throw new Error(`Rito reader worker returned ${String(payload?.kind)} for ${kind}`);
     }
     const result = requireRecord(payload.result, `${kind} response result`);
-    if (!Object.hasOwn(result, 'advance')) {
-      throw new Error(`${kind} response omitted its committed advance`);
+    if (!Object.hasOwn(result, 'created')) {
+      throw new Error(`${kind} response omitted its created revision`);
     }
-    const advance = validateAdvance(result.advance, (owner) => {
+    const created = validateCreated(result.created, (owner) => {
       boundOwner = owner;
     });
-    const frame = requireMutationFrame(result.frame, advance, boundOwner, kind);
-    return { advance, ...(frame === undefined ? {} : { frame }) };
+    const frame = requireMutationFrame(result.frame, created, boundOwner, kind);
+    return { created, ...(frame === undefined ? {} : { frame }) };
   } catch (error) {
     // A typed worker error proves the worker answered in protocol: its payload
     // runtime already rolled back (or fail-closed) the mutation's own owner.
@@ -91,16 +91,16 @@ async function mutationResult(
   }
 }
 
-function requireMutationFrame(value, advance, owner, operation) {
+function requireMutationFrame(value, created, owner, operation) {
   if (owner === undefined) throw new Error(`${operation} response did not bind an exact owner`);
-  if (advance.target.status === 'resolved') {
+  if (created.target.status === 'resolved') {
     if (value === undefined) {
       throw new Error(`${operation} response omitted its resolved packed frame`);
     }
     return requireReaderChapterLocalFrame(
       value,
       owner,
-      advance.target.localSpreadIndex,
+      created.target.localSpreadIndex,
       `${operation} response`,
     );
   }

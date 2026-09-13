@@ -1,44 +1,36 @@
 mod access;
-mod advance;
 mod model;
 mod preflight;
+mod publish;
 
 use crate::runtime::{
-    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionAdvance,
-    RuntimeChapterLocalRevisionError, RuntimeDocument,
+    RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionError,
+    RuntimeCreatedChapterLocalRevision, RuntimeDocument, RuntimeRevisionErrorKind,
 };
 
-use self::preflight::initialize_chapter_local_fragment;
+use self::preflight::prepare_chapter_local_revision;
 
 impl RuntimeDocument {
     /// Creates a revision whose coordinates are local to exactly one spine
     /// chapter. The publication-absolute revisions are untouched.
     ///
-    /// The fragment engine paginates the whole chapter in one pass: the
-    /// returned advance is already complete and its extent is the entire
-    /// chapter.
+    /// The fragment engine paginates the whole chapter in one pass before
+    /// the revision exists: the returned summary describes the complete
+    /// chapter and the target is resolved against its page table.
     pub fn create_bounded_chapter_local_revision(
         &mut self,
         request: RuntimeBoundedChapterLocalRevisionRequest,
-    ) -> Result<RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionError> {
-        let initialized = initialize_chapter_local_fragment(self, request)?;
-        match self.build_chapter_local_fragment_layout(
-            &initialized.revision_id,
-            initialized.coordinate.chapter_index,
-        ) {
-            Ok(layout) => self.publish_chapter_local_fragment(
-                &initialized.revision_id,
-                &initialized.layout_key,
-                layout,
-                initialized.target_locator,
-            ),
-            Err(message) => {
-                self.retire_failed_fragment_local_revision(&initialized.revision_id);
-                Err(crate::runtime::RuntimeChapterLocalRevisionError {
-                    kind: crate::runtime::RuntimeRevisionErrorKind::EngineFailure,
-                    message,
-                })
-            }
-        }
+    ) -> Result<RuntimeCreatedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
+        let prepared = prepare_chapter_local_revision(self, request)?;
+        let built = self
+            .build_chapter_local_fragment_layout(
+                &prepared.layout_config,
+                prepared.coordinate.chapter_index,
+            )
+            .map_err(|message| RuntimeChapterLocalRevisionError {
+                kind: RuntimeRevisionErrorKind::EngineFailure,
+                message,
+            })?;
+        self.publish_chapter_local_revision(prepared, built)
     }
 }

@@ -1,16 +1,15 @@
 import {
   encodeJson,
   parseObject,
-  requireRevisionAdvance,
   requireRevisionHandle,
   requireRevisionSummary,
 } from './core-wasm-versioned-validation-runtime.js';
 
+/** Creates a revision; the result is its summary at version zero. */
 export function runBoundedMutation(document, rawMethod, operation, input) {
-  return runCommittedMutation(document, rawMethod, operation, input, undefined, (result) => {
-    const revision = requireRevisionSummary(result.revision, operation, undefined, 0);
-    return requireRevisionAdvance(result, revision, operation);
-  });
+  return runCommittedMutation(document, rawMethod, operation, input, undefined, (result) =>
+    requireRevisionSummary(result, operation, undefined, 0),
+  );
 }
 
 function runCommittedMutation(document, rawMethod, operation, input, fallbackHandle, validate) {
@@ -31,7 +30,7 @@ function validateCommittedMutation(rawPayload, operation, fallbackHandle, releas
     result = parseObject(rawPayload, operation);
     return validate(result);
   } catch (error) {
-    const handle = fallbackHandle ?? recoverRevisionHandle(result?.revision);
+    const handle = fallbackHandle ?? recoverRevisionHandle(result);
     if (handle !== undefined) bestEffortRelease(handle, release);
     throw error;
   }

@@ -1,10 +1,10 @@
-//! Retained storage for a revision paginated by the fragment engine.
+//! A revision's page table: the pages the fragment engine paginated per
+//! chapter, each with its sealed fragment tree, its query artifact and its
+//! paint commands.
 //!
-//! When a revision carries a `FragmentBuiltLayout`, the fragment engine is
-//! the pagination authority: page numbers, chapter ranges, frames, and
-//! page artifacts all come from this store, and the retained layout on the
-//! same revision is inert scaffolding. There is no mixed page table — a
-//! book routes here only when every chapter is representable.
+//! Page numbers, chapter ranges, frames and page artifacts all come from
+//! this store. A table is built for every chapter or not at all: a chapter
+//! that fails to build or paginate fails the revision.
 
 use std::{
     cell::RefCell,
@@ -14,17 +14,16 @@ use std::{
 
 use rito_fragment::CancelFlag;
 
-use super::spread::build_spread_slots;
 use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
 use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
+use crate::layout::LayoutConfig;
 use crate::render::{
     contract::{ReaderBackgroundPaintV1, ReaderColorV1},
     DisplayCommand,
 };
 
-use super::frame::RuntimeRevisionCoordinateSpace;
+use super::frame::{RuntimeChapterStyleTables, RuntimeRevisionInteractions};
 use super::page_artifact::FragmentPageArtifact;
-use super::types::{RuntimeRevisionExtent, RuntimeRevisionStatus};
 use super::RuntimeDocument;
 
 /// One chapter's fragment pagination, in spine order within the layout.
@@ -35,8 +34,7 @@ pub(super) struct FragmentBackendChapter {
     /// pages were laid out from and the paint policy of the build.
     pub(super) paint: ChapterPaintSource,
     /// Top-level formatting blocks the chapter paginated from; chapter
-    /// ranges report this where the retained backend reports its block
-    /// count.
+    /// ranges report it as the chapter's block count.
     pub(super) block_count: usize,
     /// The chapter body's background color, painted as this chapter's
     /// page wash.
@@ -130,8 +128,8 @@ pub(super) struct FragmentBuiltLayout {
 }
 
 impl FragmentBuiltLayout {
-    /// A page table with no pages: what a revision holds before the
-    /// fragment engine paginates it.
+    /// A page table with no pages.
+    #[cfg(test)]
     pub(super) fn empty() -> Self {
         Self::new(Vec::new())
     }
@@ -191,65 +189,26 @@ impl FragmentBuiltLayout {
     }
 }
 
+/// One chapter paginated for a chapter-local revision, with the style
+/// tables and interaction state the revision retains beside its pages.
+pub(super) struct ChapterLocalFragmentBuild {
+    pub(super) layout: FragmentBuiltLayout,
+    pub(super) idref: String,
+    pub(super) style_tables: RuntimeChapterStyleTables,
+    pub(super) interactions: RuntimeRevisionInteractions,
+}
+
 impl RuntimeDocument {
-    /// Makes the fragment engine the pagination authority for a freshly
-    /// completed whole-book revision, when it can represent every
-    /// chapter. All-or-nothing: any chapter that fails to build or
-    /// paginate leaves the retained page table (and the spread-frame
-    /// bridge) in charge, so there is never a mixed page table.
-    pub(super) fn try_attach_fragment_page_table(&mut self, revision_id: &str) {
-        // The bounded pipeline consumes its prepared chapters quantum by
-        // quantum and leaves no whole-book preparation behind; rebuilding
-        // the page table needs every chapter's arena.
-        if self.prepared.is_none() && self.document.chapters.iter().all(|c| c.source_loaded) {
-            self.ensure_prepared_all();
-        }
-        let Ok(layout) = self.build_fragment_page_table(revision_id) else {
-            return;
-        };
-        let page_count = layout.page_count();
-        if page_count == 0 {
-            return;
-        }
-        let Some(revision) = self.any_revision_mut(revision_id) else {
-            return;
-        };
-        let spread_count = build_spread_slots(
-            page_count,
-            layout.chapter_start_pages(),
-            &revision.layout_config,
-        )
-        .len();
-        revision.fragment_layout = layout;
-        // The revision's advertised extent must be the fragment page
-        // table's: hosts navigate by these numbers.
-        revision.known_extent = RuntimeRevisionExtent {
-            page_count,
-            spread_count,
-        };
-        revision.final_extent = Some(revision.known_extent);
-        // Frames cached while the retained engine paginated (a bounded
-        // session publishing progressively) describe the old page table.
-        revision.frame_cache.clear();
-        revision.frame_cache_order.clear();
-    }
-
-    /// Why a revision cannot hand pagination to the fragment engine, or
-    /// `None` when it can (or already has). Rebuilds the page table to
-    /// find out, so this is a diagnostic surface, not a hot path.
-    pub fn fragment_page_table_rejection_reason(&self, revision_id: &str) -> Option<String> {
-        self.build_fragment_page_table(revision_id).err()
-    }
-
-    fn build_fragment_page_table(&self, revision_id: &str) -> Result<FragmentBuiltLayout, String> {
-        let revision = self
-            .any_revision(revision_id)
-            .ok_or_else(|| format!("unknown revision: {revision_id}"))?;
-        if revision.status != RuntimeRevisionStatus::Complete
-            || revision.coordinate_space != RuntimeRevisionCoordinateSpace::Absolute
-        {
-            return Err("only completed whole-book revisions route".to_owned());
-        }
+    /// Paginates every chapter of the prepared publication under
+    /// `layout_config`, laying each out from its typed style tables.
+    /// Page indexes are book-wide. Any chapter that fails to build or
+    /// paginate fails the whole table, so a revision never holds a
+    /// partial one.
+    pub(super) fn build_fragment_page_table(
+        &self,
+        layout_config: &LayoutConfig,
+        chapter_style_tables: &BTreeMap<String, RuntimeChapterStyleTables>,
+    ) -> Result<FragmentBuiltLayout, String> {
         let prepared = self
             .prepared
             .as_ref()
@@ -257,14 +216,13 @@ impl RuntimeDocument {
         let mut chapters = Vec::with_capacity(prepared.chapters.len());
         let mut anchors = BTreeMap::new();
         let mut page_index = 0;
-        let chapter_idrefs: Vec<String> = prepared
-            .chapters
-            .iter()
-            .map(|chapter| chapter.source.idref.clone())
-            .collect();
-        for idref in chapter_idrefs {
+        for chapter in &prepared.chapters {
+            let idref = chapter.source.idref.as_str();
+            let built = self
+                .prepared_chapter_formatting_tree(chapter_style_tables, idref, true)
+                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
             let chapter =
-                self.build_fragment_chapter(revision_id, &idref, page_index, &mut anchors)?;
+                self.paginate_built_chapter(built, layout_config, idref, page_index, &mut anchors)?;
             page_index += chapter.pages.len();
             chapters.push(chapter);
         }
@@ -273,21 +231,16 @@ impl RuntimeDocument {
         Ok(layout)
     }
 
-    /// Builds ONE chapter's complete fragment page table for a
-    /// chapter-local revision: parse and style the chapter in a
-    /// single-chapter prepared window (the whole-book preparation is
-    /// untouched), bridge it, and paginate the entire chapter in one
-    /// pass. Page indexes are chapter-local (base 0).
+    /// Paginates ONE chapter for a chapter-local revision: parse and
+    /// style the chapter in a single-chapter prepared window (the
+    /// whole-book preparation is untouched), bridge it, and paginate the
+    /// entire chapter in one pass. Page indexes are chapter-local
+    /// (base 0).
     pub(super) fn build_chapter_local_fragment_layout(
         &mut self,
-        revision_id: &str,
+        config: &LayoutConfig,
         chapter_index: usize,
-    ) -> Result<FragmentBuiltLayout, String> {
-        let config = self
-            .any_revision(revision_id)
-            .ok_or_else(|| format!("unknown revision: {revision_id}"))?
-            .layout_config
-            .clone();
+    ) -> Result<ChapterLocalFragmentBuild, String> {
         self.document
             .ensure_chapter_loaded(chapter_index)
             .map_err(|error| format!("chapter source load: {}", error.message()))?;
@@ -316,9 +269,8 @@ impl RuntimeDocument {
             .prepare_cached_document_window(chapter_index, 1, &footnote_targets)
             .map_err(|error| format!("chapter window preparation: {}", error.message()))?;
         // Chapter interactions (footnote entries and their pending
-        // cross-chapter targets) assemble exactly like the retained
-        // pipeline's chapter start: without them, artifact hits carry no
-        // footnote keys.
+        // cross-chapter targets) are assembled here: without them,
+        // artifact hits carry no footnote keys.
         let mut interactions =
             crate::runtime::revision::runtime_chapter_revision_interactions(&prepared);
         self.record_prepared_chapter_footnotes(std::mem::take(&mut prepared.interaction.footnotes));
@@ -328,62 +280,38 @@ impl RuntimeDocument {
         interactions.pending_footnote_keys =
             crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
         interactions.footnote_index_complete = footnote_index_complete;
-        let chapter = crate::epub::prepare_runtime_layout_chapter(&prepared, &config)
+        let chapter = crate::epub::prepare_runtime_layout_chapter(&prepared, config)
             .map_err(|error| format!("chapter style resolution: {}", error.message()))?
             .ok_or_else(|| "prepared runtime chapter is unavailable".to_owned())?;
-        let idref = chapter.idref.clone();
-        let tables = super::frame::RuntimeChapterStyleTables {
+        let idref = chapter.idref;
+        let style_tables = RuntimeChapterStyleTables {
             layout: chapter.layout_style_table,
             inline: chapter.inline_style_table,
         };
         let built = self
-            .formatting_tree_from_prepared(&prepared, &tables, &idref, true)
+            .formatting_tree_from_prepared(&prepared, &style_tables, &idref, true)
             .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-        let revision = self
-            .any_revision_mut(revision_id)
-            .ok_or_else(|| format!("unknown revision: {revision_id}"))?;
-        revision.chapter_style_tables.insert(idref.clone(), tables);
-        let publication_footnotes =
-            std::mem::take(&mut revision.interactions.publication_footnotes);
-        revision.interactions = interactions;
-        revision.interactions.publication_footnotes = publication_footnotes;
         let mut anchors = BTreeMap::new();
         let backend_chapter =
-            self.paginate_built_chapter(built, &config, &idref, 0, &mut anchors)?;
+            self.paginate_built_chapter(built, config, &idref, 0, &mut anchors)?;
         let mut layout = FragmentBuiltLayout::new(vec![backend_chapter]);
         layout.anchors = anchors;
-        Ok(layout)
-    }
-
-    /// Paginates ONE chapter with the fragment engine and returns its
-    /// backend pages, with `page_index_base` as the first page's global
-    /// index and this chapter's anchors merged into `anchors`. The
-    /// revision must retain the chapter's style tables (a prefix
-    /// revision retains them only for its window, so partial books fail
-    /// here and stay retained).
-    pub(super) fn build_fragment_chapter(
-        &self,
-        revision_id: &str,
-        idref: &str,
-        page_index_base: usize,
-        anchors: &mut BTreeMap<String, usize>,
-    ) -> Result<FragmentBackendChapter, String> {
-        let revision = self
-            .any_revision(revision_id)
-            .ok_or_else(|| format!("unknown revision: {revision_id}"))?;
-        let config = revision.layout_config.clone();
-        let built = self
-            .chapter_formatting_tree(revision_id, idref)
-            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-        self.paginate_built_chapter(built, &config, idref, page_index_base, anchors)
+        Ok(ChapterLocalFragmentBuild {
+            layout,
+            idref,
+            style_tables,
+            interactions,
+        })
     }
 
     /// The pagination half of a chapter build: lays a bridged formatting
-    /// tree out into backend pages under the given layout config.
-    pub(super) fn paginate_built_chapter(
+    /// tree out into backend pages under the given layout config, with
+    /// `page_index_base` as the first page's index and this chapter's
+    /// anchors merged into `anchors`.
+    fn paginate_built_chapter(
         &self,
         mut built: crate::fragment_bridge::ChapterFormattingTree,
-        config: &crate::layout::LayoutConfig,
+        config: &LayoutConfig,
         idref: &str,
         page_index_base: usize,
         anchors: &mut BTreeMap<String, usize>,
@@ -424,11 +352,10 @@ impl RuntimeDocument {
             let page_index = page_index_base + offset;
             collect_page_anchors(&page.root, &built.node_anchors, page_index, anchors);
             backend_pages.push(FragmentBackendPage {
-                // Artifact geometry is spread-content space (the
-                // legacy backend's convention, which every consumer —
-                // the selection mapper, tap targets, search bounds —
-                // translates to the viewport). Page margins must not
-                // be baked in here.
+                // Artifact geometry is in spread-content space: every
+                // consumer — the selection mapper, tap targets, search
+                // bounds — translates it to the viewport, so page margins
+                // must not be baked in here.
                 artifact: FragmentPageArtifact::build(
                     page_index,
                     page_width,

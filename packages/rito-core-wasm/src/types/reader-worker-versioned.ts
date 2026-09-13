@@ -38,7 +38,6 @@ import type { RitoCoreWasmResourcePayload } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
-  RitoCoreWasmRevisionAdvance,
   RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
@@ -53,7 +52,7 @@ import type {
 export interface RitoCoreWasmReaderVersionedClient {
   createBoundedRevision(
     request: RitoCoreWasmBoundedRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
@@ -155,7 +154,7 @@ export interface RitoCoreWasmReaderVersionedClient {
 }
 
 export interface RitoCoreWasmReaderVersionedDocumentRuntime {
-  createBoundedRevision(request: RitoCoreWasmBoundedRevisionRequest): RitoCoreWasmRevisionAdvance;
+  createBoundedRevision(request: RitoCoreWasmBoundedRevisionRequest): RitoCoreWasmRevisionSummary;
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>;
@@ -462,7 +461,7 @@ export interface RitoCoreWasmReaderWorkerVersionedResponse<Kind extends string, 
 }
 
 export type RitoCoreWasmReaderVersionedWorkerResponse =
-  | RitoCoreWasmReaderWorkerVersionedResponse<'createBoundedRevision', RitoCoreWasmRevisionAdvance>
+  | RitoCoreWasmReaderWorkerVersionedResponse<'createBoundedRevision', RitoCoreWasmRevisionSummary>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionSummaryAtRevision',
       RitoCoreWasmRevisionSummary

@@ -18,7 +18,7 @@ export type {
   RitoCoreWasmChapterTextIndices as CoreChapterTextIndices,
   RitoCoreWasmBoundedChapterLocalRevisionRequest as CoreBoundedChapterLocalRevisionRequest,
   RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
-  RitoCoreWasmChapterLocalRevisionAdvance as CoreChapterLocalRevisionAdvance,
+  RitoCoreWasmCreatedChapterLocalRevision as CoreCreatedChapterLocalRevision,
   RitoCoreWasmChapterLocalRevisionRelease as CoreChapterLocalRevisionRelease,
   RitoCoreWasmExactSourceRangeRequest as CoreExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse as CoreExactSourceRangeResponse,

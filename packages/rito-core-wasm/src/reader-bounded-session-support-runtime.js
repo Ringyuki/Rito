@@ -67,12 +67,13 @@ export async function evaluateBoundedReaderTarget(
   presentationSpreadIndex,
 ) {
   const handle = revisionHandle(revision);
+  // The revision holds its whole page table, so a spread target and the
+  // whole-table target are decided the moment the revision exists.
   if (target.kind === 'spread') {
     return {
       token: target.token,
       handle,
-      available:
-        revision.status === 'complete' || revision.knownExtent.spreadCount > target.spreadIndex,
+      available: true,
       spreadIndex: target.spreadIndex,
       snapshotTarget: { kind: 'spread', spreadIndex: target.spreadIndex },
     };
@@ -81,7 +82,7 @@ export async function evaluateBoundedReaderTarget(
     return {
       token: target.token,
       handle,
-      available: revision.status === 'complete',
+      available: true,
       spreadIndex: presentationSpreadIndex,
       snapshotTarget: { kind: 'complete' },
     };
@@ -111,8 +112,8 @@ export function evaluateBoundedReaderLocatorResolution(
   const resolution = requireSourceLocatorResolution(value, handle, 'source locator resolution');
   if (resolution.status === 'resolved') {
     requireResolvedLocatorExtent(resolution, revision);
-  } else if (revision.status === 'complete' && resolution.reason === 'notPaginated') {
-    throw new Error('complete revision left a source locator unpaginated');
+  } else if (resolution.reason === 'notPaginated') {
+    throw new Error('a revision left a source locator unpaginated');
   }
   return {
     token: target.token,
@@ -146,9 +147,6 @@ export function requireSameHandle(actual, expected, operation) {
 export function requireSameRevisionSummary(actual, expected, operation) {
   if (
     actual.layoutKey !== expected.layoutKey ||
-    actual.status !== expected.status ||
-    !sameExtent(actual.knownExtent, expected.knownExtent) ||
-    !sameExtent(actual.finalExtent, expected.finalExtent) ||
     actual.pageCount !== expected.pageCount ||
     actual.spreadCount !== expected.spreadCount
   ) {
@@ -189,14 +187,9 @@ export function defaultYieldControl() {
 
 function requireResolvedLocatorExtent(resolution, revision) {
   if (
-    resolution.pageIndex >= revision.knownExtent.pageCount ||
-    resolution.spreadIndex >= revision.knownExtent.spreadCount
+    resolution.pageIndex >= revision.pageCount ||
+    resolution.spreadIndex >= revision.spreadCount
   ) {
-    throw new Error('source locator resolution returned geometry outside the known extent');
+    throw new Error('source locator resolution returned geometry outside the revision extent');
   }
-}
-
-function sameExtent(left, right) {
-  if (left === undefined || right === undefined) return left === right;
-  return left.pageCount === right.pageCount && left.spreadCount === right.spreadCount;
 }

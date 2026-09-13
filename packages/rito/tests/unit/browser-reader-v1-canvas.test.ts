@@ -574,7 +574,6 @@ function readerArtifact(): BrowserReaderArtifactV1 {
     localPageIndexes: [40],
     width: 400,
     height: 600,
-    terminalExtent: false,
     navigation: { previous: 'available', next: 'available' },
     textProfile: 'platform-string-runs',
     displayList: displayList(commands, 2),

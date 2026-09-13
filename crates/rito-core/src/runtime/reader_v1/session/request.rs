@@ -256,13 +256,12 @@ impl ReaderSessionV1 {
     ) -> Result<bool, ReaderErrorV1> {
         let current = self.adjacent_availability(source, direction)?;
         Ok(match current {
-            ReaderAdjacentAvailabilityV1::Pending => true,
             ReaderAdjacentAvailabilityV1::ChapterBoundary => {
                 initial_availability != ReaderAdjacentAvailabilityV1::ChapterBoundary
             }
-            ReaderAdjacentAvailabilityV1::Available
-            | ReaderAdjacentAvailabilityV1::Terminal
-            | ReaderAdjacentAvailabilityV1::Blocked => false,
+            ReaderAdjacentAvailabilityV1::Available | ReaderAdjacentAvailabilityV1::Terminal => {
+                false
+            }
         })
     }
 

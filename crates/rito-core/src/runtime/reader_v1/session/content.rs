@@ -204,7 +204,7 @@ impl ReaderSessionV1 {
             whole_word: request.whole_word,
             limit: probe_limit,
         };
-        let (response, searched_page_count, scope_complete) = match artifact.backing {
+        let (response, searched_page_count) = match artifact.backing {
             ReaderRevisionBackingV1::ChapterLocal => {
                 let owner = self
                     .revisions
@@ -215,7 +215,6 @@ impl ReaderSessionV1 {
                     .document
                     .require_chapter_local_owner(&owner)
                     .map_err(engine_error)?;
-                let scope = revision_search_scope(revision)?;
                 (
                     crate::runtime::search::search_revision(
                         self.document.document(),
@@ -223,8 +222,7 @@ impl ReaderSessionV1 {
                         revision,
                         runtime_request,
                     ),
-                    scope.0,
-                    scope.1,
+                    searched_page_count(revision)?,
                 )
             }
             ReaderRevisionBackingV1::Publication => {
@@ -238,7 +236,6 @@ impl ReaderSessionV1 {
                     .revisions
                     .get(&owner.revision_id)
                     .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                let scope = revision_search_scope(revision)?;
                 (
                     crate::runtime::search::search_revision(
                         self.document.document(),
@@ -246,8 +243,7 @@ impl ReaderSessionV1 {
                         revision,
                         runtime_request,
                     ),
-                    scope.0,
-                    scope.1,
+                    searched_page_count(revision)?,
                 )
             }
         };
@@ -262,7 +258,6 @@ impl ReaderSessionV1 {
             query: request.query,
             truncated,
             searched_page_count,
-            scope_complete,
             results: results
                 .into_iter()
                 .map(reader_search_result)
@@ -454,11 +449,7 @@ fn reader_text_position(
     })
 }
 
-/// How much of the book a search over this revision could see: the
-/// pages laid out so far, and whether that is now all of them.
-fn revision_search_scope(revision: &RuntimeRevision) -> Result<(u32, bool), ReaderErrorV1> {
-    Ok((
-        u32_from_usize(revision.known_extent.page_count, "searched page count")?,
-        revision.final_extent.is_some(),
-    ))
+/// The pages a search over this revision covers: its whole page table.
+fn searched_page_count(revision: &RuntimeRevision) -> Result<u32, ReaderErrorV1> {
+    u32_from_usize(revision.extent.page_count, "searched page count")
 }

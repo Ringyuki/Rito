@@ -43,9 +43,9 @@ export function requireRevisionPresentation(value, revision, operation) {
     );
     if (
       !isSafeCount(value.pageIndex) ||
-      value.pageIndex >= summary.knownExtent.pageCount ||
+      value.pageIndex >= summary.pageCount ||
       !isSafeCount(value.spreadIndex) ||
-      value.spreadIndex >= summary.knownExtent.spreadCount
+      value.spreadIndex >= summary.spreadCount
     ) {
       throw new Error(`${operation} returned an out-of-range presentation TOC target`);
     }
@@ -73,21 +73,21 @@ function requirePresentationNavigation(value, revision, summary, operation) {
   );
   requireMatchingRevisionId(navigation, revision, `${operation} navigation`);
   if (
-    navigation.pageCount !== summary.knownExtent.pageCount ||
-    navigation.spreadCount !== summary.knownExtent.spreadCount ||
+    navigation.pageCount !== summary.pageCount ||
+    navigation.spreadCount !== summary.spreadCount ||
     !Array.isArray(navigation.spreads) ||
     !Array.isArray(navigation.chapters) ||
     !isRecord(navigation.chapterMap)
   ) {
     throw new Error(`${operation} returned malformed presentation navigation`);
   }
-  if (navigation.spreads.length !== summary.knownExtent.spreadCount) {
+  if (navigation.spreads.length !== summary.spreadCount) {
     throw new Error(`${operation} returned incomplete presentation spreads`);
   }
-  requirePresentationSpreads(navigation.spreads, summary.knownExtent.pageCount, operation);
+  requirePresentationSpreads(navigation.spreads, summary.pageCount, operation);
   const chapterMap = requirePresentationChapterMap(
     navigation.chapterMap,
-    summary.knownExtent.pageCount,
+    summary.pageCount,
     operation,
   );
   requirePresentationChapters(navigation.chapters, chapterMap, operation);

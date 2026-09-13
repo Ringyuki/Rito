@@ -3,7 +3,6 @@ import { test } from 'node:test';
 
 import { createRitoCoreWasmBoundedReaderSession } from '../src/reader-bounded-session-runtime.js';
 import {
-  advance,
   deferred,
   fixtureClient,
   handle,
@@ -17,10 +16,10 @@ import {
 test('bounded snapshots include exact slim presentation metadata', async () => {
   let presentationCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1)),
+    create: async () => versioned(summary(0, 1)),
     presentation: async (value, extent) => {
       presentationCount += 1;
-      const revision = summary(value.revisionVersion, 'complete', extent.spreadCount);
+      const revision = summary(value.revisionVersion, extent.spreadCount);
       const navigation = revisionNavigation(value.revisionId, extent);
       return {
         revision: value,
@@ -45,7 +44,7 @@ test('bounded startup rejects simultaneous locator and spread targets before ope
   const client = fixtureClient({
     create: async () => {
       createCount += 1;
-      return versioned(advance(0, 1));
+      return versioned(summary(0, 1));
     },
   });
   const session = createRitoCoreWasmBoundedReaderSession(client);
@@ -66,12 +65,12 @@ test('a target race publishes one exact presentation only for the latest snapsho
   const presentationAllowed = deferred();
   let presentationCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 3)),
+    create: async () => versioned(summary(0, 3)),
     presentation: async (value, extent) => {
       presentationCount += 1;
       presentationStarted.resolve();
       await presentationAllowed.promise;
-      const revision = summary(value.revisionVersion, 'complete', extent.spreadCount);
+      const revision = summary(value.revisionVersion, extent.spreadCount);
       return {
         revision: value,
         value: revisionPresentation(revision, revisionNavigation(value.revisionId, extent)),
@@ -111,7 +110,7 @@ test('bounded session coalesces concurrent targets around the latest request', a
   const started = session.start(startRequest(0));
   const second = session.ensureSpread(2);
   const first = session.ensureSpread(1);
-  created.resolve(versioned(advance(0, 3)));
+  created.resolve(versioned(summary(0, 3)));
   const snapshots = await Promise.all([started, first, second]);
 
   assert.ok(snapshots.every((snapshot) => snapshot.presentationSpreadIndex === 1));
@@ -125,14 +124,14 @@ test('a far target reads one presentation and a later lower target reuses it', a
   const warmed = [];
   let presentationCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 11)),
+    create: async () => versioned(summary(0, 11)),
     warm: (_handle, spreadIndex) => {
       warmed.push(spreadIndex);
       return { spreadIndex };
     },
     presentation: async (value, extent) => {
       presentationCount += 1;
-      const revision = summary(value.revisionVersion, 'complete', extent.spreadCount);
+      const revision = summary(value.revisionVersion, extent.spreadCount);
       return {
         revision: value,
         value: revisionPresentation(revision, revisionNavigation(value.revisionId, extent)),
@@ -177,7 +176,7 @@ test('cancel and dispose drain an in-flight create before exact cleanup', async 
     const started = session.start(startRequest(3));
     await createStarted.promise;
     const stopping = session[operation]();
-    created.resolve(versioned(advance(0, 2)));
+    created.resolve(versioned(summary(0, 2)));
     await stopping;
     await assert.rejects(started, /stopped/);
 
@@ -194,7 +193,7 @@ test('complete short and empty revisions settle out-of-range targets without a f
   for (const spreadCount of [1, 0]) {
     let warmCount = 0;
     const client = fixtureClient({
-      create: async () => versioned(advance(0, spreadCount)),
+      create: async () => versioned(summary(0, spreadCount)),
       warm: () => {
         warmCount += 1;
       },
@@ -202,7 +201,7 @@ test('complete short and empty revisions settle out-of-range targets without a f
     const session = createRitoCoreWasmBoundedReaderSession(client);
     const snapshot = await session.start(startRequest(10));
 
-    assert.equal(snapshot.revision.status, 'complete');
+    assert.equal(snapshot.revision.spreadCount, spreadCount);
     assert.equal(snapshot.presentationSpreadIndex, 10);
     assert.equal(snapshot.frameWindow, undefined);
     assert.equal(warmCount, 0);

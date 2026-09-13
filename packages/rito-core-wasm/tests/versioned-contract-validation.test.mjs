@@ -10,20 +10,13 @@ const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   unusedRawDocument,
 );
 
-test('direct bounded revisions reject forged range and status semantics', () => {
+test('direct bounded revisions reject forged summaries', () => {
   const forgeries = [
-    {
-      ...advance(0, 'complete'),
-      newlyKnownPages: { startPage: 0, endPageExclusive: 2 },
-    },
-    {
-      ...advance(0, 'complete'),
-      newlyKnownPages: { startPage: 1, endPageExclusive: 1 },
-    },
-    advance(0, 'ready'),
-    advance(0, 'warming'),
-    advance(0, 'cancelled'),
-    advance(1, 'complete'),
+    { ...summary(0), spreadCount: 2 },
+    { ...summary(0), pageCount: -1 },
+    { ...summary(0), pageCount: undefined },
+    { ...summary(0), layoutKey: '' },
+    summary(1),
   ];
   for (const forged of forgeries) {
     const document = new RitoCoreWasmDocument({
@@ -35,7 +28,7 @@ test('direct bounded revisions reject forged range and status semantics', () => 
 
 test('direct versioned reads reject matching envelopes with forged embedded revisions', () => {
   for (const [method, value] of [
-    ['getRevisionSummaryAtRevisionJson', summary(2, 'complete')],
+    ['getRevisionSummaryAtRevisionJson', summary(2)],
     ['getRevisionBundleAtRevisionJson', bundle(2)],
   ]) {
     const document = new RitoCoreWasmDocument({
@@ -209,7 +202,7 @@ test('worker client rejects forged bounded and summary results behind a matching
   worker.respondLast({
     kind: 'createBoundedRevision',
     revision: handle(0),
-    result: { ...advance(0, 'complete'), revision: summary(1, 'complete') },
+    result: summary(1),
   });
   await rejectMalformedMutation(
     worker,
@@ -222,15 +215,15 @@ test('worker client rejects forged bounded and summary results behind a matching
   worker.respondLast({
     kind: 'createBoundedRevision',
     revision: handle(0),
-    result: { ...advance(0, 'complete'), newlyKnownPages: { startPage: 0, endPageExclusive: 2 } },
+    result: { ...summary(0), spreadCount: 2 },
   });
-  await rejectMalformedMutation(worker, pending, handle(0), /inconsistent with its extent/);
+  await rejectMalformedMutation(worker, pending, handle(0), /more spreads than pages/);
 
   pending = client.getRevisionSummaryAtRevision(handle(1));
   worker.respondLast({
     kind: 'getRevisionSummaryAtRevision',
     revision: handle(1),
-    result: summary(2, 'complete'),
+    result: summary(2),
   });
   await assert.rejects(pending, /non-sequential revisionVersion/);
   client.dispose();
@@ -252,22 +245,10 @@ async function rejectMalformedMutation(worker, pending, revision, pattern) {
   await assert.rejects(pending, pattern);
 }
 
-function advance(version, status) {
-  const revision = summary(version, status);
-  return {
-    revision,
-    newlyKnownPages: { startPage: 0, endPageExclusive: revision.pageCount },
-  };
-}
-
-function summary(version, status) {
-  const knownExtent = { pageCount: 1, spreadCount: 1 };
+function summary(version) {
   return {
     ...handle(version),
     layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
     pageCount: 1,
     spreadCount: 1,
   };
@@ -276,7 +257,7 @@ function summary(version, status) {
 function bundle(version) {
   const revisionId = 'rev-1';
   return {
-    revision: summary(version, 'complete'),
+    revision: summary(version),
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
@@ -287,7 +268,7 @@ function bundle(version) {
 
 function presentation(version) {
   return {
-    revision: summary(version, 'complete'),
+    revision: summary(version),
     navigation: {
       revisionId: 'rev-1',
       pageCount: 1,

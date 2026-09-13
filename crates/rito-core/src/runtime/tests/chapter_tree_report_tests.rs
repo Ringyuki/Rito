@@ -24,7 +24,6 @@ fn fixture_chapters_are_representable_and_fingerprints_are_stable() {
         report.schema_version,
         RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION
     );
-    assert!(report.is_complete);
     assert!(report.chapter_count > 0);
     // Every fixture chapter — including the one with an embedded image —
     // builds a fragment tree: image dimensions load with the revision.

@@ -2,24 +2,15 @@ import type { RitoCoreWasmLayoutConfig } from './common';
 import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 
-/** Every published revision is complete; the engine never exposes an in-flight one. */
-export type RitoCoreWasmRevisionStatus = 'complete';
-
-export interface RitoCoreWasmRevisionExtent {
-  readonly pageCount: number;
-  readonly spreadCount: number;
-}
-
+/**
+ * A published whole-book revision: its identity, the layout it was
+ * paginated under and the size of its page table.
+ */
 export interface RitoCoreWasmRevisionSummary {
   readonly revisionId: string;
   readonly revisionVersion: number;
   readonly layoutKey: string;
-  readonly status: RitoCoreWasmRevisionStatus;
-  readonly knownExtent: RitoCoreWasmRevisionExtent;
-  readonly finalExtent?: RitoCoreWasmRevisionExtent | undefined;
-  /** Backward-compatible alias for `knownExtent.pageCount`. */
   readonly pageCount: number;
-  /** Backward-compatible alias for `knownExtent.spreadCount`. */
   readonly spreadCount: number;
 }
 
@@ -37,21 +28,6 @@ export interface RitoCoreWasmVersioned<T> {
 
 export interface RitoCoreWasmBoundedRevisionRequest {
   readonly layoutConfig: RitoCoreWasmLayoutConfig;
-}
-
-export interface RitoCoreWasmRevisionPageRange {
-  readonly startPage: number;
-  readonly endPageExclusive: number;
-}
-
-/**
- * The published revision and the page range it made known. The book
- * paginates in one step, so the revision is complete and the range covers
- * its whole table.
- */
-export interface RitoCoreWasmRevisionAdvance {
-  readonly revision: RitoCoreWasmRevisionSummary;
-  readonly newlyKnownPages: RitoCoreWasmRevisionPageRange;
 }
 
 export interface RitoCoreWasmRevisionReleaseResult {
@@ -75,9 +51,9 @@ export interface RitoCoreWasmRevisionBundle {
 /**
  * Paint-ready metadata for one exact revision version.
  *
- * Unlike `RitoCoreWasmRevisionBundle`, this deliberately omits cumulative
- * interaction aggregates so bounded growth does not retransmit chapter text
- * indices and publication-wide footnotes on every visible snapshot.
+ * Unlike `RitoCoreWasmRevisionBundle`, this deliberately omits the
+ * interaction aggregates (chapter text indices, publication-wide
+ * footnotes) a visible snapshot does not need.
  */
 export interface RitoCoreWasmRevisionPresentation {
   readonly revision: RitoCoreWasmRevisionSummary;

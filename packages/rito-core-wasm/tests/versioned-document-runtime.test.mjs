@@ -23,21 +23,19 @@ test('bounded control publishes the created revision at version zero', () => {
   const raw = {
     createBoundedRevisionJson: (json) => {
       requests.push(JSON.parse(json));
-      return JSON.stringify(advance(0, 'complete'));
+      return JSON.stringify(summary(0));
     },
   };
   const document = new RitoCoreWasmDocument(raw);
   const created = document.createBoundedRevision({ layoutConfig: {} });
 
-  assert.equal(created.revision.revisionVersion, 0);
-  assert.equal(created.revision.status, 'complete');
-  assert.deepEqual(created.newlyKnownPages, { startPage: 0, endPageExclusive: 1 });
+  assert.deepEqual(created, summary(0));
   assert.deepEqual(requests, [{ layoutConfig: {} }]);
 });
 
 test('bounded control rejects skipped versions and malformed summaries', () => {
   const document = new RitoCoreWasmDocument({
-    createBoundedRevisionJson: () => JSON.stringify(advance(1, 'complete')),
+    createBoundedRevisionJson: () => JSON.stringify(summary(1)),
   });
 
   assert.throws(
@@ -46,33 +44,23 @@ test('bounded control rejects skipped versions and malformed summaries', () => {
   );
 
   const inconsistent = new RitoCoreWasmDocument({
-    createBoundedRevisionJson: () =>
-      JSON.stringify({
-        ...advance(0, 'complete'),
-        revision: { ...summary(0, 'complete'), pageCount: 9 },
-      }),
+    createBoundedRevisionJson: () => JSON.stringify({ ...summary(0), spreadCount: 9 }),
   });
   assert.throws(
     () => inconsistent.createBoundedRevision({ layoutConfig: {} }),
-    /inconsistent revision extent aliases/,
+    /more spreads than pages/,
   );
 
-  const base = summary(0, 'complete');
+  const base = summary(0);
   const malformed = [
     { ...base, layoutKey: '' },
-    {
-      ...base,
-      knownExtent: { pageCount: 1, spreadCount: 2 },
-      pageCount: 1,
-      spreadCount: 2,
-    },
-    { ...summary(0, 'ready') },
-    { ...summary(0, 'complete'), finalExtent: undefined },
-    { ...summary(0, 'complete'), finalExtent: { pageCount: 0, spreadCount: 0 } },
+    { ...base, pageCount: -1 },
+    { ...base, spreadCount: undefined },
+    { ...base, pageCount: 1.5 },
   ];
   for (const revision of malformed) {
     const invalid = new RitoCoreWasmDocument({
-      createBoundedRevisionJson: () => JSON.stringify({ ...advance(0, 'complete'), revision }),
+      createBoundedRevisionJson: () => JSON.stringify(revision),
     });
     assert.throws(() => invalid.createBoundedRevision({ layoutConfig: {} }));
   }
@@ -153,7 +141,7 @@ test('versioned direct methods reject invalid input and mismatched raw envelopes
     getRevisionSummaryAtRevisionJson: () =>
       JSON.stringify({
         revision: { revisionId: 'rev-other', revisionVersion: 1 },
-        value: summary(1, 'complete'),
+        value: summary(1),
       }),
   });
 
@@ -171,31 +159,19 @@ test('versioned direct methods reject invalid input and mismatched raw envelopes
   );
 });
 
-function advance(version, status) {
-  const revision = summary(version, status);
-  return {
-    revision,
-    newlyKnownPages: { startPage: 0, endPageExclusive: revision.pageCount },
-  };
-}
-
-function summary(version, status, revisionId = 'rev-1') {
-  const knownExtent = { pageCount: 1, spreadCount: 1 };
+function summary(version, revisionId = 'rev-1') {
   return {
     revisionId,
     revisionVersion: version,
     layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
-    pageCount: knownExtent.pageCount,
-    spreadCount: knownExtent.spreadCount,
+    pageCount: 1,
+    spreadCount: 1,
   };
 }
 
 function bundle(version, revisionId = 'rev-1') {
   return {
-    revision: summary(version, 'complete', revisionId),
+    revision: summary(version, revisionId),
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
@@ -205,12 +181,13 @@ function bundle(version, revisionId = 'rev-1') {
 }
 
 function presentation(version, revisionId = 'rev-1') {
-  const revision = summary(version, 'complete', revisionId);
+  const revision = summary(version, revisionId);
   return {
     revision,
     navigation: {
       revisionId,
-      ...revision.knownExtent,
+      pageCount: revision.pageCount,
+      spreadCount: revision.spreadCount,
       spreads: [{ spreadIndex: 0, pageIndexes: [0], leftPageIndex: 0 }],
       chapters: [],
       chapterMap: {},
@@ -223,7 +200,7 @@ function presentation(version, revisionId = 'rev-1') {
 function versionedValue(property, args, version) {
   const revisionId = args[0];
   if (property === 'getRevisionSummaryAtRevisionJson') {
-    return summary(version, 'complete', revisionId);
+    return summary(version, revisionId);
   }
   if (property === 'getRevisionBundleAtRevisionJson') return bundle(version, revisionId);
   if (property === 'getRevisionPresentationAtRevisionJson') {

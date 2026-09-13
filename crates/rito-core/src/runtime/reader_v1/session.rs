@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::{
     layout::LayoutConfig,
     runtime::{
-        RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionHandle, RuntimeDocument,
+        RuntimeChapterLocalRevisionHandle, RuntimeCreatedChapterLocalRevision, RuntimeDocument,
     },
 };
 
@@ -46,7 +46,7 @@ mod publish;
 mod request;
 mod retire;
 
-use project::owner_from_advance;
+use project::owner_from_created;
 
 // Budgeted for the peek prefetch window: visible + outgoing page-turn
 // artifact + one peeked neighbor per direction + an in-flight foreground
@@ -74,8 +74,7 @@ struct ReaderArtifactOwnerV1 {
 struct ReaderRevisionOwnerV1 {
     owner: RuntimeChapterLocalRevisionHandle,
     layout: LayoutConfig,
-    known_local_spread_count: usize,
-    final_local_spread_count: Option<usize>,
+    local_spread_count: usize,
     artifact_ref_count: u32,
 }
 
@@ -92,19 +91,15 @@ impl ReaderPendingAdjacentV1 {
 }
 
 impl ReaderRevisionOwnerV1 {
-    fn from_advance(
-        advance: RuntimeChapterLocalRevisionAdvance,
+    fn from_created(
+        created: &RuntimeCreatedChapterLocalRevision,
         layout: LayoutConfig,
         artifact_ref_count: u32,
     ) -> Self {
         Self {
-            owner: owner_from_advance(&advance),
+            owner: owner_from_created(created),
             layout,
-            known_local_spread_count: advance.revision.known_extent.local_spread_count,
-            final_local_spread_count: advance
-                .revision
-                .final_extent
-                .map(|extent| extent.local_spread_count),
+            local_spread_count: created.revision.local_spread_count,
             artifact_ref_count,
         }
     }

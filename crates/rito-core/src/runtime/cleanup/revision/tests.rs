@@ -9,9 +9,13 @@ use crate::{
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
     runtime::{
-        frame::{RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionInteractions},
+        fragment_backend::FragmentBuiltLayout,
+        frame::{
+            RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionCoordinateSpace,
+            RuntimeRevisionInteractions,
+        },
         RuntimeChapterTextIndex, RuntimeChapterTextSpan, RuntimeRequiredFontFace,
-        RuntimeRevisionExtent, RuntimeRevisionStatus,
+        RuntimeRevisionExtent,
     },
 };
 
@@ -21,27 +25,18 @@ const LARGE_FONT_FACE_COUNT: usize = 16_384;
 
 #[test]
 fn empty_revision_units_include_each_required_font_face() {
-    for status in [
-        RuntimeRevisionStatus::Warming,
-        RuntimeRevisionStatus::Complete,
-    ] {
-        for has_final_extent in [false, true] {
-            for has_font_catalog in [false, true] {
-                let mut owner = revision();
-                owner.revision_version = u32::MAX;
-                owner.status = status;
-                owner.known_extent = RuntimeRevisionExtent {
-                    page_count: usize::MAX,
-                    spread_count: usize::MAX,
-                };
-                owner.final_extent = has_final_extent.then_some(owner.known_extent);
-                owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
-                let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
+    for has_font_catalog in [false, true] {
+        let mut owner = revision();
+        owner.revision_version = u32::MAX;
+        owner.extent = RuntimeRevisionExtent {
+            page_count: usize::MAX,
+            spread_count: usize::MAX,
+        };
+        owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
+        let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-                let expected = 13 + usize::from(has_font_catalog);
-                assert_eq!(drive_q1(&mut cleanup, expected), expected);
-            }
-        }
+        let expected = 13 + usize::from(has_font_catalog);
+        assert_eq!(drive_q1(&mut cleanup, expected), expected);
     }
 }
 
@@ -151,7 +146,14 @@ fn assert_one(cleanup: &mut PendingRuntimeRevisionCleanup) {
 }
 
 fn revision() -> RuntimeRevision {
-    RuntimeRevision::warming(test_layout(), None, interactions())
+    RuntimeRevision::new(
+        RuntimeRevisionCoordinateSpace::Absolute,
+        test_layout(),
+        BTreeMap::new(),
+        None,
+        interactions(),
+        FragmentBuiltLayout::empty(),
+    )
 }
 
 fn interactions() -> RuntimeRevisionInteractions {

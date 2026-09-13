@@ -281,13 +281,10 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           objectValue(payload?.['revision']);
         const handle = revisionHandleObservation(revision);
         if (!revision || !handle) return null;
-        const extent = objectValue(revision['knownExtent']);
         return {
           ...handle,
-          status: typeof revision['status'] === 'string' ? revision['status'] : null,
-          knownPageCount: typeof extent?.['pageCount'] === 'number' ? extent['pageCount'] : null,
-          knownSpreadCount:
-            typeof extent?.['spreadCount'] === 'number' ? extent['spreadCount'] : null,
+          pageCount: typeof revision['pageCount'] === 'number' ? revision['pageCount'] : null,
+          spreadCount: typeof revision['spreadCount'] === 'number' ? revision['spreadCount'] : null,
         };
       }
 
@@ -295,8 +292,8 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
         payload: Record<string, unknown> | undefined,
       ): ReaderWorkerChapterLocalRevisionObservation | null {
         const result = objectValue(payload?.['result']);
-        const advance = objectValue(result?.['advance']);
-        const revision = objectValue(advance?.['revision']);
+        const created = objectValue(result?.['created']);
+        const revision = objectValue(created?.['revision']);
         const handle = revisionHandleObservation(revision);
         const coordinate = objectValue(revision?.['coordinate']);
         if (
@@ -308,16 +305,14 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
         ) {
           return null;
         }
-        const extent = objectValue(revision['knownExtent']);
         return {
           ...handle,
           chapterIndex: coordinate['chapterIndex'],
           href: coordinate['href'],
-          status: typeof revision['status'] === 'string' ? revision['status'] : null,
-          knownLocalPageCount:
-            typeof extent?.['localPageCount'] === 'number' ? extent['localPageCount'] : null,
-          knownLocalSpreadCount:
-            typeof extent?.['localSpreadCount'] === 'number' ? extent['localSpreadCount'] : null,
+          localPageCount:
+            typeof revision['localPageCount'] === 'number' ? revision['localPageCount'] : null,
+          localSpreadCount:
+            typeof revision['localSpreadCount'] === 'number' ? revision['localSpreadCount'] : null,
         };
       }
 

@@ -294,7 +294,6 @@ function publishFrameDiagnostics(
     },
     pixelRatio,
     stateDpr: state.dpr,
-    revisionStatus: state.revisionBundle.revision.status,
     revisionVersion: state.revisionBundle.revision.revisionVersion,
     canvasId: canvas.__ritoCanvasId,
     offscreen:

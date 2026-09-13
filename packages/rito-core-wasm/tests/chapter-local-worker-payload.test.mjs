@@ -26,7 +26,7 @@ test('Worker aggregate transfers one full-owned frame buffer and every resource 
     },
     createBoundedChapterLocalRevision() {
       calls.push('create');
-      return completedAdvance(exactOwner);
+      return createdRevision(exactOwner);
     },
     readChapterLocalFrame(ownerValue, localSpreadIndex) {
       calls.push('frame');
@@ -90,7 +90,7 @@ test('post-commit aggregate failure rolls back the exact candidate owner', () =>
   const released = [];
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => completedAdvance(exactOwner),
+    createBoundedChapterLocalRevision: () => createdRevision(exactOwner),
     readChapterLocalFrame: () => {
       throw new Error('frame failed');
     },
@@ -119,7 +119,7 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
   const exactOwner = owner(0);
   let freeCount = 0;
   const document = {
-    createBoundedChapterLocalRevision: () => completedAdvance(exactOwner),
+    createBoundedChapterLocalRevision: () => createdRevision(exactOwner),
     readChapterLocalFrame: () => {
       throw new Error('frame failed');
     },
@@ -142,11 +142,11 @@ test('unconfirmed post-commit aggregate rollback disposes the document owner', (
   assert.equal(freeCount, 1);
 });
 
-test('a committed advance without a valid owner identity disposes the document owner', () => {
+test('a created revision without a valid owner identity disposes the document owner', () => {
   let freeCount = 0;
   const document = {
     createBoundedChapterLocalRevision: () => ({
-      ...completedAdvance(owner(0)),
+      ...createdRevision(owner(0)),
       revision: { revisionId: '', revisionVersion: -1 },
     }),
     free() {
@@ -238,17 +238,14 @@ function owner(revisionVersion) {
   };
 }
 
-function completedAdvance(exactOwner) {
-  const knownExtent = { localPageCount: 1, localSpreadCount: 1 };
+function createdRevision(exactOwner) {
   return {
     revision: {
       ...exactOwner,
       layoutKey: 'layout',
-      status: 'complete',
-      knownExtent,
-      finalExtent: knownExtent,
+      localPageCount: 1,
+      localSpreadCount: 1,
     },
-    newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
     target: {
       status: 'resolved',
       owner: exactOwner,

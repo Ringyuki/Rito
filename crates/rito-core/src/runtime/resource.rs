@@ -16,7 +16,7 @@ impl super::RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let spread_count = revision.known_extent.spread_count;
+        let spread_count = revision.extent.spread_count;
         let spread_indexes = warm_spread_indexes(center_spread_index, spread_count);
         Ok(RuntimeFrameResourceWarmPlan {
             revision_id: revision_id.to_owned(),

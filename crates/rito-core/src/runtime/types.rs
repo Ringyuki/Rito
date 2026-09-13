@@ -78,6 +78,7 @@ impl RuntimeResource {
     }
 }
 
+/// The page and spread counts of a revision's page table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionExtent {
@@ -85,28 +86,15 @@ pub struct RuntimeRevisionExtent {
     pub spread_count: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RuntimeRevisionStatus {
-    /// Inserted but not yet paginated; never observable outside the call
-    /// that publishes the revision.
-    Warming,
-    Complete,
-}
-
+/// A published whole-book revision: its identity, the layout it was
+/// paginated under and the size of its page table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionSummary {
     pub revision_id: String,
     pub revision_version: u32,
     pub layout_key: String,
-    pub status: RuntimeRevisionStatus,
-    pub known_extent: RuntimeRevisionExtent,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub final_extent: Option<RuntimeRevisionExtent>,
-    /// Backward-compatible alias for `known_extent.page_count`.
     pub page_count: usize,
-    /// Backward-compatible alias for `known_extent.spread_count`.
     pub spread_count: usize,
 }
 
@@ -143,38 +131,25 @@ pub struct RuntimeChapterLocalRevisionHandle {
     pub coordinate: RuntimeChapterLocalCoordinate,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalRevisionExtent {
-    pub local_page_count: usize,
-    pub local_spread_count: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalPageRange {
-    pub start_local_page: usize,
-    pub end_local_page_exclusive: usize,
-}
-
+/// A published chapter-local revision: its identity, the chapter it
+/// paginated and the size of that chapter's page table.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterLocalRevisionSummary {
     pub revision_id: String,
     pub revision_version: u32,
     pub layout_key: String,
-    pub status: RuntimeRevisionStatus,
     pub coordinate: RuntimeChapterLocalCoordinate,
-    pub known_extent: RuntimeChapterLocalRevisionExtent,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub final_extent: Option<RuntimeChapterLocalRevisionExtent>,
+    pub local_page_count: usize,
+    pub local_spread_count: usize,
 }
 
+/// The result of creating a chapter-local revision: its summary and where
+/// the requested locator landed on the chapter's page table.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterLocalRevisionAdvance {
+pub struct RuntimeCreatedChapterLocalRevision {
     pub revision: RuntimeChapterLocalRevisionSummary,
-    pub newly_known_local_pages: RuntimeChapterLocalPageRange,
     pub target: RuntimeChapterLocalSourceLocatorResolution,
 }
 
@@ -220,22 +195,6 @@ pub struct RuntimeChapterLocalRevisionError {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeBoundedRevisionRequest {
     pub layout_config: LayoutConfig,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionPageRange {
-    pub start_page: usize,
-    pub end_page_exclusive: usize,
-}
-
-/// The published revision and the page range it made known: the whole
-/// table, since the book paginates in one step.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionAdvance {
-    pub revision: RuntimeRevisionSummary,
-    pub newly_known_pages: RuntimeRevisionPageRange,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

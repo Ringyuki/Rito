@@ -1,6 +1,6 @@
 use crate::{
     layout::LayoutConfig,
-    runtime::{RuntimeRevisionAdvance, RuntimeRevisionHandle, RuntimeSourceLocator},
+    runtime::{RuntimeRevisionHandle, RuntimeRevisionSummary, RuntimeSourceLocator},
 };
 
 use super::ReaderLocatorV1;
@@ -19,29 +19,17 @@ pub(super) enum ReaderRevisionBackingV1 {
 pub(super) struct ReaderPublicationRevisionOwnerV1 {
     pub(super) owner: RuntimeRevisionHandle,
     pub(super) layout: LayoutConfig,
-    pub(super) known_spread_count: usize,
-    pub(super) final_spread_count: Option<usize>,
+    pub(super) spread_count: usize,
     pub(super) artifact_ref_count: u32,
-    /// Whether the one completion candidate has been offered. Artifacts
-    /// minted before the whole-book layout finished carry no book page
-    /// count, so a reader who never turns a page would never learn the
-    /// total; completion offers one final candidate through the same
-    /// handoff channel, exactly once.
-    pub(super) completion_handoff_offered: bool,
 }
 
 impl ReaderPublicationRevisionOwnerV1 {
-    pub(super) fn from_advance(advance: RuntimeRevisionAdvance, layout: LayoutConfig) -> Self {
+    pub(super) fn from_summary(summary: &RuntimeRevisionSummary, layout: LayoutConfig) -> Self {
         Self {
-            owner: RuntimeRevisionHandle::from(&advance.revision),
+            owner: RuntimeRevisionHandle::from(summary),
             layout,
-            known_spread_count: advance.revision.known_extent.spread_count,
-            final_spread_count: advance
-                .revision
-                .final_extent
-                .map(|extent| extent.spread_count),
+            spread_count: summary.spread_count,
             artifact_ref_count: 0,
-            completion_handoff_offered: false,
         }
     }
 }

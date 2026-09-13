@@ -327,13 +327,10 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
     assert_eq!(wasm_ack.replaced_artifact_id, direct_first.artifact_id);
     assert_eq!(wasm_ack.visible_artifact_id, candidate.artifact_id);
 
-    // Completion offers one final candidate carrying the book page count
-    // (so a reader who never turns a page still learns the total); every
-    // other post-adoption step stays quiet, and later Complete steps must
-    // not offer again.
-    let mut completions = 0_usize;
-    let mut completion_candidate = None;
-    for _ in 0..256 {
+    // The adopted candidate already carries the book page count; every
+    // post-adoption step reports Complete with nothing further to offer.
+    assert!(candidate.book_page_count.is_some(), "{candidate:?}");
+    for _ in 0..3 {
         let request_wire = background_wire(SESSION_ID, candidate.artifact_id, 64);
         let direct_step = direct
             .advance_background_once(
@@ -349,51 +346,14 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
         assert_eq!(wasm_wire, direct_wire);
         let step =
             decode_reader_background_advance_v1(&wasm_wire).expect("post-adoption result decodes");
-        if step.state == ReaderBackgroundStateV1::Complete {
-            completions += 1;
-            if let Some(artifact) = step.artifact {
-                assert!(completion_candidate.is_none(), "the offer happens once");
-                assert!(artifact.book_page_count.is_some(), "{artifact:?}");
-                completion_candidate = Some(artifact);
-            }
-            if completions >= 3 {
-                break;
-            }
-        } else {
-            assert!(step.artifact.is_none());
-        }
+        assert_eq!(step.state, ReaderBackgroundStateV1::Complete);
+        assert!(step.artifact.is_none());
     }
-    assert!(
-        completions >= 3,
-        "fixture publication must complete within the test bound"
-    );
-    let completion_candidate =
-        completion_candidate.expect("completion offers a candidate carrying the total");
-
-    // The completion candidate rides the ordinary adopt channel.
-    let completion_handoff = handoff_wire(
-        SESSION_ID,
-        candidate.artifact_id,
-        completion_candidate.artifact_id,
-    );
-    let direct_completion_ack = direct
-        .adopt_background_candidate(
-            decode_reader_background_handoff_v1(&completion_handoff)
-                .expect("completion handoff decodes"),
-        )
-        .expect("direct completion candidate adopts");
-    let direct_completion_ack_wire =
-        encode_reader_background_handoff_ack_v1(&direct_completion_ack)
-            .expect("direct completion ack encodes");
-    let wasm_completion_ack_wire = wasm
-        .adopt_background_candidate_v1(completion_handoff)
-        .unwrap_or_else(|_| panic!("WASM completion candidate adopts"));
-    assert_eq!(wasm_completion_ack_wire, direct_completion_ack_wire);
 
     let adjacent_wire = adjacent_wire(
         SESSION_ID,
         2,
-        completion_candidate.artifact_id,
+        candidate.artifact_id,
         ReaderAdjacentDirectionV1::Next,
     );
     let direct_next = direct
@@ -414,7 +374,6 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
     for artifact_id in [
         direct_first.artifact_id,
         candidate.artifact_id,
-        completion_candidate.artifact_id,
         direct_next.artifact_id,
     ] {
         assert!(direct

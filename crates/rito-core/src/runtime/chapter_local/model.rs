@@ -5,10 +5,9 @@ use crate::{
     runtime::{
         frame::{RuntimeRevision, RuntimeRevisionCoordinateSpace},
         RuntimeChapterLocalCoordinate, RuntimeChapterLocalCoordinateKind,
-        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionExtent,
-        RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionSummary,
-        RuntimeChapterLocalSourceLocatorResolution, RuntimeRevisionErrorKind,
-        RuntimeRevisionExtent, RuntimeSourceLocatorError, RuntimeSourceLocatorResolution,
+        RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
+        RuntimeChapterLocalRevisionSummary, RuntimeChapterLocalSourceLocatorResolution,
+        RuntimeRevisionErrorKind, RuntimeSourceLocatorError, RuntimeSourceLocatorResolution,
     },
 };
 
@@ -54,17 +53,9 @@ pub(super) fn chapter_local_summary(
         revision_id: owner.revision_id.clone(),
         revision_version: owner.revision_version,
         layout_key: layout_key.to_owned(),
-        status: revision.status,
         coordinate: owner.coordinate.clone(),
-        known_extent: local_extent(revision.known_extent),
-        final_extent: revision.final_extent.map(local_extent),
-    }
-}
-
-pub(super) fn local_extent(extent: RuntimeRevisionExtent) -> RuntimeChapterLocalRevisionExtent {
-    RuntimeChapterLocalRevisionExtent {
-        local_page_count: extent.page_count,
-        local_spread_count: extent.spread_count,
+        local_page_count: revision.extent.page_count,
+        local_spread_count: revision.extent.spread_count,
     }
 }
 

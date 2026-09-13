@@ -15,28 +15,21 @@ import {
 const MATCH_KINDS = new Set(['sourceRange', 'sourcePoint', 'anchor', 'progression', 'href']);
 
 /**
- * A chapter-local advance: the chapter paginated whole in one pass, so the
- * revision is complete and its page range covers the entire chapter.
+ * A created chapter-local revision: the summary of the chapter's page table
+ * and the requested locator resolved against it.
  */
-export function requireCreatedChapterLocalAdvance(value, request, operation, bindOwner) {
-  const advance = requireRecord(value, `${operation} advance`);
+export function requireCreatedChapterLocalRevision(value, request, operation, bindOwner) {
+  const created = requireRecord(value, `${operation} created revision`);
   const targetLocator = canonicalChapterLocalTarget(request.targetLocator, operation);
   const revision = requireChapterLocalSummary(
-    advance.revision,
+    created.revision,
     { revisionVersion: 0, chapterIndex: request.targetChapterIndex },
     operation,
   );
   const owner = ownerFromSummary(revision);
   bindOwner?.(owner);
-  const range = requirePageRange(advance.newlyKnownLocalPages, operation);
-  if (
-    range.startLocalPage !== 0 ||
-    range.endLocalPageExclusive !== revision.knownExtent.localPageCount
-  ) {
-    throw new Error(`${operation} returned a local range inconsistent with its extent`);
-  }
-  requireTarget(advance.target, owner, revision.knownExtent, targetLocator, operation);
-  return advance;
+  requireTarget(created.target, owner, revision, targetLocator, operation);
+  return created;
 }
 
 export function requireChapterLocalRelease(value, expectedOwner, operation) {
@@ -52,23 +45,15 @@ export function requireChapterLocalRelease(value, expectedOwner, operation) {
   return { owner, releasedRevision: release.releasedRevision, releasedTransferCount };
 }
 
-export function ownerFromChapterLocalAdvance(value, operation) {
-  const advance = requireRecord(value, `${operation} advance`);
-  return ownerFromSummary(requireRecord(advance.revision, `${operation} revision`));
-}
-
 function requireChapterLocalSummary(value, expected, operation) {
   const summary = requireRecord(value, `${operation} revision`);
   const owner = requireChapterLocalOwner(summary, `${operation} revision`);
   requireExpectedOwner(owner, expected, operation);
   requireNonEmptyString(summary.layoutKey, `${operation} layoutKey`);
-  if (summary.status !== 'complete') {
-    throw new Error(`${operation} returned an incomplete chapter-local revision`);
-  }
-  const knownExtent = requireExtent(summary.knownExtent, `${operation} known extent`);
-  const finalExtent = requireExtent(summary.finalExtent, `${operation} final extent`);
-  if (!sameExtent(finalExtent, knownExtent)) {
-    throw new Error(`${operation} returned a mismatched final local extent`);
+  const localPageCount = requireCount(summary.localPageCount, `${operation} localPageCount`);
+  const localSpreadCount = requireCount(summary.localSpreadCount, `${operation} localSpreadCount`);
+  if (localSpreadCount > localPageCount) {
+    throw new Error(`${operation} returned more local spreads than pages`);
   }
   return summary;
 }
@@ -86,7 +71,7 @@ function requireExpectedOwner(owner, expected, operation) {
   }
 }
 
-function requireTarget(value, owner, extent, expectedLocator, operation) {
+function requireTarget(value, owner, summary, expectedLocator, operation) {
   const target = requireRecord(value, `${operation} target`);
   requireMatchingChapterLocalOwner(target.owner, owner, `${operation} target`);
   const locator = requireSourceLocatorRequest(target.locator, `${operation} target`);
@@ -105,8 +90,8 @@ function requireTarget(value, owner, extent, expectedLocator, operation) {
   if (target.status === 'resolved') {
     const page = requireCount(target.localPageIndex, `${operation} target localPageIndex`);
     const spread = requireCount(target.localSpreadIndex, `${operation} target localSpreadIndex`);
-    if (page >= extent.localPageCount || spread >= extent.localSpreadCount) {
-      throw new Error(`${operation} resolved target lies outside its known local extent`);
+    if (page >= summary.localPageCount || spread >= summary.localSpreadCount) {
+      throw new Error(`${operation} resolved target lies outside its local extent`);
     }
     if (target.reason !== undefined) {
       throw new Error(`${operation} resolved target included a pending reason`);
@@ -122,35 +107,6 @@ function requireTarget(value, owner, extent, expectedLocator, operation) {
   if (target.localPageIndex !== undefined || target.localSpreadIndex !== undefined) {
     throw new Error(`${operation} pending target included local page geometry`);
   }
-}
-
-function requireExtent(value, operation) {
-  const extent = requireRecord(value, operation);
-  const localPageCount = requireCount(extent.localPageCount, `${operation} localPageCount`);
-  const localSpreadCount = requireCount(extent.localSpreadCount, `${operation} localSpreadCount`);
-  if (localSpreadCount > localPageCount) {
-    throw new Error(`${operation} returned more local spreads than pages`);
-  }
-  return { localPageCount, localSpreadCount };
-}
-
-function requirePageRange(value, operation) {
-  const range = requireRecord(value, `${operation} newly known pages`);
-  const startLocalPage = requireCount(range.startLocalPage, `${operation} startLocalPage`);
-  const endLocalPageExclusive = requireCount(
-    range.endLocalPageExclusive,
-    `${operation} endLocalPageExclusive`,
-  );
-  if (endLocalPageExclusive < startLocalPage) {
-    throw new Error(`${operation} returned a reversed local page range`);
-  }
-  return { startLocalPage, endLocalPageExclusive };
-}
-
-function sameExtent(left, right) {
-  return (
-    left.localPageCount === right.localPageCount && left.localSpreadCount === right.localSpreadCount
-  );
 }
 
 function ownerFromSummary(summary) {

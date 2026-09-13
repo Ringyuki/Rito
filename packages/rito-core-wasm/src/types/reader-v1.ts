@@ -5,12 +5,7 @@ export type RitoReaderSpreadModeV1 = 'single' | 'double';
 export type RitoReaderTextProfileV1 = 'platform-string-runs' | 'positioned-glyph-runs';
 export type RitoReaderResourceKindV1 = 'image' | 'font' | 'stylesheet';
 export type RitoReaderAdjacentDirectionV1 = 'previous' | 'next';
-export type RitoReaderAdjacentAvailabilityV1 =
-  | 'available'
-  | 'pending'
-  | 'chapter-boundary'
-  | 'terminal'
-  | 'blocked';
+export type RitoReaderAdjacentAvailabilityV1 = 'available' | 'chapter-boundary' | 'terminal';
 
 export interface RitoReaderSourcePointV1 {
   readonly nodePath: readonly number[];
@@ -237,7 +232,6 @@ export interface RitoReaderArtifactV1 {
   readonly localPageIndexes: readonly number[];
   readonly width: number;
   readonly height: number;
-  readonly terminalExtent: boolean;
   readonly navigation: {
     readonly previous: RitoReaderAdjacentAvailabilityV1;
     readonly next: RitoReaderAdjacentAvailabilityV1;

@@ -535,8 +535,9 @@ fn wire_rejects_unknown_tags_and_non_finite_numbers() {
         .copy_from_slice(&f64::NEG_INFINITY.to_bits().to_le_bytes());
     assert_invalid(decode_reader_artifact_v1(&artifact));
 
+    // Width, height, then the two present book-page options (tag + u32).
     let mut artifact = encode_reader_artifact_v1(&artifact_fixture()).expect("encode artifact");
-    let previous_navigation_offset = artifact_geometry_offset(&artifact) + 17;
+    let previous_navigation_offset = artifact_geometry_offset(&artifact) + 16 + 5 + 5;
     artifact[previous_navigation_offset..previous_navigation_offset + 4]
         .copy_from_slice(&u32::MAX.to_le_bytes());
     assert_invalid(decode_reader_artifact_v1(&artifact));
@@ -693,7 +694,6 @@ fn artifact_fixture() -> ReaderArtifactV1 {
         local_page_indexes: vec![9, 10],
         width: 834.5,
         height: 1_194.25,
-        terminal_extent: true,
         book_page_index: Some(140),
         book_page_count: Some(312),
         navigation: ReaderNavigationV1 {

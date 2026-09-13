@@ -39,13 +39,13 @@ describe('Browser bounded session runtime', () => {
     const previous = createWorker(() => undefined, 'previous');
     const candidate = createWorker(() => undefined, 'candidate');
     const state = createState(previous.worker);
-    const initial = boundedSnapshot('old', 0, 1, 'complete');
+    const initial = boundedSnapshot('old', 0, 1);
     setRevisionState(state, initial.revision, initial.navigation);
     const previousControllerDispose = vi.fn(() => Promise.resolve());
     const previousOwner = owner(previous.worker, { dispose: previousControllerDispose });
     recordBrowserReaderAcceptedRevision(previousOwner, initial.revision);
     state.boundedSessions.current = previousOwner;
-    const next = boundedSnapshot('next', 1, 2, 'complete');
+    const next = boundedSnapshot('next', 1, 2);
     const start = vi.fn(() => Promise.resolve(next));
     const candidateOwner = owner(candidate.worker, { start });
     recordBrowserReaderAcceptedRevision(candidateOwner, next.revision);
@@ -72,13 +72,13 @@ describe('Browser bounded session runtime', () => {
     const previous = createWorker(() => undefined, 'stalled-previous');
     const candidate = createWorker(() => undefined, 'candidate-after-stalled-previous');
     const state = createState(previous.worker);
-    const initial = boundedSnapshot('old', 0, 1, 'complete');
+    const initial = boundedSnapshot('old', 0, 1);
     setRevisionState(state, initial.revision, initial.navigation);
     const previousControllerDispose = vi.fn(() => new Promise<void>(() => undefined));
     const previousOwner = owner(previous.worker, { dispose: previousControllerDispose });
     recordBrowserReaderAcceptedRevision(previousOwner, initial.revision);
     state.boundedSessions.current = previousOwner;
-    const next = boundedSnapshot('next', 0, 1, 'complete');
+    const next = boundedSnapshot('next', 0, 1);
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(next)),
     });
@@ -107,7 +107,7 @@ describe('Browser bounded session runtime', () => {
   it('drops a candidate when navigation moves after its anchor was captured', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'stale-navigation');
-    const snapshot = boundedSnapshot('stale-navigation', 0, 1, 'complete');
+    const snapshot = boundedSnapshot('stale-navigation', 0, 1);
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(snapshot)),
     });
@@ -131,7 +131,7 @@ describe('Browser bounded session runtime', () => {
   it('publishes the candidate callback before layout listeners', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'callback-order');
-    const snapshot = boundedSnapshot('callback-order', 0, 1, 'complete');
+    const snapshot = boundedSnapshot('callback-order', 0, 1);
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(snapshot)),
     });
@@ -167,7 +167,7 @@ describe('Browser bounded session runtime', () => {
     await Promise.resolve();
 
     const latestWorker = createWorker(() => undefined, 'latest-candidate');
-    const latestSnapshot = boundedSnapshot('latest', 0, 1, 'complete');
+    const latestSnapshot = boundedSnapshot('latest', 0, 1);
     const latestOwner = owner(latestWorker.worker, {
       start: vi.fn(() => Promise.resolve(latestSnapshot)),
     });
@@ -192,7 +192,7 @@ describe('Browser bounded session runtime', () => {
   it('aborts a candidate during commit preparation without publishing it', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'aborted-candidate');
-    const snapshot = boundedSnapshot('aborted', 0, 1, 'complete');
+    const snapshot = boundedSnapshot('aborted', 0, 1);
     const controllerDispose = vi.fn(() => Promise.resolve());
     const candidateOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(snapshot)),
@@ -364,7 +364,7 @@ describe('Browser bounded session runtime', () => {
   it('starts a candidate with only its layout and target', async () => {
     const fixture = currentFixture();
     const candidate = createWorker(() => undefined, 'first-spread-budget');
-    const snapshot = boundedSnapshot('first-spread-budget', 0, 1, 'complete');
+    const snapshot = boundedSnapshot('first-spread-budget', 0, 1);
     const start = vi.fn(() => Promise.resolve(snapshot));
     const candidateOwner = owner(candidate.worker, { start });
     recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
@@ -441,7 +441,7 @@ describe('Browser bounded session runtime', () => {
 
   it('commits a metric refresh accepted after abort but resolves the caller as cancelled', async () => {
     const fixture = currentFixture();
-    const next = boundedSnapshot('current', 0, 2, 'complete', { target: { kind: 'complete' } });
+    const next = boundedSnapshot('current', 0, 2, { target: { kind: 'complete' } });
     const deferred = createDeferred<BrowserReaderBoundedSnapshot>();
     const complete = vi.fn(() => deferred.promise);
     fixture.owner.controller.complete = complete;
@@ -465,7 +465,7 @@ describe('Browser bounded session runtime', () => {
       href: 'chapter.xhtml',
       sourcePoint: { nodePath: [1, 2], textOffset: 3 },
     };
-    const resolved = boundedSnapshot('current', 1, 2, 'complete', {
+    const resolved = boundedSnapshot('current', 1, 2, {
       target: {
         kind: 'locator',
         locator,
@@ -503,7 +503,7 @@ describe('Browser bounded session runtime', () => {
 
   it('re-lays the book on a host line metric refresh and publishes one layout commit', async () => {
     const fixture = currentFixture();
-    const final = boundedSnapshot('current', 0, 1, 'complete', {
+    const final = boundedSnapshot('current', 0, 1, {
       target: { kind: 'complete' },
     });
     const complete = vi.fn(() => Promise.resolve(final));
@@ -522,7 +522,7 @@ describe('Browser bounded session runtime', () => {
 
   it('rejects a metric refresh whose snapshot did not settle on the whole book', async () => {
     const fixture = currentFixture();
-    const partial = boundedSnapshot('current', 0, 1, 'complete', {
+    const partial = boundedSnapshot('current', 0, 1, {
       target: { kind: 'spread', spreadIndex: 0 },
     });
     fixture.owner.controller.complete = vi.fn(() => Promise.resolve(partial));
@@ -589,7 +589,7 @@ describe('Browser bounded session runtime', () => {
     await waitForCall(complete);
 
     const candidate = createWorker(() => undefined, 'replacement');
-    const replacement = boundedSnapshot('replacement', 0, 1, 'complete');
+    const replacement = boundedSnapshot('replacement', 0, 1);
     const replacementOwner = owner(candidate.worker, {
       start: vi.fn(() => Promise.resolve(replacement)),
     });
@@ -616,7 +616,7 @@ function currentFixture(): {
 } {
   const fixture = createWorker(() => undefined, 'current');
   const state = createState(fixture.worker);
-  const initial = boundedSnapshot('current', 0, 1, 'complete', { revisionVersion: 0 });
+  const initial = boundedSnapshot('current', 0, 1, { revisionVersion: 0 });
   setRevisionState(state, initial.revision, initial.navigation);
   const controllerDispose = vi.fn(() => Promise.resolve());
   const currentOwner = owner(fixture.worker, {
@@ -660,7 +660,6 @@ function boundedSnapshot(
   revisionId: string,
   spreadIndex: number,
   spreadCount: number,
-  status: 'complete',
   options: {
     readonly revisionVersion?: number;
     readonly target?: BrowserReaderBoundedSnapshot['target'];
@@ -669,12 +668,7 @@ function boundedSnapshot(
 ): BrowserReaderBoundedSnapshot {
   const result = revisionResult(revisionId, spreadCount, spreadCount, spreadIndex);
   const revisionVersion = options.revisionVersion ?? 1;
-  const revision = {
-    ...result.bundle.revision,
-    revisionVersion,
-    status,
-    finalExtent: { pageCount: spreadCount, spreadCount },
-  };
+  const revision = { ...result.bundle.revision, revisionVersion };
   const navigation = result.bundle.navigation;
   const withFrame = options.withFrame ?? true;
   return {

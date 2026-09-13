@@ -282,16 +282,13 @@ pub struct ReaderBackgroundHandoffAckV1 {
 /// What a platform may expect when it requests one adjacent spread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReaderAdjacentAvailabilityV1 {
-    /// The spread is already published and can be projected without layout.
+    /// The spread is on the same revision's page table and projects
+    /// without layout.
     Available,
-    /// The same bounded revision can publish it through continuation work.
-    Pending,
     /// The adjacent target is in another linear spine chapter.
     ChapterBoundary,
     /// No adjacent linear chapter exists in this direction.
     Terminal,
-    /// The bounded page cap was reached before the target became available.
-    Blocked,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -402,15 +399,10 @@ pub struct ReaderSearchResponseV1 {
     /// True when the search stopped at the request's limit, so the host
     /// knows the list is a prefix rather than everything in scope.
     pub truncated: bool,
-    /// Pages that existed to be searched when this ran. Scope grows as
-    /// background pagination lays out more of the book, so the same
-    /// query run twice legitimately returns different lists; this says
-    /// how much was covered, which `truncated` cannot express.
+    /// Pages the search covered: the page table of the revision behind
+    /// the artifact — one chapter for a chapter-local artifact, the whole
+    /// book for a publication one.
     pub searched_page_count: u32,
-    /// True once the revision behind the artifact has finished laying
-    /// out, so the scope is the whole book and re-running the query
-    /// cannot find more.
-    pub scope_complete: bool,
     pub results: Vec<ReaderSearchResultV1>,
 }
 
@@ -544,7 +536,6 @@ pub struct ReaderArtifactV1 {
     pub local_page_indexes: Vec<u32>,
     pub width: f64,
     pub height: f64,
-    pub terminal_extent: bool,
     /// Zero-based page number within the whole publication, present
     /// only for artifacts published from a whole-book (publication)
     /// revision. Chapter-local artifacts have no book-wide numbering —
@@ -554,16 +545,14 @@ pub struct ReaderArtifactV1 {
     /// A fresh `request_artifact` (an exact seek, or a reflow at the
     /// same locator) is always served chapter-local, so it **drops**
     /// book numbering: both this and `book_page_count` go back to
-    /// `None` until the background pump republishes a publication
+    /// `None` until the background pump publishes a publication
     /// artifact and the host adopts it. Re-requesting the current page
     /// therefore loses the page number rather than refreshing it.
     pub book_page_index: Option<u32>,
-    /// Whole-publication page count, present only once that revision's
-    /// layout is complete. It is absent while pagination is still
-    /// growing, so a host can render "page N" immediately and add
-    /// "of M" when this appears — completion offers one final candidate
-    /// through the ordinary background handoff so a reader who never
-    /// turns a page still receives it.
+    /// Whole-publication page count, present together with
+    /// `book_page_index` on every artifact published from a publication
+    /// revision (the revision holds its complete page table from the
+    /// moment it exists) and absent on chapter-local artifacts.
     pub book_page_count: Option<u32>,
     pub navigation: ReaderNavigationV1,
     pub text_profile: ReaderTextRenderingProfileV1,

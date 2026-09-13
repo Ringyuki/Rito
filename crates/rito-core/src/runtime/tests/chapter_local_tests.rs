@@ -5,8 +5,8 @@ use crate::{
             cross_chapter_footnote_fixture_epub, layout, many_chapter_fixture_epub,
             source_locator_fixture_epub,
         },
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionAdvance,
-        RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalSourceLocatorResolution,
+        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionHandle,
+        RuntimeChapterLocalSourceLocatorResolution, RuntimeCreatedChapterLocalRevision,
         RuntimeDocument, RuntimeResourceKind, RuntimeRevisionErrorKind, RuntimeSourceLocator,
         RuntimeSourceLocatorErrorKind,
     },
@@ -78,14 +78,14 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
         ))
         .expect("local revision");
     let owner = owner(&local);
-    let json = serde_json::to_value(&local).expect("advance serializes");
+    let json = serde_json::to_value(&local).expect("created revision serializes");
 
     assert_eq!(json["revision"]["coordinate"]["kind"], "chapterLocal");
     assert!(json["revision"].get("pageCount").is_none());
     assert!(json["revision"].get("spreadCount").is_none());
-    assert!(json["revision"]["knownExtent"]
-        .get("localPageCount")
-        .is_some());
+    assert!(json["revision"].get("localPageCount").is_some());
+    assert!(json["revision"].get("localSpreadCount").is_some());
+    assert!(json["target"]["owner"].get("coordinate").is_some());
     assert!(document.get_revision_summary(&owner.revision_id).is_err());
     assert!(document
         .get_frame_command_buffer_metadata(&owner.revision_id, 0)
@@ -300,11 +300,11 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
     );
 }
 
-fn handle(advance: &RuntimeChapterLocalRevisionAdvance) -> RuntimeChapterLocalRevisionHandle {
+fn handle(created: &RuntimeCreatedChapterLocalRevision) -> RuntimeChapterLocalRevisionHandle {
     RuntimeChapterLocalRevisionHandle {
-        revision_id: advance.revision.revision_id.clone(),
-        revision_version: advance.revision.revision_version,
-        coordinate: advance.revision.coordinate.clone(),
+        revision_id: created.revision.revision_id.clone(),
+        revision_version: created.revision.revision_version,
+        coordinate: created.revision.coordinate.clone(),
     }
 }
 
@@ -330,11 +330,11 @@ fn locator(href: &str) -> RuntimeSourceLocator {
     }
 }
 
-fn owner(advance: &RuntimeChapterLocalRevisionAdvance) -> RuntimeChapterLocalRevisionHandle {
+fn owner(created: &RuntimeCreatedChapterLocalRevision) -> RuntimeChapterLocalRevisionHandle {
     RuntimeChapterLocalRevisionHandle {
-        revision_id: advance.revision.revision_id.clone(),
-        revision_version: advance.revision.revision_version,
-        coordinate: advance.revision.coordinate.clone(),
+        revision_id: created.revision.revision_id.clone(),
+        revision_version: created.revision.revision_version,
+        coordinate: created.revision.coordinate.clone(),
     }
 }
 

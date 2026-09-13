@@ -2,7 +2,6 @@ import type { RitoCoreWasmReaderFrameWindowWarmResult } from './reader-worker';
 import type { RitoCoreWasmSourceLocator, RitoCoreWasmSourceLocatorResolution } from './interaction';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
-  RitoCoreWasmRevisionAdvance,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
   RitoCoreWasmRevisionPresentation,
@@ -15,7 +14,7 @@ import type {
 export interface RitoCoreWasmBoundedReaderSessionClient {
   createBoundedRevision(
     request: RitoCoreWasmBoundedRevisionRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionAdvance>>;
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
   getRevisionPresentationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>>;

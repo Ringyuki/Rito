@@ -92,7 +92,7 @@ export async function runCachedTurnProfile(
   const checksumBefore = await stableReaderCanvasSampleChecksum(page);
   await waitForReaderProbeIdle(page);
   await waitForReaderTransitionEnd(page);
-  const knownSpreadCount = await readerNumberAttribute(page, 'data-total-spreads');
+  const spreadCount = await readerNumberAttribute(page, 'data-total-spreads');
   const cursor = await captureReaderProbeCursor(page);
   await startReaderTransitionObserver(page);
   try {
@@ -106,8 +106,8 @@ export async function runCachedTurnProfile(
     return transitionResult(checksumAfter, slice, paintedAt, observedUntil, {
       fromSpread: 0,
       toSpread: 1,
-      knownSpreadCountBefore: knownSpreadCount,
-      knownSpreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
+      spreadCountBefore: spreadCount,
+      spreadCountAfter: await readerNumberAttribute(page, 'data-total-spreads'),
       checksumBefore,
       checksumAfter,
     });
@@ -138,16 +138,7 @@ export async function runReflowProfile(
 }
 
 async function warmSecondSpread(page: Page, previousChecksum: string): Promise<string> {
-  const knownSpreadCount = await readerNumberAttribute(page, 'data-total-spreads');
   await page.keyboard.press('ArrowRight');
-  if (knownSpreadCount < 2) {
-    await expect
-      .poll(() => readerNumberAttribute(page, 'data-total-spreads'), {
-        timeout: READER_LOAD_TIMEOUT_MS,
-        intervals: [10],
-      })
-      .toBeGreaterThan(knownSpreadCount);
-  }
   await waitForReaderSpreadPaint(page, 1, previousChecksum);
   const checksum = await stableReaderCanvasSampleChecksum(page);
   await waitForReaderProbeIdle(page);

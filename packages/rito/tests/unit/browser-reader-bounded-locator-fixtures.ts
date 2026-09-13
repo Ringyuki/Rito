@@ -84,12 +84,7 @@ export function locatorSnapshot(
 ): BrowserReaderBoundedSnapshot {
   const spreadCount = spreadIndex + 1;
   const result = revisionResult(revisionId, spreadCount, spreadCount, spreadIndex);
-  const revision = {
-    ...result.bundle.revision,
-    revisionVersion,
-    status: 'complete' as const,
-    finalExtent: undefined,
-  };
+  const revision = { ...result.bundle.revision, revisionVersion };
   const navigation = result.bundle.navigation;
   return {
     generation: revisionVersion + 1,
@@ -184,12 +179,7 @@ export function spreadSnapshot(
   spreadCount = spreadIndex + 1,
 ): BrowserReaderBoundedSnapshot {
   const result = revisionResult(revisionId, spreadCount, spreadCount, spreadIndex);
-  const revision = {
-    ...result.bundle.revision,
-    revisionVersion,
-    status: 'complete' as const,
-    finalExtent: undefined,
-  };
+  const revision = { ...result.bundle.revision, revisionVersion };
   const navigation = result.bundle.navigation;
   return {
     generation: revisionVersion + 1,

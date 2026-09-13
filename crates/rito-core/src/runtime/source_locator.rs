@@ -3,7 +3,7 @@ use crate::epub::{EpubError, EpubResult};
 use super::page_artifact::PageArtifactSourceRunStart;
 use super::{
     navigation::spread_index_for_page, RuntimeChapterTextIndex, RuntimeDocument,
-    RuntimeExactSourceRangeRequest, RuntimeRevision, RuntimeRevisionStatus,
+    RuntimeExactSourceRangeRequest, RuntimeRevision,
 };
 
 mod href;
@@ -162,7 +162,7 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        if page_index >= revision.known_extent.page_count {
+        if page_index >= revision.extent.page_count {
             return Err(EpubError::new(format!("unknown page index: {page_index}")));
         }
         let page_end = page_index
@@ -498,26 +498,16 @@ fn resolve_canonical_source_locator(
             // chapter's normalized TEXT instead collapsed every text-free
             // page onto whichever page holds the chapter's text, so a
             // commit re-applying a plate page's own anchor moved the
-            // reader off that page. While the chapter is still paginating
-            // its page span is not final, so the fraction stays pending —
-            // the same retry contract the sealed-extent rule gave the old
-            // text projection (hidden display:none tails included: the
-            // page grid, unlike the text index, never contains them).
-            let sealed = revision.status == RuntimeRevisionStatus::Complete
-                || revision
-                    .interactions
-                    .completed_chapter_idrefs
-                    .contains(&canonical.spine_idref);
-            if sealed {
-                let progression = canonical.locator.progression.unwrap_or(0.0).clamp(0.0, 1.0);
-                let span = chapter_range
-                    .end_page
-                    .saturating_sub(chapter_range.start_page);
-                let offset = ((progression * span as f64).round() as usize).min(span);
-                SourceProjection::Page(chapter_range.start_page.saturating_add(offset))
-            } else {
-                SourceProjection::BeyondSealedExtent
-            }
+            // reader off that page. The revision holds the chapter's
+            // whole page span, so the fraction projects directly (hidden
+            // display:none tails included: the page grid, unlike the text
+            // index, never contains them).
+            let progression = canonical.locator.progression.unwrap_or(0.0).clamp(0.0, 1.0);
+            let span = chapter_range
+                .end_page
+                .saturating_sub(chapter_range.start_page);
+            let offset = ((progression * span as f64).round() as usize).min(span);
+            SourceProjection::Page(chapter_range.start_page.saturating_add(offset))
         }
         (RuntimeSourceLocatorMatchedBy::Href, _) => {
             SourceProjection::Page(chapter_range.start_page)

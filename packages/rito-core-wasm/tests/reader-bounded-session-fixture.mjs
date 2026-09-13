@@ -4,8 +4,11 @@ export function fixtureClient(overrides) {
   const track = async (operation, ...args) => {
     const response = await operation(...args);
     const value = response?.value?.revision ?? response?.value;
-    if (value?.knownExtent !== undefined) {
-      extents.set(response.revision.revisionVersion, value.knownExtent);
+    if (value?.layoutKey !== undefined && value?.pageCount !== undefined) {
+      extents.set(response.revision.revisionVersion, {
+        pageCount: value.pageCount,
+        spreadCount: value.spreadCount,
+      });
       revisions.set(response.revision.revisionVersion, value);
     }
     return response;
@@ -104,28 +107,17 @@ export function locatorStartRequest(targetLocator) {
   return { layoutConfig: {}, targetLocator };
 }
 
-export function advance(version, spreadCount) {
-  return {
-    revision: summary(version, 'complete', spreadCount),
-    newlyKnownPages: { startPage: 0, endPageExclusive: spreadCount },
-  };
-}
-
-export function summary(version, status, spreadCount) {
-  const knownExtent = { pageCount: spreadCount, spreadCount };
+export function summary(version, spreadCount) {
   return {
     ...handle(version),
     layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
     pageCount: spreadCount,
     spreadCount,
   };
 }
 
-export function versioned(value) {
-  return { revision: handle(value.revision.revisionVersion), value };
+export function versioned(summary) {
+  return { revision: handle(summary.revisionVersion), value: summary };
 }
 
 export function handle(revisionVersion) {

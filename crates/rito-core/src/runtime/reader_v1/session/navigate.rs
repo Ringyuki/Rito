@@ -7,7 +7,7 @@
 use crate::{
     layout::LayoutConfig,
     runtime::{
-        RuntimeBoundedChapterLocalRevisionRequest, RuntimeChapterLocalRevisionAdvance,
+        RuntimeBoundedChapterLocalRevisionRequest, RuntimeCreatedChapterLocalRevision,
         RuntimeSourceLocator,
     },
 };
@@ -19,7 +19,7 @@ use super::{
         target_not_published,
     },
     project::{
-        adjacent_linear_chapter, artifact_owner, owner_from_advance, reader_navigation,
+        adjacent_linear_chapter, artifact_owner, owner_from_created, reader_navigation,
         resolved_target,
     },
     ArtifactIdentityV1, ReaderAdjacentDirectionV1, ReaderArtifactOwnerV1, ReaderArtifactV1,
@@ -48,13 +48,8 @@ impl ReaderSessionV1 {
             .publication_revisions
             .get(&source.revision_id)
             .ok_or_else(|| missing_artifact_revision(ReaderRevisionBackingV1::Publication))?;
-        if target_spread >= revision.known_spread_count {
-            let message = if revision.final_spread_count.is_some() {
-                "publication boundary is terminal"
-            } else {
-                "publication adjacent spread is not published"
-            };
-            return Err(target_not_published(message));
+        if target_spread >= revision.spread_count {
+            return Err(target_not_published("publication boundary is terminal"));
         }
         self.publish_publication_artifact(source.revision_id, target_spread, request_id)
     }
@@ -68,32 +63,24 @@ impl ReaderSessionV1 {
             .local_spread_index
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("local spread index"))?;
-        let (known_spreads, final_spreads) = self
+        let local_spread_count = self
             .revisions
             .get(&source.revision_id)
-            .map(|revision| {
-                (
-                    revision.known_local_spread_count,
-                    revision.final_local_spread_count,
-                )
-            })
+            .map(|revision| revision.local_spread_count)
             .ok_or_else(|| {
                 ReaderErrorV1::new(
                     ReaderErrorKindV1::EngineFailure,
                     "artifact revision ownership is missing",
                 )
             })?;
-        if target_spread < known_spreads {
+        if target_spread < local_spread_count {
             return self.publish_revision_artifact(source.revision_id, target_spread, request_id);
         }
-        if final_spreads.is_some() {
-            return self.request_chapter_boundary(
-                source.revision_id,
-                ReaderAdjacentDirectionV1::Next,
-                request_id,
-            );
-        }
-        Err(target_not_published("adjacent spread is not published"))
+        self.request_chapter_boundary(
+            source.revision_id,
+            ReaderAdjacentDirectionV1::Next,
+            request_id,
+        )
     }
 
     pub(super) fn request_chapter_boundary(
@@ -190,16 +177,16 @@ impl ReaderSessionV1 {
             }
             return Ok(artifact);
         }
-        let advance =
+        let created =
             self.start_exact_seek(chapter_index, layout.clone(), canonical_locator.clone())?;
-        let advance = self.require_resolved_advance(advance)?;
-        let target = resolved_target(&advance).ok_or_else(|| {
+        let created = self.require_resolved_target(created)?;
+        let target = resolved_target(&created).ok_or_else(|| {
             ReaderErrorV1::new(
                 ReaderErrorKindV1::EngineFailure,
                 "resolved artifact target disappeared",
             )
         })?;
-        let owner = owner_from_advance(&advance);
+        let owner = owner_from_created(&created);
         let revision_id = match take_identity(&mut self.next_revision_id, "revisionId") {
             Ok(value) => value,
             Err(error) => {
@@ -218,7 +205,7 @@ impl ReaderSessionV1 {
                 return Err(error);
             }
         };
-        let revision = ReaderRevisionOwnerV1::from_advance(advance, layout, 1);
+        let revision = ReaderRevisionOwnerV1::from_created(&created, layout, 1);
         let navigation = reader_navigation(&self.document, &revision, target.local_spread_index);
         let artifact = match build_reader_artifact_v1(
             &mut self.document,
@@ -256,7 +243,7 @@ impl ReaderSessionV1 {
         chapter_index: usize,
         layout: LayoutConfig,
         canonical_locator: RuntimeSourceLocator,
-    ) -> Result<RuntimeChapterLocalRevisionAdvance, ReaderErrorV1> {
+    ) -> Result<RuntimeCreatedChapterLocalRevision, ReaderErrorV1> {
         #[cfg(test)]
         {
             self.exact_layout_quantum_count += 1;
@@ -270,17 +257,17 @@ impl ReaderSessionV1 {
             .map_err(engine_error)
     }
 
-    /// Chapter-local revisions publish complete in one pass, so an
-    /// advance either already resolved its target or never will.
-    fn require_resolved_advance(
+    /// A chapter-local revision holds its whole chapter from the moment
+    /// it exists, so its target either resolved at creation or never will.
+    fn require_resolved_target(
         &mut self,
-        advance: RuntimeChapterLocalRevisionAdvance,
-    ) -> Result<RuntimeChapterLocalRevisionAdvance, ReaderErrorV1> {
-        if resolved_target(&advance).is_some() {
-            return Ok(advance);
+        created: RuntimeCreatedChapterLocalRevision,
+    ) -> Result<RuntimeCreatedChapterLocalRevision, ReaderErrorV1> {
+        if resolved_target(&created).is_some() {
+            return Ok(created);
         }
         self.document
-            .release_chapter_local_revision_immediately(&owner_from_advance(&advance))
+            .release_chapter_local_revision_immediately(&owner_from_created(&created))
             .map_err(engine_error)?;
         Err(target_not_published(
             "exact locator cannot be published from the completed chapter-local revision",

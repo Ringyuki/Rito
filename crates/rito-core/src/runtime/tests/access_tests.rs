@@ -257,7 +257,7 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
             layout_config: layout(),
         })
         .expect("bounded revision starts");
-    let handle = handle_for(&initial.revision);
+    let handle = handle_for(&initial);
 
     let presentation = document
         .revision_presentation_at(&handle)
@@ -267,7 +267,7 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
         .expect("current bundle resolves");
 
     assert_eq!(presentation.revision, handle);
-    assert_eq!(presentation.value.revision, initial.revision);
+    assert_eq!(presentation.value.revision, initial);
     assert_eq!(presentation.value.navigation, bundle.value.navigation);
     assert_eq!(presentation.value.toc_targets, bundle.value.toc_targets);
     assert_eq!(presentation.value.font_families, bundle.value.font_families);

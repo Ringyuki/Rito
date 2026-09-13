@@ -69,7 +69,7 @@ pub(super) fn page_semantics(
     revision: &RuntimeRevision,
     page_index: usize,
 ) -> EpubResult<RuntimePageSemantics> {
-    if page_index >= revision.known_extent.page_count {
+    if page_index >= revision.extent.page_count {
         return Err(EpubError::new(format!("unknown page index: {page_index}")));
     }
     let session = revision.chapter_engine_session();

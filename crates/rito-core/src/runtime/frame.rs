@@ -18,10 +18,11 @@ use crate::{
 };
 
 use super::{
-    page_artifact::PageArtifactFrame, resource::find_image_size, RuntimeChapterTextIndex,
+    fragment_backend::FragmentBuiltLayout, page_artifact::PageArtifactFrame,
+    resource::find_image_size, spread::build_spread_slots, RuntimeChapterTextIndex,
     RuntimeDocument, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
     RuntimeInitialFrameDecision, RuntimeInitialFrameRequest, RuntimePrefetchRequest,
-    RuntimePrefetchResponse, RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeRevisionSummary,
+    RuntimePrefetchResponse, RuntimeRevisionExtent, RuntimeRevisionSummary,
 };
 
 pub(super) const FRAME_CACHE_CAPACITY: usize = 12;
@@ -39,13 +40,16 @@ pub(super) struct RuntimeChapterStyleTables {
     pub(super) inline: InlineStyleTableV1,
 }
 
+/// One paginated revision: the page table the fragment engine built for
+/// a layout configuration, with the style tables, font catalog and
+/// interaction state it was built from and a cache of painted frames.
 #[derive(Debug)]
 pub(super) struct RuntimeRevision {
     pub(super) coordinate_space: RuntimeRevisionCoordinateSpace,
     pub(super) revision_version: u32,
-    pub(super) status: RuntimeRevisionStatus,
-    pub(super) known_extent: RuntimeRevisionExtent,
-    pub(super) final_extent: Option<RuntimeRevisionExtent>,
+    /// The page and spread counts of `fragment_layout`; hosts navigate by
+    /// these numbers.
+    pub(super) extent: RuntimeRevisionExtent,
     pub(super) layout_config: LayoutConfig,
     /// Typed style tables per resolved chapter idref; the fragment
     /// pipeline and style diagnostics read these instead of any JSON
@@ -55,10 +59,9 @@ pub(super) struct RuntimeRevision {
     pub(super) interactions: RuntimeRevisionInteractions,
     pub(super) frame_cache: BTreeMap<usize, RuntimeCachedFrame>,
     pub(super) frame_cache_order: VecDeque<usize>,
-    /// The revision's page table: empty while a bounded or chapter-local
-    /// revision is still warming, the book's (or the chapter's) pages once
-    /// the fragment engine has paginated it.
-    pub(super) fragment_layout: super::fragment_backend::FragmentBuiltLayout,
+    /// The revision's page table: the book's pages for a whole-book
+    /// revision, one chapter's pages for a chapter-local one.
+    pub(super) fragment_layout: FragmentBuiltLayout,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,65 +130,39 @@ impl RuntimeRevision {
         )
     }
 
-    pub(super) fn completed(
+    /// A revision over an already paginated page table. The extent is
+    /// the table's page count and the spread count the layout
+    /// configuration's spread mode makes of those pages.
+    pub(super) fn new(
+        coordinate_space: RuntimeRevisionCoordinateSpace,
         layout_config: LayoutConfig,
         chapter_style_tables: BTreeMap<String, RuntimeChapterStyleTables>,
         required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
+        fragment_layout: FragmentBuiltLayout,
     ) -> Self {
-        let extent = RuntimeRevisionExtent {
-            page_count: 0,
-            spread_count: 0,
-        };
+        let page_count = fragment_layout.page_count();
+        let spread_count = build_spread_slots(
+            page_count,
+            fragment_layout.chapter_start_pages(),
+            &layout_config,
+        )
+        .len();
         Self {
-            coordinate_space: RuntimeRevisionCoordinateSpace::Absolute,
+            coordinate_space,
             revision_version: 0,
-            status: RuntimeRevisionStatus::Complete,
-            known_extent: extent,
-            final_extent: Some(extent),
+            extent: RuntimeRevisionExtent {
+                page_count,
+                spread_count,
+            },
             layout_config,
             chapter_style_tables,
             required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
-            fragment_layout: super::fragment_backend::FragmentBuiltLayout::empty(),
+            fragment_layout,
         }
-    }
-
-    pub(super) fn warming(
-        layout_config: LayoutConfig,
-        required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
-        interactions: RuntimeRevisionInteractions,
-    ) -> Self {
-        Self {
-            coordinate_space: RuntimeRevisionCoordinateSpace::Absolute,
-            revision_version: 0,
-            status: RuntimeRevisionStatus::Warming,
-            known_extent: RuntimeRevisionExtent {
-                page_count: 0,
-                spread_count: 0,
-            },
-            final_extent: None,
-            layout_config,
-            chapter_style_tables: BTreeMap::new(),
-            required_font_face_catalog,
-            interactions,
-            frame_cache: BTreeMap::new(),
-            frame_cache_order: VecDeque::new(),
-            fragment_layout: super::fragment_backend::FragmentBuiltLayout::empty(),
-        }
-    }
-
-    pub(super) fn warming_chapter_local(
-        layout_config: LayoutConfig,
-        required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
-        interactions: RuntimeRevisionInteractions,
-        chapter_index: usize,
-    ) -> Self {
-        let mut revision = Self::warming(layout_config, required_font_face_catalog, interactions);
-        revision.coordinate_space = RuntimeRevisionCoordinateSpace::ChapterLocal { chapter_index };
-        revision
     }
 }
 
@@ -194,16 +171,12 @@ pub(super) fn revision_summary(
     layout_key: &str,
     revision: &RuntimeRevision,
 ) -> RuntimeRevisionSummary {
-    let known_extent = revision.known_extent;
     RuntimeRevisionSummary {
         revision_id: revision_id.to_owned(),
         revision_version: revision.revision_version,
         layout_key: layout_key.to_owned(),
-        status: revision.status,
-        known_extent,
-        final_extent: revision.final_extent,
-        page_count: known_extent.page_count,
-        spread_count: known_extent.spread_count,
+        page_count: revision.extent.page_count,
+        spread_count: revision.extent.spread_count,
     }
 }
 
@@ -471,7 +444,7 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let spread_count = revision.known_extent.spread_count;
+        let spread_count = revision.extent.spread_count;
         let Some(spread_index) = initial_frame_index(spread_count, request) else {
             return Ok(None);
         };
@@ -612,7 +585,7 @@ fn cache_runtime_frame(
     ratio: f64,
     document: &mut LoadedEpubDocument,
 ) -> EpubResult<(Option<RuntimeCachedFrame>, Option<RuntimeCachedFrame>)> {
-    if spread_index >= revision.known_extent.spread_count {
+    if spread_index >= revision.extent.spread_count {
         return Err(EpubError::new(format!(
             "unknown spread index: {spread_index}"
         )));

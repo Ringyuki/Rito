@@ -6,17 +6,15 @@ export interface ReaderWorkerRevisionHandleObservation {
 }
 
 export interface ReaderWorkerRevisionObservation extends ReaderWorkerRevisionHandleObservation {
-  readonly status: string | null;
-  readonly knownPageCount: number | null;
-  readonly knownSpreadCount: number | null;
+  readonly pageCount: number | null;
+  readonly spreadCount: number | null;
 }
 
 export interface ReaderWorkerChapterLocalRevisionObservation extends ReaderWorkerRevisionHandleObservation {
   readonly chapterIndex: number;
   readonly href: string;
-  readonly status: string | null;
-  readonly knownLocalPageCount: number | null;
-  readonly knownLocalSpreadCount: number | null;
+  readonly localPageCount: number | null;
+  readonly localSpreadCount: number | null;
 }
 
 export interface ReaderWorkerOperationObservation {

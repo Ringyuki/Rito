@@ -47,7 +47,6 @@ Durable source-locator projection resolves unavailable today for:
 - `search()` result `source` ranges (matches and navigation work; callers
   recover durable ranges through `getChapterTextIndices()`)
 - search highlights painted from a committed source range
-- internal-link navigation that must grow pagination past the known extent
 
 `resolveExactSourceRange` itself works, including across soft-wrapped
 lines, so annotation re-projection from stored source ranges is unaffected.

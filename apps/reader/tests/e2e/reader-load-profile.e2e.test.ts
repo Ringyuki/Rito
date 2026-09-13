@@ -112,9 +112,8 @@ function chapterLocalDiagnostics(stage: ReaderLoadProfileReport['stages']['farTo
               revisionVersion: entry.chapterLocalRevision.revisionVersion,
               chapterIndex: entry.chapterLocalRevision.chapterIndex,
               href: entry.chapterLocalRevision.href,
-              status: entry.chapterLocalRevision.status,
-              knownLocalPageCount: entry.chapterLocalRevision.knownLocalPageCount,
-              knownLocalSpreadCount: entry.chapterLocalRevision.knownLocalSpreadCount,
+              localPageCount: entry.chapterLocalRevision.localPageCount,
+              localSpreadCount: entry.chapterLocalRevision.localSpreadCount,
             },
           ]
         : [],

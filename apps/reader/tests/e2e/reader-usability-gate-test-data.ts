@@ -239,8 +239,8 @@ function profileTransition(): ReaderProfileTransition {
   return {
     fromSpread: 0,
     toSpread: 1,
-    knownSpreadCountBefore: 1,
-    knownSpreadCountAfter: 2,
+    spreadCountBefore: 1,
+    spreadCountAfter: 2,
     checksumBefore: 'before',
     checksumAfter: 'after',
   };

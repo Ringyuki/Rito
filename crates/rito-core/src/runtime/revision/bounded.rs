@@ -1,34 +1,25 @@
 use crate::runtime::{
     frame::revision_summary, metadata::layout_key, RuntimeBoundedRevisionRequest, RuntimeDocument,
-    RuntimeRevisionAdvance, RuntimeRevisionError, RuntimeRevisionErrorKind,
-    RuntimeRevisionPageRange, RuntimeRevisionSummary,
+    RuntimeRevisionError, RuntimeRevisionErrorKind, RuntimeRevisionSummary,
 };
 
 use super::error::{engine_error, revision_error, unknown_revision};
 
 impl RuntimeDocument {
-    /// Creates a whole-book revision through the request/advance protocol
-    /// hosts drive. The book paginates in one step, so the advance arrives
-    /// complete: its page range is the whole table.
+    /// Creates a whole-book revision through the request protocol hosts
+    /// drive; the book paginates in one step and the summary describes
+    /// the complete page table.
     pub fn create_bounded_revision(
         &mut self,
         request: RuntimeBoundedRevisionRequest,
-    ) -> Result<RuntimeRevisionAdvance, RuntimeRevisionError> {
-        let summary = self
-            .create_revision(&request.layout_config)
+    ) -> Result<RuntimeRevisionSummary, RuntimeRevisionError> {
+        self.create_revision(&request.layout_config)
             .map_err(|error| {
                 revision_error(
                     RuntimeRevisionErrorKind::EngineFailure,
                     error.message().to_owned(),
                 )
-            })?;
-        Ok(RuntimeRevisionAdvance {
-            newly_known_pages: RuntimeRevisionPageRange {
-                start_page: 0,
-                end_page_exclusive: summary.known_extent.page_count,
-            },
-            revision: summary,
-        })
+            })
     }
 
     pub fn get_revision_summary(

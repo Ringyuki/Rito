@@ -14,7 +14,7 @@ test('direct mutation facade rolls back committed malformed revisions by exact h
   const cases = [
     {
       expected: handle(0),
-      raw: { createBoundedRevisionJson: () => JSON.stringify(forgedAdvance(0)) },
+      raw: { createBoundedRevisionJson: () => JSON.stringify(forgedSummary(0)) },
       invoke: (document) => document.createBoundedRevision({ layoutConfig: {} }),
     },
   ];
@@ -39,7 +39,7 @@ test('worker client rolls back only matched malformed mutation responses', async
       expected: handle(0),
       start: () => client.createBoundedRevision({ layoutConfig: {} }),
       kind: 'createBoundedRevision',
-      result: forgedAdvance(0),
+      result: forgedSummary(0),
     },
   ];
 
@@ -70,9 +70,9 @@ test('worker client disposes an unbound committed create envelope', async () => 
     {
       kind: 'createBoundedRevision',
       revision: { revisionId: 7, revisionVersion: 0 },
-      result: advance(0),
+      result: summary(0),
     },
-    { kind: 'unrelated', revision: handle(0), result: advance(0) },
+    { kind: 'unrelated', revision: handle(0), result: summary(0) },
   ]) {
     const worker = new ManualWorker();
     const client = await openClient(worker);
@@ -99,7 +99,7 @@ test('worker client disposes its owner when exact mutation rollback is not confi
   worker.respondLast({
     kind: 'createBoundedRevision',
     revision: handle(0),
-    result: forgedAdvance(0),
+    result: forgedSummary(0),
   });
   await waitForMessageCount(worker, mutationMessageCount + 1);
   const rollback = worker.messages.at(-1);
@@ -122,26 +122,15 @@ async function waitForMessageCount(worker, count) {
   assert.ok(worker.messages.length >= count, 'worker did not request exact rollback');
 }
 
-function forgedAdvance(version) {
-  return { ...advance(version), newlyKnownPages: { startPage: 0, endPageExclusive: 2 } };
+/** A summary whose spread count exceeds its page count. */
+function forgedSummary(version) {
+  return { ...summary(version), spreadCount: 2 };
 }
 
-function advance(version) {
-  const revision = summary(version, 'complete');
-  return {
-    revision,
-    newlyKnownPages: { startPage: 0, endPageExclusive: 1 },
-  };
-}
-
-function summary(version, status) {
-  const knownExtent = { pageCount: 1, spreadCount: 1 };
+function summary(version) {
   return {
     ...handle(version),
     layoutKey: 'layout',
-    status,
-    knownExtent,
-    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
     pageCount: 1,
     spreadCount: 1,
   };

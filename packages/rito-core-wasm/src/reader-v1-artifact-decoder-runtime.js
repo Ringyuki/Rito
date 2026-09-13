@@ -7,7 +7,7 @@ import { decodeRitoReaderPrimitiveListV1 } from './reader-v1-primitive-decoder-r
 
 const MAX_SEMANTIC_DEPTH = 64;
 const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
-const ADJACENT = ['available', 'pending', 'chapter-boundary', 'terminal', 'blocked'];
+const ADJACENT = ['available', 'chapter-boundary', 'terminal'];
 const RESOURCE_KINDS = ['image', 'font', 'stylesheet'];
 const RESOURCE_BYTE_LIMITS = [32 * 1024 * 1024, 16 * 1024 * 1024, 4 * 1024 * 1024];
 const SEMANTIC_ROLES = [
@@ -49,7 +49,6 @@ export function decodeRitoReaderArtifactV1(value) {
     ),
     width: reader.f64('artifact width'),
     height: reader.f64('artifact height'),
-    terminalExtent: reader.bool('terminal extent'),
     bookPageIndex: reader.option('book page index', () => reader.u32('book page index')),
     bookPageCount: reader.option('book page count', () => reader.u32('book page count')),
     navigation: {

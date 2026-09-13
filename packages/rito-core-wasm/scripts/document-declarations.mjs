@@ -16,7 +16,7 @@ function chapterLocalRevisionDeclarations() {
   return [
     '  createBoundedChapterLocalRevision(',
     '    request: RitoCoreWasmBoundedChapterLocalRevisionRequest,',
-    '  ): RitoCoreWasmChapterLocalRevisionAdvance;',
+    '  ): RitoCoreWasmCreatedChapterLocalRevision;',
     '  readChapterLocalFrame(',
     '    owner: RitoCoreWasmChapterLocalOwner,',
     '    localSpreadIndex: number,',
@@ -46,7 +46,7 @@ function boundedRevisionDeclarations() {
   return [
     '  createBoundedRevision(',
     '    request: RitoCoreWasmBoundedRevisionRequest,',
-    '  ): RitoCoreWasmRevisionAdvance;',
+    '  ): RitoCoreWasmRevisionSummary;',
   ];
 }
 

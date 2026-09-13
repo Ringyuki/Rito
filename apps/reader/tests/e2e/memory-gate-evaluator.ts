@@ -114,7 +114,7 @@ function requireScenarioEvidence(gate: ReaderMemoryGate, report: ReaderMemoryGat
   const expectedLabels = {
     baseline: 'app-ready',
     loaded: 'loaded',
-    growth: 'growth',
+    traversed: 'traversed',
     reflow: 'reflow',
     disposed: 'disposed',
   } as const;

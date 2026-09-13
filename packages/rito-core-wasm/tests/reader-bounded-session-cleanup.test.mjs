@@ -3,19 +3,19 @@ import { test } from 'node:test';
 
 import { createRitoCoreWasmBoundedReaderSession } from '../src/reader-bounded-session-runtime.js';
 import {
-  advance,
   deferred,
   fixtureClient,
   handle,
   revisionNavigation,
   startRequest,
+  summary,
   versioned,
 } from './reader-bounded-session-fixture.mjs';
 
 test('cancel and dispose report cleanup failures after best-effort release', async () => {
   for (const operation of ['cancel', 'dispose']) {
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1)),
+      create: async () => versioned(summary(0, 1)),
       release: async () => {
         throw new Error('release failed');
       },
@@ -30,7 +30,7 @@ test('cancel and dispose report cleanup failures after best-effort release', asy
 test('cancel and dispose reject a response that did not release the exact revision', async () => {
   for (const operation of ['cancel', 'dispose']) {
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1)),
+      create: async () => versioned(summary(0, 1)),
       releaseResponse: (value) => ({
         revision: value,
         value: { releasedRevision: false, releasedTransferCount: 0 },
@@ -56,7 +56,7 @@ test('dispose remains terminal when cancel races the same in-flight create', asy
   await createStarted.promise;
   const disposing = session.dispose();
   const cancelling = session.cancel();
-  created.resolve(versioned(advance(0, 2)));
+  created.resolve(versioned(summary(0, 2)));
   await Promise.all([disposing, cancelling]);
   await assert.rejects(started, /stopped/);
   assert.throws(() => session.ensureSpread(0), /disposed/);
@@ -67,7 +67,7 @@ test('stop during presentation refresh does not start frame warmup', async () =>
   const presentationAllowed = deferred();
   let warmCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1)),
+    create: async () => versioned(summary(0, 1)),
     navigation: async (value, extent) => {
       presentationStarted.resolve();
       await presentationAllowed.promise;
@@ -95,7 +95,7 @@ test('cancel and dispose drain an in-flight locator probe before exact cleanup',
     const locatorAllowed = deferred();
     let warmCount = 0;
     const client = fixtureClient({
-      create: async () => versioned(advance(0, 1)),
+      create: async () => versioned(summary(0, 1)),
       locator: async (revision, locator) => {
         locatorStarted.resolve();
         await locatorAllowed.promise;
@@ -130,7 +130,7 @@ test('forged presentation handles fail the snapshot and release the accepted rev
   const released = [];
   let warmCount = 0;
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 1)),
+    create: async () => versioned(summary(0, 1)),
     presentation: async (value) => ({
       revision: { ...value, revisionVersion: value.revisionVersion + 1 },
       value: {},

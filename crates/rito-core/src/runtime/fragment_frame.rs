@@ -37,13 +37,6 @@ impl RuntimeDocument {
             .or_else(|| self.chapter_local_revisions.get(revision_id))
     }
 
-    pub(super) fn any_revision_mut(&mut self, revision_id: &str) -> Option<&mut RuntimeRevision> {
-        if self.revisions.contains_key(revision_id) {
-            return self.revisions.get_mut(revision_id);
-        }
-        self.chapter_local_revisions.get_mut(revision_id)
-    }
-
     /// The document's fragment engine, built once from the pinned font
     /// policy and the publication's `@font-face` bindings. `None` when no
     /// fonts are available or a face fails to register — layout without

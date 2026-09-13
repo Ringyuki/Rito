@@ -5,7 +5,7 @@ use crate::runtime::cleanup::CleanupProgress;
 use super::{
     super::{
         frame::{RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionCoordinateSpace},
-        RuntimeRequiredFontFace, RuntimeRevisionExtent, RuntimeRevisionStatus,
+        RuntimeRequiredFontFace, RuntimeRevisionExtent,
     },
     PendingRuntimeFrameCacheCleanup, PendingRuntimeRevisionInteractionsCleanup,
 };
@@ -15,9 +15,7 @@ use super::{
 struct RuntimeRevisionShell {
     coordinate_space: RuntimeRevisionCoordinateSpace,
     revision_version: u32,
-    status: RuntimeRevisionStatus,
-    known_extent: RuntimeRevisionExtent,
-    final_extent: Option<RuntimeRevisionExtent>,
+    extent: RuntimeRevisionExtent,
 }
 
 /// Releases derived frames before the flat fields.
@@ -122,9 +120,7 @@ impl PendingRuntimeRevisionCleanup {
         let RuntimeRevision {
             coordinate_space,
             revision_version,
-            status,
-            known_extent,
-            final_extent,
+            extent,
             // The flat configuration, small interned records and the flat
             // page table; dropped in place, no staged cleanup.
             layout_config: _,
@@ -146,9 +142,7 @@ impl PendingRuntimeRevisionCleanup {
         self.shell = Some(RuntimeRevisionShell {
             coordinate_space,
             revision_version,
-            status,
-            known_extent,
-            final_extent,
+            extent,
         });
         self.stage = RuntimeRevisionCleanupStage::FrameCache;
         true
@@ -206,17 +200,9 @@ impl PendingRuntimeRevisionCleanup {
         let RuntimeRevisionShell {
             coordinate_space,
             revision_version,
-            status,
-            known_extent,
-            final_extent,
+            extent,
         } = shell;
-        let _ = (
-            coordinate_space,
-            revision_version,
-            status,
-            known_extent,
-            final_extent,
-        );
+        let _ = (coordinate_space, revision_version, extent);
         self.stage = RuntimeRevisionCleanupStage::Complete;
         true
     }

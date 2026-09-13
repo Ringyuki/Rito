@@ -3,11 +3,11 @@ import { test } from 'node:test';
 
 import { createRitoCoreWasmBoundedReaderSession } from '../src/reader-bounded-session-runtime.js';
 import {
-  advance,
   deferred,
   fixtureClient,
   sourceResolution,
   startRequest,
+  summary,
   versioned,
 } from './reader-bounded-session-fixture.mjs';
 
@@ -16,7 +16,7 @@ test('superseded locator waiters all settle with the latest locator snapshot', a
   const firstAllowed = deferred();
   const seenLocators = [];
   const client = fixtureClient({
-    create: async () => versioned(advance(0, 3)),
+    create: async () => versioned(summary(0, 3)),
     locator: async (revision, locator, extent) => {
       seenLocators.push(locator.href);
       if (locator.href === 'a.xhtml') {

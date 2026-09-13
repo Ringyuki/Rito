@@ -18,7 +18,7 @@ const runtimeSources = [
   'core-wasm-versioned-mutation-runtime.js',
   'core-wasm-versioned-validation-runtime.js',
   'chapter-local-owner-validation-runtime.js',
-  'chapter-local-advance-validation-runtime.js',
+  'chapter-local-creation-validation-runtime.js',
   'chapter-local-frame-validation-runtime.js',
   'chapter-local-document-runtime.js',
   'revision-presentation-validation-runtime.js',

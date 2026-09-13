@@ -1,6 +1,5 @@
 import {
   requireMatchingRevisionSummary,
-  requireRevisionAdvance,
   requireRevisionHandle,
   requireRevisionTransferCount,
 } from './core-wasm-versioned-validation-runtime.js';
@@ -61,7 +60,7 @@ export function createVersionedReaderClientMethods(send, disposeInvalid) {
         { kind: 'createBoundedRevision', request },
         { revisionVersion: 0 },
         (result, revision) =>
-          requireRevisionAdvance(result, revision, 'createBoundedRevision response'),
+          requireMatchingRevisionSummary(result, revision, 'createBoundedRevision response'),
         true,
         disposeInvalid,
       ),

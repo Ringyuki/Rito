@@ -2,11 +2,11 @@
 //! artifact ownership records and their painted-text digest, navigation
 //! availability for chapter-local and publication spreads, neighbouring
 //! linear chapters, locator precision, and the resolved target and revision
-//! handle carried by a chapter-local advance.
+//! handle carried by a created chapter-local revision.
 
 use crate::runtime::{
-    RuntimeChapterLocalRevisionAdvance, RuntimeChapterLocalRevisionHandle,
-    RuntimeChapterLocalSourceLocatorResolution, RuntimeDocument, RuntimeSourceLocator,
+    RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalSourceLocatorResolution,
+    RuntimeCreatedChapterLocalRevision, RuntimeDocument, RuntimeSourceLocator,
     RuntimeSourceLocatorMatchedBy,
 };
 
@@ -58,12 +58,10 @@ pub(super) fn publication_navigation(
         ReaderAdjacentAvailabilityV1::Terminal
     };
     let next_index = spread_index.checked_add(1);
-    let next = if next_index.is_some_and(|index| index < revision.known_spread_count) {
+    let next = if next_index.is_some_and(|index| index < revision.spread_count) {
         ReaderAdjacentAvailabilityV1::Available
-    } else if revision.final_spread_count.is_some() {
-        ReaderAdjacentAvailabilityV1::Terminal
     } else {
-        ReaderAdjacentAvailabilityV1::Blocked
+        ReaderAdjacentAvailabilityV1::Terminal
     };
     ReaderNavigationV1 { previous, next }
 }
@@ -98,18 +96,14 @@ pub(super) fn reader_navigation(
         ReaderAdjacentAvailabilityV1::Terminal
     };
     let next_index = local_spread_index.checked_add(1);
-    let next = if next_index.is_some_and(|index| index < revision.known_local_spread_count) {
+    let next = if next_index.is_some_and(|index| index < revision.local_spread_count) {
         ReaderAdjacentAvailabilityV1::Available
-    } else if revision.final_local_spread_count.is_some() {
-        if adjacent_linear_chapter(document, chapter_index, ReaderAdjacentDirectionV1::Next)
-            .is_some()
-        {
-            ReaderAdjacentAvailabilityV1::ChapterBoundary
-        } else {
-            ReaderAdjacentAvailabilityV1::Terminal
-        }
+    } else if adjacent_linear_chapter(document, chapter_index, ReaderAdjacentDirectionV1::Next)
+        .is_some()
+    {
+        ReaderAdjacentAvailabilityV1::ChapterBoundary
     } else {
-        ReaderAdjacentAvailabilityV1::Blocked
+        ReaderAdjacentAvailabilityV1::Terminal
     };
     ReaderNavigationV1 { previous, next }
 }
@@ -134,7 +128,7 @@ pub(super) fn adjacent_linear_chapter(
 }
 
 pub(super) fn resolved_target(
-    advance: &RuntimeChapterLocalRevisionAdvance,
+    created: &RuntimeCreatedChapterLocalRevision,
 ) -> Option<ResolvedArtifactTarget> {
     let RuntimeChapterLocalSourceLocatorResolution::Resolved {
         owner,
@@ -143,7 +137,7 @@ pub(super) fn resolved_target(
         local_spread_index,
         matched_by,
         ..
-    } = &advance.target
+    } = &created.target
     else {
         return None;
     };
@@ -156,12 +150,12 @@ pub(super) fn resolved_target(
     })
 }
 
-pub(super) fn owner_from_advance(
-    advance: &RuntimeChapterLocalRevisionAdvance,
+pub(super) fn owner_from_created(
+    created: &RuntimeCreatedChapterLocalRevision,
 ) -> RuntimeChapterLocalRevisionHandle {
     RuntimeChapterLocalRevisionHandle {
-        revision_id: advance.revision.revision_id.clone(),
-        revision_version: advance.revision.revision_version,
-        coordinate: advance.revision.coordinate.clone(),
+        revision_id: created.revision.revision_id.clone(),
+        revision_version: created.revision.revision_version,
+        coordinate: created.revision.coordinate.clone(),
     }
 }

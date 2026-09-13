@@ -6,9 +6,9 @@ use crate::{WasmRuntimeDocument, WasmRuntimeErrorCode};
 #[test]
 fn packed_frame_transport_uses_only_explicit_local_coordinates() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document);
-    let owner = owner(&advance);
-    let spread = advance["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
+    let created = create_local(&mut document);
+    let owner = owner(&created);
+    let spread = created["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
 
     let metadata: Value = parse(
         document
@@ -31,8 +31,8 @@ fn packed_frame_transport_uses_only_explicit_local_coordinates() {
 #[test]
 fn local_transfers_are_exact_owner_scoped_and_generic_release_cannot_see_them() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document);
-    let owner = owner(&advance);
+    let created = create_local(&mut document);
+    let owner = owner(&created);
     let payload: Value = parse(
         document
             .get_chapter_local_resource_payload_json(
@@ -81,9 +81,9 @@ fn local_transfers_are_exact_owner_scoped_and_generic_release_cannot_see_them() 
 #[test]
 fn frame_resource_aggregate_and_take_preserve_exact_local_ownership() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document);
-    let owner = owner(&advance);
-    let spread = advance["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
+    let created = create_local(&mut document);
+    let owner = owner(&created);
+    let spread = created["target"]["localSpreadIndex"].as_u64().unwrap_or(0) as usize;
     let response: Value = parse(
         document
             .prefetch_chapter_local_frame_resources_json(&owner.to_string(), spread)
@@ -120,8 +120,8 @@ fn frame_resource_aggregate_and_take_preserve_exact_local_ownership() {
 #[test]
 fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
     let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
-    let advance = create_local(&mut document);
-    let owner = owner(&advance);
+    let created = create_local(&mut document);
+    let owner = owner(&created);
     let mut forged = owner.clone();
     forged["coordinate"]["chapterIndex"] = json!(1);
 
@@ -161,11 +161,11 @@ fn create_local(document: &mut WasmRuntimeDocument) -> Value {
     )
 }
 
-fn owner(advance: &Value) -> Value {
+fn owner(created: &Value) -> Value {
     json!({
-        "revisionId": advance["revision"]["revisionId"],
-        "revisionVersion": advance["revision"]["revisionVersion"],
-        "coordinate": advance["revision"]["coordinate"]
+        "revisionId": created["revision"]["revisionId"],
+        "revisionVersion": created["revision"]["revisionVersion"],
+        "coordinate": created["revision"]["coordinate"]
     })
 }
 

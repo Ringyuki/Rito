@@ -30,7 +30,6 @@ pub(super) fn body(writer: &mut Writer, value: &ReaderArtifactV1) -> Result<(), 
     }
     writer.f64(value.width, "artifact width")?;
     writer.f64(value.height, "artifact height")?;
-    writer.bool(value.terminal_extent);
     writer.option(value.book_page_index.as_ref(), |writer, index| {
         writer.u32(*index);
         Ok(())
@@ -51,10 +50,8 @@ pub(super) fn body(writer: &mut Writer, value: &ReaderArtifactV1) -> Result<(), 
 const fn adjacent_availability(value: ReaderAdjacentAvailabilityV1) -> u32 {
     match value {
         ReaderAdjacentAvailabilityV1::Available => 0,
-        ReaderAdjacentAvailabilityV1::Pending => 1,
-        ReaderAdjacentAvailabilityV1::ChapterBoundary => 2,
-        ReaderAdjacentAvailabilityV1::Terminal => 3,
-        ReaderAdjacentAvailabilityV1::Blocked => 4,
+        ReaderAdjacentAvailabilityV1::ChapterBoundary => 1,
+        ReaderAdjacentAvailabilityV1::Terminal => 2,
     }
 }
 

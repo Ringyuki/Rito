@@ -152,7 +152,6 @@ RitoArtifact imageArtifact({
     localPageIndexes: source.localPageIndexes,
     width: source.width,
     height: source.height,
-    terminalExtent: source.terminalExtent,
     navigation: source.navigation,
     textProfile: source.textProfile,
     displayList: RitoDisplayListPayload(

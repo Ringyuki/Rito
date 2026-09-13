@@ -5,7 +5,7 @@
  * against this one constant — the Rust side has a single constant too,
  * so scattering literals here is how the two drift apart unnoticed.
  */
-export const READER_V1_PROTOCOL_VERSION = 4;
+export const READER_V1_PROTOCOL_VERSION = 5;
 
 const MAX_WIRE_BYTES = 256 * 1024 * 1024;
 const MAX_STRING_BYTES = 16 * 1024 * 1024;

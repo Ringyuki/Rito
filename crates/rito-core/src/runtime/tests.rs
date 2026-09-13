@@ -23,9 +23,9 @@ use fixture::{
 use super::{
     frame::{chapter_window_layout_config, FRAME_CACHE_CAPACITY},
     RuntimeDocument, RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
-    RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionExtent, RuntimeRevisionStatus,
-    RuntimeSearchRequest, RuntimeSearchSource, RuntimeSemanticNode, RuntimeSemanticRole,
-    RuntimeSourceLocator, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
+    RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionExtent, RuntimeSearchRequest,
+    RuntimeSearchSource, RuntimeSemanticNode, RuntimeSemanticRole, RuntimeSourceLocator,
+    RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
     RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
     RuntimeSourceRange, RuntimeTextRangeGeometryRequest,
 };
@@ -119,51 +119,38 @@ fn creates_revisions_and_caches_frames() {
 }
 
 #[test]
-fn eager_revisions_expose_a_complete_versioned_extent() {
+fn a_created_revision_reports_the_extent_of_its_page_table() {
     let mut document =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
 
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
-    let expected_extent = RuntimeRevisionExtent {
-        page_count: revision.page_count,
-        spread_count: revision.spread_count,
-    };
 
     assert_eq!(revision.revision_version, 0);
-    assert_eq!(revision.status, RuntimeRevisionStatus::Complete);
-    assert_eq!(revision.known_extent, expected_extent);
-    assert_eq!(revision.final_extent, Some(expected_extent));
-    assert_eq!(revision.page_count, revision.known_extent.page_count);
-    assert_eq!(revision.spread_count, revision.known_extent.spread_count);
+    assert!(revision.page_count >= 1);
+    assert!(revision.spread_count >= 1);
+    assert!(revision.spread_count <= revision.page_count);
 
     let stored = document
         .revisions
         .get(&revision.revision_id)
         .expect("revision state is retained");
     assert_eq!(stored.revision_version, revision.revision_version);
-    assert_eq!(stored.status, revision.status);
-    assert_eq!(stored.known_extent, revision.known_extent);
-    assert_eq!(stored.final_extent, revision.final_extent);
+    assert_eq!(
+        stored.extent,
+        RuntimeRevisionExtent {
+            page_count: revision.page_count,
+            spread_count: revision.spread_count,
+        }
+    );
+    assert_eq!(stored.fragment_layout.page_count(), revision.page_count);
 
     let bundle_revision = document
         .revision_bundle(&revision.revision_id, false)
         .expect("revision bundle is available")
         .revision;
     assert_eq!(bundle_revision, revision);
-}
-
-#[test]
-fn revision_statuses_use_stable_camel_case_wire_values() {
-    assert_eq!(
-        serde_json::to_value([
-            RuntimeRevisionStatus::Warming,
-            RuntimeRevisionStatus::Complete,
-        ])
-        .expect("statuses serialize"),
-        serde_json::json!(["warming", "complete"])
-    );
 }
 
 #[test]

@@ -138,7 +138,7 @@ fn versioned_revision_presentation_is_slim_and_exact() {
             )
             .expect("font-aware revision is created"),
     );
-    let revision_id = created["revision"]["revisionId"]
+    let revision_id = created["revisionId"]
         .as_str()
         .expect("font-aware revision id is present")
         .to_owned();
@@ -472,7 +472,6 @@ fn style_table_summary_is_versioned_and_deterministic() {
     );
     assert_revision(&summary, &revision_id, 0);
     assert_eq!(summary["value"]["schemaVersion"], 1);
-    assert_eq!(summary["value"]["isComplete"], true);
     assert!(summary["value"]["chapterCount"].as_u64().unwrap() > 0);
     let chapters = summary["value"]["chapters"].as_array().expect("chapters");
     for chapter in chapters {
@@ -503,7 +502,6 @@ fn chapter_tree_report_is_versioned_and_deterministic() {
     );
     assert_revision(&report, &revision_id, 0);
     assert_eq!(report["value"]["schemaVersion"], 1);
-    assert_eq!(report["value"]["isComplete"], true);
     let chapters = report["value"]["chapters"].as_array().expect("chapters");
     assert!(!chapters.is_empty());
     for chapter in chapters {

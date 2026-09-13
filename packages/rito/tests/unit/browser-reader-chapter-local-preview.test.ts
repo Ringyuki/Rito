@@ -374,15 +374,13 @@ function resolvedPreviewMutation(
 ): BrowserReaderChapterLocalMutationResult {
   const buffer = frameBuffer(owner.revisionId, 0);
   return {
-    advance: {
+    created: {
       revision: {
         ...owner,
         layoutKey: 'local-layout',
-        status: 'complete',
-        knownExtent: { localPageCount: 1, localSpreadCount: 1 },
-        finalExtent: { localPageCount: 1, localSpreadCount: 1 },
+        localPageCount: 1,
+        localSpreadCount: 1,
       },
-      newlyKnownLocalPages: { startLocalPage: 0, endLocalPageExclusive: 1 },
       target: {
         status: 'resolved',
         owner,

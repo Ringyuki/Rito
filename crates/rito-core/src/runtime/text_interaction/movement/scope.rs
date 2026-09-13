@@ -6,7 +6,6 @@ use crate::{
 use super::super::super::page_artifact::{
     PageArtifactTextPageRange, PageArtifactTextPageTarget, PageArtifactTextSelectionMovementTarget,
 };
-use super::super::super::RuntimeRevisionStatus;
 use super::super::{RuntimeDocument, RuntimeRevision, RuntimeTextSelectionMovementRequest};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +33,8 @@ pub(super) fn movement_scope(
         TextSelectionMovement::ChapterStart | TextSelectionMovement::ChapterEnd => {
             chapter_target(document, revision, request.focus.page_index, last_page)?
         }
+        // The revision holds its whole page table, so the last page is
+        // the end of the scope.
         TextSelectionMovement::PageUp | TextSelectionMovement::PageDown => (
             page_target(
                 revision,
@@ -41,11 +42,11 @@ pub(super) fn movement_scope(
                 request.movement,
                 retained,
             )?,
-            publication_complete(revision),
+            true,
         ),
         _ => (
             PageArtifactTextSelectionMovementTarget::Scope(retained),
-            publication_complete(revision),
+            true,
         ),
     };
     Ok(MovementScope {
@@ -129,9 +130,4 @@ fn boundary(forward: bool) -> TextSelectionBoundary {
     } else {
         TextSelectionBoundary::Start
     }
-}
-
-fn publication_complete(revision: &RuntimeRevision) -> bool {
-    revision.status == RuntimeRevisionStatus::Complete
-        && revision.final_extent == Some(revision.known_extent)
 }

@@ -91,15 +91,6 @@ export async function readerSuccessfulOpenCount(page: Page): Promise<number> {
   ).length;
 }
 
-export async function readerHasIncompleteRevision(page: Page): Promise<boolean> {
-  return (await readReaderWorkerOperations(page)).some(
-    (entry) =>
-      entry.revision !== null &&
-      entry.revision.status !== null &&
-      entry.revision.status !== 'complete',
-  );
-}
-
 async function readerSessionRelease(
   page: Page,
   session: ReaderWorkerOpenSessionReference,
