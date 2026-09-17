@@ -18,7 +18,7 @@ pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_point, SourceProjection};
 pub use types::*;
 
-pub(super) struct PreparedExactSourceRange {
+pub(in crate::runtime) struct PreparedExactSourceRange {
     pub(super) locator: RuntimeSourceLocator,
     pub(super) spine_idref: String,
     pub(super) source_range: RuntimeSourceRange,
@@ -307,7 +307,7 @@ impl RuntimeDocument {
         ))
     }
 
-    pub(super) fn prepare_exact_source_range(
+    pub(in crate::runtime) fn prepare_exact_source_range(
         &mut self,
         request: RuntimeExactSourceRangeRequest,
     ) -> Result<PreparedExactSourceRange, RuntimeSourceLocatorError> {
@@ -345,15 +345,14 @@ impl RuntimeDocument {
         })
     }
 
-    pub(super) fn exact_source_range_page_window(
+    /// Takes the revision itself rather than its id: a reader session
+    /// holds chapter-local revisions in a separate store, and both kinds
+    /// project a source range the same way.
+    pub(in crate::runtime) fn exact_source_range_page_window(
         &self,
-        revision_id: &str,
+        revision: &RuntimeRevision,
         prepared: &PreparedExactSourceRange,
     ) -> Result<ExactSourceRangePageWindow, RuntimeSourceLocatorError> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| RuntimeSourceLocatorError::unknown_revision(revision_id))?;
         let source_index = self
             .source_chapter_indices
             .get(&prepared.spine_idref)

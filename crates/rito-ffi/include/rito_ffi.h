@@ -248,6 +248,29 @@ uint32_t rito_get_text_range_geometry(uint64_t session_id,
                                          rito_owned_buffer *error_out);
 
 /*
+ * Projects a durable source range onto the pages one of a live artifact's
+ * spreads draws and returns a complete RITOESR1 message. request_data is a
+ * RITOESQ1 message and is copied before this function returns.
+ *
+ * This is the op for painting a stored annotation. A run's mapping back to its
+ * source node is piecewise — collapsed whitespace leaves gaps, and a run split
+ * at a space shares its seam offset with the next run — so the projection
+ * cannot be rebuilt from an artifact's hits. The engine also checks the text it
+ * landed on against the range's own source text, so a stale anchor reports
+ * unavailable instead of painting over unrelated words.
+ *
+ * Rects are in the artifact's display-list space, like
+ * rito_get_text_range_geometry, and cover only the pages this artifact draws. A
+ * range that resolved onto another page comes back resolved with no rects and
+ * firstPageIndex set, which is the page to navigate to.
+ */
+uint32_t rito_resolve_exact_source_range(uint64_t session_id,
+                                         const uint8_t *request_data,
+                                         uint64_t request_len,
+                                         rito_owned_buffer *resolution_out,
+                                         rito_owned_buffer *error_out);
+
+/*
  * Reads a footnote definition referenced by a live RITOART1 artifact and
  * returns a complete RITOFTN1 message. key_data is the hit's footnoteKey
  * verbatim — it is already canonical, so hosts must not normalize the link

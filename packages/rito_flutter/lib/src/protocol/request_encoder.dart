@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'artifact_models.dart';
 import 'binary_reader.dart';
+import 'exact_source_range.dart';
 import 'request_models.dart';
 import 'search.dart';
 
@@ -108,6 +109,21 @@ extension RitoSearchRequestEncoding on RitoRequestEncoder {
     writer.boolean(request.caseSensitive);
     writer.boolean(request.wholeWord);
     writer.uint32(request.limit, 'search limit');
+    return writer.finish();
+  }
+}
+
+extension RitoExactSourceRangeEncoding on RitoRequestEncoder {
+  /// Encodes a RITOESQ1 exact source range request.
+  Uint8List encodeExactSourceRange(RitoExactSourceRangeRequest request) {
+    final writer = _Writer.message(ascii.encode('RITOESQ1'), 1);
+    writer.externalId(request.sessionId, 'session id');
+    writer.externalId(request.artifactId, 'artifact id');
+    writer.string(request.href, 'exact source range href');
+    writer.record((writer) {
+      _sourcePointRecord(writer, request.range.start);
+      _sourcePointRecord(writer, request.range.end);
+    });
     return writer.finish();
   }
 }

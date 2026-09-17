@@ -10,9 +10,9 @@ mod tests;
 use super::{
     ReaderAdjacentRequest, ReaderArtifact, ReaderArtifactRequest, ReaderBackgroundAdvance,
     ReaderBackgroundHandoff, ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
-    ReaderFootnote, ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderPublication,
-    ReaderResource, ReaderSearchRequest, ReaderSearchResponse, ReaderTextRangeGeometry,
-    ReaderTextRangeRequest,
+    ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderFootnote,
+    ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderPublication, ReaderResource,
+    ReaderSearchRequest, ReaderSearchResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONAV1";
@@ -53,6 +53,8 @@ pub const READER_FOOTNOTE_WIRE_MAGIC: [u8; 8] = *b"RITOFTN1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTRQ1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES: u32 = 72;
 pub const READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC: [u8; 8] = *b"RITOTRG1";
+pub const READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOESQ1";
+pub const READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC: [u8; 8] = *b"RITOESR1";
 pub const READER_SEARCH_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSRQ1";
 pub const READER_SEARCH_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOSRS1";
 pub const READER_WIRE_VERSION: u32 = 1;
@@ -229,4 +231,28 @@ pub fn decode_reader_text_range_geometry(
     bytes: &[u8],
 ) -> Result<ReaderTextRangeGeometry, ReaderError> {
     decode::text_range_geometry(bytes)
+}
+
+pub fn encode_reader_exact_source_range_request(
+    request: &ReaderExactSourceRangeRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    encode::exact_source_range_request(request)
+}
+
+pub fn decode_reader_exact_source_range_request(
+    bytes: &[u8],
+) -> Result<ReaderExactSourceRangeRequest, ReaderError> {
+    decode::exact_source_range_request(bytes)
+}
+
+pub fn encode_reader_exact_source_range_resolution(
+    resolution: &ReaderExactSourceRangeResolution,
+) -> Result<Vec<u8>, ReaderError> {
+    encode::exact_source_range_resolution(resolution)
+}
+
+pub fn decode_reader_exact_source_range_resolution(
+    bytes: &[u8],
+) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
+    decode::exact_source_range_resolution(bytes)
 }

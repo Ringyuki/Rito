@@ -143,7 +143,7 @@ impl RuntimeSourceLocatorError {
         }
     }
 
-    pub(super) fn unknown_revision(revision_id: &str) -> Self {
+    pub(in crate::runtime) fn unknown_revision(revision_id: &str) -> Self {
         Self::new(
             RuntimeSourceLocatorErrorKind::UnknownRevision,
             format!("unknown revision: {revision_id}"),

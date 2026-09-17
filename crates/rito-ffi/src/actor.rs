@@ -8,11 +8,12 @@ use std::{
 
 use rito_core::runtime::{
     encode_reader_artifact, encode_reader_background_advance, encode_reader_background_handoff_ack,
-    encode_reader_footnote, encode_reader_foreground_handoff_ack, encode_reader_publication,
-    encode_reader_resource, encode_reader_search_response, encode_reader_text_range_geometry,
-    ReaderAdjacentRequest, ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
-    ReaderError, ReaderForegroundHandoff, ReaderResourceKind, ReaderSearchRequest, ReaderSession,
-    ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
+    encode_reader_exact_source_range_resolution, encode_reader_footnote,
+    encode_reader_foreground_handoff_ack, encode_reader_publication, encode_reader_resource,
+    encode_reader_search_response, encode_reader_text_range_geometry, ReaderAdjacentRequest,
+    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderError,
+    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
+    ReaderSearchRequest, ReaderSession, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
 use crate::error::{FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_TARGET_NOT_PUBLISHED};
@@ -66,6 +67,10 @@ pub(crate) enum ActorCommand {
     },
     TextRangeGeometry {
         request: ReaderTextRangeRequest,
+        reply: Reply<Vec<u8>>,
+    },
+    ExactSourceRange {
+        request: ReaderExactSourceRangeRequest,
         reply: Reply<Vec<u8>>,
     },
     ReadFootnote {
@@ -585,6 +590,13 @@ fn run_commands(
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::ExactSourceRange { request, reply } => {
+                let result = session
+                    .resolve_exact_source_range(request)
+                    .and_then(|resolution| encode_reader_exact_source_range_resolution(&resolution))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ReadFootnote {
                 artifact_id,
                 key,
@@ -765,6 +777,17 @@ pub(crate) fn request_text_range_geometry(
         admission,
         |reply| ActorCommand::TextRangeGeometry { request, reply },
         "text range geometry",
+    )
+}
+
+pub(crate) fn request_exact_source_range(
+    admission: CommandAdmission,
+    request: ReaderExactSourceRangeRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::ExactSourceRange { request, reply },
+        "exact source range",
     )
 }
 

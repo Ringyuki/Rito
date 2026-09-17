@@ -5,6 +5,7 @@ use super::{
     primitives::Writer, READER_ADJACENT_REQUEST_WIRE_MAGIC, READER_ARTIFACT_WIRE_MAGIC,
     READER_BACKGROUND_ADVANCE_WIRE_MAGIC, READER_BACKGROUND_HANDOFF_ACK_WIRE_MAGIC,
     READER_BACKGROUND_HANDOFF_WIRE_MAGIC, READER_BACKGROUND_REQUEST_WIRE_MAGIC,
+    READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC, READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC,
     READER_FOREGROUND_HANDOFF_ACK_WIRE_MAGIC, READER_FOREGROUND_HANDOFF_WIRE_MAGIC,
     READER_PUBLICATION_WIRE_MAGIC, READER_REQUEST_WIRE_MAGIC, READER_RESOURCE_WIRE_MAGIC,
     READER_WIRE_VERSION,
@@ -13,6 +14,7 @@ use crate::runtime::reader_session::{
     reader_resource_bytes_max, ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderArtifact,
     ReaderArtifactRequest, ReaderBackgroundAdvance, ReaderBackgroundHandoff,
     ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderBackgroundState, ReaderError,
+    ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
     ReaderLayout, ReaderLocator, ReaderPublication, ReaderResource, ReaderSearchRequest,
     ReaderSearchResponse, ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode,
@@ -329,6 +331,64 @@ pub(super) fn locator(writer: &mut Writer, value: &ReaderLocator) -> Result<(), 
             writer.f64(*value, "locator progression")
         })
     })
+}
+
+pub(super) fn exact_source_range_request(
+    value: &ReaderExactSourceRangeRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    super::primitives::external_id(value.session_id, "sessionId")?;
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    );
+    writer.u64(value.session_id);
+    writer.u64(value.artifact_id);
+    writer.string(&value.href, "exact source range href")?;
+    source_range(&mut writer, &value.range)?;
+    writer.finish_message()
+}
+
+const fn exact_source_range_status(value: ReaderExactSourceRangeStatus) -> u32 {
+    match value {
+        ReaderExactSourceRangeStatus::Resolved => 0,
+        ReaderExactSourceRangeStatus::Pending => 1,
+        ReaderExactSourceRangeStatus::Unavailable => 2,
+    }
+}
+
+pub(super) fn exact_source_range_resolution(
+    value: &ReaderExactSourceRangeResolution,
+) -> Result<Vec<u8>, ReaderError> {
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(
+        READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    );
+    writer.u64(value.artifact_id);
+    writer.u32(exact_source_range_status(value.status));
+    writer.option(value.first_page_index.as_ref(), |writer, page| {
+        writer.u32(*page);
+        Ok(())
+    })?;
+    writer.string(&value.selected_text, "exact source range text")?;
+    writer.count(value.rects.len(), "exact source rect count")?;
+    for rect in &value.rects {
+        writer.record(|writer| {
+            writer.u32(rect.page_index);
+            writer.f64(rect.bounds.x, "exact source rect x")?;
+            writer.f64(rect.bounds.y, "exact source rect y")?;
+            writer.f64(rect.bounds.width, "exact source rect width")?;
+            writer.f64(rect.bounds.height, "exact source rect height")?;
+            writer.u32(rect.block_index);
+            writer.u32(rect.line_index);
+            writer.u32(rect.run_index);
+            writer.u32(rect.start_char_index);
+            writer.u32(rect.end_char_index);
+            Ok(())
+        })?;
+    }
+    writer.finish_message()
 }
 
 fn source_point(writer: &mut Writer, value: &ReaderSourcePoint) -> Result<(), ReaderError> {

@@ -3,8 +3,9 @@ use crate::runtime::reader_session::{
     ReaderAdjacentAvailability, ReaderAdjacentDirection, ReaderAdjacentRequest,
     ReaderBackgroundAdvance, ReaderBackgroundHandoff, ReaderBackgroundHandoffAck,
     ReaderBackgroundRequest, ReaderBackgroundState, ReaderDisplayList, ReaderErrorKind,
-    ReaderFontRef, ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderHitEntry,
-    ReaderLayout, ReaderLocator, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
+    ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
+    ReaderExactSourceRect, ReaderFontRef, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
+    ReaderHitEntry, ReaderLayout, ReaderLocator, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
     ReaderPublication, ReaderPublicationMetadata, ReaderPublicationSpineItem,
     ReaderPublicationTocEntry, ReaderPublicationTocTarget, ReaderRect, ReaderResource,
     ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
@@ -877,4 +878,130 @@ const fn rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRect {
         width,
         height,
     }
+}
+
+fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
+    ReaderExactSourceRangeRequest {
+        session_id: 7,
+        artifact_id: 9,
+        href: "OEBPS/chapter-2.xhtml".to_owned(),
+        range: ReaderSourceRange {
+            start: ReaderSourcePoint {
+                node_path: vec![1, 0, 4],
+                text_offset: 12,
+            },
+            end: ReaderSourcePoint {
+                node_path: vec![1, 0, 4],
+                text_offset: 31,
+            },
+        },
+    }
+}
+
+fn exact_source_range_resolution_fixture() -> ReaderExactSourceRangeResolution {
+    ReaderExactSourceRangeResolution {
+        artifact_id: 9,
+        status: ReaderExactSourceRangeStatus::Resolved,
+        first_page_index: Some(3),
+        selected_text: "the quoted words".to_owned(),
+        rects: vec![
+            ReaderExactSourceRect {
+                page_index: 3,
+                bounds: ReaderRect {
+                    x: 12.5,
+                    y: 40.0,
+                    width: 88.25,
+                    height: 18.0,
+                },
+                block_index: 2,
+                line_index: 1,
+                run_index: 0,
+                start_char_index: 4,
+                end_char_index: 20,
+            },
+            ReaderExactSourceRect {
+                page_index: 4,
+                bounds: ReaderRect {
+                    x: 0.0,
+                    y: 12.0,
+                    width: 30.0,
+                    height: 18.0,
+                },
+                block_index: 3,
+                line_index: 0,
+                run_index: 0,
+                start_char_index: 0,
+                end_char_index: 6,
+            },
+        ],
+    }
+}
+
+#[test]
+fn exact_source_range_wire_is_deterministic_and_round_trips_both_directions() {
+    let request = exact_source_range_request_fixture();
+    let first = encode_reader_exact_source_range_request(&request).expect("encode request");
+    let second = encode_reader_exact_source_range_request(&request).expect("encode request again");
+    assert_eq!(first, second);
+    assert_eq!(&first[..8], b"RITOESQ1");
+    assert_eq!(
+        decode_reader_exact_source_range_request(&first),
+        Ok(request)
+    );
+
+    let resolution = exact_source_range_resolution_fixture();
+    let first = encode_reader_exact_source_range_resolution(&resolution).expect("encode");
+    let second = encode_reader_exact_source_range_resolution(&resolution).expect("encode again");
+    assert_eq!(first, second);
+    assert_eq!(&first[..8], b"RITOESR1");
+    assert_eq!(
+        decode_reader_exact_source_range_resolution(&first),
+        Ok(resolution)
+    );
+}
+
+#[test]
+fn exact_source_range_wire_round_trips_a_resolution_carrying_no_geometry() {
+    // A range whose chapter is not laid out yet, and one whose text has
+    // moved on: both answer without rects, and the empty option and
+    // empty collection must survive the round trip.
+    for status in [
+        ReaderExactSourceRangeStatus::Pending,
+        ReaderExactSourceRangeStatus::Unavailable,
+    ] {
+        let resolution = ReaderExactSourceRangeResolution {
+            artifact_id: 9,
+            status,
+            first_page_index: None,
+            selected_text: String::new(),
+            rects: Vec::new(),
+        };
+        let bytes = encode_reader_exact_source_range_resolution(&resolution).expect("encode");
+        assert_eq!(
+            decode_reader_exact_source_range_resolution(&bytes),
+            Ok(resolution)
+        );
+    }
+}
+
+#[test]
+fn exact_source_range_wire_rejects_every_truncated_prefix_and_unknown_status() {
+    let request = encode_reader_exact_source_range_request(&exact_source_range_request_fixture())
+        .expect("encode request");
+    for end in 0..request.len() {
+        assert_invalid(decode_reader_exact_source_range_request(&request[..end]));
+    }
+    let mut resolution =
+        encode_reader_exact_source_range_resolution(&exact_source_range_resolution_fixture())
+            .expect("encode resolution");
+    for end in 0..resolution.len() {
+        assert_invalid(decode_reader_exact_source_range_resolution(
+            &resolution[..end],
+        ));
+    }
+    // The status tag sits immediately after the message header and the
+    // artifact id.
+    let status_at = READER_WIRE_HEADER_BYTES as usize + 8;
+    resolution[status_at + 3] = 9;
+    assert_invalid(decode_reader_exact_source_range_resolution(&resolution));
 }

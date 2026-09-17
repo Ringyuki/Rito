@@ -1,9 +1,10 @@
 use rito_core::runtime::{
     decode_reader_adjacent_request, decode_reader_artifact_request,
     decode_reader_background_handoff, decode_reader_background_request,
-    decode_reader_foreground_handoff, decode_reader_search_request,
-    decode_reader_text_range_request, ReaderAdjacentRequest, ReaderArtifactRequest,
-    ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderForegroundHandoff, ReaderResourceKind,
+    decode_reader_exact_source_range_request, decode_reader_foreground_handoff,
+    decode_reader_search_request, decode_reader_text_range_request, ReaderAdjacentRequest,
+    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
+    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
     ReaderSearchRequest, ReaderTextRangeRequest, RuntimePinnedFontFaceInput,
     RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
     READER_BACKGROUND_HANDOFF_WIRE_BYTES, READER_BACKGROUND_REQUEST_WIRE_BYTES,
@@ -119,6 +120,14 @@ pub(crate) fn text_range_request(
 ) -> Result<ReaderTextRangeRequest, FfiError> {
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "text range request")?;
     decode_reader_text_range_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn exact_source_range_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderExactSourceRangeRequest, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "exact source range request")?;
+    decode_reader_exact_source_range_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {

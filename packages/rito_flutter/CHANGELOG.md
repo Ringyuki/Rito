@@ -1,3 +1,38 @@
+## Unreleased
+
+### A stored highlight is projected by the engine
+
+`RitoReaderSession.exactSourceRange` asks where a durable source range
+lands on the pages an artifact draws. Persist what a highlight _is_ —
+the manifest href plus the source-tree node paths and UTF-16 offsets of
+its endpoints — and pass it back; the answer is
+`RitoExactSourceRangeResolution`, whose rects are in the artifact's
+display-list space like `RitoHitEntry.bounds`.
+
+This projection could not be rebuilt host-side. A run's mapping back to
+its source node is piecewise: collapsed whitespace leaves gaps, and a
+run split at a space shares its seam offset with the next run, which a
+range start and a range end resolve differently. Hit entries carry no
+source offsets at all. The call also checks the text it landed on
+against the range's own source text, so an anchor whose text has since
+changed reports `RitoExactSourceRangeStatus.unavailable` instead of
+painting over unrelated words.
+
+Rects cover only the pages this artifact draws. A range that resolved
+elsewhere comes back resolved with no rects and `firstPageIndex` set:
+navigate there and ask again. `textRangeGeometry` is unchanged and
+remains the op for a range already held in page coordinates, such as a
+live selection.
+
+The wire gains `RITOESQ1` and `RITOESR1`, and the C ABI gains
+`rito_resolve_exact_source_range`. The artifact protocol version is
+unchanged.
+
+### Breaking
+
+`RitoReaderGateway` gains `exactSourceRange`. A host that implements
+that interface itself (a test double, usually) must add the member.
+
 ## 0.3.0 - 2026-09-14
 
 Breaking, and larger than a point release: a frame is no longer a list of

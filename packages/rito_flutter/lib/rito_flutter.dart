@@ -34,6 +34,12 @@ export 'src/native/gateway.dart';
 export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart'
     show RitoPaintRuby, RitoPaintText, RitoTextPaintCommand;
+export 'src/protocol/exact_source_range.dart'
+    show
+        RitoExactSourceRangeRequest,
+        RitoExactSourceRangeResolution,
+        RitoExactSourceRangeStatus,
+        RitoExactSourceRect;
 export 'src/protocol/footnote_decoder.dart' show RitoFootnote, RitoFootnoteKind;
 export 'src/protocol/hit_resolver.dart';
 export 'src/protocol/primitive_models.dart';

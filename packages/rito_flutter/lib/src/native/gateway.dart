@@ -8,6 +8,7 @@ import '../protocol/artifact_models.dart';
 import '../protocol/background_decoder.dart';
 import '../protocol/background_encoder.dart';
 import '../protocol/background_models.dart';
+import '../protocol/exact_source_range.dart';
 import '../protocol/footnote_decoder.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
@@ -97,6 +98,11 @@ abstract interface class RitoReaderGateway {
   /// Resolves where a text range sits on one of an artifact's pages.
   Future<RitoTextRangeGeometry> textRangeGeometry({
     required RitoTextRangeRequest request,
+  });
+
+  /// Projects a durable source range onto the pages an artifact draws.
+  Future<RitoExactSourceRangeResolution> exactSourceRange({
+    required RitoExactSourceRangeRequest request,
   });
 
   /// Reads a footnote definition an artifact referenced. [key] is the
@@ -199,6 +205,8 @@ final class RitoIsolateGateway
   final RitoFootnoteDecoder _footnoteDecoder = const RitoFootnoteDecoder();
   final RitoTextGeometryEncoder _textGeometryEncoder =
       const RitoTextGeometryEncoder();
+  final RitoExactSourceRangeDecoder _exactSourceRangeDecoder =
+      const RitoExactSourceRangeDecoder();
   final RitoTextGeometryDecoder _textGeometryDecoder =
       const RitoTextGeometryDecoder();
   final RitoRequestEncoder _searchEncoder = const RitoRequestEncoder();
@@ -716,6 +724,37 @@ final class RitoIsolateGateway
           );
         },
       ),
+    );
+  }
+
+  @override
+  Future<RitoExactSourceRangeResolution> exactSourceRange({
+    required RitoExactSourceRangeRequest request,
+  }) async {
+    return _queue.ordered<RitoExactSourceRangeResolution>(
+      sessionId: request.sessionId,
+      operation: () =>
+          _guardNativeSessionOperation<RitoExactSourceRangeResolution>(
+            sessionId: request.sessionId,
+            requestId: _diagnosticRequestId(request.sessionId),
+            operation: () async {
+              final worker = await _worker;
+              final wireBytes = await worker.invokeWire(
+                _ExactSourceRangeOperation(
+                  sessionId: request.sessionId,
+                  requestBytes: _requestEncoder.encodeExactSourceRange(request),
+                ),
+              );
+              return _decodeSessionWire<RitoExactSourceRangeResolution>(
+                sessionId: request.sessionId,
+                field: 'exact source range',
+                wireBytes: wireBytes,
+                decode: _exactSourceRangeDecoder.decode,
+                validate: (resolution) =>
+                    resolution.artifactId == request.artifactId,
+              );
+            },
+          ),
     );
   }
 

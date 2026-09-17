@@ -124,7 +124,9 @@ fn runtime_source_point(value: ReaderSourcePoint) -> Result<RuntimeSourcePoint, 
     })
 }
 
-fn runtime_source_range(value: ReaderSourceRange) -> Result<RuntimeSourceRange, ReaderError> {
+pub(super) fn runtime_source_range(
+    value: ReaderSourceRange,
+) -> Result<RuntimeSourceRange, ReaderError> {
     Ok(RuntimeSourceRange {
         start: runtime_source_point(value.start)?,
         end: runtime_source_point(value.end)?,

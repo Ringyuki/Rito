@@ -33,38 +33,48 @@ impl RuntimeDocument {
         request: RuntimeExactSourceRangeRequest,
     ) -> Result<RuntimeExactSourceRangeResponse, super::RuntimeSourceLocatorError> {
         let prepared = self.prepare_exact_source_range(request)?;
-        let window = self.exact_source_range_page_window(revision_id, &prepared)?;
-        let resolution = match window {
-            ExactSourceRangePageWindow::Pending(reason) => {
-                RuntimeExactSourceRangeResolution::Pending { reason }
-            }
-            ExactSourceRangePageWindow::Ready {
-                first_page,
-                last_page,
-            } => self.resolve_prepared_exact_source_range(
-                revision_id,
-                prepared,
-                first_page,
-                last_page,
-            ),
-        };
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| super::RuntimeSourceLocatorError::unknown_revision(revision_id))?;
+        let resolution = self.resolve_prepared_in(revision, prepared)?;
         Ok(RuntimeExactSourceRangeResponse {
             revision_id: revision_id.to_owned(),
             resolution,
         })
     }
 
+    /// Projects a prepared range onto one revision, whichever store the
+    /// caller holds it in: a reader session keeps chapter-local
+    /// revisions apart from whole-book ones and both project the same
+    /// way. `prepare_exact_source_range` must have run first — it builds
+    /// the chapter source index this reads.
+    pub(in crate::runtime) fn resolve_prepared_in(
+        &self,
+        revision: &RuntimeRevision,
+        prepared: PreparedExactSourceRange,
+    ) -> Result<RuntimeExactSourceRangeResolution, super::RuntimeSourceLocatorError> {
+        Ok(
+            match self.exact_source_range_page_window(revision, &prepared)? {
+                ExactSourceRangePageWindow::Pending(reason) => {
+                    RuntimeExactSourceRangeResolution::Pending { reason }
+                }
+                ExactSourceRangePageWindow::Ready {
+                    first_page,
+                    last_page,
+                } => self
+                    .resolve_prepared_exact_source_range(revision, prepared, first_page, last_page),
+            },
+        )
+    }
+
     fn resolve_prepared_exact_source_range(
         &self,
-        revision_id: &str,
+        revision: &RuntimeRevision,
         prepared: PreparedExactSourceRange,
         first_page: usize,
         last_page: usize,
     ) -> RuntimeExactSourceRangeResolution {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .expect("exact source range page window validated the revision");
         let start = artifact_source_point(&prepared.source_range.start);
         let end = artifact_source_point(&prepared.source_range.end);
         let resolution = revision
