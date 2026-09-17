@@ -24,10 +24,23 @@ type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
 export type SelectionHandleEdge = 'start' | 'end';
 
-export interface SelectionClientPoint {
+/** A pointer position in viewport-logical (client) coordinates. */
+export interface ReaderClientPoint {
   readonly clientX: number;
   readonly clientY: number;
 }
+
+export type SelectionClientPoint = ReaderClientPoint;
+
+/**
+ * What kind of interactive content sits under a point.
+ *
+ * These are exactly the four things a click there would act on, in the
+ * priority the dispatcher uses. A pending footnote reports `'link'`
+ * because that is the event it raises: until its definition is indexed
+ * it behaves as an ordinary link.
+ */
+export type ContentHitKind = 'link' | 'footnote' | 'image' | 'annotation';
 
 /** Exact selection endpoints in viewport-logical coordinates. */
 export interface SelectionHandleState {
@@ -213,6 +226,26 @@ export interface ReaderController {
     edge: SelectionHandleEdge,
     origin: SelectionClientPoint,
   ): SelectionHandleDrag | null;
+
+  /**
+   * Whether interactive content sits under a client point, and which
+   * kind — synchronously, with no side effect.
+   *
+   * A host that must decide on `pointerup` whether a gesture belongs to
+   * the content or to the page turn cannot wait for the content events:
+   * only `linkClick` is raised synchronously, `footnoteClick` waits for
+   * the footnote read and `imageClick` for the image blob. Turning the
+   * page first and undoing it later does not work either, because the
+   * turn advances the content-interaction generation and the in-flight
+   * image request is then disowned and revoked, so `imageClick` never
+   * arrives at all.
+   *
+   * Answers from the same resolution the click dispatcher runs, so it
+   * predicts which event a click would raise, and returns null when the
+   * reader's interactions are disabled — no event would be raised then
+   * either.
+   */
+  hitTestContent(point: ReaderClientPoint): ContentHitKind | null;
 
   addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
   removeAnnotation(id: string): boolean;

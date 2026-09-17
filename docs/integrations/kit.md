@@ -95,6 +95,21 @@ out of range. The controller maps pointer input to page-local coordinates from t
 geometry and that record. `createController` requires `reader.interactions.textSelection`
 and throws without it.
 
+Deciding a gesture: `controller.hitTestContent({ clientX, clientY })` answers
+synchronously whether interactive content sits under a point and which kind —
+`'link'`, `'footnote'`, `'image'`, `'annotation'`, or `null` — with no payload and
+no side effect. A host that must choose on `pointerup` between a page turn and the
+content cannot wait for the content events: only `linkClick` is raised
+synchronously, `footnoteClick` waits for the footnote read and `imageClick` for the
+image blob. Turning the page first and undoing it does not work either, because the
+turn advances the content-interaction generation, which disowns the in-flight image
+request and revokes its blob, so `imageClick` never arrives at all. The query reads
+the same resolution the click dispatcher runs, in the same priority order
+(annotation first, then the page target in reverse paint order), so it predicts the
+event a click would raise; a pending footnote therefore reports `'link'`, which is
+what the dispatcher does with it. It returns `null` whenever a click would be
+dropped, including while a preview disables the reader's interactions.
+
 Text selection: pointer samples are resolved asynchronously against the committed
 revision through `interactions.textSelection`, exact rectangles drive the overlay,
 selected source text drives copy, and the returned source range anchors annotations.

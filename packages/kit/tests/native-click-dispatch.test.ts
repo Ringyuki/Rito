@@ -8,7 +8,7 @@ import type {
 import { createCoordinatorState } from '../src/controller/core';
 import type { WiringDeps } from '../src/controller/core';
 import type { ReaderControllerEvents } from '../src/controller/types';
-import { dispatchClick } from '../src/controller/wiring/click-dispatch';
+import { dispatchClick, hitTestContentAt } from '../src/controller/wiring/click-dispatch';
 import { createEmitter } from '../src/utils/event-emitter';
 
 const locator: ReaderLocator = { href: 'Text/chapter.xhtml', anchorId: 'target' };
@@ -397,6 +397,75 @@ describe('native click dispatch', () => {
 
     expect(linkClick).not.toHaveBeenCalled();
     expect(annotationClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('synchronous content hit test', () => {
+  it('predicts the event a click would raise, for every target kind', async () => {
+    const probes = [
+      { target: target('link', { href: 'Text/other.xhtml' }), kind: 'link', event: 'linkClick' },
+      {
+        target: target('footnote', { href: '#n', footnoteKey: 'Text/notes.xhtml#n' }),
+        kind: 'footnote',
+        event: 'footnoteClick',
+      },
+      // A pending footnote is dispatched as a link, so the query must
+      // say 'link': it reports the event, not the eventual semantics.
+      { target: target('footnotePending', { href: '#n' }), kind: 'link', event: 'linkClick' },
+      {
+        target: target('image', { imageSrc: 'Images/cover.jpg' }),
+        kind: 'image',
+        event: 'imageClick',
+      },
+    ] as const;
+
+    for (const probe of probes) {
+      const fixture = createFixture(
+        interactions({
+          getFootnote: vi.fn(() =>
+            Promise.resolve({ kind: 'footnote' as const, text: 'n', html: '<p>n</p>' }),
+          ),
+        }),
+      );
+      fixture.install(probe.target);
+
+      expect(hitTestContentAt({ x: 15, y: 15 }, fixture.deps)).toBe(probe.kind);
+
+      const raised = vi.fn();
+      fixture.emitter.on(probe.event, raised);
+      dispatchClick({ x: 15, y: 15 }, fixture.deps);
+      await settleTasks();
+
+      expect(raised, `${probe.target.kind} raises ${probe.event}`).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('reports an annotation ahead of the target underneath it', () => {
+    const fixture = createFixture(interactions());
+    fixture.install(target('link', { href: 'Text/other.xhtml' }));
+    fixture.state.resolvedAnnotations = [
+      { status: 'resolved', segments: [{ pageIndex: 0, rects: [targetBounds()] }] },
+    ] as never;
+
+    expect(hitTestContentAt({ x: 15, y: 15 }, fixture.deps)).toBe('annotation');
+  });
+
+  it('answers null where nothing interactive sits, and over plain text', () => {
+    const empty = createFixture(interactions());
+    expect(hitTestContentAt({ x: 15, y: 15 }, empty.deps)).toBeNull();
+
+    const text = createFixture(interactions());
+    text.install(target('text'));
+    expect(hitTestContentAt({ x: 15, y: 15 }, text.deps)).toBeNull();
+  });
+
+  it('answers null while a preview disables the reader interactions', () => {
+    const fixture = createFixture(interactions({ enabled: false }));
+    fixture.install(target('link', { href: 'Text/other.xhtml' }));
+
+    // A click is dropped here, so the query must agree: it exists to
+    // predict the click, not to describe stale geometry.
+    expect(hitTestContentAt({ x: 15, y: 15 }, fixture.deps)).toBeNull();
   });
 });
 
