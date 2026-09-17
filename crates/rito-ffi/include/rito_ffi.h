@@ -42,6 +42,10 @@ extern "C" {
 #define RITO_RESOURCE_KIND_FONT UINT32_C(1)
 #define RITO_RESOURCE_KIND_STYLESHEET UINT32_C(2)
 
+#define RITO_PINNED_FONT_ROLE_SERIF UINT32_C(0)
+#define RITO_PINNED_FONT_ROLE_SANS_SERIF UINT32_C(1)
+#define RITO_PINNED_FONT_ROLE_MONOSPACE UINT32_C(2)
+
 /* All session, request, revision, and artifact IDs are in 1..=INT64_MAX. */
 
 /*
@@ -55,6 +59,25 @@ typedef struct rito_owned_buffer {
   uint64_t len;
   uint64_t capacity;
 } rito_owned_buffer;
+
+/*
+ * One pinned measurement-fallback face crossing the open ABI.
+ *
+ * sha256_hex carries the face digest as 64 lowercase hexadecimal bytes and is
+ * not NUL-terminated. generic_role is one of the RITO_PINNED_FONT_ROLE_*
+ * constants. language_data/language_len are optional (NULL/0 for the `und`
+ * default) and name an ASCII BCP47-style tag. Every pointer stays
+ * caller-owned: the bytes are copied before rito_open_with_pinned_fonts
+ * returns.
+ */
+typedef struct rito_pinned_font_face {
+  const uint8_t *bytes_data;
+  uint64_t bytes_len;
+  uint8_t sha256_hex[64];
+  uint32_t generic_role;
+  const uint8_t *language_data;
+  uint64_t language_len;
+} rito_pinned_font_face;
 
 /*
  * A ready session owns at most RITO_ACTOR_MAX_IN_FLIGHT operations, counting
@@ -105,6 +128,27 @@ uint32_t rito_open(const uint8_t *publication_data,
                       uint64_t request_len,
                       rito_owned_buffer *artifact_out,
                       rito_owned_buffer *error_out);
+
+/*
+ * Opens a reader with a pinned measurement-font policy and requests its exact
+ * initial artifact. This is the entry point a host should use: chapter-local
+ * pagination shapes with pinned faces only, so it is what makes page N the
+ * same page on every platform.
+ *
+ * The policy also switches on the required-font-face catalog — every artifact
+ * then declares the embedded publication faces its layout used, so the host
+ * can register them before paint. faces points at face_count descriptors;
+ * their bytes are copied before this call returns. Pending and terminal
+ * semantics match rito_open.
+ */
+uint32_t rito_open_with_pinned_fonts(const uint8_t *publication_data,
+                                        uint64_t publication_len,
+                                        const uint8_t *request_data,
+                                        uint64_t request_len,
+                                        const rito_pinned_font_face *faces,
+                                        uint32_t face_count,
+                                        rito_owned_buffer *artifact_out,
+                                        rito_owned_buffer *error_out);
 
 /*
  * Reads the session's immutable publication snapshot as one complete
@@ -160,6 +204,24 @@ uint32_t rito_request_adjacent(uint64_t session_id,
                                   rito_owned_buffer *error_out);
 
 /*
+ * Publishes the adjacent spread as a read-only artifact with no foreground
+ * side effect: the visible artifact and every pending navigation stay
+ * untouched. request_data is the same 48-byte RITONAV1 message
+ * rito_request_adjacent takes.
+ *
+ * A neighbor in another chapter is paginated on demand. The publication's
+ * terminal boundary returns RITO_STATUS_TARGET_NOT_PUBLISHED — surface that as
+ * "not peekable" — and never retains a continuation. The peeked artifact
+ * occupies one live slot and must be released by the caller, whether or not it
+ * is later committed.
+ */
+uint32_t rito_peek_adjacent(uint64_t session_id,
+                               const uint8_t *request_data,
+                               uint64_t request_len,
+                               rito_owned_buffer *artifact_out,
+                               rito_owned_buffer *error_out);
+
+/*
  * Atomically makes one foreground candidate visible if the current visible
  * artifact still matches the optional compare-and-swap expectation.
  * request_data must contain exactly one 48-byte RITOFGH1 message whose
@@ -174,6 +236,21 @@ uint32_t rito_adopt_foreground_candidate(uint64_t session_id,
                                              uint64_t request_len,
                                              rito_owned_buffer *ack_out,
                                              rito_owned_buffer *error_out);
+
+/*
+ * Commits a previously peeked artifact as the visible foreground with the same
+ * visible-artifact compare-and-swap and zero layout work. request_data is the
+ * same 48-byte RITOFGH1 message rito_adopt_foreground_candidate takes.
+ *
+ * Only artifacts produced by rito_peek_adjacent qualify. A successful commit
+ * supersedes any in-flight foreground intent exactly as a fresh navigation
+ * would, and does not release the replaced artifact.
+ */
+uint32_t rito_commit_peeked_artifact(uint64_t session_id,
+                                        const uint8_t *request_data,
+                                        uint64_t request_len,
+                                        rito_owned_buffer *ack_out,
+                                        rito_owned_buffer *error_out);
 
 /*
  * Runs exactly one host-scheduled publication-layout quantum. request_data
