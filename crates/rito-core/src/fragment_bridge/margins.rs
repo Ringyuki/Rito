@@ -12,8 +12,6 @@ use rito_style_contract::{
 
 use crate::epub::{EpubError, EpubResult};
 
-/// A contentless chapter tree, for sources the parser found no body in:
-/// the chapter renders as one empty page instead of blocking the book.
 /// Folds CSS parent-child margin collapse into the tree statically.
 ///
 /// The block engine collapses adjacent sibling margins but treats every

@@ -68,17 +68,6 @@ pub(crate) fn cjk_punctuation_trim(left: char, right: char) -> Option<TrimmedGly
     None
 }
 
-/// Applies the boundary trims as negative letter-spacing on the character
-/// left of each trimming boundary — geometrically identical to removing
-/// the blank half, and visible to shaping, line breaking, and run
-/// splitting alike (the distinct resolved style isolates the trimmed
-/// character in its own glyph run, so painted runs stay position-exact).
-/// The boundary trims as (range, letter-spacing) edits, computed before
-/// the shaping builder exists so the trim gate can consult the font
-/// collection. Blink's Han kerning only adjusts glyphs whose resolved
-/// font carries the OpenType `halt` feature (measured: a book-embedded
-/// face without it keeps `。」` at two full advances while the pinned
-/// SourceHan trims), so each trimmed character resolves its font first.
 /// One boundary trim: the pair identity for straddle bookkeeping, the
 /// character range the edit applies to, and the edit itself.
 pub(crate) struct PunctuationTrim {
@@ -88,6 +77,10 @@ pub(crate) struct PunctuationTrim {
     pub(crate) edit: PunctuationTrimEdit,
 }
 
+/// How a boundary trim collapses a blank half. Either edit is a distinct
+/// resolved style on the trimmed character, so shaping, line breaking and
+/// run splitting all see it and the character sits in its own glyph run,
+/// keeping painted runs position-exact.
 pub(crate) enum PunctuationTrimEdit {
     /// A close/stop's blank right half collapses: negative letter-spacing
     /// on the trimmed character itself (correct fit attribution — the
@@ -104,6 +97,12 @@ pub(crate) enum PunctuationTrimEdit {
     OpenerHalt(f32),
 }
 
+/// The boundary trims as edits, computed before the shaping builder
+/// exists so the trim gate can consult the font collection. Blink's Han
+/// kerning only adjusts glyphs whose resolved font carries the OpenType
+/// `halt` feature (measured: a book-embedded face without it keeps `。」`
+/// at two full advances while the pinned SourceHan trims), so each
+/// trimmed character resolves its font first.
 pub(crate) fn compute_cjk_punctuation_trims(
     fonts: &mut FontContext,
     registered_families: &[String],
@@ -217,6 +216,11 @@ pub(crate) fn compute_cjk_punctuation_trims(
     trims
 }
 
+/// Whether the font the style resolves for `character` carries the
+/// OpenType `halt` feature. Resolution mirrors CSS font matching: the
+/// first stack family whose matched face covers the character wins, and
+/// the registered families (the engine's installed fallback order) stand
+/// in for script fallback. An unresolvable character trims nothing.
 pub(crate) fn resolved_font_halt(
     fonts: &mut FontContext,
     registered_families: &[String],

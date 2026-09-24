@@ -4,14 +4,10 @@
 
 use crate::*;
 
-/// Chromium's line-break tailoring, extended with its CJK quote classes.
-///
-/// UAX-14 gives the curly quotes class QU (no break on either side), but
-/// Blink reclassifies them in CJK context: an opening curly quote breaks
-/// like an opening bracket (opportunity before, none after) and a closing
-/// curly quote like a closing bracket (opportunity after, none before).
-/// CJK dialogue in translated novels hangs on this. Everything else
-/// defers to Parley's Chromium ASCII table.
+pub(crate) fn break_anywhere_override(_context: parley::LineBreakContext) -> Option<bool> {
+    Some(true)
+}
+
 /// Fills the one gap in Parley's `word-break: break-all` relaxation.
 ///
 /// Under break-all Parley already breaks between latin letters (a|b) and
@@ -20,10 +16,6 @@ use crate::*;
 /// unbreakable word, while Blink splits it across the line boundary
 /// (b93 truth: the first ─ closes the line, the second opens the next).
 /// Everything else defers to Parley's break-all logic.
-pub(crate) fn break_anywhere_override(_context: parley::LineBreakContext) -> Option<bool> {
-    Some(true)
-}
-
 pub(crate) fn break_all_box_dash_override(context: parley::LineBreakContext) -> Option<bool> {
     if context.before == '\u{2500}' && context.after == '\u{2500}' {
         return Some(true);
@@ -31,6 +23,9 @@ pub(crate) fn break_all_box_dash_override(context: parley::LineBreakContext) -> 
     None
 }
 
+/// Chromium's line-break tailoring, extended with its CJK quote classes
+/// ([`cjk_quote_reclassification`]) and the CJ line-start relaxation.
+/// Everything else defers to Parley's Chromium ASCII table.
 pub(crate) fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
     if let Some(verdict) = cjk_quote_reclassification(context) {
         return Some(verdict);
@@ -147,18 +142,6 @@ pub(crate) const LINE_FIT_EPS: f32 = 1.0 / 64.0;
 /// not a dragged closer.
 pub(crate) const LINE_END_TRIM_SCAN: usize = 64;
 
-/// The first character after `line_index`'s soft break that did not fit,
-/// if extending the line by exactly that character with its blank right
-/// half trimmed could keep it on the line.
-///
-/// This reconstructs Blink's `ShapingLineBreaker::ShapeLine` extension:
-/// the candidate is the first character past the break that exceeds the
-/// available advance (characters before it fit and were only dragged down
-/// by break prohibitions), it must be an eligible closing glyph, and its
-/// half-width advance must fit. The decision is a pre-filter only — the
-/// caller re-lays the paragraph with the trim applied and keeps it only
-/// if the line then breaks exactly after the trimmed closer, so parley's
-/// own fitting (and its break rules) remain the authority.
 /// Detects a rejected-extension rewind on `line_index`: the line-end trim
 /// extension would fit the first overflowing closer (so a single-item
 /// line would have extended), but the line crosses an element boundary,
@@ -247,6 +230,18 @@ pub(crate) fn rewind_break_count(
     None
 }
 
+/// The first character after `line_index`'s soft break that did not fit,
+/// if extending the line by exactly that character with its blank right
+/// half trimmed could keep it on the line.
+///
+/// This reconstructs Blink's `ShapingLineBreaker::ShapeLine` extension:
+/// the candidate is the first character past the break that exceeds the
+/// available advance (characters before it fit and were only dragged down
+/// by break prohibitions), it must be an eligible closing glyph, and its
+/// half-width advance must fit. The decision is a pre-filter only — the
+/// caller re-lays the paragraph with the trim applied and keeps it only
+/// if the line then breaks exactly after the trimmed closer, so parley's
+/// own fitting (and its break rules) remain the authority.
 pub(crate) fn line_end_trim_candidate(
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
@@ -372,6 +367,10 @@ pub(crate) fn line_end_trim_eligible(character: char) -> bool {
     )
 }
 
+/// Applies accepted line-end trims as negative letter-spacing on the
+/// closing glyph itself — the same mechanism as the pair trims, so the
+/// trimmed character is isolated in its own glyph run and the paint stays
+/// position-exact. The blank right half collapses; the ink does not move.
 pub(crate) fn push_line_end_trims(
     builder: &mut SpacingBuilder<'_>,
     text: &str,

@@ -163,8 +163,8 @@ export function isBookOwnedPageGround(color: string): boolean {
   return relativeLuminance(...parsed) < BOOK_GROUND_LUMINANCE_LIMIT;
 }
 
-/** True when a color string carries no transparency. The engine emits
- * `#rrggbb` for opaque colors and `rgba(r, g, b, a)` otherwise; other
+/** True when a color string carries no transparency. Engine colors reach
+ * this as `toCanvasColor` output, `rgba(r, g, b, a)` for sRGB; other
  * syntaxes are handled defensively. */
 export function isOpaqueColor(color: string): boolean {
   const trimmed = color.trim();

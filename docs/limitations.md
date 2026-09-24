@@ -55,8 +55,11 @@ lines, so annotation re-projection from stored source ranges is unaffected.
 
 - the archive stays in memory; the first chapter is laid out eagerly and
   later chapters and binary resources load as they are needed
-- ZIP, inflation and XML resource budgets are not enforced; do not treat
-  arbitrary untrusted EPUB input as unbounded data
+- ZIP, inflation and XML budgets are enforced and fail the open or the
+  chapter: at most 512 MiB archive bytes, 10,000 entries, 128 MiB per
+  inflated entry, 512 MiB inflated in total and a 200:1 compression ratio,
+  inflation stops at the declared size, and an XHTML document is limited to
+  128 levels of nesting and 1,000,000 nodes
 - browser fonts and images are prepared by the browser binding (`FontFace`,
   `createImageBitmap`); Flutter decodes images in the application
 

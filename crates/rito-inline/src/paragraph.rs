@@ -864,8 +864,6 @@ pub(crate) struct SpacingBuilder<'a> {
     edits: SpacingEdits,
 }
 
-/// Letter-spacing pushes in builder order: a later push overrides an
-/// earlier one on the bytes they share.
 /// The spacing layout folded into cluster advances, recorded as the
 /// builder pushed it (a later push over the same bytes wins): letter
 /// spacing on every cluster, word spacing on space clusters. The cluster
@@ -1336,6 +1334,8 @@ pub fn plain_paragraph_style(
     }
 }
 
+/// Maps the computed `text-align` onto Parley's line alignment. The
+/// Servo-internal `-moz-*` values behave as their physical counterparts.
 pub(crate) fn paragraph_alignment(value: TextAlign) -> parley::Alignment {
     match value {
         TextAlign::Start => parley::Alignment::Start,
@@ -1355,6 +1355,7 @@ pub(crate) fn paragraph_alignment(value: TextAlign) -> parley::Alignment {
 /// into the padding and widens its advance by the same amount, exactly
 /// parley's linear indent math (measured on b19's `.po` footnotes:
 /// first line one em left of the continuation lines).
+///
 /// The used first-line indent on Blink's LayoutUnit grid, TRUNCATED
 /// toward zero exactly like the padding path (LayoutUnit's float
 /// constructor truncates): a 2em indent at 15.2px is 30.4 in CSS

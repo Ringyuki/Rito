@@ -5,10 +5,6 @@ use rito_fragment::ClusterPosition;
 
 use crate::*;
 
-/// Applies accepted line-end trims as negative letter-spacing on the
-/// closing glyph itself — the same mechanism as the pair trims, so the
-/// trimmed character is isolated in its own glyph run and the paint stays
-/// position-exact. The blank right half collapses; the ink does not move.
 /// Re-fuses the text fragments a ruby spread's letter-spacing edit split
 /// apart, so each spread base paints (and carries its annotation) as one
 /// fragment per line, its cluster origins re-based onto the first

@@ -357,8 +357,8 @@ impl RuntimeDocument {
 
     /// Returns the frame's unique image-resource hrefs without copying its commands.
     ///
-    /// `RITOFCB2` currently defines `resource_table` as the canonical sorted
-    /// image href set. Extending that table to other resource kinds requires
+    /// The frame metadata's `resource_table` is the sorted set of distinct
+    /// image hrefs. Extending that table to other resource kinds requires
     /// auditing this projection.
     pub fn get_frame_image_resource_hrefs(
         &mut self,

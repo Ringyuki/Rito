@@ -316,8 +316,9 @@ fn unsupported_background_values_drop_the_background_image() {
     ));
 
     // Gradients have no paint slot: the projection leaves the paragraph
-    // without an inline style of its own (the bridge inherits for it)
-    // instead of refusing the chapter.
+    // without an inline style of its own instead of refusing the chapter,
+    // and the bridge substitutes its fixed fallback inline style (not the
+    // parent's) for it.
     let resolved = resolve(&base.stylesheet_ledger, &chapter);
     let paragraph = node_index_for_tag(&chapter, "p");
     assert!(matches!(

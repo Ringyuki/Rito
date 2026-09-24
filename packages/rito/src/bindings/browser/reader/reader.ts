@@ -128,10 +128,11 @@ function scheduleHostLineMetricsConvergence(
 /**
  * Measures, injects and reflows round after round until a round changes
  * nothing. From the second round on, the measured cache is first pushed
- * into the revision worker itself and the book re-laid with it: the final
- * page table must be built AFTER the last injection, because a table laid
- * out with an unmet metric sets the affected lines with the shaped
- * fallback and paints their baselines one row off.
+ * into the committed revision's worker (which does not re-lay it); each
+ * round that changed something then waits out a forced reflow, so the
+ * final page table is built AFTER the last injection: a table laid out
+ * with an unmet metric sets the affected lines with the shaped fallback
+ * and paints their baselines one row off.
  */
 async function convergeHostLineMetricsUntilQuiet(
   state: BrowserReaderState,

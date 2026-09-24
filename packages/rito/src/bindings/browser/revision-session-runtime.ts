@@ -156,10 +156,14 @@ export function ensureBrowserReaderRevisionLocator(
 }
 
 /// Host line metrics measured AFTER the revision worker opened never reached
-/// it, so this pushes the full metric cache into that worker, lays the
-/// whole book out again with them and commits the result. Without this,
-/// lines whose metrics arrived late stay laid out with the shaped fallback
-/// forever (a footnote-marker line painted its baseline one row high).
+/// it, so this pushes the full metric cache (with the render ratio and the
+/// rejected font faces) into the committed revision's worker and commits
+/// that same revision's whole-book target again. It does not lay the book
+/// out again: `controller.complete()` re-evaluates the target on the
+/// existing revision, whose page table stays as built. The engine drops
+/// its inline cache, so only chapters rebuilt after eviction shape with
+/// the new metrics; the layout that applies them to the whole book is the
+/// forced reflow each convergence round schedules.
 ///
 /// The visible spread stays wherever the reader is at commit time: a
 /// request-time capture would be stale once the user turns mid-flight.

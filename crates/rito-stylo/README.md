@@ -13,7 +13,7 @@ Taffy, Parley, or resource-loading dependencies.
 
 ## Boundary
 
-- Source input: `StyleDocument::from_source` accepts only an
+- Source input: `StyleDocument::from_source_with_root_font_size` accepts only an
   `Arc<rito_source::SourceArena>`. It has no constructor that accepts XHTML
   text and never parses the chapter itself.
 - Shared identity: `StyleDocument` retains the supplied `Arc`, so Stylo,

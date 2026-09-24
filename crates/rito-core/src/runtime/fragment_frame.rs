@@ -100,16 +100,12 @@ impl RuntimeDocument {
         engine
     }
 
-    /// Decides and caches fragment frames for every chapter the given
-    /// spread touches. Completed chapters are decided exactly once: either
-    /// their pages swap in, or they stay retained for this revision's
-    /// lifetime. Chapters still paginating are left undecided so they are
-    /// reconsidered once complete.
     /// The family policy fragment paint runs under, or `None` when the
     /// publication names a face into the pinned alias namespace: the
     /// engine registers fonts by declared name, so such a face would shadow
     /// the pinned face it aliases and paint could not resolve what layout
     /// measured with; the chapter build reports the collision instead.
+    ///
     /// Painted family stacks must resolve to the same faces layout
     /// measured with: only engine-registered families survive, and the
     /// pinned faces ride along under the alias names the host registered

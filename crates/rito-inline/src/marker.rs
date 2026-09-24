@@ -3,11 +3,6 @@
 
 use crate::*;
 
-/// Whether the font the style resolves for `character` carries the
-/// OpenType `halt` feature. Resolution mirrors CSS font matching: the
-/// first stack family whose matched face covers the character wins, and
-/// the registered families (the engine's installed fallback order) stand
-/// in for script fallback. An unresolvable character trims nothing.
 /// Disc geometry for a `display: list-item` inline flow, if its layout
 /// style asks for one: `(diameter, flow-relative left edge, vertical
 /// center rise above the first baseline)`.

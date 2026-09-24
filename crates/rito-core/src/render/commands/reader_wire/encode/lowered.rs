@@ -2,8 +2,8 @@
 //!
 //! Header: magic, u32 format version, f64 render ratio, u32 primitive
 //! count. Every primitive is a u16 opcode followed by its fields; paths are
-//! a u32 op count of tagged ops. Colours and run paints share the format-1
-//! encodings.
+//! a u32 op count of tagged ops. Colours and run paints use the encodings
+//! in the sibling `paint` module.
 
 use super::super::{
     ReaderDisplayListWireError, READER_DISPLAY_LIST_MAGIC, READER_PRIMITIVE_LIST_FORMAT_VERSION,

@@ -24,9 +24,11 @@ struct RuntimeRevisionShell {
 /// interaction cleanup costs `RI`, this cursor costs exactly
 /// `FC + RF + RI + 5` units. The layout configuration and the fragment page
 /// table are dropped in place with the decomposition unit: the configuration
-/// is a handful of scalars and one family string, and the pages are flat
-/// command buffers, not a recursive tree. Cached-frame table entries are
-/// scheduled inside `FC`; flat allocation releases remain atomic residuals,
+/// is a handful of scalars and one family string, but the page table owns
+/// every materialized chapter (its formatting tree, sealed fragment trees
+/// and cached paint commands), so that single unit can be the largest
+/// release of all. Cached-frame table entries are scheduled inside `FC`;
+/// the page table and other allocation releases remain atomic residuals,
 /// so this is not an end-to-end wall-clock bound.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {

@@ -9,9 +9,6 @@ use rito_style_contract::{InlineStyleTable, LayoutStyleId, LayoutStyleTable, Sty
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct FormattingNodeId(pub u32);
 
-/// A ruby base's annotation: the text drawn above the base and the
-/// annotation font size as a ratio of the base size (the `rt` element's
-/// cascaded `font-size`; the UA default is 0.5, publishers commonly
 /// The slice of a ruby annotation that rides one base segment when the
 /// base splits across lines. Measured (word-allocation matrix,
 /// 2026-08-05): a multi-word annotation splits at its spaces, each word
@@ -199,6 +196,9 @@ fn ruby_glyph_expands(character: char) -> bool {
     )
 }
 
+/// A ruby base's annotation: the text drawn above the base and the
+/// annotation font size as a ratio of the base size (the `rt` element's
+/// cascaded `font-size`; the UA default is 0.5, publishers commonly
 /// override it — 0.55em in the measured corpus).
 #[derive(Clone, Debug, PartialEq)]
 pub struct RubyAnnotation {

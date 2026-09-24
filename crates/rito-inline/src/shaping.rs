@@ -95,11 +95,6 @@ pub(crate) fn stack_notdef_advance_px(
     None
 }
 
-/// The paragraph's CSS strut height: its specified line-height in px, or
-/// `None` for `normal` (where the content envelope wins). Inherited, so
-/// the first item's style carries the paragraph value.
-/// Maps the computed `text-align` onto Parley's line alignment. The
-/// Servo-internal `-moz-*` values behave as their physical counterparts.
 /// One cluster's advance in the browser's 16.16 fixed-point pen domain:
 /// scale = round(size * 65536), px = trunc(units * scale / upem) / 65536,
 /// with author letter-spacing added OUTSIDE the fixed-point round trip

@@ -77,10 +77,6 @@ impl RitoWasmDocument {
         Ok(())
     }
 
-    /// Records publication faces the host's font decoder rejected, as a
-    /// JSON array of family-name strings. The browser cannot paint these
-    /// faces, so the engine stops shaping with them; an engine that
-    /// already shaped with one is rebuilt on the next layout.
     /// Sets the device pixels per CSS pixel frames are painted at (the
     /// canvas backing ratio: zoom × devicePixelRatio). Every raster snap
     /// lands on that grid; pagination is identical at every ratio, and
@@ -93,6 +89,10 @@ impl RitoWasmDocument {
             .map_err(|error| JsValue::from_str(error.message()))
     }
 
+    /// Records publication faces the host's font decoder rejected, as a
+    /// JSON array of family-name strings. The browser cannot paint these
+    /// faces, so the engine stops shaping with them; an engine that
+    /// already shaped with one is rebuilt on the next layout.
     #[wasm_bindgen(js_name = setUnavailableFontFacesJson)]
     pub fn set_unavailable_font_faces_json(&mut self, families_json: &str) -> Result<(), JsValue> {
         let families: Vec<String> = serde_json::from_str(families_json)

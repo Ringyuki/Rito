@@ -1,14 +1,13 @@
 //! Fragment-backend adapter: serves session queries from the revision's
 //! `FragmentBuiltLayout`.
 //!
-//! Structure queries (pages, frames, spreads, chapter ranges, anchors)
-//! and pointer-driven text interaction (caret from point, range
-//! selection, word/paragraph expansion) are served from the fragment
-//! page artifacts. Character positions inside a run interpolate linearly
-//! until per-cluster metrics ride along. Source locators and keyboard
-//! selection movement still resolve `Unavailable`: the former needs the
-//! collapse-aware source-offset mapping, the latter the shaped-caret
-//! movement engine, and both are their own cutover steps.
+//! Structure queries (pages, frames, spreads, chapter ranges, anchors),
+//! source-range resolution, pointer-driven text interaction (caret from
+//! point, range selection, word/paragraph expansion) and keyboard
+//! selection movement (`movement`) are served from the fragment page
+//! artifacts. Character positions inside a run interpolate linearly by
+//! UTF-16 offset: the page artifacts do not carry the per-cluster origins
+//! the paint list does.
 
 mod movement;
 

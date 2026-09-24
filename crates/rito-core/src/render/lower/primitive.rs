@@ -6,9 +6,9 @@
 //! the browser snaps box edges and border widths on that grid whatever the
 //! density — and scales the finished list by the render ratio last. Text
 //! runs are the one semantic shape left, and they stay in CSS pixels for
-//! the renderer to draw under the ratio; their glyph placement is still
-//! the renderer's until the text laws move here, while their inline box
-//! and decoration line already lower to fills and strokes.
+//! the renderer to draw under the ratio; each cluster's origin is already
+//! placed, and their inline box and decoration line lower to fills and
+//! strokes.
 
 use super::super::commands::contract::{ReaderColor, ReaderPoint, ReaderRect, ReaderTextRun};
 
@@ -235,14 +235,14 @@ pub(crate) enum Primitive {
     /// A text run in CSS pixels, drawn under `scale(ratio)`: the
     /// rasterizer needs the CSS size (synthetic bold widens with it) and
     /// the scale separately. Its inline box and decoration line have
-    /// lowered to primitives around it; glyph placement is still the
-    /// renderer's.
+    /// lowered to primitives around it, and its clusters carry their
+    /// origins.
     Text(ReaderTextRun),
     Ruby(ReaderTextRun),
 }
 
 impl Primitive {
-    /// The `RITODL1` format-2 opcode; state opcodes match format 1.
+    /// The `RITODL1` format-2 opcode.
     pub(crate) const fn opcode(&self) -> u16 {
         match self {
             Self::PushState => 1,
