@@ -13,7 +13,31 @@ struct SearchQuerySpec<'a> {
 pub(crate) struct SearchPageText {
     page_index: usize,
     text: String,
-    offsets: Vec<SearchRunOffset>,
+    body: SearchPageBody,
+}
+
+#[derive(Debug, Clone)]
+enum SearchPageBody {
+    General {
+        offsets: Vec<SearchRunOffset>,
+    },
+    Compact {
+        offsets: Vec<SearchRunOffsetCompact>,
+        paths: Box<[std::rc::Rc<[usize]>]>,
+    },
+}
+
+#[derive(Clone, Copy)]
+struct CompactSourceView<'a> {
+    node_path: &'a [usize],
+    source_start: u32,
+    source_len: u32,
+}
+
+impl CompactSourceView<'_> {
+    fn source_offset(&self, run_offset: u32) -> u32 {
+        self.source_start + run_offset.min(self.source_len)
+    }
 }
 
 impl SearchPageText {
@@ -22,20 +46,70 @@ impl SearchPageText {
         text: String,
         runs: Vec<SearchPrebuiltRun>,
     ) -> Self {
-        Self {
-            page_index,
-            text,
-            offsets: runs
-                .into_iter()
-                .map(|run| SearchRunOffset {
+        let compactible = runs.iter().all(|run| match &run.source {
+            None => true,
+            Some(source) => {
+                matches!(*source.segments, [(0, _, _)] if source.segments.len() == 1)
+            }
+        });
+        let body = if compactible {
+            let mut paths: Vec<std::rc::Rc<[usize]>> = Vec::new();
+            let mut offsets: Vec<SearchRunOffsetCompact> = Vec::with_capacity(runs.len());
+            for run in runs {
+                let (path_index, source_start, source_len) = match run.source {
+                    None => (u32::MAX, 0, 0),
+                    Some(source) => {
+                        let [(0, source_start, source_len)] = *source.segments else {
+                            unreachable!("compactible checked above")
+                        };
+                        let index = paths
+                            .iter()
+                            .position(|entry| std::rc::Rc::ptr_eq(entry, &source.node_path))
+                            .unwrap_or_else(|| {
+                                paths.push(std::rc::Rc::clone(&source.node_path));
+                                paths.len() - 1
+                            });
+                        (
+                            u32::try_from(index).expect("page path-table index fits u32"),
+                            source_start,
+                            source_len,
+                        )
+                    }
+                };
+                offsets.push(SearchRunOffsetCompact {
                     start: run.start,
                     end: run.end,
                     block_index: run.block_index,
                     line_index: run.line_index,
                     run_index: run.run_index,
-                    source: run.source,
-                })
-                .collect(),
+                    path_index,
+                    source_start,
+                    source_len,
+                });
+            }
+            SearchPageBody::Compact {
+                offsets,
+                paths: paths.into_boxed_slice(),
+            }
+        } else {
+            SearchPageBody::General {
+                offsets: runs
+                    .into_iter()
+                    .map(|run| SearchRunOffset {
+                        start: run.start,
+                        end: run.end,
+                        block_index: run.block_index,
+                        line_index: run.line_index,
+                        run_index: run.run_index,
+                        source: run.source,
+                    })
+                    .collect(),
+            }
+        };
+        Self {
+            page_index,
+            text,
+            body,
         }
     }
 }
@@ -90,6 +164,18 @@ struct SearchRunOffset {
     line_index: u32,
     run_index: u32,
     source: Option<SearchPrebuiltRunSource>,
+}
+
+#[derive(Debug, Clone)]
+struct SearchRunOffsetCompact {
+    start: u32,
+    end: u32,
+    block_index: u32,
+    line_index: u32,
+    run_index: u32,
+    path_index: u32,
+    source_start: u32,
+    source_len: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -227,10 +313,10 @@ fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchR
         let start_offset = folded_byte_to_original_utf16(&haystack, byte_index, SearchBias::Start);
         let end_offset = folded_byte_to_original_utf16(&haystack, end_byte, SearchBias::End);
         if let (Some(start), Some(end)) = (
-            search_offset_to_position(&page.offsets, start_offset, SearchBias::Start),
-            search_offset_to_position(&page.offsets, end_offset, SearchBias::End),
+            search_offset_to_position(page, start_offset, SearchBias::Start),
+            search_offset_to_position(page, end_offset, SearchBias::End),
         ) {
-            let source_range = search_source_range(&page.offsets, start_offset, end_offset);
+            let source_range = search_source_range(page, start_offset, end_offset);
             // The source range is verified against the text it claims
             // to cover, which is the whole match unless generated
             // content forced it to shrink. Verifying a shrunken range
@@ -327,40 +413,90 @@ enum SearchBias {
 }
 
 fn search_offset_to_position(
-    offsets: &[SearchRunOffset],
+    page: &SearchPageText,
     offset: usize,
     bias: SearchBias,
 ) -> Option<SearchTextPosition> {
-    for entry in offsets {
-        let start = entry.start as usize;
-        let end = entry.end as usize;
+    fn position(
+        start: u32,
+        end: u32,
+        block_index: u32,
+        line_index: u32,
+        run_index: u32,
+        offset: usize,
+        bias: SearchBias,
+    ) -> Option<SearchTextPosition> {
+        let start = start as usize;
+        let end = end as usize;
         let in_entry = match bias {
             SearchBias::Start => offset >= start && offset < end,
             SearchBias::End => offset > start && offset <= end,
         };
         if in_entry {
-            let char_index = offset - start;
             return Some(SearchTextPosition {
-                block_index: entry.block_index as usize,
-                line_index: entry.line_index as usize,
-                run_index: entry.run_index as usize,
-                char_index,
+                block_index: block_index as usize,
+                line_index: line_index as usize,
+                run_index: run_index as usize,
+                char_index: offset - start,
             });
         }
+        None
     }
-    if matches!(bias, SearchBias::End) && offset == 0 {
-        return offsets.first().map(|first| SearchTextPosition {
-            block_index: first.block_index as usize,
-            line_index: first.line_index as usize,
-            run_index: first.run_index as usize,
-            char_index: 0,
-        });
+
+    match &page.body {
+        SearchPageBody::General { offsets } => {
+            for entry in offsets {
+                if let Some(position) = position(
+                    entry.start,
+                    entry.end,
+                    entry.block_index,
+                    entry.line_index,
+                    entry.run_index,
+                    offset,
+                    bias,
+                ) {
+                    return Some(position);
+                }
+            }
+            if matches!(bias, SearchBias::End) && offset == 0 {
+                return offsets.first().map(|first| SearchTextPosition {
+                    block_index: first.block_index as usize,
+                    line_index: first.line_index as usize,
+                    run_index: first.run_index as usize,
+                    char_index: 0,
+                });
+            }
+            None
+        }
+        SearchPageBody::Compact { offsets, .. } => {
+            for entry in offsets {
+                if let Some(position) = position(
+                    entry.start,
+                    entry.end,
+                    entry.block_index,
+                    entry.line_index,
+                    entry.run_index,
+                    offset,
+                    bias,
+                ) {
+                    return Some(position);
+                }
+            }
+            if matches!(bias, SearchBias::End) && offset == 0 {
+                return offsets.first().map(|first| SearchTextPosition {
+                    block_index: first.block_index as usize,
+                    line_index: first.line_index as usize,
+                    run_index: first.run_index as usize,
+                    char_index: 0,
+                });
+            }
+            None
+        }
     }
-    None
 }
 
 fn search_source_range(
-    offsets: &[SearchRunOffset],
+    page: &SearchPageText,
     start: usize,
     end: usize,
 ) -> Option<SearchSourceRange> {
@@ -373,27 +509,27 @@ fn search_source_range(
     let mut current: Option<SearchSourceRange> = None;
     let mut cursor = start;
 
-    let close = |current: &mut Option<SearchSourceRange>, segments: &mut Vec<SearchSourceRange>| {
-        if let Some(segment) = current.take() {
-            segments.push(segment);
-        }
-    };
-
-    for entry in offsets
-        .iter()
-        .filter(|entry| entry.end as usize > start && (entry.start as usize) < end)
-    {
-        let entry_start = entry.start as usize;
-        let entry_end = entry.end as usize;
+    let walk = |entry_start: u32,
+                entry_end: u32,
+                source: Option<RunSourceView<'_>>,
+                cursor: &mut usize,
+                current: &mut Option<SearchSourceRange>,
+                segments: &mut Vec<SearchSourceRange>| {
+        let entry_start = entry_start as usize;
+        let entry_end = entry_end as usize;
         let part_start = start.max(entry_start);
         let part_end = end.min(entry_end);
-        if part_start != cursor {
-            close(&mut current, &mut segments);
+        if part_start != *cursor {
+            if let Some(segment) = current.take() {
+                segments.push(segment);
+            }
         }
-        cursor = part_end;
-        let Some(source) = entry.source.as_ref() else {
-            close(&mut current, &mut segments);
-            continue;
+        *cursor = part_end;
+        let Some(source) = source else {
+            if let Some(segment) = current.take() {
+                segments.push(segment);
+            }
+            return;
         };
         // A run maps its own text to source offsets directly. Consecutive
         // runs of the same source node with contiguous offsets extend one
@@ -406,16 +542,18 @@ fn search_source_range(
             .ok()
             .and_then(|offset| source.source_offset(offset));
         let (Some(head), Some(tail)) = (head, tail) else {
-            close(&mut current, &mut segments);
-            continue;
+            if let Some(segment) = current.take() {
+                segments.push(segment);
+            }
+            return;
         };
         let continues = current.as_ref().is_some_and(|segment| {
-            segment.end.node_path[..] == source.node_path[..]
+            segment.end.node_path[..] == *source.node_path()
                 && segment.end.text_offset == head as usize
                 && segment.covered_end == part_start
         });
         let tail_point = SearchSourcePoint {
-            node_path: source.node_path.to_vec(),
+            node_path: source.node_path().to_vec(),
             text_offset: tail as usize,
         };
         if continues {
@@ -423,10 +561,12 @@ fn search_source_range(
             segment.end = tail_point;
             segment.covered_end = part_end;
         } else {
-            close(&mut current, &mut segments);
-            current = Some(SearchSourceRange {
+            if let Some(segment) = current.take() {
+                segments.push(segment);
+            }
+            *current = Some(SearchSourceRange {
                 start: SearchSourcePoint {
-                    node_path: source.node_path.to_vec(),
+                    node_path: source.node_path().to_vec(),
                     text_offset: head as usize,
                 },
                 end: tail_point,
@@ -434,12 +574,80 @@ fn search_source_range(
                 covered_end: part_end,
             });
         }
+    };
+
+    match &page.body {
+        SearchPageBody::General { offsets } => {
+            for entry in offsets
+                .iter()
+                .filter(|entry| entry.end as usize > start && (entry.start as usize) < end)
+            {
+                walk(
+                    entry.start,
+                    entry.end,
+                    entry.source.as_ref().map(RunSourceView::General),
+                    &mut cursor,
+                    &mut current,
+                    &mut segments,
+                );
+            }
+        }
+        SearchPageBody::Compact { offsets, paths } => {
+            for entry in offsets
+                .iter()
+                .filter(|entry| entry.end as usize > start && (entry.start as usize) < end)
+            {
+                let source = (entry.path_index != u32::MAX)
+                    .then(|| {
+                        paths.get(entry.path_index as usize).map(|path| {
+                            RunSourceView::Compact(CompactSourceView {
+                                node_path: path,
+                                source_start: entry.source_start,
+                                source_len: entry.source_len,
+                            })
+                        })
+                    })
+                    .flatten();
+                walk(
+                    entry.start,
+                    entry.end,
+                    source,
+                    &mut cursor,
+                    &mut current,
+                    &mut segments,
+                );
+            }
+        }
     }
-    close(&mut current, &mut segments);
+    if let Some(segment) = current.take() {
+        segments.push(segment);
+    }
 
     segments
         .into_iter()
         .max_by_key(|segment| segment.covered_end - segment.covered_start)
+}
+
+#[derive(Clone)]
+enum RunSourceView<'a> {
+    General(&'a SearchPrebuiltRunSource),
+    Compact(CompactSourceView<'a>),
+}
+
+impl RunSourceView<'_> {
+    fn source_offset(&self, run_offset: u32) -> Option<u32> {
+        match self {
+            RunSourceView::General(source) => source.source_offset(run_offset),
+            RunSourceView::Compact(view) => Some(view.source_offset(run_offset)),
+        }
+    }
+
+    fn node_path(&self) -> &[usize] {
+        match self {
+            RunSourceView::General(source) => &source.node_path,
+            RunSourceView::Compact(view) => view.node_path,
+        }
+    }
 }
 
 fn is_search_word_boundary(text: &str, start: usize, end: usize) -> bool {
