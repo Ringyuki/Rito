@@ -1279,6 +1279,7 @@ impl FormattingContext for ParleyInlineContext {
                                 justify_px,
                                 opener_halt_trims,
                                 run_word_spacing,
+                                &self.upem_cache,
                             );
                             children.push((
                                 Fragment::Text(TextFragment {
@@ -1461,6 +1462,7 @@ impl FormattingContext for ParleyInlineContext {
                                         hb_fixed_cluster_advance(
                                             current,
                                             folded_spacing(spacing_edits, current),
+                                            &self.upem_cache,
                                         )
                                     };
                                 let (cjk_kern_splits, cjk_anchor_correction, cjk_hb_total): (
@@ -1647,6 +1649,7 @@ impl FormattingContext for ParleyInlineContext {
                                         correction += hb_fixed_cluster_advance(
                                             &current,
                                             folded_spacing(spacing_edits, &current),
+                                            &self.upem_cache,
                                         ) - f64::from(current.advance());
                                         prefix = current.next_logical();
                                     }

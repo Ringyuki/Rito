@@ -35,6 +35,7 @@ pub(crate) struct PieceClusters {
 /// blank half further right, so such a cluster's origin moves left by its
 /// half while the clusters after it keep the trimmed advance layout
 /// stepped by.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn piece_clusters(
     layout: &parley::Layout<[u8; 4]>,
     flow_text: &str,
@@ -43,6 +44,7 @@ pub(crate) fn piece_clusters(
     justify_px: f64,
     halt_trims: &[(std::ops::Range<usize>, f64)],
     word_spacing: bool,
+    upem_cache: &std::cell::RefCell<Vec<(u64, u32, i64)>>,
 ) -> PieceClusters {
     let mut steps: Vec<(u32, f64, f64)> = Vec::new();
     let mut font_size = 0.0_f64;
@@ -55,8 +57,11 @@ pub(crate) fn piece_clusters(
         if steps.is_empty() {
             font_size = f64::from(current.run().font_size());
         }
-        let step = hb_fixed_cluster_advance(&current, folded_spacing(spacing_edits, &current))
-            + justify_px;
+        let step = hb_fixed_cluster_advance(
+            &current,
+            folded_spacing(spacing_edits, &current),
+            upem_cache,
+        ) + justify_px;
         let trim = halt_trims
             .iter()
             .find(|(trimmed, _)| *trimmed == text_range)
@@ -356,6 +361,7 @@ impl ParleyInlineContext {
             0.0,
             &[],
             word_spacing,
+            &self.upem_cache,
         );
         MeasuredRun {
             advance: piece.advance,

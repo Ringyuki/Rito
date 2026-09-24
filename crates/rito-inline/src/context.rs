@@ -53,6 +53,7 @@ impl ParleyInlineContext {
             host_metric_requests: RefCell::new(std::collections::BTreeSet::new()),
             host_metric_samples: RefCell::new(std::collections::HashMap::new()),
             halt_feature_cache: RefCell::new(std::collections::HashMap::new()),
+            upem_cache: RefCell::new(Vec::new()),
             host_char_advances: RefCell::new(std::collections::HashMap::new()),
             char_coverage_cache: RefCell::new(std::collections::HashMap::new()),
             metrics_generation: std::cell::Cell::new(0),
