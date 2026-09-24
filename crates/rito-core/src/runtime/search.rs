@@ -5,8 +5,8 @@ use crate::epub::{parsed_loaded_chapter_source, LoadedChapter, LoadedEpubDocumen
 mod page_text;
 
 pub(in crate::runtime) use page_text::{
-    search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource,
-    SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
+    search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun,
+    SearchPrebuiltRunSource, SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
 };
 pub use page_text::{SearchRuntimeResult, SearchTextPosition};
 

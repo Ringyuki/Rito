@@ -58,8 +58,8 @@ pub(crate) struct SearchPrebuiltRun {
 /// run-local UTF-16 (the fragment artifact's own record).
 #[derive(Debug, Clone)]
 pub(crate) struct SearchPrebuiltRunSource {
-    pub(crate) node_path: Vec<usize>,
-    pub(crate) segments: Vec<(u32, u32, u32)>,
+    pub(crate) node_path: std::rc::Rc<[usize]>,
+    pub(crate) segments: std::rc::Rc<[(u32, u32, u32)]>,
 }
 
 impl SearchPrebuiltRunSource {
@@ -68,7 +68,7 @@ impl SearchPrebuiltRunSource {
     /// of the last one) — the same seam rule the artifact's own mapping
     /// uses.
     fn source_offset(&self, run_offset: u32) -> Option<u32> {
-        for (run_start, source_start, len) in &self.segments {
+        for (run_start, source_start, len) in self.segments.iter() {
             if run_offset < *run_start {
                 return Some(*source_start);
             }
@@ -410,12 +410,12 @@ fn search_source_range(
             continue;
         };
         let continues = current.as_ref().is_some_and(|segment| {
-            segment.end.node_path == source.node_path
+            segment.end.node_path[..] == source.node_path[..]
                 && segment.end.text_offset == head as usize
                 && segment.covered_end == part_start
         });
         let tail_point = SearchSourcePoint {
-            node_path: source.node_path.clone(),
+            node_path: source.node_path.to_vec(),
             text_offset: tail as usize,
         };
         if continues {
@@ -426,7 +426,7 @@ fn search_source_range(
             close(&mut current, &mut segments);
             current = Some(SearchSourceRange {
                 start: SearchSourcePoint {
-                    node_path: source.node_path.clone(),
+                    node_path: source.node_path.to_vec(),
                     text_offset: head as usize,
                 },
                 end: tail_point,

@@ -16,8 +16,8 @@ fn run(
         line_index: 0,
         run_index,
         source: source.map(|(node_path, source_start, len)| SearchPrebuiltRunSource {
-            node_path,
-            segments: vec![(0, source_start, len)],
+            node_path: node_path.into(),
+            segments: vec![(0, source_start, len)].into(),
         }),
     }
 }
