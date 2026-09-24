@@ -746,11 +746,11 @@ fn search_page_text(page_index: usize, artifact: &FragmentPageArtifact) -> Searc
         .interaction_runs()
         .iter()
         .map(|run| SearchPrebuiltRun {
-            start: run.start,
-            end: run.end,
-            block_index: run.block_index,
-            line_index: run.line_index,
-            run_index: run.run_index,
+            start: u32::try_from(run.start).expect("page run offsets fit u32"),
+            end: u32::try_from(run.end).expect("page run offsets fit u32"),
+            block_index: u32::try_from(run.block_index).expect("page block index fits u32"),
+            line_index: u32::try_from(run.line_index).expect("page line index fits u32"),
+            run_index: u32::try_from(run.run_index).expect("page run index fits u32"),
             source: run.source.as_ref().map(|source| SearchPrebuiltRunSource {
                 node_path: source.path.clone(),
                 segments: source.segments.clone(),

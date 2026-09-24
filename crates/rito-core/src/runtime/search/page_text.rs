@@ -43,11 +43,11 @@ impl SearchPageText {
 /// One text run of a search page, in page-text UTF-16 offsets.
 #[derive(Debug, Clone)]
 pub(crate) struct SearchPrebuiltRun {
-    pub(crate) start: usize,
-    pub(crate) end: usize,
-    pub(crate) block_index: usize,
-    pub(crate) line_index: usize,
-    pub(crate) run_index: usize,
+    pub(crate) start: u32,
+    pub(crate) end: u32,
+    pub(crate) block_index: u32,
+    pub(crate) line_index: u32,
+    pub(crate) run_index: u32,
     /// The run's source identity, when its builder retained one — a hit
     /// without it still finds text but cannot anchor a durable locator.
     pub(crate) source: Option<SearchPrebuiltRunSource>,
@@ -84,11 +84,11 @@ impl SearchPrebuiltRunSource {
 
 #[derive(Debug, Clone)]
 struct SearchRunOffset {
-    start: usize,
-    end: usize,
-    block_index: usize,
-    line_index: usize,
-    run_index: usize,
+    start: u32,
+    end: u32,
+    block_index: u32,
+    line_index: u32,
+    run_index: u32,
     source: Option<SearchPrebuiltRunSource>,
 }
 
@@ -332,25 +332,27 @@ fn search_offset_to_position(
     bias: SearchBias,
 ) -> Option<SearchTextPosition> {
     for entry in offsets {
+        let start = entry.start as usize;
+        let end = entry.end as usize;
         let in_entry = match bias {
-            SearchBias::Start => offset >= entry.start && offset < entry.end,
-            SearchBias::End => offset > entry.start && offset <= entry.end,
+            SearchBias::Start => offset >= start && offset < end,
+            SearchBias::End => offset > start && offset <= end,
         };
         if in_entry {
-            let char_index = offset - entry.start;
+            let char_index = offset - start;
             return Some(SearchTextPosition {
-                block_index: entry.block_index,
-                line_index: entry.line_index,
-                run_index: entry.run_index,
+                block_index: entry.block_index as usize,
+                line_index: entry.line_index as usize,
+                run_index: entry.run_index as usize,
                 char_index,
             });
         }
     }
     if matches!(bias, SearchBias::End) && offset == 0 {
         return offsets.first().map(|first| SearchTextPosition {
-            block_index: first.block_index,
-            line_index: first.line_index,
-            run_index: first.run_index,
+            block_index: first.block_index as usize,
+            line_index: first.line_index as usize,
+            run_index: first.run_index as usize,
             char_index: 0,
         });
     }
@@ -379,10 +381,12 @@ fn search_source_range(
 
     for entry in offsets
         .iter()
-        .filter(|entry| entry.end > start && entry.start < end)
+        .filter(|entry| entry.end as usize > start && (entry.start as usize) < end)
     {
-        let part_start = start.max(entry.start);
-        let part_end = end.min(entry.end);
+        let entry_start = entry.start as usize;
+        let entry_end = entry.end as usize;
+        let part_start = start.max(entry_start);
+        let part_end = end.min(entry_end);
         if part_start != cursor {
             close(&mut current, &mut segments);
         }
@@ -395,10 +399,10 @@ fn search_source_range(
         // runs of the same source node with contiguous offsets extend one
         // segment — a match that font fallback split across two runs must
         // keep its full anchor, not shrink to the longest run's slice.
-        let head = u32::try_from(part_start - entry.start)
+        let head = u32::try_from(part_start - entry_start)
             .ok()
             .and_then(|offset| source.source_offset(offset));
-        let tail = u32::try_from(part_end - entry.start)
+        let tail = u32::try_from(part_end - entry_start)
             .ok()
             .and_then(|offset| source.source_offset(offset));
         let (Some(head), Some(tail)) = (head, tail) else {

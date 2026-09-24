@@ -4,9 +4,9 @@ use super::{
 };
 
 fn run(
-    start: usize,
-    end: usize,
-    run_index: usize,
+    start: u32,
+    end: u32,
+    run_index: u32,
     source: Option<(Vec<usize>, u32, u32)>,
 ) -> SearchPrebuiltRun {
     SearchPrebuiltRun {
