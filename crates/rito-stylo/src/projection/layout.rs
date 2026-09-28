@@ -28,6 +28,9 @@ use crate::{
     dom::DomStorage,
 };
 
+#[cfg(test)]
+mod sizing_tests;
+
 /// Contract field that prevented an exact layout-style projection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LayoutStyleField {
@@ -354,13 +357,15 @@ fn maximum_size(value: StyloMaxSize) -> ProjectionResult<MaximumSize> {
             non_negative_length_percentage(&value, field)?,
         )),
         GenericMaxSize::None => Ok(MaximumSize::None),
-        GenericMaxSize::MaxContent
-        | GenericMaxSize::MinContent
-        | GenericMaxSize::FitContent
-        | GenericMaxSize::WebkitFillAvailable
-        | GenericMaxSize::Stretch
-        | GenericMaxSize::FitContentFunction(_)
-        | GenericMaxSize::AnchorSizeFunction(_) => Err(unsupported(field)),
+        GenericMaxSize::MaxContent => Ok(MaximumSize::MaxContent),
+        GenericMaxSize::MinContent => Ok(MaximumSize::MinContent),
+        GenericMaxSize::FitContent => Ok(MaximumSize::FitContent),
+        GenericMaxSize::WebkitFillAvailable => Ok(MaximumSize::WebkitFillAvailable),
+        GenericMaxSize::Stretch => Ok(MaximumSize::Stretch),
+        GenericMaxSize::FitContentFunction(value) => Ok(MaximumSize::FitContentFunction(
+            non_negative_length_percentage(&value, field)?,
+        )),
+        GenericMaxSize::AnchorSizeFunction(_) => Err(unsupported(field)),
         GenericMaxSize::AnchorContainingCalcFunction(_) => Err(opaque_calc(field)),
     }
 }

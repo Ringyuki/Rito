@@ -127,11 +127,16 @@ pub(crate) fn resolve_horizontal_box(
     let width = match style.width {
         PreferredSize::Auto => None,
         PreferredSize::Value(value) => Some(resolve(value.value()).max(0.0)),
-        other => {
-            return Err(LayoutError::Invalid(format!(
-                "block width {other:?} is not representable yet"
-            )));
-        }
+        // Keep books readable until intrinsic/extrinsic sizing is implemented.
+        // The chapter bridge records the unsupported value; use auto here,
+        // preserving numeric caps, padding and margins instead of aborting
+        // the entire chapter when it becomes the adjacent navigation target.
+        PreferredSize::MaxContent
+        | PreferredSize::MinContent
+        | PreferredSize::FitContent
+        | PreferredSize::WebkitFillAvailable
+        | PreferredSize::Stretch
+        | PreferredSize::FitContentFunction(_) => None,
     };
     // max-width caps the used width; an auto width capped below the
     // available space behaves like a specified width (so auto margins can
@@ -139,6 +144,12 @@ pub(crate) fn resolve_horizontal_box(
     let max_width = match style.max_width {
         MaximumSize::None => None,
         MaximumSize::Value(value) => Some(resolve(value.value()).max(0.0)),
+        MaximumSize::MaxContent
+        | MaximumSize::MinContent
+        | MaximumSize::FitContent
+        | MaximumSize::WebkitFillAvailable
+        | MaximumSize::Stretch
+        | MaximumSize::FitContentFunction(_) => None,
     };
     let width = match (width, max_width) {
         (Some(width), Some(cap)) => Some(width.min(cap)),
@@ -237,11 +248,16 @@ pub(crate) fn resolve_fixed_height(
             // No definite height basis in block flow: behaves as auto.
             LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => return Ok(None),
         },
-        other => {
-            return Err(LayoutError::Invalid(format!(
-                "block height {other:?} is not representable yet"
-            )));
-        }
+        // These sizes have no implemented used-height calculation in the
+        // paginated block context. Let content determine the height, as for
+        // auto, so the same compatibility policy holds for paragraphs and
+        // nested containers across page boundaries.
+        PreferredSize::MaxContent
+        | PreferredSize::MinContent
+        | PreferredSize::FitContent
+        | PreferredSize::WebkitFillAvailable
+        | PreferredSize::Stretch
+        | PreferredSize::FitContentFunction(_) => return Ok(None),
     };
     Ok(Some(match style.box_sizing {
         BoxSizing::ContentBox => height.max(0.0) + vertical_padding,

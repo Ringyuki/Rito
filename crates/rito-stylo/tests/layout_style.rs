@@ -341,23 +341,17 @@ fn logical_clear_fails_closed_without_a_layout_table_assignment() {
 }
 
 #[test]
-fn intrinsic_max_width_fails_closed_without_a_layout_table_assignment() {
+fn intrinsic_max_width_is_retained_for_consumer_compatibility() {
     let source = target_source();
     let target = source.find_element_by_id("target").unwrap();
     let mut document = document(Arc::clone(&source), "#target { max-width: max-content }");
 
     let projection = document.resolve_production_slice().unwrap();
     assert_eq!(
-        projection.layout().table().node_style_ids()[target.index()],
-        None
+        projection.layout().table().style_for_node(target.index()).unwrap().max_width,
+        MaximumSize::MaxContent
     );
-    assert!(projection.layout().dispositions().contains(
-        &LayoutStyleDisposition::ContractRejected {
-            node_id: target,
-            field: LayoutStyleField::MaxWidth,
-            reason: LayoutStyleProjectionReason::UnsupportedValue,
-        }
-    ));
+    assert!(projection.layout().is_contract_slice_complete());
 }
 
 #[test]
