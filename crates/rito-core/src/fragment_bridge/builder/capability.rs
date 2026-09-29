@@ -148,6 +148,10 @@ fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
 /// Constraints shared by every box the engine lays out, replaced or not.
 fn shared_box_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
     use rito_style_contract as c;
+    match style.max_width {
+        c::MaximumSize::None | c::MaximumSize::Value(_) => {}
+        other => return Some(format!("max-width {other:?} (cap ignored)")),
+    }
     // Floated blocks lay out as placed float boxes: a resolvable width is
     // used directly, and an auto width shrinks to fit its content.
     // Floated images (line-box wrapping) stay rejected at collection.

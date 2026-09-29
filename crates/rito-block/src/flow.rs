@@ -1348,8 +1348,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         content_width: f64,
     ) -> Result<HorizontalBox, LayoutError> {
         let hbox = resolve_horizontal_box(child_style, content_width)?;
-        if !(matches!(child_style.width, PreferredSize::Auto)
-            && child_style.max_width == MaximumSize::None)
+        if matches!(child_style.width, PreferredSize::Value(_))
+            || matches!(child_style.max_width, MaximumSize::Value(_))
         {
             return Ok(hbox);
         }

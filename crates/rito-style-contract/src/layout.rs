@@ -85,15 +85,21 @@ pub enum PreferredSize {
     FitContentFunction(NonNegativeLengthPercentage),
 }
 
-/// Computed `max-width` values implemented by Rito's current layout consumer.
+/// Computed `max-width` values retained for layout and capability diagnostics.
 ///
-/// Intrinsic sizing keywords and anchor functions are deliberately outside
-/// this contract revision. Producers must reject them instead of flattening
-/// them to `none` or an arbitrary length.
+/// Intrinsic sizing is retained exactly by the producer. Consumers currently
+/// omit these caps as a compatibility fallback, preserving the rest of the
+/// element's layout style. Anchor functions remain outside this contract.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MaximumSize {
     None,
     Value(NonNegativeLengthPercentage),
+    MaxContent,
+    MinContent,
+    FitContent,
+    WebkitFillAvailable,
+    Stretch,
+    FitContentFunction(NonNegativeLengthPercentage),
 }
 
 /// Physical `clear` values implemented by Rito's current float consumer.
