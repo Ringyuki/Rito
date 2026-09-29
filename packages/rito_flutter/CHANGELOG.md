@@ -28,6 +28,22 @@ The wire gains `RITOESQ1` and `RITOESR1`, and the C ABI gains
 `rito_resolve_exact_source_range`. The artifact protocol version is
 unchanged.
 
+### OpenHarmony builds compile rito-ffi for the OHOS targets
+
+The Flutter-OH toolchain runs build hooks for a HarmonyOS build with a
+Linux target and the OpenHarmony SDK's LLVM as the C compiler, so the
+hook used to take it for a cross-architecture Linux desktop build and
+refuse it. A C compiler under `openharmony/native/llvm/bin` now selects
+`aarch64-unknown-linux-ohos`, `armv7-unknown-linux-ohos` or
+`x86_64-unknown-linux-ohos` by architecture, links with that SDK's
+`clang` against its `sysroot`, and ships `librito_ffi.so`. Other Linux
+builds are unchanged.
+
+Install the Rust target for the pinned toolchain, for example
+`rustup target add aarch64-unknown-linux-ohos`. The HAP also has to
+carry `NativeAssetsManifest.json`, which Flutter-OH bundles from the
+release after `3.41.10-ohos-1.0.1`.
+
 ### Breaking
 
 `RitoReaderGateway` gains `exactSourceRange`. A host that implements
