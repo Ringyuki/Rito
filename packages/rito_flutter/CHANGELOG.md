@@ -1,4 +1,4 @@
-## Unreleased
+## 0.4.0 - 2026-09-29
 
 ### A stored highlight is projected by the engine
 
