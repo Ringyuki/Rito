@@ -1,5 +1,13 @@
 # @ritojs/react
 
+## 2.1.0
+
+### Patch Changes
+
+- Updated dependencies [95267a8]
+  - @ritojs/kit@2.1.0
+  - @ritojs/core@2.1.0
+
 ## 2.0.0
 
 ### Major Changes
