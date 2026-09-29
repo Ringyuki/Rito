@@ -39,6 +39,52 @@ void main() {
       );
     });
 
+    test('maps an OpenHarmony toolchain onto the OHOS Rust targets', () {
+      expect(
+        _ohos(Architecture.arm64).rustTarget,
+        'aarch64-unknown-linux-ohos',
+      );
+      expect(_ohos(Architecture.arm).rustTarget, 'armv7-unknown-linux-ohos');
+      expect(_ohos(Architecture.x64).rustTarget, 'x86_64-unknown-linux-ohos');
+      expect(_ohos(Architecture.arm64).ohosClangArguments, <String>[
+        '--target=aarch64-linux-ohos',
+      ]);
+      expect(
+        _ohos(Architecture.arm).ohosClangArguments.first,
+        '--target=arm-linux-ohos',
+      );
+      expect(_ohos(Architecture.arm64).libraryFileName, 'librito_ffi.so');
+      expect(_ohos(Architecture.arm64).targetOS, OS.linux);
+      expect(_ohos(Architecture.arm64).ohosNativeRoot, _ohosNativeRoot);
+      expect(() => _ohos(Architecture.riscv64), throwsUnsupportedError);
+    });
+
+    test('finds the OpenHarmony native root from its clang', () {
+      expect(
+        RitoCargoTarget.ohosNativeRootOf(
+          Uri.file('$_ohosNativeRoot/llvm/bin/clang'),
+        ),
+        _ohosNativeRoot,
+      );
+      expect(
+        RitoCargoTarget.ohosNativeRootOf(Uri.file('/usr/bin/clang')),
+        isNull,
+      );
+      expect(RitoCargoTarget.ohosNativeRootOf(null), isNull);
+    });
+
+    test('a plain Linux cross build without an OHOS clang is refused', () {
+      expect(
+        () => RitoCargoTarget.resolve(
+          targetOS: OS.linux,
+          architecture: Architecture.arm64,
+          hostOS: OS.linux,
+          hostArchitecture: Architecture.x64,
+        ),
+        throwsUnsupportedError,
+      );
+    });
+
     test('uses the default toolchain for the current host tuple', () {
       final target = RitoCargoTarget.resolve(
         targetOS: OS.macOS,
@@ -209,6 +255,18 @@ RitoCargoTarget _android(Architecture architecture) {
     hostOS: OS.macOS,
     hostArchitecture: Architecture.arm64,
     androidApi: 23,
+  );
+}
+
+const String _ohosNativeRoot = '/sdk/default/openharmony/native';
+
+RitoCargoTarget _ohos(Architecture architecture) {
+  return RitoCargoTarget.resolve(
+    targetOS: OS.linux,
+    architecture: architecture,
+    hostOS: OS.linux,
+    hostArchitecture: Architecture.x64,
+    ohosNativeRoot: _ohosNativeRoot,
   );
 }
 

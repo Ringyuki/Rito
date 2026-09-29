@@ -12,6 +12,8 @@ final class RitoCargoTarget {
     this.appleSdk,
     this.deploymentEnvironment,
     this.deploymentVersion,
+    this.ohosNativeRoot,
+    this.ohosClangArguments = const <String>[],
   });
 
   factory RitoCargoTarget.fromCodeConfig(
@@ -32,6 +34,7 @@ final class RitoCargoTarget {
         OS.macOS => config.macOS.targetVersion,
         _ => null,
       },
+      ohosNativeRoot: ohosNativeRootOf(config.cCompiler?.compiler),
     );
   }
 
@@ -43,7 +46,17 @@ final class RitoCargoTarget {
     IOSSdk? iOSSdk,
     int? androidApi,
     int? deploymentVersion,
+    String? ohosNativeRoot,
   }) {
+    if (ohosNativeRoot != null &&
+        (targetOS == OS.linux || targetOS.name == 'ohos')) {
+      return _ohos(
+        targetOS: targetOS,
+        architecture: architecture,
+        hostOS: hostOS,
+        nativeRoot: ohosNativeRoot,
+      );
+    }
     if (targetOS == OS.android) {
       return _android(
         architecture: architecture,
@@ -77,6 +90,18 @@ final class RitoCargoTarget {
   final String? appleSdk;
   final String? deploymentEnvironment;
   final int? deploymentVersion;
+  final String? ohosNativeRoot;
+  final List<String> ohosClangArguments;
+
+  static String? ohosNativeRootOf(Uri? compiler) {
+    if (compiler == null || compiler.scheme != 'file') {
+      return null;
+    }
+    final normalized = compiler.toFilePath().replaceAll('\\', '/');
+    const root = '/openharmony/native';
+    final index = normalized.indexOf('$root/llvm/bin/');
+    return index < 0 ? null : normalized.substring(0, index + root.length);
+  }
 
   List<String> get cargoTargetArguments => switch (rustTarget) {
     null => const <String>[],
@@ -122,6 +147,50 @@ final class RitoCargoTarget {
       libraryFileName: OS.android.dylibFileName('rito_ffi'),
       androidClangPrefix: clangPrefix,
       androidApi: androidApi,
+    );
+  }
+
+  static RitoCargoTarget _ohos({
+    required OS targetOS,
+    required Architecture architecture,
+    required OS hostOS,
+    required String nativeRoot,
+  }) {
+    if (!<OS>{OS.macOS, OS.linux, OS.windows}.contains(hostOS)) {
+      throw UnsupportedError(
+        'OpenHarmony Rust builds are not supported on $hostOS.',
+      );
+    }
+    final (rustTarget, clangArguments) = switch (architecture) {
+      Architecture.arm64 => (
+        'aarch64-unknown-linux-ohos',
+        const <String>['--target=aarch64-linux-ohos'],
+      ),
+      Architecture.arm => (
+        'armv7-unknown-linux-ohos',
+        const <String>[
+          '--target=arm-linux-ohos',
+          '-march=armv7-a',
+          '-mfloat-abi=softfp',
+          '-mtune=generic-armv7-a',
+          '-mthumb',
+        ],
+      ),
+      Architecture.x64 => (
+        'x86_64-unknown-linux-ohos',
+        const <String>['--target=x86_64-linux-ohos'],
+      ),
+      _ => throw UnsupportedError(
+        'OpenHarmony architecture $architecture is not supported by rito-ffi.',
+      ),
+    };
+    return RitoCargoTarget._(
+      targetOS: targetOS,
+      architecture: architecture,
+      rustTarget: rustTarget,
+      libraryFileName: OS.linux.dylibFileName('rito_ffi'),
+      ohosNativeRoot: nativeRoot,
+      ohosClangArguments: clangArguments,
     );
   }
 
