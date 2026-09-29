@@ -988,6 +988,15 @@ final class _MockGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoExactSourceRangeResolution> exactSourceRange({
+    required RitoExactSourceRangeRequest request,
+  }) async {
+    throw UnimplementedError(
+      'exact source ranges are out of scope for this fake',
+    );
+  }
+
+  @override
   Future<RitoTextRangeGeometry> textRangeGeometry({
     required RitoTextRangeRequest request,
   }) async {

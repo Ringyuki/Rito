@@ -19,8 +19,10 @@ type Disposables = ReturnType<typeof createDisposableCollection>;
 
 export type {
   AddAnnotationInput,
+  ContentHitKind,
   ControllerOptions,
   InteractionMode,
+  ReaderClientPoint,
   ReaderController,
   ReaderControllerEvents,
   SelectionClientPoint,

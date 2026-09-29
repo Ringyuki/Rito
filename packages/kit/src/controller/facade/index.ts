@@ -14,6 +14,7 @@ import { buildLayoutActions } from './layout-actions';
 import { buildSearchActions } from './search-actions';
 import { buildSelectionAccessors } from './selection-accessors';
 import { buildAnnotationActions } from './annotation-actions';
+import { buildContentHit } from './content-hit';
 import { buildPositionActions } from './position-actions';
 import { buildMisc } from './misc-actions';
 import { buildNavigationActions } from './navigation-actions';
@@ -42,6 +43,7 @@ export function buildController(
     buildSearchActions(internals, emitter, nav, runtime),
     buildSelectionAccessors(internals, canvas, nav),
     buildAnnotationActions(internals, emitter),
+    buildContentHit(canvas, lifecycleDeps),
     buildPositionActions(internals, nav, runtime.frameDriver),
     buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);

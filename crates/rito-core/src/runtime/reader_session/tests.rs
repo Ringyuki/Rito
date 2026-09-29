@@ -1934,3 +1934,126 @@ fn a_render_ratio_change_repaints_without_a_new_revision() {
         "a rejected ratio leaves the current one"
     );
 }
+
+/// The source-locator fixture's chapter is 48 `<p id="point-N">`
+/// paragraphs, so `[n, 0]` is paragraph n's text node — the same
+/// addressing a host stores when a reader saves a highlight.
+const FIXTURE_CHAPTER_HREF: &str = "chapter.xhtml";
+
+fn fixture_source_range(paragraph: usize, start: u64, end: u64) -> ReaderSourceRange {
+    ReaderSourceRange {
+        start: ReaderSourcePoint {
+            node_path: vec![paragraph as u32, 0],
+            text_offset: start,
+        },
+        end: ReaderSourcePoint {
+            node_path: vec![paragraph as u32, 0],
+            text_offset: end,
+        },
+    }
+}
+
+#[test]
+fn exact_source_range_projects_a_durable_anchor_into_display_list_space() {
+    let mut session =
+        open_test_session(161, source_locator_fixture_epub()).expect("reader session opens");
+    let artifact = session
+        .request_artifact(request(161, 1, ""))
+        .expect("artifact resolves");
+
+    let resolution = session
+        .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+            session_id: 161,
+            artifact_id: artifact.artifact_id,
+            href: FIXTURE_CHAPTER_HREF.to_owned(),
+            range: fixture_source_range(0, 0, 15),
+        })
+        .expect("a range in the first paragraph resolves");
+
+    assert_eq!(resolution.artifact_id, artifact.artifact_id);
+    assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
+    assert_eq!(resolution.selected_text, "Source locator ");
+    assert_eq!(resolution.first_page_index, Some(0));
+    assert!(
+        !resolution.rects.is_empty(),
+        "paragraph 0 is on the page this artifact draws"
+    );
+
+    // A stored highlight is painted onto the surface the display list
+    // drew, so the rects carry the page origin exactly like hits do.
+    let layout = crate::runtime::tests::fixture::layout();
+    for rect in &resolution.rects {
+        assert!(
+            rect.bounds.x >= layout.margin_left && rect.bounds.y >= layout.margin_top,
+            "geometry must be display-list space, not content-box: {rect:?}"
+        );
+        assert!(rect.end_char_index > rect.start_char_index);
+    }
+}
+
+#[test]
+fn exact_source_range_answers_for_a_page_this_artifact_does_not_draw() {
+    let mut session =
+        open_test_session(163, source_locator_fixture_epub()).expect("reader session opens");
+    let artifact = session
+        .request_artifact(request(163, 1, ""))
+        .expect("artifact resolves");
+    let drawn = artifact.local_page_indexes.clone();
+
+    // The last paragraph is far past the opened page. The range still
+    // resolves — the host learns which page to navigate to — but this
+    // artifact has no geometry to paint it with.
+    let resolution = session
+        .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+            session_id: 163,
+            artifact_id: artifact.artifact_id,
+            href: FIXTURE_CHAPTER_HREF.to_owned(),
+            range: fixture_source_range(47, 0, 15),
+        })
+        .expect("a range later in the chapter resolves");
+
+    assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
+    let first_page = resolution
+        .first_page_index
+        .expect("a resolved range reports where it starts");
+    assert!(
+        !drawn.contains(&first_page),
+        "the fixture's last paragraph must not share the opened page"
+    );
+    assert!(
+        resolution.rects.is_empty(),
+        "rects are display-list space and only exist for pages this artifact draws"
+    );
+}
+
+#[test]
+fn exact_source_range_reports_a_stale_anchor_instead_of_painting_over_it() {
+    let mut session =
+        open_test_session(162, source_locator_fixture_epub()).expect("reader session opens");
+    let artifact = session
+        .request_artifact(request(162, 1, ""))
+        .expect("artifact resolves");
+
+    // A node path the chapter does not have cannot project, and the
+    // engine says so rather than guessing a nearby run.
+    let missing = session
+        .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+            session_id: 162,
+            artifact_id: artifact.artifact_id,
+            href: FIXTURE_CHAPTER_HREF.to_owned(),
+            range: fixture_source_range(9_999, 0, 4),
+        })
+        .expect_err("a node path outside the chapter fails");
+    assert_eq!(missing.kind, ReaderErrorKind::EngineFailure);
+
+    // A resource the publication does not hold is the same story.
+    let unknown_href = session
+        .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+            session_id: 162,
+            artifact_id: artifact.artifact_id,
+            href: "not-in-the-manifest.xhtml".to_owned(),
+            range: fixture_source_range(0, 0, 4),
+        })
+        .expect_err("an unknown href fails");
+    assert_eq!(unknown_href.kind, ReaderErrorKind::EngineFailure);
+}

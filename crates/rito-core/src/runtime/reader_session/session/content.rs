@@ -6,20 +6,25 @@
 //! geometry values into their reader session shapes.
 
 use crate::runtime::{
-    RuntimeRevision, RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextRangeGeometryRequest,
+    RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution, RuntimeRevision,
+    RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextRangeGeometryRequest,
 };
 
-use super::super::{artifact::page_origin, convert::reader_locator};
+use super::super::{
+    artifact::page_origin,
+    convert::{reader_locator, runtime_source_range},
+};
 use super::{
     errors::{
         engine_error, missing_artifact_revision, numeric_overflow, target_not_published,
         unknown_artifact, validate_external_request_id,
     },
     reader_resource_bytes_max, runtime_resource_kind, u32_from_usize, usize_from_u32, ReaderError,
-    ReaderErrorKind, ReaderFootnote, ReaderFootnoteKind, ReaderRect, ReaderResource,
-    ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest, ReaderSearchResponse,
-    ReaderSearchResult, ReaderSession, ReaderTextPosition, ReaderTextRangeGeometry,
-    ReaderTextRangeRequest, ReaderTextRect,
+    ReaderErrorKind, ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution,
+    ReaderExactSourceRangeStatus, ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind,
+    ReaderRect, ReaderResource, ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest,
+    ReaderSearchResponse, ReaderSearchResult, ReaderSession, ReaderTextPosition,
+    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
 };
 
 impl ReaderSession {
@@ -265,6 +270,93 @@ impl ReaderSession {
         })
     }
 
+    /// Projects a durable source range onto the pages this artifact
+    /// draws, for a host painting a stored annotation.
+    ///
+    /// The engine owns this projection because a run's mapping back to
+    /// its source node is piecewise: collapsed whitespace leaves gaps,
+    /// and a run split at a space shares its seam offset with the next
+    /// run, so a range start and a range end resolve a seam hit
+    /// differently. It also checks the text it landed on against the
+    /// range's own source text, so a stale anchor reports unavailable
+    /// instead of painting over whatever now occupies those offsets.
+    ///
+    /// `rects` cover only the pages this artifact draws and are in its
+    /// display-list space, like `get_text_range_geometry`. A range that
+    /// resolved onto another page comes back resolved with no rects and
+    /// `first_page_index` set, which is the page to navigate to.
+    pub fn resolve_exact_source_range(
+        &mut self,
+        request: ReaderExactSourceRangeRequest,
+    ) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
+        if request.session_id != self.session_id {
+            return Err(ReaderError::new(
+                ReaderErrorKind::InvalidSession,
+                "exact source range request belongs to a different session",
+            ));
+        }
+        validate_external_request_id(request.artifact_id, "artifactId")?;
+        let artifact = self
+            .artifacts
+            .get(&request.artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(request.artifact_id))?;
+        // Prepared first, while the document can still be borrowed
+        // mutably: this is what builds the chapter's source index.
+        let prepared = self
+            .document
+            .prepare_exact_source_range(RuntimeExactSourceRangeRequest {
+                href: request.href,
+                source_range: runtime_source_range(request.range)?,
+            })
+            .map_err(engine_error)?;
+        match artifact.backing {
+            ReaderRevisionBacking::ChapterLocal => {
+                let owner = self
+                    .revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let revision = self
+                    .document
+                    .require_chapter_local_owner(&owner)
+                    .map_err(engine_error)?;
+                let resolution = self
+                    .document
+                    .resolve_prepared_in(revision, prepared)
+                    .map_err(engine_error)?;
+                reader_exact_source_range(
+                    revision,
+                    artifact.local_spread_index,
+                    request.artifact_id,
+                    resolution,
+                )
+            }
+            ReaderRevisionBacking::Publication => {
+                let owner = self
+                    .publication_revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.owner.clone())
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let revision = self
+                    .document
+                    .revisions
+                    .get(&owner.revision_id)
+                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
+                let resolution = self
+                    .document
+                    .resolve_prepared_in(revision, prepared)
+                    .map_err(engine_error)?;
+                reader_exact_source_range(
+                    revision,
+                    artifact.local_spread_index,
+                    request.artifact_id,
+                    resolution,
+                )
+            }
+        }
+    }
+
     /// Resolves where a text range sits on one of an artifact's pages.
     ///
     /// The returned rects are in the artifact's display-list space, the
@@ -368,6 +460,81 @@ impl ReaderSession {
                 .collect::<Result<Vec<_>, ReaderError>>()?,
         })
     }
+}
+
+/// Turns a runtime resolution into its reader shape, keeping only the
+/// rects on pages this artifact's spread draws and shifting those into
+/// its display-list space.
+fn reader_exact_source_range(
+    revision: &RuntimeRevision,
+    spread_index: usize,
+    artifact_id: u64,
+    resolution: RuntimeExactSourceRangeResolution,
+) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
+    let range = match resolution {
+        RuntimeExactSourceRangeResolution::Resolved { range } => range,
+        RuntimeExactSourceRangeResolution::Pending { .. } => {
+            return Ok(ReaderExactSourceRangeResolution {
+                artifact_id,
+                status: ReaderExactSourceRangeStatus::Pending,
+                first_page_index: None,
+                selected_text: String::new(),
+                rects: Vec::new(),
+            })
+        }
+        RuntimeExactSourceRangeResolution::Unavailable { .. } => {
+            return Ok(ReaderExactSourceRangeResolution {
+                artifact_id,
+                status: ReaderExactSourceRangeStatus::Unavailable,
+                first_page_index: None,
+                selected_text: String::new(),
+                rects: Vec::new(),
+            })
+        }
+    };
+    let first_page_index = range
+        .rects
+        .first()
+        .map(|rect| u32_from_usize(rect.page_index, "exact source first page index"))
+        .transpose()?;
+    let drawn = revision
+        .chapter_engine_session()
+        .spread_pages(spread_index)
+        .unwrap_or_default();
+    let mut rects = Vec::new();
+    for rect in &range.rects {
+        let Some(slot) = drawn.iter().position(|index| *index == rect.page_index) else {
+            continue;
+        };
+        let origin = page_origin(&revision.layout_config, slot);
+        rects.push(ReaderExactSourceRect {
+            page_index: u32_from_usize(rect.page_index, "exact source rect page index")?,
+            bounds: ReaderRect {
+                x: rect.x + origin.0,
+                y: rect.y + origin.1,
+                width: rect.width,
+                height: rect.height,
+            },
+            block_index: u32_from_usize(rect.block_index, "exact source rect block index")?,
+            line_index: u32_from_usize(rect.line_index, "exact source rect line index")?,
+            run_index: u32_from_usize(rect.run_index, "exact source rect run index")?,
+            start_char_index: u32_from_usize(
+                rect.start_char_index,
+                "exact source rect start char index",
+            )?,
+            end_char_index: u32_from_usize(
+                rect.end_char_index,
+                "exact source rect end char index",
+            )?,
+        });
+    }
+    Ok(ReaderExactSourceRangeResolution {
+        artifact_id,
+        status: ReaderExactSourceRangeStatus::Resolved,
+        first_page_index,
+        selected_text: range.selected_text,
+        rects,
+    })
 }
 
 const fn reader_footnote_kind(kind: crate::interaction::FootnoteKind) -> ReaderFootnoteKind {

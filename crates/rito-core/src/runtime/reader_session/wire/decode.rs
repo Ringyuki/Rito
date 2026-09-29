@@ -6,6 +6,7 @@ use super::{
     READER_ADJACENT_REQUEST_WIRE_MAGIC, READER_ARTIFACT_WIRE_MAGIC,
     READER_BACKGROUND_ADVANCE_WIRE_MAGIC, READER_BACKGROUND_HANDOFF_ACK_WIRE_MAGIC,
     READER_BACKGROUND_HANDOFF_WIRE_MAGIC, READER_BACKGROUND_REQUEST_WIRE_MAGIC,
+    READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC, READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC,
     READER_FOREGROUND_HANDOFF_ACK_WIRE_MAGIC, READER_FOREGROUND_HANDOFF_WIRE_MAGIC,
     READER_PUBLICATION_WIRE_MAGIC, READER_REQUEST_WIRE_MAGIC, READER_RESOURCE_WIRE_MAGIC,
     READER_WIRE_VERSION,
@@ -14,11 +15,12 @@ use crate::runtime::reader_session::{
     reader_resource_bytes_max, ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderArtifact,
     ReaderArtifactRequest, ReaderBackgroundAdvance, ReaderBackgroundHandoff,
     ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderBackgroundState, ReaderError,
-    ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
-    ReaderLayout, ReaderLocator, ReaderPublication, ReaderRect, ReaderResource,
-    ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult, ReaderSourcePoint,
-    ReaderSourceRange, ReaderSpreadMode, ReaderTextPosition, ReaderTextRangeGeometry,
-    ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
+    ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
+    ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
+    ReaderForegroundHandoffAck, ReaderLayout, ReaderLocator, ReaderPublication, ReaderRect,
+    ReaderResource, ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult,
+    ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderTextPosition,
+    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
     READER_PUBLICATION_WIRE_BYTES_MAX,
 };
 
@@ -365,6 +367,69 @@ pub(super) fn locator(reader: &mut Reader<'_>) -> Result<ReaderLocator, ReaderEr
             })?,
         })
     })
+}
+
+pub(super) fn exact_source_range_request(
+    bytes: &[u8],
+) -> Result<ReaderExactSourceRangeRequest, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let request = ReaderExactSourceRangeRequest {
+        session_id: external_id(reader.u64()?, "sessionId")?,
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        href: reader.string("exact source range href")?,
+        range: source_range(&mut reader)?,
+    };
+    reader.finish("exact source range request wire message")?;
+    Ok(request)
+}
+
+fn exact_source_range_status(value: u32) -> Result<ReaderExactSourceRangeStatus, ReaderError> {
+    match value {
+        0 => Ok(ReaderExactSourceRangeStatus::Resolved),
+        1 => Ok(ReaderExactSourceRangeStatus::Pending),
+        2 => Ok(ReaderExactSourceRangeStatus::Unavailable),
+        tag => Err(invalid(format!("unknown exact source range status: {tag}"))),
+    }
+}
+
+pub(super) fn exact_source_range_resolution(
+    bytes: &[u8],
+) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let resolution = ReaderExactSourceRangeResolution {
+        artifact_id: external_id(reader.u64()?, "artifactId")?,
+        status: exact_source_range_status(reader.u32()?)?,
+        first_page_index: reader.option("exact source range first page", Reader::u32)?,
+        selected_text: reader.string("exact source range text")?,
+        rects: reader.collection("exact source rects", |reader| {
+            reader.record("exact source rect", |reader| {
+                Ok(ReaderExactSourceRect {
+                    page_index: reader.u32()?,
+                    bounds: ReaderRect {
+                        x: reader.f64("exact source rect x")?,
+                        y: reader.f64("exact source rect y")?,
+                        width: reader.f64("exact source rect width")?,
+                        height: reader.f64("exact source rect height")?,
+                    },
+                    block_index: reader.u32()?,
+                    line_index: reader.u32()?,
+                    run_index: reader.u32()?,
+                    start_char_index: reader.u32()?,
+                    end_char_index: reader.u32()?,
+                })
+            })
+        })?,
+    };
+    reader.finish("exact source range resolution wire message")?;
+    Ok(resolution)
 }
 
 pub(super) fn source_point(reader: &mut Reader<'_>) -> Result<ReaderSourcePoint, ReaderError> {

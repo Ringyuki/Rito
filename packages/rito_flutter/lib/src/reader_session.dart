@@ -10,6 +10,7 @@ import 'image/artifact_image_cache.dart';
 import 'native/gateway.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
+import 'protocol/exact_source_range.dart';
 import 'protocol/footnote_decoder.dart';
 import 'protocol/foreground_models.dart';
 import 'protocol/publication_models.dart';
@@ -648,6 +649,63 @@ final class RitoReaderSession {
       throw StateError('Search ownership does not match its artifact.');
     }
     return response;
+  }
+
+  /// Projects a durable source range onto the pages [prepared] draws,
+  /// for painting a stored annotation.
+  ///
+  /// [href] and [range] are what a host persists: the manifest href and
+  /// the source-tree node paths plus UTF-16 offsets a highlight was
+  /// taken at. The engine owns the projection because a run's mapping
+  /// back to its source node is piecewise — collapsed whitespace leaves
+  /// gaps, and a run split at a space shares its seam offset with the
+  /// next run — so it cannot be rebuilt from [RitoPage.hits]. It also
+  /// checks the text it landed on against the range's own source text,
+  /// so an anchor whose text has changed reports
+  /// [RitoExactSourceRangeStatus.unavailable] instead of painting over
+  /// unrelated words.
+  ///
+  /// The rects share the artifact's display-list space, so they paint
+  /// straight onto the surface the page was drawn on, and cover only
+  /// the pages this artifact draws. A range that resolved elsewhere
+  /// comes back resolved with no rects and
+  /// [RitoExactSourceRangeResolution.firstPageIndex] set: navigate
+  /// there and ask again.
+  Future<RitoExactSourceRangeResolution> exactSourceRange(
+    RitoPreparedArtifact prepared, {
+    required String href,
+    required RitoSourceRange range,
+  }) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    if (href.isEmpty) {
+      throw ArgumentError.value(href, 'href', 'must not be empty');
+    }
+    late final RitoExactSourceRangeResolution resolution;
+    try {
+      resolution = await gateway.exactSourceRange(
+        request: RitoExactSourceRangeRequest(
+          sessionId: sessionId,
+          artifactId: artifact.artifactId,
+          href: href,
+          range: range,
+        ),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (resolution.artifactId != artifact.artifactId) {
+      throw StateError(
+        'Exact source range ownership does not match its artifact.',
+      );
+    }
+    return resolution;
   }
 
   /// Resolves where a text range sits on one of [prepared]'s pages.

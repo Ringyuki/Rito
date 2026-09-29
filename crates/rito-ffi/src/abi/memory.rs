@@ -506,6 +506,44 @@ pub extern "C" fn rito_get_text_range_geometry(
     })
 }
 
+/// Projects a durable source range onto the pages one of a live
+/// artifact's spreads draws and returns a complete RITOESR1 message.
+///
+/// This is the op a host needs to paint a stored annotation. A run's
+/// mapping back to its source node is piecewise — collapsed whitespace
+/// leaves gaps and a run split at a space shares its seam offset with
+/// the next run — so the projection cannot be rebuilt from an
+/// artifact's hits. The engine also checks the text it landed on
+/// against the range's own source text, so a stale anchor reports
+/// unavailable instead of painting over unrelated words.
+///
+/// Rects are in the artifact's display-list space, like
+/// `rito_get_text_range_geometry`, and cover only the pages this
+/// artifact draws; a range that resolved elsewhere comes back resolved
+/// with no rects and the page to navigate to.
+#[no_mangle]
+pub extern "C" fn rito_resolve_exact_source_range(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    resolution_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(resolution_out, error_out, "resolution_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::exact_source_range_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOESQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let resolution = registry::exact_source_range(admission, request)?;
+        write_buffer(resolution_out, resolution)
+    })
+}
+
 /// Reads a footnote definition an artifact's hits referenced. The key
 /// is the hit's `footnote_key` verbatim — it is already canonical, so
 /// hosts must not normalize the link href themselves. A definition the

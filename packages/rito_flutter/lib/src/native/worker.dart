@@ -298,6 +298,7 @@ void _discardUnsentWire(
       case _ReadResourceOperation():
       case _SearchOperation():
       case _TextRangeGeometryOperation():
+      case _ExactSourceRangeOperation():
       case _ReadFootnoteOperation():
       case _ReleaseArtifactOperation():
       case _DisposeOperation():
@@ -370,6 +371,10 @@ Object? _perform(
       requestBytes: operation.requestBytes,
     ),
     _TextRangeGeometryOperation() => bindings.textRangeGeometryEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _ExactSourceRangeOperation() => bindings.exactSourceRangeEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
     ),
@@ -612,6 +617,16 @@ final class _SearchOperation extends _WorkerOperation {
 
 final class _TextRangeGeometryOperation extends _WorkerOperation {
   const _TextRangeGeometryOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _ExactSourceRangeOperation extends _WorkerOperation {
+  const _ExactSourceRangeOperation({
     required this.sessionId,
     required this.requestBytes,
   });

@@ -3,7 +3,7 @@ import type { Reader, ReaderInteractionTarget, ReaderInteractions } from '@ritoj
 import { createCoordinatorState } from '../src/controller/core';
 import type { WiringDeps } from '../src/controller/core';
 import type { ReaderControllerEvents } from '../src/controller/types';
-import { dispatchClick } from '../src/controller/wiring/click-dispatch';
+import { dispatchClick, hitTestContentAt } from '../src/controller/wiring/click-dispatch';
 import { releaseImageClickResources } from '../src/controller/wiring/image-click';
 import { createEmitter } from '../src/utils/event-emitter';
 
@@ -12,6 +12,26 @@ afterEach(() => {
 });
 
 describe('image click resource resolution', () => {
+  it('a hit test taken while the image URL is in flight does not disown it', async () => {
+    const pending = deferred<string | undefined>();
+    const fixture = createFixture(vi.fn(() => pending.promise));
+
+    dispatchClick(clickPoint, fixture.deps);
+    // This is the reason the query exists: the host must decide on
+    // pointerup whether the gesture belongs to the content, and the
+    // image event cannot answer in time. So the query must not bump the
+    // content-interaction generation the way a click or a page turn
+    // does — that disowns the in-flight request, revokes the blob, and
+    // the imageClick never arrives.
+    expect(hitTestContentAt(clickPoint, fixture.deps)).toBe('image');
+    expect(hitTestContentAt(clickPoint, fixture.deps)).toBe('image');
+
+    pending.resolve('blob:cover');
+    await settleTasks();
+
+    expect(fixture.imageClick).toHaveBeenCalledTimes(1);
+  });
+
   it('waits for the first asynchronous image URL before opening the UI', async () => {
     const pending = deferred<string | undefined>();
     const fixture = createFixture(vi.fn(() => pending.promise));

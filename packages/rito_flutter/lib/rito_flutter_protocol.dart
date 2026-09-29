@@ -14,6 +14,7 @@ export 'src/protocol/display_decoder.dart' show RitoPrimitiveListDecoder;
 export 'src/protocol/display_geometry.dart';
 export 'src/protocol/display_models.dart';
 export 'src/protocol/display_paint.dart';
+export 'src/protocol/exact_source_range.dart';
 export 'src/protocol/footnote_decoder.dart'
     show RitoFootnote, RitoFootnoteDecoder, RitoFootnoteKind;
 export 'src/protocol/foreground_decoder.dart' show RitoForegroundDecoder;
@@ -28,7 +29,8 @@ export 'src/protocol/publication_decoder.dart'
         ritoPublicationMaxTocItems,
         ritoPublicationMaxWireBytes;
 export 'src/protocol/publication_models.dart';
-export 'src/protocol/request_encoder.dart' show RitoRequestEncoder;
+export 'src/protocol/request_encoder.dart'
+    show RitoExactSourceRangeEncoding, RitoRequestEncoder;
 export 'src/protocol/request_models.dart';
 export 'src/protocol/resource_decoder.dart' show RitoResourceDecoder;
 export 'src/protocol/wire_exception.dart';

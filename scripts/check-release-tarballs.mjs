@@ -287,7 +287,14 @@ function run(command, args, cwd) {
 }
 
 function runPnpm(args, cwd) {
-  if (pnpmExecPath) return run(process.execPath, [pnpmExecPath, ...args], cwd);
+  // A standalone pnpm install points npm_execpath at a native
+  // executable, not at the JS entry: handing that to node reads the
+  // binary as a script and dies on its first byte.
+  if (pnpmExecPath) {
+    return /\.[cm]?js$/.test(pnpmExecPath)
+      ? run(process.execPath, [pnpmExecPath, ...args], cwd)
+      : run(pnpmExecPath, args, cwd);
+  }
   return run('pnpm', args, cwd);
 }
 

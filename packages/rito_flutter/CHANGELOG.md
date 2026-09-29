@@ -1,3 +1,54 @@
+## Unreleased
+
+### A stored highlight is projected by the engine
+
+`RitoReaderSession.exactSourceRange` asks where a durable source range
+lands on the pages an artifact draws. Persist what a highlight _is_ —
+the manifest href plus the source-tree node paths and UTF-16 offsets of
+its endpoints — and pass it back; the answer is
+`RitoExactSourceRangeResolution`, whose rects are in the artifact's
+display-list space like `RitoHitEntry.bounds`.
+
+This projection could not be rebuilt host-side. A run's mapping back to
+its source node is piecewise: collapsed whitespace leaves gaps, and a
+run split at a space shares its seam offset with the next run, which a
+range start and a range end resolve differently. Hit entries carry no
+source offsets at all. The call also checks the text it landed on
+against the range's own source text, so an anchor whose text has since
+changed reports `RitoExactSourceRangeStatus.unavailable` instead of
+painting over unrelated words.
+
+Rects cover only the pages this artifact draws. A range that resolved
+elsewhere comes back resolved with no rects and `firstPageIndex` set:
+navigate there and ask again. `textRangeGeometry` is unchanged and
+remains the op for a range already held in page coordinates, such as a
+live selection.
+
+The wire gains `RITOESQ1` and `RITOESR1`, and the C ABI gains
+`rito_resolve_exact_source_range`. The artifact protocol version is
+unchanged.
+
+### OpenHarmony builds compile rito-ffi for the OHOS targets
+
+The Flutter-OH toolchain runs build hooks for a HarmonyOS build with a
+Linux target and the OpenHarmony SDK's LLVM as the C compiler, so the
+hook used to take it for a cross-architecture Linux desktop build and
+refuse it. A C compiler under `openharmony/native/llvm/bin` now selects
+`aarch64-unknown-linux-ohos`, `armv7-unknown-linux-ohos` or
+`x86_64-unknown-linux-ohos` by architecture, links with that SDK's
+`clang` against its `sysroot`, and ships `librito_ffi.so`. Other Linux
+builds are unchanged.
+
+Install the Rust target for the pinned toolchain, for example
+`rustup target add aarch64-unknown-linux-ohos`. The HAP also has to
+carry `NativeAssetsManifest.json`, which Flutter-OH bundles from the
+release after `3.41.10-ohos-1.0.1`.
+
+### Breaking
+
+`RitoReaderGateway` gains `exactSourceRange`. A host that implements
+that interface itself (a test double, usually) must add the member.
+
 ## 0.3.0 - 2026-09-14
 
 Breaking, and larger than a point release: a frame is no longer a list of

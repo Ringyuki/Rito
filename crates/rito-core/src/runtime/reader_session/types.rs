@@ -450,6 +450,67 @@ pub struct ReaderTextRangeGeometry {
     pub rects: Vec<ReaderTextRect>,
 }
 
+/// Asks where a durable source range lands on the pages this artifact
+/// draws, so a host can paint a stored annotation.
+///
+/// A host cannot derive this itself. A run's mapping back to its source
+/// node is piecewise — collapsed whitespace leaves gaps, and a run split
+/// at a space shares its seam offset with the next run — so the engine
+/// resolves the href to its chapter, projects both endpoints through
+/// that map (a range start snaps forward past a seam, a range end keeps
+/// the inclusive hit), and checks the text it landed on against the
+/// range's own source text before answering.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderExactSourceRangeRequest {
+    pub session_id: u64,
+    pub artifact_id: u64,
+    /// Manifest href of the resource the range was taken from.
+    pub href: String,
+    pub range: ReaderSourceRange,
+}
+
+/// What became of a durable source range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderExactSourceRangeStatus {
+    Resolved,
+    /// The range's chapter is not laid out yet. Ask again once the
+    /// revision covers it; the range itself is still good.
+    Pending,
+    /// The range does not project onto this layout: the href is not in
+    /// the publication, an endpoint has no source mapping, or the text
+    /// the range was taken from is no longer there.
+    Unavailable,
+}
+
+/// One run-aligned rectangle of a resolved source range.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReaderExactSourceRect {
+    pub page_index: u32,
+    pub bounds: ReaderRect,
+    pub block_index: u32,
+    pub line_index: u32,
+    pub run_index: u32,
+    pub start_char_index: u32,
+    pub end_char_index: u32,
+}
+
+/// Where a durable source range sits. `rects` are in the artifact's
+/// display-list space, exactly like [`ReaderTextRangeGeometry::rects`],
+/// and cover only the pages this artifact draws — a range that resolved
+/// onto a page this artifact does not draw comes back resolved with no
+/// rects, and `first_page_index` says where to navigate to see it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderExactSourceRangeResolution {
+    pub artifact_id: u64,
+    pub status: ReaderExactSourceRangeStatus,
+    /// The page the range starts on, present whenever it resolved.
+    pub first_page_index: Option<u32>,
+    /// The text the range covers as the engine laid it out. Empty unless
+    /// the status is `Resolved`.
+    pub selected_text: String,
+    pub rects: Vec<ReaderExactSourceRect>,
+}
+
 /// EPUB semantic role of a footnote definition, taken verbatim from the
 /// publication's `epub:type`. Hosts use it to title the popup (a
 /// footnote and an endnote are read differently).

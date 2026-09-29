@@ -49,6 +49,20 @@ paint domain grows, and a stale decoder misreads the byte stream.
   `rito_flutter` is the reference. Paint commands still carry `href`
   and `alt` for older bridges, but they are not the hit surface.
 
+- **A stored highlight is projected by the engine, not rebuilt by the
+  host.** Persist what a range _is_ — the manifest href plus the
+  source-tree node paths and UTF-16 offsets of its endpoints — and ask
+  `rito_resolve_exact_source_range` where it lands now. Do not try to
+  derive that from an artifact's hits: a run's mapping back to its
+  source node is piecewise (collapsed whitespace leaves gaps, and a run
+  split at a space shares its seam offset with the next run), the hit
+  entries carry no source offsets, and a range start and a range end
+  resolve a seam differently. The call also checks the text it landed
+  on against the range's own source text, so an anchor whose text has
+  since changed reports unavailable instead of painting over unrelated
+  words. `rito_get_text_range_geometry` remains the op for a range you
+  already hold in page coordinates, such as a live selection.
+
 ## Keeping a hand-written decoder honest
 
 The Dart decoder in `packages/rito_flutter/lib/src/protocol/` is the

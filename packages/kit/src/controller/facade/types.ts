@@ -48,6 +48,7 @@ export type SelectionAccessorsSlice = Pick<
   | 'selectionSourceSpan'
   | 'beginSelectionHandleDrag'
 >;
+export type ContentHitSlice = Pick<ReaderController, 'hitTestContent'>;
 export type AnnotationActionsSlice = Pick<
   ReaderController,
   'addAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'

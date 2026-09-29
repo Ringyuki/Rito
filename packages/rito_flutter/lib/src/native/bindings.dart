@@ -195,6 +195,18 @@ external int _ritoGetTextRangeGeometry(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_exact_source_range',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveExactSourceRange(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> resolutionOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReadFootnoteNative>(
   symbol: 'rito_read_footnote',
   assetId: ritoNativeAssetId,
@@ -247,6 +259,7 @@ final class RitoNativeBindings {
        _readResource = _ritoReadResource,
        _readFootnote = _ritoReadFootnote,
        _textRangeGeometry = _ritoGetTextRangeGeometry,
+       _exactSourceRange = _ritoResolveExactSourceRange,
        _search = _ritoSearch,
        _release = _ritoReleaseArtifact,
        _dispose = _ritoDispose,
@@ -310,6 +323,10 @@ final class RitoNativeBindings {
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_get_text_range_geometry',
            ),
+       _exactSourceRange = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_exact_source_range',
+           ),
        _search = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_search',
@@ -340,6 +357,7 @@ final class RitoNativeBindings {
   final _ReadResourceDart _readResource;
   final _ReadFootnoteDart _readFootnote;
   final _OwnedWireRequestDart _textRangeGeometry;
+  final _OwnedWireRequestDart _exactSourceRange;
   final _OwnedWireRequestDart _search;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
@@ -790,6 +808,21 @@ final class RitoNativeBindings {
       wireName: 'RITOTRQ1',
       outputName: 'text range geometry',
       operation: _textRangeGeometry,
+    );
+  }
+
+  Uint8List exactSourceRangeEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The href makes this message variable width.
+      expectedLength: null,
+      wireName: 'RITOESQ1',
+      outputName: 'exact source range',
+      operation: _exactSourceRange,
     );
   }
 
@@ -1312,6 +1345,14 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings.textRangeGeometryEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List exactSourceRangeEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.exactSourceRangeEncoded(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );
