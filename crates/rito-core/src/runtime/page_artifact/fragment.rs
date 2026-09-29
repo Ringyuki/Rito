@@ -24,6 +24,23 @@ fn hash_page_text(text: &str) -> String {
         .collect()
 }
 
+fn flow_utf16_at(
+    cursors: &mut std::collections::HashMap<u32, (usize, u32)>,
+    flow: u32,
+    flow_text: &str,
+    end: usize,
+) -> Option<u32> {
+    let cursor = cursors.entry(flow).or_insert((0, 0));
+    let (from, base) = if end >= cursor.0 { *cursor } else { (0, 0) };
+    let slice = flow_text.get(from..end)?;
+    let mut units = base;
+    for ch in slice.chars() {
+        units += ch.len_utf16() as u32;
+    }
+    *cursor = (end, units);
+    Some(units)
+}
+
 use super::{
     PageArtifact, PageArtifactMetadata, PageArtifactRect, PageArtifactSemanticNode,
     PageArtifactSemanticRole, PageArtifactTarget, PageArtifactTargets, PageArtifactTextPosition,
@@ -223,6 +240,7 @@ impl FragmentPageArtifact {
             semantics: Vec::new(),
             hard_breaks: Vec::new(),
             flow_last_text_end: std::collections::HashMap::new(),
+            flow_utf16_cursors: std::collections::HashMap::new(),
         };
         let Fragment::Box(page_root) = root else {
             return Self::empty(page_index, width, height);
@@ -285,6 +303,7 @@ struct ArtifactBuilder<'a> {
     /// Per flow: the byte end of the previous line's last text fragment
     /// in that flow's concatenated text, for hard-break detection.
     flow_last_text_end: std::collections::HashMap<u32, usize>,
+    flow_utf16_cursors: std::collections::HashMap<u32, (usize, u32)>,
 }
 
 impl ArtifactBuilder<'_> {
@@ -390,6 +409,22 @@ impl ArtifactBuilder<'_> {
                             else {
                                 continue;
                             };
+                            let start_u16 = flow_utf16_at(
+                                &mut self.flow_utf16_cursors,
+                                line.source.0,
+                                &flow_text,
+                                run.text_start as usize,
+                            );
+                            let end_u16 = flow_utf16_at(
+                                &mut self.flow_utf16_cursors,
+                                line.source.0,
+                                &flow_text,
+                                run.text_end as usize,
+                            );
+                            let run_len = match (start_u16, end_u16) {
+                                (Some(start_u16), Some(end_u16)) => end_u16 - start_u16,
+                                _ => run_text.encode_utf16().count() as u32,
+                            };
                             let owner = item_ranges
                                 .iter()
                                 .find(|(range, _)| range.contains(&(run.text_start as usize)))
@@ -406,11 +441,14 @@ impl ArtifactBuilder<'_> {
                             let source = owner.and_then(item_source).and_then(|item| {
                                 let path = item.source_path.clone()?;
                                 let range = owner_range.clone()?;
-                                let prefix = flow_text
-                                    .get(range.start..run.text_start as usize)?
-                                    .encode_utf16()
-                                    .count() as u32;
-                                let run_len = run_text.encode_utf16().count() as u32;
+                                let prefix = if range.start == 0 {
+                                    start_u16?
+                                } else {
+                                    flow_text
+                                        .get(range.start..run.text_start as usize)?
+                                        .encode_utf16()
+                                        .count() as u32
+                                };
                                 let segments = item
                                     .segments
                                     .iter()
@@ -429,7 +467,7 @@ impl ArtifactBuilder<'_> {
                                     .collect::<Vec<_>>();
                                 Some(RunSourceMap { path, segments })
                             });
-                            let length = run_text.encode_utf16().count();
+                            let length = run_len as usize;
                             let font_box = run.font_grid.map(|(ascent, descent)| {
                                 (line_y + line.baseline - ascent, ascent + descent)
                             });
@@ -776,6 +814,30 @@ mod tests {
         FontFamilies, FontFamily, FontFamilyName, InlineStyleTable, LayoutStyleTable,
     };
     use std::collections::BTreeMap;
+
+    #[test]
+    fn flow_utf16_cursor_matches_utf16_units_across_astral_text() {
+        let text = "a😀éz";
+        let mut cursors = std::collections::HashMap::new();
+
+        for end in [0, 1, 5, 7, 8] {
+            assert_eq!(
+                flow_utf16_at(&mut cursors, 0, text, end),
+                Some(text[..end].encode_utf16().count() as u32)
+            );
+        }
+    }
+
+    #[test]
+    fn flow_utf16_cursor_resets_for_non_monotonic_offsets() {
+        let text = "a😀b";
+        let mut cursors = std::collections::HashMap::new();
+
+        assert_eq!(flow_utf16_at(&mut cursors, 0, text, 5), Some(3));
+        assert_eq!(flow_utf16_at(&mut cursors, 0, text, 1), Some(1));
+        assert_eq!(flow_utf16_at(&mut cursors, 0, text, 2), None);
+        assert_eq!(flow_utf16_at(&mut cursors, 0, text, 5), Some(3));
+    }
 
     fn tinos_bytes() -> Vec<u8> {
         let path = concat!(

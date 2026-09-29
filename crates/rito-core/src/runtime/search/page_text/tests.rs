@@ -1,12 +1,12 @@
 use super::{
-    search_page, search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun,
+    search_page, search_prebuilt_runtime_pages, SearchPageBody, SearchPageText, SearchPrebuiltRun,
     SearchPrebuiltRunSource, SearchQuerySpec, SearchTextPosition,
 };
 
 fn run(
-    start: usize,
-    end: usize,
-    run_index: usize,
+    start: u32,
+    end: u32,
+    run_index: u32,
     source: Option<(Vec<usize>, u32, u32)>,
 ) -> SearchPrebuiltRun {
     SearchPrebuiltRun {
@@ -16,10 +16,76 @@ fn run(
         line_index: 0,
         run_index,
         source: source.map(|(node_path, source_start, len)| SearchPrebuiltRunSource {
-            node_path,
-            segments: vec![(0, source_start, len)],
+            node_path: node_path.into(),
+            segments: vec![(0, source_start, len)].into(),
         }),
     }
+}
+
+#[test]
+fn compact_and_general_source_maps_return_identical_results() {
+    let mut general_runs = vec![
+        run(0, 1, 0, Some((vec![1], 5, 1))),
+        run(1, 3, 1, Some((vec![1], 6, 2))),
+        run(3, 4, 2, Some((vec![2], 10, 1))),
+    ];
+    let shared_path: std::rc::Rc<[usize]> = vec![1].into();
+    general_runs[0]
+        .source
+        .as_mut()
+        .expect("first run has source")
+        .node_path = std::rc::Rc::clone(&shared_path);
+    general_runs[1]
+        .source
+        .as_mut()
+        .expect("second run has source")
+        .node_path = shared_path;
+    let compact = SearchPageText::from_parts(0, "abcd".to_owned(), general_runs.clone());
+    general_runs[0]
+        .source
+        .as_mut()
+        .expect("run has source")
+        .segments = vec![(0, 5, 1), (1, 50, 50)].into();
+    let general = SearchPageText::from_parts(0, "abcd".to_owned(), general_runs);
+
+    match &compact.body {
+        SearchPageBody::Compact { offsets, paths } => {
+            assert_eq!(paths.len(), 2);
+            assert_eq!(offsets[0].path_index, offsets[1].path_index);
+            assert_ne!(offsets[0].path_index, offsets[2].path_index);
+        }
+        SearchPageBody::General { .. } => panic!("single-segment runs use compact storage"),
+    }
+    assert!(matches!(general.body, SearchPageBody::General { .. }));
+
+    let compact_matches = search_prebuilt_runtime_pages(&[compact], "abc", true, false, None);
+    let general_matches = search_prebuilt_runtime_pages(&[general], "abc", true, false, None);
+    assert_eq!(compact_matches, general_matches);
+}
+
+#[test]
+fn non_zero_segment_start_forces_general_storage() {
+    let page = SearchPageText::from_parts(
+        0,
+        "abcd".to_owned(),
+        vec![SearchPrebuiltRun {
+            start: 0,
+            end: 4,
+            block_index: 0,
+            line_index: 0,
+            run_index: 0,
+            source: Some(SearchPrebuiltRunSource {
+                node_path: vec![7].into(),
+                segments: vec![(1, 5, 2)].into(),
+            }),
+        }],
+    );
+
+    assert!(matches!(page.body, SearchPageBody::General { .. }));
+    let matches = search_prebuilt_runtime_pages(&[page], "bc", true, false, None);
+    let source_range = matches[0].source_range.as_ref().expect("source range");
+    assert_eq!(source_range.start.text_offset, 5);
+    assert_eq!(source_range.end.text_offset, 7);
 }
 
 #[test]

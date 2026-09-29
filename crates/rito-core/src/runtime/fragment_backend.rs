@@ -471,6 +471,7 @@ impl RuntimeDocument {
         let mut chapters = Vec::with_capacity(build.prepared.chapters.len());
         let mut anchors = BTreeMap::new();
         let mut search_index = Vec::new();
+        let mut search_interner = SearchSourceInterner::default();
         let mut page_index = 0;
         let idrefs: Vec<String> = build
             .prepared
@@ -510,6 +511,7 @@ impl RuntimeDocument {
                 search_index.push(search_page_text(
                     page_index + offset,
                     &page_artifact(page_index + offset, root, &paginated.paint, layout_config),
+                    &mut search_interner,
                 ));
             }
             page_index += paginated.roots.len();
@@ -611,6 +613,7 @@ impl RuntimeDocument {
         )?;
         let mut anchors = BTreeMap::new();
         let mut search_index = Vec::with_capacity(paginated.roots.len());
+        let mut search_interner = SearchSourceInterner::default();
         for (offset, root) in paginated.roots.iter().enumerate() {
             collect_page_anchors(
                 root,
@@ -621,6 +624,7 @@ impl RuntimeDocument {
             search_index.push(search_page_text(
                 offset,
                 &page_artifact(offset, root, &paginated.paint, config),
+                &mut search_interner,
             ));
         }
         let chapter = FragmentBackendChapter {
@@ -738,22 +742,54 @@ fn page_artifact(
     )
 }
 
+type SegmentInternMap = std::collections::HashMap<Vec<(u32, u32, u32)>, Rc<[(u32, u32, u32)]>>;
+
+#[derive(Default)]
+struct SearchSourceInterner {
+    paths: std::collections::HashMap<Vec<usize>, Rc<[usize]>>,
+    segments: SegmentInternMap,
+}
+
+impl SearchSourceInterner {
+    fn path(&mut self, path: &[usize]) -> Rc<[usize]> {
+        if let Some(shared) = self.paths.get(path) {
+            return Rc::clone(shared);
+        }
+        let shared: Rc<[usize]> = path.iter().copied().collect();
+        self.paths.insert(path.to_vec(), Rc::clone(&shared));
+        shared
+    }
+
+    fn segments(&mut self, segments: &[(u32, u32, u32)]) -> Rc<[(u32, u32, u32)]> {
+        if let Some(shared) = self.segments.get(segments) {
+            return Rc::clone(shared);
+        }
+        let shared: Rc<[(u32, u32, u32)]> = segments.iter().copied().collect();
+        self.segments.insert(segments.to_vec(), Rc::clone(&shared));
+        shared
+    }
+}
+
 /// One page's search record: its text and the run offsets a query walks.
 /// Taken during the build pass while the chapter is in hand, so a query
 /// reads the recorded slice instead of rebuilding the book's chapters.
-fn search_page_text(page_index: usize, artifact: &FragmentPageArtifact) -> SearchPageText {
+fn search_page_text(
+    page_index: usize,
+    artifact: &FragmentPageArtifact,
+    interner: &mut SearchSourceInterner,
+) -> SearchPageText {
     let runs = artifact
         .interaction_runs()
         .iter()
         .map(|run| SearchPrebuiltRun {
-            start: run.start,
-            end: run.end,
-            block_index: run.block_index,
-            line_index: run.line_index,
-            run_index: run.run_index,
+            start: u32::try_from(run.start).expect("page run offsets fit u32"),
+            end: u32::try_from(run.end).expect("page run offsets fit u32"),
+            block_index: u32::try_from(run.block_index).expect("page block index fits u32"),
+            line_index: u32::try_from(run.line_index).expect("page line index fits u32"),
+            run_index: u32::try_from(run.run_index).expect("page run index fits u32"),
             source: run.source.as_ref().map(|source| SearchPrebuiltRunSource {
-                node_path: source.path.clone(),
-                segments: source.segments.clone(),
+                node_path: interner.path(&source.path),
+                segments: interner.segments(&source.segments),
             }),
         })
         .collect();
@@ -796,6 +832,18 @@ mod tests {
             }),
             image_dimensions: BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn search_source_interner_reuses_equal_tails() {
+        let mut interner = SearchSourceInterner::default();
+        let first_path = interner.path(&[1, 2, 3]);
+        let second_path = interner.path(&[1, 2, 3]);
+        let first_segments = interner.segments(&[(0, 4, 2), (2, 8, 3)]);
+        let second_segments = interner.segments(&[(0, 4, 2), (2, 8, 3)]);
+
+        assert!(Rc::ptr_eq(&first_path, &second_path));
+        assert!(Rc::ptr_eq(&first_segments, &second_segments));
     }
 
     #[test]

@@ -762,11 +762,12 @@ impl FormattingContext for ParleyInlineContext {
         // one pixel at 16px), so the reuse probe must match it.
         let mut prev_line_fonts: Vec<(u64, u32)> = Vec::new();
         for line in layout.lines() {
+            let line_items: Vec<PositionedLayoutItem<[u8; 4]>> = line.items().collect();
             let metrics = line.metrics();
             let line_top = running_top;
-            let has_inline_box = line
-                .items()
-                .any(|item| matches!(&item, PositionedLayoutItem::InlineBox(_)));
+            let has_inline_box = line_items
+                .iter()
+                .any(|item| matches!(item, PositionedLayoutItem::InlineBox(_)));
             // Env-gated line forensics for the native probe binary (wasm
             // has no env; the flag simply never sets there).
             // Flow-text ranges of the spread ruby bases: justification must
@@ -906,7 +907,7 @@ impl FormattingContext for ParleyInlineContext {
                 // the noteref-image lines one grid phase right of the
                 // browser; only shaped text widths round up.
                 let mut item_advances: Vec<(u32, f64, bool)> = Vec::new();
-                for item in line.items() {
+                for item in &line_items {
                     let (key, width, ceils) = match item {
                         PositionedLayoutItem::GlyphRun(glyph_run) => (
                             u32::from_le_bytes(glyph_run.style().brush),
@@ -1119,7 +1120,7 @@ impl FormattingContext for ParleyInlineContext {
             // fallback font with its own metrics, and the host must be
             // asked about that font — not about the declared family.
             let mut line_run_samples: Vec<(usize, String)> = Vec::new();
-            for item in line.items() {
+            for item in &line_items {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let shaping_range = glyph_run.run().text_range();
@@ -1278,6 +1279,7 @@ impl FormattingContext for ParleyInlineContext {
                                 justify_px,
                                 opener_halt_trims,
                                 run_word_spacing,
+                                &self.upem_cache,
                             );
                             children.push((
                                 Fragment::Text(TextFragment {
@@ -1460,6 +1462,7 @@ impl FormattingContext for ParleyInlineContext {
                                         hb_fixed_cluster_advance(
                                             current,
                                             folded_spacing(spacing_edits, current),
+                                            &self.upem_cache,
                                         )
                                     };
                                 let (cjk_kern_splits, cjk_anchor_correction, cjk_hb_total): (
@@ -1646,6 +1649,7 @@ impl FormattingContext for ParleyInlineContext {
                                         correction += hb_fixed_cluster_advance(
                                             &current,
                                             folded_spacing(spacing_edits, &current),
+                                            &self.upem_cache,
                                         ) - f64::from(current.advance());
                                         prefix = current.next_logical();
                                     }
@@ -2478,7 +2482,7 @@ impl FormattingContext for ParleyInlineContext {
             let base_typo =
                 |range: &std::ops::Range<usize>, fs: f64| -> Option<(f64, f64, (u64, u32))> {
                     use skrifa::raw::TableProvider as _;
-                    for item in line.items() {
+                    for item in &line_items {
                         let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
                             continue;
                         };
@@ -2737,7 +2741,7 @@ impl FormattingContext for ParleyInlineContext {
             running_top += ruby_growth;
             prev_ruby_below = Some((line_height - baseline).max(0.0));
             prev_line_fonts.clear();
-            for item in line.items() {
+            for item in &line_items {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
                     let font = glyph_run.run().font();
                     let key = (font.data.id(), font.index);

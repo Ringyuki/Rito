@@ -105,6 +105,7 @@ pub struct ParleyInlineContext {
     /// where the host picks a different fallback per script, and a single
     /// sample would then hide one of the host's two metrics.
     pub(crate) host_metric_samples: RefCell<std::collections::HashMap<HostMetricSampleKey, String>>,
+    pub(crate) upem_cache: RefCell<Vec<(u64, u32, i64)>>,
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
     pub(crate) halt_feature_cache: RefCell<std::collections::HashMap<(u64, u32), bool>>,

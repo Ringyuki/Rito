@@ -107,18 +107,34 @@ pub(crate) fn stack_notdef_advance_px(
 pub(crate) fn hb_fixed_cluster_advance<B: parley::style::Brush>(
     current: &parley::layout::Cluster<'_, B>,
     run_letter_spacing: f64,
+    upem_cache: &std::cell::RefCell<Vec<(u64, u32, i64)>>,
 ) -> f64 {
     use skrifa::raw::TableProvider as _;
     let advance = f64::from(current.advance());
     let run = current.run();
     let font = run.font();
-    let Ok(font_ref) = skrifa::FontRef::from_index(font.data.as_ref(), font.index) else {
-        return advance;
+    let key = (font.data.id(), font.index);
+    let hit = {
+        let cache = upem_cache.borrow();
+        cache
+            .iter()
+            .find(|&&(id, index, _)| (id, index) == key)
+            .map(|&(_, _, upem)| upem)
     };
-    let Ok(head) = font_ref.head() else {
-        return advance;
+    let upem = match hit {
+        Some(upem) => upem,
+        None => {
+            let Ok(font_ref) = skrifa::FontRef::from_index(font.data.as_ref(), font.index) else {
+                return advance;
+            };
+            let Ok(head) = font_ref.head() else {
+                return advance;
+            };
+            let upem = i64::from(head.units_per_em());
+            upem_cache.borrow_mut().push((key.0, key.1, upem));
+            upem
+        }
     };
-    let upem = i64::from(head.units_per_em());
     let size = f64::from(run.font_size());
     if upem <= 0 || size <= 0.0 {
         return advance;
