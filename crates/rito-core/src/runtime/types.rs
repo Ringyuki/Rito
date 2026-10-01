@@ -116,7 +116,7 @@ pub enum RuntimeChapterLocalCoordinateKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RuntimeChapterLocalRevisionRequest {
     pub layout_config: LayoutConfig,
     pub target_chapter_index: usize,

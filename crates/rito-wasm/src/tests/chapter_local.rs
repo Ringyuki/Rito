@@ -146,6 +146,28 @@ fn full_owner_is_required_by_summary_frame_and_release_boundaries() {
         .is_err());
 }
 
+#[test]
+fn a_chapter_local_request_rejects_fields_outside_its_contract() {
+    let mut document = crate::tests::fixture::pinned_fixture_wasm_document();
+    let rejected = document
+        .create_chapter_local_revision_json(
+            &json!({
+                "layoutConfig": layout(),
+                "targetChapterIndex": 0,
+                "targetLocator": { "href": "chapter.xhtml" },
+                "localPageCap": 4
+            })
+            .to_string(),
+        )
+        .expect_err("an unknown request field is refused");
+
+    assert!(
+        rejected.message().contains("localPageCap"),
+        "{}",
+        rejected.message()
+    );
+}
+
 fn create_local(document: &mut WasmRuntimeDocument) -> Value {
     parse(
         document

@@ -188,9 +188,7 @@ mod tests {
                 &json!({
                     "layoutConfig": fixture::layout(),
                     "targetChapterIndex": 0,
-                    "targetLocator": { "href": "chapter.xhtml" },
-                    "localPageCap": 4,
-                    "budget": { "maxTopLevelNodes": 64 }
+                    "targetLocator": { "href": "chapter.xhtml" }
                 })
                 .to_string(),
             )
@@ -222,9 +220,7 @@ mod tests {
                 &json!({
                     "layoutConfig": fixture::layout(),
                     "targetChapterIndex": 0,
-                    "targetLocator": { "href": "chapter.xhtml" },
-                    "localPageCap": 4,
-                    "budget": { "maxTopLevelNodes": 64 }
+                    "targetLocator": { "href": "chapter.xhtml" }
                 })
                 .to_string(),
             )
