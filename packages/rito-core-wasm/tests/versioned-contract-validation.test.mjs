@@ -115,27 +115,6 @@ test('direct exact aggregate reads reject forged identities and request echoes',
   });
   assert.throws(() => footnotes.getFootnotesAtRevision(handle(1)), /mismatched revisionId/);
 
-  const indices = new RitoCoreWasmDocument({
-    getChapterTextIndicesAtRevisionJson: () =>
-      JSON.stringify({
-        revision: handle(1),
-        value: {
-          revisionId: 'rev-1',
-          entries: {
-            'chapter.xhtml': {
-              href: 'chapter.xhtml',
-              normalizedText: 'A',
-              spans: [{ nodePath: [-1] }],
-            },
-          },
-        },
-      }),
-  });
-  assert.throws(
-    () => indices.getChapterTextIndicesAtRevision(handle(1)),
-    /invalid chapter text node path/,
-  );
-
   const search = new RitoCoreWasmDocument({
     searchAtRevisionJson: (_revisionId, _version, requestJson) =>
       JSON.stringify({
@@ -261,7 +240,6 @@ function bundle(version) {
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [], activeEntryByPage: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
-    chapterTextIndices: { revisionId, entries: {} },
     fontFamilies: [],
   };
 }

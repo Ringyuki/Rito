@@ -1,4 +1,4 @@
-import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
+import type { RitoCoreWasmFootnotes } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 
 /**
@@ -38,7 +38,6 @@ export interface RitoCoreWasmRevisionBundle {
   readonly navigation: RitoCoreWasmRevisionNavigation;
   readonly tocTargets: RitoCoreWasmTocTargets;
   readonly footnotes: RitoCoreWasmFootnotes;
-  readonly chapterTextIndices: RitoCoreWasmChapterTextIndices;
   readonly fontFamilies: readonly string[];
   readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
 }

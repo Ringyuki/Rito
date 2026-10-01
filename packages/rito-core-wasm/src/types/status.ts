@@ -10,7 +10,6 @@ export interface RitoCoreWasmStatus {
     readonly packedFrameCommandBuffer: true;
     readonly footnoteJson: true;
     readonly footnotesJson: true;
-    readonly chapterTextIndicesJson: true;
     readonly pageTargetsJson: true;
     readonly pageSemanticsJson: true;
     readonly pageReadingAnchorJson: true;

@@ -139,10 +139,8 @@ pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
             .find(|chapter| chapter.source.idref == *idref)
             .is_some_and(|chapter| chapter.parsed.nodes != *nodes)
     });
-    let interaction = crate::interaction::summarize_interaction_with_footnotes(
-        chapters.iter().map(|chapter| chapter.source.idref.clone()),
-        extraction.footnotes,
-    );
+    let interaction =
+        crate::interaction::summarize_interaction_with_footnotes(extraction.footnotes);
     PreparedLoadedDocument {
         stylesheet_ledger: base.stylesheet_ledger.clone(),
         chapters,

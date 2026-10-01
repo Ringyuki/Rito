@@ -226,7 +226,6 @@ function createInitialState(
     frames: new Map(),
     ...createBrowserReaderResourceState(),
     footnotes: new Map(),
-    chapterTextIndices: new Map(),
     tocTargets: { revisionId: '', targets: [], activeEntryByPage: [] },
     activeSpreadIndex: 0,
     fontAvailabilityEpoch: 0,

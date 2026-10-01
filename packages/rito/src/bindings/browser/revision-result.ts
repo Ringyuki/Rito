@@ -11,21 +11,11 @@ export async function createBrowserReaderRevisionResult(
   snapshot: BrowserReaderRevisionSnapshot,
 ): Promise<BrowserReaderRevisionResult> {
   const handle = snapshotRevisionHandle(snapshot);
-  const [footnotes, chapterTextIndices] = await Promise.all([
-    owner.worker.getFootnotesAtRevision(handle),
-    owner.worker.getChapterTextIndicesAtRevision(handle),
-  ]);
+  const footnotes = await owner.worker.getFootnotesAtRevision(handle);
   requireExactAggregate(footnotes, handle, footnotes.value.revisionId, 'footnotes');
-  requireExactAggregate(
-    chapterTextIndices,
-    handle,
-    chapterTextIndices.value.revisionId,
-    'chapter text indices',
-  );
   return resultWithSnapshotFrame(snapshot, {
     ...snapshot.presentation,
     footnotes: footnotes.value,
-    chapterTextIndices: chapterTextIndices.value,
   });
 }
 

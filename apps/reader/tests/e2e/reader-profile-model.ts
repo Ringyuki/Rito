@@ -216,10 +216,9 @@ function profileMilestones(input: ReaderLoadProfileReportInput): ReaderProfileMi
     'getRevisionPresentationAtRevision',
   );
   const frame = firstOperation(input.initial.operations, 'warmFrameWindowAtRevision');
-  const aggregates = [
-    firstOperation(input.initial.operations, 'getFootnotesAtRevision'),
-    firstOperation(input.initial.operations, 'getChapterTextIndicesAtRevision'),
-  ].filter((entry): entry is ReaderWorkerOperationObservation => entry !== undefined);
+  const aggregates = [firstOperation(input.initial.operations, 'getFootnotesAtRevision')].filter(
+    (entry): entry is ReaderWorkerOperationObservation => entry !== undefined,
+  );
   const prerequisiteEnd = Math.max(
     input.startedAt,
     frame?.completedAt ?? input.startedAt,

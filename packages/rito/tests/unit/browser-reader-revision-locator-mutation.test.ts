@@ -39,7 +39,6 @@ describe('Browser revision locator mutation coordinator', () => {
     setRevisionState(fixture.state, snapshot.revision, snapshot.navigation);
     const publishedBundle = fixture.state.revisionBundle;
     const publishedFootnotes = fixture.state.footnotes;
-    const publishedChapterTextIndices = fixture.state.chapterTextIndices;
     const publishedFrames = fixture.state.frames;
     const publishedRevisionHandle = fixture.state.revisionHandle;
     if (!publishedRevisionHandle) throw new Error('Expected an exact revision handle');
@@ -84,14 +83,12 @@ describe('Browser revision locator mutation coordinator', () => {
     expect(fixture.state.decodeFrameCommandBuffer).not.toHaveBeenCalled();
     expect(fixture.state.frames.get(2)).toBe(cachedFrame);
     expect(vi.mocked(fixture.worker).getFootnotesAtRevision.mock.calls).toHaveLength(0);
-    expect(vi.mocked(fixture.worker).getChapterTextIndicesAtRevision.mock.calls).toHaveLength(0);
 
     imageReady.resolve(image);
     await expect(task).resolves.toEqual(publicResolution(snapshot));
 
     expect(fixture.state.revisionBundle).toBe(publishedBundle);
     expect(fixture.state.footnotes).toBe(publishedFootnotes);
-    expect(fixture.state.chapterTextIndices).toBe(publishedChapterTextIndices);
     expect(fixture.state.frames).toBe(publishedFrames);
     expect(fixture.state.frames.get(2)).toBe(cachedFrame);
     expect(fixture.state.images.get('same-revision-cover.png')).toBe(image);
@@ -145,7 +142,6 @@ describe('Browser revision locator mutation coordinator', () => {
     expect(fixture.state.activeSpreadIndex).toBe(0);
     expect(fixture.state.revisionHandle?.revisionVersion).toBe(0);
     expect(vi.mocked(fixture.worker).getFootnotesAtRevision.mock.calls).toHaveLength(0);
-    expect(vi.mocked(fixture.worker).getChapterTextIndicesAtRevision.mock.calls).toHaveLength(0);
     vi.unstubAllGlobals();
   });
 
@@ -381,7 +377,6 @@ describe('Browser revision locator mutation coordinator', () => {
       expect(fixture.state.revisionSessions.current).toBe(fixture.owner);
       expect(fixture.state.revisionSessions.candidate).toBeUndefined();
       expect(vi.mocked(fixture.worker).getFootnotesAtRevision.mock.calls).toHaveLength(1);
-      expect(vi.mocked(fixture.worker).getChapterTextIndicesAtRevision.mock.calls).toHaveLength(1);
       expect(vi.mocked(fixture.worker).getFootnotesAtRevision.mock.calls[0]?.[0]).toEqual(
         revisionHandle(latestSnapshot),
       );

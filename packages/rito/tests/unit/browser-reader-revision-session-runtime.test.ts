@@ -205,12 +205,6 @@ describe('Browser revision session runtime', () => {
     const readFootnotes = vi.fn(() => footnotes.promise);
     Object.assign(candidate.worker, {
       getFootnotesAtRevision: readFootnotes,
-      getChapterTextIndicesAtRevision: vi.fn(() =>
-        Promise.resolve({
-          revision,
-          value: { revisionId: revision.revisionId, entries: {} },
-        }),
-      ),
     });
     const abort = new AbortController();
 
@@ -716,9 +710,6 @@ function mockAggregates(
   );
   Object.assign(worker, {
     getFootnotesAtRevision: readFootnotes,
-    getChapterTextIndicesAtRevision: vi.fn(() =>
-      Promise.resolve({ revision, value: { revisionId: revision.revisionId, entries: {} } }),
-    ),
   });
   return { readFootnotes };
 }

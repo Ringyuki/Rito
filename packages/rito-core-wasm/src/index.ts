@@ -4,7 +4,6 @@ export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error
 export { createRitoCoreWasmReaderRevisionSession } from './reader-revision-session-runtime.js';
 export {
   createRitoCoreWasmReaderChapterMap,
-  createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
   createRitoCoreWasmReaderManifestHrefMap,
   createRitoCoreWasmReaderSpreads,

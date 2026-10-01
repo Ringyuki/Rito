@@ -12,13 +12,7 @@ import type {
 import type { BrowserReaderWorkerClient } from '../core-contracts';
 import type { BrowserReaderPinnedFonts } from '../pinned-fonts';
 import type { CanvasRenderingTarget } from '../rendering';
-import type {
-  ChapterTextIndex,
-  FootnoteEntry,
-  LayoutConfig,
-  ReaderPageTargets,
-  Spread,
-} from '../../../reader';
+import type { FootnoteEntry, LayoutConfig, ReaderPageTargets, Spread } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type {
   BrowserReaderRevisionSessionOwner,
@@ -144,7 +138,6 @@ export interface BrowserReaderState {
   /** Exact-revision spread settlements already published to render listeners. */
   settledImageResourceSpreads: Set<string>;
   footnotes: BrowserReaderFootnoteMap;
-  chapterTextIndices: BrowserReaderChapterTextIndexMap;
   tocTargets: CoreTocTargets;
   activeSpreadIndex: number;
   /** Bumped whenever rejected font faces reach the worker after open. */
@@ -167,4 +160,3 @@ export interface BrowserReaderState {
 }
 
 export type BrowserReaderFootnoteMap = ReadonlyMap<string, FootnoteEntry>;
-export type BrowserReaderChapterTextIndexMap = ReadonlyMap<string, ChapterTextIndex>;

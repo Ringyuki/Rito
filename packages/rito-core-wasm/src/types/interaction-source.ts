@@ -21,25 +21,6 @@ export interface RitoCoreWasmFootnotes {
   readonly entries: Readonly<Record<string, RitoCoreWasmFootnoteEntry>>;
 }
 
-export interface RitoCoreWasmChapterTextSpan {
-  readonly nodePath: readonly number[];
-  readonly sourceStart: number;
-  readonly sourceEnd: number;
-  readonly normalizedStart: number;
-  readonly normalizedEnd: number;
-}
-
-export interface RitoCoreWasmChapterTextIndex {
-  readonly href: string;
-  readonly normalizedText: string;
-  readonly spans: readonly RitoCoreWasmChapterTextSpan[];
-}
-
-export interface RitoCoreWasmChapterTextIndices {
-  readonly revisionId: string;
-  readonly entries: Readonly<Record<string, RitoCoreWasmChapterTextIndex>>;
-}
-
 export interface RitoCoreWasmSourcePoint {
   readonly nodePath: readonly number[];
   /** UTF-16 code-unit offset within the parsed XHTML text node. */

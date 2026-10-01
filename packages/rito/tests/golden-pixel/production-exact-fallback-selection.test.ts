@@ -4,12 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { unzipSync } from 'fflate';
-import type {
-  ChapterTextIndex,
-  Reader,
-  ReaderExactSourceRangeRequest,
-  ReaderOptions,
-} from '../../src';
+import type { Reader, ReaderOptions } from '../../src';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 import { startPixelRenderServer, type PixelRenderServer } from './helpers/render-server';
 import { requireSfntFallbackFixtureCoverage } from './helpers/sfnt-cmap';
@@ -25,7 +20,6 @@ interface ExactFallbackApi {
 interface GeometrySample {
   readonly text: string;
   readonly selectedText: string;
-  readonly sourceOrigin: 'search' | 'chapterIndex';
   readonly rectCount: number;
   readonly exactWidth: number;
   readonly canvasWidth: number;
@@ -100,14 +94,8 @@ test.describe('production exact fallback selection', () => {
       );
     }
     // Fragment search resolves durable source ranges (contiguous runs of
-    // one node merge into one anchor, so a match that font fallback
-    // split across faces still anchors whole). The chapter-index
-    // fallback stays a legitimate escape for a sample whose anchor does
-    // not validate, but the search origin must be alive.
-    for (const sample of proof.samples) {
-      expect(['search', 'chapterIndex']).toContain(sample.sourceOrigin);
-    }
-    expect(proof.samples.some((sample) => sample.sourceOrigin === 'search')).toBe(true);
+    // one node merge into one anchor, so a match that font fallback split
+    // across faces, or that wraps across lines, still anchors whole).
     expect(proof.samples.at(-1)?.rectCount).toBeGreaterThan(1);
   });
 });
@@ -155,21 +143,22 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
         const geometry = [] as GeometrySample[];
         if (!reader.search) throw new Error('Production reader search is unavailable');
         for (const text of samples) {
-          // Keep the multi-line case on the durable index path independently
-          // of the current laid-out-page search tokenization.
-          const useChapterIndex = text === samples.at(-1);
-          const results = useChapterIndex
-            ? []
-            : await reader.search(text, { caseSensitive: true, wholeWord: false });
+          // Search proves ranges within one line, so a sample that wraps is
+          // anchored by its opening characters and extended along its own
+          // text node to its full length.
+          const probe = text === samples.at(-1) ? text.slice(0, 4) : text;
+          const results = await reader.search(probe, { caseSensitive: true, wholeWord: false });
           const source = results.find((result) => result.source?.status === 'resolved')?.source;
-          const request =
-            source?.status === 'resolved'
-              ? { href: source.href, sourceRange: source.sourceRange }
-              : sourceRequestFromIndex(reader.getChapterTextIndices(), text);
-          const sourceOrigin = source?.status === 'resolved' ? 'search' : 'chapterIndex';
+          if (source?.status !== 'resolved') {
+            throw new Error(`Search resolves no source range for ${probe}`);
+          }
+          const { start } = source.sourceRange;
           const resolution = await reader.interactions?.resolveExactSourceRange?.({
-            href: request.href,
-            sourceRange: request.sourceRange,
+            href: source.href,
+            sourceRange: {
+              start,
+              end: { nodePath: start.nodePath, textOffset: start.textOffset + text.length },
+            },
           });
           if (!resolution || resolution.status !== 'resolved') {
             throw new Error(`Exact source range is unavailable for ${text}`);
@@ -177,7 +166,6 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
           geometry.push({
             text,
             selectedText: resolution.range.selectedText,
-            sourceOrigin,
             rectCount: resolution.range.rects.length,
             exactWidth: resolution.range.rects.reduce((sum, rect) => sum + rect.width, 0),
             canvasWidth: context.measureText(text).width,
@@ -218,33 +206,6 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
           bytes[index] = binary.charCodeAt(index);
         }
         return bytes.buffer;
-      }
-
-      function sourceRequestFromIndex(
-        indices: ReadonlyMap<string, ChapterTextIndex>,
-        text: string,
-      ): ReaderExactSourceRangeRequest {
-        for (const chapter of indices.values()) {
-          for (const span of chapter.spans) {
-            const spanText = chapter.normalizedText.slice(span.normalizedStart, span.normalizedEnd);
-            const localStart = spanText.indexOf(text);
-            if (localStart < 0) continue;
-            return {
-              href: chapter.href,
-              sourceRange: {
-                start: {
-                  nodePath: span.nodePath,
-                  textOffset: span.sourceStart + localStart,
-                },
-                end: {
-                  nodePath: span.nodePath,
-                  textOffset: span.sourceStart + localStart + text.length,
-                },
-              },
-            };
-          }
-        }
-        throw new Error(`Chapter source range is unavailable for ${text}`);
       }
 
       function renderWhenReady(

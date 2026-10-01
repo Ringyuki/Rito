@@ -103,16 +103,6 @@ describe('Browser reader methods', () => {
     expect(methods.getFootnotes().get('chapter.xhtml#fn1')?.text).toBe('Note');
   });
 
-  it('returns committed chapter text indices from browser reader state', () => {
-    const state = createState();
-    state.chapterTextIndices = new Map([
-      ['chapter', { href: 'chapter', normalizedText: 'Hello', spans: [] }],
-    ]);
-    const methods = buildBrowserReaderMethods(state, readerOptions());
-
-    expect(methods.getChapterTextIndices().get('chapter')?.normalizedText).toBe('Hello');
-  });
-
   it('forwards atomic locator navigation to a current-session revision mutation', async () => {
     const state = createState();
     const methods = buildBrowserReaderMethods(state, readerOptions());
@@ -373,7 +363,6 @@ describe('Browser reader methods', () => {
     state.documentData = new Uint8Array([1, 2, 3]).buffer;
     const revisionBundle = state.revisionBundle;
     const footnotes = state.footnotes;
-    const chapterTextIndices = state.chapterTextIndices;
     const tocTargets = state.tocTargets;
     const failedImageClose = vi.fn(() => {
       throw new Error('image close failed');
@@ -397,7 +386,6 @@ describe('Browser reader methods', () => {
     expect(state.revisionBundle).not.toBe(revisionBundle);
     expect(state.revisionBundle.revision.revisionId).toBe('');
     expect(state.footnotes).not.toBe(footnotes);
-    expect(state.chapterTextIndices).not.toBe(chapterTextIndices);
     expect(state.tocTargets).not.toBe(tocTargets);
     expect(failedImageClose).toHaveBeenCalledOnce();
     expect(remainingImageClose).toHaveBeenCalledOnce();
@@ -712,12 +700,10 @@ function createState(): BrowserReaderState {
       },
       tocTargets: { revisionId: 'rev', targets: [], activeEntryByPage: [] },
       footnotes: { revisionId: 'rev', complete: true, pendingKeys: [], entries: {} },
-      chapterTextIndices: { revisionId: 'rev', entries: {} },
       fontFamilies: [],
     },
     tocTargets: { revisionId: '', targets: [], activeEntryByPage: [] },
     footnotes: new Map(),
-    chapterTextIndices: new Map(),
     activeSpreadIndex: 0,
     revisionSessions: { current: undefined, candidate: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),

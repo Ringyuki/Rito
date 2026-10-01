@@ -56,9 +56,6 @@ describe('Browser revision commit adapter', () => {
     expect(state.revisionSessions).toEqual({ current: candidateOwner, candidate: undefined });
     expect(state.revisionBundle.revision).toBe(snapshot.revision);
     expect(state.revisionBundle.footnotes.entries['note']?.text).toBe('note text');
-    expect(state.revisionBundle.chapterTextIndices.entries['chapter']?.normalizedText).toBe(
-      'chapter text',
-    );
     expect(state.activeSpreadIndex).toBe(1);
     expect(candidateOwner.readsSuspended).toBe(false);
     expect(previous.releaseRevisionAtRevision).not.toHaveBeenCalled();
@@ -124,12 +121,6 @@ describe('Browser revision commit adapter', () => {
       createDeferred<Awaited<ReturnType<BrowserReaderWorkerClient['getFootnotesAtRevision']>>>();
     Object.assign(fixture.worker, {
       getFootnotesAtRevision: vi.fn(() => footnotes.promise),
-      getChapterTextIndicesAtRevision: vi.fn(() =>
-        Promise.resolve({
-          revision: revisionHandle(snapshot),
-          value: { revisionId: snapshot.revision.revisionId, entries: {} },
-        }),
-      ),
     });
     const task = commitBrowserReaderRevisionSnapshot(state, {
       owner: candidate,
@@ -550,17 +541,6 @@ function mockAggregates(
           complete: true,
           pendingKeys: [],
           entries: { note: { kind: 'note', text: 'note text', html: '<p>note text</p>' } },
-        },
-      }),
-    ),
-    getChapterTextIndicesAtRevision: vi.fn(() =>
-      Promise.resolve({
-        revision,
-        value: {
-          revisionId: revision.revisionId,
-          entries: {
-            chapter: { href: 'chapter.xhtml', normalizedText: 'chapter text', spans: [] },
-          },
         },
       }),
     ),

@@ -195,10 +195,7 @@ function navigationMethods(
 
 function resourceMethods(
   state: BrowserReaderState,
-): Pick<
-  BrowserReaderMethodSurface,
-  'search' | 'getChapterTextIndices' | 'getFootnotes' | 'getImageBlobUrl'
-> {
+): Pick<BrowserReaderMethodSurface, 'search' | 'getFootnotes' | 'getImageBlobUrl'> {
   return {
     async search(query, searchOptions) {
       if (query.length === 0) return [];
@@ -216,9 +213,6 @@ function resourceMethods(
         throw new Error('Reader search response does not match its revision request');
       }
       return response.results.map(toSearchResult);
-    },
-    getChapterTextIndices() {
-      return state.chapterTextIndices;
     },
     getFootnotes() {
       return state.footnotes;

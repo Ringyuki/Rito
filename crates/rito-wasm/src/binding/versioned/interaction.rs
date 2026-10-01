@@ -210,15 +210,4 @@ impl RitoWasmDocument {
             .get_footnotes_at_revision_json(revision_id, revision_version)
             .map_err(error_to_js_value)
     }
-
-    #[wasm_bindgen(js_name = getChapterTextIndicesAtRevisionJson)]
-    pub fn get_chapter_text_indices_at_revision_json(
-        &mut self,
-        revision_id: &str,
-        revision_version: u32,
-    ) -> Result<String, JsValue> {
-        self.inner
-            .get_chapter_text_indices_at_revision_json(revision_id, revision_version)
-            .map_err(error_to_js_value)
-    }
 }

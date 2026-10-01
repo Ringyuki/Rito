@@ -747,7 +747,6 @@ function coordinatePosition(
     spread,
     { selection: { setSpread: vi.fn() }, search: {}, position: tracker } as never,
     {
-      getChapterTextIndices: vi.fn(() => new Map()),
       getLayoutGeometry: vi.fn(() => ({
         viewportWidth: 300,
         viewportHeight: 400,

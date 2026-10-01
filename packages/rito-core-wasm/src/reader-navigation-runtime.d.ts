@@ -1,4 +1,4 @@
-import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './types/interaction';
+import type { RitoCoreWasmFootnotes } from './types/interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './types/publication';
 import type {
   RitoCoreWasmRevisionNavigation,
@@ -49,7 +49,3 @@ export function findRitoCoreWasmReaderSpreadContainingPage(
 export function createRitoCoreWasmReaderFootnoteMap(
   footnotes: RitoCoreWasmFootnotes,
 ): ReadonlyMap<string, RitoCoreWasmFootnotes['entries'][string]>;
-
-export function createRitoCoreWasmReaderChapterTextIndexMap(
-  indices: RitoCoreWasmChapterTextIndices,
-): ReadonlyMap<string, RitoCoreWasmChapterTextIndices['entries'][string]>;

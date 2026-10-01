@@ -1,6 +1,5 @@
 import type { LayoutConfig } from '../../../reader';
 import {
-  createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
   type BrowserReaderRevisionResult,
   type BrowserReaderWorkerClient,
@@ -45,6 +44,5 @@ function applyRevisionData(state: BrowserReaderState, result: BrowserReaderRevis
   state.revisionBundle = bundle;
   resetBrowserReaderInteractionCache(state);
   state.footnotes = createRitoCoreWasmReaderFootnoteMap(bundle.footnotes);
-  state.chapterTextIndices = createRitoCoreWasmReaderChapterTextIndexMap(bundle.chapterTextIndices);
   state.tocTargets = bundle.tocTargets;
 }

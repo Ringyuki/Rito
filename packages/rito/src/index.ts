@@ -38,8 +38,6 @@ export type {
 } from './bindings/browser/reader-session-canvas';
 export type {
   ChapterRange,
-  ChapterTextIndex,
-  ChapterTextSpan,
   FootnoteEntry,
   FootnoteKind,
   LayoutConfig,

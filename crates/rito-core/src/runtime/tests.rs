@@ -364,10 +364,6 @@ fn returns_revision_bundle_from_runtime_source_of_truth() {
     assert_eq!(bundle.navigation.revision_id, revision.revision_id);
     assert_eq!(bundle.toc_targets.targets.len(), 3);
     assert_eq!(bundle.footnotes.revision_id, revision.revision_id);
-    assert_eq!(
-        bundle.chapter_text_indices.revision_id,
-        revision.revision_id
-    );
     assert!(no_toc.toc_targets.targets.is_empty());
 }
 
@@ -510,16 +506,11 @@ fn releases_obsolete_revisions() {
     assert!(!document.release_revision(&first.revision_id));
     assert_eq!(
         document
-            .get_chapter_text_indices(&first.revision_id)
-            .expect_err("released revision indices stay unavailable")
+            .get_footnotes(&first.revision_id)
+            .expect_err("released revision stays unavailable")
             .message(),
         format!("unknown revision: {}", first.revision_id)
     );
-    assert!(!document
-        .get_chapter_text_indices(&second.revision_id)
-        .expect("remaining revision lazily materializes indices")
-        .entries
-        .is_empty());
 }
 
 #[test]
@@ -688,32 +679,6 @@ fn reads_revision_scoped_footnotes() {
 }
 
 #[test]
-fn reads_revision_scoped_chapter_text_indices() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let indices = document
-        .get_chapter_text_indices(&revision.revision_id)
-        .expect("chapter text indices are available");
-    let chapter = indices
-        .entries
-        .get("chapter")
-        .expect("chapter index exists");
-
-    assert_eq!(indices.revision_id, revision.revision_id);
-    assert_eq!(chapter.href, "chapter.xhtml");
-    assert_eq!(chapter.normalized_text, "Hello runtime1");
-    assert!(!chapter.normalized_text.contains("Runtime note"));
-    assert!(chapter
-        .spans
-        .iter()
-        .any(|span| span.normalized_end > span.normalized_start));
-}
-
-#[test]
 fn searches_revision_scoped_typed_page_text() {
     let mut document =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
@@ -826,13 +791,7 @@ fn resolves_source_locators_by_href_anchor_point_range_and_progression() {
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
-    let index = document
-        .get_chapter_text_indices(&revision.revision_id)
-        .expect("chapter text index resolves")
-        .entries
-        .get("chapter")
-        .expect("chapter index exists")
-        .clone();
+    let index = document.source_chapter_text_for_tests("chapter");
     let span = index.spans.first().expect("chapter has source text");
     let point = RuntimeSourcePoint {
         node_path: span.node_path.clone(),
@@ -966,13 +925,7 @@ fn rejects_invalid_source_locator_hrefs_and_selectors() {
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
-    let index = document
-        .get_chapter_text_indices(&revision.revision_id)
-        .expect("chapter text index resolves")
-        .entries
-        .get("chapter")
-        .expect("chapter index exists")
-        .clone();
+    let index = document.source_chapter_text_for_tests("chapter");
     let point = RuntimeSourcePoint {
         node_path: index.spans[0].node_path.clone(),
         text_offset: 1,
@@ -1030,13 +983,7 @@ fn source_locator_projection_changes_across_reflow_without_changing_source_ident
     let first = document
         .create_revision(&layout())
         .expect("first revision is created");
-    let index = document
-        .get_chapter_text_indices(&first.revision_id)
-        .expect("chapter text index resolves")
-        .entries
-        .get("chapter")
-        .expect("chapter index exists")
-        .clone();
+    let index = document.source_chapter_text_for_tests("chapter");
     let span = &index.spans[index.spans.len() * 3 / 4];
     let mut locator = source_locator("chapter.xhtml");
     locator.source_point = Some(RuntimeSourcePoint {

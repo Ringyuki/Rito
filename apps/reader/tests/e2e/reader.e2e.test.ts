@@ -160,7 +160,6 @@ test.describe('reader app revision worker session', () => {
         'getRevisionPresentationAtRevision',
         'warmFrameWindowAtRevision',
         'getFootnotesAtRevision',
-        'getChapterTextIndicesAtRevision',
       ]),
     );
     expect(observations.some((entry) => entry.kind === 'createViewRevision')).toBe(false);

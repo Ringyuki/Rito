@@ -219,7 +219,6 @@ pub struct RuntimeRevisionBundle {
     pub navigation: RuntimeRevisionNavigation,
     pub toc_targets: RuntimeTocTargets,
     pub footnotes: RuntimeFootnotes,
-    pub chapter_text_indices: RuntimeChapterTextIndices,
     pub font_families: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
@@ -606,11 +605,4 @@ pub struct RuntimeChapterTextIndex {
     pub href: String,
     pub normalized_text: String,
     pub spans: Vec<RuntimeChapterTextSpan>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterTextIndices {
-    pub revision_id: String,
-    pub entries: BTreeMap<String, RuntimeChapterTextIndex>,
 }

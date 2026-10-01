@@ -20,10 +20,10 @@ use crate::{
 
 use super::{
     fragment_backend::FragmentBuiltLayout, page_artifact::PageArtifactFrame,
-    resource::find_image_size, spread::build_spread_slots, RuntimeChapterTextIndex,
-    RuntimeDocument, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
-    RuntimeInitialFrameDecision, RuntimeInitialFrameRequest, RuntimePrefetchRequest,
-    RuntimePrefetchResponse, RuntimeRevisionExtent, RuntimeRevisionSummary,
+    resource::find_image_size, spread::build_spread_slots, RuntimeDocument,
+    RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata, RuntimeInitialFrameDecision,
+    RuntimeInitialFrameRequest, RuntimePrefetchRequest, RuntimePrefetchResponse,
+    RuntimeRevisionExtent, RuntimeRevisionSummary,
 };
 
 pub(super) const FRAME_CACHE_CAPACITY: usize = 12;
@@ -75,7 +75,6 @@ pub(super) struct RuntimeRevisionInteractions {
     pub(super) footnotes: BTreeMap<String, FootnoteEntry>,
     pub(super) pending_footnote_keys: FootnoteTargetSet,
     pub(super) footnote_index_complete: bool,
-    pub(super) chapter_text_indices: RuntimeChapterTextIndexSource,
     pub(super) completed_chapter_idrefs: BTreeSet<String>,
 }
 
@@ -101,12 +100,6 @@ impl RuntimeRevisionInteractions {
         footnotes.extend(self.footnotes.clone());
         footnotes
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum RuntimeChapterTextIndexSource {
-    FullDocument,
-    Materialized(BTreeMap<String, RuntimeChapterTextIndex>),
 }
 
 #[derive(Debug, PartialEq)]

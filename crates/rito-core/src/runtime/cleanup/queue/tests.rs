@@ -15,15 +15,15 @@ use crate::{
         cleanup::test_support::{cached_frame, wide_resource_cached_frame},
         fragment_backend::FragmentBuiltLayout,
         frame::{
-            RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionCoordinateSpace,
-            RuntimeRevisionInteractions, FRAME_CACHE_CAPACITY,
+            RuntimeRevision, RuntimeRevisionCoordinateSpace, RuntimeRevisionInteractions,
+            FRAME_CACHE_CAPACITY,
         },
     },
 };
 
 const EMPTY_FRAME_UNITS: usize = 6;
 const LARGE_FRAME_PAYLOAD_COUNT: usize = 16_384;
-const REAL_JOB_FIXTURE_UNITS: usize = 15 + (EMPTY_FRAME_UNITS + 1);
+const REAL_JOB_FIXTURE_UNITS: usize = 12 + (EMPTY_FRAME_UNITS + 1);
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -287,7 +287,6 @@ fn empty_revision() -> RuntimeRevision {
             footnotes: BTreeMap::new(),
             pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
             footnote_index_complete: false,
-            chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::new()),
             completed_chapter_idrefs: BTreeSet::new(),
         },
         FragmentBuiltLayout::empty(),

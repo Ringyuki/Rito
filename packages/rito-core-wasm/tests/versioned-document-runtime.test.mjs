@@ -108,7 +108,6 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.resolveTextRangeToPointAtRevision(handle, rangeToPointRequest()),
     () => document.getFootnoteAtRevision(handle, 'chapter.xhtml#fn1'),
     () => document.getFootnotesAtRevision(handle),
-    () => document.getChapterTextIndicesAtRevision(handle),
     () => document.getRevisionSummaryAtRevision(handle),
     () => document.getRevisionBundleAtRevision(handle, true),
     () => document.getRevisionPresentationAtRevision(handle),
@@ -169,7 +168,6 @@ function bundle(version, revisionId = 'rev-1') {
     navigation: { revisionId },
     tocTargets: { revisionId, targets: [], activeEntryByPage: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
-    chapterTextIndices: { revisionId, entries: {} },
     fontFamilies: [],
   };
 }
@@ -212,9 +210,6 @@ function versionedValue(property, args, version) {
   }
   if (property === 'getFootnotesAtRevisionJson') {
     return { revisionId, complete: true, pendingKeys: [], entries: {} };
-  }
-  if (property === 'getChapterTextIndicesAtRevisionJson') {
-    return { revisionId, entries: {} };
   }
   if (property === 'searchAtRevisionJson') {
     const request = JSON.parse(args[2]);

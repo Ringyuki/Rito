@@ -153,14 +153,6 @@ export function mockLocatorAggregates(worker: BrowserReaderWorkerClient): {
   );
   Object.assign(worker, {
     getFootnotesAtRevision: footnotes,
-    getChapterTextIndicesAtRevision: vi.fn<
-      BrowserReaderWorkerClient['getChapterTextIndicesAtRevision']
-    >((revision) =>
-      Promise.resolve({
-        revision,
-        value: { revisionId: revision.revisionId, entries: {} },
-      }),
-    ),
   });
   return { footnotes };
 }

@@ -159,16 +159,15 @@ when switching from a dark theme back to a book-authored light theme.
 
 ### Layout / interaction data
 
-| Member                    | What it does                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| `spreads`                 | Navigation record per spread: `{ index, pageIndexes, leftPageIndex, rightPageIndex? }` |
-| `totalSpreads`            | Number of spreads in the committed layout                                              |
-| `pageCount`               | Number of pages in the committed layout                                                |
-| `dpr`                     | Device pixel ratio used by rendering                                                   |
-| `getChapterTextIndices()` | Source-based chapter text indices                                                      |
-| `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment`                                   |
-| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL                                     |
-| `interactions`            | Optional revision-safe semantic interaction provider                                   |
+| Member                 | What it does                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `spreads`              | Navigation record per spread: `{ index, pageIndexes, leftPageIndex, rightPageIndex? }` |
+| `totalSpreads`         | Number of spreads in the committed layout                                              |
+| `pageCount`            | Number of pages in the committed layout                                                |
+| `dpr`                  | Device pixel ratio used by rendering                                                   |
+| `getFootnotes()`       | Extracted footnotes keyed by `manifestHref#fragment`                                   |
+| `getImageBlobUrl(src)` | Create or asynchronously resolve an EPUB image URL                                     |
+| `interactions`         | Optional revision-safe semantic interaction provider                                   |
 
 Every revision is laid out complete in one step, so `totalSpreads`, `pageCount`
 and `spreads` describe the whole book as soon as `createReader()` resolves. A
@@ -210,10 +209,9 @@ page-content rectangles, a typed lazy-pagination result, or a typed unavailable
 reason; callers must not substitute the legacy interpolated geometry.
 
 Native `search()` results expose `source` as either a proven durable
-`{ href, sourceRange }` or typed `sourceUnavailable`. Under the fragment
-engine, results currently report `sourceUnavailable` — matches and navigation
-still work, and callers recover a durable range through
-`getChapterTextIndices()` (the fallback `@ritojs/kit` uses). Geometry is
+`{ href, sourceRange }` or typed `sourceUnavailable`: a match whose source
+range the engine cannot prove against the chapter's text reports
+`sourceUnavailable`, while matches and navigation still work. Geometry is
 intentionally not attached to every result: resolve ranges through
 `resolveExactSourceRange`.
 

@@ -74,7 +74,7 @@ export function requireVersionedValueIdentity(value, revision, operation) {
 export function requireRevisionBundle(value, revision, operation) {
   const bundle = requireObjectInput(value, `${operation} value`);
   requireMatchingRevisionSummary(bundle.revision, revision, `${operation} bundle`);
-  for (const field of ['navigation', 'tocTargets', 'footnotes', 'chapterTextIndices']) {
+  for (const field of ['navigation', 'tocTargets', 'footnotes']) {
     requireMatchingRevisionId(bundle[field], revision, `${operation} ${field}`);
   }
   requireRequiredFontFaces(bundle.requiredFontFaces, revision.revisionId, operation);

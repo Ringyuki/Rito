@@ -48,7 +48,6 @@ import {
   requireTextRangeGeometryRequest,
 } from './reader-worker-text-geometry-validation-runtime.js';
 import {
-  requireChapterTextIndices,
   requireFootnotes,
   requireReaderRevisionBundle,
   requireSearchRequest,
@@ -109,8 +108,6 @@ export function versionedReaderWorkerPayload(document, request) {
       return footnoteResponse(document, request);
     case 'getFootnotesAtRevision':
       return exactReadResponse(document, request, requireFootnotes);
-    case 'getChapterTextIndicesAtRevision':
-      return exactReadResponse(document, request, requireChapterTextIndices);
     case 'searchAtRevision':
       return searchResponse(document, request);
     case 'resolveLocatorAtRevision':

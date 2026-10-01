@@ -208,8 +208,6 @@ export function createWorker(
       vi.fn<BrowserReaderWorkerClient['resolvePositionQueryAtRevision']>(),
     getFootnoteAtRevision,
     getFootnotesAtRevision: vi.fn<BrowserReaderWorkerClient['getFootnotesAtRevision']>(),
-    getChapterTextIndicesAtRevision:
-      vi.fn<BrowserReaderWorkerClient['getChapterTextIndicesAtRevision']>(),
     searchAtRevision: vi.fn<BrowserReaderWorkerClient['searchAtRevision']>(),
     resolveLocatorAtRevision: vi.fn<BrowserReaderWorkerClient['resolveLocatorAtRevision']>(),
     readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(),

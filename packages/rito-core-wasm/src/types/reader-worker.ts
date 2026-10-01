@@ -6,7 +6,6 @@ import type {
   RitoCoreWasmReaderChapterLocalWorkerResponse,
 } from './chapter-local';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
-import type { RitoCoreWasmChapterTextIndices } from './interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './publication';
 import type {
   RitoCoreWasmOpenDocumentOptions,
@@ -85,28 +84,6 @@ export interface RitoCoreWasmReaderWorkerClient
 export interface RitoCoreWasmReaderSessionCache {
   readonly __ritoCoreWasmReaderSessionCache?: true;
 }
-
-export type RitoCoreWasmReaderChapterTextIndicesTransport =
-  | RitoCoreWasmChapterTextIndices
-  | {
-      readonly revisionId: string;
-      readonly entries?: RitoCoreWasmChapterTextIndices['entries'] | undefined;
-      readonly scopeKey: 'chapter-text-v1:full';
-    };
-
-export type RitoCoreWasmReaderRevisionBundleTransport = Omit<
-  RitoCoreWasmRevisionBundle,
-  'chapterTextIndices'
-> & {
-  readonly chapterTextIndices: RitoCoreWasmReaderChapterTextIndicesTransport;
-};
-
-export type RitoCoreWasmReaderRevisionResultTransport = Omit<
-  RitoCoreWasmReaderRevisionResult,
-  'bundle'
-> & {
-  readonly bundle: RitoCoreWasmReaderRevisionBundleTransport;
-};
 
 export interface RitoCoreWasmReaderWorkerErrorPayload extends RitoCoreWasmReaderVersionedErrorMetadata {
   readonly name: string;

@@ -43,13 +43,12 @@ pub use access::{
     RuntimeRevisionAccessError, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
     RuntimeVersioned,
 };
-use chapter_text::runtime_chapter_text_index_entries;
 pub use chapter_tree_report::{
     ChapterLayoutBox, ChapterLayoutGeometry, RuntimeChapterTreeChapter, RuntimeChapterTreeReport,
     RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
 };
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
-use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
+use frame::RuntimeRevision;
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::resolve_href_locator;
 use page::{page_targets, page_text_positions, text_range_geometry};
@@ -107,7 +106,6 @@ pub struct RuntimeDocument {
     publication_footnote_progress: Option<PublicationFootnoteProgress>,
     #[cfg(test)]
     publication_footnote_scan_count: usize,
-    full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
     page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
@@ -161,7 +159,6 @@ impl RuntimeDocument {
             publication_footnote_progress: None,
             #[cfg(test)]
             publication_footnote_scan_count: 0,
-            full_chapter_text_indices: OnceCell::new(),
             page_target_context: OnceCell::new(),
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
@@ -456,38 +453,6 @@ impl RuntimeDocument {
                 .collect(),
             entries: revision.interactions.owned_footnotes(),
         })
-    }
-
-    pub fn get_chapter_text_indices(
-        &mut self,
-        revision_id: &str,
-    ) -> EpubResult<RuntimeChapterTextIndices> {
-        Ok(RuntimeChapterTextIndices {
-            revision_id: revision_id.to_owned(),
-            entries: self.chapter_text_indices_for_revision(revision_id)?.clone(),
-        })
-    }
-
-    pub(super) fn chapter_text_indices_for_revision(
-        &self,
-        revision_id: &str,
-    ) -> EpubResult<&BTreeMap<String, RuntimeChapterTextIndex>> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        match &revision.interactions.chapter_text_indices {
-            RuntimeChapterTextIndexSource::Materialized(entries) => Ok(entries),
-            RuntimeChapterTextIndexSource::FullDocument => {
-                let prepared = self
-                    .prepared
-                    .as_ref()
-                    .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
-                Ok(self
-                    .full_chapter_text_indices
-                    .get_or_init(|| runtime_chapter_text_index_entries(prepared)))
-            }
-        }
     }
 
     fn assert_revision_exists(&self, revision_id: &str) -> EpubResult<()> {

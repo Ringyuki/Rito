@@ -484,13 +484,8 @@ fn returns_footnote_json() {
     let footnotes_json = document
         .get_footnotes_json(&revision_id)
         .expect("footnote map JSON is returned");
-    let chapter_text_indices_json = document
-        .get_chapter_text_indices_json(&revision_id)
-        .expect("chapter text indices JSON is returned");
     let footnote: Value = serde_json::from_str(&footnote_json).expect("footnote JSON parses");
     let footnotes: Value = serde_json::from_str(&footnotes_json).expect("footnote map JSON parses");
-    let chapter_text_indices: Value =
-        serde_json::from_str(&chapter_text_indices_json).expect("chapter text JSON parses");
     let missing = document
         .get_footnote_json(&revision_id, "chapter.xhtml#missing")
         .expect_err("missing footnote fails");
@@ -504,11 +499,6 @@ fn returns_footnote_json() {
     assert_eq!(
         footnotes["entries"]["chapter.xhtml#fn1"]["text"],
         "WASM note"
-    );
-    assert_eq!(chapter_text_indices["revisionId"], revision_id);
-    assert_eq!(
-        chapter_text_indices["entries"]["chapter"]["normalizedText"],
-        "Hello WASM1"
     );
     assert_eq!(missing.code(), WasmRuntimeErrorCode::EngineError);
     assert_eq!(missing.message(), "unknown footnote: chapter.xhtml#missing");

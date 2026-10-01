@@ -121,7 +121,6 @@ function createReader(
     ...(interactions ? { interactions } : {}),
     getLayoutGeometry: () =>
       createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-    getChapterTextIndices: () => new Map(),
     onSpreadRendered(callback: (index: number, spread: Spread) => void) {
       listeners.add(callback);
       return () => {

@@ -17,7 +17,6 @@ export function createRitoCoreWasmStatus(npmWasmArtifact: boolean): RitoCoreWasm
       packedFrameCommandBuffer: true,
       footnoteJson: true,
       footnotesJson: true,
-      chapterTextIndicesJson: true,
       pageTargetsJson: true,
       pageSemanticsJson: true,
       pageReadingAnchorJson: true,

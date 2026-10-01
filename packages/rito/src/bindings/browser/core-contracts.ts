@@ -1,6 +1,5 @@
 export {
   createRitoCoreWasmReaderChapterMap,
-  createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
   createRitoCoreWasmReaderManifestHrefMap,
   createRitoCoreWasmReaderSpreads,
@@ -15,7 +14,6 @@ export {
 } from '@ritojs/core-wasm/decoder';
 
 export type {
-  RitoCoreWasmChapterTextIndices as CoreChapterTextIndices,
   RitoCoreWasmChapterLocalRevisionRequest as CoreChapterLocalRevisionRequest,
   RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
   RitoCoreWasmCreatedChapterLocalRevision as CoreCreatedChapterLocalRevision,

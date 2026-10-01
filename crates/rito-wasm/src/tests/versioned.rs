@@ -86,9 +86,6 @@ fn versioned_raw_reads_return_stamped_envelopes() {
             .get_footnotes_at_revision_json(&revision_id, 0)
             .expect("footnotes"),
         document
-            .get_chapter_text_indices_at_revision_json(&revision_id, 0)
-            .expect("chapter text indices"),
-        document
             .get_revision_summary_at_revision_json(&revision_id, 0)
             .expect("revision summary"),
         document

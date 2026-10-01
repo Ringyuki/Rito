@@ -43,7 +43,6 @@ import {
 import { createPageSemanticsDocumentMethod } from './reader-worker-page-semantics-runtime.js';
 import { createPageReadingAnchorDocumentMethod } from './reader-worker-page-reading-anchor-runtime.js';
 import {
-  requireChapterTextIndices,
   requireFootnotes,
   requireReaderRevisionBundle,
   requireSearchRequest,
@@ -336,14 +335,6 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
     },
     getFootnotesAtRevision(handle) {
       return versionedNoArg(this, 'getFootnotesAtRevision', handle, requireFootnotes);
-    },
-    getChapterTextIndicesAtRevision(handle) {
-      return versionedNoArg(
-        this,
-        'getChapterTextIndicesAtRevision',
-        handle,
-        requireChapterTextIndices,
-      );
     },
     getRevisionSummaryAtRevision(handle) {
       return versionedNoArg(this, 'getRevisionSummaryAtRevision', handle, requireSummaryValue);

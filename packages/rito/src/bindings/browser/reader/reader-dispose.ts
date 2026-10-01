@@ -58,7 +58,6 @@ function releaseRetainedReaderData(state: BrowserReaderState): void {
   state.revisionBundle = createEmptyBrowserReaderRevisionState().revisionBundle;
   state.revisionHandle = undefined;
   state.footnotes = new Map();
-  state.chapterTextIndices = new Map();
   state.tocTargets = { revisionId: '', targets: [], activeEntryByPage: [] };
   state.reflow.lastError = undefined;
 }

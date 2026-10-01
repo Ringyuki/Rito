@@ -197,7 +197,6 @@ function createReaderStub(input: {
       marginTop: 40,
       spreadGap: 20,
     })),
-    getChapterTextIndices: vi.fn(() => new Map()),
     getFootnotes: vi.fn(() => new Map()),
     getImageBlobUrl: vi.fn(),
     setTypography: vi.fn(() => false),

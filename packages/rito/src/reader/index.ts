@@ -2,8 +2,6 @@ export { createReader, preloadReaderRuntime } from './create-reader';
 export { createLayoutConfig } from './layout-config';
 export type {
   ChapterRange,
-  ChapterTextIndex,
-  ChapterTextSpan,
   FootnoteEntry,
   FootnoteKind,
   LayoutConfig,

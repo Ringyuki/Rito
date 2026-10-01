@@ -89,15 +89,4 @@ impl WasmRuntimeDocument {
             .map_err(WasmRuntimeError::from_engine)?;
         serialize_json(&footnotes)
     }
-
-    pub fn get_chapter_text_indices_json(
-        &mut self,
-        revision_id: &str,
-    ) -> Result<String, WasmRuntimeError> {
-        let indices = self
-            .document
-            .get_chapter_text_indices(revision_id)
-            .map_err(WasmRuntimeError::from_engine)?;
-        serialize_json(&indices)
-    }
 }

@@ -700,7 +700,6 @@ function createState(overrides: object = {}): BrowserReaderState {
       },
       tocTargets: { revisionId: 'rev-1', targets: [], activeEntryByPage: [] },
       footnotes: { revisionId: 'rev-1', complete: true, pendingKeys: [], entries: {} },
-      chapterTextIndices: { revisionId: 'rev-1', entries: {} },
       fontFamilies: [],
     },
     revisionHandle: {

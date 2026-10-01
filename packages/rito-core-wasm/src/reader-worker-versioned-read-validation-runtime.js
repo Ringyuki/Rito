@@ -4,7 +4,6 @@ import { requireExactSourceRangeRequest } from './reader-worker-exact-source-ran
 export function requireReaderRevisionBundle(value, revision, operation) {
   const bundle = requireRevisionBundle(value, revision, operation);
   requireFootnotes(bundle.footnotes, revision, operation);
-  requireChapterTextIndices(bundle.chapterTextIndices, revision, operation);
   return bundle;
 }
 
@@ -28,23 +27,6 @@ export function requireFootnotes(value, revision, operation) {
     requireFootnoteEntry(entry, operation);
   }
   return footnotes;
-}
-
-export function requireChapterTextIndices(value, revision, operation) {
-  const indices = requireRecord(value, `${operation} result`);
-  requireRevisionId(indices, revision, operation);
-  const entries = requireRecord(indices.entries, `${operation} entries`);
-  for (const [key, entryValue] of Object.entries(entries)) {
-    const entry = requireRecord(entryValue, `${operation} chapter text entry`);
-    if (key.length === 0 || typeof entry.href !== 'string' || entry.href.length === 0) {
-      throw new Error(`${operation} returned an invalid chapter text href`);
-    }
-    if (typeof entry.normalizedText !== 'string' || !Array.isArray(entry.spans)) {
-      throw new Error(`${operation} returned malformed chapter text content`);
-    }
-    for (const span of entry.spans) requireChapterTextSpan(span, operation);
-  }
-  return indices;
 }
 
 export function requireSearchRequest(value, operation) {
@@ -96,21 +78,6 @@ function requireFootnoteEntry(value, operation) {
   }
   if (typeof entry.text !== 'string' || typeof entry.html !== 'string') {
     throw new Error(`${operation} returned invalid footnote content`);
-  }
-}
-
-function requireChapterTextSpan(value, operation) {
-  const span = requireRecord(value, `${operation} chapter text span`);
-  if (!Array.isArray(span.nodePath) || span.nodePath.some((part) => !isCount(part))) {
-    throw new Error(`${operation} returned an invalid chapter text node path`);
-  }
-  for (const field of ['sourceStart', 'sourceEnd', 'normalizedStart', 'normalizedEnd']) {
-    if (!isCount(span[field])) {
-      throw new Error(`${operation} returned an invalid chapter text ${field}`);
-    }
-  }
-  if (span.sourceStart > span.sourceEnd || span.normalizedStart > span.normalizedEnd) {
-    throw new Error(`${operation} returned an inverted chapter text span`);
   }
 }
 

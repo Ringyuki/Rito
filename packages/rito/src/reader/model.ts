@@ -74,20 +74,6 @@ export interface ChapterRange {
   readonly endPage: number;
 }
 
-export interface ChapterTextSpan {
-  readonly nodePath: readonly number[];
-  readonly sourceStart: number;
-  readonly sourceEnd: number;
-  readonly normalizedStart: number;
-  readonly normalizedEnd: number;
-}
-
-export interface ChapterTextIndex {
-  readonly href: string;
-  readonly normalizedText: string;
-  readonly spans: readonly ChapterTextSpan[];
-}
-
 export type FootnoteKind = 'footnote' | 'endnote' | 'rearnote' | 'note';
 
 export interface FootnoteEntry {

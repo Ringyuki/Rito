@@ -5,8 +5,8 @@ use super::{
     frame::revision_summary,
     metadata::layout_key,
     navigation::{runtime_revision_navigation, runtime_toc_targets},
-    RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnotes, RuntimeRevisionBundle,
-    RuntimeRevisionPresentation, RuntimeTocTargets,
+    RuntimeDocument, RuntimeFootnotes, RuntimeRevisionBundle, RuntimeRevisionPresentation,
+    RuntimeTocTargets,
 };
 
 impl RuntimeDocument {
@@ -35,10 +35,6 @@ impl RuntimeDocument {
                     .cloned()
                     .collect(),
                 entries: revision_record.interactions.owned_footnotes(),
-            },
-            chapter_text_indices: RuntimeChapterTextIndices {
-                revision_id: revision_id.to_owned(),
-                entries: self.chapter_text_indices_for_revision(revision_id)?.clone(),
             },
             font_families: presentation.font_families,
             required_font_faces: presentation.required_font_faces,

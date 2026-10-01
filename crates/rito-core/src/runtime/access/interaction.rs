@@ -1,10 +1,9 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    AnnotationTarget, AnnotationTargetResolution, ResolvedRuntimeLocator,
-    RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnote, RuntimeFootnotes,
-    RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimePositionAnswer, RuntimePositionQuery,
-    RuntimeSearchRequest, RuntimeSearchResponse, RuntimeSourceLocator,
-    RuntimeSourceLocatorResolution, RuntimeSourceRange,
+    AnnotationTarget, AnnotationTargetResolution, ResolvedRuntimeLocator, RuntimeDocument,
+    RuntimeFootnote, RuntimeFootnotes, RuntimeLocatorRequest, RuntimePageReadingAnchor,
+    RuntimePositionAnswer, RuntimePositionQuery, RuntimeSearchRequest, RuntimeSearchResponse,
+    RuntimeSourceLocator, RuntimeSourceLocatorResolution, RuntimeSourceRange,
 };
 
 impl RuntimeDocument {
@@ -63,13 +62,6 @@ impl RuntimeDocument {
         handle: &RuntimeRevisionHandle,
     ) -> Result<RuntimeVersioned<RuntimeFootnotes>, RuntimeRevisionAccessError> {
         self.versioned_write(handle, RuntimeDocument::get_footnotes)
-    }
-
-    pub fn get_chapter_text_indices_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<RuntimeChapterTextIndices>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, RuntimeDocument::get_chapter_text_indices)
     }
 
     /// Builds an annotation target. The target depends only on the chapter

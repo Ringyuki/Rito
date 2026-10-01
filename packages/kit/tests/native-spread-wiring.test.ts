@@ -28,7 +28,6 @@ describe('native target spread lifecycle', () => {
       spreads: [spread, spreadOne],
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-      getChapterTextIndices: () => new Map(),
       onSpreadRendered(callback: (index: number, value: Spread) => void) {
         listeners.add(callback);
         return () => {
@@ -90,7 +89,6 @@ describe('native target spread lifecycle', () => {
       spreads: [spread, spreadOne],
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-      getChapterTextIndices: () => new Map(),
       onSpreadRendered(callback: (index: number, value: Spread) => void) {
         listeners.add(callback);
         return () => {
@@ -169,7 +167,6 @@ describe('native target spread lifecycle', () => {
       spreads: [spread],
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-      getChapterTextIndices: () => new Map(),
       onSpreadRendered(callback: typeof rendered) {
         rendered = callback;
         return () => {

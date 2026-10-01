@@ -42,22 +42,3 @@ export function createRitoCoreWasmReaderFootnoteMap(footnotes) {
     ]),
   );
 }
-
-export function createRitoCoreWasmReaderChapterTextIndexMap(indices) {
-  return new Map(
-    Object.entries(indices.entries).map(([key, value]) => [
-      key,
-      {
-        href: value.href,
-        normalizedText: value.normalizedText,
-        spans: value.spans.map((span) => ({
-          nodePath: span.nodePath,
-          sourceStart: span.sourceStart,
-          sourceEnd: span.sourceEnd,
-          normalizedStart: span.normalizedStart,
-          normalizedEnd: span.normalizedEnd,
-        })),
-      },
-    ]),
-  );
-}

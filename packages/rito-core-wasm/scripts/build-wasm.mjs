@@ -76,7 +76,7 @@ await writeFile(
 function decoderEntry() {
   return [
     "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmReaderRevisionSession } from './reader-revision-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
     ...readerSessionRuntimeExports(),
@@ -94,7 +94,7 @@ function indexEntry() {
     '',
     "export { default as initRitoCoreWasm, RitoReaderSession, RitoWasmDocument } from './rito_wasm.js';",
     "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
     "export { createRitoCoreWasmReaderRevisionSession } from './reader-revision-session-runtime.js';",
     "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
     ...readerSessionRuntimeExports(),
@@ -196,7 +196,6 @@ function createStatusFunctionSource() {
     '      packedFrameCommandBuffer: true,',
     '      footnoteJson: true,',
     '      footnotesJson: true,',
-    '      chapterTextIndicesJson: true,',
     '      pageTargetsJson: true,',
     '      pageSemanticsJson: true,',
     '      pageReadingAnchorJson: true,',

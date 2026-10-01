@@ -164,13 +164,6 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = getChapterTextIndicesJson)]
-    pub fn get_chapter_text_indices_json(&mut self, revision_id: &str) -> Result<String, JsValue> {
-        self.inner
-            .get_chapter_text_indices_json(revision_id)
-            .map_err(error_to_js_value)
-    }
-
     #[wasm_bindgen(js_name = searchJson)]
     pub fn search_json(&self, revision_id: &str, request_json: &str) -> Result<String, JsValue> {
         self.inner

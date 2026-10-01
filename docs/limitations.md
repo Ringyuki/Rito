@@ -44,8 +44,8 @@ Durable source-locator projection resolves unavailable today for:
 
 - exact source-anchored reading-position restore (page-index persistence
   works)
-- `search()` result `source` ranges (matches and navigation work; callers
-  recover durable ranges through `getChapterTextIndices()`)
+- `search()` result `source` ranges for a match the engine cannot prove
+  against the chapter's source text (matches and navigation work)
 - search highlights painted from a committed source range
 
 `resolveExactSourceRange` itself works, including across soft-wrapped

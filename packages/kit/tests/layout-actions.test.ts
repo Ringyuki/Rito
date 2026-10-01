@@ -27,7 +27,6 @@ function createMocks(options?: {
     manifestHrefMap: new Map(),
     dpr: 2,
     getCanvasSize,
-    getChapterTextIndices: vi.fn(() => new Map()),
     setTypography,
     setSpreadMode,
     setTheme,

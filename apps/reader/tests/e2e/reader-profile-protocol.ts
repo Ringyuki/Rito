@@ -29,7 +29,6 @@ export function requireProfileProtocol(
     'getRevisionPresentationAtRevision',
     'warmFrameWindowAtRevision',
     'getFootnotesAtRevision',
-    'getChapterTextIndicesAtRevision',
   ]);
   rejectKinds(cached.stage.operations, ['open', 'createRevision']);
   requireTocSupersede(supersede);

@@ -235,9 +235,6 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
         .expect("footnote");
     document.get_footnotes_at(&handle).expect("footnotes");
     document
-        .get_chapter_text_indices_at(&handle)
-        .expect("chapter text indices");
-    document
         .get_revision_summary_at(&handle)
         .expect("revision summary");
     document

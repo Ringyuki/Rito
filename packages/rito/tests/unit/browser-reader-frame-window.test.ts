@@ -767,7 +767,6 @@ function frameWindowState(
       },
       tocTargets: { revisionId: 'rev', targets: [], activeEntryByPage: [] },
       footnotes: { revisionId: 'rev', complete: true, pendingKeys: [], entries: {} },
-      chapterTextIndices: { revisionId: 'rev', entries: {} },
       fontFamilies: [],
     },
     revisionHandle: {

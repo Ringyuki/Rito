@@ -52,7 +52,6 @@ import {
   requireTextRangeGeometryRequest,
 } from './reader-worker-text-geometry-validation-runtime.js';
 import {
-  requireChapterTextIndices,
   requireFootnotes,
   requireReaderRevisionBundle,
   requireSearchRequest,
@@ -268,14 +267,6 @@ export function createVersionedReaderClientMethods(send, disposeInvalid) {
     },
     getFootnotesAtRevision: (revision) =>
       currentRevisionResult(send, 'getFootnotesAtRevision', revision, {}, requireFootnotes),
-    getChapterTextIndicesAtRevision: (revision) =>
-      currentRevisionResult(
-        send,
-        'getChapterTextIndicesAtRevision',
-        revision,
-        {},
-        requireChapterTextIndices,
-      ),
     searchAtRevision: (revision, request) => {
       const expectedRequest = requireSearchRequest(request, 'searchAtRevision');
       return currentRevisionResult(

@@ -6,7 +6,6 @@ import type {
   RitoCoreWasmAnnotationTargetResolution,
   RitoCoreWasmPositionAnswer,
   RitoCoreWasmPositionQuery,
-  RitoCoreWasmChapterTextIndices,
   RitoCoreWasmExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse,
   RitoCoreWasmFootnote,
@@ -141,9 +140,6 @@ export interface RitoCoreWasmReaderVersionedClient {
   getFootnotesAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmFootnotes>>;
-  getChapterTextIndicesAtRevision(
-    revision: RitoCoreWasmRevisionHandle,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmChapterTextIndices>>;
   searchAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmSearchRequest,
@@ -263,9 +259,6 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
   getFootnotesAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmFootnotes>;
-  getChapterTextIndicesAtRevision(
-    revision: RitoCoreWasmRevisionHandle,
-  ): RitoCoreWasmVersioned<RitoCoreWasmChapterTextIndices>;
   searchAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmSearchRequest,
@@ -451,8 +444,6 @@ export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
   RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
 export type RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest =
   RevisionRequest<'getFootnotesAtRevision'>;
-export type RitoCoreWasmReaderWorkerGetChapterTextIndicesAtRevisionRequest =
-  RevisionRequest<'getChapterTextIndicesAtRevision'>;
 export type RitoCoreWasmReaderWorkerSearchAtRevisionRequest =
   RevisionRequest<'searchAtRevision'> & {
     readonly request: RitoCoreWasmSearchRequest;
@@ -499,7 +490,6 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerResolvePositionQueryAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest
-  | RitoCoreWasmReaderWorkerGetChapterTextIndicesAtRevisionRequest
   | RitoCoreWasmReaderWorkerSearchAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest
   | RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest
@@ -599,10 +589,6 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnotesAtRevision', RitoCoreWasmFootnotes>
-  | RitoCoreWasmReaderWorkerVersionedResponse<
-      'getChapterTextIndicesAtRevision',
-      RitoCoreWasmChapterTextIndices
-    >
   | RitoCoreWasmReaderWorkerVersionedResponse<'searchAtRevision', RitoCoreWasmSearchResponse>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveLocatorAtRevision',

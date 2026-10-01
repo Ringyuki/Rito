@@ -1,6 +1,5 @@
 import type {
   ChapterRange,
-  ChapterTextIndex,
   FootnoteEntry,
   LayoutConfig,
   LogLevel,
@@ -276,7 +275,6 @@ export interface Reader {
   findActiveTocEntry(pageIndex: number): TocEntry | undefined;
   getCanvasSize(scale?: number): { width: number; height: number };
   getLayoutGeometry(): Readonly<LayoutConfig>;
-  getChapterTextIndices(): ReadonlyMap<string, ChapterTextIndex>;
   getFootnotes(): ReadonlyMap<string, FootnoteEntry>;
   getImageBlobUrl(src: string): string | undefined | Promise<string | undefined>;
   setTypography(opts: {

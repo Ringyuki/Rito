@@ -233,7 +233,6 @@ function createReaderFixture(activeSpreadIndex: number | 'missing'): {
       marginTop: 0,
       spreadGap: 0,
     })),
-    getChapterTextIndices: vi.fn(() => new Map()),
     getFootnotes: vi.fn(() => new Map()),
     getImageBlobUrl: vi.fn(),
     setTypography: vi.fn(() => false),

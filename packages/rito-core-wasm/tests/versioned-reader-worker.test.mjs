@@ -33,7 +33,6 @@ test('in-process worker primitives preserve exact revision handles', async () =>
     href: 'chapter.xhtml',
   });
   const footnotes = await client.getFootnotesAtRevision(handle(0));
-  const chapterTextIndices = await client.getChapterTextIndicesAtRevision(handle(0));
   const search = await client.searchAtRevision(handle(0), searchRequest());
   const transferRelease = await client.releaseRevisionTransfersAtRevision(handle(0));
   const revisionRelease = await client.releaseRevisionAtRevision(handle(0));
@@ -47,7 +46,6 @@ test('in-process worker primitives preserve exact revision handles', async () =>
     resource,
     source,
     footnotes,
-    chapterTextIndices,
     search,
     transferRelease,
     revisionRelease,
@@ -56,7 +54,7 @@ test('in-process worker primitives preserve exact revision handles', async () =>
   }
   assert.deepEqual(frame.value.bytes, Uint8Array.of(4, 5));
   assert.deepEqual(resource.value.bytes, Uint8Array.of(6, 7, 8));
-  assert.equal(bundleResult.value.chapterTextIndices.entries['chapter.xhtml'].normalizedText, 'A');
+  assert.equal('chapterTextIndices' in bundleResult.value, false);
   assert.equal('chapterTextIndices' in presentationResult.value, false);
   assert.equal('footnotes' in presentationResult.value, false);
   assert.equal(search.value.query, 'A');
@@ -119,10 +117,6 @@ test('real worker handler uses the same dispatch and transfers versioned bytes',
   });
   assert.equal(bundle.ok, true);
   assert.deepEqual(bundle.payload.revision, handle(0));
-  assert.equal(
-    bundle.payload.result.chapterTextIndices.entries['chapter.xhtml'].normalizedText,
-    'A',
-  );
   assert.ok(
     calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
   );
@@ -142,11 +136,6 @@ test('real worker handler uses the same dispatch and transfers versioned bytes',
     kind: 'getFootnotesAtRevision',
     revision: handle(0),
   });
-  const indices = await scope.send({
-    id: 6,
-    kind: 'getChapterTextIndicesAtRevision',
-    revision: handle(0),
-  });
   const search = await scope.send({
     id: 7,
     kind: 'searchAtRevision',
@@ -154,7 +143,6 @@ test('real worker handler uses the same dispatch and transfers versioned bytes',
     request: searchRequest(),
   });
   assert.equal(footnotes.ok, true);
-  assert.equal(indices.ok, true);
   assert.equal(search.ok, true);
   assert.deepEqual(search.payload.result, searchResponse(searchRequest()));
 });
@@ -178,7 +166,7 @@ test('worker exact revision reads reject forged handles and embedded identities'
     revision: handle(1),
     result: bundle(1),
   });
-  assert.deepEqual((await bundled).value.chapterTextIndices, chapterTextIndices());
+  assert.deepEqual((await bundled).value, bundle(1));
 
   const presented = client.getRevisionPresentationAtRevision(handle(1));
   const presentationMessage = worker.messages.at(-1);
@@ -212,22 +200,6 @@ test('worker exact revision reads reject forged handles and embedded identities'
     result: { revisionId: 'rev-other', complete: true, pendingKeys: [], entries: {} },
   });
   await assert.rejects(forgedFootnotes, /mismatched revisionId/);
-
-  const forgedIndices = client.getChapterTextIndicesAtRevision(handle(1));
-  worker.respond(worker.messages.at(-1).id, {
-    kind: 'getChapterTextIndicesAtRevision',
-    revision: handle(1),
-    result: {
-      ...chapterTextIndices(),
-      entries: {
-        'chapter.xhtml': {
-          ...chapterTextIndices().entries['chapter.xhtml'],
-          spans: [{ nodePath: [-1] }],
-        },
-      },
-    },
-  });
-  await assert.rejects(forgedIndices, /invalid chapter text node path/);
 
   const forgedSearch = client.searchAtRevision(handle(1), searchRequest());
   worker.respond(worker.messages.at(-1).id, {
@@ -282,8 +254,6 @@ function fixtureDocument() {
         envelope(version, { revisionId: 'rev-1' }),
       getFootnotesAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1', complete: true, pendingKeys: [], entries: {} }),
-      getChapterTextIndicesAtRevisionJson: (_revisionId, version) =>
-        envelope(version, chapterTextIndices()),
       searchAtRevisionJson: (_revisionId, version, requestJson) =>
         envelope(version, searchResponse(JSON.parse(requestJson))),
       getFrameCommandBufferMetadataAtRevisionJson: (_revisionId, version) =>
@@ -335,7 +305,6 @@ function bundle(version) {
     navigation: { revisionId, pageCount: 1, spreadCount: 1 },
     tocTargets: { revisionId, targets: [], activeEntryByPage: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
-    chapterTextIndices: chapterTextIndices(),
     fontFamilies: [],
   };
 }
@@ -354,27 +323,6 @@ function presentation(version) {
     },
     tocTargets: { revisionId, targets: [], activeEntryByPage: [] },
     fontFamilies: [],
-  };
-}
-
-function chapterTextIndices() {
-  return {
-    revisionId: 'rev-1',
-    entries: {
-      'chapter.xhtml': {
-        href: 'chapter.xhtml',
-        normalizedText: 'A',
-        spans: [
-          {
-            nodePath: [0],
-            sourceStart: 0,
-            sourceEnd: 1,
-            normalizedStart: 0,
-            normalizedEnd: 1,
-          },
-        ],
-      },
-    },
   };
 }
 

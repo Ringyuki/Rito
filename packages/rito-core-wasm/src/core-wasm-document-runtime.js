@@ -125,12 +125,6 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       return jsonMethod('getFootnotes', () => this._inner.getFootnotesJson(revisionId));
     }
 
-    getChapterTextIndices(revisionId) {
-      return jsonMethod('getChapterTextIndices', () =>
-        this._inner.getChapterTextIndicesJson(revisionId),
-      );
-    }
-
     search(revisionId, request) {
       return jsonMethod('search', () =>
         this._inner.searchJson(revisionId, encodeJson(request, 'search')),

@@ -55,6 +55,23 @@ impl RuntimeDocument {
         Ok(())
     }
 
+    /// A chapter's source text index, for tests that need real node paths.
+    #[cfg(test)]
+    pub(in crate::runtime) fn source_chapter_text_for_tests(
+        &mut self,
+        idref: &str,
+    ) -> RuntimeChapterTextIndex {
+        let chapter_index = self
+            .document
+            .chapters
+            .iter()
+            .position(|chapter| chapter.idref == idref)
+            .expect("chapter exists");
+        self.ensure_source_chapter_index(chapter_index)
+            .expect("chapter source indexes");
+        self.source_chapter_indices[idref].text.clone()
+    }
+
     fn build_source_chapter_index(
         &mut self,
         chapter_index: usize,
