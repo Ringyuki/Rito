@@ -3,6 +3,8 @@ import {
   requireAnnotationTarget,
   requireAnnotationTargetRequest,
   requireAnnotationTargetTransport,
+  requirePositionQuery,
+  requirePositionTransport,
 } from './reader-worker-annotation-validation-runtime.js';
 import {
   requireMatchingRevisionSummary,
@@ -242,6 +244,16 @@ export function createVersionedReaderClientMethods(send, disposeInvalid) {
         { target: expectedTarget },
         (result, _handle, operation) =>
           requireAnnotationResolutionTransport(result, expectedTarget, operation),
+      );
+    },
+    resolvePositionQueryAtRevision: (revision, query) => {
+      const expectedQuery = requirePositionQuery(query, 'resolvePositionQueryAtRevision');
+      return currentRevisionResult(
+        send,
+        'resolvePositionQueryAtRevision',
+        revision,
+        { query: expectedQuery },
+        (result, _handle, operation) => requirePositionTransport(result, expectedQuery, operation),
       );
     },
     getFootnoteAtRevision: (revision, key) => {

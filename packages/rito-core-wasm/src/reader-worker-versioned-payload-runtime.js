@@ -3,6 +3,8 @@ import {
   requireAnnotationTargetRequest,
   requireAnnotationTargetResolution,
   requireCreatedAnnotationTarget,
+  requirePositionAnswer,
+  requirePositionQuery,
 } from './reader-worker-annotation-validation-runtime.js';
 import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
@@ -101,6 +103,8 @@ export function versionedReaderWorkerPayload(document, request) {
       return annotationTargetResponse(document, request);
     case 'resolveAnnotationTargetAtRevision':
       return annotationResolutionResponse(document, request);
+    case 'resolvePositionQueryAtRevision':
+      return positionQueryResponse(document, request);
     case 'getFootnoteAtRevision':
       return footnoteResponse(document, request);
     case 'getFootnotesAtRevision':
@@ -316,6 +320,17 @@ function annotationResolutionResponse(document, request) {
   return validatedValueResponse(operation, revision, envelope, (value) => ({
     target: expectedTarget,
     response: requireAnnotationTargetResolution(value, operation),
+  }));
+}
+
+function positionQueryResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedQuery = requirePositionQuery(request.query, operation);
+  const envelope = document.resolvePositionQueryAtRevision(revision, expectedQuery);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    query: expectedQuery,
+    response: requirePositionAnswer(value, expectedQuery, operation),
   }));
 }
 

@@ -204,6 +204,8 @@ export function createWorker(
       vi.fn<BrowserReaderWorkerClient['createAnnotationTargetAtRevision']>(),
     resolveAnnotationTargetAtRevision:
       vi.fn<BrowserReaderWorkerClient['resolveAnnotationTargetAtRevision']>(),
+    resolvePositionQueryAtRevision:
+      vi.fn<BrowserReaderWorkerClient['resolvePositionQueryAtRevision']>(),
     getFootnoteAtRevision,
     getFootnotesAtRevision: vi.fn<BrowserReaderWorkerClient['getFootnotesAtRevision']>(),
     getChapterTextIndicesAtRevision:

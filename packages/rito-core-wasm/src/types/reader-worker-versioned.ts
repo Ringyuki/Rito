@@ -4,6 +4,8 @@ import type {
   RitoCoreWasmAnnotationTarget,
   RitoCoreWasmAnnotationTargetRequest,
   RitoCoreWasmAnnotationTargetResolution,
+  RitoCoreWasmPositionAnswer,
+  RitoCoreWasmPositionQuery,
   RitoCoreWasmChapterTextIndices,
   RitoCoreWasmExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse,
@@ -128,6 +130,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     target: RitoCoreWasmAnnotationTarget,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmAnnotationTargetResolution>>;
+  resolvePositionQueryAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    query: RitoCoreWasmPositionQuery,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPositionAnswer>>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -246,6 +252,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     target: RitoCoreWasmAnnotationTarget,
   ): RitoCoreWasmVersioned<RitoCoreWasmAnnotationTargetResolution>;
+  resolvePositionQueryAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    query: RitoCoreWasmPositionQuery,
+  ): RitoCoreWasmVersioned<RitoCoreWasmPositionAnswer>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -340,6 +350,11 @@ export interface RitoCoreWasmReaderAnnotationResolutionTransport {
   readonly response: RitoCoreWasmAnnotationTargetResolution;
 }
 
+export interface RitoCoreWasmReaderPositionTransport {
+  readonly query: RitoCoreWasmPositionQuery;
+  readonly response: RitoCoreWasmPositionAnswer;
+}
+
 export interface RitoCoreWasmReaderExactSourceRangeTransport {
   readonly request: RitoCoreWasmExactSourceRangeRequest;
   readonly response: RitoCoreWasmExactSourceRangeResponse;
@@ -428,6 +443,10 @@ export type RitoCoreWasmReaderWorkerResolveAnnotationTargetAtRevisionRequest =
   RevisionRequest<'resolveAnnotationTargetAtRevision'> & {
     readonly target: RitoCoreWasmAnnotationTarget;
   };
+export type RitoCoreWasmReaderWorkerResolvePositionQueryAtRevisionRequest =
+  RevisionRequest<'resolvePositionQueryAtRevision'> & {
+    readonly query: RitoCoreWasmPositionQuery;
+  };
 export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
   RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
 export type RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest =
@@ -477,6 +496,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerCreateAnnotationTargetAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveAnnotationTargetAtRevisionRequest
+  | RitoCoreWasmReaderWorkerResolvePositionQueryAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetChapterTextIndicesAtRevisionRequest
@@ -572,6 +592,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveAnnotationTargetAtRevision',
       RitoCoreWasmReaderAnnotationResolutionTransport
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'resolvePositionQueryAtRevision',
+      RitoCoreWasmReaderPositionTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnotesAtRevision', RitoCoreWasmFootnotes>

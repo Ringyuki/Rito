@@ -25,6 +25,7 @@ export type {
   ReaderAnnotationTarget,
   ReaderAnnotationTargetResolution,
   ReaderSourcePoint,
+  ReaderSourcePosition,
   ReaderSourceRange,
   ReaderSearchSourceResolution,
   ReaderTextSelectionMovement,

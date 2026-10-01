@@ -3,6 +3,8 @@ import {
   requireAnnotationTargetRequest,
   requireAnnotationTargetResolution,
   requireCreatedAnnotationTarget,
+  requirePositionAnswer,
+  requirePositionQuery,
 } from './reader-worker-annotation-validation-runtime.js';
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
 import { runRevisionMutation } from './core-wasm-versioned-mutation-runtime.js';
@@ -309,6 +311,22 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
             json,
           ),
         (value, _revision, operation) => requireAnnotationTargetResolution(value, operation),
+      );
+    },
+    resolvePositionQueryAtRevision(handle, query) {
+      const expectedQuery = requirePositionQuery(query, 'resolvePositionQueryAtRevision');
+      return versionedRequest(
+        this,
+        'resolvePositionQueryAtRevision',
+        handle,
+        expectedQuery,
+        (revision, json) =>
+          this._inner.resolvePositionQueryAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, _revision, operation) => requirePositionAnswer(value, expectedQuery, operation),
       );
     },
     getFootnoteAtRevision(handle, key) {

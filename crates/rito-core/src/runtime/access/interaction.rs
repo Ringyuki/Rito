@@ -2,8 +2,9 @@ use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned}
 use crate::runtime::{
     AnnotationTarget, AnnotationTargetResolution, ResolvedRuntimeLocator,
     RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnote, RuntimeFootnotes,
-    RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimeSearchRequest, RuntimeSearchResponse,
-    RuntimeSourceLocator, RuntimeSourceLocatorResolution, RuntimeSourceRange,
+    RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimePositionAnswer, RuntimePositionQuery,
+    RuntimeSearchRequest, RuntimeSearchResponse, RuntimeSourceLocator,
+    RuntimeSourceLocatorResolution, RuntimeSourceRange,
 };
 
 impl RuntimeDocument {
@@ -92,6 +93,26 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<AnnotationTargetResolution>, RuntimeRevisionAccessError> {
         self.versioned_write(handle, |document, _| {
             document.resolve_annotation_target(target)
+        })
+    }
+
+    /// Answers a source-only reading-position question; the handle keeps
+    /// the request on the document the caller is reading.
+    pub fn resolve_position_query_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        query: RuntimePositionQuery,
+    ) -> Result<RuntimeVersioned<RuntimePositionAnswer>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, _| match query {
+            RuntimePositionQuery::TocEntryAtPosition { href, point } => document
+                .toc_entry_at_source_position(&href, &point)
+                .map(|toc_index| RuntimePositionAnswer::TocEntry { toc_index }),
+            RuntimePositionQuery::Compare { first, second } => document
+                .compare_source_positions(
+                    (&first.href, &first.point),
+                    (&second.href, &second.point),
+                )
+                .map(|order| RuntimePositionAnswer::Order { order: order as i8 }),
         })
     }
 }

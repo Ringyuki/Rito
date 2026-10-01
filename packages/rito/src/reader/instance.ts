@@ -8,6 +8,7 @@ import type {
   ReaderAnnotationTarget,
   ReaderAnnotationTargetResolution,
   ReaderDocumentSourceSpan,
+  ReaderSourcePosition,
   ReaderLocator,
   ReaderLocatorResolution,
   ReaderPageReadingAnchor,
@@ -180,6 +181,13 @@ export interface ReaderInteractions {
   resolveAnnotationTarget?(
     target: ReaderAnnotationTarget,
   ): Promise<ReaderAnnotationTargetResolution | undefined>;
+  /** The TOC entry a source position reads under, decided on the source alone. */
+  tocEntryAtPosition?(position: ReaderSourcePosition): Promise<TocEntry | null | undefined>;
+  /** -1, 0 or 1 as the first source position reads before, at or after the second. */
+  compareSourcePositions?(
+    first: ReaderSourcePosition,
+    second: ReaderSourcePosition,
+  ): Promise<-1 | 0 | 1 | undefined>;
   /** Native document-order accessibility content for one committed page. */
   getPageSemantics?(pageIndex: number): Promise<ReaderPageSemantics | undefined>;
   /** Durable source identity for the first readable content on one committed page. */

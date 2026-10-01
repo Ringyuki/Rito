@@ -46,3 +46,62 @@ fn source_points_order_by_tree_position_then_offset() {
         Ordering::Less
     );
 }
+
+#[test]
+fn a_browser_revision_answers_position_questions_in_the_engine_json_shape() {
+    use crate::runtime::{
+        tests::fixture::{layout, toc_anchor_fixture_epub},
+        RuntimeDocument, RuntimePositionAnswer, RuntimePositionQuery, RuntimeRevisionHandle,
+    };
+    let mut document =
+        RuntimeDocument::open_pinned_for_tests(&toc_anchor_fixture_epub()).expect("opens");
+    let revision = document.create_revision(&layout()).expect("revision");
+    let handle = RuntimeRevisionHandle {
+        revision_id: revision.revision_id.clone(),
+        revision_version: revision.revision_version,
+    };
+    let point = |node: usize| RuntimeSourcePoint {
+        node_path: vec![node, 0],
+        text_offset: 0,
+    };
+
+    let entry = document
+        .resolve_position_query_at(
+            &handle,
+            serde_json::from_str(
+                r#"{"kind":"tocEntryAtPosition","href":"chapter-2.xhtml","point":{"nodePath":[1,0],"textOffset":0}}"#,
+            )
+            .expect("query parses"),
+        )
+        .expect("answers")
+        .value;
+    assert_eq!(
+        entry,
+        RuntimePositionAnswer::TocEntry { toc_index: Some(3) }
+    );
+    assert_eq!(
+        serde_json::to_string(&entry).expect("serializes"),
+        r#"{"kind":"tocEntry","tocIndex":3}"#
+    );
+
+    let order = document
+        .resolve_position_query_at(
+            &handle,
+            RuntimePositionQuery::Compare {
+                first: crate::runtime::RuntimeSourcePosition {
+                    href: "chapter-2.xhtml".to_owned(),
+                    point: point(0),
+                },
+                second: crate::runtime::RuntimeSourcePosition {
+                    href: "chapter-1.xhtml".to_owned(),
+                    point: point(30),
+                },
+            },
+        )
+        .expect("answers")
+        .value;
+    assert_eq!(
+        serde_json::to_string(&order).expect("serializes"),
+        r#"{"kind":"order","order":1}"#
+    );
+}

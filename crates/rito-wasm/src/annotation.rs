@@ -2,7 +2,7 @@
 //! engine's own serialization, so a browser host stores exactly the bytes a
 //! native host would.
 
-use rito_core::runtime::{annotation_target_from_json, RuntimeSourceRange};
+use rito_core::runtime::{annotation_target_from_json, RuntimePositionQuery, RuntimeSourceRange};
 use serde::Deserialize;
 
 use crate::{
@@ -49,6 +49,21 @@ impl WasmRuntimeDocument {
         let response = self
             .document
             .resolve_annotation_target_at(&revision_handle(revision_id, revision_version), &target)
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        serialize_json(&response)
+    }
+
+    pub fn resolve_position_query_at_revision_json(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        query_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let query: RuntimePositionQuery = serde_json::from_str(query_json)
+            .map_err(|error| WasmRuntimeError::bad_request(format!("position query: {error}")))?;
+        let response = self
+            .document
+            .resolve_position_query_at(&revision_handle(revision_id, revision_version), query)
             .map_err(WasmRuntimeError::from_revision_access)?;
         serialize_json(&response)
     }

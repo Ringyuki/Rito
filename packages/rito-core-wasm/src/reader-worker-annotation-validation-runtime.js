@@ -140,3 +140,62 @@ function requireSourcePoint(value, operation) {
     textOffset: requireExactTextCount(point.textOffset, `${operation} textOffset`),
   };
 }
+
+/** A source-only position question, rebuilt in the engine's field order. */
+export function requirePositionQuery(value, operation) {
+  const query = requireExactTextRecord(value, `${operation} query`);
+  if (query.kind === 'tocEntryAtPosition') {
+    requireExactKeys(query, ['kind', 'href', 'point'], `${operation} query`);
+    return {
+      kind: 'tocEntryAtPosition',
+      href: requireHref(query.href, operation),
+      point: requireSourcePoint(query.point, `${operation} point`),
+    };
+  }
+  if (query.kind === 'compare') {
+    requireExactKeys(query, ['kind', 'first', 'second'], `${operation} query`);
+    return {
+      kind: 'compare',
+      first: requirePosition(query.first, `${operation} first`),
+      second: requirePosition(query.second, `${operation} second`),
+    };
+  }
+  throw new Error(`${operation} query kind must be tocEntryAtPosition or compare`);
+}
+
+export function requirePositionAnswer(value, query, operation) {
+  const answer = requireExactTextRecord(value, `${operation} answer`);
+  if (query.kind === 'tocEntryAtPosition') {
+    requireExactKeys(answer, ['kind', 'tocIndex'], `${operation} answer`);
+    if (answer.kind !== 'tocEntry') throw new Error(`${operation} answered the wrong question`);
+    return {
+      kind: 'tocEntry',
+      tocIndex:
+        answer.tocIndex === null
+          ? null
+          : requireExactTextCount(answer.tocIndex, `${operation} tocIndex`),
+    };
+  }
+  requireExactKeys(answer, ['kind', 'order'], `${operation} answer`);
+  if (answer.kind !== 'order' || ![-1, 0, 1].includes(answer.order)) {
+    throw new Error(`${operation} returned an invalid order`);
+  }
+  return { kind: 'order', order: answer.order };
+}
+
+export function requirePositionTransport(value, expectedQuery, operation) {
+  const transport = requireExactKeys(value, ['query', 'response'], `${operation} transport`);
+  const query = requirePositionQuery(transport.query, operation);
+  if (JSON.stringify(query) !== JSON.stringify(expectedQuery)) {
+    throw new Error(`${operation} answered a mismatched query`);
+  }
+  return requirePositionAnswer(transport.response, query, operation);
+}
+
+function requirePosition(value, operation) {
+  const position = requireExactKeys(value, ['href', 'point'], operation);
+  return {
+    href: requireHref(position.href, operation),
+    point: requireSourcePoint(position.point, `${operation} point`),
+  };
+}

@@ -4,6 +4,8 @@ import type {
   ReaderExactSourceRangeRequest,
   ReaderExactSourceRangeResolution,
   ReaderExactTextRangeRect,
+  ReaderSourcePosition,
+  TocEntry,
 } from '../../../reader';
 import type {
   CoreAnnotationTarget,
@@ -174,4 +176,54 @@ function copyTarget(target: CoreAnnotationTarget | ReaderAnnotationTarget): Core
       chapterLength: target.position.chapterLength,
     },
   };
+}
+
+/** The TOC entry a source position reads under; null when none precedes it. */
+export async function tocEntryAtPosition(
+  state: BrowserReaderState,
+  position: ReaderSourcePosition,
+): Promise<TocEntry | null | undefined> {
+  const capture = captureCommittedSourceRead(state);
+  if (!capture) return undefined;
+  const answer = await readCapturedSource(state, capture, (worker, revision) =>
+    worker.resolvePositionQueryAtRevision(revision, {
+      kind: 'tocEntryAtPosition',
+      href: position.href,
+      point: copyReaderSourcePoint(position.point),
+    }),
+  );
+  if (!answer) return undefined;
+  if (answer.kind !== 'tocEntry')
+    throw new Error('Reader position query answered the wrong question');
+  return answer.tocIndex === null
+    ? null
+    : (flattenToc(state.publication.package.toc)[answer.tocIndex] ?? null);
+}
+
+export async function compareSourcePositions(
+  state: BrowserReaderState,
+  first: ReaderSourcePosition,
+  second: ReaderSourcePosition,
+): Promise<-1 | 0 | 1 | undefined> {
+  const capture = captureCommittedSourceRead(state);
+  if (!capture) return undefined;
+  const answer = await readCapturedSource(state, capture, (worker, revision) =>
+    worker.resolvePositionQueryAtRevision(revision, {
+      kind: 'compare',
+      first: { href: first.href, point: copyReaderSourcePoint(first.point) },
+      second: { href: second.href, point: copyReaderSourcePoint(second.point) },
+    }),
+  );
+  if (!answer) return undefined;
+  if (answer.kind !== 'order') throw new Error('Reader position query answered the wrong question');
+  return answer.order;
+}
+
+/** Preorder, the order the engine numbers entries in. */
+function flattenToc(entries: readonly TocEntry[], flat: TocEntry[] = []): TocEntry[] {
+  for (const entry of entries) {
+    flat.push(entry);
+    flattenToc(entry.children, flat);
+  }
+  return flat;
 }

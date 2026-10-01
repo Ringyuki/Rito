@@ -75,6 +75,7 @@ export type {
   ReaderTextRangeResolution,
   ReaderSearchSourceResolution,
   ReaderSourcePoint,
+  ReaderSourcePosition,
   ReaderSourceRange,
   ReaderTextCaret,
   ReaderTextCaretGeometry,

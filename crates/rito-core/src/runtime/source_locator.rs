@@ -24,6 +24,7 @@ use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_point, SourceProjection};
 pub(super) use toc::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition};
+pub use toc::{RuntimePositionAnswer, RuntimePositionQuery, RuntimeSourcePosition};
 pub use types::*;
 
 pub(in crate::runtime) struct PreparedExactSourceRange {

@@ -24,9 +24,11 @@ import {
 } from './interaction-capture';
 import { createBrowserReaderTextSelection } from './text-selection';
 import {
+  compareSourcePositions,
   createAnnotationTarget,
   resolveAnnotationTarget,
   resolveExactSourceRange,
+  tocEntryAtPosition,
 } from './source-range';
 import type { BrowserReaderInteractionState, BrowserReaderState } from './types';
 
@@ -47,6 +49,8 @@ export function createBrowserReaderInteractions(state: BrowserReaderState): Read
     resolveExactSourceRange: (request) => resolveExactSourceRange(state, request),
     createAnnotationTarget: (request) => createAnnotationTarget(state, request),
     resolveAnnotationTarget: (target) => resolveAnnotationTarget(state, target),
+    tocEntryAtPosition: (position) => tocEntryAtPosition(state, position),
+    compareSourcePositions: (first, second) => compareSourcePositions(state, first, second),
     textSelection: createBrowserReaderTextSelection(state),
   };
 }

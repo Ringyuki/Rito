@@ -16,6 +16,48 @@ use super::{
     RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
 };
 
+/// A source position: a manifest href and a point in its source tree.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeSourcePosition {
+    pub href: String,
+    pub point: RuntimeSourcePoint,
+}
+
+/// A reading-position question answered from the source alone.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum RuntimePositionQuery {
+    /// The TOC entry a source position reads under.
+    TocEntryAtPosition {
+        href: String,
+        point: RuntimeSourcePoint,
+    },
+    /// The reading order of two source positions.
+    Compare {
+        first: RuntimeSourcePosition,
+        second: RuntimeSourcePosition,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimePositionAnswer {
+    /// The entry's preorder index in the TOC tree, if any precedes.
+    TocEntry { toc_index: Option<usize> },
+    /// -1, 0 or 1 as the first position reads before, at or after the second.
+    Order { order: i8 },
+}
+
 /// Every TOC entry's target, canonicalized; `None` for a target outside
 /// the publication (an external link, a dead href).
 pub(in crate::runtime) struct PreparedTocTargets {

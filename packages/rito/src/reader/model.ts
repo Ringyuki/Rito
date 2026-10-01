@@ -135,6 +135,11 @@ export type ReaderAnnotationTargetResolution =
       readonly target: ReaderAnnotationTarget;
     }
   | { readonly level: 'orphaned'; readonly reason: 'hrefNotFound' | 'emptyChapter' };
+/** A manifest href and a point in its source tree. */
+export interface ReaderSourcePosition {
+  readonly href: string;
+  readonly point: ReaderSourcePoint;
+}
 export interface ReaderDocumentSourceSpanEndpoint {
   readonly href: string;
   readonly sourcePoint: ReaderSourcePoint;
