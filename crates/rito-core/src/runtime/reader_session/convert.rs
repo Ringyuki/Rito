@@ -133,7 +133,9 @@ pub(super) fn runtime_source_range(
     })
 }
 
-fn reader_source_point(value: RuntimeSourcePoint) -> Result<ReaderSourcePoint, ReaderError> {
+pub(super) fn reader_source_point(
+    value: RuntimeSourcePoint,
+) -> Result<ReaderSourcePoint, ReaderError> {
     Ok(ReaderSourcePoint {
         node_path: value
             .node_path

@@ -24,6 +24,17 @@ impl RuntimeDocument {
         request: RuntimeTextSelectionMovementRequest,
     ) -> EpubResult<RuntimeTextSelectionMovementResponse> {
         let revision = self.require_text_interaction_revision(revision_id)?;
+        self.resolve_text_selection_movement_in(revision_id, revision, request)
+    }
+
+    /// Takes the revision itself: a reader session holds chapter-local
+    /// revisions in a separate store, and both kinds answer the same way.
+    pub(in crate::runtime) fn resolve_text_selection_movement_in(
+        &self,
+        revision_id: &str,
+        revision: &RuntimeRevision,
+        request: RuntimeTextSelectionMovementRequest,
+    ) -> EpubResult<RuntimeTextSelectionMovementResponse> {
         require_valid_request(revision, request)?;
         let scope = movement_scope(self, revision, request)?;
         let resolution = revision

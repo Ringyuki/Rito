@@ -441,7 +441,7 @@ pub(super) fn source_point(reader: &mut Reader<'_>) -> Result<ReaderSourcePoint,
     })
 }
 
-fn source_range(reader: &mut Reader<'_>) -> Result<ReaderSourceRange, ReaderError> {
+pub(super) fn source_range(reader: &mut Reader<'_>) -> Result<ReaderSourceRange, ReaderError> {
     reader.record("source range", |reader| {
         Ok(ReaderSourceRange {
             start: source_point(reader)?,

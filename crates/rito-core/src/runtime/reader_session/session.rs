@@ -36,6 +36,7 @@ mod content;
 mod errors;
 mod exact_cache;
 mod handoff;
+mod interaction;
 mod navigate;
 mod open;
 #[cfg(test)]

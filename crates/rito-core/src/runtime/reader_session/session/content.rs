@@ -548,7 +548,7 @@ const fn reader_footnote_kind(kind: crate::interaction::FootnoteKind) -> ReaderF
 
 /// Display-list origin of the page slot holding `page_index` inside the
 /// artifact's spread, so geometry lands where the pen painted.
-fn page_display_origin(
+pub(super) fn page_display_origin(
     revision: &RuntimeRevision,
     spread_index: usize,
     page_index: usize,

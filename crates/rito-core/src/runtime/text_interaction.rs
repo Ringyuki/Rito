@@ -120,8 +120,19 @@ impl RuntimeDocument {
         revision_id: &str,
         request: RuntimeTextPointRequest,
     ) -> EpubResult<RuntimeTextCaretResponse> {
-        require_finite_point(request)?;
         let revision = self.require_text_interaction_revision(revision_id)?;
+        self.resolve_text_caret_in(revision_id, revision, request)
+    }
+
+    /// Takes the revision itself: a reader session holds chapter-local
+    /// revisions in a separate store, and both kinds answer the same way.
+    pub(in crate::runtime) fn resolve_text_caret_in(
+        &self,
+        revision_id: &str,
+        revision: &RuntimeRevision,
+        request: RuntimeTextPointRequest,
+    ) -> EpubResult<RuntimeTextCaretResponse> {
+        require_finite_point(request)?;
         let resolution = revision
             .chapter_engine_session()
             .resolve_text_caret(PageArtifactTextCaretQuery {
@@ -152,6 +163,17 @@ impl RuntimeDocument {
         request: RuntimeTextRangeRequest,
     ) -> EpubResult<RuntimeTextRangeResponse> {
         let revision = self.require_text_interaction_revision(revision_id)?;
+        self.resolve_text_range_in(revision_id, revision, request)
+    }
+
+    /// Takes the revision itself: a reader session holds chapter-local
+    /// revisions in a separate store, and both kinds answer the same way.
+    pub(in crate::runtime) fn resolve_text_range_in(
+        &self,
+        revision_id: &str,
+        revision: &RuntimeRevision,
+        request: RuntimeTextRangeRequest,
+    ) -> EpubResult<RuntimeTextRangeResponse> {
         require_endpoint_pages(revision, request)?;
         let resolution =
             match revision
@@ -173,7 +195,10 @@ impl RuntimeDocument {
         })
     }
 
-    fn require_text_interaction_revision(&self, revision_id: &str) -> EpubResult<&RuntimeRevision> {
+    pub(super) fn require_text_interaction_revision(
+        &self,
+        revision_id: &str,
+    ) -> EpubResult<&RuntimeRevision> {
         self.revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))

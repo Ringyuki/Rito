@@ -2,17 +2,20 @@
 
 mod decode;
 mod encode;
+mod interaction;
 mod primitives;
 
 #[cfg(test)]
 mod tests;
 
 use super::{
-    ReaderAdjacentRequest, ReaderArtifact, ReaderArtifactRequest, ReaderBackgroundAdvance,
-    ReaderBackgroundHandoff, ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderAnnotationResponse, ReaderArtifact,
+    ReaderArtifactRequest, ReaderBackgroundAdvance, ReaderBackgroundHandoff,
+    ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderFootnote,
     ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderPublication, ReaderResource,
-    ReaderSearchRequest, ReaderSearchResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
+    ReaderSearchRequest, ReaderSearchResponse, ReaderTextInteractionRequest,
+    ReaderTextInteractionResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONAV1";
@@ -55,6 +58,10 @@ pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES: u32 = 72;
 pub const READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC: [u8; 8] = *b"RITOTRG1";
 pub const READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOESQ1";
 pub const READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC: [u8; 8] = *b"RITOESR1";
+pub const READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTIQ1";
+pub const READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOTIR1";
+pub const READER_ANNOTATION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOANQ1";
+pub const READER_ANNOTATION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOANR1";
 pub const READER_SEARCH_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSRQ1";
 pub const READER_SEARCH_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOSRS1";
 pub const READER_WIRE_VERSION: u32 = 1;
@@ -255,4 +262,52 @@ pub fn decode_reader_exact_source_range_resolution(
     bytes: &[u8],
 ) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
     decode::exact_source_range_resolution(bytes)
+}
+
+pub fn encode_reader_text_interaction_request(
+    request: &ReaderTextInteractionRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_text_interaction_request(request)
+}
+
+pub fn decode_reader_text_interaction_request(
+    bytes: &[u8],
+) -> Result<ReaderTextInteractionRequest, ReaderError> {
+    interaction::text_interaction_request(bytes)
+}
+
+pub fn encode_reader_text_interaction_response(
+    response: &ReaderTextInteractionResponse,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_text_interaction_response(response)
+}
+
+pub fn decode_reader_text_interaction_response(
+    bytes: &[u8],
+) -> Result<ReaderTextInteractionResponse, ReaderError> {
+    interaction::text_interaction_response(bytes)
+}
+
+pub fn encode_reader_annotation_request(
+    request: &ReaderAnnotationRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_annotation_request(request)
+}
+
+pub fn decode_reader_annotation_request(
+    bytes: &[u8],
+) -> Result<ReaderAnnotationRequest, ReaderError> {
+    interaction::annotation_request(bytes)
+}
+
+pub fn encode_reader_annotation_response(
+    response: &ReaderAnnotationResponse,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_annotation_response(response)
+}
+
+pub fn decode_reader_annotation_response(
+    bytes: &[u8],
+) -> Result<ReaderAnnotationResponse, ReaderError> {
+    interaction::annotation_response(bytes)
 }

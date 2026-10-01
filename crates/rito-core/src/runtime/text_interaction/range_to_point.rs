@@ -5,8 +5,9 @@ use super::super::page_artifact::{
     PageArtifactTextRangeToPointQuery,
 };
 use super::{
-    runtime_text_caret, runtime_text_range, RuntimeDocument, RuntimeTextRangeFromPointsResolution,
-    RuntimeTextRangeToPointRequest, RuntimeTextRangeToPointResponse,
+    runtime_text_caret, runtime_text_range, RuntimeDocument, RuntimeRevision,
+    RuntimeTextRangeFromPointsResolution, RuntimeTextRangeToPointRequest,
+    RuntimeTextRangeToPointResponse,
 };
 
 impl RuntimeDocument {
@@ -15,8 +16,19 @@ impl RuntimeDocument {
         revision_id: &str,
         request: RuntimeTextRangeToPointRequest,
     ) -> EpubResult<RuntimeTextRangeToPointResponse> {
-        require_valid_request(self, revision_id, request)?;
         let revision = self.require_text_interaction_revision(revision_id)?;
+        self.resolve_text_range_to_point_in(revision_id, revision, request)
+    }
+
+    /// Takes the revision itself: a reader session holds chapter-local
+    /// revisions in a separate store, and both kinds answer the same way.
+    pub(in crate::runtime) fn resolve_text_range_to_point_in(
+        &self,
+        revision_id: &str,
+        revision: &RuntimeRevision,
+        request: RuntimeTextRangeToPointRequest,
+    ) -> EpubResult<RuntimeTextRangeToPointResponse> {
+        require_valid_request(revision, request)?;
         let resolution = revision
             .chapter_engine_session()
             .resolve_text_range_to_point(PageArtifactTextRangeToPointQuery {
@@ -69,14 +81,12 @@ impl RuntimeDocument {
 }
 
 fn require_valid_request(
-    document: &RuntimeDocument,
-    revision_id: &str,
+    revision: &RuntimeRevision,
     request: RuntimeTextRangeToPointRequest,
 ) -> EpubResult<()> {
     if !request.focus.x.is_finite() || !request.focus.y.is_finite() {
         return Err(EpubError::new("text range point must be finite"));
     }
-    let revision = document.require_text_interaction_revision(revision_id)?;
     for page_index in [request.anchor.page_index, request.focus.page_index] {
         if page_index >= revision.chapter_engine_session().metadata().page_count {
             return Err(EpubError::new(format!("unknown page index: {page_index}")));

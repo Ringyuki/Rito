@@ -391,7 +391,10 @@ pub(super) fn exact_source_range_resolution(
     writer.finish_message()
 }
 
-fn source_point(writer: &mut Writer, value: &ReaderSourcePoint) -> Result<(), ReaderError> {
+pub(super) fn source_point(
+    writer: &mut Writer,
+    value: &ReaderSourcePoint,
+) -> Result<(), ReaderError> {
     writer.record(|writer| {
         writer.count(value.node_path.len(), "source point path count")?;
         for part in &value.node_path {
@@ -402,7 +405,10 @@ fn source_point(writer: &mut Writer, value: &ReaderSourcePoint) -> Result<(), Re
     })
 }
 
-fn source_range(writer: &mut Writer, value: &ReaderSourceRange) -> Result<(), ReaderError> {
+pub(super) fn source_range(
+    writer: &mut Writer,
+    value: &ReaderSourceRange,
+) -> Result<(), ReaderError> {
     writer.record(|writer| {
         source_point(writer, &value.start)?;
         source_point(writer, &value.end)

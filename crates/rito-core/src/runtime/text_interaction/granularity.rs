@@ -16,8 +16,19 @@ impl RuntimeDocument {
         revision_id: &str,
         request: RuntimeTextRangeFromPointsRequest,
     ) -> EpubResult<RuntimeTextRangeFromPointsResponse> {
-        require_valid_points(self, revision_id, request)?;
         let revision = self.require_text_interaction_revision(revision_id)?;
+        self.resolve_text_range_from_points_in(revision_id, revision, request)
+    }
+
+    /// Takes the revision itself: a reader session holds chapter-local
+    /// revisions in a separate store, and both kinds answer the same way.
+    pub(in crate::runtime) fn resolve_text_range_from_points_in(
+        &self,
+        revision_id: &str,
+        revision: &RuntimeRevision,
+        request: RuntimeTextRangeFromPointsRequest,
+    ) -> EpubResult<RuntimeTextRangeFromPointsResponse> {
+        require_valid_points(revision, request)?;
         let page_range = interaction_page_range(self, revision, request);
         let resolution = revision
             .chapter_engine_session()
@@ -101,11 +112,9 @@ fn interaction_page_range(
 }
 
 fn require_valid_points(
-    document: &RuntimeDocument,
-    revision_id: &str,
+    revision: &RuntimeRevision,
     request: RuntimeTextRangeFromPointsRequest,
 ) -> EpubResult<()> {
-    let revision = document.require_text_interaction_revision(revision_id)?;
     for point in [request.anchor, request.focus] {
         if !point.x.is_finite() || !point.y.is_finite() {
             return Err(EpubError::new("text range point must be finite"));
