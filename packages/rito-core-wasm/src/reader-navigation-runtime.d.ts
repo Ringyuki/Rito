@@ -1,6 +1,10 @@
 import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './types/interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './types/publication';
-import type { RitoCoreWasmRevisionNavigation, RitoCoreWasmTocTarget } from './types/revision';
+import type {
+  RitoCoreWasmRevisionNavigation,
+  RitoCoreWasmTocTarget,
+  RitoCoreWasmTocTargets,
+} from './types/revision';
 
 /** A spread's navigation record keyed by `index` instead of `spreadIndex`. */
 export interface RitoCoreWasmReaderSpread {
@@ -33,7 +37,7 @@ export function findRitoCoreWasmReaderTocTarget(
 ): RitoCoreWasmTocTarget | undefined;
 
 export function findRitoCoreWasmReaderActiveTocEntry(
-  targets: readonly RitoCoreWasmTocTarget[],
+  tocTargets: RitoCoreWasmTocTargets,
   pageIndex: number,
 ): RitoCoreWasmTocEntry | undefined;
 

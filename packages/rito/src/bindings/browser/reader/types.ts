@@ -6,6 +6,7 @@ import type {
   CoreLayoutConfig,
   CorePublicationInfo,
   CoreReaderBindingRuntimeModule,
+  CoreTocTargets,
   normalizeRitoCoreWasmError,
 } from '../core-contracts';
 import type { BrowserReaderWorkerClient } from '../core-contracts';
@@ -17,7 +18,6 @@ import type {
   LayoutConfig,
   ReaderPageTargets,
   Spread,
-  TocEntry,
 } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type {
@@ -93,12 +93,6 @@ export interface BrowserReaderBindingModule extends CoreReaderBindingRuntimeModu
   readonly normalizeRitoCoreWasmError: typeof normalizeRitoCoreWasmError;
 }
 
-export interface TocTarget {
-  readonly entry: TocEntry;
-  readonly pageIndex: number;
-  readonly spreadIndex: number;
-}
-
 export type Logger = BrowserHostLogger;
 
 export interface BrowserReaderQueuedReflow {
@@ -151,7 +145,7 @@ export interface BrowserReaderState {
   settledImageResourceSpreads: Set<string>;
   footnotes: BrowserReaderFootnoteMap;
   chapterTextIndices: BrowserReaderChapterTextIndexMap;
-  tocTargets: readonly TocTarget[];
+  tocTargets: CoreTocTargets;
   activeSpreadIndex: number;
   /** Bumped whenever host line metrics reach the worker after open. */
   hostLineMetricsEpoch: number;

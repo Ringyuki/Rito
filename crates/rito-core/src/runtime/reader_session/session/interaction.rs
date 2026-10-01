@@ -43,9 +43,9 @@ use super::{
 };
 
 /// The revision behind an artifact and the spread of it the artifact draws.
-struct ArtifactView<'a> {
-    revision_id: String,
-    revision: &'a RuntimeRevision,
+pub(super) struct ArtifactView<'a> {
+    pub(super) revision_id: String,
+    pub(super) revision: &'a RuntimeRevision,
     spread_index: usize,
 }
 
@@ -61,7 +61,7 @@ impl ArtifactView<'_> {
     }
 
     /// The display-list origin of a page, when this artifact draws it.
-    fn drawn_origin(&self, page_index: usize) -> Option<(f64, f64)> {
+    pub(super) fn drawn_origin(&self, page_index: usize) -> Option<(f64, f64)> {
         let pages = self
             .revision
             .chapter_engine_session()
@@ -190,7 +190,7 @@ impl ReaderSession {
         }
     }
 
-    fn artifact_view(&self, artifact_id: u64) -> Result<ArtifactView<'_>, ReaderError> {
+    pub(super) fn artifact_view(&self, artifact_id: u64) -> Result<ArtifactView<'_>, ReaderError> {
         let artifact = self
             .artifacts
             .get(&artifact_id)

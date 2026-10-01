@@ -23,12 +23,11 @@ export function findRitoCoreWasmReaderTocTarget(targets, entry) {
   return targets.find((target) => target.entry.href === entry.href);
 }
 
-export function findRitoCoreWasmReaderActiveTocEntry(targets, pageIndex) {
-  let active;
-  for (const target of targets) {
-    if (target.pageIndex <= pageIndex) active = target;
-  }
-  return active?.entry;
+/** The engine decided each page's entry; this only looks it up. */
+export function findRitoCoreWasmReaderActiveTocEntry(tocTargets, pageIndex) {
+  const index = tocTargets.activeEntryByPage[pageIndex];
+  if (index === null || index === undefined) return undefined;
+  return tocTargets.targets.find((target) => target.tocIndex === index)?.entry;
 }
 
 export function findRitoCoreWasmReaderSpreadContainingPage(spreads, pageIndex) {

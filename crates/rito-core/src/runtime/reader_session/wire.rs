@@ -13,9 +13,10 @@ use super::{
     ReaderArtifactRequest, ReaderBackgroundAdvance, ReaderBackgroundHandoff,
     ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderFootnote,
-    ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderPublication, ReaderResource,
-    ReaderSearchRequest, ReaderSearchResponse, ReaderTextInteractionRequest,
-    ReaderTextInteractionResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
+    ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderNavigationRequest,
+    ReaderNavigationResult, ReaderPublication, ReaderResource, ReaderSearchRequest,
+    ReaderSearchResponse, ReaderTextInteractionRequest, ReaderTextInteractionResponse,
+    ReaderTextRangeGeometry, ReaderTextRangeRequest,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONAV1";
@@ -62,6 +63,8 @@ pub const READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTIQ1";
 pub const READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOTIR1";
 pub const READER_ANNOTATION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOANQ1";
 pub const READER_ANNOTATION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOANR1";
+pub const READER_NAVIGATION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONVQ1";
+pub const READER_NAVIGATION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITONVR1";
 pub const READER_SEARCH_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSRQ1";
 pub const READER_SEARCH_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOSRS1";
 pub const READER_WIRE_VERSION: u32 = 1;
@@ -310,4 +313,28 @@ pub fn decode_reader_annotation_response(
     bytes: &[u8],
 ) -> Result<ReaderAnnotationResponse, ReaderError> {
     interaction::annotation_response(bytes)
+}
+
+pub fn encode_reader_navigation_request(
+    request: &ReaderNavigationRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_navigation_request(request)
+}
+
+pub fn decode_reader_navigation_request(
+    bytes: &[u8],
+) -> Result<ReaderNavigationRequest, ReaderError> {
+    interaction::navigation_request(bytes)
+}
+
+pub fn encode_reader_navigation_result(
+    result: &ReaderNavigationResult,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_navigation_result(result)
+}
+
+pub fn decode_reader_navigation_result(
+    bytes: &[u8],
+) -> Result<ReaderNavigationResult, ReaderError> {
+    interaction::navigation_result(bytes)
 }

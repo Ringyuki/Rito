@@ -788,3 +788,323 @@ fn empty_anchors_resolve_to_the_same_page_on_every_host() {
         );
     }
 }
+
+fn navigate(session: &mut ReaderSession, query: ReaderNavigationQuery) -> ReaderNavigationResult {
+    session
+        .resolve_navigation(ReaderNavigationRequest {
+            session_id: SESSION,
+            query,
+        })
+        .expect("navigation resolves")
+}
+
+fn open_toc_fixture() -> (
+    ReaderSession,
+    ReaderArtifact,
+    RuntimeDocument,
+    Vec<Option<usize>>,
+) {
+    let bytes = crate::runtime::tests::fixture::toc_anchor_fixture_epub();
+    let mut session = open_test_session(SESSION, bytes.clone()).expect("opens");
+    let artifact = session
+        .request_artifact(ReaderArtifactRequest {
+            session_id: SESSION,
+            request_id: 1,
+            layout: layout(),
+            locator: ReaderLocator {
+                href: "chapter-1.xhtml".to_owned(),
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: None,
+            },
+            text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
+        })
+        .expect("artifact resolves");
+    let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("opens");
+    let revision = document
+        .create_revision(&layout_config(layout()).expect("layout"))
+        .expect("revision");
+    let targets = document
+        .revision_bundle(&revision.revision_id, true)
+        .expect("bundle")
+        .toc_targets;
+    // Every entry is placed, the repeated id in the chapter that holds it.
+    assert_eq!(
+        targets
+            .targets
+            .iter()
+            .map(|target| target.toc_index)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2, 3]
+    );
+    (session, artifact, document, targets.active_entry_by_page)
+}
+
+/// A session and a browser revision name the same TOC entry for every
+/// page of chapter one, including the pages an inline id and an empty
+/// anchor start.
+#[test]
+fn toc_entries_by_page_match_the_whole_book_revision() {
+    let (mut session, artifact, _, by_page) = open_toc_fixture();
+    let chapter_pages = match navigate(
+        &mut session,
+        ReaderNavigationQuery::Locate {
+            artifact_id: artifact.artifact_id,
+            locator: ReaderLocator {
+                href: "chapter-1.xhtml".to_owned(),
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: Some(1.0),
+            },
+        },
+    ) {
+        ReaderNavigationResult::Location(ReaderLocation::Page { page_index, .. }) => page_index,
+        other => panic!("chapter one's last page locates: {other:?}"),
+    };
+    assert!(chapter_pages >= 2, "the fixture spans several pages");
+    let mut seen = std::collections::BTreeSet::new();
+    for page in 0..=chapter_pages {
+        let ReaderNavigationResult::TocEntry(entry) = navigate(
+            &mut session,
+            ReaderNavigationQuery::TocEntryAtPage {
+                artifact_id: artifact.artifact_id,
+                page_index: page,
+            },
+        ) else {
+            panic!("a toc entry answer");
+        };
+        assert_eq!(
+            entry.map(|entry| entry as usize),
+            by_page[page as usize],
+            "page {page}"
+        );
+        seen.extend(entry);
+    }
+    assert_eq!(
+        seen,
+        [0, 1, 2].into_iter().collect(),
+        "One, Inline and Empty all show up"
+    );
+}
+
+#[test]
+fn a_source_position_reads_under_its_last_preceding_entry() {
+    let (mut session, _, _, _) = open_toc_fixture();
+    let entry_at = |session: &mut ReaderSession, href: &str, node: u32| match navigate(
+        session,
+        ReaderNavigationQuery::TocEntryAtPosition {
+            href: href.to_owned(),
+            point: ReaderSourcePoint {
+                node_path: vec![node, 0],
+                text_offset: 0,
+            },
+        },
+    ) {
+        ReaderNavigationResult::TocEntry(entry) => entry,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(entry_at(&mut session, "chapter-1.xhtml", 5), Some(0));
+    assert_eq!(entry_at(&mut session, "chapter-1.xhtml", 20), Some(1));
+    assert_eq!(entry_at(&mut session, "chapter-1.xhtml", 35), Some(2));
+    // Chapter two's lead-in sits before its #intro target.
+    assert_eq!(entry_at(&mut session, "chapter-2.xhtml", 0), Some(2));
+    assert_eq!(entry_at(&mut session, "chapter-2.xhtml", 1), Some(3));
+}
+
+#[test]
+fn positions_compare_in_reading_order_and_locators_place_or_decline() {
+    let (mut session, artifact, _, _) = open_toc_fixture();
+    let point = |node: u32, offset: u64| ReaderSourcePoint {
+        node_path: vec![node, 0],
+        text_offset: offset,
+    };
+    let order = |session: &mut ReaderSession,
+                 a: (&str, ReaderSourcePoint),
+                 b: (&str, ReaderSourcePoint)| {
+        match navigate(
+            session,
+            ReaderNavigationQuery::Compare {
+                first_href: a.0.to_owned(),
+                first: a.1,
+                second_href: b.0.to_owned(),
+                second: b.1,
+            },
+        ) {
+            ReaderNavigationResult::Order(order) => order,
+            other => panic!("{other:?}"),
+        }
+    };
+    use std::cmp::Ordering;
+    assert_eq!(
+        order(
+            &mut session,
+            ("chapter-1.xhtml", point(30, 0)),
+            ("chapter-2.xhtml", point(0, 0))
+        ),
+        Ordering::Less
+    );
+    assert_eq!(
+        order(
+            &mut session,
+            ("chapter-1.xhtml", point(3, 5)),
+            ("chapter-1.xhtml", point(3, 2))
+        ),
+        Ordering::Greater
+    );
+    assert_eq!(
+        order(
+            &mut session,
+            ("chapter-1.xhtml", point(3, 5)),
+            ("chapter-1.xhtml", point(3, 5))
+        ),
+        Ordering::Equal
+    );
+
+    let locate = |session: &mut ReaderSession, href: &str, anchor: Option<&str>| {
+        navigate(
+            session,
+            ReaderNavigationQuery::Locate {
+                artifact_id: artifact.artifact_id,
+                locator: ReaderLocator {
+                    href: href.to_owned(),
+                    anchor_id: anchor.map(str::to_owned),
+                    source_point: None,
+                    source_range: None,
+                    progression: None,
+                },
+            },
+        )
+    };
+    assert!(matches!(
+        locate(&mut session, "chapter-1.xhtml", Some("intro")),
+        ReaderNavigationResult::Location(ReaderLocation::Page {
+            page_index: 0,
+            drawn: true,
+            ..
+        })
+    ));
+    assert!(matches!(
+        locate(&mut session, "chapter-1.xhtml", Some("empty")),
+        ReaderNavigationResult::Location(ReaderLocation::Page { drawn: false, .. })
+    ));
+    assert_eq!(
+        locate(&mut session, "chapter-2.xhtml", Some("intro")),
+        ReaderNavigationResult::Location(ReaderLocation::NotLaidOut)
+    );
+    assert_eq!(
+        locate(&mut session, "missing.xhtml", None),
+        ReaderNavigationResult::Location(ReaderLocation::Unavailable)
+    );
+}
+
+pub(super) fn locate_request_fixture() -> ReaderNavigationRequest {
+    ReaderNavigationRequest {
+        session_id: 7,
+        query: ReaderNavigationQuery::Locate {
+            artifact_id: 9,
+            locator: ReaderLocator {
+                href: "OEBPS/chapter-2.xhtml".to_owned(),
+                anchor_id: Some("note-4".to_owned()),
+                source_point: None,
+                source_range: None,
+                progression: Some(0.25),
+            },
+        },
+    }
+}
+
+pub(super) fn compare_request_fixture() -> ReaderNavigationRequest {
+    ReaderNavigationRequest {
+        session_id: 7,
+        query: ReaderNavigationQuery::Compare {
+            first_href: "OEBPS/chapter-2.xhtml".to_owned(),
+            first: ReaderSourcePoint {
+                node_path: vec![1, 0, 4],
+                text_offset: 12,
+            },
+            second_href: "OEBPS/chapter-3.xhtml".to_owned(),
+            second: ReaderSourcePoint {
+                node_path: vec![0],
+                text_offset: 0,
+            },
+        },
+    }
+}
+
+pub(super) fn location_result_fixture() -> ReaderNavigationResult {
+    ReaderNavigationResult::Location(ReaderLocation::Page {
+        page_index: 5,
+        drawn: true,
+        matched_by: ReaderLocatorMatch::Anchor,
+    })
+}
+
+/// Produced by the encoder; `rito_flutter`'s navigation wire test decodes the same bytes.
+pub(super) const LOCATE_HEX: &str = concat!(
+    "5249544f4e565131010000005c00000000000000070000000000000002090000",
+    "00000000002f00000000000000150000004f454250532f636861707465722d32",
+    "2e7868746d6c01060000006e6f74652d34000001000000000000d03f",
+);
+
+/// Produced by the encoder; `rito_flutter`'s navigation wire test decodes the same bytes.
+pub(super) const COMPARE_HEX: &str = concat!(
+    "5249544f4e565131010000008700000000000000070000000000000003150000",
+    "004f454250532f636861707465722d322e7868746d6c18000000000000000300",
+    "00000100000000000000040000000c00000000000000150000004f454250532f",
+    "636861707465722d332e7868746d6c1000000000000000010000000000000000",
+    "00000000000000",
+);
+
+/// Produced by the encoder; `rito_flutter`'s navigation wire test decodes the same bytes.
+pub(super) const LOCATION_HEX: &str = "5249544f4e565231010000001c000000000000000100050000000102";
+
+/// Produced by the encoder; `rito_flutter`'s navigation wire test decodes the same bytes.
+pub(super) const TOC_HEX: &str = "5249544f4e565231010000001a00000000000000000103000000";
+
+#[test]
+fn navigation_wire_fixtures_are_pinned_byte_for_byte() {
+    let toc = ReaderNavigationResult::TocEntry(Some(3));
+    assert_eq!(
+        hex(&encode_reader_navigation_request(&locate_request_fixture()).unwrap()),
+        LOCATE_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_navigation_request(&compare_request_fixture()).unwrap()),
+        COMPARE_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_navigation_result(&location_result_fixture()).unwrap()),
+        LOCATION_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_navigation_result(&toc).unwrap()),
+        TOC_HEX
+    );
+    assert_eq!(
+        decode_reader_navigation_request(&bytes(LOCATE_HEX)),
+        Ok(locate_request_fixture())
+    );
+    assert_eq!(
+        decode_reader_navigation_request(&bytes(COMPARE_HEX)),
+        Ok(compare_request_fixture())
+    );
+    assert_eq!(
+        decode_reader_navigation_result(&bytes(LOCATION_HEX)),
+        Ok(location_result_fixture())
+    );
+    assert_eq!(decode_reader_navigation_result(&bytes(TOC_HEX)), Ok(toc));
+    for message in [LOCATE_HEX, COMPARE_HEX] {
+        let message = bytes(message);
+        for length in 0..message.len() {
+            assert!(decode_reader_navigation_request(&message[..length]).is_err());
+        }
+    }
+    for message in [LOCATION_HEX, TOC_HEX] {
+        let message = bytes(message);
+        for length in 0..message.len() {
+            assert!(decode_reader_navigation_result(&message[..length]).is_err());
+        }
+    }
+}

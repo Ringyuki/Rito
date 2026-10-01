@@ -49,7 +49,7 @@ function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {
       chapters: [],
       chapterMap: {},
     },
-    tocTargets: { revisionId: '', targets: [] },
+    tocTargets: { revisionId: '', targets: [], activeEntryByPage: [] },
     footnotes: { revisionId: '', complete: false, pendingKeys: [], entries: {} },
     chapterTextIndices: { revisionId: '', entries: {} },
     fontFamilies: [],

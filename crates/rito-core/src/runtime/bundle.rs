@@ -11,7 +11,7 @@ use super::{
 
 impl RuntimeDocument {
     pub fn revision_bundle(
-        &self,
+        &mut self,
         revision_id: &str,
         include_toc_targets: bool,
     ) -> EpubResult<RuntimeRevisionBundle> {
@@ -46,14 +46,14 @@ impl RuntimeDocument {
     }
 
     pub fn revision_presentation(
-        &self,
+        &mut self,
         revision_id: &str,
     ) -> EpubResult<RuntimeRevisionPresentation> {
         self.revision_presentation_with_toc(revision_id, true)
     }
 
     fn revision_presentation_with_toc(
-        &self,
+        &mut self,
         revision_id: &str,
         include_toc_targets: bool,
     ) -> EpubResult<RuntimeRevisionPresentation> {
@@ -92,7 +92,7 @@ impl RuntimeDocument {
     }
 
     pub(super) fn revision_bundle_navigation(
-        &self,
+        &mut self,
         revision_id: &str,
         include_toc_targets: bool,
     ) -> EpubResult<(
@@ -100,6 +100,18 @@ impl RuntimeDocument {
         super::RuntimeRevisionNavigation,
         RuntimeTocTargets,
     )> {
+        // A whole-book revision lays out every chapter, so every chapter a
+        // fragment points into is indexed; a narrower one indexes its own.
+        let prepared = if include_toc_targets {
+            let laid_out = self
+                .revisions
+                .get(revision_id)
+                .map(|revision| self.laid_out_chapters(revision))
+                .unwrap_or_default();
+            Some(self.prepare_toc_targets(|chapter| laid_out.contains(&chapter)))
+        } else {
+            None
+        };
         let revision = self
             .revisions
             .get(revision_id)
@@ -107,13 +119,16 @@ impl RuntimeDocument {
         let key = layout_key(&revision.layout_config, &self.pinned_font_policy)?;
         let summary = revision_summary(revision_id, &key, revision);
         let navigation = runtime_revision_navigation(revision_id, &self.document, revision);
-        let toc_targets = if include_toc_targets {
-            runtime_toc_targets(revision_id, &self.document, revision)
-        } else {
-            RuntimeTocTargets {
+        let toc_targets = match prepared {
+            Some(prepared) => {
+                let positions = self.toc_target_positions_in(revision_id, revision, &prepared);
+                runtime_toc_targets(revision_id, &self.document, revision, &positions)
+            }
+            None => RuntimeTocTargets {
                 revision_id: revision_id.to_owned(),
                 targets: Vec::new(),
-            }
+                active_entry_by_page: Vec::new(),
+            },
         };
         Ok((summary, navigation, toc_targets))
     }

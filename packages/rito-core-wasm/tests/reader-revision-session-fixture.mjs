@@ -58,7 +58,7 @@ export function revisionPresentation(revision, navigation) {
   return {
     revision,
     navigation,
-    tocTargets: { revisionId: revision.revisionId, targets: [] },
+    tocTargets: { revisionId: revision.revisionId, targets: [], activeEntryByPage: [] },
     fontFamilies: [],
   };
 }

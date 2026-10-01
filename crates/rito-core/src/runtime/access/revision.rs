@@ -13,20 +13,20 @@ impl RuntimeDocument {
     }
 
     pub fn revision_bundle_at(
-        &self,
+        &mut self,
         handle: &RuntimeRevisionHandle,
         include_toc_targets: bool,
     ) -> Result<RuntimeVersioned<RuntimeRevisionBundle>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
+        self.versioned_write(handle, |document, revision_id| {
             document.revision_bundle(revision_id, include_toc_targets)
         })
     }
 
     pub fn revision_navigation_at(
-        &self,
+        &mut self,
         handle: &RuntimeRevisionHandle,
     ) -> Result<RuntimeVersioned<RuntimeRevisionNavigation>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
+        self.versioned_write(handle, |document, revision_id| {
             document
                 .revision_bundle_navigation(revision_id, false)
                 .map(|(_, navigation, _)| navigation)
@@ -34,10 +34,10 @@ impl RuntimeDocument {
     }
 
     pub fn revision_presentation_at(
-        &self,
+        &mut self,
         handle: &RuntimeRevisionHandle,
     ) -> Result<RuntimeVersioned<RuntimeRevisionPresentation>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, RuntimeDocument::revision_presentation)
+        self.versioned_write(handle, RuntimeDocument::revision_presentation)
     }
 
     pub fn style_table_summary_at(

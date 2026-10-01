@@ -259,7 +259,7 @@ function bundle(version) {
   return {
     revision: summary(version),
     navigation: { revisionId },
-    tocTargets: { revisionId, targets: [] },
+    tocTargets: { revisionId, targets: [], activeEntryByPage: [] },
     footnotes: { revisionId, complete: true, pendingKeys: [], entries: {} },
     chapterTextIndices: { revisionId, entries: {} },
     fontFamilies: [],
@@ -277,7 +277,7 @@ function presentation(version) {
       chapters: [],
       chapterMap: {},
     },
-    tocTargets: { revisionId: 'rev-1', targets: [] },
+    tocTargets: { revisionId: 'rev-1', targets: [], activeEntryByPage: [] },
     fontFamilies: [],
   };
 }

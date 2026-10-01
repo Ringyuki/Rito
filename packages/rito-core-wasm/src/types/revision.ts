@@ -104,10 +104,15 @@ export interface RitoCoreWasmSpreadNavigation {
 
 export interface RitoCoreWasmTocTargets {
   readonly revisionId: string;
+  /** The entries this revision places on a page, in TOC order. */
   readonly targets: readonly RitoCoreWasmTocTarget[];
+  /** Per page, the preorder index of the TOC entry the page reads under. */
+  readonly activeEntryByPage: readonly (number | null)[];
 }
 
 export interface RitoCoreWasmTocTarget {
+  /** Preorder index of the entry in the publication's TOC tree. */
+  readonly tocIndex: number;
   readonly entry: RitoCoreWasmTocEntry;
   readonly pageIndex: number;
   readonly spreadIndex: number;

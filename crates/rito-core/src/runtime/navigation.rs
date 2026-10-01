@@ -6,9 +6,10 @@ use crate::{
 };
 
 use super::{
-    page_artifact::PageArtifactChapterRange, ResolvedRuntimeLocator, RuntimeChapterNavigation,
-    RuntimeLocatorRequest, RuntimeRevision, RuntimeRevisionNavigation, RuntimeSpreadNavigation,
-    RuntimeTocTarget, RuntimeTocTargets,
+    page_artifact::PageArtifactChapterRange,
+    source_locator::{active_toc_entries_by_page, TocTargetPosition},
+    ResolvedRuntimeLocator, RuntimeChapterNavigation, RuntimeLocatorRequest, RuntimeRevision,
+    RuntimeRevisionNavigation, RuntimeSpreadNavigation, RuntimeTocTarget, RuntimeTocTargets,
 };
 
 pub(super) fn runtime_revision_navigation(
@@ -52,48 +53,43 @@ fn runtime_spread_navigation(revision: &RuntimeRevision) -> Vec<RuntimeSpreadNav
         .collect()
 }
 
+/// Every entry is placed through the source-locator path, the one every
+/// host's navigation uses, so an id that repeats an earlier chapter's, an
+/// inline id or an empty anchor marker lands where it does when followed.
 pub(super) fn runtime_toc_targets(
     revision_id: &str,
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
+    positions: &[TocTargetPosition],
 ) -> RuntimeTocTargets {
-    let mut targets = Vec::new();
-    collect_toc_targets(
-        &mut targets,
-        revision_id,
-        &document.package,
-        revision,
-        &document.package.toc,
-    );
+    let mut entries = Vec::new();
+    flatten_entries(&document.package.toc, &mut entries);
+    let targets = entries
+        .into_iter()
+        .zip(positions)
+        .enumerate()
+        .filter_map(|(toc_index, (entry, position))| match position {
+            TocTargetPosition::Page(page_index) => Some(RuntimeTocTarget {
+                toc_index,
+                entry: entry.clone(),
+                page_index: *page_index,
+                spread_index: spread_index_for_page(revision, *page_index),
+            }),
+            _ => None,
+        })
+        .collect();
+    let page_count = revision.chapter_engine_session().metadata().page_count;
     RuntimeTocTargets {
         revision_id: revision_id.to_owned(),
         targets,
+        active_entry_by_page: active_toc_entries_by_page(positions, page_count),
     }
 }
 
-fn collect_toc_targets(
-    targets: &mut Vec<RuntimeTocTarget>,
-    revision_id: &str,
-    package: &PackageDocument,
-    revision: &RuntimeRevision,
-    entries: &[TocEntry],
-) {
+fn flatten_entries<'a>(entries: &'a [TocEntry], flat: &mut Vec<&'a TocEntry>) {
     for entry in entries {
-        if let Ok(resolved) = resolve_href_locator(
-            revision_id,
-            package,
-            revision,
-            RuntimeLocatorRequest {
-                href: entry.href.clone(),
-            },
-        ) {
-            targets.push(RuntimeTocTarget {
-                entry: entry.clone(),
-                page_index: resolved.page_index,
-                spread_index: resolved.spread_index,
-            });
-        }
-        collect_toc_targets(targets, revision_id, package, revision, &entry.children);
+        flat.push(entry);
+        flatten_entries(&entry.children, flat);
     }
 }
 

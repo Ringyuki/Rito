@@ -172,13 +172,13 @@ function navigationMethods(
       return state.config;
     },
     findPage(entry) {
-      return findRitoCoreWasmReaderTocTarget(state.tocTargets, entry)?.pageIndex;
+      return findRitoCoreWasmReaderTocTarget(state.tocTargets.targets, entry)?.pageIndex;
     },
     findSpread(pageIndex) {
       return findRitoCoreWasmReaderSpreadContainingPage(browserReaderSpreads(state), pageIndex);
     },
     resolveTocEntry(entry) {
-      const target = findRitoCoreWasmReaderTocTarget(state.tocTargets, entry);
+      const target = findRitoCoreWasmReaderTocTarget(state.tocTargets.targets, entry);
       return target ? { pageIndex: target.pageIndex, spreadIndex: target.spreadIndex } : undefined;
     },
     findActiveTocEntry(pageIndex) {

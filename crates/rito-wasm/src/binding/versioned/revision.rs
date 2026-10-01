@@ -17,7 +17,7 @@ impl RitoWasmDocument {
 
     #[wasm_bindgen(js_name = getRevisionBundleAtRevisionJson)]
     pub fn get_revision_bundle_at_revision_json(
-        &self,
+        &mut self,
         revision_id: &str,
         revision_version: u32,
         include_toc_targets: bool,
@@ -33,7 +33,7 @@ impl RitoWasmDocument {
 
     #[wasm_bindgen(js_name = getRevisionPresentationAtRevisionJson)]
     pub fn get_revision_presentation_at_revision_json(
-        &self,
+        &mut self,
         revision_id: &str,
         revision_version: u32,
     ) -> Result<String, JsValue> {
@@ -44,7 +44,7 @@ impl RitoWasmDocument {
 
     #[wasm_bindgen(js_name = getRevisionNavigationAtRevisionJson)]
     pub fn get_revision_navigation_at_revision_json(
-        &self,
+        &mut self,
         revision_id: &str,
         revision_version: u32,
     ) -> Result<String, JsValue> {

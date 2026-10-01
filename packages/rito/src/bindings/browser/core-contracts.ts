@@ -25,6 +25,7 @@ export type {
   RitoCoreWasmExactSourceRangeRequest as CoreExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse as CoreExactSourceRangeResponse,
   RitoCoreWasmFootnotes as CoreFootnotes,
+  RitoCoreWasmTocTargets as CoreTocTargets,
   RitoCoreWasmFrameCommand as CoreFrameCommand,
   RitoCoreWasmFrameCommandBufferMetadata as CoreFrameCommandBufferMetadata,
   RitoReaderPrimitiveList as CoreReaderPrimitiveList,

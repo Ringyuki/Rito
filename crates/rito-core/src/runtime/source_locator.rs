@@ -10,6 +10,7 @@ mod annotation;
 mod href;
 mod index;
 mod projection;
+mod toc;
 mod types;
 
 pub use annotation::{
@@ -22,6 +23,7 @@ use href::{canonicalize_source_locator, CanonicalSourceLocator};
 use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_point, SourceProjection};
+pub(super) use toc::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition};
 pub use types::*;
 
 pub(in crate::runtime) struct PreparedExactSourceRange {
@@ -30,6 +32,9 @@ pub(in crate::runtime) struct PreparedExactSourceRange {
     pub(super) source_range: RuntimeSourceRange,
     pub(super) normalized_source_text: String,
 }
+
+/// A locator checked against the source and ready to place in a revision.
+pub(in crate::runtime) struct PreparedSourceLocator(CanonicalSourceLocator);
 
 pub(super) enum ExactSourceRangePageWindow {
     Ready { first_page: usize, last_page: usize },
@@ -313,6 +318,36 @@ impl RuntimeDocument {
         ))
     }
 
+    /// Canonicalizes and validates a durable locator against the source,
+    /// ahead of placing it in a revision the caller holds.
+    pub(in crate::runtime) fn prepare_source_locator(
+        &mut self,
+        locator: RuntimeSourceLocator,
+    ) -> Result<PreparedSourceLocator, RuntimeSourceLocatorError> {
+        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        if matched_by(&canonical.locator) != RuntimeSourceLocatorMatchedBy::Href {
+            self.ensure_source_chapter_index(canonical.chapter_index)?;
+            let source_index = self
+                .source_chapter_indices
+                .get(&canonical.spine_idref)
+                .expect("source chapter index was ensured");
+            validate_source_selectors(&canonical.locator, source_index)?;
+        }
+        Ok(PreparedSourceLocator(canonical))
+    }
+
+    /// Places a prepared locator in any revision, browser or session, by
+    /// the same projection `resolve_source_locator` uses.
+    pub(in crate::runtime) fn resolve_prepared_source_locator_in(
+        &self,
+        revision_id: &str,
+        revision: &RuntimeRevision,
+        prepared: &PreparedSourceLocator,
+    ) -> RuntimeSourceLocatorResolution {
+        let source_index = self.source_chapter_indices.get(&prepared.0.spine_idref);
+        resolve_canonical_source_locator(revision_id, revision, prepared.0.clone(), source_index)
+    }
+
     pub(in crate::runtime) fn prepare_exact_source_range(
         &mut self,
         request: RuntimeExactSourceRangeRequest,
@@ -446,9 +481,14 @@ fn resolve_canonical_source_locator(
         return pending_resolution(revision_id, canonical, matched_by, reason);
     };
     let page_range = chapter_range.start_page..end_page_exclusive;
-    let Some(source_starts) = session.source_run_starts(page_range.clone()) else {
-        let reason = unavailable_projection_reason(revision, &canonical.spine_idref);
-        return pending_resolution(revision_id, canonical, matched_by, reason);
+    // Projecting a source point reads every page's runs, which builds the
+    // chapter's page artifacts; only the selectors that need it pay that.
+    let project = |source_index: &RuntimeSourceChapterIndex, point: &RuntimeSourcePoint| {
+        session
+            .source_run_starts(page_range.clone())
+            .map_or(SourceProjection::NoPageProjection, |starts| {
+                project_source_point(&starts, source_index, point)
+            })
     };
     let projection = match (matched_by, source_index) {
         (RuntimeSourceLocatorMatchedBy::SourceRange, Some(source_index)) => canonical
@@ -456,14 +496,14 @@ fn resolve_canonical_source_locator(
             .source_range
             .as_ref()
             .map_or(SourceProjection::NoPageProjection, |range| {
-                project_source_point(&source_starts, source_index, &range.start)
+                project(source_index, &range.start)
             }),
         (RuntimeSourceLocatorMatchedBy::SourcePoint, Some(source_index)) => canonical
             .locator
             .source_point
             .as_ref()
             .map_or(SourceProjection::NoPageProjection, |point| {
-                project_source_point(&source_starts, source_index, point)
+                project(source_index, point)
             }),
         (RuntimeSourceLocatorMatchedBy::Anchor, Some(source_index)) => {
             let anchor = canonical.locator.anchor_id.as_ref();
@@ -482,9 +522,7 @@ fn resolve_canonical_source_locator(
                             RuntimeSourceAnchor::ChapterStart => {
                                 SourceProjection::Page(chapter_range.start_page)
                             }
-                            RuntimeSourceAnchor::Point(point) => {
-                                project_source_point(&source_starts, source_index, point)
-                            }
+                            RuntimeSourceAnchor::Point(point) => project(source_index, point),
                             RuntimeSourceAnchor::ChapterEnd => {
                                 SourceProjection::Page(chapter_range.end_page)
                             }

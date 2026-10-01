@@ -39,6 +39,7 @@ mod handoff;
 mod interaction;
 mod navigate;
 mod open;
+mod position;
 #[cfg(test)]
 mod probe;
 mod project;

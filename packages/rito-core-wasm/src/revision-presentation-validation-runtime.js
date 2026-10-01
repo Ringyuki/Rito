@@ -29,18 +29,28 @@ export function requireRevisionPresentation(value, revision, operation) {
     operation,
   );
   const tocTargets = requireObjectInput(presentation.tocTargets, `${operation} tocTargets`);
-  requireExactFields(tocTargets, new Set(['revisionId', 'targets']), `${operation} tocTargets`);
+  requireExactFields(
+    tocTargets,
+    new Set(['revisionId', 'targets', 'activeEntryByPage']),
+    `${operation} tocTargets`,
+  );
   requireMatchingRevisionId(tocTargets, revision, `${operation} tocTargets`);
   if (!Array.isArray(tocTargets.targets)) {
     throw new Error(`${operation} returned malformed presentation TOC targets`);
   }
+  requireActiveTocEntries(tocTargets, summary, operation);
+  let previousTocIndex = -1;
   for (const target of tocTargets.targets) {
     const value = requireObjectInput(target, `${operation} TOC target`);
     requireExactFields(
       value,
-      new Set(['entry', 'pageIndex', 'spreadIndex']),
+      new Set(['tocIndex', 'entry', 'pageIndex', 'spreadIndex']),
       `${operation} TOC target`,
     );
+    if (!isSafeCount(value.tocIndex) || value.tocIndex <= previousTocIndex) {
+      throw new Error(`${operation} returned TOC targets out of TOC order`);
+    }
+    previousTocIndex = value.tocIndex;
     if (
       !isSafeCount(value.pageIndex) ||
       value.pageIndex >= summary.pageCount ||
@@ -231,4 +241,19 @@ function isRecord(value) {
 
 function isSafeCount(value) {
   return Number.isSafeInteger(value) && value >= 0;
+}
+
+/** Each page names nothing or an entry the revision placed, and either
+ * every page is covered or none is (targets not requested). */
+function requireActiveTocEntries(tocTargets, summary, operation) {
+  const active = tocTargets.activeEntryByPage;
+  if (!Array.isArray(active) || (active.length !== 0 && active.length !== summary.pageCount)) {
+    throw new Error(`${operation} returned malformed active TOC entries`);
+  }
+  const placed = new Set(tocTargets.targets.map((target) => target.tocIndex));
+  for (const index of active) {
+    if (index !== null && !placed.has(index)) {
+      throw new Error(`${operation} returned an active TOC entry it did not place`);
+    }
+  }
 }

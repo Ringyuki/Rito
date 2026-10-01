@@ -1,19 +1,21 @@
 use super::super::{
-    encode::{source_point, source_range},
+    encode::{locator, source_point, source_range},
     primitives::{external_id, Writer},
     READER_ANNOTATION_REQUEST_WIRE_MAGIC, READER_ANNOTATION_RESPONSE_WIRE_MAGIC,
+    READER_NAVIGATION_REQUEST_WIRE_MAGIC, READER_NAVIGATION_RESPONSE_WIRE_MAGIC,
     READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC, READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC,
     READER_WIRE_VERSION,
 };
 use super::{
-    tag_of, AFFINITIES, ANNOTATION_LEVELS, BOUNDARIES, GRANULARITIES, MOVEMENTS,
-    UNAVAILABLE_REASONS,
+    tag_of, AFFINITIES, ANNOTATION_LEVELS, BOUNDARIES, GRANULARITIES, LOCATOR_MATCHES, MOVEMENTS,
+    ORDERINGS, UNAVAILABLE_REASONS,
 };
 use crate::runtime::reader_session::{
     ReaderAnnotationQuery, ReaderAnnotationRequest, ReaderAnnotationResponse, ReaderCaret,
-    ReaderCaretAddress, ReaderError, ReaderTextInteractionQuery, ReaderTextInteractionRequest,
-    ReaderTextInteractionResponse, ReaderTextInteractionResult, ReaderTextPoint,
-    ReaderTextSelection,
+    ReaderCaretAddress, ReaderError, ReaderLocation, ReaderNavigationQuery,
+    ReaderNavigationRequest, ReaderNavigationResult, ReaderTextInteractionQuery,
+    ReaderTextInteractionRequest, ReaderTextInteractionResponse, ReaderTextInteractionResult,
+    ReaderTextPoint, ReaderTextSelection,
 };
 
 pub(in crate::runtime::reader_session::wire) fn text_interaction_request(
@@ -154,6 +156,87 @@ pub(in crate::runtime::reader_session::wire) fn annotation_response(
             Ok(())
         })
     })?;
+    writer.finish_message()
+}
+
+pub(in crate::runtime::reader_session::wire) fn navigation_request(
+    value: &ReaderNavigationRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    external_id(value.session_id, "sessionId")?;
+    let mut writer = Writer::message(READER_NAVIGATION_REQUEST_WIRE_MAGIC, READER_WIRE_VERSION);
+    writer.u64(value.session_id);
+    match &value.query {
+        ReaderNavigationQuery::TocEntryAtPage {
+            artifact_id,
+            page_index,
+        } => {
+            writer.u8(0);
+            writer.u64(external_id(*artifact_id, "artifactId")?);
+            writer.u32(*page_index);
+        }
+        ReaderNavigationQuery::TocEntryAtPosition { href, point } => {
+            writer.u8(1);
+            writer.string(href, "position href")?;
+            source_point(&mut writer, point)?;
+        }
+        ReaderNavigationQuery::Locate {
+            artifact_id,
+            locator: value,
+        } => {
+            writer.u8(2);
+            writer.u64(external_id(*artifact_id, "artifactId")?);
+            locator(&mut writer, value)?;
+        }
+        ReaderNavigationQuery::Compare {
+            first_href,
+            first,
+            second_href,
+            second,
+        } => {
+            writer.u8(3);
+            writer.string(first_href, "first href")?;
+            source_point(&mut writer, first)?;
+            writer.string(second_href, "second href")?;
+            source_point(&mut writer, second)?;
+        }
+    }
+    writer.finish_message()
+}
+
+pub(in crate::runtime::reader_session::wire) fn navigation_result(
+    value: &ReaderNavigationResult,
+) -> Result<Vec<u8>, ReaderError> {
+    let mut writer = Writer::message(READER_NAVIGATION_RESPONSE_WIRE_MAGIC, READER_WIRE_VERSION);
+    match value {
+        ReaderNavigationResult::TocEntry(entry) => {
+            writer.u8(0);
+            writer.option(entry.as_ref(), |writer, entry| {
+                writer.u32(*entry);
+                Ok(())
+            })?;
+        }
+        ReaderNavigationResult::Location(location) => {
+            writer.u8(1);
+            match location {
+                ReaderLocation::Page {
+                    page_index,
+                    drawn,
+                    matched_by,
+                } => {
+                    writer.u8(0);
+                    writer.u32(*page_index);
+                    writer.bool(*drawn);
+                    writer.u8(tag_of(&LOCATOR_MATCHES, matched_by));
+                }
+                ReaderLocation::NotLaidOut => writer.u8(1),
+                ReaderLocation::Unavailable => writer.u8(2),
+            }
+        }
+        ReaderNavigationResult::Order(order) => {
+            writer.u8(2);
+            writer.u8(tag_of(&ORDERINGS, order));
+        }
+    }
     writer.finish_message()
 }
 

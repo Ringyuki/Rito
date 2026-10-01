@@ -765,7 +765,7 @@ function frameWindowState(
         chapters: [],
         chapterMap: {},
       },
-      tocTargets: { revisionId: 'rev', targets: [] },
+      tocTargets: { revisionId: 'rev', targets: [], activeEntryByPage: [] },
       footnotes: { revisionId: 'rev', complete: true, pendingKeys: [], entries: {} },
       chapterTextIndices: { revisionId: 'rev', entries: {} },
       fontFamilies: [],

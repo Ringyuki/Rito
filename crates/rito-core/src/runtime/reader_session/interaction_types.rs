@@ -243,3 +243,60 @@ pub struct ReaderAnnotationResponse {
     pub level: ReaderAnnotationLevel,
     pub target: Option<ReaderAnnotationTarget>,
 }
+
+/// A reading-position question. Every answer comes from the engine, so a
+/// chapter title, a bookmark check or a turn direction is the same on
+/// every host.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReaderNavigationQuery {
+    /// The TOC entry a page of an artifact's revision reads under: the
+    /// last entry, in TOC order, whose target sits at or before it.
+    TocEntryAtPage { artifact_id: u64, page_index: u32 },
+    /// The TOC entry a source position reads under, decided on the source
+    /// alone: the last entry whose target is at or before the position.
+    TocEntryAtPosition {
+        href: String,
+        point: ReaderSourcePoint,
+    },
+    /// Where a stored locator lands in an artifact's revision.
+    Locate {
+        artifact_id: u64,
+        locator: super::ReaderLocator,
+    },
+    /// Reading order of two source positions.
+    Compare {
+        first_href: String,
+        first: ReaderSourcePoint,
+        second_href: String,
+        second: ReaderSourcePoint,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderNavigationRequest {
+    pub session_id: u64,
+    pub query: ReaderNavigationQuery,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderLocation {
+    /// The locator lands on `page_index` of the revision; `drawn` says
+    /// whether the asking artifact draws that page.
+    Page {
+        page_index: u32,
+        drawn: bool,
+        matched_by: super::ReaderLocatorMatch,
+    },
+    /// The locator's chapter is not laid out in this revision.
+    NotLaidOut,
+    /// The locator does not resolve in the publication.
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderNavigationResult {
+    /// The entry's preorder index — the `toc_id` the publication carries.
+    TocEntry(Option<u32>),
+    Location(ReaderLocation),
+    Order(std::cmp::Ordering),
+}

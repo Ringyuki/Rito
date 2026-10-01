@@ -46,5 +46,5 @@ function applyRevisionData(state: BrowserReaderState, result: BrowserReaderRevis
   resetBrowserReaderInteractionCache(state);
   state.footnotes = createRitoCoreWasmReaderFootnoteMap(bundle.footnotes);
   state.chapterTextIndices = createRitoCoreWasmReaderChapterTextIndexMap(bundle.chapterTextIndices);
-  state.tocTargets = bundle.tocTargets.targets;
+  state.tocTargets = bundle.tocTargets;
 }

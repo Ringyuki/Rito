@@ -272,12 +272,18 @@ pub struct RuntimeSpreadNavigation {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeTocTargets {
     pub revision_id: String,
+    /// The entries whose targets this revision places on a page, in TOC order.
     pub targets: Vec<RuntimeTocTarget>,
+    /// Per page, the TOC entry (by preorder index) the page reads under:
+    /// the last entry whose target sits at or before it.
+    pub active_entry_by_page: Vec<Option<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeTocTarget {
+    /// Preorder index of the entry in the publication's TOC tree.
+    pub toc_index: usize,
     pub entry: TocEntry,
     pub page_index: usize,
     pub spread_index: usize,

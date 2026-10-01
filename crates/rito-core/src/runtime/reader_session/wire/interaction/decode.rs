@@ -1,18 +1,20 @@
 use super::super::{
-    decode::{source_point, source_range},
+    decode::{locator, source_point, source_range},
     primitives::{external_id, Reader},
     READER_ANNOTATION_REQUEST_WIRE_MAGIC, READER_ANNOTATION_RESPONSE_WIRE_MAGIC,
+    READER_NAVIGATION_REQUEST_WIRE_MAGIC, READER_NAVIGATION_RESPONSE_WIRE_MAGIC,
     READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC, READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC,
     READER_WIRE_VERSION,
 };
 use super::{
-    from_tag, AFFINITIES, ANNOTATION_LEVELS, BOUNDARIES, GRANULARITIES, MOVEMENTS,
-    UNAVAILABLE_REASONS,
+    from_tag, AFFINITIES, ANNOTATION_LEVELS, BOUNDARIES, GRANULARITIES, LOCATOR_MATCHES, MOVEMENTS,
+    ORDERINGS, UNAVAILABLE_REASONS,
 };
 use crate::runtime::reader_session::{
     wire::primitives::invalid, ReaderAnnotationQuery, ReaderAnnotationRequest,
     ReaderAnnotationResponse, ReaderAnnotationTarget, ReaderCaret, ReaderCaretAddress,
-    ReaderCaretGeometry, ReaderError, ReaderExactSourceRect, ReaderRect, ReaderSelectionResult,
+    ReaderCaretGeometry, ReaderError, ReaderExactSourceRect, ReaderLocation, ReaderNavigationQuery,
+    ReaderNavigationRequest, ReaderNavigationResult, ReaderRect, ReaderSelectionResult,
     ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResponse,
     ReaderTextInteractionResult, ReaderTextPoint, ReaderTextPosition, ReaderTextSelection,
 };
@@ -175,6 +177,67 @@ pub(in crate::runtime::reader_session::wire) fn annotation_response(
     };
     reader.finish("annotation response wire message")?;
     Ok(response)
+}
+
+pub(in crate::runtime::reader_session::wire) fn navigation_request(
+    bytes: &[u8],
+) -> Result<ReaderNavigationRequest, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        READER_NAVIGATION_REQUEST_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let session_id = external_id(reader.u64()?, "sessionId")?;
+    let query = match reader.u8()? {
+        0 => ReaderNavigationQuery::TocEntryAtPage {
+            artifact_id: external_id(reader.u64()?, "artifactId")?,
+            page_index: reader.u32()?,
+        },
+        1 => ReaderNavigationQuery::TocEntryAtPosition {
+            href: reader.string("position href")?,
+            point: source_point(&mut reader)?,
+        },
+        2 => ReaderNavigationQuery::Locate {
+            artifact_id: external_id(reader.u64()?, "artifactId")?,
+            locator: locator(&mut reader)?,
+        },
+        3 => ReaderNavigationQuery::Compare {
+            first_href: reader.string("first href")?,
+            first: source_point(&mut reader)?,
+            second_href: reader.string("second href")?,
+            second: source_point(&mut reader)?,
+        },
+        tag => return Err(invalid(format!("unknown navigation query tag: {tag}"))),
+    };
+    reader.finish("navigation request wire message")?;
+    Ok(ReaderNavigationRequest { session_id, query })
+}
+
+pub(in crate::runtime::reader_session::wire) fn navigation_result(
+    bytes: &[u8],
+) -> Result<ReaderNavigationResult, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        READER_NAVIGATION_RESPONSE_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let result = match reader.u8()? {
+        0 => ReaderNavigationResult::TocEntry(reader.option("toc entry", Reader::u32)?),
+        1 => ReaderNavigationResult::Location(match reader.u8()? {
+            0 => ReaderLocation::Page {
+                page_index: reader.u32()?,
+                drawn: reader.bool("page drawn")?,
+                matched_by: from_tag(&LOCATOR_MATCHES, reader.u8()?, "locator match")?,
+            },
+            1 => ReaderLocation::NotLaidOut,
+            2 => ReaderLocation::Unavailable,
+            tag => return Err(invalid(format!("unknown location tag: {tag}"))),
+        }),
+        2 => ReaderNavigationResult::Order(from_tag(&ORDERINGS, reader.u8()?, "order")?),
+        tag => return Err(invalid(format!("unknown navigation result tag: {tag}"))),
+    };
+    reader.finish("navigation response wire message")?;
+    Ok(result)
 }
 
 fn point(reader: &mut Reader<'_>) -> Result<ReaderTextPoint, ReaderError> {
