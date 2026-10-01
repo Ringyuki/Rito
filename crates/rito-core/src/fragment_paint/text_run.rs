@@ -17,6 +17,46 @@ use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCom
 use super::run_style::run_paint;
 use super::{cluster_x, painted_baseline, snap_css, PaintFamilyPolicy, CANVAS_TOP_ASCENT_RATIO};
 
+/// One inline item's runs on one line: the item's byte range there, its
+/// left and right edges, and the ruby overhang its outermost runs carry.
+/// A base that shaping split into several runs (a fallback font, a space)
+/// is still one ruby base on the line.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct ItemLineExtent {
+    start: usize,
+    end: usize,
+    left: f64,
+    right: f64,
+    overhang_left: f64,
+    overhang_right: f64,
+}
+
+impl ItemLineExtent {
+    pub(super) fn of(run: &TextFragment) -> Self {
+        Self {
+            start: run.text_start as usize,
+            end: run.text_end as usize,
+            left: run.rect.x,
+            right: run.rect.x + run.rect.width,
+            overhang_left: run.ruby_overhang_px,
+            overhang_right: run.ruby_overhang_right_px,
+        }
+    }
+
+    pub(super) fn include(&mut self, run: &TextFragment) {
+        self.start = self.start.min(run.text_start as usize);
+        self.end = self.end.max(run.text_end as usize);
+        if run.rect.x < self.left {
+            self.left = run.rect.x;
+            self.overhang_left = run.ruby_overhang_px;
+        }
+        if run.rect.x + run.rect.width > self.right {
+            self.right = run.rect.x + run.rect.width;
+            self.overhang_right = run.ruby_overhang_right_px;
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_text_run_command(
     commands: &mut Vec<DisplayCommand>,
@@ -24,7 +64,7 @@ pub(super) fn append_text_run_command(
     styles: &rito_fragment::FormattingTreeStyles,
     full_text: &str,
     text_ranges: &[(std::ops::Range<usize>, usize)],
-    item_extents: &BTreeMap<usize, (f64, f64)>,
+    item_extents: &BTreeMap<usize, ItemLineExtent>,
     line: &LineFragment,
     run: &TextFragment,
     line_x: f64,
@@ -73,11 +113,11 @@ pub(super) fn append_text_run_command(
     // The run closing its item on this line ends where the browser's
     // item fragment ends: the item's start plus its width on the 1/64
     // grid (its band and decoration line end there too).
-    let rect_width = item_extents
-        .get(item_index)
-        .filter(|(_, right)| (run.rect.x + run.rect.width - right).abs() < 1e-9)
-        .map_or(run.rect.width, |(left, right)| {
-            left + rito_inline::layout_unit_ceil(right - left) - run.rect.x
+    let line_extent = item_extents.get(item_index).copied();
+    let rect_width = line_extent
+        .filter(|extent| (run.rect.x + run.rect.width - extent.right).abs() < 1e-9)
+        .map_or(run.rect.width, |extent| {
+            extent.left + rito_inline::layout_unit_ceil(extent.right - extent.left) - run.rect.x
         });
     let mut paint = run_paint(
         style,
@@ -193,12 +233,18 @@ pub(super) fn append_text_run_command(
     // under "Legal Brave" paints Legal on 正's line and Brave on the
     // next; single-word Leprechaun rides whichever segment holds its
     // midpoint — the whole annotation for front-heavy splits). The
-    // allocation replays the same pure function layout used.
+    // allocation replays the same pure function layout used. The segment
+    // is the base's part of this LINE, however many runs shaping split it
+    // into (a fallback-font apostrophe, a space): the first of them
+    // paints the annotation over all of them, as Chromium places one
+    // annotation over one base box.
+    let segment = line_extent.unwrap_or(ItemLineExtent::of(run));
     let segment_annotation = ruby_annotation.as_ref().and_then(|annotation| {
         let total = item_range.end.saturating_sub(item_range.start);
-        if total == 0 {
+        if total == 0 || start != segment.start {
             return None;
         }
+        let (start, end) = (segment.start, segment.end);
         let seg_start = full_text
             .get(item_range.start..start)
             .map_or(0.0, |prefix| prefix.chars().count() as f64);
@@ -236,14 +282,14 @@ pub(super) fn append_text_run_command(
         // (justify_px) deliberately does NOT widen the rect: a justified
         // narrow-annotation base grows through its own extent and the
         // annotation only re-centers over it.
-        let rect_x = line_x + run.rect.x - run.ruby_overhang_px;
+        let rect_x = line_x + segment.left - segment.overhang_left;
         // The column's extent is its width on the 1/64 layout grid, the
         // way the browser stores the base line the annotation aligns to
         // (a four-glyph base whose justified shares sum to 64.268 gives
         // the annotation 64.28125: DOM-measured, the difference moved a
         // second Latin word across a quarter-pixel raster bucket).
         let rect_width = rito_inline::layout_unit_ceil(
-            run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px,
+            segment.right - segment.left + segment.overhang_left + segment.overhang_right,
         );
         // The annotation was shaped whole when the chapter was built;
         // this segment's words are one contiguous slice of it, re-based

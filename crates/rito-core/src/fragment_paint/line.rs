@@ -17,7 +17,7 @@ use crate::render::{display_rect, DisplayCommand};
 
 use super::family::css_color;
 use super::image::append_image_command;
-use super::text_run::append_text_run_command;
+use super::text_run::{append_text_run_command, ItemLineExtent};
 use super::PaintFamilyPolicy;
 
 #[allow(clippy::too_many_arguments)]
@@ -94,7 +94,7 @@ pub(super) fn append_line_commands(
     // item's start plus its shaped width ceiled onto the 1/64 grid —
     // while the runs inside it accumulate in float; the run closing an
     // item takes that edge as its rect's end.
-    let mut item_extents: BTreeMap<usize, (f64, f64)> = BTreeMap::new();
+    let mut item_extents: BTreeMap<usize, ItemLineExtent> = BTreeMap::new();
     for child in &line.children {
         if let Fragment::Text(run) = child {
             let (start, end) = (run.text_start as usize, run.text_end as usize);
@@ -102,11 +102,10 @@ pub(super) fn append_line_commands(
                 .iter()
                 .find(|(range, _)| range.start <= start && end <= range.end)
             {
-                let extent = item_extents
+                item_extents
                     .entry(*item_index)
-                    .or_insert((f64::INFINITY, f64::NEG_INFINITY));
-                extent.0 = extent.0.min(run.rect.x);
-                extent.1 = extent.1.max(run.rect.x + run.rect.width);
+                    .and_modify(|extent| extent.include(run))
+                    .or_insert_with(|| ItemLineExtent::of(run));
             }
         }
     }

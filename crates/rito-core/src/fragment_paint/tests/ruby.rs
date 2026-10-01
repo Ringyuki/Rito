@@ -151,3 +151,66 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
     assert_eq!(origins, vec![18.0, 34.0]);
     assert_eq!(annotation.rect, display_rect(14.0, 16.6, 32.0, 8.0));
 }
+
+#[test]
+fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_of_them() {
+    // A fallback-font glyph or a space can split one ruby base into
+    // several runs on a line; Chromium still places one annotation over
+    // the one base box, distributed over its whole width.
+    let fixture = two_color_flow(|red, _| {
+        vec![InlineItem::Text {
+            text: "漢字".to_owned(),
+            style: red,
+            baseline_shift_px: 0.0,
+            ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                text: "かんじ".to_owned(),
+                size_ratio: 0.5,
+                align: rito_style_contract::RubyAlign::SpaceAround,
+            }),
+        }]
+    });
+    let root = boxed_line(vec![text_run(0.0, 16.0, 0, 3), text_run(16.0, 16.0, 3, 6)]);
+    let mut ruby_runs = BTreeMap::new();
+    ruby_runs.insert(
+        (0, 0),
+        rito_inline::MeasuredRuby {
+            run: rito_inline::MeasuredRun {
+                advance: 24.0,
+                clusters: vec![
+                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
+                    rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
+                    rito_fragment::ClusterPosition { byte: 6, x: 16.0 },
+                ],
+                grid: false,
+            },
+            over_offset: 16.0,
+            em_ascent: 7.046875,
+        },
+    );
+    let mut commands = Vec::new();
+    append_fragment_display_commands(
+        &mut commands,
+        &fixture.tree,
+        &root,
+        0.0,
+        0.0,
+        FragmentPaintContext {
+            ruby_annotation_runs: Some(&ruby_runs),
+            ..FragmentPaintContext::default()
+        },
+    )
+    .expect("fragments paint");
+    let annotations: Vec<&DisplayTextCommand> = commands
+        .iter()
+        .filter_map(|command| match command {
+            DisplayCommand::PaintRuby(annotation) => Some(annotation),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(annotations.len(), 1, "one base, one annotation");
+    assert_eq!(annotations[0].text, "かんじ");
+    assert_eq!(annotations[0].rect, display_rect(14.0, 16.6, 32.0, 8.0));
+    let inset = (8.0_f64 / 3.0 * 64.0).trunc() / 64.0;
+    let edge = (inset / 2.0 * 64.0).trunc() / 64.0;
+    assert!((annotations[0].clusters[0].1 - (14.0 + edge)).abs() < 1e-9);
+}
