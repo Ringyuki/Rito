@@ -1,14 +1,15 @@
 use rito_core::runtime::{
-    decode_reader_adjacent_request, decode_reader_artifact_request,
-    decode_reader_background_handoff, decode_reader_background_request,
-    decode_reader_exact_source_range_request, decode_reader_foreground_handoff,
-    decode_reader_search_request, decode_reader_text_range_request, ReaderAdjacentRequest,
-    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
-    ReaderSearchRequest, ReaderTextRangeRequest, RuntimePinnedFontFaceInput,
-    RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
-    READER_BACKGROUND_HANDOFF_WIRE_BYTES, READER_BACKGROUND_REQUEST_WIRE_BYTES,
-    READER_FOREGROUND_HANDOFF_WIRE_BYTES,
+    decode_reader_adjacent_request, decode_reader_annotation_request,
+    decode_reader_artifact_request, decode_reader_background_handoff,
+    decode_reader_background_request, decode_reader_exact_source_range_request,
+    decode_reader_foreground_handoff, decode_reader_search_request,
+    decode_reader_text_interaction_request, decode_reader_text_range_request,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderResourceKind, ReaderSearchRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
+    RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
+    RuntimePinnedFontPolicyInput, READER_BACKGROUND_HANDOFF_WIRE_BYTES,
+    READER_BACKGROUND_REQUEST_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_BYTES,
 };
 
 use crate::{
@@ -128,6 +129,22 @@ pub(crate) fn exact_source_range_request(
 ) -> Result<ReaderExactSourceRangeRequest, FfiError> {
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "exact source range request")?;
     decode_reader_exact_source_range_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn text_interaction_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderTextInteractionRequest, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "text interaction request")?;
+    decode_reader_text_interaction_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn annotation_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderAnnotationRequest, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "annotation request")?;
+    decode_reader_annotation_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {

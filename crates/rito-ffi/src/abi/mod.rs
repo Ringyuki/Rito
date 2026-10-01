@@ -6,7 +6,8 @@ pub use memory::{
     rito_buffer_free, rito_commit_peeked_artifact, rito_dispose, rito_get_text_range_geometry,
     rito_open, rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote,
     rito_read_publication, rito_read_resource, rito_release_artifact, rito_request_adjacent,
-    rito_request_artifact, rito_resolve_exact_source_range, rito_search,
+    rito_request_artifact, rito_resolve_annotation, rito_resolve_exact_source_range,
+    rito_resolve_text_interaction, rito_search,
 };
 
 #[cfg(test)]

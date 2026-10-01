@@ -4,9 +4,10 @@ use std::{
 };
 
 use rito_core::runtime::{
-    ReaderAdjacentRequest, ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
-    ReaderSearchRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderResourceKind, ReaderSearchRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
+    RuntimePinnedFontPolicyInput,
 };
 
 use crate::{
@@ -274,6 +275,20 @@ pub(crate) fn text_range_geometry(
     request: ReaderTextRangeRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_text_range_geometry(admission, request)
+}
+
+pub(crate) fn text_interaction(
+    admission: CommandAdmission,
+    request: ReaderTextInteractionRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_text_interaction(admission, request)
+}
+
+pub(crate) fn annotation(
+    admission: CommandAdmission,
+    request: ReaderAnnotationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_annotation(admission, request)
 }
 
 pub(crate) fn exact_source_range(

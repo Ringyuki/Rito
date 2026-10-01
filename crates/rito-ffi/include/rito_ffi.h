@@ -348,6 +348,36 @@ uint32_t rito_resolve_exact_source_range(uint64_t session_id,
                                          rito_owned_buffer *error_out);
 
 /*
+ * Resolves one text selection query against a live artifact and returns a
+ * complete RITOTIR1 message. request_data is a RITOTIQ1 message (a caret at a
+ * point, the range between two carets, a kept caret extended to a point, the
+ * range two points span widened to words or paragraphs, or a caret movement)
+ * and is copied before this function returns.
+ *
+ * These are the resolvers a browser reader runs, against the revision behind
+ * the artifact, so a selection behaves identically on every host. Points and
+ * geometry are in the artifact's display-list space; rects cover only the pages
+ * this artifact draws.
+ */
+uint32_t rito_resolve_text_interaction(uint64_t session_id,
+                                       const uint8_t *request_data,
+                                       uint64_t request_len,
+                                       rito_owned_buffer *response_out,
+                                       rito_owned_buffer *error_out);
+
+/*
+ * Builds an annotation target for a source range, or locates a stored one, and
+ * returns a complete RITOANR1 message. request_data is a RITOANQ1 message and is
+ * copied before this function returns. The target crosses as the engine's
+ * canonical JSON, which is what a host persists.
+ */
+uint32_t rito_resolve_annotation(uint64_t session_id,
+                                 const uint8_t *request_data,
+                                 uint64_t request_len,
+                                 rito_owned_buffer *response_out,
+                                 rito_owned_buffer *error_out);
+
+/*
  * Reads a footnote definition referenced by a live RITOART1 artifact and
  * returns a complete RITOFTN1 message. key_data is the hit's footnoteKey
  * verbatim — it is already canonical, so hosts must not normalize the link

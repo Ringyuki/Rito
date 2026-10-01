@@ -61,7 +61,27 @@ paint domain grows, and a stale decoder misreads the byte stream.
   on against the range's own source text, so an anchor whose text has
   since changed reports unavailable instead of painting over unrelated
   words. `rito_get_text_range_geometry` remains the op for a range you
-  already hold in page coordinates, such as a live selection.
+  already hold in page coordinates.
+- **Selection runs through the engine, exactly as on the web.**
+  `rito_resolve_text_interaction` answers the five queries a browser
+  reader runs (`RITOTIQ1` → `RITOTIR1`): the caret at a point, the range
+  between two carets (a dropped handle), a kept caret extended to a
+  point (a moving handle or a character-wise drag), the range two points
+  span widened to words or paragraphs, and a caret movement by
+  character, word, line, paragraph or chapter edge. Points and geometry
+  are in the artifact's display-list space; a caret address names the
+  revision behind the artifact it came from, so reuse it only with
+  artifacts of that revision. Word boundaries come from the engine's
+  segmenter, so CJK text selects words the same way it does in a browser.
+- **Annotations are stored as the engine writes them.**
+  `rito_resolve_annotation` (`RITOANQ1` → `RITOANR1`) builds the target
+  for a selection's source range and locates a stored one, both as the
+  engine's canonical JSON — persist those bytes as they are. Locating
+  runs the cascade every host runs (the source range checked against its
+  quote, then the best-context quote, then the stored offsets, then the
+  length-scaled position) and returns the target re-anchored where it
+  landed; project that through `rito_resolve_exact_source_range` to paint
+  it.
 
 ## Keeping a hand-written decoder honest
 

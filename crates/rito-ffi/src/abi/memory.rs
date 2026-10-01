@@ -544,6 +544,69 @@ pub extern "C" fn rito_resolve_exact_source_range(
     })
 }
 
+/// Resolves one text selection query against a live artifact and
+/// returns a complete RITOTIR1 message. `request_data` is a RITOTIQ1
+/// message: a caret at a point, the range between two carets, a kept
+/// caret extended to a point, the range two points span widened to words
+/// or paragraphs, or a caret movement.
+///
+/// These are the resolvers a browser reader runs, against the revision
+/// behind the artifact, so a selection behaves identically on every
+/// host. Points and geometry are in the artifact's display-list space;
+/// rects cover only the pages this artifact draws.
+#[no_mangle]
+pub extern "C" fn rito_resolve_text_interaction(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::text_interaction_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOTIQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::text_interaction(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
+/// Builds an annotation target for a source range, or locates a stored
+/// one, and returns a complete RITOANR1 message. `request_data` is a
+/// RITOANQ1 message.
+///
+/// The target crosses as the engine's canonical JSON, which is what a
+/// host persists: every host builds and reads targets with the same
+/// code, so a highlight stored on one resolves the same way on another.
+#[no_mangle]
+pub extern "C" fn rito_resolve_annotation(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::annotation_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOANQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::annotation(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
 /// Reads a footnote definition an artifact's hits referenced. The key
 /// is the hit's `footnote_key` verbatim — it is already canonical, so
 /// hosts must not normalize the link href themselves. A definition the
