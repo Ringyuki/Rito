@@ -52,12 +52,6 @@ struct ProbeRequest {
     /// chapter file. Defaults to the reader-filtered production flow.
     #[serde(default)]
     unfiltered_flow: bool,
-    /// Host-measured normal-line metrics captured from a live reader
-    /// (`__ritoReaderDiagnostics.hostLineMetrics()`), injected before
-    /// layout so the native run reproduces the browser reader's struts
-    /// instead of the shaped fallback.
-    #[serde(default)]
-    host_line_metrics: Vec<ProbeHostMetric>,
 }
 
 #[derive(Deserialize)]
@@ -65,20 +59,6 @@ struct ProbeRequest {
 struct ProbeNamedFont {
     family: String,
     path: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProbeHostMetric {
-    family: String,
-    size: f64,
-    sample: String,
-    height: f64,
-    baseline: f64,
-    #[serde(default)]
-    grid_ascent: Option<f64>,
-    #[serde(default)]
-    grid_descent: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -167,19 +147,6 @@ fn main() {
         inline_context
             .register_named_font(&named.family, bytes)
             .expect("named font registers");
-    }
-    for metric in &request.host_line_metrics {
-        inline_context.set_host_line_metric(
-            &metric.family,
-            metric.size,
-            &metric.sample,
-            rito_inline::HostNormalLineMetric {
-                height: metric.height,
-                baseline: metric.baseline,
-                grid: metric.grid_ascent.zip(metric.grid_descent),
-                advance: None,
-            },
-        );
     }
     let engine = BlockFormattingContext::new(inline_context);
     let cancel = CancelFlag::new();

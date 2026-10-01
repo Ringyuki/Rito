@@ -46,19 +46,12 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // exact-version frame/resource/search ownership, failure-isolated disposal, and
 // host-task disposal barriers are required orchestration capabilities.
 // Raised for the conformance diagnostics surface: the pixel oracle reads
-// the live metric world and committed frames through one debug module.
+// committed frames through one debug module.
 const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // Raised for the exact-read reclaim path: a suspended session that never
 // reopens its gate must be retired, not waited on forever.
 // Raised again for the fragment page-table lever: open threading, the
 // backend-change frame-cache guard, and background completion.
-// Raised for host line-metric sync: post-reflow and post-completion
-// drain/measure/inject of browser-measured `line-height: normal` metrics
-// with a forced reflow converging on a metric-faithful page table.
-// Raised again to converge those metrics before the first paint instead of
-// a second after it: the page the reader first sees must not be laid out
-// with metrics the next pass is going to correct. The drain/measure/reflow
-// step is shared with the background completion loop rather than copied.
 // Raised for the theme-invalidation signal: `setTheme` changed state and
 // told nobody, so a dark-mode switch never reached the screen. The binding
 // cannot repaint for the host (it knows neither the target nor the scale),
@@ -67,7 +60,9 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // drawImage source that reproduces the browser raster bit for bit.
 // +4 lines (2026-09-07): every worker open hands the engine the canvas
 // device pixel ratio, so raster snaps land on the device grid.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3334;
+// Lowered (2026-10-01): the engine derives line metrics itself, so the
+// browser no longer measures, injects or reflows for them.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3311;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.

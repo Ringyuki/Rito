@@ -20,10 +20,6 @@ await page.addInitScript(() => {
   const label = (data) => {
     if (!data || typeof data !== 'object') return String(data);
     const kind = data.kind ?? data.type ?? Object.keys(data).slice(0, 2).join('+');
-    if (kind === 'setHostLineMetrics') {
-      const m = data.metrics ?? data.request?.metrics ?? data.entries;
-      return `setHostLineMetrics(${Array.isArray(m) ? m.length : '?'})`;
-    }
     if (data.result && Array.isArray(data.result)) return `${kind}[${data.result.length}]`;
     if (data.result && Array.isArray(data.result?.requests))
       return `${kind}[${data.result.requests.length}]`;

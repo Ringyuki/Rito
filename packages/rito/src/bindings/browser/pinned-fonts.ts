@@ -8,7 +8,7 @@ import type {
   CorePinnedFontPolicySummary,
 } from './core-contracts';
 import { browserFontFaceRegistry, type BrowserFontFaceRegistry } from './resources';
-import { cachedHostLineMetricEntries, cachedUnavailableFontFamilies } from './host-line-metrics';
+import { cachedUnavailableFontFamilies } from './font-availability';
 
 export type BrowserReaderOwnedPinnedFontPolicy = BrowserReaderWorkerPinnedFontPolicyInput;
 
@@ -68,11 +68,8 @@ export async function openBrowserReaderWorker(
   await worker.setRenderRatio(renderRatio);
   if (expectedSummary !== undefined)
     requireMatchingPinnedFontSummary(expectedSummary, result.pinnedFontPolicy);
-  // Metrics measured for earlier documents in this session apply to any
-  // document sharing the (family, size) pairs; injecting them up front
-  // lets a steady-state open paginate once instead of relayouting.
-  const cached = cachedHostLineMetricEntries();
-  if (cached.length > 0) await worker.setHostLineMetrics(cached);
+  // Faces rejected for earlier documents in this session stay rejected;
+  // delivering them up front lets the open paginate once.
   const denied = cachedUnavailableFontFamilies();
   if (denied.length > 0) await worker.setUnavailableFontFaces(denied);
   return result;

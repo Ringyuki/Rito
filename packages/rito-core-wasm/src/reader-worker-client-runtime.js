@@ -259,16 +259,8 @@ function createRitoCoreWasmReaderClient(
       result(request, { kind: 'resolveLocator', revisionId, locator }, 'resolveLocator'),
     search: (revisionId, searchRequest) =>
       result(request, { kind: 'search', revisionId, request: searchRequest }, 'search'),
-    takeHostLineMetricRequests: () =>
-      result(request, { kind: 'takeHostLineMetricRequests' }, 'takeHostLineMetricRequests'),
     chapterFragmentProbe: (revisionId, idref) =>
       result(request, { kind: 'chapterFragmentProbe', revisionId, idref }, 'chapterFragmentProbe'),
-    setHostLineMetrics: async (entries) => {
-      const payload = await request({ kind: 'setHostLineMetrics', entries });
-      if (payload.kind !== 'setHostLineMetrics') {
-        throw new Error(`Rito reader worker returned ${payload.kind} for setHostLineMetrics`);
-      }
-    },
     setUnavailableFontFaces: async (families) => {
       const payload = await request({ kind: 'setUnavailableFontFaces', families });
       if (payload.kind !== 'setUnavailableFontFaces') {

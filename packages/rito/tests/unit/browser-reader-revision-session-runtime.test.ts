@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderLocator } from '../../src/reader';
 import {
   ensureBrowserReaderRevisionLocator,
-  refreshBrowserReaderHostLineMetrics,
+  refreshBrowserReaderFontAvailability,
   startBrowserReaderRevisionCandidate,
 } from '../../src/bindings/browser/revision-session-runtime';
 import { retireBrowserReaderRevisionOwner } from '../../src/bindings/browser/revision-session-owner';
@@ -447,7 +447,7 @@ describe('Browser revision session runtime', () => {
     fixture.owner.controller.complete = complete;
     const abort = new AbortController();
 
-    const task = refreshBrowserReaderHostLineMetrics(fixture.state, abort.signal);
+    const task = refreshBrowserReaderFontAvailability(fixture.state, abort.signal);
     await waitForCall(complete);
     abort.abort();
     recordBrowserReaderAcceptedRevision(fixture.owner, next.revision);
@@ -501,7 +501,7 @@ describe('Browser revision session runtime', () => {
     expect(request?.sourcePoint?.nodePath).not.toBe(locator.sourcePoint?.nodePath);
   });
 
-  it('re-lays the book on a host line metric refresh and publishes one layout commit', async () => {
+  it('re-lays the book on a font availability refresh and publishes one layout commit', async () => {
     const fixture = currentFixture();
     const final = revisionSnapshot('current', 0, 1, {
       target: { kind: 'complete' },
@@ -514,7 +514,7 @@ describe('Browser revision session runtime', () => {
     const committed = vi.fn();
     fixture.state.layoutCommittedListeners.add(committed);
 
-    await expect(refreshBrowserReaderHostLineMetrics(fixture.state)).resolves.toBe(final);
+    await expect(refreshBrowserReaderFontAvailability(fixture.state)).resolves.toBe(final);
     expect(setRenderRatio).toHaveBeenCalledWith(fixture.state.dpr);
     expect(complete).toHaveBeenCalledOnce();
     expect(committed).toHaveBeenCalledOnce();
@@ -529,7 +529,7 @@ describe('Browser revision session runtime', () => {
     recordBrowserReaderAcceptedRevision(fixture.owner, partial.revision);
     mockAggregates(fixture.worker, partial);
 
-    await expect(refreshBrowserReaderHostLineMetrics(fixture.state)).rejects.toThrow(
+    await expect(refreshBrowserReaderFontAvailability(fixture.state)).rejects.toThrow(
       'did not commit a whole-book target',
     );
   });
@@ -538,7 +538,7 @@ describe('Browser revision session runtime', () => {
     const fixture = currentFixture();
     fixture.owner.controller.complete = vi.fn(() => Promise.reject(new Error('failed')));
 
-    await expect(refreshBrowserReaderHostLineMetrics(fixture.state)).rejects.toThrow('failed');
+    await expect(refreshBrowserReaderFontAvailability(fixture.state)).rejects.toThrow('failed');
     expect(fixture.state.revisionSessions.current).toBe(fixture.owner);
     expect(fixture.state.revisionHandle).toBeDefined();
     expect(
@@ -558,7 +558,7 @@ describe('Browser revision session runtime', () => {
       return Promise.reject(new Error('terminal'));
     });
 
-    await expect(refreshBrowserReaderHostLineMetrics(fixture.state)).rejects.toThrow('terminal');
+    await expect(refreshBrowserReaderFontAvailability(fixture.state)).rejects.toThrow('terminal');
     expect(fixture.state.revisionSessions.current).toBeUndefined();
     expect(fixture.state.revisionHandle).toBeUndefined();
     expect(fixture.controllerDispose).toHaveBeenCalledOnce();
@@ -572,7 +572,7 @@ describe('Browser revision session runtime', () => {
       return Promise.reject(new Error('terminal cleanup'));
     });
 
-    await expect(refreshBrowserReaderHostLineMetrics(fixture.state)).rejects.toThrow(
+    await expect(refreshBrowserReaderFontAvailability(fixture.state)).rejects.toThrow(
       'terminal cleanup',
     );
     expect(fixture.state.revisionSessions.current).toBeUndefined();
@@ -585,7 +585,7 @@ describe('Browser revision session runtime', () => {
     const completion = createDeferred<BrowserReaderRevisionSnapshot>();
     const complete = vi.fn(() => completion.promise);
     fixture.owner.controller.complete = complete;
-    const pending = refreshBrowserReaderHostLineMetrics(fixture.state);
+    const pending = refreshBrowserReaderFontAvailability(fixture.state);
     await waitForCall(complete);
 
     const candidate = createWorker(() => undefined, 'replacement');

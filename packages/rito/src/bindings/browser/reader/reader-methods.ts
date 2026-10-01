@@ -3,7 +3,7 @@ import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { scheduleBrowserReaderReflow } from './pipeline/revision-reflow';
 import { getImageObjectUrl, preloadReaderFonts } from '../resources';
-import { syncBrowserHostLineMetrics } from '../host-line-metrics';
+import { syncUnavailableFontFaces } from '../font-availability';
 import { browserReaderSpreads } from '../reader-layout';
 import {
   findRitoCoreWasmReaderActiveTocEntry,
@@ -54,17 +54,17 @@ export function buildBrowserReaderMethods(
           state,
           preloadReaderFonts(state)
             .then(async () => {
-              // Host-measured normal line metrics discovered by this
-              // layout: measure, inject, and force one reflow so the
-              // committed pagination was built with them.
-              const hostMetricsChanged = await syncBrowserHostLineMetrics(state.worker).catch(
+              // Faces the browser rejected while this layout ran: deliver
+              // them and force one reflow so the committed pagination no
+              // longer shapes with them.
+              const facesChanged = await syncUnavailableFontFaces(state.worker).catch(
                 (error: unknown) => {
-                  state.logger.warn('reader host line metric sync failed', error);
+                  state.logger.warn('reader font availability sync failed', error);
                   return false;
                 },
               );
-              if (hostMetricsChanged) {
-                state.hostLineMetricsEpoch += 1;
+              if (facesChanged) {
+                state.fontAvailabilityEpoch += 1;
                 reflow(layoutOptions, true);
               }
               return warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);

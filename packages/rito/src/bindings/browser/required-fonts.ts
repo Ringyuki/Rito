@@ -4,7 +4,7 @@ import type {
   CoreRevisionHandle,
   CoreRevisionBundle,
 } from './core-contracts';
-import { reportUnavailableFontFamily } from './host-line-metrics';
+import { reportUnavailableFontFamily } from './font-availability';
 import type { BrowserReaderState } from './reader/types';
 import type { BrowserFontFaceRegistry } from './resources';
 

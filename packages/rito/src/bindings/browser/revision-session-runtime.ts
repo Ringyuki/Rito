@@ -1,6 +1,6 @@
 import type { LayoutConfig, ReaderLocator, ReaderLocatorResolution } from '../../reader';
 import { commitBrowserReaderRevisionSnapshot } from './revision-commit';
-import { cachedHostLineMetricEntries, cachedUnavailableFontFamilies } from './host-line-metrics';
+import { cachedUnavailableFontFamilies } from './font-availability';
 import { ensureCoalescedBrowserReaderRevisionLocator } from './revision-locator-mutation';
 import type { BrowserReaderRevisionSnapshot } from './core-contracts';
 import {
@@ -155,21 +155,20 @@ export function ensureBrowserReaderRevisionLocator(
   );
 }
 
-/// Host line metrics measured AFTER the revision worker opened never reached
-/// it, so this pushes the full metric cache (with the render ratio and the
-/// rejected font faces) into the committed revision's worker and commits
-/// that same revision's whole-book target again. It does not lay the book
-/// out again: `controller.complete()` re-evaluates the target on the
-/// existing revision, whose page table stays as built. The engine drops
-/// its inline cache, so only chapters rebuilt after eviction shape with
-/// the new metrics; the layout that applies them to the whole book is the
-/// forced reflow each convergence round schedules.
+/// Faces rejected AFTER the revision worker opened never reached it, so
+/// this pushes the rejected font faces (with the render ratio) into the
+/// committed revision's worker and commits that same revision's whole-book
+/// target again. It does not lay the book out again: `controller.complete()`
+/// re-evaluates the target on the existing revision, whose page table stays
+/// as built; the engine rebuilds without the rejected faces, and the layout
+/// that applies that to the whole book is the forced reflow each
+/// convergence round schedules.
 ///
 /// The visible spread stays wherever the reader is at commit time: a
 /// request-time capture would be stale once the user turns mid-flight.
 /// Resolves `undefined` when the reader was disposed, the signal aborted,
 /// or another mutation superseded the commit.
-export function refreshBrowserReaderHostLineMetrics(
+export function refreshBrowserReaderFontAvailability(
   state: BrowserReaderState,
   signal?: AbortSignal,
 ): Promise<BrowserReaderRevisionSnapshot | undefined> {
@@ -179,8 +178,6 @@ export function refreshBrowserReaderHostLineMetrics(
       state,
       async (owner) => {
         await owner.worker.setRenderRatio(state.dpr);
-        const cached = cachedHostLineMetricEntries();
-        if (cached.length > 0) await owner.worker.setHostLineMetrics(cached);
         const denied = cachedUnavailableFontFamilies();
         if (denied.length > 0) await owner.worker.setUnavailableFontFaces(denied);
         return owner.controller.complete();
@@ -192,7 +189,7 @@ export function refreshBrowserReaderHostLineMetrics(
     );
     if (!snapshot || signal?.aborted) return undefined;
     if (snapshot.target.kind !== 'complete') {
-      throw new Error('Host line metric refresh did not commit a whole-book target');
+      throw new Error('Font availability refresh did not commit a whole-book target');
     }
     return snapshot;
   });

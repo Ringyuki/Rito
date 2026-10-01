@@ -222,13 +222,6 @@ export function createWorker(
     search: vi.fn(),
     releaseRevisionTransfers: vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfers']>(),
     releaseRevision: vi.fn<BrowserReaderWorkerClient['releaseRevision']>(),
-    takeHostLineMetricRequests: vi.fn(
-      (): ReturnType<BrowserReaderWorkerClient['takeHostLineMetricRequests']> =>
-        Promise.resolve([]),
-    ),
-    setHostLineMetrics: vi.fn<BrowserReaderWorkerClient['setHostLineMetrics']>(() =>
-      Promise.resolve(),
-    ),
     setUnavailableFontFaces: vi.fn<BrowserReaderWorkerClient['setUnavailableFontFaces']>(() =>
       Promise.resolve(),
     ),

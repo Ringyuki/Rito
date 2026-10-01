@@ -93,10 +93,6 @@ impl RuntimeDocument {
                 engine: BlockFormattingContext::new(context),
             }))
         });
-        if engine.is_some() {
-            // Metrics injected before the engine existed apply now.
-            self.apply_pending_host_line_metrics();
-        }
         engine
     }
 

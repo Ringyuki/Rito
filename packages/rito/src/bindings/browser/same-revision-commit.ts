@@ -34,10 +34,10 @@ export function canCommitBrowserReaderSameRevisionFrame(
   const next = input.snapshot.revision;
   return (
     gate !== undefined &&
-    // Host metrics that arrived after the published layout invalidate it:
-    // reusing the published frames would keep lines laid out with shaped
-    // fallbacks (a footnote-marker baseline painted one row high forever).
-    state.hostLineMetricsEpoch === state.publishedHostLineMetricsEpoch &&
+    // Faces rejected after the published layout invalidate it: reusing the
+    // published frames would keep lines shaped with a face the canvas
+    // cannot paint.
+    state.fontAvailabilityEpoch === state.publishedFontAvailabilityEpoch &&
     gate.publicationGeneration !== undefined &&
     gate.owner === input.owner &&
     gate.generation === input.owner.gateGeneration &&

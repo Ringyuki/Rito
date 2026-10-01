@@ -154,7 +154,7 @@ function publishRevisionCommit(
   const retiredOwner = candidate ? state.revisionSessions.current : undefined;
   if (candidate) {
     state.revisionSessions.current = input.owner;
-    state.publishedHostLineMetricsEpoch = state.hostLineMetricsEpoch;
+    state.publishedFontAvailabilityEpoch = state.fontAvailabilityEpoch;
     state.revisionSessions.candidate = undefined;
     input.owner.readsSuspended = false;
   }

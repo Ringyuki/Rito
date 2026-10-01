@@ -36,8 +36,6 @@ mod text_run;
 mod vertical;
 mod walk;
 
-pub(crate) use family::measure_family_stack;
-
 use walk::append_fragment_display_commands_inner;
 
 /// How painted family stacks reach the canvas when the reader pins fonts.

@@ -113,13 +113,6 @@ pub struct RuntimeDocument {
     parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
     fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
-    /// Host-measured normal line metrics recorded before the fragment
-    /// engine exists; applied on engine initialization. The engine
-    /// initializes lazily from resolved @font-face sources, so metric
-    /// injection must never force it early.
-    pending_host_line_metrics:
-        std::cell::RefCell<Vec<(String, f64, String, rito_inline::HostNormalLineMetric)>>,
-    applied_host_line_metrics: std::cell::Cell<usize>,
     /// Device pixels per CSS pixel frames are painted at through the
     /// document-level frame API (the reader session carries its own).
     /// Paint snaps land on that grid; pagination never reads it.
@@ -174,8 +167,6 @@ impl RuntimeDocument {
             parsed_chapters: BTreeMap::new(),
             font_face_sources: OnceCell::new(),
             fragment_engine: OnceCell::new(),
-            pending_host_line_metrics: std::cell::RefCell::new(Vec::new()),
-            applied_host_line_metrics: std::cell::Cell::new(0),
             render_ratio: std::cell::Cell::new(1.0),
             pinned_font_policy,
             next_revision_index: 1,
@@ -188,8 +179,7 @@ impl RuntimeDocument {
 
     /// Records faces the host's font decoder rejected and, when the
     /// fragment engine already shaped with one of them, discards the
-    /// engine so its rebuild registers only paintable faces (pending
-    /// host metrics re-apply from the start on the rebuilt engine).
+    /// engine so its rebuild registers only paintable faces.
     pub fn set_unavailable_font_faces(&mut self, families: &[String]) {
         let known: std::collections::BTreeSet<String> = self
             .resolved_font_face_sources()
@@ -210,7 +200,6 @@ impl RuntimeDocument {
         }
         if added_known && self.fragment_engine.get().is_some() {
             self.fragment_engine = OnceCell::new();
-            self.applied_host_line_metrics.set(0);
         }
     }
 

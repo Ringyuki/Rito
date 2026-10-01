@@ -421,68 +421,6 @@ impl ParleyInlineContext {
             .iter()
             .map(|trim| (trim.left_byte, trim.right_byte))
             .collect();
-        // Characters no registered face covers: shaping lands on a face's
-        // `.notdef` advance while the canvas paints the browser's own
-        // fallback glyph (measured: b12's U+2764 shaped 12.445px against a
-        // painted 14.5625px, skewing every justify share on the line). The
-        // host measures the fallback advance with the same canvas that
-        // paints; the difference rides as letter spacing on the character,
-        // the edit channel the punctuation trims already use.
-        let mut uncovered_char_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
-        {
-            let mut coverage = self.char_coverage_cache.borrow_mut();
-            let mut cursor = 0usize;
-            for (byte, character) in text.char_indices() {
-                if character.is_whitespace() || character.is_control() {
-                    continue;
-                }
-                while cursor < runs.len() && runs[cursor].0.end <= byte {
-                    cursor += 1;
-                }
-                let Some((_, style, _)) =
-                    runs.get(cursor).filter(|(range, ..)| range.contains(&byte))
-                else {
-                    continue;
-                };
-                let family_key = host_family_key(style);
-                let covered = *coverage
-                    .entry((family_key.clone(), character))
-                    .or_insert_with(|| {
-                        stack_covers_character(
-                            &mut fonts,
-                            &self.registered_families,
-                            style,
-                            character,
-                        )
-                    });
-                if covered {
-                    continue;
-                }
-                let Some(host_advance) = self.host_char_advance(
-                    &family_key,
-                    f64::from(style.font.size.get()),
-                    character,
-                ) else {
-                    continue;
-                };
-                let Some(notdef) = stack_notdef_advance_px(
-                    &mut fonts,
-                    &self.registered_families,
-                    style,
-                    shaping_font_size(style.font.size.get()),
-                ) else {
-                    continue;
-                };
-                let author = match style.text_flow.letter_spacing {
-                    LengthPercentage::Length(px) => px.get(),
-                    _ => 0.0,
-                };
-                uncovered_char_edits.push((
-                    byte..byte + character.len_utf8(),
-                    author + (host_advance - notdef) as f32,
-                ));
-            }
-        }
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, &text, 1.0, true));
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
@@ -765,20 +703,8 @@ impl ParleyInlineContext {
             };
             builder.push(StyleProperty::LetterSpacing(spacing), range);
         }
-        // A box gap landing on an uncovered character composes with its
-        // advance edit instead of being overwritten by it.
         for (range, gap, author) in box_edits {
-            if let Some((_, spacing)) = uncovered_char_edits
-                .iter_mut()
-                .find(|(edit_range, _)| *edit_range == range)
-            {
-                *spacing += gap;
-                continue;
-            }
             builder.push(StyleProperty::LetterSpacing(author + gap), range);
-        }
-        for (range, spacing) in &uncovered_char_edits {
-            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
         }
         for (range, spacing) in &ruby_spread_edits {
             builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
@@ -1003,9 +929,8 @@ pub(crate) struct ParagraphLayout {
     pub(crate) empty_box_struts: Vec<(usize, rito_style_contract::StyleId, f64)>,
 }
 
-/// Key of one host metric sample: (family key, size in milli-px, font
-/// blob id, face index, script).
-pub(crate) type HostMetricSampleKey = (String, u64, u64, u32, u16);
+/// Key of one line-metric entry: (family key, size bits, line shape).
+pub(crate) type LineMetricKey = (String, u64, LineProbe);
 
 /// The browser shapes at the computed font size truncated toward zero
 /// onto the 1/100 px grid, and the product is an F32 MULTIPLY — the
@@ -1022,27 +947,6 @@ pub(crate) type HostMetricSampleKey = (String, u64, u64, u32, u16);
 pub(crate) fn shaping_font_size(size: f32) -> f32 {
     let hundredths = size * 100.0_f32;
     hundredths.trunc() / 100.0_f32
-}
-
-/// Cache key for a `line-height: normal` strut: exactly the font inputs
-/// `measure_normal_line_height` shapes with, so equal keys measure equal.
-pub(crate) fn normal_strut_key(style: &InlineFormattingStyle) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    family_stack_source(style).hash(&mut hasher);
-    shaping_font_size(style.font.size.get())
-        .to_bits()
-        .hash(&mut hasher);
-    style.font.weight.get().to_bits().hash(&mut hasher);
-    match style.font.slant {
-        FontSlant::Normal => 0u8.hash(&mut hasher),
-        FontSlant::Italic => 1u8.hash(&mut hasher),
-        FontSlant::Oblique(angle) => {
-            2u8.hash(&mut hasher);
-            angle.degrees().to_bits().hash(&mut hasher);
-        }
-    }
-    hasher.finish()
 }
 
 pub(crate) fn push_item_styles(

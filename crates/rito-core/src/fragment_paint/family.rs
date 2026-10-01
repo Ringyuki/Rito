@@ -1,8 +1,6 @@
-//! Font family stacks under the pinned-font policy, for paint (from the
-//! computed family list) and for host metric lookup (from a comma-joined
-//! family key): families the engine cannot resolve drop, the pinned alias
-//! names ride ahead of the first generic keyword, and the stack always
-//! ends in a generic. Also the colour conversion and the fail-closed
+//! Font family stacks under the pinned-font policy, for paint: families
+//! the engine cannot resolve drop, the pinned alias names ride ahead of
+//! the first generic keyword, and the stack always ends in a generic. Also the colour conversion and the fail-closed
 //! error every unpaintable property reports through.
 
 use rito_style_contract::{AbsoluteColor, InlineFormattingStyle};
@@ -15,54 +13,6 @@ use super::PaintFamilyPolicy;
 
 /// The `font-family` string painted for a run: the computed stack as-is
 /// without a policy, or the policy's rewrite of it (see
-/// Applies the paint family rewrite to a host-metric family key (the
-/// comma-joined computed list rito-inline requests metrics under): named
-/// families the engine cannot resolve are dropped, the pinned aliases
-/// ride ahead of the first generic keyword, and the stack keeps a generic
-/// tail. The host must measure line metrics through exactly the faces
-/// paint resolves to, or the strut is sized by one font while the glyphs
-/// come from another (measured: `serif` struts sized by the browser's
-/// Times while SourceHan painted — every body baseline one pixel off).
-pub(crate) fn measure_family_stack(family_key: &str, policy: &PaintFamilyPolicy) -> String {
-    let is_generic = |name: &str| {
-        matches!(
-            name,
-            "serif" | "sans-serif" | "monospace" | "cursive" | "fantasy" | "system-ui"
-        )
-    };
-    let quoted = |name: &str| format!("\"{}\"", name.replace('\\', "\\\\").replace('"', "\\\""));
-    let mut parts: Vec<String> = Vec::new();
-    let mut aliases_added = false;
-    for raw in family_key
-        .split(',')
-        .map(str::trim)
-        .filter(|n| !n.is_empty())
-    {
-        let bare = raw.trim_matches('"');
-        let lower = bare.to_ascii_lowercase();
-        if is_generic(lower.as_str()) {
-            if !aliases_added {
-                parts.extend(policy.aliases.iter().map(|alias| quoted(alias)));
-                aliases_added = true;
-            }
-            parts.push(lower);
-            continue;
-        }
-        if !policy.available.contains(&lower) {
-            continue;
-        }
-        parts.push(quoted(bare));
-    }
-    if !aliases_added {
-        parts.extend(policy.aliases.iter().map(|alias| quoted(alias)));
-    }
-    let has_generic_tail = parts.last().is_some_and(|part| is_generic(part.as_str()));
-    if !has_generic_tail {
-        parts.push("serif".to_owned());
-    }
-    parts.join(", ")
-}
-
 /// [`PaintFamilyPolicy`]).
 pub(super) fn paint_family_stack(
     style: &InlineFormattingStyle,

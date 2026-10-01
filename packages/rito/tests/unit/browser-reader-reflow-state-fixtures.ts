@@ -129,8 +129,8 @@ export function createState(
       lastError: undefined,
     },
     disposed: false,
-    hostLineMetricsEpoch: 0,
-    publishedHostLineMetricsEpoch: 0,
+    fontAvailabilityEpoch: 0,
+    publishedFontAvailabilityEpoch: 0,
   };
 }
 

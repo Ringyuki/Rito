@@ -29,53 +29,6 @@ import type {
 } from './reader-worker-versioned';
 import type { RitoCoreWasmRevisionBundle, RitoCoreWasmRevisionFrameSelection } from './revision';
 
-/** One (family, size) pair whose normal-line metrics the host must measure. */
-export interface RitoCoreWasmHostLineMetricRequest {
-  readonly family: string;
-  /**
-   * The font-family list to measure through: the engine's paint family
-   * rewrite applied to `family` (unresolvable names dropped, pinned
-   * aliases ahead of the first generic, generic tail kept), so the strut
-   * is sized by exactly the faces paint resolves to. Absent on sessions
-   * without a fragment engine — measure `family` as-is then.
-   */
-  readonly measureFamily?: string;
-  readonly size: number;
-  /**
-   * What to put on the measured line: empty for an inline box's own strut,
-   * or one character whose resolved font (the declared family or whatever
-   * fallback covers it) sizes the run.
-   */
-  readonly sample: string;
-}
-
-/** Host-measured `line-height: normal` geometry for one metric key. */
-export interface RitoCoreWasmHostLineMetric {
-  readonly family: string;
-  readonly size: number;
-  readonly sample: string;
-  /** Line box height the host measures for this sample. */
-  readonly height: number;
-  /** Baseline offset from the line box top. */
-  readonly baseline: number;
-  /**
-   * The font's grid-fit ascent (canvas `fontBoundingBoxAscent`) — the
-   * basis the browser places FIXED line-height baselines with, which
-   * differs from the normal-line envelope when the font carries a line
-   * gap. Optional so cached un-upgraded entries stay valid.
-   */
-  readonly gridAscent?: number;
-  /**
-   * Advance the host's canvas measures for an uncovered-character probe
-   * (sentinel-tagged sample): shaping such a character lands on a
-   * registered face's `.notdef` advance while paint resolves a system
-   * fallback font, and only the host can measure that glyph's width.
-   */
-  readonly advance?: number;
-  /** Grid-fit descent (canvas `fontBoundingBoxDescent`). */
-  readonly gridDescent?: number;
-}
-
 export interface RitoCoreWasmReaderWorkerClient
   extends RitoCoreWasmReaderVersionedClient, RitoCoreWasmReaderChapterLocalClient {
   /** Stable identity for this client's sole worker or in-process publication session. */
@@ -108,15 +61,6 @@ export interface RitoCoreWasmReaderWorkerClient
   ): Promise<RitoCoreWasmSearchResponse>;
   releaseRevisionTransfers(revisionId: string): Promise<void>;
   releaseRevision(revisionId: string): Promise<void>;
-  /**
-   * Drains the (family, size) pairs layout needed but no host-measured
-   * `line-height: normal` metric covered. The host measures each with its
-   * own text stack, injects via {@link setHostLineMetrics}, and relayouts;
-   * a steady-state layout drains nothing.
-   */
-  takeHostLineMetricRequests(): Promise<readonly RitoCoreWasmHostLineMetricRequest[]>;
-  /** Injects host-measured `line-height: normal` metrics. */
-  setHostLineMetrics(entries: readonly RitoCoreWasmHostLineMetric[]): Promise<void>;
   /**
    * Records publication faces the host's font decoder rejected. The
    * browser cannot paint these faces, so the engine stops shaping with

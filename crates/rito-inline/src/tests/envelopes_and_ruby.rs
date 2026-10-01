@@ -1,15 +1,13 @@
 use super::*;
 
 #[test]
-fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
-    // Blink quantizes a raised span's above-baseline line
-    // contribution onto whole pixels through interplay no font table
-    // exposes (a 64-configuration oracle matrix refused every closed
-    // form — a real book's 0.8em bold ① marker line measures 26.125 with the
-    // baseline at 21.328125 where the computed fallback gives
-    // 28.125). The engine records a U+E00C probe keyed by the span's
-    // size ratio and the strut's used line-height; once the host
-    // answers, the measured envelope replaces the computed one.
+fn a_super_shifted_span_sizes_the_line_by_its_shifted_line_shape() {
+    // A real book's 0.8em bold ① marker line in a 20.796875px paragraph
+    // measures 26.125 in Chromium. The span's box is its primary font's
+    // whole-pixel ascent and descent with the floored half-leading of the
+    // inherited line-height, raised floor64(16/3) + 1 = 6.328125: Tinos
+    // at 12.8px is 11/3, so the span reaches 14 + 6.328125 above the
+    // baseline, and the strut text keeps 5.796875 below it.
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
     let mut inline = InlineStyleTable::new(2);
     let mut main_style = tinos_style(0.0);
@@ -29,17 +27,6 @@ fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
     let span = inline
         .intern_for_node(1, span_style)
         .expect("style interns");
-    context.set_host_line_metric(
-        &host_family_key(&main_style),
-        16.0,
-        "",
-        HostNormalLineMetric {
-            height: 23.0,
-            baseline: 18.0,
-            grid: Some((18.0, 5.0)),
-            advance: None,
-        },
-    );
     let items = vec![
         InlineItem::Text {
             text: "ab ".to_owned(),
@@ -74,34 +61,6 @@ fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
     )
     .expect("inline tree builds");
     let constraint = ConstraintSpace::continuous(10_000.0);
-    let sup_key = "\u{E00C}0.8000:20.796875";
-    let _ = context
-        .layout(
-            &tree,
-            FormattingNodeId(0),
-            &constraint,
-            None,
-            &CancelFlag::new(),
-        )
-        .expect("first layout succeeds");
-    let requests = context.take_host_metric_requests();
-    assert!(
-        requests
-            .iter()
-            .any(|(_, size, sample)| *size == 16.0 && sample == sup_key),
-        "the sup probe is requested at the strut size: {requests:?}"
-    );
-    context.set_host_line_metric(
-        &host_family_key(&main_style),
-        16.0,
-        sup_key,
-        HostNormalLineMetric {
-            height: 26.125,
-            baseline: 21.328125,
-            grid: None,
-            advance: None,
-        },
-    );
     let outcome = context
         .layout(
             &tree,
@@ -110,7 +69,7 @@ fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
             None,
             &CancelFlag::new(),
         )
-        .expect("measured layout succeeds");
+        .expect("layout succeeds");
     let Fragment::Box(root) = &outcome.fragments.root else {
         panic!("root is a box");
     };
@@ -119,17 +78,17 @@ fn a_super_shifted_span_uses_the_host_measured_line_envelope() {
     };
     assert_eq!(
         line.rect.height, 26.125,
-        "the host-measured sup envelope sizes the line"
+        "the shifted-span line shape sizes the line"
     );
 }
 
 #[test]
 fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
     // The duokan footnote-marker construct (book 4, Section001 p11):
-    // fixed 19.2px strut over a host metric (asc 18, desc 5), one
+    // fixed 19.2px strut over Source Han (grid 18/5 at 16px), one
     // image 14.390625px tall raised 6.328125px (the sup rule at a
     // 16px parent). The expectations are the CSS 2.1 §10.8
-    // contributions model over exactly these injected metrics; the
+    // contributions model over these font metrics; the
     // pixel oracle validates the same model end-to-end against Blink
     // with the production metric set (the page diffs to zero).
     use rito_style_contract::{
@@ -138,7 +97,7 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
         ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
         PhysicalSides, Position, PreferredSize,
     };
-    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let context = ParleyInlineContext::new(vec![source_han_bytes()]).expect("context builds");
     let mut inline = InlineStyleTable::new(2);
     let mut style_1922 = tinos_style(0.0);
     style_1922.font.line_height = LineHeight::Length(
@@ -154,28 +113,6 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
     let image_inline_style = inline
         .intern_for_node(1, sup_style.clone())
         .expect("style interns");
-    context.set_host_line_metric(
-        &host_family_key(&style_1922),
-        16.0,
-        "",
-        HostNormalLineMetric {
-            height: 23.0,
-            baseline: 18.0,
-            grid: None,
-            advance: None,
-        },
-    );
-    context.set_host_line_metric(
-        &host_family_key(&sup_style),
-        12.0,
-        "",
-        HostNormalLineMetric {
-            height: 18.0,
-            baseline: 14.0,
-            grid: None,
-            advance: None,
-        },
-    );
     let mut layout = LayoutStyleTable::new(1);
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
@@ -288,8 +225,8 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
     let Some(Fragment::Line(line)) = root.children.first() else {
         panic!("first child is a line");
     };
-    // Contributions over the injected metrics: the sup strut (fixed
-    // 19.203125 at 12px, baseline 15) raised 6.328125 wins over the
+    // Contributions: the sup strut (fixed 19.203125 at 12px over Source
+    // Han's 14/3 grid, baseline 15) raised 6.328125 wins over the
     // image box (14.390625 + 6.328125): A = 21.328125, height =
     // A + strut descent 3.203125 = 24.53125.
     assert!(

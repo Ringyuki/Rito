@@ -63,18 +63,6 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       );
     }
 
-    takeHostLineMetricRequests() {
-      return callRitoCoreWasm('takeHostLineMetricRequests', () =>
-        JSON.parse(this._inner.takeHostLineMetricRequestsJson()),
-      );
-    }
-
-    setHostLineMetrics(entries) {
-      return callRitoCoreWasm('setHostLineMetrics', () => {
-        this._inner.setHostLineMetricsJson(JSON.stringify(entries));
-      });
-    }
-
     setUnavailableFontFaces(families) {
       return callRitoCoreWasm('setUnavailableFontFaces', () => {
         this._inner.setUnavailableFontFacesJson(JSON.stringify(families));
@@ -240,14 +228,6 @@ function readerWorkerPayload(document, request) {
     case 'releaseRevision':
       document.releaseRevision(request.revisionId);
       return { kind: 'releaseRevision' };
-    case 'takeHostLineMetricRequests':
-      return {
-        kind: 'takeHostLineMetricRequests',
-        result: document.takeHostLineMetricRequests(),
-      };
-    case 'setHostLineMetrics':
-      document.setHostLineMetrics(request.entries);
-      return { kind: 'setHostLineMetrics' };
     case 'setUnavailableFontFaces':
       document.setUnavailableFontFaces(request.families);
       return { kind: 'setUnavailableFontFaces' };

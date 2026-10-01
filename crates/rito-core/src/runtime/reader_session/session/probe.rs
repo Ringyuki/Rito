@@ -3,8 +3,6 @@
 //! visible intent and candidate ids, and direct access to the runtime
 //! document.
 
-use crate::runtime::RuntimeDocument;
-
 use super::{ReaderRevisionBacking, ReaderSession};
 
 impl ReaderSession {
@@ -127,13 +125,5 @@ impl ReaderSession {
                 .get(&revision_id)
                 .map(|revision| revision.owner.revision_version)
         })
-    }
-}
-
-#[cfg(test)]
-impl ReaderSession {
-    /// Test-only document access for host-metric injection cycles.
-    pub(crate) fn document_for_tests(&self) -> &RuntimeDocument {
-        &self.document
     }
 }

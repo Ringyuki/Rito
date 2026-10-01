@@ -147,10 +147,10 @@ export interface BrowserReaderState {
   chapterTextIndices: BrowserReaderChapterTextIndexMap;
   tocTargets: CoreTocTargets;
   activeSpreadIndex: number;
-  /** Bumped whenever host line metrics reach the worker after open. */
-  hostLineMetricsEpoch: number;
+  /** Bumped whenever rejected font faces reach the worker after open. */
+  fontAvailabilityEpoch: number;
   /** The epoch the currently published revision was laid out under. */
-  publishedHostLineMetricsEpoch: number;
+  publishedFontAvailabilityEpoch: number;
   images: Map<string, BrowserReaderDecodedImage>;
   registeredFontFaces: Map<string, FontFace>;
   spreadRenderedListeners: Set<(spreadIndex: number, spread: Spread) => void>;

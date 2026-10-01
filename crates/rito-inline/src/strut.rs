@@ -6,9 +6,8 @@ use crate::*;
 
 impl ParleyInlineContext {
     /// The paragraph's CSS strut height. Declared line-heights resolve
-    /// directly; `normal` is measured through the shaping engine with the
-    /// strut style's own resolved font — the same metrics a browser strut
-    /// uses — and cached per style.
+    /// directly; `normal` is the strut style's primary font's normal
+    /// line, the metrics a browser strut uses.
     pub(crate) fn resolved_strut_height(
         &self,
         tree: &FormattingTree,
@@ -39,42 +38,10 @@ impl ParleyInlineContext {
                 used_declared_line_height(style.font.line_height, f64::from(style.font.size.get()))
                     .unwrap_or(0.0)
             }
-            LineHeight::Normal => {
-                // The host's measured strut is authoritative; the shaped
-                // fallback only covers hosts that never inject metrics.
-                if let Some(host) = self.host_normal_line(style, "") {
-                    return Ok(Some(host.height));
-                }
-                let key = normal_strut_key(style);
-                if let Some(cached) = self.normal_strut_cache.borrow().get(&key) {
-                    return Ok(Some(*cached));
-                }
-                let measured = self.measure_normal_line_height(style)?;
-                self.normal_strut_cache.borrow_mut().insert(key, measured);
-                measured
-            }
+            LineHeight::Normal => self
+                .normal_line(style, &LineProbe::Strut)
+                .map_or(0.0, |metric| metric.height),
         }))
-    }
-
-    /// Shapes a single space with the style to read the font's `normal`
-    /// line height from the engine itself.
-    pub(crate) fn measure_normal_line_height(
-        &self,
-        style: &InlineFormattingStyle,
-    ) -> Result<f64, LayoutError> {
-        let mut fonts = self.fonts.borrow_mut();
-        let mut layouts = self.layouts.borrow_mut();
-        let text = " ";
-        let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
-        push_item_styles(&mut builder, style, 0..text.len());
-        let (mut layout, _) = builder.build(text);
-        layout.break_all_lines(None);
-        let height = layout
-            .lines()
-            .next()
-            .map(|line| f64::from(line.metrics().line_height))
-            .unwrap_or_else(|| 1.2 * f64::from(style.font.size.get()));
-        Ok(height)
     }
 
     /// Shaped advance of `text` under `style`, optionally at an
@@ -181,14 +148,6 @@ pub(crate) fn used_declared_line_height(line_height: LineHeight, font_size: f64)
     }
 }
 
-/// The half-leaded baseline offset inside a fixed-height line box, the way
-/// Blink places it: the strut font's integer ascent plus half the leading,
-/// rounded to a whole pixel (measured: Tinos 14/4 under 19.2px lands the
-/// baseline at 15 — round(14.6) — and SourceHan 18/5 at 16 — round(16.1)).
-pub(crate) fn fixed_line_baseline(height: f64, ascent: f64, descent: f64) -> f64 {
-    (ascent + (height - (ascent + descent)) / 2.0).round()
-}
-
 /// The raster anchor a decorated inline box hands its runs, or `None`
 /// for an undecorated span (bare text snaps off the line box). The
 /// browser's paint re-anchors at the decorated box: its absolute top
@@ -196,11 +155,9 @@ pub(crate) fn fixed_line_baseline(height: f64, ascent: f64, descent: f64) -> f64
 /// padding) rounds within it, and the baseline sits the primary font's
 /// integer ascent below — measured on 22px/24px bordered spans sharing a
 /// 309.5625 layout baseline that raster one row apart (309 and 310).
-/// Without a host grid metric the anchor is withheld; the measure →
-/// inject → reflow loop converges it the same way line metrics do.
 pub(crate) fn item_box_snap(
     resolved: &InlineFormattingStyle,
-    metric: Option<HostNormalLineMetric>,
+    metric: Option<NormalLineMetric>,
 ) -> Option<rito_fragment::BoxSnap> {
     use rito_style_contract::BorderStyle;
     let side_px = |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
@@ -231,7 +188,7 @@ pub(crate) fn item_box_snap(
     if !decorated {
         return None;
     }
-    let (int_ascent, int_descent) = metric?.grid?;
+    let (int_ascent, int_descent) = metric?.grid;
     Some(rito_fragment::BoxSnap {
         int_ascent,
         int_descent,

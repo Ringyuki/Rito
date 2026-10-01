@@ -107,8 +107,8 @@ pub struct TextFragment {
     /// The run's font box: the primary font's grid-fit (ascent, descent)
     /// at the run's size — canvas `fontBoundingBoxAscent/Descent`, the
     /// extent Chromium gives a native selection rect. Absent when the
-    /// host injected no grid metric; consumers then fall back to the
-    /// line box.
+    /// run's style or font did not resolve; consumers then fall back to
+    /// the line box.
     pub font_grid: Option<(f64, f64)>,
     /// `ruby-align: center` under a WIDE annotation: the packed base
     /// glyphs paint this far right of the run origin — half the flow

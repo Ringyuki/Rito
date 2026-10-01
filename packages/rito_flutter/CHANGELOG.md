@@ -1,5 +1,13 @@
 ## Unreleased
 
+### Line heights match the web reader
+
+The engine now derives `line-height: normal` geometry — plain lines,
+ruby annotations and super/subscript lines — from the fonts it shapes
+with, the way Chromium does. A browser host used to measure these with
+the DOM while a native host fell back to shaped metrics, so the same
+book could paginate differently; both now get identical lines.
+
 ### Selection runs through the engine, exactly as on the web
 
 `RitoReaderSession.textInteraction` answers the five queries a browser

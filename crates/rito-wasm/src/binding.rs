@@ -28,55 +28,6 @@ impl RitoWasmDocument {
         self.inner.publication_json().map_err(error_to_js_value)
     }
 
-    /// Injects host-measured `line-height: normal` metrics: a JSON array
-    /// of `{family, size, strut, cjk}`. The host (the surrounding
-    /// browser) measures normal line heights per (family, size, sample)
-    /// because those integers come from the host font scaler and are not
-    /// derivable from font tables. An empty sample is an inline box's own
-    /// strut; a one-character sample measures the font the host resolves
-    /// for that character, so runs served by a fallback font are sized by
-    /// that font rather than by the declared family.
-    #[wasm_bindgen(js_name = setHostLineMetricsJson)]
-    pub fn set_host_line_metrics_json(&self, entries_json: &str) -> Result<(), JsValue> {
-        #[derive(serde::Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Entry {
-            family: String,
-            size: f64,
-            #[serde(default)]
-            sample: String,
-            height: f64,
-            baseline: f64,
-            #[serde(default)]
-            grid_ascent: Option<f64>,
-            #[serde(default)]
-            grid_descent: Option<f64>,
-            /// Advance the host measured for an uncovered-character probe
-            /// sample (sentinel-tagged), absent on plain line metrics.
-            #[serde(default)]
-            advance: Option<f64>,
-        }
-        let entries: Vec<Entry> = serde_json::from_str(entries_json)
-            .map_err(|error| JsValue::from_str(&format!("host metrics parse: {error}")))?;
-        for entry in entries {
-            self.inner.document.set_host_line_metric(
-                &entry.family,
-                entry.size,
-                &entry.sample,
-                rito_inline::HostNormalLineMetric {
-                    height: entry.height,
-                    baseline: entry.baseline,
-                    grid: match (entry.grid_ascent, entry.grid_descent) {
-                        (Some(ascent), Some(descent)) => Some((ascent, descent)),
-                        _ => None,
-                    },
-                    advance: entry.advance,
-                },
-            );
-        }
-        Ok(())
-    }
-
     /// Sets the device pixels per CSS pixel frames are painted at (the
     /// canvas backing ratio: zoom × devicePixelRatio). Every raster snap
     /// lands on that grid; pagination is identical at every ratio, and
@@ -99,38 +50,6 @@ impl RitoWasmDocument {
             .map_err(|error| JsValue::from_str(&format!("unavailable faces parse: {error}")))?;
         self.inner.document.set_unavailable_font_faces(&families);
         Ok(())
-    }
-
-    /// Drains the (family, size, sample) keys layout needed but no host
-    /// metric covered, as a JSON array of `{family, size, sample}`. The
-    /// host measures
-    /// each, injects via `setHostLineMetricsJson`, and relayouts; a
-    /// steady-state layout drains nothing.
-    #[wasm_bindgen(js_name = takeHostLineMetricRequestsJson)]
-    pub fn take_host_line_metric_requests_json(&self) -> String {
-        #[derive(serde::Serialize)]
-        struct Entry {
-            family: String,
-            /// The font-family list the host must measure through: the
-            /// engine's paint rewrite applied to `family`.
-            #[serde(rename = "measureFamily")]
-            measure_family: String,
-            size: f64,
-            sample: String,
-        }
-        let entries: Vec<Entry> = self
-            .inner
-            .document
-            .take_host_line_metric_requests()
-            .into_iter()
-            .map(|(family, measure_family, size, sample)| Entry {
-                family,
-                measure_family,
-                size,
-                sample,
-            })
-            .collect();
-        serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_owned())
     }
 
     /// Fragment-engine representability of a revision's chapters, for

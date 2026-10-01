@@ -103,18 +103,7 @@ a document without one cannot paginate. The reader pins
   pagination at 420×640; prints wall-clock milliseconds and page count.
 - `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
   book's open in the running reader, printing every worker message the page
-  sends and receives on one clock. It is how the two whole-book pagination
-  passes of an open were found: the first discovers which
-  `line-height: normal` metrics the engine needs, the host measures them,
-  and a second worker lays the book out again.
-- `host-metric-dump.mjs <epub> [url]` (same directory) — the
-  `line-height: normal` values the browser measured and injected, keyed by
-  family stack, size and sample. The Flutter host has no such channel, so
-  these are the values the two hosts disagree about.
-- `metric-delta.mjs <epub> [url]` (same directory) — opens the same book
-  twice at the same geometry, once with those metrics and once with them
-  withheld, and reports how many text primitives moved. It measures what a
-  host without a metric channel renders differently.
+  sends and receives on one clock.
 - `memory-stage-probe <epub> <serif-font-path>` — resident bytes after
   each stage of opening and paginating one book, then after releasing
   the revision, paginating a second time, and dropping the document.
@@ -161,7 +150,7 @@ when the binary is not built.
 ## Reader diagnostics hook
 
 The browser reader installs `globalThis.__ritoReaderDiagnostics` on the
-page: host line metrics, the committed revision, `frame(spreadIndex)`,
+page: the font availability epochs, the committed revision, `frame(spreadIndex)`,
 `spreadImagesSettled(spreadIndex)` (await it before screenshotting a
 spread — the paint path keeps the previous canvas while a bitmap
 decodes), `imageState(href)`, `warmFrameWindowDump(spreadIndex)` and

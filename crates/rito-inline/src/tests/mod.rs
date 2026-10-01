@@ -31,6 +31,14 @@ fn tinos_bytes() -> Vec<u8> {
     std::fs::read(path).expect("pinned Tinos test font reads")
 }
 
+fn source_han_bytes() -> Vec<u8> {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    );
+    std::fs::read(path).expect("pinned Source Han test font reads")
+}
+
 fn px(value: f32) -> NonNegativeCssPx {
     NonNegativeCssPx::new(value).expect("test length is non-negative")
 }

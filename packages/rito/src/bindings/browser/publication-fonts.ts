@@ -1,4 +1,4 @@
-import { reportUnavailableFontFamily } from './host-line-metrics';
+import { reportUnavailableFontFamily } from './font-availability';
 import type { CoreRevisionHandle } from './core-contracts';
 import type { BrowserReaderState } from './reader/types';
 

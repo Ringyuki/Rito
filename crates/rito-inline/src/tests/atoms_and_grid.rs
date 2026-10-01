@@ -232,7 +232,9 @@ fn letter_spacing_stays_outside_the_fixed_point_round_trip() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
@@ -307,7 +309,9 @@ fn grid_pen_splits_ride_the_fixed_point_shaper_scale() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let mut inline = InlineStyleTable::new(1);
     let style_id = inline
         .intern_for_node(
@@ -390,7 +394,9 @@ fn a_justified_dash_pair_stays_in_one_paint_fragment() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
             rito_style_contract::GenericFontFamily::Serif,
@@ -494,7 +500,9 @@ fn a_ruby_edge_is_a_shaping_boundary() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let lay = |items_of: &dyn Fn(rito_style_contract::StyleId) -> Vec<InlineItem>| {
         let mut inline = InlineStyleTable::new(1);
         let style = inline
@@ -605,7 +613,9 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let image_y = |shift_px: f64| {
         let mut inline = InlineStyleTable::new(1);
         let style = inline
@@ -770,7 +780,9 @@ fn an_inline_image_separates_a_punctuation_pair() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let lay_text_width = |with_image: bool| {
         let mut inline = InlineStyleTable::new(1);
         let style = inline
@@ -917,21 +929,23 @@ fn an_inline_image_separates_a_punctuation_pair() {
 
 /// The b20 ruby-line pitch replica (chapter3 dialog, fs 15.2,
 /// rt 0.7em latin, line-height 130% = 19.765625 declared). Truth
-/// (Chromium replicas of the exact host probe DOM + a 3-line
+/// (Chromium replicas of the exact probe DOM + a 3-line
 /// paragraph, 2026-08-13): E000@0.7 = {29, 24}, E001@0.7 = {48, 43},
 /// 中@normal = {21, 16}, and the mid-paragraph ruby line's pitch is
-/// 27.0 (line tops 1 / 28 / 47.75). With those host answers injected,
-/// the engine's composition must land the same 27 — hand-checked:
+/// 27.0 (line tops 1 / 28 / 47.75). From the derived line shapes the
+/// engine's composition must land the same 27 — hand-checked:
 /// required 24 − strut baseline 14 − prev_gap (5.765625 − reuse 3)
 /// = growth 7.234375; 19.765625 + 7.234375 = 27.
 #[test]
-fn the_b20_ruby_line_pitch_matches_truth_with_injected_host_metrics() {
+fn the_b20_ruby_line_pitch_matches_truth() {
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
@@ -945,30 +959,6 @@ fn the_b20_ruby_line_pitch_matches_truth_with_injected_host_metrics() {
         rito_style_contract::NonNegativeCssPx::new(19.765625).expect("finite line height"),
     );
     style.font.line_height_is_declared = true;
-    let family = host_family_key(&style);
-    // The TRUE host values (pins VERIFIED loaded — a setContent page
-    // silently drops file:// faces and an earlier round measured the
-    // system fallback: 中 16 vs the real 17, E000 24 vs 25). The
-    // composition lands the same pitch either way because the errors
-    // cancelled, but the anchors must carry the real numbers.
-    for (sample, height, baseline) in [
-        ("", 18.0, 14.0),
-        ("中", 21.0, 17.0),
-        ("\u{E000}0.7000:Shouichi", 29.0, 25.0),
-        ("\u{E001}0.7000:Shouichi", 48.0, 44.0),
-    ] {
-        context.set_host_line_metric(
-            &family,
-            15.2,
-            sample,
-            HostNormalLineMetric {
-                height,
-                baseline,
-                grid: Some((14.0, 3.0)),
-                advance: None,
-            },
-        );
-    }
     let style_id = inline.intern_for_node(0, style).expect("style interns");
     let items = vec![
         InlineItem::Text {
@@ -1081,25 +1071,6 @@ fn the_b20_ruby_line_pitch_matches_truth_with_injected_host_metrics() {
         rito_style_contract::NonNegativeCssPx::new(19.765625).expect("finite line height"),
     );
     style2.font.line_height_is_declared = true;
-    let family2 = host_family_key(&style2);
-    for (sample, height, baseline) in [
-        ("", 18.0, 14.0),
-        ("中", 21.0, 17.0),
-        ("\u{E000}0.7000:Shouko", 29.0, 25.0),
-        ("\u{E001}0.7000:Shouko", 48.0, 44.0),
-    ] {
-        context.set_host_line_metric(
-            &family2,
-            15.2,
-            sample,
-            HostNormalLineMetric {
-                height,
-                baseline,
-                grid: Some((14.0, 3.0)),
-                advance: None,
-            },
-        );
-    }
     let style2_id = inline2.intern_for_node(0, style2).expect("style interns");
     let tree2 = FormattingTree::with_styles(
         vec![FormattingNode {
@@ -1174,8 +1145,7 @@ fn the_b20_ruby_line_pitch_matches_truth_with_injected_host_metrics() {
 }
 
 /// The b20 DOUBLE-RUBY paragraph replica at the REAL chapter3 config
-/// (p { line-height: 1.35 } NUMBER → floors to 20.515625; fs 15.2;
-/// live host values). Truth (real-chapter Range, walk pins,
+/// (p { line-height: 1.35 } NUMBER → floors to 20.515625; fs 15.2). Truth (real-chapter Range, walk pins,
 /// 2026-08-13): opener push 10.0, INTERIOR ruby-line pitch 27.0 =
 /// 20.515625 + 6.484375 — equal to the engine's own analytic growth
 /// (required 25 − baseline 15 − prev_gap 3.515625), yet the engine
@@ -1188,7 +1158,9 @@ fn the_b20_double_ruby_paragraph_interior_pitch_matches_truth() {
         "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
     ))
     .expect("pinned serif reads");
-    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The pinned serif stack: Tinos first (the strut), Source Han for CJK.
+    let context =
+        ParleyInlineContext::new(vec![tinos_bytes(), source_han]).expect("context builds");
     let mut inline = InlineStyleTable::new(1);
     let mut style = plain_paragraph_style(
         FontFamilies::new(vec![FontFamily::Generic(
@@ -1202,29 +1174,6 @@ fn the_b20_double_ruby_paragraph_interior_pitch_matches_truth() {
         rito_style_contract::NonNegativeNumber::new(1.35).expect("finite multiplier"),
     );
     style.font.line_height_is_declared = true;
-    let family = host_family_key(&style);
-    for (sample, height, baseline) in [
-        ("", 18.0, 14.0),
-        ("中", 21.0, 17.0),
-        ("\u{E000}0.7000:Shou", 29.0, 25.0),
-        ("\u{E001}0.7000:Shou", 48.0, 44.0),
-        ("\u{E000}0.7000:Shouichi", 29.0, 25.0),
-        ("\u{E001}0.7000:Shouichi", 48.0, 44.0),
-        ("\u{E000}0.7000:Naokazu", 29.0, 25.0),
-        ("\u{E001}0.7000:Naokazu", 48.0, 44.0),
-    ] {
-        context.set_host_line_metric(
-            &family,
-            15.2,
-            sample,
-            HostNormalLineMetric {
-                height,
-                baseline,
-                grid: Some((14.0, 3.0)),
-                advance: None,
-            },
-        );
-    }
     let style_id = inline.intern_for_node(0, style).expect("style interns");
     let ruby = |base: &str, ann: &str| InlineItem::Text {
         text: base.to_owned(),

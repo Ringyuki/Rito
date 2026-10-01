@@ -15,8 +15,8 @@ import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { disposeBrowserReaderState } from './reader-dispose';
-import { refreshBrowserReaderHostLineMetrics } from '../revision-session-runtime';
-import { syncBrowserHostLineMetrics } from '../host-line-metrics';
+import { refreshBrowserReaderFontAvailability } from '../revision-session-runtime';
+import { syncUnavailableFontFaces } from '../font-availability';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
 import {
@@ -82,7 +82,7 @@ export async function createReader(
     );
     installBrowserReaderDiagnostics(state);
     await startInitialReflow(state, options);
-    scheduleHostLineMetricsConvergence(state, readerLayoutOptions(options));
+    scheduleFontAvailabilityConvergence(state, readerLayoutOptions(options));
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     installBrowserReaderChapterLocalPresentation(reader, state);
@@ -108,72 +108,58 @@ export async function createReader(
 }
 
 /**
- * The first layout converged on one round of host line metrics before
- * createReader resolved; a layout built with those metrics can record
- * further metric keys. Finish that convergence in the background shortly
+ * Publication faces load after the first layout, and the browser can
+ * reject one then. Deliver late rejections in the background shortly
  * after the reader appears.
  */
-function scheduleHostLineMetricsConvergence(
+function scheduleFontAvailabilityConvergence(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): void {
   setTimeout(() => {
     if (state.disposed) return;
-    convergeHostLineMetricsUntilQuiet(state, options).catch((error: unknown) => {
-      state.logger.warn('rito: background host line metric convergence failed', error);
+    convergeFontAvailabilityUntilQuiet(state, options).catch((error: unknown) => {
+      state.logger.warn('rito: background font availability convergence failed', error);
     });
   }, 1_000);
 }
 
 /**
- * Measures, injects and reflows round after round until a round changes
- * nothing. From the second round on, the measured cache is first pushed
- * into the committed revision's worker (which does not re-lay it); each
- * round that changed something then waits out a forced reflow, so the
- * final page table is built AFTER the last injection: a table laid out
- * with an unmet metric sets the affected lines with the shaped fallback
- * and paints their baselines one row off.
+ * Delivers rejected faces and reflows round after round until a round
+ * changes nothing. From the second round on, the rejections are first
+ * pushed into the committed revision's worker (which does not re-lay it);
+ * each round that changed something then waits out a forced reflow, so the
+ * final page table is built without the rejected faces.
  */
-async function convergeHostLineMetricsUntilQuiet(
+async function convergeFontAvailabilityUntilQuiet(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): Promise<void> {
-  // Each round can surface a new generation of metric keys (the strut
-  // fonts first, then run samples, then atom struts introduced by the
-  // metrics of the previous round); the loop already exits on the first
-  // quiet round, so the bound only caps pathological churn.
+  // A face can only be rejected once, so the loop ends on the first quiet
+  // round; the bound only caps pathological churn.
   for (let round = 0; round < 12; round += 1) {
-    if (round > 0 && (await refreshBrowserReaderHostLineMetrics(state)) === undefined) return;
+    if (round > 0 && (await refreshBrowserReaderFontAvailability(state)) === undefined) return;
     const spreadMode = options.spread ?? state.spreadMode;
-    if (!(await convergeHostLineMetrics(state, options, spreadMode))) {
-      const unmet = await state.worker.takeHostLineMetricRequests().catch(() => []);
-      if (unmet.length > 0) {
-        state.logger.warn(
-          'rito: page table completed with unmet host line metrics',
-          unmet.map((entry) => `${entry.family}@${String(entry.size)}"${entry.sample}"`),
-        );
-      }
-      return;
-    }
+    if (!(await convergeFontAvailability(state, options, spreadMode))) return;
   }
 }
 
 /**
- * Measures whatever metric keys the last layout could not satisfy, injects
- * them, and waits out one forced reflow so the committed layout was built
- * with them. Reports whether anything changed.
+ * Delivers the faces rejected since the last layout and waits out one
+ * forced reflow so the committed layout no longer shapes with them.
+ * Reports whether anything changed.
  */
-async function convergeHostLineMetrics(
+async function convergeFontAvailability(
   state: BrowserReaderState,
   options: ReaderOptions,
   spreadMode: BrowserReaderState['spreadMode'],
 ): Promise<boolean> {
-  const changed = await syncBrowserHostLineMetrics(state.worker).catch((error: unknown) => {
-    state.logger.warn('rito: host line metric sync failed', error);
+  const changed = await syncUnavailableFontFaces(state.worker).catch((error: unknown) => {
+    state.logger.warn('rito: font availability sync failed', error);
     return false;
   });
   if (!changed || state.disposed) return false;
-  state.hostLineMetricsEpoch += 1;
+  state.fontAvailabilityEpoch += 1;
   await new Promise<void>((resolve) => {
     const scheduled = scheduleBrowserReaderReflow(state, options, spreadMode, resolve, true);
     if (!scheduled) resolve();
@@ -243,8 +229,8 @@ function createInitialState(
     chapterTextIndices: new Map(),
     tocTargets: { revisionId: '', targets: [], activeEntryByPage: [] },
     activeSpreadIndex: 0,
-    hostLineMetricsEpoch: 0,
-    publishedHostLineMetricsEpoch: 0,
+    fontAvailabilityEpoch: 0,
+    publishedFontAvailabilityEpoch: 0,
     ...emptyListenerSets(),
     ...initialTypographyOverrides(options),
     pendingFrameLoads: new Map(),
@@ -295,14 +281,11 @@ async function startInitialReflow(
 ): Promise<void> {
   const spreadMode = options.spread ?? 'single';
   await startBrowserReaderInitialReflow(state, options, spreadMode);
-  // The first layout is what discovers which (family, size, sample) metric
-  // keys this book needs, so converge on them before returning: createReader
-  // has not resolved yet and the host is still showing its loading state, so
-  // the corrected layout is the first one the reader ever sees. Leaving it to
-  // the background completion pass instead would repaginate the page under
-  // the reader's eyes a second after it appeared. The metric cache is
-  // session-wide, so only a book introducing new keys pays this pass.
-  await convergeHostLineMetrics(state, options, spreadMode);
+  // Faces rejected while the first layout ran are delivered before
+  // returning: createReader has not resolved yet and the host is still
+  // showing its loading state, so the corrected layout is the first one the
+  // reader ever sees.
+  await convergeFontAvailability(state, options, spreadMode);
   void trackBrowserReaderHostTask(
     state,
     warmInitialResources(state).catch((error: unknown) => {

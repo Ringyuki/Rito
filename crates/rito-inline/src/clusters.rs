@@ -249,7 +249,7 @@ impl ParleyInlineContext {
             .primary_font(style)
             .and_then(|(blob, index)| {
                 let font_ref = skrifa::FontRef::from_index(blob.as_ref(), index).ok()?;
-                let (ascent, descent) = platform_ascent_descent(&font_ref, size);
+                let (ascent, descent, _) = rounded_metrics(&font_ref, size);
                 let (typo_ascent, _) = normalized_typo_height(&font_ref, size);
                 Some((ascent, descent, typo_ascent))
             })
@@ -265,7 +265,7 @@ impl ParleyInlineContext {
     /// collection can serve (a named face that is registered, or the
     /// first face behind a generic), the face Chromium reads platform
     /// metrics from.
-    fn primary_font(
+    pub(crate) fn primary_font(
         &self,
         style: &InlineFormattingStyle,
     ) -> Option<(parley::fontique::Blob<u8>, u32)> {
@@ -303,7 +303,12 @@ impl ParleyInlineContext {
                 return Some((blob, index));
             }
         }
-        None
+        // Nothing in the list is served: the browser falls back to its
+        // default font, the serif face.
+        let id = collection.generic_families(GenericFamily::Serif).next()?;
+        let font = collection.family(id)?.default_font()?.clone();
+        let index = font.index();
+        font.load(Some(source_cache)).map(|blob| (blob, index))
     }
 
     fn shaped_run(
@@ -388,65 +393,6 @@ struct EmHeight {
     ascent: f64,
     descent: f64,
     primary_typo_ascent: f64,
-}
-
-/// The OS/2 typo ascent and descent of a face at `size`, normalized so
-/// they sum to the em and each rounded onto the 1/64 grid (Chromium's
-/// `NormalizedTypoAscentAndDescent`); a face without usable typo metrics
-/// normalizes its platform ascent and descent instead.
-fn normalized_typo_height(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
-    use skrifa::raw::TableProvider as _;
-    let typo = font_ref
-        .os2()
-        .ok()
-        .map(|os2| {
-            (
-                f64::from(os2.s_typo_ascender()),
-                -f64::from(os2.s_typo_descender()),
-            )
-        })
-        .filter(|(ascent, _)| *ascent > 0.0);
-    let (ascent, descent) = match typo {
-        Some(pair) => pair,
-        None => platform_ascent_descent(font_ref, size),
-    };
-    let height = ascent + descent;
-    if height <= 0.0 || ascent < 0.0 || ascent > height {
-        return (0.0, 0.0);
-    }
-    let normalized_ascent = layout_unit(ascent * size / height);
-    (normalized_ascent, layout_unit(size) - normalized_ascent)
-}
-
-/// A face's platform ascent and descent at `size`: the hhea metrics (the
-/// OS/2 typo metrics when the face sets USE_TYPO_METRICS), each rounded
-/// to a whole pixel the way Skia hands them to Blink's `FontMetrics`.
-fn platform_ascent_descent(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
-    use skrifa::raw::TableProvider as _;
-    let Ok(head) = font_ref.head() else {
-        return (0.0, 0.0);
-    };
-    let upem = f64::from(head.units_per_em());
-    if upem <= 0.0 {
-        return (0.0, 0.0);
-    }
-    let use_typo = font_ref.os2().ok().is_some_and(|os2| {
-        os2.fs_selection()
-            .contains(skrifa::raw::tables::os2::SelectionFlags::USE_TYPO_METRICS)
-    });
-    let (ascent, descent) = match (use_typo, font_ref.os2(), font_ref.hhea()) {
-        (true, Ok(os2), _) => (
-            f64::from(os2.s_typo_ascender()),
-            -f64::from(os2.s_typo_descender()),
-        ),
-        (_, _, Ok(hhea)) => (
-            f64::from(hhea.ascender().to_i16()),
-            -f64::from(hhea.descender().to_i16()),
-        ),
-        _ => return (0.0, 0.0),
-    };
-    let scale = |units: f64| (units * size / upem + 0.5).floor();
-    (scale(ascent), scale(descent))
 }
 
 /// The CJK blocks whose clusters shape one to one with no kerning, plus

@@ -676,9 +676,9 @@ impl FormattingContext for ParleyInlineContext {
             _ => Vec::new(),
         };
         // Per item: a declared line-height resolves to a fixed height; a
-        // `normal` item defers to host-measured metrics chosen per line by
-        // CJK content. Indexed like `item_text_ranges`.
-        /// One text item's line-height inputs: the style whose host
+        // `normal` item defers to its fonts' normal-line metrics, chosen
+        // per line. Indexed like `item_text_ranges`.
+        /// One text item's line-height inputs: the style whose font
         /// metrics size its content area, and its declared line-height
         /// when it has one (`None` for `normal`).
         struct ItemLineHeight {
@@ -713,7 +713,7 @@ impl FormattingContext for ParleyInlineContext {
                         })
                     }
                     // An image carries its own style so a line holding
-                    // only images can still find the host metrics that
+                    // only images can still find the font metrics that
                     // size the space around it; an inline-block the same.
                     InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. }
@@ -1116,9 +1116,9 @@ impl FormattingContext for ParleyInlineContext {
             // Every text run on this line, as (inline item, sample
             // character for the font shaping resolved). A run whose
             // characters the declared family cannot serve resolves to a
-            // fallback font with its own metrics, and the host must be
-            // asked about that font — not about the declared family.
-            let mut line_run_samples: Vec<(usize, String)> = Vec::new();
+            // fallback font with its own metrics, and the line is sized by
+            // that font — not by the declared family.
+            let mut line_run_samples: Vec<(usize, LineProbe)> = Vec::new();
             for item in line.items() {
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -1148,11 +1148,6 @@ impl FormattingContext for ParleyInlineContext {
                                 .and_then(|entry| entry.as_ref())
                                 .and_then(|entry| tables.inline.style(entry.style).ok())
                         }) {
-                            // One sample per script inside the run, not just
-                            // the run's first character: the host resolves
-                            // fallback per character, so a run the engine
-                            // shapes with one font can be two fonts there.
-                            let mut seen_scripts: Vec<u16> = Vec::new();
                             // An ideographic space is a GLYPH here, not
                             // white space: its resolved (CJK) font sizes
                             // the line in Blink — a "　　1" heading line
@@ -1160,24 +1155,22 @@ impl FormattingContext for ParleyInlineContext {
                             // digit's 18 (measured on the shinmai article
                             // books, where dropping it shifted every
                             // chapter 4px from the second block on).
-                            for character in flow_text
+                            if let Some(character) = flow_text
                                 .get(run_range.clone())
                                 .unwrap_or_default()
                                 .chars()
-                                .filter(|c| !c.is_whitespace() || *c == '\u{3000}')
+                                .find(|c| !c.is_whitespace() || *c == '\u{3000}')
                             {
-                                let script = char_script(character);
-                                if seen_scripts.contains(&script) {
-                                    continue;
-                                }
-                                seen_scripts.push(script);
-                                let sample =
-                                    self.run_sample(style, glyph_run.run().font(), character);
+                                let probe = LineProbe::Text(self.run_sample(
+                                    style,
+                                    glyph_run.run().font(),
+                                    character,
+                                ));
                                 if !line_run_samples
                                     .iter()
-                                    .any(|(index, seen)| *index == item_index && *seen == sample)
+                                    .any(|(index, seen)| *index == item_index && *seen == probe)
                                 {
-                                    line_run_samples.push((item_index, sample));
+                                    line_run_samples.push((item_index, probe));
                                 }
                             }
                         }
@@ -1193,19 +1186,15 @@ impl FormattingContext for ParleyInlineContext {
                         let run_box_snap = style_tables.and_then(|tables| {
                             let entry = item_line_heights.get(item_index)?.as_ref()?;
                             let resolved = tables.inline.style(entry.style).ok()?;
-                            let metric = self.host_normal_line_peek(resolved, "");
-                            item_box_snap(resolved, metric)
+                            item_box_snap(resolved, self.normal_line(resolved, &LineProbe::Strut))
                         });
                         // The run's font box (grid ascent/descent) rides
                         // every text fragment: selection rects span it,
                         // never the line box (Chromium Range semantics).
                         // The box belongs to the run's USED font — a
                         // fallback-served CJK run in a Latin-pinned style
-                        // takes the CJK grid — so the one-char sample key
-                        // leads and records a request when unmeasured;
-                        // the style's strut stands in until it arrives.
-                        // Declared line-height math never consumes these
-                        // metrics, so the request is layout-neutral.
+                        // takes the CJK grid; a run with no glyph character
+                        // takes the style's strut.
                         let run_font_grid = style_tables.and_then(|tables| {
                             let entry = item_line_heights.get(item_index)?.as_ref()?;
                             let resolved = tables.inline.style(entry.style).ok()?;
@@ -1214,14 +1203,14 @@ impl FormattingContext for ParleyInlineContext {
                                 .unwrap_or_default()
                                 .chars()
                                 .find(|c| !c.is_whitespace() || *c == '\u{3000}');
-                            let sampled = sample_char.and_then(|character| {
-                                let sample =
-                                    self.run_sample(resolved, glyph_run.run().font(), character);
-                                self.host_normal_line(resolved, &sample)
+                            let probe = sample_char.map_or(LineProbe::Strut, |character| {
+                                LineProbe::Text(self.run_sample(
+                                    resolved,
+                                    glyph_run.run().font(),
+                                    character,
+                                ))
                             });
-                            sampled
-                                .or_else(|| self.host_normal_line_peek(resolved, ""))?
-                                .grid
+                            Some(self.normal_line(resolved, &probe)?.grid)
                         });
                         // A ruby spread's interior gap re-applies at paint
                         // as extra letter spacing (like justify spacing,
@@ -1871,11 +1860,10 @@ impl FormattingContext for ParleyInlineContext {
             // smaller than the strut — Parley's own line height inflates
             // beyond what a browser gives such lines. Risen content grows
             // the box above the strut by its overflow.
-            // Host-measured normal line height: the line's `normal` runs
-            // contribute the host's strut or CJK-lifted metric (chosen by
-            // whether the line carries any CJK glyph), declared runs keep
-            // their fixed heights, and the line takes the max — the model
-            // the reference browser was observed to follow.
+            // Normal line height: the line's `normal` runs contribute
+            // their strut and used-font metrics, declared runs keep their
+            // fixed heights, and the line takes the max — the model the
+            // reference browser was observed to follow.
             let line_text_range = children
                 .iter()
                 .filter_map(|(fragment, _)| match fragment {
@@ -1900,16 +1888,15 @@ impl FormattingContext for ParleyInlineContext {
                     let range = line.text_range();
                     Some((range.start, range.end))
                 });
-            // Host font metrics for this line: the content height
-            // (ascent + descent) and ascent the host's scaler grid-fits
-            // for the line's dominant style, in the script case the line
-            // falls into. Both `normal` and declared line-heights derive
-            // from this pair, exactly as CSS computes leading.
+            // Font metrics for this line: the content height (ascent +
+            // descent) and ascent of its contributors. Both `normal` and
+            // declared line-heights derive from this pair, exactly as CSS
+            // computes leading.
             // The line's dominant style (largest font) and the tallest
             // declared line-height among the runs on it.
             let mut line_declared_height: Option<f64> = None;
             // Items on this line: text runs by byte range, atomic inlines
-            // by item index. Either can carry the style whose host metrics
+            // by item index. Either can carry the style whose font metrics
             // size the line.
             let line_image_items: Vec<usize> = children
                 .iter()
@@ -1922,10 +1909,9 @@ impl FormattingContext for ParleyInlineContext {
             // on the line contributes its own font's metrics, every text
             // run contributes the metrics of the font shaping resolved for
             // it, and the line takes the greatest ascent and the greatest
-            // descent among them. `None` means at least one contributor is
-            // still unmeasured — the host is asked, and the shaped
-            // fallback covers this pass.
-            let mut contributors: Vec<(rito_style_contract::StyleId, &str)> = Vec::new();
+            // descent among them. `None` means a contributor's style or
+            // font did not resolve.
+            let mut contributors: Vec<(rito_style_contract::StyleId, &LineProbe)> = Vec::new();
             for (index, range) in item_text_ranges.iter().enumerate() {
                 // The ending forced break contributes too (see the
                 // entries loop below): a <br>'s style sizes the line it
@@ -1951,27 +1937,27 @@ impl FormattingContext for ParleyInlineContext {
                     continue;
                 }
                 // The inline box's own strut, then each of its runs' fonts.
-                contributors.push((item.style, ""));
-                for (run_item, sample) in &line_run_samples {
+                contributors.push((item.style, &LineProbe::Strut));
+                for (run_item, probe) in &line_run_samples {
                     if *run_item == index {
-                        contributors.push((item.style, sample.as_str()));
+                        contributors.push((item.style, probe));
                     }
                 }
             }
-            let host_line = if contributors.is_empty() {
+            let font_line = if contributors.is_empty() {
                 None
             } else {
                 let mut ascent = 0.0_f64;
                 let mut descent = 0.0_f64;
                 let mut complete = true;
-                for (style_id, sample) in contributors {
+                for (style_id, probe) in contributors {
                     let Some(resolved) =
                         style_tables.and_then(|tables| tables.inline.style(style_id).ok())
                     else {
                         complete = false;
                         continue;
                     };
-                    match self.host_normal_line(resolved, sample) {
+                    match self.normal_line(resolved, probe) {
                         Some(metric) => {
                             ascent = ascent.max(metric.ascent());
                             descent = descent.max(metric.descent());
@@ -1993,9 +1979,8 @@ impl FormattingContext for ParleyInlineContext {
             // + strut-below 3.2 = 23.92, not the normal-metric envelope.
             // A flattened empty inline (a <sup> holding only the image)
             // loses its own strut here; the atomic box dominates it in
-            // every corpus shape measured. Any unmeasured host metric
-            // falls back to the envelope path below, keeping the
-            // measure → inject → reflow loop converging.
+            // every corpus shape measured. A contributor whose style or
+            // font does not resolve falls back to the envelope path below.
             let tree_items: &[InlineItem] = match &tree.node(root).content {
                 FormattingNodeContent::InlineFlow { items } => items,
                 _ => &[],
@@ -2012,7 +1997,7 @@ impl FormattingContext for ParleyInlineContext {
                 // font alone (measured: 19.2px over Tinos+SourceHan puts
                 // the baseline at 15 for empty, Latin and CJK samples
                 // alike).
-                let mut entries: Vec<(&InlineFormattingStyle, &str, f64, bool)> = Vec::new();
+                let mut entries: Vec<(&InlineFormattingStyle, LineProbe, f64, bool)> = Vec::new();
                 let mut strut_resolved: Option<&InlineFormattingStyle> = None;
                 match tree.strut_style(root).or_else(|| {
                     item_line_heights
@@ -2026,7 +2011,7 @@ impl FormattingContext for ParleyInlineContext {
                     {
                         Some(resolved) => {
                             strut_resolved = Some(resolved);
-                            entries.push((resolved, "", 0.0, false));
+                            entries.push((resolved, LineProbe::Strut, 0.0, false));
                         }
                         None => {
                             complete = false;
@@ -2042,18 +2027,12 @@ impl FormattingContext for ParleyInlineContext {
                         }
                     }
                 }
-                // A super/sub-shifted span's line envelope is MEASURED, not
-                // derived: Blink quantizes the shifted box's above-baseline
-                // contribution onto whole pixels through interplay no font
-                // table exposes (a 64-configuration oracle matrix refused
-                // every closed form; the raise itself IS floor64(S/3)+1,
-                // identical to ours — only the envelope term diverges, +2
-                // on b74's 0.8em bold ① marker). The U+E00C/U+E00D probes
-                // measure the exact paragraph idiom — strut font and
-                // line-height with the span raised inside — so the metric's
-                // baseline/height ARE the line's (above, below) with the
-                // raise already embedded.
-                let sup_samples: Vec<(usize, String)> = strut_resolved
+                // A super/sub-shifted span's line envelope comes from the
+                // shifted-span line shape: strut text at the strut's
+                // line-height with the span raised or lowered inside, so
+                // the metric's baseline/height ARE the line's (above,
+                // below) with the shift already embedded.
+                let sup_samples: Vec<(usize, LineProbe)> = strut_resolved
                     .map(|strut| {
                         let strut_size = f64::from(strut.font.size.get());
                         item_shifts
@@ -2071,11 +2050,16 @@ impl FormattingContext for ParleyInlineContext {
                                     return None;
                                 }
                                 let ratio = f64::from(resolved.font.size.get()) / strut_size;
-                                let sentinel = if *shift > 0.0 { '\u{E00C}' } else { '\u{E00D}' };
                                 let line_height =
-                                    used_declared_line_height(strut.font.line_height, strut_size)
-                                        .map_or_else(|| "n".to_owned(), |px| format!("{px}"));
-                                Some((index, format!("{sentinel}{ratio:.4}:{line_height}")))
+                                    used_declared_line_height(strut.font.line_height, strut_size);
+                                Some((
+                                    index,
+                                    LineProbe::Shifted(ShiftProbe {
+                                        superscript: *shift > 0.0,
+                                        ratio: probe_ratio(ratio),
+                                        line_height: line_height.map(f64::to_bits),
+                                    }),
+                                ))
                             })
                             .collect()
                     })
@@ -2114,31 +2098,27 @@ impl FormattingContext for ParleyInlineContext {
                     };
                     let shift = item_shifts.get(index).copied().unwrap_or(0.0);
                     if shift != 0.0 {
-                        if let Some((strut, key)) = strut_resolved.zip(
+                        if let Some((strut, probe)) = strut_resolved.zip(
                             sup_samples
                                 .iter()
                                 .find(|(sample_index, _)| *sample_index == index)
-                                .map(|(_, key)| key.as_str()),
+                                .map(|(_, probe)| probe),
                         ) {
-                            entries.push((strut, key, 0.0, false));
-                            if self.host_normal_line_peek(strut, key).is_some() {
-                                // The measured envelope replaces the computed
-                                // fallback entirely — the fallback's normal-line
-                                // ascent overshoots Blink's quantized term.
-                                continue;
-                            }
+                            // The shifted-span envelope replaces the item's
+                            // own strut and run entries.
+                            entries.push((strut, probe.clone(), 0.0, false));
+                            continue;
                         }
                     }
-                    entries.push((resolved, "", shift, false));
+                    entries.push((resolved, LineProbe::Strut, shift, false));
                     // Run-font samples join the entries under `normal`
                     // line-height, and for SHIFTED items too: a raised
                     // marker contributes the envelope of the font its
                     // glyphs actually resolved to (a CJK circled digit
                     // the Latin pin cannot serve rides the CJK face's
-                    // taller ascent). Shifted samples are OPTIONAL —
-                    // until the host measures the new key the strut
-                    // entry stands, instead of the whole line falling
-                    // back to the shaped envelope.
+                    // taller ascent). Shifted samples are OPTIONAL: a
+                    // font that does not resolve leaves the strut entry
+                    // standing.
                     // A span that DECLARES its own line-height keeps a
                     // content-independent fixed box even when shifted
                     // (measured: CJK and Latin superscripts in a
@@ -2146,9 +2126,9 @@ impl FormattingContext for ParleyInlineContext {
                     // INHERITED line-height defers to the run font.
                     let optional_sample = shift != 0.0 && !resolved.font.line_height_is_declared;
                     if matches!(resolved.font.line_height, LineHeight::Normal) || optional_sample {
-                        for (run_item, sample) in &line_run_samples {
+                        for (run_item, probe) in &line_run_samples {
                             if *run_item == index {
-                                entries.push((resolved, sample.as_str(), shift, optional_sample));
+                                entries.push((resolved, probe.clone(), shift, optional_sample));
                             }
                         }
                     }
@@ -2176,7 +2156,7 @@ impl FormattingContext for ParleyInlineContext {
                         complete = false;
                         continue;
                     };
-                    entries.push((resolved, "", *shift, false));
+                    entries.push((resolved, LineProbe::Strut, *shift, false));
                 }
                 // Max over contributors, allowing NEGATIVE halves: a
                 // declared line-height smaller than the strut's grid
@@ -2188,18 +2168,17 @@ impl FormattingContext for ParleyInlineContext {
                 // under the heading (measured on the cover colophon).
                 let mut above = f64::NEG_INFINITY;
                 let mut below = f64::NEG_INFINITY;
-                for (resolved, sample, shift, optional) in entries {
-                    let Some(metric) = self.host_normal_line(resolved, sample) else {
+                for (resolved, probe, shift, optional) in entries {
+                    let Some(metric) = self.normal_line(resolved, &probe) else {
                         if optional {
                             continue;
                         }
                         complete = false;
                         if line_debug {
                             debug_misses.push(format!(
-                                "entry metric {}@{}\"{}\"",
-                                host_family_key(resolved),
+                                "entry metric {}@{} {probe:?}",
+                                family_key(resolved),
                                 resolved.font.size.get(),
-                                sample
                             ));
                         }
                         continue;
@@ -2212,26 +2191,25 @@ impl FormattingContext for ParleyInlineContext {
                     // normal-ascent 14 + raise, where the fixed-height
                     // model overshot by two rows (measured; totals agreed
                     // and only the baseline moved).
-                    let (item_above, item_below) =
-                        if sample.starts_with('\u{E00C}') || sample.starts_with('\u{E00D}') {
-                            // Host-measured super/sub line envelope: the probe's
-                            // baseline/height are the line's above/below with the
-                            // raise already embedded (shift is 0 on this entry).
-                            (asc, desc)
-                        } else if shift != 0.0 && !resolved.font.line_height_is_declared {
-                            (asc, desc)
-                        } else {
-                            match used_declared_line_height(
-                                resolved.font.line_height,
-                                f64::from(resolved.font.size.get()),
-                            ) {
-                                None => (asc, desc),
-                                Some(height) => {
-                                    let a = metric.fixed_baseline(height);
-                                    (a, height - a)
-                                }
+                    let (item_above, item_below) = if matches!(probe, LineProbe::Shifted(_)) {
+                        // The shifted-span line shape's baseline/height
+                        // are the line's above/below with the shift
+                        // already embedded (shift is 0 on this entry).
+                        (asc, desc)
+                    } else if shift != 0.0 && !resolved.font.line_height_is_declared {
+                        (asc, desc)
+                    } else {
+                        match used_declared_line_height(
+                            resolved.font.line_height,
+                            f64::from(resolved.font.size.get()),
+                        ) {
+                            None => (asc, desc),
+                            Some(height) => {
+                                let a = metric.fixed_baseline(height);
+                                (a, height - a)
                             }
-                        };
+                        }
+                    };
                     above = above.max(item_above + shift);
                     below = below.max(item_below - shift);
                 }
@@ -2283,12 +2261,12 @@ impl FormattingContext for ParleyInlineContext {
                             }
                             continue;
                         };
-                        let Some(metric) = self.host_normal_line(resolved, "") else {
+                        let Some(metric) = self.normal_line(resolved, &LineProbe::Strut) else {
                             complete = false;
                             if line_debug {
                                 debug_misses.push(format!(
                                     "atom metric {}@{}",
-                                    host_family_key(resolved),
+                                    family_key(resolved),
                                     resolved.font.size.get()
                                 ));
                             }
@@ -2335,7 +2313,7 @@ impl FormattingContext for ParleyInlineContext {
                     let Some(resolved) = resolved else {
                         continue;
                     };
-                    let Some(metric) = self.host_normal_line(resolved, "") else {
+                    let Some(metric) = self.normal_line(resolved, &LineProbe::Strut) else {
                         complete = false;
                         continue;
                     };
@@ -2368,8 +2346,8 @@ impl FormattingContext for ParleyInlineContext {
                 None
             };
             // CSS 2.1 §10.8: the paragraph's `normal` strut is one more
-            // contributor around the shared baseline — its host ascent
-            // above, its host descent below — and the line box takes
+            // contributor around the shared baseline — its normal ascent
+            // above, its normal descent below — and the line box takes
             // max(above) + max(below) with the baseline at max(above).
             // Centering the content envelope inside the strut height
             // instead sank sub-sized runs' baselines: a 16px paragraph of
@@ -2390,7 +2368,7 @@ impl FormattingContext for ParleyInlineContext {
                 })
                 .and_then(|id| style_tables.and_then(|tables| tables.inline.style(id).ok()))
                 .filter(|resolved| matches!(resolved.font.line_height, LineHeight::Normal))
-                .and_then(|resolved| self.host_normal_line(resolved, ""))
+                .and_then(|resolved| self.normal_line(resolved, &LineProbe::Strut))
                 .map(|metric| (metric.ascent(), metric.descent()));
             let base_height = if let Some((above, below)) = contributions {
                 above + below
@@ -2400,7 +2378,7 @@ impl FormattingContext for ParleyInlineContext {
                 // box around an image is the image plus that descent, not
                 // the image alone. Above the baseline the taller of the
                 // two wins.
-                let (above, below) = match host_line {
+                let (above, below) = match font_line {
                     Some((content_height, ascent)) => (ascent, content_height - ascent),
                     None => (0.0, 0.0),
                 };
@@ -2409,12 +2387,13 @@ impl FormattingContext for ParleyInlineContext {
                 envelope.max(strut_height.unwrap_or(0.0))
             } else if let Some(declared) = line_declared_height {
                 declared.max(strut_height.unwrap_or(0.0))
-            } else if let Some((host, host_ascent)) = host_line {
+            } else if let Some((content_height, content_ascent)) = font_line {
                 match strut_envelope {
                     Some((strut_ascent, strut_descent)) => {
-                        host_ascent.max(strut_ascent) + (host - host_ascent).max(strut_descent)
+                        content_ascent.max(strut_ascent)
+                            + (content_height - content_ascent).max(strut_descent)
                     }
-                    None => host.max(strut_height.unwrap_or(0.0)),
+                    None => content_height.max(strut_height.unwrap_or(0.0)),
                 }
             } else if children.is_empty() {
                 // An empty line (a forced break with no content) is sized
@@ -2435,24 +2414,23 @@ impl FormattingContext for ParleyInlineContext {
                 base_height + max_rise
             };
             running_top += line_height;
-            // The host's measured baseline wins whenever its metric sized
-            // the line: where the baseline sits inside a `normal` line is
-            // grid-fitted by the host's scaler, not derivable from the
-            // shaped ascent. Shaped half-leading covers every other line.
-            // CSS leading, over host-fitted metrics: half the difference
-            // between the line box and the content area sits above the
-            // baseline. The host floors that half-leading (its scaler
-            // works in whole pixels), which is what places glyphs on the
-            // same rows the reference browser uses.
+            // The font-metric baseline wins whenever those metrics sized
+            // the line: where the baseline sits inside a `normal` line
+            // follows the fonts' whole-pixel metrics, not the shaped
+            // ascent. Shaped half-leading covers every other line. CSS
+            // leading: half the difference between the line box and the
+            // content area sits above the baseline, floored to whole
+            // pixels, which places glyphs on the same rows the reference
+            // browser uses.
             let baseline = if let Some((above, _)) = contributions {
                 above
             } else if has_inline_box {
                 // The envelope of an atomic-inline line is already exactly
                 // ascent + descent, so its baseline sits at that ascent —
                 // there is no leading to redistribute around it.
-                max_rise + f64::from(metrics.ascent).max(host_line.map_or(0.0, |(_, a)| a))
+                max_rise + f64::from(metrics.ascent).max(font_line.map_or(0.0, |(_, a)| a))
             } else {
-                match host_line {
+                match font_line {
                     Some((content_height, ascent)) => match strut_envelope {
                         Some((strut_ascent, _)) => max_rise + ascent.max(strut_ascent),
                         None => max_rise + ((base_height - content_height) / 2.0).floor() + ascent,
@@ -2465,40 +2443,26 @@ impl FormattingContext for ParleyInlineContext {
                     }
                 }
             };
-            // Ruby annotations grow the line. Measured to exactness (24/24
-            // configurations: two fonts x three line-heights x two sizes x
-            // first/subsequent lines): the browser places the annotation's
-            // BASELINE one pixel above the base font's typographic-ascent
-            // edge, so the line's baseline must sit at least
-            //   annotation grid ascent + 1 + floor(sTypoAscender x size)
-            // below the line top. A later line may also spend the gap the
-            // PREVIOUS line leaves under its own typographic-descent edge
-            // (its below-baseline extent minus ceil(sTypoDescender x
-            // size)). Whatever the baseline still lacks becomes growth.
-            let base_typo =
-                |range: &std::ops::Range<usize>, fs: f64| -> Option<(f64, f64, (u64, u32))> {
-                    use skrifa::raw::TableProvider as _;
-                    for item in line.items() {
-                        let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
-                            continue;
-                        };
-                        let run = glyph_run.run();
-                        let shaped = run.text_range();
-                        if shaped.start >= range.end || range.start >= shaped.end {
-                            continue;
-                        }
-                        let font = run.font();
-                        let font_key = (font.data.id(), font.index);
-                        let font_ref =
-                            skrifa::FontRef::from_index(font.data.as_ref(), font.index).ok()?;
-                        let os2 = font_ref.os2().ok()?;
-                        let upem = f64::from(font_ref.head().ok()?.units_per_em());
-                        let asc = f64::from(os2.s_typo_ascender()) / upem * fs;
-                        let desc = f64::from(-i32::from(os2.s_typo_descender())) / upem * fs;
-                        return Some((asc, desc, font_key));
+            // Ruby annotations grow the line: the baseline must sit at
+            // least as low as a one-line ruby of the same shape places it,
+            // and a later line may spend the gap the PREVIOUS line leaves
+            // under its text. Whatever the baseline still lacks becomes
+            // growth. The base font (the first glyph run over the ruby
+            // base) tells whether the previous line mixed fonts.
+            let base_font_key = |range: &std::ops::Range<usize>| -> Option<(u64, u32)> {
+                line.items().find_map(|item| {
+                    let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                        return None;
+                    };
+                    let run = glyph_run.run();
+                    let shaped = run.text_range();
+                    if shaped.start >= range.end || range.start >= shaped.end {
+                        return None;
                     }
-                    None
-                };
+                    let font = run.font();
+                    Some((font.data.id(), font.index))
+                })
+            };
             // A vertical-rl flow's annotation shares NO half-leading with
             // its base the way a horizontal line's does: the annotation
             // column needs its own width beyond the base's half-leading
@@ -2601,28 +2565,20 @@ impl FormattingContext for ParleyInlineContext {
                     };
                     let fs = f64::from(resolved.font.size.get());
                     let ratio = f64::from(annotation.size_ratio);
-                    // The browser's ruby geometry is measured, not derived:
-                    // the U+E000 host probe is a one-line ruby whose
-                    // baseline IS the minimum baseline the annotation
-                    // demands (verified invariant: independent of
-                    // line-height, 32/32 configurations), and the U+E001
-                    // two-line probe exposes how much of the previous
-                    // line's under-edge the annotation may reuse. Font
-                    // tables cannot substitute: three fonts yielded three
-                    // inconsistent hhea/OS-2 decompositions.
-                    // The probe key carries the annotation's size ratio so
-                    // the host measures the ruby with the rt size the
-                    // cascade actually produced — and the probe's CONTENT
-                    // mirrors two font bits the geometry depends on
-                    // (measured matrix, fs16/rt50%: each shifts growth by
-                    // one pixel, additively): the annotation's script
-                    // picks the rt face, and the PREVIOUS line's font
-                    // composition (any non-CJK glyph, a space included)
-                    // shrinks its reusable under-edge.
-                    let (typo_asc, typo_desc, base_font) = base_typo(range, fs)
-                        .map_or((fs * 0.88, fs * 0.12, None), |(asc, desc, font)| {
-                            (asc, desc, Some(font))
-                        });
+                    // The ruby's geometry comes from two line shapes: a
+                    // one-line ruby whose baseline IS the minimum baseline
+                    // the annotation demands (independent of line-height,
+                    // 32/32 measured configurations), and the same ruby on
+                    // a second line, which shows how much of the previous
+                    // line's under-edge the annotation may reuse. Each
+                    // shape carries the annotation's size ratio and the
+                    // font bits its geometry depends on (measured matrix,
+                    // fs16/rt50%: each shifts growth by one pixel,
+                    // additively): the annotation's script picks the rt
+                    // face, and the PREVIOUS line's font composition (any
+                    // non-CJK glyph, a space included) shrinks its
+                    // reusable under-edge.
+                    let base_font = base_font_key(range);
                     let is_cjk = |ch: char| {
                         matches!(u32::from(ch), 0x2E80..=0x9FFF | 0xF900..=0xFAFF
                             | 0xFF00..=0xFFEF | 0x20000..=0x3FFFF)
@@ -2641,23 +2597,7 @@ impl FormattingContext for ParleyInlineContext {
                     let prev_mixed = !prev_line_fonts.is_empty()
                         && base_font
                             .is_some_and(|base| prev_line_fonts.iter().any(|key| *key != base));
-                    let one_sentinel = match (base_latin, anno_cjk) {
-                        (false, false) => '\u{E000}',
-                        (false, true) => '\u{E002}',
-                        (true, false) => '\u{E006}',
-                        (true, true) => '\u{E007}',
-                    };
-                    let two_sentinel = match (base_latin, anno_cjk, prev_mixed) {
-                        (false, false, false) => '\u{E001}',
-                        (false, true, false) => '\u{E003}',
-                        (false, false, true) => '\u{E004}',
-                        (false, true, true) => '\u{E005}',
-                        (true, false, false) => '\u{E008}',
-                        (true, true, false) => '\u{E009}',
-                        (true, false, true) => '\u{E00A}',
-                        (true, true, true) => '\u{E00B}',
-                    };
-                    // The probe's rt carries the annotation's ACTUAL text:
+                    // The shape's rt carries the annotation's ACTUAL text:
                     // the annotation stack height depends on which face
                     // the family list resolves for those characters, and
                     // a script-class sample can land on a different face
@@ -2666,35 +2606,33 @@ impl FormattingContext for ParleyInlineContext {
                     // class sample, whose SourceHan fallback stack sits
                     // one pixel taller — every ruby opener overgrew by
                     // that pixel and shifted the rest of the page).
-                    let one_key = format!("{one_sentinel}{ratio:.4}:{}", annotation.text);
-                    let two_key = format!("{two_sentinel}{ratio:.4}:{}", annotation.text);
-                    let ruby_one = self.host_normal_line_sized(resolved, fs, &one_key);
-                    let ruby_two = self.host_normal_line_sized(resolved, fs, &two_key);
-                    // The reuse derivation subtracts the two-line probe's
-                    // FIRST-line baseline, and that line is the probe's own
-                    // CJK text — so the term must be the CJK-sample metric,
-                    // not the empty-sample strut (a Latin-first family made
-                    // them differ by four pixels and the derived allowance
-                    // swallowed the whole reuse).
-                    let plain = self.host_normal_line_sized(resolved, fs, "\u{4E2D}");
-                    let annotation_ascent = self
-                        .host_normal_line_sized(resolved, fs * ratio, "")
-                        .map_or(fs * ratio, |metric| metric.ascent());
-                    let required = ruby_one.map_or_else(
-                        // Fallback until the host answers: the table law
-                        // (exact for Source Han and FZBWKS, one px off for
-                        // fonts whose tables disagree with the scaler).
-                        || typo_asc.floor() + annotation_ascent + (typo_desc * 0.5).round(),
-                        |metric| metric.ascent(),
-                    );
-                    let reuse = match (plain, ruby_one, ruby_two) {
-                        (Some(plain), Some(one), Some(two)) => {
-                            // below-edge allowance = below extent minus the
-                            // measured second-line reduction.
-                            (two.height - one.height - plain.ascent()).max(0.0)
-                        }
-                        _ => typo_desc.round(),
+                    let ruby_probe = |two_line: bool| {
+                        LineProbe::Ruby(RubyProbe {
+                            two_line,
+                            latin_base: base_latin,
+                            mixed_previous: two_line && prev_mixed,
+                            ratio: probe_ratio(ratio),
+                            annotation: annotation.text.clone(),
+                            cjk_annotation: anno_cjk,
+                        })
                     };
+                    let ruby_one = self.normal_line_sized(resolved, fs, &ruby_probe(false));
+                    let ruby_two = self.normal_line_sized(resolved, fs, &ruby_probe(true));
+                    // The reuse derivation subtracts the two-line shape's
+                    // FIRST-line baseline, and that line is CJK text — so
+                    // the term must be the CJK-sample metric, not the
+                    // strut (a Latin-first family made them differ by four
+                    // pixels and the derived allowance swallowed the whole
+                    // reuse).
+                    let plain = self.normal_line_sized(resolved, fs, &LineProbe::Text('\u{4E2D}'));
+                    let (Some(ruby_one), Some(ruby_two), Some(plain)) = (ruby_one, ruby_two, plain)
+                    else {
+                        continue;
+                    };
+                    let required = ruby_one.ascent();
+                    // below-edge allowance = below extent minus the
+                    // second-line reduction.
+                    let reuse = (ruby_two.height - ruby_one.height - plain.ascent()).max(0.0);
                     let prev_gap = prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
                 }
@@ -2748,7 +2686,7 @@ impl FormattingContext for ParleyInlineContext {
             }
             if line_debug && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0)) {
                 eprintln!(
-                    "[line-debug] contributions={contributions:?} host_line={host_line:?} \
+                    "[line-debug] contributions={contributions:?} font_line={font_line:?} \
                      baseline={baseline} height={line_height} max_rise={max_rise} \
                      misses={debug_misses:?}"
                 );
