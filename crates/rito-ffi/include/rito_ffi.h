@@ -378,6 +378,19 @@ uint32_t rito_resolve_annotation(uint64_t session_id,
                                  rito_owned_buffer *error_out);
 
 /*
+ * Answers a reading-position question and returns a complete RITONVR1 message.
+ * request_data is a RITONVQ1 message (the TOC entry a page or a source position
+ * reads under, where a stored locator lands in an artifact's revision, or the
+ * reading order of two source positions) and is copied before this function
+ * returns. The engine answers each the way it answers a browser reader.
+ */
+uint32_t rito_resolve_navigation(uint64_t session_id,
+                                 const uint8_t *request_data,
+                                 uint64_t request_len,
+                                 rito_owned_buffer *response_out,
+                                 rito_owned_buffer *error_out);
+
+/*
  * Reads a footnote definition referenced by a live RITOART1 artifact and
  * returns a complete RITOFTN1 message. key_data is the hit's footnoteKey
  * verbatim — it is already canonical, so hosts must not normalize the link

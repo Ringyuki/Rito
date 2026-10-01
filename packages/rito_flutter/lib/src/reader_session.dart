@@ -14,6 +14,7 @@ import 'protocol/background_models.dart';
 import 'protocol/exact_source_range.dart';
 import 'protocol/footnote_decoder.dart';
 import 'protocol/foreground_models.dart';
+import 'protocol/navigation_query.dart';
 import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
 import 'protocol/search.dart';
@@ -808,6 +809,88 @@ final class RitoReaderSession {
     }
     _requireOpen();
     return response;
+  }
+
+  /// The TOC entry (its `tocId`) a page of [prepared]'s revision reads
+  /// under: the last entry, in TOC order, whose target sits at or before
+  /// the page. Null when no entry precedes it.
+  Future<int?> tocEntryAtPage(
+    RitoPreparedArtifact prepared,
+    int pageIndex,
+  ) async {
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    final result = await _navigation(
+      RitoTocEntryAtPageQuery(
+        artifactId: artifact.artifactId,
+        pageIndex: pageIndex,
+      ),
+    );
+    return (result as RitoTocEntryResult).tocId;
+  }
+
+  /// The TOC entry (its `tocId`) a source position reads under, decided on
+  /// the source alone — the chapter of a stored highlight or bookmark.
+  Future<int?> tocEntryAtPosition({
+    required String href,
+    required RitoSourcePoint point,
+  }) async {
+    final result = await _navigation(
+      RitoTocEntryAtPositionQuery(href: href, point: point),
+    );
+    return (result as RitoTocEntryResult).tocId;
+  }
+
+  /// Where a stored locator lands in [prepared]'s revision: the page, and
+  /// whether [prepared] draws it — the check for "is this bookmark on the
+  /// current page".
+  Future<RitoLocation> locate(
+    RitoPreparedArtifact prepared,
+    RitoLocator locator,
+  ) async {
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    final result = await _navigation(
+      RitoLocateQuery(artifactId: artifact.artifactId, locator: locator),
+    );
+    return (result as RitoLocationResult).location;
+  }
+
+  /// -1, 0 or 1 as the first source position reads before, at or after
+  /// the second — the direction to animate a jump in.
+  Future<int> compareSourcePositions({
+    required String firstHref,
+    required RitoSourcePoint first,
+    required String secondHref,
+    required RitoSourcePoint second,
+  }) async {
+    final result = await _navigation(
+      RitoCompareQuery(
+        firstHref: firstHref,
+        first: first,
+        secondHref: secondHref,
+        second: second,
+      ),
+    );
+    return (result as RitoOrderResult).order;
+  }
+
+  Future<RitoNavigationResult> _navigation(RitoNavigationQuery query) async {
+    _requireOpen();
+    late final RitoNavigationResult result;
+    try {
+      result = await gateway.navigation(
+        request: RitoNavigationRequest(sessionId: sessionId, query: query),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    return result;
   }
 
   /// Resolves where a text range sits on one of [prepared]'s pages.

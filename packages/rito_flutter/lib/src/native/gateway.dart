@@ -14,6 +14,7 @@ import '../protocol/footnote_decoder.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
 import '../protocol/foreground_models.dart';
+import '../protocol/navigation_query.dart';
 import '../protocol/publication_decoder.dart';
 import '../protocol/publication_models.dart';
 import '../protocol/request_encoder.dart';
@@ -115,6 +116,11 @@ abstract interface class RitoReaderGateway {
   /// Builds an annotation target or locates a stored one.
   Future<RitoAnnotationResponse> annotation({
     required RitoAnnotationRequest request,
+  });
+
+  /// Answers a reading-position question.
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
   });
 
   /// Reads a footnote definition an artifact referenced. [key] is the
@@ -223,6 +229,8 @@ final class RitoIsolateGateway
       const RitoTextInteractionDecoder();
   final RitoAnnotationDecoder _annotationDecoder =
       const RitoAnnotationDecoder();
+  final RitoNavigationDecoder _navigationDecoder =
+      const RitoNavigationDecoder();
   final RitoTextGeometryDecoder _textGeometryDecoder =
       const RitoTextGeometryDecoder();
   final RitoRequestEncoder _searchEncoder = const RitoRequestEncoder();
@@ -830,6 +838,40 @@ final class RitoIsolateGateway
             validate: (response) =>
                 request.query is! RitoCreateAnnotationQuery ||
                 response.level == RitoAnnotationLevel.created,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
+  }) async {
+    return _queue.ordered<RitoNavigationResult>(
+      sessionId: request.sessionId,
+      operation: () => _guardNativeSessionOperation<RitoNavigationResult>(
+        sessionId: request.sessionId,
+        requestId: _diagnosticRequestId(request.sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _NavigationOperation(
+              sessionId: request.sessionId,
+              requestBytes: _requestEncoder.encodeNavigation(request),
+            ),
+          );
+          return _decodeSessionWire<RitoNavigationResult>(
+            sessionId: request.sessionId,
+            field: 'navigation',
+            wireBytes: wireBytes,
+            decode: _navigationDecoder.decode,
+            validate: (result) => switch (request.query) {
+              RitoTocEntryAtPageQuery() ||
+              RitoTocEntryAtPositionQuery() => result is RitoTocEntryResult,
+              RitoLocateQuery() => result is RitoLocationResult,
+              RitoCompareQuery() => result is RitoOrderResult,
+            },
           );
         },
       ),

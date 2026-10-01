@@ -28,12 +28,26 @@ landed with the `RitoAnnotationLevel` that found it. A
 the bytes a browser host stores for the same range; persist it as it is
 — and its decoded contents, so the adapter never parses JSON.
 
+### Reading positions are the engine's answer
+
+`RitoReaderSession.tocEntryAtPage` names the TOC entry (its `tocId`) a
+page reads under — the last entry, in TOC order, whose target sits at or
+before it, the rule the web reader's active entry follows — and
+`tocEntryAtPosition` names the entry a source position reads under, on
+the source alone, for a stored highlight's chapter. `locate` places a
+stored locator in an artifact's revision (`RitoLocatedPage` with whether
+the artifact draws it, `RitoNotLaidOut`, or `RitoLocationUnavailable`), and
+`compareSourcePositions` orders two positions for a turn's direction. An
+empty `<a id/>` marker, an image id or an id after the last text now
+resolves where a browser scrolls to it instead of refusing the target.
+
 ### Protocol
 
-The wire gains `RITOTIQ1`/`RITOTIR1` and `RITOANQ1`/`RITOANR1`, and the C
-ABI gains `rito_resolve_text_interaction` and `rito_resolve_annotation`.
-`RitoReaderGateway` gains `textInteraction` and `annotation`, so a custom
-gateway must implement both. The artifact protocol version is unchanged.
+The wire gains `RITOTIQ1`/`RITOTIR1`, `RITOANQ1`/`RITOANR1` and
+`RITONVQ1`/`RITONVR1`, and the C ABI gains `rito_resolve_text_interaction`,
+`rito_resolve_annotation` and `rito_resolve_navigation`.
+`RitoReaderGateway` gains `textInteraction`, `annotation` and
+`navigation`, so a custom gateway must implement all three. The artifact protocol version is unchanged.
 
 ## 0.4.0 - 2026-09-29
 

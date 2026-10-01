@@ -146,6 +146,7 @@ static void consume(void) {
   const uint8_t source_range[] = {'R','I','T','O','E','S','Q','1'};
   const uint8_t interaction[] = {'R','I','T','O','T','I','Q','1'};
   const uint8_t annotation[] = {'R','I','T','O','A','N','Q','1'};
+  const uint8_t navigation[] = {'R','I','T','O','N','V','Q','1'};
   const uint8_t footnote_key[] = {'c','h','.','x','h','t','m','l','#','n'};
   rito_owned_buffer peeked = {0};
   rito_owned_buffer commit_ack = {0};
@@ -154,6 +155,7 @@ static void consume(void) {
   rito_owned_buffer source_geometry = {0};
   rito_owned_buffer interaction_response = {0};
   rito_owned_buffer annotation_response = {0};
+  rito_owned_buffer navigation_response = {0};
   rito_owned_buffer footnote = {0};
   rito_pinned_font_face face = {0};
   face.generic_role = RITO_PINNED_FONT_ROLE_SERIF;
@@ -171,6 +173,8 @@ static void consume(void) {
   (void)rito_resolve_text_interaction(1, interaction, 8,
                                          &interaction_response, &error);
   (void)rito_resolve_annotation(1, annotation, 8, &annotation_response,
+                                   &error);
+  (void)rito_resolve_navigation(1, navigation, 8, &navigation_response,
                                    &error);
   (void)rito_read_footnote(1, 1, footnote_key, sizeof(footnote_key),
                               &footnote, &error);

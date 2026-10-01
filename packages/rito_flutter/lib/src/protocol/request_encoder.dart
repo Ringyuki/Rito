@@ -5,6 +5,7 @@ import 'annotation_target.dart';
 import 'artifact_models.dart';
 import 'binary_reader.dart';
 import 'exact_source_range.dart';
+import 'navigation_query.dart';
 import 'request_models.dart';
 import 'search.dart';
 import 'text_interaction.dart';
@@ -191,6 +192,35 @@ extension RitoTextInteractionEncoding on RitoRequestEncoder {
       writer.uint32(address.position.charIndex, 'caret char index');
       writer.uint8(address.affinity.index);
     });
+  }
+}
+
+extension RitoNavigationEncoding on RitoRequestEncoder {
+  /// Encodes a RITONVQ1 navigation request.
+  Uint8List encodeNavigation(RitoNavigationRequest request) {
+    final writer = _Writer.message(ascii.encode('RITONVQ1'), 1);
+    writer.externalId(request.sessionId, 'session id');
+    switch (request.query) {
+      case RitoTocEntryAtPageQuery(:final artifactId, :final pageIndex):
+        writer.uint8(0);
+        writer.externalId(artifactId, 'artifact id');
+        writer.uint32(pageIndex, 'page index');
+      case RitoTocEntryAtPositionQuery(:final href, :final point):
+        writer.uint8(1);
+        writer.string(href, 'position href');
+        _sourcePointRecord(writer, point);
+      case RitoLocateQuery(:final artifactId, :final locator):
+        writer.uint8(2);
+        writer.externalId(artifactId, 'artifact id');
+        writer.record((writer) => _locator(writer, locator));
+      case final RitoCompareQuery query:
+        writer.uint8(3);
+        writer.string(query.firstHref, 'first href');
+        _sourcePointRecord(writer, query.first);
+        writer.string(query.secondHref, 'second href');
+        _sourcePointRecord(writer, query.second);
+    }
+    return writer.finish();
   }
 }
 

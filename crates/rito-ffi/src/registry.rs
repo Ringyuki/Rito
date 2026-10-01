@@ -6,8 +6,8 @@ use std::{
 use rito_core::runtime::{
     ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
     ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
-    ReaderResourceKind, ReaderSearchRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
-    RuntimePinnedFontPolicyInput,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderTextInteractionRequest,
+    ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
 use crate::{
@@ -289,6 +289,13 @@ pub(crate) fn annotation(
     request: ReaderAnnotationRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_annotation(admission, request)
+}
+
+pub(crate) fn navigation(
+    admission: CommandAdmission,
+    request: ReaderNavigationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_navigation(admission, request)
 }
 
 pub(crate) fn exact_source_range(

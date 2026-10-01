@@ -607,6 +607,37 @@ pub extern "C" fn rito_resolve_annotation(
     })
 }
 
+/// Answers a reading-position question and returns a complete RITONVR1
+/// message. `request_data` is a RITONVQ1 message: the TOC entry a page or
+/// a source position reads under, where a stored locator lands in an
+/// artifact's revision, or the reading order of two source positions.
+///
+/// The engine answers each the way it answers a browser reader, so a
+/// chapter title, a bookmark check or a turn direction is the same on
+/// every host.
+#[no_mangle]
+pub extern "C" fn rito_resolve_navigation(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::navigation_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITONVQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::navigation(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
 /// Reads a footnote definition an artifact's hits referenced. The key
 /// is the hit's `footnote_key` verbatim — it is already canonical, so
 /// hosts must not normalize the link href themselves. A definition the

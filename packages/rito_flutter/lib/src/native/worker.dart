@@ -301,6 +301,7 @@ void _discardUnsentWire(
       case _ExactSourceRangeOperation():
       case _TextInteractionOperation():
       case _AnnotationOperation():
+      case _NavigationOperation():
       case _ReadFootnoteOperation():
       case _ReleaseArtifactOperation():
       case _DisposeOperation():
@@ -385,6 +386,10 @@ Object? _perform(
       requestBytes: operation.requestBytes,
     ),
     _AnnotationOperation() => bindings.annotationEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _NavigationOperation() => bindings.navigationEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
     ),
@@ -657,6 +662,16 @@ final class _TextInteractionOperation extends _WorkerOperation {
 
 final class _AnnotationOperation extends _WorkerOperation {
   const _AnnotationOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _NavigationOperation extends _WorkerOperation {
+  const _NavigationOperation({
     required this.sessionId,
     required this.requestBytes,
   });

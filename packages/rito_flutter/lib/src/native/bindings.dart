@@ -231,6 +231,18 @@ external int _ritoResolveAnnotation(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_navigation',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveNavigation(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReadFootnoteNative>(
   symbol: 'rito_read_footnote',
   assetId: ritoNativeAssetId,
@@ -286,6 +298,7 @@ final class RitoNativeBindings {
        _exactSourceRange = _ritoResolveExactSourceRange,
        _textInteraction = _ritoResolveTextInteraction,
        _annotation = _ritoResolveAnnotation,
+       _navigation = _ritoResolveNavigation,
        _search = _ritoSearch,
        _release = _ritoReleaseArtifact,
        _dispose = _ritoDispose,
@@ -361,6 +374,10 @@ final class RitoNativeBindings {
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_resolve_annotation',
            ),
+       _navigation = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_navigation',
+           ),
        _search = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_search',
@@ -394,6 +411,7 @@ final class RitoNativeBindings {
   final _OwnedWireRequestDart _exactSourceRange;
   final _OwnedWireRequestDart _textInteraction;
   final _OwnedWireRequestDart _annotation;
+  final _OwnedWireRequestDart _navigation;
   final _OwnedWireRequestDart _search;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
@@ -889,6 +907,21 @@ final class RitoNativeBindings {
       wireName: 'RITOANQ1',
       outputName: 'annotation',
       operation: _annotation,
+    );
+  }
+
+  Uint8List navigationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The query decides the width.
+      expectedLength: null,
+      wireName: 'RITONVQ1',
+      outputName: 'navigation',
+      operation: _navigation,
     );
   }
 
@@ -1435,6 +1468,14 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings.annotationEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List navigationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.navigationEncoded(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );

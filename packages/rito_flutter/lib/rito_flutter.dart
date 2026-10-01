@@ -51,6 +51,22 @@ export 'src/protocol/exact_source_range.dart'
         RitoExactSourceRect;
 export 'src/protocol/footnote_decoder.dart' show RitoFootnote, RitoFootnoteKind;
 export 'src/protocol/hit_resolver.dart';
+export 'src/protocol/navigation_query.dart'
+    show
+        RitoCompareQuery,
+        RitoLocateQuery,
+        RitoLocatedPage,
+        RitoLocation,
+        RitoLocationResult,
+        RitoLocationUnavailable,
+        RitoNavigationQuery,
+        RitoNavigationRequest,
+        RitoNavigationResult,
+        RitoNotLaidOut,
+        RitoOrderResult,
+        RitoTocEntryAtPageQuery,
+        RitoTocEntryAtPositionQuery,
+        RitoTocEntryResult;
 export 'src/protocol/primitive_models.dart';
 export 'src/protocol/request_models.dart';
 export 'src/protocol/search.dart'

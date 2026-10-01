@@ -82,6 +82,13 @@ paint domain grows, and a stale decoder misreads the byte stream.
   length-scaled position) and returns the target re-anchored where it
   landed; project that through `rito_resolve_exact_source_range` to paint
   it.
+- **Reading positions are the engine's answer.** `rito_resolve_navigation`
+  (`RITONVQ1` → `RITONVR1`) names the TOC entry a page or a source position
+  reads under (by its `toc_id`), places a stored locator in an artifact's
+  revision (the page, whether this artifact draws it, or that its chapter
+  is not laid out), and orders two source positions in reading order. Use
+  it for chapter titles, bookmark checks and turn direction rather than
+  matching hrefs or comparing node paths yourself.
 
 ## Keeping a hand-written decoder honest
 

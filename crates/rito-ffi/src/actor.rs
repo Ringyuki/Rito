@@ -9,13 +9,13 @@ use std::{
 use rito_core::runtime::{
     encode_reader_annotation_response, encode_reader_artifact, encode_reader_background_advance,
     encode_reader_background_handoff_ack, encode_reader_exact_source_range_resolution,
-    encode_reader_footnote, encode_reader_foreground_handoff_ack, encode_reader_publication,
-    encode_reader_resource, encode_reader_search_response, encode_reader_text_interaction_response,
-    encode_reader_text_range_geometry, ReaderAdjacentRequest, ReaderAnnotationRequest,
-    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderError,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
-    ReaderSearchRequest, ReaderSession, ReaderTextInteractionRequest, ReaderTextRangeRequest,
-    RuntimePinnedFontPolicyInput,
+    encode_reader_footnote, encode_reader_foreground_handoff_ack, encode_reader_navigation_result,
+    encode_reader_publication, encode_reader_resource, encode_reader_search_response,
+    encode_reader_text_interaction_response, encode_reader_text_range_geometry,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderError, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSession,
+    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
 use crate::error::{FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_TARGET_NOT_PUBLISHED};
@@ -81,6 +81,10 @@ pub(crate) enum ActorCommand {
     },
     Annotation {
         request: ReaderAnnotationRequest,
+        reply: Reply<Vec<u8>>,
+    },
+    Navigation {
+        request: ReaderNavigationRequest,
         reply: Reply<Vec<u8>>,
     },
     ReadFootnote {
@@ -614,6 +618,13 @@ fn run_commands(
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::Navigation { request, reply } => {
+                let result = session
+                    .resolve_navigation(request)
+                    .and_then(|result| encode_reader_navigation_result(&result))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ExactSourceRange { request, reply } => {
                 let result = session
                     .resolve_exact_source_range(request)
@@ -823,6 +834,17 @@ pub(crate) fn request_annotation(
         admission,
         |reply| ActorCommand::Annotation { request, reply },
         "annotation",
+    )
+}
+
+pub(crate) fn request_navigation(
+    admission: CommandAdmission,
+    request: ReaderNavigationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::Navigation { request, reply },
+        "navigation",
     )
 }
 

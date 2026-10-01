@@ -254,6 +254,13 @@ final class _ImageGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
+  }) async {
+    throw UnimplementedError('navigation is out of scope for this fake');
+  }
+
+  @override
   Future<RitoTextRangeGeometry> textRangeGeometry({
     required RitoTextRangeRequest request,
   }) async {
