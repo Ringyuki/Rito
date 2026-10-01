@@ -6,6 +6,8 @@ mod interaction;
 mod primitives;
 
 #[cfg(test)]
+mod query_tests;
+#[cfg(test)]
 mod tests;
 
 use super::{

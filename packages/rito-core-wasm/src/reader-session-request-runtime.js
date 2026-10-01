@@ -5,7 +5,7 @@ export function encodeRitoReaderArtifactRequest(request) {
   writer.externalId(request.sessionId, 'session id');
   writer.externalId(request.requestId, 'request id');
   writer.record((record) => writeLayout(record, request.layout));
-  writer.record((record) => writeLocator(record, request.locator));
+  writer.record((record) => writeRitoReaderLocator(record, request.locator));
   writer.u32(textProfile(request.textProfile), 'text profile');
   return writer.finish();
 }
@@ -42,17 +42,17 @@ function writeLayout(writer, value) {
   writer.f64(value.renderRatio ?? 1, 'render ratio');
 }
 
-function writeLocator(writer, value) {
+export function writeRitoReaderLocator(writer, value) {
   if (value === null || typeof value !== 'object')
     throw new TypeError('Reader locator is required');
   writer.string(value.href, 'locator href');
   if (value.href.length === 0) throw new RangeError('locator href must not be empty');
   writer.option(value.anchorId, (anchor) => writer.string(anchor, 'locator anchor'));
-  writer.option(value.sourcePoint, (point) => writeSourcePointRecord(writer, point));
+  writer.option(value.sourcePoint, (point) => writeRitoReaderSourcePoint(writer, point));
   writer.option(value.sourceRange, (range) => {
     writer.record((record) => {
-      writeSourcePointRecord(record, range.start);
-      writeSourcePointRecord(record, range.end);
+      writeRitoReaderSourcePoint(record, range.start);
+      writeRitoReaderSourcePoint(record, range.end);
     });
   });
   writer.option(value.progression, (progression) => {
@@ -62,7 +62,7 @@ function writeLocator(writer, value) {
   });
 }
 
-function writeSourcePointRecord(writer, value) {
+export function writeRitoReaderSourcePoint(writer, value) {
   if (value === null || typeof value !== 'object' || !Array.isArray(value.nodePath)) {
     throw new TypeError('Reader source point is invalid');
   }

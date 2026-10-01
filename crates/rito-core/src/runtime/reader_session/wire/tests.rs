@@ -880,7 +880,7 @@ const fn rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRect {
     }
 }
 
-fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
+pub(super) fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
     ReaderExactSourceRangeRequest {
         session_id: 7,
         artifact_id: 9,
@@ -898,7 +898,7 @@ fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
     }
 }
 
-fn exact_source_range_resolution_fixture() -> ReaderExactSourceRangeResolution {
+pub(super) fn exact_source_range_resolution_fixture() -> ReaderExactSourceRangeResolution {
     ReaderExactSourceRangeResolution {
         artifact_id: 9,
         status: ReaderExactSourceRangeStatus::Resolved,

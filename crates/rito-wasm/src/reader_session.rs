@@ -447,5 +447,9 @@ fn resource_kind(value: u32) -> ProjectionResult<ReaderResourceKind> {
     }
 }
 
+mod queries;
+
+#[cfg(test)]
+mod query_tests;
 #[cfg(test)]
 mod tests;

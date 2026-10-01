@@ -17,6 +17,7 @@ import {
   encodeRitoReaderBackgroundHandoff,
   encodeRitoReaderBackgroundRequest,
 } from './reader-session-background-runtime.js';
+import { handleRitoReaderSessionQuery } from './reader-session-worker-query-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const COLD_OPEN_DIAGNOSTIC = 'cold-open-attribution-v1';
@@ -41,6 +42,7 @@ export function createRitoCoreWasmReaderSessionWorkerHandler(scope, deps) {
     liveArtifacts: new Set(),
     foregroundArtifactRequests: new Map(),
     backgroundCandidates: new Map(),
+    peekedArtifacts: new Map(),
   };
   let queued = 0;
   let tail = Promise.resolve();
@@ -151,14 +153,23 @@ async function handleMessage(state, deps, message) {
       state.liveArtifacts.delete(message.artifactId);
       state.foregroundArtifactRequests.delete(message.artifactId);
       state.backgroundCandidates.delete(message.artifactId);
+      state.peekedArtifacts.delete(message.artifactId);
       if (state.visibleArtifactId === message.artifactId) state.visibleArtifactId = undefined;
       return { payload: { kind: 'release', released } };
     }
-    default:
+    default: {
+      const answered = handleRitoReaderSessionQuery(state, message, {
+        requireArtifactCapacity,
+        requireOwnedArtifact,
+        disposeTerminalSession,
+        workerError: readerWorkerError,
+      });
+      if (answered) return answered;
       throw readerWorkerError(
         'invalid-request',
         `Unknown reader session request: ${String(message.kind)}`,
       );
+    }
   }
 }
 
@@ -489,6 +500,7 @@ function releaseRawSession(state) {
   state.session = undefined;
   state.visibleArtifactId = undefined;
   state.liveArtifacts.clear();
+  state.peekedArtifacts.clear();
   state.foregroundArtifactRequests.clear();
   state.backgroundCandidates.clear();
   if (!session) return;

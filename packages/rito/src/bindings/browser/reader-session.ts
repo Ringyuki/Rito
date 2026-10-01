@@ -16,6 +16,18 @@ import {
   type RitoReaderSeekOverrides,
   type RitoReaderTextProfile,
   type RitoReaderSessionWorkerLike,
+  type RitoReaderAnnotationRequest,
+  type RitoReaderAnnotationResponse,
+  type RitoReaderExactSourceRangeResolution,
+  type RitoReaderFootnote,
+  type RitoReaderNavigationRequest,
+  type RitoReaderNavigationResult,
+  type RitoReaderSearchResponse,
+  type RitoReaderSourceRange,
+  type RitoReaderTextInteractionQuery,
+  type RitoReaderTextInteractionResponse,
+  type RitoReaderTextPosition,
+  type RitoReaderTextRangeGeometry,
   RitoReaderError,
 } from '@ritojs/core-wasm/decoder';
 
@@ -35,6 +47,18 @@ export type BrowserReaderAdjacentDirection = RitoReaderAdjacentDirection;
 export type BrowserReaderResourceKind = RitoReaderResourceKind;
 export type BrowserReaderTextProfile = RitoReaderTextProfile;
 export type BrowserReaderSeekOverrides = RitoReaderSeekOverrides;
+export type BrowserReaderFootnote = RitoReaderFootnote;
+export type BrowserReaderSearchResponse = RitoReaderSearchResponse;
+export type BrowserReaderTextPosition = RitoReaderTextPosition;
+export type BrowserReaderTextRangeGeometry = RitoReaderTextRangeGeometry;
+export type BrowserReaderSourceRange = RitoReaderSourceRange;
+export type BrowserReaderExactSourceRangeResolution = RitoReaderExactSourceRangeResolution;
+export type BrowserReaderTextInteractionQuery = RitoReaderTextInteractionQuery;
+export type BrowserReaderTextInteractionResponse = RitoReaderTextInteractionResponse;
+export type BrowserReaderAnnotationQuery = RitoReaderAnnotationRequest['query'];
+export type BrowserReaderAnnotationResponse = RitoReaderAnnotationResponse;
+export type BrowserReaderNavigationQuery = RitoReaderNavigationRequest['query'];
+export type BrowserReaderNavigationResult = RitoReaderNavigationResult;
 
 export interface BrowserReaderSessionOpenOptions {
   readonly initialLocator: BrowserReaderLocator;
@@ -97,6 +121,52 @@ export interface BrowserReaderSession {
     kind: BrowserReaderResourceKind,
     href: string,
   ): Promise<BrowserReaderResource>;
+  /**
+   * The adjacent spread as a read-only artifact with no foreground effect,
+   * for a host that previews a page turn under a gesture. Release it, or
+   * make it visible with {@link commitPeekedArtifact}.
+   */
+  peekAdjacent(
+    fromArtifactId: bigint,
+    direction: BrowserReaderAdjacentDirection,
+  ): Promise<BrowserReaderArtifact>;
+  /** Makes a peeked artifact visible, superseding every foreground request in flight. */
+  commitPeekedArtifact(
+    expectedVisibleArtifactId: bigint | undefined,
+    candidateArtifactId: bigint,
+  ): Promise<BrowserReaderForegroundHandoffAck>;
+  readFootnote(artifactId: bigint, key: string): Promise<BrowserReaderFootnote>;
+  /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
+  search(
+    artifactId: bigint,
+    options: {
+      readonly query: string;
+      readonly caseSensitive?: boolean | undefined;
+      readonly wholeWord?: boolean | undefined;
+      readonly limit?: number | undefined;
+    },
+  ): Promise<BrowserReaderSearchResponse>;
+  textRangeGeometry(
+    artifactId: bigint,
+    pageIndex: number,
+    start: BrowserReaderTextPosition,
+    end: BrowserReaderTextPosition,
+  ): Promise<BrowserReaderTextRangeGeometry>;
+  /** Where a durable source range lands on the pages the artifact draws. */
+  exactSourceRange(
+    artifactId: bigint,
+    href: string,
+    range: BrowserReaderSourceRange,
+  ): Promise<BrowserReaderExactSourceRangeResolution>;
+  /** Caret, range, point-range and movement selection, answered by the engine. */
+  textInteraction(
+    artifactId: bigint,
+    query: BrowserReaderTextInteractionQuery,
+  ): Promise<BrowserReaderTextInteractionResponse>;
+  /** Builds an annotation target for a source range, or locates a stored one by its JSON. */
+  annotation(query: BrowserReaderAnnotationQuery): Promise<BrowserReaderAnnotationResponse>;
+  /** The TOC entry at a page or position, where a locator lands, or two positions' order. */
+  navigation(query: BrowserReaderNavigationQuery): Promise<BrowserReaderNavigationResult>;
   release(artifactId: bigint): Promise<boolean>;
   dispose(): Promise<void>;
 }
@@ -168,6 +238,15 @@ function browserReaderSession(
     advanceBackgroundOnce: (...args) => backgroundClient.advanceBackgroundOnce(...args),
     adoptBackgroundCandidate: (...args) => backgroundClient.adoptBackgroundCandidate(...args),
     readResource: (...args) => client.readResource(...args),
+    peekAdjacent: (...args) => client.peekAdjacent(...args),
+    commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
+    readFootnote: (...args) => client.readFootnote(...args),
+    search: (...args) => client.search(...args),
+    textRangeGeometry: (...args) => client.textRangeGeometry(...args),
+    exactSourceRange: (...args) => client.exactSourceRange(...args),
+    textInteraction: (...args) => client.textInteraction(...args),
+    annotation: (query) => client.annotation(query),
+    navigation: (query) => client.navigation(query),
     release: (...args) => client.release(...args),
     dispose: () => client.dispose(),
   };

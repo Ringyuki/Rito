@@ -25,6 +25,18 @@ export type {
   BrowserReaderTextProfile,
   BrowserReaderSessionOpenOptions,
   BrowserReaderSession,
+  BrowserReaderFootnote,
+  BrowserReaderSearchResponse,
+  BrowserReaderTextPosition,
+  BrowserReaderTextRangeGeometry,
+  BrowserReaderSourceRange,
+  BrowserReaderExactSourceRangeResolution,
+  BrowserReaderTextInteractionQuery,
+  BrowserReaderTextInteractionResponse,
+  BrowserReaderAnnotationQuery,
+  BrowserReaderAnnotationResponse,
+  BrowserReaderNavigationQuery,
+  BrowserReaderNavigationResult,
 } from './bindings/browser/reader-session';
 export type {
   BrowserReaderImageLoadOutcome,

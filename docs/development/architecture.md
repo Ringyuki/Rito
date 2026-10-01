@@ -68,9 +68,11 @@ and a peak becomes a floor.
 `rito-wasm` is a narrow binding: it serializes typed results and moves
 bytes across the boundary, and owns no reader policy. `rito-ffi` runs a
 session on one actor thread and exchanges fixed-width values and owned
-byte buffers; the artifact protocol (open, seek, adjacent turn,
-candidate adoption, background advance, resources) is the same one
-`openBrowserReaderSession()` exposes in the browser.
+byte buffers. The session protocol — open, seek, adjacent turns and
+peeks, candidate adoption, background advance, resources, footnotes,
+search, text geometry, source ranges, selection, annotation targets and
+reading-position questions — is the same set of binary messages
+`openBrowserReaderSession()` carries in the browser.
 
 `packages/rito/src/bindings/browser/**` is the only place browser APIs
 live: it loads the WASM module, runs the document runtime in a Worker,

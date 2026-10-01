@@ -9,6 +9,7 @@ import {
 import { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
 import { defaultYieldControl } from './reader-revision-session-support-runtime.js';
+import { createRitoReaderSessionQueryMethods } from './reader-session-worker-client-query-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const MAX_PENDING_MESSAGES = 8;
@@ -50,6 +51,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   const pending = new Map();
   const liveArtifacts = new Set();
   const backgroundCandidates = new Map();
+  const peekedArtifacts = new Map();
   const inFlightReleases = new Map();
   let requestId = 0n;
   let messageId = 0;
@@ -489,6 +491,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       liveArtifacts.delete(artifactId);
       if (foregroundCandidate?.artifactId === artifactId) foregroundCandidate = undefined;
       backgroundCandidates.delete(artifactId);
+      peekedArtifacts.delete(artifactId);
       if (visibleArtifactId === artifactId) visibleArtifactId = undefined;
       return payload.released;
     } catch (error) {
@@ -532,6 +535,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     terminate(worker);
     liveArtifacts.clear();
     backgroundCandidates.clear();
+    peekedArtifacts.clear();
     visibleArtifactId = undefined;
   };
 
@@ -683,9 +687,37 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     worker.removeEventListener('messageerror', handleMessageError);
   }
 
+  const queries = createRitoReaderSessionQueryMethods({
+    sessionId,
+    liveArtifacts,
+    peekedArtifacts,
+    send,
+    requireOpen,
+    nextRequestId,
+    decodeArtifactPayload,
+    invalidPayload,
+    readerError: (code, message) => new RitoReaderError(code, message),
+    visibleArtifactId: () => visibleArtifactId,
+    setVisibleArtifact: (artifactId) => {
+      visibleArtifactId = artifactId;
+      foregroundCandidate = undefined;
+    },
+    supersedeForeground: () => {
+      nextForegroundIntent();
+      supersedeSeeks();
+    },
+    runInForegroundLane,
+    failIfFatal: (error) => {
+      if (phase !== 'disposed' && isFatalSessionError(error)) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  });
+
   return {
     sessionId,
     open,
+    ...queries,
     readPublication,
     requestAdjacent,
     requestArtifact,

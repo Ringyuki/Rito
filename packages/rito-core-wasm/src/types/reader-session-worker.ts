@@ -11,7 +11,21 @@ import type {
   RitoReaderResourceKind,
   RitoReaderResource,
   RitoReaderTextProfile,
+  RitoReaderSourceRange,
 } from './reader-session';
+import type {
+  RitoReaderAnnotationRequest,
+  RitoReaderAnnotationResponse,
+  RitoReaderExactSourceRangeResolution,
+  RitoReaderFootnote,
+  RitoReaderNavigationRequest,
+  RitoReaderNavigationResult,
+  RitoReaderSearchResponse,
+  RitoReaderTextInteractionQuery,
+  RitoReaderTextInteractionResponse,
+  RitoReaderTextPosition,
+  RitoReaderTextRangeGeometry,
+} from './reader-session-query';
 
 export type RitoReaderErrorCode =
   | 'invalid-session'
@@ -87,6 +101,52 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
     kind: RitoReaderResourceKind,
     href: string,
   ): Promise<RitoReaderResource>;
+  /**
+   * Publishes the adjacent spread as a read-only artifact with no
+   * foreground effect: no intent begins and no pending candidate is
+   * cleared. Release it, or commit it with {@link commitPeekedArtifact}.
+   */
+  peekAdjacent(
+    fromArtifactId: bigint,
+    direction: RitoReaderAdjacentDirection,
+  ): Promise<RitoReaderArtifact>;
+  /** Makes a peeked artifact visible, superseding every foreground intent in flight. */
+  commitPeekedArtifact(
+    expectedVisibleArtifactId: bigint | undefined,
+    candidateArtifactId: bigint,
+  ): Promise<RitoReaderForegroundHandoffAck>;
+  readFootnote(artifactId: bigint, key: string): Promise<RitoReaderFootnote>;
+  /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
+  search(
+    artifactId: bigint,
+    options: {
+      readonly query: string;
+      readonly caseSensitive?: boolean | undefined;
+      readonly wholeWord?: boolean | undefined;
+      readonly limit?: number | undefined;
+    },
+  ): Promise<RitoReaderSearchResponse>;
+  textRangeGeometry(
+    artifactId: bigint,
+    pageIndex: number,
+    start: RitoReaderTextPosition,
+    end: RitoReaderTextPosition,
+  ): Promise<RitoReaderTextRangeGeometry>;
+  /** Where a durable source range lands on the pages the artifact draws. */
+  exactSourceRange(
+    artifactId: bigint,
+    href: string,
+    range: RitoReaderSourceRange,
+  ): Promise<RitoReaderExactSourceRangeResolution>;
+  /** The selection questions a browser reader asks, answered by the same engine code. */
+  textInteraction(
+    artifactId: bigint,
+    query: RitoReaderTextInteractionQuery,
+  ): Promise<RitoReaderTextInteractionResponse>;
+  /** Builds or locates an annotation target; targets depend only on the source. */
+  annotation(query: RitoReaderAnnotationRequest['query']): Promise<RitoReaderAnnotationResponse>;
+  /** The TOC entry at a page or position, where a locator lands, or two positions' order. */
+  navigation(query: RitoReaderNavigationRequest['query']): Promise<RitoReaderNavigationResult>;
   release(artifactId: bigint): Promise<boolean>;
   dispose(): Promise<void>;
 }

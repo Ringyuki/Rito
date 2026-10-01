@@ -103,7 +103,7 @@ export function decodeRitoReaderResource(value) {
   return resource;
 }
 
-function readLocator(reader) {
+export function readLocator(reader) {
   const record = reader.record('locator');
   const locator = {
     href: record.string('locator href'),
@@ -120,7 +120,7 @@ function readLocator(reader) {
   return locator;
 }
 
-function readSourcePoint(reader) {
+export function readSourcePoint(reader) {
   const record = reader.record('source point');
   const point = {
     nodePath: readCollection(record, 'source point path', () => record.u32('source path part')),
@@ -130,7 +130,7 @@ function readSourcePoint(reader) {
   return point;
 }
 
-function readSourceRange(reader) {
+export function readSourceRange(reader) {
   const record = reader.record('source range');
   const range = { start: readSourcePoint(record), end: readSourcePoint(record) };
   record.finish('source range');
@@ -241,7 +241,7 @@ function readTextRun(reader) {
   return run;
 }
 
-function readRect(reader) {
+export function readRect(reader) {
   return {
     x: reader.f64('rectangle x'),
     y: reader.f64('rectangle y'),
@@ -250,7 +250,7 @@ function readRect(reader) {
   };
 }
 
-function readCollection(reader, field, read) {
+export function readCollection(reader, field, read) {
   return Array.from({ length: reader.count(field) }, read);
 }
 

@@ -252,8 +252,10 @@ Reader implementations may return `void`, which is also safe to `await`.
   prepares each candidate's resources, adopts it with a compare-and-swap
   on the visible artifact, drives the background publication step itself
   and keeps a replaced artifact alive through its own page-turn animation
-- you want the same protocol the Flutter adapter and the C ABI expose,
-  with `createBrowserReaderSessionCanvasPresenter()` as the Canvas pen
+- you want the same protocol the Flutter adapter and the C ABI expose —
+  page turns and peeks, search, footnotes, selection, annotation targets
+  and reading-position questions included — with
+  `createBrowserReaderSessionCanvasPresenter()` as the Canvas pen
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 

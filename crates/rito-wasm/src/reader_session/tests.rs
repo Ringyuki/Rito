@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-fn open_test_projection(
+pub(super) fn open_test_projection(
     publication: Vec<u8>,
     session_id: u64,
 ) -> Result<ReaderSessionProjection, super::ReaderProjectionError> {
@@ -36,7 +36,7 @@ use super::{
     ReaderProjectionError, ReaderProjectionErrorCode, ReaderSessionProjection, RitoReaderSession,
 };
 
-const SESSION_ID: u64 = (1u64 << 60) + 41;
+pub(super) const SESSION_ID: u64 = (1u64 << 60) + 41;
 
 #[test]
 fn wasm_error_codes_match_actionable_core_reader_kinds() {
@@ -884,7 +884,7 @@ fn wasm_projection_rejects_top_bit_ids_instead_of_converting_them_to_negative() 
     );
 }
 
-fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
+pub(super) fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
     encode_reader_artifact_request(&ReaderArtifactRequest {
         session_id,
         request_id,
@@ -915,7 +915,7 @@ fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
     .expect("request encodes")
 }
 
-fn adjacent_wire(
+pub(super) fn adjacent_wire(
     session_id: u64,
     request_id: u64,
     from_artifact_id: u64,
@@ -956,7 +956,7 @@ fn handoff_wire(
     .expect("background handoff encodes")
 }
 
-fn foreground_handoff_wire(
+pub(super) fn foreground_handoff_wire(
     session_id: u64,
     expected_visible_artifact_id: Option<u64>,
     candidate_artifact_id: u64,
@@ -1038,7 +1038,7 @@ fn advance_projection_to_candidate(
     panic!("background did not produce a candidate within the fixture bound");
 }
 
-fn source_locator_fixture_epub() -> Vec<u8> {
+pub(super) fn source_locator_fixture_epub() -> Vec<u8> {
     let paragraphs = (0..48)
         .map(|index| {
             format!(

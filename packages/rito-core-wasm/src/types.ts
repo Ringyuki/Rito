@@ -18,4 +18,5 @@ export type * from './types/pinned-font';
 export type * from './types/reader-session-display';
 export type * from './types/reader-session-primitive';
 export type * from './types/reader-session';
+export type * from './types/reader-session-query';
 export type * from './types/reader-session-worker';

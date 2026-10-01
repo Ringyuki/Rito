@@ -54,7 +54,11 @@ export const runtimeModules = [
   'reader-session-request-runtime.js',
   'reader-session-foreground-runtime.js',
   'reader-session-background-runtime.js',
+  'reader-session-query-request-runtime.js',
+  'reader-session-query-decoder-runtime.js',
+  'reader-session-worker-query-runtime.js',
   'reader-session-worker-runtime.js',
+  'reader-session-worker-client-query-runtime.js',
   'reader-session-worker-client-runtime.js',
 ];
 
@@ -89,5 +93,6 @@ export const typeModules = [
   'reader-session-display',
   'reader-session-primitive',
   'reader-session',
+  'reader-session-query',
   'reader-session-worker',
 ];
