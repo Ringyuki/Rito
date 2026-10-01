@@ -194,10 +194,15 @@ impl ParleyInlineContext {
         })
     }
 
-    /// The ruby line's (above, below). One line: the base text's normal
-    /// envelope, raised where the annotation's em stack over the base's
-    /// em ascent reaches higher. Two lines: the second line grows by the
-    /// annotation's overflow minus the space the first line leaves
+    /// The ruby line's (above, below), over the line shape's own text:
+    /// `<rb>中中</rb>中中` (`ab ab` + `ab` for a Latin base) on one line, or
+    /// that ruby with `中文` on a second line under `中中中中` (`中中a中中`
+    /// when the previous line mixes fonts). Each line's box is the normal
+    /// envelope of the primary font and every font its own text used; the
+    /// base's em ascent is the em height of every font the base used. One
+    /// line: the annotation's em stack over the base's em ascent raises the
+    /// baseline where it reaches higher. Two lines: the second line grows
+    /// by the annotation's overflow minus the space the first line leaves
     /// under its text.
     fn ruby_line(
         &self,
@@ -206,9 +211,14 @@ impl ParleyInlineContext {
         primary: &Face,
         ruby: &RubyProbe,
     ) -> (f64, f64) {
-        let han = self.char_face(style, size, false, '\u{4E2D}', primary);
-        let latin = self.char_face(style, size, false, 'a', primary);
-        let base = if ruby.latin_base { &latin } else { &han };
+        let (base_text, trailing) = match (ruby.latin_base, ruby.two_line) {
+            (true, _) => ("ab ab", "ab"),
+            (false, false) => ("\u{4E2D}\u{4E2D}", "\u{4E2D}\u{4E2D}"),
+            (false, true) => ("\u{4E2D}\u{6587}", "\u{4E2D}\u{6587}"),
+        };
+        let faces = |text: &str| self.used_faces(style, size, false, text);
+        let base_faces = faces(base_text);
+        let line_faces = faces(&format!("{base_text}{trailing}"));
         let annotation_size = size * f64::from(ruby.ratio) / 10_000.0;
         let annotation_text = match (ruby.annotation.is_empty(), ruby.cjk_annotation) {
             (false, _) => ruby.annotation.as_str(),
@@ -216,27 +226,27 @@ impl ParleyInlineContext {
             (true, false) => "an",
         };
         let annotation_faces = self.used_faces(style, annotation_size, false, annotation_text);
-        let base_em_ascent = em_height(&[base], primary, size).0;
+        let base_em_ascent = em_height(&with_primary(&base_faces, None), primary, size).0;
         let (em_ascent, em_descent) = em_height(
             &annotation_faces.iter().collect::<Vec<_>>(),
             primary,
             annotation_size,
         );
         let annotation_top = base_em_ascent + em_ascent + em_descent;
+        let (above, below) = envelope(&with_primary(&line_faces, Some(primary)), size);
         if !ruby.two_line {
-            let (above, below) = envelope(&[primary, base], size);
             return (above.max(annotation_top), below);
         }
-        let mut faces = vec![primary, &han, base];
-        let mut previous = vec![&han];
-        if ruby.mixed_previous {
-            faces.push(&latin);
-            previous.push(&latin);
-        }
-        let (above, below) = envelope(&faces, size);
-        let line = above + below;
+        let previous_faces = faces(if ruby.mixed_previous {
+            "\u{4E2D}\u{4E2D}a\u{4E2D}\u{4E2D}"
+        } else {
+            "\u{4E2D}\u{4E2D}\u{4E2D}\u{4E2D}"
+        });
+        let (previous_above, previous_below) =
+            envelope(&with_primary(&previous_faces, Some(primary)), size);
+        let previous_line = previous_above + previous_below;
         let primary_descent = primary.rounded(size).1;
-        let reusable = previous
+        let reusable = previous_faces
             .iter()
             .map(|face| {
                 (primary_descent - face.normalized_em(size).1)
@@ -244,14 +254,14 @@ impl ParleyInlineContext {
                     .floor()
             })
             .fold(f64::INFINITY, f64::min);
-        let space_under = line - (above + primary_descent - reusable);
+        let space_under = previous_line - (previous_above + primary_descent - reusable);
         let overflow = (annotation_top - above).max(0.0);
         let shift = if space_under > 0.0 {
             (overflow - space_under).max(0.0)
         } else {
             overflow
         };
-        (line + shift + above, line - above)
+        (previous_line + shift + above, below)
     }
 
     /// The (above, below) of strut text holding a bold `①` span at the
@@ -349,6 +359,11 @@ impl ParleyInlineContext {
     }
 }
 
+/// `faces` by reference, with `primary` ahead of them when given.
+fn with_primary<'a>(faces: &'a [Face], primary: Option<&'a Face>) -> Vec<&'a Face> {
+    primary.into_iter().chain(faces.iter()).collect()
+}
+
 /// The greatest normal-line ascent and descent among `faces`.
 fn envelope(faces: &[&Face], size: f64) -> (f64, f64) {
     faces
@@ -394,13 +409,24 @@ fn inline_box(primary: &Face, text: &Face, size: f64, line_height: Option<f64>) 
 /// Skia hands them to Blink's `FontMetrics`: the hhea metrics (the OS/2
 /// typo metrics when the face sets USE_TYPO_METRICS), each rounded.
 pub(crate) fn rounded_metrics(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64, f64) {
+    let round = |value: f64| (value + 0.5).floor();
+    platform_metrics_with_gap(font_ref, size).map_or((0.0, 0.0, 0.0), |(ascent, descent, gap)| {
+        (round(ascent), round(descent), round(gap))
+    })
+}
+
+/// A face's unrounded ascent and descent at `size`.
+fn platform_metrics(font_ref: &skrifa::FontRef<'_>, size: f64) -> Option<(f64, f64)> {
+    platform_metrics_with_gap(font_ref, size).map(|(ascent, descent, _)| (ascent, descent))
+}
+
+/// A face's unrounded ascent, descent and line gap at `size`: the hhea
+/// metrics, or the OS/2 typo metrics when the face sets USE_TYPO_METRICS.
+fn platform_metrics_with_gap(font_ref: &skrifa::FontRef<'_>, size: f64) -> Option<(f64, f64, f64)> {
     use skrifa::raw::TableProvider as _;
-    let Ok(head) = font_ref.head() else {
-        return (0.0, 0.0, 0.0);
-    };
-    let upem = f64::from(head.units_per_em());
+    let upem = f64::from(font_ref.head().ok()?.units_per_em());
     if upem <= 0.0 {
-        return (0.0, 0.0, 0.0);
+        return None;
     }
     let use_typo = font_ref.os2().ok().is_some_and(|os2| {
         os2.fs_selection()
@@ -417,18 +443,26 @@ pub(crate) fn rounded_metrics(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64
             -f64::from(hhea.descender().to_i16()),
             f64::from(hhea.line_gap().to_i16()),
         ),
-        _ => return (0.0, 0.0, 0.0),
+        _ => return None,
     };
-    let scale = |units: f64| (units * size / upem + 0.5).floor();
-    (scale(ascent), scale(descent), scale(gap))
+    let scale = |units: f64| units * size / upem;
+    Some((scale(ascent), scale(descent), scale(gap)))
 }
 
 /// The OS/2 typo ascent and descent of a face at `size`, normalized so
 /// they sum to the em and each rounded onto the 1/64 grid (Chromium's
-/// `NormalizedTypoAscentAndDescent`); a face without usable typo metrics
-/// normalizes its whole-pixel ascent and descent instead.
+/// `NormalizedTypoAscentAndDescent`). A face whose typo metrics are
+/// unusable normalizes its unrounded platform ascent and descent instead.
 pub(crate) fn normalized_typo_height(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
     use skrifa::raw::TableProvider as _;
+    let normalize = |ascent: f64, descent: f64| {
+        let height = ascent + descent;
+        if height <= 0.0 || ascent < 0.0 || ascent > height {
+            return None;
+        }
+        let normalized_ascent = layout_unit(ascent * size / height);
+        Some((normalized_ascent, layout_unit(size) - normalized_ascent))
+    };
     let typo = font_ref
         .os2()
         .ok()
@@ -438,20 +472,13 @@ pub(crate) fn normalized_typo_height(font_ref: &skrifa::FontRef<'_>, size: f64) 
                 -f64::from(os2.s_typo_descender()),
             )
         })
-        .filter(|(ascent, _)| *ascent > 0.0);
-    let (ascent, descent) = match typo {
-        Some(pair) => pair,
-        None => {
-            let (ascent, descent, _) = rounded_metrics(font_ref, size);
-            (ascent, descent)
-        }
-    };
-    let height = ascent + descent;
-    if height <= 0.0 || ascent < 0.0 || ascent > height {
-        return (0.0, 0.0);
-    }
-    let normalized_ascent = layout_unit(ascent * size / height);
-    (normalized_ascent, layout_unit(size) - normalized_ascent)
+        .filter(|(ascent, _)| *ascent > 0.0)
+        .and_then(|(ascent, descent)| normalize(ascent, descent));
+    typo.or_else(|| {
+        let (ascent, descent) = platform_metrics(font_ref, size)?;
+        normalize(ascent, descent)
+    })
+    .unwrap_or((0.0, 0.0))
 }
 
 /// Floors a length onto the 1/64 px grid, the way LayoutUnit division
