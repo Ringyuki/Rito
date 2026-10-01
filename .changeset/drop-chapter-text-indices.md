@@ -1,5 +1,7 @@
 ---
 '@ritojs/core': major
+'@ritojs/kit': major
+'@ritojs/react': major
 '@ritojs/core-wasm': minor
 ---
 

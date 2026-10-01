@@ -1,5 +1,7 @@
 ---
 '@ritojs/core': patch
+'@ritojs/kit': patch
+'@ritojs/react': patch
 '@ritojs/core-wasm': minor
 ---
 
