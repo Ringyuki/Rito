@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import '../protocol/annotation_target.dart';
 import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/background_decoder.dart';
@@ -20,6 +21,7 @@ import '../protocol/request_models.dart';
 import '../protocol/resource_decoder.dart';
 import '../protocol/search.dart';
 import '../protocol/text_geometry.dart';
+import '../protocol/text_interaction.dart';
 import 'bindings.dart';
 import 'gateway_queue.dart';
 import 'owned_byte_transfer.dart';
@@ -103,6 +105,16 @@ abstract interface class RitoReaderGateway {
   /// Projects a durable source range onto the pages an artifact draws.
   Future<RitoExactSourceRangeResolution> exactSourceRange({
     required RitoExactSourceRangeRequest request,
+  });
+
+  /// Resolves a caret, a range or a caret movement against an artifact.
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  });
+
+  /// Builds an annotation target or locates a stored one.
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
   });
 
   /// Reads a footnote definition an artifact referenced. [key] is the
@@ -207,6 +219,10 @@ final class RitoIsolateGateway
       const RitoTextGeometryEncoder();
   final RitoExactSourceRangeDecoder _exactSourceRangeDecoder =
       const RitoExactSourceRangeDecoder();
+  final RitoTextInteractionDecoder _textInteractionDecoder =
+      const RitoTextInteractionDecoder();
+  final RitoAnnotationDecoder _annotationDecoder =
+      const RitoAnnotationDecoder();
   final RitoTextGeometryDecoder _textGeometryDecoder =
       const RitoTextGeometryDecoder();
   final RitoRequestEncoder _searchEncoder = const RitoRequestEncoder();
@@ -755,6 +771,68 @@ final class RitoIsolateGateway
               );
             },
           ),
+    );
+  }
+
+  @override
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  }) async {
+    return _queue.ordered<RitoTextInteractionResponse>(
+      sessionId: request.sessionId,
+      operation: () =>
+          _guardNativeSessionOperation<RitoTextInteractionResponse>(
+            sessionId: request.sessionId,
+            requestId: _diagnosticRequestId(request.sessionId),
+            operation: () async {
+              final worker = await _worker;
+              final wireBytes = await worker.invokeWire(
+                _TextInteractionOperation(
+                  sessionId: request.sessionId,
+                  requestBytes: _requestEncoder.encodeTextInteraction(request),
+                ),
+              );
+              return _decodeSessionWire<RitoTextInteractionResponse>(
+                sessionId: request.sessionId,
+                field: 'text interaction',
+                wireBytes: wireBytes,
+                decode: _textInteractionDecoder.decode,
+                validate: (response) =>
+                    response.artifactId == request.artifactId,
+              );
+            },
+          ),
+    );
+  }
+
+  @override
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
+  }) async {
+    return _queue.ordered<RitoAnnotationResponse>(
+      sessionId: request.sessionId,
+      operation: () => _guardNativeSessionOperation<RitoAnnotationResponse>(
+        sessionId: request.sessionId,
+        requestId: _diagnosticRequestId(request.sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _AnnotationOperation(
+              sessionId: request.sessionId,
+              requestBytes: _requestEncoder.encodeAnnotation(request),
+            ),
+          );
+          return _decodeSessionWire<RitoAnnotationResponse>(
+            sessionId: request.sessionId,
+            field: 'annotation',
+            wireBytes: wireBytes,
+            decode: _annotationDecoder.decode,
+            validate: (response) =>
+                request.query is! RitoCreateAnnotationQuery ||
+                response.level == RitoAnnotationLevel.created,
+          );
+        },
+      ),
     );
   }
 

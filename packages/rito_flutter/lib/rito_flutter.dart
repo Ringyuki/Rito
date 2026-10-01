@@ -31,6 +31,15 @@ export 'src/native/bindings.dart'
         ritoNativeStatusTargetNotPublished,
         ritoNativeStatusUnsupportedProfile;
 export 'src/native/gateway.dart';
+export 'src/protocol/annotation_target.dart'
+    show
+        RitoAnnotationLevel,
+        RitoAnnotationQuery,
+        RitoAnnotationRequest,
+        RitoAnnotationResponse,
+        RitoAnnotationTarget,
+        RitoCreateAnnotationQuery,
+        RitoResolveAnnotationQuery;
 export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart'
     show RitoPaintRuby, RitoPaintText, RitoTextPaintCommand;
@@ -52,6 +61,33 @@ export 'src/protocol/text_geometry.dart'
         RitoTextRangeGeometry,
         RitoTextRangeRequest,
         RitoTextRect;
+export 'src/protocol/text_interaction.dart'
+    show
+        RitoBoundaryResult,
+        RitoCaret,
+        RitoCaretAddress,
+        RitoCaretAffinity,
+        RitoCaretGeometry,
+        RitoCaretQuery,
+        RitoCaretResult,
+        RitoMissResult,
+        RitoMovementQuery,
+        RitoPendingResult,
+        RitoRangeFromPointsQuery,
+        RitoRangeQuery,
+        RitoRangeToPointQuery,
+        RitoSelectionBoundary,
+        RitoSelectionGranularity,
+        RitoSelectionMovement,
+        RitoSelectionResult,
+        RitoTextInteractionQuery,
+        RitoTextInteractionRequest,
+        RitoTextInteractionResponse,
+        RitoTextInteractionResult,
+        RitoTextInteractionUnavailableReason,
+        RitoTextPoint,
+        RitoTextSelection,
+        RitoUnavailableResult;
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'
     show RitoFontEnvelope, RitoFontEnvelopeStore;

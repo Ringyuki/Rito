@@ -1418,14 +1418,13 @@ fn a_word_selection_becomes_a_stored_annotation_across_the_abi() {
     assert_eq!(created.status, RITO_STATUS_OK, "{}", created.error);
     let created = decode_reader_annotation_response(&created.wire).expect("decodes");
     assert_eq!(created.level, ReaderAnnotationLevel::Created);
-    assert!(created
-        .target_json
-        .contains(&format!("\"exact\":\"{}\"", word.selection.selected_text)));
+    let target = created.target.clone().expect("a created target");
+    assert_eq!(target.exact, word.selection.selected_text);
 
     let wire = encode_reader_annotation_request(&ReaderAnnotationRequest {
         session_id,
         query: ReaderAnnotationQuery::Resolve {
-            target_json: created.target_json.clone(),
+            target_json: target.json.clone(),
         },
     })
     .expect("annotation encodes");
@@ -1435,6 +1434,6 @@ fn a_word_selection_becomes_a_stored_annotation_across_the_abi() {
     assert_eq!(found.status, RITO_STATUS_OK, "{}", found.error);
     let found = decode_reader_annotation_response(&found.wire).expect("decodes");
     assert_eq!(found.level, ReaderAnnotationLevel::Exact);
-    assert_eq!(found.target_json, created.target_json);
+    assert_eq!(found.target, created.target);
     call_dispose(session_id);
 }

@@ -140,7 +140,20 @@ pub(in crate::runtime::reader_session::wire) fn annotation_response(
 ) -> Result<Vec<u8>, ReaderError> {
     let mut writer = Writer::message(READER_ANNOTATION_RESPONSE_WIRE_MAGIC, READER_WIRE_VERSION);
     writer.u8(tag_of(&ANNOTATION_LEVELS, &value.level));
-    writer.string(&value.target_json, "annotation target")?;
+    writer.option(value.target.as_ref(), |writer, target| {
+        writer.record(|writer| {
+            writer.string(&target.json, "annotation target")?;
+            writer.string(&target.href, "annotation href")?;
+            source_range(writer, &target.range)?;
+            writer.string(&target.exact, "annotation exact")?;
+            writer.string(&target.prefix, "annotation prefix")?;
+            writer.string(&target.suffix, "annotation suffix")?;
+            writer.u64(target.start);
+            writer.u64(target.end);
+            writer.u64(target.chapter_length);
+            Ok(())
+        })
+    })?;
     writer.finish_message()
 }
 

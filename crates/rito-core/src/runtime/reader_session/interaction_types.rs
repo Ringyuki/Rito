@@ -213,16 +213,33 @@ pub enum ReaderAnnotationLevel {
     Quote,
     Position,
     Progression,
-    /// The chapter is gone; `target_json` is empty.
+    /// The chapter is gone.
     OrphanedHrefNotFound,
-    /// The chapter holds no text; `target_json` is empty.
+    /// The chapter holds no text.
     OrphanedEmptyChapter,
 }
 
-/// A target in the engine's canonical JSON, which is what hosts persist:
-/// the one built, or the stored one re-anchored where it was found.
+/// An annotation target: `json` is the engine's canonical serialization,
+/// which is what hosts persist, and the remaining fields are its contents
+/// so a host never parses JSON itself.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderAnnotationTarget {
+    pub json: String,
+    pub href: String,
+    pub range: ReaderSourceRange,
+    pub exact: String,
+    pub prefix: String,
+    pub suffix: String,
+    /// UTF-16 offsets into the chapter's canonical text.
+    pub start: u64,
+    pub end: u64,
+    pub chapter_length: u64,
+}
+
+/// The target built, or the stored one re-anchored where it was found;
+/// absent only for the orphaned levels.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReaderAnnotationResponse {
     pub level: ReaderAnnotationLevel,
-    pub target_json: String,
+    pub target: Option<ReaderAnnotationTarget>,
 }

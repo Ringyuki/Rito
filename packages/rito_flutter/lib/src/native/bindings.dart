@@ -207,6 +207,30 @@ external int _ritoResolveExactSourceRange(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_text_interaction',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveTextInteraction(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_annotation',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveAnnotation(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReadFootnoteNative>(
   symbol: 'rito_read_footnote',
   assetId: ritoNativeAssetId,
@@ -260,6 +284,8 @@ final class RitoNativeBindings {
        _readFootnote = _ritoReadFootnote,
        _textRangeGeometry = _ritoGetTextRangeGeometry,
        _exactSourceRange = _ritoResolveExactSourceRange,
+       _textInteraction = _ritoResolveTextInteraction,
+       _annotation = _ritoResolveAnnotation,
        _search = _ritoSearch,
        _release = _ritoReleaseArtifact,
        _dispose = _ritoDispose,
@@ -327,6 +353,14 @@ final class RitoNativeBindings {
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_resolve_exact_source_range',
            ),
+       _textInteraction = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_text_interaction',
+           ),
+       _annotation = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_annotation',
+           ),
        _search = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_search',
@@ -358,6 +392,8 @@ final class RitoNativeBindings {
   final _ReadFootnoteDart _readFootnote;
   final _OwnedWireRequestDart _textRangeGeometry;
   final _OwnedWireRequestDart _exactSourceRange;
+  final _OwnedWireRequestDart _textInteraction;
+  final _OwnedWireRequestDart _annotation;
   final _OwnedWireRequestDart _search;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
@@ -823,6 +859,36 @@ final class RitoNativeBindings {
       wireName: 'RITOESQ1',
       outputName: 'exact source range',
       operation: _exactSourceRange,
+    );
+  }
+
+  Uint8List textInteractionEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The query decides the width.
+      expectedLength: null,
+      wireName: 'RITOTIQ1',
+      outputName: 'text interaction',
+      operation: _textInteraction,
+    );
+  }
+
+  Uint8List annotationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The href or target JSON makes this message variable width.
+      expectedLength: null,
+      wireName: 'RITOANQ1',
+      outputName: 'annotation',
+      operation: _annotation,
     );
   }
 
@@ -1353,6 +1419,22 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings.exactSourceRangeEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List textInteractionEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.textInteractionEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List annotationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.annotationEncoded(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );

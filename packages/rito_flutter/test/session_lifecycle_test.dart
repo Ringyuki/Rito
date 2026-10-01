@@ -997,6 +997,20 @@ final class _MockGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  }) async {
+    throw UnimplementedError('text interaction is out of scope for this fake');
+  }
+
+  @override
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
+  }) async {
+    throw UnimplementedError('annotations are out of scope for this fake');
+  }
+
+  @override
   Future<RitoTextRangeGeometry> textRangeGeometry({
     required RitoTextRangeRequest request,
   }) async {

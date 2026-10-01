@@ -11,10 +11,10 @@ use super::{
 };
 use crate::runtime::reader_session::{
     wire::primitives::invalid, ReaderAnnotationQuery, ReaderAnnotationRequest,
-    ReaderAnnotationResponse, ReaderCaret, ReaderCaretAddress, ReaderCaretGeometry, ReaderError,
-    ReaderExactSourceRect, ReaderRect, ReaderSelectionResult, ReaderTextInteractionQuery,
-    ReaderTextInteractionRequest, ReaderTextInteractionResponse, ReaderTextInteractionResult,
-    ReaderTextPoint, ReaderTextPosition, ReaderTextSelection,
+    ReaderAnnotationResponse, ReaderAnnotationTarget, ReaderCaret, ReaderCaretAddress,
+    ReaderCaretGeometry, ReaderError, ReaderExactSourceRect, ReaderRect, ReaderSelectionResult,
+    ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResponse,
+    ReaderTextInteractionResult, ReaderTextPoint, ReaderTextPosition, ReaderTextSelection,
 };
 
 pub(in crate::runtime::reader_session::wire) fn text_interaction_request(
@@ -157,7 +157,21 @@ pub(in crate::runtime::reader_session::wire) fn annotation_response(
     )?;
     let response = ReaderAnnotationResponse {
         level: from_tag(&ANNOTATION_LEVELS, reader.u8()?, "annotation level")?,
-        target_json: reader.string("annotation target")?,
+        target: reader.option("annotation target", |reader| {
+            reader.record("annotation target", |reader| {
+                Ok(ReaderAnnotationTarget {
+                    json: reader.string("annotation target")?,
+                    href: reader.string("annotation href")?,
+                    range: source_range(reader)?,
+                    exact: reader.string("annotation exact")?,
+                    prefix: reader.string("annotation prefix")?,
+                    suffix: reader.string("annotation suffix")?,
+                    start: reader.u64()?,
+                    end: reader.u64()?,
+                    chapter_length: reader.u64()?,
+                })
+            })
+        })?,
     };
     reader.finish("annotation response wire message")?;
     Ok(response)

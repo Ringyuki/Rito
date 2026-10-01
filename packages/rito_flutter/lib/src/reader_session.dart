@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'font/artifact_font_cache.dart';
 import 'image/artifact_image_cache.dart';
 import 'native/gateway.dart';
+import 'protocol/annotation_target.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
 import 'protocol/exact_source_range.dart';
@@ -17,6 +18,7 @@ import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
 import 'protocol/search.dart';
 import 'protocol/text_geometry.dart';
+import 'protocol/text_interaction.dart';
 
 typedef RitoArtifactResourceReader =
     Future<RitoResource> Function(RitoResourceRef reference);
@@ -706,6 +708,106 @@ final class RitoReaderSession {
       );
     }
     return resolution;
+  }
+
+  /// Resolves a caret, a range or a caret movement against [prepared].
+  ///
+  /// These are the five queries a browser reader runs — [RitoCaretQuery],
+  /// [RitoRangeQuery], [RitoRangeToPointQuery], [RitoRangeFromPointsQuery]
+  /// and [RitoMovementQuery] — answered by the same engine code, so a
+  /// selection behaves the same on every host: word boundaries come from
+  /// the engine's segmenter, character drags snap to shaped cluster edges.
+  /// Points and geometry are in the artifact's display-list space, the
+  /// space [RitoHitEntry.bounds] uses. A [RitoCaretAddress] names the
+  /// revision behind the artifact it came from; pass it back only with
+  /// artifacts of that revision.
+  Future<RitoTextInteractionResult> textInteraction(
+    RitoPreparedArtifact prepared,
+    RitoTextInteractionQuery query,
+  ) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    late final RitoTextInteractionResponse response;
+    try {
+      response = await gateway.textInteraction(
+        request: RitoTextInteractionRequest(
+          sessionId: sessionId,
+          artifactId: artifact.artifactId,
+          query: query,
+        ),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (response.artifactId != artifact.artifactId) {
+      throw StateError(
+        'Text interaction ownership does not match its artifact.',
+      );
+    }
+    return response.result;
+  }
+
+  /// Builds the annotation target for a source range, normally a
+  /// selection's [RitoTextSelection.sourceStart] and
+  /// [RitoTextSelection.sourceEnd].
+  ///
+  /// The target is the engine's canonical JSON ([RitoAnnotationTarget.json]),
+  /// the same bytes a browser host stores for the same range: persist it
+  /// as it is.
+  Future<RitoAnnotationTarget> createAnnotationTarget({
+    required String href,
+    required RitoSourceRange range,
+  }) async {
+    if (href.isEmpty) {
+      throw ArgumentError.value(href, 'href', 'must not be empty');
+    }
+    final response = await _annotation(
+      RitoCreateAnnotationQuery(href: href, range: range),
+    );
+    final target = response.target;
+    if (target == null) {
+      throw StateError('A created annotation target carries no target.');
+    }
+    return target;
+  }
+
+  /// Finds a stored annotation target in the publication as it is now.
+  /// [targetJson] is the [RitoAnnotationTarget.json] the host persisted.
+  ///
+  /// The engine tries the source range (checked against its quote), then
+  /// the quote with the best-matching context, then the stored offsets,
+  /// then the length-scaled position, and returns the target re-anchored
+  /// where it landed — project that through [exactSourceRange] to paint
+  /// it. An orphaned response carries no target.
+  Future<RitoAnnotationResponse> resolveAnnotationTarget(String targetJson) {
+    if (targetJson.isEmpty) {
+      throw ArgumentError.value(targetJson, 'targetJson', 'must not be empty');
+    }
+    return _annotation(RitoResolveAnnotationQuery(targetJson));
+  }
+
+  Future<RitoAnnotationResponse> _annotation(RitoAnnotationQuery query) async {
+    _requireOpen();
+    late final RitoAnnotationResponse response;
+    try {
+      response = await gateway.annotation(
+        request: RitoAnnotationRequest(sessionId: sessionId, query: query),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    return response;
   }
 
   /// Resolves where a text range sits on one of [prepared]'s pages.

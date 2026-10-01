@@ -14,7 +14,7 @@ use crate::{
     },
     runtime::{
         annotation_target_from_json, annotation_target_to_json, AnnotationOrphanReason,
-        AnnotationTargetResolution, RuntimeExactTextRangeRect, RuntimeRevision,
+        AnnotationTarget, AnnotationTargetResolution, RuntimeExactTextRangeRect, RuntimeRevision,
         RuntimeSourceLocatorErrorKind, RuntimeTextCaret, RuntimeTextCaretResolution,
         RuntimeTextPointRequest, RuntimeTextRange, RuntimeTextRangeFromPointsRequest,
         RuntimeTextRangeFromPointsResolution, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
@@ -27,9 +27,9 @@ use super::super::{
     artifact::page_origin,
     convert::{reader_source_point, runtime_source_range},
     ReaderAnnotationLevel, ReaderAnnotationQuery, ReaderAnnotationRequest,
-    ReaderAnnotationResponse, ReaderCaret, ReaderCaretAddress, ReaderCaretAffinity,
-    ReaderCaretGeometry, ReaderSelectionBoundary, ReaderSelectionGranularity,
-    ReaderSelectionMovement, ReaderSelectionResult, ReaderTextInteractionQuery,
+    ReaderAnnotationResponse, ReaderAnnotationTarget, ReaderCaret, ReaderCaretAddress,
+    ReaderCaretAffinity, ReaderCaretGeometry, ReaderSelectionBoundary, ReaderSelectionGranularity,
+    ReaderSelectionMovement, ReaderSelectionResult, ReaderSourceRange, ReaderTextInteractionQuery,
     ReaderTextInteractionRequest, ReaderTextInteractionResponse, ReaderTextInteractionResult,
     ReaderTextInteractionUnavailableReason, ReaderTextPoint, ReaderTextSelection,
 };
@@ -176,7 +176,7 @@ impl ReaderSession {
                     .map_err(annotation_error)?;
                 Ok(ReaderAnnotationResponse {
                     level: ReaderAnnotationLevel::Created,
-                    target_json: annotation_target_to_json(&target),
+                    target: Some(reader_annotation_target(&target)?),
                 })
             }
             ReaderAnnotationQuery::Resolve { target_json } => {
@@ -185,7 +185,7 @@ impl ReaderSession {
                     .document
                     .resolve_annotation_target(&target)
                     .map_err(annotation_error)?;
-                Ok(reader_annotation(resolution))
+                reader_annotation(resolution)
             }
         }
     }
@@ -352,7 +352,9 @@ fn movement_result(
     })
 }
 
-fn reader_annotation(resolution: AnnotationTargetResolution) -> ReaderAnnotationResponse {
+fn reader_annotation(
+    resolution: AnnotationTargetResolution,
+) -> Result<ReaderAnnotationResponse, ReaderError> {
     let (level, target) = match resolution {
         AnnotationTargetResolution::Exact { target } => {
             (ReaderAnnotationLevel::Exact, Some(target))
@@ -374,13 +376,32 @@ fn reader_annotation(resolution: AnnotationTargetResolution) -> ReaderAnnotation
             None,
         ),
     };
-    ReaderAnnotationResponse {
+    Ok(ReaderAnnotationResponse {
         level,
-        target_json: target
-            .as_ref()
-            .map(annotation_target_to_json)
-            .unwrap_or_default(),
-    }
+        target: target.as_ref().map(reader_annotation_target).transpose()?,
+    })
+}
+
+fn reader_annotation_target(
+    target: &AnnotationTarget,
+) -> Result<ReaderAnnotationTarget, ReaderError> {
+    let offset = |value: usize, field: &str| {
+        u64::try_from(value).map_err(|_| ReaderError::new(ReaderErrorKind::NumericOverflow, field))
+    };
+    Ok(ReaderAnnotationTarget {
+        json: annotation_target_to_json(target),
+        href: target.href.clone(),
+        range: ReaderSourceRange {
+            start: reader_source_point(target.source_range.start.clone())?,
+            end: reader_source_point(target.source_range.end.clone())?,
+        },
+        exact: target.quote.exact.clone(),
+        prefix: target.quote.prefix.clone(),
+        suffix: target.quote.suffix.clone(),
+        start: offset(target.position.start, "annotation start")?,
+        end: offset(target.position.end, "annotation end")?,
+        chapter_length: offset(target.position.chapter_length, "annotation chapter length")?,
+    })
 }
 
 /// A target the caller handed over is the caller's problem to fix; a

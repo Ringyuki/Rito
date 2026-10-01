@@ -322,18 +322,20 @@ fn annotation_targets_are_the_bytes_the_document_writes() {
             },
         )
         .expect("document builds the target");
-    assert_eq!(created.target_json, annotation_target_to_json(&expected));
+    let created_target = created.target.clone().expect("a created target");
+    assert_eq!(created_target.json, annotation_target_to_json(&expected));
+    assert_eq!(created_target.exact, "Source");
 
     let found = session
         .resolve_annotation(ReaderAnnotationRequest {
             session_id: SESSION,
             query: ReaderAnnotationQuery::Resolve {
-                target_json: created.target_json.clone(),
+                target_json: created_target.json.clone(),
             },
         })
         .expect("target resolves");
     assert_eq!(found.level, ReaderAnnotationLevel::Exact);
-    assert_eq!(found.target_json, created.target_json);
+    assert_eq!(found.target, created.target);
 }
 
 #[test]
@@ -372,7 +374,7 @@ fn an_orphaned_or_malformed_target_is_reported_not_thrown() {
         })
         .expect("an orphan is an answer");
     assert_eq!(found.level, ReaderAnnotationLevel::OrphanedHrefNotFound);
-    assert!(found.target_json.is_empty());
+    assert!(found.target.is_none());
 
     let error = session
         .resolve_annotation(ReaderAnnotationRequest {
@@ -405,10 +407,7 @@ fn interaction_messages_round_trip_and_reject_every_truncated_prefix() {
             target_json: "{}".to_owned(),
         },
     };
-    let annotation_response = ReaderAnnotationResponse {
-        level: ReaderAnnotationLevel::Quote,
-        target_json: "{\"version\":1}".to_owned(),
-    };
+    let annotation_response = quote_annotation_fixture();
 
     let messages = [
         encode_reader_text_interaction_request(&request).expect("request encodes"),
@@ -444,4 +443,285 @@ fn interaction_messages_round_trip_and_reject_every_truncated_prefix() {
             );
         }
     }
+}
+
+pub(super) fn movement_request_fixture() -> ReaderTextInteractionRequest {
+    ReaderTextInteractionRequest {
+        session_id: 7,
+        artifact_id: 9,
+        query: ReaderTextInteractionQuery::Movement {
+            anchor: ReaderCaretAddress {
+                page_index: 3,
+                position: ReaderTextPosition {
+                    block_index: 2,
+                    line_index: 1,
+                    run_index: 0,
+                    char_index: 4,
+                },
+                affinity: ReaderCaretAffinity::Downstream,
+            },
+            focus: ReaderCaretAddress {
+                page_index: 4,
+                position: ReaderTextPosition {
+                    block_index: 0,
+                    line_index: 0,
+                    run_index: 1,
+                    char_index: 6,
+                },
+                affinity: ReaderCaretAffinity::Upstream,
+            },
+            movement: ReaderSelectionMovement::LineDown,
+            preferred_inline_position: Some(120.5),
+            preferred_block_position: None,
+        },
+    }
+}
+
+pub(super) fn points_request_fixture() -> ReaderTextInteractionRequest {
+    ReaderTextInteractionRequest {
+        session_id: 7,
+        artifact_id: 9,
+        query: ReaderTextInteractionQuery::RangeFromPoints {
+            anchor: ReaderTextPoint {
+                page_index: 3,
+                x: 12.5,
+                y: 40.0,
+            },
+            focus: ReaderTextPoint {
+                page_index: 3,
+                x: 20.0,
+                y: 41.0,
+            },
+            granularity: ReaderSelectionGranularity::Paragraph,
+        },
+    }
+}
+
+pub(super) fn selection_response_fixture() -> ReaderTextInteractionResponse {
+    let address = |page_index, char_index, affinity| ReaderCaretAddress {
+        page_index,
+        position: ReaderTextPosition {
+            block_index: 2,
+            line_index: 1,
+            run_index: 0,
+            char_index,
+        },
+        affinity,
+    };
+    let point = |text_offset| ReaderSourcePoint {
+        node_path: vec![1, 0, 4],
+        text_offset,
+    };
+    ReaderTextInteractionResponse {
+        artifact_id: 9,
+        result: ReaderTextInteractionResult::Selection(Box::new(ReaderSelectionResult {
+            anchor_caret: Some(ReaderCaret {
+                address: address(3, 4, ReaderCaretAffinity::Downstream),
+                geometry: Some(ReaderCaretGeometry {
+                    x: 12.5,
+                    y: 40.0,
+                    height: 18.0,
+                }),
+                href: "OEBPS/chapter-2.xhtml".to_owned(),
+                source_point: point(12),
+            }),
+            focus_caret: None,
+            selection: ReaderTextSelection {
+                anchor: address(3, 4, ReaderCaretAffinity::Downstream),
+                focus: address(3, 20, ReaderCaretAffinity::Upstream),
+                start: address(3, 4, ReaderCaretAffinity::Downstream),
+                end: address(3, 20, ReaderCaretAffinity::Upstream),
+                selected_text: "the quoted words".to_owned(),
+                source_start_href: "OEBPS/chapter-2.xhtml".to_owned(),
+                source_start: point(12),
+                source_end_href: "OEBPS/chapter-2.xhtml".to_owned(),
+                source_end: point(28),
+                rects: vec![ReaderExactSourceRect {
+                    page_index: 3,
+                    bounds: ReaderRect {
+                        x: 12.5,
+                        y: 40.0,
+                        width: 88.25,
+                        height: 18.0,
+                    },
+                    block_index: 2,
+                    line_index: 1,
+                    run_index: 0,
+                    start_char_index: 4,
+                    end_char_index: 20,
+                }],
+            },
+            preferred_inline_position: Some(120.5),
+            preferred_block_position: Some(300.25),
+        })),
+    }
+}
+
+pub(super) const CANONICAL_TARGET_FIXTURE: &str = r#"{"version":1,"href":"OEBPS/chapter-2.xhtml","sourceRange":{"start":{"nodePath":[1,0,4],"textOffset":12},"end":{"nodePath":[1,0,4],"textOffset":28}},"quote":{"exact":"the quoted words","prefix":"Before ","suffix":" after"},"position":{"start":12,"end":28,"chapterLength":34}}"#;
+
+pub(super) fn create_annotation_fixture() -> ReaderAnnotationRequest {
+    ReaderAnnotationRequest {
+        session_id: 7,
+        query: ReaderAnnotationQuery::Create {
+            href: "OEBPS/chapter-2.xhtml".to_owned(),
+            range: ReaderSourceRange {
+                start: ReaderSourcePoint {
+                    node_path: vec![1, 0, 4],
+                    text_offset: 12,
+                },
+                end: ReaderSourcePoint {
+                    node_path: vec![1, 0, 4],
+                    text_offset: 28,
+                },
+            },
+        },
+    }
+}
+
+pub(super) fn quote_annotation_fixture() -> ReaderAnnotationResponse {
+    ReaderAnnotationResponse {
+        level: ReaderAnnotationLevel::Quote,
+        target: Some(ReaderAnnotationTarget {
+            json: CANONICAL_TARGET_FIXTURE.to_owned(),
+            href: "OEBPS/chapter-2.xhtml".to_owned(),
+            range: ReaderSourceRange {
+                start: ReaderSourcePoint {
+                    node_path: vec![1, 0, 4],
+                    text_offset: 12,
+                },
+                end: ReaderSourcePoint {
+                    node_path: vec![1, 0, 4],
+                    text_offset: 28,
+                },
+            },
+            exact: "the quoted words".to_owned(),
+            prefix: "Before ".to_owned(),
+            suffix: " after".to_owned(),
+            start: 12,
+            end: 28,
+            chapter_length: 34,
+        }),
+    }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+/// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
+pub(super) const MOVEMENT_HEX: &str = concat!(
+    "5249544f54495131010000006a00000000000000070000000000000009000000",
+    "0000000004150000000000000003000000020000000100000000000000040000",
+    "0001150000000000000004000000000000000000000001000000060000000006",
+    "010000000000205e4000",
+);
+
+/// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
+pub(super) const POINTS_HEX: &str = concat!(
+    "5249544f54495131010000005e00000000000000070000000000000009000000",
+    "0000000003140000000000000003000000000000000000294000000000000044",
+    "401400000000000000030000000000000000003440000000000080444001",
+);
+
+/// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
+pub(super) const SELECTION_HEX: &str = concat!(
+    "5249544f5449523101000000ee01000000000000090000000000000001016f00",
+    "0000000000001500000000000000030000000200000001000000000000000400",
+    "0000010100000000000029400000000000004440000000000000324015000000",
+    "4f454250532f636861707465722d322e7868746d6c1800000000000000030000",
+    "000100000000000000040000000c00000000000000003e010000000000001500",
+    "0000000000000300000002000000010000000000000004000000011500000000",
+    "0000000300000002000000010000000000000014000000001500000000000000",
+    "0300000002000000010000000000000004000000011500000000000000030000",
+    "000200000001000000000000001400000000100000007468652071756f746564",
+    "20776f726473150000004f454250532f636861707465722d322e7868746d6c18",
+    "00000000000000030000000100000000000000040000000c0000000000000015",
+    "0000004f454250532f636861707465722d322e7868746d6c1800000000000000",
+    "030000000100000000000000040000001c000000000000000100000038000000",
+    "0000000003000000000000000000294000000000000044400000000000105640",
+    "0000000000003240020000000100000000000000040000001400000001000000",
+    "0000205e40010000000000c47240",
+);
+
+/// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
+pub(super) const CREATE_HEX: &str = concat!(
+    "5249544f414e5131010000007e00000000000000070000000000000000150000",
+    "004f454250532f636861707465722d322e7868746d6c40000000000000001800",
+    "000000000000030000000100000000000000040000000c000000000000001800",
+    "000000000000030000000100000000000000040000001c00000000000000",
+);
+
+/// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
+pub(super) const QUOTE_HEX: &str = concat!(
+    "5249544f414e523101000000d6010000000000000201b8010000000000001201",
+    "00007b2276657273696f6e223a312c2268726566223a224f454250532f636861",
+    "707465722d322e7868746d6c222c22736f7572636552616e6765223a7b227374",
+    "617274223a7b226e6f646550617468223a5b312c302c345d2c22746578744f66",
+    "66736574223a31327d2c22656e64223a7b226e6f646550617468223a5b312c30",
+    "2c345d2c22746578744f6666736574223a32387d7d2c2271756f7465223a7b22",
+    "6578616374223a227468652071756f74656420776f726473222c227072656669",
+    "78223a224265666f726520222c22737566666978223a22206166746572227d2c",
+    "22706f736974696f6e223a7b227374617274223a31322c22656e64223a32382c",
+    "22636861707465724c656e677468223a33347d7d150000004f454250532f6368",
+    "61707465722d322e7868746d6c40000000000000001800000000000000030000",
+    "000100000000000000040000000c000000000000001800000000000000030000",
+    "000100000000000000040000001c00000000000000100000007468652071756f",
+    "74656420776f726473070000004265666f726520060000002061667465720c00",
+    "0000000000001c000000000000002200000000000000",
+);
+
+fn bytes(hex: &str) -> Vec<u8> {
+    (0..hex.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&hex[index..index + 2], 16).expect("hex"))
+        .collect()
+}
+
+#[test]
+fn interaction_wire_fixtures_are_pinned_byte_for_byte() {
+    let movement = movement_request_fixture();
+    let points = points_request_fixture();
+    let selection = selection_response_fixture();
+    let create = create_annotation_fixture();
+    let quote = quote_annotation_fixture();
+    assert_eq!(
+        hex(&encode_reader_text_interaction_request(&movement).unwrap()),
+        MOVEMENT_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_text_interaction_request(&points).unwrap()),
+        POINTS_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_text_interaction_response(&selection).unwrap()),
+        SELECTION_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_annotation_request(&create).unwrap()),
+        CREATE_HEX
+    );
+    assert_eq!(
+        hex(&encode_reader_annotation_response(&quote).unwrap()),
+        QUOTE_HEX
+    );
+    assert_eq!(
+        decode_reader_text_interaction_request(&bytes(MOVEMENT_HEX)),
+        Ok(movement)
+    );
+    assert_eq!(
+        decode_reader_text_interaction_request(&bytes(POINTS_HEX)),
+        Ok(points)
+    );
+    assert_eq!(
+        decode_reader_text_interaction_response(&bytes(SELECTION_HEX)),
+        Ok(selection)
+    );
+    assert_eq!(
+        decode_reader_annotation_request(&bytes(CREATE_HEX)),
+        Ok(create)
+    );
+    assert_eq!(
+        decode_reader_annotation_response(&bytes(QUOTE_HEX)),
+        Ok(quote)
+    );
 }

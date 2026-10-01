@@ -1,3 +1,40 @@
+## Unreleased
+
+### Selection runs through the engine, exactly as on the web
+
+`RitoReaderSession.textInteraction` answers the five queries a browser
+reader runs, with the same engine code: `RitoCaretQuery` (the caret at a
+point), `RitoRangeQuery` (the range between two carets, as when a handle
+is dropped), `RitoRangeToPointQuery` (a kept caret extended to a point,
+as while a handle or a character-wise drag moves),
+`RitoRangeFromPointsQuery` (the range two points span, widened to words
+or paragraphs) and `RitoMovementQuery` (a caret step by character, word,
+line, paragraph or chapter edge, keeping its column across vertical
+steps when the returned preferred positions are passed back). Word
+boundaries come from the engine's segmenter, so CJK text selects words
+the way it does in a browser. Points and geometry are in the artifact's
+display-list space, and a `RitoCaretAddress` names the revision behind
+the artifact it came from.
+
+### Annotation targets are built and located by the engine
+
+`RitoReaderSession.createAnnotationTarget` builds the target for a
+selection's source range and `resolveAnnotationTarget` locates a stored
+one, trying the source range (checked against its quote), then the quote
+with the best-matching context, then the stored offsets, then the
+length-scaled position, and returning the target re-anchored where it
+landed with the `RitoAnnotationLevel` that found it. A
+`RitoAnnotationTarget` carries the engine's canonical JSON in `json` —
+the bytes a browser host stores for the same range; persist it as it is
+— and its decoded contents, so the adapter never parses JSON.
+
+### Protocol
+
+The wire gains `RITOTIQ1`/`RITOTIR1` and `RITOANQ1`/`RITOANR1`, and the C
+ABI gains `rito_resolve_text_interaction` and `rito_resolve_annotation`.
+`RitoReaderGateway` gains `textInteraction` and `annotation`, so a custom
+gateway must implement both. The artifact protocol version is unchanged.
+
 ## 0.4.0 - 2026-09-29
 
 ### A stored highlight is projected by the engine
