@@ -725,3 +725,66 @@ fn interaction_wire_fixtures_are_pinned_byte_for_byte() {
         Ok(quote)
     );
 }
+
+fn anchored_chapter_epub() -> Vec<u8> {
+    let paragraphs = (0..40)
+        .map(|index| {
+            let marker = if index == 30 { r#"<a id="late"/>"# } else { "" };
+            format!("<p>{marker}Anchored paragraph {index} carries enough words to wrap in a narrow viewport.</p>")
+        })
+        .collect::<String>();
+    let chapter = format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>{paragraphs}<div id="tail"></div></body></html>"#
+    );
+    crate::runtime::tests::fixture::fixture_epub_with_chapter_and_stylesheet(
+        chapter.as_bytes(),
+        crate::runtime::tests::fixture::fixture_stylesheet(),
+    )
+}
+
+/// An empty `<a id>` marker and an id after the last text both land where
+/// a browser scrolls to them, identically in a session and in a browser
+/// revision.
+#[test]
+fn empty_anchors_resolve_to_the_same_page_on_every_host() {
+    let config = layout_config(layout()).expect("layout converts");
+    let mut document =
+        RuntimeDocument::open_pinned_for_tests(&anchored_chapter_epub()).expect("opens");
+    let revision = document.create_revision(&config).expect("revision");
+    let mut session = open_test_session(SESSION, anchored_chapter_epub()).expect("opens");
+    for (anchor, request_id) in [("late", 1), ("tail", 2)] {
+        let locator = crate::runtime::RuntimeSourceLocator {
+            href: CHAPTER.to_owned(),
+            anchor_id: Some(anchor.to_owned()),
+            source_point: None,
+            source_range: None,
+            progression: None,
+        };
+        let crate::runtime::RuntimeSourceLocatorResolution::Resolved { page_index, .. } = document
+            .resolve_source_locator(&revision.revision_id, locator)
+            .expect("browser path resolves")
+        else {
+            panic!("{anchor} must resolve in a browser revision");
+        };
+        let artifact = session
+            .request_artifact(ReaderArtifactRequest {
+                session_id: SESSION,
+                request_id,
+                layout: layout(),
+                locator: ReaderLocator {
+                    href: CHAPTER.to_owned(),
+                    anchor_id: Some(anchor.to_owned()),
+                    source_point: None,
+                    source_range: None,
+                    progression: None,
+                },
+                text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
+            })
+            .unwrap_or_else(|error| panic!("{anchor} must open a session artifact: {error:?}"));
+        assert!(
+            artifact.local_page_indexes.contains(&(page_index as u32)),
+            "{anchor}: session draws {:?}, browser resolved page {page_index}",
+            artifact.local_page_indexes
+        );
+    }
+}

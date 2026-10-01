@@ -485,8 +485,8 @@ fn resolve_canonical_source_locator(
                             RuntimeSourceAnchor::Point(point) => {
                                 project_source_point(&source_starts, source_index, point)
                             }
-                            RuntimeSourceAnchor::NoPageProjection => {
-                                SourceProjection::NoPageProjection
+                            RuntimeSourceAnchor::ChapterEnd => {
+                                SourceProjection::Page(chapter_range.end_page)
                             }
                         })
                 })

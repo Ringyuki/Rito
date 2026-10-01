@@ -20,7 +20,8 @@ pub(in crate::runtime) struct RuntimeSourceChapterIndex {
 pub(super) enum RuntimeSourceAnchor {
     ChapterStart,
     Point(RuntimeSourcePoint),
-    NoPageProjection,
+    /// No text follows the anchor: it sits at the chapter's end.
+    ChapterEnd,
 }
 
 impl RuntimeSourceChapterIndex {
@@ -111,63 +112,63 @@ impl RuntimeDocument {
     }
 }
 
+/// Every anchor lands on the first text at or after its element's start,
+/// in document order — where a browser scrolls to it. An element with no
+/// text of its own (an empty `<a id>` marker, an image) takes the text
+/// that follows it; one with no text after it takes the chapter's end.
+/// The first element carrying an id owns it.
 fn collect_source_anchors(nodes: &[DocumentNode]) -> BTreeMap<String, RuntimeSourceAnchor> {
-    let mut anchors = BTreeMap::new();
+    let mut walk = AnchorWalk::default();
     for node in nodes {
-        collect_node_anchors(node, &mut anchors);
+        walk.node(node);
     }
-    anchors
+    for id in walk.pending {
+        walk.anchors
+            .entry(id)
+            .or_insert(RuntimeSourceAnchor::ChapterEnd);
+    }
+    walk.anchors
 }
 
-fn collect_node_anchors(node: &DocumentNode, anchors: &mut BTreeMap<String, RuntimeSourceAnchor>) {
-    match node {
-        DocumentNode::Block(element) | DocumentNode::Inline(element) => {
-            if let Some(id) = element
-                .attributes
-                .as_ref()
-                .and_then(|attributes| attributes.id.as_ref())
-            {
-                anchors.entry(id.clone()).or_insert_with(|| {
-                    first_text_point(&element.children)
-                        .map(RuntimeSourceAnchor::Point)
-                        .unwrap_or(RuntimeSourceAnchor::NoPageProjection)
-                });
-            }
-            for child in &element.children {
-                collect_node_anchors(child, anchors);
-            }
-        }
-        DocumentNode::Image(image) => {
-            if let Some(id) = image
-                .attributes
-                .as_ref()
-                .and_then(|attributes| attributes.id.as_ref())
-            {
-                anchors
-                    .entry(id.clone())
-                    .or_insert(RuntimeSourceAnchor::NoPageProjection);
-            }
-        }
-        DocumentNode::Text(_) => {}
-    }
+#[derive(Default)]
+struct AnchorWalk {
+    anchors: BTreeMap<String, RuntimeSourceAnchor>,
+    /// Ids met since the last text, in document order.
+    pending: Vec<String>,
 }
 
-fn first_text_point(nodes: &[DocumentNode]) -> Option<RuntimeSourcePoint> {
-    for node in nodes {
+impl AnchorWalk {
+    fn node(&mut self, node: &DocumentNode) {
         match node {
-            DocumentNode::Text(text) if !text.content.is_empty() => {
-                return Some(RuntimeSourcePoint {
-                    node_path: text.source_ref.node_path.clone(),
-                    text_offset: 0,
-                });
-            }
             DocumentNode::Block(element) | DocumentNode::Inline(element) => {
-                if let Some(point) = first_text_point(&element.children) {
-                    return Some(point);
+                self.id(element.attributes.as_ref().and_then(|a| a.id.as_ref()));
+                for child in &element.children {
+                    self.node(child);
                 }
             }
-            DocumentNode::Text(_) | DocumentNode::Image(_) => {}
+            DocumentNode::Image(image) => {
+                self.id(image.attributes.as_ref().and_then(|a| a.id.as_ref()));
+            }
+            DocumentNode::Text(text) if !text.content.is_empty() => {
+                let point = RuntimeSourcePoint {
+                    node_path: text.source_ref.node_path.clone(),
+                    text_offset: 0,
+                };
+                for id in self.pending.drain(..) {
+                    self.anchors
+                        .entry(id)
+                        .or_insert_with(|| RuntimeSourceAnchor::Point(point.clone()));
+                }
+            }
+            DocumentNode::Text(_) => {}
         }
     }
-    None
+
+    fn id(&mut self, id: Option<&String>) {
+        if let Some(id) = id {
+            if !self.anchors.contains_key(id) && !self.pending.contains(id) {
+                self.pending.push(id.clone());
+            }
+        }
+    }
 }
