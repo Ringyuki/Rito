@@ -6,11 +6,17 @@ use super::{
     RuntimeExactSourceRangeRequest, RuntimeRevision,
 };
 
+mod annotation;
 mod href;
 mod index;
 mod projection;
 mod types;
 
+pub use annotation::{
+    annotation_target_from_json, annotation_target_to_json, AnnotationOrphanReason,
+    AnnotationPosition, AnnotationQuote, AnnotationTarget, AnnotationTargetResolution,
+    ANNOTATION_TARGET_VERSION,
+};
 pub(super) use href::RuntimeSourceLocatorCanonicalizer;
 use href::{canonicalize_source_locator, CanonicalSourceLocator};
 use index::RuntimeSourceAnchor;

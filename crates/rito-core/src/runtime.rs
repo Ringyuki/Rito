@@ -76,10 +76,12 @@ pub use style_table_summary::{
 };
 
 pub use source_locator::{
+    annotation_target_from_json, annotation_target_to_json, AnnotationOrphanReason,
+    AnnotationPosition, AnnotationQuote, AnnotationTarget, AnnotationTargetResolution,
     RuntimePageReadingAnchor, RuntimePageReadingAnchorUnavailableReason, RuntimeSourceLocator,
     RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
     RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
-    RuntimeSourceRange,
+    RuntimeSourceRange, ANNOTATION_TARGET_VERSION,
 };
 pub use text_interaction::{
     RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
