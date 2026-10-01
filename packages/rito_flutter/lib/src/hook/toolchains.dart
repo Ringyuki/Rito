@@ -13,6 +13,9 @@ Future<Map<String, String>> ritoToolchainEnvironment({
   Map<String, String>? platformEnvironment,
 }) async {
   final environment = platformEnvironment ?? Platform.environment;
+  if (target.ohosNativeRoot case final nativeRoot?) {
+    return _ohosEnvironment(target: target, nativeRoot: nativeRoot);
+  }
   if (target.targetOS == OS.android) {
     return _androidEnvironment(
       target: target,
@@ -64,6 +67,43 @@ Map<String, String> _androidEnvironment({
     'CC_$ccKey': clang.path,
     'CXX_$ccKey': clangxx.path,
     'AR_$ccKey': ar.path,
+  };
+}
+
+Map<String, String> _ohosEnvironment({
+  required RitoCargoTarget target,
+  required String nativeRoot,
+}) {
+  final separator = Platform.pathSeparator;
+  final bin = Directory('$nativeRoot${separator}llvm${separator}bin');
+  final sysroot = Directory('$nativeRoot${separator}sysroot');
+  if (!bin.existsSync() || !sysroot.existsSync()) {
+    throw InfraError(
+      message: 'OpenHarmony native SDK is incomplete at $nativeRoot.',
+    );
+  }
+
+  final rustTarget = target.rustTarget!;
+  final clang = _requiredTool(bin, 'clang');
+  final clangxx = _requiredTool(bin, 'clang++');
+  final ar = _requiredTool(bin, 'llvm-ar');
+  final linkArguments = <String>[
+    ...target.ohosClangArguments,
+    '--sysroot=${sysroot.path}',
+  ];
+  final compileFlags = <String>[...linkArguments, '-D__MUSL__'].join(' ');
+  final cargoKey = rustTarget.toUpperCase().replaceAll('-', '_');
+  final ccKey = rustTarget.replaceAll('-', '_');
+  return <String, String>{
+    'CARGO_TARGET_${cargoKey}_LINKER': clang.path,
+    'CARGO_ENCODED_RUSTFLAGS': <String>[
+      for (final argument in linkArguments) '-Clink-arg=$argument',
+    ].join('\x1f'),
+    'CC_$ccKey': clang.path,
+    'CXX_$ccKey': clangxx.path,
+    'AR_$ccKey': ar.path,
+    'CFLAGS_$ccKey': compileFlags,
+    'CXXFLAGS_$ccKey': compileFlags,
   };
 }
 
