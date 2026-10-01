@@ -1,12 +1,11 @@
-import type { ReaderLocator, Spread } from '@ritojs/core';
-import type { ChapterRange, ChapterTextIndex } from '../layout-types';
-import type { SourcePoint } from '../anchors/model';
+import type { ReaderLocator, ReaderSourcePoint, Spread } from '@ritojs/core';
+import type { ChapterRange } from '../layout-types';
 
 export interface ReadingLocator {
   readonly spineIdref: string;
   readonly manifestHref?: string;
   readonly chapterProgress: number;
-  readonly sourcePoint?: SourcePoint;
+  readonly sourcePoint?: ReaderSourcePoint;
 }
 
 export interface PositionLayout {
@@ -14,7 +13,6 @@ export interface PositionLayout {
   readonly pageCount: number;
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   readonly manifestHrefMap?: ReadonlyMap<string, string>;
-  readonly chapterTextIndices?: ReadonlyMap<string, ChapterTextIndex>;
 }
 
 export interface PositionProjection {

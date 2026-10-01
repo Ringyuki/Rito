@@ -2,6 +2,7 @@ export type {
   AnnotationRecord,
   AnnotationDraft,
   AnnotationRecordPatch,
+  AnnotationTarget,
   ResolvedAnnotation,
   ResolvedAnnotationSegment,
   ResolutionStatus,

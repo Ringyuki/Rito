@@ -15,20 +15,12 @@ export type {
   AnnotationRecord,
   AnnotationRecordPatch,
   AnnotationStore,
+  AnnotationTarget,
   RecordStorageAdapter,
   ResolvedAnnotation,
   ResolvedAnnotationSegment,
   ResolutionStatus,
 } from './annotations';
-export { createAnnotationTarget, offsetToSourcePoint, sourcePointToOffset } from './anchors';
-export type {
-  AnnotationTarget,
-  ChapterTextIndex,
-  ChapterTextSpan,
-  CreateTargetFromOffsetsInput,
-  SourcePoint,
-  SourceRangeSelector,
-} from './anchors';
 
 export {
   createPositionTracker,

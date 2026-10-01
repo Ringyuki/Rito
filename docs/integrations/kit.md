@@ -135,13 +135,27 @@ It retires older deferred navigation and portable-position work before coordinat
 mouse restarts and delayed long-press selection inherit that same barrier, while a stable serialized
 reading position remains valid. This prevents an older physical press from resuming after newer input.
 
-Annotations: a persistent annotation target is created from the selection's exact
-source range. Re-projection goes through `interactions.resolveExactSourceRange`: Kit
-resolves selector fallbacks to a durable source range with a canonical manifest resource
-href first, then obtains page-content rectangles from the committed revision. Preview,
-stale, pending, unavailable, and failed reads leave no rectangles installed. Geometry is
-cached only for the active revision and invalidated before a replacement layout is
-painted. `ResolvedAnnotationSegment` carries a page index and page-content `rects`.
+Annotations: the engine builds and reads every annotation target, so a record stored
+here resolves the same way in any other Rito host. `addAnnotation()` reads the selection
+synchronously (a host may clear it right after calling) and resolves once
+`interactions.createAnnotationTarget` has built the target from the selection's exact
+source range; a failed build is reported on the `error` event (source
+`'annotation-target'`) and resolves `undefined`. The target is versioned JSON —
+`{ version: 1, href, sourceRange, quote: { exact, prefix, suffix }, position: { start,
+end, chapterLength } }`, offsets in UTF-16 units over the chapter's raw parsed text —
+and is persisted as the engine wrote it.
+
+Re-projection is two engine reads. `interactions.resolveAnnotationTarget` finds the
+stored target in the chapter as it is now, trying the source range (checked against
+its quote), then the quote with the best-matching context, then the stored offsets,
+then the length-scaled position; `ResolvedAnnotation.status` names the level that found
+it (`'exact'`, `'quote'`, `'position'`, `'progression'`) or `'orphaned'`. The located
+target then goes through `interactions.resolveExactSourceRange` for page-content
+rectangles from the committed revision. Locations depend only on the source and
+survive relayouts; geometry is cached only for the active revision and invalidated
+before a replacement layout is painted. Preview, stale, pending, unavailable, and
+failed reads leave no rectangles installed. `ResolvedAnnotationSegment` carries a page
+index and page-content `rects`.
 
 Clicks: links, footnotes, and images are the reader's page targets
 (`interactions.getPageTargets`), hit-tested in reverse paint order after annotations.

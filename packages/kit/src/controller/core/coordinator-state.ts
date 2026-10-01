@@ -1,11 +1,7 @@
 import type { ReaderInteractionTarget } from '@ritojs/core';
 import type { SelectionEngine } from '../../interaction/index';
 import type { SearchEngine } from '../../interaction/index';
-import type {
-  AnnotationStore,
-  ResolvedAnnotation,
-  ChapterTextIndex,
-} from '../../interaction/index';
+import type { AnnotationStore, ResolvedAnnotation } from '../../interaction/index';
 import type { PositionIntent, PositionTracker, ReadingPosition } from '../../interaction/index';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
@@ -55,10 +51,6 @@ export interface CoordinatorState {
   mapper: CoordinateMapper | null;
   /** Source-anchored annotation store. */
   annotationStore: AnnotationStore | null;
-  /** Chapter text indices keyed by durable resource href, for annotation resolution. */
-  chapterIndices: Map<string, ChapterTextIndex>;
-  /** Reader-owned source Map used to avoid rebuilding the href projection on every turn. */
-  chapterIndexSource: ReadonlyMap<string, ChapterTextIndex> | null;
   /** Resolved annotations for current layout. */
   resolvedAnnotations: readonly ResolvedAnnotation[];
   /** Revision-owned exact source-range projections and in-flight reads. */
@@ -83,8 +75,6 @@ export function createCoordinatorState(): CoordinatorState {
     nativeInteractionsAlive: true,
     mapper: null,
     annotationStore: null,
-    chapterIndices: new Map(),
-    chapterIndexSource: null,
     resolvedAnnotations: [],
     nativeAnnotationGeometry: createNativeAnnotationGeometryState(),
     nativeSearchGeometry: createNativeSearchGeometryState(),

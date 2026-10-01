@@ -35,7 +35,6 @@ export function createEngines(
         pageCount: reader.pageCount,
         chapterMap: reader.chapterMap,
         manifestHrefMap: reader.manifestHrefMap,
-        chapterTextIndices: reader.getChapterTextIndices(),
       }),
       () => reader.interactions,
       navigateToLocator,

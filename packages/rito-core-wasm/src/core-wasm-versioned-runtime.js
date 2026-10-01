@@ -1,3 +1,9 @@
+import {
+  requireAnnotationTarget,
+  requireAnnotationTargetRequest,
+  requireAnnotationTargetResolution,
+  requireCreatedAnnotationTarget,
+} from './reader-worker-annotation-validation-runtime.js';
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
 import { runRevisionMutation } from './core-wasm-versioned-mutation-runtime.js';
 import {
@@ -268,6 +274,41 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           ),
         (value, revision, operation) =>
           requireExactSourceRangeResponse(value, revision, expectedRequest, operation),
+      );
+    },
+    createAnnotationTargetAtRevision(handle, request) {
+      const expectedRequest = requireAnnotationTargetRequest(
+        request,
+        'createAnnotationTargetAtRevision',
+      );
+      return versionedRequest(
+        this,
+        'createAnnotationTargetAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.createAnnotationTargetAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, _revision, operation) => requireCreatedAnnotationTarget(value, operation),
+      );
+    },
+    resolveAnnotationTargetAtRevision(handle, target) {
+      const expectedTarget = requireAnnotationTarget(target, 'resolveAnnotationTargetAtRevision');
+      return versionedRequest(
+        this,
+        'resolveAnnotationTargetAtRevision',
+        handle,
+        expectedTarget,
+        (revision, json) =>
+          this._inner.resolveAnnotationTargetAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, _revision, operation) => requireAnnotationTargetResolution(value, operation),
       );
     },
     getFootnoteAtRevision(handle, key) {

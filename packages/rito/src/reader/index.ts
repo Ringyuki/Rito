@@ -22,6 +22,8 @@ export type {
   ReaderPageSemantics,
   ReaderPageTargets,
   ReaderSemanticNode,
+  ReaderAnnotationTarget,
+  ReaderAnnotationTargetResolution,
   ReaderSourcePoint,
   ReaderSourceRange,
   ReaderSearchSourceResolution,

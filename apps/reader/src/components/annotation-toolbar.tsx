@@ -39,7 +39,7 @@ export function AnnotationToolbar({ selection, annotations, controller }: Props)
 
   const submit = (color: string, noteText?: string) => {
     if (!controller || !selection.hasSelection) return;
-    annotations.add({
+    void annotations.add({
       kind: 'highlight',
       color,
       ...(noteText ? { note: noteText } : {}),

@@ -8,7 +8,7 @@ export function buildAnnotationActions(
   emitter: Emitter,
 ): AnnotationActionsSlice {
   return {
-    addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined {
+    addAnnotation(input: AddAnnotationInput): Promise<AnnotationRecord | undefined> {
       return addAnnotationImpl(input, internals, emitter);
     },
     removeAnnotation(id: string): boolean {
@@ -26,19 +26,28 @@ export function buildAnnotationActions(
 
 // ── Add / Remove / Update implementations ────────────────────────────
 
-function addAnnotationImpl(
+/**
+ * The selection is read synchronously, so a host may clear it right after
+ * calling; only the engine's target build is awaited. A failed build is
+ * reported on the `error` event and resolves undefined, never rejects.
+ */
+async function addAnnotationImpl(
   input: AddAnnotationInput,
   internals: Internals,
   emitter: Emitter,
-): AnnotationRecord | undefined {
+): Promise<AnnotationRecord | undefined> {
   const store = internals.coordState.annotationStore;
-  if (!store) return undefined;
-
   const sourceLocator = internals.engines.selection.getSourceLocator();
-  const target = sourceLocator
-    ? buildAnnotationTargetFromLocator(sourceLocator, internals)
-    : undefined;
-  if (!target) return undefined;
+  if (!store || !sourceLocator) return undefined;
+
+  let target;
+  try {
+    target = await buildAnnotationTargetFromLocator(sourceLocator, internals);
+  } catch (error: unknown) {
+    emitError(emitter, error, 'annotation-target');
+    return undefined;
+  }
+  if (!target || internals.coordState.annotationStore !== store) return undefined;
 
   const record = store.add({
     kind: input.kind,
@@ -76,13 +85,17 @@ function persistAnnotations(
   emitter: Emitter,
 ): void {
   void store.persist().catch((error: unknown) => {
-    try {
-      emitter.emit('error', {
-        message: error instanceof Error ? error.message : String(error),
-        source: 'annotation-storage',
-      });
-    } catch {
-      // Consumer error listeners must not create an unhandled storage rejection.
-    }
+    emitError(emitter, error, 'annotation-storage');
   });
+}
+
+function emitError(emitter: Emitter, error: unknown, source: string): void {
+  try {
+    emitter.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      source,
+    });
+  } catch {
+    // Consumer error listeners must not turn a reported failure into a rejection.
+  }
 }

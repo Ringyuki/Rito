@@ -47,6 +47,8 @@ export type {
   LogLevel,
   PackageMetadata,
   Reader,
+  ReaderAnnotationTarget,
+  ReaderAnnotationTargetResolution,
   ReaderExactSourceRange,
   ReaderExactSourceRangeRequest,
   ReaderExactSourceRangeResolution,

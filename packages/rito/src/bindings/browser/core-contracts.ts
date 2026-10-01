@@ -20,6 +20,8 @@ export type {
   RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
   RitoCoreWasmCreatedChapterLocalRevision as CoreCreatedChapterLocalRevision,
   RitoCoreWasmChapterLocalRevisionRelease as CoreChapterLocalRevisionRelease,
+  RitoCoreWasmAnnotationTarget as CoreAnnotationTarget,
+  RitoCoreWasmAnnotationTargetResolution as CoreAnnotationTargetResolution,
   RitoCoreWasmExactSourceRangeRequest as CoreExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse as CoreExactSourceRangeResponse,
   RitoCoreWasmFootnotes as CoreFootnotes,

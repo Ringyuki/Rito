@@ -13,7 +13,6 @@ import {
   invalidateNativeAnnotationGeometry,
   refreshNativeAnnotations,
   scheduleNativeAnnotationsForSpread,
-  syncChapterIndices,
 } from '../annotation-resolution';
 import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
 import { scheduleNativeSearchForSpread } from './native-search';
@@ -40,7 +39,6 @@ export function coordinateOnSpreadRendered(
   }
   if (generation !== state.spreadCoordinationGeneration) return false;
 
-  syncChapterIndices(state, reader);
   if (state.annotationStore) refreshNativeAnnotations(reader, state);
 
   updatePosition(spreadIndex, engines.position, state);

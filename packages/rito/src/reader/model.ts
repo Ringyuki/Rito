@@ -106,6 +106,35 @@ export interface ReaderSourceRange {
   /** End-exclusive source boundary. */
   readonly end: ReaderSourcePoint;
 }
+/**
+ * The one persisted annotation format. The engine builds and reads it, so a
+ * target stored by any host resolves identically on every other.
+ */
+export interface ReaderAnnotationTarget {
+  readonly version: 1;
+  /** Canonical manifest href of the chapter. */
+  readonly href: string;
+  readonly sourceRange: ReaderSourceRange;
+  /** The highlighted text and up to 32 UTF-16 units of context on each side. */
+  readonly quote: {
+    readonly exact: string;
+    readonly prefix: string;
+    readonly suffix: string;
+  };
+  /** UTF-16 offsets into the chapter's canonical text, and its length at creation. */
+  readonly position: {
+    readonly start: number;
+    readonly end: number;
+    readonly chapterLength: number;
+  };
+}
+/** Which selector located a stored target; every level but `orphaned` carries it re-anchored. */
+export type ReaderAnnotationTargetResolution =
+  | {
+      readonly level: 'exact' | 'quote' | 'position' | 'progression';
+      readonly target: ReaderAnnotationTarget;
+    }
+  | { readonly level: 'orphaned'; readonly reason: 'hrefNotFound' | 'emptyChapter' };
 export interface ReaderDocumentSourceSpanEndpoint {
   readonly href: string;
   readonly sourcePoint: ReaderSourcePoint;

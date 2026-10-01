@@ -1,6 +1,9 @@
 import type { RitoCoreWasmLayoutConfig, RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type {
+  RitoCoreWasmAnnotationTarget,
+  RitoCoreWasmAnnotationTargetRequest,
+  RitoCoreWasmAnnotationTargetResolution,
   RitoCoreWasmChapterTextIndices,
   RitoCoreWasmExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse,
@@ -117,6 +120,14 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmExactSourceRangeRequest,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmExactSourceRangeResponse>>;
+  createAnnotationTargetAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmAnnotationTargetRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmAnnotationTarget>>;
+  resolveAnnotationTargetAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    target: RitoCoreWasmAnnotationTarget,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmAnnotationTargetResolution>>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -227,6 +238,14 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmExactSourceRangeRequest,
   ): RitoCoreWasmVersioned<RitoCoreWasmExactSourceRangeResponse>;
+  createAnnotationTargetAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmAnnotationTargetRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmAnnotationTarget>;
+  resolveAnnotationTargetAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    target: RitoCoreWasmAnnotationTarget,
+  ): RitoCoreWasmVersioned<RitoCoreWasmAnnotationTargetResolution>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -311,6 +330,16 @@ export interface RitoCoreWasmReaderTextSelectionMovementTransport {
 }
 
 /** Private Worker echo binding exact source projection to its durable request. */
+export interface RitoCoreWasmReaderAnnotationTargetTransport {
+  readonly request: RitoCoreWasmAnnotationTargetRequest;
+  readonly response: RitoCoreWasmAnnotationTarget;
+}
+
+export interface RitoCoreWasmReaderAnnotationResolutionTransport {
+  readonly target: RitoCoreWasmAnnotationTarget;
+  readonly response: RitoCoreWasmAnnotationTargetResolution;
+}
+
 export interface RitoCoreWasmReaderExactSourceRangeTransport {
   readonly request: RitoCoreWasmExactSourceRangeRequest;
   readonly response: RitoCoreWasmExactSourceRangeResponse;
@@ -391,6 +420,14 @@ export type RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest =
   RevisionRequest<'resolveExactSourceRangeAtRevision'> & {
     readonly request: RitoCoreWasmExactSourceRangeRequest;
   };
+export type RitoCoreWasmReaderWorkerCreateAnnotationTargetAtRevisionRequest =
+  RevisionRequest<'createAnnotationTargetAtRevision'> & {
+    readonly request: RitoCoreWasmAnnotationTargetRequest;
+  };
+export type RitoCoreWasmReaderWorkerResolveAnnotationTargetAtRevisionRequest =
+  RevisionRequest<'resolveAnnotationTargetAtRevision'> & {
+    readonly target: RitoCoreWasmAnnotationTarget;
+  };
 export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
   RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
 export type RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest =
@@ -438,6 +475,8 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerResolveTextRangeToPointAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextSelectionMovementAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest
+  | RitoCoreWasmReaderWorkerCreateAnnotationTargetAtRevisionRequest
+  | RitoCoreWasmReaderWorkerResolveAnnotationTargetAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetChapterTextIndicesAtRevisionRequest
@@ -525,6 +564,14 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveExactSourceRangeAtRevision',
       RitoCoreWasmReaderExactSourceRangeTransport
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'createAnnotationTargetAtRevision',
+      RitoCoreWasmReaderAnnotationTargetTransport
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'resolveAnnotationTargetAtRevision',
+      RitoCoreWasmReaderAnnotationResolutionTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnotesAtRevision', RitoCoreWasmFootnotes>

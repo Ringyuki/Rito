@@ -247,7 +247,8 @@ export interface ReaderController {
    */
   hitTestContent(point: ReaderClientPoint): ContentHitKind | null;
 
-  addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
+  /** Resolves once the engine has built the target; the selection is read at call time. */
+  addAnnotation(input: AddAnnotationInput): Promise<AnnotationRecord | undefined>;
   removeAnnotation(id: string): boolean;
   updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
   readonly annotations: readonly AnnotationRecord[];

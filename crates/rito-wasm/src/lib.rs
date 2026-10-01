@@ -4,6 +4,7 @@
 //! JSON control/diagnostic views and explicit binary paths for frame commands,
 //! runtime bundles, and resource transfers.
 
+mod annotation;
 mod binding;
 mod chapter_local;
 mod document;

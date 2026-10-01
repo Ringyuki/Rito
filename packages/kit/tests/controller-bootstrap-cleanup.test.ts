@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
 import { readerInteractions } from './helpers/native-selection';
+import { annotationTarget } from './annotation-target-fixture';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -250,20 +251,7 @@ function annotationRecord(): import('../src/interaction').AnnotationRecord {
     id: 'late',
     kind: 'highlight',
     createdAt: 1,
-    target: {
-      href: 'chapter.xhtml',
-      selectors: {
-        sourceRange: {
-          type: 'SourceRangeSelector',
-          start: { nodePath: [0], textOffset: 0 },
-          end: { nodePath: [0], textOffset: 1 },
-        },
-        textQuote: { type: 'TextQuoteSelector', exact: 'x' },
-        textPosition: { type: 'TextPositionSelector', start: 0, end: 1 },
-        progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 0 },
-      },
-      text: { highlight: 'x' },
-    },
+    target: annotationTarget('x'),
   };
 }
 

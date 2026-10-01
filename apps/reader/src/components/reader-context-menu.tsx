@@ -61,7 +61,7 @@ export function ReaderContextMenu({
 
   const handleHighlight = useCallback(() => {
     if (!reader.selection.hasSelection) return;
-    reader.annotations.add({
+    void reader.annotations.add({
       kind: 'highlight',
       color: ANNOTATION_COLORS[0].value,
     });

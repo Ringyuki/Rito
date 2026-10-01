@@ -23,7 +23,11 @@ import {
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
 import { createBrowserReaderTextSelection } from './text-selection';
-import { resolveExactSourceRange } from './source-range';
+import {
+  createAnnotationTarget,
+  resolveAnnotationTarget,
+  resolveExactSourceRange,
+} from './source-range';
 import type { BrowserReaderInteractionState, BrowserReaderState } from './types';
 
 const PAGE_TARGET_CACHE_CAPACITY = 12;
@@ -41,6 +45,8 @@ export function createBrowserReaderInteractions(state: BrowserReaderState): Read
     getFootnote: (key) => getFootnote(state, key),
     resolveLocator: (locator) => resolveBrowserReaderLocator(state, locator),
     resolveExactSourceRange: (request) => resolveExactSourceRange(state, request),
+    createAnnotationTarget: (request) => createAnnotationTarget(state, request),
+    resolveAnnotationTarget: (target) => resolveAnnotationTarget(state, target),
     textSelection: createBrowserReaderTextSelection(state),
   };
 }

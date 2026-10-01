@@ -1,3 +1,9 @@
+import {
+  requireAnnotationTarget,
+  requireAnnotationTargetRequest,
+  requireAnnotationTargetResolution,
+  requireCreatedAnnotationTarget,
+} from './reader-worker-annotation-validation-runtime.js';
 import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
 import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import {
@@ -91,6 +97,10 @@ export function versionedReaderWorkerPayload(document, request) {
       return textSelectionMovementResponse(document, request);
     case 'resolveExactSourceRangeAtRevision':
       return exactSourceRangeResponse(document, request);
+    case 'createAnnotationTargetAtRevision':
+      return annotationTargetResponse(document, request);
+    case 'resolveAnnotationTargetAtRevision':
+      return annotationResolutionResponse(document, request);
     case 'getFootnoteAtRevision':
       return footnoteResponse(document, request);
     case 'getFootnotesAtRevision':
@@ -284,6 +294,28 @@ function exactSourceRangeResponse(document, request) {
   return validatedValueResponse(operation, revision, envelope, (value) => ({
     request: expectedRequest,
     response: requireExactSourceRangeResponse(value, revision, expectedRequest, operation),
+  }));
+}
+
+function annotationTargetResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireAnnotationTargetRequest(request.request, operation);
+  const envelope = document.createAnnotationTargetAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: expectedRequest,
+    response: requireCreatedAnnotationTarget(value, operation),
+  }));
+}
+
+function annotationResolutionResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedTarget = requireAnnotationTarget(request.target, operation);
+  const envelope = document.resolveAnnotationTargetAtRevision(revision, expectedTarget);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    target: expectedTarget,
+    response: requireAnnotationTargetResolution(value, operation),
   }));
 }
 

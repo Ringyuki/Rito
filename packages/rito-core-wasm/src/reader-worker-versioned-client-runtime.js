@@ -1,4 +1,10 @@
 import {
+  requireAnnotationResolutionTransport,
+  requireAnnotationTarget,
+  requireAnnotationTargetRequest,
+  requireAnnotationTargetTransport,
+} from './reader-worker-annotation-validation-runtime.js';
+import {
   requireMatchingRevisionSummary,
   requireRevisionHandle,
   requireRevisionTransferCount,
@@ -211,6 +217,31 @@ export function createVersionedReaderClientMethods(send, disposeInvalid) {
         { request: expectedRequest },
         (result, handle, operation) =>
           requireExactSourceRangeTransport(result, handle, expectedRequest, operation),
+      );
+    },
+    createAnnotationTargetAtRevision: (revision, request) => {
+      const expectedRequest = requireAnnotationTargetRequest(
+        request,
+        'createAnnotationTargetAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'createAnnotationTargetAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, _handle, operation) =>
+          requireAnnotationTargetTransport(result, expectedRequest, operation),
+      );
+    },
+    resolveAnnotationTargetAtRevision: (revision, target) => {
+      const expectedTarget = requireAnnotationTarget(target, 'resolveAnnotationTargetAtRevision');
+      return currentRevisionResult(
+        send,
+        'resolveAnnotationTargetAtRevision',
+        revision,
+        { target: expectedTarget },
+        (result, _handle, operation) =>
+          requireAnnotationResolutionTransport(result, expectedTarget, operation),
       );
     },
     getFootnoteAtRevision: (revision, key) => {

@@ -1,8 +1,9 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    ResolvedRuntimeLocator, RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnote,
-    RuntimeFootnotes, RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimeSearchRequest,
-    RuntimeSearchResponse, RuntimeSourceLocator, RuntimeSourceLocatorResolution,
+    AnnotationTarget, AnnotationTargetResolution, ResolvedRuntimeLocator,
+    RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnote, RuntimeFootnotes,
+    RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimeSearchRequest, RuntimeSearchResponse,
+    RuntimeSourceLocator, RuntimeSourceLocatorResolution, RuntimeSourceRange,
 };
 
 impl RuntimeDocument {
@@ -68,5 +69,29 @@ impl RuntimeDocument {
         handle: &RuntimeRevisionHandle,
     ) -> Result<RuntimeVersioned<RuntimeChapterTextIndices>, RuntimeRevisionAccessError> {
         self.versioned_write(handle, RuntimeDocument::get_chapter_text_indices)
+    }
+
+    /// Builds an annotation target. The target depends only on the chapter
+    /// source, not on the revision; the handle keeps the request on the
+    /// document the caller is reading.
+    pub fn create_annotation_target_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        href: &str,
+        source_range: &RuntimeSourceRange,
+    ) -> Result<RuntimeVersioned<AnnotationTarget>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, _| {
+            document.create_annotation_target(href, source_range)
+        })
+    }
+
+    pub fn resolve_annotation_target_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        target: &AnnotationTarget,
+    ) -> Result<RuntimeVersioned<AnnotationTargetResolution>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, _| {
+            document.resolve_annotation_target(target)
+        })
     }
 }

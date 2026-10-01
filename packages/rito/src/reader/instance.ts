@@ -5,6 +5,8 @@ import type {
   LayoutConfig,
   LogLevel,
   PackageMetadata,
+  ReaderAnnotationTarget,
+  ReaderAnnotationTargetResolution,
   ReaderDocumentSourceSpan,
   ReaderLocator,
   ReaderLocatorResolution,
@@ -170,6 +172,14 @@ export interface ReaderInteractions {
   resolveExactSourceRange?(
     request: ReaderExactSourceRangeRequest,
   ): Promise<ReaderExactSourceRangeResolution | undefined>;
+  /** Builds the persisted annotation target for a source range, normally a selection's. */
+  createAnnotationTarget?(
+    request: ReaderExactSourceRangeRequest,
+  ): Promise<ReaderAnnotationTarget | undefined>;
+  /** Finds a stored annotation target in the chapter as it is now. */
+  resolveAnnotationTarget?(
+    target: ReaderAnnotationTarget,
+  ): Promise<ReaderAnnotationTargetResolution | undefined>;
   /** Native document-order accessibility content for one committed page. */
   getPageSemantics?(pageIndex: number): Promise<ReaderPageSemantics | undefined>;
   /** Durable source identity for the first readable content on one committed page. */

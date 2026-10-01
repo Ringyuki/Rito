@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  createAnnotationStore,
-  type AnnotationRecord,
-  type AnnotationTarget,
-} from '../src/interaction';
+import { annotationTarget } from './annotation-target-fixture';
+import { createAnnotationStore, type AnnotationRecord } from '../src/interaction';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -284,23 +281,6 @@ function annotationRecord(id: string): AnnotationRecord {
 
 function annotationDraft(): Omit<AnnotationRecord, 'id' | 'createdAt' | 'modifiedAt'> {
   return { kind: 'highlight', target: annotationTarget() };
-}
-
-function annotationTarget(): AnnotationTarget {
-  return {
-    href: 'chapter.xhtml',
-    selectors: {
-      sourceRange: {
-        type: 'SourceRangeSelector',
-        start: { nodePath: [0], textOffset: 0 },
-        end: { nodePath: [0], textOffset: 4 },
-      },
-      textQuote: { type: 'TextQuoteSelector', exact: 'text' },
-      textPosition: { type: 'TextPositionSelector', start: 0, end: 4 },
-      progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 0 },
-    },
-    text: { highlight: 'text' },
-  };
 }
 
 function deferred<T>(): {
