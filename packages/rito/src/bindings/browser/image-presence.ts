@@ -181,8 +181,13 @@ function tick(state: BrowserReaderState, presence: ImagePresence): void {
 
 function invalidateSpreadsDrawing(state: BrowserReaderState, hrefs: ReadonlySet<string>): void {
   if (hrefs.size === 0) return;
-  for (const [spreadIndex, frame] of state.frames) {
-    if (!frame.resourceRefs.images.some((href) => hrefs.has(href))) continue;
+  // Snapshot first: a listener repaints synchronously, and reading a frame
+  // moves it to the end of the frame cache, so iterating the live map
+  // would visit the same spread again without end.
+  const spreads = [...state.frames]
+    .filter(([, frame]) => frame.resourceRefs.images.some((href) => hrefs.has(href)))
+    .map(([spreadIndex]) => spreadIndex);
+  for (const spreadIndex of spreads) {
     for (const listener of state.spreadContentInvalidatedListeners) listener(spreadIndex);
   }
 }

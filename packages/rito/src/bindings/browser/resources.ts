@@ -241,7 +241,9 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
       // Decoded or terminally failed, a fully-settled spread can now
       // paint (with or without the image). The shared once-latch keeps
       // this quiet when the frame-window lane already woke the spread.
-      for (const [spreadIndex, frame] of state.frames) {
+      // A snapshot: the woken spread repaints at once, and reading its
+      // frame reorders the live frame cache.
+      for (const [spreadIndex, frame] of [...state.frames]) {
         if (
           frame.resourceRefs.images.includes(href) &&
           frameImageResourcesAreSettled(state, revision, frame.resourceRefs.images) &&

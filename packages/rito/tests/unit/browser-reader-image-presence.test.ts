@@ -45,6 +45,35 @@ describe('browser reader image presence', () => {
     expect(invalidated).toEqual([0]);
   });
 
+  it('notifies each spread once even when its repaint reorders the frame cache', () => {
+    const invalidated: number[] = [];
+    const frames = new Map([
+      [0, { resourceRefs: { images: ['plate.png'] } }],
+      [1, { resourceRefs: { images: ['plate.png'] } }],
+      [2, { resourceRefs: { images: ['other.png'] } }],
+    ]);
+    const state = {
+      disposed: false,
+      activeSpreadIndex: 0,
+      frames,
+      spreadContentInvalidatedListeners: new Set([
+        (index: number) => {
+          invalidated.push(index);
+          // A repaint reads the frame, which moves it to the end of the cache.
+          const frame = frames.get(index);
+          if (frame) {
+            frames.delete(index);
+            frames.set(index, frame);
+          }
+          if (invalidated.length > 10) throw new Error('notifications did not stop');
+        },
+      ]),
+    } as unknown as BrowserReaderState;
+    noteBrowserReaderImageLoading(state, 'plate.png');
+    vi.advanceTimersByTime(1000);
+    expect(invalidated).toEqual([0, 1]);
+  });
+
   it('paints an image that arrives in time at once, and fades a late one in over its placeholder', () => {
     const { state } = readerState();
     noteBrowserReaderImageLoading(state, 'plate.png');
