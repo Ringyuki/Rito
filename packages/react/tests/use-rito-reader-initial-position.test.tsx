@@ -178,6 +178,26 @@ describe('useRitoReader initial position', () => {
     expect(value().isLoaded).toBe(true);
   });
 
+  it('loads a sharded publication exactly as an archive', async () => {
+    const ctrl = controller(0, () => Promise.resolve(0));
+    mocks.createReader.mockResolvedValue(reader());
+    mocks.createController.mockReturnValue(ctrl);
+    render({ reader: { width: 800, height: 600 } });
+    const sharded = {
+      skeleton: new ArrayBuffer(8),
+      loadShards: () => Promise.resolve([]),
+    };
+
+    await act(async () => value().load(Promise.resolve(sharded)));
+
+    expect(mocks.createReader).toHaveBeenCalledWith(
+      sharded,
+      expect.any(HTMLCanvasElement),
+      expect.anything(),
+    );
+    expect(value().isLoaded).toBe(true);
+  });
+
   it('exposes the core fallback when controller hydration rejects', async () => {
     const failure = new Error('locator no longer resolves');
     const ctrl = controller(0, () => Promise.reject(failure));

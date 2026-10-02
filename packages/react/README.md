@@ -69,6 +69,7 @@ export function App() {
 
 - rendering the hook itself is SSR-safe
 - `load()` still requires a browser document and should run in an effect or event handler
+- `load()` takes an EPUB `ArrayBuffer` or a sharded publication (`{ skeleton, key?, loadShards }`, see the sharded publications guide); either may be a promise
 - `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
 - sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
 - load any app-owned `ReaderPinnedFontPolicy` bytes before calling `load()`;

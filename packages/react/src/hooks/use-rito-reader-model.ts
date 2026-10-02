@@ -1,4 +1,11 @@
-import type { PackageMetadata, Reader, ReaderOptions, Spread, TocEntry } from '@ritojs/core';
+import type {
+  PackageMetadata,
+  Reader,
+  ReaderOptions,
+  ReaderPublication,
+  Spread,
+  TocEntry,
+} from '@ritojs/core';
 import type {
   ControllerOptions,
   ReaderController,
@@ -26,7 +33,8 @@ export interface RitoReaderState {
 }
 
 export interface RitoReaderActions {
-  readonly load: (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => Promise<void>;
+  /** Opens an EPUB archive or a sharded publication (see `rito-pack`). */
+  readonly load: (data: ReaderPublication | PromiseLike<ReaderPublication>) => Promise<void>;
   readonly nextSpread: () => void;
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
