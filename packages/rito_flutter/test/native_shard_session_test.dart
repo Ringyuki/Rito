@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -88,7 +89,7 @@ _pack(Directory out) {
 Future<List<String>> _walk(
   RitoReaderSession session,
   int turns, {
-  Future<void> Function(RitoPreparedArtifact page)? onPage,
+  bool Function(RitoPreparedArtifact page)? keep,
 }) async {
   final drawn = <String>[];
   var current = session.firstArtifact;
@@ -98,13 +99,15 @@ Future<List<String>> _walk(
       '${artifact.locator.href}#${artifact.localPageIndex}:'
       '${artifact.displayList.displayList.commands.length}',
     );
-    await onPage?.call(current);
+    final kept = keep?.call(current) ?? false;
     final next = await session.turn(
       from: current,
       requestId: session.nextRequestId,
       direction: RitoAdjacentDirection.next,
     );
-    await session.releaseArtifact(current);
+    if (!kept) {
+      await session.releaseArtifact(current);
+    }
     current = next;
   }
   return drawn;
@@ -112,13 +115,14 @@ Future<List<String>> _walk(
 
 void main() {
   test(
-    'a session opened from shards lays every page out without loading a '
-    'shard, draws what the archive draws and loads an image when it is read',
+    'a session opened from shards opens and turns while no shard can arrive, '
+    'draws what the archive draws, and supplies every image ahead of need',
     () async {
       final out = Directory.systemTemp.createTempSync('rito-shards-');
       addTearDown(() => out.deleteSync(recursive: true));
       final packed = _pack(out);
       final loads = <List<int>>[];
+      final network = Completer<void>();
       final shardGateway = RitoIsolateGateway();
       final archiveGateway = RitoIsolateGateway();
       final sharded = await RitoReaderSession.openShards(
@@ -127,6 +131,7 @@ void main() {
         skeletonKey: packed.key,
         loadShards: (ids) async {
           loads.add(ids);
+          await network.future;
           return <RitoPublicationShard>[
             for (final id in ids)
               RitoPublicationShard(
@@ -146,18 +151,20 @@ void main() {
         pinnedFontPolicy: _pinnedPolicy(),
       );
       try {
-        expect(loads, isEmpty, reason: 'opening never waits on a shard');
-        RitoResource? image;
+        // No shard can arrive yet: opening and every turn still complete.
+        RitoPreparedArtifact? imagePage;
         final shardWalk = await _walk(
           sharded,
           40,
-          onPage: (page) async {
-            if (image != null) return;
-            for (final resource in page.artifact.resources) {
-              if (resource.kind != RitoResourceKind.image) continue;
-              image = await sharded.readResource(page, resource);
-              return;
+          keep: (page) {
+            if (imagePage != null ||
+                !page.artifact.resources.any(
+                  (resource) => resource.kind == RitoResourceKind.image,
+                )) {
+              return false;
             }
+            imagePage = page;
+            return true;
           },
         );
         final archiveWalk = await _walk(archive, 40);
@@ -167,9 +174,35 @@ void main() {
           greaterThan(1),
           reason: 'the walk crossed chapters',
         );
-        expect(image, isNotNull, reason: 'the walk reached an image');
-        expect(loads, hasLength(1), reason: 'only the image read loaded');
-        expect(loads.single, hasLength(1));
+        expect(
+          loads,
+          hasLength(1),
+          reason: 'ahead-of-need supply asks for one shard at a time',
+        );
+
+        network.complete();
+        for (var tick = 0; tick < 500; tick += 1) {
+          if (loads.length >= packed.files.length) break;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        final requested = loads.expand((ids) => ids).toList();
+        expect(requested.toSet(), packed.files.keys.toSet());
+        expect(requested, hasLength(packed.files.length), reason: 'each once');
+
+        final loadsBeforeRead = loads.length;
+        final page = imagePage;
+        expect(page, isNotNull, reason: 'the walk reached an image');
+        final reference = page!.artifact.resources.firstWhere(
+          (resource) => resource.kind == RitoResourceKind.image,
+        );
+        final image = await sharded.readResource(page, reference);
+        expect(image.bytes, isNotEmpty);
+        expect(
+          loads,
+          hasLength(loadsBeforeRead),
+          reason: 'the image was supplied before it was read',
+        );
+        await sharded.releaseArtifact(page);
       } finally {
         await sharded.dispose();
         await archive.dispose();

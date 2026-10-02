@@ -26,4 +26,8 @@ impl WasmRuntimeDocument {
             .supply_shard(shard, key.as_ref())
             .map_err(|error| WasmRuntimeError::bad_request(error.message()))
     }
+
+    pub fn content_shards_near(&self, href: &str) -> Vec<u32> {
+        self.document.content_shards_near(href)
+    }
 }

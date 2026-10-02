@@ -43,6 +43,16 @@ final class _RitoWorkerClient {
   final Isolate _isolate;
   final _WorkerSignals _signals;
   final RitoWorkerCloseGate _closeGate = RitoWorkerCloseGate();
+  int _inFlight = 0;
+  Completer<void>? _idle;
+
+  /// Completes once no operation is in flight.
+  Future<void> whenIdle() {
+    if (_inFlight == 0) {
+      return Future<void>.value();
+    }
+    return (_idle ??= Completer<void>()).future;
+  }
 
   Future<T> invoke<T>(_WorkerOperation operation) async {
     final result = await _invoke(operation);
@@ -61,6 +71,7 @@ final class _RitoWorkerClient {
     }
     final reply = ReceivePort();
     late final Object? message;
+    _inFlight += 1;
     try {
       _commands.send(_WorkerEnvelope(operation, reply.sendPort));
       message = await _signals.latch.race<Object?>(
@@ -69,6 +80,11 @@ final class _RitoWorkerClient {
       );
     } finally {
       reply.close();
+      _inFlight -= 1;
+      if (_inFlight == 0) {
+        _idle?.complete();
+        _idle = null;
+      }
     }
     if (message is! _WorkerResult) {
       throw StateError('Rito native worker returned an invalid reply.');
@@ -252,6 +268,8 @@ void _discardUnsentWire(
         break;
       case _SupplyShardOperation():
         break;
+      case _ContentShardsNearOperation():
+        break;
       case _RequestArtifactOperation():
         final artifactId = _wireArtifactId(wireBytes);
         if (artifactId != null) {
@@ -343,6 +361,10 @@ Object? _perform(
       sessionId: operation.sessionId,
       shardBytes: RitoOwnedByteTransfer.materialize(operation.shardBytes),
       key: operation.key,
+    ),
+    _ContentShardsNearOperation() => bindings.contentShardsNear(
+      sessionId: operation.sessionId,
+      href: operation.href,
     ),
     _RequestArtifactOperation() => bindings.requestArtifactEncoded(
       sessionId: operation.sessionId,
@@ -601,6 +623,16 @@ final class _SupplyShardOperation extends _WorkerOperation {
   final int sessionId;
   final TransferableTypedData shardBytes;
   final Uint8List? key;
+}
+
+final class _ContentShardsNearOperation extends _WorkerOperation {
+  const _ContentShardsNearOperation({
+    required this.sessionId,
+    required this.href,
+  });
+
+  final int sessionId;
+  final String href;
 }
 
 final class _RequestArtifactOperation extends _WorkerOperation {

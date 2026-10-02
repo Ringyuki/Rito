@@ -191,6 +191,19 @@ uint32_t rito_supply_shard(uint64_t session_id,
                               rito_owned_buffer *error_out);
 
 /*
+ * Writes every content shard id of a reader opened from shards to shards_out
+ * as little-endian uint32 values, ordered for fetching ahead of need from the
+ * chapter at href_data: the shards that chapter draws, then those of the
+ * chapters around it by reading distance. A reader opened from an archive
+ * writes an empty buffer.
+ */
+uint32_t rito_content_shards_near(uint64_t session_id,
+                                     const uint8_t *href_data,
+                                     uint64_t href_len,
+                                     rito_owned_buffer *shards_out,
+                                     rito_owned_buffer *error_out);
+
+/*
  * Reads the session's immutable publication snapshot as one complete
  * RITOPUB1 message. The output is capped at
  * RITO_PUBLICATION_WIRE_BYTES_MAX and contains only fixed-width numeric

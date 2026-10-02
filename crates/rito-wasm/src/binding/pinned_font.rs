@@ -60,6 +60,13 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    /// Every content shard, those the chapter at `href` draws first, then
+    /// those of the chapters around it by reading distance.
+    #[wasm_bindgen(js_name = contentShardsNear)]
+    pub fn content_shards_near(&self, href: String) -> Vec<u32> {
+        self.inner.content_shards_near(&href)
+    }
+
     #[wasm_bindgen(js_name = pinnedFontPolicyJson)]
     pub fn pinned_font_policy_json(&self) -> Result<String, JsValue> {
         self.inner

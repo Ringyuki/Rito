@@ -165,9 +165,42 @@ impl ShardStore {
         let state = self.0.borrow();
         let index = state.resolve(path)?;
         match state.files[index].location {
-            FileLocation::Shard { shard_id, media } => Some((shard_id, media)),
+            FileLocation::Shard {
+                shard_id, media, ..
+            } => Some((shard_id, media)),
             _ => None,
         }
+    }
+
+    /// Every content shard ordered by how far its first drawing chapter is
+    /// from spine index `chapter`: that chapter, then the next, the
+    /// previous, the one after next and so on; shards no chapter draws come
+    /// last. Ties keep id order.
+    pub(crate) fn content_shards_near(&self, chapter: u32) -> Vec<u32> {
+        let state = self.0.borrow();
+        let mut ranked = state
+            .shard_files
+            .iter()
+            .map(|(shard_id, files)| {
+                let first = files
+                    .iter()
+                    .filter_map(|index| match state.files[*index].location {
+                        FileLocation::Shard { first_chapter, .. } => first_chapter,
+                        _ => None,
+                    })
+                    .min();
+                let rank = first.map_or(u64::MAX, |first| {
+                    if first >= chapter {
+                        2 * u64::from(first - chapter)
+                    } else {
+                        2 * u64::from(chapter - first) - 1
+                    }
+                });
+                (rank, *shard_id)
+            })
+            .collect::<Vec<_>>();
+        ranked.sort_unstable();
+        ranked.into_iter().map(|(_, shard_id)| shard_id).collect()
     }
 
     pub(crate) fn read_bytes(&self, path: &str) -> EpubResult<Rc<Vec<u8>>> {

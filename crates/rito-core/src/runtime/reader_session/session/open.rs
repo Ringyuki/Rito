@@ -74,6 +74,13 @@ impl ReaderSession {
             .map_err(|error| ReaderError::new(ReaderErrorKind::InvalidRequest, error.message()))
     }
 
+    /// Every content shard, those the chapter at `href` draws first, then
+    /// those of the chapters around it by reading distance. Empty for a
+    /// session opened from an archive.
+    pub fn content_shards_near(&self, href: &str) -> Vec<u32> {
+        self.document.content_shards_near(href)
+    }
+
     fn from_document(session_id: u64, document: RuntimeDocument) -> Result<Self, ReaderError> {
         let publication = build_reader_publication(session_id, &document)?;
         Ok(Self {

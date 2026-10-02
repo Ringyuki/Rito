@@ -3,8 +3,9 @@
 //!
 //! Skeleton payload: the image dimension rule revision, then the
 //! publication's file table in archive order. A file the skeleton does not
-//! carry names its content shard and what kind of file it is; an image also
-//! carries the intrinsic dimensions the engine lays it out with.
+//! carry names its content shard, what kind of file it is and the spine index
+//! of the first chapter that draws it (`u32::MAX` when none does); an image
+//! also carries the intrinsic dimensions the engine lays it out with.
 //! Content payload: the files the shard carries, as path and bytes.
 
 use super::container::shard_error;
@@ -16,6 +17,7 @@ const LOCATION_UNREADABLE: u8 = 2;
 const MEDIA_OTHER: u8 = 0;
 const MEDIA_IMAGE_WITHOUT_DIMENSIONS: u8 = 1;
 const MEDIA_IMAGE: u8 = 2;
+const NO_CHAPTER: u32 = u32::MAX;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShardMedia {
@@ -30,8 +32,14 @@ pub(crate) enum ShardMedia {
 pub(crate) enum FileLocation {
     /// Carried by the skeleton itself.
     Inline(Vec<u8>),
-    /// Carried by the content shard with this id.
-    Shard { shard_id: u32, media: ShardMedia },
+    /// Carried by the content shard with this id. `first_chapter` is the
+    /// spine index of the first chapter that draws the file, which orders
+    /// the shards a reader fetches ahead of need.
+    Shard {
+        shard_id: u32,
+        media: ShardMedia,
+        first_chapter: Option<u32>,
+    },
     /// The source archive could not produce this entry; reading it fails
     /// with the archive's own reason.
     Unreadable(String),
@@ -72,10 +80,15 @@ impl SkeletonPayload {
                     out.push(LOCATION_INLINE);
                     put_bytes(&mut out, bytes);
                 }
-                FileLocation::Shard { shard_id, media } => {
+                FileLocation::Shard {
+                    shard_id,
+                    media,
+                    first_chapter,
+                } => {
                     out.push(LOCATION_SHARD);
                     put_u32(&mut out, *shard_id);
                     put_media(&mut out, *media);
+                    put_u32(&mut out, first_chapter.unwrap_or(NO_CHAPTER));
                 }
                 FileLocation::Unreadable(reason) => {
                     out.push(LOCATION_UNREADABLE);
@@ -110,9 +123,12 @@ impl SkeletonPayload {
                     if shard_id == 0 {
                         return Err(shard_error("a file names the skeleton as its shard"));
                     }
+                    let media = reader.media()?;
+                    let first_chapter = Some(reader.u32()?).filter(|index| *index != NO_CHAPTER);
                     FileLocation::Shard {
                         shard_id,
-                        media: reader.media()?,
+                        media,
+                        first_chapter,
                     }
                 }
                 LOCATION_UNREADABLE => FileLocation::Unreadable(reader.string()?),

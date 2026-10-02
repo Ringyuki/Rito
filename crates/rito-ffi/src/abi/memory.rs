@@ -276,6 +276,32 @@ pub extern "C" fn rito_supply_shard(
 }
 
 #[no_mangle]
+/// Writes every content shard id of a reader opened from shards to
+/// `shards_out` as little-endian `u32`s, ordered for fetching ahead of
+/// need from the chapter at `href`: the shards that chapter draws, then
+/// those of the chapters around it by reading distance. A reader opened
+/// from an archive writes an empty buffer.
+pub extern "C" fn rito_content_shards_near(
+    session_id: u64,
+    href_data: *const u8,
+    href_len: u64,
+    shards_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(shards_out, error_out, "shards_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let href = input::resource_href(href_data, href_len)?;
+        let admission = registry::try_admit(session_id)?;
+        let shards = registry::content_shards_near(admission, href)?;
+        write_buffer(
+            shards_out,
+            shards.iter().flat_map(|id| id.to_le_bytes()).collect(),
+        )
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn rito_read_publication(
     session_id: u64,
     publication_out: *mut RitoOwnedBuffer,

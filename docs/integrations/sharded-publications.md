@@ -58,6 +58,20 @@ quarter of books under 3%, a quarter over 11%). Each image, audio or
 video file is a content shard of its own, and the skeleton records each
 image's intrinsic size, so layout never needs the image itself.
 
+## Images ahead of need
+
+The skeleton records, for each image, the first chapter that draws it.
+While the reader is idle, the client supplies image shards ahead of
+need: those of the chapter being read first, then the next chapter, the
+previous one, and so on outward. It supplies one shard at a time and only
+while no other call is in flight, so a page turn waits behind at most
+the one supply already under way. Moving to another chapter reorders
+what is left. A shard that fails to load ahead of need is loaded again
+by the read that needs it, which reports the failure.
+
+Over a whole session this fetches what the EPUB would have weighed; it
+only changes when.
+
 ## Serving
 
 The reader asks for shards by id. A typical server:
@@ -107,7 +121,8 @@ final session = await RitoReaderSession.openShards(
 ```
 
 Opening, seeks, turns, peeks and `advanceBackground` never wait on a
-shard. Reading an image loads its shard and retries transparently.
+shard. Reading an image loads its shard and retries transparently, and
+image shards are supplied ahead of need as on the web.
 
 ## C ABI
 
@@ -115,6 +130,9 @@ shard. Reading an image loads its shard and retries transparently.
   requests the initial artifact.
 - `rito_supply_shard` hands the session one content shard and writes the
   shard's id.
+- `rito_content_shards_near` writes every content shard id as
+  little-endian `u32`s, ordered for supplying ahead of need from a
+  chapter href: that chapter's images first, then the chapters around it.
 
 Only a resource read can need a missing shard. It then returns
 `RITO_STATUS_RESOURCE_PENDING`.

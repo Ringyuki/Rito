@@ -15,7 +15,7 @@ use rito_core::{
 };
 
 use crate::{
-    abi::copy_owned_buffer_for_test, rito_buffer_free, rito_dispose,
+    abi::copy_owned_buffer_for_test, rito_buffer_free, rito_content_shards_near, rito_dispose,
     rito_open_shards_with_pinned_fonts, rito_open_with_pinned_fonts, rito_read_resource,
     rito_supply_shard, RitoOwnedBuffer, RitoPinnedFontFace, RITO_PINNED_FONT_ROLE_SERIF,
     RITO_RESOURCE_KIND_IMAGE, RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_OK,
@@ -144,6 +144,19 @@ fn supply(session_id: u64, bytes: &[u8], key: &[u8]) -> (u32, u32, Vec<u8>) {
     (status, shard_id, called.error)
 }
 
+fn content_shards_near(session_id: u64, href: &str) -> Called {
+    let mut shards = RitoOwnedBuffer::EMPTY;
+    let mut error = RitoOwnedBuffer::EMPTY;
+    let status = rito_content_shards_near(
+        session_id,
+        href.as_ptr(),
+        href.len() as u64,
+        &mut shards,
+        &mut error,
+    );
+    take(status, shards, error)
+}
+
 fn read_image(session_id: u64, artifact_id: u64, href: &str) -> Called {
     let mut resource = RitoOwnedBuffer::EMPTY;
     let mut error = RitoOwnedBuffer::EMPTY;
@@ -208,6 +221,25 @@ fn a_sharded_reader_lays_out_from_its_skeleton_and_reads_images_as_they_arrive()
     let pending = decode_reader_pending_shards(&waiting.error).expect("RITOPSH1 decodes");
     assert_eq!(pending.kind, ReaderErrorKind::ResourcePending);
     assert_eq!(pending.pending_shards.len(), 1);
+
+    // Ahead-of-need fetching starts with the shard the open chapter draws,
+    // and names every content shard exactly once.
+    let order = content_shards_near(session_id, &artifact.locator.href);
+    assert_eq!(order.status, RITO_STATUS_OK);
+    let order = order
+        .output
+        .chunks_exact(4)
+        .map(|bytes| u32::from_le_bytes(bytes.try_into().expect("four bytes")))
+        .collect::<Vec<_>>();
+    assert_eq!(order[0], pending.pending_shards[0]);
+    let mut sorted = order.clone();
+    sorted.sort_unstable();
+    assert_eq!(sorted, (1..=packed.shards.len() as u32).collect::<Vec<_>>());
+    assert_eq!(
+        content_shards_near(archive_session, &artifact.locator.href).output,
+        Vec::<u8>::new(),
+        "an archive-opened reader has no shards"
+    );
 
     let (status, _, _) = supply(session_id, &[1, 2, 3], &[]);
     assert_eq!(status, RITO_STATUS_INVALID_ARGUMENT);

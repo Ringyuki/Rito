@@ -8,10 +8,13 @@ and every image's size, so opening, seeks, turns, peeks and whole-book
 pagination behave exactly as on a session opened from the whole EPUB.
 Each image sits in a shard of its own: the engine names it the first time
 the image is read, and the gateway loads it through the `loadShards`
-callback, hands it to the native session and retries the read. Encrypted shards carry their own 32-byte keys.
+callback, hands it to the native session and retries the read. While the
+native worker is idle, the gateway supplies image shards ahead of need,
+nearest the chapter being read first, one at a time. Encrypted shards carry their own 32-byte keys.
 `ritoNativeStatusResourcePending` reports a call whose shards could not be
 supplied, with the shard ids in `RitoNativeException.pendingShards`; the C
-ABI gains `rito_open_shards_with_pinned_fonts`, `rito_supply_shard` and
+ABI gains `rito_open_shards_with_pinned_fonts`, `rito_supply_shard`,
+`rito_content_shards_near` and
 `RITO_STATUS_RESOURCE_PENDING`, whose `error_out` carries a `RITOPSH1`
 message.
 

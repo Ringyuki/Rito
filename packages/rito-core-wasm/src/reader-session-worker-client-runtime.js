@@ -10,6 +10,7 @@ import { decodeRitoReaderPublication } from './reader-session-publication-runtim
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
 import { defaultYieldControl } from './reader-revision-session-support-runtime.js';
 import { createRitoReaderSessionQueryMethods } from './reader-session-worker-client-query-runtime.js';
+import { createShardPrefetchLane } from './shard-prefetch-lane-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const MAX_PENDING_MESSAGES = 8;
@@ -92,6 +93,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     else entry.reject(responseError(response.error));
   };
   const fail = (error) => {
+    prefetch.stop();
     terminalError ??= error instanceof Error ? error : new Error(String(error));
     phase = 'disposed';
     activeSeek?.deferred.reject(terminalError);
@@ -110,7 +112,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   worker.addEventListener('error', handleError);
   worker.addEventListener('messageerror', handleMessageError);
 
-  const send = (kind, body, transfer = []) => {
+  const sendNow = (kind, body, transfer = []) => {
     requireUsable();
     if (pending.size >= MAX_PENDING_MESSAGES) {
       return Promise.reject(
@@ -128,8 +130,12 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     }
     return promise;
   };
+  // Every call counts as the reader's: shards are supplied ahead of need
+  // only while none is in flight.
+  const send = (kind, body, transfer) => prefetch.around(() => sendNow(kind, body, transfer));
 
   let shardLoader;
+  let prefetchedNear;
   const supplying = new Map();
   // Loads and hands the worker the shards a failed request named; requests
   // waiting on the same shard share one load.
@@ -138,7 +144,9 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       shardIds.map((shardId) => {
         let supplied = supplying.get(shardId);
         if (supplied === undefined) {
-          supplied = supplyShard(shardId).finally(() => supplying.delete(shardId));
+          supplied = supplyShard(shardId)
+            .then(() => prefetch.noteSupplied(shardId))
+            .finally(() => supplying.delete(shardId));
           supplying.set(shardId, supplied);
         }
         return supplied;
@@ -159,6 +167,23 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
         `the bytes loaded for shard ${shardId} are another shard`,
       );
     }
+  };
+  const prefetch = createShardPrefetchLane((shardId) => supplyShards([shardId]));
+  // A page the reader returns moves where image shards are supplied ahead
+  // of need from: its chapter's first, then the chapters around it.
+  const prefetchNear = (artifact) => {
+    const href = artifact.locator.href;
+    if (shardLoader === undefined || href === prefetchedNear) return artifact;
+    prefetchedNear = href;
+    sendNow('content-shards-near', { href }).then(
+      (payload) => {
+        if (payload?.kind === 'content-shards-near') prefetch.restart(payload.shardIds);
+      },
+      () => {
+        prefetchedNear = undefined;
+      },
+    );
+    return artifact;
   };
   // Laying out never waits on a shard (the skeleton carries every chapter,
   // stylesheet, font and image size); only reading an image does. Such a
@@ -205,7 +230,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       liveArtifacts.add(artifact.artifactId);
       foregroundCandidate = foregroundCandidateIdentity(artifact, request);
       phase = 'open';
-      return artifact;
+      return prefetchNear(artifact);
     } catch (error) {
       await dispose().catch(() => undefined);
       throw error;
@@ -280,7 +305,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
             throw staleRequestError();
           }
           foregroundCandidate = foregroundCandidateIdentity(artifact);
-          return artifact;
+          return prefetchNear(artifact);
         }
         if (phase !== 'open') throw sessionDisposedError();
         throw staleRequestError();
@@ -352,7 +377,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
           await releaseInternal(artifact.artifactId);
         } else {
           foregroundCandidate = foregroundCandidateIdentity(artifact, operation.request);
-          operation.deferred.resolve(artifact);
+          operation.deferred.resolve(prefetchNear(artifact));
         }
       });
     } catch (error) {
@@ -576,6 +601,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
 
   const dispose = async () => {
     if (phase === 'disposed') return;
+    prefetch.stop();
     phase = 'disposed';
     const disposedError = new RitoReaderError(
       'session-disposed',

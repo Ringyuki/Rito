@@ -156,6 +156,17 @@ async function handleMessage(state, deps, message) {
       const shardId = state.session.supplyShard(new Uint8Array(message.shard), message.key);
       return { payload: { kind: 'supply-shard', shardId } };
     }
+    case 'content-shards-near': {
+      if (typeof message.href !== 'string') {
+        throw readerWorkerError('invalid-request', 'A chapter href must be a string');
+      }
+      return {
+        payload: {
+          kind: 'content-shards-near',
+          shardIds: Array.from(state.session.contentShardsNear(message.href)),
+        },
+      };
+    }
     case 'release': {
       const released = state.session.releaseArtifact(message.artifactId);
       state.liveArtifacts.delete(message.artifactId);

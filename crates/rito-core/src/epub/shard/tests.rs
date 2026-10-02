@@ -175,6 +175,7 @@ fn a_skeleton_that_leaves_a_chapter_in_a_shard_is_refused() {
     chapter.location = FileLocation::Shard {
         shard_id: 1,
         media: ShardMedia::Other,
+        first_chapter: None,
     };
     let header = ShardHeader {
         kind: ShardKind::Skeleton,
@@ -277,6 +278,7 @@ fn payloads_round_trip() {
                 location: FileLocation::Shard {
                     shard_id: 4,
                     media: ShardMedia::Image(Some((640, 480))),
+                    first_chapter: Some(0),
                 },
             },
             SkeletonFile {
@@ -286,6 +288,7 @@ fn payloads_round_trip() {
                 location: FileLocation::Shard {
                     shard_id: 5,
                     media: ShardMedia::Image(None),
+                    first_chapter: Some(7),
                 },
             },
             SkeletonFile {
@@ -295,6 +298,7 @@ fn payloads_round_trip() {
                 location: FileLocation::Shard {
                     shard_id: 6,
                     media: ShardMedia::Other,
+                    first_chapter: None,
                 },
             },
             SkeletonFile {
@@ -368,4 +372,102 @@ fn a_body_that_claims_deflate_but_does_not_inflate_is_refused() {
     assert_eq!(sealed[14], 0, "five bytes do not shrink");
     sealed[14] = 1;
     assert!(open_shard(&sealed, None).is_err());
+}
+
+/// Four chapters drawing images out of archive order: chapter 0 draws b,
+/// chapter 1 draws c, chapter 2 draws a, chapter 3 draws c again; d is
+/// drawn by none.
+fn scattered_images_fixture_epub() -> Vec<u8> {
+    use std::io::{Cursor, Write};
+    use zip::{write::FileOptions, ZipWriter};
+
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    let mut add = |name: &str, bytes: &[u8]| {
+        writer.start_file(name, options).expect("starts entry");
+        writer.write_all(bytes).expect("writes entry");
+    };
+    add(
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles><rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/></rootfiles>
+</container>"#,
+    );
+    add(
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Scattered images</dc:title><dc:language>en</dc:language><dc:identifier id="id">scattered</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="c0" href="c0.xhtml" media-type="application/xhtml+xml"/>
+    <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="c2" href="c2.xhtml" media-type="application/xhtml+xml"/>
+    <item id="c3" href="c3.xhtml" media-type="application/xhtml+xml"/>
+    <item id="a" href="Images/a.png" media-type="image/png"/>
+    <item id="b" href="Images/b.png" media-type="image/png"/>
+    <item id="c" href="Images/c.png" media-type="image/png"/>
+    <item id="d" href="Images/d.png" media-type="image/png"/>
+  </manifest>
+  <spine><itemref idref="c0"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="c3"/></spine>
+</package>"#,
+    );
+    for image in ["a", "b", "c", "d"] {
+        add(
+            &format!("OPS/Images/{image}.png"),
+            &crate::runtime::tests::fixture::minimal_png(),
+        );
+    }
+    for (chapter, image) in [("c0", "b"), ("c1", "c"), ("c2", "a"), ("c3", "c")] {
+        add(
+            &format!("OPS/{chapter}.xhtml"),
+            format!(
+                r#"<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><body><p>{chapter}</p><img src="Images/{image}.png" alt=""/></body></html>"#
+            )
+            .as_bytes(),
+        );
+    }
+    writer.finish().expect("finishes").into_inner()
+}
+
+#[test]
+fn content_shards_are_ordered_by_reading_distance_from_a_chapter() {
+    let packed = pack(&scattered_images_fixture_epub(), false);
+    let shard_of = |image: &str| {
+        packed
+            .shards
+            .iter()
+            .find(|shard| shard.files == [format!("OPS/Images/{image}.png")])
+            .expect("one shard per image")
+            .shard_id
+    };
+    let ids = |images: &[&str]| {
+        images
+            .iter()
+            .map(|image| shard_of(image))
+            .collect::<Vec<_>>()
+    };
+    let document = open(&packed);
+
+    // From chapter 2: its own image, then chapter 3 (next) - whose c was
+    // first drawn by chapter 1, the previous one - then chapter 0's b,
+    // and the undrawn d last.
+    assert_eq!(
+        document.content_shards_near("c2.xhtml"),
+        ids(&["a", "c", "b", "d"])
+    );
+    assert_eq!(
+        document.content_shards_near("c0.xhtml#top"),
+        ids(&["b", "c", "a", "d"])
+    );
+    assert_eq!(
+        open_runtime_document(&scattered_images_fixture_epub())
+            .expect("opens")
+            .content_shards_near("c0.xhtml"),
+        Vec::<u32>::new(),
+        "an archive-opened publication has no shards"
+    );
 }

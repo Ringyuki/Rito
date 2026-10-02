@@ -106,6 +106,15 @@ impl RitoReaderSession {
             .map_err(ReaderProjectionError::into_js_value)
     }
 
+    /// Every content shard, those the chapter at `href` draws first, then
+    /// those of the chapters around it by reading distance.
+    #[wasm_bindgen(js_name = contentShardsNear)]
+    pub fn content_shards_near(&self, href: String) -> Result<Vec<u32>, JsValue> {
+        self.inner
+            .content_shards_near(&href)
+            .map_err(ReaderProjectionError::into_js_value)
+    }
+
     /// Returns the immutable session publication snapshot as one owned
     /// `RITOPUB1` message. No JSON or engine pointer crosses the boundary.
     #[wasm_bindgen(js_name = publication)]
@@ -283,6 +292,13 @@ impl ReaderSessionProjection {
         self.live_session()?
             .supply_shard(shard, key.as_ref())
             .map_err(Into::into)
+    }
+
+    fn content_shards_near(&self, href: &str) -> ProjectionResult<Vec<u32>> {
+        self.session
+            .as_ref()
+            .map(|session| session.content_shards_near(href))
+            .ok_or_else(ReaderProjectionError::session_disposed)
     }
 
     fn request_artifact(&mut self, request_wire: &[u8]) -> ProjectionResult<Vec<u8>> {

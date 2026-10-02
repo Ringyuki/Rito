@@ -169,6 +169,8 @@ static void consume(void) {
                                               &artifact, &error);
   (void)rito_supply_shard(1, epub, 1, shard_key, sizeof(shard_key), &shard_id,
                              &error);
+  rito_owned_buffer shard_order = {0};
+  (void)rito_content_shards_near(1, epub, 1, &shard_order, &error);
   (void)rito_peek_adjacent(1, adjacent, 8, &peeked, &error);
   (void)rito_commit_peeked_artifact(1, foreground_handoff, 8,
                                        &commit_ack, &error);

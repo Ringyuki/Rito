@@ -249,6 +249,8 @@ final class RitoIsolateGateway
   late final Future<_RitoWorkerClient> _worker;
   final Map<int, RitoShardLoader> _shardLoaders = <int, RitoShardLoader>{};
   final Map<(int, int), Future<void>> _supplying = <(int, int), Future<void>>{};
+  final Map<int, _ShardPrefetchLane> _prefetchLanes =
+      <int, _ShardPrefetchLane>{};
 
   @override
   Future<RitoArtifact> open({
@@ -328,6 +330,10 @@ final class RitoIsolateGateway
         ),
     ];
     _shardLoaders[sessionId] = loadShards;
+    _prefetchLanes[sessionId] = _ShardPrefetchLane(
+      (shardId) => _supplyShards(sessionId, <int>[shardId]),
+      () async => (await _worker).whenIdle(),
+    );
     try {
       return await _queue.open<RitoArtifact>(
         sessionId: sessionId,
@@ -363,6 +369,7 @@ final class RitoIsolateGateway
       // the request ID.
       _forgetIntent(intent);
       _shardLoaders.remove(sessionId);
+      _prefetchLanes.remove(sessionId)?.stop();
       rethrow;
     }
   }
@@ -1071,6 +1078,7 @@ final class RitoIsolateGateway
   Future<void> dispose({required int sessionId}) async {
     _intents.remove(sessionId);
     _shardLoaders.remove(sessionId);
+    _prefetchLanes.remove(sessionId)?.stop();
     _pendingForegroundCandidates.remove(sessionId);
     _pendingBackgroundCandidates.remove(sessionId);
     await _queue.dispose(
@@ -1376,6 +1384,7 @@ final class RitoIsolateGateway
       }
       _pendingForegroundCandidates[sessionId] = artifact;
       _pendingBackgroundCandidates.remove(sessionId);
+      _prefetchNear(sessionId, artifact.locator.href);
       return artifact;
     } on Object catch (error, stackTrace) {
       return _rejectMalformedArtifact(

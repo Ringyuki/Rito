@@ -201,6 +201,22 @@ typedef _OpenShardsDart =
       Pointer<_RitoOwnedBuffer>,
       Pointer<_RitoOwnedBuffer>,
     );
+typedef _ContentShardsNearNative =
+    Uint32 Function(
+      Uint64,
+      Pointer<Uint8>,
+      Uint64,
+      Pointer<_RitoOwnedBuffer>,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _ContentShardsNearDart =
+    int Function(
+      int,
+      Pointer<Uint8>,
+      int,
+      Pointer<_RitoOwnedBuffer>,
+      Pointer<_RitoOwnedBuffer>,
+    );
 typedef _SupplyShardNative =
     Uint32 Function(
       Uint64,

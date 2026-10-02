@@ -66,7 +66,9 @@ pub fn pack_publication(
     random: &mut dyn FnMut(&mut [u8]),
 ) -> EpubResult<PackedPublication> {
     let sources = read_sources(epub)?;
-    let media = media_files(&open_runtime_document(epub)?);
+    let document = open_runtime_document(epub)?;
+    let media = media_files(&document);
+    let first_chapters = first_drawing_chapters(&document, &sources);
 
     let mut book_id = [0u8; 16];
     random(&mut book_id);
@@ -101,7 +103,11 @@ pub fn pack_publication(
                     MediaKind::Image => ShardMedia::Image(detect_image_dimensions(bytes)),
                     MediaKind::Other => ShardMedia::Other,
                 };
-                FileLocation::Shard { shard_id, media }
+                FileLocation::Shard {
+                    shard_id,
+                    media,
+                    first_chapter: first_chapters.get(name).copied(),
+                }
             }
         };
         files.push(SkeletonFile {
@@ -178,6 +184,34 @@ fn media_files(document: &LoadedEpubDocument) -> BTreeMap<String, MediaKind> {
     }
     media.retain(|name, _| !chapters.contains(name));
     media
+}
+
+/// The spine index of the first chapter that draws each image, by archive
+/// name.
+fn first_drawing_chapters(
+    document: &LoadedEpubDocument,
+    sources: &[SourceFile],
+) -> BTreeMap<String, u32> {
+    let bytes_by_name = sources
+        .iter()
+        .filter_map(|source| Some((source.entry.name.as_str(), source.read.as_ref().ok()?)))
+        .collect::<BTreeMap<_, _>>();
+    let mut first = BTreeMap::new();
+    for (index, chapter) in document.chapters.iter().enumerate() {
+        let Ok(index) = u32::try_from(index) else {
+            break;
+        };
+        let Some(bytes) = document
+            .resolve_archive_name(&join_epub_href(document.opf_dir(), &chapter.href))
+            .and_then(|name| bytes_by_name.get(name.as_str()).copied())
+        else {
+            continue;
+        };
+        for name in document.image_archive_names_drawn_by(&String::from_utf8_lossy(bytes)) {
+            first.entry(name).or_insert(index);
+        }
+    }
+    first
 }
 
 fn seal(

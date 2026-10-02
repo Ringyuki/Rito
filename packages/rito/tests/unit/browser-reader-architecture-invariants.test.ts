@@ -62,7 +62,9 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // device pixel ratio, so raster snaps land on the device grid.
 // Lowered (2026-10-01): the engine derives line metrics itself, so the
 // browser no longer measures, injects or reflows for them.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3311;
+// +2 lines (2026-10-02): a navigation tells a sharded publication's worker
+// client which chapter to supply image shards ahead of need from.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3313;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.

@@ -1,3 +1,4 @@
+import { createShardPrefetchLane } from './shard-prefetch-lane-runtime.js';
 import {
   beginReaderSessionRelease,
   createReaderSessionState,
@@ -214,6 +215,7 @@ function createRitoCoreWasmReaderClient(
   let phase = 'idle';
   let activeCache = cache;
   let shardLoader;
+  let prefetchedNear;
   const supplying = new Map();
   // Loads and hands the worker the shards one failed call named; calls that
   // wait on the same shard share one load.
@@ -222,30 +224,43 @@ function createRitoCoreWasmReaderClient(
       shardIds.map((shardId) => {
         let supplied = supplying.get(shardId);
         if (supplied === undefined) {
-          supplied = supplyShard(request, shardLoader, shardId).finally(() =>
-            supplying.delete(shardId),
-          );
+          supplied = supplyShard(request, shardLoader, shardId)
+            .then(() => prefetch.noteSupplied(shardId))
+            .finally(() => supplying.delete(shardId));
           supplying.set(shardId, supplied);
         }
         return supplied;
       }),
     );
+  const prefetch = createShardPrefetchLane((shardId) => supplyShards([shardId]));
   // Every call into a publication opened from shards may fail as
   // resource-pending; supply what it names and send the identical call
   // again. Calls carry no request identity, so a retry is the same call.
-  const shardAwareRequest = async (input, transfer) => {
-    let previous;
-    for (let round = 0; ; round += 1) {
-      try {
-        return await request(input, transfer);
-      } catch (error) {
-        if (shardLoader === undefined || error?.code !== 'resource-pending') throw error;
-        const named = error.pendingShards.join(',');
-        if (named === previous || round >= MAX_SHARD_ROUNDS) throw error;
-        previous = named;
-        await supplyShards(error.pendingShards);
+  const shardAwareRequest = (input, transfer) =>
+    prefetch.around(async () => {
+      let previous;
+      for (let round = 0; ; round += 1) {
+        try {
+          return await request(input, transfer);
+        } catch (error) {
+          if (shardLoader === undefined || error?.code !== 'resource-pending') throw error;
+          const named = error.pendingShards.join(',');
+          if (named === previous || round >= MAX_SHARD_ROUNDS) throw error;
+          previous = named;
+          await supplyShards(error.pendingShards);
+        }
       }
+    });
+  // Supplies every image shard ahead of need, nearest to the chapter at
+  // `href` first, while the reader is idle; a no-op for an archive.
+  const prefetchShardsNear = async (href) => {
+    if (shardLoader === undefined || phase !== 'open' || href === prefetchedNear) return;
+    prefetchedNear = href;
+    const payload = await request({ kind: 'contentShardsNear', href });
+    if (payload.kind !== 'contentShardsNear') {
+      throw new Error(`Rito reader worker returned ${payload.kind} for contentShardsNear`);
     }
+    prefetch.restart(payload.result);
   };
   const open = async (data, options) => {
     if (phase !== 'idle') throw new Error(`Rito reader client cannot open while ${phase}`);
@@ -286,6 +301,7 @@ function createRitoCoreWasmReaderClient(
   };
   const disposeClient = () => {
     if (phase === 'disposed') return;
+    prefetch.stop();
     phase = 'disposed';
     activeCache = normalizeReaderSessionCache();
     dispose();
@@ -303,6 +319,7 @@ function createRitoCoreWasmReaderClient(
       result(call, { kind: 'readResource', revisionId, resourceKind, href }, 'readResource'),
     warmFrameWindow: (revisionId, spreadIndex) =>
       result(call, { kind: 'warmFrameWindow', revisionId, spreadIndex }, 'warmFrameWindow'),
+    prefetchShardsNear,
     resolveLocator: (revisionId, locator) =>
       result(call, { kind: 'resolveLocator', revisionId, locator }, 'resolveLocator'),
     search: (revisionId, searchRequest) =>

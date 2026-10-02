@@ -229,6 +229,9 @@ export function createWorker(
     dispose,
     whenDisposed,
     chapterFragmentProbe: vi.fn<BrowserReaderWorkerClient['chapterFragmentProbe']>(),
+    prefetchShardsNear: vi.fn<BrowserReaderWorkerClient['prefetchShardsNear']>(() =>
+      Promise.resolve(),
+    ),
   };
   return {
     worker,

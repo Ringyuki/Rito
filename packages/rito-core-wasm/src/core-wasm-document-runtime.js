@@ -85,6 +85,20 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       });
     }
 
+    /**
+     * Every content shard of a document opened from shards, ordered for
+     * fetching ahead of need from the chapter at `href`; empty for an
+     * archive.
+     */
+    contentShardsNear(href) {
+      return callRitoCoreWasm('contentShardsNear', () => {
+        if (typeof href !== 'string') {
+          throw new RitoCoreWasmError('bad-request', 'contentShardsNear href must be a string');
+        }
+        return Array.from(this._inner.contentShardsNear(href));
+      });
+    }
+
     setUnavailableFontFaces(families) {
       return callRitoCoreWasm('setUnavailableFontFaces', () => {
         this._inner.setUnavailableFontFacesJson(JSON.stringify(families));
@@ -259,6 +273,8 @@ function readerWorkerPayload(document, request) {
         result: document.supplyShard(new Uint8Array(request.shard), request.key),
       };
     }
+    case 'contentShardsNear':
+      return { kind: 'contentShardsNear', result: document.contentShardsNear(request.href) };
     case 'chapterFragmentProbe':
       return {
         kind: 'chapterFragmentProbe',

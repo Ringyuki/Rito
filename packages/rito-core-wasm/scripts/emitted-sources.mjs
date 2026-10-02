@@ -60,6 +60,7 @@ export const runtimeModules = [
   'reader-session-worker-runtime.js',
   'reader-session-worker-client-query-runtime.js',
   'reader-session-worker-client-runtime.js',
+  'shard-prefetch-lane-runtime.js',
 ];
 
 /** Hand-written declaration files whose contents are inlined into the bundle. */

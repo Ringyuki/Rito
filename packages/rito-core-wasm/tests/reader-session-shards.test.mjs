@@ -38,7 +38,7 @@ function resourceWire(artifactId, href) {
 }
 
 /** A raw session laid out from its skeleton whose image sits in shard 4. */
-function shardedRawSession(log) {
+function shardedRawSession(log, shardOrder) {
   return class RawSession {
     static openShardsWithPinnedFontPolicy(skeleton, key, sessionId) {
       log.push(['open', [...skeleton], key, sessionId]);
@@ -57,6 +57,12 @@ function shardedRawSession(log) {
     requestArtifact(bytes) {
       const ids = requestIds(bytes);
       return artifactWire(ids.sessionId, ids.requestId, 9n, 'Text/one.xhtml');
+    }
+
+    contentShardsNear(href) {
+      log.push(['order', href]);
+      if (shardOrder === undefined) throw new Error('no shard order');
+      return Uint32Array.from(shardOrder);
     }
 
     readResource(artifactId, kind, href) {
@@ -99,7 +105,7 @@ test('a sharded session opens from its skeleton without loading a shard', async 
   assert.deepEqual(resource.bytes, IMAGE);
   assert.deepEqual(loads, [[4]]);
   assert.deepEqual(
-    log.filter((entry) => entry[0] !== 'open'),
+    log.filter((entry) => entry[0] === 'read' || entry[0] === 'supply'),
     [
       ['read', 'Images/one.png'],
       ['supply', 4, key],
@@ -131,6 +137,39 @@ test('a rejected load fails only the read that needed it', async () => {
   allowed = true;
   const resource = await client.readResource(9n, 'image', 'Images/one.png');
   assert.deepEqual(resource.bytes, IMAGE, 'the session stays usable');
+  await client.dispose();
+});
+
+test('a sharded session supplies image shards ahead of need, nearest first', async () => {
+  const log = [];
+  const loads = [];
+  const client = createRitoCoreWasmReaderSessionWorkerClient(
+    connectedWorker(shardedRawSession(log, [4, 6, 5])),
+  );
+  await client.open(
+    {
+      skeleton: Uint8Array.of(1).buffer,
+      loadShards: async (ids) => {
+        loads.push([...ids]);
+        return ids.map((id) => ({ id, bytes: Uint8Array.of(id) }));
+      },
+    },
+    request('Text/one.xhtml'),
+    POLICY,
+  );
+  for (let tick = 0; tick < 20 && loads.length < 3; tick += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.deepEqual(loads, [[4], [6], [5]], 'one at a time, in the order the engine gave');
+  assert.deepEqual(
+    log.filter((entry) => entry[0] === 'order'),
+    [['order', 'Text/one.xhtml']],
+    'ordered from the opened page',
+  );
+
+  const resource = await client.readResource(9n, 'image', 'Images/one.png');
+  assert.deepEqual(resource.bytes, IMAGE);
+  assert.equal(loads.length, 3, 'the read found its shard already supplied');
   await client.dispose();
 });
 

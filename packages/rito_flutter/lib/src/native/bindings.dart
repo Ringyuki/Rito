@@ -107,6 +107,18 @@ external int _ritoSupplyShard(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_ContentShardsNearNative>(
+  symbol: 'rito_content_shards_near',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoContentShardsNear(
+  int sessionId,
+  Pointer<Uint8> href,
+  int hrefLength,
+  Pointer<_RitoOwnedBuffer> shardsOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_RequestArtifactNative>(
   symbol: 'rito_request_artifact',
   assetId: ritoNativeAssetId,
@@ -330,6 +342,7 @@ final class RitoNativeBindings {
        _openWithPinnedFonts = _ritoOpenWithPinnedFonts,
        _openShards = _ritoOpenShardsWithPinnedFonts,
        _supplyShard = _ritoSupplyShard,
+       _contentShardsNear = _ritoContentShardsNear,
        _requestArtifact = _ritoRequestArtifact,
        _requestAdjacent = _ritoRequestAdjacent,
        _peekAdjacent = _ritoPeekAdjacent,
@@ -370,6 +383,10 @@ final class RitoNativeBindings {
        _supplyShard = library
            .lookupFunction<_SupplyShardNative, _SupplyShardDart>(
              'rito_supply_shard',
+           ),
+       _contentShardsNear = library
+           .lookupFunction<_ContentShardsNearNative, _ContentShardsNearDart>(
+             'rito_content_shards_near',
            ),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
@@ -452,6 +469,7 @@ final class RitoNativeBindings {
   final _OpenWithPinnedFontsDart _openWithPinnedFonts;
   final _OpenShardsDart _openShards;
   final _SupplyShardDart _supplyShard;
+  final _ContentShardsNearDart _contentShardsNear;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _RequestAdjacentDart _peekAdjacent;
@@ -669,6 +687,48 @@ final class RitoNativeBindings {
         ..free(shardIdOut)
         ..free(shard)
         ..free(keyPointer);
+    }
+  }
+
+  /// Every content shard id, ordered for supplying ahead of need from the
+  /// chapter at [href]; empty for a session opened from an archive.
+  List<int> contentShardsNear({required int sessionId, required String href}) {
+    _validateId(sessionId, 'session id');
+    final hrefBytes = Uint8List.fromList(utf8.encode(href));
+    if (hrefBytes.isEmpty || hrefBytes.length > ritoMaxStringBytes) {
+      throw ArgumentError.value(
+        href,
+        'href',
+        'must be non-empty protocol UTF-8',
+      );
+    }
+    final hrefInput = _copyInput(hrefBytes);
+    final shardsOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _contentShardsNear(
+        sessionId,
+        hrefInput,
+        hrefBytes.length,
+        shardsOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      final bytes = _copyOutput(shardsOut, 'content shards');
+      final view = ByteData.sublistView(bytes);
+      return <int>[
+        for (var offset = 0; offset + 4 <= bytes.length; offset += 4)
+          view.getUint32(offset, Endian.little),
+      ];
+    } finally {
+      _bufferFree(shardsOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(shardsOut)
+        ..free(errorOut)
+        ..free(hrefInput);
     }
   }
 
@@ -1555,6 +1615,9 @@ final class RitoNativeWireBindings {
     shardBytes: shardBytes,
     key: key,
   );
+
+  List<int> contentShardsNear({required int sessionId, required String href}) =>
+      _bindings.contentShardsNear(sessionId: sessionId, href: href);
 
   Uint8List requestArtifactEncoded({
     required int sessionId,

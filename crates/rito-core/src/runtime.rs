@@ -165,15 +165,13 @@ impl RuntimeDocument {
             .shard_store()
             .ok_or_else(|| EpubError::new("the publication was not opened from shards"))?
             .clone();
-        let shard_id = store.supply(shard, key)?;
-        // The fragment engine registers publication faces once; one built
-        // while a face's shard was missing never measured with that face.
-        if self.fragment_engine.get().is_some()
-            && self.document.fonts.iter().any(|font| font.bytes.is_empty())
-        {
-            self.fragment_engine = OnceCell::new();
-        }
-        Ok(shard_id)
+        store.supply(shard, key)
+    }
+
+    /// Every content shard, ordered for fetching ahead of need from the
+    /// chapter at `href`; see [`LoadedEpubDocument::content_shards_near`].
+    pub fn content_shards_near(&self, href: &str) -> Vec<u32> {
+        self.document.content_shards_near(href)
     }
 
     pub fn from_loaded_document(document: LoadedEpubDocument) -> Self {

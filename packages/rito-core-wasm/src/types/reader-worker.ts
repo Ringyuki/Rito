@@ -51,6 +51,14 @@ export interface RitoCoreWasmReaderWorkerClient
     revisionId: string,
     spreadIndex: number,
   ): Promise<RitoCoreWasmReaderFrameWindowWarmResult>;
+  /**
+   * Supplies a sharded publication's image shards ahead of need, those
+   * nearest the chapter at `href` first, one at a time and only while no
+   * other call is in flight. Calling it again with another chapter
+   * reorders what is left; a no-op for a publication opened from an
+   * archive.
+   */
+  prefetchShardsNear(href: string): Promise<void>;
   resolveLocator(
     revisionId: string,
     locator: RitoCoreWasmJsonObject,
@@ -170,6 +178,11 @@ export interface RitoCoreWasmReaderDocumentRuntime
   pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;
   /** Hands a document opened from shards one content shard; returns its id. */
   supplyShard(shard: Uint8Array, key?: Uint8Array): number;
+  /**
+   * Every content shard, ordered for fetching ahead of need from the chapter
+   * at `href`; empty for a document opened from an archive.
+   */
+  contentShardsNear(href: string): number[];
   readerWorkerPayload(
     request: RitoCoreWasmReaderWorkerRequest,
   ): RitoCoreWasmReaderWorkerResponsePayload;
@@ -327,6 +340,7 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
         readonly shard: ArrayBuffer;
         readonly key?: Uint8Array | undefined;
       }
+    | { readonly kind: 'contentShardsNear'; readonly href: string }
     | { readonly kind: 'dispose' }
   );
 
@@ -341,4 +355,5 @@ export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'releaseRevisionTransfers' }
   | { readonly kind: 'releaseRevision' }
   | { readonly kind: 'supplyShard'; readonly result: number }
+  | { readonly kind: 'contentShardsNear'; readonly result: readonly number[] }
   | { readonly kind: 'dispose'; readonly releasedDocument: boolean };

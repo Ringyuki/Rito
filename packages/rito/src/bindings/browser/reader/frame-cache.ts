@@ -16,6 +16,7 @@ import type {
 import { isCurrentRevisionHandle } from './pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { recordBrowserReaderSuspendedFrameMiss } from '../suspended-frame-misses';
+import { prefetchBrowserReaderShardsNear } from '../shard-prefetch';
 import {
   queueBrowserReaderFrameWindowLoad,
   resetBrowserReaderFrameWindowLoadLane,
@@ -182,6 +183,7 @@ export async function warmBrowserReaderFrameWindow(
 ): Promise<void> {
   const revision = state.revisionHandle;
   if (!revision || !isCurrentRevisionHandle(state, revision)) return;
+  prefetchBrowserReaderShardsNear(state, centerSpreadIndex);
   if (frameWindowIsCompleted(state, revision, centerSpreadIndex)) return;
   try {
     await loadFrameWindow(state, revision, centerSpreadIndex);

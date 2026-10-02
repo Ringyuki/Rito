@@ -321,6 +321,13 @@ pub(crate) fn supply_shard(
     actor::request_supply_shard(admission, shard, key)
 }
 
+pub(crate) fn content_shards_near(
+    admission: CommandAdmission,
+    href: String,
+) -> Result<Vec<u32>, FfiError> {
+    actor::request_content_shards_near(admission, href)
+}
+
 pub(crate) fn release_artifact(
     admission: CommandAdmission,
     artifact_id: u64,

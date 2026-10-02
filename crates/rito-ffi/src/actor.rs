@@ -103,6 +103,10 @@ pub(crate) enum ActorCommand {
         key: Option<ShardKey>,
         reply: Reply<u32>,
     },
+    ContentShardsNear {
+        href: String,
+        reply: Reply<Vec<u32>>,
+    },
 }
 
 /// Where an actor's session reads its publication from.
@@ -672,6 +676,9 @@ fn run_commands(
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::ContentShardsNear { href, reply } => {
+                let _ = reply.send(Ok(session.content_shards_near(&href)));
+            }
             ActorCommand::ReadFootnote {
                 artifact_id,
                 key,
@@ -924,6 +931,17 @@ pub(crate) fn request_supply_shard(
         admission,
         |reply| ActorCommand::SupplyShard { shard, key, reply },
         "supply shard",
+    )
+}
+
+pub(crate) fn request_content_shards_near(
+    admission: CommandAdmission,
+    href: String,
+) -> Result<Vec<u32>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::ContentShardsNear { href, reply },
+        "content shards",
     )
 }
 

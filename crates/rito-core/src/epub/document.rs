@@ -384,21 +384,54 @@ impl LoadedEpubDocument {
     /// The archive name of every image the document knows, declared or
     /// found in the archive.
     pub(crate) fn image_archive_names(&self) -> Vec<String> {
-        let Some(source) = self.archive_source.as_ref() else {
-            return Vec::new();
-        };
-        let mut names = std::collections::BTreeSet::new();
-        for image in &self.images {
-            let path = source
-                .archive_image_entries
-                .get(&image.href)
-                .map(|entry| entry.path.clone())
-                .unwrap_or_else(|| join_epub_href(&source.opf_dir, &image.href));
-            if let Some(name) = self.resolve_archive_name(&path) {
-                names.insert(name);
+        let names = (0..self.images.len())
+            .filter_map(|index| self.image_archive_name(index))
+            .collect::<BTreeSet<_>>();
+        names.into_iter().collect()
+    }
+
+    /// The archive names of the images a chapter's XHTML draws, resolved as
+    /// laying the chapter out resolves them.
+    pub(crate) fn image_archive_names_drawn_by(&self, xhtml_source: &str) -> Vec<String> {
+        let mut refs = BTreeSet::new();
+        if let Ok(parsed) = parse_xhtml(xhtml_source) {
+            for node in &parsed.nodes {
+                collect_image_refs(node, &mut refs);
             }
         }
-        names.into_iter().collect()
+        refs.iter()
+            .filter_map(|src| find_resource_index(&self.images, src))
+            .filter_map(|index| self.image_archive_name(index))
+            .collect()
+    }
+
+    fn image_archive_name(&self, index: usize) -> Option<String> {
+        let source = self.archive_source.as_ref()?;
+        let href = &self.images.get(index)?.href;
+        let path = source
+            .archive_image_entries
+            .get(href)
+            .map(|entry| entry.path.clone())
+            .unwrap_or_else(|| join_epub_href(&source.opf_dir, href));
+        self.resolve_archive_name(&path)
+    }
+
+    /// Every content shard of a publication opened from shards, ordered for
+    /// fetching ahead of need from the chapter at `href`: the shards that
+    /// chapter draws, then those of the chapters around it by spine
+    /// distance (the next chapter before the previous one), then the rest
+    /// by id. Empty for a publication opened from its archive.
+    pub fn content_shards_near(&self, href: &str) -> Vec<u32> {
+        let Some(store) = self.shard_store() else {
+            return Vec::new();
+        };
+        let href = href.split('#').next().unwrap_or_default();
+        let chapter = self
+            .chapters
+            .iter()
+            .position(|chapter| chapter.href == href)
+            .unwrap_or(0);
+        store.content_shards_near(u32::try_from(chapter).unwrap_or(u32::MAX))
     }
 
     /// Takes every image's intrinsic dimensions from the shard skeleton, so
