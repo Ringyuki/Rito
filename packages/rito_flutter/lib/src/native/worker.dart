@@ -246,6 +246,12 @@ void _discardUnsentWire(
         bindings.dispose(sessionId: operation.sessionId);
         liveSessions.remove(operation.sessionId);
         break;
+      case _OpenShardsOperation():
+        bindings.dispose(sessionId: operation.sessionId);
+        liveSessions.remove(operation.sessionId);
+        break;
+      case _SupplyShardOperation():
+        break;
       case _RequestArtifactOperation():
         final artifactId = _wireArtifactId(wireBytes);
         if (artifactId != null) {
@@ -332,6 +338,12 @@ Object? _perform(
 ) {
   return switch (operation) {
     _OpenOperation() => _open(bindings, operation, liveSessions),
+    _OpenShardsOperation() => _openShards(bindings, operation, liveSessions),
+    _SupplyShardOperation() => bindings.supplyShard(
+      sessionId: operation.sessionId,
+      shardBytes: RitoOwnedByteTransfer.materialize(operation.shardBytes),
+      key: operation.key,
+    ),
     _RequestArtifactOperation() => bindings.requestArtifactEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
@@ -434,6 +446,44 @@ Uint8List _open(
   return wireBytes;
 }
 
+Uint8List _openShards(
+  RitoNativeWireBindings bindings,
+  _OpenShardsOperation operation,
+  Set<int> liveSessions,
+) {
+  try {
+    final wireBytes = bindings.openShardsEncoded(
+      skeletonBytes: RitoOwnedByteTransfer.materialize(operation.skeletonBytes),
+      skeletonKey: operation.skeletonKey,
+      requestBytes: operation.requestBytes,
+      pinnedFontPolicy: _pinnedPolicy(operation.pinnedFontFaces),
+    );
+    liveSessions.add(operation.sessionId);
+    return wireBytes;
+  } on RitoNativeException catch (error) {
+    // A sharded open whose first request waits on shards leaves its native
+    // session open; every other failure registers none.
+    if (error.status == ritoNativeStatusResourcePending) {
+      liveSessions.add(operation.sessionId);
+    }
+    rethrow;
+  }
+}
+
+RitoPinnedFontPolicy _pinnedPolicy(List<_PinnedFontFaceTransfer> faces) {
+  return RitoPinnedFontPolicy(
+    faces: <RitoPinnedFontFace>[
+      for (final face in faces)
+        RitoPinnedFontFace(
+          bytes: RitoOwnedByteTransfer.materialize(face.bytes),
+          sha256Hex: face.sha256Hex,
+          genericRole: face.genericRole,
+          language: face.language,
+        ),
+    ],
+  );
+}
+
 Object? _release(
   RitoNativeWireBindings bindings,
   _ReleaseArtifactOperation operation,
@@ -531,6 +581,34 @@ final class _PinnedFontFaceTransfer {
   final String sha256Hex;
   final RitoPinnedFontGenericRole genericRole;
   final String? language;
+}
+
+final class _OpenShardsOperation extends _WorkerOperation {
+  const _OpenShardsOperation({
+    required this.sessionId,
+    required this.skeletonBytes,
+    required this.skeletonKey,
+    required this.requestBytes,
+    required this.pinnedFontFaces,
+  });
+
+  final int sessionId;
+  final TransferableTypedData skeletonBytes;
+  final Uint8List? skeletonKey;
+  final Uint8List requestBytes;
+  final List<_PinnedFontFaceTransfer> pinnedFontFaces;
+}
+
+final class _SupplyShardOperation extends _WorkerOperation {
+  const _SupplyShardOperation({
+    required this.sessionId,
+    required this.shardBytes,
+    required this.key,
+  });
+
+  final int sessionId;
+  final TransferableTypedData shardBytes;
+  final Uint8List? key;
 }
 
 final class _RequestArtifactOperation extends _WorkerOperation {

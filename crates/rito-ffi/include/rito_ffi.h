@@ -22,6 +22,14 @@ extern "C" {
 /* Status value 9 is retired and is never reassigned. */
 #define RITO_STATUS_ADJACENT_PENDING UINT32_C(10)
 #define RITO_STATUS_SESSION_TERMINATED UINT32_C(11)
+/*
+ * The publication was opened from shards and the call needs content shards
+ * the host has not supplied. error_out then holds a RITOPSH1 message (the
+ * ascending shard ids and a UTF-8 message) instead of plain UTF-8; supply
+ * those shards with rito_supply_shard and retry the call (a request that
+ * carries a request id retries with a newer one).
+ */
+#define RITO_STATUS_RESOURCE_PENDING UINT32_C(12)
 #define RITO_STATUS_PANIC UINT32_C(255)
 
 /*
@@ -149,6 +157,42 @@ uint32_t rito_open_with_pinned_fonts(const uint8_t *publication_data,
                                         uint32_t face_count,
                                         rito_owned_buffer *artifact_out,
                                         rito_owned_buffer *error_out);
+
+/*
+ * Opens a reader from a publication's skeleton shard (see rito-pack) with a
+ * pinned measurement-font policy and requests its initial artifact. key_len is
+ * 0 for plain shards or 32 for the skeleton's key; all bytes are copied before
+ * this call returns.
+ *
+ * When the initial request needs content shards the host has not supplied,
+ * the call returns RITO_STATUS_RESOURCE_PENDING and, unlike every other open
+ * failure, the session stays open: supply the shards named in error_out with
+ * rito_supply_shard, then call rito_request_artifact with a newer request id.
+ */
+uint32_t rito_open_shards_with_pinned_fonts(const uint8_t *skeleton_data,
+                                               uint64_t skeleton_len,
+                                               const uint8_t *key_data,
+                                               uint64_t key_len,
+                                               const uint8_t *request_data,
+                                               uint64_t request_len,
+                                               const rito_pinned_font_face *faces,
+                                               uint32_t face_count,
+                                               rito_owned_buffer *artifact_out,
+                                               rito_owned_buffer *error_out);
+
+/*
+ * Hands an open reader one content shard and writes its id to shard_id_out.
+ * key_len is 0 for plain shards or 32 for the shard's key. A shard of another
+ * publication, one that fails authentication or one the skeleton does not
+ * declare returns INVALID_ARGUMENT; supplying a shard twice is harmless.
+ */
+uint32_t rito_supply_shard(uint64_t session_id,
+                              const uint8_t *shard_data,
+                              uint64_t shard_len,
+                              const uint8_t *key_data,
+                              uint64_t key_len,
+                              uint32_t *shard_id_out,
+                              rito_owned_buffer *error_out);
 
 /*
  * Reads the session's immutable publication snapshot as one complete

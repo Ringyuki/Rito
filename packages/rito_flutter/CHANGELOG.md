@@ -1,5 +1,20 @@
 ## Unreleased
 
+### Publications delivered as shards
+
+`RitoReaderSession.openShards` opens a book split by `rito-pack` from its
+skeleton shard. The engine names each content shard (a chapter with the
+images only it uses, a shared image, a font) the first time a call needs
+it; the gateway loads it through the `loadShards` callback, hands it to
+the native session and retries the call, so seeks, turns, peeks,
+footnotes, resources and queries behave exactly as on a session opened
+from the whole EPUB. Encrypted shards carry their own 32-byte keys.
+`ritoNativeStatusResourcePending` reports a call whose shards could not be
+supplied, with the shard ids in `RitoNativeException.pendingShards`; the C
+ABI gains `rito_open_shards_with_pinned_fonts`, `rito_supply_shard` and
+`RITO_STATUS_RESOURCE_PENDING`, whose `error_out` carries a `RITOPSH1`
+message.
+
 ### Line heights match the web reader
 
 The engine now derives `line-height: normal` geometry — plain lines,

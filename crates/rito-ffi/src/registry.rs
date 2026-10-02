@@ -11,7 +11,7 @@ use rito_core::runtime::{
 };
 
 use crate::{
-    actor::{self, ActorHandle, CommandAdmission, InitialArtifactReply},
+    actor::{self, ActorHandle, ActorPublication, CommandAdmission, InitialArtifactReply},
     error::FfiError,
 };
 
@@ -70,7 +70,7 @@ pub(crate) fn reserve_open(session_id: u64) -> Result<OpenReservation, FfiError>
 
 pub(crate) fn open(
     reservation: OpenReservation,
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Vec<u8>, FfiError> {
@@ -94,7 +94,7 @@ pub(crate) fn open(
 fn start_registered(
     session_id: u64,
     generation: u64,
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Receiver<InitialArtifactReply>, FfiError> {
@@ -130,6 +130,17 @@ fn receive_initial(
             Ok(artifact)
         }
         Ok(InitialArtifactReply::Ready(_)) => {
+            join_failed(session_id, generation);
+            Err(FfiError::not_found(format!(
+                "reader session was disposed while opening: {session_id}"
+            )))
+        }
+        // A sharded session stays open while its first request waits on
+        // shards; the host supplies them and requests again.
+        Ok(InitialArtifactReply::Pending(error)) if mark_ready(session_id, generation) => {
+            Err(error)
+        }
+        Ok(InitialArtifactReply::Pending(_)) => {
             join_failed(session_id, generation);
             Err(FfiError::not_found(format!(
                 "reader session was disposed while opening: {session_id}"
@@ -311,6 +322,14 @@ pub(crate) fn read_footnote(
     key: String,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_footnote(admission, artifact_id, key)
+}
+
+pub(crate) fn supply_shard(
+    admission: CommandAdmission,
+    shard: Vec<u8>,
+    key: Option<rito_core::epub::shard::ShardKey>,
+) -> Result<u32, FfiError> {
+    actor::request_supply_shard(admission, shard, key)
 }
 
 pub(crate) fn release_artifact(

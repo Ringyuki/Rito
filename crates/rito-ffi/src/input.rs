@@ -13,6 +13,8 @@ use rito_core::runtime::{
     READER_BACKGROUND_REQUEST_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_BYTES,
 };
 
+use rito_core::epub::shard::{ShardKey, SHARD_KEY_BYTES};
+
 use crate::{
     abi::{
         copy_bytes, RitoPinnedFontFace, RITO_PINNED_FONT_ROLE_MONOSPACE,
@@ -28,6 +30,24 @@ const MAX_HREF_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_PINNED_FONT_FACES: u32 = 16;
 const MAX_PINNED_FONT_FACE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_PINNED_FONT_LANGUAGE_BYTES: u64 = 63;
+
+pub(crate) fn shard(source: *const u8, len: u64, field: &str) -> Result<Vec<u8>, FfiError> {
+    if len == 0 {
+        return Err(FfiError::invalid(format!("{field} must not be empty")));
+    }
+    copy_bytes(source, len, MAX_EPUB_BYTES, field)
+}
+
+/// A shard key: absent (`len` 0) for plain shards, otherwise 32 bytes.
+pub(crate) fn shard_key(source: *const u8, len: u64) -> Result<Option<ShardKey>, FfiError> {
+    if len == 0 {
+        return Ok(None);
+    }
+    let bytes = copy_bytes(source, len, SHARD_KEY_BYTES as u64, "shard key")?;
+    ShardKey::from_slice(&bytes)
+        .map(Some)
+        .ok_or_else(|| FfiError::invalid(format!("a shard key is {SHARD_KEY_BYTES} bytes")))
+}
 
 pub(crate) fn publication(source: *const u8, len: u64) -> Result<Vec<u8>, FfiError> {
     if len == 0 {

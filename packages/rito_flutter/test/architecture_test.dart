@@ -32,13 +32,23 @@ void main() {
     'exact open and seek are one native call each and never UI-synchronous',
     () {
       final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
+      final shards = File(
+        'lib/src/native/shard_supply.dart',
+      ).readAsStringSync();
       final worker = File('lib/src/native/worker.dart').readAsStringSync();
 
       expect(gateway, contains('RitoResumableExactSeekGateway'));
+      // open, openShards and seek each send their request once; the only
+      // further call is the retry after the shards a call waited on arrive.
       expect(
         'request.withRequestId(intent.requestId)'.allMatches(gateway),
-        hasLength(2),
+        hasLength(3),
       );
+      expect(
+        'request.withRequestId(intent.requestId)'.allMatches(shards),
+        hasLength(1),
+      );
+      expect(shards, contains('_retryExactSeekWithShards'));
       expect(gateway, contains('return await _requestArtifactNative('));
       expect(worker, contains('liveSessions.add(operation.sessionId)'));
       expect(worker, isNot(contains('Future<void>.delayed')));

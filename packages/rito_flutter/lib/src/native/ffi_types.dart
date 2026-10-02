@@ -174,3 +174,50 @@ typedef _DisposeNative = Uint32 Function(Uint64, Pointer<_RitoOwnedBuffer>);
 typedef _DisposeDart = int Function(int, Pointer<_RitoOwnedBuffer>);
 typedef _BufferFreeNative = Void Function(Pointer<_RitoOwnedBuffer>);
 typedef _BufferFreeDart = void Function(Pointer<_RitoOwnedBuffer>);
+
+typedef _OpenShardsNative =
+    Uint32 Function(
+      Pointer<Uint8>,
+      Uint64,
+      Pointer<Uint8>,
+      Uint64,
+      Pointer<Uint8>,
+      Uint64,
+      Pointer<_RitoPinnedFontFace>,
+      Uint32,
+      Pointer<_RitoOwnedBuffer>,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _OpenShardsDart =
+    int Function(
+      Pointer<Uint8>,
+      int,
+      Pointer<Uint8>,
+      int,
+      Pointer<Uint8>,
+      int,
+      Pointer<_RitoPinnedFontFace>,
+      int,
+      Pointer<_RitoOwnedBuffer>,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _SupplyShardNative =
+    Uint32 Function(
+      Uint64,
+      Pointer<Uint8>,
+      Uint64,
+      Pointer<Uint8>,
+      Uint64,
+      Pointer<Uint32>,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _SupplyShardDart =
+    int Function(
+      int,
+      Pointer<Uint8>,
+      int,
+      Pointer<Uint8>,
+      int,
+      Pointer<Uint32>,
+      Pointer<_RitoOwnedBuffer>,
+    );

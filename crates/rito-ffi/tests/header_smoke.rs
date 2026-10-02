@@ -162,6 +162,13 @@ static void consume(void) {
   (void)rito_open(epub, 1, request, 8, &artifact, &error);
   (void)rito_open_with_pinned_fonts(epub, 1, request, 8, &face, 1,
                                        &artifact, &error);
+  uint8_t shard_key[32] = {0};
+  uint32_t shard_id = 0;
+  (void)rito_open_shards_with_pinned_fonts(epub, 1, shard_key, sizeof(shard_key),
+                                              request, 8, &face, 1,
+                                              &artifact, &error);
+  (void)rito_supply_shard(1, epub, 1, shard_key, sizeof(shard_key), &shard_id,
+                             &error);
   (void)rito_peek_adjacent(1, adjacent, 8, &peeked, &error);
   (void)rito_commit_peeked_artifact(1, foreground_handoff, 8,
                                        &commit_ack, &error);

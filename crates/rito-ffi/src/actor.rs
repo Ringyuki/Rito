@@ -18,7 +18,12 @@ use rito_core::runtime::{
     ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
-use crate::error::{FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_TARGET_NOT_PUBLISHED};
+use rito_core::epub::shard::ShardKey;
+
+use crate::error::{
+    FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_RESOURCE_PENDING,
+    RITO_STATUS_TARGET_NOT_PUBLISHED,
+};
 
 pub const RITO_ACTOR_MAX_IN_FLIGHT: u32 = 8;
 
@@ -95,6 +100,21 @@ pub(crate) enum ActorCommand {
     ReleaseArtifact {
         artifact_id: u64,
         reply: Reply<()>,
+    },
+    SupplyShard {
+        shard: Vec<u8>,
+        key: Option<ShardKey>,
+        reply: Reply<u32>,
+    },
+}
+
+/// Where an actor's session reads its publication from.
+pub(crate) enum ActorPublication {
+    Archive(Vec<u8>),
+    /// A skeleton shard; content shards arrive through `SupplyShard`.
+    Shards {
+        skeleton: Vec<u8>,
+        key: Option<ShardKey>,
     },
 }
 
@@ -311,12 +331,15 @@ pub(crate) type ActorExitCallback = Box<dyn FnOnce() + Send + 'static>;
 pub(crate) enum InitialArtifactReply {
     /// The actor owns a usable session; this is its encoded first artifact.
     Ready(Vec<u8>),
+    /// The actor owns a usable session opened from shards whose first
+    /// request waits on shards; the host supplies them and requests again.
+    Pending(FfiError),
     /// No usable session survived initial request processing.
     Failed(FfiError),
 }
 
 pub(crate) fn spawn(
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     on_exit: ActorExitCallback,
@@ -393,22 +416,39 @@ fn lock_admission(shared: &ActorShared) -> MutexGuard<'_, AdmissionState> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
+fn open_session(
+    session_id: u64,
+    publication: ActorPublication,
+    pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
+) -> Result<ReaderSession, ReaderError> {
+    match (publication, pinned_font_policy) {
+        (ActorPublication::Archive(bytes), Some(policy)) => {
+            ReaderSession::open_owned_with_pinned_font_policy(session_id, bytes, policy)
+        }
+        (ActorPublication::Archive(bytes), None) => ReaderSession::open_owned(session_id, bytes),
+        (ActorPublication::Shards { skeleton, key }, Some(policy)) => {
+            ReaderSession::open_shards_with_pinned_font_policy(
+                session_id,
+                &skeleton,
+                key.as_ref(),
+                policy,
+            )
+        }
+        (ActorPublication::Shards { skeleton, key }, None) => {
+            ReaderSession::open_shards(session_id, &skeleton, key.as_ref())
+        }
+    }
+}
+
 fn run(
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     initial_reply: SyncSender<InitialArtifactReply>,
     commands: Receiver<ActorEnvelope>,
     client: ActorClient,
 ) -> Result<(), FfiError> {
-    let opened = match pinned_font_policy {
-        Some(policy) => ReaderSession::open_owned_with_pinned_font_policy(
-            request.session_id,
-            publication,
-            policy,
-        ),
-        None => ReaderSession::open_owned(request.session_id, publication),
-    };
+    let opened = open_session(request.session_id, publication, pinned_font_policy);
     let mut reader = match opened {
         Ok(reader) => reader,
         Err(error) => {
@@ -424,6 +464,14 @@ fn run(
         Ok(artifact) => {
             if initial_reply
                 .send(InitialArtifactReply::Ready(artifact))
+                .is_ok()
+            {
+                return run_commands(reader, commands, client);
+            }
+        }
+        Err(error) if error.status == RITO_STATUS_RESOURCE_PENDING => {
+            if initial_reply
+                .send(InitialArtifactReply::Pending(error))
                 .is_ok()
             {
                 return run_commands(reader, commands, client);
@@ -629,6 +677,12 @@ fn run_commands(
                 let result = session
                     .resolve_exact_source_range(request)
                     .and_then(|resolution| encode_reader_exact_source_range_resolution(&resolution))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::SupplyShard { shard, key, reply } => {
+                let result = session
+                    .supply_shard(&shard, key.as_ref())
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
@@ -875,6 +929,18 @@ pub(crate) fn request_footnote(
     )
 }
 
+pub(crate) fn request_supply_shard(
+    admission: CommandAdmission,
+    shard: Vec<u8>,
+    key: Option<ShardKey>,
+) -> Result<u32, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::SupplyShard { shard, key, reply },
+        "supply shard",
+    )
+}
+
 pub(crate) fn request_release(
     admission: CommandAdmission,
     artifact_id: u64,
@@ -943,6 +1009,7 @@ mod tests {
         let target_error = || FfiError {
             status: RITO_STATUS_TARGET_NOT_PUBLISHED,
             message: "wording is not an ABI contract".to_owned(),
+            payload: None,
         };
         let pending: Result<Vec<u8>, FfiError> =
             classify_adjacent_result(Err(target_error()), true);

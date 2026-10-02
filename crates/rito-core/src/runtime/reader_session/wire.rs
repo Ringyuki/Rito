@@ -3,6 +3,7 @@
 mod decode;
 mod encode;
 mod interaction;
+mod pending;
 mod primitives;
 
 #[cfg(test)]
@@ -56,6 +57,7 @@ pub const READER_PUBLICATION_WIRE_MAGIC: [u8; 8] = *b"RITOPUB1";
 pub const READER_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOREQ1";
 pub const READER_RESOURCE_WIRE_MAGIC: [u8; 8] = *b"RITORES1";
 pub const READER_FOOTNOTE_WIRE_MAGIC: [u8; 8] = *b"RITOFTN1";
+pub const READER_PENDING_SHARDS_WIRE_MAGIC: [u8; 8] = *b"RITOPSH1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTRQ1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES: u32 = 72;
 pub const READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC: [u8; 8] = *b"RITOTRG1";
@@ -193,6 +195,15 @@ pub fn encode_reader_resource(resource: &ReaderResource) -> Result<Vec<u8>, Read
 
 pub fn decode_reader_resource(bytes: &[u8]) -> Result<ReaderResource, ReaderError> {
     decode::resource(bytes)
+}
+
+/// Encodes a `ResourcePending` error as `RITOPSH1`.
+pub fn encode_reader_pending_shards(error: &ReaderError) -> Result<Vec<u8>, ReaderError> {
+    pending::encode(error)
+}
+
+pub fn decode_reader_pending_shards(bytes: &[u8]) -> Result<ReaderError, ReaderError> {
+    pending::decode(bytes)
 }
 
 pub fn encode_reader_footnote(footnote: &ReaderFootnote) -> Result<Vec<u8>, ReaderError> {

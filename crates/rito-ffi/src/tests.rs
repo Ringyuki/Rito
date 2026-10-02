@@ -937,7 +937,7 @@ fn publication() -> Vec<u8> {
     fs::read(path).expect("book-10 fixture is readable")
 }
 
-fn request(session_id: u64) -> ReaderArtifactRequest {
+pub(crate) fn request(session_id: u64) -> ReaderArtifactRequest {
     ReaderArtifactRequest {
         session_id,
         request_id: 1,

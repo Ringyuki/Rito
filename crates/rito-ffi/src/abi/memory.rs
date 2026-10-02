@@ -8,6 +8,7 @@ use std::{
 
 use crate::{
     abi::RitoOwnedBuffer,
+    actor::ActorPublication,
     error::{FfiError, RITO_STATUS_OK},
     input, registry,
 };
@@ -70,6 +71,15 @@ fn clear_buffer(target: *mut RitoOwnedBuffer) -> Result<(), FfiError> {
     }
     // SAFETY: The caller supplies one writable `RitoOwnedBuffer`.
     unsafe { ptr::write(target, RitoOwnedBuffer::EMPTY) };
+    Ok(())
+}
+
+fn write_u32(target: *mut u32, value: u32, field: &str) -> Result<(), FfiError> {
+    if target.is_null() {
+        return Err(FfiError::invalid(format!("{field} pointer is null")));
+    }
+    // SAFETY: The caller supplies one writable `u32`.
+    unsafe { ptr::write(target, value) };
     Ok(())
 }
 
@@ -153,7 +163,12 @@ pub extern "C" fn rito_open(
         let session_id = request.session_id;
         let reservation = registry::reserve_open(session_id)?;
         let publication = input::publication(publication_data, publication_len)?;
-        let artifact = registry::open(reservation, publication, request, None)?;
+        let artifact = registry::open(
+            reservation,
+            ActorPublication::Archive(publication),
+            request,
+            None,
+        )?;
         write_session_result(session_id, artifact_out, artifact, "initial artifact")
     })
 }
@@ -186,8 +201,81 @@ pub extern "C" fn rito_open_with_pinned_fonts(
         let session_id = request.session_id;
         let reservation = registry::reserve_open(session_id)?;
         let publication = input::publication(publication_data, publication_len)?;
-        let artifact = registry::open(reservation, publication, request, Some(policy))?;
+        let artifact = registry::open(
+            reservation,
+            ActorPublication::Archive(publication),
+            request,
+            Some(policy),
+        )?;
         write_session_result(session_id, artifact_out, artifact, "initial artifact")
+    })
+}
+
+#[no_mangle]
+/// Opens a reader from a publication's skeleton shard (see `rito-pack`)
+/// with a pinned measurement-font policy, and requests its initial
+/// artifact. `key_len` is 0 for plain shards or 32 for the skeleton's key.
+///
+/// When the initial request needs content shards the host has not supplied
+/// the call returns `RITO_STATUS_RESOURCE_PENDING` with a `RITOPSH1`
+/// message in `error_out`, and unlike every other open failure the session
+/// stays open: supply the named shards with `rito_supply_shard` and request
+/// the artifact again with `rito_request_artifact`.
+pub extern "C" fn rito_open_shards_with_pinned_fonts(
+    skeleton_data: *const u8,
+    skeleton_len: u64,
+    key_data: *const u8,
+    key_len: u64,
+    request_data: *const u8,
+    request_len: u64,
+    faces: *const super::RitoPinnedFontFace,
+    face_count: u32,
+    artifact_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_artifact_output(artifact_out, error_out)?;
+        let request = input::request(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITOREQ1 session_id")?;
+        validate_external_id(request.request_id, "RITOREQ1 request_id")?;
+        let policy = input::pinned_font_policy(faces, face_count)?;
+        let key = input::shard_key(key_data, key_len)?;
+        let session_id = request.session_id;
+        let reservation = registry::reserve_open(session_id)?;
+        let skeleton = input::shard(skeleton_data, skeleton_len, "skeleton shard")?;
+        let artifact = registry::open(
+            reservation,
+            ActorPublication::Shards { skeleton, key },
+            request,
+            Some(policy),
+        )?;
+        write_session_result(session_id, artifact_out, artifact, "initial artifact")
+    })
+}
+
+#[no_mangle]
+/// Hands an open reader one content shard and writes its id to
+/// `shard_id_out`. `key_len` is 0 for plain shards or 32 for the shard's
+/// key. A shard of another publication, one that fails authentication or
+/// one the skeleton does not declare is refused with
+/// `RITO_STATUS_INVALID_ARGUMENT`; supplying a shard twice is harmless.
+pub extern "C" fn rito_supply_shard(
+    session_id: u64,
+    shard_data: *const u8,
+    shard_len: u64,
+    key_data: *const u8,
+    key_len: u64,
+    shard_id_out: *mut u32,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        write_u32(shard_id_out, 0, "shard_id_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let key = input::shard_key(key_data, key_len)?;
+        let shard = input::shard(shard_data, shard_len, "content shard")?;
+        let admission = registry::try_admit(session_id)?;
+        let shard_id = registry::supply_shard(admission, shard, key)?;
+        write_u32(shard_id_out, shard_id, "shard_id_out")
     })
 }
 
@@ -728,7 +816,8 @@ fn invoke(
 
 fn return_error(error_out: *mut RitoOwnedBuffer, error: FfiError) -> u32 {
     let status = error.status;
-    let _ = write_buffer(error_out, error.message.into_bytes());
+    let bytes = error.payload.unwrap_or_else(|| error.message.into_bytes());
+    let _ = write_buffer(error_out, bytes);
     status
 }
 

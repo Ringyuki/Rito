@@ -6,9 +6,9 @@
 
 use super::*;
 use crate::runtime::reader_session::{
-    ReaderFootnote, ReaderFootnoteKind, ReaderLocator, ReaderRect, ReaderSearchRequest,
-    ReaderSearchResponse, ReaderSearchResult, ReaderSourcePoint, ReaderTextPosition,
-    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
+    ReaderError, ReaderErrorKind, ReaderFootnote, ReaderFootnoteKind, ReaderLocator, ReaderRect,
+    ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult, ReaderSourcePoint,
+    ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
 };
 
 fn hex(bytes: &[u8]) -> String {
@@ -185,4 +185,39 @@ fn query_wire_fixtures_are_pinned_byte_for_byte() {
     for (actual, expected) in &encoded {
         assert_eq!(actual, expected);
     }
+}
+
+pub(super) const PENDING_SHARDS_HEX: &str = concat!(
+    "5249544f5053483101000000350000000000000002000000020000000500000011000000",
+    "636861707465722074776f207761697473",
+);
+
+fn pending_shards_fixture() -> ReaderError {
+    ReaderError {
+        kind: ReaderErrorKind::ResourcePending,
+        message: "chapter two waits".to_owned(),
+        pending_shards: vec![2, 5],
+    }
+}
+
+#[test]
+fn pending_shards_wire_is_pinned_and_validated() {
+    let encoded = encode_reader_pending_shards(&pending_shards_fixture()).expect("encodes");
+    assert_eq!(hex(&encoded), PENDING_SHARDS_HEX);
+    assert_eq!(
+        decode_reader_pending_shards(&encoded).expect("decodes"),
+        pending_shards_fixture()
+    );
+    for pending_shards in [vec![], vec![0], vec![5, 2], vec![2, 2]] {
+        let error = ReaderError {
+            pending_shards,
+            ..pending_shards_fixture()
+        };
+        assert!(encode_reader_pending_shards(&error).is_err());
+    }
+    let not_pending = ReaderError {
+        kind: ReaderErrorKind::EngineFailure,
+        ..pending_shards_fixture()
+    };
+    assert!(encode_reader_pending_shards(&not_pending).is_err());
 }

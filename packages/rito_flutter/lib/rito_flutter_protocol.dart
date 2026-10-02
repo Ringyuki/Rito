@@ -23,6 +23,7 @@ export 'src/protocol/foreground_encoder.dart' show RitoForegroundEncoder;
 export 'src/protocol/foreground_models.dart';
 export 'src/protocol/hit_resolver.dart';
 export 'src/protocol/navigation_query.dart';
+export 'src/protocol/pending_shards_decoder.dart';
 export 'src/protocol/primitive_models.dart';
 export 'src/protocol/publication_decoder.dart'
     show

@@ -8,6 +8,7 @@ import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/binary_reader.dart';
 import '../protocol/footnote_decoder.dart';
+import '../protocol/pending_shards_decoder.dart';
 import '../protocol/resource_decoder.dart';
 import '../protocol/text_geometry.dart';
 import 'asset.dart';
@@ -26,13 +27,25 @@ const int ritoNativeStatusBusy = 8;
 // Status value 9 is retired and is never reassigned.
 const int ritoNativeStatusAdjacentPending = 10;
 const int ritoNativeStatusSessionTerminated = 11;
+
+/// The publication was opened from shards and the call needs content shards
+/// the host has not supplied; [RitoNativeException.pendingShards] names them.
+const int ritoNativeStatusResourcePending = 12;
 const int ritoNativeStatusPanic = 255;
 
 final class RitoNativeException implements Exception {
-  const RitoNativeException({required this.status, required this.message});
+  const RitoNativeException({
+    required this.status,
+    required this.message,
+    this.pendingShards = const <int>[],
+  });
 
   final int status;
   final String message;
+
+  /// For [ritoNativeStatusResourcePending]: the content shards to supply
+  /// before retrying, ascending. Empty for every other status.
+  final List<int> pendingShards;
 
   @override
   String toString() => 'RitoNativeException($status): $message';
@@ -60,6 +73,37 @@ external int _ritoOpenWithPinnedFonts(
   Pointer<_RitoPinnedFontFace> faces,
   int faceCount,
   Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OpenShardsNative>(
+  symbol: 'rito_open_shards_with_pinned_fonts',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoOpenShardsWithPinnedFonts(
+  Pointer<Uint8> skeleton,
+  int skeletonLength,
+  Pointer<Uint8> key,
+  int keyLength,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoPinnedFontFace> faces,
+  int faceCount,
+  Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_SupplyShardNative>(
+  symbol: 'rito_supply_shard',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoSupplyShard(
+  int sessionId,
+  Pointer<Uint8> shard,
+  int shardLength,
+  Pointer<Uint8> key,
+  int keyLength,
+  Pointer<Uint32> shardIdOut,
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
@@ -284,6 +328,8 @@ final class RitoNativeBindings {
     this.footnoteDecoder = const RitoFootnoteDecoder(),
   }) : _open = _ritoOpen,
        _openWithPinnedFonts = _ritoOpenWithPinnedFonts,
+       _openShards = _ritoOpenShardsWithPinnedFonts,
+       _supplyShard = _ritoSupplyShard,
        _requestArtifact = _ritoRequestArtifact,
        _requestAdjacent = _ritoRequestAdjacent,
        _peekAdjacent = _ritoPeekAdjacent,
@@ -318,6 +364,13 @@ final class RitoNativeBindings {
              _OpenWithPinnedFontsNative,
              _OpenWithPinnedFontsDart
            >('rito_open_with_pinned_fonts'),
+       _openShards = library.lookupFunction<_OpenShardsNative, _OpenShardsDart>(
+         'rito_open_shards_with_pinned_fonts',
+       ),
+       _supplyShard = library
+           .lookupFunction<_SupplyShardNative, _SupplyShardDart>(
+             'rito_supply_shard',
+           ),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
              'rito_request_artifact',
@@ -397,6 +450,8 @@ final class RitoNativeBindings {
   final RitoFootnoteDecoder footnoteDecoder;
   final _OpenDart _open;
   final _OpenWithPinnedFontsDart _openWithPinnedFonts;
+  final _OpenShardsDart _openShards;
+  final _SupplyShardDart _supplyShard;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _RequestAdjacentDart _peekAdjacent;
@@ -512,6 +567,114 @@ final class RitoNativeBindings {
       for (final allocation in faceAllocations) {
         calloc.free(allocation);
       }
+    }
+  }
+
+  /// Opens a reader from a publication's skeleton shard and requests its
+  /// initial artifact, returning the encoded `RITOART1`.
+  ///
+  /// When the initial request waits on content shards this throws a
+  /// [RitoNativeException] with [ritoNativeStatusResourcePending] and the
+  /// shards to supply, and the native session stays open: supply them with
+  /// [supplyShard] and request the artifact again under a newer request ID.
+  Uint8List openShardsEncodedWire({
+    required Uint8List skeletonBytes,
+    Uint8List? skeletonKey,
+    required Uint8List requestBytes,
+    required RitoPinnedFontPolicy pinnedFontPolicy,
+  }) {
+    _validateInput(skeletonBytes, 512 * 1024 * 1024, 'skeleton');
+    _validateInput(requestBytes, 16 * 1024 * 1024, 'request');
+    _validateShardKey(skeletonKey);
+    final skeleton = _copyInput(skeletonBytes);
+    final key = _copyInput(skeletonKey ?? Uint8List(0));
+    final request = _copyInput(requestBytes);
+    final artifactOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    final faceAllocations = <Pointer<NativeType>>[];
+    try {
+      final faces = _marshalPinnedFontFaces(pinnedFontPolicy, faceAllocations);
+      final status = _openShards(
+        skeleton,
+        skeletonBytes.length,
+        key,
+        skeletonKey?.length ?? 0,
+        request,
+        requestBytes.length,
+        faces,
+        pinnedFontPolicy.faces.length,
+        artifactOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      try {
+        return _copyOutput(artifactOut, 'artifact');
+      } on Object catch (error, stackTrace) {
+        _disposeAfterFailedSessionOutput(
+          _acceptedRequestSessionId(requestBytes),
+        );
+        Error.throwWithStackTrace(
+          _terminatedSessionResultError('initial artifact', error),
+          stackTrace,
+        );
+      }
+    } finally {
+      _bufferFree(artifactOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(artifactOut)
+        ..free(errorOut)
+        ..free(skeleton)
+        ..free(key)
+        ..free(request);
+      for (final allocation in faceAllocations) {
+        calloc.free(allocation);
+      }
+    }
+  }
+
+  /// Hands an open reader one content shard; returns its id.
+  int supplyShard({
+    required int sessionId,
+    required Uint8List shardBytes,
+    Uint8List? key,
+  }) {
+    _validateId(sessionId, 'sessionId');
+    _validateInput(shardBytes, 512 * 1024 * 1024, 'shard');
+    _validateShardKey(key);
+    final shard = _copyInput(shardBytes);
+    final keyPointer = _copyInput(key ?? Uint8List(0));
+    final shardIdOut = calloc<Uint32>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _supplyShard(
+        sessionId,
+        shard,
+        shardBytes.length,
+        keyPointer,
+        key?.length ?? 0,
+        shardIdOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      return shardIdOut.value;
+    } finally {
+      _bufferFree(errorOut);
+      calloc
+        ..free(errorOut)
+        ..free(shardIdOut)
+        ..free(shard)
+        ..free(keyPointer);
+    }
+  }
+
+  void _validateShardKey(Uint8List? key) {
+    if (key != null && key.length != 32) {
+      throw ArgumentError.value(key.length, 'key', 'a shard key is 32 bytes');
     }
   }
 
@@ -1202,6 +1365,14 @@ final class RitoNativeBindings {
     Pointer<_RitoOwnedBuffer> errorOut,
   ) {
     final bytes = _copyOutput(errorOut, 'error');
+    if (status == ritoNativeStatusResourcePending) {
+      final pending = const RitoPendingShardsDecoder().decode(bytes);
+      return RitoNativeException(
+        status: status,
+        message: pending.message,
+        pendingShards: pending.shardIds,
+      );
+    }
     final message = bytes.isEmpty
         ? 'Rito native call failed without a diagnostic.'
         : utf8.decode(bytes, allowMalformed: false);
@@ -1361,6 +1532,28 @@ final class RitoNativeWireBindings {
     publicationBytes: publicationBytes,
     requestBytes: requestBytes,
     pinnedFontPolicy: pinnedFontPolicy,
+  );
+
+  Uint8List openShardsEncoded({
+    required Uint8List skeletonBytes,
+    Uint8List? skeletonKey,
+    required Uint8List requestBytes,
+    required RitoPinnedFontPolicy pinnedFontPolicy,
+  }) => _bindings.openShardsEncodedWire(
+    skeletonBytes: skeletonBytes,
+    skeletonKey: skeletonKey,
+    requestBytes: requestBytes,
+    pinnedFontPolicy: pinnedFontPolicy,
+  );
+
+  int supplyShard({
+    required int sessionId,
+    required Uint8List shardBytes,
+    Uint8List? key,
+  }) => _bindings.supplyShard(
+    sessionId: sessionId,
+    shardBytes: shardBytes,
+    key: key,
   );
 
   Uint8List requestArtifactEncoded({

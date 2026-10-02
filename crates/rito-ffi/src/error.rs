@@ -1,4 +1,4 @@
-use rito_core::runtime::{ReaderError, ReaderErrorKind};
+use rito_core::runtime::{encode_reader_pending_shards, ReaderError, ReaderErrorKind};
 
 pub const RITO_STATUS_OK: u32 = 0;
 pub const RITO_STATUS_INVALID_ARGUMENT: u32 = 1;
@@ -13,12 +13,19 @@ pub const RITO_STATUS_QUEUE_FULL: u32 = RITO_STATUS_BUSY;
 // Status value 9 is retired and is never reassigned.
 pub const RITO_STATUS_ADJACENT_PENDING: u32 = 10;
 pub const RITO_STATUS_SESSION_TERMINATED: u32 = 11;
+/// The publication was opened from shards and the call needs content shards
+/// the host has not supplied; `error_out` holds a `RITOPSH1` message naming
+/// them instead of a UTF-8 message. Supply them and retry.
+pub const RITO_STATUS_RESOURCE_PENDING: u32 = 12;
 pub const RITO_STATUS_PANIC: u32 = 255;
 
 #[derive(Debug)]
 pub(crate) struct FfiError {
     pub(crate) status: u32,
     pub(crate) message: String,
+    /// What `error_out` carries in place of `message` (a `RITOPSH1`
+    /// message for `RITO_STATUS_RESOURCE_PENDING`).
+    pub(crate) payload: Option<Vec<u8>>,
 }
 
 impl FfiError {
@@ -26,6 +33,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_INVALID_ARGUMENT,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -33,6 +41,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_NOT_FOUND,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -40,6 +49,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_ALREADY_EXISTS,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -47,6 +57,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_ENGINE_ERROR,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -54,6 +65,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_BUSY,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -61,6 +73,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_STALE_REQUEST,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -68,6 +81,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_SESSION_TERMINATED,
             message: message.into(),
+            payload: None,
         }
     }
 
@@ -75,6 +89,7 @@ impl FfiError {
         Self {
             status: RITO_STATUS_PANIC,
             message: "panic contained at the Rito FFI boundary".to_owned(),
+            payload: None,
         }
     }
 }
@@ -93,13 +108,24 @@ impl From<ReaderError> for FfiError {
             ReaderErrorKind::StaleRequest => RITO_STATUS_STALE_REQUEST,
             ReaderErrorKind::TargetNotPublished => RITO_STATUS_TARGET_NOT_PUBLISHED,
             ReaderErrorKind::UnsupportedTextProfile => RITO_STATUS_UNSUPPORTED_PROFILE,
-            ReaderErrorKind::EngineFailure | ReaderErrorKind::ResourcePending => {
-                RITO_STATUS_ENGINE_ERROR
+            ReaderErrorKind::EngineFailure => RITO_STATUS_ENGINE_ERROR,
+            ReaderErrorKind::ResourcePending => {
+                return match encode_reader_pending_shards(&error) {
+                    Ok(payload) => Self {
+                        status: RITO_STATUS_RESOURCE_PENDING,
+                        message: error.to_string(),
+                        payload: Some(payload),
+                    },
+                    Err(encode) => Self::engine(format!(
+                        "pending shards could not be encoded ({encode}): {error}"
+                    )),
+                };
             }
         };
         Self {
             status,
             message: error.to_string(),
+            payload: None,
         }
     }
 }

@@ -26,6 +26,7 @@ export 'src/native/bindings.dart'
         ritoNativeStatusInvalidArgument,
         ritoNativeStatusNotFound,
         ritoNativeStatusPanic,
+        ritoNativeStatusResourcePending,
         ritoNativeStatusSessionTerminated,
         ritoNativeStatusStaleRequest,
         ritoNativeStatusTargetNotPublished,

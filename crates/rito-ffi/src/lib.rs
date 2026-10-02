@@ -12,15 +12,18 @@ mod input;
 mod registry;
 
 #[cfg(test)]
+mod shard_tests;
+#[cfg(test)]
 mod tests;
 
 pub use abi::{
     rito_adopt_background_candidate, rito_adopt_foreground_candidate, rito_advance_background,
     rito_buffer_free, rito_commit_peeked_artifact, rito_dispose, rito_get_text_range_geometry,
-    rito_open, rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote,
-    rito_read_publication, rito_read_resource, rito_release_artifact, rito_request_adjacent,
-    rito_request_artifact, rito_resolve_annotation, rito_resolve_exact_source_range,
-    rito_resolve_navigation, rito_resolve_text_interaction, rito_search,
+    rito_open, rito_open_shards_with_pinned_fonts, rito_open_with_pinned_fonts, rito_peek_adjacent,
+    rito_read_footnote, rito_read_publication, rito_read_resource, rito_release_artifact,
+    rito_request_adjacent, rito_request_artifact, rito_resolve_annotation,
+    rito_resolve_exact_source_range, rito_resolve_navigation, rito_resolve_text_interaction,
+    rito_search, rito_supply_shard,
 };
 pub use abi::{
     RitoOwnedBuffer, RitoPinnedFontFace, RITO_ABI_VERSION, RITO_PINNED_FONT_ROLE_MONOSPACE,
@@ -31,6 +34,7 @@ pub use actor::RITO_ACTOR_MAX_IN_FLIGHT;
 pub use error::{
     RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_ALREADY_EXISTS, RITO_STATUS_BUSY,
     RITO_STATUS_ENGINE_ERROR, RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_NOT_FOUND, RITO_STATUS_OK,
-    RITO_STATUS_PANIC, RITO_STATUS_QUEUE_FULL, RITO_STATUS_SESSION_TERMINATED,
-    RITO_STATUS_STALE_REQUEST, RITO_STATUS_TARGET_NOT_PUBLISHED, RITO_STATUS_UNSUPPORTED_PROFILE,
+    RITO_STATUS_PANIC, RITO_STATUS_QUEUE_FULL, RITO_STATUS_RESOURCE_PENDING,
+    RITO_STATUS_SESSION_TERMINATED, RITO_STATUS_STALE_REQUEST, RITO_STATUS_TARGET_NOT_PUBLISHED,
+    RITO_STATUS_UNSUPPORTED_PROFILE,
 };
