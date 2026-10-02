@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
@@ -97,6 +98,77 @@ void main() {
     images.release();
     cache.dispose();
   });
+
+  testWidgets(
+    'a shown page paints its image once it lands, without a rebuild',
+    (tester) async {
+      const href = 'images/late.png';
+      const spec = TestImageSpec(code: 1, width: 40, height: 40);
+      final artifact = imageArtifact(
+        artifactId: 7002,
+        hrefs: const <String>[href],
+        commands: <RitoPrimitive>[directImage(href)],
+      );
+      final fonts =
+          await RitoArtifactFontCache(
+            registrar: const _NoopFontRegistrar(),
+          ).prepare(
+            artifact: artifact,
+            readResource: (_) => throw StateError('No fonts expected.'),
+          );
+      final cache = RitoArtifactImageCache(
+        decoder: TestImageDecoder(const <TestImageSpec>[spec]),
+      );
+      final arrive = Completer<void>();
+      final images = (await tester.runAsync(
+        () => cache.prepare(
+          artifact: artifact,
+          readResource: (reference) async {
+            await arrive.future;
+            return imageResource(
+              artifact: artifact,
+              reference: reference,
+              spec: spec,
+            );
+          },
+        ),
+      ))!;
+      final prepared = RitoPreparedArtifact.withImageLease(
+        fontPrepared: fonts,
+        imageLease: images,
+      );
+      final painted = <bool>[];
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: RitoPageSurface(
+            artifact: prepared,
+            resolveImage: (href) {
+              final image = prepared.resolveImage(href);
+              painted.add(image != null);
+              return image;
+            },
+          ),
+        ),
+      );
+      expect(painted, isNotEmpty);
+      expect(painted.last, isFalse, reason: 'the page shows before its image');
+
+      arrive.complete();
+      await tester.runAsync(() => images.settled);
+      await tester.pump();
+      expect(
+        painted.last,
+        isTrue,
+        reason: 'the landing image repaints the page',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      images.release();
+      cache.dispose();
+    },
+  );
 }
 
 Future<RitoPreparedArtifact> _preparedArtifact() {

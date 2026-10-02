@@ -160,17 +160,11 @@ RitoArtifactRequest _request(int requestId) {
 }
 
 final class _ImageGateway implements RitoReaderGateway {
-  _ImageGateway({
-    required this.first,
-    required this.next,
-    required this.specs,
-    this.beforeAdopt,
-  });
+  _ImageGateway({required this.first, required this.next, required this.specs});
 
   final RitoArtifact first;
   final RitoArtifact next;
   final Map<String, TestImageSpec> specs;
-  final void Function(RitoForegroundHandoff handoff)? beforeAdopt;
   final List<RitoForegroundHandoff> foregroundHandoffs =
       <RitoForegroundHandoff>[];
   final List<int> releasedArtifactIds = <int>[];
@@ -212,7 +206,6 @@ final class _ImageGateway implements RitoReaderGateway {
   Future<RitoForegroundHandoffAck> adoptForeground({
     required RitoForegroundHandoff handoff,
   }) async {
-    beforeAdopt?.call(handoff);
     foregroundHandoffs.add(handoff);
     final artifact = handoff.candidateArtifactId == first.artifactId
         ? first
