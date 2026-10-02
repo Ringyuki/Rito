@@ -173,8 +173,40 @@ test('a sharded session supplies image shards ahead of need, nearest first', asy
   await client.dispose();
 });
 
+test('image reads held by the worker never take the room a page turn needs', async () => {
+  const log = [];
+  const held = [];
+  let holding = true;
+  const client = createRitoCoreWasmReaderSessionWorkerClient(
+    connectedWorker(shardedRawSession(log), (message, deliver) => {
+      if (holding && message.kind === 'read-resource') held.push(deliver);
+      else deliver();
+    }),
+  );
+  await client.open(
+    { skeleton: Uint8Array.of(1).buffer, loadShards: async () => [] },
+    request('Text/one.xhtml'),
+    POLICY,
+  );
+  // Let the open's own traffic settle, so the reads alone press the cap.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const reads = Array.from({ length: 10 }, () =>
+    client.readResource(9n, 'image', 'Images/one.png').catch(() => undefined),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(held.length < 8, 'reads leave room for the page');
+
+  const turned = await client.requestArtifact(request('Text/one.xhtml'));
+  assert.equal(turned.artifactId, 9n, 'the seek goes through while reads wait');
+
+  holding = false;
+  while (held.length > 0) held.shift()();
+  await Promise.all(reads);
+  await client.dispose();
+});
+
 /** A client transport wired straight into a real worker handler. */
-function connectedWorker(RitoReaderSession) {
+function connectedWorker(RitoReaderSession, route = (_message, deliver) => deliver()) {
   const listeners = new Map();
   const scope = {
     addEventListener(type, listener) {
@@ -196,7 +228,7 @@ function connectedWorker(RitoReaderSession) {
       listeners.delete(type);
     },
     postMessage(message) {
-      queueMicrotask(() => scope.listener({ data: message }));
+      route(message, () => queueMicrotask(() => scope.listener({ data: message })));
     },
     terminate() {},
   };

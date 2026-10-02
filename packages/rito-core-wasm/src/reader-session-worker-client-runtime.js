@@ -14,6 +14,11 @@ import { createShardPrefetchLane } from './shard-prefetch-lane-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const MAX_PENDING_MESSAGES = 8;
+// Image reads, shard supplies and prefetch ordering wait for a slot rather
+// than fail, and never take the last two: a page turn or a seek always
+// finds room, however many reads a recovering network releases at once.
+const RESOURCE_MESSAGE_KINDS = new Set(['read-resource', 'supply-shard', 'content-shards-near']);
+const MAX_PENDING_RESOURCE_MESSAGES = MAX_PENDING_MESSAGES - 2;
 const MAX_ADJACENT_CONTINUATION_QUANTA = 4_096;
 const DISPOSE_TIMEOUT_MS = 1_000;
 // Only an image read waits on a shard, and only on the shards of the
@@ -112,7 +117,22 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   worker.addEventListener('error', handleError);
   worker.addEventListener('messageerror', handleMessageError);
 
-  const sendNow = (kind, body, transfer = []) => {
+  let resourceMessages = 0;
+  const resourceWaiters = [];
+  const sendNow = async (kind, body, transfer) => {
+    if (!RESOURCE_MESSAGE_KINDS.has(kind)) return post(kind, body, transfer);
+    while (resourceMessages >= MAX_PENDING_RESOURCE_MESSAGES) {
+      await new Promise((resume) => resourceWaiters.push(resume));
+    }
+    resourceMessages += 1;
+    try {
+      return await post(kind, body, transfer);
+    } finally {
+      resourceMessages -= 1;
+      resourceWaiters.shift()?.();
+    }
+  };
+  const post = (kind, body, transfer = []) => {
     requireUsable();
     if (pending.size >= MAX_PENDING_MESSAGES) {
       return Promise.reject(
