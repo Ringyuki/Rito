@@ -27,6 +27,7 @@ fn serializes_stale_revision_as_a_stable_wire_code() {
     let error = WasmRuntimeError::from_revision(RuntimeRevisionError {
         kind: RuntimeRevisionErrorKind::StaleRevisionVersion,
         message: "stale".to_owned(),
+        pending_shards: Vec::new(),
     });
     let value = error_json_string(error);
 

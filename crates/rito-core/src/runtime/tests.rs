@@ -1,7 +1,7 @@
 mod access_tests;
 mod chapter_local_tests;
 mod chapter_tree_report_tests;
-pub(in crate::runtime) mod fixture;
+pub(crate) mod fixture;
 mod fragment_page_table_tests;
 mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;

@@ -182,6 +182,10 @@ pub enum RuntimeChapterLocalSourceLocatorResolution {
 pub struct RuntimeChapterLocalRevisionError {
     pub kind: RuntimeRevisionErrorKind,
     pub message: String,
+    /// Content shards the operation needs and the host has not supplied;
+    /// non-empty exactly for `ResourcePending`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_shards: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -192,6 +196,9 @@ pub enum RuntimeRevisionErrorKind {
     StaleRevisionVersion,
     ChapterLocalOwnerMismatch,
     EngineFailure,
+    /// The publication was opened from shards and a shard the operation
+    /// reads has not been supplied.
+    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -199,6 +206,10 @@ pub enum RuntimeRevisionErrorKind {
 pub struct RuntimeRevisionError {
     pub kind: RuntimeRevisionErrorKind,
     pub message: String,
+    /// Content shards the operation needs and the host has not supplied;
+    /// non-empty exactly for `ResourcePending`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_shards: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

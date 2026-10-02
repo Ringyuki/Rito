@@ -97,12 +97,16 @@ impl FootnoteIndexPlanBuilder {
         FootnoteTargetSet::new(self.targets.clone())
     }
 
+    /// The first chapter, among those `available` admits, that still owns
+    /// referenced definitions nobody has parsed.
     pub(crate) fn next_definition_work(
         &self,
         attempted: &BTreeSet<String>,
+        available: impl Fn(usize) -> bool,
     ) -> Option<(usize, BTreeSet<String>)> {
         self.definition_keys
             .iter()
+            .filter(|(chapter_index, _)| available(**chapter_index))
             .find_map(|(chapter_index, keys)| {
                 let keys = keys
                     .iter()
@@ -111,6 +115,18 @@ impl FootnoteIndexPlanBuilder {
                     .collect::<BTreeSet<_>>();
                 (!keys.is_empty()).then_some((*chapter_index, keys))
             })
+    }
+
+    /// Chapters that still own referenced, unparsed definitions.
+    pub(crate) fn pending_definition_chapters(&self, attempted: &BTreeSet<String>) -> Vec<usize> {
+        self.definition_keys
+            .iter()
+            .filter(|(_, keys)| {
+                keys.iter()
+                    .any(|key| self.targets.contains(key) && !attempted.contains(key))
+            })
+            .map(|(chapter_index, _)| *chapter_index)
+            .collect()
     }
 
     pub(crate) fn definition_work_complete(&self, attempted: &BTreeSet<String>) -> bool {

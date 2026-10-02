@@ -653,12 +653,18 @@ pub enum ReaderErrorKind {
     NumericOverflow,
     InvalidWire,
     EngineFailure,
+    /// The publication was opened from shards and the operation reads a
+    /// shard the host has not supplied; `pending_shards` names them.
+    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReaderError {
     pub kind: ReaderErrorKind,
     pub message: String,
+    /// Content shards to supply before retrying, ascending; non-empty
+    /// exactly for `ResourcePending`.
+    pub pending_shards: Vec<u32>,
 }
 
 impl ReaderError {
@@ -666,6 +672,15 @@ impl ReaderError {
         Self {
             kind,
             message: message.into(),
+            pending_shards: Vec::new(),
+        }
+    }
+
+    pub(super) fn resource_pending(pending_shards: Vec<u32>, message: impl Into<String>) -> Self {
+        Self {
+            kind: ReaderErrorKind::ResourcePending,
+            message: message.into(),
+            pending_shards,
         }
     }
 }

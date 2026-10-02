@@ -113,7 +113,7 @@ fn batch_detects_cached_image_dimensions_without_reopening_archive() {
         .archive_source
         .as_mut()
         .expect("archive source exists")
-        .bytes = std::sync::Arc::from(Vec::<u8>::new());
+        .storage = super::PublicationStorage::Archive(std::sync::Arc::new(Vec::new()));
 
     document
         .ensure_chapter_image_dimensions_loaded(0, 1)

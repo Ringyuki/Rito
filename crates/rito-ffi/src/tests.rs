@@ -56,6 +56,7 @@ fn ffi_status_mapping_keeps_actionable_reader_failures_distinct() {
         let error = FfiError::from(ReaderError {
             kind,
             message: "typed status probe".to_owned(),
+            pending_shards: Vec::new(),
         });
         assert_eq!(error.status, expected);
     }

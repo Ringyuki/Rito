@@ -41,8 +41,9 @@ fn exact_revision_copies_only_targets_referenced_by_its_chapter() {
     let mut document =
         open_pinned_document(&cross_chapter_footnote_fixture_epub()).expect("document");
     document
-        .publication_footnote_index()
+        .drain_publication_footnote_index()
         .expect("publication index completes explicitly");
+    assert!(document.publication_footnote_index_is_complete());
 
     let local = document
         .create_chapter_local_revision(local_request(layout(), 0, locator("chapter-1.xhtml")))

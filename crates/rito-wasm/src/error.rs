@@ -59,7 +59,8 @@ impl WasmRuntimeError {
             RuntimeRevisionAccessErrorKind::StaleRevisionVersion => {
                 WasmRuntimeErrorCode::StaleRevisionVersion
             }
-            RuntimeRevisionAccessErrorKind::OperationFailed => WasmRuntimeErrorCode::EngineError,
+            RuntimeRevisionAccessErrorKind::OperationFailed
+            | RuntimeRevisionAccessErrorKind::ResourcePending => WasmRuntimeErrorCode::EngineError,
         };
         Self {
             code,
@@ -84,7 +85,9 @@ fn revision_error_code(kind: RuntimeRevisionErrorKind) -> WasmRuntimeErrorCode {
         RuntimeRevisionErrorKind::StaleRevisionVersion => {
             WasmRuntimeErrorCode::StaleRevisionVersion
         }
-        RuntimeRevisionErrorKind::EngineFailure => WasmRuntimeErrorCode::EngineError,
+        RuntimeRevisionErrorKind::EngineFailure | RuntimeRevisionErrorKind::ResourcePending => {
+            WasmRuntimeErrorCode::EngineError
+        }
     }
 }
 

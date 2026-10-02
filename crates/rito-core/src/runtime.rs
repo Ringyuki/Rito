@@ -21,6 +21,7 @@ mod page;
 mod page_artifact;
 mod page_semantics;
 mod page_target;
+mod pending;
 mod pinned_font_policy;
 mod publication_footnotes;
 mod reader_session;
@@ -138,6 +139,41 @@ impl RuntimeDocument {
         Ok(Self::from_loaded_document(open_runtime_document_owned(
             bytes,
         )?))
+    }
+
+    /// Opens a publication from its skeleton shard; chapters, images and
+    /// fonts arrive later through [`RuntimeDocument::supply_shard`].
+    pub fn open_shards(
+        skeleton: &[u8],
+        key: Option<&crate::epub::shard::ShardKey>,
+    ) -> EpubResult<Self> {
+        Ok(Self::from_loaded_document(
+            crate::epub::open_runtime_document_from_shards(skeleton, key)?,
+        ))
+    }
+
+    /// Verifies one content shard of a publication opened from shards and
+    /// keeps its files; returns the shard's id. Supplying a shard twice is
+    /// harmless.
+    pub fn supply_shard(
+        &mut self,
+        shard: &[u8],
+        key: Option<&crate::epub::shard::ShardKey>,
+    ) -> EpubResult<u32> {
+        let store = self
+            .document
+            .shard_store()
+            .ok_or_else(|| EpubError::new("the publication was not opened from shards"))?
+            .clone();
+        let shard_id = store.supply(shard, key)?;
+        // The fragment engine registers publication faces once; one built
+        // while a face's shard was missing never measured with that face.
+        if self.fragment_engine.get().is_some()
+            && self.document.fonts.iter().any(|font| font.bytes.is_empty())
+        {
+            self.fragment_engine = OnceCell::new();
+        }
+        Ok(shard_id)
     }
 
     pub fn from_loaded_document(document: LoadedEpubDocument) -> Self {
@@ -477,4 +513,4 @@ impl Drop for RuntimeDocument {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

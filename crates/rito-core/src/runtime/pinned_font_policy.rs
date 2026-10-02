@@ -3,7 +3,8 @@ use std::collections::BTreeSet;
 use sha2::{Digest, Sha256};
 
 use crate::epub::{
-    open_runtime_document, open_runtime_document_owned, EpubError, EpubResult, LoadedEpubDocument,
+    open_runtime_document, open_runtime_document_from_shards, open_runtime_document_owned,
+    shard::ShardKey, EpubError, EpubResult, LoadedEpubDocument,
 };
 
 use super::RuntimeDocument;
@@ -145,6 +146,20 @@ impl RuntimeDocument {
     ) -> EpubResult<Self> {
         let policy = RuntimePinnedFontPolicy::from_input(input)?;
         let document = open_runtime_document_owned(bytes)?;
+        Ok(Self::from_loaded_document_and_pinned_font_policy(
+            document, policy,
+        ))
+    }
+
+    /// Opens a publication from its skeleton shard; chapters, images and
+    /// fonts arrive later through [`RuntimeDocument::supply_shard`].
+    pub fn open_shards_with_pinned_font_policy(
+        skeleton: &[u8],
+        key: Option<&ShardKey>,
+        input: RuntimePinnedFontPolicyInput,
+    ) -> EpubResult<Self> {
+        let policy = RuntimePinnedFontPolicy::from_input(input)?;
+        let document = open_runtime_document_from_shards(skeleton, key)?;
         Ok(Self::from_loaded_document_and_pinned_font_policy(
             document, policy,
         ))

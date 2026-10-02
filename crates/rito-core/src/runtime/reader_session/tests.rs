@@ -1045,7 +1045,7 @@ fn protocol_source_has_no_platform_or_dynamic_primary_wire_types() {
     assert!(!include_str!("types.rs").contains("usize"));
 }
 
-fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactRequest {
+pub(super) fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactRequest {
     ReaderArtifactRequest {
         session_id,
         request_id,

@@ -1,0 +1,54 @@
+//! Failures caused by publication shards the host has not supplied. Every
+//! runtime error that can wrap a file read reports the shard ids it waited
+//! on, so a session can tell "supply these and retry" apart from a real
+//! failure however many layers the error crossed.
+
+use std::fmt;
+
+use crate::epub::EpubError;
+
+use super::{
+    RuntimeChapterLocalRevisionError, RuntimeRevisionAccessError, RuntimeRevisionError,
+    RuntimeSourceLocatorError,
+};
+
+pub(crate) trait PendingShardFailure: fmt::Display {
+    /// Shards the failed operation waited on, ascending; empty for every
+    /// other failure.
+    fn pending_shards(&self) -> &[u32] {
+        &[]
+    }
+}
+
+impl PendingShardFailure for EpubError {
+    fn pending_shards(&self) -> &[u32] {
+        EpubError::pending_shards(self)
+    }
+}
+
+impl PendingShardFailure for RuntimeRevisionError {
+    fn pending_shards(&self) -> &[u32] {
+        &self.pending_shards
+    }
+}
+
+impl PendingShardFailure for RuntimeChapterLocalRevisionError {
+    fn pending_shards(&self) -> &[u32] {
+        &self.pending_shards
+    }
+}
+
+impl PendingShardFailure for RuntimeSourceLocatorError {
+    fn pending_shards(&self) -> &[u32] {
+        &self.pending_shards
+    }
+}
+
+impl PendingShardFailure for RuntimeRevisionAccessError {
+    fn pending_shards(&self) -> &[u32] {
+        &self.pending_shards
+    }
+}
+
+impl PendingShardFailure for String {}
+impl PendingShardFailure for &str {}

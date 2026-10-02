@@ -24,6 +24,10 @@ name = "memory-stage-probe"
 path = "examples/memory_stage_probe.rs"
 
 [[example]]
+name = "shard-equivalence-probe"
+path = "examples/shard_equivalence_probe.rs"
+
+[[example]]
 name = "layout-engine-bench"
 path = "examples/layout_engine_bench.rs"
 
@@ -43,6 +47,7 @@ ttf-parser = "0.25"
 icu_segmenter = "2.2.0"
 icu_locale_core = "2.2.0"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 flate2 = "1.1"

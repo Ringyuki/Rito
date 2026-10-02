@@ -136,8 +136,9 @@ fn build_reader_artifact_from_revision(
     let lowered = lower(&frame.commands, render_ratio, &|href| {
         document.image_size(href)
     })
-    .map_err(engine_error)?;
-    let encoded = encode_reader_primitive_list(&lowered).map_err(engine_error)?;
+    .map_err(|error| engine_error(error.to_string()))?;
+    let encoded =
+        encode_reader_primitive_list(&lowered).map_err(|error| engine_error(error.to_string()))?;
     // Page geometry from the engine is content-box relative and
     // page-local. The display list this artifact carries is not: it
     // translates the right-hand page of a spread and paints content at
@@ -440,8 +441,13 @@ fn reader_rect_at(value: PageArtifactRect, origin: (f64, f64)) -> ReaderRect {
     }
 }
 
-fn engine_error(error: impl std::fmt::Display) -> ReaderError {
-    ReaderError::new(ReaderErrorKind::EngineFailure, error.to_string())
+fn engine_error(error: impl crate::runtime::pending::PendingShardFailure) -> ReaderError {
+    let pending = error.pending_shards();
+    if pending.is_empty() {
+        ReaderError::new(ReaderErrorKind::EngineFailure, error.to_string())
+    } else {
+        ReaderError::resource_pending(pending.to_vec(), error.to_string())
+    }
 }
 
 fn used_font_families(values: &[String]) -> BTreeSet<String> {

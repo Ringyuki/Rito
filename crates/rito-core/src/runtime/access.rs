@@ -54,6 +54,7 @@ pub enum RuntimeRevisionAccessErrorKind {
     UnknownRevision,
     StaleRevisionVersion,
     OperationFailed,
+    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +62,9 @@ pub enum RuntimeRevisionAccessErrorKind {
 pub struct RuntimeRevisionAccessError {
     pub kind: RuntimeRevisionAccessErrorKind,
     pub message: String,
+    /// Content shards the operation waited on; see `ResourcePending`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_shards: Vec<u32>,
 }
 
 impl RuntimeRevisionAccessError {
@@ -68,14 +72,22 @@ impl RuntimeRevisionAccessError {
         Self {
             kind,
             message: message.into(),
+            pending_shards: Vec::new(),
         }
     }
 
-    fn operation_failed(error: impl fmt::Display) -> Self {
-        Self::new(
-            RuntimeRevisionAccessErrorKind::OperationFailed,
-            error.to_string(),
-        )
+    fn operation_failed(error: impl PendingShardFailure) -> Self {
+        let pending_shards = error.pending_shards().to_vec();
+        let kind = if pending_shards.is_empty() {
+            RuntimeRevisionAccessErrorKind::OperationFailed
+        } else {
+            RuntimeRevisionAccessErrorKind::ResourcePending
+        };
+        Self {
+            kind,
+            message: error.to_string(),
+            pending_shards,
+        }
     }
 }
 
@@ -86,6 +98,8 @@ impl fmt::Display for RuntimeRevisionAccessError {
 }
 
 impl Error for RuntimeRevisionAccessError {}
+
+use super::pending::PendingShardFailure;
 
 impl RuntimeDocument {
     pub fn validate_revision_handle(
@@ -231,7 +245,7 @@ impl RuntimeDocument {
         operation: impl FnOnce(&Self, &str) -> Result<T, E>,
     ) -> Result<RuntimeVersioned<T>, RuntimeRevisionAccessError>
     where
-        E: fmt::Display,
+        E: PendingShardFailure,
     {
         self.validate_revision_handle(handle)?;
         let value = operation(self, &handle.revision_id)
@@ -245,7 +259,7 @@ impl RuntimeDocument {
         operation: impl FnOnce(&mut Self, &str) -> Result<T, E>,
     ) -> Result<RuntimeVersioned<T>, RuntimeRevisionAccessError>
     where
-        E: fmt::Display,
+        E: PendingShardFailure,
     {
         self.validate_revision_handle(handle)?;
         let value = operation(self, &handle.revision_id)

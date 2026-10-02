@@ -971,6 +971,7 @@ mod tests {
         let operation_error = ReaderError {
             kind: ReaderErrorKind::InvalidRequest,
             message: "operation failed before ownership changed".to_owned(),
+            pending_shards: Vec::new(),
         };
         let (operation_result, terminate) =
             encode_mutation_result::<u8>(Err(operation_error), |_| {
@@ -986,6 +987,7 @@ mod tests {
             let mutation_error = ReaderError {
                 kind,
                 message: "mutation may already have changed owned state".to_owned(),
+                pending_shards: Vec::new(),
             };
             let (mutation_result, terminate) =
                 encode_mutation_result::<u8>(Err(mutation_error), |_| {
@@ -1003,6 +1005,7 @@ mod tests {
         let (release_error, terminate) = classify_mutation_error(ReaderError {
             kind: ReaderErrorKind::EngineFailure,
             message: "release cleanup failed after ownership work began".to_owned(),
+            pending_shards: Vec::new(),
         });
         assert_eq!(release_error.status, RITO_STATUS_SESSION_TERMINATED);
         assert!(terminate);
@@ -1010,6 +1013,7 @@ mod tests {
         let wire_error = ReaderError {
             kind: ReaderErrorKind::NumericOverflow,
             message: "owned artifact exceeds wire limits".to_owned(),
+            pending_shards: Vec::new(),
         };
         let (wire_result, terminate) = encode_mutation_result(Ok(7_u8), |_| Err(wire_error));
         assert_eq!(

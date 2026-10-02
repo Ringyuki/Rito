@@ -110,8 +110,14 @@ impl ReaderSession {
             .prepare_source_locator(runtime_locator(locator)?)
         {
             Ok(prepared) => prepared,
-            Err(error) if error.kind == RuntimeSourceLocatorErrorKind::SourceUnavailable => {
-                return Err(engine_error(error.message));
+            Err(error)
+                if matches!(
+                    error.kind,
+                    RuntimeSourceLocatorErrorKind::SourceUnavailable
+                        | RuntimeSourceLocatorErrorKind::ResourcePending
+                ) =>
+            {
+                return Err(engine_error(error));
             }
             Err(_) => {
                 return Ok(ReaderNavigationResult::Location(
@@ -155,7 +161,8 @@ fn runtime_point(point: ReaderSourcePoint) -> Result<RuntimeSourcePoint, ReaderE
 
 fn position_error(error: RuntimeSourceLocatorError) -> ReaderError {
     match error.kind {
-        RuntimeSourceLocatorErrorKind::SourceUnavailable => engine_error(error.message),
+        RuntimeSourceLocatorErrorKind::SourceUnavailable
+        | RuntimeSourceLocatorErrorKind::ResourcePending => engine_error(error),
         _ => ReaderError::new(ReaderErrorKind::InvalidRequest, error.message),
     }
 }

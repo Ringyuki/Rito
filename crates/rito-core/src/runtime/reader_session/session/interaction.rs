@@ -408,7 +408,8 @@ fn reader_annotation_target(
 /// source the engine cannot read is the engine's.
 fn annotation_error(error: crate::runtime::RuntimeSourceLocatorError) -> ReaderError {
     match error.kind {
-        RuntimeSourceLocatorErrorKind::SourceUnavailable => engine_error(error.message),
+        RuntimeSourceLocatorErrorKind::SourceUnavailable
+        | RuntimeSourceLocatorErrorKind::ResourcePending => engine_error(error),
         _ => ReaderError::new(ReaderErrorKind::InvalidRequest, error.message),
     }
 }

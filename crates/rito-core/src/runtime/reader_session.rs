@@ -64,4 +64,6 @@ mod background_tests;
 #[cfg(test)]
 mod interaction_tests;
 #[cfg(test)]
+mod shard_tests;
+#[cfg(test)]
 mod tests;

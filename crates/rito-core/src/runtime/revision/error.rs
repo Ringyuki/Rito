@@ -13,6 +13,13 @@ pub(in crate::runtime) fn unknown_revision(revision_id: &str) -> RuntimeRevision
 }
 
 pub(in crate::runtime) fn engine_error(error: EpubError) -> RuntimeRevisionError {
+    if error.is_pending() {
+        return RuntimeRevisionError {
+            kind: RuntimeRevisionErrorKind::ResourcePending,
+            message: error.message().to_owned(),
+            pending_shards: error.pending_shards().to_vec(),
+        };
+    }
     revision_error(RuntimeRevisionErrorKind::EngineFailure, error.message())
 }
 
@@ -23,6 +30,7 @@ pub(in crate::runtime) fn revision_error(
     RuntimeRevisionError {
         kind,
         message: message.into(),
+        pending_shards: Vec::new(),
     }
 }
 

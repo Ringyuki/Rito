@@ -2,13 +2,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::resources::{detect_image_dimensions, hash_bytes, is_image_media_type};
 
-use super::{
-    archive, join_epub_href, BinaryResourceLoading, LoadedBinaryResource, PackageDocument,
+use super::{join_epub_href, BinaryResourceLoading, LoadedBinaryResource, PackageDocument};
+use crate::epub::{
+    archive::ArchiveEntryMetadata, paths::relative_epub_href, reader::PublicationReader,
 };
-use crate::epub::{archive::ArchiveEntryMetadata, paths::relative_epub_href};
 
 pub(super) fn append_archive_image_resources(
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     package: &PackageDocument,
     opf_dir: &str,
     loading: BinaryResourceLoading,
@@ -43,7 +43,7 @@ pub(super) fn append_archive_image_resources(
 }
 
 fn declared_image_entry_ids(
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     package: &PackageDocument,
     opf_dir: &str,
 ) -> BTreeSet<usize> {
@@ -61,7 +61,7 @@ fn declared_image_entry_ids(
 }
 
 fn load_archive_image(
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     entry: &ArchiveEntryMetadata,
     href: String,
     media_type: &'static str,

@@ -34,6 +34,14 @@ impl AsRef<[u8]> for ArchiveBytes<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StoredEntry {
+    pub(crate) entry_id: usize,
+    pub(crate) name: String,
+    pub(crate) byte_length: u64,
+    pub(crate) listed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ArchiveEntryMetadata {
     pub(crate) entry_id: usize,
     pub(crate) path: String,
@@ -178,6 +186,36 @@ impl<'a> EpubArchive<'a> {
             path,
             byte_length,
         }))
+    }
+
+    /// The archive name `path` resolves to, the way every read resolves it.
+    pub(crate) fn resolve_entry_name(&self, path: &str) -> Option<String> {
+        let index = self.resolve_entry_index(path).ok()?;
+        self.zip.name_for_index(index).map(str::to_owned)
+    }
+
+    /// Every file entry by its stored name, in archive order, with whether
+    /// [`Self::file_entries`] lists it. Directories are left out.
+    pub(crate) fn stored_file_entries(&mut self) -> EpubResult<Vec<StoredEntry>> {
+        let listed = self
+            .file_entries()
+            .into_iter()
+            .map(|entry| entry.entry_id)
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut entries = Vec::new();
+        for index in 0..self.zip.len() {
+            let file = self.zip.by_index_raw(index).map_err(zip_error)?;
+            if file.is_dir() {
+                continue;
+            }
+            entries.push(StoredEntry {
+                entry_id: index,
+                name: file.name().to_owned(),
+                byte_length: file.size(),
+                listed: listed.contains(&index),
+            });
+        }
+        Ok(entries)
     }
 
     fn resolve_entry_index(&self, path: &str) -> EpubResult<usize> {
@@ -343,6 +381,16 @@ fn percent_decode_path(path: &str) -> EpubResult<String> {
     String::from_utf8(decoded).map_err(|_| invalid_percent_escape(path))
 }
 
+/// The normalized entry path a percent-escaped `path` names, when it has
+/// escapes and they decode.
+pub(crate) fn decoded_entry_path(path: &str) -> Option<String> {
+    if !path.as_bytes().contains(&b'%') {
+        return None;
+    }
+    let decoded = percent_decode_path(path).ok()?;
+    Some(join_zip_path("", &decoded))
+}
+
 fn hex_value(value: u8) -> Option<u8> {
     match value {
         b'0'..=b'9' => Some(value - b'0'),
@@ -358,7 +406,7 @@ fn invalid_percent_escape(path: &str) -> EpubError {
     ))
 }
 
-fn missing_entry(path: &str) -> EpubError {
+pub(crate) fn missing_entry(path: &str) -> EpubError {
     EpubError::new(format!(
         "Failed to read EPUB entry {path:?}: {}",
         ZipError::FileNotFound

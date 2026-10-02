@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::{
-    epub::{ChapterSourceScanSession, EpubResult, LoadedEpubDocument},
+    epub::{ChapterSourceScanSession, EpubError, EpubResult, LoadedEpubDocument},
     interaction::{
         FootnoteDefinitionBuilder, FootnoteEntry, FootnoteIndexPlanBuilder, FootnoteTargetSet,
     },
@@ -64,6 +64,15 @@ impl PublicationFootnoteProgress {
             return Ok(());
         }
         let mut chapter_targets = BTreeSet::new();
+        if let Some(hints) = document.packed_footnote_hints(chapter_index) {
+            // A publication opened from shards carries every chapter's scan
+            // in its skeleton, so planning never waits on a chapter shard.
+            let href = &document.chapters[chapter_index].href;
+            chapter_targets = self.planning.discover(chapter_index, href, &hints);
+            self.chapter_targets.insert(chapter_index, chapter_targets);
+            self.scanned_chapters.insert(chapter_index);
+            return Ok(());
+        }
         let planning = &mut self.planning;
         #[cfg(test)]
         let source_scan_count = &mut self.source_scan_count;
@@ -93,9 +102,11 @@ impl PublicationFootnoteProgress {
 
         let Some((chapter_index, keys)) = self
             .planning
-            .next_definition_work(&self.attempted_definition_keys)
+            .next_definition_work(&self.attempted_definition_keys, |chapter_index| {
+                document.chapter_source_available(chapter_index)
+            })
         else {
-            return Ok(());
+            return self.definition_shards_pending(document);
         };
 
         let targets = self.planning.target_set();
@@ -116,6 +127,24 @@ impl PublicationFootnoteProgress {
         self.footnotes.extend(definitions.finish());
         self.attempted_definition_keys.extend(keys);
         Ok(())
+    }
+
+    /// Remaining definition work can only wait on chapters whose shards
+    /// have not arrived; name them.
+    fn definition_shards_pending(&self, document: &LoadedEpubDocument) -> EpubResult<()> {
+        let shards = self
+            .planning
+            .pending_definition_chapters(&self.attempted_definition_keys)
+            .into_iter()
+            .filter_map(|chapter_index| document.chapter_source_shard(chapter_index))
+            .collect::<Vec<_>>();
+        if shards.is_empty() {
+            return Ok(());
+        }
+        Err(EpubError::shards_pending(
+            shards,
+            "footnote definitions live in chapters whose shards have not been supplied",
+        ))
     }
 
     fn is_complete(&self) -> bool {
@@ -171,19 +200,23 @@ impl PublicationFootnoteProgress {
 }
 
 impl RuntimeDocument {
-    /// Drains the cooperative index to its final immutable snapshot. The
-    /// chapter-local fragment build calls this before laying a chapter out:
-    /// a chapter's footnote filtering needs the whole publication's targets
-    /// or it paginates differently from the same chapter in the book table,
-    /// so the first chapter-local open scans every spine source.
-    pub(super) fn publication_footnote_index(&mut self) -> EpubResult<&PublicationFootnoteIndex> {
+    /// Drains the cooperative index as far as the publication's files
+    /// allow. The chapter-local fragment build calls this before laying a
+    /// chapter out: a chapter's footnote filtering needs the whole
+    /// publication's targets or it paginates differently from the same
+    /// chapter in the book table, so the first chapter-local open scans
+    /// every spine source. Targets never wait on a shard (the skeleton
+    /// carries every chapter's scan); definitions in chapters whose shards
+    /// have not arrived stay pending, and the drain stops there.
+    pub(super) fn drain_publication_footnote_index(&mut self) -> EpubResult<()> {
         while self.publication_footnotes.get().is_none() {
-            self.advance_publication_footnote_index_once()?;
+            match self.advance_publication_footnote_index_once() {
+                Ok(_) => {}
+                Err(error) if error.is_pending() => return Ok(()),
+                Err(error) => return Err(error),
+            }
         }
-        Ok(self
-            .publication_footnotes
-            .get()
-            .expect("publication footnote index was initialized"))
+        Ok(())
     }
 
     /// Performs at most one source scan or one selected definition parse.
@@ -215,6 +248,44 @@ impl RuntimeDocument {
         }
         self.publication_footnote_progress = Some(progress);
         Ok(complete)
+    }
+
+    /// A footnote definition a revision recorded as pending when it was
+    /// laid out. The index is drained as far as the files allow first; a
+    /// definition whose chapter shard has not arrived fails as pending
+    /// naming that shard.
+    pub(crate) fn resolve_pending_footnote(
+        &mut self,
+        key: &str,
+    ) -> EpubResult<Option<FootnoteEntry>> {
+        self.drain_publication_footnote_index()?;
+        let indexed = match self.publication_footnotes.get() {
+            Some(index) => index.footnotes.get(key).cloned(),
+            None => self
+                .publication_footnote_progress
+                .as_ref()
+                .and_then(|progress| progress.footnotes.get(key).cloned()),
+        };
+        if indexed.is_some() {
+            return Ok(indexed);
+        }
+        let chapter_href = key.split('#').next().unwrap_or_default();
+        let shard = self
+            .document
+            .chapters
+            .iter()
+            .position(|chapter| chapter.href == chapter_href)
+            .filter(|index| !self.document.chapter_source_available(*index))
+            .and_then(|index| self.document.chapter_source_shard(index));
+        match shard {
+            Some(shard_id) => Err(EpubError::shards_pending(
+                vec![shard_id],
+                format!(
+                    "footnote {key:?} is defined in a chapter whose shard has not been supplied"
+                ),
+            )),
+            None => Ok(None),
+        }
     }
 
     pub(super) fn publication_footnote_index_is_complete(&self) -> bool {

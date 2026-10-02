@@ -418,7 +418,9 @@ impl From<ReaderError> for ReaderProjectionError {
             ReaderErrorKind::UnknownArtifact => ReaderProjectionErrorCode::UnknownArtifact,
             ReaderErrorKind::NumericOverflow => ReaderProjectionErrorCode::NumericOverflow,
             ReaderErrorKind::InvalidWire => ReaderProjectionErrorCode::InvalidWire,
-            ReaderErrorKind::EngineFailure => ReaderProjectionErrorCode::EngineFailure,
+            ReaderErrorKind::EngineFailure | ReaderErrorKind::ResourcePending => {
+                ReaderProjectionErrorCode::EngineFailure
+            }
         };
         Self {
             code,

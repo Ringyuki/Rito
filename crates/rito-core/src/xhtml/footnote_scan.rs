@@ -2,6 +2,12 @@ use rito_source::{visit_xhtml_semantic_elements, XhtmlSemanticElement};
 
 use super::parser::{classify_tag, TagClassification};
 
+/// Revision of what [`scan_epub_type_attribute_hints`] reports. Publication
+/// shards carry each chapter's scan so a reader can plan footnotes without
+/// every chapter; a change to the scan's output must bump this, and the
+/// engine then refuses shards packed with another revision.
+pub(crate) const EPUB_TYPE_HINT_SCAN_REVISION: u32 = 1;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EpubTypeAttributeHint {
     pub(crate) is_block: bool,

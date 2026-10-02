@@ -8,16 +8,25 @@ use crate::{
     xhtml::{parse_xhtml, DocumentNode},
 };
 
-use super::{archive, join_epub_href, EpubError, EpubResult, PackageDocument};
+use super::{
+    join_epub_href,
+    reader::{PendingReads, PublicationReader},
+    EpubError, EpubResult, PackageDocument,
+};
 
 mod archive_source;
 mod chapter_scan;
 mod open;
 
-use archive_source::{ArchiveResourceKind, LoadedArchiveSource};
+use archive_source::ArchiveResourceKind;
+pub use archive_source::LoadedArchiveSource;
+pub(crate) use archive_source::PublicationStorage;
 pub(crate) use chapter_scan::ChapterSourceScanSession;
 
-pub use open::{open_document, open_runtime_document, open_runtime_document_owned};
+pub use open::{
+    open_document, open_runtime_document, open_runtime_document_from_shards,
+    open_runtime_document_owned,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedTextResource {
@@ -90,7 +99,8 @@ impl LoadedEpubDocument {
                 "resource bytes are not loaded: {missing_href}"
             )));
         };
-        let mut archive = archive::EpubArchive::new(&source.bytes)?;
+        let mut archive = source.reader()?;
+        let mut pending = PendingReads::default();
         for chapter in &mut self.chapters[start..end] {
             if chapter.source_loaded {
                 continue;
@@ -98,13 +108,16 @@ impl LoadedEpubDocument {
             if chapter.href.is_empty() {
                 chapter.xhtml_source.clear();
             } else {
-                chapter.xhtml_source =
-                    archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href))?;
+                let read = archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href));
+                let Some(text) = pending.absorb(read)? else {
+                    continue;
+                };
+                chapter.xhtml_source = text;
             }
             chapter.source_loaded = true;
             chapter.image_refs = None;
         }
-        Ok(())
+        pending.finish()
     }
 
     pub fn ensure_all_chapters_loaded(&mut self) -> EpubResult<()> {
@@ -121,21 +134,25 @@ impl LoadedEpubDocument {
             }
             return Ok(());
         };
-        let mut archive = archive::EpubArchive::new(&source.bytes)?;
+        let mut archive = source.reader()?;
+        let mut pending = PendingReads::default();
         for resource in &mut self.fonts {
             if !resource.bytes.is_empty() {
                 continue;
             }
-            let bytes = source.read_bytes_with_archive(
+            let read = source.read_bytes_with_archive(
                 &mut archive,
                 &resource.href,
                 ArchiveResourceKind::Font,
-            )?;
+            );
+            let Some(bytes) = pending.absorb(read)? else {
+                continue;
+            };
             resource.byte_length = bytes.len();
             resource.byte_hash = Some(hash_bytes(&bytes));
             resource.bytes = bytes;
         }
-        Ok(())
+        pending.finish()
     }
 
     pub fn ensure_chapter_image_dimensions_loaded(
@@ -241,7 +258,7 @@ impl LoadedEpubDocument {
         let Some(source) = self.archive_source.as_ref() else {
             return Ok(());
         };
-        let mut archive = archive::EpubArchive::new(&source.bytes)?;
+        let mut archive = source.reader()?;
         let dimensions = source.inspect_with_archive(
             &mut archive,
             &resource_href,
@@ -289,15 +306,17 @@ impl LoadedEpubDocument {
             }
             return loaded_image_dimensions_for_refs(&self.images, refs);
         };
-        let mut archive = archive::EpubArchive::new(&source.bytes)?;
+        let mut archive = source.reader()?;
+        let mut pending = PendingReads::default();
         for href in refs {
-            ensure_image_dimensions_loaded_with_archive(
+            pending.absorb(ensure_image_dimensions_loaded_with_archive(
                 &mut self.images,
                 source,
                 &mut archive,
                 href,
-            )?;
+            ))?;
         }
+        pending.finish()?;
         loaded_image_dimensions_for_refs(&self.images, refs)
     }
 
@@ -340,6 +359,56 @@ fn read_binary_resource_bytes(
     Ok(Some(bytes))
 }
 
+impl LoadedEpubDocument {
+    /// The shard store a publication opened from shards reads through.
+    pub(crate) fn shard_store(&self) -> Option<&super::shard::ShardStore> {
+        self.archive_source.as_ref()?.storage.shards()
+    }
+
+    /// Content shards reads have needed and not received, ascending.
+    pub(crate) fn pending_shards(&self) -> Vec<u32> {
+        self.shard_store()
+            .map(super::shard::ShardStore::pending_shards)
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn opf_dir(&self) -> &str {
+        self.archive_source
+            .as_ref()
+            .map_or("", |source| source.opf_dir.as_str())
+    }
+
+    /// The stored archive name an archive path resolves to.
+    pub(crate) fn resolve_archive_name(&self, path: &str) -> Option<String> {
+        match &self.archive_source.as_ref()?.storage {
+            PublicationStorage::Archive(bytes) => super::archive::EpubArchive::new(bytes)
+                .ok()?
+                .resolve_entry_name(path),
+            PublicationStorage::Shards(store) => store.resolve_name(path),
+        }
+    }
+
+    /// The archive paths of the images a chapter's source references, as
+    /// its image-dimension load resolves them.
+    pub(crate) fn image_paths_referenced_by(&self, xhtml_source: &str) -> Vec<String> {
+        let Some(source) = self.archive_source.as_ref() else {
+            return Vec::new();
+        };
+        image_refs_in(xhtml_source)
+            .iter()
+            .filter_map(|src| find_resource_index(&self.images, src))
+            .map(|index| {
+                let href = &self.images[index].href;
+                source
+                    .archive_image_entries
+                    .get(href)
+                    .map(|entry| entry.path.clone())
+                    .unwrap_or_else(|| join_epub_href(&source.opf_dir, href))
+            })
+            .collect()
+    }
+}
+
 fn cached_chapter_image_refs(chapter: &mut LoadedChapter) -> &[String] {
     if chapter.image_refs.is_none() {
         chapter.image_refs = Some(collect_chapter_image_refs(chapter));
@@ -348,12 +417,16 @@ fn cached_chapter_image_refs(chapter: &mut LoadedChapter) -> &[String] {
 }
 
 fn collect_chapter_image_refs(chapter: &LoadedChapter) -> Vec<String> {
-    if chapter.xhtml_source.is_empty() {
+    image_refs_in(&chapter.xhtml_source)
+}
+
+fn image_refs_in(xhtml_source: &str) -> Vec<String> {
+    if xhtml_source.is_empty() {
         return Vec::new();
     }
     // This is a speculative preload pass. The formal prepare pass owns XHTML
     // diagnostics and preserves malformed chapters as warnings with empty nodes.
-    let Ok(parsed) = parse_xhtml(&chapter.xhtml_source) else {
+    let Ok(parsed) = parse_xhtml(xhtml_source) else {
         return Vec::new();
     };
     let mut refs = BTreeSet::new();
@@ -366,7 +439,7 @@ fn collect_chapter_image_refs(chapter: &LoadedChapter) -> Vec<String> {
 fn ensure_image_dimensions_loaded_with_archive(
     images: &mut [LoadedBinaryResource],
     source: &LoadedArchiveSource,
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     href: &str,
 ) -> EpubResult<()> {
     let Some(index) = find_resource_index(images, href) else {

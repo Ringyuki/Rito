@@ -561,7 +561,7 @@ impl RuntimeDocument {
         // paginates differently from the same chapter in the book table,
         // and the background candidate's painted pages never match the
         // visible ones.
-        self.publication_footnote_index()
+        self.drain_publication_footnote_index()
             .map_err(|error| format!("publication footnote index: {}", error.message()))?;
         let footnote_targets = self
             .prepare_chapter_footnote_targets(chapter_index)

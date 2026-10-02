@@ -102,6 +102,7 @@ pub(super) fn local_error(
     RuntimeChapterLocalRevisionError {
         kind,
         message: message.into(),
+        pending_shards: Vec::new(),
     }
 }
 
@@ -113,12 +114,26 @@ pub(super) fn local_unknown_revision(revision_id: &str) -> RuntimeChapterLocalRe
 }
 
 pub(super) fn local_engine_error(error: EpubError) -> RuntimeChapterLocalRevisionError {
+    if error.is_pending() {
+        return RuntimeChapterLocalRevisionError {
+            kind: RuntimeRevisionErrorKind::ResourcePending,
+            message: error.message().to_owned(),
+            pending_shards: error.pending_shards().to_vec(),
+        };
+    }
     local_error(RuntimeRevisionErrorKind::EngineFailure, error.message())
 }
 
 pub(super) fn local_error_from_source(
     error: RuntimeSourceLocatorError,
 ) -> RuntimeChapterLocalRevisionError {
+    if !error.pending_shards.is_empty() {
+        return RuntimeChapterLocalRevisionError {
+            kind: RuntimeRevisionErrorKind::ResourcePending,
+            message: error.message,
+            pending_shards: error.pending_shards,
+        };
+    }
     local_error(
         RuntimeRevisionErrorKind::InvalidChapterLocalTarget,
         error.message,

@@ -57,6 +57,7 @@ fn wasm_error_codes_match_actionable_core_reader_kinds() {
         let projected = ReaderProjectionError::from(ReaderError {
             kind,
             message: "typed code probe".to_owned(),
+            pending_shards: Vec::new(),
         });
         assert_eq!(projected.code, expected);
     }

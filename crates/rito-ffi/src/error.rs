@@ -93,7 +93,9 @@ impl From<ReaderError> for FfiError {
             ReaderErrorKind::StaleRequest => RITO_STATUS_STALE_REQUEST,
             ReaderErrorKind::TargetNotPublished => RITO_STATUS_TARGET_NOT_PUBLISHED,
             ReaderErrorKind::UnsupportedTextProfile => RITO_STATUS_UNSUPPORTED_PROFILE,
-            ReaderErrorKind::EngineFailure => RITO_STATUS_ENGINE_ERROR,
+            ReaderErrorKind::EngineFailure | ReaderErrorKind::ResourcePending => {
+                RITO_STATUS_ENGINE_ERROR
+            }
         };
         Self {
             status,
