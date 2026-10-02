@@ -44,6 +44,13 @@ cargo run --release -p rito-pack -- book.epub out/ --encrypt
 Store `keys.json` apart from the shards. Shards may sit on a CDN; keys
 belong behind the service that decides who may read what.
 
+Every shard is deflated before it is sealed, when that makes it
+smaller: ciphertext does not compress on the way to the reader, so the
+compression has to happen first. A book's shards together weigh about
+what its EPUB does; the first page needs the skeleton, its chapter and
+the publication's fonts, a median of about 13% of the book on the test
+corpus.
+
 A content shard holds one spine chapter together with the images only
 that chapter uses, or one other file: a shared image, a font, an
 unreferenced file. The skeleton holds exactly what the engine's own open

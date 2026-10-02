@@ -259,3 +259,57 @@ fn payloads_round_trip() {
     trailing.push(0);
     assert!(ContentPayload::decode(&trailing).is_err());
 }
+
+#[test]
+fn text_is_deflated_before_sealing_and_incompressible_bytes_are_not() {
+    use super::container::{open_shard, seal_shard, ShardHeader};
+    use super::ShardKind;
+
+    let key = ShardKey::from_bytes([9; 32]);
+    let header = ShardHeader {
+        kind: ShardKind::Content,
+        encrypted: true,
+        compressed: false,
+        book_id: [1; 16],
+        shard_id: 3,
+        nonce: [2; 24],
+    };
+    let text = "<p>Repeated chapter text compresses well.</p>".repeat(200);
+    let sealed = seal_shard(header, text.as_bytes(), Some(&key)).expect("seals");
+    assert!(sealed.len() < text.len() / 4, "the text was deflated");
+    let (opened, payload) = open_shard(&sealed, Some(&key)).expect("opens");
+    assert!(opened.compressed);
+    assert_eq!(payload, text.as_bytes());
+
+    let mut noise = vec![0u8; 4096];
+    let mut state = 0x1234_5678_u32;
+    for byte in &mut noise {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        *byte = state as u8;
+    }
+    let sealed = seal_shard(header, &noise, Some(&key)).expect("seals");
+    let (opened, payload) = open_shard(&sealed, Some(&key)).expect("opens");
+    assert!(!opened.compressed, "bytes that do not shrink stay as they are");
+    assert_eq!(payload, noise);
+}
+
+#[test]
+fn a_body_that_claims_deflate_but_does_not_inflate_is_refused() {
+    use super::container::{open_shard, seal_shard, ShardHeader};
+    use super::ShardKind;
+
+    let header = ShardHeader {
+        kind: ShardKind::Content,
+        encrypted: false,
+        compressed: false,
+        book_id: [1; 16],
+        shard_id: 3,
+        nonce: [0; 24],
+    };
+    let mut sealed = seal_shard(header, b"short", None).expect("seals");
+    assert_eq!(sealed[14], 0, "five bytes do not shrink");
+    sealed[14] = 1;
+    assert!(open_shard(&sealed, None).is_err());
+}

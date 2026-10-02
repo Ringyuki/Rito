@@ -1,7 +1,10 @@
 //! The fixed shard envelope: a 68-byte little-endian header followed by the
-//! payload, sealed with XChaCha20-Poly1305 when the shard is encrypted. The
-//! whole header is the AEAD's associated data, so a ciphertext cannot be
-//! moved under another book, shard id or kind.
+//! payload. The payload is deflated when that makes it smaller (text does,
+//! already-compressed images do not), then sealed with XChaCha20-Poly1305
+//! when the shard is encrypted: compression has to come first, because
+//! ciphertext no longer compresses on the way to the reader. The whole
+//! header is the AEAD's associated data, so a ciphertext cannot be moved
+//! under another book, shard id or kind.
 
 use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
@@ -16,11 +19,19 @@ const NONCE_BYTES: usize = 24;
 const TAG_BYTES: usize = 16;
 const CIPHER_NONE: u8 = 0;
 const CIPHER_XCHACHA20_POLY1305: u8 = 1;
+const COMPRESSION_NONE: u8 = 0;
+const COMPRESSION_DEFLATE: u8 = 1;
+const DEFLATE_LEVEL: u8 = 6;
+/// No shard inflates past the largest archive a reader opens.
+const MAX_INFLATED_BYTES: usize = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ShardHeader {
     pub(super) kind: ShardKind,
     pub(super) encrypted: bool,
+    /// Whether the (decrypted) body is raw deflate. Decided by
+    /// [`seal_shard`], never by the caller.
+    pub(super) compressed: bool,
     pub(super) book_id: [u8; 16],
     pub(super) shard_id: u32,
     pub(super) nonce: [u8; NONCE_BYTES],
@@ -39,6 +50,11 @@ impl ShardHeader {
             CIPHER_XCHACHA20_POLY1305
         } else {
             CIPHER_NONE
+        };
+        header[14] = if self.compressed {
+            COMPRESSION_DEFLATE
+        } else {
+            COMPRESSION_NONE
         };
         header[16..32].copy_from_slice(&self.book_id);
         header[32..36].copy_from_slice(&self.shard_id.to_le_bytes());
@@ -70,8 +86,13 @@ impl ShardHeader {
             CIPHER_XCHACHA20_POLY1305 => true,
             other => return Err(shard_error(format!("unknown shard cipher {other}"))),
         };
-        if header[14..16] != [0, 0] {
-            return Err(shard_error("shard header reserved bytes must be zero"));
+        let compressed = match header[14] {
+            COMPRESSION_NONE => false,
+            COMPRESSION_DEFLATE => true,
+            other => return Err(shard_error(format!("unknown shard compression {other}"))),
+        };
+        if header[15] != 0 {
+            return Err(shard_error("shard header reserved byte must be zero"));
         }
         let mut book_id = [0u8; 16];
         book_id.copy_from_slice(&header[16..32]);
@@ -89,6 +110,7 @@ impl ShardHeader {
             Self {
                 kind,
                 encrypted,
+                compressed,
                 book_id,
                 shard_id,
                 nonce,
@@ -101,13 +123,20 @@ impl ShardHeader {
 /// Seals `payload` into one shard. `key` and `nonce` are both present for an
 /// encrypted shard and both absent for a plain one.
 pub(super) fn seal_shard(
-    header: ShardHeader,
+    mut header: ShardHeader,
     payload: &[u8],
     key: Option<&ShardKey>,
 ) -> EpubResult<Vec<u8>> {
     if header.encrypted != key.is_some() {
         return Err(shard_error("an encrypted shard needs exactly one key"));
     }
+    let deflated = miniz_oxide::deflate::compress_to_vec(payload, DEFLATE_LEVEL);
+    header.compressed = deflated.len() < payload.len();
+    let payload = if header.compressed {
+        deflated.as_slice()
+    } else {
+        payload
+    };
     let body = match key {
         Some(key) => {
             let sealed_bytes = payload
@@ -171,7 +200,17 @@ pub(super) fn open_shard(
         }
         (false, None) => body.to_vec(),
     };
-    Ok((header, payload))
+    if !header.compressed {
+        return Ok((header, payload));
+    }
+    let inflated = miniz_oxide::inflate::decompress_to_vec_with_limit(&payload, MAX_INFLATED_BYTES)
+        .map_err(|error| {
+            shard_error(format!(
+                "shard {} does not inflate: {error}",
+                header.shard_id
+            ))
+        })?;
+    Ok((header, inflated))
 }
 
 fn cipher(key: &ShardKey) -> XChaCha20Poly1305 {

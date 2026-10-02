@@ -381,6 +381,7 @@ fn seal_plain(kind: ShardKind, shard_id: u32, payload: &[u8]) -> EpubResult<Vec<
     let header = ShardHeader {
         kind,
         encrypted: false,
+        compressed: false,
         book_id: [0u8; 16],
         shard_id,
         nonce: [0u8; 24],
@@ -413,6 +414,7 @@ fn seal(
     let header = ShardHeader {
         kind,
         encrypted: key.is_some(),
+        compressed: false,
         book_id,
         shard_id,
         nonce,

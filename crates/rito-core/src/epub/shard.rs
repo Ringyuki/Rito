@@ -6,7 +6,8 @@
 //! document, navigation, stylesheets), the table of every archive file with
 //! the shard that holds it, and each chapter's footnote attribute scan. Each
 //! content shard carries one chapter with the images only it uses, or one
-//! shared file. Shards can be sealed with per-shard XChaCha20-Poly1305 keys;
+//! shared file. Each shard is deflated when that makes it smaller, and can
+//! then be sealed with per-shard XChaCha20-Poly1305 keys;
 //! the header is authenticated, binding every shard to its packed book and
 //! its id.
 
@@ -22,7 +23,7 @@ pub use pack::{pack_publication, PackOptions, PackedPublication, PackedShard};
 pub(crate) use store::ShardStore;
 
 pub const SHARD_MAGIC: &[u8; 8] = b"RITOSHD1";
-pub const SHARD_FORMAT_VERSION: u32 = 1;
+pub const SHARD_FORMAT_VERSION: u32 = 2;
 pub const SHARD_KEY_BYTES: usize = 32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
