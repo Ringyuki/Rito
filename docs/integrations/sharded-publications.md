@@ -58,6 +58,22 @@ quarter of books under 3%, a quarter over 11%). Each image, audio or
 video file is a content shard of its own, and the skeleton records each
 image's intrinsic size, so layout never needs the image itself.
 
+## What the first page costs
+
+On the test corpus (123 books, median archive 4.7 MB):
+
+| Before the reader shows                 | Median share of the archive | p25–p75   |
+| --------------------------------------- | --------------------------- | --------- |
+| Any page (the skeleton)                 | 7.1%                        | 2.7–10.8% |
+| The book's first page, images included  | 16.2%                       | 9.8–20.6% |
+| A chapter's first page, its images only | 1.7%                        | 1.0–2.6%  |
+
+The first page is usually a cover plate, so it weighs more than a text
+page, which needs the skeleton alone. On a 10 Mbps link with 60 ms round
+trips the whole EPUB takes a median 3.8 s to arrive and the first page
+0.66 s; at 1.5 Mbps and 150 ms, 25 s against 3.9 s. Pages without images
+show as soon as the skeleton is in.
+
 ## Images ahead of need
 
 The skeleton records, for each image, the first chapter that draws it.

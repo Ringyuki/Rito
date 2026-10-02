@@ -6,16 +6,18 @@
 //! shard: laying a chapter out must not need one, so any `ResourcePending`
 //! fails the book. Identity fields are the only differences allowed; every
 //! other field, the display list bytes included, must be equal. Prints one
-//! line per book, with the skeleton's share of the archive (what a reader
-//! downloads before its first page), and exits non-zero when any book
-//! differs.
+//! line per book and exits non-zero when any book differs. Each line
+//! reports what a reader downloads before a page shows whole: the skeleton
+//! (before any page), the book's first page (the skeleton and the images
+//! it draws) and the mean image bytes of a chapter's first page (a jump
+//! into the book), each also as a share of the archive.
 
 use std::{env, fs, process};
 
 use rito_core::epub::shard::{pack_publication, PackOptions};
 use rito_core::runtime::{
-    ReaderArtifact, ReaderArtifactRequest, ReaderLayout, ReaderLocator, ReaderSession,
-    ReaderSpreadMode, ReaderTextRenderingProfile, RuntimePinnedFontFaceInput,
+    ReaderArtifact, ReaderArtifactRequest, ReaderLayout, ReaderLocator, ReaderResourceKind,
+    ReaderSession, ReaderSpreadMode, ReaderTextRenderingProfile, RuntimePinnedFontFaceInput,
     RuntimePinnedFontGenericRole, RuntimePinnedFontPolicyInput,
 };
 use sha2::{Digest, Sha256};
@@ -77,7 +79,14 @@ fn probe_book(path: &str, font: &[u8]) -> Result<String, String> {
         .iter()
         .map(|item| item.href.clone())
         .collect::<Vec<_>>();
+    let shard_bytes = |shard_id: u32| {
+        packed
+            .shards
+            .get(shard_id as usize - 1)
+            .map_or(0, |shard| shard.bytes.len())
+    };
     let mut chapters = 0usize;
+    let mut page_image_bytes = Vec::new();
     for (index, href) in hrefs.iter().enumerate() {
         let request_id = index as u64 + 1;
         let expected = archive.request_artifact(request(request_id, href));
@@ -87,6 +96,7 @@ fn probe_book(path: &str, font: &[u8]) -> Result<String, String> {
                 if drawn(&expected) != drawn(&actual) {
                     return Err(format!("{href}: artifacts differ"));
                 }
+                page_image_bytes.push(page_images(&mut sharded, &actual, &shard_bytes));
                 archive
                     .release_artifact(expected.artifact_id)
                     .map_err(|error| error.message)?;
@@ -105,13 +115,43 @@ fn probe_book(path: &str, font: &[u8]) -> Result<String, String> {
             }
         }
     }
-    let archive_bytes = fs::metadata(path).map_err(|error| error.to_string())?.len();
+    let archive_bytes = fs::metadata(path).map_err(|error| error.to_string())?.len() as f64;
+    let skeleton = packed.skeleton.bytes.len();
+    let first_page = skeleton + page_image_bytes.first().copied().unwrap_or(0);
+    let chapter_start =
+        page_image_bytes.iter().sum::<usize>() as f64 / page_image_bytes.len().max(1) as f64;
+    let share = |bytes: f64| bytes * 100.0 / archive_bytes;
     Ok(format!(
-        "OK {path}: chapters={chapters} shards={} skeleton={}B ({:.1}% of the archive)",
+        "OK {path}: chapters={chapters} shards={} skeleton={skeleton}B ({:.1}%) \
+         first-page={first_page}B ({:.1}%) chapter-start-images={chapter_start:.0}B ({:.1}%)",
         packed.shards.len(),
-        packed.skeleton.bytes.len(),
-        packed.skeleton.bytes.len() as f64 * 100.0 / archive_bytes as f64
+        share(skeleton as f64),
+        share(first_page as f64),
+        share(chapter_start),
     ))
+}
+
+/// The bytes of the shards holding the images `artifact` draws, read from
+/// the shards each image read names; nothing is supplied.
+fn page_images(
+    session: &mut ReaderSession,
+    artifact: &ReaderArtifact,
+    shard_bytes: &dyn Fn(u32) -> usize,
+) -> usize {
+    let mut shards = std::collections::BTreeSet::new();
+    for resource in &artifact.resources {
+        if resource.kind != ReaderResourceKind::Image {
+            continue;
+        }
+        if let Err(error) = session.read_resource(
+            artifact.artifact_id,
+            ReaderResourceKind::Image,
+            &resource.href,
+        ) {
+            shards.extend(error.pending_shards);
+        }
+    }
+    shards.into_iter().map(shard_bytes).sum()
 }
 
 /// Everything but identity.
