@@ -2,10 +2,8 @@ import type { CoreReaderPrimitiveList } from './core-contracts';
 import type { BrowserReaderArtifact, BrowserReaderSession } from './reader-session';
 import { BrowserReaderCanvasUnsupportedError } from './reader-session-canvas-error';
 import type { BrowserReaderCanvasDecodedImage } from './reader-session-canvas-image-cache-support';
-import {
-  BrowserReaderCanvasImageCache,
-  type BrowserReaderCanvasImageLease,
-} from './reader-session-canvas-image-cache';
+import { BrowserReaderCanvasImageCache } from './reader-session-canvas-image-cache';
+import type { BrowserReaderCanvasImageLease } from './reader-session-canvas-image-lease';
 import {
   BrowserReaderCanvasResourceLimiter,
   settleCanvasResourcesWithLimiter,
@@ -23,6 +21,10 @@ const DISPOSED_DURING_PREPARE =
 export interface BrowserReaderCanvasArtifactResources {
   hasImage(href: string): boolean;
   resolveImage(href: string): BrowserReaderCanvasDecodedImage | undefined;
+  imageFallback(href: string): 'loading' | 'broken' | undefined;
+  imageOpacity(href: string): number;
+  onImagesChanged(listener: () => void): () => void;
+  readonly imagesSettled: Promise<void>;
   release(): void;
 }
 
@@ -223,6 +225,10 @@ function disposableResources(
   return {
     hasImage: (href) => !released && images.has(href),
     resolveImage: (href) => (released ? undefined : images.resolve(href)),
+    imageFallback: (href) => (released ? undefined : images.fallback(href)),
+    imageOpacity: (href) => images.opacity(href),
+    onImagesChanged: (listener) => images.subscribe(listener),
+    imagesSettled: images.settled,
     release() {
       if (released) return;
       released = true;

@@ -29,16 +29,27 @@ export interface BrowserReaderPreparedCanvasArtifact {
    */
   readonly ratio: number;
   readonly disposed: boolean;
+  /**
+   * Calls `listener` whenever what the artifact paints for its images
+   * changes (one landing, a placeholder appearing, a late image fading
+   * in); paint the artifact again on each call. Returns the unsubscribe.
+   * A failed image is read again while something listens.
+   */
+  onImagesChanged(listener: () => void): () => void;
+  /** Settles once every image has landed or failed; a page never waits for it. */
+  readonly imagesSettled: Promise<void>;
   /** Releases only browser-side decoded resources, never the Core artifact. */
   dispose(): void;
 }
 
 export interface BrowserReaderCanvasPresenter {
   /**
-   * Resolves only after every referenced font and image is ready. For a new
-   * foreground candidate, the host must then verify it is still latest, call
-   * session.adoptForegroundCandidate, and only paint after that ACK succeeds.
-   * A preparation failure must release the Core candidate without adopting it.
+   * Resolves once every referenced font is ready; images land afterwards
+   * and announce themselves through `onImagesChanged`, so a page never
+   * waits for them. For a new foreground candidate, the host must then
+   * verify it is still latest, call session.adoptForegroundCandidate, and
+   * only paint after that ACK succeeds. A preparation failure must release
+   * the Core candidate without adopting it.
    */
   prepare(artifact: BrowserReaderArtifact): Promise<BrowserReaderPreparedCanvasArtifact>;
   /** Paints a prepared artifact only after the host has received its adoption ACK. */
@@ -76,7 +87,6 @@ class CanvasPresenter implements BrowserReaderCanvasPresenter {
     validateReaderPrimitives(list);
     const resources = await this.resources.prepare(artifact, list);
     try {
-      assertRequiredImages(list, resources);
       this.assertOpen();
       const prepared = new PreparedCanvasArtifact(this.owner, artifact, list, resources, (value) =>
         this.prepared.delete(value),
@@ -105,6 +115,8 @@ class CanvasPresenter implements BrowserReaderCanvasPresenter {
         ? {}
         : { backgroundColor: options.backgroundColor }),
       resolveImage: (href) => owned.resources.resolveImage(href),
+      imageFallback: (href) => owned.resources.imageFallback(href),
+      imageOpacity: (href) => owned.resources.imageOpacity(href),
     });
   }
 
@@ -145,6 +157,14 @@ class PreparedCanvasArtifact implements BrowserReaderPreparedCanvasArtifact {
 
   get ratio(): number {
     return this.list.ratio;
+  }
+
+  onImagesChanged(listener: () => void): () => void {
+    return this.resources.onImagesChanged(listener);
+  }
+
+  get imagesSettled(): Promise<void> {
+    return this.resources.imagesSettled;
   }
 
   dispose(): void {
@@ -188,17 +208,6 @@ function requirePreparedArtifact(
   }
   if (value.disposed) throw new Error('Prepared reader session Canvas artifact is disposed.');
   return value;
-}
-
-function assertRequiredImages(
-  list: CoreReaderPrimitiveList,
-  resources: BrowserReaderCanvasArtifactResources,
-): void {
-  for (const primitive of list.commands) {
-    if (primitive.kind === 'draw-image' && !resources.hasImage(primitive.src)) {
-      throw new Error(`reader session artifact omitted required image resource ${primitive.src}.`);
-    }
-  }
 }
 
 function clearTarget(target: BrowserReaderCanvasTarget): void {
