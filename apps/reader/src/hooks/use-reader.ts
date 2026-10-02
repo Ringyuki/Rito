@@ -67,6 +67,8 @@ export function useReader(
   if (typeof window !== 'undefined') {
     // Exposes the controller so headless verification can drive and inspect it directly.
     (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;
+    // Opens any publication, a sharded one included, for headless verification.
+    (window as unknown as { __ritoLoad?: unknown }).__ritoLoad = rito.load;
   }
   const selection = useSelection(rito.controller);
   const search = useSearch(rito.controller);
