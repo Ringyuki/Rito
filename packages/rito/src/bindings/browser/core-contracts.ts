@@ -14,6 +14,8 @@ export {
 } from '@ritojs/core-wasm/decoder';
 
 export type {
+  RitoCoreWasmPublicationShard as CorePublicationShard,
+  RitoCoreWasmShardedPublication as CoreShardedPublication,
   RitoCoreWasmChapterLocalRevisionRequest as CoreChapterLocalRevisionRequest,
   RitoCoreWasmChapterLocalOwner as CoreChapterLocalOwner,
   RitoCoreWasmCreatedChapterLocalRevision as CoreCreatedChapterLocalRevision,

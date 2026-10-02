@@ -67,6 +67,45 @@ impl RitoReaderSession {
             .map_err(ReaderProjectionError::into_js_value)
     }
 
+    /// Opens a session from a publication's skeleton shard (see
+    /// `rito-pack`). `key` is the skeleton's 32-byte key when the shards
+    /// are encrypted. Chapters, images and fonts arrive through
+    /// `supplyShard`; an operation that needs a shard not yet supplied
+    /// fails with code `resource-pending` and a `pendingShards` array.
+    #[wasm_bindgen(js_name = openShardsWithPinnedFontPolicy)]
+    pub fn open_shards_with_pinned_font_policy(
+        skeleton: Vec<u8>,
+        key: Option<Vec<u8>>,
+        session_id: u64,
+        metadata_json: &str,
+        face_bytes: JsValue,
+    ) -> Result<Self, JsValue> {
+        let face_bytes = crate::binding::pinned_font::require_face_byte_array(face_bytes)
+            .map_err(crate::binding::error_to_js_value)?;
+        let metadata = crate::pinned_font::validate_pinned_font_policy_metadata(
+            metadata_json,
+            face_bytes.length() as usize,
+        )
+        .map_err(crate::binding::error_to_js_value)?;
+        crate::binding::pinned_font::validate_face_byte_array_types(&face_bytes)
+            .map_err(crate::binding::error_to_js_value)?;
+        let face_bytes = crate::binding::pinned_font::copy_face_byte_arrays(&face_bytes);
+        let input = crate::pinned_font::pinned_font_policy_input(metadata, face_bytes);
+        ReaderSessionProjection::open_shards(&skeleton, key.as_deref(), session_id, input)
+            .map(|inner| Self { inner })
+            .map_err(ReaderProjectionError::into_js_value)
+    }
+
+    /// Hands the session one content shard and returns its id. A shard of
+    /// another publication, one that fails authentication, or one that
+    /// does not match the skeleton is refused with `invalid-request`.
+    #[wasm_bindgen(js_name = supplyShard)]
+    pub fn supply_shard(&mut self, shard: Vec<u8>, key: Option<Vec<u8>>) -> Result<u32, JsValue> {
+        self.inner
+            .supply_shard(&shard, key.as_deref())
+            .map_err(ReaderProjectionError::into_js_value)
+    }
+
     /// Returns the immutable session publication snapshot as one owned
     /// `RITOPUB1` message. No JSON or engine pointer crosses the boundary.
     #[wasm_bindgen(js_name = publication)]
@@ -216,6 +255,36 @@ impl ReaderSessionProjection {
         })
     }
 
+    fn open_shards(
+        skeleton: &[u8],
+        key: Option<&[u8]>,
+        session_id: u64,
+        input: rito_core::runtime::RuntimePinnedFontPolicyInput,
+    ) -> ProjectionResult<Self> {
+        validate_external_id(
+            session_id,
+            ReaderProjectionErrorCode::InvalidSession,
+            "sessionId",
+        )?;
+        let key = shard_key(key)?;
+        let session = ReaderSession::open_shards_with_pinned_font_policy(
+            session_id,
+            skeleton,
+            key.as_ref(),
+            input,
+        )?;
+        Ok(Self {
+            session: Some(session),
+        })
+    }
+
+    fn supply_shard(&mut self, shard: &[u8], key: Option<&[u8]>) -> ProjectionResult<u32> {
+        let key = shard_key(key)?;
+        self.live_session()?
+            .supply_shard(shard, key.as_ref())
+            .map_err(Into::into)
+    }
+
     fn request_artifact(&mut self, request_wire: &[u8]) -> ProjectionResult<Vec<u8>> {
         let request = decode_reader_artifact_request(request_wire)?;
         validate_wire_id(request.session_id, "RITOREQ1 sessionId")?;
@@ -326,6 +395,17 @@ impl ReaderSessionProjection {
     }
 }
 
+fn shard_key(key: Option<&[u8]>) -> ProjectionResult<Option<rito_core::epub::shard::ShardKey>> {
+    key.map(|bytes| {
+        rito_core::epub::shard::ShardKey::from_slice(bytes).ok_or_else(|| ReaderProjectionError {
+            code: ReaderProjectionErrorCode::InvalidRequest,
+            message: format!("a shard key is 32 bytes, not {}", bytes.len()),
+            pending_shards: Vec::new(),
+        })
+    })
+    .transpose()
+}
+
 fn validate_wire_id(value: u64, field: &str) -> ProjectionResult<()> {
     validate_external_id(value, ReaderProjectionErrorCode::InvalidWire, field)
 }
@@ -339,6 +419,7 @@ fn validate_external_id(
         return Err(ReaderProjectionError {
             code,
             message: format!("{field} must be within 1..={}", i64::MAX),
+            pending_shards: Vec::new(),
         });
     }
     Ok(())
@@ -359,6 +440,7 @@ enum ReaderProjectionErrorCode {
     NumericOverflow,
     InvalidWire,
     EngineFailure,
+    ResourcePending,
     SessionDisposed,
 }
 
@@ -376,6 +458,7 @@ impl ReaderProjectionErrorCode {
             Self::NumericOverflow => "numeric-overflow",
             Self::InvalidWire => "invalid-wire",
             Self::EngineFailure => "engine-failure",
+            Self::ResourcePending => "resource-pending",
             Self::SessionDisposed => "session-disposed",
         }
     }
@@ -385,6 +468,7 @@ impl ReaderProjectionErrorCode {
 struct ReaderProjectionError {
     code: ReaderProjectionErrorCode,
     message: String,
+    pending_shards: Vec<u32>,
 }
 
 impl ReaderProjectionError {
@@ -392,6 +476,7 @@ impl ReaderProjectionError {
         Self {
             code: ReaderProjectionErrorCode::SessionDisposed,
             message: "reader session is disposed".to_owned(),
+            pending_shards: Vec::new(),
         }
     }
 
@@ -399,6 +484,14 @@ impl ReaderProjectionError {
         let error: JsValue = js_sys::Error::new(&self.message).into();
         set_error_property(&error, "name", "RitoReaderError");
         set_error_property(&error, "code", self.code.as_str());
+        if self.code == ReaderProjectionErrorCode::ResourcePending {
+            let shards = self
+                .pending_shards
+                .iter()
+                .map(|shard_id| JsValue::from(*shard_id))
+                .collect::<js_sys::Array>();
+            let _ = js_sys::Reflect::set(&error, &JsValue::from_str("pendingShards"), &shards);
+        }
         error
     }
 }
@@ -418,13 +511,13 @@ impl From<ReaderError> for ReaderProjectionError {
             ReaderErrorKind::UnknownArtifact => ReaderProjectionErrorCode::UnknownArtifact,
             ReaderErrorKind::NumericOverflow => ReaderProjectionErrorCode::NumericOverflow,
             ReaderErrorKind::InvalidWire => ReaderProjectionErrorCode::InvalidWire,
-            ReaderErrorKind::EngineFailure | ReaderErrorKind::ResourcePending => {
-                ReaderProjectionErrorCode::EngineFailure
-            }
+            ReaderErrorKind::EngineFailure => ReaderProjectionErrorCode::EngineFailure,
+            ReaderErrorKind::ResourcePending => ReaderProjectionErrorCode::ResourcePending,
         };
         Self {
             code,
             message: error.message,
+            pending_shards: error.pending_shards,
         }
     }
 }
@@ -445,6 +538,7 @@ fn resource_kind(value: u32) -> ProjectionResult<ReaderResourceKind> {
         _ => Err(ReaderProjectionError {
             code: ReaderProjectionErrorCode::InvalidRequest,
             message: format!("unsupported reader resource kind: {value}"),
+            pending_shards: Vec::new(),
         }),
     }
 }
@@ -454,4 +548,4 @@ mod queries;
 #[cfg(test)]
 mod query_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

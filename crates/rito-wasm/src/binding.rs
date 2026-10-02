@@ -198,10 +198,16 @@ pub(crate) fn error_to_js_value(error: WasmRuntimeError) -> JsValue {
     JsValue::from_str(&error_json_string(error))
 }
 
+#[cfg(test)]
+pub(crate) fn error_json_string_for_tests(error: WasmRuntimeError) -> String {
+    error_json_string(error)
+}
+
 fn error_json_string(error: WasmRuntimeError) -> String {
     let payload = WasmErrorPayload {
         code: error.code().as_str(),
         message: error.message().to_owned(),
+        pending_shards: error.pending_shards().to_vec(),
     };
     serde_json::to_string(&payload).unwrap_or_else(|_| "{\"code\":\"internal-error\"}".to_owned())
 }
@@ -211,6 +217,8 @@ fn error_json_string(error: WasmRuntimeError) -> String {
 struct WasmErrorPayload {
     code: &'static str,
     message: String,
+    #[serde(rename = "pendingShards", skip_serializing_if = "Vec::is_empty")]
+    pending_shards: Vec<u32>,
 }
 
 #[cfg(test)]

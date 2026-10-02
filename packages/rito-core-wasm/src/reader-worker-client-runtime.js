@@ -23,6 +23,10 @@ import {
 let nextReaderSessionId = 1;
 const nextWorkerRequestIds = new WeakMap();
 const WORKER_DISPOSE_ACK_TIMEOUT_MS = 1_000;
+// A call needs at most its chapter, then that chapter's images and the
+// publication's fonts; the bound only stops a loader that keeps returning
+// shards the engine still reports missing.
+const MAX_SHARD_ROUNDS = 16;
 
 export function createRitoCoreWasmWorkerReaderClient(worker, cache, options) {
   const sessionId = createReaderSessionId();
@@ -209,13 +213,52 @@ function createRitoCoreWasmReaderClient(
 ) {
   let phase = 'idle';
   let activeCache = cache;
+  let shardLoader;
+  const supplying = new Map();
+  // Loads and hands the worker the shards one failed call named; calls that
+  // wait on the same shard share one load.
+  const supplyShards = (shardIds) =>
+    Promise.all(
+      shardIds.map((shardId) => {
+        let supplied = supplying.get(shardId);
+        if (supplied === undefined) {
+          supplied = supplyShard(request, shardLoader, shardId).finally(() =>
+            supplying.delete(shardId),
+          );
+          supplying.set(shardId, supplied);
+        }
+        return supplied;
+      }),
+    );
+  // Every call into a publication opened from shards may fail as
+  // resource-pending; supply what it names and send the identical call
+  // again. Calls carry no request identity, so a retry is the same call.
+  const shardAwareRequest = async (input, transfer) => {
+    let previous;
+    for (let round = 0; ; round += 1) {
+      try {
+        return await request(input, transfer);
+      } catch (error) {
+        if (shardLoader === undefined || error?.code !== 'resource-pending') throw error;
+        const named = error.pendingShards.join(',');
+        if (named === previous || round >= MAX_SHARD_ROUNDS) throw error;
+        previous = named;
+        await supplyShards(error.pendingShards);
+      }
+    }
+  };
   const open = async (data, options) => {
     if (phase !== 'idle') throw new Error(`Rito reader client cannot open while ${phase}`);
     phase = 'opening';
     const openingCache = activeCache;
     try {
+      const sharded = !(data instanceof ArrayBuffer);
+      if (sharded) requireShardLoader(data);
       const prepared = prepareReaderWorkerOpen(data, options);
-      const publicationIdentity = await prepareReaderSessionCache(openingCache, data);
+      const publicationIdentity = await prepareReaderSessionCache(
+        openingCache,
+        sharded ? data.skeleton : data,
+      );
       if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
       const openResult = await requestReaderOpen(request, prepared, () => {
         phase = 'disposed';
@@ -233,6 +276,7 @@ function createRitoCoreWasmReaderClient(
           disposeInvalid();
         },
       );
+      shardLoader = sharded ? data.loadShards : undefined;
       phase = 'open';
       return openResult;
     } catch (error) {
@@ -246,21 +290,25 @@ function createRitoCoreWasmReaderClient(
     activeCache = normalizeReaderSessionCache();
     dispose();
   };
-  const versionedMethods = createVersionedReaderClientMethods(request, disposeInvalid);
-  const chapterLocalMethods = createChapterLocalReaderClientMethods(request, disposeInvalid);
+  const versionedMethods = createVersionedReaderClientMethods(shardAwareRequest, disposeInvalid);
+  const chapterLocalMethods = createChapterLocalReaderClientMethods(
+    shardAwareRequest,
+    disposeInvalid,
+  );
+  const call = shardAwareRequest;
   return {
     sessionId,
     open,
     readResource: (revisionId, resourceKind, href) =>
-      result(request, { kind: 'readResource', revisionId, resourceKind, href }, 'readResource'),
+      result(call, { kind: 'readResource', revisionId, resourceKind, href }, 'readResource'),
     warmFrameWindow: (revisionId, spreadIndex) =>
-      result(request, { kind: 'warmFrameWindow', revisionId, spreadIndex }, 'warmFrameWindow'),
+      result(call, { kind: 'warmFrameWindow', revisionId, spreadIndex }, 'warmFrameWindow'),
     resolveLocator: (revisionId, locator) =>
-      result(request, { kind: 'resolveLocator', revisionId, locator }, 'resolveLocator'),
+      result(call, { kind: 'resolveLocator', revisionId, locator }, 'resolveLocator'),
     search: (revisionId, searchRequest) =>
-      result(request, { kind: 'search', revisionId, request: searchRequest }, 'search'),
+      result(call, { kind: 'search', revisionId, request: searchRequest }, 'search'),
     chapterFragmentProbe: (revisionId, idref) =>
-      result(request, { kind: 'chapterFragmentProbe', revisionId, idref }, 'chapterFragmentProbe'),
+      result(call, { kind: 'chapterFragmentProbe', revisionId, idref }, 'chapterFragmentProbe'),
     setUnavailableFontFaces: async (families) => {
       const payload = await request({ kind: 'setUnavailableFontFaces', families });
       if (payload.kind !== 'setUnavailableFontFaces') {
@@ -290,6 +338,45 @@ function createRitoCoreWasmReaderClient(
     dispose: disposeClient,
     whenDisposed,
   };
+}
+
+function requireShardLoader(publication) {
+  if (publication === null || typeof publication !== 'object') {
+    throw new TypeError('Rito reader publication must be an ArrayBuffer or a sharded publication');
+  }
+  if (typeof publication.loadShards !== 'function') {
+    throw new TypeError('a sharded publication needs a loadShards function');
+  }
+}
+
+async function supplyShard(request, loader, shardId) {
+  const loaded = await loader([shardId]);
+  const shard = Array.isArray(loaded) ? loaded.find((entry) => entry?.id === shardId) : undefined;
+  if (shard === undefined) {
+    throw new RitoCoreWasmError(
+      'bad-request',
+      `loadShards did not return shard ${String(shardId)}`,
+    );
+  }
+  const bytes =
+    shard.bytes instanceof ArrayBuffer
+      ? shard.bytes.slice(0)
+      : shard.bytes instanceof Uint8Array
+        ? shard.bytes.slice().buffer
+        : undefined;
+  if (bytes === undefined) {
+    throw new RitoCoreWasmError('bad-request', `shard ${String(shardId)} bytes must be binary`);
+  }
+  const payload = await request(
+    { kind: 'supplyShard', shard: bytes, ...(shard.key === undefined ? {} : { key: shard.key }) },
+    [bytes],
+  );
+  if (payload.kind !== 'supplyShard' || payload.result !== shardId) {
+    throw new RitoCoreWasmError(
+      'bad-request',
+      `the bytes loaded for shard ${String(shardId)} are another shard`,
+    );
+  }
 }
 
 async function requestReaderOpen(request, prepared, disposeInvalid) {
@@ -371,6 +458,9 @@ function toWorkerError(deps, error) {
     name: normalized.name,
     message: normalized.message,
     code: normalized.code,
+    ...(normalized.code === 'resource-pending'
+      ? { pendingShards: [...normalized.pendingShards] }
+      : {}),
   };
 }
 
@@ -381,7 +471,16 @@ function workerError(error) {
     typeof payload.message === 'string' && payload.message.length > 0
       ? payload.message
       : 'Rito reader worker failed';
-  const out = new RitoCoreWasmError(code, message);
+  let out;
+  try {
+    out = new RitoCoreWasmError(
+      code,
+      message,
+      code === 'resource-pending' ? { pendingShards: payload.pendingShards } : {},
+    );
+  } catch {
+    out = new RitoCoreWasmError('internal-error', `${message} (malformed pending shards)`);
+  }
   out.name =
     typeof payload.name === 'string' && payload.name.length > 0
       ? payload.name
@@ -394,7 +493,8 @@ function workerErrorCode(value) {
     value === 'engine-error' ||
     value === 'internal-error' ||
     value === 'unknown-revision' ||
-    value === 'stale-revision-version'
+    value === 'stale-revision-version' ||
+    value === 'resource-pending'
     ? value
     : 'internal-error';
 }

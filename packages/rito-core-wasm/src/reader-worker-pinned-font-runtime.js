@@ -1,6 +1,7 @@
 import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import {
   preparePinnedFontPolicyOpen,
+  requireShardKey,
   validatePinnedFontPolicySummary,
 } from './pinned-font-policy-runtime.js';
 
@@ -9,6 +10,8 @@ const OPEN_REQUEST_KEYS = new Set([
   'id',
   'kind',
   'data',
+  'skeleton',
+  'skeletonKey',
   'pinnedFontPolicyMetadata',
   'pinnedFontFaceBuffers',
 ]);
@@ -16,15 +19,25 @@ const POLICY_METADATA_KEYS = new Set(['schemaVersion', 'faces']);
 const FACE_METADATA_KEYS = new Set(['expectedSha256', 'genericRole', 'language']);
 const REQUIRED_FACE_METADATA_KEYS = ['expectedSha256', 'genericRole'];
 
-export function prepareReaderWorkerOpen(data, options) {
-  requirePublicationBuffer(data);
+/**
+ * `publication` is the whole EPUB as an ArrayBuffer, or a sharded
+ * publication `{ skeleton, key }` whose skeleton is copied (the caller keeps
+ * its own to reopen in another worker).
+ */
+export function prepareReaderWorkerOpen(publication, options) {
+  const sharded = !(publication instanceof ArrayBuffer);
+  const source = sharded ? shardedOpenSource(publication) : { data: publication };
   const pinned = preparePinnedFontPolicyOpen(options, 'arrayBuffer');
+  if (sharded && pinned === undefined) {
+    badRequest('a sharded publication opens with a pinned font policy');
+  }
   const faceBuffers = pinned?.faceBytes ?? [];
-  requireDistinctBuffers(data, faceBuffers);
+  const buffer = source.data ?? source.skeleton;
+  requireDistinctBuffers(buffer, faceBuffers);
   return {
     request: {
       kind: 'open',
-      data,
+      ...source,
       ...(pinned === undefined
         ? {}
         : {
@@ -32,21 +45,50 @@ export function prepareReaderWorkerOpen(data, options) {
             pinnedFontFaceBuffers: faceBuffers,
           }),
     },
-    transfer: [data, ...faceBuffers],
+    transfer: [buffer, ...faceBuffers],
     expectedFaces: pinned?.expectedFaces ?? [],
+  };
+}
+
+function shardedOpenSource(publication) {
+  if (publication === null || typeof publication !== 'object') {
+    badRequest('reader worker publication must be an ArrayBuffer or a sharded publication');
+  }
+  if (!(publication.skeleton instanceof ArrayBuffer)) {
+    badRequest('a sharded publication skeleton must be an ArrayBuffer');
+  }
+  requireShardKey(publication.key);
+  return {
+    skeleton: publication.skeleton.slice(0),
+    ...(publication.key === undefined ? {} : { skeletonKey: publication.key.slice() }),
   };
 }
 
 export function decodeReaderWorkerOpenRequest(request) {
   requireOnlyInputKeys(request, OPEN_REQUEST_KEYS, 'reader worker open request');
-  requirePublicationBuffer(request.data);
+  const sharded = Object.hasOwn(request, 'skeleton');
+  if (sharded === Object.hasOwn(request, 'data')) {
+    badRequest('reader worker open carries either an archive or a skeleton shard');
+  }
+  if (sharded) {
+    if (!(request.skeleton instanceof ArrayBuffer)) {
+      badRequest('reader worker skeleton must be an ArrayBuffer');
+    }
+    requireShardKey(request.skeletonKey);
+  } else {
+    requirePublicationBuffer(request.data);
+  }
+  const source = sharded
+    ? { skeleton: request.skeleton, skeletonKey: request.skeletonKey }
+    : { data: request.data };
   const hasMetadata = Object.hasOwn(request, 'pinnedFontPolicyMetadata');
   const hasBuffers = Object.hasOwn(request, 'pinnedFontFaceBuffers');
   if (hasMetadata !== hasBuffers) {
     badRequest('reader worker pinned font metadata and buffers must be supplied together');
   }
   if (!hasMetadata) {
-    return { data: request.data, options: undefined, expectedFaces: [] };
+    if (sharded) badRequest('a sharded publication opens with a pinned font policy');
+    return { ...source, options: undefined, expectedFaces: [] };
   }
   const metadata = requireMetadata(request.pinnedFontPolicyMetadata);
   const faceBuffers = request.pinnedFontFaceBuffers;
@@ -54,7 +96,7 @@ export function decodeReaderWorkerOpenRequest(request) {
     badRequest('reader worker pinned font buffer count does not match its metadata');
   }
   validateMetadataFaces(metadata.faces);
-  requireDistinctBuffers(request.data, faceBuffers);
+  requireDistinctBuffers(source.data ?? source.skeleton, faceBuffers);
   const pinned = preparePinnedFontPolicyOpen(
     {
       pinnedFontPolicy: {
@@ -65,7 +107,7 @@ export function decodeReaderWorkerOpenRequest(request) {
     'arrayBuffer',
   );
   return {
-    data: request.data,
+    ...source,
     options: {
       pinnedFontPolicy: {
         schemaVersion: 1,

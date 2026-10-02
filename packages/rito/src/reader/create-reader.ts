@@ -1,6 +1,6 @@
-import type { Reader, ReaderOptions } from './instance';
+import type { Reader, ReaderOptions, ReaderPublication } from './instance';
 export async function createReader(
-  data: ArrayBuffer,
+  data: ReaderPublication,
   canvas: HTMLCanvasElement | OffscreenCanvas,
   options: ReaderOptions,
 ): Promise<Reader> {

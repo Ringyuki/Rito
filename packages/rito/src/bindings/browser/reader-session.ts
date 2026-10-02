@@ -31,6 +31,8 @@ import {
   RitoReaderError,
 } from '@ritojs/core-wasm/decoder';
 
+import type { ReaderPublication } from '../../reader';
+
 export { RitoReaderError };
 
 export type BrowserReaderArtifact = RitoReaderArtifact;
@@ -172,8 +174,13 @@ export interface BrowserReaderSession {
 }
 
 export async function openBrowserReaderSession(
-  /** Ownership is transferred to the dedicated reader session Worker. */
-  publication: ArrayBuffer,
+  /**
+   * A whole EPUB, whose ownership is transferred to the dedicated reader
+   * session Worker, or a publication split by `rito-pack`: the session opens
+   * from the skeleton and loads each content shard the first time a request
+   * needs it (a sharded open requires `pinnedFontPolicy`).
+   */
+  publication: ReaderPublication,
   options: BrowserReaderSessionOpenOptions,
 ): Promise<BrowserReaderSession> {
   return openBrowserReaderSessionWithWorker(
@@ -185,7 +192,7 @@ export async function openBrowserReaderSession(
 
 export async function openBrowserReaderSessionWithWorker(
   worker: RitoReaderSessionWorkerLike,
-  publication: ArrayBuffer,
+  publication: ReaderPublication,
   options: BrowserReaderSessionOpenOptions,
 ): Promise<BrowserReaderSession> {
   const client = createRitoCoreWasmReaderSessionWorkerClient(worker);

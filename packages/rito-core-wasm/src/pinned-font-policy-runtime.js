@@ -28,6 +28,35 @@ export function openRawDocument(RawDocument, bytes, options) {
         );
   return { inner, expectedFaces: pinned === undefined ? [] : pinned.expectedFaces };
 }
+/**
+ * Opens a publication from its skeleton shard. A sharded open always pins
+ * faces: chapters lay out only through the pinned-face fragment engine.
+ */
+export function openRawShardDocument(RawDocument, skeleton, key, options) {
+  if (!(skeleton instanceof Uint8Array)) {
+    badRequest('openShardDocument skeleton must be a Uint8Array');
+  }
+  requireShardKey(key);
+  const pinned = preparePinnedFontPolicyOpen(options);
+  if (pinned === undefined) {
+    badRequest('openShardDocument requires a pinned font policy');
+  }
+  const inner = RawDocument.openShardsWithPinnedFontPolicy(
+    skeleton,
+    key,
+    JSON.stringify(pinned.metadata),
+    pinned.faceBytes,
+  );
+  return { inner, expectedFaces: pinned.expectedFaces };
+}
+
+/** A shard key is absent for plain shards or exactly 32 bytes. */
+export function requireShardKey(key) {
+  if (key !== undefined && !(key instanceof Uint8Array && key.byteLength === 32)) {
+    badRequest('a shard key must be a 32-byte Uint8Array');
+  }
+}
+
 export function decodePinnedFontPolicySummary(payload, expectedFaces) {
   const summary = parseSummaryPayload(payload, 'pinnedFontPolicy');
   return validatePinnedFontPolicySummary(summary, expectedFaces, 'pinnedFontPolicy');

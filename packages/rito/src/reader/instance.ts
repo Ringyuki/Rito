@@ -207,6 +207,31 @@ export interface ReaderPinnedFontPolicy {
   }[];
 }
 
+/**
+ * A publication split by `rito-pack` and delivered a shard at a time. The
+ * reader opens from the skeleton and calls `loadShards` the first time it
+ * needs a chapter, its images or the publication's fonts; nothing else is
+ * fetched unless a feature reads it (background pagination for whole-book
+ * page numbers reads every chapter). A rejected load fails only the call
+ * that needed it.
+ */
+export interface ReaderShardedPublication {
+  readonly skeleton: ArrayBuffer;
+  /** The skeleton's 32-byte key when the shards are encrypted. */
+  readonly key?: Uint8Array | undefined;
+  loadShards(shardIds: readonly number[]): Promise<readonly ReaderPublicationShard[]>;
+}
+
+export interface ReaderPublicationShard {
+  readonly id: number;
+  readonly bytes: ArrayBuffer | Uint8Array;
+  /** The shard's own 32-byte key when the shards are encrypted. */
+  readonly key?: Uint8Array | undefined;
+}
+
+/** A whole EPUB archive, or a publication delivered as shards. */
+export type ReaderPublication = ArrayBuffer | ReaderShardedPublication;
+
 export interface ReaderOptions {
   readonly width: number;
   readonly height: number;

@@ -463,7 +463,7 @@ describe('Browser reader methods', () => {
     );
     expect(mocks.unregisterReaderFonts).toHaveBeenCalledWith(state);
     expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
-    expect(state.documentData.byteLength).toBe(0);
+    expect((state.documentData as ArrayBuffer).byteLength).toBe(0);
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 

@@ -35,9 +35,13 @@ export function createRitoReaderSessionQueryMethods(ctx) {
     if (!ctx.liveArtifacts.has(fromArtifactId)) {
       throw ctx.readerError('unknown-artifact', 'Peek source artifact is not live');
     }
-    const message = request({ requestId: ctx.nextRequestId(), fromArtifactId, direction });
     try {
-      const payload = await ctx.send('peek-adjacent', { request: message });
+      // A peek that waited on a shard consumed its request identity; the
+      // retry after the shard arrives asks with a fresh one.
+      const { message, payload } = await ctx.withShards(async () => {
+        const message = request({ requestId: ctx.nextRequestId(), fromArtifactId, direction });
+        return { message, payload: await ctx.rawSend('peek-adjacent', { request: message }) };
+      });
       const artifact = ctx.decodeArtifactPayload(payload, message);
       ctx.liveArtifacts.add(artifact.artifactId);
       ctx.peekedArtifacts.set(artifact.artifactId, artifact.requestId);

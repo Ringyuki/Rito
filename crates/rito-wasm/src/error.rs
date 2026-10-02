@@ -13,42 +13,80 @@ use serde::{Deserialize, Serialize};
 pub struct WasmRuntimeError {
     code: WasmRuntimeErrorCode,
     message: String,
+    pending_shards: Vec<u32>,
 }
 
 impl WasmRuntimeError {
-    pub fn bad_request(message: impl Into<String>) -> Self {
+    fn new(code: WasmRuntimeErrorCode, message: impl Into<String>) -> Self {
         Self {
-            code: WasmRuntimeErrorCode::BadRequest,
+            code,
             message: message.into(),
+            pending_shards: Vec::new(),
         }
+    }
+
+    /// A failure that waits on content shards the host has not supplied.
+    fn pending(code: WasmRuntimeErrorCode, message: String, pending_shards: Vec<u32>) -> Self {
+        if pending_shards.is_empty() {
+            return Self::new(code, message);
+        }
+        Self {
+            code: WasmRuntimeErrorCode::ResourcePending,
+            message,
+            pending_shards,
+        }
+    }
+
+    pub(crate) fn is_pending(&self) -> bool {
+        self.code == WasmRuntimeErrorCode::ResourcePending
+    }
+
+    /// One failure naming every shard a batch of reads waited on.
+    pub(crate) fn merged_pending(errors: &[WasmRuntimeError]) -> Option<Self> {
+        let first = errors.first()?;
+        let mut shards = errors
+            .iter()
+            .flat_map(|error| error.pending_shards.iter().copied())
+            .collect::<Vec<_>>();
+        shards.sort_unstable();
+        shards.dedup();
+        Some(Self::pending(
+            WasmRuntimeErrorCode::EngineError,
+            first.message.clone(),
+            shards,
+        ))
+    }
+
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        Self::new(WasmRuntimeErrorCode::BadRequest, message)
     }
 
     pub fn internal_error(message: impl Into<String>) -> Self {
-        Self {
-            code: WasmRuntimeErrorCode::InternalError,
-            message: message.into(),
-        }
+        Self::new(WasmRuntimeErrorCode::InternalError, message)
     }
 
     pub fn from_engine(error: EpubError) -> Self {
-        Self {
-            code: WasmRuntimeErrorCode::EngineError,
-            message: error.message().to_owned(),
-        }
+        Self::pending(
+            WasmRuntimeErrorCode::EngineError,
+            error.message().to_owned(),
+            error.pending_shards().to_vec(),
+        )
     }
 
     pub(crate) fn from_revision(error: RuntimeRevisionError) -> Self {
-        Self {
-            code: revision_error_code(error.kind),
-            message: error.message,
-        }
+        Self::pending(
+            revision_error_code(error.kind),
+            error.message,
+            error.pending_shards,
+        )
     }
 
     pub(crate) fn from_chapter_local(error: RuntimeChapterLocalRevisionError) -> Self {
-        Self {
-            code: revision_error_code(error.kind),
-            message: error.message,
-        }
+        Self::pending(
+            revision_error_code(error.kind),
+            error.message,
+            error.pending_shards,
+        )
     }
 
     pub(crate) fn from_revision_access(error: RuntimeRevisionAccessError) -> Self {
@@ -62,10 +100,7 @@ impl WasmRuntimeError {
             RuntimeRevisionAccessErrorKind::OperationFailed
             | RuntimeRevisionAccessErrorKind::ResourcePending => WasmRuntimeErrorCode::EngineError,
         };
-        Self {
-            code,
-            message: error.message,
-        }
+        Self::pending(code, error.message, error.pending_shards)
     }
 
     pub fn code(&self) -> WasmRuntimeErrorCode {
@@ -74,6 +109,12 @@ impl WasmRuntimeError {
 
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    /// Content shards to supply before retrying; non-empty exactly for
+    /// `ResourcePending`.
+    pub fn pending_shards(&self) -> &[u32] {
+        &self.pending_shards
     }
 }
 
@@ -107,6 +148,7 @@ pub enum WasmRuntimeErrorCode {
     InternalError,
     UnknownRevision,
     StaleRevisionVersion,
+    ResourcePending,
 }
 
 impl WasmRuntimeErrorCode {
@@ -117,6 +159,7 @@ impl WasmRuntimeErrorCode {
             Self::InternalError => "internal-error",
             Self::UnknownRevision => "unknown-revision",
             Self::StaleRevisionVersion => "stale-revision-version",
+            Self::ResourcePending => "resource-pending",
         }
     }
 }

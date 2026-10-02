@@ -1,6 +1,7 @@
 mod chapter_local;
 pub(crate) mod fixture;
 mod pinned_font;
+mod shard;
 mod versioned;
 mod whole_book;
 

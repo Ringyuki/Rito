@@ -63,6 +63,19 @@ impl WasmRuntimeDocument {
             .map_err(WasmRuntimeError::from_engine)
     }
 
+    pub(crate) fn open_shards_with_validated_pinned_font_policy(
+        skeleton: &[u8],
+        key: Option<&[u8]>,
+        metadata: ValidatedPinnedFontPolicyMetadata,
+        face_bytes: Vec<Vec<u8>>,
+    ) -> Result<Self, WasmRuntimeError> {
+        let key = crate::shard::shard_key(key)?;
+        let input = pinned_font_policy_input(metadata, face_bytes);
+        RuntimeDocument::open_shards_with_pinned_font_policy(skeleton, key.as_ref(), input)
+            .map(Self::from_runtime_document)
+            .map_err(WasmRuntimeError::from_engine)
+    }
+
     pub fn pinned_font_policy_json(&self) -> Result<String, WasmRuntimeError> {
         serialize_json(&self.document.pinned_font_policy_summary())
     }

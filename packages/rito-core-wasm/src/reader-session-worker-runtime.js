@@ -31,6 +31,7 @@ const NON_FATAL_EXACT_TERMINAL_CODES = new Set([
   'stale-request',
   'target-not-published',
   'numeric-overflow',
+  'resource-pending',
 ]);
 
 export function createRitoCoreWasmReaderSessionWorkerHandler(scope, deps) {
@@ -148,6 +149,13 @@ async function handleMessage(state, deps, message) {
       const wire = standaloneBuffer(raw);
       return { payload: { kind: 'resource', wire }, transfer: [wire] };
     }
+    case 'supply-shard': {
+      if (!(message.shard instanceof ArrayBuffer)) {
+        throw readerWorkerError('invalid-request', 'A shard must be an ArrayBuffer');
+      }
+      const shardId = state.session.supplyShard(new Uint8Array(message.shard), message.key);
+      return { payload: { kind: 'supply-shard', shardId } };
+    }
     case 'release': {
       const released = state.session.releaseArtifact(message.artifactId);
       state.liveArtifacts.delete(message.artifactId);
@@ -183,6 +191,17 @@ async function openSession(state, deps, message) {
       return await openSessionWithColdDiagnostic(state, deps, message);
     }
     await deps.initRitoCoreWasm();
+    if (message.skeleton !== undefined) {
+      state.session = openShardSession(deps, message);
+      state.sessionId = message.sessionId;
+      state.phase = 'open';
+      return exactArtifactResponse(
+        state,
+        message.request,
+        () => state.session.requestArtifact(encodeRitoReaderArtifactRequest(message.request)),
+        'open',
+      );
+    }
     const publication = new Uint8Array(message.publication);
     state.session = message.pinnedFontPolicy
       ? deps.RitoReaderSession.openWithPinnedFontPolicy(
@@ -201,9 +220,28 @@ async function openSession(state, deps, message) {
       'open',
     );
   } catch (error) {
-    if (state.phase !== 'disposed') disposeTerminalSession(state);
+    // A sharded open whose first request waits on shards keeps its session;
+    // the client supplies them and requests again.
+    const keeps = state.phase === 'open' && normalizeWorkerError(error).code === 'resource-pending';
+    if (state.phase !== 'disposed' && !keeps) disposeTerminalSession(state);
     throw error;
   }
+}
+
+function openShardSession(deps, message) {
+  if (!(message.skeleton instanceof ArrayBuffer)) {
+    throw readerWorkerError('invalid-request', 'A skeleton shard must be an ArrayBuffer');
+  }
+  if (!message.pinnedFontPolicy) {
+    throw readerWorkerError('invalid-request', 'A sharded publication opens with pinned fonts');
+  }
+  return deps.RitoReaderSession.openShardsWithPinnedFontPolicy(
+    new Uint8Array(message.skeleton),
+    message.key,
+    message.sessionId,
+    message.pinnedFontPolicy.metadataJson,
+    message.pinnedFontPolicy.faces,
+  );
 }
 
 async function openSessionWithColdDiagnostic(state, deps, message) {
@@ -283,7 +321,10 @@ function exactArtifactResponse(state, request, produce, kind = 'artifact') {
     raw = produce();
   } catch (error) {
     const normalized = normalizeWorkerError(error);
-    if (kind === 'open' || isFatalExactError(normalized.code)) disposeTerminalSession(state);
+    // A publication opened from shards keeps its session when the first
+    // request waits on a shard: the client supplies it and asks again.
+    const fatalOpen = kind === 'open' && normalized.code !== 'resource-pending';
+    if (fatalOpen || isFatalExactError(normalized.code)) disposeTerminalSession(state);
     throw error;
   }
   try {
@@ -617,10 +658,14 @@ function postError(scope, id, error) {
 
 function normalizeWorkerError(error) {
   const value = error !== null && typeof error === 'object' ? error : {};
+  const code = typeof value.code === 'string' ? value.code : 'engine-failure';
   return {
     name: typeof value.name === 'string' ? value.name : 'RitoReaderError',
-    code: typeof value.code === 'string' ? value.code : 'engine-failure',
+    code,
     message: typeof value.message === 'string' ? value.message : String(error),
+    ...(code === 'resource-pending' && Array.isArray(value.pendingShards)
+      ? { pendingShards: [...value.pendingShards] }
+      : {}),
   };
 }
 

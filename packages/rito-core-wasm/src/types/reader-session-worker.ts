@@ -1,3 +1,4 @@
+import type { RitoCoreWasmShardedPublication } from './reader-worker';
 import type {
   RitoReaderAdjacentDirection,
   RitoReaderArtifactRequestInput,
@@ -39,6 +40,7 @@ export type RitoReaderErrorCode =
   | 'numeric-overflow'
   | 'invalid-wire'
   | 'engine-failure'
+  | 'resource-pending'
   | 'session-disposed'
   | 'request-busy'
   | 'request-capacity'
@@ -63,8 +65,14 @@ export interface RitoReaderSessionPinnedFontPolicyInput {
 export interface RitoCoreWasmReaderSessionWorkerClient {
   readonly sessionId: bigint;
   /** Opens the worker-owned session and returns an unadopted initial candidate. */
+  /**
+   * `publication` is a whole EPUB, or a publication split by `rito-pack`:
+   * the session opens from its skeleton and asks `loadShards` for each
+   * content shard the first time a request needs it, then retries that
+   * request. A sharded open requires `pinnedFontPolicy`.
+   */
   open(
-    publication: ArrayBuffer,
+    publication: ArrayBuffer | RitoCoreWasmShardedPublication,
     initialRequest: RitoReaderArtifactRequestInput,
     pinnedFontPolicy?: RitoReaderSessionPinnedFontPolicyInput,
   ): Promise<RitoReaderArtifact>;

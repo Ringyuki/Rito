@@ -1,4 +1,4 @@
-import type { PackageMetadata, Reader, ReaderOptions } from '../../../reader';
+import type { PackageMetadata, Reader, ReaderOptions, ReaderPublication } from '../../../reader';
 import type { CanvasRenderingTarget } from '../rendering';
 import {
   applyLayoutOverrides,
@@ -42,9 +42,13 @@ import {
 import { createBrowserReaderChapterLocalPreviewState } from '../chapter-local-preview/state';
 import { installBrowserReaderChapterLocalPresentation } from '../chapter-local-preview/presentation';
 import { installBrowserReaderDiagnostics } from './diagnostics';
+import {
+  retainBrowserReaderPublication,
+  type BrowserReaderPublicationSource,
+} from '../publication-source';
 
 export async function createReader(
-  data: ArrayBuffer,
+  data: ReaderPublication,
   canvas: HTMLCanvasElement | OffscreenCanvas,
   options: ReaderOptions,
 ): Promise<Reader> {
@@ -172,14 +176,14 @@ export async function preloadReaderRuntime(): Promise<void> {
 }
 
 interface OpenedBrowserReaderDocument {
-  readonly documentData: ArrayBuffer;
+  readonly documentData: BrowserReaderPublicationSource;
   readonly openResult: BrowserReaderOpenResult;
   readonly pinnedFonts: BrowserReaderPinnedFonts;
 }
 
 async function openBrowserReaderDocument(
   worker: BrowserReaderWorkerClient,
-  data: ArrayBuffer,
+  data: ReaderPublication,
   policy: ReaderOptions['pinnedFontPolicy'],
   renderRatio: number,
 ): Promise<OpenedBrowserReaderDocument> {
@@ -188,8 +192,13 @@ async function openBrowserReaderDocument(
   // book in it again, so the reader keeps this copy and spends the
   // caller's buffer on the first worker. One copy, not two: the transfer
   // moves the bytes rather than cloning them on top of this one.
-  const documentData = data.slice(0);
-  const openResult = await openBrowserReaderWorker(worker, data, prepared.policy, renderRatio);
+  const documentData = retainBrowserReaderPublication(data);
+  const openResult = await openBrowserReaderWorker(
+    worker,
+    data instanceof ArrayBuffer ? data : documentData,
+    prepared.policy,
+    renderRatio,
+  );
   const pinnedFonts = await registerBrowserReaderPinnedFonts(prepared, openResult.pinnedFontPolicy);
   return { documentData, openResult, pinnedFonts };
 }
@@ -198,7 +207,7 @@ function createInitialState(
   worker: BrowserReaderWorkerClient,
   workerFactory: BrowserReaderWorkerClientFactory,
   module: BrowserReaderBindingModule,
-  documentData: ArrayBuffer,
+  documentData: BrowserReaderPublicationSource,
   openResult: BrowserReaderOpenResult,
   pinnedFonts: BrowserReaderPinnedFonts,
   canvas: HTMLCanvasElement | OffscreenCanvas,

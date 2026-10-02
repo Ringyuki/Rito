@@ -1,3 +1,4 @@
+import type { BrowserReaderPublicationSource } from './publication-source';
 import type { ReaderOptions, ReaderPinnedFontPolicy } from '../../reader';
 import type {
   BrowserReaderOpenResult,
@@ -58,7 +59,7 @@ export function prepareBrowserReaderPinnedFonts(
  */
 export async function openBrowserReaderWorker(
   worker: BrowserReaderWorkerClient,
-  data: ArrayBuffer,
+  data: BrowserReaderPublicationSource,
   policy: BrowserReaderOwnedPinnedFontPolicy | undefined,
   renderRatio: number,
   expectedSummary?: CorePinnedFontPolicySummary,

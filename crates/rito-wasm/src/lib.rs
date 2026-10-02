@@ -12,9 +12,10 @@ mod error;
 mod frame;
 mod interaction;
 mod pinned_font;
-mod reader_session;
+pub(crate) mod reader_session;
 mod resource;
 mod revision;
+mod shard;
 mod versioned;
 mod wire;
 

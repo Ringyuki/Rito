@@ -39,6 +39,8 @@ function revisionCreationDeclarations() {
     '  free(): void;',
     '  publication(): RitoCoreWasmPublicationInfo;',
     '  pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;',
+    '  /** Hands a document opened from shards one content shard; returns its id. */',
+    '  supplyShard(shard: Uint8Array, key?: Uint8Array): number;',
   ];
 }
 

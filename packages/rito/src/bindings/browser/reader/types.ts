@@ -1,3 +1,4 @@
+import type { BrowserReaderPublicationSource } from '../publication-source';
 import type {
   decodeRitoFrameCommandBuffer,
   CoreRevisionBundle,
@@ -113,7 +114,7 @@ export interface BrowserReaderState {
   worker: BrowserReaderWorkerClient;
   readonly workerFactory: BrowserReaderWorkerClientFactory;
   readonly decodeFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
-  documentData: ArrayBuffer;
+  documentData: BrowserReaderPublicationSource;
   readonly pinnedFonts: BrowserReaderPinnedFonts;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;

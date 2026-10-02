@@ -21,7 +21,10 @@ export async function openReaderSessionDocument(state, initialize, open, label) 
     if (state.phase !== 'opening' || state.generation !== generation) {
       throw new Error(`${label} was disposed while opening`);
     }
-    candidate = core.openDocument(new Uint8Array(open.data), open.options);
+    candidate =
+      open.skeleton === undefined
+        ? core.openDocument(new Uint8Array(open.data), open.options)
+        : core.openShardDocument(new Uint8Array(open.skeleton), open.skeletonKey, open.options);
     const publication = candidate.publication();
     const pinnedFontPolicy = candidate.pinnedFontPolicy();
     const result = validateReaderWorkerOpenResult(

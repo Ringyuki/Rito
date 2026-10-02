@@ -25,6 +25,41 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    /// Opens a publication from its skeleton shard (see `rito-pack`);
+    /// `key` is the skeleton's 32-byte key when the shards are encrypted.
+    /// A later call that needs a content shard not yet supplied fails with
+    /// code `resource-pending` and the shard ids in `pendingShards`.
+    #[wasm_bindgen(js_name = openShardsWithPinnedFontPolicy)]
+    pub fn open_shards_with_pinned_font_policy(
+        skeleton: Vec<u8>,
+        key: Option<Vec<u8>>,
+        metadata_json: &str,
+        face_bytes: JsValue,
+    ) -> Result<RitoWasmDocument, JsValue> {
+        let face_bytes = require_face_byte_array(face_bytes).map_err(error_to_js_value)?;
+        let metadata =
+            validate_pinned_font_policy_metadata(metadata_json, face_bytes.length() as usize)
+                .map_err(error_to_js_value)?;
+        validate_face_byte_array_types(&face_bytes).map_err(error_to_js_value)?;
+        let face_bytes = copy_face_byte_arrays(&face_bytes);
+        WasmRuntimeDocument::open_shards_with_validated_pinned_font_policy(
+            &skeleton,
+            key.as_deref(),
+            metadata,
+            face_bytes,
+        )
+        .map(|inner| Self { inner })
+        .map_err(error_to_js_value)
+    }
+
+    /// Hands the document one content shard; returns its id.
+    #[wasm_bindgen(js_name = supplyShard)]
+    pub fn supply_shard(&mut self, shard: Vec<u8>, key: Option<Vec<u8>>) -> Result<u32, JsValue> {
+        self.inner
+            .supply_shard(&shard, key.as_deref())
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = pinnedFontPolicyJson)]
     pub fn pinned_font_policy_json(&self) -> Result<String, JsValue> {
         self.inner

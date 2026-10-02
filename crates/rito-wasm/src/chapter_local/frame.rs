@@ -59,7 +59,7 @@ impl WasmRuntimeDocument {
             .map_err(WasmRuntimeError::from_chapter_local)?;
         let mut new_transfer_ids = Vec::new();
         let (payloads, missing_resources) =
-            self.store_local_images(&owner, hrefs, &mut new_transfer_ids);
+            self.store_local_images(&owner, hrefs, &mut new_transfer_ids)?;
         let response = WasmChapterLocalFrameResourceResponse {
             owner,
             local_spread_index,
@@ -150,18 +150,26 @@ impl WasmRuntimeDocument {
         owner: &RuntimeChapterLocalRevisionHandle,
         hrefs: Vec<String>,
         new_transfer_ids: &mut Vec<String>,
-    ) -> (
-        Vec<super::wire::WasmChapterLocalResourceTransferPayload>,
-        Vec<WasmChapterLocalMissingResource>,
-    ) {
+    ) -> Result<
+        (
+            Vec<super::wire::WasmChapterLocalResourceTransferPayload>,
+            Vec<WasmChapterLocalMissingResource>,
+        ),
+        WasmRuntimeError,
+    > {
         let mut payloads = Vec::new();
         let mut missing = Vec::new();
+        let mut pending = Vec::new();
         for href in hrefs {
             match self.store_chapter_local_resource(owner, RuntimeResourceKind::Image, &href) {
                 Ok(payload) => {
                     new_transfer_ids.push(payload.transfer_id.clone());
                     payloads.push(payload);
                 }
+                // A resource whose shard has not arrived is not missing:
+                // the batch fails as pending so the host supplies it and
+                // retries, instead of painting a placeholder for good.
+                Err(error) if error.is_pending() => pending.push(error),
                 Err(error) => missing.push(WasmChapterLocalMissingResource {
                     kind: RuntimeResourceKind::Image,
                     href,
@@ -169,7 +177,15 @@ impl WasmRuntimeDocument {
                 }),
             }
         }
-        (payloads, missing)
+        if let Some(error) = WasmRuntimeError::merged_pending(&pending) {
+            for transfer_id in new_transfer_ids.drain(..) {
+                self.chapter_local_transfers
+                    .release_at(owner, &transfer_id)
+                    .expect("new transfer retains its exact owner");
+            }
+            return Err(error);
+        }
+        Ok((payloads, missing))
     }
 }
 

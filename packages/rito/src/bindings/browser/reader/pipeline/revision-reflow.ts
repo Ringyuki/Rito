@@ -1,3 +1,4 @@
+import { openableBrowserReaderPublication } from '../../publication-source';
 import type { ReaderLocator, ReaderOptions } from '../../../../reader';
 import {
   createBrowserReaderRevisionSessionOwner,
@@ -182,7 +183,7 @@ async function openRevisionCandidate(
       worker,
       // The open transfers the buffer it is given, and the retained one
       // is what the candidate after this opens from.
-      state.documentData.slice(0),
+      openableBrowserReaderPublication(state.documentData),
       state.pinnedFonts.policy,
       state.dpr,
       state.pinnedFonts.summary,

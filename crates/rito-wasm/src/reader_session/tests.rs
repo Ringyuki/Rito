@@ -1039,7 +1039,7 @@ fn advance_projection_to_candidate(
     panic!("background did not produce a candidate within the fixture bound");
 }
 
-pub(super) fn source_locator_fixture_epub() -> Vec<u8> {
+pub(crate) fn source_locator_fixture_epub() -> Vec<u8> {
     let paragraphs = (0..48)
         .map(|index| {
             format!(
@@ -1155,4 +1155,77 @@ fn tmp_pt_margin_probe() {
     let mut projection = open_test_projection(epub, SESSION_ID).expect("projection opens");
     let request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-0");
     projection.request_artifact(&request).expect("artifact");
+}
+
+#[test]
+fn a_session_opened_from_shards_names_missing_shards_and_matches_the_archive() {
+    let epub = source_locator_fixture_epub();
+    let mut counter = 7u8;
+    let mut random = |buffer: &mut [u8]| {
+        for byte in buffer {
+            counter = counter.wrapping_mul(31).wrapping_add(17);
+            *byte = counter;
+        }
+    };
+    let packed = rito_core::epub::shard::pack_publication(
+        &epub,
+        rito_core::epub::shard::PackOptions { encrypt: true },
+        &mut random,
+    )
+    .expect("packs");
+    let skeleton_key = packed
+        .skeleton
+        .key
+        .as_ref()
+        .map(|key| key.as_bytes().to_vec());
+    assert_eq!(
+        ReaderSessionProjection::open_shards(
+            &packed.skeleton.bytes,
+            Some(&[1, 2, 3]),
+            SESSION_ID,
+            crate::tests::fixture::pinned_test_policy_input(),
+        )
+        .expect_err("a short key is refused")
+        .code,
+        ReaderProjectionErrorCode::InvalidRequest
+    );
+    let mut sharded = ReaderSessionProjection::open_shards(
+        &packed.skeleton.bytes,
+        skeleton_key.as_deref(),
+        SESSION_ID,
+        crate::tests::fixture::pinned_test_policy_input(),
+    )
+    .expect("opens from the skeleton");
+
+    let pending = sharded
+        .request_artifact(&request_wire(SESSION_ID, 1, "chapter.xhtml#point-0"))
+        .expect_err("the chapter has not arrived");
+    assert_eq!(pending.code, ReaderProjectionErrorCode::ResourcePending);
+    assert!(!pending.pending_shards.is_empty());
+    for shard_id in &pending.pending_shards {
+        let shard = &packed.shards[*shard_id as usize - 1];
+        let key = shard.key.as_ref().map(|key| key.as_bytes().to_vec());
+        assert_eq!(
+            sharded
+                .supply_shard(&shard.bytes, key.as_deref())
+                .expect("supplies"),
+            *shard_id
+        );
+    }
+    let actual = decode_reader_artifact(
+        &sharded
+            .request_artifact(&request_wire(SESSION_ID, 2, "chapter.xhtml#point-0"))
+            .expect("the chapter arrived"),
+    )
+    .expect("decodes");
+
+    let mut archive = open_test_projection(epub, SESSION_ID).expect("archive opens");
+    let expected = decode_reader_artifact(
+        &archive
+            .request_artifact(&request_wire(SESSION_ID, 2, "chapter.xhtml#point-0"))
+            .expect("archive artifact"),
+    )
+    .expect("decodes");
+    assert_eq!(actual.display_list, expected.display_list);
+    assert_eq!(actual.pages, expected.pages);
 }

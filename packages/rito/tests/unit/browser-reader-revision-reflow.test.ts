@@ -193,7 +193,7 @@ describe('Browser revision reflow coordinator', () => {
     expect(current.state.reflow.lastError).toBeUndefined();
     const openedWith = mocks.openWorker.mock.calls[0]?.[1];
     expect(openedWith).not.toBe(retained);
-    expect(openedWith?.byteLength).toBe(0);
+    expect((openedWith as ArrayBuffer | undefined)?.byteLength).toBe(0);
     expect(current.state.documentData).toBe(retained);
     expect(new Uint8Array(current.state.documentData)).toEqual(new Uint8Array([7, 8, 9]));
   });

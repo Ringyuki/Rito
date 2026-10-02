@@ -38,7 +38,7 @@ export interface RitoCoreWasmReaderWorkerClient
    * leaves them attached. Failed engine opens may be retried with fresh buffers.
    */
   open(
-    data: ArrayBuffer,
+    data: ArrayBuffer | RitoCoreWasmShardedPublication,
     options?: RitoCoreWasmReaderWorkerOpenOptions,
   ): Promise<RitoCoreWasmReaderOpenResult>;
   readResource(
@@ -78,6 +78,28 @@ export interface RitoCoreWasmReaderWorkerClient
   dispose(): void;
   /** Resolves after in-process release or Worker acknowledgement/forced termination. */
   whenDisposed(): Promise<void>;
+}
+
+/**
+ * A publication split by `rito-pack`: the reader opens from the skeleton and
+ * asks `loadShards` for each content shard the first time a call needs it.
+ */
+export interface RitoCoreWasmShardedPublication {
+  readonly skeleton: ArrayBuffer;
+  /** The skeleton's 32-byte key when the shards are encrypted. */
+  readonly key?: Uint8Array | undefined;
+  /**
+   * Resolves with the requested shards. Rejecting fails the call that needed
+   * them; the reader stays usable for everything else.
+   */
+  loadShards(shardIds: readonly number[]): Promise<readonly RitoCoreWasmPublicationShard[]>;
+}
+
+export interface RitoCoreWasmPublicationShard {
+  readonly id: number;
+  readonly bytes: ArrayBuffer | Uint8Array;
+  /** The shard's own 32-byte key when the shards are encrypted. */
+  readonly key?: Uint8Array | undefined;
 }
 
 /** Opaque cache shared by reader clients for one publication session. */
@@ -145,6 +167,8 @@ export interface RitoCoreWasmReaderDocumentRuntime
   free(): void;
   publication(): RitoCoreWasmPublicationInfo;
   pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;
+  /** Hands a document opened from shards one content shard; returns its id. */
+  supplyShard(shard: Uint8Array, key?: Uint8Array): number;
   readerWorkerPayload(
     request: RitoCoreWasmReaderWorkerRequest,
   ): RitoCoreWasmReaderWorkerResponsePayload;
@@ -154,6 +178,12 @@ export interface RitoCoreWasmReaderEngineRuntime {
   openDocument(
     bytes: Uint8Array,
     options?: RitoCoreWasmOpenDocumentOptions,
+  ): RitoCoreWasmReaderDocumentRuntime;
+  /** Opens from a skeleton shard; a pinned font policy is required. */
+  openShardDocument(
+    skeleton: Uint8Array,
+    key: Uint8Array | undefined,
+    options: RitoCoreWasmOpenDocumentOptions,
   ): RitoCoreWasmReaderDocumentRuntime;
 }
 
@@ -252,7 +282,10 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
   (
     | {
         readonly kind: 'open';
-        readonly data: ArrayBuffer;
+        readonly data?: ArrayBuffer | undefined;
+        /** Present instead of `data` for a publication opened from shards. */
+        readonly skeleton?: ArrayBuffer | undefined;
+        readonly skeletonKey?: Uint8Array | undefined;
         readonly pinnedFontPolicyMetadata?:
           | RitoCoreWasmReaderWorkerPinnedFontPolicyMetadata
           | undefined;
@@ -283,6 +316,11 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
       }
     | { readonly kind: 'releaseRevisionTransfers'; readonly revisionId: string }
     | { readonly kind: 'releaseRevision'; readonly revisionId: string }
+    | {
+        readonly kind: 'supplyShard';
+        readonly shard: ArrayBuffer;
+        readonly key?: Uint8Array | undefined;
+      }
     | { readonly kind: 'dispose' }
   );
 
@@ -296,4 +334,5 @@ export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'search'; readonly result: RitoCoreWasmSearchResponse }
   | { readonly kind: 'releaseRevisionTransfers' }
   | { readonly kind: 'releaseRevision' }
+  | { readonly kind: 'supplyShard'; readonly result: number }
   | { readonly kind: 'dispose'; readonly releasedDocument: boolean };

@@ -1,4 +1,4 @@
-import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
+import { callRitoCoreWasm, RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { installRitoCoreWasmChapterLocalDocumentMethods } from './chapter-local-document-runtime.js';
 import { installRitoCoreWasmVersionedDocumentMethods } from './core-wasm-versioned-runtime.js';
 import { chapterLocalReaderWorkerPayload } from './reader-worker-chapter-local-payload-runtime.js';
@@ -6,7 +6,12 @@ import {
   versionedReaderWorkerPayload,
   warmVersionedReaderFrameWindow,
 } from './reader-worker-versioned-payload-runtime.js';
-import { decodePinnedFontPolicySummary, openRawDocument } from './pinned-font-policy-runtime.js';
+import {
+  decodePinnedFontPolicySummary,
+  openRawDocument,
+  openRawShardDocument,
+  requireShardKey,
+} from './pinned-font-policy-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
   let wasmExports;
@@ -22,6 +27,12 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       openDocument(bytes, options) {
         return callRitoCoreWasm('openDocument', () => {
           const opened = openRawDocument(RawRitoWasmDocument, bytes, options);
+          return new RitoCoreWasmDocument(opened.inner, opened.expectedFaces);
+        });
+      },
+      openShardDocument(skeleton, key, options) {
+        return callRitoCoreWasm('openShardDocument', () => {
+          const opened = openRawShardDocument(RawRitoWasmDocument, skeleton, key, options);
           return new RitoCoreWasmDocument(opened.inner, opened.expectedFaces);
         });
       },
@@ -61,6 +72,17 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
           this._expectedPinnedFontFaces,
         ),
       );
+    }
+
+    /** Hands the document one content shard; returns its id. */
+    supplyShard(shard, key) {
+      return callRitoCoreWasm('supplyShard', () => {
+        if (!(shard instanceof Uint8Array)) {
+          throw new RitoCoreWasmError('bad-request', 'supplyShard bytes must be a Uint8Array');
+        }
+        requireShardKey(key);
+        return this._inner.supplyShard(shard, key);
+      });
     }
 
     setUnavailableFontFaces(families) {
@@ -228,6 +250,15 @@ function readerWorkerPayload(document, request) {
     case 'setRenderRatio':
       document.setRenderRatio(request.ratio);
       return { kind: 'setRenderRatio' };
+    case 'supplyShard': {
+      if (!(request.shard instanceof ArrayBuffer)) {
+        throw new RitoCoreWasmError('bad-request', 'supplyShard shard must be an ArrayBuffer');
+      }
+      return {
+        kind: 'supplyShard',
+        result: document.supplyShard(new Uint8Array(request.shard), request.key),
+      };
+    }
     case 'chapterFragmentProbe':
       return {
         kind: 'chapterFragmentProbe',
