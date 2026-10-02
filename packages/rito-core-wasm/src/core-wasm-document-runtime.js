@@ -304,6 +304,7 @@ function frameWindowResult(document, prefetched) {
           ...(Array.isArray(spread.missingResources) ? spread.missingResources : []),
           ...transferred.missingResources,
         ],
+        pendingResources: Array.isArray(spread.pendingResources) ? spread.pendingResources : [],
         ...(typeof spread.prefetchError === 'string'
           ? { prefetchError: spread.prefetchError }
           : {}),

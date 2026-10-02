@@ -41,22 +41,6 @@ impl WasmRuntimeError {
         self.code == WasmRuntimeErrorCode::ResourcePending
     }
 
-    /// One failure naming every shard a batch of reads waited on.
-    pub(crate) fn merged_pending(errors: &[WasmRuntimeError]) -> Option<Self> {
-        let first = errors.first()?;
-        let mut shards = errors
-            .iter()
-            .flat_map(|error| error.pending_shards.iter().copied())
-            .collect::<Vec<_>>();
-        shards.sort_unstable();
-        shards.dedup();
-        Some(Self::pending(
-            WasmRuntimeErrorCode::EngineError,
-            first.message.clone(),
-            shards,
-        ))
-    }
-
     pub fn bad_request(message: impl Into<String>) -> Self {
         Self::new(WasmRuntimeErrorCode::BadRequest, message)
     }

@@ -10,7 +10,10 @@ import {
   renderSpreadToBoundCanvas,
   renderSpreadToContext,
 } from '../../src/bindings/browser/rendering';
-import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
+import {
+  applyBrowserReaderFrameWindow,
+  loadFrame,
+} from '../../src/bindings/browser/reader/frame-cache';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import type { CanvasRenderingTarget } from '../../src/bindings/browser/primitive-renderer';
 import type {
@@ -162,6 +165,53 @@ describe('Browser reader resource-backed rendering', () => {
 
     expect(ctx.clearRect).toHaveBeenCalledOnce();
     expect(warmFrameWindow).not.toHaveBeenCalled();
+  });
+
+  it('reads an image whose shard has not arrived and repaints the spread once it decodes', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(() => Promise.resolve(fakeImageBitmap())),
+    );
+    const invalidated: number[] = [];
+    const readResourceAtRevision = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
+      (revision, kind, href) => Promise.resolve(versionedResource(revision, kind, href)),
+    );
+    const state = createState({
+      worker: { ...createWorker(), readResourceAtRevision } as BrowserReaderWorkerClient,
+      frames: new Map([[0, frameWithImages('plate.png')]]),
+      spreadContentInvalidatedListeners: new Set([(index: number) => invalidated.push(index)]),
+    });
+    const revision = expectDefined(state.revisionHandle);
+
+    applyBrowserReaderFrameWindow(state, revision, {
+      plan: {
+        revisionId: 'rev-1',
+        centerSpreadIndex: 0,
+        displaySpreadIndex: 0,
+        spreadIndexes: [0],
+      },
+      frames: [],
+      spreads: [
+        {
+          spreadIndex: 0,
+          resources: [],
+          missingResources: [],
+          pendingResources: [{ kind: 'image', href: 'plate.png' }],
+        },
+      ],
+    });
+
+    // Not missing: the read that loads its shard starts at once, and the
+    // image is never recorded as failed.
+    expect(readResourceAtRevision).toHaveBeenCalledWith(
+      { revisionId: 'rev-1', revisionVersion: 0 },
+      'image',
+      'plate.png',
+    );
+    expect(state.imageResourceFailures.has('plate.png')).toBe(false);
+    await flushPromises();
+    expect(state.images.has('plate.png')).toBe(true);
+    expect(invalidated).toEqual([0]);
   });
 
   it('commits the bound canvas to an image-backed frame before its bitmap decodes', () => {

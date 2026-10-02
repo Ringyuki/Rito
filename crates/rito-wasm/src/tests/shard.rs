@@ -52,6 +52,13 @@ fn a_document_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
     })
     .to_string();
     let image = rito_core::runtime::RuntimeResourceKind::Image;
+    let spread = spread_drawing(&mut document, &owner, "../Images/0005_s.jpg");
+    assert_eq!(
+        spread["pendingResources"],
+        json!([{ "kind": "image", "href": "../Images/0005_s.jpg" }]),
+        "a frame whose image has not arrived still prefetches, naming it pending"
+    );
+    assert_eq!(spread["missingResources"], json!([]));
 
     let pending = document
         .get_chapter_local_resource_payload_json(&owner, image, "../Images/0005_s.jpg")
@@ -83,4 +90,30 @@ fn a_document_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
     document
         .get_chapter_local_resource_payload_json(&owner, image, "../Images/0005_s.jpg")
         .expect("reads once supplied");
+    let spread = spread_drawing(&mut document, &owner, "../Images/0005_s.jpg");
+    assert!(spread.get("pendingResources").is_none());
+    assert_eq!(spread["payloads"][0]["href"], "../Images/0005_s.jpg");
+}
+
+/// The chapter-local frame resource prefetch of the first spread that
+/// draws `href`, whether it arrived or not.
+fn spread_drawing(document: &mut WasmRuntimeDocument, owner: &str, href: &str) -> Value {
+    for spread_index in 0..64 {
+        let response: Value = serde_json::from_str(
+            &document
+                .prefetch_chapter_local_frame_resources_json(owner, spread_index)
+                .expect("a frame prefetch never waits on a shard"),
+        )
+        .expect("parses");
+        let names = |list: &Value| {
+            list.as_array()
+                .into_iter()
+                .flatten()
+                .any(|resource| resource["href"] == href)
+        };
+        if names(&response["payloads"]) || names(&response["pendingResources"]) {
+            return response;
+        }
+    }
+    panic!("no spread draws {href}");
 }

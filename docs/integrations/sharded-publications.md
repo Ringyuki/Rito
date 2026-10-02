@@ -85,7 +85,8 @@ const reader = await createReader(
 ```
 
 Opening, whole-book pagination, seeking and turning never call
-`loadShards`. When a page reads an image the session does not have yet,
+`loadShards`. A page whose image has not arrived paints at once without
+it, and repaints when the image does. When a page reads an image the session does not have yet,
 the engine names its shard; the client calls `loadShards`, hands the
 shard to the worker and retries the read. A rejected `loadShards` fails
 only that read. A reader that reopens in a new worker after a layout

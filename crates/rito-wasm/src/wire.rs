@@ -29,6 +29,10 @@ pub struct WasmResourcePrefetchResponse {
     pub revision_id: String,
     pub payloads: Vec<RuntimeResourceTransferPayload>,
     pub missing_resources: Vec<WasmMissingResource>,
+    /// Resources whose content shard has not arrived. They are not
+    /// missing: a read once the shard is supplied returns their bytes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_resources: Vec<WasmPendingResource>,
     pub pending_transfer_count: usize,
 }
 
@@ -39,6 +43,10 @@ pub struct WasmFrameResourcePrefetchResponse {
     pub spread_index: usize,
     pub payloads: Vec<RuntimeResourceTransferPayload>,
     pub missing_resources: Vec<WasmMissingResource>,
+    /// Resources whose content shard has not arrived. They are not
+    /// missing: a read once the shard is supplied returns their bytes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_resources: Vec<WasmPendingResource>,
     /// A spread whose resource hrefs could not be enumerated at all
     /// (as opposed to individual resources missing). The window still
     /// delivers its sibling spreads; the reader loads this one on demand.
@@ -61,6 +69,32 @@ pub struct WasmMissingResource {
     pub kind: RuntimeResourceKind,
     pub href: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmPendingResource {
+    pub kind: RuntimeResourceKind,
+    pub href: String,
+}
+
+/// One batch of resource reads: each requested resource lands in exactly
+/// one of the three lists.
+#[derive(Debug)]
+pub struct WasmResourceBatch<Payload, Missing> {
+    pub payloads: Vec<Payload>,
+    pub missing: Vec<Missing>,
+    pub pending: Vec<WasmPendingResource>,
+}
+
+impl<Payload, Missing> Default for WasmResourceBatch<Payload, Missing> {
+    fn default() -> Self {
+        Self {
+            payloads: Vec::new(),
+            missing: Vec::new(),
+            pending: Vec::new(),
+        }
+    }
 }
 
 pub fn parse_layout_config(json: &str) -> Result<LayoutConfig, WasmRuntimeError> {

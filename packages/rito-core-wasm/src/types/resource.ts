@@ -26,10 +26,21 @@ export interface RitoCoreWasmMissingResource {
   readonly message: string;
 }
 
+/**
+ * A resource whose content shard has not arrived. It is not missing: a read
+ * once the shard is supplied returns its bytes.
+ */
+export interface RitoCoreWasmPendingResource {
+  readonly kind: RitoCoreWasmResourceKind;
+  readonly href: string;
+}
+
 export interface RitoCoreWasmResourcePrefetchResponse {
   readonly revisionId: string;
   readonly payloads: readonly RitoCoreWasmResourcePayload[];
   readonly missingResources: readonly RitoCoreWasmMissingResource[];
+  /** Absent when every resource was read or is missing for good. */
+  readonly pendingResources?: readonly RitoCoreWasmPendingResource[];
   readonly pendingTransferCount: number;
 }
 

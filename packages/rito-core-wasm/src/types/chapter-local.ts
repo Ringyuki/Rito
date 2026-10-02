@@ -92,6 +92,11 @@ export interface RitoCoreWasmChapterLocalMissingResource {
   readonly message: string;
 }
 
+export interface RitoCoreWasmChapterLocalPendingResource {
+  readonly kind: 'image';
+  readonly href: string;
+}
+
 export interface RitoCoreWasmReaderChapterLocalFrame {
   readonly owner: RitoCoreWasmChapterLocalOwner;
   readonly localSpreadIndex: number;
@@ -99,6 +104,8 @@ export interface RitoCoreWasmReaderChapterLocalFrame {
   readonly bytes: Uint8Array;
   readonly resources: readonly RitoCoreWasmChapterLocalResourceBytes[];
   readonly missingResources: readonly RitoCoreWasmChapterLocalMissingResource[];
+  /** Images whose content shard has not arrived; a read loads the shard. */
+  readonly pendingResources?: readonly RitoCoreWasmChapterLocalPendingResource[];
 }
 
 export interface RitoCoreWasmReaderChapterLocalMutationResult<
@@ -131,13 +138,16 @@ export interface RitoCoreWasmChapterLocalDocumentRuntime {
   readChapterLocalFrame(
     owner: RitoCoreWasmChapterLocalOwner,
     localSpreadIndex: number,
-  ): Omit<RitoCoreWasmReaderChapterLocalFrame, 'resources' | 'missingResources'>;
+  ): Omit<
+    RitoCoreWasmReaderChapterLocalFrame,
+    'resources' | 'missingResources' | 'pendingResources'
+  >;
   prefetchChapterLocalFrameResources(
     owner: RitoCoreWasmChapterLocalOwner,
     localSpreadIndex: number,
   ): Pick<
     RitoCoreWasmReaderChapterLocalFrame,
-    'owner' | 'localSpreadIndex' | 'resources' | 'missingResources'
+    'owner' | 'localSpreadIndex' | 'resources' | 'missingResources' | 'pendingResources'
   >;
   releaseChapterLocalRevision(
     owner: RitoCoreWasmChapterLocalOwner,

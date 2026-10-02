@@ -15,6 +15,7 @@ import type {
 import type {
   RitoCoreWasmFrameResourceWarmPlan,
   RitoCoreWasmMissingResource,
+  RitoCoreWasmPendingResource,
   RitoCoreWasmResourcePayload,
 } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
@@ -260,6 +261,11 @@ export interface RitoCoreWasmReaderFrameWindowWarmResult {
     readonly resources: readonly RitoCoreWasmReaderResourceBytes[];
     /** Terminal resource failures; callers must not retry this exact revision. */
     readonly missingResources: readonly RitoCoreWasmMissingResource[];
+    /**
+     * Resources whose content shard has not arrived. Paint without them and
+     * read each again; the read loads its shard.
+     */
+    readonly pendingResources?: readonly RitoCoreWasmPendingResource[];
     /**
      * The spread's resources could not be enumerated at all (not terminal:
      * a later warm or an on-demand read may still succeed).

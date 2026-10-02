@@ -97,6 +97,33 @@ test('versioned frame-window rejects conflicting terminal resource results', () 
   assert.deepEqual(fixture.released.sort(), ['transfer-1', 'transfer-2']);
 });
 
+test('versioned frame-window carries images whose shard has not arrived as pending', async () => {
+  const pending = [{ kind: 'image', href: 'image-4.png' }];
+  const fixture = frameWindowFixture({ pendingResources: pending });
+  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(fixture.document));
+  await client.open(new ArrayBuffer(0));
+
+  const warmed = await client.warmFrameWindowAtRevision(handle(), 0);
+
+  assert.deepEqual(warmed.value.spreads[0].pendingResources, pending);
+  assert.deepEqual(warmed.value.spreads[0].missingResources, []);
+  assert.deepEqual(warmed.value.spreads[1].pendingResources, []);
+  client.dispose();
+
+  for (const forged of [
+    [{ kind: 'image', href: 'image-1.png' }],
+    [{ kind: 'font', href: 'image-4.png' }],
+    [{ kind: 'image', href: '' }],
+  ]) {
+    const rejected = frameWindowFixture({ pendingResources: forged });
+    assert.throws(
+      () => rejected.document.warmFrameWindowAtRevision(handle(), 0),
+      /(conflicting frame window resource results|malformed pending frame image resource)/,
+    );
+    assert.deepEqual(rejected.released.sort(), ['transfer-1', 'transfer-2']);
+  }
+});
+
 test('real worker transfers every versioned frame-window buffer', async () => {
   const fixture = frameWindowFixture();
   const scope = new HandlerScope();
@@ -156,6 +183,7 @@ function frameWindowFixture(options = {}) {
                 spreadIndex: options.resourceSpreadIndex ?? spreadIndex,
                 payloads: resources,
                 missingResources: options.missingResources ?? [],
+                ...(options.pendingResources ? { pendingResources: options.pendingResources } : {}),
                 pendingTransferCount: resources.length,
               }
             : {

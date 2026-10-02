@@ -42,15 +42,21 @@ export function requireChapterLocalFrameResources(value, owner, localSpreadIndex
   const missingResources = response.missingResources.map((missing) =>
     requireMissingResource(missing, operation),
   );
-  requireUniqueResources(resources, missingResources, operation);
-  return { owner: exactOwner, localSpreadIndex, resources, missingResources };
+  const pendingResources = requirePendingResources(response.pendingResources, operation);
+  requireUniqueResources(resources, [...missingResources, ...pendingResources], operation);
+  return { owner: exactOwner, localSpreadIndex, resources, missingResources, pendingResources };
 }
 
 export function requireReaderChapterLocalFrame(value, owner, localSpreadIndex, operation) {
   const frame = requireChapterLocalFrameBuffer(value, owner, localSpreadIndex, operation);
   const resources = requireChapterLocalFrameResources(value, owner, localSpreadIndex, operation);
   requireFrameResourceRefs(frame.metadata, resources, operation);
-  return { ...frame, resources: resources.resources, missingResources: resources.missingResources };
+  return {
+    ...frame,
+    resources: resources.resources,
+    missingResources: resources.missingResources,
+    pendingResources: resources.pendingResources,
+  };
 }
 
 export function requireRawChapterLocalResourcePrefetch(value, owner, localSpreadIndex, operation) {
@@ -70,6 +76,7 @@ export function requireRawChapterLocalResourcePrefetch(value, owner, localSpread
   const missingResources = response.missingResources.map((missing) =>
     requireMissingResource(missing, operation),
   );
+  const pendingResources = requirePendingResources(response.pendingResources, operation);
   const pending = requireChapterLocalTransferCount(
     response.pendingChapterLocalTransferCount,
     operation,
@@ -77,12 +84,13 @@ export function requireRawChapterLocalResourcePrefetch(value, owner, localSpread
   if (pending < payloads.length) {
     throw new Error(`${operation} returned an inconsistent pending local transfer count`);
   }
-  requireUniquePayloads(payloads, missingResources, operation);
+  requireUniquePayloads(payloads, [...missingResources, ...pendingResources], operation);
   return {
     owner: exactOwner,
     localSpreadIndex,
     payloads,
     missingResources,
+    pendingResources,
     pendingChapterLocalTransferCount: pending,
   };
 }
@@ -163,6 +171,24 @@ function requireMissingResource(value, operation) {
   };
 }
 
+/** Absent means none; each entry names an image whose shard has not arrived. */
+function requirePendingResources(value, operation) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error(`${operation} returned malformed pending chapter-local resources`);
+  }
+  return value.map((entry) => {
+    const pending = requireRecord(entry, `${operation} pending resource`);
+    if (pending.kind !== 'image') {
+      throw new Error(`${operation} returned a non-image pending frame resource`);
+    }
+    return {
+      kind: pending.kind,
+      href: requireNonEmptyString(pending.href, `${operation} pending resource href`),
+    };
+  });
+}
+
 function requireFrameResourceRefs(metadata, response, operation) {
   const referenced = new Set(metadata.resourceTable);
   for (const resource of response.resources) {
@@ -170,7 +196,7 @@ function requireFrameResourceRefs(metadata, response, operation) {
       throw new Error(`${operation} returned an unreferenced frame resource`);
     }
   }
-  for (const missing of response.missingResources) {
+  for (const missing of [...response.missingResources, ...response.pendingResources]) {
     if (!referenced.has(missing.href)) {
       throw new Error(`${operation} returned an unreferenced missing frame resource`);
     }

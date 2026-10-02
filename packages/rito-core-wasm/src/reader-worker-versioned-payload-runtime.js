@@ -177,6 +177,7 @@ export function warmVersionedReaderFrameWindow(document, requestedRevision, spre
             spreadIndex: spread.spreadIndex,
             resources: transferred.resources,
             missingResources: [...spread.missingResources, ...transferred.missingResources],
+            pendingResources: spread.pendingResources ?? [],
             ...(typeof spread.prefetchError === 'string'
               ? { prefetchError: spread.prefetchError }
               : {}),
@@ -494,7 +495,33 @@ function requireFrameWindowRevision(prefetched, revision, requestedSpreadIndex, 
       }
       hrefs.add(href);
     }
+    for (const pending of requirePendingFrameResources(spread.pendingResources, operation)) {
+      if (hrefs.has(pending.href)) {
+        throw new Error(`${operation} received conflicting frame window resource results`);
+      }
+      hrefs.add(pending.href);
+    }
   }
+}
+
+/** Absent means none; each entry names an image whose shard has not arrived. */
+function requirePendingFrameResources(value, operation) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error(`${operation} received malformed pending frame resources`);
+  }
+  for (const pending of value) {
+    if (
+      pending === null ||
+      typeof pending !== 'object' ||
+      pending.kind !== 'image' ||
+      typeof pending.href !== 'string' ||
+      pending.href.length === 0
+    ) {
+      throw new Error(`${operation} received a malformed pending frame image resource`);
+    }
+  }
+  return value;
 }
 
 function requireRevisionId(value, revision, operation) {

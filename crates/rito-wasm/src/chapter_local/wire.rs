@@ -102,6 +102,10 @@ pub(super) struct WasmChapterLocalFrameResourceResponse {
     pub(super) local_spread_index: usize,
     pub(super) payloads: Vec<WasmChapterLocalResourceTransferPayload>,
     pub(super) missing_resources: Vec<WasmChapterLocalMissingResource>,
+    /// Resources whose content shard has not arrived. They are not
+    /// missing: a read once the shard is supplied returns their bytes.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(super) pending_resources: Vec<crate::wire::WasmPendingResource>,
     pub(super) pending_chapter_local_transfer_count: usize,
 }
 

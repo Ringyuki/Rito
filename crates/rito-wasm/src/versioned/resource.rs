@@ -7,8 +7,8 @@ use crate::{
     resource::{degraded_frame_resource_prefetch, rollback_new_transfers_on_error},
     wire::{
         parse_resource_prefetch_request, serialize_json, WasmFrameResourcePrefetchResponse,
-        WasmMissingResource, WasmPlannedFrameResourcePrefetchResponse,
-        WasmResourcePrefetchResponse,
+        WasmMissingResource, WasmPendingResource, WasmPlannedFrameResourcePrefetchResponse,
+        WasmResourceBatch, WasmResourcePrefetchResponse,
     },
     WasmRuntimeDocument, WasmRuntimeError,
 };
@@ -37,7 +37,7 @@ impl WasmRuntimeDocument {
         self.document
             .validate_revision_handle(&handle)
             .map_err(WasmRuntimeError::from_revision_access)?;
-        let (payloads, missing_resources) = self.store_resource_transfers_at(
+        let batch = self.store_resource_transfers_at(
             &handle,
             request
                 .resources
@@ -46,8 +46,9 @@ impl WasmRuntimeDocument {
         )?;
         let response = WasmResourcePrefetchResponse {
             revision_id: revision_id.to_owned(),
-            payloads,
-            missing_resources,
+            payloads: batch.payloads,
+            missing_resources: batch.missing,
+            pending_resources: batch.pending,
             pending_transfer_count: self.pending_resource_transfer_count(),
         };
         serialize_json(&RuntimeVersioned::new(handle, response))
@@ -75,7 +76,6 @@ impl WasmRuntimeDocument {
                 // strands its canvas on the previous image forever.
                 let spread = match self.prefetch_frame_resources_at(&handle, spread_index) {
                     Ok(spread) => spread,
-                    Err(error) if error.is_pending() => return Err(error),
                     Err(error) => degraded_frame_resource_prefetch(
                         handle.revision_id.clone(),
                         spread_index,
@@ -123,15 +123,10 @@ impl WasmRuntimeDocument {
         handle: &RuntimeRevisionHandle,
         resources: impl Iterator<Item = (RuntimeResourceKind, String)>,
     ) -> Result<
-        (
-            Vec<RuntimeResourceTransferPayload>,
-            Vec<WasmMissingResource>,
-        ),
+        WasmResourceBatch<RuntimeResourceTransferPayload, WasmMissingResource>,
         WasmRuntimeError,
     > {
-        let mut payloads = Vec::new();
-        let mut missing_resources = Vec::new();
-        let mut pending = Vec::new();
+        let mut batch = WasmResourceBatch::default();
         for (kind, href) in resources {
             match self.store_resource_transfer_at(handle, kind, &href) {
                 // The payload href is the caller's cache key and must echo
@@ -143,26 +138,22 @@ impl WasmRuntimeDocument {
                 // plate never painted, the previous canvas held forever).
                 Ok(mut payload) => {
                     payload.value.href = href;
-                    payloads.push(payload.value);
+                    batch.payloads.push(payload.value);
                 }
                 // A resource whose shard has not arrived is not missing:
-                // the batch fails as pending so the host supplies it and
-                // retries, instead of painting a placeholder for good.
-                Err(error) if error.is_pending() => pending.push(error),
-                Err(error) => missing_resources.push(WasmMissingResource {
+                // the host paints without it and reads it again once the
+                // shard is in.
+                Err(error) if error.is_pending() => {
+                    batch.pending.push(WasmPendingResource { kind, href })
+                }
+                Err(error) => batch.missing.push(WasmMissingResource {
                     kind,
                     href,
                     message: error.message().to_owned(),
                 }),
             }
         }
-        if let Some(error) = WasmRuntimeError::merged_pending(&pending) {
-            for payload in &payloads {
-                self.transfers.release(&payload.transfer_id);
-            }
-            return Err(error);
-        }
-        Ok((payloads, missing_resources))
+        Ok(batch)
     }
 
     pub(crate) fn prefetch_frame_resources_at(
@@ -175,7 +166,7 @@ impl WasmRuntimeDocument {
             .get_frame_image_resource_hrefs_at(handle, spread_index)
             .map_err(WasmRuntimeError::from_revision_access)?
             .value;
-        let (payloads, missing_resources) = self.store_resource_transfers_at(
+        let batch = self.store_resource_transfers_at(
             handle,
             images
                 .into_iter()
@@ -184,8 +175,9 @@ impl WasmRuntimeDocument {
         Ok(WasmFrameResourcePrefetchResponse {
             revision_id: handle.revision_id.clone(),
             spread_index,
-            payloads,
-            missing_resources,
+            payloads: batch.payloads,
+            missing_resources: batch.missing,
+            pending_resources: batch.pending,
             prefetch_error: None,
             pending_transfer_count: self.pending_resource_transfer_count(),
         })

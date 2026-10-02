@@ -42,7 +42,11 @@ export async function prepareBrowserReaderChapterLocalFrameResources(
   frame: BrowserReaderFrame,
   response: BrowserReaderChapterLocalResolvedFrame,
 ): Promise<Map<string, ImageBitmap> | undefined> {
-  if (response.missingResources.length > 0) return undefined;
+  // A preview paints complete or not at all; the main frame paints without
+  // an image that is missing or still on its way.
+  if (response.missingResources.length > 0 || (response.pendingResources?.length ?? 0) > 0) {
+    return undefined;
+  }
   requireResourceOwners(response.resources, owner);
   const images = await decodePreviewImages(response.resources);
   if (typeof createImageBitmap === 'undefined') return images;

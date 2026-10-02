@@ -1,6 +1,7 @@
 import { decodeBrowserReaderFrame } from './frame';
 import {
   frameImageResourcesAreLoadingOrSettled,
+  ensureFrameImageResourceLoaded,
   frameImageResourcesAreSettled,
   markSpreadImageResourcesSettled,
   preloadFrameResourceBytes,
@@ -128,6 +129,9 @@ export function applyBrowserReaderFrameWindow(
   cacheFrameBuffers(state, revision, frameWindow.frames, options);
   for (const spread of frameWindow.spreads) {
     const missingResources = frameWindowMissingResources(spread);
+    const pendingImageHrefs = (spread.pendingResources ?? [])
+      .filter((resource) => resource.kind === 'image')
+      .map((resource) => resource.href);
     const touchedImageHrefs = [
       ...new Set([
         ...spread.resources
@@ -136,8 +140,12 @@ export function applyBrowserReaderFrameWindow(
         ...missingResources
           .filter((resource) => resource.kind === 'image')
           .map((resource) => resource.href),
+        ...pendingImageHrefs,
       ]),
     ];
+    // Paint now without an image whose shard has not arrived; the read loads
+    // the shard, and the decoded image repaints every spread that draws it.
+    for (const href of pendingImageHrefs) ensureFrameImageResourceLoaded(state, href);
     const requiresSettlementNotification =
       missingResources.some((resource) => resource.kind === 'image') ||
       touchedImageHrefs.some(
