@@ -14,7 +14,7 @@ function metadataFor(bytes, overrides = {}) {
     ratio: 2,
     commandCount: 4,
     commandCounts: { pushState: 1, paintBlock: 1, paintText: 1, paintImage: 1 },
-    primitiveCount: 13,
+    primitiveCount: 14,
     byteLength: bytes.byteLength,
     commandHash: 'semantic-hash',
     resourceRefCount: 2,
@@ -31,10 +31,10 @@ test('decodes the primitive list behind matching metadata', () => {
   assert.equal(decoded.protocolVersion, 2);
   assert.equal(decoded.ratio, 2);
   assert.equal(decoded.commandCount, 4);
-  assert.equal(decoded.primitiveCount, 13);
+  assert.equal(decoded.primitiveCount, 14);
   assert.equal(decoded.commandHash, 'semantic-hash');
   assert.deepEqual(decoded.resourceTable, ['images/background.png', 'images/cover.jpg']);
-  assert.equal(decoded.commands.length, 13);
+  assert.equal(decoded.commands.length, 14);
   assert.equal(decoded.commands[11].kind, 'text');
 });
 

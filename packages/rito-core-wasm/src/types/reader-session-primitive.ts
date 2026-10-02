@@ -126,4 +126,28 @@ export type RitoReaderPrimitive =
       readonly sourceRect?: RitoReaderRect | undefined;
       readonly tiles?: RitoReaderTilePlan | undefined;
     }
+  | RitoReaderImageFallbackPrimitive
   | RitoReaderTextPrimitive;
+
+/**
+ * What stands in an image's place while its bitmap is not there, painted
+ * only while the image named `src` is in `state`: `block` filled with the
+ * page background mixed with `blockInk` of the text colour, then each piece
+ * filled even-odd with the block colour mixed with `iconInk` of the text
+ * colour, translated by its offset and clipped to its clip.
+ */
+export interface RitoReaderImageFallbackPrimitive {
+  readonly kind: 'image-fallback';
+  readonly src: string;
+  readonly state: 'loading' | 'broken';
+  readonly block: RitoReaderRect;
+  readonly blockInk: number;
+  readonly iconInk: number;
+  readonly pieces: readonly RitoReaderIconPiece[];
+}
+
+export interface RitoReaderIconPiece {
+  readonly offset: RitoReaderDevicePoint;
+  readonly clip?: readonly RitoReaderPathOp[] | undefined;
+  readonly path: readonly RitoReaderPathOp[];
+}

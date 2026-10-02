@@ -1,5 +1,13 @@
 ## Unreleased
 
+### Broken images show a placeholder
+
+An image whose preparation failed paints a block tinted toward the text
+colour with a broken-picture icon, instead of nothing. The engine lowers
+the placeholder with every inline image (`RitoPrimitiveImageFallback`,
+`RITODL1` opcode 14); the Canvas pen paints the broken variant in the
+theme's colours.
+
 ### Publications delivered as shards
 
 `RitoReaderSession.openShards` opens a book split by `rito-pack` from its

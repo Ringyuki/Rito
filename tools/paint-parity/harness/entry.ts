@@ -108,6 +108,9 @@ function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
   }
   renderReaderPrimitivesToCanvas(list, ctx, {
     resolveImage: makeSyntheticImage,
+    // A source no synthetic image answers is one that can no longer
+    // arrive: both pens paint its broken fallback.
+    imageFallback: (src) => (makeSyntheticImage(src) ? undefined : 'broken'),
     ...(fixture.theme
       ? {
           foregroundColor: fixture.theme.foreground,

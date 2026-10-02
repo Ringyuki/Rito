@@ -157,6 +157,20 @@ const BOOK_GROUND_LUMINANCE_LIMIT = 0.75;
 
 /** True when a page background is the book's own designed ground (R1):
  * fully opaque and darker than the white-paper luminance limit. */
+/**
+ * `background` mixed with `share` of `foreground`, as an opaque canvas
+ * colour; the background itself when either does not parse.
+ */
+export function mixThemeColors(background: string, foreground: string, share: number): string {
+  const ground = parseColor(background);
+  const ink = parseColor(foreground);
+  if (!ground || !ink) return background;
+  const [red, green, blue] = ground.map((channel, index) =>
+    Math.round(channel + ((ink[index] as number) - channel) * share),
+  ) as [number, number, number];
+  return `rgb(${String(red)}, ${String(green)}, ${String(blue)})`;
+}
+
 export function isBookOwnedPageGround(color: string): boolean {
   const parsed = parseColor(color);
   if (!parsed || !isOpaqueColor(color)) return false;

@@ -14,6 +14,7 @@ abstract interface class RitoPrimitiveTarget {
   void strokePath(RitoPrimitiveStrokePath primitive);
   void shadow(RitoPrimitiveShadow primitive);
   void drawImage(RitoPrimitiveDrawImage primitive);
+  void imageFallback(RitoPrimitiveImageFallback primitive);
   void text(RitoPrimitiveText primitive);
   void ruby(RitoPrimitiveRuby primitive);
 }
@@ -55,6 +56,8 @@ final class RitoPrimitiveListReplayer {
             target.shadow(primitive);
           case RitoPrimitiveDrawImage():
             target.drawImage(primitive);
+          case RitoPrimitiveImageFallback():
+            target.imageFallback(primitive);
           case RitoPrimitiveText():
             target.text(primitive);
           case RitoPrimitiveRuby():

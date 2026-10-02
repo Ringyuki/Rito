@@ -89,8 +89,40 @@ final class RitoPrimitiveListDecoder {
       13 => RitoPrimitiveRuby(
         _readTextRun(reader, ruby: true) as RitoPaintRuby,
       ),
+      14 => _imageFallback(reader),
       _ => reader.fail('unknown primitive opcode: $opcode'),
     };
+  }
+
+  RitoPrimitiveImageFallback _imageFallback(RitoBinaryReader reader) {
+    final src = reader.string('image fallback source');
+    final state = _wireEnum(
+      reader,
+      'image fallback state',
+      const <RitoImageFallbackState>[
+        RitoImageFallbackState.loading,
+        RitoImageFallbackState.broken,
+      ],
+    );
+    final block = reader.readDisplayRect('image fallback block');
+    final blockInk = reader.float64('image fallback block ink');
+    final iconInk = reader.float64('image fallback icon ink');
+    final count = reader.count('image fallback piece count');
+    return RitoPrimitiveImageFallback(
+      src: src,
+      state: state,
+      block: block,
+      blockInk: blockInk,
+      iconInk: iconInk,
+      pieces: <RitoIconPiece>[
+        for (var index = 0; index < count; index += 1)
+          RitoIconPiece(
+            offset: _point(reader, 'icon piece offset'),
+            clip: reader.option('icon piece clip', () => _path(reader)),
+            path: _path(reader),
+          ),
+      ],
+    );
   }
 
   RitoPrimitiveFillRect _fillRect(RitoBinaryReader reader) {

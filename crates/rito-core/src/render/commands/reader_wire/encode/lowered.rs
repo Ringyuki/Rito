@@ -4,6 +4,10 @@
 //! count. Every primitive is a u16 opcode followed by its fields; paths are
 //! a u32 op count of tagged ops. Colours and run paints use the encodings
 //! in the sibling `paint` module.
+//!
+//! An image fallback (opcode 14): string src, u8 state (1 loading, 2
+//! broken), the block rect, f64 block ink, f64 icon ink, then a u32 count
+//! of icon pieces, each an offset point, an optional clip path and a path.
 
 use super::super::{
     ReaderDisplayListWireError, READER_DISPLAY_LIST_MAGIC, READER_PRIMITIVE_LIST_FORMAT_VERSION,
@@ -129,6 +133,27 @@ fn write_primitive(
             write_optional(output, tiles.as_ref(), write_tile_plan)
         }
         Primitive::Text(text) | Primitive::Ruby(text) => write_text(output, text),
+        Primitive::ImageFallback {
+            src,
+            state,
+            block,
+            block_ink,
+            icon_ink,
+            pieces,
+        } => {
+            write_string(output, src)?;
+            output.push(state.tag());
+            write_device_rect(output, *block)?;
+            write_finite_f64(output, *block_ink)?;
+            write_finite_f64(output, *icon_ink)?;
+            write_length(output, pieces.len(), "icon piece")?;
+            for piece in pieces {
+                write_point(output, piece.offset)?;
+                write_optional(output, piece.clip.as_ref(), write_path)?;
+                write_path(output, &piece.path)?;
+            }
+            Ok(())
+        }
     }
 }
 

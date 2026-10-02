@@ -2,11 +2,13 @@ import type { RitoReaderPathOp, RitoReaderPrimitive } from '@ritojs/core-wasm/de
 
 import type { CanvasImageResolver } from './primitive-renderer';
 import { toCanvasColor } from './reader-session-canvas-converter';
+import { mixThemeColors } from './theme/text-color';
 
 type TransformPrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'transform' }>;
 type StrokePrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'stroke-path' }>;
 type ShadowPrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'shadow' }>;
 type ImagePrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'draw-image' }>;
+type ImageFallbackPrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'image-fallback' }>;
 
 // A shadow's exclusion clip is the whole plane less the excluded shape;
 // this reach stands in for the plane on any page a reader can lay out.
@@ -123,6 +125,36 @@ export function drawImage(
   for (let row = 0; row < tiles.rows; row += 1) {
     for (let column = 0; column < tiles.columns; column += 1) {
       draw(tiles.origin.x + column * tiles.stepX, tiles.origin.y + row * tiles.stepY);
+    }
+  }
+}
+
+/** An image's stand-in: the tinted block, then each icon piece filled
+ * even-odd, moved by its offset and cut to its clip. */
+export function drawImageFallback(
+  ctx: CanvasRenderingContext2D,
+  primitive: ImageFallbackPrimitive,
+  colors: { readonly background: string; readonly foreground: string },
+): void {
+  const block = mixThemeColors(colors.background, colors.foreground, primitive.blockInk);
+  const { x, y, width, height } = primitive.block;
+  ctx.fillStyle = block;
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = mixThemeColors(block, colors.foreground, primitive.iconInk);
+  for (const piece of primitive.pieces) {
+    ctx.save();
+    try {
+      ctx.translate(piece.offset.x, piece.offset.y);
+      if (piece.clip) {
+        ctx.beginPath();
+        tracePath(ctx, piece.clip);
+        ctx.clip();
+      }
+      ctx.beginPath();
+      tracePath(ctx, piece.path);
+      ctx.fill('evenodd');
+    } finally {
+      ctx.restore();
     }
   }
 }

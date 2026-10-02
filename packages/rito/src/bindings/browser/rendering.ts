@@ -198,9 +198,13 @@ function renderFrameToCanvas(
       ctx,
       {
         resolveImage,
-        ...(state.fgColor
-          ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor }
-          : {}),
+        // An image that can no longer arrive shows its broken picture.
+        imageFallback: (href) =>
+          resolveImage(href) === undefined && browserReaderImageResourceFailed(state, href)
+            ? 'broken'
+            : undefined,
+        backgroundColor: state.bgColor,
+        ...(state.fgColor ? { foregroundColor: state.fgColor } : {}),
       },
     );
   } catch (error) {

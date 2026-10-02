@@ -102,6 +102,21 @@ impl Decoder<'_> {
                 Ok(())
             }
             12 | 13 => self.read_text(),
+            14 => {
+                self.read_string()?;
+                self.read_enum(1, 2)?;
+                self.read_rect()?;
+                self.read_f64s(2)?;
+                let pieces = self.read_u32()?;
+                for _ in 0..pieces {
+                    self.read_f64s(2)?;
+                    if self.read_option()? {
+                        self.read_path()?;
+                    }
+                    self.read_path()?;
+                }
+                Ok(())
+            }
             opcode => Err(DecodeError::UnknownOpcode(opcode)),
         }
     }

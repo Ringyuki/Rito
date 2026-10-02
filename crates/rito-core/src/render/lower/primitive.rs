@@ -171,6 +171,32 @@ pub(crate) struct TilePlan {
     pub rows: u32,
 }
 
+/// When an image's fallback paints: while its bitmap is on the way, or
+/// once it can no longer arrive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ImageFallbackState {
+    Loading,
+    Broken,
+}
+
+impl ImageFallbackState {
+    pub(crate) const fn tag(self) -> u8 {
+        match self {
+            Self::Loading => 1,
+            Self::Broken => 2,
+        }
+    }
+}
+
+/// One even-odd filled outline of an image fallback icon, moved by
+/// `offset` and cut to `clip` (both in the outline's own coordinates).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct IconPiece {
+    pub offset: DevicePoint,
+    pub clip: Option<DevicePath>,
+    pub path: DevicePath,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum DeviceTransform {
     Rotate { radians: f64 },
@@ -232,6 +258,20 @@ pub(crate) enum Primitive {
         source_rect: Option<ReaderRect>,
         tiles: Option<TilePlan>,
     },
+    /// What stands in an image's place while its bitmap is not there,
+    /// painted only while the image named `src` is in `state`: `block`
+    /// filled with the page background mixed with `block_ink` of the text
+    /// colour, then each icon piece filled even-odd with the block colour
+    /// mixed with `icon_ink` of the text colour, translated by its offset
+    /// and clipped to its clip. Both colours follow the renderer's theme.
+    ImageFallback {
+        src: String,
+        state: ImageFallbackState,
+        block: DeviceRect,
+        block_ink: f64,
+        icon_ink: f64,
+        pieces: Vec<IconPiece>,
+    },
     /// A text run in CSS pixels, drawn under `scale(ratio)`: the
     /// rasterizer needs the CSS size (synthetic bold widens with it) and
     /// the scale separately. Its inline box and decoration line have
@@ -258,6 +298,7 @@ impl Primitive {
             Self::DrawImage { .. } => 11,
             Self::Text(_) => 12,
             Self::Ruby(_) => 13,
+            Self::ImageFallback { .. } => 14,
         }
     }
 }
