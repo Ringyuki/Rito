@@ -58,10 +58,16 @@ const unpackDir = path.join(outDir, 'book');
 mkdirSync(unpackDir, { recursive: true });
 // unzip exits 1 for warnings (an epub with junk bytes before the zip
 // header still extracts); only a missing container afterwards is fatal.
+// unzip also stops at an entry whose name is not UTF-8 (a GBK-named file
+// the filesystem refuses), leaving every later entry unextracted; bsdtar
+// transcodes such names and extracts the whole archive.
 try {
   execFileSync('unzip', ['-o', '-q', bookPath, '-d', unpackDir]);
 } catch (error) {
-  if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) throw error;
+  if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) {
+    execFileSync('tar', ['-xf', bookPath, '-C', unpackDir]);
+    if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) throw error;
+  }
 }
 const container = readFileSync(path.join(unpackDir, 'META-INF/container.xml'), 'utf8');
 const opfRel = /full-path="([^"]+)"/.exec(container)?.[1];
