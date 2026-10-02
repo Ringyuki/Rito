@@ -33,6 +33,8 @@ Rito is one Rust engine with several hosts:
 - [Using `@ritojs/kit`](./integrations/kit.md)
 - [Using `@ritojs/react`](./integrations/react.md)
 - [Direct FFI integration](./integrations/ffi.md)
+- [Sharded publications](./integrations/sharded-publications.md) — open a
+  book from a skeleton and receive chapters one shard at a time
 
 ## Development Docs
 

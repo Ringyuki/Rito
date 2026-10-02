@@ -46,8 +46,7 @@ RitoArtifactRequest _request(int sessionId) => RitoArtifactRequest(
   Map<int, File> files,
   Map<int, Uint8List> keys,
 })
-_pack() {
-  final out = Directory.systemTemp.createTempSync('rito-shards-');
+_pack(Directory out) {
   final packed = Process.runSync('cargo', <String>[
     'run',
     '--quiet',
@@ -111,7 +110,9 @@ void main() {
     'a session opened from shards loads chapters as it reaches them and draws '
     'what the archive draws',
     () async {
-      final packed = _pack();
+      final out = Directory.systemTemp.createTempSync('rito-shards-');
+      addTearDown(() => out.deleteSync(recursive: true));
+      final packed = _pack(out);
       final loads = <List<int>>[];
       final shardGateway = RitoIsolateGateway();
       final archiveGateway = RitoIsolateGateway();
