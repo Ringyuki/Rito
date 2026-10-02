@@ -328,7 +328,6 @@ final class RitoIsolateGateway
         ),
     ];
     _shardLoaders[sessionId] = loadShards;
-    var nativeSessionOpened = false;
     try {
       return await _queue.open<RitoArtifact>(
         sessionId: sessionId,
@@ -340,30 +339,17 @@ final class RitoIsolateGateway
           requestId: intent.requestId,
           operation: () async {
             final worker = await _worker;
-            late final Uint8List wireBytes;
-            try {
-              wireBytes = await worker.invokeWire(
-                _OpenShardsOperation(
-                  sessionId: sessionId,
-                  skeletonBytes: RitoOwnedByteTransfer.take(skeletonBytes),
-                  skeletonKey: skeletonKey,
-                  requestBytes: _requestEncoder.encode(
-                    request.withRequestId(intent.requestId),
-                  ),
-                  pinnedFontFaces: pinnedFontFaces,
+            final wireBytes = await worker.invokeWire(
+              _OpenShardsOperation(
+                sessionId: sessionId,
+                skeletonBytes: RitoOwnedByteTransfer.take(skeletonBytes),
+                skeletonKey: skeletonKey,
+                requestBytes: _requestEncoder.encode(
+                  request.withRequestId(intent.requestId),
                 ),
-              );
-            } on RitoNativeException catch (error) {
-              if (!_awaitsShards(sessionId, error)) rethrow;
-              // The session stays open while its first request waits.
-              nativeSessionOpened = true;
-              wireBytes = await _retryExactSeekWithShards(
-                intent: intent,
-                request: request,
-                pending: error,
-              );
-            }
-            nativeSessionOpened = true;
+                pinnedFontFaces: pinnedFontFaces,
+              ),
+            );
             return _decodeArtifact(
               wireBytes: wireBytes,
               sessionId: sessionId,
@@ -373,11 +359,10 @@ final class RitoIsolateGateway
         ),
       );
     } on Object {
+      // A failed open registers no native session, so nothing consumed
+      // the request ID.
       _forgetIntent(intent);
       _shardLoaders.remove(sessionId);
-      if (nativeSessionOpened) {
-        await _disposeNativeSession(sessionId).catchError((Object _) {});
-      }
       rethrow;
     }
   }
@@ -390,7 +375,7 @@ final class RitoIsolateGateway
     final intent = _claimExactSeekIntent(request.sessionId, request.requestId);
     final nativeRequest = request.withRequestId(intent.requestId);
     try {
-      return await _requestArtifactNative(nativeRequest, intent);
+      return await _requestArtifactNative(nativeRequest);
     } on Object catch (error) {
       // A typed native failure may still have consumed the request ID on
       // the native side; the intent stays so a later claim never reuses it.
@@ -403,7 +388,6 @@ final class RitoIsolateGateway
 
   Future<RitoArtifact> _requestArtifactNative(
     RitoArtifactRequest request,
-    _GatewayIntent intent,
   ) async {
     final requestBytes = _requestEncoder.encode(request);
     return _queue.navigate<RitoArtifact>(
@@ -417,26 +401,16 @@ final class RitoIsolateGateway
         requestId: request.requestId,
         operation: () async {
           final worker = await _worker;
-          late final Uint8List wireBytes;
-          try {
-            wireBytes = await worker.invokeWire(
-              _RequestArtifactOperation(
-                sessionId: request.sessionId,
-                requestBytes: requestBytes,
-              ),
-            );
-          } on RitoNativeException catch (error) {
-            if (!_awaitsShards(request.sessionId, error)) rethrow;
-            wireBytes = await _retryExactSeekWithShards(
-              intent: intent,
-              request: request,
-              pending: error,
-            );
-          }
+          final wireBytes = await worker.invokeWire(
+            _RequestArtifactOperation(
+              sessionId: request.sessionId,
+              requestBytes: requestBytes,
+            ),
+          );
           return _decodeArtifact(
             wireBytes: wireBytes,
             sessionId: request.sessionId,
-            requestId: intent.requestId,
+            requestId: request.requestId,
           );
         },
       ),
@@ -461,7 +435,7 @@ final class RitoIsolateGateway
     required RitoAdjacentRequest request,
   }) async {
     try {
-      return await _requestAdjacentWithShards(intent: intent, request: request);
+      return await _requestAdjacentOnce(request);
     } on RitoNativeException catch (error, stackTrace) {
       if (!_isAdjacentPending(error)) {
         Error.throwWithStackTrace(error, stackTrace);
@@ -471,21 +445,9 @@ final class RitoIsolateGateway
       }
       return _pendingAdjacent.resume(
         initialRequest: request,
-        requestOneQuantum: (continuation) async {
+        requestOneQuantum: (continuation) {
           intent.requestId = continuation.requestId;
-          try {
-            return await _requestAdjacentOnce(continuation);
-          } on RitoNativeException catch (error) {
-            if (!_awaitsShards(continuation.sessionId, error)) rethrow;
-            // The quantum waited on shards; once they are in, the turn
-            // continues under the next continuation ID like any other
-            // unfinished quantum.
-            await _supplyShards(continuation.sessionId, error.pendingShards);
-            throw RitoNativeException(
-              status: ritoNativeStatusAdjacentPending,
-              message: error.message,
-            );
-          }
+          return _requestAdjacentOnce(continuation);
         },
         yieldHostTurn: _yieldHostTurn,
         isCurrent: () => _isCurrent(intent),
@@ -495,32 +457,6 @@ final class RitoIsolateGateway
     } on Object {
       _forgetIntent(intent);
       rethrow;
-    }
-  }
-
-  /// The first adjacent attempt; shards it waited on are supplied and the
-  /// turn is asked again under a newer native request ID.
-  Future<RitoArtifact> _requestAdjacentWithShards({
-    required _GatewayIntent intent,
-    required RitoAdjacentRequest request,
-  }) async {
-    var attempt = request;
-    for (var round = 0; ; round += 1) {
-      try {
-        return await _requestAdjacentOnce(attempt);
-      } on RitoNativeException catch (error) {
-        if (!_awaitsShards(attempt.sessionId, error) ||
-            round >= _maxShardRounds) {
-          rethrow;
-        }
-        await _supplyShards(attempt.sessionId, error.pendingShards);
-        if (!_isCurrent(intent)) throw _superseded(intent);
-        attempt = adjacentContinuationRequest(
-          attempt,
-          _nextNativeRequestId(intent),
-        );
-        intent.requestId = attempt.requestId;
-      }
     }
   }
 
@@ -596,11 +532,6 @@ final class RitoIsolateGateway
     } on RitoNativeException catch (error) {
       if (error.status == ritoNativeStatusTargetNotPublished) {
         return null;
-      }
-      // A peek carries the caller's request ID, which the engine consumed;
-      // supply what it waited on so the caller's next peek finds it.
-      if (_awaitsShards(request.sessionId, error)) {
-        await _supplyShards(request.sessionId, error.pendingShards);
       }
       rethrow;
     }

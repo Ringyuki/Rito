@@ -220,10 +220,7 @@ async function openSession(state, deps, message) {
       'open',
     );
   } catch (error) {
-    // A sharded open whose first request waits on shards keeps its session;
-    // the client supplies them and requests again.
-    const keeps = state.phase === 'open' && normalizeWorkerError(error).code === 'resource-pending';
-    if (state.phase !== 'disposed' && !keeps) disposeTerminalSession(state);
+    if (state.phase !== 'disposed') disposeTerminalSession(state);
     throw error;
   }
 }
@@ -321,10 +318,7 @@ function exactArtifactResponse(state, request, produce, kind = 'artifact') {
     raw = produce();
   } catch (error) {
     const normalized = normalizeWorkerError(error);
-    // A publication opened from shards keeps its session when the first
-    // request waits on a shard: the client supplies it and asks again.
-    const fatalOpen = kind === 'open' && normalized.code !== 'resource-pending';
-    if (fatalOpen || isFatalExactError(normalized.code)) disposeTerminalSession(state);
+    if (kind === 'open' || isFatalExactError(normalized.code)) disposeTerminalSession(state);
     throw error;
   }
   try {

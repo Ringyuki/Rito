@@ -7,8 +7,6 @@ import 'dart:typed_data';
 
 import 'font/artifact_font_cache.dart';
 import 'image/artifact_image_cache.dart';
-import 'native/bindings.dart'
-    show RitoNativeException, ritoNativeStatusResourcePending;
 import 'native/gateway.dart';
 import 'protocol/annotation_target.dart';
 import 'protocol/artifact_models.dart';
@@ -103,12 +101,12 @@ final class RitoReaderSession {
 
   /// Opens a publication split by `rito-pack` from its skeleton shard.
   ///
-  /// Every content shard a call needs (a chapter, its images, the
-  /// publication's fonts) is loaded through [loadShards] the first time it is
-  /// needed and the call is retried, so the rest of the session API behaves
-  /// exactly as for [open]. Whole-book pagination through [advanceBackground]
-  /// reads every chapter, so it loads every shard; a host that must not
-  /// fetch the whole book does not run it. A sharded open always pins faces.
+  /// The skeleton carries every chapter, stylesheet and font and every
+  /// image's dimensions, so opening, seeking, turning and whole-book
+  /// pagination never wait on the network. An image is loaded through
+  /// [loadShards] the first time a page needs it, and the read is retried,
+  /// so the rest of the session API behaves exactly as for [open]. A
+  /// sharded open always pins faces.
   static Future<RitoReaderSession> openShards({
     required RitoReaderGateway gateway,
     required Uint8List skeletonBytes,
@@ -498,30 +496,15 @@ final class RitoReaderSession {
     if (!_liveArtifacts.contains(from.artifactId)) {
       throw ArgumentError('Peek source artifact is not live.');
     }
-    RitoArtifact? artifact;
-    for (var round = 0; ; round += 1) {
-      try {
-        artifact = await gateway.peekAdjacent(
-          request: RitoAdjacentRequest(
-            sessionId: sessionId,
-            requestId: requestId,
-            fromArtifactId: from.artifactId,
-            direction: direction,
-          ),
-        );
-        _recordConsumedRequestId(requestId);
-        break;
-      } on RitoNativeException catch (error) {
-        // The gateway supplied the shards the peek waited on; the engine
-        // consumed its request ID, so peek again under the next one.
-        if (error.status != ritoNativeStatusResourcePending || round >= 16) {
-          rethrow;
-        }
-        _recordConsumedRequestId(requestId);
-        _requireOpen();
-        requestId = nextRequestId;
-      }
-    }
+    final artifact = await gateway.peekAdjacent(
+      request: RitoAdjacentRequest(
+        sessionId: sessionId,
+        requestId: requestId,
+        fromArtifactId: from.artifactId,
+        direction: direction,
+      ),
+    );
+    _recordConsumedRequestId(requestId);
     if (artifact == null) {
       return null;
     }

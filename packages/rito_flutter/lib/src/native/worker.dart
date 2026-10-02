@@ -451,23 +451,15 @@ Uint8List _openShards(
   _OpenShardsOperation operation,
   Set<int> liveSessions,
 ) {
-  try {
-    final wireBytes = bindings.openShardsEncoded(
-      skeletonBytes: RitoOwnedByteTransfer.materialize(operation.skeletonBytes),
-      skeletonKey: operation.skeletonKey,
-      requestBytes: operation.requestBytes,
-      pinnedFontPolicy: _pinnedPolicy(operation.pinnedFontFaces),
-    );
-    liveSessions.add(operation.sessionId);
-    return wireBytes;
-  } on RitoNativeException catch (error) {
-    // A sharded open whose first request waits on shards leaves its native
-    // session open; every other failure registers none.
-    if (error.status == ritoNativeStatusResourcePending) {
-      liveSessions.add(operation.sessionId);
-    }
-    rethrow;
-  }
+  // A failed open registers no native session, so only success is tracked.
+  final wireBytes = bindings.openShardsEncoded(
+    skeletonBytes: RitoOwnedByteTransfer.materialize(operation.skeletonBytes),
+    skeletonKey: operation.skeletonKey,
+    requestBytes: operation.requestBytes,
+    pinnedFontPolicy: _pinnedPolicy(operation.pinnedFontFaces),
+  );
+  liveSessions.add(operation.sessionId);
+  return wireBytes;
 }
 
 RitoPinnedFontPolicy _pinnedPolicy(List<_PinnedFontFaceTransfer> faces) {

@@ -160,14 +160,15 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       );
     }
   };
-  // Runs `attempt` again after supplying what it waited on. An attempt that
-  // carries a request identity allocates a fresh one each time: the engine
-  // consumed the failed one.
-  const withShards = async (attempt) => {
+  // Laying out never waits on a shard (the skeleton carries every chapter,
+  // stylesheet, font and image size); only reading an image does. Such a
+  // call carries no request identity, so after supplying what it waited
+  // on the identical call is sent again.
+  const sendWithShards = async (kind, body, transfer) => {
     let previous;
     for (let round = 0; ; round += 1) {
       try {
-        return await attempt();
+        return await send(kind, body, transfer);
       } catch (error) {
         if (!isPendingShardError(error) || shardLoader === undefined) throw error;
         const named = error.pendingShards.join(',');
@@ -177,14 +178,11 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       }
     }
   };
-  const sendWithShards = (kind, body, transfer) => withShards(() => send(kind, body, transfer));
-  const requestArtifactWithShards = (template) =>
-    withShards(async () => {
-      const request = withRequestIdentity(template, sessionId, nextRequestId());
-      return { request, payload: await send('request-artifact', { request }) };
-    });
 
-  const openShards = async (publication, fullRequest, pinnedFontPolicy) => {
+  const openPayload = (publication, request, pinnedFontPolicy) => {
+    if (publication instanceof ArrayBuffer) {
+      return send('open', { publication, sessionId, request, pinnedFontPolicy }, [publication]);
+    }
     if (typeof publication?.loadShards !== 'function') {
       throw new TypeError('A sharded publication needs a loadShards function');
     }
@@ -194,34 +192,15 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     shardLoader = publication.loadShards;
     const skeleton = publication.skeleton.slice(0);
     const key = publication.key === undefined ? {} : { key: publication.key };
-    try {
-      const body = { skeleton, ...key, sessionId, request: fullRequest, pinnedFontPolicy };
-      return { request: fullRequest, payload: await send('open', body, [skeleton]) };
-    } catch (error) {
-      if (!isPendingShardError(error)) throw error;
-      await supplyShards(error.pendingShards);
-      return requestArtifactWithShards(fullRequest);
-    }
+    return send('open', { skeleton, ...key, sessionId, request, pinnedFontPolicy }, [skeleton]);
   };
 
   const open = async (publication, request, pinnedFontPolicy) => {
     if (phase !== 'idle') throw new RitoReaderError('invalid-session', `Reader is ${phase}`);
-    const sharded = !(publication instanceof ArrayBuffer);
     phase = 'opening';
-    const firstRequest = withRequestIdentity(request, sessionId, nextRequestId());
+    const fullRequest = withRequestIdentity(request, sessionId, nextRequestId());
     try {
-      const opened = sharded
-        ? await openShards(publication, firstRequest, pinnedFontPolicy)
-        : {
-            request: firstRequest,
-            payload: await send(
-              'open',
-              { publication, sessionId, request: firstRequest, pinnedFontPolicy },
-              [publication],
-            ),
-          };
-      const fullRequest = opened.request;
-      const payload = opened.payload;
+      const payload = await openPayload(publication, fullRequest, pinnedFontPolicy);
       const artifact = decodeArtifactPayload(payload, fullRequest);
       liveArtifacts.add(artifact.artifactId);
       foregroundCandidate = foregroundCandidateIdentity(artifact, request);
@@ -288,16 +267,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
             fromArtifactId,
             direction,
           };
-          let payload;
-          try {
-            payload = await send('request-adjacent', { request });
-          } catch (error) {
-            if (!isPendingShardError(error) || shardLoader === undefined) throw error;
-            // The engine consumed this request; the next turn asks again
-            // with a fresh identity once the shards are in.
-            await supplyShards(error.pendingShards);
-            continue;
-          }
+          const payload = await send('request-adjacent', { request });
           if (isPendingAdjacentPayload(payload, request)) {
             if (intentId !== foregroundGeneration || phase !== 'open') break;
             await yieldControl();
@@ -373,7 +343,8 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
         ) {
           return;
         }
-        const { request, payload } = await requestArtifactWithShards(operation.request);
+        const request = withRequestIdentity(operation.request, sessionId, nextRequestId());
+        const payload = await send('request-artifact', { request });
         const artifact = decodeArtifactPayload(payload, request);
         liveArtifacts.add(artifact.artifactId);
         if (operation.superseded || phase !== 'open') {
@@ -788,8 +759,6 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     liveArtifacts,
     peekedArtifacts,
     send: sendWithShards,
-    withShards,
-    rawSend: send,
     requireOpen,
     nextRequestId,
     decodeArtifactPayload,

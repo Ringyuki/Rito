@@ -20,10 +20,10 @@ final class RitoPublicationShard {
 /// Gateways that can open a publication from its skeleton shard and supply
 /// content shards whenever a call waits on them.
 abstract interface class RitoShardedPublicationGateway {
-  /// Opens from [skeletonBytes] and returns the initial artifact. Shards the
-  /// initial request needs are loaded through [loadShards] before it is
-  /// requested again, as are the shards any later call on this session
-  /// needs.
+  /// Opens from [skeletonBytes] and returns the initial artifact. Layout
+  /// never waits on a content shard (the skeleton carries every chapter,
+  /// stylesheet, font and image size); the image shards a resource read
+  /// needs are loaded through [loadShards] and the read is retried.
   Future<RitoArtifact> openShards({
     required Uint8List skeletonBytes,
     Uint8List? skeletonKey,
@@ -33,9 +33,8 @@ abstract interface class RitoShardedPublicationGateway {
   });
 }
 
-/// A call needs at most its chapter, then that chapter's images and the
-/// publication's fonts; the bound only stops a loader that keeps returning
-/// shards the engine still reports missing.
+/// A read waits on the shards of the images it names; the bound only stops
+/// a loader that keeps returning shards the engine still reports missing.
 const int _maxShardRounds = 16;
 
 extension _ShardSupply on RitoIsolateGateway {
@@ -87,8 +86,9 @@ extension _ShardSupply on RitoIsolateGateway {
     }
   }
 
-  /// Runs [attempt] again after supplying what it waited on. Only for calls
-  /// that carry no request identity: the retry is the same call.
+  /// Runs [attempt] again after supplying what it waited on. Only resource
+  /// reads wait on shards, and they carry no request identity, so the retry
+  /// is the same call.
   Future<T> _withShards<T>(int sessionId, Future<T> Function() attempt) async {
     for (var round = 0; ; round += 1) {
       try {
@@ -100,43 +100,5 @@ extension _ShardSupply on RitoIsolateGateway {
         await _supplyShards(sessionId, error.pendingShards);
       }
     }
-  }
-
-  /// Supplies what an exact seek waited on and asks again under a newer
-  /// native request ID (the failed one was consumed), recording it on the
-  /// intent so the session adopts the substituted ID.
-  Future<Uint8List> _retryExactSeekWithShards({
-    required _GatewayIntent intent,
-    required RitoArtifactRequest request,
-    required RitoNativeException pending,
-  }) async {
-    var error = pending;
-    for (var round = 0; ; round += 1) {
-      if (round >= _maxShardRounds) throw error;
-      await _supplyShards(request.sessionId, error.pendingShards);
-      if (!_isCurrent(intent)) throw _superseded(intent);
-      intent.requestId = _nextNativeRequestId(intent);
-      final worker = await _worker;
-      try {
-        return await worker.invokeWire(
-          _RequestArtifactOperation(
-            sessionId: request.sessionId,
-            requestBytes: _requestEncoder.encode(
-              request.withRequestId(intent.requestId),
-            ),
-          ),
-        );
-      } on RitoNativeException catch (next) {
-        if (!_awaitsShards(request.sessionId, next)) rethrow;
-        error = next;
-      }
-    }
-  }
-
-  int _nextNativeRequestId(_GatewayIntent intent) {
-    if (intent.requestId >= 0x7fffffffffffffff) {
-      throw StateError('Rito reader request ID space is exhausted.');
-    }
-    return intent.requestId + 1;
   }
 }

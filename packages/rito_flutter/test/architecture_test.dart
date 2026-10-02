@@ -38,17 +38,12 @@ void main() {
       final worker = File('lib/src/native/worker.dart').readAsStringSync();
 
       expect(gateway, contains('RitoResumableExactSeekGateway'));
-      // open, openShards and seek each send their request once; the only
-      // further call is the retry after the shards a call waited on arrive.
+      // open, openShards and seek each send their request once.
       expect(
         'request.withRequestId(intent.requestId)'.allMatches(gateway),
         hasLength(3),
       );
-      expect(
-        'request.withRequestId(intent.requestId)'.allMatches(shards),
-        hasLength(1),
-      );
-      expect(shards, contains('_retryExactSeekWithShards'));
+      expect(shards, isNot(contains('withRequestId')));
       expect(gateway, contains('return await _requestArtifactNative('));
       expect(worker, contains('liveSessions.add(operation.sessionId)'));
       expect(worker, isNot(contains('Future<void>.delayed')));

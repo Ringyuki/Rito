@@ -85,7 +85,11 @@ _pack(Directory out) {
   );
 }
 
-Future<List<String>> _walk(RitoReaderSession session, int turns) async {
+Future<List<String>> _walk(
+  RitoReaderSession session,
+  int turns, {
+  Future<void> Function(RitoPreparedArtifact page)? onPage,
+}) async {
   final drawn = <String>[];
   var current = session.firstArtifact;
   for (var turn = 0; turn < turns; turn += 1) {
@@ -94,6 +98,7 @@ Future<List<String>> _walk(RitoReaderSession session, int turns) async {
       '${artifact.locator.href}#${artifact.localPageIndex}:'
       '${artifact.displayList.displayList.commands.length}',
     );
+    await onPage?.call(current);
     final next = await session.turn(
       from: current,
       requestId: session.nextRequestId,
@@ -107,8 +112,8 @@ Future<List<String>> _walk(RitoReaderSession session, int turns) async {
 
 void main() {
   test(
-    'a session opened from shards loads chapters as it reaches them and draws '
-    'what the archive draws',
+    'a session opened from shards lays every page out without loading a '
+    'shard, draws what the archive draws and loads an image when it is read',
     () async {
       final out = Directory.systemTemp.createTempSync('rito-shards-');
       addTearDown(() => out.deleteSync(recursive: true));
@@ -141,22 +146,30 @@ void main() {
         pinnedFontPolicy: _pinnedPolicy(),
       );
       try {
-        final loadedAtOpen = loads.length;
-        expect(loadedAtOpen, greaterThan(0));
-        expect(
-          loads.expand((ids) => ids).length,
-          lessThan(packed.files.length),
-          reason: 'opening one chapter does not fetch the book',
+        expect(loads, isEmpty, reason: 'opening never waits on a shard');
+        RitoResource? image;
+        final shardWalk = await _walk(
+          sharded,
+          40,
+          onPage: (page) async {
+            if (image != null) return;
+            for (final resource in page.artifact.resources) {
+              if (resource.kind != RitoResourceKind.image) continue;
+              image = await sharded.readResource(page, resource);
+              return;
+            }
+          },
         );
-        final shardWalk = await _walk(sharded, 40);
         final archiveWalk = await _walk(archive, 40);
         expect(shardWalk, archiveWalk);
         expect(
           shardWalk.map((page) => page.split('#').first).toSet().length,
           greaterThan(1),
-          reason: 'the walk crossed into a chapter loaded on demand',
+          reason: 'the walk crossed chapters',
         );
-        expect(loads.length, greaterThan(loadedAtOpen));
+        expect(image, isNotNull, reason: 'the walk reached an image');
+        expect(loads, hasLength(1), reason: 'only the image read loaded');
+        expect(loads.single, hasLength(1));
       } finally {
         await sharded.dispose();
         await archive.dispose();
