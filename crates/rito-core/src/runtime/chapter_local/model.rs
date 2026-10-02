@@ -127,13 +127,6 @@ pub(super) fn local_engine_error(error: EpubError) -> RuntimeChapterLocalRevisio
 pub(super) fn local_error_from_source(
     error: RuntimeSourceLocatorError,
 ) -> RuntimeChapterLocalRevisionError {
-    if !error.pending_shards.is_empty() {
-        return RuntimeChapterLocalRevisionError {
-            kind: RuntimeRevisionErrorKind::ResourcePending,
-            message: error.message,
-            pending_shards: error.pending_shards,
-        };
-    }
     local_error(
         RuntimeRevisionErrorKind::InvalidChapterLocalTarget,
         error.message,

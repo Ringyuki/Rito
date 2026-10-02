@@ -126,7 +126,6 @@ pub enum RuntimeSourceLocatorErrorKind {
     HrefNotFound,
     InvalidSelector,
     SourceUnavailable,
-    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,10 +133,6 @@ pub enum RuntimeSourceLocatorErrorKind {
 pub struct RuntimeSourceLocatorError {
     pub kind: RuntimeSourceLocatorErrorKind,
     pub message: String,
-    /// Content shards the operation needs and the host has not supplied;
-    /// non-empty exactly for `ResourcePending`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pending_shards: Vec<u32>,
 }
 
 impl RuntimeSourceLocatorError {
@@ -145,7 +140,6 @@ impl RuntimeSourceLocatorError {
         Self {
             kind,
             message: message.into(),
-            pending_shards: Vec::new(),
         }
     }
 
@@ -168,13 +162,6 @@ impl RuntimeSourceLocatorError {
     }
 
     pub(super) fn source_unavailable(error: EpubError) -> Self {
-        if error.is_pending() {
-            return Self {
-                kind: RuntimeSourceLocatorErrorKind::ResourcePending,
-                message: error.message().to_owned(),
-                pending_shards: error.pending_shards().to_vec(),
-            };
-        }
         Self::new(
             RuntimeSourceLocatorErrorKind::SourceUnavailable,
             error.message().to_owned(),

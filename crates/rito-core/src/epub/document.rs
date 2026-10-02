@@ -8,11 +8,7 @@ use crate::{
     xhtml::{parse_xhtml, DocumentNode},
 };
 
-use super::{
-    join_epub_href,
-    reader::{PendingReads, PublicationReader},
-    EpubError, EpubResult, PackageDocument,
-};
+use super::{join_epub_href, reader::PublicationReader, EpubError, EpubResult, PackageDocument};
 
 mod archive_source;
 mod chapter_scan;
@@ -100,7 +96,6 @@ impl LoadedEpubDocument {
             )));
         };
         let mut archive = source.reader()?;
-        let mut pending = PendingReads::default();
         for chapter in &mut self.chapters[start..end] {
             if chapter.source_loaded {
                 continue;
@@ -108,16 +103,13 @@ impl LoadedEpubDocument {
             if chapter.href.is_empty() {
                 chapter.xhtml_source.clear();
             } else {
-                let read = archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href));
-                let Some(text) = pending.absorb(read)? else {
-                    continue;
-                };
-                chapter.xhtml_source = text;
+                chapter.xhtml_source =
+                    archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href))?;
             }
             chapter.source_loaded = true;
             chapter.image_refs = None;
         }
-        pending.finish()
+        Ok(())
     }
 
     pub fn ensure_all_chapters_loaded(&mut self) -> EpubResult<()> {
@@ -135,24 +127,20 @@ impl LoadedEpubDocument {
             return Ok(());
         };
         let mut archive = source.reader()?;
-        let mut pending = PendingReads::default();
         for resource in &mut self.fonts {
             if !resource.bytes.is_empty() {
                 continue;
             }
-            let read = source.read_bytes_with_archive(
+            let bytes = source.read_bytes_with_archive(
                 &mut archive,
                 &resource.href,
                 ArchiveResourceKind::Font,
-            );
-            let Some(bytes) = pending.absorb(read)? else {
-                continue;
-            };
+            )?;
             resource.byte_length = bytes.len();
             resource.byte_hash = Some(hash_bytes(&bytes));
             resource.bytes = bytes;
         }
-        pending.finish()
+        Ok(())
     }
 
     pub fn ensure_chapter_image_dimensions_loaded(
@@ -307,16 +295,14 @@ impl LoadedEpubDocument {
             return loaded_image_dimensions_for_refs(&self.images, refs);
         };
         let mut archive = source.reader()?;
-        let mut pending = PendingReads::default();
         for href in refs {
-            pending.absorb(ensure_image_dimensions_loaded_with_archive(
+            ensure_image_dimensions_loaded_with_archive(
                 &mut self.images,
                 source,
                 &mut archive,
                 href,
-            ))?;
+            )?;
         }
-        pending.finish()?;
         loaded_image_dimensions_for_refs(&self.images, refs)
     }
 

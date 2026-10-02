@@ -58,11 +58,7 @@ impl WasmRuntimeError {
     }
 
     pub(crate) fn from_revision(error: RuntimeRevisionError) -> Self {
-        Self::pending(
-            revision_error_code(error.kind),
-            error.message,
-            error.pending_shards,
-        )
+        Self::new(revision_error_code(error.kind), error.message)
     }
 
     pub(crate) fn from_chapter_local(error: RuntimeChapterLocalRevisionError) -> Self {

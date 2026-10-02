@@ -24,8 +24,8 @@ import {
 let nextReaderSessionId = 1;
 const nextWorkerRequestIds = new WeakMap();
 const WORKER_DISPOSE_ACK_TIMEOUT_MS = 1_000;
-// A call needs at most its chapter, then that chapter's images and the
-// publication's fonts; the bound only stops a loader that keeps returning
+// Only an image read waits on a shard, and only on the shards of the
+// images it names; the bound only stops a loader that keeps returning
 // shards the engine still reports missing.
 const MAX_SHARD_ROUNDS = 16;
 
@@ -233,9 +233,11 @@ function createRitoCoreWasmReaderClient(
       }),
     );
   const prefetch = createShardPrefetchLane((shardId) => supplyShards([shardId]));
-  // Every call into a publication opened from shards may fail as
-  // resource-pending; supply what it names and send the identical call
-  // again. Calls carry no request identity, so a retry is the same call.
+  // A resource read of a publication opened from shards fails as
+  // resource-pending while its image's shard is missing; supply what it
+  // names and send the identical call again (calls carry no request
+  // identity, so a retry is the same call). Every call passes through here
+  // so ahead-of-need supply knows when the reader is busy.
   const shardAwareRequest = (input, transfer) =>
     prefetch.around(async () => {
       let previous;

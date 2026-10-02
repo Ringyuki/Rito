@@ -16,8 +16,8 @@ const PROTOCOL = 'rito-reader-session';
 const MAX_PENDING_MESSAGES = 8;
 const MAX_ADJACENT_CONTINUATION_QUANTA = 4_096;
 const DISPOSE_TIMEOUT_MS = 1_000;
-// A request needs at most its chapter, then that chapter's images and the
-// publication's fonts; the bound only stops a loader that keeps returning
+// Only an image read waits on a shard, and only on the shards of the
+// images it names; the bound only stops a loader that keeps returning
 // shards the engine still reports missing.
 const MAX_SHARD_ROUNDS = 16;
 const ERROR_CODES = new Set([

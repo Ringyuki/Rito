@@ -92,34 +92,3 @@ impl PublicationReader<'_> {
         }
     }
 }
-
-/// Collects the pending reads of a batch so one failure names every shard
-/// the batch needs, letting the host fetch them together. Any other error
-/// still stops the batch at once.
-#[derive(Default)]
-pub(crate) struct PendingReads {
-    shards: Vec<u32>,
-    first_message: Option<String>,
-}
-
-impl PendingReads {
-    pub(crate) fn absorb<T>(&mut self, result: EpubResult<T>) -> EpubResult<Option<T>> {
-        match result {
-            Ok(value) => Ok(Some(value)),
-            Err(error) if error.is_pending() => {
-                self.shards.extend_from_slice(error.pending_shards());
-                self.first_message
-                    .get_or_insert_with(|| error.message().to_owned());
-                Ok(None)
-            }
-            Err(error) => Err(error),
-        }
-    }
-
-    pub(crate) fn finish(self) -> EpubResult<()> {
-        match self.first_message {
-            None => Ok(()),
-            Some(message) => Err(EpubError::shards_pending(self.shards, message)),
-        }
-    }
-}

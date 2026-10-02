@@ -144,8 +144,8 @@ pub(super) fn numeric_overflow(field: &str) -> ReaderError {
     )
 }
 
-pub(super) fn invalid_locator(error: impl EngineFailure) -> ReaderError {
-    pending_or(error, ReaderErrorKind::InvalidLocator)
+pub(super) fn invalid_locator(error: impl std::fmt::Display) -> ReaderError {
+    ReaderError::new(ReaderErrorKind::InvalidLocator, error.to_string())
 }
 
 /// An engine failure the session reports; a failure caused by shards the
@@ -153,13 +153,9 @@ pub(super) fn invalid_locator(error: impl EngineFailure) -> ReaderError {
 pub(super) use crate::runtime::pending::PendingShardFailure as EngineFailure;
 
 pub(super) fn engine_error(error: impl EngineFailure) -> ReaderError {
-    pending_or(error, ReaderErrorKind::EngineFailure)
-}
-
-fn pending_or(error: impl EngineFailure, kind: ReaderErrorKind) -> ReaderError {
     let pending = error.pending_shards();
     if pending.is_empty() {
-        ReaderError::new(kind, error.to_string())
+        ReaderError::new(ReaderErrorKind::EngineFailure, error.to_string())
     } else {
         ReaderError::resource_pending(pending.to_vec(), error.to_string())
     }

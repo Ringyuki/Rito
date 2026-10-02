@@ -196,8 +196,8 @@ pub enum RuntimeRevisionErrorKind {
     StaleRevisionVersion,
     ChapterLocalOwnerMismatch,
     EngineFailure,
-    /// The publication was opened from shards and a shard the operation
-    /// reads has not been supplied.
+    /// The publication was opened from shards and the image a chapter-local
+    /// read names sits in a shard the host has not supplied.
     ResourcePending,
 }
 
@@ -206,10 +206,6 @@ pub enum RuntimeRevisionErrorKind {
 pub struct RuntimeRevisionError {
     pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-    /// Content shards the operation needs and the host has not supplied;
-    /// non-empty exactly for `ResourcePending`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pending_shards: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -36,9 +36,10 @@ impl ReaderSession {
         Self::from_document(session_id, document)
     }
 
-    /// Opens a reader from a publication's skeleton shard. Operations that
-    /// read a content shard the host has not supplied fail with
-    /// `ResourcePending` naming it; supply it and retry.
+    /// Opens a reader from a publication's skeleton shard, which carries
+    /// everything layout reads. Reading an image whose shard the host has
+    /// not supplied fails with `ResourcePending` naming it; supply it and
+    /// retry the read.
     pub fn open_shards_with_pinned_font_policy(
         session_id: u64,
         skeleton: &[u8],
