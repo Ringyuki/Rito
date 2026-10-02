@@ -60,7 +60,7 @@ function shardedOpenSource(publication) {
   requireShardKey(publication.key);
   return {
     skeleton: publication.skeleton.slice(0),
-    ...(publication.key === undefined ? {} : { skeletonKey: publication.key.slice() }),
+    ...(publication.key === undefined ? {} : { skeletonKey: new Uint8Array(publication.key) }),
   };
 }
 

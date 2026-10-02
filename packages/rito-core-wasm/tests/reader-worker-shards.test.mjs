@@ -127,6 +127,40 @@ test('a loader that fails or returns another shard fails only that call', async 
   client.dispose();
 });
 
+test('a shard handed over as a view of a larger buffer is copied by its own window', async () => {
+  const worker = new ScriptedWorker();
+  const client = createRitoCoreWasmWorkerReaderClient(worker);
+  const opening = client.open(
+    {
+      skeleton: Uint8Array.of(1).buffer,
+      // Node's Buffer.slice shares its pool instead of copying.
+      loadShards: async (ids) => ids.map((id) => ({ id, bytes: Buffer.from([id, 7, 7]) })),
+    },
+    POLICY,
+  );
+  await settle();
+  worker.succeed(worker.take('open'), { kind: 'open', result: readerOpenResult() });
+  await opening;
+  const reading = client.readResource('rev-1', 'image', 'a.png');
+  await settle();
+  worker.fail(worker.take('readResource'), {
+    code: 'resource-pending',
+    message: 'waits',
+    pendingShards: [3],
+  });
+  await settle();
+  const supplied = worker.take('supplyShard');
+  assert.deepEqual([...new Uint8Array(supplied.message.shard)], [3, 7, 7]);
+  worker.succeed(supplied, { kind: 'supplyShard', result: 3 });
+  await settle();
+  worker.succeed(worker.take('readResource'), {
+    kind: 'readResource',
+    result: { payload: {}, bytes: Uint8Array.of(1) },
+  });
+  await reading;
+  client.dispose();
+});
+
 test('a pending error without shards is not trusted', async () => {
   const worker = new ScriptedWorker();
   const client = createRitoCoreWasmWorkerReaderClient(worker);

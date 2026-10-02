@@ -935,9 +935,16 @@ function isPendingShardError(error) {
   return error instanceof RitoReaderError && error.code === 'resource-pending';
 }
 
+/**
+ * A dedicated copy of a shard's bytes. A view is copied by its own window:
+ * some Uint8Array subclasses (Node's Buffer) share a larger backing buffer
+ * and `slice` there does not copy.
+ */
 function shardBytes(bytes) {
   if (bytes instanceof ArrayBuffer) return bytes.slice(0);
-  if (bytes instanceof Uint8Array) return bytes.slice().buffer;
+  if (bytes instanceof Uint8Array) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
   return undefined;
 }
 

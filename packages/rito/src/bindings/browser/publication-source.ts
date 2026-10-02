@@ -17,7 +17,7 @@ export function retainBrowserReaderPublication(
   const loadShards = publication.loadShards.bind(publication);
   return {
     skeleton: publication.skeleton.slice(0),
-    ...(publication.key === undefined ? {} : { key: publication.key.slice() }),
+    ...(publication.key === undefined ? {} : { key: new Uint8Array(publication.key) }),
     async loadShards(shardIds) {
       const missing = shardIds.filter((id) => !loaded.has(id));
       if (missing.length > 0) {

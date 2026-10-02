@@ -358,12 +358,7 @@ async function supplyShard(request, loader, shardId) {
       `loadShards did not return shard ${String(shardId)}`,
     );
   }
-  const bytes =
-    shard.bytes instanceof ArrayBuffer
-      ? shard.bytes.slice(0)
-      : shard.bytes instanceof Uint8Array
-        ? shard.bytes.slice().buffer
-        : undefined;
+  const bytes = ownedShardBytes(shard.bytes);
   if (bytes === undefined) {
     throw new RitoCoreWasmError('bad-request', `shard ${String(shardId)} bytes must be binary`);
   }
@@ -377,6 +372,19 @@ async function supplyShard(request, loader, shardId) {
       `the bytes loaded for shard ${String(shardId)} are another shard`,
     );
   }
+}
+
+/**
+ * A dedicated copy of a shard's bytes. A view is copied by its own window:
+ * some Uint8Array subclasses (Node's Buffer) share a larger backing buffer
+ * and `slice` there does not copy.
+ */
+function ownedShardBytes(bytes) {
+  if (bytes instanceof ArrayBuffer) return bytes.slice(0);
+  if (bytes instanceof Uint8Array) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  return undefined;
 }
 
 async function requestReaderOpen(request, prepared, disposeInvalid) {
