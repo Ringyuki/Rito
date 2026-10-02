@@ -9,6 +9,8 @@ export type BrowserReaderImageLoadOutcome =
       readonly status: 'failed';
       readonly reason: BrowserReaderImageResourceFailureReason;
       readonly detail?: string | undefined;
+      /** The failure can pass (the host could not load the image's shard). */
+      readonly retryable?: boolean | undefined;
     };
 
 export const BROWSER_READER_IMAGE_RESOURCE_ERROR_CODE = 'image-resource-unavailable' as const;

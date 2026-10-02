@@ -29,6 +29,8 @@ export type CanvasImageFallbackResolver = (src: string) => 'loading' | 'broken' 
 export interface PrimitiveRenderOptions {
   readonly resolveImage?: CanvasImageResolver;
   readonly imageFallback?: CanvasImageFallbackResolver;
+  /** The opacity an image paints at: below one while a late image fades in. */
+  readonly imageOpacity?: (src: string) => number;
   readonly foregroundColor?: string;
   readonly backgroundColor?: string;
 }
@@ -56,6 +58,7 @@ interface DeclaredGrounds {
 interface RenderState extends DeclaredGrounds {
   readonly resolveImage: CanvasImageResolver;
   readonly imageFallback: CanvasImageFallbackResolver;
+  readonly imageOpacity: (src: string) => number;
   readonly fallbackColors: { readonly background: string; readonly foreground: string };
   readonly colorOverride?: CanvasTextColorOverride;
   /** Device pixels per CSS pixel the list was resolved at. */
@@ -176,6 +179,7 @@ function createRenderState(options: PrimitiveRenderOptions, ratio: number): Rend
   return {
     resolveImage: options.resolveImage ?? (() => undefined),
     imageFallback: options.imageFallback ?? (() => undefined),
+    imageOpacity: options.imageOpacity ?? (() => 1),
     fallbackColors: {
       background: options.backgroundColor ?? DEFAULT_PAGE,
       foreground: options.foregroundColor ?? DEFAULT_INK,
@@ -238,7 +242,7 @@ function renderPrimitive(
       drawShadow(ctx, primitive);
       return;
     case 'draw-image':
-      drawImage(ctx, primitive, state.resolveImage);
+      drawImage(ctx, primitive, state.resolveImage, state.imageOpacity(primitive.src));
       return;
     case 'image-fallback':
       if (state.imageFallback(primitive.src) === primitive.state) {

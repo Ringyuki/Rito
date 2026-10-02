@@ -1,3 +1,4 @@
+import { browserReaderImageFallback, browserReaderImageOpacity } from './image-presence';
 import { renderReaderPrimitivesToCanvas, type CanvasRenderingTarget } from './primitive-renderer';
 import {
   touchBrowserReaderDecodedImages,
@@ -198,11 +199,14 @@ function renderFrameToCanvas(
       ctx,
       {
         resolveImage,
-        // An image that can no longer arrive shows its broken picture.
         imageFallback: (href) =>
-          resolveImage(href) === undefined && browserReaderImageResourceFailed(state, href)
-            ? 'broken'
-            : undefined,
+          browserReaderImageFallback(
+            state,
+            href,
+            resolveImage(href) !== undefined,
+            browserReaderImageResourceFailed(state, href),
+          ),
+        imageOpacity: (href) => browserReaderImageOpacity(state, href),
         backgroundColor: state.bgColor,
         ...(state.fgColor ? { foregroundColor: state.fgColor } : {}),
       },

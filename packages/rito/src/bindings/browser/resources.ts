@@ -12,6 +12,11 @@ import type {
 } from './core-contracts';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 import { trackBrowserReaderHostTask } from './reader-host-tasks';
+import {
+  noteBrowserReaderImageLoading,
+  noteBrowserReaderImageRetryable,
+  noteBrowserReaderImageSettled,
+} from './image-presence';
 import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
 import {
   BrowserReaderImageResourceError,
@@ -202,6 +207,7 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
   if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision)) {
     return;
   }
+  noteBrowserReaderImageLoading(state, href);
   const task: Promise<BrowserReaderImageLoadOutcome> = worker
     .readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
     .then(
@@ -210,10 +216,19 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
         status: 'failed',
         reason: 'resource-unavailable',
         detail: String(error).slice(0, 400),
+        retryable: isRetryableReadFailure(error),
       }),
     )
     .then((outcome) => {
-      if (outcome.status === 'failed') recordImageFailure(state, revision, href, outcome);
+      noteBrowserReaderImageSettled(state, href, outcome.status === 'ready');
+      if (outcome.status === 'failed') {
+        recordImageFailure(state, revision, href, outcome);
+        if (outcome.retryable) {
+          noteBrowserReaderImageRetryable(state, href, () => {
+            retryBrowserReaderImage(state, revision, href);
+          });
+        }
+      }
       return outcome;
     });
   const tracked = { task };
@@ -237,6 +252,33 @@ export function ensureFrameImageResourceLoaded(state: BrowserReaderState, href: 
       }
     }),
   );
+}
+
+/**
+ * A read the engine refused is final: the image is not in the publication
+ * or cannot be served. Anything else (the host's shard loader threw, or the
+ * shard still had not arrived after its loads) can pass.
+ */
+function isRetryableReadFailure(error: unknown): boolean {
+  const code = (error as { readonly code?: unknown } | null)?.code;
+  return typeof code !== 'string' || code === 'resource-pending';
+}
+
+/** Forgets a failure that can pass and reads the image again; every spread
+ * drawing it repaints once it settles. */
+function retryBrowserReaderImage(
+  state: BrowserReaderState,
+  revision: BrowserReaderRevisionHandle,
+  href: string,
+): void {
+  if (state.disposed || !sameWorkerRevision(state.revisionHandle, revision)) return;
+  state.imageResourceFailures.delete(href);
+  for (const [spreadIndex, frame] of state.frames) {
+    if (frame.resourceRefs.images.includes(href)) {
+      unmarkSpreadImageResourcesSettled(state, revision, spreadIndex);
+    }
+  }
+  ensureFrameImageResourceLoaded(state, href);
 }
 
 /**

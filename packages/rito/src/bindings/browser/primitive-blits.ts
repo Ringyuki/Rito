@@ -97,9 +97,20 @@ export function drawImage(
   ctx: CanvasRenderingContext2D,
   primitive: ImagePrimitive,
   resolveImage: CanvasImageResolver,
+  opacity = 1,
 ): void {
   const bitmap = resolveImage(primitive.src);
-  if (!bitmap) return;
+  if (!bitmap || opacity <= 0) return;
+  if (opacity < 1) {
+    ctx.save();
+    try {
+      ctx.globalAlpha = (Number.isFinite(ctx.globalAlpha) ? ctx.globalAlpha : 1) * opacity;
+      drawImage(ctx, primitive, resolveImage);
+    } finally {
+      ctx.restore();
+    }
+    return;
+  }
   const { dest, sourceRect, tiles } = primitive;
   const draw = (x: number, y: number): void => {
     if (sourceRect) {

@@ -662,6 +662,7 @@ async function waitForCall(mock: ReturnType<typeof vi.fn>): Promise<void> {
 
 function createState(): BrowserReaderState {
   return {
+    frames: new Map(),
     spreadMode: 'single',
     fontSizeOverride: undefined,
     lineHeightOverride: undefined,
