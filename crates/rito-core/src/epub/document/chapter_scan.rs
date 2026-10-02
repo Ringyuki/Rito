@@ -56,36 +56,6 @@ impl LoadedEpubDocument {
         ChapterSourceScanSession::new()
     }
 
-    /// Whether reading a spine item's source would not wait on a shard.
-    pub(crate) fn chapter_source_available(&self, chapter_index: usize) -> bool {
-        let (Some(chapter), Some(store)) = (self.chapters.get(chapter_index), self.shard_store())
-        else {
-            return true;
-        };
-        chapter.source_loaded
-            || chapter.href.is_empty()
-            || store.is_available(&join_epub_href(self.opf_dir(), &chapter.href))
-    }
-
-    /// The shard holding a spine item's source, when a shard holds it.
-    pub(crate) fn chapter_source_shard(&self, chapter_index: usize) -> Option<u32> {
-        let chapter = self.chapters.get(chapter_index)?;
-        if chapter.href.is_empty() {
-            return None;
-        }
-        self.shard_store()?
-            .shard_of(&join_epub_href(self.opf_dir(), &chapter.href))
-    }
-
-    /// The footnote attribute scan a shard skeleton carries for a spine
-    /// item; `None` for a publication opened from a whole archive.
-    pub(crate) fn packed_footnote_hints(
-        &self,
-        chapter_index: usize,
-    ) -> Option<Vec<crate::xhtml::EpubTypeAttributeHint>> {
-        self.shard_store()?.footnote_hints(chapter_index)
-    }
-
     /// Visits one available spine XHTML source without materializing it into
     /// the lazy document state. Unreadable future sources remain deferred to
     /// their normal load path.
@@ -113,12 +83,8 @@ impl LoadedEpubDocument {
         let Some(archive) = session.archive.as_mut() else {
             return Ok(());
         };
-        match archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href)) {
-            Ok(xhtml) => visit(chapter_index, chapter, &xhtml),
-            // A chapter whose shard has not arrived is not unreadable: the
-            // scan must wait for it rather than skip it.
-            Err(error) if error.is_pending() => return Err(error),
-            Err(_) => {}
+        if let Ok(xhtml) = archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href)) {
+            visit(chapter_index, chapter, &xhtml);
         }
         Ok(())
     }

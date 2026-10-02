@@ -1,23 +1,24 @@
-//! A reader opened from shards through the C ABI: the first request that
-//! waits on shards keeps the session and names them in a `RITOPSH1`
-//! message; once they are supplied the next request draws exactly what an
-//! archive-opened reader draws.
+//! A reader opened from shards through the C ABI lays out from its
+//! skeleton alone and draws exactly what an archive-opened reader draws; a
+//! resource read that needs an image shard names it in a `RITOPSH1`
+//! message, and once it is supplied the same read returns the archive's
+//! bytes.
 
 use std::{fs, path::Path, sync::atomic::Ordering};
 
 use rito_core::{
     epub::shard::{pack_publication, PackOptions, PackedPublication},
     runtime::{
-        decode_reader_artifact, decode_reader_pending_shards, encode_reader_artifact_request,
-        ReaderArtifact, ReaderErrorKind,
+        decode_reader_artifact, decode_reader_pending_shards, decode_reader_resource,
+        encode_reader_artifact_request, ReaderArtifact, ReaderErrorKind, ReaderResourceKind,
     },
 };
 
 use crate::{
     abi::copy_owned_buffer_for_test, rito_buffer_free, rito_dispose,
-    rito_open_shards_with_pinned_fonts, rito_open_with_pinned_fonts, rito_read_publication,
-    rito_request_artifact, rito_supply_shard, RitoOwnedBuffer, RitoPinnedFontFace,
-    RITO_PINNED_FONT_ROLE_SERIF, RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_OK,
+    rito_open_shards_with_pinned_fonts, rito_open_with_pinned_fonts, rito_read_resource,
+    rito_supply_shard, RitoOwnedBuffer, RitoPinnedFontFace, RITO_PINNED_FONT_ROLE_SERIF,
+    RITO_RESOURCE_KIND_IMAGE, RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_OK,
     RITO_STATUS_RESOURCE_PENDING,
 };
 
@@ -143,17 +144,19 @@ fn supply(session_id: u64, bytes: &[u8], key: &[u8]) -> (u32, u32, Vec<u8>) {
     (status, shard_id, called.error)
 }
 
-fn request_artifact(session_id: u64, request: &[u8]) -> Called {
-    let mut artifact = RitoOwnedBuffer::EMPTY;
+fn read_image(session_id: u64, artifact_id: u64, href: &str) -> Called {
+    let mut resource = RitoOwnedBuffer::EMPTY;
     let mut error = RitoOwnedBuffer::EMPTY;
-    let status = rito_request_artifact(
+    let status = rito_read_resource(
         session_id,
-        request.as_ptr(),
-        request.len() as u64,
-        &mut artifact,
+        artifact_id,
+        RITO_RESOURCE_KIND_IMAGE,
+        href.as_ptr(),
+        href.len() as u64,
+        &mut resource,
         &mut error,
     );
-    take(status, artifact, error)
+    take(status, resource, error)
 }
 
 fn drawn(mut artifact: ReaderArtifact) -> ReaderArtifact {
@@ -161,16 +164,11 @@ fn drawn(mut artifact: ReaderArtifact) -> ReaderArtifact {
     artifact.artifact_id = 0;
     artifact.revision_id = 0;
     artifact.session_id = 0;
-    for page in &mut artifact.pages {
-        for hit in &mut page.hits {
-            hit.footnote_pending = false;
-        }
-    }
     artifact
 }
 
 #[test]
-fn a_sharded_open_keeps_its_session_until_the_shards_arrive() {
+fn a_sharded_reader_lays_out_from_its_skeleton_and_reads_images_as_they_arrive() {
     let font = pinned_font();
     let epub = publication();
     let mut counter = 1u8;
@@ -183,67 +181,62 @@ fn a_sharded_open_keeps_its_session_until_the_shards_arrive() {
     let packed =
         pack_publication(&epub, PackOptions { encrypt: true }, &mut random).expect("packs");
     let session_id = next_session_id();
-
     let opened = open_shards(&packed, &request_wire(session_id, 1), &font);
-    assert_eq!(opened.status, RITO_STATUS_RESOURCE_PENDING);
-    assert!(opened.output.is_empty());
-    let pending = decode_reader_pending_shards(&opened.error).expect("RITOPSH1 decodes");
-    assert_eq!(pending.kind, ReaderErrorKind::ResourcePending);
-    assert!(!pending.pending_shards.is_empty());
-
-    let mut publication_out = RitoOwnedBuffer::EMPTY;
-    let mut error = RitoOwnedBuffer::EMPTY;
-    let status = rito_read_publication(session_id, &mut publication_out, &mut error);
-    let _ = take(status, publication_out, error);
     assert_eq!(
-        status, RITO_STATUS_OK,
-        "the session survived its pending open"
+        opened.status,
+        RITO_STATUS_OK,
+        "{}",
+        String::from_utf8_lossy(&opened.error)
     );
-
-    let (status, _, _) = supply(session_id, &[1, 2, 3], &[]);
-    assert_eq!(status, RITO_STATUS_INVALID_ARGUMENT);
-    let (status, _, _) = supply(session_id, &packed.shards[0].bytes, &[7; 5]);
-    assert_eq!(
-        status, RITO_STATUS_INVALID_ARGUMENT,
-        "a short key is refused"
-    );
-
-    let mut request_id = 1;
-    let mut pending_shards = pending.pending_shards;
-    let artifact = loop {
-        for shard_id in &pending_shards {
-            let shard = &packed.shards[*shard_id as usize - 1];
-            let key = shard.key.as_ref().expect("encrypted").as_bytes().to_vec();
-            let (status, supplied, error) = supply(session_id, &shard.bytes, &key);
-            assert_eq!(
-                status,
-                RITO_STATUS_OK,
-                "{}",
-                String::from_utf8_lossy(&error)
-            );
-            assert_eq!(supplied, *shard_id);
-        }
-        request_id += 1;
-        let requested = request_artifact(session_id, &request_wire(session_id, request_id));
-        match requested.status {
-            RITO_STATUS_OK => break decode_reader_artifact(&requested.output).expect("decodes"),
-            RITO_STATUS_RESOURCE_PENDING => {
-                pending_shards = decode_reader_pending_shards(&requested.error)
-                    .expect("RITOPSH1 decodes")
-                    .pending_shards;
-            }
-            status => panic!(
-                "request failed with {status}: {}",
-                String::from_utf8_lossy(&requested.error)
-            ),
-        }
-    };
+    let artifact = decode_reader_artifact(&opened.output).expect("decodes");
 
     let archive_session = next_session_id();
     let archived = open_archive(&epub, &request_wire(archive_session, 1), &font);
     assert_eq!(archived.status, RITO_STATUS_OK);
     let expected = decode_reader_artifact(&archived.output).expect("decodes");
-    assert_eq!(drawn(artifact), drawn(expected));
+    assert_eq!(drawn(artifact.clone()), drawn(expected.clone()));
+
+    let href = artifact
+        .resources
+        .iter()
+        .find(|resource| resource.kind == ReaderResourceKind::Image)
+        .expect("the chapter draws an image")
+        .href
+        .clone();
+    let waiting = read_image(session_id, artifact.artifact_id, &href);
+    assert_eq!(waiting.status, RITO_STATUS_RESOURCE_PENDING);
+    let pending = decode_reader_pending_shards(&waiting.error).expect("RITOPSH1 decodes");
+    assert_eq!(pending.kind, ReaderErrorKind::ResourcePending);
+    assert_eq!(pending.pending_shards.len(), 1);
+
+    let (status, _, _) = supply(session_id, &[1, 2, 3], &[]);
+    assert_eq!(status, RITO_STATUS_INVALID_ARGUMENT);
+    let shard_id = pending.pending_shards[0];
+    let shard = &packed.shards[shard_id as usize - 1];
+    let (status, _, _) = supply(session_id, &shard.bytes, &[7; 5]);
+    assert_eq!(
+        status, RITO_STATUS_INVALID_ARGUMENT,
+        "a short key is refused"
+    );
+    let key = shard.key.as_ref().expect("encrypted").as_bytes().to_vec();
+    let (status, supplied, error) = supply(session_id, &shard.bytes, &key);
+    assert_eq!(
+        status,
+        RITO_STATUS_OK,
+        "{}",
+        String::from_utf8_lossy(&error)
+    );
+    assert_eq!(supplied, shard_id);
+
+    let read = read_image(session_id, artifact.artifact_id, &href);
+    assert_eq!(read.status, RITO_STATUS_OK);
+    let expected_read = read_image(archive_session, expected.artifact_id, &href);
+    assert_eq!(
+        decode_reader_resource(&read.output).expect("decodes").bytes,
+        decode_reader_resource(&expected_read.output)
+            .expect("decodes")
+            .bytes
+    );
 
     let mut error = RitoOwnedBuffer::EMPTY;
     assert_eq!(rito_dispose(session_id, &mut error), RITO_STATUS_OK);

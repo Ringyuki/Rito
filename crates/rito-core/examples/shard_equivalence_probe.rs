@@ -2,19 +2,20 @@
 //! shards, and compares every spine chapter's artifact between the two.
 //!
 //! Usage: `shard-equivalence-probe <serif-font-path> <epub>...`.
-//! The sharded session starts with the skeleton only; whenever a request
-//! fails as `ResourcePending` the probe supplies exactly the shards it
-//! names and retries. Identity fields and footnote hits still waiting on
-//! an unsupplied chapter are the only differences allowed; every other
-//! field, the display list bytes included, must be equal. Prints one line
-//! per book and exits non-zero when any book differs.
+//! The sharded session has the skeleton only and is never supplied a
+//! shard: laying a chapter out must not need one, so any `ResourcePending`
+//! fails the book. Identity fields are the only differences allowed; every
+//! other field, the display list bytes included, must be equal. Prints one
+//! line per book, with the skeleton's share of the archive (what a reader
+//! downloads before its first page), and exits non-zero when any book
+//! differs.
 
 use std::{env, fs, process};
 
-use rito_core::epub::shard::{pack_publication, PackOptions, PackedPublication};
+use rito_core::epub::shard::{pack_publication, PackOptions};
 use rito_core::runtime::{
-    ReaderArtifact, ReaderArtifactRequest, ReaderErrorKind, ReaderLayout, ReaderLocator,
-    ReaderSession, ReaderSpreadMode, ReaderTextRenderingProfile, RuntimePinnedFontFaceInput,
+    ReaderArtifact, ReaderArtifactRequest, ReaderLayout, ReaderLocator, ReaderSession,
+    ReaderSpreadMode, ReaderTextRenderingProfile, RuntimePinnedFontFaceInput,
     RuntimePinnedFontGenericRole, RuntimePinnedFontPolicyInput,
 };
 use sha2::{Digest, Sha256};
@@ -76,24 +77,11 @@ fn probe_book(path: &str, font: &[u8]) -> Result<String, String> {
         .iter()
         .map(|item| item.href.clone())
         .collect::<Vec<_>>();
-    let mut archive_request = 0u64;
-    let mut shard_request = 0u64;
-    let mut supplied = Vec::new();
-    let mut rounds = 0usize;
     let mut chapters = 0usize;
-    for href in &hrefs {
-        archive_request += 1;
-        let expected = archive.request_artifact(request(archive_request, href));
-        let actual = loop {
-            shard_request += 1;
-            match sharded.request_artifact(request(shard_request, href)) {
-                Err(error) if error.kind == ReaderErrorKind::ResourcePending => {
-                    rounds += 1;
-                    supply(&mut sharded, &packed, &error.pending_shards, &mut supplied)?;
-                }
-                other => break other,
-            }
-        };
+    for (index, href) in hrefs.iter().enumerate() {
+        let request_id = index as u64 + 1;
+        let expected = archive.request_artifact(request(request_id, href));
+        let actual = sharded.request_artifact(request(request_id, href));
         match (expected, actual) {
             (Ok(expected), Ok(actual)) => {
                 if drawn(&expected) != drawn(&actual) {
@@ -117,55 +105,21 @@ fn probe_book(path: &str, font: &[u8]) -> Result<String, String> {
             }
         }
     }
-    supplied.sort_unstable();
-    supplied.dedup();
+    let archive_bytes = fs::metadata(path).map_err(|error| error.to_string())?.len();
     Ok(format!(
-        "OK {path}: chapters={chapters} shards={} supplied={} rounds={rounds} skeleton={}B",
+        "OK {path}: chapters={chapters} shards={} skeleton={}B ({:.1}% of the archive)",
         packed.shards.len(),
-        supplied.len(),
-        packed.skeleton.bytes.len()
+        packed.skeleton.bytes.len(),
+        packed.skeleton.bytes.len() as f64 * 100.0 / archive_bytes as f64
     ))
 }
 
-fn supply(
-    session: &mut ReaderSession,
-    packed: &PackedPublication,
-    shard_ids: &[u32],
-    supplied: &mut Vec<u32>,
-) -> Result<(), String> {
-    if shard_ids.is_empty() {
-        return Err("a pending failure named no shard".to_owned());
-    }
-    for shard_id in shard_ids {
-        if supplied.contains(shard_id) {
-            return Err(format!(
-                "shard {shard_id} was asked for again after it arrived"
-            ));
-        }
-        let shard = packed
-            .shards
-            .get(*shard_id as usize - 1)
-            .ok_or_else(|| format!("unknown shard {shard_id}"))?;
-        session
-            .supply_shard(&shard.bytes, shard.key.as_ref())
-            .map_err(|error| format!("supply {shard_id}: {}", error.message))?;
-        supplied.push(*shard_id);
-    }
-    Ok(())
-}
-
-/// Everything but identity, and footnote pending flags, which may stay
-/// set while the defining chapter's shard has not been supplied.
+/// Everything but identity.
 fn drawn(artifact: &ReaderArtifact) -> ReaderArtifact {
     let mut artifact = artifact.clone();
     artifact.request_id = 0;
     artifact.artifact_id = 0;
     artifact.revision_id = 0;
-    for page in &mut artifact.pages {
-        for hit in &mut page.hits {
-            hit.footnote_pending = false;
-        }
-    }
     artifact
 }
 

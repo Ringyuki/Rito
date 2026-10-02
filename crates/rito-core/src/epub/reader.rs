@@ -116,11 +116,6 @@ impl PendingReads {
         }
     }
 
-    /// Records a pending failure and drops every other outcome.
-    pub(crate) fn absorb_pending<T>(&mut self, result: EpubResult<T>) {
-        let _ = self.absorb(result);
-    }
-
     pub(crate) fn finish(self) -> EpubResult<()> {
         match self.first_message {
             None => Ok(()),

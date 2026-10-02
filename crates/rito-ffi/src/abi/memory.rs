@@ -215,12 +215,8 @@ pub extern "C" fn rito_open_with_pinned_fonts(
 /// Opens a reader from a publication's skeleton shard (see `rito-pack`)
 /// with a pinned measurement-font policy, and requests its initial
 /// artifact. `key_len` is 0 for plain shards or 32 for the skeleton's key.
-///
-/// When the initial request needs content shards the host has not supplied
-/// the call returns `RITO_STATUS_RESOURCE_PENDING` with a `RITOPSH1`
-/// message in `error_out`, and unlike every other open failure the session
-/// stays open: supply the named shards with `rito_supply_shard` and request
-/// the artifact again with `rito_request_artifact`.
+/// The skeleton carries everything layout reads, so this never waits on a
+/// content shard; pending/terminal semantics match `rito_open`.
 pub extern "C" fn rito_open_shards_with_pinned_fonts(
     skeleton_data: *const u8,
     skeleton_len: u64,

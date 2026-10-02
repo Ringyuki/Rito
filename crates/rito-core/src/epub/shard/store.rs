@@ -1,7 +1,6 @@
 //! The reader-side shard store: the skeleton's file table plus the content
 //! shards supplied so far. A read of a file whose shard has not arrived
-//! fails as pending and is remembered, so the host can ask which shards
-//! the engine is waiting for.
+//! fails as pending, naming that shard.
 
 use std::{
     cell::RefCell,
@@ -12,16 +11,16 @@ use std::{
 
 use super::{
     container::{open_shard, shard_error},
-    payload::{ContentPayload, FileLocation, SkeletonPayload},
+    payload::{ContentPayload, FileLocation, ShardMedia, SkeletonPayload},
     ShardKey, ShardKind,
 };
 use crate::{
     epub::{archive::ArchiveEntryMetadata, EpubError, EpubResult},
-    xhtml::{EpubTypeAttributeHint, EPUB_TYPE_HINT_SCAN_REVISION},
+    resources::IMAGE_DIMENSION_RULE_REVISION,
 };
 
 /// Shared handle: the document and every reader opened over it see the
-/// same supplied shards and the same pending set.
+/// same supplied shards.
 #[derive(Clone)]
 pub(crate) struct ShardStore(Rc<RefCell<ShardStoreState>>);
 
@@ -31,8 +30,6 @@ struct ShardStoreState {
     by_path: BTreeMap<String, usize>,
     shard_files: BTreeMap<u32, BTreeSet<usize>>,
     supplied: BTreeSet<u32>,
-    pending: BTreeSet<u32>,
-    footnote_hints: Vec<Vec<EpubTypeAttributeHint>>,
 }
 
 struct StoredFile {
@@ -51,7 +48,6 @@ impl fmt::Debug for ShardStore {
             .field("files", &state.files.len())
             .field("shards", &state.shard_files.len())
             .field("supplied", &state.supplied)
-            .field("pending", &state.pending)
             .finish()
     }
 }
@@ -71,10 +67,10 @@ impl ShardStore {
             return Err(shard_error("a publication opens from its skeleton shard"));
         }
         let payload = SkeletonPayload::decode(&payload)?;
-        if payload.hint_scan_revision != EPUB_TYPE_HINT_SCAN_REVISION {
+        if payload.dimension_rule_revision != IMAGE_DIMENSION_RULE_REVISION {
             return Err(shard_error(format!(
-                "the shards were packed by an engine whose footnote scan is revision {}, this engine's is {}; pack the publication again",
-                payload.hint_scan_revision, EPUB_TYPE_HINT_SCAN_REVISION
+                "the shards were packed by an engine whose image dimension rule is revision {}, this engine's is {}; pack the publication again",
+                payload.dimension_rule_revision, IMAGE_DIMENSION_RULE_REVISION
             )));
         }
         let mut by_path = BTreeMap::new();
@@ -86,7 +82,7 @@ impl ShardStore {
             }
             let bytes = match &file.location {
                 FileLocation::Inline(bytes) => Some(Rc::new(bytes.clone())),
-                FileLocation::Shard(shard_id) => {
+                FileLocation::Shard { shard_id, .. } => {
                     shard_files.entry(*shard_id).or_default().insert(index);
                     None
                 }
@@ -106,8 +102,6 @@ impl ShardStore {
             by_path,
             shard_files,
             supplied: BTreeSet::new(),
-            pending: BTreeSet::new(),
-            footnote_hints: payload.footnote_hints,
         }))))
     }
 
@@ -163,49 +157,27 @@ impl ShardStore {
             state.files[index].bytes = Some(Rc::new(bytes));
         }
         state.supplied.insert(header.shard_id);
-        state.pending.remove(&header.shard_id);
         Ok(header.shard_id)
     }
 
-    /// Shards a read has needed and not received, ascending.
-    pub(crate) fn pending_shards(&self) -> Vec<u32> {
-        self.0.borrow().pending.iter().copied().collect()
-    }
-
-    /// Whether reading `path` would not wait on a shard.
-    pub(crate) fn is_available(&self, path: &str) -> bool {
-        let state = self.0.borrow();
-        state.resolve(path).is_none_or(|index| {
-            let file = &state.files[index];
-            file.bytes.is_some() || !matches!(file.location, FileLocation::Shard(_))
-        })
-    }
-
-    /// The shard holding `path`, when a content shard holds it.
-    pub(crate) fn shard_of(&self, path: &str) -> Option<u32> {
+    /// The content shard holding `path`, and what kind of file it is.
+    pub(crate) fn shard_of(&self, path: &str) -> Option<(u32, ShardMedia)> {
         let state = self.0.borrow();
         let index = state.resolve(path)?;
         match state.files[index].location {
-            FileLocation::Shard(shard_id) => Some(shard_id),
+            FileLocation::Shard { shard_id, media } => Some((shard_id, media)),
             _ => None,
         }
     }
 
-    pub(crate) fn footnote_hints(
-        &self,
-        chapter_index: usize,
-    ) -> Option<Vec<EpubTypeAttributeHint>> {
-        self.0.borrow().footnote_hints.get(chapter_index).cloned()
-    }
-
     pub(crate) fn read_bytes(&self, path: &str) -> EpubResult<Rc<Vec<u8>>> {
-        let mut state = self.0.borrow_mut();
+        let state = self.0.borrow();
         let index = state.resolve(path).ok_or_else(|| missing_entry(path))?;
         state.read_index(index)
     }
 
     pub(crate) fn read_entry(&self, entry: &ArchiveEntryMetadata) -> EpubResult<Rc<Vec<u8>>> {
-        self.0.borrow_mut().read_index(entry.entry_id)
+        self.0.borrow().read_index(entry.entry_id)
     }
 
     pub(crate) fn entry_size(&self, path: &str) -> EpubResult<usize> {
@@ -250,19 +222,18 @@ impl ShardStoreState {
         self.by_path.get(&normalized).copied()
     }
 
-    fn read_index(&mut self, index: usize) -> EpubResult<Rc<Vec<u8>>> {
+    fn read_index(&self, index: usize) -> EpubResult<Rc<Vec<u8>>> {
         let file = &self.files[index];
         if let Some(bytes) = &file.bytes {
             return Ok(Rc::clone(bytes));
         }
         match &file.location {
-            FileLocation::Shard(shard_id) => {
+            FileLocation::Shard { shard_id, .. } => {
                 let shard_id = *shard_id;
                 let message = format!(
                     "EPUB entry {:?} is in shard {shard_id}, which has not been supplied",
                     file.path
                 );
-                self.pending.insert(shard_id);
                 Err(EpubError::shards_pending(vec![shard_id], message))
             }
             FileLocation::Unreadable(reason) => Err(EpubError::new(reason.clone())),

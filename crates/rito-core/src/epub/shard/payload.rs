@@ -1,11 +1,11 @@
 //! Shard payload layouts. Every integer is little-endian; a string is a
 //! `u32` byte length and UTF-8, a byte block is a `u64` length and bytes.
 //!
-//! Skeleton payload: the footnote hint scan revision, the publication's
-//! file table in archive order, then one footnote hint list per spine item.
+//! Skeleton payload: the image dimension rule revision, then the
+//! publication's file table in archive order. A file the skeleton does not
+//! carry names its content shard and what kind of file it is; an image also
+//! carries the intrinsic dimensions the engine lays it out with.
 //! Content payload: the files the shard carries, as path and bytes.
-
-use crate::xhtml::EpubTypeAttributeHint;
 
 use super::container::shard_error;
 use crate::epub::EpubResult;
@@ -13,13 +13,25 @@ use crate::epub::EpubResult;
 const LOCATION_INLINE: u8 = 0;
 const LOCATION_SHARD: u8 = 1;
 const LOCATION_UNREADABLE: u8 = 2;
+const MEDIA_OTHER: u8 = 0;
+const MEDIA_IMAGE_WITHOUT_DIMENSIONS: u8 = 1;
+const MEDIA_IMAGE: u8 = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShardMedia {
+    /// An image, with the dimensions its header declares (none when the
+    /// header names no size the engine reads).
+    Image(Option<(u32, u32)>),
+    /// A file layout never reads (audio, video).
+    Other,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FileLocation {
     /// Carried by the skeleton itself.
     Inline(Vec<u8>),
     /// Carried by the content shard with this id.
-    Shard(u32),
+    Shard { shard_id: u32, media: ShardMedia },
     /// The source archive could not produce this entry; reading it fails
     /// with the archive's own reason.
     Unreadable(String),
@@ -37,9 +49,8 @@ pub(crate) struct SkeletonFile {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SkeletonPayload {
-    pub(crate) hint_scan_revision: u32,
+    pub(crate) dimension_rule_revision: u32,
     pub(crate) files: Vec<SkeletonFile>,
-    pub(crate) footnote_hints: Vec<Vec<EpubTypeAttributeHint>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,7 +61,7 @@ pub(crate) struct ContentPayload {
 impl SkeletonPayload {
     pub(crate) fn encode(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        put_u32(&mut out, self.hint_scan_revision);
+        put_u32(&mut out, self.dimension_rule_revision);
         put_len(&mut out, self.files.len());
         for file in &self.files {
             put_string(&mut out, &file.path);
@@ -61,9 +72,10 @@ impl SkeletonPayload {
                     out.push(LOCATION_INLINE);
                     put_bytes(&mut out, bytes);
                 }
-                FileLocation::Shard(shard_id) => {
+                FileLocation::Shard { shard_id, media } => {
                     out.push(LOCATION_SHARD);
                     put_u32(&mut out, *shard_id);
+                    put_media(&mut out, *media);
                 }
                 FileLocation::Unreadable(reason) => {
                     out.push(LOCATION_UNREADABLE);
@@ -71,22 +83,12 @@ impl SkeletonPayload {
                 }
             }
         }
-        put_len(&mut out, self.footnote_hints.len());
-        for hints in &self.footnote_hints {
-            put_len(&mut out, hints.len());
-            for hint in hints {
-                out.push(u8::from(hint.is_block));
-                put_string(&mut out, &hint.epub_type);
-                put_optional_string(&mut out, hint.href.as_deref());
-                put_optional_string(&mut out, hint.id.as_deref());
-            }
-        }
         out
     }
 
     pub(crate) fn decode(bytes: &[u8]) -> EpubResult<Self> {
         let mut reader = PayloadReader::new(bytes);
-        let hint_scan_revision = reader.u32()?;
+        let dimension_rule_revision = reader.u32()?;
         let file_count = reader.count()?;
         let mut files = Vec::new();
         for _ in 0..file_count {
@@ -94,24 +96,28 @@ impl SkeletonPayload {
             let byte_length = reader.u64()?;
             let listed = reader.flag()?;
             let location = match reader.u8()? {
-                LOCATION_INLINE => FileLocation::Inline(reader.bytes()?.to_vec()),
+                LOCATION_INLINE => {
+                    let inline = reader.bytes()?.to_vec();
+                    if inline.len() as u64 != byte_length {
+                        return Err(shard_error(format!(
+                            "inline file {path:?} does not match its byte length"
+                        )));
+                    }
+                    FileLocation::Inline(inline)
+                }
                 LOCATION_SHARD => {
                     let shard_id = reader.u32()?;
                     if shard_id == 0 {
                         return Err(shard_error("a file names the skeleton as its shard"));
                     }
-                    FileLocation::Shard(shard_id)
+                    FileLocation::Shard {
+                        shard_id,
+                        media: reader.media()?,
+                    }
                 }
                 LOCATION_UNREADABLE => FileLocation::Unreadable(reader.string()?),
                 other => return Err(shard_error(format!("unknown file location {other}"))),
             };
-            if let FileLocation::Inline(inline) = &location {
-                if inline.len() as u64 != byte_length {
-                    return Err(shard_error(format!(
-                        "inline file {path:?} does not match its byte length"
-                    )));
-                }
-            }
             files.push(SkeletonFile {
                 path,
                 byte_length,
@@ -119,26 +125,10 @@ impl SkeletonPayload {
                 location,
             });
         }
-        let chapter_count = reader.count()?;
-        let mut footnote_hints = Vec::new();
-        for _ in 0..chapter_count {
-            let hint_count = reader.count()?;
-            let mut hints = Vec::new();
-            for _ in 0..hint_count {
-                hints.push(EpubTypeAttributeHint {
-                    is_block: reader.flag()?,
-                    epub_type: reader.string()?,
-                    href: reader.optional_string()?,
-                    id: reader.optional_string()?,
-                });
-            }
-            footnote_hints.push(hints);
-        }
         reader.finish()?;
         Ok(Self {
-            hint_scan_revision,
+            dimension_rule_revision,
             files,
-            footnote_hints,
         })
     }
 }
@@ -182,19 +172,21 @@ fn put_string(out: &mut Vec<u8>, value: &str) {
     out.extend_from_slice(value.as_bytes());
 }
 
-fn put_optional_string(out: &mut Vec<u8>, value: Option<&str>) {
-    match value {
-        Some(value) => {
-            out.push(1);
-            put_string(out, value);
-        }
-        None => out.push(0),
-    }
-}
-
 fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
     out.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
     out.extend_from_slice(bytes);
+}
+
+fn put_media(out: &mut Vec<u8>, media: ShardMedia) {
+    match media {
+        ShardMedia::Other => out.push(MEDIA_OTHER),
+        ShardMedia::Image(None) => out.push(MEDIA_IMAGE_WITHOUT_DIMENSIONS),
+        ShardMedia::Image(Some((width, height))) => {
+            out.push(MEDIA_IMAGE);
+            put_u32(out, width);
+            put_u32(out, height);
+        }
+    }
 }
 
 struct PayloadReader<'a> {
@@ -264,11 +256,12 @@ impl<'a> PayloadReader<'a> {
         String::from_utf8(bytes.to_vec()).map_err(|_| shard_error("string is not UTF-8"))
     }
 
-    fn optional_string(&mut self) -> EpubResult<Option<String>> {
-        if self.flag()? {
-            self.string().map(Some)
-        } else {
-            Ok(None)
+    fn media(&mut self) -> EpubResult<ShardMedia> {
+        match self.u8()? {
+            MEDIA_OTHER => Ok(ShardMedia::Other),
+            MEDIA_IMAGE_WITHOUT_DIMENSIONS => Ok(ShardMedia::Image(None)),
+            MEDIA_IMAGE => Ok(ShardMedia::Image(Some((self.u32()?, self.u32()?)))),
+            other => Err(shard_error(format!("unknown shard media {other}"))),
         }
     }
 

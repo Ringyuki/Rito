@@ -135,17 +135,6 @@ fn receive_initial(
                 "reader session was disposed while opening: {session_id}"
             )))
         }
-        // A sharded session stays open while its first request waits on
-        // shards; the host supplies them and requests again.
-        Ok(InitialArtifactReply::Pending(error)) if mark_ready(session_id, generation) => {
-            Err(error)
-        }
-        Ok(InitialArtifactReply::Pending(_)) => {
-            join_failed(session_id, generation);
-            Err(FfiError::not_found(format!(
-                "reader session was disposed while opening: {session_id}"
-            )))
-        }
         Ok(InitialArtifactReply::Failed(error)) => {
             join_failed(session_id, generation);
             Err(error)

@@ -156,14 +156,6 @@ impl ReaderSession {
                     .map(|footnote| (footnote.kind, footnote.text, footnote.html))
             }
         };
-        let entry = match entry {
-            Some(entry) => Some(entry),
-            None => self
-                .document
-                .resolve_pending_footnote(key)
-                .map_err(engine_error)?
-                .map(|footnote| (footnote.kind, footnote.text, footnote.html)),
-        };
         let (kind, text, html) =
             entry.ok_or_else(|| target_not_published("footnote definition is not indexed yet"))?;
         Ok(ReaderFootnote {

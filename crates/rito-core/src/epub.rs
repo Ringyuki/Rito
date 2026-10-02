@@ -38,7 +38,6 @@ pub(crate) use prepared::{
     ParsedLoadedChapterSource, PreparedLoadedDocument, PreparedLoadedDocumentBase,
     StylesheetSourceLedger,
 };
-pub(crate) use reader::PendingReads;
 
 pub const CONTAINER_PATH: &str = "META-INF/container.xml";
 

@@ -1,15 +1,16 @@
 use super::{
+    container::{seal_shard, ShardHeader},
     pack::{pack_publication, PackOptions, PackedPublication},
-    payload::{ContentPayload, FileLocation, SkeletonFile, SkeletonPayload},
-    ShardKey,
+    payload::{ContentPayload, FileLocation, ShardMedia, SkeletonFile, SkeletonPayload},
+    ShardKey, ShardKind,
 };
 use crate::{
     epub::{open_runtime_document, open_runtime_document_from_shards, LoadedEpubDocument},
+    resources::IMAGE_DIMENSION_RULE_REVISION,
     runtime::tests::fixture::{
         cross_chapter_footnote_fixture_epub, multi_chapter_fixture_epub,
         multi_chapter_image_fixture_epub,
     },
-    xhtml::{scan_epub_type_attribute_hints, EpubTypeAttributeHint},
 };
 
 /// A deterministic stand-in for a secure random source.
@@ -42,16 +43,8 @@ fn supply_all(document: &LoadedEpubDocument, packed: &PackedPublication) {
 }
 
 #[test]
-fn the_skeleton_holds_exactly_what_opening_reads() {
-    let packed = pack(&multi_chapter_fixture_epub(), false);
-    assert_eq!(
-        packed.skeleton.files,
-        vec![
-            "META-INF/container.xml".to_owned(),
-            "OPS/package.opf".to_owned(),
-            "OPS/nav.xhtml".to_owned(),
-        ]
-    );
+fn only_images_leave_the_skeleton() {
+    let packed = pack(&cross_chapter_footnote_fixture_epub(), false);
     let shard_files = packed
         .shards
         .iter()
@@ -59,74 +52,78 @@ fn the_skeleton_holds_exactly_what_opening_reads() {
         .collect::<Vec<_>>();
     assert_eq!(
         shard_files,
-        vec![
-            (1, vec!["OPS/chapter-1.xhtml".to_owned()]),
-            (2, vec!["OPS/chapter-2.xhtml".to_owned()]),
-            (3, vec!["OPS/chapter-3.xhtml".to_owned()]),
-        ]
+        vec![(1, vec!["OPS/Images/late.png".to_owned()])]
     );
+    for carried in [
+        "OPS/chapter-1.xhtml",
+        "OPS/chapter-3.xhtml",
+        "OPS/Fonts/book.otf",
+        "OPS/package.opf",
+    ] {
+        assert!(
+            packed.skeleton.files.contains(&carried.to_owned()),
+            "{carried}"
+        );
+    }
 }
 
 #[test]
-fn an_image_only_one_chapter_uses_travels_with_that_chapter() {
-    let packed = pack(&multi_chapter_image_fixture_epub(), false);
-    let chapter_two = packed
-        .shards
-        .iter()
-        .find(|shard| shard.files.contains(&"OPS/chapter-2.xhtml".to_owned()))
-        .expect("chapter two shard");
-    assert_eq!(
-        chapter_two.files,
-        vec![
-            "OPS/chapter-2.xhtml".to_owned(),
-            "OPS/Images/late.png".to_owned()
-        ]
-    );
+fn the_skeleton_alone_lays_the_book_out() {
+    let epub = cross_chapter_footnote_fixture_epub();
+    let packed = pack(&epub, true);
+    let mut sharded = open(&packed);
+    sharded
+        .ensure_all_chapters_loaded()
+        .expect("chapters are inline");
+    sharded.ensure_all_fonts_loaded().expect("fonts are inline");
+    sharded
+        .ensure_chapter_image_dimensions_loaded(0, sharded.chapters.len())
+        .expect("image dimensions come from the skeleton");
+
+    let mut whole = open_runtime_document(&epub).expect("opens");
+    whole.ensure_all_chapters_loaded().expect("loads");
+    whole
+        .ensure_chapter_image_dimensions_loaded(0, whole.chapters.len())
+        .expect("dimensions load");
+    let dimensions = |document: &LoadedEpubDocument| {
+        document
+            .images
+            .iter()
+            .map(|image| {
+                (
+                    image.href.clone(),
+                    image.width,
+                    image.height,
+                    image.dimensions_loaded,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(dimensions(&sharded), dimensions(&whole));
 }
 
 #[test]
-fn a_chapter_loads_once_its_shard_arrives_and_names_the_shard_until_then() {
+fn an_image_is_read_once_its_shard_arrives_and_names_the_shard_until_then() {
     let epub = multi_chapter_image_fixture_epub();
     let packed = pack(&epub, false);
     let mut document = open(&packed);
-    assert!(document
-        .chapters
-        .iter()
-        .all(|chapter| !chapter.source_loaded));
-
     let error = document
-        .ensure_chapter_loaded(1)
-        .expect_err("chapter two has not arrived");
-    assert_eq!(error.pending_shards(), &[2]);
-    assert_eq!(document.pending_shards(), vec![2]);
+        .read_image_bytes("Images/late.png")
+        .expect_err("the image has not arrived");
+    assert_eq!(error.pending_shards(), &[1]);
 
     let store = document.shard_store().expect("shard storage").clone();
-    let chapter_two = &packed.shards[1];
-    assert_eq!(store.supply(&chapter_two.bytes, None).expect("supplies"), 2);
-    assert!(document.pending_shards().is_empty());
-    document
-        .ensure_chapter_loaded(1)
-        .expect("chapter two loads");
-    document
-        .ensure_chapter_image_dimensions_loaded(1, 1)
-        .expect("its image came with it");
-
-    let mut whole = open_runtime_document(&epub).expect("whole archive opens");
-    whole.ensure_chapter_loaded(1).expect("loads");
     assert_eq!(
-        document.chapters[1].xhtml_source,
-        whole.chapters[1].xhtml_source
+        store
+            .supply(&packed.shards[0].bytes, None)
+            .expect("supplies"),
+        1
     );
-}
-
-#[test]
-fn a_batch_names_every_missing_shard_at_once() {
-    let packed = pack(&multi_chapter_fixture_epub(), false);
-    let mut document = open(&packed);
-    let error = document
-        .ensure_all_chapters_loaded()
-        .expect_err("no chapter has arrived");
-    assert_eq!(error.pending_shards(), &[1, 2, 3]);
+    let mut whole = open_runtime_document(&epub).expect("opens");
+    assert_eq!(
+        document.read_image_bytes("Images/late.png").expect("reads"),
+        whole.read_image_bytes("Images/late.png").expect("reads")
+    );
 }
 
 #[test]
@@ -141,9 +138,22 @@ fn a_document_opened_from_shards_matches_the_archive() {
         supply_all(&sharded, &packed);
         sharded.ensure_all_chapters_loaded().expect("loads");
         sharded.ensure_all_fonts_loaded().expect("fonts load");
+        sharded
+            .ensure_chapter_image_dimensions_loaded(0, sharded.chapters.len())
+            .expect("dimensions load");
         let mut whole = open_runtime_document(&epub).expect("opens");
         whole.ensure_all_chapters_loaded().expect("loads");
         whole.ensure_all_fonts_loaded().expect("fonts load");
+        let images = whole.images.len();
+        whole
+            .ensure_chapter_image_dimensions_loaded(0, whole.chapters.len())
+            .expect("dimensions load");
+        for index in 0..images {
+            let href = whole.images[index].href.clone();
+            whole
+                .ensure_image_dimensions_loaded(&href)
+                .expect("dimensions load");
+        }
         assert_eq!(sharded.package, whole.package);
         assert_eq!(sharded.stylesheets, whole.stylesheets);
         assert_eq!(sharded.fonts, whole.fonts);
@@ -153,26 +163,58 @@ fn a_document_opened_from_shards_matches_the_archive() {
 }
 
 #[test]
-fn the_skeleton_carries_each_chapters_footnote_scan() {
-    let epub = cross_chapter_footnote_fixture_epub();
-    let packed = pack(&epub, false);
-    let document = open(&packed);
-    let store = document.shard_store().expect("shard storage");
-    let mut whole = open_runtime_document(&epub).expect("opens");
-    whole.ensure_all_chapters_loaded().expect("loads");
-    for (index, chapter) in whole.chapters.iter().enumerate() {
-        let expected = scan_epub_type_attribute_hints(&chapter.xhtml_source).unwrap_or_default();
-        assert_eq!(
-            store.footnote_hints(index),
-            Some(expected),
-            "chapter {index}"
-        );
-    }
+fn a_skeleton_that_leaves_a_chapter_in_a_shard_is_refused() {
+    let packed = pack(&multi_chapter_fixture_epub(), false);
+    let (_, payload) = super::container::open_shard(&packed.skeleton.bytes, None).expect("opens");
+    let mut skeleton = SkeletonPayload::decode(&payload).expect("decodes");
+    let chapter = skeleton
+        .files
+        .iter_mut()
+        .find(|file| file.path == "OPS/chapter-2.xhtml")
+        .expect("chapter two");
+    chapter.location = FileLocation::Shard {
+        shard_id: 1,
+        media: ShardMedia::Other,
+    };
+    let header = ShardHeader {
+        kind: ShardKind::Skeleton,
+        encrypted: false,
+        compressed: false,
+        book_id: packed.book_id,
+        shard_id: 0,
+        nonce: [0; 24],
+    };
+    let sealed = seal_shard(header, &skeleton.encode(), None).expect("seals");
+    let error = open_runtime_document_from_shards(&sealed, None).expect_err("refused");
+    assert!(
+        error.message().contains("chapter-2.xhtml"),
+        "{}",
+        error.message()
+    );
+}
+
+#[test]
+fn a_skeleton_packed_under_another_dimension_rule_is_refused() {
+    let packed = pack(&multi_chapter_fixture_epub(), false);
+    let (_, payload) = super::container::open_shard(&packed.skeleton.bytes, None).expect("opens");
+    let mut skeleton = SkeletonPayload::decode(&payload).expect("decodes");
+    skeleton.dimension_rule_revision = IMAGE_DIMENSION_RULE_REVISION + 1;
+    let header = ShardHeader {
+        kind: ShardKind::Skeleton,
+        encrypted: false,
+        compressed: false,
+        book_id: packed.book_id,
+        shard_id: 0,
+        nonce: [0; 24],
+    };
+    let sealed = seal_shard(header, &skeleton.encode(), None).expect("seals");
+    let error = open_runtime_document_from_shards(&sealed, None).expect_err("refused");
+    assert!(error.message().contains("pack the publication again"));
 }
 
 #[test]
 fn encrypted_shards_need_their_own_key() {
-    let packed = pack(&multi_chapter_fixture_epub(), true);
+    let packed = pack(&multi_chapter_image_fixture_epub(), true);
     assert!(open_runtime_document_from_shards(&packed.skeleton.bytes, None).is_err());
     let wrong = ShardKey::from_bytes([7; 32]);
     assert!(open_runtime_document_from_shards(&packed.skeleton.bytes, Some(&wrong)).is_err());
@@ -180,8 +222,9 @@ fn encrypted_shards_need_their_own_key() {
     let document = open(&packed);
     let store = document.shard_store().expect("shard storage");
     let first = &packed.shards[0];
-    let second = &packed.shards[1];
-    assert!(store.supply(&first.bytes, second.key.as_ref()).is_err());
+    assert!(store
+        .supply(&first.bytes, packed.skeleton.key.as_ref())
+        .is_err());
     assert!(store.supply(&first.bytes, None).is_err());
 
     let mut altered = first.bytes.clone();
@@ -204,7 +247,7 @@ fn encrypted_shards_need_their_own_key() {
 
 #[test]
 fn a_shard_from_another_packing_is_refused() {
-    let epub = multi_chapter_fixture_epub();
+    let epub = multi_chapter_image_fixture_epub();
     let first = pack(&epub, false);
     let mut random = counter_random();
     let mut skip = [0u8; 3];
@@ -219,7 +262,7 @@ fn a_shard_from_another_packing_is_refused() {
 #[test]
 fn payloads_round_trip() {
     let skeleton = SkeletonPayload {
-        hint_scan_revision: 1,
+        dimension_rule_revision: 1,
         files: vec![
             SkeletonFile {
                 path: "a.xhtml".to_owned(),
@@ -231,23 +274,35 @@ fn payloads_round_trip() {
                 path: "b.png".to_owned(),
                 byte_length: 9,
                 listed: false,
-                location: FileLocation::Shard(4),
+                location: FileLocation::Shard {
+                    shard_id: 4,
+                    media: ShardMedia::Image(Some((640, 480))),
+                },
             },
             SkeletonFile {
-                path: "c.css".to_owned(),
+                path: "c.svg".to_owned(),
+                byte_length: 9,
+                listed: true,
+                location: FileLocation::Shard {
+                    shard_id: 5,
+                    media: ShardMedia::Image(None),
+                },
+            },
+            SkeletonFile {
+                path: "d.mp3".to_owned(),
+                byte_length: 9,
+                listed: true,
+                location: FileLocation::Shard {
+                    shard_id: 6,
+                    media: ShardMedia::Other,
+                },
+            },
+            SkeletonFile {
+                path: "e.css".to_owned(),
                 byte_length: 1,
                 listed: true,
                 location: FileLocation::Unreadable("bad".to_owned()),
             },
-        ],
-        footnote_hints: vec![
-            vec![EpubTypeAttributeHint {
-                is_block: true,
-                epub_type: "footnote".to_owned(),
-                href: None,
-                id: Some("n1".to_owned()),
-            }],
-            Vec::new(),
         ],
     };
     assert_eq!(SkeletonPayload::decode(&skeleton.encode()), Ok(skeleton));
@@ -262,8 +317,7 @@ fn payloads_round_trip() {
 
 #[test]
 fn text_is_deflated_before_sealing_and_incompressible_bytes_are_not() {
-    use super::container::{open_shard, seal_shard, ShardHeader};
-    use super::ShardKind;
+    use super::container::open_shard;
 
     let key = ShardKey::from_bytes([9; 32]);
     let header = ShardHeader {
@@ -291,14 +345,16 @@ fn text_is_deflated_before_sealing_and_incompressible_bytes_are_not() {
     }
     let sealed = seal_shard(header, &noise, Some(&key)).expect("seals");
     let (opened, payload) = open_shard(&sealed, Some(&key)).expect("opens");
-    assert!(!opened.compressed, "bytes that do not shrink stay as they are");
+    assert!(
+        !opened.compressed,
+        "bytes that do not shrink stay as they are"
+    );
     assert_eq!(payload, noise);
 }
 
 #[test]
 fn a_body_that_claims_deflate_but_does_not_inflate_is_refused() {
-    use super::container::{open_shard, seal_shard, ShardHeader};
-    use super::ShardKind;
+    use super::container::open_shard;
 
     let header = ShardHeader {
         kind: ShardKind::Content,

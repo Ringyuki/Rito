@@ -2,10 +2,12 @@
 
 A reader can open a book without ever receiving the whole EPUB. The book
 is split once on the server into a small **skeleton** and **content
-shards**; the reader opens from the skeleton and receives each shard the
-first time it is needed. Pages drawn from shards are byte-identical to
-pages drawn from the archive: the corpus check opens every book both
-ways and compares every chapter's display list.
+shards**. The skeleton carries all of the book's text, styles and fonts
+and the size of every image, so the reader lays the whole book out from
+it; each image arrives in its own shard the first time a page paints
+it. Pages drawn from shards are byte-identical to pages drawn from the
+archive: the corpus check opens every book both ways and compares every
+chapter's display list, and no chapter's layout ever waits on a shard.
 
 ## What it protects, and what it does not
 
@@ -15,9 +17,9 @@ memory.
 
 - The client never holds a complete EPUB file. A copy has to be
   assembled shard by shard.
-- Every shard is a separate request, so the server decides who gets
-  which chapter and how fast. It can authorize, rate-limit and revoke
-  per shard.
+- Images, nearly all of a book's bytes, are separate requests, so the
+  server decides who gets them and how fast. It can authorize,
+  rate-limit and revoke per shard.
 - With `--encrypt`, every shard is sealed with its own random 256-bit key
   (XChaCha20-Poly1305). A shard without its key is useless. The header
   is authenticated, so a shard cannot be replayed under another book or
@@ -36,8 +38,8 @@ cargo run --release -p rito-pack -- book.epub out/ --encrypt
 
 | File               | Contents                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------- |
-| `skeleton.rshd`    | Shard 0: what opening reads, the file table, each chapter's footnote scan           |
-| `shards/<id>.rshd` | One content shard per file                                                          |
+| `skeleton.rshd`    | Shard 0: every file layout reads, the file table, every image's dimensions          |
+| `shards/<id>.rshd` | One content shard per image, audio or video file                                    |
 | `manifest.json`    | Book id, and per shard its file, byte length and the EPUB paths it carries; no keys |
 | `keys.json`        | `{ "bookId", "keys": { "<id>": "<64 hex digits>" } }`, with `--encrypt` only        |
 
@@ -47,14 +49,14 @@ belong behind the service that decides who may read what.
 Every shard is deflated before it is sealed, when that makes it
 smaller: ciphertext does not compress on the way to the reader, so the
 compression has to happen first. A book's shards together weigh about
-what its EPUB does; the first page needs the skeleton, its chapter and
-the publication's fonts, a median of about 13% of the book on the test
-corpus.
+what its EPUB does.
 
-A content shard holds one spine chapter together with the images only
-that chapter uses, or one other file: a shared image, a font, an
-unreferenced file. The skeleton holds exactly what the engine's own open
-path reads: container, package document, navigation and stylesheets.
+The skeleton holds every file that is not an image, audio or video:
+container, package document, navigation, chapters, stylesheets and
+fonts. On the test corpus it is a median of 7% of the archive (a
+quarter of books under 3%, a quarter over 11%). Each image, audio or
+video file is a content shard of its own, and the skeleton records each
+image's intrinsic size, so layout never needs the image itself.
 
 ## Serving
 
@@ -82,18 +84,13 @@ const reader = await createReader(
 );
 ```
 
-When a call needs a shard the session does not have, the engine names
-it. The client calls `loadShards`, hands the shard to the worker and
-retries the call. A rejected `loadShards` fails only that call. A reader
-that reopens in a new worker after a layout change resupplies the
-shards it already loaded, without calling `loadShards` again.
-
-`createReader` paginates the whole book when it opens, for page numbers
-and the table of contents. That reads every chapter, so `loadShards` is
-asked for all of them before the first page appears.
-`openBrowserReaderSession` opens one chapter at a time and asks only for
-what the requested page needs. In that API, whole-book pagination runs
-only when the host drives `advanceBackgroundOnce`.
+Opening, whole-book pagination, seeking and turning never call
+`loadShards`. When a page reads an image the session does not have yet,
+the engine names its shard; the client calls `loadShards`, hands the
+shard to the worker and retries the read. A rejected `loadShards` fails
+only that read. A reader that reopens in a new worker after a layout
+change resupplies the shards it already loaded, without calling
+`loadShards` again.
 
 ## Flutter
 
@@ -108,10 +105,8 @@ final session = await RitoReaderSession.openShards(
 );
 ```
 
-Seeks, turns, peeks, footnotes, resources and queries load their shards
-and retry transparently. `advanceBackground` (whole-book page numbers)
-reads every chapter, so it loads every shard. A host that must not fetch
-the whole book does not run it.
+Opening, seeks, turns, peeks and `advanceBackground` never wait on a
+shard. Reading an image loads its shard and retries transparently.
 
 ## C ABI
 
@@ -120,7 +115,8 @@ the whole book does not run it.
 - `rito_supply_shard` hands the session one content shard and writes the
   shard's id.
 
-A call that needs missing shards returns `RITO_STATUS_RESOURCE_PENDING`.
+Only a resource read can need a missing shard. It then returns
+`RITO_STATUS_RESOURCE_PENDING`.
 `error_out` then carries a `RITOPSH1` message instead of UTF-8:
 
 ```text
@@ -132,24 +128,11 @@ u32...       shard ids, ascending and distinct, never 0
 string       message (u32 length, UTF-8)
 ```
 
-Supply the shards and retry. A request that carries a request id must
-retry with a newer one, because the engine consumed the old one. A
-sharded open whose first request is pending keeps its session open,
-unlike every other open failure.
-
-## Behaviour while shards are missing
-
-- A footnote whose definition lives in a chapter not yet supplied is
-  marked pending on the page. Reading it loads that chapter.
-- Chapter page numbers are local to the chapter until whole-book
-  pagination has run, as for any chapter-first open.
-- Fonts: the first layout needs every publication font, because faces
-  register with the shaping engine once. Their shards are requested
-  together with the first chapter.
+Supply the shards and retry the read.
 
 ## Versioning
 
 A shard's header carries a format version. The skeleton also records
-the revision of the footnote attribute scan it was packed with. A
-reader built on a different scan revision refuses the skeleton with
-"pack the publication again". Repack whenever the engine reports that.
+the revision of the image size rules it was packed with. A reader built
+on a different revision refuses the skeleton with "pack the publication
+again". Repack whenever the engine reports that.

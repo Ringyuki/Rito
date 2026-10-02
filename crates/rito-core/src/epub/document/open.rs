@@ -31,8 +31,9 @@ pub fn open_runtime_document_owned(bytes: Vec<u8>) -> EpubResult<LoadedEpubDocum
     open_document_with_chapter_loading_owned(bytes, ChapterLoading::FirstChapterOnly)
 }
 
-/// Opens a publication from its skeleton shard. No chapter is read here:
-/// each one loads from its content shard when it is first needed.
+/// Opens a publication from its skeleton shard, which carries every file
+/// layout reads; images, audio and video load from their content shards
+/// when they are first read.
 pub fn open_runtime_document_from_shards(
     skeleton: &[u8],
     key: Option<&ShardKey>,
@@ -40,7 +41,44 @@ pub fn open_runtime_document_from_shards(
     let store = ShardStore::open(skeleton, key)?;
     let mut reader = PublicationReader::Shards(store.clone());
     let opened = open_from_reader(&mut reader, ChapterLoading::Deferred)?;
-    Ok(opened.into_document(PublicationStorage::Shards(store)))
+    let mut document = opened.into_document(PublicationStorage::Shards(store));
+    require_layout_inputs_inline(&document)?;
+    document.apply_packed_image_dimensions();
+    Ok(document)
+}
+
+/// Laying out reads chapters, stylesheets and fonts; a skeleton that left
+/// any of them in a content shard could make layout wait on the network.
+fn require_layout_inputs_inline(document: &LoadedEpubDocument) -> EpubResult<()> {
+    let Some(store) = document.shard_store() else {
+        return Ok(());
+    };
+    let layout_hrefs = document
+        .chapters
+        .iter()
+        .map(|chapter| chapter.href.as_str())
+        .chain(
+            document
+                .package
+                .manifest
+                .iter()
+                .filter(|item| {
+                    item.media_type == "text/css" || is_font_media_type(&item.media_type)
+                })
+                .map(|item| item.href.as_str()),
+        )
+        .filter(|href| !href.is_empty());
+    for href in layout_hrefs {
+        if store
+            .shard_of(&join_epub_href(document.opf_dir(), href))
+            .is_some()
+        {
+            return Err(EpubError::new(format!(
+                "invalid publication shard: {href:?} is laid out from, so the skeleton must carry it"
+            )));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]

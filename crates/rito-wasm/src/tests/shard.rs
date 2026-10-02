@@ -1,11 +1,11 @@
-use serde_json::json;
+use serde_json::{json, Value};
 
 use super::fixture::{layout, pinned_test_policy_input};
 use crate::{WasmRuntimeDocument, WasmRuntimeErrorCode};
 
 #[test]
-fn a_document_opened_from_shards_reports_missing_shards_by_id() {
-    let epub = crate::reader_session::tests::source_locator_fixture_epub();
+fn a_document_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
+    let epub = crate::reader_session::tests::book_10_publication();
     let mut counter = 3u8;
     let mut random = |buffer: &mut [u8]| {
         for byte in buffer {
@@ -25,22 +25,42 @@ fn a_document_opened_from_shards_reports_missing_shards_by_id() {
         pinned_test_policy_input(),
     )
     .expect("opens from the skeleton");
+    let chapter_index = runtime
+        .document()
+        .chapters
+        .iter()
+        .position(|chapter| chapter.href == "OEBPS/Text/Section001.xhtml")
+        .expect("chapter one");
     let mut document = WasmRuntimeDocument::from_runtime_document(runtime);
-    let request = json!({
-        "layoutConfig": layout(),
-        "targetChapterIndex": 0,
-        "targetLocator": { "href": "chapter.xhtml" }
+    let created: Value = serde_json::from_str(
+        &document
+            .create_chapter_local_revision_json(
+                &json!({
+                    "layoutConfig": layout(),
+                    "targetChapterIndex": chapter_index,
+                    "targetLocator": { "href": "OEBPS/Text/Section001.xhtml" }
+                })
+                .to_string(),
+            )
+            .expect("laid out from the skeleton"),
+    )
+    .expect("parses");
+    let owner = json!({
+        "revisionId": created["revision"]["revisionId"],
+        "revisionVersion": created["revision"]["revisionVersion"],
+        "coordinate": created["revision"]["coordinate"]
     })
     .to_string();
+    let image = rito_core::runtime::RuntimeResourceKind::Image;
 
     let pending = document
-        .create_chapter_local_revision_json(&request)
-        .expect_err("the chapter has not arrived");
+        .get_chapter_local_resource_payload_json(&owner, image, "../Images/0005_s.jpg")
+        .expect_err("the image has not arrived");
     assert_eq!(pending.code(), WasmRuntimeErrorCode::ResourcePending);
-    assert!(!pending.pending_shards().is_empty());
-    let payload: serde_json::Value = serde_json::from_str(
-        &crate::binding::error_json_string_for_tests(pending.clone()),
-    )
+    assert_eq!(pending.pending_shards().len(), 1);
+    let payload: Value = serde_json::from_str(&crate::binding::error_json_string_for_tests(
+        pending.clone(),
+    ))
     .expect("error payload parses");
     assert_eq!(payload["code"], "resource-pending");
     assert_eq!(
@@ -55,14 +75,12 @@ fn a_document_opened_from_shards_reports_missing_shards_by_id() {
             .code(),
         WasmRuntimeErrorCode::BadRequest
     );
-    for shard_id in pending.pending_shards() {
-        let shard = &packed.shards[*shard_id as usize - 1];
-        let key = shard.key.as_ref().map(|key| key.as_bytes().to_vec());
-        document
-            .supply_shard(&shard.bytes, key.as_deref())
-            .expect("supplies");
-    }
+    let shard = &packed.shards[pending.pending_shards()[0] as usize - 1];
+    let key = shard.key.as_ref().map(|key| key.as_bytes().to_vec());
     document
-        .create_chapter_local_revision_json(&request)
-        .expect("the chapter arrived");
+        .supply_shard(&shard.bytes, key.as_deref())
+        .expect("supplies");
+    document
+        .get_chapter_local_resource_payload_json(&owner, image, "../Images/0005_s.jpg")
+        .expect("reads once supplied");
 }

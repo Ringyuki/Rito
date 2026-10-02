@@ -1,15 +1,15 @@
 //! Publication shards: an EPUB split so a reader can open it from a small
-//! skeleton and receive chapters one at a time, never holding the whole
+//! skeleton and receive images one at a time, never holding the whole
 //! archive.
 //!
-//! The skeleton shard (id 0) carries what opening reads (container, package
-//! document, navigation, stylesheets), the table of every archive file with
-//! the shard that holds it, and each chapter's footnote attribute scan. Each
-//! content shard carries one chapter with the images only it uses, or one
-//! shared file. Each shard is deflated when that makes it smaller, and can
-//! then be sealed with per-shard XChaCha20-Poly1305 keys;
-//! the header is authenticated, binding every shard to its packed book and
-//! its id.
+//! The skeleton shard (id 0) carries every file layout reads (chapters,
+//! stylesheets, fonts, navigation) and the table of every archive file;
+//! each image, audio or video file sits in a content shard of its own, and
+//! the table records each image's intrinsic dimensions. A reader therefore
+//! lays the whole book out from the skeleton alone and fetches an image
+//! only to paint it. Each shard is deflated when that makes it smaller, and
+//! can then be sealed with per-shard XChaCha20-Poly1305 keys; the header is
+//! authenticated, binding every shard to its packed book and its id.
 
 mod container;
 mod pack;
@@ -20,10 +20,11 @@ mod store;
 mod tests;
 
 pub use pack::{pack_publication, PackOptions, PackedPublication, PackedShard};
+pub(crate) use payload::ShardMedia;
 pub(crate) use store::ShardStore;
 
 pub const SHARD_MAGIC: &[u8; 8] = b"RITOSHD1";
-pub const SHARD_FORMAT_VERSION: u32 = 2;
+pub const SHARD_FORMAT_VERSION: u32 = 3;
 pub const SHARD_KEY_BYTES: usize = 32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

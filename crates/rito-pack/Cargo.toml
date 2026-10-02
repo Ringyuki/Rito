@@ -1,6 +1,6 @@
 [package]
 name = "rito-pack"
-description = "Splits an EPUB into Rito publication shards for chapter-at-a-time delivery"
+description = "Splits an EPUB into Rito publication shards whose images are delivered on demand"
 edition.workspace = true
 license.workspace = true
 publish = false

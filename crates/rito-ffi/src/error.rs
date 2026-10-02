@@ -13,9 +13,9 @@ pub const RITO_STATUS_QUEUE_FULL: u32 = RITO_STATUS_BUSY;
 // Status value 9 is retired and is never reassigned.
 pub const RITO_STATUS_ADJACENT_PENDING: u32 = 10;
 pub const RITO_STATUS_SESSION_TERMINATED: u32 = 11;
-/// The publication was opened from shards and the call needs content shards
-/// the host has not supplied; `error_out` holds a `RITOPSH1` message naming
-/// them instead of a UTF-8 message. Supply them and retry.
+/// The publication was opened from shards and a resource read needs content
+/// shards the host has not supplied; `error_out` holds a `RITOPSH1` message
+/// naming them instead of a UTF-8 message. Supply them and retry the call.
 pub const RITO_STATUS_RESOURCE_PENDING: u32 = 12;
 pub const RITO_STATUS_PANIC: u32 = 255;
 

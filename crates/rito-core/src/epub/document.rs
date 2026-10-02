@@ -365,13 +365,6 @@ impl LoadedEpubDocument {
         self.archive_source.as_ref()?.storage.shards()
     }
 
-    /// Content shards reads have needed and not received, ascending.
-    pub(crate) fn pending_shards(&self) -> Vec<u32> {
-        self.shard_store()
-            .map(super::shard::ShardStore::pending_shards)
-            .unwrap_or_default()
-    }
-
     pub(crate) fn opf_dir(&self) -> &str {
         self.archive_source
             .as_ref()
@@ -388,24 +381,46 @@ impl LoadedEpubDocument {
         }
     }
 
-    /// The archive paths of the images a chapter's source references, as
-    /// its image-dimension load resolves them.
-    pub(crate) fn image_paths_referenced_by(&self, xhtml_source: &str) -> Vec<String> {
+    /// The archive name of every image the document knows, declared or
+    /// found in the archive.
+    pub(crate) fn image_archive_names(&self) -> Vec<String> {
         let Some(source) = self.archive_source.as_ref() else {
             return Vec::new();
         };
-        image_refs_in(xhtml_source)
-            .iter()
-            .filter_map(|src| find_resource_index(&self.images, src))
-            .map(|index| {
-                let href = &self.images[index].href;
-                source
-                    .archive_image_entries
-                    .get(href)
-                    .map(|entry| entry.path.clone())
-                    .unwrap_or_else(|| join_epub_href(&source.opf_dir, href))
-            })
-            .collect()
+        let mut names = std::collections::BTreeSet::new();
+        for image in &self.images {
+            let path = source
+                .archive_image_entries
+                .get(&image.href)
+                .map(|entry| entry.path.clone())
+                .unwrap_or_else(|| join_epub_href(&source.opf_dir, &image.href));
+            if let Some(name) = self.resolve_archive_name(&path) {
+                names.insert(name);
+            }
+        }
+        names.into_iter().collect()
+    }
+
+    /// Takes every image's intrinsic dimensions from the shard skeleton, so
+    /// laying out never waits for an image shard. The skeleton records what
+    /// the engine's own dimension rule reads from the image bytes.
+    pub(crate) fn apply_packed_image_dimensions(&mut self) {
+        let Some(source) = self.archive_source.as_ref() else {
+            return;
+        };
+        let Some(store) = source.storage.shards() else {
+            return;
+        };
+        for image in &mut self.images {
+            let path = source
+                .archive_image_entries
+                .get(&image.href)
+                .map(|entry| entry.path.clone())
+                .unwrap_or_else(|| join_epub_href(&source.opf_dir, &image.href));
+            if let Some((_, super::shard::ShardMedia::Image(dimensions))) = store.shard_of(&path) {
+                set_image_dimensions(image, dimensions);
+            }
+        }
     }
 }
 
@@ -417,16 +432,12 @@ fn cached_chapter_image_refs(chapter: &mut LoadedChapter) -> &[String] {
 }
 
 fn collect_chapter_image_refs(chapter: &LoadedChapter) -> Vec<String> {
-    image_refs_in(&chapter.xhtml_source)
-}
-
-fn image_refs_in(xhtml_source: &str) -> Vec<String> {
-    if xhtml_source.is_empty() {
+    if chapter.xhtml_source.is_empty() {
         return Vec::new();
     }
     // This is a speculative preload pass. The formal prepare pass owns XHTML
     // diagnostics and preserves malformed chapters as warnings with empty nodes.
-    let Ok(parsed) = parse_xhtml(xhtml_source) else {
+    let Ok(parsed) = parse_xhtml(&chapter.xhtml_source) else {
         return Vec::new();
     };
     let mut refs = BTreeSet::new();

@@ -1,5 +1,4 @@
 use crate::{
-    epub::{EpubResult, PendingReads},
     layout::LayoutConfig,
     runtime::{
         frame::into_chapter_window_layout_config, metadata::layout_key,
@@ -36,9 +35,6 @@ pub(super) fn prepare_chapter_local_revision(
         target_chapter_index,
         target_locator,
     } = request;
-    document
-        .ready_chapter_layout_inputs(target_chapter_index)
-        .map_err(local_engine_error)?;
     let (coordinate, target_locator) =
         document.validate_chapter_local_target(target_chapter_index, target_locator)?;
     let layout_config = into_chapter_window_layout_config(layout_config);
@@ -60,30 +56,6 @@ pub(super) fn prepare_chapter_local_revision(
 }
 
 impl RuntimeDocument {
-    /// Loads what laying one chapter out reads: its source, its images'
-    /// intrinsic sizes and every publication face. A publication opened
-    /// from shards may lack some of them; the error then names every
-    /// missing shard this step can see at once (a chapter's images become
-    /// visible only after its source arrives). Any other failure is left
-    /// to the step that reports it today.
-    fn ready_chapter_layout_inputs(&mut self, chapter_index: usize) -> EpubResult<()> {
-        if chapter_index >= self.document.chapters.len() {
-            return Ok(());
-        }
-        let mut pending = PendingReads::default();
-        let chapter = self.document.ensure_chapter_loaded(chapter_index);
-        let chapter_ready = chapter.is_ok();
-        pending.absorb_pending(chapter);
-        if chapter_ready {
-            pending.absorb_pending(
-                self.document
-                    .ensure_chapter_image_dimensions_loaded(chapter_index, 1),
-            );
-        }
-        pending.absorb_pending(self.ensure_layout_font_resources());
-        pending.finish()
-    }
-
     pub(super) fn validate_chapter_local_target(
         &mut self,
         target_chapter_index: usize,

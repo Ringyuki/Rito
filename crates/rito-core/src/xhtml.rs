@@ -9,9 +9,7 @@ use std::sync::Arc;
 
 use rito_source::{NodeId, SourceArena};
 
-pub(crate) use footnote_scan::{
-    scan_epub_type_attribute_hints, EpubTypeAttributeHint, EPUB_TYPE_HINT_SCAN_REVISION,
-};
+pub(crate) use footnote_scan::{scan_epub_type_attribute_hints, EpubTypeAttributeHint};
 pub use parser::parse_xhtml;
 pub(crate) use parser::parse_xhtml_with_source;
 use serde::{Deserialize, Serialize};

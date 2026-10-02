@@ -23,11 +23,10 @@ extern "C" {
 #define RITO_STATUS_ADJACENT_PENDING UINT32_C(10)
 #define RITO_STATUS_SESSION_TERMINATED UINT32_C(11)
 /*
- * The publication was opened from shards and the call needs content shards
- * the host has not supplied. error_out then holds a RITOPSH1 message (the
- * ascending shard ids and a UTF-8 message) instead of plain UTF-8; supply
- * those shards with rito_supply_shard and retry the call (a request that
- * carries a request id retries with a newer one).
+ * The publication was opened from shards and a resource read needs a content
+ * shard the host has not supplied. error_out then holds a RITOPSH1 message
+ * (the ascending shard ids and a UTF-8 message) instead of plain UTF-8;
+ * supply those shards with rito_supply_shard and retry the same call.
  */
 #define RITO_STATUS_RESOURCE_PENDING UINT32_C(12)
 #define RITO_STATUS_PANIC UINT32_C(255)
@@ -162,12 +161,9 @@ uint32_t rito_open_with_pinned_fonts(const uint8_t *publication_data,
  * Opens a reader from a publication's skeleton shard (see rito-pack) with a
  * pinned measurement-font policy and requests its initial artifact. key_len is
  * 0 for plain shards or 32 for the skeleton's key; all bytes are copied before
- * this call returns.
- *
- * When the initial request needs content shards the host has not supplied,
- * the call returns RITO_STATUS_RESOURCE_PENDING and, unlike every other open
- * failure, the session stays open: supply the shards named in error_out with
- * rito_supply_shard, then call rito_request_artifact with a newer request id.
+ * this call returns. The skeleton carries everything layout reads, so opening,
+ * seeking and turning never wait on a content shard; only resource reads do.
+ * Pending and terminal semantics match rito_open.
  */
 uint32_t rito_open_shards_with_pinned_fonts(const uint8_t *skeleton_data,
                                                uint64_t skeleton_len,

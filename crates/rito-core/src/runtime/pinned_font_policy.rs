@@ -151,8 +151,8 @@ impl RuntimeDocument {
         ))
     }
 
-    /// Opens a publication from its skeleton shard; chapters, images and
-    /// fonts arrive later through [`RuntimeDocument::supply_shard`].
+    /// Opens a publication from its skeleton shard; images, audio and video
+    /// arrive later through [`RuntimeDocument::supply_shard`].
     pub fn open_shards_with_pinned_font_policy(
         skeleton: &[u8],
         key: Option<&ShardKey>,

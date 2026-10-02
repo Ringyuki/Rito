@@ -20,10 +20,7 @@ use rito_core::runtime::{
 
 use rito_core::epub::shard::ShardKey;
 
-use crate::error::{
-    FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_RESOURCE_PENDING,
-    RITO_STATUS_TARGET_NOT_PUBLISHED,
-};
+use crate::error::{FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_TARGET_NOT_PUBLISHED};
 
 pub const RITO_ACTOR_MAX_IN_FLIGHT: u32 = 8;
 
@@ -331,9 +328,6 @@ pub(crate) type ActorExitCallback = Box<dyn FnOnce() + Send + 'static>;
 pub(crate) enum InitialArtifactReply {
     /// The actor owns a usable session; this is its encoded first artifact.
     Ready(Vec<u8>),
-    /// The actor owns a usable session opened from shards whose first
-    /// request waits on shards; the host supplies them and requests again.
-    Pending(FfiError),
     /// No usable session survived initial request processing.
     Failed(FfiError),
 }
@@ -464,14 +458,6 @@ fn run(
         Ok(artifact) => {
             if initial_reply
                 .send(InitialArtifactReply::Ready(artifact))
-                .is_ok()
-            {
-                return run_commands(reader, commands, client);
-            }
-        }
-        Err(error) if error.status == RITO_STATUS_RESOURCE_PENDING => {
-            if initial_reply
-                .send(InitialArtifactReply::Pending(error))
                 .is_ok()
             {
                 return run_commands(reader, commands, client);

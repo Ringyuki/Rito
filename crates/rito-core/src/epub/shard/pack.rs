@@ -1,24 +1,24 @@
 //! Splitting an EPUB into shards.
 //!
-//! What the skeleton must carry is not listed by hand: the packer opens the
-//! publication from a provisional skeleton that holds nothing, and every
-//! file the engine's own open path asks for moves into the skeleton until
-//! opening asks for nothing more. A change to what opening reads therefore
-//! changes the packing with it.
+//! The skeleton carries every file layout reads (chapters, stylesheets,
+//! fonts, navigation) and the intrinsic dimensions of every image, so a
+//! reader lays the whole book out from the skeleton alone. Each image and
+//! each audio or video file becomes a content shard of its own: images are
+//! nearly all of a publication's bytes and only painting needs them.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use super::{
     container::{seal_shard, shard_error, ShardHeader},
-    payload::{ContentPayload, FileLocation, SkeletonFile, SkeletonPayload},
+    payload::{ContentPayload, FileLocation, ShardMedia, SkeletonFile, SkeletonPayload},
     ShardKey, ShardKind, SHARD_KEY_BYTES,
 };
 use crate::{
     epub::{
         archive::{ArchiveEntryMetadata, EpubArchive, StoredEntry},
-        join_epub_href, open_runtime_document_from_shards, EpubResult, LoadedEpubDocument,
+        join_epub_href, open_runtime_document, EpubResult, LoadedEpubDocument,
     },
-    xhtml::{scan_epub_type_attribute_hints, EpubTypeAttributeHint, EPUB_TYPE_HINT_SCAN_REVISION},
+    resources::{detect_image_dimensions, IMAGE_DIMENSION_RULE_REVISION},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -41,14 +41,20 @@ pub struct PackedShard {
 pub struct PackedPublication {
     pub book_id: [u8; 16],
     pub skeleton: PackedShard,
-    /// Content shards by ascending id: spine chapters first in reading
-    /// order, then every other file in archive order.
+    /// Content shards by ascending id, one per image, audio or video file
+    /// in archive order.
     pub shards: Vec<PackedShard>,
 }
 
 struct SourceFile {
     entry: StoredEntry,
     read: Result<Vec<u8>, String>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MediaKind {
+    Image,
+    Other,
 }
 
 /// Splits `epub` into a skeleton and content shards. `random` fills the
@@ -60,14 +66,55 @@ pub fn pack_publication(
     random: &mut dyn FnMut(&mut [u8]),
 ) -> EpubResult<PackedPublication> {
     let sources = read_sources(epub)?;
-    let inline = skeleton_files(&sources)?;
-    let document = provisional_document(&sources, &inline, Vec::new())?;
-    let assignment = assign_shards(&sources, &inline, &document);
-    let footnote_hints = chapter_footnote_hints(&sources, &document);
+    let media = media_files(&open_runtime_document(epub)?);
 
     let mut book_id = [0u8; 16];
     random(&mut book_id);
-    let skeleton_payload = skeleton_payload(&sources, &inline, &assignment, footnote_hints);
+    let mut files = Vec::with_capacity(sources.len());
+    let mut inline_names = Vec::new();
+    let mut shards = Vec::new();
+    for source in &sources {
+        let name = &source.entry.name;
+        let location = match (&source.read, media.get(name)) {
+            (Err(reason), _) => FileLocation::Unreadable(reason.clone()),
+            (Ok(bytes), None) => {
+                inline_names.push(name.clone());
+                FileLocation::Inline(bytes.clone())
+            }
+            (Ok(bytes), Some(kind)) => {
+                let shard_id = u32::try_from(shards.len() + 1)
+                    .map_err(|_| shard_error("too many content shards"))?;
+                let payload = ContentPayload {
+                    files: vec![(name.clone(), bytes.clone())],
+                }
+                .encode();
+                shards.push(seal(
+                    ShardKind::Content,
+                    shard_id,
+                    book_id,
+                    &payload,
+                    options,
+                    random,
+                    vec![name.clone()],
+                )?);
+                let media = match kind {
+                    MediaKind::Image => ShardMedia::Image(detect_image_dimensions(bytes)),
+                    MediaKind::Other => ShardMedia::Other,
+                };
+                FileLocation::Shard { shard_id, media }
+            }
+        };
+        files.push(SkeletonFile {
+            path: name.clone(),
+            byte_length: source.entry.byte_length,
+            listed: source.entry.listed,
+            location,
+        });
+    }
+    let skeleton_payload = SkeletonPayload {
+        dimension_rule_revision: IMAGE_DIMENSION_RULE_REVISION,
+        files,
+    };
     let skeleton = seal(
         ShardKind::Skeleton,
         0,
@@ -75,36 +122,8 @@ pub fn pack_publication(
         &skeleton_payload.encode(),
         options,
         random,
-        inline
-            .iter()
-            .map(|index| sources[*index].entry.name.clone())
-            .collect(),
+        inline_names,
     )?;
-    let mut shards = Vec::new();
-    for (shard_id, members) in &assignment.members {
-        let files = members
-            .iter()
-            .map(|index| {
-                let source = &sources[*index];
-                let bytes = source
-                    .read
-                    .as_ref()
-                    .expect("only readable files are assigned");
-                (source.entry.name.clone(), bytes.clone())
-            })
-            .collect::<Vec<_>>();
-        let names = files.iter().map(|(name, _)| name.clone()).collect();
-        let payload = ContentPayload { files }.encode();
-        shards.push(seal(
-            ShardKind::Content,
-            *shard_id,
-            book_id,
-            &payload,
-            options,
-            random,
-            names,
-        )?);
-    }
     Ok(PackedPublication {
         book_id,
         skeleton,
@@ -131,262 +150,34 @@ fn read_sources(epub: &[u8]) -> EpubResult<Vec<SourceFile>> {
         .collect())
 }
 
-/// Grows the skeleton until opening from it reads nothing else.
-fn skeleton_files(sources: &[SourceFile]) -> EpubResult<BTreeSet<usize>> {
-    let mut inline = BTreeSet::new();
-    loop {
-        let skeleton = provisional_skeleton(sources, &inline, Vec::new());
-        let sealed = seal_plain(ShardKind::Skeleton, 0, &skeleton.encode())?;
-        let opened = open_runtime_document_from_shards(&sealed, None);
-        let pending = match &opened {
-            Ok(document) => document.pending_shards(),
-            Err(error) => error.pending_shards().to_vec(),
-        };
-        let pending = pending
-            .into_iter()
-            .map(|shard_id| shard_id as usize - 1)
-            .filter(|index| !inline.contains(index))
-            .collect::<Vec<_>>();
-        if pending.is_empty() {
-            opened?;
-            return Ok(inline);
-        }
-        inline.extend(pending);
-    }
-}
-
-/// A skeleton in which every file outside `inline` sits alone in a shard
-/// numbered by its archive position.
-fn provisional_skeleton(
-    sources: &[SourceFile],
-    inline: &BTreeSet<usize>,
-    footnote_hints: Vec<Vec<EpubTypeAttributeHint>>,
-) -> SkeletonPayload {
-    let assignment = sources
-        .iter()
-        .enumerate()
-        .map(|(index, _)| (index, index as u32 + 1))
-        .collect::<BTreeMap<_, _>>();
-    skeleton_payload_with(sources, inline, &assignment, footnote_hints)
-}
-
-fn provisional_document(
-    sources: &[SourceFile],
-    inline: &BTreeSet<usize>,
-    footnote_hints: Vec<Vec<EpubTypeAttributeHint>>,
-) -> EpubResult<LoadedEpubDocument> {
-    let skeleton = provisional_skeleton(sources, inline, footnote_hints);
-    open_runtime_document_from_shards(
-        &seal_plain(ShardKind::Skeleton, 0, &skeleton.encode())?,
-        None,
-    )
-}
-
-struct ShardAssignment {
-    by_file: BTreeMap<usize, u32>,
-    members: BTreeMap<u32, Vec<usize>>,
-}
-
-/// Each spine chapter gets a shard holding it and the images no other
-/// chapter or stylesheet references; every remaining readable file gets a
-/// shard of its own.
-fn assign_shards(
-    sources: &[SourceFile],
-    inline: &BTreeSet<usize>,
-    document: &LoadedEpubDocument,
-) -> ShardAssignment {
-    let by_name = sources
-        .iter()
-        .enumerate()
-        .map(|(index, source)| (source.entry.name.as_str(), index))
-        .collect::<BTreeMap<_, _>>();
-    let shardable = |index: &usize| !inline.contains(index) && sources[*index].read.is_ok();
-    let chapter_files = chapter_file_indices(document, &by_name)
-        .into_iter()
-        .filter(|index| shardable(index))
-        .collect::<Vec<_>>();
-    let exclusive_images = exclusive_chapter_images(sources, &chapter_files, document, &by_name);
-
-    let mut assignment = ShardAssignment {
-        by_file: BTreeMap::new(),
-        members: BTreeMap::new(),
-    };
-    let mut next_id = 1u32;
-    for chapter in &chapter_files {
-        let mut members = vec![*chapter];
-        members.extend(
-            exclusive_images
-                .get(chapter)
-                .into_iter()
-                .flatten()
-                .filter(|index| shardable(index)),
-        );
-        assignment.place(next_id, members);
-        next_id += 1;
-    }
-    for index in 0..sources.len() {
-        if shardable(&index) && !assignment.by_file.contains_key(&index) {
-            assignment.place(next_id, vec![index]);
-            next_id += 1;
-        }
-    }
-    assignment
-}
-
-impl ShardAssignment {
-    fn place(&mut self, shard_id: u32, members: Vec<usize>) {
-        for index in &members {
-            self.by_file.insert(*index, shard_id);
-        }
-        self.members.insert(shard_id, members);
-    }
-}
-
-/// Spine chapter files in reading order, each once.
-fn chapter_file_indices(
-    document: &LoadedEpubDocument,
-    by_name: &BTreeMap<&str, usize>,
-) -> Vec<usize> {
-    let mut seen = BTreeSet::new();
-    document
+/// The archive files only painting reads: every image the engine knows
+/// (declared or found in the archive) and every audio or video item. A
+/// spine document is never one of them, whatever its media type.
+fn media_files(document: &LoadedEpubDocument) -> BTreeMap<String, MediaKind> {
+    let chapters = document
         .chapters
         .iter()
         .filter(|chapter| !chapter.href.is_empty())
         .filter_map(|chapter| {
-            let path = join_epub_href(document.opf_dir(), &chapter.href);
-            let name = document.resolve_archive_name(&path)?;
-            by_name.get(name.as_str()).copied()
+            document.resolve_archive_name(&join_epub_href(document.opf_dir(), &chapter.href))
         })
-        .filter(|index| seen.insert(*index))
-        .collect()
-}
-
-/// Images referenced by exactly one chapter and by no stylesheet, keyed by
-/// that chapter's file.
-fn exclusive_chapter_images(
-    sources: &[SourceFile],
-    chapter_files: &[usize],
-    document: &LoadedEpubDocument,
-    by_name: &BTreeMap<&str, usize>,
-) -> BTreeMap<usize, Vec<usize>> {
-    let mut referencing: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
-    for chapter in chapter_files {
-        let Ok(bytes) = &sources[*chapter].read else {
-            continue;
-        };
-        let text = String::from_utf8_lossy(bytes);
-        for path in document.image_paths_referenced_by(&text) {
-            if let Some(index) = document
-                .resolve_archive_name(&path)
-                .and_then(|name| by_name.get(name.as_str()).copied())
-            {
-                referencing.entry(index).or_default().insert(*chapter);
-            }
-        }
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut media = BTreeMap::new();
+    for name in document.image_archive_names() {
+        media.insert(name, MediaKind::Image);
     }
-    let stylesheet_text = document
-        .stylesheets
-        .iter()
-        .map(|sheet| sheet.text.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let mut exclusive: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for (image, chapters) in referencing {
-        let file_name = sources[image]
-            .entry
-            .name
-            .rsplit('/')
-            .next()
-            .unwrap_or_default();
-        if chapters.len() != 1 || stylesheet_text.contains(file_name) {
+    for item in &document.package.manifest {
+        if !(item.media_type.starts_with("audio/") || item.media_type.starts_with("video/")) {
             continue;
         }
-        let chapter = *chapters.iter().next().expect("one chapter");
-        exclusive.entry(chapter).or_default().push(image);
+        if let Some(name) =
+            document.resolve_archive_name(&join_epub_href(document.opf_dir(), &item.href))
+        {
+            media.entry(name).or_insert(MediaKind::Other);
+        }
     }
-    exclusive
-}
-
-/// The footnote attribute scan of every spine item, exactly as the
-/// publication footnote index scans it from a whole archive.
-fn chapter_footnote_hints(
-    sources: &[SourceFile],
-    document: &LoadedEpubDocument,
-) -> Vec<Vec<EpubTypeAttributeHint>> {
-    let by_name = sources
-        .iter()
-        .map(|source| (source.entry.name.as_str(), source))
-        .collect::<BTreeMap<_, _>>();
-    document
-        .chapters
-        .iter()
-        .map(|chapter| {
-            if chapter.href.is_empty() {
-                return scan_epub_type_attribute_hints("").unwrap_or_default();
-            }
-            let path = join_epub_href(document.opf_dir(), &chapter.href);
-            let text = document
-                .resolve_archive_name(&path)
-                .and_then(|name| by_name.get(name.as_str()).copied())
-                .and_then(|source| source.read.as_ref().ok())
-                .and_then(|bytes| String::from_utf8(bytes.clone()).ok());
-            match text {
-                Some(text) => scan_epub_type_attribute_hints(&text).unwrap_or_default(),
-                None => Vec::new(),
-            }
-        })
-        .collect()
-}
-
-fn skeleton_payload(
-    sources: &[SourceFile],
-    inline: &BTreeSet<usize>,
-    assignment: &ShardAssignment,
-    footnote_hints: Vec<Vec<EpubTypeAttributeHint>>,
-) -> SkeletonPayload {
-    skeleton_payload_with(sources, inline, &assignment.by_file, footnote_hints)
-}
-
-fn skeleton_payload_with(
-    sources: &[SourceFile],
-    inline: &BTreeSet<usize>,
-    shard_of: &BTreeMap<usize, u32>,
-    footnote_hints: Vec<Vec<EpubTypeAttributeHint>>,
-) -> SkeletonPayload {
-    let files = sources
-        .iter()
-        .enumerate()
-        .map(|(index, source)| {
-            let location = match &source.read {
-                Err(reason) => FileLocation::Unreadable(reason.clone()),
-                Ok(bytes) if inline.contains(&index) => FileLocation::Inline(bytes.clone()),
-                Ok(_) => FileLocation::Shard(shard_of[&index]),
-            };
-            SkeletonFile {
-                path: source.entry.name.clone(),
-                byte_length: source.entry.byte_length,
-                listed: source.entry.listed,
-                location,
-            }
-        })
-        .collect();
-    SkeletonPayload {
-        hint_scan_revision: EPUB_TYPE_HINT_SCAN_REVISION,
-        files,
-        footnote_hints,
-    }
-}
-
-fn seal_plain(kind: ShardKind, shard_id: u32, payload: &[u8]) -> EpubResult<Vec<u8>> {
-    let header = ShardHeader {
-        kind,
-        encrypted: false,
-        compressed: false,
-        book_id: [0u8; 16],
-        shard_id,
-        nonce: [0u8; 24],
-    };
-    seal_shard(header, payload, None)
+    media.retain(|name, _| !chapters.contains(name));
+    media
 }
 
 fn seal(

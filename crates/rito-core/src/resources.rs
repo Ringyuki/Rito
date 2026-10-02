@@ -134,6 +134,14 @@ pub(crate) fn binary_summary_from_metadata(
     }
 }
 
+/// Revision of what [`detect_image_dimensions`] and
+/// [`detect_image_dimensions_from_reader`] report for given bytes.
+/// Publication shards carry every image's dimensions so a reader can lay a
+/// book out before any image arrives; a change to either function's output
+/// must bump this, and the engine then refuses shards packed under another
+/// revision.
+pub(crate) const IMAGE_DIMENSION_RULE_REVISION: u32 = 1;
+
 pub(crate) fn detect_image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     image_dimensions(bytes).map(|dimensions| (dimensions.width, dimensions.height))
 }
