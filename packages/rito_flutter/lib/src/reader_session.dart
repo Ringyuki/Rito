@@ -7,6 +7,8 @@ import 'dart:typed_data';
 
 import 'font/artifact_font_cache.dart';
 import 'image/artifact_image_cache.dart';
+import 'native/bindings.dart'
+    show RitoNativeException, ritoNativeStatusResourcePending;
 import 'native/gateway.dart';
 import 'protocol/annotation_target.dart';
 import 'protocol/artifact_models.dart';
@@ -1052,6 +1054,31 @@ final class RitoReaderSession {
     return footnote;
   }
 
+  /// An image read for the image cache: a failure that can pass (the host
+  /// could not load the image's shard) is marked so the cache reads the
+  /// image again; one the engine or this session refused is final.
+  Future<RitoResource> _readImageResource(
+    RitoArtifact artifact,
+    RitoResourceRef reference,
+  ) async {
+    try {
+      return await _readOwnedResource(artifact, reference);
+    } on RitoNativeException catch (error) {
+      if (error.status == ritoNativeStatusResourcePending) {
+        throw RitoTransientResourceFailure(error);
+      }
+      rethrow;
+    } on Object catch (error) {
+      if (error is ArgumentError ||
+          error is StateError ||
+          error is RitoArtifactNotLiveException ||
+          error is RitoNativeSessionInvalidatedException) {
+        rethrow;
+      }
+      throw RitoTransientResourceFailure(error);
+    }
+  }
+
   Future<RitoResource> _readOwnedResource(
     RitoArtifact artifact,
     RitoResourceRef reference,
@@ -1492,7 +1519,7 @@ final class RitoReaderSession {
       if (imageCache != null) {
         imageLease = await imageCache.prepare(
           artifact: artifact,
-          readResource: (reference) => _readOwnedResource(artifact, reference),
+          readResource: (reference) => _readImageResource(artifact, reference),
         );
         prepared = RitoPreparedArtifact.withImageLease(
           fontPrepared: prepared,

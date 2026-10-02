@@ -1,12 +1,18 @@
 ## Unreleased
 
-### Broken images show a placeholder
+### Pages never wait for their images
 
-An image whose preparation failed paints a block tinted toward the text
-colour with a broken-picture icon, instead of nothing. The engine lowers
-the placeholder with every inline image (`RitoPrimitiveImageFallback`,
-`RITODL1` opcode 14); the Canvas pen paints the broken variant in the
-theme's colours.
+`RitoArtifactImageCache.prepare` returns its lease at once and each image
+joins it as it lands, so a page turn presents immediately. The lease is a
+`Listenable` and `RitoPageSurface` repaints from it: an image under a
+second on its way paints nothing, then its loading placeholder (a block
+tinted toward the text colour with a picture icon); a late image fades in
+over it in 150ms; a failed one paints a broken-picture placeholder. A
+read that failed because the host could not load the image's shard
+(`RitoTransientResourceFailure`) is read again after 2s, 5s and then every
+15s while a page shows the artifact, and at once when one shows it again.
+`RitoPreparedArtifact.imagesSettled` completes once every image has landed
+or failed, for a host capturing a finished page.
 
 ### Publications delivered as shards
 

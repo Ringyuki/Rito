@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../image/artifact_image_cache.dart';
 import '../native/pinned_font_policy.dart';
 import '../protocol/artifact_models.dart';
+import '../protocol/primitive_models.dart' show RitoImageFallbackState;
 import '../render/font_envelope.dart';
 
 typedef RitoFontResourceReader =
@@ -109,6 +110,23 @@ final class RitoPreparedArtifact {
     }
     return lease.resolveImage(href);
   }
+
+  /// The placeholder that stands in [href]'s place now, if any; images a
+  /// test supplied never need one.
+  RitoImageFallbackState? imageFallback(String href) =>
+      _imageLease?.fallbackState(href);
+
+  /// The opacity [href] paints at: below one while a late image fades in.
+  double imageOpacity(String href) => _imageLease?.imageOpacity(href) ?? 1;
+
+  /// Completes once every image this artifact draws has landed or failed;
+  /// a page never waits for it, but a host capturing a finished page may.
+  Future<void> get imagesSettled =>
+      _imageLease?.settled ?? Future<void>.value();
+
+  /// Notifies whenever what this artifact's page paints for its images
+  /// changes; null when nothing about them can change.
+  Listenable? get imageChanges => _imageLease;
 
   factory RitoPreparedArtifact.withImageLease({
     required RitoPreparedArtifact fontPrepared,

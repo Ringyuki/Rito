@@ -1,0 +1,70 @@
+{
+  "name": "image-loading-fallback",
+  "width": 420,
+  "height": 220,
+  "background": "#ffffff",
+  "commands": [
+    {
+      "kind": "paintPage",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 420,
+        "height": 220
+      },
+      "paint": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    {
+      "kind": "paintImage",
+      "src": "pending:plate",
+      "rect": {
+        "x": 10,
+        "y": 10,
+        "width": 200,
+        "height": 150
+      }
+    },
+    {
+      "kind": "paintImage",
+      "src": "pending:plate",
+      "rect": {
+        "x": 230,
+        "y": 10,
+        "width": 60,
+        "height": 44
+      }
+    },
+    {
+      "kind": "paintImage",
+      "src": "pending:plate",
+      "rect": {
+        "x": 310,
+        "y": 10,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "kind": "paintImage",
+      "src": "pending:plate",
+      "rect": {
+        "x": 360,
+        "y": 10,
+        "width": 12,
+        "height": 12
+      }
+    },
+    {
+      "kind": "paintImage",
+      "src": "pending:plate",
+      "rect": {
+        "x": 230,
+        "y": 80,
+        "width": 170.5,
+        "height": 120.25
+      }
+    }
+  ]
+}

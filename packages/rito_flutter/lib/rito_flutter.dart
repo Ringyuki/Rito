@@ -11,7 +11,8 @@ export 'src/image/artifact_image_cache.dart'
     show
         RitoArtifactImageCache,
         RitoArtifactImageLease,
-        RitoArtifactImageResourceReader;
+        RitoArtifactImageResourceReader,
+        RitoTransientResourceFailure;
 export 'src/image/image_decoder.dart'
     show RitoImageDecoder, RitoImageDecodeSource, RitoUiImageDecoder;
 export 'src/image/image_limits.dart'

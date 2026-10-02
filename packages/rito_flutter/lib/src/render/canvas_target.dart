@@ -60,10 +60,14 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   RitoPrimitiveCanvasTarget(
     this._canvas, {
     required RitoImageResolver resolveImage,
+    RitoImageFallbackState? Function(String src)? imageFallback,
+    double Function(String src)? imageOpacity,
     RitoFontEnvelopeStore? fontEnvelopes,
     RitoCanvasColorOverride? colorOverride,
     double ratio = 1,
   }) : _resolveImage = resolveImage,
+       _imageFallback = imageFallback,
+       _imageOpacity = imageOpacity,
        _fontEnvelopes = fontEnvelopes,
        _colorOverride = colorOverride,
        _ratio = ratio {
@@ -74,6 +78,11 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
 
   final ui.Canvas _canvas;
   final RitoImageResolver _resolveImage;
+
+  /// Which placeholder stands in an image's place; without one, an image
+  /// the resolver cannot give paints broken.
+  final RitoImageFallbackState? Function(String src)? _imageFallback;
+  final double Function(String src)? _imageOpacity;
 
   /// Device pixels per CSS pixel the list was resolved at; text runs
   /// paint under it.
@@ -300,7 +309,7 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
           )
         : _rect(sourceRect);
     final dest = _rect(primitive.dest);
-    final paint = _imagePaint();
+    final paint = _imagePaint(_imageOpacity?.call(primitive.src) ?? 1);
     final tiles = primitive.tiles;
     if (tiles == null) {
       _canvas.drawImageRect(image, source, dest, paint);
@@ -323,12 +332,16 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
     }
   }
 
-  /// An image's stand-in, painted only in the state its image is in: the
-  /// broken picture once preparation recorded the image as failed.
+  /// An image's stand-in, painted only in the state its image is in.
   @override
   void imageFallback(RitoPrimitiveImageFallback primitive) {
-    if (primitive.state != RitoImageFallbackState.broken ||
-        _resolveImage(primitive.src) != null) {
+    final fallback = _imageFallback;
+    final state = fallback != null
+        ? fallback(primitive.src)
+        : _resolveImage(primitive.src) == null
+        ? RitoImageFallbackState.broken
+        : null;
+    if (state != primitive.state) {
       return;
     }
     final background = _colorOverride?.background ?? _defaultPage;
@@ -437,11 +450,13 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
     return color.withValues(alpha: color.a * _opacity);
   }
 
-  ui.Paint _imagePaint() {
+  ui.Paint _imagePaint(double imageOpacity) {
     // Canvas 2D's default smoothing quality is 'low' — plain bilinear,
     // no mipmaps — so 'medium' would diverge on every downscale.
     return ui.Paint()
       ..filterQuality = ui.FilterQuality.low
-      ..color = const ui.Color(0xffffffff).withValues(alpha: _opacity);
+      ..color = const ui.Color(
+        0xffffffff,
+      ).withValues(alpha: _opacity * imageOpacity);
   }
 }
