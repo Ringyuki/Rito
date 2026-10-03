@@ -103,6 +103,65 @@ or seek is never silently replaced by a page-one artifact; pending
 exact seeks and unpublished adjacent turns resume one bounded native
 quantum per host turn until ready, terminal, or superseded.
 
+## Reader controller (`RitoReaderController`)
+
+The session is the transport; most apps want one owner for the page on
+screen. `RitoReaderController(session, layout: layout)` is that owner:
+
+- `page` is the visible page; listeners hear every replacement and
+  `lastChange` says why (`turn`, `jump`, `relayout`, `pagination`).
+- `turn(direction)`, `jumpTo(locator)` and `relayout(layout)` replace it and
+  release the page they replaced. A `jumpTo` / `relayout` superseded by a
+  later one before it ran returns null.
+- `neighbour(direction)` peeks the adjacent page once per page and keeps
+  it; a turn that way lands on it with no further layout, and the
+  controller releases it when the page changes. `canTurn(direction)`
+  answers from the page itself, synchronously.
+- Background pagination runs by itself and adopts the renumbered page
+  (never one that would move the reader); `holdPagination()` pauses it,
+  `paginationComplete` reports the end, and a failure is reported through
+  `FlutterError.reportError` without closing the book.
+- All session work runs one operation at a time; `withPage(action)` runs
+  host reads (resources, footnotes, geometry) in that order with the page
+  guaranteed live.
+
+Dispose the controller, then the session.
+
+## Page turns
+
+Three layers, each usable on its own:
+
+1. `RitoReaderController` — the pages (above).
+2. `RitoPageTurnController(reader:, vsync:)` — the turn: feed it a drag
+   (`dragStart` / `dragUpdate(offset)` / `dragEnd(velocity)` /
+   `dragCancel`) or call `turn(direction)` for taps and keys. It springs
+   with the web reader's physics (`RitoPageTurnPhysics`, `RitoSpring.standard
+| snappy | gentle`): a release hands its velocity to the spring, a
+   committed turn stops at the neighbour, a pull against the first or last
+   page stretches. A turn commits on the reader the moment it is decided,
+   so the page is ready on arrival; a tap during a landing turn follows it;
+   a jump or relayout mid-turn ends it. `events` brings one
+   `RitoPageTurnStarted` and exactly one `RitoPageTurnEnded` (`committed`,
+   `cancelled`, `interrupted`) per turn; `frame.progress` follows the page
+   every frame. Neighbours are prewarmed while idle; a neighbour that
+   arrives during a turn fades in. `jumpTo(locator, animateAs:)` plays a
+   jump as a turn.
+3. `RitoPageTurnView(controller:, child:)` — shows `child` (the live page)
+   at rest and paints the effect during a turn. With `dragToTurn` it reads
+   horizontal drags itself; leave it off to arbitrate gestures yourself.
+   It follows the platform's reduced-motion setting (turns cross-fade) and
+   pixel ratio.
+
+Effects: `RitoPageTurnEffects.slide | cover | fade | none`, a
+`RitoLayeredPageTurnEffect` returning whole pages per frame, or any
+`RitoPageTurnEffect` painting the frame itself — `paint(scene, frame)`
+gets the canvas, the page images (`scene.pages.image(slot)` at
+`pixelRatio`, `reveal(slot)` for a late page's fade-in) and the paper
+colour, which is how a curl is built. Page textures are drawn by
+`paintPage` (default `ritoPaintArtifactPage`); draw highlights or a theme
+there and call `invalidatePages()` when they change. A page whose images
+land late is rasterized again.
+
 ## Rendering (`RitoPageSurface`)
 
 ```dart

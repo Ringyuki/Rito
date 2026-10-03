@@ -113,6 +113,24 @@ should normally use the isolate gateway. Tests and embedder diagnostics may opt
 out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 `RitoNativeBindings.fromDynamicLibrary(...)`.
 
+For an app, `RitoReaderController` owns the visible page (turns, jumps,
+relayouts, neighbour peeks, background pagination and every release), and
+`RitoPageTurnController` with `RitoPageTurnView` turns pages with the same
+physics and effects as the web reader, or with an effect you paint:
+
+```dart
+final reader = RitoReaderController(session, layout: layout);
+final turns = RitoPageTurnController(reader: reader, vsync: this);
+
+ListenableBuilder(
+  listenable: reader,
+  builder: (context, _) => RitoPageTurnView(
+    controller: turns,
+    child: RitoPageSurface(artifact: reader.page),
+  ),
+);
+```
+
 A full integration reference lives in `doc/INTEGRATION.md`.
 
 ## Fonts

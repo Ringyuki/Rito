@@ -107,6 +107,7 @@ export 'src/protocol/text_interaction.dart'
         RitoTextPoint,
         RitoTextSelection,
         RitoUnavailableResult;
+export 'src/reader/reader_controller.dart';
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'
     show RitoFontEnvelope, RitoFontEnvelopeStore;
@@ -117,3 +118,10 @@ export 'src/render/page_surface.dart'
         RitoImageResolver,
         RitoPageSurface;
 export 'src/render/typed_color.dart' show ritoUiColor;
+export 'src/turn/effects.dart';
+export 'src/turn/motion.dart' show RitoPageTurnPhysics, RitoSpring;
+export 'src/turn/page_textures.dart'
+    show RitoPagePainter, RitoPageTextures, ritoPaintArtifactPage;
+export 'src/turn/page_turn_controller.dart';
+export 'src/turn/page_turn_events.dart';
+export 'src/turn/page_turn_view.dart';

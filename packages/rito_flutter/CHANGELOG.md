@@ -1,5 +1,19 @@
 ## Unreleased
 
+### Page turns and a reader controller
+
+`RitoReaderController` owns the page a session shows: turns, jumps and
+relayouts replace it and release the page they replaced, neighbours are
+peeked once per page and released with it, background pagination adopts
+the renumbered page by itself, and all session work runs one operation at
+a time. `RitoPageTurnController` turns pages over it with the web
+reader's physics and lifecycle (one start and exactly one end per turn,
+with an outcome), committing on the reader while the animation plays,
+prewarming neighbours and redrawing a page whose images land late.
+`RitoPageTurnView` paints the turn with `RitoPageTurnEffects.slide`,
+`cover`, `fade` or `none`, a layered effect, or an effect that paints the
+frame itself from the page images.
+
 ### Pages never wait for their images
 
 `RitoArtifactImageCache.prepare` returns its lease at once and each image
