@@ -106,7 +106,7 @@ pub(crate) enum PunctuationTrimEdit {
 pub(crate) fn compute_cjk_punctuation_trims(
     fonts: &mut FontContext,
     catalog: &FontCatalog,
-    halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
+    halt_cache: &mut rustc_hash::FxHashMap<(u64, u32), bool>,
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyle, usize)],
     suppressed_pairs: &[usize],
@@ -220,7 +220,7 @@ pub(crate) fn compute_cjk_punctuation_trims(
 pub(crate) fn resolved_font_halt(
     fonts: &mut FontContext,
     catalog: &FontCatalog,
-    halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
+    halt_cache: &mut rustc_hash::FxHashMap<(u64, u32), bool>,
     style: &InlineFormattingStyle,
     character: char,
 ) -> Option<bool> {

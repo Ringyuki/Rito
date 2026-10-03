@@ -51,9 +51,9 @@ impl ParleyInlineContext {
             fonts: RefCell::new(fonts),
             layouts: RefCell::new(LayoutContext::new()),
             catalog,
-            line_metrics: RefCell::new(std::collections::HashMap::new()),
-            run_samples: RefCell::new(std::collections::HashMap::new()),
-            halt_feature_cache: RefCell::new(std::collections::HashMap::new()),
+            line_metrics: RefCell::default(),
+            run_samples: RefCell::default(),
+            halt_feature_cache: RefCell::default(),
         })
     }
 

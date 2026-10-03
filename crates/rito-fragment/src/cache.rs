@@ -17,7 +17,7 @@
 //! with, so accounting is deterministic across platforms. Least-recently-used
 //! entries are evicted first.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::break_token::BreakToken;
 use crate::constraint_space::ConstraintSpace;
@@ -103,6 +103,10 @@ pub struct FragmentCache {
     used_bytes: usize,
     clock: u64,
     entries: HashMap<CacheKey, CacheEntry>,
+    /// Every entry by its last-use stamp, oldest first: eviction takes the
+    /// first one instead of scanning the entries, which made a full cache
+    /// cost a pass over every entry per insert.
+    recency: BTreeMap<u64, CacheKey>,
 }
 
 impl FragmentCache {
@@ -114,6 +118,7 @@ impl FragmentCache {
             used_bytes: 0,
             clock: 0,
             entries: HashMap::new(),
+            recency: BTreeMap::new(),
         }
     }
 
@@ -134,7 +139,9 @@ impl FragmentCache {
         let key = cache_key(tree, node, space, token);
         self.clock += 1;
         if let Some(entry) = self.entries.get_mut(&key) {
+            self.recency.remove(&entry.last_used);
             entry.last_used = self.clock;
+            self.recency.insert(self.clock, key);
             return Ok(CachedLayout {
                 outcome: entry.outcome.clone(),
                 from_cache: true,
@@ -145,6 +152,7 @@ impl FragmentCache {
         if bytes <= self.budget_bytes {
             self.evict_until_fits(bytes);
             self.used_bytes += bytes;
+            self.recency.insert(self.clock, key.clone());
             self.entries.insert(
                 key,
                 CacheEntry {
@@ -174,6 +182,7 @@ impl FragmentCache {
     /// Releases every entry, returning the byte accounting to zero.
     pub fn clear(&mut self) {
         self.entries.clear();
+        self.recency.clear();
         self.used_bytes = 0;
     }
 
@@ -202,18 +211,15 @@ impl FragmentCache {
             keep
         });
         self.used_bytes -= released;
+        let entries = &self.entries;
+        self.recency.retain(|_, key| entries.contains_key(key));
     }
 
     fn evict_until_fits(&mut self, incoming_bytes: usize) {
         while self.used_bytes + incoming_bytes > self.budget_bytes {
-            // Unique clock stamps make the LRU victim deterministic even
-            // though HashMap iteration order is not.
-            let Some(victim) = self
-                .entries
-                .iter()
-                .min_by_key(|(_, entry)| entry.last_used)
-                .map(|(key, _)| key.clone())
-            else {
+            // Unique clock stamps make the least recently used entry the
+            // first in stamp order, deterministically.
+            let Some((_, victim)) = self.recency.pop_first() else {
                 return;
             };
             if let Some(entry) = self.entries.remove(&victim) {
@@ -401,6 +407,7 @@ mod tests {
 
         cache.invalidate_node(&tree_a, FormattingNodeId(0));
         assert_eq!(cache.len(), 1);
+        assert_eq!(cache.recency.len(), cache.entries.len());
         assert!(
             cache
                 .layout(&provider, &tree_b, tree_b.root(), &space, None, &cancel)
@@ -486,6 +493,7 @@ mod tests {
                 )
                 .expect("fill");
             assert!(cache.used_bytes() <= cache_budget(&cache));
+            assert_eq!(cache.recency.len(), cache.entries.len());
         }
         assert_eq!(cache.len(), 2);
         // Width 100 was least recently used and must have been evicted;

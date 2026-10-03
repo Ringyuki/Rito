@@ -1,5 +1,12 @@
 ## Unreleased
 
+### Faster layout changes
+
+The engine parses a publication's stylesheets once per worker instead of
+once per chapter per layout, and its layout cache evicts in logarithmic time
+(a full cache used to scan every entry on each insert, which made layouts
+after the first slower than the first).
+
 ### Page turns and a reader controller
 
 `RitoReaderController` owns the page a session shows: turns, jumps and

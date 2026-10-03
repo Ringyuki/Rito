@@ -1084,6 +1084,7 @@ dependencies = [
  "parley",
  "rito-fragment",
  "rito-style-contract",
+ "rustc-hash",
  "skrifa",
 ]
 
@@ -1119,6 +1120,9 @@ dependencies = [
 [[package]]
 name = "rito-style-contract"
 version = "0.0.0"
+dependencies = [
+ "rustc-hash",
+]
 
 [[package]]
 name = "rito-stylo"

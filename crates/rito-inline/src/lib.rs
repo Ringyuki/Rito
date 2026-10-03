@@ -85,12 +85,12 @@ pub struct ParleyInlineContext {
     /// `line-height: normal` geometry per (family key, size bits, line
     /// shape), derived from font tables once and reused.
     pub(crate) line_metrics:
-        RefCell<std::collections::HashMap<LineMetricKey, Option<NormalLineMetric>>>,
+        RefCell<rustc_hash::FxHashMap<LineMetricKey, Option<NormalLineMetric>>>,
     /// The character a text run's font is sampled with, per (family key,
     /// size bits, blob id, face index): every run that resolved to the
     /// same face shares one line-metric entry.
-    pub(crate) run_samples: RefCell<std::collections::HashMap<(String, u64, u64, u32), char>>,
+    pub(crate) run_samples: RefCell<rustc_hash::FxHashMap<(String, u64, u64, u32), char>>,
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
-    pub(crate) halt_feature_cache: RefCell<std::collections::HashMap<(u64, u32), bool>>,
+    pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32), bool>>,
 }

@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fmt};
+use std::fmt;
+
+use rustc_hash::FxHashMap;
 
 use crate::InlineFormattingStyle;
 
@@ -110,7 +112,7 @@ impl std::error::Error for StyleTableError {}
 #[derive(Clone)]
 pub struct InlineStyleTable {
     styles: Vec<InlineFormattingStyle>,
-    interned: HashMap<u64, Vec<StyleId>>,
+    interned: FxHashMap<u64, Vec<StyleId>>,
     node_styles: Vec<Option<StyleId>>,
     payloads: PayloadInterners,
 }
@@ -132,7 +134,7 @@ impl InlineStyleTable {
     pub fn new(node_count: usize) -> Self {
         Self {
             styles: Vec::new(),
-            interned: HashMap::new(),
+            interned: FxHashMap::default(),
             node_styles: vec![None; node_count],
             payloads: PayloadInterners::default(),
         }

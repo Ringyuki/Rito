@@ -19,7 +19,9 @@
 //! metric path alike.
 
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
+
+use rustc_hash::FxHashMap;
 use std::rc::Rc;
 
 use parley::fontique::{Blob, Collection, FontInfoOverride, FontStyle, FontWeight, Language};
@@ -103,13 +105,13 @@ pub(crate) struct ResolvedStack {
 }
 
 /// Resolved stacks per (family list key, content language).
-type StackCache = RefCell<HashMap<(String, Option<String>), Rc<ResolvedStack>>>;
+type StackCache = RefCell<FxHashMap<(String, Option<String>), Rc<ResolvedStack>>>;
 
 #[derive(Debug, Default)]
 pub(crate) struct FontCatalog {
     families: Vec<CatalogFamily>,
     aliases: Vec<String>,
-    face_ids: HashMap<(u64, u32), FontFaceId>,
+    face_ids: FxHashMap<(u64, u32), FontFaceId>,
     stacks: StackCache,
     unknown: RefCell<BTreeSet<String>>,
 }
