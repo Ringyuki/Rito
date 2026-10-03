@@ -18,11 +18,7 @@ import {
   encodeRitoReaderBackgroundRequest,
 } from './reader-session-background-runtime.js';
 import { handleRitoReaderSessionQuery } from './reader-session-worker-query-runtime.js';
-import {
-  decodeExtendedFontPolicySummary,
-  decodeFontPolicySummary,
-  prepareHostFontFaces,
-} from './pinned-font-policy-runtime.js';
+import { prepareHostFontFaces } from './pinned-font-policy-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const COLD_OPEN_DIAGNOSTIC = 'cold-open-attribution-v1';
@@ -172,27 +168,24 @@ async function handleMessage(state, deps, message) {
         },
       };
     }
-    case 'font-catalog':
-      return {
-        payload: { kind: 'font-catalog', catalog: JSON.parse(state.session.fontCatalogJson()) },
-      };
+    case 'font-catalog': {
+      const wire = standaloneBuffer(state.session.fontCatalog());
+      return { payload: { kind: 'font-catalog', wire }, transfer: [wire] };
+    }
     case 'unresolved-font-families': {
       if (typeof message.familyList !== 'string') {
         throw readerWorkerError('invalid-request', 'A font-family list must be a string');
       }
-      const names = JSON.parse(state.session.unresolvedFontFamiliesJson(message.familyList));
-      return { payload: { kind: 'unresolved-font-families', names } };
+      const wire = standaloneBuffer(state.session.unresolvedFontFamilies(message.familyList));
+      return { payload: { kind: 'unresolved-font-families', wire }, transfer: [wire] };
     }
     case 'add-host-font-faces': {
       const prepared = prepareHostFontFaces(message.faces, 'arrayBuffer');
-      const summary = decodeExtendedFontPolicySummary(
-        state.session.addHostFontFaces(
-          JSON.stringify(prepared.metadata),
-          prepared.faceBytes.map((bytes) => new Uint8Array(bytes)),
-        ),
-        prepared.expectedFaces,
+      state.session.addHostFontFaces(
+        JSON.stringify(prepared.metadata),
+        prepared.faceBytes.map((bytes) => new Uint8Array(bytes)),
       );
-      return { payload: { kind: 'host-font-faces', summary } };
+      return { payload: { kind: 'host-font-faces' } };
     }
     case 'remove-host-font-faces': {
       if (
@@ -201,11 +194,8 @@ async function handleMessage(state, deps, message) {
       ) {
         throw readerWorkerError('invalid-request', 'Host font face digests must be strings');
       }
-      const summary = decodeFontPolicySummary(
-        state.session.removeHostFontFacesJson(JSON.stringify(message.sha256s)),
-        'removeHostFontFaces',
-      );
-      return { payload: { kind: 'host-font-faces', summary } };
+      state.session.removeHostFontFaces([...message.sha256s]);
+      return { payload: { kind: 'host-font-faces' } };
     }
     case 'release': {
       const released = state.session.releaseArtifact(message.artifactId);

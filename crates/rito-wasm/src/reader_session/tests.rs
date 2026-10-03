@@ -1247,3 +1247,29 @@ fn a_session_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
     .expect("decodes");
     assert_eq!(read.bytes, archived.bytes);
 }
+
+#[test]
+fn font_queries_cross_the_projection_as_core_wires() {
+    let projection =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
+    let wasm = RitoReaderSession { inner: projection };
+
+    let catalog_wire = wasm
+        .font_catalog()
+        .unwrap_or_else(|_| panic!("catalog resolves"));
+    assert_eq!(&catalog_wire[..8], b"RITOFNT1");
+    let catalog = rito_core::runtime::decode_reader_font_catalog(&catalog_wire)
+        .expect("catalog wire decodes");
+    let session_catalog = wasm.inner.session().expect("session").font_catalog();
+    assert_eq!(catalog, session_catalog);
+    assert!(!catalog.families.is_empty());
+
+    let names_wire = wasm
+        .unresolved_font_families("\"No Such Face\", serif")
+        .unwrap_or_else(|_| panic!("names resolve"));
+    assert_eq!(&names_wire[..8], b"RITOFNN1");
+    assert_eq!(
+        rito_core::runtime::decode_reader_font_names(&names_wire).expect("names wire decodes"),
+        vec!["No Such Face".to_owned()]
+    );
+}

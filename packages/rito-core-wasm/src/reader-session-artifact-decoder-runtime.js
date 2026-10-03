@@ -258,7 +258,7 @@ function readOptionalString(reader, field) {
   return reader.option(field, () => reader.string(field));
 }
 
-function readTaggedU32(reader, field, values) {
+export function readTaggedU32(reader, field, values) {
   const tag = reader.u32(field);
   const value = values[tag];
   if (value === undefined) reader.fail(`unknown ${field}: ${String(tag)}`);

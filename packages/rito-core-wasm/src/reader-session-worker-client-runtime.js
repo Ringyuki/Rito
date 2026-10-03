@@ -7,6 +7,10 @@ import {
   decodeRitoReaderBackgroundHandoffAck,
 } from './reader-session-background-runtime.js';
 import { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';
+import {
+  decodeRitoReaderFontCatalog,
+  decodeRitoReaderFontNames,
+} from './reader-session-query-decoder-runtime.js';
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
 import { defaultYieldControl } from './reader-revision-session-support-runtime.js';
 import { createRitoReaderSessionQueryMethods } from './reader-session-worker-client-query-runtime.js';
@@ -356,14 +360,14 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     requireOpen();
     const payload = await send('font-catalog', {});
     if (payload?.kind !== 'font-catalog') throw invalidPayload('font catalog');
-    return payload.catalog;
+    return decodeRitoReaderFontCatalog(payload.wire);
   };
 
   const unresolvedFontFamilies = async (familyList) => {
     requireOpen();
     const payload = await send('unresolved-font-families', { familyList });
     if (payload?.kind !== 'unresolved-font-families') throw invalidPayload('font names');
-    return payload.names;
+    return decodeRitoReaderFontNames(payload.wire);
   };
 
   // The face bytes travel as transferred ArrayBuffers: the caller hands
@@ -376,14 +380,12 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       faces.map((face) => face.bytes),
     );
     if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
-    return payload.summary;
   };
 
   const removeHostFontFaces = async (sha256s) => {
     requireOpen();
     const payload = await send('remove-host-font-faces', { sha256s });
     if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
-    return payload.summary;
   };
 
   const requestArtifact = (request) => {

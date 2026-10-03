@@ -7,25 +7,21 @@ import { ReaderWireReader } from '../src/reader-session-wire-base-runtime.js';
 import { artifactWire, request } from './helpers/reader-session-fixtures.mjs';
 
 const POLICY = { metadataJson: '{}', faces: [Uint8Array.of(1)] };
-const SERIF = 'a'.repeat(64);
 const SANS = 'b'.repeat(64);
 
-function summaryFace(sha256, genericRole, familyName) {
-  return {
-    sha256,
-    familyName,
-    shapeFingerprint: sha256.slice(0, 16),
-    familyAlias: `__RitoPinned_${sha256}`,
-    byteLength: 4,
-    genericRole,
-    language: 'und',
-    style: 'normal',
-    weight: 400,
-  };
-}
+// Byte-for-byte pins shared with the Rust encoder and the Dart decoder
+// (crates/rito-core/src/runtime/reader_session/wire/fonts.rs).
+const FONT_CATALOG_HEX =
+  '5249544f464e5431010000006a00000000000000020000000500000054696e6f' +
+  '7300000000010000000103000000756e64010000009001060000006e6f726d61' +
+  '6c0102000000616204000000426f6f6b01000000000000000001000000bc0206' +
+  '0000006974616c696300';
+const FONT_NAMES_HEX =
+  '5249544f464e4e31010000003300000000000000020000000c0000004e6f2053' +
+  '75636820466163650700000047656f72676961';
 
-function summary(...faces) {
-  return JSON.stringify({ schemaVersion: 1, policyId: 'c'.repeat(64), faces });
+function bytes(hex) {
+  return Uint8Array.from(hex.match(/../g), (pair) => Number.parseInt(pair, 16));
 }
 
 /** A raw session whose fonts answer from what the test set. */
@@ -44,23 +40,21 @@ function fontRawSession(log, answers) {
       return artifactWire(sessionId, reader.externalId('request'), 9n, 'Text/one.xhtml');
     }
 
-    fontCatalogJson() {
-      return JSON.stringify({ families: [{ name: 'Tinos', source: 'host' }] });
+    fontCatalog() {
+      return answers.catalog ?? bytes(FONT_CATALOG_HEX);
     }
 
-    unresolvedFontFamiliesJson(list) {
+    unresolvedFontFamilies(list) {
       log.push(['unresolved', list]);
-      return JSON.stringify(['Arimo']);
+      return bytes(FONT_NAMES_HEX);
     }
 
     addHostFontFaces(metadataJson, faces) {
       log.push(['add', JSON.parse(metadataJson), faces.map((face) => [...face])]);
-      return answers.added;
     }
 
-    removeHostFontFacesJson(json) {
-      log.push(['remove', JSON.parse(json)]);
-      return summary(summaryFace(SERIF, 'serif', 'Tinos'));
+    removeHostFontFaces(sha256s) {
+      log.push(['remove', sha256s]);
     }
 
     releaseArtifact() {
@@ -110,53 +104,64 @@ async function openClient(log, answers, transfers) {
   return client;
 }
 
-test('a session answers its font catalog and the names a list would skip', async () => {
+test('a session answers its font catalog and the names a list would skip as core wires', async () => {
   const log = [];
   const client = await openClient(log, {});
-  assert.deepEqual(await client.fontCatalog(), { families: [{ name: 'Tinos', source: 'host' }] });
-  assert.deepEqual(await client.unresolvedFontFamilies('Arimo, serif'), ['Arimo']);
-  assert.deepEqual(log, [['unresolved', 'Arimo, serif']]);
+  assert.deepEqual(await client.fontCatalog(), {
+    families: [
+      {
+        name: 'Tinos',
+        source: 'host',
+        genericRole: 'serif',
+        language: 'und',
+        faces: [{ weight: 400, style: 'normal', sha256: 'ab' }],
+      },
+      {
+        name: 'Book',
+        source: 'publication',
+        genericRole: null,
+        language: null,
+        faces: [{ weight: 700, style: 'italic', sha256: null }],
+      },
+    ],
+  });
+  assert.deepEqual(await client.unresolvedFontFamilies('No Such Face, Georgia'), [
+    'No Such Face',
+    'Georgia',
+  ]);
+  assert.deepEqual(log, [['unresolved', 'No Such Face, Georgia']]);
   await client.dispose();
 });
 
-test('added faces cross with their bytes and must come back at the summary end', async () => {
+test('a font catalog wire that does not end where its length says is refused', async () => {
+  const truncated = bytes(FONT_CATALOG_HEX).slice(0, -1);
+  const client = await openClient([], { catalog: truncated });
+  await assert.rejects(client.fontCatalog());
+  await client.dispose();
+});
+
+test('added faces cross with their bytes handed over', async () => {
   const log = [];
-  const answers = {
-    added: summary(summaryFace(SERIF, 'serif', 'Tinos'), summaryFace(SANS, 'sansSerif', 'Arimo')),
-  };
   const transfers = [];
-  const client = await openClient(log, answers, transfers);
-  const bytes = Uint8Array.of(1, 2, 3, 4).buffer;
-  const extended = await client.addHostFontFaces([
-    { bytes, expectedSha256: SANS, genericRole: 'sansSerif' },
+  const client = await openClient(log, {}, transfers);
+  const faceBytes = Uint8Array.of(1, 2, 3, 4).buffer;
+  await client.addHostFontFaces([
+    { bytes: faceBytes, expectedSha256: SANS, genericRole: 'sansSerif' },
   ]);
-  assert.equal(extended.faces[1].familyName, 'Arimo');
   const sent = transfers.find(([kind]) => kind === 'add-host-font-faces');
-  assert.deepEqual(sent?.[1], [bytes], 'the face bytes are handed over, not copied');
+  assert.deepEqual(sent?.[1], [faceBytes], 'the face bytes are handed over, not copied');
   assert.deepEqual(log[0], [
     'add',
     { schemaVersion: 1, faces: [{ expectedSha256: SANS, genericRole: 'sansSerif' }] },
     [[1, 2, 3, 4]],
   ]);
-
-  // A summary that does not end with the face asked for is refused.
-  answers.added = summary(summaryFace(SERIF, 'serif', 'Tinos'));
-  await assert.rejects(
-    client.addHostFontFaces([
-      { bytes: Uint8Array.of(5, 6, 7, 8).buffer, expectedSha256: SANS, genericRole: 'sansSerif' },
-    ]),
-  );
   await client.dispose();
 });
 
-test('removed faces are named by digest and the remaining summary is validated', async () => {
+test('removed faces are named by digest', async () => {
   const log = [];
   const client = await openClient(log, {});
-  const remaining = await client.removeHostFontFaces([SANS]);
-  assert.deepEqual(
-    remaining.faces.map((face) => face.familyName),
-    ['Tinos'],
-  );
+  await client.removeHostFontFaces([SANS]);
   assert.deepEqual(log, [['remove', [SANS]]]);
   await client.dispose();
 });

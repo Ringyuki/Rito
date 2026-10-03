@@ -8,9 +8,9 @@ use rito_core::runtime::{
     decode_reader_adjacent_request, decode_reader_artifact_request,
     decode_reader_background_handoff, decode_reader_background_request,
     decode_reader_foreground_handoff, encode_reader_artifact, encode_reader_background_advance,
-    encode_reader_background_handoff_ack, encode_reader_foreground_handoff_ack,
-    encode_reader_publication, encode_reader_resource, ReaderError, ReaderErrorKind,
-    ReaderResourceKind, ReaderSession,
+    encode_reader_background_handoff_ack, encode_reader_font_catalog, encode_reader_font_names,
+    encode_reader_foreground_handoff_ack, encode_reader_publication, encode_reader_resource,
+    ReaderError, ReaderErrorKind, ReaderResourceKind, ReaderSession,
 };
 use wasm_bindgen::prelude::*;
 
@@ -210,65 +210,64 @@ impl RitoReaderSession {
             .map_err(ReaderProjectionError::into_js_value)
     }
 
-    /// Every family a `font-family` list can name, as JSON.
-    #[wasm_bindgen(js_name = fontCatalogJson)]
-    pub fn font_catalog_json(&self) -> Result<String, JsValue> {
+    /// Every family a `font-family` list can name, as one `RITOFNT1`
+    /// message (host families first).
+    #[wasm_bindgen(js_name = fontCatalog)]
+    pub fn font_catalog(&self) -> Result<Vec<u8>, JsValue> {
         let catalog = self
             .inner
             .session()
             .map_err(ReaderProjectionError::into_js_value)?
             .font_catalog();
-        serde_json::to_string(&catalog).map_err(|error| JsValue::from_str(&error.to_string()))
+        encode_reader_font_catalog(&catalog)
+            .map_err(|error| ReaderProjectionError::from(error).into_js_value())
     }
 
-    /// The names in a CSS `font-family` list no family answers to, as a
-    /// JSON array.
-    #[wasm_bindgen(js_name = unresolvedFontFamiliesJson)]
-    pub fn unresolved_font_families_json(&self, family_list: &str) -> Result<String, JsValue> {
+    /// The names in a CSS `font-family` list no family answers to, as one
+    /// `RITOFNN1` message.
+    #[wasm_bindgen(js_name = unresolvedFontFamilies)]
+    pub fn unresolved_font_families(&self, family_list: &str) -> Result<Vec<u8>, JsValue> {
         let names = self
             .inner
             .session()
             .map_err(ReaderProjectionError::into_js_value)?
             .unresolved_font_families(family_list);
-        serde_json::to_string(&names).map_err(|error| JsValue::from_str(&error.to_string()))
+        encode_reader_font_names(&names)
+            .map_err(|error| ReaderProjectionError::from(error).into_js_value())
     }
 
     /// Adds host faces (`metadata_json` and `face_bytes` as for
-    /// `openWithPinnedFontPolicy`, a face may share its role and language
-    /// with another); returns the extended policy summary JSON. The next
-    /// request lays out again with the new faces nameable.
+    /// `openWithPinnedFontPolicy`; a face may share its role and language
+    /// with another). The next request lays out with the new faces
+    /// nameable.
     #[wasm_bindgen(js_name = addHostFontFaces)]
     pub fn add_host_font_faces(
         &mut self,
         metadata_json: &str,
         face_bytes: JsValue,
-    ) -> Result<String, JsValue> {
+    ) -> Result<(), JsValue> {
         let (metadata, faces) =
             crate::binding::pinned_font::added_font_faces(metadata_json, face_bytes)
                 .map_err(crate::binding::error_to_js_value)?;
         let input = crate::pinned_font::pinned_font_policy_input(metadata, faces);
-        let summary = self
-            .inner
+        self.inner
             .live_session()
             .map_err(ReaderProjectionError::into_js_value)?
             .add_host_font_faces(input.faces)
-            .map_err(|error| ReaderProjectionError::from(error).into_js_value())?;
-        serde_json::to_string(&summary).map_err(|error| JsValue::from_str(&error.to_string()))
+            .map(|_| ())
+            .map_err(|error| ReaderProjectionError::from(error).into_js_value())
     }
 
-    /// Removes host faces by the SHA-256 digests in a JSON array; returns
-    /// the remaining policy summary JSON.
-    #[wasm_bindgen(js_name = removeHostFontFacesJson)]
-    pub fn remove_host_font_faces_json(&mut self, sha256s_json: &str) -> Result<String, JsValue> {
-        let sha256s: Vec<String> = serde_json::from_str(sha256s_json)
-            .map_err(|error| JsValue::from_str(&format!("host font face digests: {error}")))?;
-        let summary = self
-            .inner
+    /// Removes host faces by their SHA-256 digests; at least one face must
+    /// remain.
+    #[wasm_bindgen(js_name = removeHostFontFaces)]
+    pub fn remove_host_font_faces(&mut self, sha256s: Vec<String>) -> Result<(), JsValue> {
+        self.inner
             .live_session()
             .map_err(ReaderProjectionError::into_js_value)?
             .remove_host_font_faces(&sha256s)
-            .map_err(|error| ReaderProjectionError::from(error).into_js_value())?;
-        serde_json::to_string(&summary).map_err(|error| JsValue::from_str(&error.to_string()))
+            .map(|_| ())
+            .map_err(|error| ReaderProjectionError::from(error).into_js_value())
     }
 
     /// Disposes the session. Repeated disposal is a successful no-op and

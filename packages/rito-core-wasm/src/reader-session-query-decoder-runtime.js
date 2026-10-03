@@ -1,6 +1,7 @@
 import { validateReaderWireMessage } from './reader-session-wire-base-runtime.js';
 import {
   readCollection,
+  readTaggedU32,
   readLocator,
   readRect,
   readSourcePoint,
@@ -8,6 +9,8 @@ import {
 } from './reader-session-artifact-decoder-runtime.js';
 
 const FOOTNOTE_KINDS = ['footnote', 'endnote', 'rearnote', 'note'];
+const FONT_SOURCES = ['host', 'publication'];
+const FONT_GENERIC_ROLES = [null, 'serif', 'sansSerif', 'monospace'];
 const EXACT_STATUSES = ['resolved', 'pending', 'unavailable'];
 const AFFINITIES = ['upstream', 'downstream'];
 const BOUNDARIES = ['start', 'end'];
@@ -30,6 +33,33 @@ const ANNOTATION_LEVELS = [
 ];
 const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
 const ORDERS = [-1, 0, 1];
+
+/** Decodes a `RITOFNT1` font catalog: every family a `font-family` list can name. */
+export function decodeRitoReaderFontCatalog(value) {
+  const reader = validateReaderWireMessage(value, 'RITOFNT1', 'font catalog');
+  const families = readCollection(reader, 'font families', () => ({
+    name: reader.string('font family name'),
+    source: readTaggedU32(reader, 'font source', FONT_SOURCES),
+    genericRole: readTaggedU32(reader, 'font generic role', FONT_GENERIC_ROLES),
+    language:
+      reader.option('font family language', () => reader.string('font family language')) ?? null,
+    faces: readCollection(reader, 'font faces', () => ({
+      weight: reader.u16('font face weight'),
+      style: reader.string('font face style'),
+      sha256: reader.option('font face sha256', () => reader.string('font face sha256')) ?? null,
+    })),
+  }));
+  reader.finish('font catalog wire message');
+  return { families };
+}
+
+/** Decodes a `RITOFNN1` list of font family names. */
+export function decodeRitoReaderFontNames(value) {
+  const reader = validateReaderWireMessage(value, 'RITOFNN1', 'font names');
+  const names = readCollection(reader, 'font names', () => reader.string('font name'));
+  reader.finish('font names wire message');
+  return names;
+}
 
 export function decodeRitoReaderFootnote(value) {
   const reader = validateReaderWireMessage(value, 'RITOFTN1', 'footnote');
