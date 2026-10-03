@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { ChevronsUpDown } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ChevronsUpDown, FileUp, Loader2, X } from 'lucide-react';
+import type { ReaderFontFamily } from '@ritojs/core';
 import {
   Command,
   CommandEmpty,
@@ -11,87 +12,96 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useSystemFonts, type SystemFontEntry } from '@/hooks/use-system-fonts';
+import { fontFamilyValue, type ReaderFonts } from '@/hooks/use-reader-fonts';
 import { cn } from '@/lib/utils';
 import { getFontPreviewSpec, type FontPreviewSpec } from '@/lib/font-preview';
-import { getFontFamilyDisplayName } from '@/lib/font-family-value';
+import { getFontFamilyDisplayName, serializeFontFamilyName } from '@/lib/font-family-value';
 
 interface FontFamilyComboboxProps {
   value: string | null;
   onChange: (value: string | null) => void;
+  fonts: ReaderFonts;
 }
 
-interface FontPreset {
+interface FontChoice {
+  readonly key: string;
   readonly label: string;
   readonly value: string | null;
+  /** The CSS family the option previews in; the page registers it. */
+  readonly previewFamily: string | null;
+  /** A face added in this session, which the reader may remove. */
+  readonly removable?: string;
 }
 
-const FONT_PRESETS: readonly FontPreset[] = [
-  { value: null, label: 'Book default' },
-  { value: 'Georgia, "Times New Roman", serif', label: 'Serif' },
-  { value: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', label: 'Sans' },
-  { value: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', label: 'Mono' },
+/**
+ * The generics resolve to the reader's own faces of that role: the pinned
+ * Tinos / Source Han Serif pair for serif, Arimo / Source Han Sans for
+ * sans-serif. "Book default" leaves the book's own families in charge.
+ */
+const GENERIC_CHOICES: readonly FontChoice[] = [
+  { key: 'book', label: 'Book default', value: null, previewFamily: null },
+  { key: 'serif', label: 'Serif', value: 'serif', previewFamily: 'serif' },
+  { key: 'sans', label: 'Sans-serif', value: 'sans-serif', previewFamily: 'sans-serif' },
+  { key: 'mono', label: 'Monospace', value: 'monospace', previewFamily: 'monospace' },
 ];
 
-export function FontFamilyCombobox({ value, onChange }: FontFamilyComboboxProps) {
-  const { fonts, status, request } = useSystemFonts();
+/**
+ * A font picker built from the open book's font catalog: the generics, the
+ * reader's faces, the book's own faces, and fonts a reader adds — a system
+ * font (Local Font Access) or an imported file — whose bytes are registered
+ * with the reader before the choice applies.
+ */
+export function FontFamilyCombobox({ value, onChange, fonts }: FontFamilyComboboxProps) {
+  const system = useSystemFonts();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [adding, setAdding] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedPreset = FONT_PRESETS.find((preset) => preset.value === value);
-  const selectedFont =
-    value !== null ? fonts.find((font) => matchesFontValue(font, value)) : undefined;
-  const selectedDisplayValue = value !== null ? getFontFamilyDisplayName(value) : null;
+  const families = fonts.catalog?.families ?? [];
+  const readerChoices = families
+    .filter((family) => family.source === 'host')
+    .map((family) => hostChoice(family, fonts.added));
+  const bookChoices = families
+    .filter((family) => family.source === 'publication')
+    .map((family) => ({
+      key: `book:${family.name}`,
+      label: family.name,
+      value: `${serializeFontFamilyName(family.name)}, serif`,
+      previewFamily: null,
+    }));
+  const allChoices = [...GENERIC_CHOICES, ...readerChoices, ...bookChoices];
+  const selected = allChoices.find((choice) => choice.value === value);
   const selectedLabel =
-    selectedPreset?.label ?? selectedFont?.displayName ?? selectedDisplayValue ?? 'Book default';
-  const selectedPreview =
-    selectedFont !== undefined
-      ? getSystemFontPreview(selectedFont)
-      : getFontPreviewSpec(selectedDisplayValue, selectedLabel, {
-          isPreset: selectedPreset !== undefined && value !== null,
-        });
-  const showExternalChoice =
-    value !== null && selectedPreset === undefined && selectedFont === undefined;
-  const externalValue = showExternalChoice ? value : null;
-  const externalDisplayValue =
-    externalValue !== null ? getFontFamilyDisplayName(externalValue) : null;
-  const externalPreview =
-    externalDisplayValue !== null
-      ? getFontPreviewSpec(externalDisplayValue, externalDisplayValue)
-      : undefined;
+    selected?.label ?? (value !== null ? getFontFamilyDisplayName(value) : 'Book default');
 
   const normalizedSearch = normalizeSearchValue(search);
-  const visiblePresets = FONT_PRESETS.filter((preset) =>
-    matchesSearch(normalizedSearch, buildPresetSearchValue(preset)),
-  );
-  const showExternalChoiceGroup =
-    externalValue !== null &&
-    matchesSearch(
-      normalizedSearch,
-      buildSearchValue([
-        externalValue,
-        externalDisplayValue,
-        externalPreview?.primaryText,
-        externalPreview?.secondaryText,
-      ]),
-    );
-  const externalChoice = showExternalChoiceGroup
-    ? {
-        value: externalValue,
-        displayValue: externalDisplayValue,
-        preview: externalPreview,
-      }
-    : null;
-  const visibleFonts = fonts.filter((font) =>
+  const visible = (choices: readonly FontChoice[]) =>
+    choices.filter((choice) => matchesSearch(normalizedSearch, choice.label));
+  const visibleSystem = system.fonts.filter((font) =>
     matchesSearch(normalizedSearch, buildSystemFontSearchValue(font)),
   );
-  const hasVisibleItems =
-    visiblePresets.length > 0 || showExternalChoiceGroup || visibleFonts.length > 0;
 
   const pick = (next: string | null) => {
     onChange(next);
     setOpen(false);
     setSearch('');
   };
+  const addAndPick = async (label: string, load: () => Promise<ArrayBuffer>) => {
+    setAdding(label);
+    try {
+      const next = await fonts.addFont(await load(), label);
+      if (next !== null) pick(next);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const groups: readonly (readonly [string, readonly FontChoice[]])[] = [
+    ['Generic', visible(GENERIC_CHOICES)],
+    ['Reader fonts', visible(readerChoices)],
+    ['This book', visible(bookChoices)],
+  ];
 
   return (
     <Popover
@@ -99,7 +109,7 @@ export function FontFamilyCombobox({ value, onChange }: FontFamilyComboboxProps)
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (nextOpen) request();
+        if (nextOpen) system.request();
         if (!nextOpen) setSearch('');
       }}
     >
@@ -108,11 +118,12 @@ export function FontFamilyCombobox({ value, onChange }: FontFamilyComboboxProps)
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          data-testid="font-family-combobox"
           className="h-auto min-h-8 w-full justify-between gap-3 py-2 font-normal"
         >
           <FontPreviewText
-            preview={selectedPreview}
-            fontFamily={selectedFont?.cssValue ?? value}
+            preview={{ primaryText: selectedLabel }}
+            fontFamily={selected?.previewFamily ?? null}
             className="min-w-0 flex-1 text-left"
           />
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -124,111 +135,140 @@ export function FontFamilyCombobox({ value, onChange }: FontFamilyComboboxProps)
         sideOffset={4}
       >
         <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Search font or script…"
-            value={search}
-            onValueChange={setSearch}
-          />
+          <CommandInput placeholder="Search fonts…" value={search} onValueChange={setSearch} />
           <CommandList>
-            {visiblePresets.length > 0 && (
-              <CommandGroup heading="Presets">
-                {visiblePresets.map((preset) => {
-                  const preview = getFontPreviewSpec(preset.value, preset.label, {
-                    isPreset: preset.value !== null,
-                  });
-                  return (
+            {groups.map(([heading, choices]) =>
+              choices.length === 0 ? null : (
+                <CommandGroup key={heading} heading={heading}>
+                  {choices.map((choice) => (
                     <CommandItem
-                      key={preset.label}
-                      value={buildPresetSearchValue(preset)}
+                      key={choice.key}
+                      value={choice.key}
                       className="py-2.5"
                       onSelect={() => {
-                        pick(preset.value);
+                        pick(choice.value);
                       }}
-                      data-checked={value === preset.value}
+                      data-checked={value === choice.value}
                     >
                       <FontPreviewText
-                        preview={preview}
-                        fontFamily={preset.value}
+                        preview={{ primaryText: choice.label }}
+                        fontFamily={choice.previewFamily}
                         className="min-w-0 grow"
                       />
+                      {choice.removable !== undefined && (
+                        <RemoveFontButton
+                          label={choice.label}
+                          onRemove={() => {
+                            if (value === choice.value) onChange(null);
+                            void fonts.removeFont(choice.removable ?? '');
+                          }}
+                        />
+                      )}
                     </CommandItem>
-                  );
-                })}
-              </CommandGroup>
+                  ))}
+                </CommandGroup>
+              ),
             )}
-            {externalChoice !== null && (
-              <CommandGroup heading="Current Choice">
+            <CommandGroup heading="Add a font">
+              <CommandItem
+                value="import-font-file"
+                className="py-2.5"
+                onSelect={() => fileInputRef.current?.click()}
+              >
+                <FileUp className="h-4 w-4" />
+                Import a font file (.ttf, .otf)…
+              </CommandItem>
+              {visibleSystem.map((font) => (
                 <CommandItem
-                  value={buildSearchValue([
-                    externalChoice.value,
-                    externalChoice.displayValue,
-                    externalChoice.preview?.primaryText,
-                    externalChoice.preview?.secondaryText,
-                  ])}
+                  key={font.family}
+                  value={`system:${font.family}`}
                   className="py-2.5"
+                  disabled={adding !== null}
                   onSelect={() => {
-                    pick(externalChoice.value);
+                    void addAndPick(font.family, font.load);
                   }}
-                  data-checked="true"
                 >
                   <FontPreviewText
-                    preview={
-                      externalChoice.preview ??
-                      getFontPreviewSpec(
-                        externalChoice.displayValue,
-                        externalChoice.displayValue ?? externalChoice.value,
-                      )
-                    }
-                    fontFamily={externalChoice.value}
+                    preview={getSystemFontPreview(font)}
+                    fontFamily={font.cssValue}
                     className="min-w-0 grow"
                   />
+                  {adding === font.family && <Loader2 className="h-4 w-4 animate-spin" />}
                 </CommandItem>
-              </CommandGroup>
+              ))}
+            </CommandGroup>
+            {allChoices.length === 0 && visibleSystem.length === 0 && (
+              <CommandEmpty>No fonts found.</CommandEmpty>
             )}
-            {visibleFonts.length > 0 && (
-              <CommandGroup heading="System Fonts">
-                {visibleFonts.map((font) => {
-                  const preview = getSystemFontPreview(font);
-                  return (
-                    <CommandItem
-                      key={font.family}
-                      value={buildSystemFontSearchValue(font)}
-                      className="py-2.5"
-                      onSelect={() => {
-                        pick(font.cssValue);
-                      }}
-                      data-checked={value !== null && matchesFontValue(font, value)}
-                    >
-                      <FontPreviewText
-                        preview={preview}
-                        fontFamily={font.cssValue}
-                        className="min-w-0 grow"
-                      />
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
-            {!hasVisibleItems && <CommandEmpty>No fonts found.</CommandEmpty>}
-            {status === 'loading' && fonts.length === 0 && (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                Loading system fonts…
-              </div>
-            )}
-            {status === 'denied' && (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                System fonts permission denied
-              </div>
-            )}
-            {status === 'unsupported' && (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                System font browsing is not supported in this browser
-              </div>
-            )}
+            <SystemFontsStatus status={system.status} empty={system.fonts.length === 0} />
           </CommandList>
         </Command>
       </PopoverContent>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".ttf,.otf,font/ttf,font/otf"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file)
+            void addAndPick(file.name.replace(/\.(ttf|otf)$/i, ''), () => file.arrayBuffer());
+        }}
+      />
     </Popover>
+  );
+}
+
+function hostChoice(family: ReaderFontFamily, added: ReadonlySet<string>): FontChoice {
+  const sha256 = family.faces[0]?.sha256 ?? null;
+  const removable = family.faces.find((face) => face.sha256 !== null && added.has(face.sha256));
+  return {
+    key: `host:${family.name}:${family.genericRole ?? ''}:${family.language ?? ''}`,
+    label: family.name,
+    value: fontFamilyValue(family.name, family.genericRole),
+    // The reader registered the face under its paint alias.
+    previewFamily: sha256 !== null ? `"__RitoPinned_${sha256}"` : null,
+    ...(removable?.sha256 ? { removable: removable.sha256 } : {}),
+  };
+}
+
+function RemoveFontButton({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Remove ${label}`}
+      className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onRemove();
+      }}
+    >
+      <X className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function SystemFontsStatus({
+  status,
+  empty,
+}: {
+  status: ReturnType<typeof useSystemFonts>['status'];
+  empty: boolean;
+}) {
+  const message =
+    status === 'loading' && empty
+      ? 'Loading system fonts…'
+      : status === 'denied'
+        ? 'System fonts permission denied'
+        : status === 'unsupported'
+          ? 'Listing system fonts is not supported in this browser'
+          : null;
+  return message === null ? null : (
+    <div className="py-4 text-center text-sm text-muted-foreground">{message}</div>
   );
 }
 
@@ -269,13 +309,6 @@ function FontPreviewText({
   );
 }
 
-function buildPresetSearchValue(preset: FontPreset): string {
-  const preview = getFontPreviewSpec(preset.value, preset.label, {
-    isPreset: preset.value !== null,
-  });
-  return buildSearchValue([preset.label, preview.primaryText, preview.secondaryText]);
-}
-
 function buildSystemFontSearchValue(font: SystemFontEntry): string {
   const preview = getSystemFontPreview(font);
   return buildSearchValue([
@@ -295,10 +328,6 @@ function buildSearchValue(parts: readonly (string | undefined | null)[]): string
 
 function sameText(left: string, right: string): boolean {
   return left.localeCompare(right, undefined, { sensitivity: 'accent' }) === 0;
-}
-
-function matchesFontValue(font: SystemFontEntry, value: string): boolean {
-  return value === font.cssValue || value === font.family;
 }
 
 function matchesSearch(search: string, candidate: string): boolean {

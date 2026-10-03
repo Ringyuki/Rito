@@ -38,9 +38,8 @@ export function AnnotationDialog({ annotation, annotations, onClose }: Props) {
 
   const handleSave = () => {
     if (!display) return;
-    const patch: { color: string; note?: string } = { color };
-    if (note) patch.note = note;
-    annotations.update(display.id, patch);
+    // An emptied note is saved empty: that is how a note is removed.
+    annotations.update(display.id, { color, note: note.trim() });
     onClose();
   };
 

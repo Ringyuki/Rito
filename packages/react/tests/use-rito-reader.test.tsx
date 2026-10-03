@@ -377,6 +377,32 @@ describe('useRitoReader', () => {
     expect(expectHookValue(latest).totalSpreads).toBe(3);
   });
 
+  it("leaves the controller's non-fatal errors to the host", async () => {
+    const on = vi.fn(() => vi.fn());
+    const controller = { ...createControllerStub(), on } as unknown as ReaderController;
+    createReaderMock.mockResolvedValueOnce(createReaderStub({ totalSpreads: 2 }));
+    createControllerMock.mockReturnValueOnce(controller);
+    let latest: HookValue | null = null;
+    act(() => {
+      root.render(
+        <Harness
+          options={{ reader: { width: 800, height: 600 } }}
+          onValue={(value) => {
+            latest = value;
+          }}
+        />,
+      );
+    });
+    await act(async () => {
+      await expectHookValue(latest).load(Promise.resolve(new ArrayBuffer(8)));
+    });
+    // A font-family choice no face answers to, a failed search: the book
+    // stays open, so `error` (why the book could not open) never sees them.
+    const events = on.mock.calls.map((call: unknown[]) => call[0]);
+    expect(events).not.toContain('error');
+    expect(expectHookValue(latest).error).toBeNull();
+  });
+
   it('disposes the active stack before starting a replacement load', async () => {
     const firstReaderDispose = vi.fn();
     const firstReader = {
@@ -509,7 +535,7 @@ describe('useRitoReader', () => {
       await expectHookValue(latest).load(new ArrayBuffer(16));
     });
 
-    expect(first.detachEvents).toHaveBeenCalledTimes(3);
+    expect(first.detachEvents).toHaveBeenCalledTimes(2);
     expect(first.disposeController).toHaveBeenCalledOnce();
     expect(first.disposeReader).toHaveBeenCalledOnce();
     expect(expectHookValue(latest).controller).toBe(secondController);
@@ -541,7 +567,7 @@ describe('useRitoReader', () => {
         root.unmount();
       });
     }).not.toThrow();
-    expect(stack.detachEvents).toHaveBeenCalledTimes(3);
+    expect(stack.detachEvents).toHaveBeenCalledTimes(2);
     expect(stack.disposeController).toHaveBeenCalledOnce();
     expect(stack.disposeReader).toHaveBeenCalledOnce();
   });

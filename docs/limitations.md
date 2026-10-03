@@ -32,11 +32,12 @@ reason or fails the chapter closed; nothing is silently misplaced.
 
 - `setTypography()` is reader-wide and coarse: it overrides root and body
   behaviour and does not rewrite EPUB-authored selectors
-- `fontFamily` / `fontFamilyForce` select among the faces the engine can
-  shape with: a publication `@font-face` family name picks that font, while
-  every generic family resolves to the pinned faces in policy order and
-  system font names are unavailable. Offer font choices by opening the
-  reader with a policy containing the chosen faces.
+- `fontFamily` names faces the engine can shape with: the publication's
+  `@font-face` families and the host's faces (the pinned policy plus faces
+  added with `addFontFaces`). A system font is usable once its bytes are
+  added (the Local Font Access API exposes them); its name alone resolves to
+  nothing, and `unresolvedFontFamilies` reports it. Variable fonts are
+  rejected as host faces.
 
 ## Durable Source Locators
 

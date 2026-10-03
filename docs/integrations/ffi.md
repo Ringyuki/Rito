@@ -90,6 +90,20 @@ paint domain grows, and a stale decoder misreads the byte stream.
   it for chapter titles, bookmark checks and turn direction rather than
   matching hrefs or comparing node paths yourself.
 
+## Fonts
+
+`rito_font_catalog` returns a `RITOFNT1` message listing every family a
+`font-family` list can name (host faces by their name-table family, then the
+publication's `@font-face` families, each with role, language and faces);
+`rito_unresolved_font_families` returns, as `RITOFNN1`, the names in a list
+that nothing answers to. `rito_add_host_font_faces` adds faces (the same
+descriptors as an open; a face may share its role and language with another)
+and `rito_remove_host_font_faces` removes them by SHA-256. A change applies to
+the next request: published artifacts keep their layout. Every artifact lists
+the faces its runs paint with, pinned ones included under a
+`rito-host-font:<sha256>` href readable through `rito_read_resource`, so a host
+registers exactly what it draws from the artifact alone.
+
 ## Keeping a hand-written decoder honest
 
 The Dart decoder in `packages/rito_flutter/lib/src/protocol/` is the

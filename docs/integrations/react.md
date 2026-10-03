@@ -41,29 +41,45 @@ Components:
 ## Typical Use
 
 ```tsx
-import { useEffect, useRef } from 'react';
-import { Reader, useContainerSize, useRitoReader } from '@ritojs/react';
+import { useCallback, useEffect, useRef } from 'react';
+import {
+  Reader,
+  useContainerSize,
+  useControllerEvent,
+  useReaderAutoResize,
+  useRitoReader,
+} from '@ritojs/react';
 import { pinnedFontPolicy } from './pinned-fonts'; // app-owned font bytes + digests
 
 export function App() {
-  const [containerRef, containerSize] = useContainerSize();
-  const width = Math.max(containerSize.width, 1);
-  const height = Math.max(containerSize.height, 1);
-  const didLoadRef = useRef(false);
-  const { controller, isLoaded, load, resize } = useRitoReader({
+  const [sizeRef, containerSize] = useContainerSize();
+  const { controller, error, load } = useRitoReader({
     reader: {
-      width,
-      height,
+      width: Math.max(containerSize.width, 1),
+      height: Math.max(containerSize.height, 1),
       margin: 40,
       spread: 'double',
-      // Required: the engine shapes with pinned font bytes only.
+      // Required: the engine shapes with host font bytes only.
       pinnedFontPolicy,
+      // The book opens already styled: one layout, not one per setting.
+      fontSize: 18,
+      fontFamily: 'serif',
     },
     controller: {
       transition: { stiffness: 180, damping: 22 },
     },
   });
+  // Re-paginates on every container size change after the book is loaded.
+  const resizeRef = useReaderAutoResize(controller, { margin: 40 });
+  const containerRef = useCallback(
+    (node: HTMLElement | null) => {
+      sizeRef(node);
+      resizeRef(node);
+    },
+    [resizeRef, sizeRef],
+  );
 
+  const didLoadRef = useRef(false);
   useEffect(() => {
     if (containerSize.width === 0 || containerSize.height === 0) return;
     if (didLoadRef.current) return;
@@ -71,14 +87,14 @@ export function App() {
     void load(fetch('/book.epub').then((resp) => resp.arrayBuffer()));
   }, [containerSize.width, containerSize.height, load]);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    resize(width, height);
-  }, [height, isLoaded, resize, width]);
+  // Non-fatal: the book stays open (a font no face answers to, a failed search…).
+  useControllerEvent(controller, 'error', ({ message, source }) => {
+    console.warn(source, message);
+  });
 
   return (
     <div ref={containerRef} style={{ width: '100vw', height: '100vh' }}>
-      <Reader controller={controller} />
+      {error ? <p role="alert">{error}</p> : <Reader controller={controller} />}
     </div>
   );
 }
@@ -104,8 +120,13 @@ Important behavior:
 - `load()` still needs a browser document and should run in an effect or event handler
 - replacement `load()` calls wait for the previous Reader's Worker/native release before opening
   the next document
-- `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
-- sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
+- `load()` is separate from later responsive resizes: `useReaderAutoResize(controller)` calls
+  `controller.resize()` whenever the observed element changes size (or call it yourself)
+- everything a book should open with — size, spread, theme, typography — belongs in
+  `options.reader`, so the book lays out once, already styled; later changes go through the
+  controller (`setTypography`, `setSpreadMode`, `setTheme`, `setRenderScale`)
+- `error` says why the book could not be opened. The controller's own `error` events are
+  non-fatal and never land there: subscribe with `useControllerEvent(controller, 'error', …)`
 
 ### Pinned fallback policy
 
@@ -116,11 +137,11 @@ policy under `options.reader.pinnedFontPolicy`. The hook samples the current
 Reader options when a load starts; a missing or empty policy makes the load
 fail immediately.
 
-A pinned policy is immutable for one loaded Reader. Replacing the policy object
-after `load()` does not reconfigure that Reader or its registered `FontFace`s.
-Call `load()` again to dispose the current stack and create the next Reader with
-the new policy. See the [Reader API](../api/reader.md#readeroptions) for the
-static-asset example and for the exact-geometry behavior when no policy is set.
+Replacing the policy object after `load()` does not reconfigure the open Reader.
+To add a face while a book is open (a system font, a file the reader imported),
+use `controller.addFontFaces()`; `controller.fonts()` lists every family a
+`font-family` choice can name, which is what a font picker should be built from.
+See [Fonts](../api/reader.md#fonts) for how families resolve.
 
 ## `Reader`
 

@@ -8,16 +8,11 @@ interface TocSidebarProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate: (entry: TocEntry) => void;
-  activeChapterHref: string;
+  /** The entry the reader resolves the current page to. */
+  activeEntry: TocEntry | undefined;
 }
 
-export function TocSidebar({
-  toc,
-  open,
-  onOpenChange,
-  onNavigate,
-  activeChapterHref,
-}: TocSidebarProps) {
+export function TocSidebar({ toc, open, onOpenChange, onNavigate, activeEntry }: TocSidebarProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-sm">
@@ -33,7 +28,7 @@ export function TocSidebar({
                 entries={toc}
                 depth={0}
                 onNavigate={onNavigate}
-                activeChapterHref={activeChapterHref}
+                activeEntry={activeEntry}
               />
             )}
           </nav>
@@ -43,32 +38,26 @@ export function TocSidebar({
   );
 }
 
-/** Check if a TOC entry href matches the active chapter href. */
-function isEntryActive(entryHref: string, activeHref: string): boolean {
-  if (!activeHref) return false;
-  // Strip fragment
-  const entryPath = entryHref.split('#')[0] ?? '';
-  // Match by filename (TOC hrefs are relative, may have different prefixes)
-  const entryFile = entryPath.split('/').pop() ?? '';
-  const activeFile = activeHref.split('/').pop() ?? '';
-  return entryFile !== '' && entryFile === activeFile;
+/** The same TOC entry: the reader resolves positions to entries of this table. */
+function isEntryActive(entry: TocEntry, active: TocEntry | undefined): boolean {
+  return active !== undefined && entry.href === active.href && entry.label === active.label;
 }
 
 function TocEntries({
   entries,
   depth,
   onNavigate,
-  activeChapterHref,
+  activeEntry,
 }: {
   entries: readonly TocEntry[];
   depth: number;
   onNavigate: (entry: TocEntry) => void;
-  activeChapterHref: string;
+  activeEntry: TocEntry | undefined;
 }) {
   return (
     <ul className="space-y-0.5">
       {entries.map((entry, i) => {
-        const isActive = isEntryActive(entry.href, activeChapterHref);
+        const isActive = isEntryActive(entry, activeEntry);
         return (
           <li key={`${String(depth)}-${String(i)}`}>
             <button
@@ -91,7 +80,7 @@ function TocEntries({
                 entries={entry.children}
                 depth={depth + 1}
                 onNavigate={onNavigate}
-                activeChapterHref={activeChapterHref}
+                activeEntry={activeEntry}
               />
             )}
           </li>

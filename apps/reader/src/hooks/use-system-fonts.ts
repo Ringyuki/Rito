@@ -13,6 +13,8 @@ export interface SystemFontEntry {
   readonly displayName: string;
   readonly secondaryName?: string;
   readonly displayLang?: string;
+  /** The face's bytes, for registering it with the reader. */
+  readonly load: () => Promise<ArrayBuffer>;
 }
 
 interface FontData {
@@ -120,6 +122,7 @@ async function resolveLocalizedEntry(
 
 function createBasicEntry(font: FontData): SystemFontEntry {
   return {
+    load: async () => (await font.blob()).arrayBuffer(),
     family: font.family,
     cssValue: serializeFontFamilyName(font.family),
     fullName: font.fullName,

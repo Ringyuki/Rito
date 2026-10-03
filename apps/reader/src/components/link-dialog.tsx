@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { toast } from 'sonner';
-import type { ReaderControllerEvents } from '@ritojs/kit';
+import type { ReaderControllerEvents, ReadingPosition } from '@ritojs/kit';
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,13 @@ import { BookOpen, ExternalLink } from 'lucide-react';
 
 interface Props {
   link: ReaderControllerEvents['linkClick'] | null;
-  currentSpread: number;
-  goToSpread: (index: number) => void;
+  /** Where the reader is, source-anchored: a spread index would not survive a reflow. */
+  position: ReadingPosition | null;
+  goToPosition: (position: ReadingPosition) => void;
   onClose: () => void;
 }
 
-export function LinkDialog({ link, currentSpread, goToSpread, onClose }: Props) {
+export function LinkDialog({ link, position, goToPosition, onClose }: Props) {
   // Keep last non-null value so content stays visible during close animation
   const staleRef = useRef(link);
   if (link) staleRef.current = link;
@@ -28,7 +29,7 @@ export function LinkDialog({ link, currentSpread, goToSpread, onClose }: Props) 
   const isExternal = display?.type === 'external';
 
   const handleNavigate = () => {
-    const from = currentSpread;
+    const from = position;
     display?.navigate();
     onClose();
     if (!isExternal) {
@@ -38,7 +39,7 @@ export function LinkDialog({ link, currentSpread, goToSpread, onClose }: Props) 
         action: {
           label: 'Go back',
           onClick: () => {
-            goToSpread(from);
+            if (from) goToPosition(from);
           },
         },
         duration: 5000,

@@ -26,3 +26,6 @@ tools/corpus-oracle/walk-*.log
 tools/corpus-oracle/walk-*.txt
 tools/corpus-oracle/sweep/
 tools/corpus-oracle/tmp-*
+
+# Built by `pnpm --filter @ritojs/reader pack:shards-demo`.
+apps/reader/public/shards-demo/

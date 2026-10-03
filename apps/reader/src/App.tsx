@@ -4,7 +4,8 @@ import { useContainerSize, useReaderAutoResize } from '@ritojs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
-import { SettingsPanel, DEFAULT_SETTINGS } from '@/components/settings-panel';
+import { SettingsPanel } from '@/components/settings-panel';
+import { ReadingProgress } from '@/components/reading-progress';
 import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
@@ -36,12 +37,10 @@ export function App({ pinnedFontPolicy }: AppProps) {
   }, []);
 
   const handleRestoreDefaults = useCallback(() => {
-    reader.setFontSize(DEFAULT_SETTINGS.fontSize);
-    // useBookLineHeight resets slider + deactivates override + clears force in one call.
-    reader.useBookLineHeight();
-    reader.setFontFamily(DEFAULT_SETTINGS.fontFamily);
-    reader.setSpreadMode(DEFAULT_SETTINGS.spreadMode);
-    setTheme(DEFAULT_SETTINGS.theme);
+    reader.typography.reset();
+    reader.setSpreadMode('double');
+    reader.setRenderScale(1);
+    setTheme('light');
   }, [reader, setTheme]);
 
   const handleFileLoad = useCallback(
@@ -53,6 +52,10 @@ export function App({ pinnedFontPolicy }: AppProps) {
 
   const handleLoadDemo = useCallback(() => {
     void reader.loadDemo();
+  }, [reader]);
+
+  const handleLoadShardedDemo = useCallback(() => {
+    void reader.loadShardedDemo();
   }, [reader]);
 
   const containerRef = useCallback(
@@ -74,8 +77,11 @@ export function App({ pinnedFontPolicy }: AppProps) {
         onOpenSearch={handleToggleSearch}
         onOpenSettings={handleToggleSettings}
         onLoadDemo={handleLoadDemo}
+        onLoadShardedDemo={handleLoadShardedDemo}
         onFileLoad={handleFileLoad}
       />
+
+      <ReadingProgress reader={reader} />
 
       <SearchBar
         search={reader.search}
@@ -88,7 +94,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
         open={tocOpen}
         onOpenChange={setTocOpen}
         onNavigate={reader.navigateToTocEntry}
-        activeChapterHref={reader.activeChapterHref}
+        activeEntry={reader.activeTocEntry}
       />
 
       <Toaster />
@@ -97,19 +103,19 @@ export function App({ pinnedFontPolicy }: AppProps) {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         settings={{
-          fontSize: reader.fontSize,
-          lineHeight: reader.lineHeight,
-          lineHeightActive: reader.lineHeightActive,
-          lineHeightForce: reader.lineHeightForce,
-          fontFamily: reader.fontFamily,
+          ...reader.typography.typography,
           spreadMode: reader.spreadMode,
           theme,
+          renderScale: reader.renderScale,
         }}
-        onFontSizeChange={reader.setFontSize}
-        onLineHeightChange={reader.setLineHeight}
-        onLineHeightForceChange={reader.setLineHeightForce}
-        onUseBookLineHeight={reader.useBookLineHeight}
-        onFontFamilyChange={reader.setFontFamily}
+        fonts={reader.fonts}
+        onFontSizeChange={reader.typography.setFontSize}
+        onLineHeightChange={reader.typography.setLineHeight}
+        onLineHeightForceChange={reader.typography.setLineHeightForce}
+        onUseBookLineHeight={reader.typography.useBookLineHeight}
+        onFontFamilyChange={reader.typography.setFontFamily}
+        onFontFamilyForceChange={reader.typography.setFontFamilyForce}
+        onRenderScaleChange={reader.setRenderScale}
         onSpreadModeChange={reader.setSpreadMode}
         onThemeChange={setTheme}
         onRestoreDefaults={handleRestoreDefaults}

@@ -25,11 +25,6 @@ export function subscribeReaderControllerEvents(
         }));
       }),
     );
-    unsubscribers.push(
-      controller.on('error', ({ message }) => {
-        setState((state) => ({ ...state, error: message }));
-      }),
-    );
     const reader = (controller as Partial<Pick<ReaderController, 'reader'>>).reader;
     if (reader) {
       unsubscribers.push(

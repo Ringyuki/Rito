@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Command,
@@ -20,20 +19,8 @@ interface SearchBarProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** Opened by the controller's `searchOpen` event (⌘F / Ctrl+F while reading). */
 export function SearchBar({ search, open, onOpenChange }: SearchBarProps) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-        e.preventDefault();
-        onOpenChange(true);
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => {
-      document.removeEventListener('keydown', handler);
-    };
-  }, [onOpenChange]);
-
   const count = search.results.length;
 
   return (

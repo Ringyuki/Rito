@@ -47,10 +47,10 @@ hosts bridge the C ABI (see [Direct FFI integration](../integrations/ffi.md)).
 the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
 a generic role (`serif`, `sansSerif`, or `monospace`), and an optional language
 tag. The reader copies the bytes during `createReader()`, verifies the digest in
-the native core, and uses the native-returned family alias for Canvas paint.
-This keeps exact interaction geometry tied to the font that is actually
-rendered. The policy is fixed for the lifetime of that `Reader`; create a new
-reader to replace it.
+the native core, and paints every run with the native-returned alias of the
+exact face that shaped it. This keeps exact interaction geometry tied to the
+font that is actually rendered. Faces can be added and removed while a book is
+open (see [Fonts](#fonts)).
 
 A missing or empty policy makes `createReader` **throw**: the WASM engine
 shapes text with exactly these bytes and cannot start without them (there
@@ -131,18 +131,45 @@ coarse:
 EPUB element-level rules continue to win in coarse mode. Set
 `lineHeightForce` to apply the line-height override to every element.
 
-> **Face selection:** the engine shapes only with the pinned font policy's
-> faces and the publication's `@font-face` fonts; there are no system fonts.
-> Every generic family (`serif`, `sans-serif`, `monospace`, ...) resolves to
-> the pinned faces in policy order, so a generic `fontFamily` override does
-> not pick a different pinned face. A publication `@font-face` family name
-> does select that font. Hosts that offer a font choice open the reader with
-> a pinned font policy containing the chosen faces (the pattern the Flutter
-> reader uses).
+Set `fontFamilyForce` to replace every element's own family as well (what a
+reader's font choice usually means).
 
 For `setTheme()`, omitted fields remain unchanged. Pass `null` to clear a
 foreground override or restore the default white background; this is useful
 when switching from a dark theme back to a book-authored light theme.
+
+### Fonts
+
+Fonts resolve the way CSS resolves them against installed fonts, where the
+"installed" fonts are exactly the host's faces (the pinned policy plus faces
+added later) and the publication's own `@font-face` fonts:
+
+- a named family is the publication's `@font-face` family of that name, else
+  the host face whose name table declares that family; a name nothing answers
+  to is skipped, like an uninstalled font
+- a generic (`serif`, `sans-serif`, `monospace`; `system-ui` reads as
+  `sans-serif`) is the host faces of that role: the language-neutral faces
+  first, then those tagged for a language, the content's own `lang` ahead of
+  the rest — so a Latin face pinned for every language keeps Latin text while a
+  CJK face tagged `zh-Hans` serves ideographs
+- after the list, every host face follows as the fallback, serif first
+
+Shaping runs under the content language, and paint draws each run with the
+exact face that shaped it, so what is measured is what is drawn.
+
+| Member                         | What it does                                                         |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `fonts()`                      | Every family a `font-family` choice can name (build pickers from it) |
+| `unresolvedFontFamilies(list)` | The names in a `font-family` list no family answers to               |
+| `addFontFaces(faces)`          | Add host faces (a system font, an imported file) and re-lay out      |
+| `removeFontFaces(sha256s)`     | Remove host faces and re-lay out; one face must remain               |
+
+`fonts()` resolves to `{ families }`, each `{ name, source: 'host' | 'publication',
+genericRole, language, faces: [{ weight, style, sha256 }] }`. A face added at
+runtime takes the same shape as a pinned one (`bytes`, `expectedSha256`,
+`genericRole`, optional `language`); it may share its role and language with
+another face, is named by its family in a `font-family` list, and leaves what
+the generics resolve to unchanged. Variable fonts are rejected.
 
 ### Navigation / metadata
 

@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useCallback } from 'react';
 import {
   ChevronLeft,
@@ -31,6 +32,7 @@ interface Props {
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onLoadDemo: () => void;
+  onLoadShardedDemo: () => void;
   onFileLoad: (data: ArrayBuffer) => void;
   children: React.ReactNode;
 }
@@ -43,6 +45,7 @@ export function ReaderContextMenu({
   onOpenSearch,
   onOpenSettings,
   onLoadDemo,
+  onLoadShardedDemo,
   onFileLoad,
   children,
 }: Props) {
@@ -56,22 +59,25 @@ export function ReaderContextMenu({
     void navigator.clipboard.writeText(reader.selection.text).catch(() => {
       // Clipboard access may be denied; swallow silently.
     });
-    reader.controller?.clearSelection();
-  }, [reader.controller, reader.selection.text]);
+    reader.selection.clear();
+  }, [reader.selection]);
 
   const handleHighlight = useCallback(() => {
     if (!reader.selection.hasSelection) return;
-    void reader.annotations.add({
-      kind: 'highlight',
-      color: ANNOTATION_COLORS[0].value,
-    });
-    reader.controller?.clearSelection();
-  }, [reader.annotations, reader.controller, reader.selection.hasSelection]);
+    reader.annotations
+      .add({ kind: 'highlight', color: ANNOTATION_COLORS[0].value })
+      .catch((error: unknown) => {
+        toast.error('Could not add the highlight', {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      });
+    reader.selection.clear();
+  }, [reader.annotations, reader.selection]);
 
   const handleSearchSelection = useCallback(() => {
     if (!reader.selection.text) return;
     const text = reader.selection.text;
-    reader.controller?.clearSelection();
+    reader.selection.clear();
     reader.search.setQuery(text);
     reader.setSearchOpen(true);
   }, [reader]);
@@ -149,6 +155,7 @@ export function ReaderContextMenu({
         <FileActionsContextMenu
           isLoading={reader.isLoading}
           onLoadDemo={onLoadDemo}
+          onLoadShardedDemo={onLoadShardedDemo}
           onOpenFile={openFilePicker}
         />
       </ContextMenuContent>

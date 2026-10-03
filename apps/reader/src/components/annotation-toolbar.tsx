@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { MessageSquarePlus, Send } from 'lucide-react';
+import { MessageSquarePlus, Send, Underline } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { useReader } from '@/hooks/use-reader';
 import { Input } from '@/components/ui/input';
@@ -14,15 +15,20 @@ export const ANNOTATION_COLORS = [
 interface Props {
   selection: ReturnType<typeof useReader>['selection'];
   annotations: ReturnType<typeof useReader>['annotations'];
-  controller: ReturnType<typeof useReader>['controller'];
 }
+
+type AnnotationKind = 'highlight' | 'underline' | 'note';
 
 function stop(e: React.SyntheticEvent): void {
   e.stopPropagation();
   e.nativeEvent.stopImmediatePropagation();
 }
 
-export function AnnotationToolbar({ selection, annotations, controller }: Props) {
+/**
+ * What the selection becomes: a highlight in one of four colours, an
+ * underline, or a note (a highlight that carries text).
+ */
+export function AnnotationToolbar({ selection, annotations }: Props) {
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState('');
   const [pickedColor, setPickedColor] = useState(ANNOTATION_COLORS[0].value as string);
@@ -37,14 +43,16 @@ export function AnnotationToolbar({ selection, annotations, controller }: Props)
   const top = anchor.y - (showNote ? 110 : 60);
   const left = anchor.x;
 
-  const submit = (color: string, noteText?: string) => {
-    if (!controller || !selection.hasSelection) return;
-    void annotations.add({
-      kind: 'highlight',
-      color,
-      ...(noteText ? { note: noteText } : {}),
-    });
-    controller.clearSelection();
+  const submit = (kind: AnnotationKind, color: string, noteText?: string) => {
+    if (!selection.hasSelection) return;
+    annotations
+      .add({ kind, color, ...(noteText ? { note: noteText } : {}) })
+      .catch((error: unknown) => {
+        toast.error('Could not add the annotation', {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      });
+    selection.clear();
     setShowNote(false);
     setNote('');
   };
@@ -65,7 +73,7 @@ export function AnnotationToolbar({ selection, annotations, controller }: Props)
               if (showNote) {
                 setPickedColor(c.value);
               } else {
-                submit(c.value);
+                submit('highlight', c.value);
               }
             }}
             className="h-6 w-6 rounded-full border-2 transition-all hover:scale-110"
@@ -76,6 +84,17 @@ export function AnnotationToolbar({ selection, annotations, controller }: Props)
           />
         ))}
         <div className="mx-0.5 h-4 w-px bg-border" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => {
+            submit('underline', pickedColor);
+          }}
+          title="Underline"
+        >
+          <Underline className="h-3.5 w-3.5" />
+        </Button>
         <Button
           variant={showNote ? 'secondary' : 'ghost'}
           size="icon"
@@ -98,7 +117,7 @@ export function AnnotationToolbar({ selection, annotations, controller }: Props)
               setNote(e.target.value);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') submit(pickedColor, note);
+              if (e.key === 'Enter') submit('note', pickedColor, note);
             }}
             placeholder="Add a note..."
             className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
@@ -109,7 +128,7 @@ export function AnnotationToolbar({ selection, annotations, controller }: Props)
             className="h-8 w-8"
             variant="outline"
             onClick={() => {
-              submit(pickedColor, note);
+              submit('note', pickedColor, note);
             }}
           >
             <Send className="h-4 w-4" />

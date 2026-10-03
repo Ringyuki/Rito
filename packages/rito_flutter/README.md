@@ -115,6 +115,28 @@ out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 
 A full integration reference lives in `doc/INTEGRATION.md`.
 
+## Fonts
+
+Layout shapes with the pinned faces the session opens with plus the
+publication's own `@font-face` fonts, and paint draws every run with the exact
+face that shaped it (registered under its `familyAlias`). A `font-family`
+list resolves the way CSS resolves it against installed fonts: a named family
+is the book's `@font-face` family of that name, else the host face of that
+name; `serif` / `sans-serif` / `monospace` resolve to the host faces of that
+role, language-neutral first, then by the content's `lang`.
+
+```dart
+final catalog = await session.fontCatalog(); // build a font picker from it
+await session.addFontFaces([
+  RitoPinnedFontFace(bytes: imported, genericRole: RitoPinnedFontGenericRole.serif),
+]);
+final skipped = await session.unresolvedFontFamilies('"LXGW WenKai", serif');
+// The next request lays out with the face, e.g. a layout whose
+// fontFamilyOverride names it.
+```
+
+`removeFontFaces([sha256])` takes a face back out; at least one must remain.
+
 ## Paint parity
 
 The Canvas pen replays the same display list as the pixel-court

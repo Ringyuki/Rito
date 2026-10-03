@@ -24,6 +24,12 @@ export interface RitoReaderState {
   readonly controller: ReaderController | null;
   readonly isLoaded: boolean;
   readonly isLoading: boolean;
+  /**
+   * Why the book could not be opened, or null. The controller's own `error`
+   * events are non-fatal (a font-family choice no face answers to, a search
+   * or annotation failure) and never land here: subscribe to them with
+   * `useControllerEvent(controller, 'error', …)`.
+   */
   readonly error: string | null;
   readonly currentSpread: number;
   readonly totalSpreads: number;
