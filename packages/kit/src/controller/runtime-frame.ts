@@ -30,6 +30,7 @@ export function createRuntimeFrameParts(
   surface: DisplaySurface,
   pool: PageBufferPool,
   transitionDriver: TransitionDriver,
+  emitter: Emitter,
 ): RuntimeFrameParts {
   const contentRenderer: ContentRenderer = (spreadIndex, context) => {
     // Last-resort paint boundary: an exception here would leave the
@@ -53,6 +54,9 @@ export function createRuntimeFrameParts(
     contentRenderer,
     overlayProvider: buildOverlayProvider(internals, reader),
     getBackingRatio: () => reader.dpr * internals.renderScale,
+    onTurnFrame: (frame) => {
+      transitionLifecycle(emitter).progress(frame);
+    },
   });
   return { contentRenderer, frameDriver };
 }

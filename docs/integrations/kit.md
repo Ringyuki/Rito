@@ -80,13 +80,20 @@ overlay canvas, and interaction bindings are attached under that container.
 
 A turn is spring physics plus an effect. The physics — the spring, the drag, the
 commit decision and the rubber band at the first and last spread — is shared; the
-effect only says which pages to draw where at a given displacement.
+effect only says what a frame shows at a given displacement. A release hands the
+finger's momentum to the spring, and a committed turn stops at the neighbour
+instead of overshooting past it.
 
 - `effect`: `'slide'` (the spread moves, the neighbour follows), `'cover'` (later
   pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or
-  `'none'` (a turn lands at once), or a custom `TransitionEffect` — an object whose
-  `layers({ dx, width, incoming })` returns the pages to draw bottom to top
-  (`{ slot, x, opacity?, shadow? }`).
+  `'none'` (a turn lands at once), or a custom `TransitionEffect` of either kind:
+  - layered — `layers({ dx, width, incoming })` returns whole pages to draw bottom
+    to top (`{ slot, x, opacity?, shadow? }`);
+  - painted — `paint(scene, frame)` draws the frame itself, for looks that bend or
+    cut the pages such as a curl. `scene.context` is the cleared display canvas,
+    `scene.page(slot)` gives a page's bitmap and overlay (`{ content, overlay,
+pixelRatio }`, or `null` while it is not painted yet) and
+    `scene.drawPage(slot, x, opacity?)` draws one whole.
 - `springPresets.default | snappy | gentle` (or your own `stiffness` / `damping`).
 - `respectReducedMotion` (default `true`): while the system asks for reduced motion,
   turns cross-fade whatever the effect.
@@ -96,8 +103,10 @@ Change any of it live with `controller.configureTransition({ effect: 'cover' })`
 `transitionStart` and `transitionEnd` bracket every visible turn: each start is
 answered by exactly one end, whose `outcome` says whether the turn landed
 (`committed`), went back (`cancelled`), or was cut off by a relayout, a jump or
-another turn (`interrupted`). In React, `useReaderTransition(controller)` gives
-`{ isTransitioning, direction }`.
+another turn (`interrupted`). In between, `transitionProgress` reports every painted
+frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
+page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
+direction }` and `useReaderTransitionProgress(controller)` the progress.
 
 ## Responsibilities
 

@@ -151,6 +151,10 @@ controller's `transitionStart` / `transitionEnd`, for hiding chrome or deferring
 a page moves. Every start is answered by exactly one end, so it never sticks, and it resets
 when the controller is replaced.
 
+`useReaderTransitionProgress(controller)` returns how far the turn on screen has moved, 0
+at rest and 1 on arrival, from `transitionProgress`. It re-renders on every painted frame
+of a turn, so read it in a small component of its own (a scrim, a progress edge).
+
 ## `Reader`
 
 The `Reader` component mounts the controller's managed DOM surface into a container.

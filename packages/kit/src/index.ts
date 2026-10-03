@@ -36,10 +36,14 @@ export type { TransitionDriverOptions } from './driver/types';
 export {
   springPresets,
   transitionEffects,
+  type LayeredTransitionEffect,
+  type PaintedTransitionEffect,
   type TransitionEffect,
   type TransitionEffectName,
   type TransitionFrame,
   type TransitionLayer,
+  type TransitionPage,
+  type TransitionScene,
 } from './driver/effects';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';

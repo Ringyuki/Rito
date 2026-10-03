@@ -10,6 +10,9 @@ function recordedEmitter() {
   const emitter = createEmitter<ReaderControllerEvents>();
   const events: string[] = [];
   emitter.on('transitionStart', ({ direction }) => events.push(`start:${direction}`));
+  emitter.on('transitionProgress', ({ direction, progress }) =>
+    events.push(`progress:${direction}:${String(progress)}`),
+  );
   emitter.on('transitionEnd', ({ direction, outcome }) =>
     events.push(`end:${direction}:${outcome}`),
   );
@@ -32,6 +35,27 @@ describe('transition lifecycle', () => {
       'end:backward:cancelled',
     ]);
     expect(lifecycle.openDirection).toBeNull();
+  });
+
+  it('reports progress toward the neighbour only while a turn is open', () => {
+    const { emitter, events } = recordedEmitter();
+    const lifecycle = transitionLifecycle(emitter);
+    lifecycle.progress({ dx: -100, width: 400, incoming: 'next' });
+    lifecycle.begin('forward');
+    lifecycle.progress({ dx: -100, width: 400, incoming: 'next' });
+    // A spring settling back past its origin is at rest, not moving away.
+    lifecycle.progress({ dx: 12, width: 400, incoming: 'next' });
+    lifecycle.end('cancelled');
+    lifecycle.begin('backward');
+    lifecycle.progress({ dx: 500, width: 400, incoming: 'prev' });
+    expect(events).toEqual([
+      'start:forward',
+      'progress:forward:0.25',
+      'progress:forward:0',
+      'end:forward:cancelled',
+      'start:backward',
+      'progress:backward:1',
+    ]);
   });
 
   it('ends a turn in flight as interrupted when the driver is reset', () => {
@@ -62,7 +86,7 @@ describe('transition ownership', () => {
       .filter((path) => pattern.test(readFileSync(path, 'utf8')));
 
   it('emits transition events only through the lifecycle', () => {
-    expect(offenders(/emit\(\s*'transition(Start|End)'/)).toEqual([]);
+    expect(offenders(/emit\(\s*'transition(Start|Progress|End)'/)).toEqual([]);
   });
 
   it('resets the transition driver only through abortTransition', () => {

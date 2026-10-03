@@ -35,9 +35,10 @@ export function stepSettling(
 ): { nextMode: TransitionMode; instruction: DrawInstruction; settled?: SettledEvent } {
   const spring: SpringState = { x: mode.dx, vx: mode.vx };
   // An instant effect lands on its first frame.
-  const done = instant || stepSpring(spring, mode.target, opts, dt);
-  mode.dx = spring.x;
-  mode.vx = spring.vx;
+  const done =
+    instant || stepSpring(spring, mode.target, opts, dt) || crossedTurnTarget(mode, spring.x);
+  mode.dx = done ? mode.target : spring.x;
+  mode.vx = done ? 0 : spring.vx;
 
   if (done) {
     const committed = mode.target !== 0;
@@ -54,6 +55,15 @@ export function stepSettling(
     };
   }
   return { nextMode: mode, instruction: turningInstruction(getSlotPositions(mode), mode.dx) };
+}
+
+/**
+ * A committed turn lands the moment it reaches the far side: nothing lies
+ * beyond the incoming page, so a spring overshooting there would open a gap.
+ */
+function crossedTurnTarget(mode: TransitionMode & { kind: 'settling' }, x: number): boolean {
+  if (mode.target === 0) return false;
+  return mode.target < 0 ? x <= mode.target : x >= mode.target;
 }
 
 /** Step the boundary-elastic spring and return the new mode + draw instruction. */

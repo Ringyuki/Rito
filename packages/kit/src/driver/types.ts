@@ -1,5 +1,5 @@
 import type { SlotPosition } from '../painter/types';
-import type { TransitionEffect, TransitionEffectName } from './effects';
+import { springPresets, type TransitionEffect, type TransitionEffectName } from './effects';
 
 /** What the FrameDriver should draw each frame. */
 export type DrawInstruction =
@@ -20,6 +20,7 @@ export type TransitionMode =
       readonly outgoingSpread: number;
       readonly incomingSpread: number | null;
       dx: number;
+      /** Finger velocity, px/ms. */
       vx: number;
       lastSampleAt: number;
     }
@@ -30,6 +31,7 @@ export type TransitionMode =
       readonly incomingSpread: number | null;
       readonly target: number;
       dx: number;
+      /** Spring velocity, px/s. */
       vx: number;
     }
   | {
@@ -37,6 +39,7 @@ export type TransitionMode =
       readonly direction: 'forward' | 'backward';
       readonly slotSpread: number;
       dx: number;
+      /** Spring velocity, px/s. */
       vx: number;
     };
 
@@ -67,8 +70,7 @@ export interface TransitionDriverOptions {
 }
 
 export const DEFAULT_TRANSITION_OPTIONS: TransitionDriverOptions = {
-  stiffness: 180,
-  damping: 22,
+  ...springPresets.default,
   velocityCommit: 0.4,
   swipeThreshold: 50,
   elasticFactor: 0.55,

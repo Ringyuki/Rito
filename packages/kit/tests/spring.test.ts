@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { stepSpring, DEFAULT_SPRING, type SpringState } from '../src/driver/spring';
+import { springPresets } from '../src/driver/effects';
+import { stepSpring, type SpringState } from '../src/driver/spring';
 
 describe('stepSpring', () => {
   it('converges from displaced position to target', () => {
     const state: SpringState = { x: 100, vx: 0 };
     let steps = 0;
-    while (!stepSpring(state, 0, DEFAULT_SPRING, 16) && steps < 500) {
+    while (!stepSpring(state, 0, springPresets.default, 16) && steps < 500) {
       steps++;
     }
     expect(state.x).toBe(0);
@@ -16,7 +17,7 @@ describe('stepSpring', () => {
   it('converges with initial velocity', () => {
     const state: SpringState = { x: 0, vx: 2 };
     let steps = 0;
-    while (!stepSpring(state, 0, DEFAULT_SPRING, 16) && steps < 500) {
+    while (!stepSpring(state, 0, springPresets.default, 16) && steps < 500) {
       steps++;
     }
     expect(state.x).toBe(0);
@@ -45,7 +46,7 @@ describe('stepSpring', () => {
   it('can target non-zero values', () => {
     const state: SpringState = { x: 0, vx: 0 };
     let steps = 0;
-    while (!stepSpring(state, 500, DEFAULT_SPRING, 16) && steps < 500) {
+    while (!stepSpring(state, 500, springPresets.default, 16) && steps < 500) {
       steps++;
     }
     expect(state.x).toBe(500);
@@ -53,7 +54,7 @@ describe('stepSpring', () => {
 
   it('returns true immediately when already at target', () => {
     const state: SpringState = { x: 0, vx: 0 };
-    const settled = stepSpring(state, 0, DEFAULT_SPRING, 16);
+    const settled = stepSpring(state, 0, springPresets.default, 16);
     expect(settled).toBe(true);
   });
 
@@ -62,7 +63,7 @@ describe('stepSpring', () => {
     (viewportWidth) => {
       const state: SpringState = { x: 0, vx: 0 };
       let elapsedMs = 0;
-      while (!stepSpring(state, -viewportWidth, DEFAULT_SPRING, 16) && elapsedMs < 1_000) {
+      while (!stepSpring(state, -viewportWidth, springPresets.default, 16) && elapsedMs < 1_000) {
         elapsedMs += 16;
       }
 

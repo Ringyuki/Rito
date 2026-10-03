@@ -58,9 +58,6 @@ export interface SelectionHandleDrag {
   cancel(): void;
 }
 
-/** Defaults matching `@ritojs/core` ReaderOptions defaults. */
-export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
-
 export interface ControllerOptions {
   readonly transition?: Partial<TransitionDriverOptions> | undefined;
   /** Initial display scale applied before the first canvas mount/render. */
@@ -70,13 +67,6 @@ export interface ControllerOptions {
   readonly positionStorage?: PositionStorageAdapter | undefined;
   /** Accessibility mirror configuration (opt-in). */
   readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
-  /**
-   * @deprecated Controller now reads geometry from reader.getLayoutGeometry().
-   * These fields are kept for backwards compatibility but are no longer used.
-   */
-  readonly margin?: number | undefined;
-  /** @deprecated See `margin`. */
-  readonly spreadGap?: number | undefined;
 }
 
 export interface ReaderControllerEvents {
@@ -108,6 +98,12 @@ export interface ReaderControllerEvents {
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
   /** A page turn became visible. Exactly one `transitionEnd` follows. */
   transitionStart: { direction: 'forward' | 'backward' };
+  /**
+   * A frame of the visible turn was painted. `progress` is how far the page
+   * has moved toward its neighbour: 0 at rest, 1 on arrival (a pull against
+   * the first or last page reports its rubber-band travel).
+   */
+  transitionProgress: { direction: 'forward' | 'backward'; progress: number };
   /**
    * The visible turn ended: it landed on its target (`committed`), went
    * back where it started (`cancelled`), or was cut off by a relayout, a

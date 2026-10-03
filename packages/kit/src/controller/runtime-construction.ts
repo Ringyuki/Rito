@@ -43,7 +43,14 @@ export function createRuntimeComponents(
   disposables: Disposables,
   construction: ConstructionOwner,
 ): RuntimeConstruction {
-  const parts = createOwnedRuntimeParts(reader, canvas, options, disposables, construction);
+  const parts = createOwnedRuntimeParts(
+    reader,
+    canvas,
+    options,
+    emitter,
+    disposables,
+    construction,
+  );
   const { internals, pool, prerenderScheduler, transitionDriver, contentRenderer, frameDriver } =
     parts;
   const provisionalRuntime = createProvisionalTransitionRuntime(
@@ -108,6 +115,7 @@ function createOwnedRuntimeParts(
   reader: Reader,
   canvas: HTMLCanvasElement,
   options: ControllerOptions,
+  emitter: Emitter,
   disposables: Disposables,
   construction: ConstructionOwner,
 ) {
@@ -127,6 +135,7 @@ function createOwnedRuntimeParts(
     surface,
     pool,
     transitionDriver,
+    emitter,
   );
   construction.own(() => {
     frameDriver.dispose();

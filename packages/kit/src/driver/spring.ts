@@ -52,8 +52,3 @@ export function stepSpring(
   }
   return settled;
 }
-
-export const DEFAULT_SPRING: SpringConfig = {
-  stiffness: 180,
-  damping: 22,
-};

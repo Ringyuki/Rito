@@ -226,6 +226,34 @@ describe('TransitionDriver', () => {
     expect(td.mode.kind).toBe('tracking');
   });
 
+  it('hands a release the finger momentum in the spring unit', () => {
+    const td = createDriver();
+    td.startTracking('forward', 0, 1, 0);
+    td.updateTracking(-40, 20);
+    td.updateTracking(-80, 40);
+    expect(td.mode.kind === 'tracking' && td.mode.vx).toBeCloseTo(-2);
+    td.releaseTracking();
+    // -2 px/ms is -2000 px/s for the spring.
+    expect(td.mode.kind === 'settling' && td.mode.vx).toBeCloseTo(-2000);
+
+    const interrupted = td.interrupt(60);
+    expect(interrupted?.vx).toBeCloseTo(-2);
+  });
+
+  it('lands a committed turn at the far side instead of overshooting past it', () => {
+    const td = createDriver();
+    td.startTracking('forward', 0, 1, 0);
+    td.updateTracking(-300, 50);
+    td.updateTracking(-700, 60);
+    expect(td.releaseTracking()).toBe('commit');
+    const seen: number[] = [];
+    while (td.isAnimating) {
+      const instruction = td.step(16);
+      if (instruction.kind === 'turning') seen.push(instruction.dx);
+    }
+    expect(Math.min(...seen)).toBeGreaterThanOrEqual(-800);
+  });
+
   it('interrupt during non-settling returns null', () => {
     const td = createDriver();
     expect(td.interrupt(0)).toBeNull();

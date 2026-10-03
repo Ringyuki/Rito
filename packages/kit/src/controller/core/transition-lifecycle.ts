@@ -1,3 +1,4 @@
+import type { TransitionFrame } from '../../driver/effects';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
@@ -10,14 +11,17 @@ type TransitionDirection = 'forward' | 'backward';
 export type TransitionOutcome = 'committed' | 'cancelled' | 'interrupted';
 
 /**
- * The one owner of a controller's `transitionStart` / `transitionEnd`
- * events. At most one turn is visible at a time: beginning another ends the
- * open one as interrupted, and ending is a no-op when nothing is open — so
- * every start is answered by exactly one end, whichever path got there.
+ * The one owner of a controller's `transitionStart` / `transitionProgress`
+ * / `transitionEnd` events. At most one turn is visible at a time:
+ * beginning another ends the open one as interrupted, and ending is a no-op
+ * when nothing is open — so every start is answered by exactly one end,
+ * whichever path got there, and progress is only reported in between.
  */
 export interface TransitionLifecycle {
   readonly openDirection: TransitionDirection | null;
   begin(direction: TransitionDirection): void;
+  /** Report a painted frame of the open turn. */
+  progress(frame: TransitionFrame): void;
   end(outcome: TransitionOutcome): void;
 }
 
@@ -54,6 +58,13 @@ function createTransitionLifecycle(emitter: Emitter): TransitionLifecycle {
       open = direction;
       emitter.emit('transitionStart', { direction });
     },
+    progress({ dx, width }) {
+      if (open === null) return;
+      emitter.emit('transitionProgress', {
+        direction: open,
+        progress: turnProgress(open, dx, width),
+      });
+    },
     end(outcome) {
       if (open === null) return;
       const direction = open;
@@ -62,4 +73,11 @@ function createTransitionLifecycle(emitter: Emitter): TransitionLifecycle {
     },
   };
   return lifecycle;
+}
+
+/** How far the page has moved toward the neighbour: 0 at rest, 1 on arrival. */
+function turnProgress(direction: TransitionDirection, dx: number, width: number): number {
+  if (width <= 0) return 0;
+  const toward = direction === 'forward' ? -dx : dx;
+  return Math.min(1, Math.max(0, toward / width));
 }

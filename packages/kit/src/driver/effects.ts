@@ -25,19 +25,55 @@ export interface TransitionLayer {
 }
 
 /**
+ * A page as a painted effect sees it: its bitmap and the overlay drawn over
+ * it (highlights, selection), both covering the page at `pixelRatio` device
+ * pixels per CSS pixel.
+ */
+export interface TransitionPage {
+  readonly content: CanvasImageSource;
+  readonly overlay: CanvasImageSource | null;
+  readonly pixelRatio: number;
+}
+
+/**
+ * Where a painted effect draws one frame. The surface is cleared before
+ * `paint` runs; `width` and `height` are the surface's size in the units
+ * its context draws in.
+ */
+export interface TransitionScene {
+  readonly context: CanvasRenderingContext2D;
+  readonly width: number;
+  readonly height: number;
+  /** The page in a slot, or null while it is not painted yet. */
+  page(slot: SlotPosition): TransitionPage | null;
+  /** Draw a page whole at `x`, with its overlay; a page not painted yet is skipped. */
+  drawPage(slot: SlotPosition, x: number, opacity?: number): void;
+}
+
+/**
  * How a page turn looks. The physics — the spring, the drag, the commit
  * decision and the rubber band at the ends — is the same for every effect;
- * an effect only says which pages to draw where at a given displacement.
+ * an effect only says what a frame shows at a given displacement, either as
+ * whole pages laid over each other (`layers`) or by painting the frame
+ * itself (`paint`), for looks such as a curl that bend or cut the pages.
  */
-export interface TransitionEffect {
+export type TransitionEffect = LayeredTransitionEffect | PaintedTransitionEffect;
+
+export interface LayeredTransitionEffect {
   /** The pages to draw, bottom to top. */
   layers(frame: TransitionFrame): readonly TransitionLayer[];
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
 }
 
+export interface PaintedTransitionEffect {
+  paint(scene: TransitionScene, frame: TransitionFrame): void;
+  /** A turn lands at once instead of animating (drags still decide commit). */
+  readonly instant?: boolean;
+}
+
 /** The whole spread moves with the turn; the neighbour follows edge to edge. */
-const slide: TransitionEffect = {
+const slide: LayeredTransitionEffect = {
   layers({ dx, width, incoming }) {
     const layers: TransitionLayer[] = [];
     // A spring overshooting back past the origin shows the far neighbour
@@ -56,7 +92,7 @@ const slide: TransitionEffect = {
  * over the current one, turning back slides the current page off the one
  * before it. The moving sheet casts a shadow on the page beneath.
  */
-const cover: TransitionEffect = {
+const cover: LayeredTransitionEffect = {
   layers({ dx, width, incoming }) {
     if (incoming === 'next') {
       return [
@@ -75,7 +111,7 @@ const cover: TransitionEffect = {
 };
 
 /** The pages cross-fade in place; nothing moves except at the ends. */
-const fade: TransitionEffect = {
+const fade: LayeredTransitionEffect = {
   layers({ dx, width, incoming }) {
     if (incoming === null) return [{ slot: 'curr', x: dx }];
     const progress = width > 0 ? Math.min(1, Math.abs(dx) / width) : 1;
@@ -87,7 +123,7 @@ const fade: TransitionEffect = {
 };
 
 /** No animation: a turn lands at once and the page never moves under a drag. */
-const none: TransitionEffect = {
+const none: LayeredTransitionEffect = {
   instant: true,
   layers: () => [{ slot: 'curr', x: 0 }],
 };
@@ -99,8 +135,9 @@ export type TransitionEffectName = keyof typeof transitionEffects;
 
 /**
  * Spring tunings for the turn (stiffness in 1/s², damping in 1/s): `snappy`
- * lands fast with no overshoot, `gentle` drifts in, `default` sits between
- * with a hint of settle.
+ * lands fast, `gentle` drifts in, `default` sits between. A committed turn
+ * stops at the far side whatever the spring; a cancelled one may settle
+ * past its origin with `default`.
  */
 export const springPresets = {
   default: { stiffness: 180, damping: 22 },

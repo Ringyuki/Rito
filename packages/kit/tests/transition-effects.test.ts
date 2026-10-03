@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { springPresets, transitionEffects } from '../src/driver/effects';
+import {
+  springPresets,
+  transitionEffects,
+  type PaintedTransitionEffect,
+  type TransitionPage,
+} from '../src/driver/effects';
+import { createTransitionScene, paintTransition } from '../src/driver/transition-scene';
 import { createTransitionDriver } from '../src/driver/transition-driver';
 
 const W = 400;
@@ -72,5 +78,51 @@ describe('transition effects', () => {
       expect(ratio).toBeGreaterThan(0.75);
       expect(ratio).toBeLessThanOrEqual(1.01);
     }
+  });
+});
+
+describe('transition scene', () => {
+  function fakeContext() {
+    const calls: string[] = [];
+    const context = {
+      globalAlpha: 1,
+      fillStyle: '',
+      drawImage(image: { id: string }, x: number) {
+        calls.push(`${image.id}@${String(x)}*${String(this.globalAlpha)}`);
+      },
+      createLinearGradient: () => ({ addColorStop: () => undefined }),
+      fillRect: () => calls.push('shadow'),
+    };
+    return { context: context as unknown as CanvasRenderingContext2D, calls };
+  }
+  const page = (id: string): TransitionPage => ({
+    content: { id } as unknown as CanvasImageSource,
+    overlay: null,
+    pixelRatio: 2,
+  });
+
+  it('draws a layered effect through the scene, skipping pages not painted yet', () => {
+    const { context, calls } = fakeContext();
+    const scene = createTransitionScene(context, W, 300, (slot) =>
+      slot === 'next' ? null : page(slot),
+    );
+    paintTransition(scene, transitionEffects.fade, { dx: -200, width: W, incoming: 'next' });
+    paintTransition(scene, transitionEffects.cover, { dx: 100, width: W, incoming: 'prev' });
+    expect(calls).toEqual(['curr@0*1', 'prev@0*1', 'shadow', 'curr@100*1']);
+  });
+
+  it('hands a painted effect the scene, its pages and the frame', () => {
+    const { context, calls } = fakeContext();
+    const seen: string[] = [];
+    const curl: PaintedTransitionEffect = {
+      paint(scene, frame) {
+        seen.push(`${String(scene.page('curr')?.pixelRatio)}:${String(frame.dx)}`);
+        scene.drawPage('next', frame.width + frame.dx, 0.5);
+      },
+    };
+    const scene = createTransitionScene(context, W, 300, page);
+    paintTransition(scene, curl, { dx: -100, width: W, incoming: 'next' });
+    expect(seen).toEqual(['2:-100']);
+    expect(calls).toEqual(['next@300*0.5']);
   });
 });
