@@ -17,7 +17,7 @@ use crate::*;
 /// degradation.
 pub(crate) fn list_marker_geometry(
     fonts: &mut FontContext,
-    registered_families: &[String],
+    catalog: &FontCatalog,
     tree: &FormattingTree,
     node: FormattingNodeId,
 ) -> Option<(f64, f64, f64)> {
@@ -43,8 +43,8 @@ pub(crate) fn list_marker_geometry(
     };
     let style = styles.inline.style(style_id).ok()?;
     let size = f64::from(style.font.size.get());
-    let (ascent, x_height) = resolved_marker_font_metrics(fonts, registered_families, style)
-        .unwrap_or((size * 0.9, size * 0.5));
+    let (ascent, x_height) =
+        resolved_marker_font_metrics(fonts, catalog, style).unwrap_or((size * 0.9, size * 0.5));
     let diameter = ascent / 3.0;
     // Pixel-measured: the disc's RIGHT edge sits one diameter plus the 7px
     // marker padding before the content edge (left = content − 7 − 2d).
@@ -56,23 +56,15 @@ pub(crate) fn list_marker_geometry(
 /// marker inherits.
 pub(crate) fn resolved_marker_font_metrics(
     fonts: &mut FontContext,
-    registered_families: &[String],
+    catalog: &FontCatalog,
     style: &InlineFormattingStyle,
 ) -> Option<(f64, f64)> {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
     use skrifa::MetadataProvider as _;
     let weight = FontWeight::new(style.font.weight.get());
     let size = style.font.size.get();
-    let stack = style
-        .font
-        .families
-        .as_slice()
-        .iter()
-        .filter_map(|family| match family {
-            rito_style_contract::FontFamily::Named(name) => Some(name.as_str()),
-            rito_style_contract::FontFamily::Generic(_) => None,
-        });
-    for name in stack.chain(registered_families.iter().map(String::as_str)) {
+    let stack = catalog.resolve(style);
+    for name in &stack.families {
         let Some(family) = fonts.collection.family_by_name(name) else {
             continue;
         };

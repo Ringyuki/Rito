@@ -4,8 +4,11 @@ const POLICY_KEYS = new Set(['schemaVersion', 'faces']);
 const FACE_INPUT_KEYS = new Set(['bytes', 'expectedSha256', 'genericRole', 'language']);
 const SUMMARY_KEYS = new Set(['schemaVersion', 'policyId', 'faces']);
 const FACE_SUMMARY_KEYS = new Set(
-  'sha256 shapeFingerprint familyAlias byteLength genericRole language style weight'.split(' '),
+  'sha256 familyName shapeFingerprint familyAlias byteLength genericRole language style weight'.split(
+    ' ',
+  ),
 );
+const FACE_STYLES = new Set(['normal', 'italic']);
 const OPEN_KEYS = new Set(['pinnedFontPolicy']);
 const GENERIC_ROLES = new Set(['serif', 'sansSerif', 'monospace']);
 const ROLE_ORDER = { serif: 0, sansSerif: 1, monospace: 2 };
@@ -149,6 +152,58 @@ function prepareFace(value, index, bytesKind) {
     },
   };
 }
+/**
+ * Validates host faces added to an open document: the same face contract
+ * as an open's policy, except that a face may share its role and language
+ * with another. The faces keep the order given.
+ */
+export function prepareHostFontFaces(value, bytesKind = 'uint8array') {
+  if (!Array.isArray(value) || value.length === 0) {
+    badRequest('host font faces must be a non-empty array');
+  }
+  const prepared = value.map((face, index) => prepareFace(face, index, bytesKind));
+  const hashes = new Set();
+  for (const face of prepared) {
+    if (hashes.has(face.expected.sha256)) badRequest('host font faces repeat a SHA-256');
+    hashes.add(face.expected.sha256);
+  }
+  return {
+    metadata: { schemaVersion: 1, faces: prepared.map((face) => face.metadata) },
+    faceBytes: prepared.map((face) => face.bytes),
+    expectedFaces: prepared.map((face) => face.expected),
+  };
+}
+
+/** Decodes the summary an addition returns: the added faces at its end. */
+export function decodeExtendedFontPolicySummary(payload, addedFaces) {
+  const summary = validatePinnedFontPolicySummary(
+    parseSummaryPayload(payload, 'addHostFontFaces'),
+    undefined,
+    'addHostFontFaces',
+  );
+  requireExpectedFaces(summary.faces.slice(-addedFaces.length), addedFaces);
+  return summary;
+}
+
+/** The face identities a summary pins, in its order: what a later read checks. */
+export function expectedFacesOfSummary(summary) {
+  return summary.faces.map((face) => ({
+    sha256: face.sha256,
+    byteLength: face.byteLength,
+    genericRole: face.genericRole,
+    language: face.language,
+  }));
+}
+
+/** Decodes the summary a removal returns. */
+export function decodeFontPolicySummary(payload, operation) {
+  return validatePinnedFontPolicySummary(
+    parseSummaryPayload(payload, operation),
+    undefined,
+    operation,
+  );
+}
+
 function rejectDuplicateExpectedFaces(faces) {
   const hashes = new Set();
   const selectors = new Set();
@@ -179,24 +234,19 @@ function requireExpectedFaces(actual, expected) {
     }
   }
 }
+// The faces a document opened with come back in canonical order (checked
+// against the request); faces added later follow in the order added, and
+// may share a role and language with another face.
 function validateSummaryFaces(faces, operation) {
   const hashes = new Set();
   const aliases = new Set();
-  const selectors = new Set();
-  let previous;
   for (const [index, value] of faces.entries()) {
     const face = requireSummaryFace(value, index, operation);
-    const selector = `${face.genericRole}\0${face.language}`;
-    if (hashes.has(face.sha256) || aliases.has(face.familyAlias) || selectors.has(selector)) {
+    if (hashes.has(face.sha256) || aliases.has(face.familyAlias)) {
       throw new Error(`${operation} returned duplicate face identity`);
     }
     hashes.add(face.sha256);
     aliases.add(face.familyAlias);
-    selectors.add(selector);
-    if (previous !== undefined && compareSummaryFaces(previous, face) >= 0) {
-      throw new Error(`${operation} returned non-canonical face order`);
-    }
-    previous = face;
   }
 }
 function requireSummaryFace(value, index, operation) {
@@ -211,8 +261,16 @@ function requireSummaryFace(value, index, operation) {
     throw new Error(`${label} returned an unsupported genericRole`);
   }
   requireLanguage(face.language, label, true);
-  if (face.style !== 'normal' || face.weight !== 400) {
-    throw new Error(`${label} returned unsupported style or weight`);
+  if (typeof face.familyName !== 'string' || face.familyName.length === 0) {
+    throw new Error(`${label} returned an invalid familyName`);
+  }
+  if (
+    !FACE_STYLES.has(face.style) ||
+    !Number.isSafeInteger(face.weight) ||
+    face.weight < 1 ||
+    face.weight > 1000
+  ) {
+    throw new Error(`${label} returned an invalid style or weight`);
   }
   return face;
 }

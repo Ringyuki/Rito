@@ -14,8 +14,9 @@ use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::FlowItemSource;
 use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand};
 
+use super::family::{face_family, split_by_face};
 use super::run_style::run_paint;
-use super::{cluster_x, painted_baseline, snap_css, PaintFamilyPolicy, CANVAS_TOP_ASCENT_RATIO};
+use super::{cluster_x, painted_baseline, snap_css, CANVAS_TOP_ASCENT_RATIO};
 
 /// One inline item's runs on one line: the item's byte range there, its
 /// left and right edges, and the ruby overhang its outermost runs carry.
@@ -69,7 +70,7 @@ pub(super) fn append_text_run_command(
     run: &TextFragment,
     line_x: f64,
     line_y: f64,
-    family_policy: Option<&PaintFamilyPolicy>,
+    faces: Option<&[String]>,
     item_sources: Option<&[FlowItemSource]>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
     snap_origin_y: f64,
@@ -119,15 +120,22 @@ pub(super) fn append_text_run_command(
         .map_or(run.rect.width, |extent| {
             extent.left + rito_inline::layout_unit_ceil(extent.right - extent.left) - run.rect.x
         });
+    // A ruby spread's interior gap rides the same painted letter-spacing
+    // knob as justify shares (they never coexist on one run: a spread base
+    // receives no interior justification).
+    let spacing_px = run.justify_px + run.ruby_gap_px;
+    let (box_start, box_end) = (start == item_range.start, end == item_range.end);
+    let run_face = run
+        .clusters
+        .first()
+        .map(|cluster| cluster.face)
+        .unwrap_or_default();
     let mut paint = run_paint(
         style,
-        family_policy,
-        // A ruby spread's interior gap rides the same painted
-        // letter-spacing knob as justify shares (they never coexist on
-        // one run: a spread base receives no interior justification).
-        run.justify_px + run.ruby_gap_px,
-        start == item_range.start,
-        end == item_range.end,
+        face_family(style, faces, run_face)?,
+        spacing_px,
+        box_start,
+        box_end,
     )?;
     let font_size = f64::from(style.font.size.get());
     // The run's baseline is the line's, raised by the item's own shift;
@@ -317,6 +325,7 @@ pub(super) fn append_text_run_command(
             .map(|cluster| rito_fragment::ClusterPosition {
                 byte: cluster.byte - range.start as u32,
                 x: cluster.x - first_x,
+                face: cluster.face,
             })
             .collect();
         let slice_end = measured
@@ -339,16 +348,25 @@ pub(super) fn append_text_run_command(
             .zip(origins)
             .map(|(cluster, x)| (cluster.byte, x, annotation_baseline))
             .collect();
-        commands.push(DisplayCommand::PaintRuby(DisplayTextCommand {
+        let annotation_paint = paint.for_ruby(annotation_size);
+        let annotation_faces: Vec<_> = natural.iter().map(|cluster| cluster.face).collect();
+        let annotation_command = DisplayTextCommand {
             text: text.to_owned(),
             rect: display_rect(rect_x, annotation_top, rect_width, annotation_size),
-            paint: paint.for_ruby(annotation_size),
+            paint: annotation_paint.clone(),
             line_height_px: None,
             href: None,
             source_text: None,
             source_text_offset: None,
             clusters,
-        }));
+        };
+        // An annotation shaped across faces (kana and Latin) paints each
+        // face's clusters with that face.
+        for piece in split_by_face(annotation_command, &annotation_faces, |face, _, _| {
+            Ok(annotation_paint.with_family(face_family(style, faces, face)?))
+        })? {
+            commands.push(DisplayCommand::PaintRuby(piece));
+        }
     }
     // The origin every cluster paints at: the run's start (the centred
     // origin of a packed ruby base) plus the offset layout stepped to,
@@ -369,7 +387,7 @@ pub(super) fn append_text_run_command(
             )
         })
         .collect();
-    commands.push(DisplayCommand::PaintText(DisplayTextCommand {
+    let command = DisplayTextCommand {
         text: full_text[start..end].to_owned(),
         // A halt-trimmed opener was laid at half width, but the painter
         // draws the untrimmed glyph whose outline sits one blank half
@@ -383,7 +401,7 @@ pub(super) fn append_text_run_command(
             rect_width + run.opener_trim_px,
             font_size,
         ),
-        paint,
+        paint: paint.clone(),
         line_height_px: Some(display_number(line.rect.height)),
         // The nearest enclosing link rides the painted run so a host
         // resolves taps against the display list alone.
@@ -393,6 +411,30 @@ pub(super) fn append_text_run_command(
         source_text: None,
         source_text_offset: None,
         clusters,
-    }));
+    };
+    // A ruby spread base fused across a fallback face paints once per
+    // face; the inline box opens on the first piece and closes on the
+    // last, every piece keeping the run's box extent and decoration.
+    let run_faces: Vec<_> = run.clusters.iter().map(|cluster| cluster.face).collect();
+    let decoration_shift = css_baseline - baseline;
+    for piece in split_by_face(command, &run_faces, |face, first, last| {
+        if first && last {
+            return Ok(paint.clone());
+        }
+        let mut piece = run_paint(
+            style,
+            face_family(style, faces, face)?,
+            spacing_px,
+            box_start && first,
+            box_end && last,
+        )?;
+        if let Some((top, bottom)) = paint.box_offsets {
+            piece.set_box_offsets(top, bottom);
+        }
+        piece.shift_decoration(decoration_shift);
+        Ok(piece)
+    })? {
+        commands.push(DisplayCommand::PaintText(piece));
+    }
     Ok(())
 }

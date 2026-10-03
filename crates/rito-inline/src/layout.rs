@@ -739,12 +739,8 @@ impl FormattingContext for ParleyInlineContext {
         // Outside list marker: Blink derives the disc from the list item's
         // primary font and hangs it off the first line (see
         // `list_marker_geometry`).
-        let list_marker = list_marker_geometry(
-            &mut self.fonts.borrow_mut(),
-            &self.registered_families,
-            tree,
-            root,
-        );
+        let list_marker =
+            list_marker_geometry(&mut self.fonts.borrow_mut(), &self.catalog, tree, root);
         let mut lines = Vec::new();
         // Line boxes stack by their CSS line height: the box model the
         // browser's per-character range rects expose. Parley's block
@@ -1260,6 +1256,7 @@ impl FormattingContext for ParleyInlineContext {
                                 .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
                             let piece = piece_clusters(
+                                &self.catalog,
                                 layout_ref,
                                 flow_text_ref,
                                 range.clone(),
@@ -2177,7 +2174,7 @@ impl FormattingContext for ParleyInlineContext {
                         if line_debug {
                             debug_misses.push(format!(
                                 "entry metric {}@{} {probe:?}",
-                                family_key(resolved),
+                                self.family_key(resolved),
                                 resolved.font.size.get(),
                             ));
                         }
@@ -2266,7 +2263,7 @@ impl FormattingContext for ParleyInlineContext {
                             if line_debug {
                                 debug_misses.push(format!(
                                     "atom metric {}@{}",
-                                    family_key(resolved),
+                                    self.family_key(resolved),
                                     resolved.font.size.get()
                                 ));
                             }

@@ -79,11 +79,71 @@ impl WasmRuntimeDocument {
     pub fn pinned_font_policy_json(&self) -> Result<String, WasmRuntimeError> {
         serialize_json(&self.document.pinned_font_policy_summary())
     }
+
+    pub fn font_catalog_json(&self) -> Result<String, WasmRuntimeError> {
+        serialize_json(&self.document.font_catalog())
+    }
+
+    pub fn unresolved_font_families_json(
+        &self,
+        family_list: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        serialize_json(&self.document.unresolved_font_families(family_list))
+    }
+
+    /// Adds host faces; returns the policy summary they extend, as JSON.
+    pub(crate) fn add_host_font_faces(
+        &mut self,
+        metadata: ValidatedPinnedFontPolicyMetadata,
+        face_bytes: Vec<Vec<u8>>,
+    ) -> Result<String, WasmRuntimeError> {
+        let input = pinned_font_policy_input(metadata, face_bytes);
+        let summary = self
+            .document
+            .add_host_font_faces(input.faces)
+            .map_err(|error| WasmRuntimeError::bad_request(error.message()))?;
+        serialize_json(&summary)
+    }
+
+    /// Removes host faces by the SHA-256 digests in a JSON array; returns
+    /// the remaining policy summary, as JSON.
+    pub fn remove_host_font_faces_json(
+        &mut self,
+        sha256s_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let sha256s: Vec<String> = serde_json::from_str(sha256s_json).map_err(|error| {
+            WasmRuntimeError::bad_request(format!("host font face digests: {error}"))
+        })?;
+        let summary = self
+            .document
+            .remove_host_font_faces(&sha256s)
+            .map_err(|error| WasmRuntimeError::bad_request(error.message()))?;
+        serialize_json(&summary)
+    }
 }
 
 pub(crate) fn validate_pinned_font_policy_metadata(
     metadata_json: &str,
     face_count: usize,
+) -> Result<ValidatedPinnedFontPolicyMetadata, WasmRuntimeError> {
+    validate_font_face_metadata(metadata_json, face_count, true)
+}
+
+/// Validates the metadata of host faces added to an open document: the
+/// contract of an open's policy, except that a face may share its generic
+/// role and language with another (a second serif family for Chinese is a
+/// choice, not a conflict).
+pub(crate) fn validate_added_font_faces_metadata(
+    metadata_json: &str,
+    face_count: usize,
+) -> Result<ValidatedPinnedFontPolicyMetadata, WasmRuntimeError> {
+    validate_font_face_metadata(metadata_json, face_count, false)
+}
+
+fn validate_font_face_metadata(
+    metadata_json: &str,
+    face_count: usize,
+    unique_selectors: bool,
 ) -> Result<ValidatedPinnedFontPolicyMetadata, WasmRuntimeError> {
     let metadata: PinnedFontPolicyMetadata =
         serde_json::from_str(metadata_json).map_err(|error| {
@@ -112,7 +172,7 @@ pub(crate) fn validate_pinned_font_policy_metadata(
         .into_iter()
         .map(validate_pinned_font_face_metadata)
         .collect::<Result<Vec<_>, _>>()?;
-    reject_duplicate_pinned_font_faces(&faces)?;
+    reject_duplicate_pinned_font_faces(&faces, unique_selectors)?;
     Ok(ValidatedPinnedFontPolicyMetadata { faces })
 }
 
@@ -145,6 +205,7 @@ fn validate_expected_sha256(value: String) -> Result<String, WasmRuntimeError> {
 
 fn reject_duplicate_pinned_font_faces(
     faces: &[ValidatedPinnedFontFaceMetadata],
+    unique_selectors: bool,
 ) -> Result<(), WasmRuntimeError> {
     let mut hashes = BTreeSet::new();
     let mut selectors = BTreeSet::new();
@@ -158,7 +219,7 @@ fn reject_duplicate_pinned_font_faces(
                 "pinned font policy contains a duplicate face SHA-256",
             ));
         }
-        if !selectors.insert((face.generic_role, language)) {
+        if unique_selectors && !selectors.insert((face.generic_role, language)) {
             return Err(WasmRuntimeError::bad_request(
                 "pinned font policy contains a duplicate generic role and language",
             ));

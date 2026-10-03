@@ -204,7 +204,7 @@ impl ReaderSession {
                 return Err(error);
             }
         };
-        let revision = ReaderRevisionOwner::from_created(&created, layout, 1);
+        let revision = ReaderRevisionOwner::from_created(&created, layout, self.font_generation, 1);
         let navigation = reader_navigation(&self.document, &revision, target.local_spread_index);
         let artifact = match build_reader_artifact(
             &mut self.document,

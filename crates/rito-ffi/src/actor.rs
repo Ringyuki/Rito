@@ -9,7 +9,8 @@ use std::{
 use rito_core::runtime::{
     encode_reader_annotation_response, encode_reader_artifact, encode_reader_background_advance,
     encode_reader_background_handoff_ack, encode_reader_exact_source_range_resolution,
-    encode_reader_footnote, encode_reader_foreground_handoff_ack, encode_reader_navigation_result,
+    encode_reader_font_catalog, encode_reader_font_names, encode_reader_footnote,
+    encode_reader_foreground_handoff_ack, encode_reader_navigation_result,
     encode_reader_publication, encode_reader_resource, encode_reader_search_response,
     encode_reader_text_interaction_response, encode_reader_text_range_geometry,
     ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
@@ -106,6 +107,21 @@ pub(crate) enum ActorCommand {
     ContentShardsNear {
         href: String,
         reply: Reply<Vec<u32>>,
+    },
+    FontCatalog {
+        reply: Reply<Vec<u8>>,
+    },
+    UnresolvedFontFamilies {
+        list: String,
+        reply: Reply<Vec<u8>>,
+    },
+    AddHostFontFaces {
+        faces: Vec<rito_core::runtime::RuntimePinnedFontFaceInput>,
+        reply: Reply<()>,
+    },
+    RemoveHostFontFaces {
+        sha256s: Vec<String>,
+        reply: Reply<()>,
     },
 }
 
@@ -679,6 +695,30 @@ fn run_commands(
             ActorCommand::ContentShardsNear { href, reply } => {
                 let _ = reply.send(Ok(session.content_shards_near(&href)));
             }
+            ActorCommand::FontCatalog { reply } => {
+                let result =
+                    encode_reader_font_catalog(&session.font_catalog()).map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::UnresolvedFontFamilies { list, reply } => {
+                let result = encode_reader_font_names(&session.unresolved_font_families(&list))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::AddHostFontFaces { faces, reply } => {
+                let result = session
+                    .add_host_font_faces(faces)
+                    .map(|_| ())
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::RemoveHostFontFaces { sha256s, reply } => {
+                let result = session
+                    .remove_host_font_faces(&sha256s)
+                    .map(|_| ())
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ReadFootnote {
                 artifact_id,
                 key,
@@ -942,6 +982,47 @@ pub(crate) fn request_content_shards_near(
         admission,
         |reply| ActorCommand::ContentShardsNear { href, reply },
         "content shards",
+    )
+}
+
+pub(crate) fn request_font_catalog(admission: CommandAdmission) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::FontCatalog { reply },
+        "font catalog",
+    )
+}
+
+pub(crate) fn request_unresolved_font_families(
+    admission: CommandAdmission,
+    list: String,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::UnresolvedFontFamilies { list, reply },
+        "unresolved font families",
+    )
+}
+
+pub(crate) fn request_add_host_font_faces(
+    admission: CommandAdmission,
+    faces: Vec<rito_core::runtime::RuntimePinnedFontFaceInput>,
+) -> Result<(), FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::AddHostFontFaces { faces, reply },
+        "add host font faces",
+    )
+}
+
+pub(crate) fn request_remove_host_font_faces(
+    admission: CommandAdmission,
+    sha256s: Vec<String>,
+) -> Result<(), FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::RemoveHostFontFaces { sha256s, reply },
+        "remove host font faces",
     )
 }
 

@@ -318,6 +318,10 @@ void _discardUnsentWire(
         bindings.dispose(sessionId: operation.sessionId);
         liveSessions.remove(operation.sessionId);
         break;
+      case _FontCatalogOperation():
+      case _UnresolvedFontFamiliesOperation():
+      case _AddHostFontFacesOperation():
+      case _RemoveHostFontFacesOperation():
       case _ReadPublicationOperation():
       case _ReadResourceOperation():
       case _SearchOperation():
@@ -335,6 +339,12 @@ void _discardUnsentWire(
   } on Object {
     // Preserve the ownership-transfer failure as the primary diagnostic.
   }
+}
+
+/// Runs an operation that answers with nothing but its success.
+Object? _done(void Function() operation) {
+  operation();
+  return null;
 }
 
 int? _wireArtifactId(Uint8List wireBytes) {
@@ -365,6 +375,25 @@ Object? _perform(
     _ContentShardsNearOperation() => bindings.contentShardsNear(
       sessionId: operation.sessionId,
       href: operation.href,
+    ),
+    _FontCatalogOperation() => bindings.fontCatalogWire(
+      sessionId: operation.sessionId,
+    ),
+    _UnresolvedFontFamiliesOperation() => bindings.unresolvedFontFamiliesWire(
+      sessionId: operation.sessionId,
+      familyList: operation.familyList,
+    ),
+    _AddHostFontFacesOperation() => _done(
+      () => bindings.addHostFontFaces(
+        sessionId: operation.sessionId,
+        faces: operation.faces,
+      ),
+    ),
+    _RemoveHostFontFacesOperation() => _done(
+      () => bindings.removeHostFontFaces(
+        sessionId: operation.sessionId,
+        sha256s: operation.sha256s,
+      ),
     ),
     _RequestArtifactOperation() => bindings.requestArtifactEncoded(
       sessionId: operation.sessionId,

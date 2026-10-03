@@ -51,6 +51,7 @@ export 'src/protocol/exact_source_range.dart'
         RitoExactSourceRangeResolution,
         RitoExactSourceRangeStatus,
         RitoExactSourceRect;
+export 'src/protocol/font_catalog.dart';
 export 'src/protocol/footnote_decoder.dart' show RitoFootnote, RitoFootnoteKind;
 export 'src/protocol/hit_resolver.dart';
 export 'src/protocol/navigation_query.dart'

@@ -3,40 +3,46 @@
 use crate::*;
 
 impl ParleyInlineContext {
-    /// Creates a context that resolves families against exactly these font
-    /// blobs. Fails closed if a blob registers no usable font face.
-    ///
-    /// The blobs are the resolution universe: they serve every generic
-    /// family and every script's fallback, in construction order. Nothing
-    /// else exists — the platform font database is explicitly excluded, so
-    /// a family the blobs cannot serve resolves the same way on native and
-    /// wasm hosts instead of silently borrowing a platform font.
+    /// Creates a context over bare font blobs, each a language-neutral
+    /// serif face: every family list resolves to them in order. Fails
+    /// closed if a blob registers no usable font face.
     pub fn new(font_blobs: Vec<Vec<u8>>) -> Result<Self, String> {
+        Self::with_faces(
+            font_blobs
+                .into_iter()
+                .enumerate()
+                .map(|(index, bytes)| HostFontFace {
+                    family: font_family_name(&bytes).unwrap_or_default(),
+                    bytes,
+                    role: HostFontRole::Serif,
+                    language: None,
+                    alias: format!("face{index}"),
+                })
+                .collect(),
+        )
+    }
+
+    /// Creates a context that resolves families against exactly these host
+    /// faces (see [`crate::fonts`] for how a family list resolves). Fails
+    /// closed if a face registers no usable font.
+    ///
+    /// The faces are the resolution universe — the platform font database
+    /// is explicitly excluded, so a family the faces cannot serve resolves
+    /// the same way on native and wasm hosts instead of silently borrowing
+    /// a platform font.
+    pub fn with_faces(faces: Vec<HostFontFace>) -> Result<Self, String> {
         use parley::fontique::{Collection, CollectionOptions, SourceCache, SourceCacheOptions};
         let mut collection = Collection::new(CollectionOptions {
             shared: false,
             system_fonts: false,
         });
-        let mut registered_families = Vec::new();
-        let mut fallback_ids = Vec::new();
-        for (index, bytes) in font_blobs.into_iter().enumerate() {
-            let registered = collection.register_fonts(bytes.into(), None);
-            if registered.is_empty() {
-                return Err(format!("font blob {index} registered no font face"));
-            }
-            for (family_id, _) in registered {
-                if !fallback_ids.contains(&family_id) {
-                    fallback_ids.push(family_id);
-                }
-                if let Some(name) = collection.family_name(family_id) {
-                    let name = name.to_string();
-                    if !registered_families.contains(&name) {
-                        registered_families.push(name);
-                    }
-                }
-            }
+        let mut catalog = FontCatalog::default();
+        for (index, face) in faces.into_iter().enumerate() {
+            catalog
+                .register_host(&mut collection, face)
+                .map_err(|error| format!("host face {index}: {error}"))?;
         }
-        install_universal_fallbacks(&mut collection, &fallback_ids);
+        install_universal_fallbacks(&mut collection, &catalog.fallback_families());
         let fonts = FontContext {
             collection,
             source_cache: SourceCache::new(SourceCacheOptions::default()),
@@ -44,7 +50,7 @@ impl ParleyInlineContext {
         Ok(Self {
             fonts: RefCell::new(fonts),
             layouts: RefCell::new(LayoutContext::new()),
-            registered_families,
+            catalog,
             line_metrics: RefCell::new(std::collections::HashMap::new()),
             run_samples: RefCell::new(std::collections::HashMap::new()),
             halt_feature_cache: RefCell::new(std::collections::HashMap::new()),
@@ -61,7 +67,7 @@ impl ParleyInlineContext {
         first_char: char,
     ) -> char {
         let key = (
-            family_key(style),
+            self.family_key(style),
             f64::from(style.font.size.get()).to_bits(),
             font.data.id(),
             font.index,
@@ -73,39 +79,26 @@ impl ParleyInlineContext {
             .or_insert(first_char)
     }
 
-    /// Family names the constructor registered, in first-seen order.
-    pub fn registered_families(&self) -> &[String] {
-        &self.registered_families
+    /// The name paint draws each face by — the alias the host registered
+    /// the face's bytes under — indexed by face id.
+    pub fn face_aliases(&self) -> &[String] {
+        self.catalog.aliases()
     }
 
-    /// Registers one font blob under an explicit family name, the way a
-    /// stylesheet's `@font-face` binds a declared family to font bytes.
-    /// Styles resolve the declared name regardless of the font's own
-    /// internal family name.
-    pub fn register_named_font(&mut self, family_name: &str, bytes: Vec<u8>) -> Result<(), String> {
+    /// The family names (lowercase) some resolved style named that no face
+    /// in the catalog answers to.
+    pub fn unknown_families(&self) -> Vec<String> {
+        self.catalog.unknown_families()
+    }
+
+    /// Registers one publication `@font-face` binding: its declared family
+    /// resolves to these bytes with the declared weight and style, ahead of
+    /// any host family of the same name.
+    pub fn register_publication_face(&mut self, face: PublicationFontFace) -> Result<(), String> {
         let fonts = self.fonts.get_mut();
-        let registered = fonts.collection.register_fonts(
-            bytes.into(),
-            Some(parley::fontique::FontInfoOverride {
-                family_name: Some(family_name),
-                width: None,
-                style: None,
-                weight: None,
-                axes: None,
-            }),
-        );
-        if registered.is_empty() {
-            return Err(format!(
-                "font blob for family {family_name} registered no font face"
-            ));
-        }
-        if !self
-            .registered_families
-            .iter()
-            .any(|name| name == family_name)
-        {
-            self.registered_families.push(family_name.to_owned());
-        }
+        self.catalog
+            .register_publication(&mut fonts.collection, face)?;
+        install_universal_fallbacks(&mut fonts.collection, &self.catalog.fallback_families());
         // A new face can change what a family list resolves to.
         self.line_metrics.get_mut().clear();
         self.run_samples.get_mut().clear();

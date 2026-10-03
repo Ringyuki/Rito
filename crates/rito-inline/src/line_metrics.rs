@@ -148,7 +148,7 @@ impl ParleyInlineContext {
         size: f64,
         probe: &LineProbe,
     ) -> Option<NormalLineMetric> {
-        let key = (family_key(style), size.to_bits(), probe.clone());
+        let key = (self.family_key(style), size.to_bits(), probe.clone());
         if let Some(metric) = self.line_metrics.borrow().get(&key) {
             return *metric;
         }
@@ -330,9 +330,11 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = layouts.ranged_builder(&mut fonts, text, 1.0, true);
+        let stack = self.catalog.resolve(style);
         builder.push_default(StyleProperty::FontFamily(parley::FontFamily::Source(
-            Cow::Owned(family_stack_source(style)),
+            Cow::Owned(stack.source.clone()),
         )));
+        builder.push_default(StyleProperty::Locale(stack.locale));
         builder.push_default(StyleProperty::FontSize(shaping_font_size(size as f32)));
         builder.push_default(StyleProperty::FontWeight(parley::FontWeight::new(
             if bold { 700.0 } else { 400.0 },
@@ -487,7 +489,10 @@ fn layout_unit_floor(value: f64) -> f64 {
     (value * 64.0).floor() / 64.0
 }
 
-/// Serializes a computed family list into a cache key.
-pub(crate) fn family_key(style: &InlineFormattingStyle) -> String {
-    family_stack_source(style)
+impl ParleyInlineContext {
+    /// A cache key for the style's resolved family list: equal keys shape
+    /// identically.
+    pub(crate) fn family_key(&self, style: &InlineFormattingStyle) -> String {
+        self.catalog.resolve(style).key.clone()
+    }
 }

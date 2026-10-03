@@ -90,6 +90,9 @@ pub struct RuntimePinnedFontPolicyInput {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimePinnedFontFaceSummary {
     pub sha256: String,
+    /// The family a `font-family` list names the face by: the typographic
+    /// family its name table declares.
+    pub family_name: String,
     pub shape_fingerprint: String,
     pub family_alias: String,
     pub byte_length: usize,

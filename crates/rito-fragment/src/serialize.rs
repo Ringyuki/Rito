@@ -129,6 +129,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             for cluster in &fragment.clusters {
                 out.extend_from_slice(&cluster.byte.to_le_bytes());
                 out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
+                out.extend_from_slice(&cluster.face.0.to_le_bytes());
             }
             out.push(u8::from(fragment.cluster_grid));
         }
@@ -222,6 +223,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 clusters.push(crate::ClusterPosition {
                     byte: reader.u32()?,
                     x: reader.f64()?,
+                    face: crate::FontFaceId(reader.u32()?),
                 });
             }
             let cluster_grid = match reader.u8()? {

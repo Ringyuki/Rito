@@ -801,7 +801,11 @@ mod tests {
     /// whole-word units for Latin, packed starts and floored centers.
     #[test]
     fn ruby_annotation_distribution_follows_the_computed_alignment() {
-        let cluster = |byte: u32, x: f64| crate::ClusterPosition { byte, x };
+        let cluster = |byte: u32, x: f64| crate::ClusterPosition {
+            byte,
+            x,
+            face: crate::FontFaceId::default(),
+        };
         let close = |actual: &[f64], expected: &[f64]| {
             assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");
             for (a, e) in actual.iter().zip(expected) {

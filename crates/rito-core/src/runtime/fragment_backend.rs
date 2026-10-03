@@ -21,7 +21,7 @@ use rito_fragment::CancelFlag;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
-use crate::fragment_paint::{FragmentPaintContext, PaintFamilyPolicy};
+use crate::fragment_paint::FragmentPaintContext;
 use crate::layout::LayoutConfig;
 use crate::render::{
     contract::{ReaderBackgroundPaint, ReaderColor},
@@ -87,7 +87,8 @@ pub(super) struct FragmentBackendChapter {
 struct FragmentTableBuildInputs {
     prepared: Rc<crate::epub::PreparedLoadedDocument>,
     engine: Rc<RuntimeFragmentEngine>,
-    family_policy: PaintFamilyPolicy,
+    /// The paint alias of every face the engine shapes with.
+    faces: Rc<[String]>,
     config: LayoutConfig,
 }
 
@@ -176,7 +177,7 @@ impl FragmentBackendPage {
             paint.origin.0,
             paint.origin.1,
             FragmentPaintContext {
-                family_policy: Some(&paint.family_policy),
+                faces: Some(&paint.faces),
                 node_paints: Some(&paint.built.node_paints),
                 image_border_paints: Some(&paint.built.image_border_paints),
                 list_markers: Some(&paint.built.list_markers),
@@ -202,7 +203,8 @@ impl FragmentBackendPage {
 #[derive(Debug)]
 struct ChapterPaintSource {
     built: crate::fragment_bridge::ChapterFormattingTree,
-    family_policy: PaintFamilyPolicy,
+    /// The paint alias of every face the engine shapes with.
+    faces: Rc<[String]>,
     vertical: bool,
     content_width: f64,
     origin: (f64, f64),
@@ -400,7 +402,7 @@ impl FragmentBuiltLayout {
         )?;
         let paginated = paginate_built_chapter(
             &build.engine,
-            build.family_policy.clone(),
+            Rc::clone(&build.faces),
             built,
             &build.config,
             &record.idref,
@@ -495,7 +497,7 @@ impl RuntimeDocument {
             .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
             let paginated = paginate_built_chapter(
                 &build.engine,
-                build.family_policy.clone(),
+                Rc::clone(&build.faces),
                 built,
                 layout_config,
                 &idref,
@@ -604,7 +606,7 @@ impl RuntimeDocument {
         .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
         let paginated = paginate_built_chapter(
             &build.engine,
-            build.family_policy.clone(),
+            Rc::clone(&build.faces),
             built,
             config,
             &idref,
@@ -650,16 +652,13 @@ impl RuntimeDocument {
         prepared: Rc<crate::epub::PreparedLoadedDocument>,
         config: &LayoutConfig,
     ) -> Result<FragmentTableBuildInputs, String> {
-        let family_policy = self
-            .fragment_paint_family_policy()
-            .ok_or_else(|| "pinned-alias collision or no fragment engine".to_owned())?;
         let engine = self
             .fragment_engine_handle()
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
         Ok(FragmentTableBuildInputs {
             prepared,
+            faces: engine.engine.inline().face_aliases().into(),
             engine,
-            family_policy,
             config: config.clone(),
         })
     }
@@ -677,7 +676,7 @@ struct PaginatedChapter {
 /// out into page roots under the given layout config.
 fn paginate_built_chapter(
     engine: &RuntimeFragmentEngine,
-    family_policy: PaintFamilyPolicy,
+    faces: Rc<[String]>,
     mut built: crate::fragment_bridge::ChapterFormattingTree,
     config: &LayoutConfig,
     idref: &str,
@@ -709,7 +708,7 @@ fn paginate_built_chapter(
         block_count,
         paint: ChapterPaintSource {
             built,
-            family_policy,
+            faces,
             vertical,
             content_width,
             origin: (config.margin_left, config.margin_top),

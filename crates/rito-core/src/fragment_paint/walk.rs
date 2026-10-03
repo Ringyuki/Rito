@@ -15,8 +15,9 @@ use crate::render::contract::{
     ReaderBorderEdgePaint, ReaderBorderStyle, ReaderColor, ReaderHorizontalRulePaint, ReaderLength,
     ReaderPoint, ReaderSize, ReaderTransform,
 };
-use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand};
+use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint};
 
+use super::family::{face_family, split_by_face};
 use super::line::append_line_commands;
 use super::run_style::run_paint;
 use super::vertical::append_vertical_line_commands;
@@ -302,8 +303,16 @@ pub(super) fn append_fragment_display_commands_inner(
                     let run = marker.run.as_ref().ok_or_else(|| {
                         EpubError::new("outside marker painted before its string was measured")
                     })?;
-                    let paint =
-                        run_paint(style, context.family_policy, 0.0, false, false)?.glyphs_only();
+                    let paint_for = |face| -> EpubResult<_> {
+                        Ok(run_paint(
+                            style,
+                            face_family(style, context.faces, face)?,
+                            0.0,
+                            false,
+                            false,
+                        )?
+                        .glyphs_only())
+                    };
                     let font_size = f64::from(style.font.size.get());
                     let line_y = origin_y + fragment.rect.y + first_line.rect.y;
                     let baseline = painted_baseline(
@@ -328,7 +337,7 @@ pub(super) fn append_fragment_display_commands_inner(
                             )
                         })
                         .collect();
-                    commands.push(DisplayCommand::PaintText(DisplayTextCommand {
+                    let command = DisplayTextCommand {
                         text: marker.painted_text(),
                         rect: display_rect(
                             left,
@@ -336,13 +345,20 @@ pub(super) fn append_fragment_display_commands_inner(
                             run.advance,
                             font_size,
                         ),
-                        paint,
+                        paint: RunPaint::default(),
                         line_height_px: None,
                         href: None,
                         source_text: None,
                         source_text_offset: None,
                         clusters,
-                    }));
+                    };
+                    let marker_faces: Vec<_> =
+                        run.clusters.iter().map(|cluster| cluster.face).collect();
+                    for piece in
+                        split_by_face(command, &marker_faces, |face, _, _| paint_for(face))?
+                    {
+                        commands.push(DisplayCommand::PaintText(piece));
+                    }
                 }
             }
             for child in &fragment.children {
@@ -363,7 +379,7 @@ pub(super) fn append_fragment_display_commands_inner(
                         origin_y + fragment.rect.y,
                         frame_right,
                         frame_top,
-                        context.family_policy,
+                        context.faces,
                         context.flow_item_sources,
                         context.ruby_annotation_runs,
                     )?;
@@ -390,7 +406,7 @@ pub(super) fn append_fragment_display_commands_inner(
             line,
             origin_x,
             origin_y,
-            context.family_policy,
+            context.faces,
             context.image_border_paints,
             context.flow_item_sources,
             context.ruby_annotation_runs,

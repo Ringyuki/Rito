@@ -79,6 +79,7 @@ function policySummary(policyId, sha256, byteLength) {
     faces: [
       {
         sha256,
+        familyName: 'Fixture',
         shapeFingerprint: sha256.slice(0, 16),
         familyAlias: `__RitoPinned_${sha256}`,
         byteLength,

@@ -14,6 +14,7 @@ import 'protocol/annotation_target.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
 import 'protocol/exact_source_range.dart';
+import 'protocol/font_catalog.dart';
 import 'protocol/footnote_decoder.dart';
 import 'protocol/foreground_models.dart';
 import 'protocol/navigation_query.dart';
@@ -1053,6 +1054,56 @@ final class RitoReaderSession {
     }
     return footnote;
   }
+
+  /// Every family a `font-family` list can name in this publication: the
+  /// host's faces by the family their name tables declare, then the
+  /// publication's own `@font-face` families. Build a font picker from it.
+  Future<RitoFontCatalog> fontCatalog() {
+    _requireOpen();
+    return _fontGateway.fontCatalog(sessionId: sessionId);
+  }
+
+  /// The names in a CSS `font-family` list no family in [fontCatalog]
+  /// answers to. Layout skips such a name the way a browser skips an
+  /// uninstalled font; check a reader's choice with this before applying
+  /// it, so a typo is reported instead of silently ignored.
+  Future<List<String>> unresolvedFontFamilies(String familyList) {
+    _requireOpen();
+    return _fontGateway.unresolvedFontFamilies(
+      sessionId: sessionId,
+      familyList: familyList,
+    );
+  }
+
+  /// Adds host faces (a system font, one the reader imported) after the
+  /// ones the session opened with, and registers them for paint. A face
+  /// may share its role and language with another; it is named by its
+  /// family in a `font-family` list, and the generics keep the faces they
+  /// resolved to. Pages already shown keep their layout; the next request
+  /// lays out with the new faces.
+  Future<void> addFontFaces(List<RitoPinnedFontFace> faces) async {
+    _requireOpen();
+    if (faces.isEmpty) {
+      return;
+    }
+    await _fontGateway.addHostFontFaces(sessionId: sessionId, faces: faces);
+    await _fontCache.registerPinnedFaces(RitoPinnedFontPolicy(faces: faces));
+  }
+
+  /// Removes host faces by SHA-256 ([RitoFontFamilyFace.sha256]); at least
+  /// one face must remain. The next request lays out without them.
+  Future<void> removeFontFaces(List<String> sha256s) {
+    _requireOpen();
+    return _fontGateway.removeHostFontFaces(
+      sessionId: sessionId,
+      sha256s: sha256s,
+    );
+  }
+
+  RitoFontGateway get _fontGateway => switch (gateway) {
+    final RitoFontGateway fonts => fonts,
+    _ => throw UnsupportedError('this gateway does not expose session fonts'),
+  };
 
   /// An image read for the image cache: a failure that can pass (the host
   /// could not load the image's shard) is marked so the cache reads the

@@ -313,6 +313,31 @@ pub(crate) fn read_footnote(
     actor::request_footnote(admission, artifact_id, key)
 }
 
+pub(crate) fn font_catalog(admission: CommandAdmission) -> Result<Vec<u8>, FfiError> {
+    actor::request_font_catalog(admission)
+}
+
+pub(crate) fn unresolved_font_families(
+    admission: CommandAdmission,
+    list: String,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_unresolved_font_families(admission, list)
+}
+
+pub(crate) fn add_host_font_faces(
+    admission: CommandAdmission,
+    faces: Vec<rito_core::runtime::RuntimePinnedFontFaceInput>,
+) -> Result<(), FfiError> {
+    actor::request_add_host_font_faces(admission, faces)
+}
+
+pub(crate) fn remove_host_font_faces(
+    admission: CommandAdmission,
+    sha256s: Vec<String>,
+) -> Result<(), FfiError> {
+    actor::request_remove_host_font_faces(admission, sha256s)
+}
+
 pub(crate) fn supply_shard(
     admission: CommandAdmission,
     shard: Vec<u8>,

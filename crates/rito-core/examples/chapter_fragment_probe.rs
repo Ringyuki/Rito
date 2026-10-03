@@ -145,7 +145,13 @@ fn main() {
     for named in &request.named_fonts {
         let bytes = std::fs::read(&named.path).expect("named font file reads");
         inline_context
-            .register_named_font(&named.family, bytes)
+            .register_publication_face(rito_inline::PublicationFontFace {
+                family: named.family.clone(),
+                bytes,
+                weight: 400,
+                italic: false,
+                alias: named.family.clone(),
+            })
             .expect("named font registers");
     }
     let engine = BlockFormattingContext::new(inline_context);

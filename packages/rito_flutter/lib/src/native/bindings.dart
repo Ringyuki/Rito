@@ -14,6 +14,7 @@ import '../protocol/text_geometry.dart';
 import 'asset.dart';
 import 'pinned_font_policy.dart';
 
+part 'bindings_fonts.dart';
 part 'ffi_types.dart';
 
 const int ritoNativeStatusInvalidArgument = 1;
@@ -116,6 +117,50 @@ external int _ritoContentShardsNear(
   Pointer<Uint8> href,
   int hrefLength,
   Pointer<_RitoOwnedBuffer> shardsOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_ReadPublicationNative>(
+  symbol: 'rito_font_catalog',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoFontCatalog(
+  int sessionId,
+  Pointer<_RitoOwnedBuffer> catalogOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_ContentShardsNearNative>(
+  symbol: 'rito_unresolved_font_families',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoUnresolvedFontFamilies(
+  int sessionId,
+  Pointer<Uint8> list,
+  int listLength,
+  Pointer<_RitoOwnedBuffer> namesOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_AddHostFontFacesNative>(
+  symbol: 'rito_add_host_font_faces',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoAddHostFontFaces(
+  int sessionId,
+  Pointer<_RitoPinnedFontFace> faces,
+  int faceCount,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_RemoveHostFontFacesNative>(
+  symbol: 'rito_remove_host_font_faces',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoRemoveHostFontFaces(
+  int sessionId,
+  Pointer<Uint8> sha256Hex,
+  int count,
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
@@ -343,6 +388,10 @@ final class RitoNativeBindings {
        _openShards = _ritoOpenShardsWithPinnedFonts,
        _supplyShard = _ritoSupplyShard,
        _contentShardsNear = _ritoContentShardsNear,
+       _fontCatalog = _ritoFontCatalog,
+       _unresolvedFontFamilies = _ritoUnresolvedFontFamilies,
+       _addHostFontFaces = _ritoAddHostFontFaces,
+       _removeHostFontFaces = _ritoRemoveHostFontFaces,
        _requestArtifact = _ritoRequestArtifact,
        _requestAdjacent = _ritoRequestAdjacent,
        _peekAdjacent = _ritoPeekAdjacent,
@@ -388,6 +437,23 @@ final class RitoNativeBindings {
            .lookupFunction<_ContentShardsNearNative, _ContentShardsNearDart>(
              'rito_content_shards_near',
            ),
+       _fontCatalog = library
+           .lookupFunction<_ReadPublicationNative, _ReadPublicationDart>(
+             'rito_font_catalog',
+           ),
+       _unresolvedFontFamilies = library
+           .lookupFunction<_ContentShardsNearNative, _ContentShardsNearDart>(
+             'rito_unresolved_font_families',
+           ),
+       _addHostFontFaces = library
+           .lookupFunction<_AddHostFontFacesNative, _AddHostFontFacesDart>(
+             'rito_add_host_font_faces',
+           ),
+       _removeHostFontFaces = library
+           .lookupFunction<
+             _RemoveHostFontFacesNative,
+             _RemoveHostFontFacesDart
+           >('rito_remove_host_font_faces'),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
              'rito_request_artifact',
@@ -470,6 +536,10 @@ final class RitoNativeBindings {
   final _OpenShardsDart _openShards;
   final _SupplyShardDart _supplyShard;
   final _ContentShardsNearDart _contentShardsNear;
+  final _ReadPublicationDart _fontCatalog;
+  final _ContentShardsNearDart _unresolvedFontFamilies;
+  final _AddHostFontFacesDart _addHostFontFaces;
+  final _RemoveHostFontFacesDart _removeHostFontFaces;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _RequestAdjacentDart _peekAdjacent;
@@ -1618,6 +1688,27 @@ final class RitoNativeWireBindings {
 
   List<int> contentShardsNear({required int sessionId, required String href}) =>
       _bindings.contentShardsNear(sessionId: sessionId, href: href);
+
+  Uint8List fontCatalogWire({required int sessionId}) =>
+      _bindings.fontCatalogWire(sessionId: sessionId);
+
+  Uint8List unresolvedFontFamiliesWire({
+    required int sessionId,
+    required String familyList,
+  }) => _bindings.unresolvedFontFamiliesWire(
+    sessionId: sessionId,
+    familyList: familyList,
+  );
+
+  void addHostFontFaces({
+    required int sessionId,
+    required List<RitoPinnedFontFace> faces,
+  }) => _bindings.addHostFontFaces(sessionId: sessionId, faces: faces);
+
+  void removeHostFontFaces({
+    required int sessionId,
+    required List<String> sha256s,
+  }) => _bindings.removeHostFontFaces(sessionId: sessionId, sha256s: sha256s);
 
   Uint8List requestArtifactEncoded({
     required int sessionId,

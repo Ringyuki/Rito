@@ -10,7 +10,8 @@
 //! inline items) fails closed instead of degrading.
 //!
 //! The context is one type spread over the modules that own its laws:
-//! `context` (construction and fonts), `line_metrics` (normal-line
+//! `context` (construction), `fonts` (the face catalog and family
+//! resolution), `line_metrics` (normal-line
 //! geometry from font tables), `strut` (line heights and measurement), `paragraph` (building a paragraph's
 //! Parley layout), `layout` (the provider entry points and the line
 //! loop), and the free laws the loop applies — `breaking`, `justify`,
@@ -31,13 +32,14 @@ use rito_fragment::{
     IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, TextFragment,
 };
 use rito_style_contract::{
-    FontFamily, FontSlant, GenericFontFamily, InlineFormattingStyle, LayoutFormattingStyle,
-    LengthPercentage, LineHeight, MaximumSize, PreferredSize, TextAlign,
+    FontSlant, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage, LineHeight,
+    MaximumSize, PreferredSize, TextAlign,
 };
 
 mod breaking;
 mod clusters;
 mod context;
+mod fonts;
 mod image;
 mod justify;
 mod layout;
@@ -54,6 +56,8 @@ mod tests;
 pub(crate) use breaking::*;
 pub(crate) use clusters::*;
 pub use clusters::{MeasuredRuby, MeasuredRun};
+pub(crate) use fonts::*;
+pub use fonts::{font_family_name, HostFontFace, HostFontRole, PublicationFontFace};
 pub(crate) use image::*;
 pub(crate) use justify::*;
 pub(crate) use line_metrics::*;
@@ -75,7 +79,9 @@ pub(crate) use strut::*;
 pub struct ParleyInlineContext {
     pub(crate) fonts: RefCell<FontContext>,
     pub(crate) layouts: RefCell<LayoutContext<[u8; 4]>>,
-    pub(crate) registered_families: Vec<String>,
+    /// Every face the context shapes with and how family lists resolve
+    /// against them.
+    pub(crate) catalog: FontCatalog,
     /// `line-height: normal` geometry per (family key, size bits, line
     /// shape), derived from font tables once and reused.
     pub(crate) line_metrics:

@@ -71,7 +71,15 @@ fn main() {
     println!("solo(kai pinned): width {}", width(&solo, "anything"));
 
     let mut named = ParleyInlineContext::new(vec![source_han]).expect("named context");
-    named.register_named_font("FZWBKS", kai).expect("register");
+    named
+        .register_publication_face(rito_inline::PublicationFontFace {
+            family: "FZWBKS".to_owned(),
+            bytes: kai,
+            weight: 400,
+            italic: false,
+            alias: "FZWBKS".to_owned(),
+        })
+        .expect("register");
     println!("named(FZWBKS):    width {}", width(&named, "FZWBKS"));
     println!("fallback:         width {}", width(&named, "NoSuchFace"));
 }

@@ -187,6 +187,11 @@ static void consume(void) {
                                    &error);
   (void)rito_read_footnote(1, 1, footnote_key, sizeof(footnote_key),
                               &footnote, &error);
+  rito_owned_buffer font_answer = {0};
+  (void)rito_font_catalog(1, &font_answer, &error);
+  (void)rito_unresolved_font_families(1, epub, 1, &font_answer, &error);
+  (void)rito_add_host_font_faces(1, &face, 1, &error);
+  (void)rito_remove_host_font_faces(1, epub, 1, &error);
   (void)rito_request_artifact(1, request, 8, &next_artifact, &error);
   (void)rito_read_publication(1, &publication_metadata, &error);
   (void)rito_request_adjacent(1, adjacent, 8, &next_artifact, &error);

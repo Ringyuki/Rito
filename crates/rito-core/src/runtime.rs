@@ -11,6 +11,7 @@ mod chapter_local;
 mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
+mod font_catalog;
 mod fragment_backend;
 mod fragment_frame;
 mod fragment_probe;
@@ -49,6 +50,9 @@ pub use chapter_tree_report::{
     RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
 };
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
+pub use font_catalog::{
+    RuntimeFontCatalog, RuntimeFontFamily, RuntimeFontFamilyFace, RuntimeFontSource,
+};
 use frame::RuntimeRevision;
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::resolve_href_locator;
@@ -60,7 +64,7 @@ pub use page_semantics::{
 pub use pinned_font_policy::{
     RuntimePinnedFontFaceInput, RuntimePinnedFontFaceSummary, RuntimePinnedFontGenericRole,
     RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput, RuntimePinnedFontPolicySummary,
-    RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
+    HOST_FONT_HREF_PREFIX, RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
 };
 use publication_footnotes::{PublicationFootnoteIndex, PublicationFootnoteProgress};
 pub use reader_session::*;
@@ -212,10 +216,19 @@ impl RuntimeDocument {
     /// fragment engine already shaped with one of them, discards the
     /// engine so its rebuild registers only paintable faces.
     pub fn set_unavailable_font_faces(&mut self, families: &[String]) {
+        // A host names a face by the alias it registered it under, or by
+        // its declared family.
         let known: std::collections::BTreeSet<String> = self
             .resolved_font_face_sources()
             .iter()
-            .map(|source| source.family().trim().to_ascii_lowercase())
+            .flat_map(|source| {
+                let alias = self
+                    .document
+                    .fonts
+                    .get(source.resource_index())
+                    .map(|resource| source.paint_alias(&resource.bytes).to_ascii_lowercase());
+                std::iter::once(source.family().trim().to_ascii_lowercase()).chain(alias)
+            })
             .collect();
         let mut added_known = false;
         for family in families {
@@ -326,6 +339,21 @@ impl RuntimeDocument {
                     .ok_or_else(|| resource_not_found(kind, href))?;
                 Ok(runtime_binary_resource(revision_id, kind, metadata, bytes))
             }
+            RuntimeResourceKind::Font if href.starts_with(HOST_FONT_HREF_PREFIX) => {
+                let bytes = self
+                    .pinned_font_policy
+                    .bytes_for_href(href)
+                    .ok_or_else(|| resource_not_found(kind, href))?;
+                Ok(RuntimeResource {
+                    revision_id: revision_id.to_owned(),
+                    kind,
+                    href: href.to_owned(),
+                    media_type: sfnt_media_type(bytes).to_owned(),
+                    bytes: bytes.to_vec(),
+                    width: None,
+                    height: None,
+                })
+            }
             RuntimeResourceKind::Font => {
                 let metadata = find_binary_resource_metadata(&self.document.fonts, href)
                     .ok_or_else(|| resource_not_found(kind, href))?;
@@ -351,6 +379,10 @@ impl RuntimeDocument {
                 find_binary_resource_metadata(&self.document.images, href)
                     .map(|metadata| metadata.byte_length())
             }
+            RuntimeResourceKind::Font if href.starts_with(HOST_FONT_HREF_PREFIX) => self
+                .pinned_font_policy
+                .bytes_for_href(href)
+                .map(<[u8]>::len),
             RuntimeResourceKind::Font => find_binary_resource_metadata(&self.document.fonts, href)
                 .map(|metadata| metadata.byte_length()),
             RuntimeResourceKind::Stylesheet => find_text_resource(&self.document.stylesheets, href)
@@ -512,3 +544,12 @@ impl Drop for RuntimeDocument {
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+/// The media type of an OpenType face by its sfnt version tag.
+fn sfnt_media_type(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(b"OTTO") {
+        "font/otf"
+    } else {
+        "font/ttf"
+    }
+}

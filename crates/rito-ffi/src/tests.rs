@@ -688,22 +688,22 @@ struct ResourceResult {
     error: String,
 }
 
-struct OpenResult {
-    status: u32,
-    artifact: Vec<u8>,
-    error: String,
+pub(crate) struct OpenResult {
+    pub(crate) status: u32,
+    pub(crate) artifact: Vec<u8>,
+    pub(crate) error: String,
 }
 
-struct OwnedWireResult {
-    status: u32,
-    wire: Vec<u8>,
-    error: String,
+pub(crate) struct OwnedWireResult {
+    pub(crate) status: u32,
+    pub(crate) wire: Vec<u8>,
+    pub(crate) error: String,
 }
 
 /// Chapter-local pagination shapes with pinned faces only, so the shared
 /// open helper routes through the pinned-fonts entry point; the bare
 /// `rito_open` keeps its own fail-closed test.
-fn call_open(publication: &[u8], request: &[u8]) -> OpenResult {
+pub(crate) fn call_open(publication: &[u8], request: &[u8]) -> OpenResult {
     let pinned_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
     let pinned = fs::read(pinned_path).expect("pinned face is readable");
@@ -927,11 +927,11 @@ fn call_dispose(session_id: u64) -> u32 {
     status
 }
 
-fn next_session_id() -> u64 {
+pub(crate) fn next_session_id() -> u64 {
     NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-fn publication() -> Vec<u8> {
+pub(crate) fn publication() -> Vec<u8> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../packages/rito/tests/fixtures/books/book-10.epub");
     fs::read(path).expect("book-10 fixture is readable")
@@ -1332,7 +1332,7 @@ fn search_crosses_the_abi_with_locators_and_context() {
     call_dispose(session_id);
 }
 
-fn call_owned_wire(
+pub(crate) fn call_owned_wire(
     call: impl FnOnce(&mut RitoOwnedBuffer, &mut RitoOwnedBuffer) -> u32,
 ) -> OwnedWireResult {
     let mut wire = RitoOwnedBuffer::EMPTY;

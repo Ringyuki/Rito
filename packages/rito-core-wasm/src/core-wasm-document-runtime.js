@@ -7,8 +7,12 @@ import {
   warmVersionedReaderFrameWindow,
 } from './reader-worker-versioned-payload-runtime.js';
 import {
+  decodeExtendedFontPolicySummary,
+  decodeFontPolicySummary,
   decodePinnedFontPolicySummary,
+  expectedFacesOfSummary,
   openRawDocument,
+  prepareHostFontFaces,
   openRawShardDocument,
   requireShardKey,
 } from './pinned-font-policy-runtime.js';
@@ -72,6 +76,61 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
           this._expectedPinnedFontFaces,
         ),
       );
+    }
+
+    /** Every family a `font-family` list can name in this document. */
+    fontCatalog() {
+      return callRitoCoreWasm('fontCatalog', () =>
+        parseObjectPayload(this._inner.fontCatalogJson(), 'fontCatalog'),
+      );
+    }
+
+    /** The names in a CSS `font-family` list no family answers to. */
+    unresolvedFontFamilies(familyList) {
+      return callRitoCoreWasm('unresolvedFontFamilies', () => {
+        if (typeof familyList !== 'string') {
+          throw new RitoCoreWasmError('bad-request', 'a font-family list must be a string');
+        }
+        const names = parseJsonPayload(
+          this._inner.unresolvedFontFamiliesJson(familyList),
+          'unresolvedFontFamilies',
+        );
+        if (!Array.isArray(names) || names.some((name) => typeof name !== 'string')) {
+          throw new Error('unresolvedFontFamilies returned a non-string array');
+        }
+        return names;
+      });
+    }
+
+    /**
+     * Adds host faces after the document's; returns the extended policy
+     * summary. Every layout key changes, so the next layout uses them.
+     */
+    addHostFontFaces(faces) {
+      return callRitoCoreWasm('addHostFontFaces', () => {
+        const prepared = prepareHostFontFaces(faces);
+        const summary = decodeExtendedFontPolicySummary(
+          this._inner.addHostFontFaces(JSON.stringify(prepared.metadata), prepared.faceBytes),
+          prepared.expectedFaces,
+        );
+        this._expectedPinnedFontFaces = expectedFacesOfSummary(summary);
+        return summary;
+      });
+    }
+
+    /** Removes host faces by SHA-256; returns the remaining policy summary. */
+    removeHostFontFaces(sha256s) {
+      return callRitoCoreWasm('removeHostFontFaces', () => {
+        if (!Array.isArray(sha256s) || sha256s.some((sha) => typeof sha !== 'string')) {
+          throw new RitoCoreWasmError('bad-request', 'host font face digests must be strings');
+        }
+        const summary = decodeFontPolicySummary(
+          this._inner.removeHostFontFacesJson(JSON.stringify(sha256s)),
+          'removeHostFontFaces',
+        );
+        this._expectedPinnedFontFaces = expectedFacesOfSummary(summary);
+        return summary;
+      });
     }
 
     /** Hands the document one content shard; returns its id. */
@@ -264,6 +323,23 @@ function readerWorkerPayload(document, request) {
     case 'setRenderRatio':
       document.setRenderRatio(request.ratio);
       return { kind: 'setRenderRatio' };
+    case 'fontCatalog':
+      return { kind: 'fontCatalog', result: document.fontCatalog() };
+    case 'unresolvedFontFamilies':
+      return {
+        kind: 'unresolvedFontFamilies',
+        result: document.unresolvedFontFamilies(request.familyList),
+      };
+    case 'addHostFontFaces':
+      return {
+        kind: 'addHostFontFaces',
+        result: document.addHostFontFaces(hostFacesFromBuffers(request.faces)),
+      };
+    case 'removeHostFontFaces':
+      return {
+        kind: 'removeHostFontFaces',
+        result: document.removeHostFontFaces(request.sha256s),
+      };
     case 'supplyShard': {
       if (!(request.shard instanceof ArrayBuffer)) {
         throw new RitoCoreWasmError('bad-request', 'supplyShard shard must be an ArrayBuffer');
@@ -411,6 +487,22 @@ function encodeJson(value, operation) {
       { cause: error },
     );
   }
+}
+
+// Faces cross to a worker with their bytes as transferred ArrayBuffers.
+function hostFacesFromBuffers(faces) {
+  if (!Array.isArray(faces)) {
+    throw new RitoCoreWasmError('bad-request', 'host font faces must be an array');
+  }
+  return faces.map((face) => {
+    if (face === null || typeof face !== 'object' || !(face.bytes instanceof ArrayBuffer)) {
+      throw new RitoCoreWasmError(
+        'bad-request',
+        'a host font face carries its bytes as an ArrayBuffer',
+      );
+    }
+    return { ...face, bytes: new Uint8Array(face.bytes) };
+  });
 }
 
 function parseObjectPayload(payload, operation) {

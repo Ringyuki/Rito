@@ -10,6 +10,7 @@ import '../protocol/background_decoder.dart';
 import '../protocol/background_encoder.dart';
 import '../protocol/background_models.dart';
 import '../protocol/exact_source_range.dart';
+import '../protocol/font_catalog.dart';
 import '../protocol/footnote_decoder.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
@@ -47,6 +48,7 @@ export 'session_lane.dart'
         RitoNavigationSupersededException;
 export 'worker_lifecycle.dart' show RitoNativeWorkerTerminatedException;
 
+part 'font_gateway.dart';
 part 'shard_supply.dart';
 part 'worker.dart';
 
@@ -202,7 +204,8 @@ final class RitoIsolateGateway
         RitoReaderGateway,
         RitoResumableExactSeekGateway,
         RitoResumableAdjacentGateway,
-        RitoShardedPublicationGateway {
+        RitoShardedPublicationGateway,
+        RitoFontGateway {
   RitoIsolateGateway({this.diagnosticLibrary}) {
     _worker = _RitoWorkerClient.start(diagnosticLibrary);
   }
@@ -373,6 +376,44 @@ final class RitoIsolateGateway
       rethrow;
     }
   }
+
+  @override
+  Future<RitoFontCatalog> fontCatalog({required int sessionId}) => _fontQuery(
+    sessionId,
+    _FontCatalogOperation(sessionId: sessionId),
+    const RitoFontDecoder().decodeCatalog,
+  );
+
+  @override
+  Future<List<String>> unresolvedFontFamilies({
+    required int sessionId,
+    required String familyList,
+  }) => _fontQuery(
+    sessionId,
+    _UnresolvedFontFamiliesOperation(
+      sessionId: sessionId,
+      familyList: familyList,
+    ),
+    const RitoFontDecoder().decodeNames,
+  );
+
+  @override
+  Future<void> addHostFontFaces({
+    required int sessionId,
+    required List<RitoPinnedFontFace> faces,
+  }) => _fontEdit(
+    sessionId,
+    _AddHostFontFacesOperation(sessionId: sessionId, faces: faces),
+  );
+
+  @override
+  Future<void> removeHostFontFaces({
+    required int sessionId,
+    required List<String> sha256s,
+  }) => _fontEdit(
+    sessionId,
+    _RemoveHostFontFacesOperation(sessionId: sessionId, sha256s: sha256s),
+  );
 
   @override
   Future<RitoArtifact> requestArtifact({

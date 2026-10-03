@@ -328,6 +328,20 @@ function createRitoCoreWasmReaderClient(
       result(call, { kind: 'search', revisionId, request: searchRequest }, 'search'),
     chapterFragmentProbe: (revisionId, idref) =>
       result(call, { kind: 'chapterFragmentProbe', revisionId, idref }, 'chapterFragmentProbe'),
+    fontCatalog: () => result(call, { kind: 'fontCatalog' }, 'fontCatalog'),
+    unresolvedFontFamilies: (familyList) =>
+      result(call, { kind: 'unresolvedFontFamilies', familyList }, 'unresolvedFontFamilies'),
+    // The face bytes travel as transferred ArrayBuffers: the caller hands
+    // over buffers it can lose.
+    addHostFontFaces: (faces) =>
+      result(
+        request,
+        { kind: 'addHostFontFaces', faces },
+        'addHostFontFaces',
+        faces.map((face) => face.bytes),
+      ),
+    removeHostFontFaces: (sha256s) =>
+      result(call, { kind: 'removeHostFontFaces', sha256s }, 'removeHostFontFaces'),
     setUnavailableFontFaces: async (families) => {
       const payload = await request({ kind: 'setUnavailableFontFaces', families });
       if (payload.kind !== 'setUnavailableFontFaces') {

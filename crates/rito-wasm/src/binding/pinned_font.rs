@@ -73,6 +73,67 @@ impl RitoWasmDocument {
             .pinned_font_policy_json()
             .map_err(error_to_js_value)
     }
+
+    /// Every family a `font-family` list can name, as JSON.
+    #[wasm_bindgen(js_name = fontCatalogJson)]
+    pub fn font_catalog_json(&self) -> Result<String, JsValue> {
+        self.inner.font_catalog_json().map_err(error_to_js_value)
+    }
+
+    /// The names in a CSS `font-family` list no family answers to, as a
+    /// JSON array.
+    #[wasm_bindgen(js_name = unresolvedFontFamiliesJson)]
+    pub fn unresolved_font_families_json(&self, family_list: &str) -> Result<String, JsValue> {
+        self.inner
+            .unresolved_font_families_json(family_list)
+            .map_err(error_to_js_value)
+    }
+
+    /// Adds host faces (`metadata_json` and `face_bytes` as for
+    /// `openWithPinnedFontPolicy`, a face may share its role and language
+    /// with another); returns the extended policy summary JSON.
+    #[wasm_bindgen(js_name = addHostFontFaces)]
+    pub fn add_host_font_faces(
+        &mut self,
+        metadata_json: &str,
+        face_bytes: JsValue,
+    ) -> Result<String, JsValue> {
+        let (metadata, faces) =
+            added_font_faces(metadata_json, face_bytes).map_err(error_to_js_value)?;
+        self.inner
+            .add_host_font_faces(metadata, faces)
+            .map_err(error_to_js_value)
+    }
+
+    /// Removes host faces by the SHA-256 digests in a JSON array; returns
+    /// the remaining policy summary JSON.
+    #[wasm_bindgen(js_name = removeHostFontFacesJson)]
+    pub fn remove_host_font_faces_json(&mut self, sha256s_json: &str) -> Result<String, JsValue> {
+        self.inner
+            .remove_host_font_faces_json(sha256s_json)
+            .map_err(error_to_js_value)
+    }
+}
+
+/// Validates added host faces' metadata against their byte arrays and
+/// copies the bytes out of JavaScript.
+pub(crate) fn added_font_faces(
+    metadata_json: &str,
+    face_bytes: JsValue,
+) -> Result<
+    (
+        crate::pinned_font::ValidatedPinnedFontPolicyMetadata,
+        Vec<Vec<u8>>,
+    ),
+    WasmRuntimeError,
+> {
+    let face_bytes = require_face_byte_array(face_bytes)?;
+    let metadata = crate::pinned_font::validate_added_font_faces_metadata(
+        metadata_json,
+        face_bytes.length() as usize,
+    )?;
+    validate_face_byte_array_types(&face_bytes)?;
+    Ok((metadata, copy_face_byte_arrays(&face_bytes)))
 }
 
 pub(crate) fn require_face_byte_array(value: JsValue) -> Result<Array, WasmRuntimeError> {

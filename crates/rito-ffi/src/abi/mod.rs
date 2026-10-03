@@ -1,5 +1,10 @@
+mod fonts;
 mod memory;
 
+pub use fonts::{
+    rito_add_host_font_faces, rito_font_catalog, rito_remove_host_font_faces,
+    rito_unresolved_font_families,
+};
 pub(crate) use memory::{copy_bytes, copy_face_descriptors};
 pub use memory::{
     rito_adopt_background_candidate, rito_adopt_foreground_candidate, rito_advance_background,

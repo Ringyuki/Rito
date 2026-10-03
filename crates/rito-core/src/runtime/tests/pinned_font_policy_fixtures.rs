@@ -46,6 +46,14 @@ pub(super) fn serif_text_font() -> Vec<u8> {
     .expect("bundled serif text font reads")
 }
 
+/// A bundled reader font by file name (`apps/reader/src/assets/fonts`).
+pub(super) fn bundled_font(file: &str) -> Vec<u8> {
+    std::fs::read(workspace_path(&format!(
+        "apps/reader/src/assets/fonts/{file}"
+    )))
+    .expect("bundled font reads")
+}
+
 pub(super) fn author_illustration_font() -> Vec<u8> {
     read_font_from_epub(
         "packages/rito/tests/fixtures/books/book-01.epub",

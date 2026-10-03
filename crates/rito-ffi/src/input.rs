@@ -176,6 +176,37 @@ pub(crate) fn navigation_request(
     decode_reader_navigation_request(&bytes).map_err(FfiError::from)
 }
 
+/// `count` SHA-256 hex digests of 64 bytes each, laid end to end.
+pub(crate) fn sha256_digests(source: *const u8, count: u32) -> Result<Vec<String>, FfiError> {
+    if count == 0 || count > MAX_PINNED_FONT_FACES {
+        return Err(FfiError::invalid(format!(
+            "between 1 and {MAX_PINNED_FONT_FACES} digests are required"
+        )));
+    }
+    let bytes = copy_bytes(
+        source,
+        u64::from(count) * 64,
+        u64::from(count) * 64,
+        "digests",
+    )?;
+    bytes
+        .chunks(64)
+        .map(|digest| {
+            std::str::from_utf8(digest)
+                .ok()
+                .filter(|digest| digest.bytes().all(|byte| byte.is_ascii_hexdigit()))
+                .map(str::to_ascii_lowercase)
+                .ok_or_else(|| FfiError::invalid("a digest must be 64 hexadecimal digits"))
+        })
+        .collect()
+}
+
+/// A UTF-8 string argument (a `font-family` list).
+pub(crate) fn text(source: *const u8, len: u64, field: &str) -> Result<String, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_HREF_BYTES, field)?;
+    String::from_utf8(bytes).map_err(|_| FfiError::invalid(format!("{field} must be valid UTF-8")))
+}
+
 pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {
     if len == 0 {
         return Err(FfiError::invalid("footnote key must not be empty"));

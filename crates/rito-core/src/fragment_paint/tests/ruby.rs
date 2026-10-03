@@ -26,9 +26,21 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
             run: rito_inline::MeasuredRun {
                 advance: 24.0,
                 clusters: vec![
-                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
-                    rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
-                    rito_fragment::ClusterPosition { byte: 6, x: 16.0 },
+                    rito_fragment::ClusterPosition {
+                        byte: 0,
+                        x: 0.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 3,
+                        x: 8.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 6,
+                        x: 16.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
                 ],
                 grid: false,
             },
@@ -118,8 +130,16 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
             run: rito_inline::MeasuredRun {
                 advance: 16.0,
                 clusters: vec![
-                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
-                    rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
+                    rito_fragment::ClusterPosition {
+                        byte: 0,
+                        x: 0.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 3,
+                        x: 8.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
                 ],
                 grid: false,
             },
@@ -177,9 +197,21 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
             run: rito_inline::MeasuredRun {
                 advance: 24.0,
                 clusters: vec![
-                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
-                    rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
-                    rito_fragment::ClusterPosition { byte: 6, x: 16.0 },
+                    rito_fragment::ClusterPosition {
+                        byte: 0,
+                        x: 0.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 3,
+                        x: 8.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 6,
+                        x: 16.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
                 ],
                 grid: false,
             },

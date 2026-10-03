@@ -19,15 +19,22 @@ pub(super) enum ReaderRevisionBacking {
 pub(super) struct ReaderPublicationRevisionOwner {
     pub(super) owner: RuntimeRevisionHandle,
     pub(super) layout: LayoutConfig,
+    /// The session's font generation the revision was laid out under.
+    pub(super) fonts: u64,
     pub(super) spread_count: usize,
     pub(super) artifact_ref_count: u32,
 }
 
 impl ReaderPublicationRevisionOwner {
-    pub(super) fn from_summary(summary: &RuntimeRevisionSummary, layout: LayoutConfig) -> Self {
+    pub(super) fn from_summary(
+        summary: &RuntimeRevisionSummary,
+        layout: LayoutConfig,
+        fonts: u64,
+    ) -> Self {
         Self {
             owner: RuntimeRevisionHandle::from(summary),
             layout,
+            fonts,
             spread_count: summary.spread_count,
             artifact_ref_count: 0,
         }

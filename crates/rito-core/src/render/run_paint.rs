@@ -87,6 +87,16 @@ impl RunPaint {
         })
     }
 
+    /// The same paint drawn with another family.
+    pub(crate) fn with_family(&self, family: String) -> Self {
+        if self.data.font.family == family {
+            return self.clone();
+        }
+        let mut data = (*self.data).clone();
+        data.font.family = family;
+        Self::new(data)
+    }
+
     #[cfg(test)]
     pub(crate) fn add_letter_spacing(&mut self, delta: f64) {
         if delta != 0.0 {

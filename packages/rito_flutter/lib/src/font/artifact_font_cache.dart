@@ -164,8 +164,8 @@ final class RitoArtifactFontCache {
       <({String family, String fingerprint}), _FontLoadEntry>{};
 
   /// Registers the session's pinned faces under their engine aliases
-  /// (`__RitoPinned_<sha256>`) so the family stacks the engine paints
-  /// resolve to the exact bytes layout measured with. Deduplicated
+  /// (`__RitoPinned_<sha256>`): the engine paints every run with the alias
+  /// of the exact face it shaped with. Deduplicated
   /// process-wide by alias; fonts cannot be unloaded. Uses Flutter's
   /// `FontLoader` directly — pinned faces are app assets, already
   /// TTF/OTF, so the WOFF-transcoding registrar path does not apply.
@@ -176,9 +176,8 @@ final class RitoArtifactFontCache {
         continue;
       }
       try {
-        // Policy v1 pins one Regular per generic role, so a bold run
-        // against a pinned alias synthesizes — the same thing the web
-        // reader's Regular-only pin set does.
+        // A bold run on a Regular face synthesizes, exactly where the web
+        // reader's canvas does.
         RitoFontEnvelopeStore.shared.register(
           alias,
           face.bytes,
@@ -211,12 +210,16 @@ final class RitoArtifactFontCache {
       );
     }
 
+    // A pinned face is already registered under its alias from the bytes
+    // the session opened with; only the publication's faces load here.
     await Future.wait<void>(
-      artifact.fonts.map(
-        (font) => _prepareLimiter.run<void>(
-          () => _ensureRegistered(artifact, font, () => readFont(font)),
-        ),
-      ),
+      artifact.fonts
+          .where((font) => !_pinnedAliases.contains(font.family))
+          .map(
+            (font) => _prepareLimiter.run<void>(
+              () => _ensureRegistered(artifact, font, () => readFont(font)),
+            ),
+          ),
     );
     return RitoPreparedArtifact._(artifact);
   }

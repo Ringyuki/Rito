@@ -1089,7 +1089,7 @@ fn adjacent(
     }
 }
 
-fn adopt_initial(
+pub(super) fn adopt_initial(
     session: &mut ReaderSession,
     session_id: u64,
     candidate_artifact_id: u64,

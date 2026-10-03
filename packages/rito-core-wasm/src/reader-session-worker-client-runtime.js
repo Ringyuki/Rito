@@ -352,6 +352,40 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     return publication;
   };
 
+  const fontCatalog = async () => {
+    requireOpen();
+    const payload = await send('font-catalog', {});
+    if (payload?.kind !== 'font-catalog') throw invalidPayload('font catalog');
+    return payload.catalog;
+  };
+
+  const unresolvedFontFamilies = async (familyList) => {
+    requireOpen();
+    const payload = await send('unresolved-font-families', { familyList });
+    if (payload?.kind !== 'unresolved-font-families') throw invalidPayload('font names');
+    return payload.names;
+  };
+
+  // The face bytes travel as transferred ArrayBuffers: the caller hands
+  // over buffers it can lose.
+  const addHostFontFaces = async (faces) => {
+    requireOpen();
+    const payload = await send(
+      'add-host-font-faces',
+      { faces },
+      faces.map((face) => face.bytes),
+    );
+    if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
+    return payload.summary;
+  };
+
+  const removeHostFontFaces = async (sha256s) => {
+    requireOpen();
+    const payload = await send('remove-host-font-faces', { sha256s });
+    if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
+    return payload.summary;
+  };
+
   const requestArtifact = (request) => {
     requireOpen();
     const deferred = createDeferred();
@@ -832,6 +866,10 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     open,
     ...queries,
     readPublication,
+    fontCatalog,
+    unresolvedFontFamilies,
+    addHostFontFaces,
+    removeHostFontFaces,
     requestAdjacent,
     requestArtifact,
     seek,

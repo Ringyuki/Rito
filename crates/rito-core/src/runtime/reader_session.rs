@@ -56,6 +56,10 @@ pub use wire::{
     READER_TEXT_RANGE_REQUEST_WIRE_BYTES, READER_TEXT_RANGE_REQUEST_WIRE_MAGIC,
     READER_WIRE_HEADER_BYTES, READER_WIRE_VERSION,
 };
+pub use wire::{
+    decode_reader_font_catalog, decode_reader_font_names, encode_reader_font_catalog,
+    encode_reader_font_names, READER_FONT_CATALOG_WIRE_MAGIC, READER_FONT_NAMES_WIRE_MAGIC,
+};
 
 pub const READER_PROTOCOL_VERSION: u32 = 5;
 pub const READER_PUBLICATION_TOC_DEPTH_MAX: u32 = 64;
@@ -64,6 +68,8 @@ pub const READER_PUBLICATION_WIRE_BYTES_MAX: u64 = 16 * 1024 * 1024;
 
 #[cfg(test)]
 mod background_tests;
+#[cfg(test)]
+mod font_tests;
 #[cfg(test)]
 mod interaction_tests;
 #[cfg(test)]

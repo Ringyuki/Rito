@@ -18,7 +18,7 @@ use rito_fragment::{
 };
 use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
-    FontFamilies, FontFamily, FontFamilyName, InlineStyleTable, LayoutStyleId, LayoutStyleTable,
+    FontFamilies, FontFamily, GenericFontFamily, InlineStyleTable, LayoutStyleId, LayoutStyleTable,
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,14 +71,10 @@ fn main() {
         .map(|path| std::fs::read(path).expect("font file reads"))
         .collect();
     let context = ParleyInlineContext::new(font_blobs).expect("fonts register");
-    let families = FontFamilies::new(
-        context
-            .registered_families()
-            .iter()
-            .map(|name| FontFamily::Named(FontFamilyName::new(name.clone())))
-            .collect(),
-    )
-    .expect("at least one family registered");
+    // Every blob is a language-neutral serif face, so `serif` resolves to
+    // them in request order.
+    let families =
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)]).expect("one family");
 
     let space = ConstraintSpace::continuous(f64::from(request.max_advance_px));
     let cancel = CancelFlag::new();
@@ -150,7 +146,7 @@ fn main() {
     }
 
     let response = SpikeResponse {
-        families: context.registered_families().to_vec(),
+        families: context.face_aliases().to_vec(),
         paragraphs,
     };
     println!(

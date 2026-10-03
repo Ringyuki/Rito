@@ -43,6 +43,7 @@ pub(crate) fn merge_ruby_spread_fragments(
                     .extend(next.clusters.iter().map(|cluster| ClusterPosition {
                         byte: cluster.byte,
                         x: cluster.x + offset,
+                        face: cluster.face,
                     }));
             }
             continue;

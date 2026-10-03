@@ -183,6 +183,7 @@ function readerOpenResult() {
       faces: [
         {
           sha256: FACE_HASH,
+          familyName: 'Fixture',
           shapeFingerprint: FACE_HASH.slice(0, 16),
           familyAlias: `__RitoPinned_${FACE_HASH}`,
           byteLength: 3,

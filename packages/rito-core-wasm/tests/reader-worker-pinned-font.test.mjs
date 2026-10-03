@@ -191,6 +191,7 @@ function policySummary(policyId, sha256, byteLength, genericRole = 'serif') {
 function policyFace(sha256, byteLength, genericRole, language) {
   return {
     sha256,
+    familyName: 'Fixture',
     shapeFingerprint: sha256.slice(0, 16),
     familyAlias: `__RitoPinned_${sha256}`,
     byteLength,

@@ -11,24 +11,32 @@ use super::{
 };
 
 impl RuntimeDocument {
-    /// The publication faces a revision asks the host to register: every
-    /// `@font-face` binding, because the fragment engine shapes with them
-    /// all. `None` without a pinned font policy, where the host does not
-    /// paint from the engine's faces.
+    /// The faces a revision asks the host to register for paint: every
+    /// publication `@font-face` binding and every pinned face, each under
+    /// the alias paint names it by. `None` without a pinned font policy,
+    /// where there is no fragment engine to paint.
     pub(super) fn required_font_face_catalog(&self) -> Option<Vec<RuntimeRequiredFontFace>> {
         (!self.pinned_font_policy.is_empty()).then(|| {
-            publication_font_face_catalog(&self.document, self.resolved_font_face_sources())
-                .into_iter()
-                .map(|face| RuntimeRequiredFontFace {
-                    family: face.family,
-                    href: face.href,
-                    style: face.style,
-                    weight: face.weight,
-                    shape_fingerprint: face.shape_fingerprint,
-                    byte_length: face.byte_length,
-                    source_order: face.source_order,
-                })
-                .collect()
+            let mut faces: Vec<_> =
+                publication_font_face_catalog(&self.document, self.resolved_font_face_sources())
+                    .into_iter()
+                    .map(|face| RuntimeRequiredFontFace {
+                        family: face.family,
+                        href: face.href,
+                        style: face.style,
+                        weight: face.weight,
+                        shape_fingerprint: face.shape_fingerprint,
+                        byte_length: face.byte_length,
+                        source_order: face.source_order,
+                    })
+                    .collect();
+            let first_host_order = faces
+                .iter()
+                .map(|face| face.source_order + 1)
+                .max()
+                .unwrap_or_default();
+            faces.extend(self.pinned_font_policy.required_faces(first_host_order));
+            faces
         })
     }
 

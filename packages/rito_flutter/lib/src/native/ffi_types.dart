@@ -237,3 +237,21 @@ typedef _SupplyShardDart =
       Pointer<Uint32>,
       Pointer<_RitoOwnedBuffer>,
     );
+typedef _AddHostFontFacesNative =
+    Uint32 Function(
+      Uint64,
+      Pointer<_RitoPinnedFontFace>,
+      Uint32,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _AddHostFontFacesDart =
+    int Function(
+      int,
+      Pointer<_RitoPinnedFontFace>,
+      int,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _RemoveHostFontFacesNative =
+    Uint32 Function(Uint64, Pointer<Uint8>, Uint32, Pointer<_RitoOwnedBuffer>);
+typedef _RemoveHostFontFacesDart =
+    int Function(int, Pointer<Uint8>, int, Pointer<_RitoOwnedBuffer>);

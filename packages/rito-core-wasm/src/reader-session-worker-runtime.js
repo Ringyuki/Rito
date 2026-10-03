@@ -18,6 +18,11 @@ import {
   encodeRitoReaderBackgroundRequest,
 } from './reader-session-background-runtime.js';
 import { handleRitoReaderSessionQuery } from './reader-session-worker-query-runtime.js';
+import {
+  decodeExtendedFontPolicySummary,
+  decodeFontPolicySummary,
+  prepareHostFontFaces,
+} from './pinned-font-policy-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const COLD_OPEN_DIAGNOSTIC = 'cold-open-attribution-v1';
@@ -166,6 +171,41 @@ async function handleMessage(state, deps, message) {
           shardIds: Array.from(state.session.contentShardsNear(message.href)),
         },
       };
+    }
+    case 'font-catalog':
+      return {
+        payload: { kind: 'font-catalog', catalog: JSON.parse(state.session.fontCatalogJson()) },
+      };
+    case 'unresolved-font-families': {
+      if (typeof message.familyList !== 'string') {
+        throw readerWorkerError('invalid-request', 'A font-family list must be a string');
+      }
+      const names = JSON.parse(state.session.unresolvedFontFamiliesJson(message.familyList));
+      return { payload: { kind: 'unresolved-font-families', names } };
+    }
+    case 'add-host-font-faces': {
+      const prepared = prepareHostFontFaces(message.faces, 'arrayBuffer');
+      const summary = decodeExtendedFontPolicySummary(
+        state.session.addHostFontFaces(
+          JSON.stringify(prepared.metadata),
+          prepared.faceBytes.map((bytes) => new Uint8Array(bytes)),
+        ),
+        prepared.expectedFaces,
+      );
+      return { payload: { kind: 'host-font-faces', summary } };
+    }
+    case 'remove-host-font-faces': {
+      if (
+        !Array.isArray(message.sha256s) ||
+        message.sha256s.some((sha) => typeof sha !== 'string')
+      ) {
+        throw readerWorkerError('invalid-request', 'Host font face digests must be strings');
+      }
+      const summary = decodeFontPolicySummary(
+        state.session.removeHostFontFacesJson(JSON.stringify(message.sha256s)),
+        'removeHostFontFaces',
+      );
+      return { payload: { kind: 'host-font-faces', summary } };
     }
     case 'release': {
       const released = state.session.releaseArtifact(message.artifactId);

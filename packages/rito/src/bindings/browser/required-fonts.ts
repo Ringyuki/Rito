@@ -61,8 +61,8 @@ async function registerRequiredRevisionFonts(
     pending.map(async ({ face, key }) => {
       const source = sources.get(face.href);
       if (!source) throw new Error('Pinned reader required font source is unavailable');
-      // A face the canvas sanitizer rejects is skipped: paint falls
-      // through the family stack instead of the book failing to open.
+      // A face the canvas sanitizer rejects is skipped instead of the
+      // book failing to open; the engine is told and stops shaping with it.
       try {
         const loaded = new FontFace(face.family, source, {
           style: face.style,
@@ -94,7 +94,11 @@ function pendingRequiredFontFaces(
   faces: readonly CoreRequiredFontFace[],
 ): PendingRequiredFontFace[] {
   const pending: PendingRequiredFontFace[] = [];
+  // Pinned faces were registered under their aliases from the bytes the
+  // reader opened with; only the publication's faces load here.
+  const pinned = new Set(state.pinnedFonts.summary.faces.map((face) => face.familyAlias));
   for (const face of faces) {
+    if (pinned.has(face.family)) continue;
     const key = requiredFontFaceKey(face);
     const prefix = `required\u0000${String(face.sourceOrder)}\u0000`;
     const existing = [...state.registeredFontFaces.keys()].find((value) =>

@@ -83,7 +83,10 @@ fn write_u32(target: *mut u32, value: u32, field: &str) -> Result<(), FfiError> 
     Ok(())
 }
 
-fn write_buffer(target: *mut RitoOwnedBuffer, mut bytes: Vec<u8>) -> Result<(), FfiError> {
+pub(super) fn write_buffer(
+    target: *mut RitoOwnedBuffer,
+    mut bytes: Vec<u8>,
+) -> Result<(), FfiError> {
     clear_buffer(target)?;
     if bytes.is_empty() {
         return Ok(());
@@ -808,7 +811,7 @@ fn prepare_artifact_output(
     prepare_owned_output(artifact_out, error_out, "artifact_out")
 }
 
-fn prepare_owned_output(
+pub(super) fn prepare_owned_output(
     output: *mut RitoOwnedBuffer,
     error_out: *mut RitoOwnedBuffer,
     field: &str,
@@ -821,7 +824,7 @@ fn prepare_owned_output(
     clear_buffer(output)
 }
 
-fn invoke(
+pub(super) fn invoke(
     error_out: *mut RitoOwnedBuffer,
     operation: impl FnOnce() -> Result<(), FfiError>,
 ) -> u32 {

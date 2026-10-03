@@ -2,8 +2,8 @@
 //! plain text runs) and one module per painted feature.
 
 mod boxes;
+mod faces;
 mod fail_closed;
-mod family_policy;
 mod images;
 mod ruby;
 mod rules;

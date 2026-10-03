@@ -61,22 +61,18 @@ final class RitoLayoutRequest {
     renderRatio: renderRatio,
   );
 
-  /// Reader font family, applied as a UA `font-family: <list>
-  /// !important` over the whole publication, so it replaces the book's
-  /// own families rather than sitting behind them. The value is a
-  /// **CSS font-family list**, not one name: `'Noto Serif JP, serif'`
-  /// is valid and preferred, because the generic tail is what the
-  /// pinned faces attach to.
+  /// Reader font family, applied as `font-family: <list> !important` over
+  /// the whole publication, so it replaces the book's own families rather
+  /// than sitting behind them. The value is a **CSS font-family list**:
+  /// `'Noto Serif JP, serif'` is valid and preferred.
   ///
-  /// This is orthogonal to the pinned font policy passed to
-  /// [RitoReaderSession.open], and does not override it: the override
-  /// decides *which families are requested*, the policy supplies *the
-  /// bytes those families resolve to*. A family the override names is
-  /// used when the publication embeds it or the host registered it;
-  /// otherwise resolution falls through the list to the generic tail
-  /// (`serif` / `sans-serif` / `monospace`), which is exactly what the
-  /// pinned policy backs. Naming a family nothing can supply therefore
-  /// degrades to the pinned generic face rather than failing.
+  /// Each name resolves like a browser resolves it against installed
+  /// fonts: to the publication's `@font-face` family of that name, else to
+  /// the host face of that name (the session's pinned faces and those
+  /// added with [RitoReaderSession.addFontFaces]). A generic resolves to
+  /// the host faces of its role. A name nothing answers to is skipped —
+  /// check a reader's choice with [RitoReaderSession.unresolvedFontFamilies]
+  /// and build choices from [RitoReaderSession.fontCatalog].
   final String? fontFamilyOverride;
 }
 

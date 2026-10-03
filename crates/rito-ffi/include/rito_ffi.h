@@ -459,6 +459,48 @@ uint32_t rito_read_footnote(uint64_t session_id,
                                rito_owned_buffer *error_out);
 
 /*
+ * Writes the session's font catalog to catalog_out as one complete RITOFNT1
+ * message: every family a font-family list can name, host families first.
+ */
+uint32_t rito_font_catalog(uint64_t session_id,
+                              rito_owned_buffer *catalog_out,
+                              rito_owned_buffer *error_out);
+
+/*
+ * Writes to names_out, as one complete RITOFNN1 message, the names in the
+ * UTF-8 CSS font-family list at list_data that no family in the catalog
+ * answers to. Layout skips them; a host checks a user's choice with this
+ * before applying it.
+ */
+uint32_t rito_unresolved_font_families(uint64_t session_id,
+                                          const uint8_t *list_data,
+                                          uint64_t list_len,
+                                          rito_owned_buffer *names_out,
+                                          rito_owned_buffer *error_out);
+
+/*
+ * Adds host faces after the open's (descriptors as for
+ * rito_open_with_pinned_fonts; a face may share its role and language with
+ * another). Bytes are copied before this returns. Artifacts already
+ * published keep their layout; the next request lays out with the new
+ * faces nameable. Faces whose bytes are already present are refused with
+ * RITO_STATUS_INVALID_ARGUMENT.
+ */
+uint32_t rito_add_host_font_faces(uint64_t session_id,
+                                     const rito_pinned_font_face *faces,
+                                     uint32_t face_count,
+                                     rito_owned_buffer *error_out);
+
+/*
+ * Removes the host faces named by count SHA-256 digests, each 64 hex bytes,
+ * laid end to end at sha256_hex. At least one face must remain.
+ */
+uint32_t rito_remove_host_font_faces(uint64_t session_id,
+                                        const uint8_t *sha256_hex,
+                                        uint32_t count,
+                                        rito_owned_buffer *error_out);
+
+/*
  * Idempotent for an artifact already released from this session. BUSY means
  * the release was not queued and the artifact remains live; retry it or dispose
  * the owning session.

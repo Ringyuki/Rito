@@ -7,11 +7,15 @@ pub(crate) use face::parse_font_family_list;
 pub(crate) use sources::{resolve_font_face_sources, ResolvedFontFaceSource};
 
 /// One publication `@font-face` binding as the required-face catalog
-/// reports it to the host: the declared family with normalized descriptors,
-/// the bound resource, and the fingerprint the host verifies the bytes by.
+/// reports it to the host: the family name the host registers it under
+/// (the face's paint alias — paint names faces, never declared families),
+/// the normalized descriptors, the bound resource, and the fingerprint the
+/// host verifies the bytes by.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PublicationCatalogFace {
     pub(crate) family: String,
+    /// The family the `@font-face` rule declares.
+    pub(crate) declared_family: String,
     pub(crate) href: String,
     pub(crate) style: String,
     pub(crate) weight: u16,
@@ -32,7 +36,8 @@ pub(crate) fn publication_font_face_catalog(
         .filter_map(|source| {
             let resource = document.fonts.get(source.resource_index())?;
             Some(PublicationCatalogFace {
-                family: source.family.clone(),
+                family: source.paint_alias(&resource.bytes),
+                declared_family: source.family.clone(),
                 href: resource.href.clone(),
                 style: face::normalized_font_style(source.style.as_deref()).to_owned(),
                 weight: face::normalized_font_weight(source.weight),

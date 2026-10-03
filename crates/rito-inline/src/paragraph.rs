@@ -410,7 +410,7 @@ impl ParleyInlineContext {
             .collect();
         let punctuation_trims = compute_cjk_punctuation_trims(
             &mut fonts,
-            &self.registered_families,
+            &self.catalog,
             &mut self.halt_feature_cache.borrow_mut(),
             &text,
             &runs,
@@ -461,7 +461,7 @@ impl ParleyInlineContext {
             if range.is_empty() {
                 continue;
             }
-            push_item_styles(&mut builder, style, range.clone());
+            push_item_styles(&mut builder, &self.catalog, style, range.clone());
             // Parley merges adjacent resolved styles that compare equal,
             // which would fuse glyph runs across item boundaries whenever
             // neighbouring items differ only in properties Parley never
@@ -951,14 +951,16 @@ pub(crate) fn shaping_font_size(size: f32) -> f32 {
 
 pub(crate) fn push_item_styles(
     builder: &mut SpacingBuilder<'_>,
+    catalog: &FontCatalog,
     style: &InlineFormattingStyle,
     range: std::ops::Range<usize>,
 ) {
-    let stack = family_stack_source(style);
+    let stack = catalog.resolve(style);
     builder.push(
-        StyleProperty::FontFamily(parley::FontFamily::Source(Cow::Owned(stack))),
+        StyleProperty::FontFamily(parley::FontFamily::Source(Cow::Owned(stack.source.clone()))),
         range.clone(),
     );
+    builder.push(StyleProperty::Locale(stack.locale), range.clone());
     builder.push(
         StyleProperty::FontSize(shaping_font_size(style.font.size.get())),
         range.clone(),
@@ -1048,32 +1050,8 @@ pub(crate) fn push_item_styles(
     }
 }
 
-pub(crate) fn family_stack_source(style: &InlineFormattingStyle) -> String {
-    style
-        .font
-        .families
-        .iter()
-        .map(|family| match family {
-            FontFamily::Named(name) => format!("\"{}\"", name.as_str()),
-            FontFamily::Generic(generic) => generic_source(*generic).to_owned(),
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-pub(crate) fn generic_source(generic: GenericFontFamily) -> &'static str {
-    match generic {
-        GenericFontFamily::Serif => "serif",
-        GenericFontFamily::SansSerif => "sans-serif",
-        GenericFontFamily::Monospace => "monospace",
-        GenericFontFamily::Cursive => "cursive",
-        GenericFontFamily::Fantasy => "fantasy",
-        GenericFontFamily::SystemUi => "system-ui",
-    }
-}
-
 /// Points every generic family and every script's fallback at the given
-/// registered families, in order.
+/// registered families (by name), in order.
 ///
 /// With the platform font database excluded, the collection starts with no
 /// generic mappings and no fallback entries at all; a stack ending in
@@ -1083,9 +1061,13 @@ pub(crate) fn generic_source(generic: GenericFontFamily) -> &'static str {
 /// falls back the same way default Chinese does.
 pub(crate) fn install_universal_fallbacks(
     collection: &mut parley::fontique::Collection,
-    families: &[parley::fontique::FamilyId],
+    names: &[String],
 ) {
     use parley::fontique::{FallbackKey, GenericFamily, Script, ScriptExt as _};
+    let families = names
+        .iter()
+        .filter_map(|name| collection.family_id(name))
+        .collect::<Vec<_>>();
     const GENERICS: &[GenericFamily] = &[
         GenericFamily::Serif,
         GenericFamily::SansSerif,

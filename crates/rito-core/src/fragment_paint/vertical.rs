@@ -15,8 +15,9 @@ use crate::fragment_bridge::FlowItemSource;
 use crate::render::contract::{ReaderPoint, ReaderRect, ReaderSize, ReaderTransform};
 use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint};
 
+use super::family::{face_family, face_pieces};
 use super::run_style::run_paint;
-use super::{PaintFamilyPolicy, CANVAS_TOP_ASCENT_RATIO};
+use super::CANVAS_TOP_ASCENT_RATIO;
 
 /// Punctuation that takes its vertical presentation in a column: brackets,
 /// dashes and leaders are the horizontal glyph rotated a quarter turn
@@ -138,7 +139,7 @@ pub(super) fn append_vertical_line_commands(
     box_block: f64,
     frame_right: f64,
     frame_top: f64,
-    family_policy: Option<&PaintFamilyPolicy>,
+    faces: Option<&[String]>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
 ) -> EpubResult<()> {
@@ -210,8 +211,22 @@ pub(super) fn append_vertical_line_commands(
             .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
         // A column run paints glyphs only: its inline box and decoration
         // have no column expression yet.
-        let base_paint =
-            run_paint(style, family_policy, run.justify_px, false, false)?.glyphs_only();
+        let paint_for = |face| -> EpubResult<RunPaint> {
+            Ok(run_paint(
+                style,
+                face_family(style, faces, face)?,
+                run.justify_px,
+                false,
+                false,
+            )?
+            .glyphs_only())
+        };
+        let run_face = run
+            .clusters
+            .first()
+            .map(|cluster| cluster.face)
+            .unwrap_or_default();
+        let base_paint = paint_for(run_face)?;
         let font_size = f64::from(style.font.size.get());
         // The glyph column centers on the line's STRUT: an annotation's
         // growth lands entirely on the line's right (matrix-measured:
@@ -219,17 +234,39 @@ pub(super) fn append_vertical_line_commands(
         // the annotation column pushes the right edge out), so the
         // centering basis excludes the growth.
         let glyph_x = column_x + (line.rect.height - line.ruby_growth - font_size) / 2.0;
-        append_vertical_run_commands(
-            commands,
-            &full_text[start..end],
-            &base_paint,
-            font_size,
-            glyph_x,
-            column_top + run.rect.x,
-            item_sources
-                .and_then(|sources| sources.get(*item_index))
-                .and_then(|source| source.href.clone()),
-        );
+        // Each face's glyphs paint as their own column piece, stepping on
+        // from where the previous piece's glyphs ended.
+        let step = font_size + base_paint.letter_spacing_px.unwrap_or(0.0);
+        let run_faces: Vec<_> = run.clusters.iter().map(|cluster| cluster.face).collect();
+        let pieces = face_pieces(&run_faces);
+        let mut glyphs_before = 0usize;
+        for (index, (range, face)) in pieces.iter().enumerate() {
+            let piece_start = run
+                .clusters
+                .get(range.start)
+                .map_or(start, |cluster| cluster.byte as usize);
+            let piece_end = pieces
+                .get(index + 1)
+                .and_then(|(next, _)| run.clusters.get(next.start))
+                .map_or(end, |cluster| cluster.byte as usize);
+            let text = &full_text[piece_start..piece_end];
+            append_vertical_run_commands(
+                commands,
+                text,
+                &if index == 0 {
+                    base_paint.clone()
+                } else {
+                    paint_for(*face)?
+                },
+                font_size,
+                glyph_x,
+                column_top + run.rect.x + glyphs_before as f64 * step,
+                item_sources
+                    .and_then(|sources| sources.get(*item_index))
+                    .and_then(|source| source.href.clone()),
+            );
+            glyphs_before += text.chars().count();
+        }
         // The annotation rides the column's LEFT-out side? No: probed on
         // a vertical-rl ruby line, the annotation column sits between
         // the base and the NEXT line — its right edge on the line box's
@@ -276,7 +313,17 @@ pub(super) fn append_vertical_line_commands(
                             )
                         })?
                         .em_ascent;
-                    let ruby_paint = base_paint.for_ruby(annotation_size);
+                    let measured_ruby = ruby_annotation_runs
+                        .and_then(|runs| runs.get(&(line.source.0, *item_index)));
+                    // A column annotation paints in the face its first
+                    // cluster shaped with.
+                    let annotation_face = measured_ruby
+                        .and_then(|measured| measured.run.clusters.first())
+                        .map(|cluster| cluster.face)
+                        .unwrap_or_default();
+                    let ruby_paint = base_paint
+                        .for_ruby(annotation_size)
+                        .with_family(face_family(style, faces, annotation_face)?);
                     let annotation_x = column_x + line.rect.height - annotation_size;
                     let span_top = column_top + run.rect.x - run.ruby_overhang_px;
                     let span = run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px;

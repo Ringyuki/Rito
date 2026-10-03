@@ -15,16 +15,16 @@ use crate::render::contract::{
 };
 use crate::render::RunPaint;
 
-use super::family::{css_color, paint_family_stack};
-use super::{PaintFamilyPolicy, CANVAS_TOP_ASCENT_RATIO};
+use super::family::css_color;
+use super::CANVAS_TOP_ASCENT_RATIO;
 
 /// Builds the typed run paint the renderer consumes from one item's inline
-/// style. Paint the command protocol cannot express is approximated —
+/// style, drawn with `family` (the face shaping chose). Paint the command protocol cannot express is approximated —
 /// unexpressible effects (transforms, box shadows, background images,
 /// partial opacity) drop while the ink itself always paints.
 pub(super) fn run_paint(
     style: &InlineFormattingStyle,
-    family_policy: Option<&PaintFamilyPolicy>,
+    family: String,
     justify_px: f64,
     box_start: bool,
     box_end: bool,
@@ -52,7 +52,7 @@ pub(super) fn run_paint(
         .collect::<EpubResult<Vec<_>>>()?;
     Ok(RunPaint::new(ReaderRunPaint {
         font: ReaderFontPaint {
-            family: paint_family_stack(style, family_policy)?,
+            family,
             size_px: font_size,
             weight: f64::from(style.font.weight.get()),
             // The wire expresses upright and slanted only; oblique paints

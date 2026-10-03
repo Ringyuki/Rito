@@ -2,6 +2,7 @@
 
 mod decode;
 mod encode;
+mod fonts;
 mod interaction;
 mod pending;
 mod primitives;
@@ -20,6 +21,11 @@ use super::{
     ReaderNavigationResult, ReaderPublication, ReaderResource, ReaderSearchRequest,
     ReaderSearchResponse, ReaderTextInteractionRequest, ReaderTextInteractionResponse,
     ReaderTextRangeGeometry, ReaderTextRangeRequest,
+};
+
+pub use fonts::{
+    decode_reader_font_catalog, decode_reader_font_names, encode_reader_font_catalog,
+    encode_reader_font_names, READER_FONT_CATALOG_WIRE_MAGIC, READER_FONT_NAMES_WIRE_MAGIC,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONAV1";

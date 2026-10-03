@@ -1,3 +1,8 @@
+import type {
+  RitoCoreWasmFontCatalog,
+  RitoCoreWasmHostFontFaceInput,
+  RitoCoreWasmPinnedFontPolicySummary,
+} from './pinned-font';
 import type { RitoCoreWasmShardedPublication } from './reader-worker';
 import type {
   RitoReaderAdjacentDirection,
@@ -78,6 +83,20 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
   ): Promise<RitoReaderArtifact>;
   /** Reads Core's immutable, session-owned RITOPUB1 metadata snapshot. */
   readPublication(): Promise<RitoReaderPublication>;
+  /** Every family a `font-family` list can name in this publication. */
+  fontCatalog(): Promise<RitoCoreWasmFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to. */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces after the session's and returns the extended policy
+   * summary. The face buffers are transferred. Artifacts already published
+   * keep their layout; the next request lays out with the new faces.
+   */
+  addHostFontFaces(
+    faces: readonly RitoCoreWasmHostFontFaceInput[],
+  ): Promise<RitoCoreWasmPinnedFontPolicySummary>;
+  /** Removes host faces by SHA-256; at least one must remain. */
+  removeHostFontFaces(sha256s: readonly string[]): Promise<RitoCoreWasmPinnedFontPolicySummary>;
   /** Cooperatively resumes one quantum per host turn and returns an unadopted candidate. */
   requestAdjacent(
     fromArtifactId: bigint,
@@ -187,6 +206,10 @@ export interface RitoReaderRawSession {
   advanceBackgroundOnce(request: Uint8Array): Uint8Array;
   adoptBackgroundCandidate(request: Uint8Array): Uint8Array;
   readResource(artifactId: bigint, kind: number, href: string): Uint8Array;
+  fontCatalogJson(): string;
+  unresolvedFontFamiliesJson(familyList: string): string;
+  addHostFontFaces(metadataJson: string, faces: readonly Uint8Array[]): string;
+  removeHostFontFacesJson(sha256sJson: string): string;
   releaseArtifact(artifactId: bigint): boolean;
   dispose(): boolean;
   free?(): void;

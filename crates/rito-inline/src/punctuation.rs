@@ -105,7 +105,7 @@ pub(crate) enum PunctuationTrimEdit {
 /// trimmed character resolves its font first.
 pub(crate) fn compute_cjk_punctuation_trims(
     fonts: &mut FontContext,
-    registered_families: &[String],
+    catalog: &FontCatalog,
     halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyle, usize)],
@@ -151,13 +151,9 @@ pub(crate) fn compute_cjk_punctuation_trims(
                     TrimmedGlyph::Right => (style_at(&mut cursor, runs, byte), character),
                 };
                 if let (Some(left_style), Some(trimmed_style)) = (left_style, trimmed_style) {
-                    let Some(halt_covers_glyph) = resolved_font_halt(
-                        fonts,
-                        registered_families,
-                        halt_cache,
-                        trimmed_style,
-                        trimmed_char,
-                    ) else {
+                    let Some(halt_covers_glyph) =
+                        resolved_font_halt(fonts, catalog, halt_cache, trimmed_style, trimmed_char)
+                    else {
                         previous = Some((byte, character));
                         continue;
                     };
@@ -223,7 +219,7 @@ pub(crate) fn compute_cjk_punctuation_trims(
 /// in for script fallback. An unresolvable character trims nothing.
 pub(crate) fn resolved_font_halt(
     fonts: &mut FontContext,
-    registered_families: &[String],
+    catalog: &FontCatalog,
     halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
     style: &InlineFormattingStyle,
     character: char,
@@ -231,16 +227,8 @@ pub(crate) fn resolved_font_halt(
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
     use skrifa::MetadataProvider as _;
     let weight = FontWeight::new(style.font.weight.get());
-    let stack = style
-        .font
-        .families
-        .as_slice()
-        .iter()
-        .filter_map(|family| match family {
-            rito_style_contract::FontFamily::Named(name) => Some(name.as_str()),
-            rito_style_contract::FontFamily::Generic(_) => None,
-        });
-    for name in stack.chain(registered_families.iter().map(String::as_str)) {
+    let stack = catalog.resolve(style);
+    for name in &stack.families {
         let Some(family) = fonts.collection.family_by_name(name) else {
             continue;
         };

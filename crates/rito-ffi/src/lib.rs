@@ -12,10 +12,16 @@ mod input;
 mod registry;
 
 #[cfg(test)]
+mod font_tests;
+#[cfg(test)]
 mod shard_tests;
 #[cfg(test)]
 mod tests;
 
+pub use abi::{
+    rito_add_host_font_faces, rito_font_catalog, rito_remove_host_font_faces,
+    rito_unresolved_font_families,
+};
 pub use abi::{
     rito_adopt_background_candidate, rito_adopt_foreground_candidate, rito_advance_background,
     rito_buffer_free, rito_commit_peeked_artifact, rito_content_shards_near, rito_dispose,

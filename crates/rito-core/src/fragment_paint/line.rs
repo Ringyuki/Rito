@@ -18,7 +18,6 @@ use crate::render::{display_rect, DisplayCommand};
 use super::family::css_color;
 use super::image::append_image_command;
 use super::text_run::{append_text_run_command, ItemLineExtent};
-use super::PaintFamilyPolicy;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_line_commands(
@@ -27,7 +26,7 @@ pub(super) fn append_line_commands(
     line: &LineFragment,
     origin_x: f64,
     origin_y: f64,
-    family_policy: Option<&PaintFamilyPolicy>,
+    faces: Option<&[String]>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
@@ -123,7 +122,7 @@ pub(super) fn append_line_commands(
                     run,
                     line_x,
                     line_y,
-                    family_policy,
+                    faces,
                     item_sources,
                     ruby_annotation_runs,
                     snap_origin_y,
@@ -157,7 +156,7 @@ pub(super) fn append_line_commands(
                         inner_line,
                         line_x + atom.rect.x,
                         line_y + atom.rect.y,
-                        family_policy,
+                        faces,
                         image_border_paints,
                         flow_item_sources,
                         ruby_annotation_runs,

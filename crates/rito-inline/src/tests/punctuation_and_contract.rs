@@ -589,7 +589,7 @@ fn named_cjk_publication_fonts_shape_instead_of_the_pinned_fallback() {
     .expect("pinned serif reads");
     let mut context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
     context
-        .register_named_font("FZWBKS", kai)
+        .register_publication_face(publication_face("FZWBKS", kai))
         .expect("named font registers");
     let shape_width = |families: Vec<FontFamily>| {
         let mut inline = InlineStyleTable::new(1);

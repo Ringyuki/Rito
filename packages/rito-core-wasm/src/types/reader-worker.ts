@@ -8,7 +8,10 @@ import type {
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './publication';
 import type {
+  RitoCoreWasmFontCatalog,
+  RitoCoreWasmHostFontFaceInput,
   RitoCoreWasmOpenDocumentOptions,
+  RitoCoreWasmPinnedFontFaceInput,
   RitoCoreWasmPinnedFontGenericRole,
   RitoCoreWasmPinnedFontPolicySummary,
 } from './pinned-font';
@@ -76,6 +79,20 @@ export interface RitoCoreWasmReaderWorkerClient
    * layout, and the caller forces a reflow so committed pages follow.
    */
   setUnavailableFontFaces(families: readonly string[]): Promise<void>;
+  /** Every family a `font-family` list can name in the open document. */
+  fontCatalog(): Promise<RitoCoreWasmFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to. */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces after the document's and returns the extended policy
+   * summary. The face buffers are transferred: pass buffers the caller can
+   * lose. Every layout key changes, so the next layout uses the faces.
+   */
+  addHostFontFaces(
+    faces: readonly RitoCoreWasmHostFontFaceInput[],
+  ): Promise<RitoCoreWasmPinnedFontPolicySummary>;
+  /** Removes host faces by SHA-256 and returns the remaining policy summary. */
+  removeHostFontFaces(sha256s: readonly string[]): Promise<RitoCoreWasmPinnedFontPolicySummary>;
   /** Device pixels per CSS pixel frames are painted at (zoom × dpr); paint snaps land on that grid. */
   setRenderRatio(ratio: number): Promise<void>;
   /**
@@ -176,6 +193,16 @@ export interface RitoCoreWasmReaderDocumentRuntime
   free(): void;
   publication(): RitoCoreWasmPublicationInfo;
   pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;
+  /** Every family a `font-family` list can name. */
+  fontCatalog(): RitoCoreWasmFontCatalog;
+  /** The names in a CSS `font-family` list no family answers to. */
+  unresolvedFontFamilies(familyList: string): string[];
+  /** Adds host faces after the document's; returns the extended summary. */
+  addHostFontFaces(
+    faces: readonly RitoCoreWasmPinnedFontFaceInput[],
+  ): RitoCoreWasmPinnedFontPolicySummary;
+  /** Removes host faces by SHA-256; returns the remaining summary. */
+  removeHostFontFaces(sha256s: readonly string[]): RitoCoreWasmPinnedFontPolicySummary;
   /** Hands a document opened from shards one content shard; returns its id. */
   supplyShard(shard: Uint8Array, key?: Uint8Array): number;
   /**
@@ -341,6 +368,13 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
         readonly key?: Uint8Array | undefined;
       }
     | { readonly kind: 'contentShardsNear'; readonly href: string }
+    | { readonly kind: 'fontCatalog' }
+    | { readonly kind: 'unresolvedFontFamilies'; readonly familyList: string }
+    | {
+        readonly kind: 'addHostFontFaces';
+        readonly faces: readonly RitoCoreWasmHostFontFaceInput[];
+      }
+    | { readonly kind: 'removeHostFontFaces'; readonly sha256s: readonly string[] }
     | { readonly kind: 'dispose' }
   );
 
@@ -356,4 +390,8 @@ export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'releaseRevision' }
   | { readonly kind: 'supplyShard'; readonly result: number }
   | { readonly kind: 'contentShardsNear'; readonly result: readonly number[] }
+  | { readonly kind: 'fontCatalog'; readonly result: RitoCoreWasmFontCatalog }
+  | { readonly kind: 'unresolvedFontFamilies'; readonly result: readonly string[] }
+  | { readonly kind: 'addHostFontFaces'; readonly result: RitoCoreWasmPinnedFontPolicySummary }
+  | { readonly kind: 'removeHostFontFaces'; readonly result: RitoCoreWasmPinnedFontPolicySummary }
   | { readonly kind: 'dispose'; readonly releasedDocument: boolean };
