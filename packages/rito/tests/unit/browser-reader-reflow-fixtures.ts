@@ -220,6 +220,10 @@ export function createWorker(
     search: vi.fn(),
     releaseRevisionTransfers: vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfers']>(),
     releaseRevision: vi.fn<BrowserReaderWorkerClient['releaseRevision']>(),
+    fontCatalog: vi.fn<BrowserReaderWorkerClient['fontCatalog']>(),
+    unresolvedFontFamilies: vi.fn<BrowserReaderWorkerClient['unresolvedFontFamilies']>(),
+    addHostFontFaces: vi.fn<BrowserReaderWorkerClient['addHostFontFaces']>(),
+    removeHostFontFaces: vi.fn<BrowserReaderWorkerClient['removeHostFontFaces']>(),
     setUnavailableFontFaces: vi.fn<BrowserReaderWorkerClient['setUnavailableFontFaces']>(() =>
       Promise.resolve(),
     ),

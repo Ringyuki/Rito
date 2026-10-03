@@ -207,6 +207,40 @@ export interface ReaderPinnedFontPolicy {
   }[];
 }
 
+/** A host face added to an open reader; its bytes are copied. */
+export type ReaderHostFontFace = ReaderPinnedFontPolicy['faces'][number];
+
+/** One face of a nameable family. */
+export interface ReaderFontFamilyFace {
+  readonly weight: number;
+  readonly style: string;
+  /** A host face's SHA-256, the handle it is removed by; null for a publication face. */
+  readonly sha256: string | null;
+}
+
+/** A family a `font-family` choice can name. */
+export interface ReaderFontFamily {
+  /** The name to write in a `font-family` list. */
+  readonly name: string;
+  /** A host face (the pinned policy and later additions) or the book's own `@font-face`. */
+  readonly source: 'host' | 'publication';
+  /** The generic family a host family serves; null for a publication's. */
+  readonly genericRole: 'serif' | 'sansSerif' | 'monospace' | null;
+  /** A host family's language (`und` serves every language); null for a publication's. */
+  readonly language: string | null;
+  readonly faces: readonly ReaderFontFamilyFace[];
+}
+
+/**
+ * Every family a `font-family` choice can name in the open book: the host's
+ * faces by the family their name tables declare, then the book's own
+ * `@font-face` families. A generic (`serif`, `sans-serif`, `monospace`)
+ * resolves to the host families of its role.
+ */
+export interface ReaderFontCatalog {
+  readonly families: readonly ReaderFontFamily[];
+}
+
 /**
  * A publication split by `rito-pack` and delivered a shard at a time. The
  * reader opens from the skeleton and calls `loadShards` the first time it
@@ -309,6 +343,23 @@ export interface Reader {
     fontFamily?: string | null;
     fontFamilyForce?: boolean;
   }): boolean;
+  /** Every family a `font-family` choice can name in the open book. */
+  fonts?(): Promise<ReaderFontCatalog>;
+  /**
+   * The names in a CSS `font-family` list no family in {@link fonts}
+   * answers to. Layout skips such a name the way a browser skips an
+   * uninstalled font; check a reader's choice with this before applying it.
+   */
+  unresolvedFontFamilies?(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces (a system font, one the reader imported) after the
+   * pinned policy's and lays the book out again. A face is named by its
+   * family in a `font-family` list; the generics keep resolving to the faces
+   * they did. A face may share its role and language with another.
+   */
+  addFontFaces?(faces: readonly ReaderHostFontFace[]): Promise<void>;
+  /** Removes host faces by SHA-256 and lays the book out again; one face must remain. */
+  removeFontFaces?(sha256s: readonly string[]): Promise<void>;
   onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
   onSpreadContentInvalidated(cb: (spreadIndex: number) => void): () => void;
   onLayoutCommitted(cb: (activeSpreadIndex: number) => void): () => void;

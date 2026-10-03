@@ -31,7 +31,7 @@ import {
   RitoReaderError,
 } from '@ritojs/core-wasm/decoder';
 
-import type { ReaderPublication } from '../../reader';
+import type { ReaderFontCatalog, ReaderHostFontFace, ReaderPublication } from '../../reader';
 
 export { RitoReaderError };
 
@@ -85,6 +85,18 @@ export interface BrowserReaderSession {
   readonly initialArtifact: BrowserReaderArtifact;
   /** Reads Core's immutable publication metadata, spine, and nested table of contents. */
   readPublication(): Promise<BrowserReaderPublication>;
+  /** Every family a `font-family` choice can name in this publication. */
+  fonts(): Promise<ReaderFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to (layout skips them). */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces after the session's; their bytes are copied. Artifacts
+   * already published keep their layout; the next request lays out with the
+   * new faces, and its artifact lists them among the fonts to register.
+   */
+  addFontFaces(faces: readonly ReaderHostFontFace[]): Promise<void>;
+  /** Removes host faces by SHA-256; at least one must remain. */
+  removeFontFaces(sha256s: readonly string[]): Promise<void>;
   /**
    * Returns an unadopted incoming candidate and keeps the source live. Prepare
    * and adopt the candidate before painting; release the source only after the
@@ -245,6 +257,14 @@ function browserReaderSession(
     advanceBackgroundOnce: (...args) => backgroundClient.advanceBackgroundOnce(...args),
     adoptBackgroundCandidate: (...args) => backgroundClient.adoptBackgroundCandidate(...args),
     readResource: (...args) => client.readResource(...args),
+    fonts: () => client.fontCatalog(),
+    unresolvedFontFamilies: (familyList) => client.unresolvedFontFamilies(familyList),
+    addFontFaces: async (faces) => {
+      await client.addHostFontFaces(faces.map((face) => ({ ...face, bytes: face.bytes.slice(0) })));
+    },
+    removeFontFaces: async (sha256s) => {
+      await client.removeHostFontFaces(sha256s);
+    },
     peekAdjacent: (...args) => client.peekAdjacent(...args),
     commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
     readFootnote: (...args) => client.readFootnote(...args),

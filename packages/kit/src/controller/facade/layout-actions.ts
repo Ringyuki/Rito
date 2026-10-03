@@ -7,6 +7,7 @@ import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
 import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
 import { invalidateNativeSearchLayout } from '../search-resolution';
+import { reportUnresolvedFontFamilies } from './font-actions';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -35,6 +36,9 @@ export function buildLayoutActions(
     setTypography(options): boolean {
       const anchor = currentPosition(internals);
       const changed = internals.reader.setTypography(options);
+      if (typeof options.fontFamily === 'string') {
+        reportUnresolvedFontFamilies(internals, emitter, options.fontFamily);
+      }
       return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
     setRenderScale(scale): void {

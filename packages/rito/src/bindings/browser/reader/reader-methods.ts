@@ -22,6 +22,7 @@ import { disposeBrowserReaderState } from './reader-dispose';
 import { trackBrowserReaderHostTask } from './host-tasks';
 import { browserReaderChapterLocalPreviewTocEntry } from '../chapter-local-preview/state';
 import { browserReaderRenderingMethods } from '../reader-rendering-methods';
+import { browserReaderFontMethods } from '../host-font-faces';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
@@ -82,6 +83,7 @@ export function buildBrowserReaderMethods(
     interactions: createBrowserReaderInteractions(state),
     ...browserReaderRenderingMethods(state),
     ...layoutMethods(state, () => layoutOptions, reflow),
+    ...browserReaderFontMethods(state, () => layoutOptions, reflow),
     ...navigationMethods(state),
     ...resourceMethods(state),
     ...listenerMethods(state),

@@ -29,6 +29,10 @@ export type LayoutActionsSlice = Pick<
   ReaderController,
   'resize' | 'setSpreadMode' | 'setTheme' | 'setTypography' | 'setRenderScale' | 'renderScale'
 >;
+export type FontActionsSlice = Pick<
+  ReaderController,
+  'fonts' | 'addFontFaces' | 'removeFontFaces' | 'unresolvedFontFamilies'
+>;
 export type SearchActionsSlice = Pick<
   ReaderController,
   | 'search'

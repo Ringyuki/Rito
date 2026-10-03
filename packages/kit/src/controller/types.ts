@@ -1,6 +1,8 @@
 import type {
   FootnoteEntry,
   PackageMetadata,
+  ReaderFontCatalog,
+  ReaderHostFontFace,
   ReaderDocumentSourceSpan,
   ReaderLocator,
   Spread,
@@ -197,6 +199,23 @@ export interface ReaderController {
     fontFamily?: string | null;
     fontFamilyForce?: boolean;
   }): boolean;
+
+  /**
+   * Every family a `font-family` choice can name in the open book: the
+   * host's faces by their family, then the book's own. Build font choices
+   * from it; `setTypography({ fontFamily })` reports names no face answers
+   * to as an `error` event with source `font-family`.
+   */
+  fonts(): Promise<ReaderFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to. */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces (a system font, one the reader imported) and lays the
+   * book out again; a face is then named by its family in `setTypography`.
+   */
+  addFontFaces(faces: readonly ReaderHostFontFace[]): Promise<void>;
+  /** Removes host faces by SHA-256 and lays the book out again. */
+  removeFontFaces(sha256s: readonly string[]): Promise<void>;
 
   /** Set render scale (e.g. for font zoom). Canvas display size = viewport × scale. */
   setRenderScale(scale: number): void;

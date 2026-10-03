@@ -35,6 +35,7 @@ export function createState(
       summary: emptyPinnedFontPolicySummary(),
       registry: undefined,
       faces: new Map(),
+      changes: [],
     },
     canvas: {} as HTMLCanvasElement,
     ctx: {} as BrowserReaderState['ctx'],

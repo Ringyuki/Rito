@@ -10,14 +10,22 @@ import type {
 } from './core-contracts';
 import { browserFontFaceRegistry, type BrowserFontFaceRegistry } from './resources';
 import { cachedUnavailableFontFamilies } from './font-availability';
+import {
+  replayBrowserReaderHostFontChanges,
+  type BrowserReaderHostFontChange,
+} from './host-font-faces';
 
 export type BrowserReaderOwnedPinnedFontPolicy = BrowserReaderWorkerPinnedFontPolicyInput;
 
 export interface BrowserReaderPinnedFonts {
   policy: BrowserReaderOwnedPinnedFontPolicy | undefined;
-  readonly summary: CorePinnedFontPolicySummary;
+  /** The engine's summary of the host faces, including runtime changes. */
+  summary: CorePinnedFontPolicySummary;
   registry: BrowserFontFaceRegistry | undefined;
+  /** Registered paint faces by alias. */
   readonly faces: Map<string, FontFace>;
+  /** Host faces added or removed since the open, in order. */
+  readonly changes: BrowserReaderHostFontChange[];
 }
 
 export interface BrowserReaderPreparedPinnedFonts {
@@ -63,12 +71,15 @@ export async function openBrowserReaderWorker(
   policy: BrowserReaderOwnedPinnedFontPolicy | undefined,
   renderRatio: number,
   expectedSummary?: CorePinnedFontPolicySummary,
+  hostFontChanges: readonly BrowserReaderHostFontChange[] = [],
 ): Promise<BrowserReaderOpenResult> {
   const options = workerOpenOptions(policy);
   const result = options === undefined ? await worker.open(data) : await worker.open(data, options);
   await worker.setRenderRatio(renderRatio);
-  if (expectedSummary !== undefined)
-    requireMatchingPinnedFontSummary(expectedSummary, result.pinnedFontPolicy);
+  // Faces added or removed since the reader opened apply before any layout.
+  const summary =
+    (await replayBrowserReaderHostFontChanges(worker, hostFontChanges)) ?? result.pinnedFontPolicy;
+  if (expectedSummary !== undefined) requireMatchingPinnedFontSummary(expectedSummary, summary);
   // Faces rejected for earlier documents in this session stay rejected;
   // delivering them up front lets the open paginate once.
   const denied = cachedUnavailableFontFamilies();
@@ -81,7 +92,7 @@ export async function registerBrowserReaderPinnedFonts(
   summary: CorePinnedFontPolicySummary,
 ): Promise<BrowserReaderPinnedFonts> {
   const sources = pinnedFontSources(prepared.policy, summary);
-  if (sources.length === 0) return { ...prepared, summary, faces: new Map() };
+  if (sources.length === 0) return { ...prepared, summary, faces: new Map(), changes: [] };
   const registry = prepared.registry;
   if (!registry) throw new Error('Browser pinned fonts require a FontFaceSet');
   const loaded = await Promise.all(
@@ -104,7 +115,7 @@ export async function registerBrowserReaderPinnedFonts(
     unregisterPinnedFaces(registry, faces);
     throw error;
   }
-  return { ...prepared, summary, faces };
+  return { ...prepared, summary, faces, changes: [] };
 }
 
 export function disposeBrowserReaderPinnedFonts(pinned: BrowserReaderPinnedFonts): void {

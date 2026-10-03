@@ -151,6 +151,7 @@ describe('Browser revision reflow coordinator', () => {
       current.state.pinnedFonts.policy,
       current.state.dpr,
       current.state.pinnedFonts.summary,
+      current.state.pinnedFonts.changes,
     );
     const call = mocks.startCandidate.mock.calls[0];
     if (!call) throw new Error('Reflow candidate was not started');

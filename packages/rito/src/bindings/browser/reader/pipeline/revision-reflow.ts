@@ -187,6 +187,7 @@ async function openRevisionCandidate(
       state.pinnedFonts.policy,
       state.dpr,
       state.pinnedFonts.summary,
+      state.pinnedFonts.changes,
     );
     if (!requestIsLive(state, request, signal)) return 'cancelled';
     await waitForExactReads(state, request, signal);

@@ -10,6 +10,10 @@ import {
   prepareBrowserReaderPinnedFonts,
   registerBrowserReaderPinnedFonts,
 } from '../../src/bindings/browser/pinned-fonts';
+import {
+  addBrowserReaderHostFontFaces,
+  removeBrowserReaderHostFontFaces,
+} from '../../src/bindings/browser/host-font-faces';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -205,6 +209,84 @@ describe('Browser reader pinned fonts', () => {
     ).rejects.toThrow(/FontFace/);
   });
 });
+describe('Browser reader host faces changed at runtime', () => {
+  async function openedPinnedFonts(registry: ReturnType<typeof fontRegistry>) {
+    stubFontEnvironment(LoadedFontFace, registry);
+    const prepared = prepareBrowserReaderPinnedFonts(
+      policy([face(new Uint8Array([1]).buffer, HASH_A, 'serif')]),
+    );
+    return registerBrowserReaderPinnedFonts(prepared, summary([summaryFace(HASH_A)]));
+  }
+
+  it('register an added face for paint and replay it into every worker that opens', async () => {
+    const registry = fontRegistry();
+    const pinned = await openedPinnedFonts(registry);
+    const extended = summary([summaryFace(HASH_A), summaryFace(HASH_B, 'sansSerif', 2)]);
+    const addHostFontFaces = vi.fn(() => Promise.resolve(extended));
+    const committed = { addHostFontFaces } as unknown as BrowserReaderWorkerClient;
+    const callerBytes = new Uint8Array([7, 8]).buffer;
+    await addBrowserReaderHostFontFaces(pinned, committed, [
+      face(callerBytes, HASH_B, 'sansSerif'),
+    ]);
+    expect(pinned.summary).toBe(extended);
+    expect(pinned.faces.get(alias(HASH_B))).toBe(LoadedFontFace.created.at(-1));
+    expect(LoadedFontFace.created.at(-1)?.family).toBe(alias(HASH_B));
+
+    // A reflow candidate opens on the open-time policy, then replays the
+    // addition from retained bytes it can take.
+    const replay = vi.fn((_faces: readonly { bytes: ArrayBuffer }[]) => Promise.resolve(extended));
+    const candidate = {
+      open: vi.fn(() =>
+        Promise.resolve({
+          publication: publication(),
+          pinnedFontPolicy: summary([summaryFace(HASH_A)]),
+        }),
+      ),
+      setRenderRatio: vi.fn(() => Promise.resolve()),
+      addHostFontFaces: replay,
+    } as unknown as BrowserReaderWorkerClient;
+    await openBrowserReaderWorker(
+      candidate,
+      epubBytes(),
+      pinned.policy,
+      1,
+      pinned.summary,
+      pinned.changes,
+    );
+    const sent = replay.mock.calls[0]?.[0]?.[0]?.bytes;
+    expect(new Uint8Array(sent ?? new ArrayBuffer(0))).toEqual(new Uint8Array([7, 8]));
+    expect(sent).not.toBe(callerBytes);
+
+    // A worker that ends on other faces than the committed layout is refused.
+    const stale = {
+      ...candidate,
+      addHostFontFaces: vi.fn(() => Promise.resolve(summary([summaryFace(HASH_A)]))),
+    } as unknown as BrowserReaderWorkerClient;
+    await expect(
+      openBrowserReaderWorker(stale, epubBytes(), pinned.policy, 1, pinned.summary, pinned.changes),
+    ).rejects.toThrow(/different pinned font policy/);
+  });
+
+  it('take a removed face out of paint', async () => {
+    const registry = fontRegistry();
+    const pinned = await openedPinnedFonts(registry);
+    const both = summary([summaryFace(HASH_A), summaryFace(HASH_B, 'sansSerif')]);
+    const worker = {
+      addHostFontFaces: vi.fn(() => Promise.resolve(both)),
+      removeHostFontFaces: vi.fn(() => Promise.resolve(summary([summaryFace(HASH_A)]))),
+    } as unknown as BrowserReaderWorkerClient;
+    await addBrowserReaderHostFontFaces(pinned, worker, [
+      face(new Uint8Array([3]).buffer, HASH_B, 'sansSerif'),
+    ]);
+    const added = pinned.faces.get(alias(HASH_B));
+    await removeBrowserReaderHostFontFaces(pinned, worker, [HASH_B]);
+    expect(registry.delete).toHaveBeenCalledWith(added);
+    expect(pinned.faces.has(alias(HASH_B))).toBe(false);
+    expect(pinned.faces.has(alias(HASH_A))).toBe(true);
+    expect(pinned.changes.map((change) => change.kind)).toEqual(['add', 'remove']);
+  });
+});
+
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
 
@@ -255,6 +337,7 @@ function summary(faces: readonly ReturnType<typeof summaryFace>[]): CorePinnedFo
 function summaryFace(sha256: string, genericRole: 'serif' | 'sansSerif' = 'serif', byteLength = 1) {
   return {
     sha256,
+    familyName: 'Fixture',
     shapeFingerprint: sha256.slice(0, 16),
     familyAlias: alias(sha256),
     byteLength,

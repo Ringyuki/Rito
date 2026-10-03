@@ -60,4 +60,8 @@ export type {
   ReaderTextSelectionGranularity,
   ReaderTextSelectionMovementRequest,
   ReaderTextSelectionMovementResolution,
+  ReaderFontCatalog,
+  ReaderFontFamily,
+  ReaderFontFamilyFace,
+  ReaderHostFontFace,
 } from './instance';

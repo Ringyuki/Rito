@@ -64,11 +64,15 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // browser no longer measures, injects or reflows for them.
 // +2 lines (2026-10-02): a navigation tells a sharded publication's worker
 // client which chapter to supply image shards ahead of need from.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3313;
+// +3 lines (2026-10-03): the reader's font methods join the surface, and a
+// reflow candidate's worker replays the host faces changed since the open.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3316;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 719;
+// +52 lines (2026-10-03): the font catalog types a font picker is built
+// from, and the reader's four font methods.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 771;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
