@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
 import { SettingsPanel } from '@/components/settings-panel';
-import { ReadingProgress } from '@/components/reading-progress';
+import { ReadingProgressArea } from '@/components/reading-progress';
 import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
@@ -69,20 +69,20 @@ export function App({ pinnedFontPolicy }: AppProps) {
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
-      <Reader
-        containerRef={containerRef}
-        reader={reader}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onOpenToc={handleOpenToc}
-        onOpenSearch={handleToggleSearch}
-        onOpenSettings={handleToggleSettings}
-        onLoadDemo={handleLoadDemo}
-        onLoadShardedDemo={handleLoadShardedDemo}
-        onFileLoad={handleFileLoad}
-      />
-
-      <ReadingProgress reader={reader} />
+      <ReadingProgressArea reader={reader} width={containerSize.width}>
+        <Reader
+          containerRef={containerRef}
+          reader={reader}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onOpenToc={handleOpenToc}
+          onOpenSearch={handleToggleSearch}
+          onOpenSettings={handleToggleSettings}
+          onLoadDemo={handleLoadDemo}
+          onLoadShardedDemo={handleLoadShardedDemo}
+          onFileLoad={handleFileLoad}
+        />
+      </ReadingProgressArea>
 
       <SearchBar
         search={reader.search}
