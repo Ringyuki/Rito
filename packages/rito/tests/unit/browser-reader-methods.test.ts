@@ -548,7 +548,11 @@ describe('Browser reader methods', () => {
     void methods.dispose();
 
     expect(state.disposed).toBe(true);
-    expect(state.revisionSessions).toEqual({ current: undefined, candidate: undefined });
+    expect(state.revisionSessions).toEqual({
+      current: undefined,
+      candidate: undefined,
+      standby: undefined,
+    });
     expect(current.dispose).not.toHaveBeenCalled();
     expect(candidate.dispose).not.toHaveBeenCalled();
 
@@ -706,7 +710,7 @@ function createState(): BrowserReaderState {
     tocTargets: { revisionId: '', targets: [], activeEntryByPage: [] },
     footnotes: new Map(),
     activeSpreadIndex: 0,
-    revisionSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined, standby: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),

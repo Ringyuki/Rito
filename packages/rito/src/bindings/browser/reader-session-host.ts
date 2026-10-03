@@ -30,6 +30,12 @@ export interface BrowserReaderRevisionSessionOwner {
 export interface BrowserReaderRevisionSessionSlots {
   current: BrowserReaderRevisionSessionOwner | undefined;
   candidate: BrowserReaderRevisionSessionOwner | undefined;
+  /**
+   * A worker whose session has the publication and fonts open but holds no
+   * revision: the session a retired revision leaves behind, kept for the
+   * next layout so it does not open the book again.
+   */
+  standby: BrowserReaderWorkerClient | undefined;
 }
 
 export interface BrowserReaderExactReadGate {
@@ -153,12 +159,23 @@ export function revisionOwnerAllowsRead(
   );
 }
 
+const closedSessionHosts = new WeakSet<BrowserReaderState>();
+
+/** Whether the reader's sessions were released: none may be kept any more. */
+export function browserReaderSessionHostsClosed(state: BrowserReaderState): boolean {
+  return state.disposed || closedSessionHosts.has(state);
+}
+
 export function disposeBrowserReaderSessionHosts(state: BrowserReaderState): void {
+  closedSessionHosts.add(state);
   const slots = state.revisionSessions;
   const owners = [slots.current, slots.candidate].filter((owner) => owner !== undefined);
+  const standby = slots.standby;
   slots.current = undefined;
   slots.candidate = undefined;
+  slots.standby = undefined;
   const workers = new Set([state.worker, ...owners.map(({ worker }) => worker)]);
+  if (standby) workers.add(standby);
   const controllers = new Set(owners.map(({ controller }) => controller));
   state.disposeTask = Promise.all([
     drainBrowserReaderControllers(state, controllers),

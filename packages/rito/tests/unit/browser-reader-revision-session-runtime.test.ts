@@ -64,7 +64,9 @@ describe('Browser revision session runtime', () => {
     });
     expect(state.revisionSessions.current).toBe(candidateOwner);
     expect(previousControllerDispose).toHaveBeenCalledOnce();
-    expect(previous.dispose).toHaveBeenCalledOnce();
+    // Its revision released, the previous session is kept for the next layout.
+    expect(previous.dispose).not.toHaveBeenCalled();
+    expect(state.revisionSessions.standby).toBe(previous.worker);
   });
 
   it('forces previous worker retirement when its controller never settles', async () => {
@@ -125,7 +127,8 @@ describe('Browser revision session runtime', () => {
     expect(readFootnotes).not.toHaveBeenCalled();
     expect(fixture.state.revisionSessions.current).toBe(fixture.owner);
     expect(fixture.state.revisionBundle.revision.revisionId).toBe('current');
-    expect(candidate.dispose).toHaveBeenCalledOnce();
+    expect(candidate.dispose).not.toHaveBeenCalled();
+    expect(fixture.state.revisionSessions.standby).toBe(candidate.worker);
   });
 
   it('publishes the candidate callback before layout listeners', async () => {
@@ -229,7 +232,8 @@ describe('Browser revision session runtime', () => {
     expect(fixture.state.revisionBundle.revision.revisionId).toBe('current');
     expect(fixture.state.revisionSessions.current).toBe(fixture.owner);
     expect(controllerDispose).toHaveBeenCalled();
-    expect(candidate.dispose).toHaveBeenCalled();
+    expect(candidate.dispose).not.toHaveBeenCalled();
+    expect(fixture.state.revisionSessions.standby).toBe(candidate.worker);
   });
 
   it('drains detached candidate retirement before disposing the worker factory', async () => {
@@ -264,7 +268,11 @@ describe('Browser revision session runtime', () => {
     disposeBrowserReaderSessionHosts(fixture.state);
     await waitForCall(controllerDispose);
 
-    expect(fixture.state.revisionSessions).toEqual({ current: undefined, candidate: undefined });
+    expect(fixture.state.revisionSessions).toEqual({
+      current: undefined,
+      candidate: undefined,
+      standby: undefined,
+    });
     expect(candidate.dispose).not.toHaveBeenCalled();
     expect(factoryDispose).not.toHaveBeenCalled();
 
@@ -326,6 +334,7 @@ describe('Browser revision session runtime', () => {
   it('drops completed retirements from the reader pending drain without losing idempotence', async () => {
     const foreground = createWorker(() => undefined, 'completed-retirement-foreground');
     const state = createState(foreground.worker);
+    let previousRetired: ReturnType<typeof createWorker> | undefined;
     for (let index = 0; index < 3; index += 1) {
       const retired = createWorker(() => undefined, `completed-retirement-${String(index)}`);
       const controllerDispose = vi.fn(() => Promise.resolve());
@@ -337,8 +346,14 @@ describe('Browser revision session runtime', () => {
       ]);
 
       expect(controllerDispose).toHaveBeenCalledOnce();
-      expect(retired.dispose).toHaveBeenCalledOnce();
-      expect(retired.whenDisposed).toHaveBeenCalledOnce();
+      // The newest retired session is the one kept; the one it replaces goes.
+      expect(state.revisionSessions.standby).toBe(retired.worker);
+      expect(retired.dispose).not.toHaveBeenCalled();
+      if (previousRetired) {
+        expect(previousRetired.dispose).toHaveBeenCalledOnce();
+        expect(previousRetired.whenDisposed).toHaveBeenCalledOnce();
+      }
+      previousRetired = retired;
     }
     const factoryDispose = vi.fn(() => Promise.resolve());
     Object.defineProperty(state, 'workerFactory', {

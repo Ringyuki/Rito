@@ -11,7 +11,7 @@ import type {
 import { browserFontFaceRegistry, type BrowserFontFaceRegistry } from './resources';
 import { cachedUnavailableFontFamilies } from './font-availability';
 import {
-  replayBrowserReaderHostFontChanges,
+  catchUpBrowserReaderHostFontChanges,
   type BrowserReaderHostFontChange,
 } from './host-font-faces';
 
@@ -78,7 +78,7 @@ export async function openBrowserReaderWorker(
   await worker.setRenderRatio(renderRatio);
   // Faces added or removed since the reader opened apply before any layout.
   const summary =
-    (await replayBrowserReaderHostFontChanges(worker, hostFontChanges)) ?? result.pinnedFontPolicy;
+    (await catchUpBrowserReaderHostFontChanges(worker, hostFontChanges)) ?? result.pinnedFontPolicy;
   if (expectedSummary !== undefined) requireMatchingPinnedFontSummary(expectedSummary, summary);
   // Faces rejected for earlier documents in this session stay rejected;
   // delivering them up front lets the open paginate once.

@@ -53,7 +53,11 @@ describe('Browser revision commit adapter', () => {
     });
 
     expect(result).toEqual({ committed: true, retiredOwner: previousOwner });
-    expect(state.revisionSessions).toEqual({ current: candidateOwner, candidate: undefined });
+    expect(state.revisionSessions).toEqual({
+      current: candidateOwner,
+      candidate: undefined,
+      standby: undefined,
+    });
     expect(state.revisionBundle.revision).toBe(snapshot.revision);
     expect(state.revisionBundle.footnotes.entries['note']?.text).toBe('note text');
     expect(state.activeSpreadIndex).toBe(1);

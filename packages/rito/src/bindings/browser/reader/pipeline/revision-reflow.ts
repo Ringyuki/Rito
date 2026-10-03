@@ -1,6 +1,10 @@
 import { openableBrowserReaderPublication } from '../../publication-source';
 import type { ReaderLocator, ReaderOptions } from '../../../../reader';
 import {
+  parkBrowserReaderStandbyWorker,
+  takeBrowserReaderStandbyWorker,
+} from '../../revision-session-owner';
+import {
   createBrowserReaderRevisionSessionOwner,
   reclaimBrowserReaderStalledSession,
   startBrowserReaderRevisionCandidate,
@@ -173,22 +177,29 @@ async function openRevisionCandidate(
   request: Request,
   signal: AbortSignal,
 ): Promise<CandidateResult> {
-  const worker = state.workerFactory();
+  // A session a previous layout left open lays this one out without opening
+  // the book again; only the first reflow, or one after a failure, opens it.
+  const standby = await takeBrowserReaderStandbyWorker(state);
+  const worker = standby ?? state.workerFactory();
   if (worker.sessionId === state.worker.sessionId) {
     throw new Error('Browser reader reflow candidate requires an independent worker session');
   }
+  let opened = standby !== undefined;
   let ownerCreated = false;
   try {
-    await openBrowserReaderWorker(
-      worker,
-      // The open transfers the buffer it is given, and the retained one
-      // is what the candidate after this opens from.
-      openableBrowserReaderPublication(state.documentData),
-      state.pinnedFonts.policy,
-      state.dpr,
-      state.pinnedFonts.summary,
-      state.pinnedFonts.changes,
-    );
+    if (!opened) {
+      await openBrowserReaderWorker(
+        worker,
+        // The open transfers the buffer it is given, and the retained one
+        // is what the candidate after this opens from.
+        openableBrowserReaderPublication(state.documentData),
+        state.pinnedFonts.policy,
+        state.dpr,
+        state.pinnedFonts.summary,
+        state.pinnedFonts.changes,
+      );
+      opened = true;
+    }
     if (!requestIsLive(state, request, signal)) return 'cancelled';
     await waitForExactReads(state, request, signal);
     if (!requestIsLive(state, request, signal)) return 'cancelled';
@@ -221,7 +232,12 @@ async function openRevisionCandidate(
     if (snapshot) return 'committed';
     return requestIsLive(state, request, signal) ? 'retry' : 'cancelled';
   } finally {
-    if (!ownerCreated) worker.dispose();
+    // An open session that never took a revision is kept for the next
+    // layout; one that failed to open is not.
+    if (!ownerCreated) {
+      if (opened) await parkBrowserReaderStandbyWorker(state, worker);
+      else worker.dispose();
+    }
   }
 }
 

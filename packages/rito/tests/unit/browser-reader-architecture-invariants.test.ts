@@ -66,7 +66,9 @@ const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
 // client which chapter to supply image shards ahead of need from.
 // +3 lines (2026-10-03): the reader's font methods join the surface, and a
 // reflow candidate's worker replays the host faces changed since the open.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3316;
+// +16 lines (2026-10-03): a retired revision's session is kept for the next
+// layout instead of every reflow opening the book and fonts again.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3332;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // Includes the experimental fragment-pagination option.
@@ -485,7 +487,9 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(facadeSource).toContain('const workerFactory = createBrowserReaderWorkerClientFactory');
     expect(facadeSource).toContain('const worker = workerFactory()');
     expect(stateSource).toContain('readonly workerFactory: BrowserReaderWorkerClientFactory');
-    expect(reflowSource).toContain('const worker = state.workerFactory()');
+    // A reflow lays out on the session the last layout left open, and only
+    // opens a new one through the reader's factory.
+    expect(reflowSource).toContain('const worker = standby ?? state.workerFactory()');
     expect(reflowSource).not.toContain('createBrowserReaderWorkerClient');
   });
 

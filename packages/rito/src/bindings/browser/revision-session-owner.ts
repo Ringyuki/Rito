@@ -1,11 +1,14 @@
 import { createRitoCoreWasmReaderRevisionSession } from './core-contracts';
 import type { BrowserReaderWorkerClient } from './core-contracts';
 import {
+  browserReaderSessionHostsClosed,
   recordBrowserReaderAcceptedRevision,
   scheduleBrowserReaderRevisionOwnerRetirement,
   type BrowserReaderRevisionSessionOwner,
   withReaderSessionDisposeTimeout,
 } from './reader-session-host';
+import { syncUnavailableFontFaces } from './font-availability';
+import { catchUpBrowserReaderHostFontChanges } from './host-font-faces';
 import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
 import { resumeBrowserReaderSuspendedFrameMisses } from './suspended-frame-misses';
 import type { BrowserReaderState } from './reader/types';
@@ -113,7 +116,13 @@ export async function retireBrowserReaderRevisionOwner(
     resumeBrowserReaderSuspendedFrameMisses(state, owner);
   }
   await scheduleBrowserReaderRevisionOwnerRetirement(state, owner, async () => {
-    await disposeController(state, owner);
+    const released = await disposeController(state, owner);
+    // Releasing the revision leaves the session with the publication and
+    // fonts open; a healthy one is kept for the next layout.
+    if (released && owner.terminalError === undefined) {
+      await parkBrowserReaderStandbyWorker(state, owner.worker);
+      return;
+    }
     try {
       await disposeAndWaitBrowserReaderWorkerClient(owner.worker);
     } catch (error: unknown) {
@@ -122,14 +131,17 @@ export async function retireBrowserReaderRevisionOwner(
   });
 }
 
+/** Releases the owner's revision; false when that failed. */
 async function disposeController(
   state: BrowserReaderState,
   owner: BrowserReaderRevisionSessionOwner,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await withReaderSessionDisposeTimeout(Promise.resolve().then(() => owner.controller.dispose()));
+    return true;
   } catch (error: unknown) {
     warnRevisionRetirement(state, 'revision session retirement failed', error);
+    return false;
   }
 }
 
@@ -145,4 +157,56 @@ function nextCandidateGeneration(state: BrowserReaderState): number {
   const generation = (candidateGenerations.get(state) ?? 0) + 1;
   candidateGenerations.set(state, generation);
   return generation;
+}
+
+/**
+ * The session kept for the next layout, brought up to date — the faces a
+ * reader added or removed and the browser rejected since it last laid out,
+ * the current render ratio — or undefined when there is none. The caller
+ * owns it from here.
+ */
+export async function takeBrowserReaderStandbyWorker(
+  state: BrowserReaderState,
+): Promise<BrowserReaderWorkerClient | undefined> {
+  const worker = state.revisionSessions.standby;
+  if (!worker) return undefined;
+  state.revisionSessions.standby = undefined;
+  try {
+    await worker.setRenderRatio(state.dpr);
+    await catchUpBrowserReaderHostFontChanges(worker, state.pinnedFonts.changes);
+    await syncUnavailableFontFaces(worker);
+    return worker;
+  } catch (error: unknown) {
+    state.logger.warn('reader standby session could not be brought up to date', error);
+    await disposeStandbyQuietly(state, worker);
+    return undefined;
+  }
+}
+
+/**
+ * Keeps a session that holds no revision for the next layout. One is kept:
+ * a newer one replaces it, and a reader being disposed keeps none.
+ */
+export async function parkBrowserReaderStandbyWorker(
+  state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
+): Promise<void> {
+  if (browserReaderSessionHostsClosed(state)) {
+    await disposeStandbyQuietly(state, worker);
+    return;
+  }
+  const previous = state.revisionSessions.standby;
+  state.revisionSessions.standby = worker;
+  if (previous && previous !== worker) await disposeStandbyQuietly(state, previous);
+}
+
+async function disposeStandbyQuietly(
+  state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
+): Promise<void> {
+  try {
+    await disposeAndWaitBrowserReaderWorkerClient(worker);
+  } catch (error: unknown) {
+    state.logger.warn('reader standby session dispose failed', error);
+  }
 }

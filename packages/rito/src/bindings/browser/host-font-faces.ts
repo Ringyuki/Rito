@@ -17,17 +17,28 @@ export type BrowserReaderHostFontChange =
   | { readonly kind: 'add'; readonly faces: readonly ReaderHostFontFace[] }
   | { readonly kind: 'remove'; readonly sha256s: readonly string[] };
 
-/** Replays the changes into a freshly opened worker; returns the final summary. */
-export async function replayBrowserReaderHostFontChanges(
+/** How many of the reader's changes each worker has applied. */
+const appliedChanges = new WeakMap<BrowserReaderWorkerClient, number>();
+
+/**
+ * Applies to a worker the changes it has not applied yet, in order — all
+ * of them for a freshly opened worker, the latest few for a session kept
+ * open between layouts. Returns the final summary, or undefined when the
+ * worker was already up to date.
+ */
+export async function catchUpBrowserReaderHostFontChanges(
   worker: BrowserReaderWorkerClient,
   changes: readonly BrowserReaderHostFontChange[],
 ): Promise<CorePinnedFontPolicySummary | undefined> {
   let summary: CorePinnedFontPolicySummary | undefined;
-  for (const change of changes) {
+  for (let index = appliedChanges.get(worker) ?? 0; index < changes.length; index += 1) {
+    const change = changes[index];
+    if (!change) break;
     summary =
       change.kind === 'add'
         ? await worker.addHostFontFaces(transferableFaces(change.faces))
         : await worker.removeHostFontFaces(change.sha256s);
+    appliedChanges.set(worker, index + 1);
   }
   return summary;
 }
@@ -47,6 +58,7 @@ export async function addBrowserReaderHostFontFaces(
   const added = summary.faces.slice(-owned.length);
   await registerHostFaces(pinned, added, owned);
   pinned.changes.push({ kind: 'add', faces: owned });
+  appliedChanges.set(worker, pinned.changes.length);
   pinned.summary = summary;
 }
 
@@ -64,6 +76,7 @@ export async function removeBrowserReaderHostFontFaces(
     pinned.faces.delete(alias);
   }
   pinned.changes.push({ kind: 'remove', sha256s: [...sha256s] });
+  appliedChanges.set(worker, pinned.changes.length);
   pinned.summary = summary;
 }
 

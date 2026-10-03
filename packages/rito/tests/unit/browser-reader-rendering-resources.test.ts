@@ -759,7 +759,7 @@ function createState(overrides: object = {}): BrowserReaderState {
       commitGeneration: 1,
     },
     commitGeneration: 1,
-    revisionSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined, standby: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),

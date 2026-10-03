@@ -15,7 +15,7 @@ export function createEmptyBrowserReaderRevisionState(): Pick<
     revisionBundle: emptyRevisionBundle(),
     revisionHandle: undefined,
     commitGeneration: 0,
-    revisionSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined, standby: undefined },
     disposeTask: undefined,
     interaction: createBrowserReaderInteractionState(),
     pendingHostTasks: new Set(),

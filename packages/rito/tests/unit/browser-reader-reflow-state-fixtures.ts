@@ -97,7 +97,7 @@ export function createState(
     },
     revisionHandle: undefined,
     commitGeneration: 0,
-    revisionSessions: { current: undefined, candidate: undefined },
+    revisionSessions: { current: undefined, candidate: undefined, standby: undefined },
     chapterLocalPreview: createBrowserReaderChapterLocalPreviewState(),
     disposeTask: undefined,
     pendingHostTasks: new Set(),
