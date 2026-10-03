@@ -240,7 +240,7 @@ describe('TransitionDriver', () => {
     expect(interrupted?.vx).toBeCloseTo(-2);
   });
 
-  it('lands a committed turn at the far side instead of overshooting past it', () => {
+  it('stops a hard flick at the far side without passing it', () => {
     const td = createDriver();
     td.startTracking('forward', 0, 1, 0);
     td.updateTracking(-300, 50);

@@ -190,7 +190,7 @@ final class _Slide extends RitoLayeredPageTurnEffect {
   List<RitoPageTurnLayer> layers(RitoPageTurnFrame frame) {
     final RitoPageTurnFrame(:offset, :width, :incoming) = frame;
     return [
-      // A spring settling back past the origin shows the far neighbour
+      // A custom spring bouncing back past the origin shows the far neighbour
       // instead of a gap.
       if (incoming == RitoPageSlot.next && offset > 0)
         RitoPageTurnLayer(RitoPageSlot.previous, offset - width),

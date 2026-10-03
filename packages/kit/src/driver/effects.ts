@@ -76,7 +76,7 @@ export interface PaintedTransitionEffect {
 const slide: LayeredTransitionEffect = {
   layers({ dx, width, incoming }) {
     const layers: TransitionLayer[] = [];
-    // A spring overshooting back past the origin shows the far neighbour
+    // A custom spring bouncing back past the origin shows the far neighbour
     // instead of a gap.
     if (incoming === 'next' && dx > 0) layers.push({ slot: 'prev', x: dx - width });
     if (incoming === 'prev' && dx < 0) layers.push({ slot: 'next', x: dx + width });
@@ -135,12 +135,13 @@ export type TransitionEffectName = keyof typeof transitionEffects;
 
 /**
  * Spring tunings for the turn (stiffness in 1/s², damping in 1/s): `snappy`
- * lands fast, `gentle` drifts in, `default` sits between. A committed turn
- * stops at the far side whatever the spring; a cancelled one may settle
- * past its origin with `default`.
+ * lands fast, `gentle` drifts in, `default` sits between. All are damped at
+ * or just above critical, so a turn never bounces: past the neighbour, or
+ * back past the page it started on, there may be no page to show. A custom
+ * spring damped below critical bounces, and shows that gap.
  */
 export const springPresets = {
-  default: { stiffness: 180, damping: 22 },
+  default: { stiffness: 180, damping: 27 },
   snappy: { stiffness: 320, damping: 36 },
   gentle: { stiffness: 110, damping: 21 },
 } as const;

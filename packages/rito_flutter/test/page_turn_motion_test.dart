@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -23,7 +24,6 @@ void main() {
     expect(motion.release(0), isTrue);
     final seen = _settle(motion);
     expect(motion.offset, -400);
-    // A committed turn stops at the neighbour instead of overshooting.
     expect(seen.reduce((a, b) => a < b ? a : b), greaterThanOrEqualTo(-400));
   });
 
@@ -57,6 +57,85 @@ void main() {
     flick.drag(-60);
     flick.release(-2000);
     expect(_settle(flick).length, lessThan(_settle(rest).length));
+  });
+
+  test('no preset carries a turn past the neighbour, however hard flicked', () {
+    for (final spring in [
+      RitoSpring.standard,
+      RitoSpring.snappy,
+      RitoSpring.gentle,
+    ]) {
+      for (final velocity in [0.0, -800.0, -3000.0, -20000.0]) {
+        final motion = RitoTurnMotion(RitoPageTurnPhysics(spring: spring))
+          ..width = 400
+          ..startDrag(forward: true, hasIncoming: true);
+        motion.drag(-60);
+        motion.release(velocity);
+        var lowest = 0.0;
+        for (var i = 0; i < 400 && !motion.step(1 / 120); i++) {
+          lowest = lowest < motion.offset ? lowest : motion.offset;
+        }
+        expect(lowest, greaterThanOrEqualTo(-400));
+      }
+    }
+  });
+
+  test('a turn traces the same path whatever the frame rate', () {
+    double at(double frame) {
+      final motion = _motion()..turn(forward: true);
+      for (var t = 0.0; t < 0.3 - 1e-9; t += frame) {
+        motion.step(frame);
+      }
+      return motion.offset;
+    }
+
+    final reference = at(0.001);
+    for (final frame in [0.006, 0.0075, 0.01, 0.012, 0.015, 0.02, 0.03]) {
+      expect(at(frame), closeTo(reference, 1e-6));
+    }
+  });
+
+  test('the spring is the web reader\'s curve, sample for sample', () {
+    final table =
+        jsonDecode(
+              File(
+                '../kit/tests/fixtures/spring-samples.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, Object?>;
+    const presets = {
+      'default': RitoSpring.standard,
+      'snappy': RitoSpring.snappy,
+      'gentle': RitoSpring.gentle,
+    };
+    for (final entry
+        in (table['cases']! as List<Object?>).cast<Map<String, Object?>>()) {
+      final custom = entry['spring'] as Map<String, Object?>?;
+      final spring = custom == null
+          ? presets[entry['preset']]!
+          : RitoSpring(
+              stiffness: (custom['stiffness']! as num).toDouble(),
+              damping: (custom['damping']! as num).toDouble(),
+            );
+      for (final sample
+          in (entry['samples']! as List<Object?>)
+              .cast<Map<String, Object?>>()) {
+        final value = springAt(
+          spring,
+          (entry['offset']! as num).toDouble(),
+          (entry['velocity']! as num).toDouble(),
+          (sample['t']! as num).toDouble(),
+        );
+        expect(
+          value.offset,
+          closeTo((sample['offset']! as num).toDouble(), 1e-6),
+        );
+        expect(
+          value.velocity,
+          closeTo((sample['velocity']! as num).toDouble(), 1e-6),
+        );
+      }
+    }
   });
 
   test('a pull with no neighbour stretches and never turns', () {

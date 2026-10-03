@@ -81,8 +81,11 @@ overlay canvas, and interaction bindings are attached under that container.
 A turn is spring physics plus an effect. The physics — the spring, the drag, the
 commit decision and the rubber band at the first and last spread — is shared; the
 effect only says what a frame shows at a given displacement. A release hands the
-finger's momentum to the spring, and a committed turn stops at the neighbour
-instead of overshooting past it.
+finger's momentum to the spring. The spring is solved in closed form, so a turn
+follows the same path at any refresh rate, and the presets never bounce: past the
+neighbour, or back past the starting page, there may be no page to show. A
+custom spring damped below critical (`damping < 2√stiffness`) bounces, and shows
+that gap.
 
 - `effect`: `'slide'` (the spread moves, the neighbour follows), `'cover'` (later
   pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or

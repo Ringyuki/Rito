@@ -1,6 +1,11 @@
 import 'dart:math' as math;
 
-/// A damped spring: stiffness in 1/s², damping in 1/s.
+import 'package:flutter/physics.dart';
+
+/// A damped spring: stiffness in 1/s², damping in 1/s. The presets are
+/// damped at or just above critical, so a turn never bounces: past the
+/// neighbour, or back past the page it started on, there may be no page to
+/// show. A spring damped below critical bounces, and shows that gap.
 final class RitoSpring {
   const RitoSpring({required this.stiffness, required this.damping});
 
@@ -8,7 +13,7 @@ final class RitoSpring {
   final double damping;
 
   /// Between [snappy] and [gentle].
-  static const RitoSpring standard = RitoSpring(stiffness: 180, damping: 22);
+  static const RitoSpring standard = RitoSpring(stiffness: 180, damping: 27);
 
   /// Lands fast.
   static const RitoSpring snappy = RitoSpring(stiffness: 320, damping: 36);
@@ -124,20 +129,27 @@ final class RitoTurnMotion {
     _settleTo(_turnTarget);
   }
 
-  /// Advances the spring [seconds]; true when it came to rest (or a
-  /// committed turn reached the neighbour). [instant] lands at once.
+  /// Advances the spring [seconds]; true when it came to rest. [instant]
+  /// lands at once. The spring is solved in closed form from where it is,
+  /// so its path is the same whatever the frame rate.
   bool step(double seconds, {bool instant = false}) {
     if (_phase != RitoTurnMotionPhase.settling) return false;
     final spring = physics.spring;
-    final force = -spring.stiffness * (_offset - _target);
-    _velocity += (force - spring.damping * _velocity) * seconds;
-    _offset += _velocity * seconds;
-    final atRest = (_offset - _target).abs() < 0.5 && _velocity.abs() < 0.05;
-    // Nothing lies beyond the incoming page, so a committed turn stops
-    // there instead of overshooting into a blank edge.
-    final arrived =
-        _target != 0 && (_target < 0 ? _offset <= _target : _offset >= _target);
-    if (instant || atRest || arrived) {
+    final offset = _offset - _target;
+    final next = springAt(
+      spring,
+      offset,
+      _boundedVelocity(spring, offset, _velocity),
+      seconds,
+    );
+    _offset = _target + next.offset;
+    _velocity = next.velocity;
+    // At rest once what motion remains is sub-pixel: within half a pixel,
+    // and not fast enough to carry more than half a pixel further.
+    final omega = math.sqrt(spring.stiffness);
+    final atRest =
+        (_offset - _target).abs() < 0.5 && _velocity.abs() / omega < 0.5;
+    if (instant || atRest) {
       finish();
       return true;
     }
@@ -159,6 +171,22 @@ final class RitoTurnMotion {
   }
 
   double get _turnTarget => _forward ? -width : width;
+
+  /// A spring that does not oscillate passes its target only when it
+  /// starts toward it faster than ω times the distance; bounding a
+  /// handed-over velocity there keeps it on its side of the target, with
+  /// the motion continuous. An oscillating spring was chosen to bounce.
+  static double _boundedVelocity(
+    RitoSpring spring,
+    double offset,
+    double velocity,
+  ) {
+    final omega = math.sqrt(spring.stiffness);
+    if (spring.damping < 2 * omega || offset == 0) return velocity;
+    final limit = omega * offset.abs();
+    final toward = -offset.sign * velocity;
+    return toward > limit ? -offset.sign * limit : velocity;
+  }
 
   void _settleTo(double target) {
     _target = target;
@@ -191,4 +219,25 @@ double ritoTurnProgress({
   if (width <= 0) return 0;
   final toward = forward ? -offset : offset;
   return math.min(1, math.max(0, toward / width));
+}
+
+/// The spring's offset from its target and its velocity [t] seconds on,
+/// from [offset] (px) and [velocity] (px/s), solved in closed form.
+({double offset, double velocity}) springAt(
+  RitoSpring spring,
+  double offset,
+  double velocity,
+  double t,
+) {
+  final simulation = SpringSimulation(
+    SpringDescription(
+      mass: 1,
+      stiffness: spring.stiffness,
+      damping: spring.damping,
+    ),
+    offset,
+    0,
+    velocity,
+  );
+  return (offset: simulation.x(t), velocity: simulation.dx(t));
 }

@@ -137,7 +137,8 @@ Three layers, each usable on its own:
    `dragCancel`) or call `turn(direction)` for taps and keys. It springs
    with the web reader's physics (`RitoPageTurnPhysics`, `RitoSpring.standard
 | snappy | gentle`): a release hands its velocity to the spring, a
-   committed turn stops at the neighbour, a pull against the first or last
+   turn never bounces past the neighbour and follows the same path at any
+   refresh rate (the spring is solved in closed form), a pull against the first or last
    page stretches. A turn commits on the reader the moment it is decided,
    so the page is ready on arrival; a tap during a landing turn follows it;
    a jump or relayout mid-turn ends it. `events` brings one
