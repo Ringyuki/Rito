@@ -40,6 +40,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
     reader.typography.reset();
     reader.setSpreadMode('double');
     reader.setRenderScale(1);
+    reader.setPageTurn('slide');
     setTheme('light');
   }, [reader, setTheme]);
 
@@ -107,6 +108,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
           spreadMode: reader.spreadMode,
           theme,
           renderScale: reader.renderScale,
+          pageTurn: reader.pageTurn,
         }}
         fonts={reader.fonts}
         onFontSizeChange={reader.typography.setFontSize}
@@ -116,6 +118,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
         onFontFamilyChange={reader.typography.setFontFamily}
         onFontFamilyForceChange={reader.typography.setFontFamilyForce}
         onRenderScaleChange={reader.setRenderScale}
+        onPageTurnChange={reader.setPageTurn}
         onSpreadModeChange={reader.setSpreadMode}
         onThemeChange={setTheme}
         onRestoreDefaults={handleRestoreDefaults}

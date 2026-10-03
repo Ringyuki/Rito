@@ -1,0 +1,6 @@
+---
+'@ritojs/kit': minor
+'@ritojs/react': minor
+---
+
+Page turns separate physics from presentation: the spring, the drag, the commit decision and the rubber band are shared, and an `effect` decides what is drawn — `'slide'` (default), `'cover'` (later pages slide over earlier ones with a shadow), `'fade'` (cross-fade) or `'none'` (instant), or a custom `TransitionEffect` returning the layers to draw. `springPresets` (`default`, `snappy`, `gentle`) tune the spring; `configureTransition` changes either live; while the system asks for reduced motion turns cross-fade unless `respectReducedMotion: false`. `transitionStart` / `transitionEnd` now have one owner: every start is answered by exactly one end, and `transitionEnd` carries an `outcome` (`committed`, `cancelled`, `interrupted`) — a relayout or jump during a turn ends it as interrupted instead of leaving it open. React adds `useReaderTransition(controller)` → `{ isTransitioning, direction }`.

@@ -13,6 +13,7 @@ import type { NavigationDeps } from '../index';
 import { continuePendingNavigation } from '../pending';
 import { finishChapterLocalLease, type ResolvedLocator } from './shared';
 import { resumeQueuedChapterLocalNavigation } from './start';
+import { abortTransition } from '../../core/transition-lifecycle';
 
 export function completeExactPromotion(
   machine: NavigationMachine,
@@ -156,7 +157,7 @@ export function fatalChapterLocalContainment(
     `[rito] chapter-local presentation failed, rolling back to spread ${String(active.mountSpreadIndex)}: ${message}`,
   );
   try {
-    deps.td.reset();
+    abortTransition(deps.td, deps.emitter);
   } catch {
     // Continue into the pool/runtime terminalizer.
   }
@@ -239,7 +240,7 @@ function forceTerminateBrokenPresentation(
   message: string,
 ): void {
   try {
-    deps.td.reset();
+    abortTransition(deps.td, deps.emitter);
   } catch {
     // Best effort only.
   }

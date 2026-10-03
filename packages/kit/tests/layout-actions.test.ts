@@ -4,6 +4,7 @@ import type { LayoutPositionPlan } from '../src/interaction/position/tracker';
 import type { Internals } from '../src/controller/core/internals';
 import { buildLayoutActions, commitLayoutChange } from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
+import { transitionLifecycle } from '../src/controller/core/transition-lifecycle';
 
 function createMocks(options?: {
   readonly setTypographyChanged?: boolean;
@@ -191,6 +192,20 @@ describe('buildLayoutActions', () => {
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
     expect(spies.invalidateSelection).toHaveBeenCalledOnce();
     expect(internals.coordState.contentInteractionGeneration).toBe(7);
+  });
+
+  it('ends a turn in flight as interrupted when a relayout commits', () => {
+    const { internals, runtime, emitter, spies } = createMocks();
+    transitionLifecycle(emitter).begin('forward');
+    spies.emit.mockClear();
+
+    buildLayoutActions(internals, emitter, runtime).setTypography({ fontSize: 18 });
+
+    expect(spies.reset).toHaveBeenCalledOnce();
+    expect(spies.emit).toHaveBeenCalledWith('transitionEnd', {
+      direction: 'forward',
+      outcome: 'interrupted',
+    });
   });
 
   it('invalidates native annotation geometry before compositing a replacement revision', () => {

@@ -1,6 +1,6 @@
 import type { Reader } from '@ritojs/core';
 import type { SettledEvent } from '../driver/types';
-import { createTransitionDriver } from '../driver/transition-driver';
+import { createTransitionDriver, type TransitionDriver } from '../driver/transition-driver';
 import type { ContentRenderer } from '../painter/buffer-pool';
 import { createPageBufferPool } from '../painter/buffer-pool';
 import { createDisplaySurface } from '../painter/display-surface';
@@ -115,6 +115,7 @@ function createOwnedRuntimeParts(
   const pool = createOwnedPool(construction);
   const prerenderScheduler = createOwnedPrerenderScheduler(construction);
   const transitionDriver = createTransitionDriver(options.transition);
+  disposables.add(construction.own(followReducedMotion(transitionDriver)));
   const internals = createControllerInternals(reader, options);
   const disposeControllerEngines = construction.own(() => {
     disposeEngines(internals);
@@ -158,6 +159,23 @@ function createRuntimeFacade(
     surface: parts.surface,
     terminateChapterLocalForLayout: chapterLocal.terminateForLayout,
     refreshChapterLocalTheme: chapterLocal.refreshTheme,
+  };
+}
+
+/**
+ * Keeps the driver told whether the system asks for reduced motion, so
+ * turns cross-fade instead of moving while it does. Returns the unsubscribe.
+ */
+function followReducedMotion(td: TransitionDriver): () => void {
+  if (typeof matchMedia !== 'function') return () => undefined;
+  const query = matchMedia('(prefers-reduced-motion: reduce)');
+  const sync = (): void => {
+    td.reducedMotion = query.matches;
+  };
+  sync();
+  query.addEventListener('change', sync);
+  return () => {
+    query.removeEventListener('change', sync);
   };
 }
 

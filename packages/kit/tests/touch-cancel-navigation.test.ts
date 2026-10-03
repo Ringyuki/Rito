@@ -27,7 +27,9 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.poolHarness.rotateBackward).not.toHaveBeenCalled();
     expect(scenario.notifyActiveSpread).toHaveBeenNthCalledWith(1, 1);
     expect(scenario.notifyActiveSpread).toHaveBeenNthCalledWith(2, 0);
-    expect(scenario.transitionEnd).toHaveBeenCalledWith({ direction: 'forward' });
+    expect(scenario.transitionEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ direction: 'forward' }),
+    );
     scenario.disposables.disposeAll();
   });
 
@@ -52,11 +54,16 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.internals.currentSpread).toBe(1);
     expect(scenario.spreadChange).toHaveBeenCalledOnce();
     expect(scenario.spreadChange).toHaveBeenCalledWith(expect.objectContaining({ spreadIndex: 1 }));
-    expect(lifecycle).toEqual(['start']);
+    // The cancelled swipe ends (interrupted) before the redirected turn
+    // starts: every start gets exactly one end, and none arrives late.
+    expect(lifecycle).toEqual(['end', 'start']);
+    expect(scenario.transitionEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'interrupted' }),
+    );
     expect(scenario.td.isAnimating).toBe(true);
 
     settle(scenario.td);
-    expect(lifecycle).toEqual(['start', 'end']);
+    expect(lifecycle).toEqual(['end', 'start', 'end']);
     scenario.disposables.disposeAll();
   });
 
@@ -74,7 +81,9 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.td.isAnimating).toBe(false);
     expect(scenario.transitionStart).toHaveBeenCalledOnce();
     expect(scenario.transitionEnd).toHaveBeenCalledOnce();
-    expect(scenario.transitionEnd).toHaveBeenCalledWith({ direction: 'forward' });
+    expect(scenario.transitionEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ direction: 'forward' }),
+    );
     scenario.disposables.disposeAll();
   });
 
@@ -182,7 +191,9 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.internals.currentSpread).toBe(0);
     expect(scenario.poolHarness.slots.curr).toBe(0);
     expect(scenario.poolHarness.rotateForward).not.toHaveBeenCalled();
-    expect(scenario.transitionEnd).toHaveBeenCalledWith({ direction: 'forward' });
+    expect(scenario.transitionEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ direction: 'forward' }),
+    );
   });
 
   it('cancels and force-settles an actively tracked swipe during disposal', () => {

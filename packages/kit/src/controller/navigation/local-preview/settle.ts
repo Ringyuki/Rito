@@ -9,6 +9,7 @@ import {
   finishTerminatedTransition,
   tryFinishRestoredMount,
 } from './terminal';
+import { transitionLifecycle } from '../../core/transition-lifecycle';
 
 export function settleChapterLocalIncoming(
   machine: NavigationMachine,
@@ -205,7 +206,7 @@ function startRollback(
     return;
   }
   deps.td.goToTarget(direction, active.mountSpreadIndex, active.mountSpreadIndex);
-  if (reopenVisual) deps.emitter.emit('transitionStart', { direction });
+  if (reopenVisual) transitionLifecycle(deps.emitter).begin(direction);
   deps.frameDriver.scheduleComposite();
 }
 

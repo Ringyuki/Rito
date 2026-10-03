@@ -9,3 +9,11 @@ export {
   type TransitionDriverOptions,
   DEFAULT_TRANSITION_OPTIONS,
 } from './types';
+export {
+  springPresets,
+  transitionEffects,
+  type TransitionEffect,
+  type TransitionEffectName,
+  type TransitionFrame,
+  type TransitionLayer,
+} from './effects';

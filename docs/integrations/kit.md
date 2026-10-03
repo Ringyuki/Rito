@@ -51,7 +51,7 @@ Interaction data tools:
 
 ```ts
 import { createReader } from '@ritojs/core';
-import { createController } from '@ritojs/kit';
+import { createController, springPresets } from '@ritojs/kit';
 
 const container = document.getElementById('reader');
 const canvas = document.createElement('canvas');
@@ -66,7 +66,7 @@ const reader = await createReader(epubData, canvas, {
 });
 
 const controller = createController(reader, canvas, {
-  transition: { stiffness: 180, damping: 22 },
+  transition: { ...springPresets.default, effect: 'slide' },
 });
 
 controller.mount(container);
@@ -75,6 +75,29 @@ controller.goToSpread(0);
 
 The controller owns the mounted reading surface after `mount()`: transition layers,
 overlay canvas, and interaction bindings are attached under that container.
+
+## Page Turns
+
+A turn is spring physics plus an effect. The physics — the spring, the drag, the
+commit decision and the rubber band at the first and last spread — is shared; the
+effect only says which pages to draw where at a given displacement.
+
+- `effect`: `'slide'` (the spread moves, the neighbour follows), `'cover'` (later
+  pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or
+  `'none'` (a turn lands at once), or a custom `TransitionEffect` — an object whose
+  `layers({ dx, width, incoming })` returns the pages to draw bottom to top
+  (`{ slot, x, opacity?, shadow? }`).
+- `springPresets.default | snappy | gentle` (or your own `stiffness` / `damping`).
+- `respectReducedMotion` (default `true`): while the system asks for reduced motion,
+  turns cross-fade whatever the effect.
+
+Change any of it live with `controller.configureTransition({ effect: 'cover' })`.
+
+`transitionStart` and `transitionEnd` bracket every visible turn: each start is
+answered by exactly one end, whose `outcome` says whether the turn landed
+(`committed`), went back (`cancelled`), or was cut off by a relayout, a jump or
+another turn (`interrupted`). In React, `useReaderTransition(controller)` gives
+`{ isTransitioning, direction }`.
 
 ## Responsibilities
 

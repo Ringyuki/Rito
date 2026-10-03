@@ -10,6 +10,7 @@ import type { PrerenderScheduler } from '../src/controller/prerender';
 import type { FrameDriver } from '../src/driver/frame-driver';
 import type { ContentRenderer, PageBufferPool } from '../src/painter/buffer-pool';
 import { createEmitter } from '../src/utils/event-emitter';
+import { transitionLifecycle } from '../src/controller/core/transition-lifecycle';
 
 describe('provisional transition runtime', () => {
   it('ends the visible transition without releasing exact ownership', () => {
@@ -129,7 +130,7 @@ function createScenario(): {
     resume: resumePrerender,
     dispose: vi.fn(),
   };
-  const runtime = createProvisionalTransitionRuntime(
+  const owned = createProvisionalTransitionRuntime(
     { currentSpread: 3 } as Internals,
     emitter,
     frameDriver as unknown as FrameDriver,
@@ -139,6 +140,31 @@ function createScenario(): {
     prerenderScheduler,
     () => false,
   );
+  // The controller opens the visible turn when it starts one (and when a
+  // rollback reopens it); the runtime only ever closes it.
+  const lifecycle = transitionLifecycle(emitter);
+  const runtime: ProvisionalTransitionRuntime = {
+    ...owned,
+    begin: (direction) => {
+      owned.begin(direction);
+      lifecycle.begin(direction);
+    },
+    reopenVisual: (ownerDirection, direction) => {
+      const reopened = owned.reopenVisual(ownerDirection, direction);
+      if (reopened) lifecycle.begin(direction);
+      return reopened;
+    },
+    visualSettled: (direction) => {
+      owned.visualSettled(direction);
+    },
+    complete: (direction) => {
+      owned.complete(direction);
+    },
+    cancel: (direction) => {
+      owned.cancel(direction);
+    },
+    deferForLayout: (direction) => owned.deferForLayout(direction),
+  };
   return {
     runtime,
     emitter,

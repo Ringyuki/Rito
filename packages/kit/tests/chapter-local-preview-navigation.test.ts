@@ -5,6 +5,7 @@ import { createTransitionDriver } from '../src/driver/transition-driver';
 import { createPageBufferPool } from '../src/painter/buffer-pool';
 import { createEmitter } from '../src/utils/event-emitter';
 import type { ReaderControllerEvents } from '../src/controller/types';
+import { transitionLifecycle } from '../src/controller/core/transition-lifecycle';
 
 const PRESENTATION = Symbol.for('@ritojs/core/browser/chapter-local-preview-presentation');
 
@@ -190,7 +191,9 @@ describe('chapter-local preview navigation', () => {
 
     scenario.td.forceSettle();
     expect(scenario.events.filter((event) => event === 'end:forward')).toHaveLength(1);
-    expect(scenario.events).not.toContain('end:backward');
+    // The fatal reset stops the rollback turn where it is: it ends then,
+    // while the page waits for its content.
+    expect(scenario.events.filter((event) => event === 'end:backward')).toHaveLength(1);
     expect(scenario.pool.curr.contentDirty).toBe(true);
 
     scenario.setContentReady(true);
@@ -449,7 +452,7 @@ function createScenario(options: ScenarioOptions = {}) {
       if (!runtimeActive || runtimeOpenVisualDirection !== direction) return;
       runtimeOpenVisualDirection = undefined;
       frameDriver.compositeNow();
-      emitter.emit('transitionEnd', { direction });
+      transitionLifecycle(emitter).end('committed');
     }),
     reopenVisual: vi.fn(
       (ownerDirection: 'forward' | 'backward', direction: 'forward' | 'backward') => {
@@ -471,7 +474,7 @@ function createScenario(options: ScenarioOptions = {}) {
       runtimeOpenVisualDirection = undefined;
       runtimeActive = false;
       frameDriver.compositeNow();
-      if (openVisualDirection) emitter.emit('transitionEnd', { direction: openVisualDirection });
+      if (openVisualDirection) transitionLifecycle(emitter).end('committed');
     }),
     cancel: vi.fn((direction: 'forward' | 'backward') => {
       if (!runtimeActive || runtimeOwnerDirection !== direction) return;

@@ -7,8 +7,8 @@ import type {
 } from './types';
 
 type SlotPositions = {
-  outgoing: 'curr' | 'prev' | 'next';
-  incoming: 'curr' | 'prev' | 'next' | null;
+  outgoing: 'curr';
+  incoming: 'prev' | 'next' | null;
 };
 
 /** Map mode to slot positions for draw instructions. */
@@ -31,9 +31,11 @@ export function stepSettling(
   mode: TransitionMode & { kind: 'settling' },
   opts: TransitionDriverOptions,
   dt: number,
+  instant = false,
 ): { nextMode: TransitionMode; instruction: DrawInstruction; settled?: SettledEvent } {
   const spring: SpringState = { x: mode.dx, vx: mode.vx };
-  const done = stepSpring(spring, mode.target, opts, dt);
+  // An instant effect lands on its first frame.
+  const done = instant || stepSpring(spring, mode.target, opts, dt);
   mode.dx = spring.x;
   mode.vx = spring.vx;
 

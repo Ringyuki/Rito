@@ -1,4 +1,5 @@
 import type { SlotPosition } from '../painter/types';
+import type { TransitionEffect, TransitionEffectName } from './effects';
 
 /** What the FrameDriver should draw each frame. */
 export type DrawInstruction =
@@ -6,7 +7,7 @@ export type DrawInstruction =
   | {
       readonly kind: 'turning';
       readonly outgoing: SlotPosition;
-      readonly incoming: SlotPosition | null;
+      readonly incoming: 'next' | 'prev' | null;
       readonly dx: number;
     };
 
@@ -56,6 +57,13 @@ export interface TransitionDriverOptions {
   readonly swipeThreshold: number;
   /** Rubber band coefficient (0-1) for boundary overscroll. */
   readonly elasticFactor: number;
+  /** How a turn looks: a built-in effect by name, or a custom one. */
+  readonly effect: TransitionEffectName | TransitionEffect;
+  /**
+   * When the user asks the system for reduced motion, turns cross-fade
+   * instead of moving (default true). Set false to keep `effect` as is.
+   */
+  readonly respectReducedMotion: boolean;
 }
 
 export const DEFAULT_TRANSITION_OPTIONS: TransitionDriverOptions = {
@@ -64,4 +72,6 @@ export const DEFAULT_TRANSITION_OPTIONS: TransitionDriverOptions = {
   velocityCommit: 0.4,
   swipeThreshold: 50,
   elasticFactor: 0.55,
+  effect: 'slide',
+  respectReducedMotion: true,
 };

@@ -15,6 +15,7 @@ import type { NavigationDeps } from '../index';
 import type { ProvisionalTransitionRuntime } from '../../runtime-frame';
 import { ownedPendingLocator, ownsPendingLocator } from './shared';
 import { continueResolvedLocatorNavigation } from '../locator-continuation';
+import { abortTransition, transitionLifecycle } from '../../core/transition-lifecycle';
 
 interface PresentationStartProgress {
   token: number | undefined;
@@ -82,7 +83,7 @@ function installPresentationStart(
   progress.runtimeBegan = true;
   deps.td.goToTarget(lease.direction, spreadIndex, spreadIndex);
   progress.transitionStarted = true;
-  deps.emitter.emit('transitionStart', { direction: lease.direction });
+  transitionLifecycle(deps.emitter).begin(lease.direction);
   deps.frameDriver.scheduleComposite();
   return true;
 }
@@ -121,7 +122,7 @@ function containPresentationStartFailure(
   error: unknown,
 ): void {
   const ownsActive = activeLocalPreview(machine)?.pending === pending;
-  if (ownsActive && progress.transitionStarted) deps.td.reset();
+  if (ownsActive && progress.transitionStarted) abortTransition(deps.td, deps.emitter);
   releaseFailedStage(
     deps,
     progress.token,

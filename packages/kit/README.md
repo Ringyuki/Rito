@@ -16,7 +16,7 @@ pnpm add @ritojs/core @ritojs/kit
 
 ```ts
 import { createReader } from '@ritojs/core';
-import { createController } from '@ritojs/kit';
+import { createController, springPresets } from '@ritojs/kit';
 
 const container = document.getElementById('reader');
 const canvas = document.createElement('canvas');
@@ -34,7 +34,7 @@ const reader = await createReader(epubData, canvas, {
 });
 
 const controller = createController(reader, canvas, {
-  transition: { stiffness: 180, damping: 22 },
+  transition: { ...springPresets.default, effect: 'slide' },
 });
 
 controller.mount(container);

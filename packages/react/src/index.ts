@@ -16,6 +16,8 @@ export {
   type ContainerSize,
   useReaderAutoResize,
   type ReaderAutoResizeOptions,
+  useReaderTransition,
+  type ReaderTransitionState,
   useControllerEvent,
 } from './hooks/index';
 

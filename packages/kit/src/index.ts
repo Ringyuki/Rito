@@ -33,6 +33,14 @@ export { parseReadingPosition } from './interaction/index';
 
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';
+export {
+  springPresets,
+  transitionEffects,
+  type TransitionEffect,
+  type TransitionEffectName,
+  type TransitionFrame,
+  type TransitionLayer,
+} from './driver/effects';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';
 export { createDisposableCollection, type DisposableCollection } from './utils/disposable';

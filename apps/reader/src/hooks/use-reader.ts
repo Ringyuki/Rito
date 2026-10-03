@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
-import type { ReaderControllerEvents } from '@ritojs/kit';
+import { springPresets, type ReaderControllerEvents, type TransitionEffectName } from '@ritojs/kit';
 import {
   useAnnotations,
   useControllerEvent,
+  useReaderTransition,
   useReadingPosition,
   useRitoReader,
   useSearch,
@@ -34,6 +35,7 @@ export function useReader(
 ) {
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
   const typography = useTypography();
+  const [pageTurn, setPageTurnState] = useState<TransitionEffectName>('slide');
 
   // Everything a book opens with — size, spread, theme, typography — goes
   // in here, so it lays out once, already styled.
@@ -48,7 +50,7 @@ export function useReader(
       ...typographyReaderOptions(typography.typography),
     },
     controller: {
-      transition: { stiffness: 180, damping: 22 },
+      transition: { ...springPresets.default, effect: pageTurn },
       positionStorage: storage.positionStorage,
       annotationStorage: storage.annotationStorage,
       a11y: { enabled: true },
@@ -70,7 +72,7 @@ export function useReader(
   const annotations = useAnnotations(controller);
   const position = useReadingPosition(controller);
   const fonts = useReaderFonts(controller, rito.isLoaded);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transition = useReaderTransition(controller);
   const [renderScale, setRenderScaleState] = useState(1);
 
   const [pendingLink, setPendingLink] = useState<ReaderControllerEvents['linkClick'] | null>(null);
@@ -91,19 +93,12 @@ export function useReader(
   useControllerEvent(controller, 'searchOpen', () => {
     setSearchOpen(true);
   });
-  useControllerEvent(controller, 'transitionStart', () => {
-    setIsTransitioning(true);
-  });
-  useControllerEvent(controller, 'transitionEnd', () => {
-    setIsTransitioning(false);
-  });
   // The controller's errors are non-fatal: the book stays open.
   useControllerEvent(controller, 'error', ({ message, source }) => {
     if (source !== 'font-family') toast.error(message, { description: source });
   });
 
   useEffect(() => {
-    setIsTransitioning(false);
     setRenderScaleState(1);
   }, [controller]);
 
@@ -158,6 +153,15 @@ export function useReader(
     [controller, spreadMode],
   );
 
+  // How pages turn; a reader on "reduced motion" gets a cross-fade anyway.
+  const setPageTurn = useCallback(
+    (effect: TransitionEffectName) => {
+      setPageTurnState(effect);
+      controller?.configureTransition({ effect });
+    },
+    [controller],
+  );
+
   const setRenderScale = useCallback(
     (scale: number) => {
       setRenderScaleState(scale);
@@ -189,7 +193,9 @@ export function useReader(
     setSpreadMode,
     renderScale,
     setRenderScale,
-    isTransitioning,
+    isTransitioning: transition.isTransitioning,
+    pageTurn,
+    setPageTurn,
     bookTitle: rito.metadata?.title ?? '',
     activeTocEntry,
     loadFromArrayBuffer,

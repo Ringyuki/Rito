@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { FontFamilyCombobox } from '@/components/font-family-combobox';
 import type { ReaderFonts } from '@/hooks/use-reader-fonts';
+import type { TransitionEffectName } from '@ritojs/kit';
 
 export interface ReaderSettings {
   /** Root font size in px, passed to `setTypography`; changing it re-lays the text. */
@@ -32,7 +33,16 @@ export interface ReaderSettings {
   theme: 'light' | 'dark';
   /** Canvas zoom (`setRenderScale`): sharper glyphs, same pagination. */
   renderScale: number;
+  /** How pages turn (`configureTransition({ effect })`). */
+  pageTurn: TransitionEffectName;
 }
+
+const PAGE_TURNS: SegmentedOption<TransitionEffectName>[] = [
+  { value: 'slide', label: 'Slide' },
+  { value: 'cover', label: 'Cover' },
+  { value: 'fade', label: 'Fade' },
+  { value: 'none', label: 'None' },
+];
 
 const ZOOM_LEVELS = [
   { value: '1', label: '100%' },
@@ -53,6 +63,7 @@ interface SettingsPanelProps {
   onFontFamilyForceChange: (value: boolean) => void;
   fonts: ReaderFonts;
   onRenderScaleChange: (value: number) => void;
+  onPageTurnChange: (value: TransitionEffectName) => void;
   onSpreadModeChange: (value: 'single' | 'double') => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onRestoreDefaults: () => void;
@@ -70,6 +81,7 @@ export function SettingsPanel({
   onFontFamilyForceChange,
   fonts,
   onRenderScaleChange,
+  onPageTurnChange,
   onSpreadModeChange,
   onThemeChange,
   onRestoreDefaults,
@@ -194,6 +206,14 @@ export function SettingsPanel({
                 { value: 'single', label: 'Single Page' },
                 { value: 'double', label: 'Double Page' },
               ]}
+            />
+          </Section>
+
+          <Section label="Page Turn">
+            <SegmentedControl
+              value={settings.pageTurn}
+              onChange={onPageTurnChange}
+              options={PAGE_TURNS}
             />
           </Section>
 

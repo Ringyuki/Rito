@@ -8,6 +8,7 @@ import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from '
 import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
 import { invalidateNativeSearchLayout } from '../search-resolution';
 import { reportUnresolvedFontFamilies } from './font-actions';
+import { abortTransition } from '../core/transition-lifecycle';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -104,7 +105,13 @@ export function commitLayoutChange(
   const previousSpread = internals.currentSpread;
   let committedSpread: number;
   try {
-    committedSpread = applyLayoutCommitMutation(internals, runtime, anchor, committedSpreadIndex);
+    committedSpread = applyLayoutCommitMutation(
+      internals,
+      emitter,
+      runtime,
+      anchor,
+      committedSpreadIndex,
+    );
   } finally {
     finishChapterLocalTransition?.();
   }
@@ -116,6 +123,7 @@ export function commitLayoutChange(
 
 function applyLayoutCommitMutation(
   internals: Internals,
+  emitter: Emitter,
   runtime: RuntimeComponents,
   anchor: ReadingPosition | null | undefined,
   committedSpreadIndex: number | undefined,
@@ -138,7 +146,8 @@ function applyLayoutCommitMutation(
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
-  runtime.td.reset();
+  // A turn in flight cannot land on the old layout: it ends interrupted.
+  abortTransition(runtime.td, emitter);
   const committedSpread = internals.currentSpread;
   installLayoutPositionMode(internals, positionPlan, preserved, committedSpread);
   invalidateSelectionForLayout(internals);

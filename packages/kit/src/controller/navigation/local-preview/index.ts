@@ -29,6 +29,7 @@ import {
   tryFinishRestoredMount,
 } from './terminal';
 import type { NavigationDeps } from '../index';
+import { abortTransition } from '../../core/transition-lifecycle';
 
 export { resumeQueuedChapterLocalNavigation };
 
@@ -188,7 +189,7 @@ export function terminateChapterLocalTransitionForLayout(
 ): (() => void) | undefined {
   const active = activeLocalPreview(machine);
   if (!active) return undefined;
-  deps.td.reset();
+  abortTransition(deps.td, deps.emitter);
   releaseProvisionalForTerminalMutation(deps, active);
   finishChapterLocalLease(active);
   dismissLocalPreview(machine);

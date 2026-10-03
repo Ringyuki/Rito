@@ -49,6 +49,7 @@ import {
   useReaderAutoResize,
   useRitoReader,
 } from '@ritojs/react';
+import { springPresets } from '@ritojs/kit';
 import { pinnedFontPolicy } from './pinned-fonts'; // app-owned font bytes + digests
 
 export function App() {
@@ -66,7 +67,7 @@ export function App() {
       fontFamily: 'serif',
     },
     controller: {
-      transition: { stiffness: 180, damping: 22 },
+      transition: { ...springPresets.default, effect: 'slide' },
     },
   });
   // Re-paginates on every container size change after the book is loaded.
@@ -142,6 +143,13 @@ To add a face while a book is open (a system font, a file the reader imported),
 use `controller.addFontFaces()`; `controller.fonts()` lists every family a
 `font-family` choice can name, which is what a font picker should be built from.
 See [Fonts](../api/reader.md#fonts) for how families resolve.
+
+## `useReaderTransition`
+
+`useReaderTransition(controller)` returns `{ isTransitioning, direction }` from the
+controller's `transitionStart` / `transitionEnd`, for hiding chrome or deferring work while
+a page moves. Every start is answered by exactly one end, so it never sticks, and it resets
+when the controller is replaced.
 
 ## `Reader`
 

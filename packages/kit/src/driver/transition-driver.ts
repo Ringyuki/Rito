@@ -20,6 +20,7 @@ import type {
   TransitionMode,
 } from './types';
 import { DEFAULT_TRANSITION_OPTIONS } from './types';
+import { resolveTransitionEffect, transitionEffects, type TransitionEffect } from './effects';
 
 /**
  * Pure JS transition state machine with spring physics.
@@ -32,6 +33,13 @@ export interface TransitionDriver {
   readonly isAnimating: boolean;
   /** The viewport width used for displacement calculations. */
   viewportWidth: number;
+  /**
+   * How turns look: the configured effect, or a cross-fade while the
+   * system asks for reduced motion (unless `respectReducedMotion` is off).
+   */
+  readonly effect: TransitionEffect;
+  /** Whether the system asks for reduced motion. */
+  reducedMotion: boolean;
 
   /** Begin gesture tracking after direction lock. */
   startTracking(
@@ -90,6 +98,7 @@ export function createTransitionDriver(
     opts: { ...DEFAULT_TRANSITION_OPTIONS, ...options },
     mode: { kind: 'idle' },
     viewportWidth: 0,
+    reducedMotion: false,
     velocitySamples: [],
     settledListeners: new Set<(event: SettledEvent) => void>(),
   };
@@ -105,8 +114,17 @@ export function createTransitionDriver(
 
 function createDriverAccessors(
   state: TransitionDriverState,
-): Pick<TransitionDriver, 'mode' | 'isAnimating' | 'viewportWidth'> {
+): Pick<TransitionDriver, 'mode' | 'isAnimating' | 'viewportWidth' | 'effect' | 'reducedMotion'> {
   return {
+    get effect() {
+      return effectiveEffect(state);
+    },
+    get reducedMotion() {
+      return state.reducedMotion;
+    },
+    set reducedMotion(value: boolean) {
+      state.reducedMotion = value;
+    },
     get mode() {
       return state.mode;
     },
@@ -192,7 +210,10 @@ function stepTransition(state: TransitionDriverState, dt: number): DrawInstructi
     case 'tracking':
       return { kind: 'turning', ...getSlotPositions(state.mode), dx: state.mode.dx };
     case 'settling':
-      return applyStepResult(state, stepSettling(state.mode, state.opts, dt));
+      return applyStepResult(
+        state,
+        stepSettling(state.mode, state.opts, dt, effectiveEffect(state).instant),
+      );
     case 'boundary-elastic':
       return applyStepResult(state, stepBoundaryElastic(state.mode, state.opts, dt));
   }
@@ -205,6 +226,11 @@ function applyStepResult(
   state.mode = result.nextMode;
   if (result.settled) emitSettled(state, result.settled);
   return result.instruction;
+}
+
+function effectiveEffect(state: TransitionDriverState): TransitionEffect {
+  if (state.reducedMotion && state.opts.respectReducedMotion) return transitionEffects.fade;
+  return resolveTransitionEffect(state.opts.effect);
 }
 
 function forceSettle(state: TransitionDriverState): number {

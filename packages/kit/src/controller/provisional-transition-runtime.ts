@@ -4,6 +4,7 @@ import type { ContentRenderer, PageBufferPool } from '../painter/buffer-pool';
 import type { Internals } from './core/internals';
 import type { Emitter } from './facade/types';
 import type { PrerenderScheduler } from './prerender';
+import { transitionLifecycle } from './core/transition-lifecycle';
 
 type TransitionDirection = 'forward' | 'backward';
 
@@ -124,8 +125,8 @@ export function createProvisionalTransitionRuntime(
   };
   return new ProvisionalTransitionState(
     prerenderScheduler,
-    (direction) => {
-      settleProvisionalVisual(direction, completion);
+    () => {
+      settleProvisionalVisual(completion);
     },
     (openVisualDirection) => {
       completeProvisionalRuntime(openVisualDirection, completion);
@@ -149,7 +150,7 @@ function completeProvisionalRuntime(
   } finally {
     try {
       if (openVisualDirection) {
-        completion.emitter.emit('transitionEnd', { direction: openVisualDirection });
+        transitionLifecycle(completion.emitter).end('committed');
       }
     } finally {
       completion.frameDriver.scheduleComposite();
@@ -157,15 +158,12 @@ function completeProvisionalRuntime(
   }
 }
 
-function settleProvisionalVisual(
-  direction: TransitionDirection,
-  completion: ProvisionalCompletion,
-): void {
+function settleProvisionalVisual(completion: ProvisionalCompletion): void {
   try {
     completion.frameDriver.compositeNow();
   } finally {
     try {
-      completion.emitter.emit('transitionEnd', { direction });
+      transitionLifecycle(completion.emitter).end('committed');
     } finally {
       completion.frameDriver.scheduleComposite();
     }

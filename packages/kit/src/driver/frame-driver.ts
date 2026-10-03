@@ -3,6 +3,7 @@ import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painte
 import type { SlotPosition } from '../painter/types';
 import type { TransitionDriver } from './transition-driver';
 import type { DrawInstruction } from './types';
+import type { TransitionLayer } from './effects';
 
 export interface FrameDriverDeps {
   readonly surface: DisplaySurface;
@@ -234,43 +235,59 @@ function drawTurningFrame(
   width: number,
   height: number,
 ): void {
-  const { outgoing, incoming, dx } = instruction;
-  if (!ensureSlotReady(deps, outgoing)) return;
-  const pxDx = Math.round(dx * (width / (deps.transitionDriver.viewportWidth || width)));
+  const scale = width / (deps.transitionDriver.viewportWidth || width);
+  const layers = deps.transitionDriver.effect.layers({
+    dx: instruction.dx * scale,
+    width,
+    incoming: instruction.incoming,
+  });
+  // The outgoing page must be drawable before anything changes on screen.
+  if (!ensureSlotReady(deps, 'curr')) return;
+  const ready = layers.filter((layer) => ensureSlotReady(deps, layer.slot));
   deps.surface.clear();
-  drawContinuitySlot(deps, instruction, pxDx, width, height);
-  drawSlotAt(deps, outgoing, pxDx, width, height);
-  if (!incoming) return;
-  const incomingX = pxDx + (incoming === 'next' ? width : -width);
-  if (!ensureSlotReady(deps, incoming)) return;
-  drawSlotAt(deps, incoming, incomingX, width, height);
+  for (const layer of ready) drawLayer(deps, layer, width, height);
 }
 
-function drawContinuitySlot(
+function drawLayer(
   deps: FrameDriverDeps,
-  instruction: Extract<DrawInstruction, { kind: 'turning' }>,
-  pxDx: number,
+  layer: TransitionLayer,
   width: number,
   height: number,
 ): void {
-  const carry = continuitySlot(instruction, pxDx, width);
-  if (!carry) return;
-  if (!ensureSlotReady(deps, carry.slot)) return;
-  drawSlotAt(deps, carry.slot, carry.x, width, height);
+  const ctx = deps.surface.ctx;
+  const x = Math.round(layer.x);
+  const opacity = layer.opacity ?? 1;
+  if (opacity <= 0) return;
+  if (layer.shadow) {
+    drawEdgeShadow(ctx, layer.shadow === 'left' ? x : x + width, layer.shadow, height);
+  }
+  if (opacity >= 1) {
+    drawSlotAt(deps, layer.slot, x, width, height);
+    return;
+  }
+  const alpha = ctx.globalAlpha;
+  ctx.globalAlpha = alpha * opacity;
+  try {
+    drawSlotAt(deps, layer.slot, x, width, height);
+  } finally {
+    ctx.globalAlpha = alpha;
+  }
 }
 
-function continuitySlot(
-  instruction: Extract<DrawInstruction, { kind: 'turning' }>,
-  pxDx: number,
-  width: number,
-): { readonly slot: SlotPosition; readonly x: number } | null {
-  if (instruction.incoming === 'next' && pxDx > 0) {
-    return { slot: 'prev', x: pxDx - width };
-  }
-  if (instruction.incoming === 'prev' && pxDx < 0) {
-    return { slot: 'next', x: pxDx + width };
-  }
-  return null;
+/** The soft shadow a sheet casts on the page beneath it, from one edge. */
+function drawEdgeShadow(
+  ctx: DisplaySurface['ctx'],
+  edgeX: number,
+  side: 'left' | 'right',
+  height: number,
+): void {
+  const reach = 24;
+  const to = side === 'left' ? edgeX - reach : edgeX + reach;
+  const gradient = ctx.createLinearGradient(edgeX, 0, to, 0);
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 0.18)');
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(Math.min(edgeX, to), 0, reach, height);
 }
 
 function drawSlotAt(

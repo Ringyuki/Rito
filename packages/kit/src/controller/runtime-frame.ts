@@ -17,6 +17,7 @@ export {
   createProvisionalTransitionRuntime,
   type ProvisionalTransitionRuntime,
 } from './provisional-transition-runtime';
+import { transitionLifecycle } from './core/transition-lifecycle';
 
 interface RuntimeFrameParts {
   readonly contentRenderer: ContentRenderer;
@@ -116,7 +117,7 @@ export function wireSettledEvents(
       restoreCanceledTransition(internals, emitter, reader, event.targetSpread);
     }
     if (!transitionDriver.isAnimating) {
-      emitter.emit('transitionEnd', { direction: event.direction });
+      transitionLifecycle(emitter).end(event.committed ? 'committed' : 'cancelled');
     }
     frameDriver.scheduleComposite();
   });

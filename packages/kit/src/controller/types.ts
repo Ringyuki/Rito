@@ -106,8 +106,17 @@ export interface ReaderControllerEvents {
   annotationHover: { annotation: ResolvedAnnotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
+  /** A page turn became visible. Exactly one `transitionEnd` follows. */
   transitionStart: { direction: 'forward' | 'backward' };
-  transitionEnd: { direction: 'forward' | 'backward' };
+  /**
+   * The visible turn ended: it landed on its target (`committed`), went
+   * back where it started (`cancelled`), or was cut off by a relayout, a
+   * jump or another turn (`interrupted`).
+   */
+  transitionEnd: {
+    direction: 'forward' | 'backward';
+    outcome: 'committed' | 'cancelled' | 'interrupted';
+  };
   /** Link clicked. Call `navigate()` to execute internal navigation. */
   linkClick: {
     href: string;
