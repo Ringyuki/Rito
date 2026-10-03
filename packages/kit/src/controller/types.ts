@@ -277,6 +277,8 @@ export interface ReaderController {
   updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
   readonly annotations: readonly AnnotationRecord[];
 
+  /** The position last published by `positionChange` (a beat after its spread); null before. */
+  readonly position: ReadingPosition | null;
   /** Restore a preloaded serialized position, or load it from positionStorage when omitted. */
   restorePosition(serialized?: string | null): Promise<number | undefined>;
   /** Rejects during action setup, an owned restore load, or an active adapter write. */

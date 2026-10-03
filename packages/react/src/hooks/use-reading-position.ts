@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReaderController, ReadingPosition } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
@@ -10,8 +10,15 @@ export function useReadingPosition(controller: ReaderController | null): Reading
   save: () => Promise<void>;
   restore: () => Promise<number | undefined>;
 } {
-  const [position, setPosition] = useState<ReadingPosition | null>(null);
+  const [position, setPosition] = useState<ReadingPosition | null>(
+    () => controller?.position ?? null,
+  );
 
+  // A new controller (another book) starts from its own position, never
+  // the previous book's.
+  useEffect(() => {
+    setPosition(controller?.position ?? null);
+  }, [controller]);
   useControllerEvent(controller, 'positionChange', ({ position: pos }) => {
     setPosition(pos);
   });

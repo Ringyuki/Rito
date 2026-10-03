@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronsUpDown, FileUp, Loader2, X } from 'lucide-react';
 import type { ReaderFontFamily } from '@ritojs/core';
 import {
@@ -57,6 +57,13 @@ export function FontFamilyCombobox({ value, onChange, fonts }: FontFamilyCombobo
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Adding a font takes a while (its bytes are read, hashed and registered)
+  // before it can be chosen. Any newer choice — here, or the value changing
+  // from outside — cancels choosing it.
+  const pendingChoice = useRef<AbortController | null>(null);
+  useEffect(() => {
+    pendingChoice.current?.abort();
+  }, [value]);
 
   const families = fonts.catalog?.families ?? [];
   const readerChoices = families
@@ -78,20 +85,34 @@ export function FontFamilyCombobox({ value, onChange, fonts }: FontFamilyCombobo
   const normalizedSearch = normalizeSearchValue(search);
   const visible = (choices: readonly FontChoice[]) =>
     choices.filter((choice) => matchesSearch(normalizedSearch, choice.label));
-  const visibleSystem = system.fonts.filter((font) =>
-    matchesSearch(normalizedSearch, buildSystemFontSearchValue(font)),
+  // Previews and search text are worked out once per list, not per keystroke.
+  const systemChoices = useMemo(
+    () =>
+      system.fonts.map((font) => ({
+        font,
+        preview: getSystemFontPreview(font),
+        search: normalizeSearchValue(buildSystemFontSearchValue(font)),
+      })),
+    [system.fonts],
+  );
+  const visibleSystem = systemChoices.filter(
+    (choice) => normalizedSearch.length === 0 || choice.search.includes(normalizedSearch),
   );
 
   const pick = (next: string | null) => {
+    pendingChoice.current?.abort();
     onChange(next);
     setOpen(false);
     setSearch('');
   };
   const addAndPick = async (label: string, load: () => Promise<ArrayBuffer>) => {
     setAdding(label);
+    pendingChoice.current?.abort();
+    const choice = new AbortController();
+    pendingChoice.current = choice;
     try {
       const next = await fonts.addFont(await load(), label);
-      if (next !== null) pick(next);
+      if (next !== null && !choice.signal.aborted) pick(next);
     } finally {
       setAdding(null);
     }
@@ -178,18 +199,20 @@ export function FontFamilyCombobox({ value, onChange, fonts }: FontFamilyCombobo
                 <FileUp className="h-4 w-4" />
                 Import a font file (.ttf, .otf)…
               </CommandItem>
-              {visibleSystem.map((font) => (
+              {visibleSystem.map(({ font, preview }) => (
                 <CommandItem
                   key={font.family}
                   value={`system:${font.family}`}
-                  className="py-2.5"
+                  // Off-screen options skip layout, so the browser loads a
+                  // system font only when its preview scrolls into view.
+                  className="py-2.5 [contain-intrinsic-size:auto_44px] [content-visibility:auto]"
                   disabled={adding !== null}
                   onSelect={() => {
                     void addAndPick(font.family, font.load);
                   }}
                 >
                   <FontPreviewText
-                    preview={getSystemFontPreview(font)}
+                    preview={preview}
                     fontFamily={font.cssValue}
                     className="min-w-0 grow"
                   />
@@ -273,15 +296,7 @@ function SystemFontsStatus({
 }
 
 function getSystemFontPreview(font: SystemFontEntry): FontPreviewSpec {
-  if (font.displayLang || font.secondaryName || !sameText(font.displayName, font.family)) {
-    return {
-      primaryText: font.displayName,
-      ...(font.secondaryName ? { secondaryText: font.secondaryName } : {}),
-      ...(font.displayLang ? { lang: font.displayLang } : {}),
-    };
-  }
-
-  return getFontPreviewSpec(font.family, font.displayName);
+  return getFontPreviewSpec(font.family, font.family);
 }
 
 function FontPreviewText({
@@ -312,8 +327,6 @@ function FontPreviewText({
 function buildSystemFontSearchValue(font: SystemFontEntry): string {
   const preview = getSystemFontPreview(font);
   return buildSearchValue([
-    font.displayName,
-    font.secondaryName,
     font.family,
     font.fullName,
     font.postscriptName,
@@ -324,10 +337,6 @@ function buildSystemFontSearchValue(font: SystemFontEntry): string {
 
 function buildSearchValue(parts: readonly (string | undefined | null)[]): string {
   return parts.filter(Boolean).join(' ');
-}
-
-function sameText(left: string, right: string): boolean {
-  return left.localeCompare(right, undefined, { sensitivity: 'accent' }) === 0;
 }
 
 function matchesSearch(search: string, candidate: string): boolean {

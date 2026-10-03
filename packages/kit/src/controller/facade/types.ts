@@ -59,7 +59,7 @@ export type AnnotationActionsSlice = Pick<
 >;
 export type PositionActionsSlice = Pick<
   ReaderController,
-  'restorePosition' | 'savePosition' | 'goToPosition'
+  'position' | 'restorePosition' | 'savePosition' | 'goToPosition'
 >;
 export type Keyboard = KeyboardManager;
 export type MiscSlice = Pick<

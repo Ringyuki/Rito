@@ -213,7 +213,10 @@ restores it through the asynchronous `goToPosition`
 target, but under the fragment engine durable source-locator projection
 currently resolves unavailable (see the limitations page), so persistence and
 restore operate on page-indexed positions today. Newer user navigation and
-disposal abort an in-flight restore.
+disposal abort an in-flight restore. `controller.position` is the position last
+published by `positionChange`; it resolves a beat after the spread it describes, so
+UI showing where the reader is (a chapter, a page number, a percentage) should read
+all of it from the position rather than mix it with `spreadChange`.
 Position action promises preserve completion semantics: an awaited `savePosition()`
 means the exact position has settled and the adapter write has completed. Storage
 adapter `load()` and `save()` callbacks must therefore not call controller position

@@ -25,6 +25,9 @@ export function buildPositionActions(
     }
   };
   return {
+    get position() {
+      return internals.engines.position?.getCurrent() ?? null;
+    },
     restorePosition: (serialized) => {
       const restoreId = ++latestRestoreId;
       return holdFirstCompositeDuring(frameDriver, (releaseFirstComposite) =>
