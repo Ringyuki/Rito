@@ -51,6 +51,8 @@ function writeLayout(writer, value) {
     writer.string(family, 'font family override'),
   );
   writer.f64(value.renderRatio ?? 1, 'render ratio');
+  writer.bool(value.lineHeightForce ?? true);
+  writer.bool(value.fontFamilyForce ?? true);
 }
 
 export function writeRitoReaderLocator(writer, value) {

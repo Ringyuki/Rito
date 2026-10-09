@@ -79,3 +79,5 @@ mod layout_tests;
 mod shard_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod typography_tests;

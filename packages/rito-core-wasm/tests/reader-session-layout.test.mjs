@@ -255,3 +255,51 @@ test('client reaches a spread by position and commits it like a peeked turn', as
   });
   assert.equal((await committing).visibleArtifactId, 42n);
 });
+
+test('an artifact request encodes to the Rust bytes, force flags included', async () => {
+  const { encodeRitoReaderArtifactRequest } =
+    await import('../src/reader-session-request-runtime.js');
+  const fixtures = readFileSync(
+    new URL(
+      '../../../crates/rito-core/src/runtime/reader_session/typography_tests.rs',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const match = /const ARTIFACT_REQUEST_HEX: &str =\s*concat!\(([^)]*)\)/.exec(fixtures);
+  const hex = [...match[1].matchAll(/"([0-9a-f]*)"/g)].map((part) => part[1]).join('');
+  const expected = Uint8Array.from(hex.match(/../g).map((byte) => Number.parseInt(byte, 16)));
+  const layout = {
+    viewportWidth: 393,
+    viewportHeight: 760,
+    marginTop: 24,
+    marginRight: 20,
+    marginBottom: 24,
+    marginLeft: 20,
+    spreadMode: 'double',
+    firstPageAlone: true,
+    spreadGap: 20,
+    rootFontSize: 18,
+    lineHeightOverride: 1.5,
+    fontFamilyOverride: 'serif',
+    lineHeightForce: false,
+    fontFamilyForce: true,
+    renderRatio: 3,
+  };
+  const request = {
+    sessionId: 7n,
+    requestId: 12n,
+    layout,
+    locator: { href: 'OEBPS/chapter-2.xhtml', progression: 0.25 },
+    textProfile: 'platform-string-runs',
+  };
+  assert.deepEqual(encodeRitoReaderArtifactRequest(request), expected);
+  // A layout that does not say forces both overrides.
+  const unspecified = { ...layout };
+  delete unspecified.lineHeightForce;
+  delete unspecified.fontFamilyForce;
+  const defaulted = encodeRitoReaderArtifactRequest({ ...request, layout: unspecified });
+  const flagsOffset = 44 + Number(new DataView(expected.buffer).getBigUint64(36, true)) - 2;
+  assert.deepEqual([...defaulted.subarray(flagsOffset, flagsOffset + 2)], [1, 1]);
+  assert.deepEqual([...expected.subarray(flagsOffset, flagsOffset + 2)], [0, 1]);
+});

@@ -16,6 +16,8 @@ final class RitoLayoutRequest {
     required this.rootFontSize,
     this.lineHeightOverride,
     this.fontFamilyOverride,
+    this.lineHeightForce = true,
+    this.fontFamilyForce = true,
     this.renderRatio,
   });
 
@@ -30,12 +32,23 @@ final class RitoLayoutRequest {
   final double spreadGap;
   final double rootFontSize;
 
-  /// Reader line-height, applied as a UA `line-height: <value>
-  /// !important` over the whole publication. It is a **unitless CSS
-  /// scale relative to font size** — 1.5 means 1.5x, not 1.5px — so it
-  /// is the "line height scale" a reader setting exposes. Null leaves
-  /// the book's own line heights alone.
+  /// Reader line-height, applied as `line-height: <value>` over the whole
+  /// publication. It is a **unitless CSS scale relative to font size** —
+  /// 1.5 means 1.5x, not 1.5px — so it is the "line height scale" a
+  /// reader setting exposes. Null leaves the book's own line heights
+  /// alone. [lineHeightForce] decides how far it reaches.
   final double? lineHeightOverride;
+
+  /// Whether [lineHeightOverride] outranks the publication's own
+  /// declarations (`!important`, the default). Unforced, a rule the book
+  /// wrote for an element keeps its value and only text that inherits
+  /// takes the reader's. Ignored without an override.
+  final bool lineHeightForce;
+
+  /// The same choice for [fontFamilyOverride]: forced (the default) it
+  /// replaces the book's own families everywhere; unforced, a title or an
+  /// icon span the author gave a face keeps it.
+  final bool fontFamilyForce;
 
   /// Device pixels per CSS pixel the artifact is rasterized at. Every
   /// raster snap in the display list lands on that grid; pagination is
@@ -58,12 +71,15 @@ final class RitoLayoutRequest {
     rootFontSize: rootFontSize,
     lineHeightOverride: lineHeightOverride,
     fontFamilyOverride: fontFamilyOverride,
+    lineHeightForce: lineHeightForce,
+    fontFamilyForce: fontFamilyForce,
     renderRatio: renderRatio,
   );
 
-  /// Reader font family, applied as `font-family: <list> !important` over
-  /// the whole publication, so it replaces the book's own families rather
-  /// than sitting behind them. The value is a **CSS font-family list**:
+  /// Reader font family, applied as `font-family: <list>` over the whole
+  /// publication; forced (see [fontFamilyForce], the default) it replaces
+  /// the book's own families rather than sitting behind them. The value
+  /// is a **CSS font-family list**:
   /// `'Noto Serif JP, serif'` is valid and preferred.
   ///
   /// Each name resolves like a browser resolves it against installed

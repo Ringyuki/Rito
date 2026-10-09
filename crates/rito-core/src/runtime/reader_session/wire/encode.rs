@@ -327,7 +327,10 @@ fn layout(writer: &mut Writer, value: &ReaderLayout) -> Result<(), ReaderError> 
         writer.option(value.font_family_override.as_ref(), |writer, value| {
             writer.string(value, "font family override")
         })?;
-        writer.f64(value.render_ratio, "render ratio")
+        writer.f64(value.render_ratio, "render ratio")?;
+        writer.bool(value.line_height_force);
+        writer.bool(value.font_family_force);
+        Ok(())
     })
 }
 

@@ -1063,6 +1063,8 @@ pub(super) fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArt
             root_font_size: 16.0,
             line_height_override: None,
             font_family_override: None,
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: ReaderLocator {
             href: href.to_owned(),
@@ -1629,6 +1631,8 @@ fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayout {
         root_font_size: config.root_font_size,
         line_height_override: config.line_height_override,
         font_family_override: config.font_family_override.clone(),
+        line_height_force: true,
+        font_family_force: true,
     }
 }
 

@@ -17,7 +17,6 @@ pub(super) fn layout_config(value: ReaderLayout) -> Result<LayoutConfig, ReaderE
         ReaderSpreadMode::Single => SpreadMode::Single,
         ReaderSpreadMode::Double => SpreadMode::Double,
     };
-    let force_family = value.font_family_override.is_some();
     Ok(create_layout_config(LayoutConfigInput {
         width: value.viewport_width,
         height: value.viewport_height,
@@ -32,9 +31,12 @@ pub(super) fn layout_config(value: ReaderLayout) -> Result<LayoutConfig, ReaderE
         spread_gap: value.spread_gap,
         root_font_size: value.root_font_size,
         line_height_override: value.line_height_override,
-        line_height_force: value.line_height_override.map(|_| true),
+        line_height_force: value.line_height_override.map(|_| value.line_height_force),
+        font_family_force: value
+            .font_family_override
+            .as_ref()
+            .map(|_| value.font_family_force),
         font_family_override: value.font_family_override,
-        font_family_force: force_family.then_some(true),
     }))
 }
 

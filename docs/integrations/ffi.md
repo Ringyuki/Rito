@@ -89,6 +89,12 @@ paint domain grows, and a stale decoder misreads the byte stream.
   is not laid out), and orders two source positions in reading order. Use
   it for chapter titles, bookmark checks and turn direction rather than
   matching hrefs or comparing node paths yourself.
+- **A typography override says how far it reaches.** The layout a
+  `RITOREQ1` request carries has a line-height and a font-family override,
+  each with a force flag. Forced, the override outranks the publication's
+  own declarations everywhere. Unforced, a rule the book wrote for an
+  element keeps its value and only text that inherits takes the reader's —
+  a title or an icon span the author gave a face keeps it.
 - **A revision's page table is one query, and any spread of it one call.**
   The layout query of `rito_resolve_navigation` returns the page table of
   the revision behind an artifact: its spreads (left page, and the right

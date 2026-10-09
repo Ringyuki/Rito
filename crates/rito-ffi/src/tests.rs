@@ -955,6 +955,8 @@ pub(crate) fn request(session_id: u64) -> ReaderArtifactRequest {
             root_font_size: 16.0,
             line_height_override: None,
             font_family_override: None,
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: ReaderLocator {
             href: "OEBPS/Text/Section001.xhtml".to_owned(),

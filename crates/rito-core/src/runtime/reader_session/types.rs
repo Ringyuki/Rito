@@ -138,6 +138,13 @@ pub struct ReaderLayout {
     pub root_font_size: f64,
     pub line_height_override: Option<f64>,
     pub font_family_override: Option<String>,
+    /// Whether the line-height override outranks the publication's own
+    /// declarations. Unforced, it loses to them: a rule the book wrote for
+    /// an element keeps its value and only text that inherits takes the
+    /// reader's. Ignored without an override.
+    pub line_height_force: bool,
+    /// The same choice for the font-family override.
+    pub font_family_force: bool,
     /// Device pixels per CSS pixel the host rasterizes this artifact at.
     /// Every raster snap in the display list lands on that grid. It is a
     /// paint parameter, not a layout one: pagination, page counts and

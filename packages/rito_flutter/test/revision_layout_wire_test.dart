@@ -10,10 +10,10 @@ final String _rustFixtures = File(
   '../../crates/rito-core/src/runtime/reader_session/layout_tests.rs',
 ).readAsStringSync();
 
-Uint8List _rustHex(String name) {
+Uint8List _rustHex(String name, [String? source]) {
   final match = RegExp(
     'const $name: &str =\\s*concat!\\(([^)]*)\\)',
-  ).firstMatch(_rustFixtures);
+  ).firstMatch(source ?? _rustFixtures);
   if (match == null) {
     throw StateError('Rust fixture $name is missing');
   }
@@ -62,6 +62,48 @@ void main() {
       ),
       throwsFormatException,
     );
+  });
+
+  test('an artifact request encodes to the Rust bytes, force flags included', () {
+    final expected = _rustHex(
+      'ARTIFACT_REQUEST_HEX',
+      File(
+        '../../crates/rito-core/src/runtime/reader_session/typography_tests.rs',
+      ).readAsStringSync(),
+    );
+    const layout = RitoLayoutRequest(
+      viewportWidth: 393,
+      viewportHeight: 760,
+      marginTop: 24,
+      marginRight: 20,
+      marginBottom: 24,
+      marginLeft: 20,
+      spreadMode: RitoSpreadMode.double,
+      firstPageAlone: true,
+      spreadGap: 20,
+      rootFontSize: 18,
+      lineHeightOverride: 1.5,
+      fontFamilyOverride: 'serif',
+      lineHeightForce: false,
+      renderRatio: 3,
+    );
+    expect(
+      encoder.encode(
+        const RitoArtifactRequest(
+          sessionId: 7,
+          requestId: 12,
+          layout: layout,
+          locator: RitoLocator(
+            href: 'OEBPS/chapter-2.xhtml',
+            progression: 0.25,
+          ),
+        ),
+      ),
+      equals(expected),
+    );
+    // A layout that does not say forces both overrides.
+    expect(layout.fontFamilyForce, isTrue);
+    expect(layout.withRenderRatio(2).lineHeightForce, isFalse);
   });
 
   test('a revision layout decodes from the Rust bytes', () {

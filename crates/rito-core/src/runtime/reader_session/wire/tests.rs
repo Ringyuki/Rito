@@ -601,6 +601,8 @@ fn request_fixture() -> ReaderArtifactRequest {
             root_font_size: 17.5,
             line_height_override: Some(1.6),
             font_family_override: Some("Noto Serif CJK JP".into()),
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: locator_fixture(),
         text_profile: ReaderTextRenderingProfile::PositionedGlyphRuns,

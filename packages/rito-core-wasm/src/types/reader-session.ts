@@ -78,6 +78,14 @@ export interface RitoReaderLayout {
   readonly renderRatio?: number | undefined;
   readonly lineHeightOverride?: number | undefined;
   readonly fontFamilyOverride?: string | undefined;
+  /**
+   * Whether the line-height override outranks the publication's own
+   * declarations. Unforced, a rule the book wrote for an element keeps its
+   * value and only text that inherits takes the reader's. Default true.
+   */
+  readonly lineHeightForce?: boolean | undefined;
+  /** The same choice for the font-family override. Default true. */
+  readonly fontFamilyForce?: boolean | undefined;
 }
 
 export interface RitoReaderArtifactRequestInput {
