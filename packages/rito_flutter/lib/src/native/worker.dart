@@ -297,6 +297,15 @@ void _discardUnsentWire(
           );
         }
         break;
+      case _PeekSpreadOperation():
+        final artifactId = _wireArtifactId(wireBytes);
+        if (artifactId != null) {
+          bindings.releaseArtifact(
+            sessionId: operation.sessionId,
+            artifactId: artifactId,
+          );
+        }
+        break;
       case _AdvanceBackgroundOperation():
         // The reply either carries a host-owned candidate or confirms a
         // visibility mutation. If transfer fails, only session disposal can
@@ -404,6 +413,10 @@ Object? _perform(
       requestBytes: operation.requestBytes,
     ),
     _PeekAdjacentOperation() => bindings.peekAdjacentEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _PeekSpreadOperation() => bindings.peekSpreadEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
     ),
@@ -686,6 +699,16 @@ final class _RequestAdjacentOperation extends _WorkerOperation {
 
 final class _PeekAdjacentOperation extends _WorkerOperation {
   const _PeekAdjacentOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _PeekSpreadOperation extends _WorkerOperation {
+  const _PeekSpreadOperation({
     required this.sessionId,
     required this.requestBytes,
   });

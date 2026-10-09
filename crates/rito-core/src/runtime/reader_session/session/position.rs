@@ -4,15 +4,16 @@
 //! functions a browser revision uses, so no host derives them itself.
 
 use crate::runtime::{
-    source_locator::{active_toc_entry, TocTargetPosition},
+    source_locator::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition},
     RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorResolution,
     RuntimeSourcePoint,
 };
 
 use super::super::{
     convert::{locator_match, runtime_locator},
-    ReaderLocation, ReaderNavigationQuery, ReaderNavigationRequest, ReaderNavigationResult,
-    ReaderSourcePoint,
+    ReaderChapterPages, ReaderLocation, ReaderNavigationQuery, ReaderNavigationRequest,
+    ReaderNavigationResult, ReaderRevisionLayout, ReaderSourcePoint, ReaderSpreadPages,
+    ReaderTocTargetPage,
 };
 use super::{
     errors::{engine_error, validate_external_request_id},
@@ -65,7 +66,75 @@ impl ReaderSession {
                     .map_err(position_error)?;
                 Ok(ReaderNavigationResult::Order(order))
             }
+            ReaderNavigationQuery::Layout { artifact_id } => self.revision_layout(artifact_id),
         }
+    }
+
+    /// The page table of the revision behind an artifact, from the engine
+    /// structures a turn, a seek and a TOC lookup already read.
+    fn revision_layout(&mut self, artifact_id: u64) -> Result<ReaderNavigationResult, ReaderError> {
+        validate_external_request_id(artifact_id, "artifactId")?;
+        let laid_out = {
+            let view = self.artifact_view(artifact_id)?;
+            self.document.laid_out_chapters(view.revision)
+        };
+        let prepared = self
+            .document
+            .prepare_toc_targets(|chapter| laid_out.contains(&chapter));
+        let view = self.artifact_view(artifact_id)?;
+        let positions: Vec<TocTargetPosition> =
+            self.document
+                .toc_target_positions_in(&view.revision_id, view.revision, &prepared);
+        let engine = view.revision.chapter_engine_session();
+        let page_count = engine.metadata().page_count;
+        let spreads = engine
+            .spreads()
+            .into_iter()
+            .map(|spread| {
+                Ok(ReaderSpreadPages {
+                    left_page_index: u32_from_usize(spread.left_page_index, "spread page")?,
+                    right_page_index: spread
+                        .right_page_index
+                        .map(|page| u32_from_usize(page, "spread page"))
+                        .transpose()?,
+                })
+            })
+            .collect::<Result<Vec<_>, ReaderError>>()?;
+        let known = engine.known_chapters();
+        let mut chapters = Vec::with_capacity(known.len());
+        for (spine_index, item) in self.document.document().package.spine.iter().enumerate() {
+            if let Some(range) = known.get(&item.idref) {
+                chapters.push(ReaderChapterPages {
+                    spine_index: u32_from_usize(spine_index, "spine index")?,
+                    start_page: u32_from_usize(range.start_page, "chapter start page")?,
+                    end_page: u32_from_usize(range.end_page, "chapter end page")?,
+                });
+            }
+        }
+        let mut toc_targets = Vec::new();
+        for (toc_id, position) in positions.iter().enumerate() {
+            if let TocTargetPosition::Page(page_index) = position {
+                toc_targets.push(ReaderTocTargetPage {
+                    toc_id: u32_from_usize(toc_id, "toc entry")?,
+                    page_index: u32_from_usize(*page_index, "toc target page")?,
+                });
+            }
+        }
+        let active_toc_entry_by_page = active_toc_entries_by_page(&positions, page_count)
+            .into_iter()
+            .map(|entry| {
+                entry
+                    .map(|index| u32_from_usize(index, "toc entry"))
+                    .transpose()
+            })
+            .collect::<Result<Vec<_>, ReaderError>>()?;
+        Ok(ReaderNavigationResult::Layout(ReaderRevisionLayout {
+            page_count: u32_from_usize(page_count, "page count")?,
+            spreads,
+            chapters,
+            toc_targets,
+            active_toc_entry_by_page,
+        }))
     }
 
     fn toc_entry_at_page(

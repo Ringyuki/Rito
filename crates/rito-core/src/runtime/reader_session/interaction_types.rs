@@ -270,6 +270,9 @@ pub enum ReaderNavigationQuery {
         second_href: String,
         second: ReaderSourcePoint,
     },
+    /// The page table of the revision behind an artifact: its spreads,
+    /// the chapters it lays out and where its TOC entries land.
+    Layout { artifact_id: u64 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -293,10 +296,51 @@ pub enum ReaderLocation {
     Unavailable,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReaderNavigationResult {
     /// The entry's preorder index — the `toc_id` the publication carries.
     TocEntry(Option<u32>),
     Location(ReaderLocation),
     Order(std::cmp::Ordering),
+    Layout(ReaderRevisionLayout),
+}
+
+/// The page table of one revision. A chapter-local revision lays out one
+/// chapter (its pages count from zero); a whole-book revision lays out
+/// every chapter and its pages are book pages. A host addresses a spread
+/// by its position in [`Self::spreads`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderRevisionLayout {
+    pub page_count: u32,
+    /// Every spread's pages, in reading order.
+    pub spreads: Vec<ReaderSpreadPages>,
+    /// The chapters the revision lays out, in spine order.
+    pub chapters: Vec<ReaderChapterPages>,
+    /// The TOC entries the revision places on a page, in TOC order.
+    pub toc_targets: Vec<ReaderTocTargetPage>,
+    /// Per page, the TOC entry it reads under: the last entry whose target
+    /// sits at or before it.
+    pub active_toc_entry_by_page: Vec<Option<u32>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderSpreadPages {
+    pub left_page_index: u32,
+    pub right_page_index: Option<u32>,
+}
+
+/// The pages one spine item is laid out on, both ends included.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderChapterPages {
+    /// The item's index in the publication's spine.
+    pub spine_index: u32,
+    pub start_page: u32,
+    pub end_page: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderTocTargetPage {
+    /// The entry's preorder index — the `toc_id` the publication carries.
+    pub toc_id: u32,
+    pub page_index: u32,
 }

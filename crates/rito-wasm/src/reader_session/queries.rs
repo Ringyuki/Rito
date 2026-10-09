@@ -7,7 +7,7 @@
 use rito_core::runtime::{
     decode_reader_adjacent_request, decode_reader_annotation_request,
     decode_reader_exact_source_range_request, decode_reader_foreground_handoff,
-    decode_reader_navigation_request, decode_reader_search_request,
+    decode_reader_navigation_request, decode_reader_search_request, decode_reader_spread_request,
     decode_reader_text_interaction_request, decode_reader_text_range_request,
     encode_reader_annotation_response, encode_reader_artifact,
     encode_reader_exact_source_range_resolution, encode_reader_footnote,
@@ -31,6 +31,17 @@ impl RitoReaderSession {
     pub fn peek_adjacent(&mut self, request_wire: Vec<u8>) -> Result<Vec<u8>, JsValue> {
         self.inner
             .peek_adjacent(&request_wire)
+            .map_err(ReaderProjectionError::into_js_value)
+    }
+
+    /// Consumes a `RITOSPQ1` request and returns the `RITOART1` artifact of
+    /// the spread at that position in the source artifact's layout. Like
+    /// `peekAdjacent` it stays outside the foreground lane until
+    /// `commitPeekedArtifact` adopts it.
+    #[wasm_bindgen(js_name = peekSpread)]
+    pub fn peek_spread(&mut self, request_wire: Vec<u8>) -> Result<Vec<u8>, JsValue> {
+        self.inner
+            .peek_spread(&request_wire)
             .map_err(ReaderProjectionError::into_js_value)
     }
 
@@ -118,6 +129,15 @@ impl ReaderSessionProjection {
         validate_wire_id(request.request_id, "RITONAV1 requestId")?;
         validate_wire_id(request.from_artifact_id, "RITONAV1 fromArtifactId")?;
         let artifact = self.live_session()?.peek_adjacent(request)?;
+        encode_reader_artifact(&artifact).map_err(Into::into)
+    }
+
+    pub(super) fn peek_spread(&mut self, request_wire: &[u8]) -> ProjectionResult<Vec<u8>> {
+        let request = decode_reader_spread_request(request_wire)?;
+        validate_wire_id(request.session_id, "RITOSPQ1 sessionId")?;
+        validate_wire_id(request.request_id, "RITOSPQ1 requestId")?;
+        validate_wire_id(request.from_artifact_id, "RITOSPQ1 fromArtifactId")?;
+        let artifact = self.live_session()?.peek_spread(request)?;
         encode_reader_artifact(&artifact).map_err(Into::into)
     }
 

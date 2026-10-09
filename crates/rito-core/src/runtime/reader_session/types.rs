@@ -186,6 +186,16 @@ pub struct ReaderAdjacentRequest {
     pub direction: ReaderAdjacentDirection,
 }
 
+/// Asks for one spread of the revision behind an artifact, addressed by its
+/// position in that revision's layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderSpreadRequest {
+    pub session_id: u64,
+    pub request_id: u64,
+    pub from_artifact_id: u64,
+    pub spread_index: u32,
+}
+
 /// Host acknowledgement that atomically makes one foreground artifact
 /// visible.
 ///

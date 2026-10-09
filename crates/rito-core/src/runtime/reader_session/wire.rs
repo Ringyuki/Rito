@@ -19,8 +19,8 @@ use super::{
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderFootnote,
     ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderNavigationRequest,
     ReaderNavigationResult, ReaderPublication, ReaderResource, ReaderSearchRequest,
-    ReaderSearchResponse, ReaderTextInteractionRequest, ReaderTextInteractionResponse,
-    ReaderTextRangeGeometry, ReaderTextRangeRequest,
+    ReaderSearchResponse, ReaderSpreadRequest, ReaderTextInteractionRequest,
+    ReaderTextInteractionResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
 };
 
 pub use fonts::{
@@ -39,11 +39,9 @@ pub const READER_ARTIFACT_WIRE_MAGIC: [u8; 8] = *b"RITOART1";
 //   * Dart        packages/rito_flutter/lib/src/protocol/
 //   * JavaScript  packages/rito-core-wasm/src/reader-session-*-runtime.js
 //
-// Which mirrors exist depends on the message. RITOART1, RITOPUB1,
-// RITORES1, RITOBGA1 and the handoffs have all three. RITOFTN1,
-// RITOTRQ1/RITOTRG1 and RITOSRQ1/RITOSRS1 are FFI-only today and have
-// no JavaScript mirror — if the browser ever consumes one, it gains a
-// third mirror and this obligation with it.
+// Every message has all three mirrors except RITOPSH1, which has no
+// JavaScript mirror — if the browser ever consumes it, it gains a third
+// mirror and this obligation with it.
 //
 // The failure mode is silent, because every mirror ships hand-built
 // test fixtures that agree with their own decoder. A stale mirror keeps
@@ -77,9 +75,11 @@ pub const READER_NAVIGATION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONVQ1";
 pub const READER_NAVIGATION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITONVR1";
 pub const READER_SEARCH_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSRQ1";
 pub const READER_SEARCH_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOSRS1";
+pub const READER_SPREAD_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSPQ1";
 pub const READER_WIRE_VERSION: u32 = 1;
 pub const READER_WIRE_HEADER_BYTES: u32 = 20;
 pub const READER_ADJACENT_REQUEST_WIRE_BYTES: u32 = 48;
+pub const READER_SPREAD_REQUEST_WIRE_BYTES: u32 = 48;
 pub const READER_BACKGROUND_REQUEST_WIRE_BYTES: u32 = 40;
 pub const READER_BACKGROUND_ADVANCE_WIRE_PREFIX_BYTES: u32 = 49;
 pub const READER_BACKGROUND_HANDOFF_WIRE_BYTES: u32 = 44;
@@ -113,6 +113,14 @@ pub fn encode_reader_adjacent_request(
 
 pub fn decode_reader_adjacent_request(bytes: &[u8]) -> Result<ReaderAdjacentRequest, ReaderError> {
     decode::adjacent_request(bytes)
+}
+
+pub fn encode_reader_spread_request(request: &ReaderSpreadRequest) -> Result<Vec<u8>, ReaderError> {
+    encode::spread_request(request)
+}
+
+pub fn decode_reader_spread_request(bytes: &[u8]) -> Result<ReaderSpreadRequest, ReaderError> {
+    decode::spread_request(bytes)
 }
 
 pub fn encode_reader_foreground_handoff(

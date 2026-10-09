@@ -89,6 +89,19 @@ paint domain grows, and a stale decoder misreads the byte stream.
   is not laid out), and orders two source positions in reading order. Use
   it for chapter titles, bookmark checks and turn direction rather than
   matching hrefs or comparing node paths yourself.
+- **A revision's page table is one query, and any spread of it one call.**
+  The layout query of `rito_resolve_navigation` returns the page table of
+  the revision behind an artifact: its spreads (left page, and the right
+  page when two are drawn), the pages of each chapter it lays out (by
+  spine index, both ends included), the page each TOC entry lands on and
+  the entry every page reads under. A page shown from a fresh request is
+  laid out with its chapter alone, so the table covers that chapter and
+  counts pages from zero; once the whole book is adopted it covers the
+  book and its pages are book pages. `rito_peek_spread` (`RITOSPQ1` →
+  `RITOART1`) publishes the spread at any position of the table without
+  layout work or a foreground effect, and
+  `rito_commit_peeked_artifact` makes it visible — a jump inside the
+  current revision costs what a turn costs.
 
 ## Fonts
 

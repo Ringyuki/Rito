@@ -19,9 +19,9 @@ use crate::runtime::reader_session::{
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
     ReaderForegroundHandoffAck, ReaderLayout, ReaderLocator, ReaderPublication, ReaderRect,
     ReaderResource, ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult,
-    ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderTextPosition,
-    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
-    READER_PUBLICATION_WIRE_BYTES_MAX,
+    ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderSpreadRequest,
+    ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
+    ReaderTextRenderingProfile, READER_PUBLICATION_WIRE_BYTES_MAX,
 };
 
 pub(super) fn artifact(bytes: &[u8]) -> Result<ReaderArtifact, ReaderError> {
@@ -57,6 +57,22 @@ pub(super) fn adjacent_request(bytes: &[u8]) -> Result<ReaderAdjacentRequest, Re
         direction: adjacent_direction(reader.u32()?)?,
     };
     reader.finish("adjacent request wire message")?;
+    Ok(request)
+}
+
+pub(super) fn spread_request(bytes: &[u8]) -> Result<ReaderSpreadRequest, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_SPREAD_REQUEST_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let request = ReaderSpreadRequest {
+        session_id: external_id(reader.u64()?, "sessionId")?,
+        request_id: external_id(reader.u64()?, "requestId")?,
+        from_artifact_id: external_id(reader.u64()?, "fromArtifactId")?,
+        spread_index: reader.u32()?,
+    };
+    reader.finish("spread request wire message")?;
     Ok(request)
 }
 

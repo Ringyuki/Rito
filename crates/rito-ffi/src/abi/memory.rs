@@ -407,9 +407,42 @@ pub extern "C" fn rito_peek_adjacent(
 }
 
 #[no_mangle]
+/// Publishes one spread of the revision behind an artifact as a read-only
+/// artifact, addressed by its position in that revision's layout (the
+/// `RITONVQ1` layout query lists the spreads). The revision is already
+/// laid out, so this does no layout work and, like `rito_peek_adjacent`,
+/// has no foreground side effect. A position outside the layout returns
+/// `RITO_STATUS_INVALID_ARGUMENT`. The artifact occupies one live slot and
+/// must be released by the caller.
+pub extern "C" fn rito_peek_spread(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    artifact_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_artifact_output(artifact_out, error_out)?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::spread_request(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITOSPQ1 session_id")?;
+        validate_external_id(request.request_id, "RITOSPQ1 request_id")?;
+        validate_external_id(request.from_artifact_id, "RITOSPQ1 from_artifact_id")?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOSPQ1 session_id does not match the ABI session_id",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let artifact = registry::peek_spread(admission, request)?;
+        write_session_result(session_id, artifact_out, artifact, "spread artifact")
+    })
+}
+
+#[no_mangle]
 /// Commits a previously peeked artifact as the visible foreground with a
 /// visible-artifact CAS and zero layout work. Only artifacts produced by
-/// `rito_peek_adjacent` qualify; a successful commit supersedes any
+/// `rito_peek_adjacent` or `rito_peek_spread` qualify; a successful commit supersedes any
 /// in-flight foreground intent exactly as a fresh navigation would.
 pub extern "C" fn rito_commit_peeked_artifact(
     session_id: u64,

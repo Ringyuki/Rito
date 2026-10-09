@@ -28,6 +28,7 @@ export {
 export {
   encodeRitoReaderAdjacentRequest,
   encodeRitoReaderArtifactRequest,
+  encodeRitoReaderSpreadRequest,
 } from './reader-session-request-runtime.js';
 export {
   decodeRitoReaderForegroundHandoffAck,

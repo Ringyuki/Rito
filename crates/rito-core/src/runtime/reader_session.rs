@@ -24,7 +24,7 @@ pub use wire::{
     decode_reader_footnote, decode_reader_foreground_handoff, decode_reader_foreground_handoff_ack,
     decode_reader_navigation_request, decode_reader_navigation_result,
     decode_reader_pending_shards, decode_reader_publication, decode_reader_resource,
-    decode_reader_search_request, decode_reader_search_response,
+    decode_reader_search_request, decode_reader_search_response, decode_reader_spread_request,
     decode_reader_text_interaction_request, decode_reader_text_interaction_response,
     decode_reader_text_range_geometry, decode_reader_text_range_request,
     encode_reader_adjacent_request, encode_reader_annotation_request,
@@ -35,7 +35,7 @@ pub use wire::{
     encode_reader_footnote, encode_reader_foreground_handoff, encode_reader_foreground_handoff_ack,
     encode_reader_navigation_request, encode_reader_navigation_result,
     encode_reader_pending_shards, encode_reader_publication, encode_reader_resource,
-    encode_reader_search_request, encode_reader_search_response,
+    encode_reader_search_request, encode_reader_search_response, encode_reader_spread_request,
     encode_reader_text_interaction_request, encode_reader_text_interaction_response,
     encode_reader_text_range_geometry, encode_reader_text_range_request,
     READER_ADJACENT_REQUEST_WIRE_BYTES, READER_ADJACENT_REQUEST_WIRE_MAGIC,
@@ -51,7 +51,8 @@ pub use wire::{
     READER_NAVIGATION_REQUEST_WIRE_MAGIC, READER_NAVIGATION_RESPONSE_WIRE_MAGIC,
     READER_PENDING_SHARDS_WIRE_MAGIC, READER_PUBLICATION_WIRE_MAGIC, READER_REQUEST_WIRE_MAGIC,
     READER_RESOURCE_WIRE_MAGIC, READER_SEARCH_REQUEST_WIRE_MAGIC,
-    READER_SEARCH_RESPONSE_WIRE_MAGIC, READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC,
+    READER_SEARCH_RESPONSE_WIRE_MAGIC, READER_SPREAD_REQUEST_WIRE_BYTES,
+    READER_SPREAD_REQUEST_WIRE_MAGIC, READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC,
     READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC, READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC,
     READER_TEXT_RANGE_REQUEST_WIRE_BYTES, READER_TEXT_RANGE_REQUEST_WIRE_MAGIC,
     READER_WIRE_HEADER_BYTES, READER_WIRE_VERSION,
@@ -72,6 +73,8 @@ mod background_tests;
 mod font_tests;
 #[cfg(test)]
 mod interaction_tests;
+#[cfg(test)]
+mod layout_tests;
 #[cfg(test)]
 mod shard_tests;
 #[cfg(test)]

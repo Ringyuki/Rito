@@ -98,6 +98,14 @@ export interface RitoReaderAdjacentRequest {
   readonly direction: RitoReaderAdjacentDirection;
 }
 
+/** `RITOSPQ1`: one spread of the revision behind an artifact, by its position in the layout. */
+export interface RitoReaderSpreadRequest {
+  readonly sessionId: bigint;
+  readonly requestId: bigint;
+  readonly fromArtifactId: bigint;
+  readonly spreadIndex: number;
+}
+
 export interface RitoReaderForegroundHandoff {
   readonly sessionId: bigint;
   readonly expectedVisibleArtifactId: bigint | undefined;

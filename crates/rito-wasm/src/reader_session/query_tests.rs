@@ -5,19 +5,20 @@
 use rito_core::runtime::{
     decode_reader_adjacent_request, decode_reader_annotation_request, decode_reader_artifact,
     decode_reader_exact_source_range_request, decode_reader_foreground_handoff,
-    decode_reader_navigation_request, decode_reader_search_request,
+    decode_reader_navigation_request, decode_reader_search_request, decode_reader_spread_request,
     decode_reader_text_interaction_request, decode_reader_text_range_request,
     encode_reader_annotation_request, encode_reader_annotation_response, encode_reader_artifact,
     encode_reader_exact_source_range_request, encode_reader_exact_source_range_resolution,
     encode_reader_foreground_handoff_ack, encode_reader_navigation_request,
     encode_reader_navigation_result, encode_reader_search_request, encode_reader_search_response,
-    encode_reader_text_interaction_request, encode_reader_text_interaction_response,
-    encode_reader_text_range_geometry, encode_reader_text_range_request, ReaderAdjacentDirection,
-    ReaderAnnotationQuery, ReaderAnnotationRequest, ReaderExactSourceRangeRequest,
-    ReaderForegroundHandoff, ReaderNavigationQuery, ReaderNavigationRequest, ReaderSearchRequest,
-    ReaderSelectionGranularity, ReaderSession, ReaderSourceRange, ReaderTextInteractionQuery,
-    ReaderTextInteractionRequest, ReaderTextInteractionResult, ReaderTextPoint, ReaderTextPosition,
-    ReaderTextRangeRequest,
+    encode_reader_spread_request, encode_reader_text_interaction_request,
+    encode_reader_text_interaction_response, encode_reader_text_range_geometry,
+    encode_reader_text_range_request, ReaderAdjacentDirection, ReaderAnnotationQuery,
+    ReaderAnnotationRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderNavigationQuery, ReaderNavigationRequest, ReaderSearchRequest,
+    ReaderSelectionGranularity, ReaderSession, ReaderSourceRange, ReaderSpreadRequest,
+    ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResult,
+    ReaderTextPoint, ReaderTextPosition, ReaderTextRangeRequest,
 };
 
 use super::{
@@ -231,6 +232,54 @@ fn every_query_answers_the_bytes_core_answers() {
     assert!(direct
         .read_footnote(artifact_id, "chapter.xhtml#missing")
         .is_err());
+}
+
+#[test]
+fn a_spread_by_position_and_its_layout_answer_the_bytes_core_answers() {
+    let (mut direct, mut projection, artifact_id) = sessions();
+    let layout = encode_reader_navigation_request(&ReaderNavigationRequest {
+        session_id: SESSION_ID,
+        query: ReaderNavigationQuery::Layout { artifact_id },
+    })
+    .unwrap();
+    assert_eq!(
+        projection.query(&layout, Query::Navigation).unwrap(),
+        encode_reader_navigation_result(
+            &direct
+                .resolve_navigation(decode_reader_navigation_request(&layout).unwrap())
+                .unwrap()
+        )
+        .unwrap()
+    );
+
+    let spread = encode_reader_spread_request(&ReaderSpreadRequest {
+        session_id: SESSION_ID,
+        request_id: 2,
+        from_artifact_id: artifact_id,
+        spread_index: 0,
+    })
+    .unwrap();
+    let direct_spread = direct
+        .peek_spread(decode_reader_spread_request(&spread).unwrap())
+        .expect("direct spread");
+    assert_eq!(
+        projection.peek_spread(&spread).expect("binding spread"),
+        encode_reader_artifact(&direct_spread).unwrap()
+    );
+    let commit = foreground_handoff_wire(SESSION_ID, Some(artifact_id), direct_spread.artifact_id);
+    assert!(
+        projection.commit_peeked_artifact(&commit).is_ok(),
+        "a spread reached by position commits like a peeked turn"
+    );
+
+    let past_the_end = encode_reader_spread_request(&ReaderSpreadRequest {
+        session_id: SESSION_ID,
+        request_id: 3,
+        from_artifact_id: artifact_id,
+        spread_index: u32::MAX,
+    })
+    .unwrap();
+    assert!(projection.peek_spread(&past_the_end).is_err());
 }
 
 #[test]

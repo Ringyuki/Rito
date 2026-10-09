@@ -101,6 +101,22 @@ final class RitoAdjacentRequest {
   final RitoAdjacentDirection direction;
 }
 
+/// One spread of the revision behind an artifact, addressed by its
+/// position in that revision's layout.
+final class RitoSpreadRequest {
+  const RitoSpreadRequest({
+    required this.sessionId,
+    required this.requestId,
+    required this.fromArtifactId,
+    required this.spreadIndex,
+  });
+
+  final int sessionId;
+  final int requestId;
+  final int fromArtifactId;
+  final int spreadIndex;
+}
+
 final class RitoArtifactRequest {
   const RitoArtifactRequest({
     required this.sessionId,

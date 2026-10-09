@@ -70,8 +70,16 @@ abstract interface class RitoReaderGateway {
   /// slot and must be released.
   Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request});
 
-  /// Commits an artifact previously produced by [peekAdjacent] as the
-  /// visible foreground with a CAS and zero layout work.
+  /// Publishes one spread of the revision behind an artifact as a
+  /// read-only artifact, addressed by its position in that revision's
+  /// layout — no visible-state change, no pending navigation, no layout
+  /// work. A position outside the layout throws. The artifact occupies a
+  /// live slot and must be released.
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request});
+
+  /// Commits an artifact previously produced by [peekAdjacent] or
+  /// [peekSpread] as the visible foreground with a CAS and zero layout
+  /// work.
   Future<RitoForegroundHandoffAck> commitPeeked({
     required RitoForegroundHandoff handoff,
     required int intentRequestId,
@@ -543,38 +551,12 @@ final class RitoIsolateGateway
   }) async {
     final requestBytes = _requestEncoder.encodeAdjacent(request);
     try {
-      return await _queue.ordered<RitoArtifact>(
+      return await _peek(
         sessionId: request.sessionId,
-        operation: () => _guardNativeMutation<RitoArtifact>(
+        requestId: request.requestId,
+        operation: _PeekAdjacentOperation(
           sessionId: request.sessionId,
-          requestId: request.requestId,
-          operation: () async {
-            final worker = await _worker;
-            final wireBytes = await worker.invokeWire(
-              _PeekAdjacentOperation(
-                sessionId: request.sessionId,
-                requestBytes: requestBytes,
-              ),
-            );
-            // Deliberately NOT _decodeArtifact: a peeked artifact is
-            // read-only and must never register as the pending
-            // foreground candidate.
-            final artifact = _artifactDecoder.decode(wireBytes);
-            if (artifact.sessionId != request.sessionId ||
-                artifact.requestId != request.requestId) {
-              return _rejectMalformedArtifact(
-                sessionId: request.sessionId,
-                requestId: request.requestId,
-                contractError: const RitoNativeException(
-                  status: 4,
-                  message:
-                      'Native peeked artifact identity does not match its request.',
-                ),
-                contractStackTrace: StackTrace.current,
-              );
-            }
-            return artifact;
-          },
+          requestBytes: requestBytes,
         ),
       );
     } on RitoNativeException catch (error) {
@@ -583,6 +565,55 @@ final class RitoIsolateGateway
       }
       rethrow;
     }
+  }
+
+  @override
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request}) {
+    final requestBytes = _requestEncoder.encodeSpread(request);
+    return _peek(
+      sessionId: request.sessionId,
+      requestId: request.requestId,
+      operation: _PeekSpreadOperation(
+        sessionId: request.sessionId,
+        requestBytes: requestBytes,
+      ),
+    );
+  }
+
+  Future<RitoArtifact> _peek({
+    required int sessionId,
+    required int requestId,
+    required _WorkerOperation operation,
+  }) {
+    return _queue.ordered<RitoArtifact>(
+      sessionId: sessionId,
+      operation: () => _guardNativeMutation<RitoArtifact>(
+        sessionId: sessionId,
+        requestId: requestId,
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(operation);
+          // Deliberately NOT _decodeArtifact: a peeked artifact is
+          // read-only and must never register as the pending
+          // foreground candidate.
+          final artifact = _artifactDecoder.decode(wireBytes);
+          if (artifact.sessionId != sessionId ||
+              artifact.requestId != requestId) {
+            return _rejectMalformedArtifact(
+              sessionId: sessionId,
+              requestId: requestId,
+              contractError: const RitoNativeException(
+                status: 4,
+                message:
+                    'Native peeked artifact identity does not match its request.',
+              ),
+              contractStackTrace: StackTrace.current,
+            );
+          }
+          return artifact;
+        },
+      ),
+    );
   }
 
   @override
@@ -1008,6 +1039,7 @@ final class RitoIsolateGateway
               RitoTocEntryAtPositionQuery() => result is RitoTocEntryResult,
               RitoLocateQuery() => result is RitoLocationResult,
               RitoCompareQuery() => result is RitoOrderResult,
+              RitoLayoutQuery() => result is RitoLayoutResult,
             },
           );
         },

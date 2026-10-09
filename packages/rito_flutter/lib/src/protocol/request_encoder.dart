@@ -39,6 +39,20 @@ final class RitoRequestEncoder {
     return bytes;
   }
 
+  /// Encodes a RITOSPQ1 spread request.
+  Uint8List encodeSpread(RitoSpreadRequest request) {
+    final writer = _Writer.message(ascii.encode('RITOSPQ1'), 1);
+    writer.externalId(request.sessionId, 'session id');
+    writer.externalId(request.requestId, 'request id');
+    writer.externalId(request.fromArtifactId, 'from artifact id');
+    writer.uint32(request.spreadIndex, 'spread index');
+    final bytes = writer.finish();
+    if (bytes.length != 48) {
+      throw StateError('RITOSPQ1 must be exactly 48 bytes.');
+    }
+    return bytes;
+  }
+
   void _layout(_Writer writer, RitoLayoutRequest value) {
     writer.float64(value.viewportWidth, 'viewport width');
     writer.float64(value.viewportHeight, 'viewport height');
@@ -219,6 +233,9 @@ extension RitoNavigationEncoding on RitoRequestEncoder {
         _sourcePointRecord(writer, query.first);
         writer.string(query.secondHref, 'second href');
         _sourcePointRecord(writer, query.second);
+      case RitoLayoutQuery(:final artifactId):
+        writer.uint8(4);
+        writer.externalId(artifactId, 'artifact id');
     }
     return writer.finish();
   }

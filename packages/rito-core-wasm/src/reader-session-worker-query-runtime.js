@@ -2,7 +2,10 @@ import {
   copyRitoReaderWireBytes,
   decodeRitoReaderArtifactIdentity,
 } from './reader-session-artifact-decoder-runtime.js';
-import { encodeRitoReaderAdjacentRequest } from './reader-session-request-runtime.js';
+import {
+  encodeRitoReaderAdjacentRequest,
+  encodeRitoReaderSpreadRequest,
+} from './reader-session-request-runtime.js';
 import {
   decodeRitoReaderForegroundHandoffAck,
   encodeRitoReaderForegroundHandoff,
@@ -14,6 +17,7 @@ import {
   encodeRitoReaderSearchRequest,
   encodeRitoReaderTextInteractionRequest,
   encodeRitoReaderTextRangeRequest,
+  ritoReaderNavigationQueryArtifactId,
 } from './reader-session-query-request-runtime.js';
 
 /**
@@ -36,6 +40,15 @@ export function handleRitoReaderSessionQuery(state, message, guards) {
         guards,
         message.request,
         session.peekAdjacent(encodeRitoReaderAdjacentRequest(message.request)),
+      );
+    case 'peek-spread':
+      guards.requireArtifactCapacity(state);
+      guards.requireOwnedArtifact(state, message.request.fromArtifactId);
+      return peekedArtifactResponse(
+        state,
+        guards,
+        message.request,
+        session.peekSpread(encodeRitoReaderSpreadRequest(message.request)),
       );
     case 'commit-peeked-artifact':
       guards.requireOwnedArtifact(state, message.request.candidateArtifactId);
@@ -75,10 +88,8 @@ export function handleRitoReaderSessionQuery(state, message, guards) {
         session.annotation(encodeRitoReaderAnnotationRequest(message.request)),
       );
     case 'navigation': {
-      const { query } = message.request;
-      if (query.kind === 'toc-entry-at-page' || query.kind === 'locate') {
-        guards.requireOwnedArtifact(state, query.artifactId);
-      }
+      const artifactId = ritoReaderNavigationQueryArtifactId(message.request.query);
+      if (artifactId !== undefined) guards.requireOwnedArtifact(state, artifactId);
       return wireResponse(
         'navigation',
         session.navigation(encodeRitoReaderNavigationRequest(message.request)),

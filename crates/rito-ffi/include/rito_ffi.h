@@ -275,6 +275,26 @@ uint32_t rito_peek_adjacent(uint64_t session_id,
                                rito_owned_buffer *error_out);
 
 /*
+ * Publishes one spread of the revision behind an artifact as a read-only
+ * artifact, addressed by its position in that revision's layout.
+ * request_data must contain exactly one 48-byte RITOSPQ1 message (session id,
+ * request id, the artifact whose revision is meant, the spread's index) whose
+ * session_id equals the explicit argument. The RITONVQ1 layout query lists the
+ * revision's spreads.
+ *
+ * The revision is already laid out, so this does no layout work and, like
+ * rito_peek_adjacent, has no foreground side effect. A position outside the
+ * layout returns RITO_STATUS_INVALID_ARGUMENT. The artifact occupies one live
+ * slot and must be released by the caller, whether or not it is later
+ * committed.
+ */
+uint32_t rito_peek_spread(uint64_t session_id,
+                             const uint8_t *request_data,
+                             uint64_t request_len,
+                             rito_owned_buffer *artifact_out,
+                             rito_owned_buffer *error_out);
+
+/*
  * Atomically makes one foreground candidate visible if the current visible
  * artifact still matches the optional compare-and-swap expectation.
  * request_data must contain exactly one 48-byte RITOFGH1 message whose
@@ -295,7 +315,7 @@ uint32_t rito_adopt_foreground_candidate(uint64_t session_id,
  * visible-artifact compare-and-swap and zero layout work. request_data is the
  * same 48-byte RITOFGH1 message rito_adopt_foreground_candidate takes.
  *
- * Only artifacts produced by rito_peek_adjacent qualify. A successful commit
+ * Only artifacts produced by rito_peek_adjacent or rito_peek_spread qualify. A successful commit
  * supersedes any in-flight foreground intent exactly as a fresh navigation
  * would, and does not release the replaced artifact.
  */
@@ -433,9 +453,11 @@ uint32_t rito_resolve_annotation(uint64_t session_id,
 /*
  * Answers a reading-position question and returns a complete RITONVR1 message.
  * request_data is a RITONVQ1 message (the TOC entry a page or a source position
- * reads under, where a stored locator lands in an artifact's revision, or the
- * reading order of two source positions) and is copied before this function
- * returns. The engine answers each the way it answers a browser reader.
+ * reads under, where a stored locator lands in an artifact's revision, the
+ * reading order of two source positions, or the page table of an artifact's
+ * revision: its spreads, the pages of each chapter it lays out and where its
+ * TOC entries land) and is copied before this function returns. The engine
+ * answers each the way it answers a browser reader.
  */
 uint32_t rito_resolve_navigation(uint64_t session_id,
                                  const uint8_t *request_data,

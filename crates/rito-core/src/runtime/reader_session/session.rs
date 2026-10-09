@@ -28,8 +28,8 @@ use super::{
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
     ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPublication, ReaderRect,
     ReaderResource, ReaderResourceKind, ReaderSearchRequest, ReaderSearchResponse,
-    ReaderSearchResult, ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest,
-    ReaderTextRect, ReaderTextRenderingProfile, READER_EXTERNAL_ID_MAX,
+    ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry,
+    ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile, READER_EXTERNAL_ID_MAX,
 };
 
 mod content;

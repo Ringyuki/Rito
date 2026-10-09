@@ -21,6 +21,17 @@ export function encodeRitoReaderAdjacentRequest(request) {
   return bytes;
 }
 
+export function encodeRitoReaderSpreadRequest(request) {
+  const writer = ReaderWireWriter.message('RITOSPQ1');
+  writer.externalId(request.sessionId, 'session id');
+  writer.externalId(request.requestId, 'request id');
+  writer.externalId(request.fromArtifactId, 'from artifact id');
+  writer.u32(request.spreadIndex, 'spread index');
+  const bytes = writer.finish();
+  if (bytes.byteLength !== 48) throw new Error('RITOSPQ1 must be exactly 48 bytes');
+  return bytes;
+}
+
 function writeLayout(writer, value) {
   if (value === null || typeof value !== 'object') throw new TypeError('Reader layout is required');
   writer.f64(value.viewportWidth, 'viewport width');

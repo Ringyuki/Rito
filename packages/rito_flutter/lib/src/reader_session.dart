@@ -20,6 +20,7 @@ import 'protocol/foreground_models.dart';
 import 'protocol/navigation_query.dart';
 import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
+import 'protocol/revision_layout.dart';
 import 'protocol/search.dart';
 import 'protocol/text_geometry.dart';
 import 'protocol/text_interaction.dart';
@@ -232,6 +233,9 @@ final class RitoReaderSession {
   // stay owned by the caller.
   final Map<({int fromArtifactId, String direction}), RitoPreparedArtifact>
   _peeked = <({int fromArtifactId, String direction}), RitoPreparedArtifact>{};
+  // Artifacts published by [peekSpread] that [commitSpread] may still
+  // make visible.
+  final Set<int> _peekedSpreads = <int>{};
   late final RitoPreparedArtifact firstArtifact;
   _NavigationTicket? _activeNavigation;
   _NavigationTicket? _navigationTail;
@@ -522,6 +526,81 @@ final class RitoReaderSession {
     _peeked[(fromArtifactId: from.artifactId, direction: direction.name)] =
         prepared;
     return prepared;
+  }
+
+  /// Publishes the spread at [spreadIndex] of [from]'s revision as a
+  /// fully prepared read-only artifact without changing the visible
+  /// state. [revisionLayout] lists the revision's spreads; the revision
+  /// is already laid out, so this costs what a peeked turn costs.
+  ///
+  /// Throws for a position outside the layout. The returned artifact is
+  /// live, has fonts and images prepared, counts against the session's
+  /// live-artifact budget, and must be freed with [releaseArtifact]
+  /// unless [commitSpread] makes it the visible page.
+  Future<RitoPreparedArtifact> peekSpread({
+    required RitoPreparedArtifact from,
+    required int requestId,
+    required int spreadIndex,
+  }) async {
+    _requireOpen();
+    if (from.sessionId != sessionId) {
+      throw ArgumentError('Spread source belongs to another Rito session.');
+    }
+    if (!_liveArtifacts.contains(from.artifactId)) {
+      throw ArgumentError('Spread source artifact is not live.');
+    }
+    final artifact = await gateway.peekSpread(
+      request: RitoSpreadRequest(
+        sessionId: sessionId,
+        requestId: requestId,
+        fromArtifactId: from.artifactId,
+        spreadIndex: spreadIndex,
+      ),
+    );
+    _recordConsumedRequestId(requestId);
+    _liveArtifacts.add(artifact.artifactId);
+    late final RitoPreparedArtifact prepared;
+    try {
+      prepared = await _prepareOwnedArtifact(artifact);
+    } on Object {
+      await _discardFailedArtifact(artifact);
+      rethrow;
+    }
+    _peekedSpreads.add(prepared.artifactId);
+    return prepared;
+  }
+
+  /// Makes [spread], published by [peekSpread], the visible page in place
+  /// of [from] with a pure visible-artifact swap and zero layout work.
+  ///
+  /// [from] stays live so both can be animated; release it once it is no
+  /// longer painted. Throws a [StateError] when [spread] did not come
+  /// from [peekSpread], was released, or [from] is no longer the visible
+  /// page — the caller then navigates from its current page instead.
+  Future<RitoPreparedArtifact> commitSpread({
+    required RitoPreparedArtifact from,
+    required RitoPreparedArtifact spread,
+  }) async {
+    _requireOpen();
+    if (!_peekedSpreads.contains(spread.artifactId) ||
+        !_liveArtifacts.contains(spread.artifactId) ||
+        _visibleArtifactId != from.artifactId ||
+        _activeNavigation != null) {
+      throw StateError('The spread is not committable over the visible page.');
+    }
+    final ack = await gateway.commitPeeked(
+      handoff: RitoForegroundHandoff(
+        sessionId: sessionId,
+        expectedVisibleArtifactId: from.artifactId,
+        candidateArtifactId: spread.artifactId,
+      ),
+      intentRequestId: spread.requestId,
+    );
+    _visibleArtifactId = ack.visibleArtifactId;
+    _visibleRequestId = ack.intentRequestId;
+    _peeked.clear();
+    _peekedSpreads.remove(spread.artifactId);
+    return spread;
   }
 
   /// Turns from an already-published artifact without re-seeking or rebuilding
@@ -928,6 +1007,24 @@ final class RitoReaderSession {
     return (result as RitoLocationResult).location;
   }
 
+  /// The page table of [prepared]'s revision: its spreads, the pages of
+  /// each chapter it lays out, and where its TOC entries land.
+  ///
+  /// A page shown from a fresh request is laid out with its chapter
+  /// alone, so the table covers that chapter and counts pages from zero;
+  /// once the whole book is adopted the table covers the book and its
+  /// pages are book pages. [peekSpread] reaches any spread it lists.
+  Future<RitoRevisionLayout> revisionLayout(
+    RitoPreparedArtifact prepared,
+  ) async {
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    final result = await _navigation(
+      RitoLayoutQuery(artifactId: artifact.artifactId),
+    );
+    return (result as RitoLayoutResult).layout;
+  }
+
   /// -1, 0 or 1 as the first source position reads before, at or after
   /// the second — the direction to animate a jump in.
   Future<int> compareSourcePositions({
@@ -1184,6 +1281,7 @@ final class RitoReaderSession {
           value.artifactId == artifact.artifactId ||
           key.fromArtifactId == artifact.artifactId,
     );
+    _peekedSpreads.remove(artifact.artifactId);
     try {
       await gateway.releaseArtifact(
         sessionId: sessionId,

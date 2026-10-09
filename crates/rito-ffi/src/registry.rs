@@ -6,8 +6,8 @@ use std::{
 use rito_core::runtime::{
     ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
     ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
-    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderTextInteractionRequest,
-    ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSpreadRequest,
+    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
 use crate::{
@@ -220,6 +220,13 @@ pub(crate) fn peek_adjacent(
     request: ReaderAdjacentRequest,
 ) -> Result<Vec<u8>, FfiError> {
     actor::peek_adjacent(admission, request)
+}
+
+pub(crate) fn peek_spread(
+    admission: CommandAdmission,
+    request: ReaderSpreadRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::peek_spread(admission, request)
 }
 
 pub(crate) fn adopt_foreground_candidate(

@@ -131,6 +131,14 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
     fromArtifactId: bigint,
     direction: RitoReaderAdjacentDirection,
   ): Promise<RitoReaderArtifact>;
+  /**
+   * Publishes one spread of the revision behind an artifact, addressed by
+   * its position in that revision's layout (the `layout` navigation query
+   * lists them). The revision is already laid out, so this is as cheap as
+   * a peeked turn and, like one, has no foreground effect. Release it, or
+   * commit it with {@link commitPeekedArtifact}.
+   */
+  peekSpread(fromArtifactId: bigint, spreadIndex: number): Promise<RitoReaderArtifact>;
   /** Makes a peeked artifact visible, superseding every foreground intent in flight. */
   commitPeekedArtifact(
     expectedVisibleArtifactId: bigint | undefined,
@@ -166,7 +174,10 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
   ): Promise<RitoReaderTextInteractionResponse>;
   /** Builds or locates an annotation target; targets depend only on the source. */
   annotation(query: RitoReaderAnnotationRequest['query']): Promise<RitoReaderAnnotationResponse>;
-  /** The TOC entry at a page or position, where a locator lands, or two positions' order. */
+  /**
+   * The TOC entry at a page or position, where a locator lands, two
+   * positions' order, or the page table of the revision behind an artifact.
+   */
   navigation(query: RitoReaderNavigationRequest['query']): Promise<RitoReaderNavigationResult>;
   release(artifactId: bigint): Promise<boolean>;
   dispose(): Promise<void>;

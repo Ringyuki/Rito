@@ -180,6 +180,9 @@ export function decodeRitoReaderNavigationResult(value) {
     case 2:
       result = { kind: 'order', order: u8Tag(reader, 'order', ORDERS) };
       break;
+    case 3:
+      result = { kind: 'layout', layout: readRevisionLayout(reader) };
+      break;
     default:
       reader.fail(`unknown navigation result tag: ${String(tag)}`);
   }
@@ -326,6 +329,29 @@ function readLocation(reader) {
     default:
       reader.fail(`unknown location tag: ${String(tag)}`);
   }
+}
+
+function readRevisionLayout(reader) {
+  const optionalU32 = (field) => reader.option(field, () => reader.u32(field));
+  return {
+    pageCount: reader.u32('layout page count'),
+    spreads: readCollection(reader, 'layout spreads', () => ({
+      leftPageIndex: reader.u32('spread left page'),
+      rightPageIndex: optionalU32('spread right page'),
+    })),
+    chapters: readCollection(reader, 'layout chapters', () => ({
+      spineIndex: reader.u32('chapter spine index'),
+      startPage: reader.u32('chapter start page'),
+      endPage: reader.u32('chapter end page'),
+    })),
+    tocTargets: readCollection(reader, 'layout toc targets', () => ({
+      tocId: reader.u32('toc target entry'),
+      pageIndex: reader.u32('toc target page'),
+    })),
+    activeTocEntryByPage: readCollection(reader, 'layout page toc entries', () =>
+      optionalU32('page toc entry'),
+    ),
+  };
 }
 
 function u8Tag(reader, field, values) {

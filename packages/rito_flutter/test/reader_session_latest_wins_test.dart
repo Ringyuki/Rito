@@ -228,6 +228,11 @@ final class _NavigationGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request}) {
+    throw UnimplementedError('peekSpread is not exercised by this fake.');
+  }
+
+  @override
   Future<RitoForegroundHandoffAck> commitPeeked({
     required RitoForegroundHandoff handoff,
     required int intentRequestId,

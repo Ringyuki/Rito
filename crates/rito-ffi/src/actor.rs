@@ -16,7 +16,8 @@ use rito_core::runtime::{
     ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
     ReaderBackgroundRequest, ReaderError, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
     ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSession,
-    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
+    ReaderSpreadRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
+    RuntimePinnedFontPolicyInput,
 };
 
 use rito_core::epub::shard::ShardKey;
@@ -39,6 +40,10 @@ pub(crate) enum ActorCommand {
     },
     PeekAdjacent {
         request: ReaderAdjacentRequest,
+        reply: Reply<Vec<u8>>,
+    },
+    PeekSpread {
+        request: ReaderSpreadRequest,
         reply: Reply<Vec<u8>>,
     },
     AdoptForegroundCandidate {
@@ -591,6 +596,16 @@ fn run_commands(
                 }
                 let _ = reply.send(result);
             }
+            ActorCommand::PeekSpread { request, reply } => {
+                let (result, terminate) =
+                    encode_mutation_result(session.peek_spread(request), encode_reader_artifact);
+                if terminate {
+                    let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
+                    let _ = reply.send(result);
+                    return disposed;
+                }
+                let _ = reply.send(result);
+            }
             ActorCommand::AdoptForegroundCandidate { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.adopt_foreground_candidate(request),
@@ -807,6 +822,17 @@ pub(crate) fn peek_adjacent(
         admission,
         |reply| ActorCommand::PeekAdjacent { request, reply },
         "peeked artifact",
+    )
+}
+
+pub(crate) fn peek_spread(
+    admission: CommandAdmission,
+    request: ReaderSpreadRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::PeekSpread { request, reply },
+        "spread artifact",
     )
 }
 

@@ -1,4 +1,5 @@
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
+import { ritoReaderNavigationQueryArtifactId } from './reader-session-query-request-runtime.js';
 import {
   decodeRitoReaderAnnotationResponse,
   decodeRitoReaderExactSourceRangeResolution,
@@ -30,14 +31,14 @@ export function createRitoReaderSessionQueryMethods(ctx) {
   };
   const request = (fields) => ({ sessionId: ctx.sessionId, ...fields });
 
-  const peekAdjacent = async (fromArtifactId, direction) => {
+  const peek = async (kind, fromArtifactId, target) => {
     ctx.requireOpen();
     if (!ctx.liveArtifacts.has(fromArtifactId)) {
       throw ctx.readerError('unknown-artifact', 'Peek source artifact is not live');
     }
-    const message = request({ requestId: ctx.nextRequestId(), fromArtifactId, direction });
+    const message = request({ requestId: ctx.nextRequestId(), fromArtifactId, ...target });
     try {
-      const payload = await ctx.send('peek-adjacent', { request: message });
+      const payload = await ctx.send(kind, { request: message });
       const artifact = ctx.decodeArtifactPayload(payload, message);
       ctx.liveArtifacts.add(artifact.artifactId);
       ctx.peekedArtifacts.set(artifact.artifactId, artifact.requestId);
@@ -47,6 +48,10 @@ export function createRitoReaderSessionQueryMethods(ctx) {
       throw error;
     }
   };
+  const peekAdjacent = (fromArtifactId, direction) =>
+    peek('peek-adjacent', fromArtifactId, { direction });
+  const peekSpread = (fromArtifactId, spreadIndex) =>
+    peek('peek-spread', fromArtifactId, { spreadIndex });
 
   const commitPeekedArtifact = async (expectedVisibleArtifactId, candidateArtifactId) => {
     ctx.requireOpen();
@@ -89,6 +94,7 @@ export function createRitoReaderSessionQueryMethods(ctx) {
 
   return {
     peekAdjacent,
+    peekSpread,
     commitPeekedArtifact,
     readFootnote: (artifactId, key) =>
       query('read-footnote', { artifactId, key }, decodeRitoReaderFootnote, artifactId),
@@ -135,10 +141,7 @@ export function createRitoReaderSessionQueryMethods(ctx) {
         decodeRitoReaderAnnotationResponse,
       ),
     navigation: async (navigationQuery) => {
-      const owned =
-        navigationQuery.kind === 'toc-entry-at-page' || navigationQuery.kind === 'locate'
-          ? navigationQuery.artifactId
-          : undefined;
+      const owned = ritoReaderNavigationQueryArtifactId(navigationQuery);
       if (owned !== undefined && !ctx.liveArtifacts.has(owned)) {
         throw ctx.readerError('unknown-artifact', 'navigation artifact is not live');
       }

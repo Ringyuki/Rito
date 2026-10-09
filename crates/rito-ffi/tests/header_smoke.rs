@@ -147,6 +147,7 @@ static void consume(void) {
   const uint8_t interaction[] = {'R','I','T','O','T','I','Q','1'};
   const uint8_t annotation[] = {'R','I','T','O','A','N','Q','1'};
   const uint8_t navigation[] = {'R','I','T','O','N','V','Q','1'};
+  const uint8_t spread[] = {'R','I','T','O','S','P','Q','1'};
   const uint8_t footnote_key[] = {'c','h','.','x','h','t','m','l','#','n'};
   rito_owned_buffer peeked = {0};
   rito_owned_buffer commit_ack = {0};
@@ -172,6 +173,7 @@ static void consume(void) {
   rito_owned_buffer shard_order = {0};
   (void)rito_content_shards_near(1, epub, 1, &shard_order, &error);
   (void)rito_peek_adjacent(1, adjacent, 8, &peeked, &error);
+  (void)rito_peek_spread(1, spread, 8, &peeked, &error);
   (void)rito_commit_peeked_artifact(1, foreground_handoff, 8,
                                        &commit_ack, &error);
   (void)rito_search(1, search, 8, &search_response, &error);

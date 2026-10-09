@@ -281,7 +281,32 @@ export interface RitoReaderNavigationRequest {
         readonly first: RitoReaderSourcePoint;
         readonly secondHref: string;
         readonly second: RitoReaderSourcePoint;
-      };
+      }
+    | { readonly kind: 'layout'; readonly artifactId: bigint };
+}
+
+/**
+ * The page table of one revision. A chapter-local revision lays out one
+ * chapter and counts its pages from zero; a whole-book revision lays out
+ * every chapter and its pages are book pages. A spread is addressed by its
+ * position in `spreads`.
+ */
+export interface RitoReaderRevisionLayout {
+  readonly pageCount: number;
+  readonly spreads: readonly {
+    readonly leftPageIndex: number;
+    readonly rightPageIndex?: number | undefined;
+  }[];
+  /** The chapters the revision lays out, in spine order; both page ends are included. */
+  readonly chapters: readonly {
+    readonly spineIndex: number;
+    readonly startPage: number;
+    readonly endPage: number;
+  }[];
+  /** The TOC entries the revision places on a page, in TOC order. */
+  readonly tocTargets: readonly { readonly tocId: number; readonly pageIndex: number }[];
+  /** Per page, the `tocId` of the entry it reads under. */
+  readonly activeTocEntryByPage: readonly (number | undefined)[];
 }
 
 export type RitoReaderLocation =
@@ -299,4 +324,5 @@ export type RitoReaderLocation =
 export type RitoReaderNavigationResult =
   | { readonly kind: 'toc-entry'; readonly tocId?: number | undefined }
   | { readonly kind: 'location'; readonly location: RitoReaderLocation }
-  | { readonly kind: 'order'; readonly order: -1 | 0 | 1 };
+  | { readonly kind: 'order'; readonly order: -1 | 0 | 1 }
+  | { readonly kind: 'layout'; readonly layout: RitoReaderRevisionLayout };

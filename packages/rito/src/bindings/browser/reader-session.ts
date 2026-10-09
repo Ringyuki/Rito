@@ -144,6 +144,13 @@ export interface BrowserReaderSession {
     fromArtifactId: bigint,
     direction: BrowserReaderAdjacentDirection,
   ): Promise<BrowserReaderArtifact>;
+  /**
+   * One spread of the revision behind an artifact, by its position in that
+   * revision's page table (the `layout` navigation query lists them), with
+   * no layout work and no foreground effect. Release it, or make it visible
+   * with {@link commitPeekedArtifact}.
+   */
+  peekSpread(fromArtifactId: bigint, spreadIndex: number): Promise<BrowserReaderArtifact>;
   /** Makes a peeked artifact visible, superseding every foreground request in flight. */
   commitPeekedArtifact(
     expectedVisibleArtifactId: bigint | undefined,
@@ -179,7 +186,10 @@ export interface BrowserReaderSession {
   ): Promise<BrowserReaderTextInteractionResponse>;
   /** Builds an annotation target for a source range, or locates a stored one by its JSON. */
   annotation(query: BrowserReaderAnnotationQuery): Promise<BrowserReaderAnnotationResponse>;
-  /** The TOC entry at a page or position, where a locator lands, or two positions' order. */
+  /**
+   * The TOC entry at a page or position, where a locator lands, two
+   * positions' order, or the page table of the revision behind an artifact.
+   */
   navigation(query: BrowserReaderNavigationQuery): Promise<BrowserReaderNavigationResult>;
   release(artifactId: bigint): Promise<boolean>;
   dispose(): Promise<void>;
@@ -266,6 +276,7 @@ function browserReaderSession(
       await client.removeHostFontFaces(sha256s);
     },
     peekAdjacent: (...args) => client.peekAdjacent(...args),
+    peekSpread: (...args) => client.peekSpread(...args),
     commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
     readFootnote: (...args) => client.readFootnote(...args),
     search: (...args) => client.search(...args),

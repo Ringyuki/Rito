@@ -57,6 +57,8 @@ export 'src/protocol/hit_resolver.dart';
 export 'src/protocol/navigation_query.dart'
     show
         RitoCompareQuery,
+        RitoLayoutQuery,
+        RitoLayoutResult,
         RitoLocateQuery,
         RitoLocatedPage,
         RitoLocation,
@@ -72,6 +74,12 @@ export 'src/protocol/navigation_query.dart'
         RitoTocEntryResult;
 export 'src/protocol/primitive_models.dart';
 export 'src/protocol/request_models.dart';
+export 'src/protocol/revision_layout.dart'
+    show
+        RitoChapterPages,
+        RitoRevisionLayout,
+        RitoSpreadPages,
+        RitoTocTargetPage;
 export 'src/protocol/search.dart'
     show RitoSearchRequest, RitoSearchResponse, RitoSearchResult;
 export 'src/protocol/text_geometry.dart'

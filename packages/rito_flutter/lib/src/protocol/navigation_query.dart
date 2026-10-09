@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'artifact_models.dart';
 import 'binary_reader.dart';
+import 'revision_layout.dart';
 
 /// A reading-position question. The engine answers each the way it
 /// answers a browser reader, so a chapter title, a bookmark check or a
@@ -53,6 +54,14 @@ final class RitoCompareQuery extends RitoNavigationQuery {
   final RitoSourcePoint first;
   final String secondHref;
   final RitoSourcePoint second;
+}
+
+/// The page table of the revision behind an artifact: its spreads, the
+/// chapters it lays out and where its TOC entries land.
+final class RitoLayoutQuery extends RitoNavigationQuery {
+  const RitoLayoutQuery({required this.artifactId});
+
+  final int artifactId;
 }
 
 final class RitoNavigationRequest {
@@ -116,6 +125,12 @@ final class RitoOrderResult extends RitoNavigationResult {
   final int order;
 }
 
+final class RitoLayoutResult extends RitoNavigationResult {
+  const RitoLayoutResult(this.layout);
+
+  final RitoRevisionLayout layout;
+}
+
 /// Decodes a RITONVR1 message.
 final class RitoNavigationDecoder {
   const RitoNavigationDecoder();
@@ -142,6 +157,7 @@ final class RitoNavigationDecoder {
       ),
       1 => RitoLocationResult(_location(reader)),
       2 => RitoOrderResult(_order(reader)),
+      3 => RitoLayoutResult(readRitoRevisionLayout(reader)),
       _ => reader.fail('unknown navigation result tag: $tag'),
     };
     reader.finish('navigation wire message');

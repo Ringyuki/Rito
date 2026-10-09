@@ -200,6 +200,18 @@ external int _ritoPeekAdjacent(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_RequestAdjacentNative>(
+  symbol: 'rito_peek_spread',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoPeekSpread(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_OwnedWireRequestNative>(
   symbol: 'rito_commit_peeked_artifact',
   assetId: ritoNativeAssetId,
@@ -395,6 +407,7 @@ final class RitoNativeBindings {
        _requestArtifact = _ritoRequestArtifact,
        _requestAdjacent = _ritoRequestAdjacent,
        _peekAdjacent = _ritoPeekAdjacent,
+       _peekSpread = _ritoPeekSpread,
        _commitPeeked = _ritoCommitPeekedArtifact,
        _readPublication = _ritoReadPublication,
        _adoptForeground = _ritoAdoptForegroundCandidate,
@@ -465,6 +478,10 @@ final class RitoNativeBindings {
        _peekAdjacent = library
            .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
              'rito_peek_adjacent',
+           ),
+       _peekSpread = library
+           .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
+             'rito_peek_spread',
            ),
        _commitPeeked = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
@@ -543,6 +560,7 @@ final class RitoNativeBindings {
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _RequestAdjacentDart _peekAdjacent;
+  final _RequestAdjacentDart _peekSpread;
   final _OwnedWireRequestDart _commitPeeked;
   final _ReadPublicationDart _readPublication;
   final _OwnedWireRequestDart _adoptForeground;
@@ -991,11 +1009,28 @@ final class RitoNativeBindings {
   RitoArtifact peekAdjacentEncoded({
     required int sessionId,
     required Uint8List requestBytes,
-  }) {
-    final owned = _peekAdjacentEncodedWire(
-      sessionId: sessionId,
-      requestBytes: requestBytes,
-    );
+  }) => _decodePeeked(
+    sessionId,
+    requestBytes,
+    _peekAdjacentEncodedWire(sessionId: sessionId, requestBytes: requestBytes),
+  );
+
+  /// One spread of the revision behind an artifact, addressed by its
+  /// position in that revision's layout, from a 48-byte RITOSPQ1 request.
+  RitoArtifact peekSpreadEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _decodePeeked(
+    sessionId,
+    requestBytes,
+    _peekSpreadEncodedWire(sessionId: sessionId, requestBytes: requestBytes),
+  );
+
+  RitoArtifact _decodePeeked(
+    int sessionId,
+    Uint8List requestBytes,
+    Uint8List owned,
+  ) {
     try {
       final artifact = artifactDecoder.decode(owned);
       _validateArtifactIdentity(
@@ -1019,20 +1054,32 @@ final class RitoNativeBindings {
   Uint8List _peekAdjacentEncodedWire({
     required int sessionId,
     required Uint8List requestBytes,
-  }) {
+  }) => _peekEncodedWire(_peekAdjacent, 'RITONAV1', sessionId, requestBytes);
+
+  Uint8List _peekSpreadEncodedWire({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _peekEncodedWire(_peekSpread, 'RITOSPQ1', sessionId, requestBytes);
+
+  Uint8List _peekEncodedWire(
+    _RequestAdjacentDart peek,
+    String message,
+    int sessionId,
+    Uint8List requestBytes,
+  ) {
     _validateId(sessionId, 'session id');
     if (requestBytes.length != 48) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
-        'RITONAV1 must be exactly 48 bytes',
+        '$message must be exactly 48 bytes',
       );
     }
     final request = _copyInput(requestBytes);
     final artifactOut = calloc<_RitoOwnedBuffer>();
     final errorOut = calloc<_RitoOwnedBuffer>();
     try {
-      final status = _peekAdjacent(
+      final status = peek(
         sessionId,
         request,
         requestBytes.length,
@@ -1730,6 +1777,14 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings._peekAdjacentEncodedWire(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List peekSpreadEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings._peekSpreadEncodedWire(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );

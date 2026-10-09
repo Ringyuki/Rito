@@ -40,6 +40,7 @@ export 'src/protocol/request_encoder.dart'
         RitoRequestEncoder,
         RitoTextInteractionEncoding;
 export 'src/protocol/request_models.dart';
+export 'src/protocol/revision_layout.dart';
 export 'src/protocol/resource_decoder.dart' show RitoResourceDecoder;
 export 'src/protocol/text_interaction.dart';
 export 'src/protocol/wire_exception.dart';

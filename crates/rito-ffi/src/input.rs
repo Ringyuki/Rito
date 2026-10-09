@@ -3,14 +3,15 @@ use rito_core::runtime::{
     decode_reader_artifact_request, decode_reader_background_handoff,
     decode_reader_background_request, decode_reader_exact_source_range_request,
     decode_reader_foreground_handoff, decode_reader_navigation_request,
-    decode_reader_search_request, decode_reader_text_interaction_request,
-    decode_reader_text_range_request, ReaderAdjacentRequest, ReaderAnnotationRequest,
-    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderNavigationRequest,
-    ReaderResourceKind, ReaderSearchRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
-    RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
-    RuntimePinnedFontPolicyInput, READER_BACKGROUND_HANDOFF_WIRE_BYTES,
-    READER_BACKGROUND_REQUEST_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_BYTES,
+    decode_reader_search_request, decode_reader_spread_request,
+    decode_reader_text_interaction_request, decode_reader_text_range_request,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSpreadRequest,
+    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontFaceInput,
+    RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
+    READER_BACKGROUND_HANDOFF_WIRE_BYTES, READER_BACKGROUND_REQUEST_WIRE_BYTES,
+    READER_FOREGROUND_HANDOFF_WIRE_BYTES,
 };
 
 use rito_core::epub::shard::{ShardKey, SHARD_KEY_BYTES};
@@ -73,6 +74,14 @@ pub(crate) fn adjacent_request(
     }
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "RITONAV1 input")?;
     decode_reader_adjacent_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn spread_request(source: *const u8, len: u64) -> Result<ReaderSpreadRequest, FfiError> {
+    if len == 0 {
+        return Err(FfiError::invalid("RITOSPQ1 input must not be empty"));
+    }
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "RITOSPQ1 input")?;
+    decode_reader_spread_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn background_request(

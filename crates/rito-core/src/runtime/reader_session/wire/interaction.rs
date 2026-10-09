@@ -1,21 +1,24 @@
-//! Wire forms of text interactions (`RITOTIQ1`/`RITOTIR1`) and annotation
-//! targets (`RITOANQ1`/`RITOANR1`). Every enum crosses as a `u8` tag in
-//! declaration order; the tables below are the contract both directions
-//! share.
+//! Wire forms of text interactions (`RITOTIQ1`/`RITOTIR1`), annotation
+//! targets (`RITOANQ1`/`RITOANR1`) and reading-position questions
+//! (`RITONVQ1`/`RITONVR1`). Every enum crosses as a `u8` tag in declaration
+//! order; the tables below are the contract both directions share.
 
 mod decode;
 mod encode;
+mod navigation;
 
 pub(super) use decode::{
-    annotation_request, annotation_response, navigation_request, navigation_result,
-    text_interaction_request, text_interaction_response,
+    annotation_request, annotation_response, text_interaction_request, text_interaction_response,
 };
 pub(super) use encode::{
     annotation_request as encode_annotation_request,
     annotation_response as encode_annotation_response,
-    navigation_request as encode_navigation_request, navigation_result as encode_navigation_result,
     text_interaction_request as encode_text_interaction_request,
     text_interaction_response as encode_text_interaction_response,
+};
+pub(super) use navigation::{
+    decode_request as navigation_request, decode_result as navigation_result,
+    encode_request as encode_navigation_request, encode_result as encode_navigation_result,
 };
 
 use super::primitives::invalid;

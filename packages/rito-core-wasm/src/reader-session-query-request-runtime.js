@@ -127,6 +127,13 @@ export function encodeRitoReaderAnnotationRequest(request) {
   return writer.finish();
 }
 
+const NAVIGATION_QUERIES_ABOUT_AN_ARTIFACT = new Set(['toc-entry-at-page', 'locate', 'layout']);
+
+/** The artifact a navigation query asks about, for the queries that ask about one. */
+export function ritoReaderNavigationQueryArtifactId(query) {
+  return NAVIGATION_QUERIES_ABOUT_AN_ARTIFACT.has(query?.kind) ? query.artifactId : undefined;
+}
+
 export function encodeRitoReaderNavigationRequest(request) {
   const writer = ReaderWireWriter.message('RITONVQ1');
   writer.externalId(request.sessionId, 'session id');
@@ -153,6 +160,10 @@ export function encodeRitoReaderNavigationRequest(request) {
       writeRitoReaderSourcePoint(writer, query.first);
       writer.string(query.secondHref, 'second href');
       writeRitoReaderSourcePoint(writer, query.second);
+      break;
+    case 'layout':
+      writer.u8(4, 'navigation query');
+      writer.externalId(query.artifactId, 'artifact id');
       break;
     default:
       throw new RangeError(`unknown navigation query: ${String(query?.kind)}`);
