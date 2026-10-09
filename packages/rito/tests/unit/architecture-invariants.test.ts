@@ -16,16 +16,12 @@ const PACKAGE_ROOT = join(SRC, '..');
 const WORKSPACE_ROOT = join(PACKAGE_ROOT, '../..');
 const PACKAGE_JSON = join(SRC, '../package.json');
 const TSDOWN_CONFIG = join(PACKAGE_ROOT, 'tsdown.config.ts');
-const PRIVATE_BUILD_ENTRIES = new Set([
-  'src/bindings/browser/reader/worker-main.ts',
-  'src/bindings/browser/reader-session-worker-main.ts',
-]);
+const PRIVATE_BUILD_ENTRIES = new Set(['src/bindings/browser/reader-session-worker-main.ts']);
 const MAIN_ENTRY = join(SRC, 'index.ts');
 const PACKAGE_JSON_RECORD = readJsonRecord(PACKAGE_JSON);
 const PUBLIC_ENTRY_FILES = packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG));
 const READER_ROOT = join(SRC, 'reader');
-const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
-const BROWSER_READER_BINDING_ROOT = join(BROWSER_READER_BINDING, 'reader.ts');
+const BROWSER_BINDING = join(SRC, 'bindings/browser');
 const READER_CONSUMER_ROOTS = [
   join(WORKSPACE_ROOT, 'packages/kit/src'),
   join(WORKSPACE_ROOT, 'packages/react/src'),
@@ -261,17 +257,21 @@ describe('Architecture invariant: the reader facade stays thin', () => {
 
   it('root reader facade lazy-loads the browser binding implementation', () => {
     const source = read(join(READER_ROOT, 'create-reader.ts'));
-    expect(source).not.toMatch(/from\s+['"][^'"]*bindings\/browser\/reader/);
-    expect(source).toContain("import('../bindings/browser/reader/reader')");
+    expect(source).not.toMatch(/from\s+['"][^'"]*bindings\/browser/);
+    expect(source).toContain("import('../bindings/browser/session-reader/reader')");
   });
 
-  it('loads the runtime boundary and lets worker selection choose the execution mode', () => {
-    const source = read(BROWSER_READER_BINDING_ROOT);
-
-    expect(source).toContain('loadRuntimeCoreModule');
-    expect(source).not.toContain('initializeFullCoreModule');
-    expect(source).not.toContain('getLoadedFullCoreModule');
-    expect(source).not.toContain('createInProcessBrowserReaderWorkerClient');
+  it('runs the engine in the session worker: the page side imports only the decoder', () => {
+    // The worker module owns the WASM engine; everything a page loads
+    // reaches the wasm package through its decoder entry, or for types.
+    const hits = scan(
+      walkTs(BROWSER_BINDING).filter((file) => !file.endsWith('reader-session-worker.ts')),
+      /^import (?!type\b)[^;]*from '@ritojs\/core-wasm';$/gm,
+    );
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
+    expect(read(join(BROWSER_BINDING, 'reader-session-worker.ts'))).toContain(
+      "from '@ritojs/core-wasm'",
+    );
   });
 });
 
