@@ -73,8 +73,11 @@ class PositionTrackerRuntime implements PositionTracker {
       this.captureNative(spreadIndex, interactions);
       return;
     }
+    const known = this.current?.progress ?? 0;
     const intent = this.claimIntent();
-    if (this.owns(intent)) this.publish(createReadingPosition(this.getLayout(), spreadIndex));
+    if (this.owns(intent)) {
+      this.publish(createReadingPosition(this.getLayout(), spreadIndex, known));
+    }
   }
 
   project(position: ReadingPosition): ReadingPosition {
@@ -235,6 +238,7 @@ class PositionTrackerRuntime implements PositionTracker {
       (position) => {
         if (this.owns(intent)) this.publish(position);
       },
+      () => this.current?.progress ?? 0,
     )
       .catch(ignoreResult)
       .then(() => {

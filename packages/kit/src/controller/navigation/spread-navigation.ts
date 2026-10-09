@@ -2,10 +2,12 @@ import type { Reader } from '@ritojs/core';
 import { claimNavigation } from './claim';
 import type { GestureNavigationToken, NavigationDeps } from './index';
 import { ensureIncomingSlot, navigationTarget } from './pending';
+import { leavesChapterLaidOutAlone, waitForBook } from './book-navigation';
 import {
   clearQueuedIntent,
   enqueueIntent,
   foregroundIsBusy,
+  queuedBookTurn,
   queuedSpreadTurn,
   settleNavigationAttemptForContinuity,
   type GestureNavigationRequest,
@@ -31,6 +33,21 @@ export function startNavigation(
   source: NavigationIntentSource = 'api',
 ): void {
   replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, source));
+}
+
+/**
+ * A turn of one spread. Turns already waiting for the whole book count:
+ * two presses at the chapter's last page are two pages on, and a press
+ * back takes one of them away.
+ */
+export function startRelativeNavigation(
+  machine: NavigationMachine,
+  deps: NavigationDeps,
+  step: 1 | -1,
+  source: NavigationIntentSource = 'api',
+): void {
+  const waiting = queuedBookTurn(machine)?.delta ?? 0;
+  startNavigation(machine, deps, deps.getCurrentSpread() + waiting + step, source);
 }
 
 export function startGestureNavigation(
@@ -85,6 +102,12 @@ function goToSpread(
   const initialPrevious = deps.getCurrentSpread();
   const claim = claimNavigation(machine, deps);
   if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
+  if (leavesChapterLaidOutAlone(initialReader, index)) {
+    if (gesture) return completeNoOpNavigation(deps, claim.id, gesture);
+    return waitForBook(claim.id, index - initialPrevious, source, () => {
+      startNavigation(machine, deps, deps.getCurrentSpread() + index - initialPrevious, source);
+    });
+  }
   if (initialTarget === initialPrevious) {
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
@@ -218,6 +241,10 @@ function replaceWithNavigation(
     return;
   }
   if (attempt.attemptId !== machine.claimSeq) return;
+  if (attempt.pendingBookTurn) {
+    enqueueIntent(machine, { kind: 'book', turn: attempt.pendingBookTurn });
+    return;
+  }
   enqueueIntent(
     machine,
     attempt.pendingNavigation ? { kind: 'spread', turn: attempt.pendingNavigation } : undefined,

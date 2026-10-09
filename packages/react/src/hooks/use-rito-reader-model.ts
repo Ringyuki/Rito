@@ -99,15 +99,19 @@ export const INITIAL: InternalState = {
 };
 
 export function createLoadedState(reader: Reader, controller: ReaderController): InternalState {
+  // The book is on screen as soon as the reader has laid a page out. Spread
+  // indexes and counts are book-wide and come from the controller: a book
+  // that opens with its first chapter laid out alone has none to give until
+  // the whole book follows, which `layoutChange` then announces.
   const hasLayout = reader.totalSpreads > 0;
   return {
     isLoaded: hasLayout,
     isLoading: !hasLayout,
     error: null,
     currentSpread: controller.currentSpread,
-    totalSpreads: reader.totalSpreads,
+    totalSpreads: controller.totalSpreads,
     metadata: reader.metadata,
     toc: reader.toc,
-    spreads: reader.spreads,
+    spreads: controller.spreads,
   };
 }

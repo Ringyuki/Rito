@@ -133,6 +133,7 @@ function wireRuntimeEvents(
       internals.reader.onLayoutCommitted((activeSpreadIndex) => {
         commitLayoutChange(internals, emitter, runtime, undefined, activeSpreadIndex);
         scheduleControllerPrerender(internals, runtime, contentRenderer);
+        nav.notifyLayoutCommitted();
       }),
     );
   }

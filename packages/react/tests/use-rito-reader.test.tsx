@@ -19,7 +19,18 @@ vi.mock('@ritojs/core', () => ({
 }));
 
 vi.mock('@ritojs/kit', () => ({
-  createController: createControllerMock,
+  // A real controller reports its reader's book-wide layout; the stubs
+  // the tests hand out carry only what each test drives.
+  createController: (reader: { totalSpreads: number; spreads: unknown }, ...rest: unknown[]) => {
+    const controller = createControllerMock(reader, ...rest) as object;
+    if (!('totalSpreads' in controller)) {
+      Object.defineProperties(controller, {
+        totalSpreads: { get: () => reader.totalSpreads },
+        spreads: { get: () => reader.spreads },
+      });
+    }
+    return controller;
+  },
   parseReadingPosition: parseReadingPositionMock,
 }));
 

@@ -14,10 +14,12 @@ import {
   supersedeNavigationForSelectionIntent,
   type NavigationSelectionInputBarrier,
 } from './direct-interaction';
+import { continueBookTurn, startBookNavigation } from './book-navigation';
 import {
   createLocatorNavigator,
   startGestureNavigation,
   startNavigation,
+  startRelativeNavigation,
 } from './spread-navigation';
 import { navigateReaderLocator, navigateTocEntry } from './locator-navigation';
 import type { ProvisionalTransitionRuntime } from '../runtime-frame';
@@ -40,6 +42,7 @@ type EntryActionName =
   | 'navigateToTocEntry'
   | 'navigateToLocator'
   | 'jumpToSpread'
+  | 'goToBookSpread'
   | 'jumpToSpreadIfReady'
   | 'prepareSpreadForJump';
 type RuntimeActionName = Exclude<keyof NavigationActions, EntryActionName>;
@@ -80,6 +83,16 @@ export interface NavigationActions {
   navigateToLocator(locator: ReaderLocator): void;
   /** Snap to a spread without playing a transition animation. */
   jumpToSpread(index: number, preservePositionIntent?: boolean): boolean;
+  /**
+   * Navigate to a spread a host names by its book-wide index, with a turn
+   * or a snap: at once when the whole book is laid out, otherwise when it
+   * is. `index` may be read at that moment (the book's last spread).
+   */
+  goToBookSpread(
+    index: number | (() => number),
+    mode: 'turn' | 'jump',
+    source?: machine.NavigationIntentSource,
+  ): void;
   /** Snap only when the target is immediately paintable. */
   jumpToSpreadIfReady(
     index: number,
@@ -89,6 +102,8 @@ export interface NavigationActions {
   prepareSpreadForJump(index: number): jump.NavigationJumpReadiness;
   /** Continue a deferred navigation once its async content slot is ready. */
   notifyContentReady(spreadIndex: number): void;
+  /** Continue a turn that waited for the whole book, once a layout is committed. */
+  notifyLayoutCommitted(): void;
   /** Route the private Reader preview signal before ordinary spread invalidation. */
   presentChapterLocalInvalidation(spreadIndex: number): boolean;
   /** Sole provisional branch of the runtime TD settled listener. */
@@ -139,10 +154,10 @@ function createEntryActions(
       return startGestureNavigation(nav, deps, index, onTransitionStart, onUnavailable);
     },
     nextSpread(source) {
-      startNavigation(nav, deps, deps.getCurrentSpread() + 1, source);
+      startRelativeNavigation(nav, deps, 1, source);
     },
     prevSpread(source) {
-      startNavigation(nav, deps, deps.getCurrentSpread() - 1, source);
+      startRelativeNavigation(nav, deps, -1, source);
     },
     navigateToTocEntry(entry) {
       navigateTocEntry(nav, deps, entry, locatorNavigator);
@@ -156,6 +171,11 @@ function createEntryActions(
       if (machine.foregroundIsBusy(nav)) return false;
       return jump.jumpToSpread(deps, claim, index);
     },
+    goToBookSpread(index, mode, source = 'api') {
+      startBookNavigation(nav, deps, source, () => {
+        goToNamedSpread(nav, deps, typeof index === 'function' ? index() : index, mode, source);
+      });
+    },
     jumpToSpreadIfReady(index, selectionGesture) {
       return jump.performReadyJump(nav, deps, index, selectionGesture);
     },
@@ -167,6 +187,21 @@ function createEntryActions(
   };
 }
 
+function goToNamedSpread(
+  nav: Machine,
+  deps: NavigationDeps,
+  target: number,
+  mode: 'turn' | 'jump',
+  source: machine.NavigationIntentSource,
+): void {
+  if (mode === 'turn') {
+    startNavigation(nav, deps, target, source);
+    return;
+  }
+  const claim = claimNavigation(nav, deps);
+  if (!machine.foregroundIsBusy(nav)) jump.jumpToSpread(deps, claim, target);
+}
+
 function createRuntimeActions(
   nav: Machine,
   deps: NavigationDeps,
@@ -176,6 +211,9 @@ function createRuntimeActions(
       if (nav.disposed) return;
       if (notifyChapterLocalContentReady(nav, deps, spreadIndex)) return;
       continuePendingNavigation(nav, deps, spreadIndex);
+    },
+    notifyLayoutCommitted() {
+      if (!nav.disposed) continueBookTurn(nav, deps);
     },
     presentChapterLocalInvalidation: (spreadIndex) =>
       presentChapterLocalInvalidation(nav, deps, spreadIndex),

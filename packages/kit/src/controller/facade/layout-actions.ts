@@ -2,7 +2,7 @@ import type { Reader } from '@ritojs/core';
 import type { ReadingPosition } from '../../interaction/index';
 import type { LayoutPositionPlan } from '../../interaction/position/tracker';
 import { commitCurrentSpread } from '../core/current-spread';
-import { publishSpreadChange } from '../core/spread-change';
+import { publishSpreadChange, publishedSpread, showsChapterAlone } from '../core/spread-change';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
 import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
@@ -203,10 +203,14 @@ function currentPosition(internals: Internals): ReadingPosition | null {
 }
 
 function emitLayoutChange(internals: Internals, emitter: Emitter): void {
-  emitter.emit('layoutChange', {
+  // A chapter laid out alone is not a layout a host can count pages in.
+  if (showsChapterAlone(internals.reader)) return;
+  const layout = {
     spreads: internals.reader.spreads,
     totalSpreads: internals.reader.totalSpreads,
-  });
+  };
+  internals.coordState.publishedLayout = layout;
+  emitter.emit('layoutChange', layout);
 }
 
 function emitCommittedSpreadChangeIfCurrent(
@@ -215,6 +219,9 @@ function emitCommittedSpreadChangeIfCurrent(
   previousSpread: number,
   committedSpread: number,
 ): void {
-  if (internals.currentSpread !== committedSpread || committedSpread === previousSpread) return;
+  // Compared with the spread hosts were last told of: turns made while a
+  // chapter was laid out alone moved the reader without an event.
+  const known = publishedSpread(emitter) ?? previousSpread;
+  if (internals.currentSpread !== committedSpread || committedSpread === known) return;
   publishSpreadChange(emitter, internals.reader, committedSpread);
 }

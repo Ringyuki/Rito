@@ -1,4 +1,5 @@
 import type { DisposableCollection } from '../../utils/disposable';
+import { showsChapterAlone } from '../core/spread-change';
 import type { WiringDeps } from '../core/wiring-deps';
 
 export function wirePositionTracker(deps: WiringDeps, disposables: DisposableCollection): void {
@@ -7,6 +8,11 @@ export function wirePositionTracker(deps: WiringDeps, disposables: DisposableCol
   const tracker = engines.position;
   disposables.add(
     tracker.onPositionChange((position) => {
+      // A position taken while a chapter is laid out alone projects onto
+      // that chapter's own page numbers: hosts hear the one the whole book
+      // gives, which follows its commit.
+      if (showsChapterAlone(deps.reader)) return;
+      deps.coordState.publishedPosition = position;
       emitter.emit('positionChange', { position });
       if (!deps.hasRestored()) return;
       const serialized = tracker.serialize();

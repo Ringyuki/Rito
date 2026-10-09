@@ -4,7 +4,7 @@ import type { Nav, NavigationActionsSlice } from './types';
 export function buildNavigationActions(nav: Nav): NavigationActionsSlice {
   return {
     goToSpread(index): void {
-      nav.goToSpread(index);
+      nav.goToBookSpread(index, 'turn');
     },
     nextSpread(): void {
       nav.nextSpread();
@@ -16,7 +16,7 @@ export function buildNavigationActions(nav: Nav): NavigationActionsSlice {
       nav.navigateToTocEntry(entry);
     },
     jumpToSpread(index): void {
-      nav.jumpToSpread(index);
+      nav.goToBookSpread(index, 'jump');
     },
   };
 }

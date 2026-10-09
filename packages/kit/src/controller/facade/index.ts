@@ -50,7 +50,7 @@ export function buildController(
     buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),
-    buildReaderProxies(internals),
+    buildReaderProxies(internals, emitter),
   );
   return controller;
 }

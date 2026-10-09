@@ -13,6 +13,12 @@ export interface PositionLayout {
   readonly pageCount: number;
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   readonly manifestHrefMap?: ReadonlyMap<string, string>;
+  /**
+   * What the layout covers. A chapter laid out alone counts its pages from
+   * zero and cannot say how far through the book one is. Absent means the
+   * whole book.
+   */
+  readonly scope?: 'chapter' | 'book' | undefined;
 }
 
 export interface PositionProjection {
@@ -34,13 +40,15 @@ export interface ReadingPosition {
 export function createReadingPosition(
   layout: PositionLayout,
   spreadIndex: number,
+  knownProgress = 0,
 ): ReadingPosition {
   const { spreads } = layout;
   const clamped = Math.max(0, Math.min(spreadIndex, spreads.length - 1));
   const pageIndex = spreads[clamped]?.leftPageIndex ?? 0;
   const locator = createLocator(layout, pageIndex);
   const projection = { spreadIndex: clamped, pageIndex };
-  const base = { projection, progress: progressForPage(pageIndex, layout), timestamp: Date.now() };
+  const progress = progressForPage(pageIndex, layout, knownProgress);
+  const base = { projection, progress, timestamp: Date.now() };
   return locator ? { ...base, locator } : base;
 }
 
@@ -71,12 +79,22 @@ export function projectReadingPosition(
   return {
     ...position,
     projection: { spreadIndex: resolvedSpread, pageIndex: resolvedPage },
-    progress: progressForPage(resolvedPage, layout),
+    progress: progressForPage(resolvedPage, layout, position.progress),
     timestamp: Date.now(),
   };
 }
 
-export function progressForPage(pageIndex: number, layout: PositionLayout): number {
+/**
+ * How far through the book a page is. Only the whole book can say; while a
+ * chapter is laid out alone the progress last known is kept, never the
+ * page's place in that chapter.
+ */
+export function progressForPage(
+  pageIndex: number,
+  layout: PositionLayout,
+  knownProgress: number,
+): number {
+  if (layout.scope === 'chapter') return knownProgress;
   return layout.pageCount > 0 ? pageIndex / layout.pageCount : 0;
 }
 

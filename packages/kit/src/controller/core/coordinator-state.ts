@@ -1,4 +1,4 @@
-import type { ReaderInteractionTarget } from '@ritojs/core';
+import type { ReaderInteractionTarget, Spread } from '@ritojs/core';
 import type { SelectionEngine } from '../../interaction/index';
 import type { SearchEngine } from '../../interaction/index';
 import type { AnnotationStore, ResolvedAnnotation } from '../../interaction/index';
@@ -65,6 +65,10 @@ export interface CoordinatorState {
   positionUpdateMode: PositionUpdateMode;
   /** Synchronous same-revision projection transaction for one exact active selection gesture. */
   selectionProjectionTransfer: SelectionProjectionTransfer | null;
+  /** The position hosts were last told of by `positionChange`. */
+  publishedPosition: ReadingPosition | null;
+  /** The layout hosts were last told of by `layoutChange`. */
+  publishedLayout: { readonly spreads: readonly Spread[]; readonly totalSpreads: number } | null;
 }
 
 export function createCoordinatorState(): CoordinatorState {
@@ -81,6 +85,8 @@ export function createCoordinatorState(): CoordinatorState {
     activeImageBlobUrl: null,
     contentInteractionGeneration: 0,
     positionUpdateMode: { kind: 'capture' },
+    publishedPosition: null,
+    publishedLayout: null,
     selectionProjectionTransfer: null,
   };
 }

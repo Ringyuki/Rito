@@ -22,6 +22,23 @@ export interface PendingNavigation {
   readonly gesture?: GestureNavigationRequest;
 }
 
+/**
+ * A turn past the edge of a chapter that is laid out alone: the spread it
+ * leads to exists only once the whole book is laid out, so it waits for
+ * that layout to be committed.
+ */
+export interface PendingBookTurn {
+  readonly attemptId: number;
+  /**
+   * For a turn by spreads: how many, from wherever the reader is when the
+   * book arrives. Absent for a spread a host named by its book-wide index.
+   */
+  readonly delta?: number;
+  readonly source?: NavigationIntentSource;
+  /** Starts the navigation once the whole book is committed. */
+  readonly resume: () => void;
+}
+
 /** A durable-locator seek waiting for engine-side resolution. */
 export interface PendingLocatorNavigation {
   readonly attemptId: number;
@@ -70,6 +87,7 @@ export interface NavigationAttempt {
   readonly claimedIntent: boolean;
   readonly attemptId?: number;
   readonly pendingNavigation?: PendingNavigation;
+  readonly pendingBookTurn?: PendingBookTurn;
 }
 
 /**
@@ -80,6 +98,7 @@ export interface NavigationAttempt {
  */
 export type QueuedIntent =
   | { readonly kind: 'spread'; readonly turn: PendingNavigation }
+  | { readonly kind: 'book'; readonly turn: PendingBookTurn }
   | { readonly kind: 'locator'; readonly seek: PendingLocatorNavigation };
 
 /**
@@ -158,6 +177,11 @@ function describeQueuedIntent(intent: QueuedIntent): string {
         `navigation to spread ${String(intent.turn.target)} ` +
         `(source: ${intent.turn.source ?? 'unknown'}, attempt ${String(intent.turn.attemptId)})`
       );
+    case 'book':
+      return (
+        `navigation ${String(intent.turn.delta ?? 'to a book spread')} past the chapter laid out ` +
+        `(source: ${intent.turn.source ?? 'unknown'}, attempt ${String(intent.turn.attemptId)})`
+      );
     case 'locator':
       return `locator navigation to ${intent.seek.targetLabel}`;
   }
@@ -177,6 +201,8 @@ export function clearQueuedIntent(machine: NavigationMachine): boolean {
       }
       break;
     }
+    case 'book':
+      break;
     case 'locator':
       queued.seek.locatorAbort.abort();
       break;
@@ -190,6 +216,10 @@ export function clearQueuedIntent(machine: NavigationMachine): boolean {
 
 export function queuedSpreadTurn(machine: NavigationMachine): PendingNavigation | undefined {
   return machine.queued?.kind === 'spread' ? machine.queued.turn : undefined;
+}
+
+export function queuedBookTurn(machine: NavigationMachine): PendingBookTurn | undefined {
+  return machine.queued?.kind === 'book' ? machine.queued.turn : undefined;
 }
 
 export function queuedLocatorSeek(
