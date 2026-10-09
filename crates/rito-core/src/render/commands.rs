@@ -9,6 +9,8 @@ mod refs;
 #[cfg(test)]
 pub(crate) mod test_support;
 
+#[cfg(test)]
+pub(crate) use reader_wire::READER_PRIMITIVE_LIST_FORMAT_VERSION;
 pub(crate) use reader_wire::{contract, encode_reader_primitive_list, ReaderEncodedDisplayList};
 pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
 

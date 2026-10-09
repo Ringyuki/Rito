@@ -42,12 +42,18 @@ paint domain grows, and a stale decoder misreads the byte stream.
   expectation, exactly as the header describes.
 - **Taps resolve against the artifact's hits, not its paint commands.**
   Each page's hit entries are the engine's account of links, note
-  anchors (with the canonical footnote key and whether its definition
-  is indexed yet) and images, already in display-list space. Resolve in
-  hit order — text runs, then block-level link boxes, then images — so a
-  link wrapping an image resolves as the link; `RitoHitResolver` in
-  `rito_flutter` is the reference. Paint commands still carry `href`
-  and `alt` for older bridges, but they are not the hit surface.
+  anchors and images, already in display-list space, and each says what
+  it is: plain text, a link, an image, a footnote reference, or a
+  footnote reference whose definition is not indexed yet. A link carries
+  where it lands as a locator (absent for an external address) and the
+  TOC label of that destination when it has one; a footnote reference
+  carries its canonical key. Do not classify a target from its href —
+  the engine is the only classifier, and a browser reader shows the same
+  answer. Resolve in hit order — text runs, then block-level link boxes,
+  then images — so a link wrapping an image resolves as the link;
+  `RitoHitResolver` in `rito_flutter` is the reference. Paint commands
+  still carry `href` and `alt` for older bridges, but they are not the
+  hit surface.
 
 - **A stored highlight is projected by the engine, not rebuilt by the
   host.** Persist what a range _is_ — the manifest href plus the
@@ -172,6 +178,19 @@ longer written; a decoder rejects it by its version field. The same
 bytes back the reader worker's frame command buffer, whose metadata
 carries the ratio and primitive count beside the semantic frame's
 command count, kind counts and hash.
+
+Wire changes landed when hit entries became the engine's classified
+targets (reader protocol version 6):
+
+- Artifacts and publications stamp protocol version 6; a decoder pinned
+  to 5 must move with it.
+- A hit entry is: `u32` page index, rect, `u8` kind (0 text, 1 link,
+  2 image, 3 footnote, 4 footnote whose definition is not indexed yet),
+  text, optional href, optional source point, optional target locator
+  (the locator record every request carries), optional destination
+  label, optional image source, optional image alt, optional footnote
+  key. The `footnote pending` bool that closed the record is gone: it is
+  kind 4.
 
 Wire changes landed when revisions became complete on creation (reader
 protocol version 5):

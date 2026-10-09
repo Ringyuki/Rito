@@ -17,11 +17,12 @@ use rito_core::runtime::{
     ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderAnnotationLevel, ReaderAnnotationQuery,
     ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
     ReaderBackgroundRequest, ReaderBackgroundState, ReaderError, ReaderErrorKind,
-    ReaderForegroundHandoff, ReaderLayout, ReaderLocator, ReaderResourceKind, ReaderSearchRequest,
-    ReaderSelectionGranularity, ReaderSourceRange, ReaderSpreadMode, ReaderTextInteractionQuery,
-    ReaderTextInteractionRequest, ReaderTextInteractionResult, ReaderTextPoint, ReaderTextPosition,
-    ReaderTextRangeRequest, ReaderTextRenderingProfile, READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES,
-    READER_FOREGROUND_HANDOFF_WIRE_BYTES, READER_WIRE_HEADER_BYTES,
+    ReaderForegroundHandoff, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderResourceKind,
+    ReaderSearchRequest, ReaderSelectionGranularity, ReaderSourceRange, ReaderSpreadMode,
+    ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResult,
+    ReaderTextPoint, ReaderTextPosition, ReaderTextRangeRequest, ReaderTextRenderingProfile,
+    READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_BYTES,
+    READER_WIRE_HEADER_BYTES,
 };
 
 use crate::{
@@ -1166,7 +1167,11 @@ fn footnote_hits_read_back_through_the_abi() {
             .pages
             .iter()
             .flat_map(|page| page.hits.iter())
-            .find_map(|hit| hit.footnote_key.clone().filter(|_| !hit.footnote_pending))
+            .find_map(|hit| {
+                hit.footnote_key
+                    .clone()
+                    .filter(|_| hit.kind == ReaderHitKind::Footnote)
+            })
         {
             found = Some((current.artifact_id, key));
             break;

@@ -1456,7 +1456,7 @@ fn artifact_hits_carry_footnote_keys_that_read_back_directly() {
             .any(|hit| hit.href.is_some() && hit.footnote_key.is_none()),
         "ordinary links must stay unclassified: {hits:?}"
     );
-    assert!(!noteref.footnote_pending, "{noteref:?}");
+    assert_eq!(noteref.kind, ReaderHitKind::Footnote, "{noteref:?}");
     let key = noteref.footnote_key.clone().expect("key");
     assert!(
         key.contains('#'),

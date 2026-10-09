@@ -62,7 +62,7 @@ pub use wire::{
     encode_reader_font_names, READER_FONT_CATALOG_WIRE_MAGIC, READER_FONT_NAMES_WIRE_MAGIC,
 };
 
-pub const READER_PROTOCOL_VERSION: u32 = 5;
+pub const READER_PROTOCOL_VERSION: u32 = 6;
 pub const READER_PUBLICATION_TOC_DEPTH_MAX: u32 = 64;
 pub const READER_PUBLICATION_TOC_ITEM_MAX: u32 = 100_000;
 pub const READER_PUBLICATION_WIRE_BYTES_MAX: u64 = 16 * 1024 * 1024;
@@ -71,6 +71,8 @@ pub const READER_PUBLICATION_WIRE_BYTES_MAX: u64 = 16 * 1024 * 1024;
 mod background_tests;
 #[cfg(test)]
 mod font_tests;
+#[cfg(test)]
+mod hit_tests;
 #[cfg(test)]
 mod interaction_tests;
 #[cfg(test)]

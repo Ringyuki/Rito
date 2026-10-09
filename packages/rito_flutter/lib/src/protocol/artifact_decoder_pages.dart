@@ -84,19 +84,30 @@ extension _ArtifactPages on RitoArtifactDecoder {
 
   RitoHitEntry _hit(RitoBinaryReader reader) {
     final record = reader.record('hit');
+    final pageIndex = record.uint32('hit page index');
+    final bounds = _rect(record);
+    final kind = record.uint8('hit kind');
+    if (kind >= RitoHitKind.values.length) {
+      record.fail('unknown hit kind: $kind');
+    }
     final result = RitoHitEntry(
-      pageIndex: record.uint32('hit page index'),
-      bounds: _rect(record),
+      pageIndex: pageIndex,
+      bounds: bounds,
+      kind: RitoHitKind.values[kind],
       text: record.string('hit text'),
       href: _optionalString(record, 'hit href'),
       sourcePoint: record.option(
         'hit source point',
         () => _sourcePoint(record),
       ),
+      targetLocator: record.option(
+        'hit target locator',
+        () => readRitoLocator(record),
+      ),
+      destinationLabel: _optionalString(record, 'hit destination label'),
       imageSrc: _optionalString(record, 'hit image source'),
       imageAlt: _optionalString(record, 'hit image alternative'),
       footnoteKey: _optionalString(record, 'hit footnote key'),
-      footnotePending: record.boolean('hit footnote pending'),
     );
     record.finish('hit');
     return result;

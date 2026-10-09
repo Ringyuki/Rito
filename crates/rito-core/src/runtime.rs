@@ -434,18 +434,20 @@ impl RuntimeDocument {
         page_targets(&self.document, context, revision_id, revision, page_index)
     }
 
-    /// Page-scoped footnote classifier shared with `get_page_targets`,
-    /// so every host surface agrees on what counts as a footnote and on
-    /// the exact key its definition is stored under.
-    pub(in crate::runtime) fn footnote_hit_resolver<'a>(
-        &'a self,
-        revision: &'a RuntimeRevision,
+    /// The targets of one page of a revision this document holds, from
+    /// the classifier `get_page_targets` runs: every host surface agrees on
+    /// what a target is, where a link leads and under which key a footnote
+    /// is held.
+    pub(in crate::runtime) fn page_targets_of(
+        &self,
+        revision: &RuntimeRevision,
         page_index: usize,
-    ) -> page_target::RuntimeFootnoteHitResolver<'a> {
+        targets: Vec<page_artifact::PageArtifactTarget>,
+    ) -> Vec<RuntimePageTarget> {
         let context = self
             .page_target_context
             .get_or_init(|| page_target::RuntimePageTargetContext::new(&self.document));
-        page_target::RuntimeFootnoteHitResolver::new(&self.document, context, revision, page_index)
+        page_target::runtime_page_targets(&self.document, context, revision, page_index, targets)
     }
 
     pub fn get_page_semantics(

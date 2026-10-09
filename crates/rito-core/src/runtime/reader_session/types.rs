@@ -1,6 +1,5 @@
 use std::{error::Error, fmt};
 
-pub const READER_DISPLAY_LIST_VERSION: u32 = 1;
 pub const READER_CAPABILITY_PROFILE_STRING_TEXT: u32 = 1;
 pub const READER_IMAGE_RESOURCE_BYTES_MAX: u64 = 32 * 1024 * 1024;
 pub const READER_FONT_RESOURCE_BYTES_MAX: u64 = 16 * 1024 * 1024;
@@ -346,6 +345,20 @@ pub struct ReaderRect {
     pub height: f64,
 }
 
+/// What a hit is, as the engine classifies it: a note reference first
+/// (its definition indexed or not yet), then a link, an image, text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderHitKind {
+    Text,
+    Link,
+    Image,
+    Footnote,
+    /// A note reference whose definition has not been indexed yet. The key
+    /// stays valid and the same read succeeds once the publication's
+    /// footnote index completes; a host may show a loading affordance.
+    FootnotePending,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderHitEntry {
     pub page_index: u32,
@@ -360,21 +373,25 @@ pub struct ReaderHitEntry {
     /// different hosts; do not "unify" them without moving that
     /// transform too.
     pub bounds: ReaderRect,
+    pub kind: ReaderHitKind,
     pub text: String,
+    /// The href as the publication wrote it.
     pub href: Option<String>,
     pub source_point: Option<ReaderSourcePoint>,
+    /// Where an internal link leads, canonical: its chapter and anchor.
+    /// Absent for an external href and for a hit that has none.
+    pub target_locator: Option<ReaderLocator>,
+    /// The TOC label of the place a link leads to, when the TOC names it.
+    /// It does not depend on that place being laid out.
+    pub destination_label: Option<String>,
     pub image_src: Option<String>,
     pub image_alt: Option<String>,
     /// Canonical footnote key when this hit is a semantic noteref, in
     /// the publication-relative `href#fragment` form the footnote index
     /// is keyed by. Present for both indexed and not-yet-indexed
-    /// definitions; [`Self::footnote_pending`] distinguishes them. Hosts
-    /// pass it to `read_footnote` verbatim — no host-side normalization.
+    /// definitions; [`Self::kind`] distinguishes them. Hosts pass it to
+    /// `read_footnote` verbatim — no host-side normalization.
     pub footnote_key: Option<String>,
-    /// True while the key's definition has not been indexed yet. The
-    /// host may show a loading affordance; the key stays valid and the
-    /// same read succeeds once the publication footnote index completes.
-    pub footnote_pending: bool,
 }
 
 /// Asks the revision behind an artifact for matches.

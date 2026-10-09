@@ -185,14 +185,29 @@ export interface RitoReaderFontRef {
   readonly byteLength: bigint;
 }
 
+/**
+ * What a hit is, as the engine classifies it: a note reference first (its
+ * definition indexed, or not yet), then a link, an image, text.
+ */
+export type RitoReaderHitKind = 'text' | 'link' | 'image' | 'footnote' | 'footnote-pending';
+
 export interface RitoReaderHitEntry {
   readonly pageIndex: number;
+  /** In the artifact's display-list space: page offset and margins included. */
   readonly bounds: RitoReaderRect;
+  readonly kind: RitoReaderHitKind;
   readonly text: string;
+  /** The href as the publication wrote it. */
   readonly href?: string | undefined;
   readonly sourcePoint?: RitoReaderSourcePoint | undefined;
+  /** Where an internal link leads, canonical; absent for an external href. */
+  readonly targetLocator?: RitoReaderLocator | undefined;
+  /** The TOC label of the place a link leads to, when the TOC names it. */
+  readonly destinationLabel?: string | undefined;
   readonly imageSrc?: string | undefined;
   readonly imageAlt?: string | undefined;
+  /** The key a note reference's definition is read by, verbatim. */
+  readonly footnoteKey?: string | undefined;
 }
 
 export type RitoReaderSemanticRole =

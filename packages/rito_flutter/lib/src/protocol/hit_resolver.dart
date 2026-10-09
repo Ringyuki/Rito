@@ -3,9 +3,10 @@ import 'artifact_models.dart';
 /// What a tap on the painted surface lands on, resolved from the
 /// artifact's hit entries — the engine's own account of links, note
 /// anchors and images, already in display-list space. Hosts hit-test
-/// against this instead of reading semantics off paint commands: the
-/// engine classifies note anchors (and reports whether their definition
-/// is indexed yet), and a link wrapping an image resolves as the link.
+/// against this instead of reading semantics off paint commands: every
+/// hit says what it is ([RitoHitEntry.kind]) and this resolver only
+/// reads that — a note anchor, indexed or not yet, a link (one wrapping
+/// an image included), an image.
 sealed class RitoTapTarget {
   const RitoTapTarget();
 
@@ -88,19 +89,21 @@ final class RitoHitResolver {
       final hits = page.hits;
       for (var index = 0; index < hits.length; index++) {
         final hit = hits[index];
+        final kind = hit.kind;
         final href = hit.href;
-        if (href == null || href.isEmpty) continue;
+        if (kind == RitoHitKind.text || kind == RitoHitKind.image) continue;
+        if (href == null) continue;
         final slack = hit.imageSrc == null ? linkSlack : 0.0;
         if (!_contains(hit.bounds, x, y, slackX: slack)) continue;
         final label = hit.imageSrc == null
             ? _linkLabel(hits, index, href)
             : null;
         final key = hit.footnoteKey;
-        if (key != null) {
+        if (kind != RitoHitKind.link && key != null) {
           return RitoTapFootnote(
             hit: hit,
             key: key,
-            pending: hit.footnotePending,
+            pending: kind == RitoHitKind.footnotePending,
             href: href,
             label: label,
           );
@@ -111,7 +114,8 @@ final class RitoHitResolver {
     for (final page in pages) {
       for (final hit in page.hits) {
         final src = hit.imageSrc;
-        if (src == null || !_contains(hit.bounds, x, y)) continue;
+        if (hit.kind != RitoHitKind.image || src == null) continue;
+        if (!_contains(hit.bounds, x, y)) continue;
         return RitoTapImage(hit: hit, src: src, alt: hit.imageAlt);
       }
     }

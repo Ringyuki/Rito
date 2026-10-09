@@ -2,7 +2,7 @@ use super::{locator, source_point, text_profile};
 use crate::runtime::reader_session::wire::primitives::{invalid, Reader, MAX_SEMANTIC_DEPTH};
 use crate::runtime::reader_session::{
     ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontRef,
-    ReaderHitEntry, ReaderLocatorMatch, ReaderNavigation, ReaderPage, ReaderRect,
+    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage, ReaderRect,
     ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
     ReaderTextRunOffset, READER_PROTOCOL_VERSION,
 };
@@ -116,13 +116,26 @@ fn hit_entry(reader: &mut Reader<'_>) -> Result<ReaderHitEntry, ReaderError> {
     Ok(ReaderHitEntry {
         page_index: reader.u32()?,
         bounds: rect(reader)?,
+        kind: hit_kind(reader.u8()?)?,
         text: reader.string("hit text")?,
         href: optional_string(reader, "hit href")?,
         source_point: reader.option("hit source point", source_point)?,
+        target_locator: reader.option("hit target locator", super::locator)?,
+        destination_label: optional_string(reader, "hit destination label")?,
         image_src: optional_string(reader, "hit image source")?,
         image_alt: optional_string(reader, "hit image alternative")?,
         footnote_key: optional_string(reader, "hit footnote key")?,
-        footnote_pending: reader.bool("hit footnote pending")?,
+    })
+}
+
+fn hit_kind(tag: u8) -> Result<ReaderHitKind, ReaderError> {
+    Ok(match tag {
+        0 => ReaderHitKind::Text,
+        1 => ReaderHitKind::Link,
+        2 => ReaderHitKind::Image,
+        3 => ReaderHitKind::Footnote,
+        4 => ReaderHitKind::FootnotePending,
+        _ => return Err(invalid(format!("unknown hit kind tag: {tag}"))),
     })
 }
 

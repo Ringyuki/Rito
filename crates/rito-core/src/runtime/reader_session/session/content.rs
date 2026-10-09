@@ -111,9 +111,9 @@ impl ReaderSession {
     /// `key` is the hit's `footnote_key` verbatim — it is already the
     /// canonical publication-relative form the index is keyed by, so
     /// hosts must not normalize the link href themselves. A key whose
-    /// definition has not been indexed yet (the hit reported
-    /// `footnote_pending`) fails with `TargetNotPublished`; the same
-    /// read succeeds once the background footnote index reaches it.
+    /// definition has not been indexed yet (the hit's kind is
+    /// `FootnotePending`) fails with `TargetNotPublished`; the same read
+    /// succeeds once the background footnote index reaches it.
     pub fn read_footnote(
         &mut self,
         artifact_id: u64,

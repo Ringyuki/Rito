@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'artifact_models.dart';
 import 'binary_reader.dart';
 import 'display_decoder.dart';
+import 'locator_reader.dart';
 
 part 'artifact_decoder_fields.dart';
 part 'artifact_decoder_pages.dart';
@@ -13,7 +14,7 @@ final class RitoArtifactDecoder {
     this.displayListDecoder = const RitoPrimitiveListDecoder(),
   });
 
-  static const int protocolVersion = 5;
+  static const int protocolVersion = 6;
   static const int wireVersion = 1;
   static const int _maxSemanticDepth = 64;
   static final List<int> _magic = ascii.encode('RITOART1');

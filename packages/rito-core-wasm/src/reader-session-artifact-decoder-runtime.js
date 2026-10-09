@@ -191,18 +191,26 @@ function readPage(reader) {
   return page;
 }
 
+const HIT_KINDS = ['text', 'link', 'image', 'footnote', 'footnote-pending'];
+
 function readHit(reader) {
   const record = reader.record('hit');
+  const pageIndex = record.u32('hit page index');
+  const bounds = readRect(record);
+  const kind = HIT_KINDS[record.u8('hit kind')];
+  if (kind === undefined) record.fail('unknown hit kind');
   const hit = {
-    pageIndex: record.u32('hit page index'),
-    bounds: readRect(record),
+    pageIndex,
+    bounds,
+    kind,
     text: record.string('hit text'),
     href: readOptionalString(record, 'hit href'),
     sourcePoint: record.option('hit source point', () => readSourcePoint(record)),
+    targetLocator: record.option('hit target locator', () => readLocator(record)),
+    destinationLabel: readOptionalString(record, 'hit destination label'),
     imageSrc: readOptionalString(record, 'hit image source'),
     imageAlt: readOptionalString(record, 'hit image alternative'),
     footnoteKey: readOptionalString(record, 'hit footnote key'),
-    footnotePending: record.bool('hit footnote pending'),
   };
   record.finish('hit');
   return hit;
