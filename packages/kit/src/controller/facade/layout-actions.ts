@@ -119,6 +119,18 @@ export function commitLayoutChange(
   emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
   emitLayoutChange(internals, emitter);
   emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, committedSpread);
+  refreshSearchResults(internals);
+}
+
+/**
+ * Search results name pages of the layout that was just replaced. They are
+ * searched again in the new one — once it covers the whole book, the only
+ * layout a search runs in.
+ */
+function refreshSearchResults(internals: Internals): void {
+  const results = internals.coordState.searchResults;
+  results.stale = true;
+  if (!showsChapterAlone(internals.reader)) results.refresh?.();
 }
 
 function applyLayoutCommitMutation(

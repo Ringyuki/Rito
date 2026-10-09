@@ -5,6 +5,7 @@ import type { Internals } from '../src/controller/core/internals';
 import { publishSpreadChange, publishedSpread } from '../src/controller/core/spread-change';
 import { commitLayoutChange } from '../src/controller/facade/layout-actions';
 import { buildReaderProxies } from '../src/controller/facade/reader-proxies';
+import { buildSearchActions } from '../src/controller/facade/search-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
 import { wirePositionTracker } from '../src/controller/wiring/position';
@@ -16,6 +17,7 @@ import {
   type ReadingPosition,
 } from '../src/interaction/position/model';
 import { createPositionTracker } from '../src/interaction/position/tracker';
+import { createSearchEngine, type SearchResult } from '../src/interaction';
 
 const locator: ReaderLocator = {
   href: 'chapter.xhtml',
@@ -262,6 +264,54 @@ describe('what a host is told while a chapter is laid out alone', () => {
       { name: 'layoutChange', data: { spreads: reader.spreads, totalSpreads: 40 } },
       { name: 'spreadChange', data: { spreadIndex: 23, spread: reader.spreads[23] } },
     ]);
+  });
+
+  it('searches again once the whole book replaces the layout the results were found in', async () => {
+    const { internals, runtime, emitter, reader } = controllerHarness();
+    const found = (pageIndex: number): SearchResult => ({
+      pageIndex,
+      range: {
+        start: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 },
+        end: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 4 },
+      },
+      context: 'snow',
+    });
+    let page = 30;
+    const search = vi.fn(() => Promise.resolve([found(page)]));
+    Object.assign(reader, { search });
+    Object.assign(internals.engines, { search: createSearchEngine() });
+    const actions = buildSearchActions(internals, emitter, {} as never, runtime);
+    const settle = async (): Promise<void> => {
+      for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
+    };
+
+    actions.search('snow');
+    await settle();
+    expect(actions.searchResults).toEqual([found(30)]);
+    expect(internals.coordState.searchResults.stale).toBe(false);
+
+    // A larger font: the chapter commits first, and the old pages are stale.
+    page = 37;
+    Object.assign(reader, chapterReader());
+    commitLayoutChange(internals, emitter, runtime, undefined, 2);
+    await settle();
+    expect(search).toHaveBeenCalledOnce();
+    expect(internals.coordState.searchResults.stale).toBe(true);
+
+    Object.assign(reader, bookReader());
+    commitLayoutChange(internals, emitter, runtime, undefined, 22);
+    await settle();
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(search).toHaveBeenLastCalledWith('snow');
+    expect(actions.searchResults).toEqual([found(37)]);
+    expect(internals.coordState.searchResults.stale).toBe(false);
+
+    // A cleared search has nothing to run again.
+    actions.clearSearch();
+    commitLayoutChange(internals, emitter, runtime, undefined, 22);
+    await settle();
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(internals.coordState.searchResults.stale).toBe(false);
   });
 
   it('says nothing new when the book commits the spread hosts already know', () => {

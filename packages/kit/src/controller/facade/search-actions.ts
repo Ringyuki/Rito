@@ -13,7 +13,14 @@ export function buildSearchActions(
   _runtime: RuntimeComponents,
 ): SearchActionsSlice {
   const searchNavDeps = createSearchNavDeps(internals, nav);
-  const searchState = { serial: 0 };
+  const searchState = { serial: 0, query: '' };
+  internals.coordState.searchResults.refresh = () => {
+    if (searchState.query.length === 0) {
+      internals.coordState.searchResults.stale = false;
+      return;
+    }
+    runSearch(searchState.query, internals, emitter, searchState);
+  };
 
   return {
     search(q: string): void {
@@ -46,13 +53,17 @@ export function buildSearchActions(
 
 interface SearchState {
   serial: number;
+  /** The query whose results are shown, searched again when the layout is replaced. */
+  query: string;
 }
 
 function runSearch(q: string, internals: Internals, emitter: Emitter, state: SearchState): void {
   if (!internals.coordState.nativeInteractionsAlive) return;
   state.serial += 1;
+  state.query = q;
   const search = internals.reader.search?.bind(internals.reader);
   if (q.length === 0 || !search) {
+    internals.coordState.searchResults.stale = false;
     internals.engines.search.clear();
     return;
   }
@@ -62,6 +73,7 @@ function runSearch(q: string, internals: Internals, emitter: Emitter, state: Sea
     .then(
       (results) => {
         if (!ownsSearch(serial, internals, state)) return;
+        internals.coordState.searchResults.stale = false;
         publishSearchResults(results, internals, emitter);
       },
       (error: unknown) => {
@@ -102,6 +114,8 @@ function reportSearchError(error: unknown, source: string, emitter: Emitter): vo
 function clearSearch(internals: Internals, state: SearchState): void {
   if (!internals.coordState.nativeInteractionsAlive) return;
   state.serial += 1;
+  state.query = '';
+  internals.coordState.searchResults.stale = false;
   internals.engines.search.clear();
 }
 
@@ -110,5 +124,6 @@ function createSearchNavDeps(internals: Internals, nav: Nav): SearchNavDeps {
     reader: internals.reader,
     nav,
     getCurrentSpread: () => internals.currentSpread,
+    resultsAreStale: () => internals.coordState.searchResults.stale,
   };
 }

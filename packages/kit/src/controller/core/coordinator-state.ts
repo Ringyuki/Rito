@@ -69,6 +69,11 @@ export interface CoordinatorState {
   publishedPosition: ReadingPosition | null;
   /** The layout hosts were last told of by `layoutChange`. */
   publishedLayout: { readonly spreads: readonly Spread[]; readonly totalSpreads: number } | null;
+  /**
+   * Search results name pages of the layout they were found in: a layout
+   * that replaces it leaves them stale until `refresh` has searched again.
+   */
+  searchResults: { stale: boolean; refresh: (() => void) | null };
 }
 
 export function createCoordinatorState(): CoordinatorState {
@@ -88,5 +93,6 @@ export function createCoordinatorState(): CoordinatorState {
     publishedPosition: null,
     publishedLayout: null,
     selectionProjectionTransfer: null,
+    searchResults: { stale: false, refresh: null },
   };
 }

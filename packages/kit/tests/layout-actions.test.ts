@@ -91,6 +91,7 @@ function createMocks(options?: {
       misses: new Set(),
       pending: new Map(),
     },
+    searchResults: { stale: false, refresh: null },
   };
   const compositeNow = vi.fn(() => {
     annotationStateAtComposite = {
