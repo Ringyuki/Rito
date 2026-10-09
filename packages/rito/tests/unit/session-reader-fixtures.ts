@@ -217,6 +217,10 @@ export class FakeReaderSession {
         later(() => {
           this.fontCalls.push(`remove ${sha256s.join(',')}`);
         }),
+      markFontFamiliesUnavailable: (families) =>
+        later(() => {
+          this.fontCalls.push(`unavailable ${families.join(',')}`);
+        }),
       release: (artifactId) =>
         later(() => {
           if (artifactId === this.visibleId) throw new Error('released the visible artifact');

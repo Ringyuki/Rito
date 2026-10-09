@@ -13,6 +13,7 @@ import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-
 import { EMPTY_SESSION_READER_LAYOUT_VIEW } from './layout-view';
 import { sessionLocator, sessionReaderNavigationMethods } from './navigation';
 import { createSessionReaderPublication } from './publication';
+import { rejectSessionReaderFont } from './rejected-fonts';
 import { sessionReaderRenderingMethods } from './render';
 import { sessionReaderResourceMethods } from './resources';
 import type { SessionReaderState, SessionReaderTypography } from './state';
@@ -60,7 +61,10 @@ export async function createReader(
     const state = await openState(session, canvas, ctx, layoutOptions, typography, dpr, hostFonts);
     const layout = await readSessionReaderLayout(state, state.visible);
     commitSessionReaderLayout(state, state.visible, layout, config);
-    startSessionReaderBackground(state);
+    // A face the browser refused while the first page was prepared: the
+    // book is laid out again without it, and the whole book follows that.
+    if (state.rejectedFontFamilies.size > 0) scheduleSessionReaderRelayout(state, true);
+    else startSessionReaderBackground(state);
     return buildReader(state);
   } catch (error) {
     hostFonts.dispose();
@@ -78,8 +82,12 @@ async function openState(
   dpr: number,
   hostFonts: SessionReaderHostFonts,
 ): Promise<SessionReaderState> {
+  const opened: { state?: SessionReaderState } = {};
   const presenter = createBrowserReaderSessionCanvasPresenter(session, {
     hostFont: (font) => hostFonts.resolve(font),
+    fontRejected: (font, error) => {
+      if (opened.state) rejectSessionReaderFont(opened.state, font.family, error);
+    },
   });
   const state = {
     session,
@@ -96,6 +104,7 @@ async function openState(
     fgColor: options.foregroundColor ?? undefined,
     ...idleState(),
   } as unknown as SessionReaderState;
+  opened.state = state;
   const [publication, frame] = await Promise.all([
     session.readPublication(),
     prepareSessionReaderFrame(state, session.initialArtifact, false),
@@ -125,6 +134,7 @@ function idleState(): Partial<SessionReaderState> {
     showQueued: false,
     relayoutQueued: false,
     relayoutForced: false,
+    rejectedFontFamilies: new Set(),
     bookWaiters: new Set(),
     spreadRenderedListeners: new Set(),
     spreadContentInvalidatedListeners: new Set(),

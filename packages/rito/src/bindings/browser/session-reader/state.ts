@@ -72,6 +72,8 @@ export interface SessionReaderState {
   showQueued: boolean;
   relayoutQueued: boolean;
   relayoutForced: boolean;
+  /** Publication faces the browser refused to decode, by the family artifacts list them under. */
+  readonly rejectedFontFamilies: Set<string>;
   readonly bookWaiters: Set<() => void>;
   readonly spreadRenderedListeners: Set<(spreadIndex: number, spread: Spread) => void>;
   readonly spreadContentInvalidatedListeners: Set<(spreadIndex: number) => void>;

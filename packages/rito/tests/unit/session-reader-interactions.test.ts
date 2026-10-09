@@ -11,7 +11,14 @@ import { sessionReaderPagePlace } from '../../src/bindings/browser/session-reade
 import { createReader } from '../../src/bindings/browser/session-reader/reader';
 import { FakeReaderSession, fakeCanvasContext, type FakeChapter } from './session-reader-fixtures';
 
-const harness = vi.hoisted(() => ({ fake: undefined as unknown, chapters: [] as unknown[] }));
+const harness = vi.hoisted(() => ({
+  fake: undefined as unknown,
+  chapters: [] as unknown[],
+  /** What the reader asked of its presenter. */
+  presenterOptions: undefined as unknown,
+  /** Runs when a spread is prepared, as the presenter's font loading would. */
+  onPrepare: undefined as (() => void) | undefined,
+}));
 
 vi.mock('../../src/bindings/browser/reader-session', async (importOriginal) => {
   const original = await importOriginal<object>();
@@ -31,16 +38,19 @@ vi.mock('../../src/bindings/browser/reader-session', async (importOriginal) => {
 });
 
 vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
-  createBrowserReaderSessionCanvasPresenter: () => ({
-    prepare: (artifact: unknown) =>
-      Promise.resolve({
+  createBrowserReaderSessionCanvasPresenter: (_session: unknown, options: unknown) => ({
+    prepare: (artifact: unknown) => {
+      harness.presenterOptions = options;
+      harness.onPrepare?.();
+      return Promise.resolve({
         artifact,
         ratio: 2,
         disposed: false,
         onImagesChanged: () => () => undefined,
         imagesSettled: Promise.resolve(),
         dispose: () => undefined,
-      }),
+      });
+    },
     paint: () => undefined,
     dispose: () => undefined,
   }),
@@ -148,6 +158,7 @@ async function resolvedCaret(
 describe('session reader interactions', () => {
   beforeEach(() => {
     harness.chapters = [...CHAPTERS];
+    harness.onPrepare = undefined;
   });
 
   afterEach(() => {
@@ -640,6 +651,44 @@ describe('session reader interactions', () => {
       expect(opened.fake.requests).toHaveLength(requests + 2);
     });
     expect(opened.fake.fontCalls).toEqual([`add ${sha}`, `remove ${sha}`]);
+  });
+
+  it('lays out again without a face the browser refuses to decode', async () => {
+    const opened = await open();
+    await bookScope(opened.reader);
+    const { fontRejected } = harness.presenterOptions as {
+      readonly fontRejected: (font: { family: string }, error: unknown) => void;
+    };
+    const requests = opened.fake.requests.length;
+
+    fontRejected({ family: '__RitoFont_ab' }, new Error('OTS parsing error'));
+    // The same face on another spread of the layout is not news.
+    fontRejected({ family: '__RitoFont_ab' }, new Error('OTS parsing error'));
+    await vi.waitFor(() => {
+      expect(opened.fake.requests).toHaveLength(requests + 1);
+    });
+    await bookScope(opened.reader);
+    expect(opened.fake.fontCalls).toEqual(['unavailable __RitoFont_ab']);
+    expect(opened.fake.requests).toHaveLength(requests + 1);
+  });
+
+  it('opens a book whose first page lists a face the browser refuses', async () => {
+    let told = false;
+    harness.onPrepare = () => {
+      if (told) return;
+      told = true;
+      const { fontRejected } = harness.presenterOptions as {
+        readonly fontRejected: (font: { family: string }, error: unknown) => void;
+      };
+      fontRejected({ family: '__RitoFont_cd' }, new Error('OTS parsing error'));
+    };
+    const opened = await open();
+    await bookScope(opened.reader);
+    // The open, then one more layout without the face; the whole book is
+    // laid out once, after it.
+    expect(opened.fake.requests).toHaveLength(2);
+    expect(opened.fake.fontCalls).toEqual(['unavailable __RitoFont_cd']);
+    expect(opened.fake.calls.filter((call) => call === 'advance')).toHaveLength(1);
   });
 
   it('reads a footnote, and has none to show for one not indexed yet', async () => {

@@ -408,6 +408,49 @@ describe('Browser reader session Canvas presenter', () => {
     presenter.dispose();
   });
 
+  it('reports a face the browser refuses to decode and prepares the artifact without it', async () => {
+    class RefusedFontFace extends FakeFontFace {
+      override load(): Promise<FakeFontFace> {
+        return Promise.reject(new Error('OTS parsing error'));
+      }
+    }
+    vi.stubGlobal('FontFace', RefusedFontFace);
+    const artifact = readerArtifact();
+    const fontRejected = vi.fn();
+    const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact), {
+      fontRejected,
+    });
+
+    const prepared = await presenter.prepare(artifact);
+    // A second artifact of the same layout lists the same face: it is not
+    // read, decoded or reported again.
+    const again = await presenter.prepare({ ...artifact, requestId: 2n, artifactId: 12n });
+
+    expect(fontRejected).toHaveBeenCalledOnce();
+    expect(fontRejected.mock.calls[0]?.[0]).toBe(artifact.fonts[0]);
+    expect(String(fontRejected.mock.calls[0]?.[1])).toContain('OTS parsing error');
+    expect(fontSet.add).not.toHaveBeenCalled();
+    prepared.dispose();
+    again.dispose();
+    await Promise.resolve();
+    expect(fontSet.delete).not.toHaveBeenCalled();
+    presenter.dispose();
+  });
+
+  it('fails an artifact whose face the browser refuses when nobody is told', async () => {
+    class RefusedFontFace extends FakeFontFace {
+      override load(): Promise<FakeFontFace> {
+        return Promise.reject(new Error('OTS parsing error'));
+      }
+    }
+    vi.stubGlobal('FontFace', RefusedFontFace);
+    const artifact = readerArtifact();
+    const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact));
+
+    await expect(presenter.prepare(artifact)).rejects.toThrow('OTS parsing error');
+    presenter.dispose();
+  });
+
   it('rejects an invalid display state stack before clearing or painting', async () => {
     const artifact = readerArtifact();
     const invalid: BrowserReaderArtifact = {

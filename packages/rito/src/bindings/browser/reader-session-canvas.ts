@@ -5,6 +5,7 @@ import { convertReaderRuby, convertReaderText } from './reader-session-canvas-co
 import { BrowserReaderCanvasUnsupportedError } from './reader-session-canvas-error';
 import {
   BrowserReaderCanvasResourceOwner,
+  type BrowserReaderCanvasFontOptions,
   type BrowserReaderCanvasArtifactResources,
 } from './reader-session-canvas-resources';
 
@@ -62,17 +63,16 @@ export interface BrowserReaderCanvasPresenter {
   dispose(): void;
 }
 
-export interface BrowserReaderCanvasPresenterOptions {
-  /**
-   * Host faces the page registers itself. For a font an artifact paints
-   * with, the face returned here is waited for instead of being read back
-   * out of the engine, and its registration stays the page's: the presenter
-   * never removes it. Undefined leaves the font to the presenter.
-   */
-  readonly hostFont?:
-    | ((font: BrowserReaderArtifact['fonts'][number]) => Promise<FontFace> | undefined)
-    | undefined;
-}
+/**
+ * `hostFont`: host faces the page registers itself. For a font an artifact
+ * paints with, the face returned is waited for instead of being read back
+ * out of the engine, and its registration stays the page's: the presenter
+ * never removes it. Undefined leaves the font to the presenter.
+ *
+ * `fontRejected`: told of a publication face the browser refused to decode,
+ * so the host can have the engine lay out without it.
+ */
+export type BrowserReaderCanvasPresenterOptions = BrowserReaderCanvasFontOptions;
 
 export function createBrowserReaderSessionCanvasPresenter(
   session: BrowserReaderSession,
@@ -88,7 +88,7 @@ class CanvasPresenter implements BrowserReaderCanvasPresenter {
   private disposed = false;
 
   constructor(session: BrowserReaderSession, options: BrowserReaderCanvasPresenterOptions) {
-    this.resources = new BrowserReaderCanvasResourceOwner(session, options.hostFont);
+    this.resources = new BrowserReaderCanvasResourceOwner(session, options);
   }
 
   async prepare(artifact: BrowserReaderArtifact): Promise<BrowserReaderPreparedCanvasArtifact> {
