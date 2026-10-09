@@ -1147,11 +1147,9 @@ version = "0.0.0"
 dependencies = [
  "js-sys",
  "rito-core",
- "rito-inline",
  "serde",
  "serde_json",
  "sha2",
- "ttf-parser",
  "wasm-bindgen",
  "zip",
 ]

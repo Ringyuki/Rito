@@ -35,7 +35,7 @@ fn sessions() -> (ReaderSession, ReaderSessionProjection, u64) {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        super::tests::pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let mut projection =

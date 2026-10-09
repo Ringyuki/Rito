@@ -11,7 +11,7 @@ pub(super) fn open_test_projection(
     ReaderSessionProjection::open_with_pinned_font_policy(
         publication,
         session_id,
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
 }
 
@@ -157,7 +157,7 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_request =
@@ -193,7 +193,7 @@ fn adjacent_projection_is_core_identical_across_three_turns() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_first = direct
@@ -264,7 +264,7 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_first = direct
@@ -392,7 +392,7 @@ fn each_background_transport_call_matches_exactly_one_core_quantum() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_first = direct
@@ -738,7 +738,7 @@ fn resource_projection_is_core_identical_for_the_real_0005_image() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_request =
@@ -1185,7 +1185,7 @@ fn a_session_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
             &packed.skeleton.bytes,
             Some(&[1, 2, 3]),
             SESSION_ID,
-            crate::tests::fixture::pinned_test_policy_input(),
+            pinned_test_policy_input(),
         )
         .expect_err("a short key is refused")
         .code,
@@ -1195,7 +1195,7 @@ fn a_session_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
         &packed.skeleton.bytes,
         skeleton_key.as_deref(),
         SESSION_ID,
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("opens from the skeleton");
     let mut archive = open_test_projection(epub, SESSION_ID).expect("archive opens");
@@ -1274,4 +1274,25 @@ fn font_queries_cross_the_projection_as_core_wires() {
         rito_core::runtime::decode_reader_font_names(&names_wire).expect("names wire decodes"),
         vec!["No Such Face".to_owned()]
     );
+}
+
+/// Pinned test policy for wasm-side sessions: chapter-local pagination
+/// shapes with pinned faces only.
+pub(super) fn pinned_test_policy_input() -> rito_core::runtime::RuntimePinnedFontPolicyInput {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"
+    );
+    let bytes = std::fs::read(path).expect("pinned Tinos test font reads");
+    rito_core::runtime::RuntimePinnedFontPolicyInput {
+        faces: vec![rito_core::runtime::RuntimePinnedFontFaceInput {
+            expected_sha256: {
+                use sha2::{Digest, Sha256};
+                format!("{:x}", Sha256::digest(&bytes))
+            },
+            bytes,
+            generic_role: rito_core::runtime::RuntimePinnedFontGenericRole::Serif,
+            language: None,
+        }],
+    }
 }

@@ -1,29 +1,10 @@
-//! WASM-facing boundary for the Rust Rito engine.
-//!
-//! This crate exposes the `wasm-bindgen` document facade over `rito-core`, with
-//! JSON control/diagnostic views and explicit binary paths for frame commands,
-//! runtime bundles, and resource transfers.
+//! WASM-facing boundary for the Rust Rito engine: the reader session, as
+//! `wasm-bindgen` exposes it to a worker. Requests and answers cross as the
+//! session's own wire messages; this crate adds nothing to them.
 
-mod annotation;
-mod binding;
-mod chapter_local;
-mod document;
-mod error;
-mod frame;
-mod interaction;
-mod pinned_font;
 pub(crate) mod reader_session;
-mod resource;
-mod revision;
-mod shard;
-mod versioned;
-mod wire;
 
-pub use binding::RitoWasmDocument;
-pub use document::WasmRuntimeDocument;
-pub use error::{WasmRuntimeError, WasmRuntimeErrorCode};
 pub use reader_session::RitoReaderSession;
-pub use wire::WasmResourcePrefetchRequest;
 
 pub const BOUNDARY_NAME: &str = "rito-wasm";
 
@@ -49,6 +30,3 @@ pub fn install_panic_report() {
         wasm_console_error(&format!("rito-wasm panic: {info}"));
     }));
 }
-
-#[cfg(test)]
-mod tests;

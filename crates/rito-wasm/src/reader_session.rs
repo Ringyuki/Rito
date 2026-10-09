@@ -42,8 +42,9 @@ impl RitoReaderSession {
     /// Opens a session with pinned fallback faces — the form chapter-local
     /// pagination requires (the fragment engine shapes with pinned faces
     /// only, so a bare open fails closed at layout time).
-    /// `metadata_json` and `face_bytes` follow the same contract as
-    /// `RitoWasmDocument.openWithPinnedFontPolicy`.
+    /// `metadata_json` is `{schemaVersion: 1, faces: [{expectedSha256,
+    /// genericRole, language?}]}` and `face_bytes` an array of one
+    /// `Uint8Array` per face, in the same order.
     #[wasm_bindgen(js_name = openWithPinnedFontPolicy)]
     pub fn open_with_pinned_font_policy(
         publication_bytes: Vec<u8>,
@@ -51,17 +52,8 @@ impl RitoReaderSession {
         metadata_json: &str,
         face_bytes: JsValue,
     ) -> Result<Self, JsValue> {
-        let face_bytes = crate::binding::pinned_font::require_face_byte_array(face_bytes)
-            .map_err(crate::binding::error_to_js_value)?;
-        let metadata = crate::pinned_font::validate_pinned_font_policy_metadata(
-            metadata_json,
-            face_bytes.length() as usize,
-        )
-        .map_err(crate::binding::error_to_js_value)?;
-        crate::binding::pinned_font::validate_face_byte_array_types(&face_bytes)
-            .map_err(crate::binding::error_to_js_value)?;
-        let face_bytes = crate::binding::pinned_font::copy_face_byte_arrays(&face_bytes);
-        let input = crate::pinned_font::pinned_font_policy_input(metadata, face_bytes);
+        let input = host_fonts::opening_policy(metadata_json, face_bytes)
+            .map_err(ReaderProjectionError::into_js_value)?;
         ReaderSessionProjection::open_with_pinned_font_policy(publication_bytes, session_id, input)
             .map(|inner| Self { inner })
             .map_err(ReaderProjectionError::into_js_value)
@@ -80,17 +72,8 @@ impl RitoReaderSession {
         metadata_json: &str,
         face_bytes: JsValue,
     ) -> Result<Self, JsValue> {
-        let face_bytes = crate::binding::pinned_font::require_face_byte_array(face_bytes)
-            .map_err(crate::binding::error_to_js_value)?;
-        let metadata = crate::pinned_font::validate_pinned_font_policy_metadata(
-            metadata_json,
-            face_bytes.length() as usize,
-        )
-        .map_err(crate::binding::error_to_js_value)?;
-        crate::binding::pinned_font::validate_face_byte_array_types(&face_bytes)
-            .map_err(crate::binding::error_to_js_value)?;
-        let face_bytes = crate::binding::pinned_font::copy_face_byte_arrays(&face_bytes);
-        let input = crate::pinned_font::pinned_font_policy_input(metadata, face_bytes);
+        let input = host_fonts::opening_policy(metadata_json, face_bytes)
+            .map_err(ReaderProjectionError::into_js_value)?;
         ReaderSessionProjection::open_shards(&skeleton, key.as_deref(), session_id, input)
             .map(|inner| Self { inner })
             .map_err(ReaderProjectionError::into_js_value)
@@ -246,14 +229,12 @@ impl RitoReaderSession {
         metadata_json: &str,
         face_bytes: JsValue,
     ) -> Result<(), JsValue> {
-        let (metadata, faces) =
-            crate::binding::pinned_font::added_font_faces(metadata_json, face_bytes)
-                .map_err(crate::binding::error_to_js_value)?;
-        let input = crate::pinned_font::pinned_font_policy_input(metadata, faces);
+        let faces = host_fonts::added_faces(metadata_json, face_bytes)
+            .map_err(ReaderProjectionError::into_js_value)?;
         self.inner
             .live_session()
             .map_err(ReaderProjectionError::into_js_value)?
-            .add_host_font_faces(input.faces)
+            .add_host_font_faces(faces)
             .map(|_| ())
             .map_err(|error| ReaderProjectionError::from(error).into_js_value())
     }
@@ -636,6 +617,7 @@ fn resource_kind(value: u32) -> ProjectionResult<ReaderResourceKind> {
     }
 }
 
+mod host_fonts;
 mod queries;
 
 #[cfg(test)]
