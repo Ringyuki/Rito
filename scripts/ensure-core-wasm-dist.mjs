@@ -6,10 +6,8 @@ const requiredFiles = [
   'index.d.mts',
   'decoder.mjs',
   'decoder.d.mts',
-  'core-wasm-error-runtime.js',
-  'reader-navigation-runtime.js',
-  'reader-worker-client-runtime.js',
-  'frame-command-buffer-decoder-runtime.js',
+  'reader-session-worker-runtime.js',
+  'reader-session-worker-client-runtime.js',
   'reader-session-display-decoder-runtime.js',
   'reader-session-primitive-decoder-runtime.js',
 ];

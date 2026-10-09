@@ -1,47 +1,6 @@
 export type RitoCoreWasmPinnedFontGenericRole = 'serif' | 'sansSerif' | 'monospace';
 
-/** One immutable fallback face supplied while a native document opens. */
-export interface RitoCoreWasmPinnedFontFaceInput {
-  readonly bytes: Uint8Array;
-  readonly expectedSha256: string;
-  readonly genericRole: RitoCoreWasmPinnedFontGenericRole;
-  readonly language?: string | undefined;
-}
-
-/** Versioned, document-lifetime fallback policy consumed by the Rust engine. */
-export interface RitoCoreWasmPinnedFontPolicyInput {
-  readonly schemaVersion: 1;
-  readonly faces: readonly RitoCoreWasmPinnedFontFaceInput[];
-}
-
-export interface RitoCoreWasmOpenDocumentOptions {
-  readonly pinnedFontPolicy?: RitoCoreWasmPinnedFontPolicyInput | undefined;
-}
-
-/** Bytes-free metadata for one host face accepted by Rust. */
-export interface RitoCoreWasmPinnedFontFaceSummary {
-  readonly sha256: string;
-  /** The family a `font-family` list names the face by (its name table's). */
-  readonly familyName: string;
-  readonly shapeFingerprint: string;
-  /** The family name paint draws the face by; register its bytes under it. */
-  readonly familyAlias: string;
-  readonly byteLength: number;
-  readonly genericRole: RitoCoreWasmPinnedFontGenericRole;
-  readonly language: string;
-  /** The face's own slope and weight. */
-  readonly style: 'normal' | 'italic';
-  readonly weight: number;
-}
-
-/** Rust-authored identity for the accepted document-lifetime fallback policy. */
-export interface RitoCoreWasmPinnedFontPolicySummary {
-  readonly schemaVersion: 1;
-  readonly policyId: string;
-  readonly faces: readonly RitoCoreWasmPinnedFontFaceSummary[];
-}
-
-/** A host face added to an open document, its bytes handed over. */
+/** A host face added to an open session, its bytes handed over. */
 export interface RitoCoreWasmHostFontFaceInput {
   readonly bytes: ArrayBuffer;
   readonly expectedSha256: string;
@@ -68,7 +27,7 @@ export interface RitoCoreWasmFontFamily {
   readonly faces: readonly RitoCoreWasmFontFamilyFace[];
 }
 
-/** Every family a `font-family` list can name in an open document. */
+/** Every family a `font-family` list can name in an open session. */
 export interface RitoCoreWasmFontCatalog {
   readonly families: readonly RitoCoreWasmFontFamily[];
 }

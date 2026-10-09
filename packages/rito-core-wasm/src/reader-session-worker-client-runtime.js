@@ -12,7 +12,7 @@ import {
   decodeRitoReaderFontNames,
 } from './reader-session-query-decoder-runtime.js';
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
-import { defaultYieldControl } from './reader-revision-session-support-runtime.js';
+import { defaultYieldControl } from './reader-session-yield-runtime.js';
 import { createRitoReaderSessionQueryMethods } from './reader-session-worker-client-query-runtime.js';
 import { createShardPrefetchLane } from './shard-prefetch-lane-runtime.js';
 

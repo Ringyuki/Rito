@@ -1,5 +1,5 @@
 import type { RitoCoreWasmFontCatalog, RitoCoreWasmHostFontFaceInput } from './pinned-font';
-import type { RitoCoreWasmShardedPublication } from './reader-worker';
+import type { RitoCoreWasmShardedPublication } from './sharded-publication';
 import type {
   RitoReaderAdjacentDirection,
   RitoReaderArtifactRequestInput,
