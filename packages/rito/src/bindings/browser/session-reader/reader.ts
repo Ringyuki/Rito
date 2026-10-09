@@ -14,6 +14,7 @@ import { EMPTY_SESSION_READER_LAYOUT_VIEW } from './layout-view';
 import { sessionLocator, sessionReaderNavigationMethods } from './navigation';
 import { createSessionReaderPublication } from './publication';
 import { sessionReaderRenderingMethods } from './render';
+import { sessionReaderResourceMethods } from './resources';
 import type { SessionReaderState, SessionReaderTypography } from './state';
 
 type PinnedFontPolicy = NonNullable<ReaderOptions['pinnedFontPolicy']>;
@@ -139,9 +140,9 @@ function buildReader(state: SessionReaderState): Reader {
     ...sessionReaderNavigationMethods(state),
     ...layoutMethods(state),
     ...listenerMethods(state),
+    ...sessionReaderResourceMethods(state),
     getLayoutGeometry: () => state.config,
     getFootnotes: () => new Map(),
-    getImageBlobUrl: () => undefined,
     dispose() {
       if (state.disposed) return Promise.resolve();
       state.disposed = true;

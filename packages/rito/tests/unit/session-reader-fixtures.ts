@@ -1,14 +1,32 @@
 import { RitoReaderError } from '@ritojs/core-wasm/decoder';
 
 import type {
+  BrowserReaderAnnotationQuery,
+  BrowserReaderAnnotationResponse,
   BrowserReaderArtifact,
   BrowserReaderArtifactRequest,
+  BrowserReaderExactSourceRangeResolution,
+  BrowserReaderFootnote,
+  BrowserReaderGeometryOptions,
   BrowserReaderLocator,
   BrowserReaderNavigationQuery,
   BrowserReaderNavigationResult,
   BrowserReaderPublication,
+  BrowserReaderSearchResponse,
   BrowserReaderSession,
+  BrowserReaderSourceRange,
+  BrowserReaderTextInteractionQuery,
+  BrowserReaderTextInteractionResponse,
 } from '../../src/bindings/browser/reader-session';
+
+type FakePage = BrowserReaderArtifact['pages'][number];
+
+/** A geometry question as the session received it. */
+export interface FakeGeometryQuestion<Question> {
+  readonly artifactId: bigint;
+  readonly question: Question;
+  readonly options: BrowserReaderGeometryOptions | undefined;
+}
 
 /** The session's live-artifact cap, as the engine enforces it. */
 export const LIVE_ARTIFACT_CAP = 6;
@@ -56,6 +74,36 @@ export class FakeReaderSession {
   private readonly books = new Map<string, Revision>();
   private readonly candidates = new Map<bigint, bigint>();
   initialArtifact!: BrowserReaderArtifact;
+  /** What a page publishes beside its index; `chapterIndex` is undefined in the whole book. */
+  pageContent: (pageIndex: number, chapterIndex: number | undefined) => Partial<FakePage> =
+    () => ({});
+  readonly interactions: FakeGeometryQuestion<BrowserReaderTextInteractionQuery>[] = [];
+  readonly sourceRanges: FakeGeometryQuestion<{
+    readonly href: string;
+    readonly range: BrowserReaderSourceRange;
+  }>[] = [];
+  readonly annotations: BrowserReaderAnnotationQuery[] = [];
+  answerInteraction: (
+    query: BrowserReaderTextInteractionQuery,
+  ) => BrowserReaderTextInteractionResponse['result'] = () => ({ kind: 'miss' });
+  answerSourceRange: () => Omit<BrowserReaderExactSourceRangeResolution, 'artifactId'> = () => ({
+    status: 'unavailable',
+    selectedText: '',
+    rects: [],
+  });
+  answerAnnotation: (query: BrowserReaderAnnotationQuery) => BrowserReaderAnnotationResponse =
+    () => ({ level: 'orphaned-href-not-found' });
+  /** Answers the navigation questions that do not depend on a layout. */
+  answerPosition: (query: BrowserReaderNavigationQuery) => BrowserReaderNavigationResult = () => {
+    throw new Error('no position answer was set');
+  };
+  readonly footnotes = new Map<string, Pick<BrowserReaderFootnote, 'kind' | 'text' | 'html'>>();
+  /** The resources every artifact published from now on lists. */
+  resources: BrowserReaderArtifact['resources'] = [];
+  /** Searches as the session received them: whether the artifact was a whole-book one. */
+  readonly searches: { readonly book: boolean; readonly query: string }[] = [];
+  searchResults: BrowserReaderSearchResponse['results'] = [];
+  readonly fontCalls: string[] = [];
 
   constructor(
     readonly chapters: readonly FakeChapter[],
@@ -106,6 +154,69 @@ export class FakeReaderSession {
           };
         }),
       navigation: (query) => later(() => this.navigation(query)),
+      textInteraction: (artifactId, question, options) =>
+        later(() => {
+          this.requireLive(artifactId);
+          this.interactions.push({ artifactId, question, options });
+          return { artifactId, result: this.answerInteraction(question) };
+        }),
+      exactSourceRange: (artifactId, href, range, options) =>
+        later(() => {
+          this.requireLive(artifactId);
+          this.sourceRanges.push({ artifactId, question: { href, range }, options });
+          return { artifactId, ...this.answerSourceRange() };
+        }),
+      annotation: (query) =>
+        later(() => {
+          this.annotations.push(query);
+          return this.answerAnnotation(query);
+        }),
+      readFootnote: (artifactId, key) =>
+        later(() => {
+          this.requireLive(artifactId);
+          const note = this.footnotes.get(key);
+          if (!note) {
+            throw new RitoReaderError('target-not-published', 'footnote is not indexed yet');
+          }
+          return { artifactId, key, ...note };
+        }),
+      search: (artifactId, options) =>
+        later(() => {
+          const owned = this.requireLive(artifactId);
+          this.searches.push({
+            book: owned.revision.chapterIndex === undefined,
+            query: options.query,
+          });
+          return {
+            artifactId,
+            query: options.query,
+            truncated: false,
+            searchedPageCount: this.spreadCount(owned.revision),
+            results: this.searchResults,
+          };
+        }),
+      readResource: (artifactId, kind, href) =>
+        later(() => {
+          const owned = this.requireLive(artifactId);
+          if (!owned.artifact.resources.some((item) => item.kind === kind && item.href === href)) {
+            throw new RitoReaderError('invalid-request', 'artifact does not reference the href');
+          }
+          return {
+            artifactId,
+            kind,
+            href,
+            mediaType: 'image/png',
+            bytes: new Uint8Array([1, 2, 3]),
+          };
+        }),
+      addFontFaces: (faces) =>
+        later(() => {
+          this.fontCalls.push(`add ${faces.map((face) => face.expectedSha256).join(',')}`);
+        }),
+      removeFontFaces: (sha256s) =>
+        later(() => {
+          this.fontCalls.push(`remove ${sha256s.join(',')}`);
+        }),
       release: (artifactId) =>
         later(() => {
           if (artifactId === this.visibleId) throw new Error('released the visible artifact');
@@ -222,13 +333,15 @@ export class FakeReaderSession {
     };
   }
 
+  private requireLive(artifactId: bigint): Owned {
+    const owned = this.live.get(artifactId);
+    if (!owned) throw new RitoReaderError('unknown-artifact', 'artifact is not live');
+    return owned;
+  }
+
   private navigation(query: BrowserReaderNavigationQuery): BrowserReaderNavigationResult {
-    if (query.kind !== 'layout' && query.kind !== 'locate') {
-      throw new Error(`unexpected navigation query ${query.kind}`);
-    }
-    const owned = this.live.get(query.artifactId);
-    if (!owned) throw new RitoReaderError('unknown-artifact', 'navigation artifact is not live');
-    const { revision } = owned;
+    if (query.kind !== 'layout' && query.kind !== 'locate') return this.answerPosition(query);
+    const { revision } = this.requireLive(query.artifactId);
     if (query.kind === 'locate') {
       const chapterIndex = this.chapters.findIndex(
         (chapter) => chapter.href === query.locator.href,
@@ -300,8 +413,20 @@ export class FakeReaderSession {
       ...(book ? { bookPageIndex: page, bookPageCount: this.spreadCount(revision) } : {}),
       textProfile: 'platform-string-runs',
       fonts: [],
-      resources: [],
-      pages: [],
+      resources: this.resources,
+      pages: [
+        {
+          pageIndex: page,
+          width: revision.layout.viewportWidth,
+          height: revision.layout.viewportHeight,
+          hits: [],
+          semantics: [],
+          text: '',
+          textLength: 0n,
+          textRuns: [],
+          ...this.pageContent(page, revision.chapterIndex),
+        },
+      ],
     } as unknown as BrowserReaderArtifact;
     this.live.set(artifact.artifactId, { artifact, revision, origin });
     this.maxLive = Math.max(this.maxLive, this.live.size);
