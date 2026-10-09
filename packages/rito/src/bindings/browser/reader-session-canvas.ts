@@ -62,10 +62,23 @@ export interface BrowserReaderCanvasPresenter {
   dispose(): void;
 }
 
+export interface BrowserReaderCanvasPresenterOptions {
+  /**
+   * Host faces the page registers itself. For a font an artifact paints
+   * with, the face returned here is waited for instead of being read back
+   * out of the engine, and its registration stays the page's: the presenter
+   * never removes it. Undefined leaves the font to the presenter.
+   */
+  readonly hostFont?:
+    | ((font: BrowserReaderArtifact['fonts'][number]) => Promise<FontFace> | undefined)
+    | undefined;
+}
+
 export function createBrowserReaderSessionCanvasPresenter(
   session: BrowserReaderSession,
+  options: BrowserReaderCanvasPresenterOptions = {},
 ): BrowserReaderCanvasPresenter {
-  return new CanvasPresenter(session);
+  return new CanvasPresenter(session, options);
 }
 
 class CanvasPresenter implements BrowserReaderCanvasPresenter {
@@ -74,8 +87,8 @@ class CanvasPresenter implements BrowserReaderCanvasPresenter {
   private readonly prepared = new Set<PreparedCanvasArtifact>();
   private disposed = false;
 
-  constructor(session: BrowserReaderSession) {
-    this.resources = new BrowserReaderCanvasResourceOwner(session);
+  constructor(session: BrowserReaderSession, options: BrowserReaderCanvasPresenterOptions) {
+    this.resources = new BrowserReaderCanvasResourceOwner(session, options.hostFont);
   }
 
   async prepare(artifact: BrowserReaderArtifact): Promise<BrowserReaderPreparedCanvasArtifact> {

@@ -34,7 +34,12 @@ export class BrowserReaderCanvasResourceOwner {
   private readonly images: BrowserReaderCanvasImageCache;
   private disposed = false;
 
-  constructor(private readonly session: BrowserReaderSession) {
+  constructor(
+    private readonly session: BrowserReaderSession,
+    private readonly hostFont: (
+      font: BrowserReaderArtifact['fonts'][number],
+    ) => Promise<FontFace> | undefined = () => undefined,
+  ) {
     this.images = new BrowserReaderCanvasImageCache(session, this.limiter);
   }
 
@@ -44,12 +49,20 @@ export class BrowserReaderCanvasResourceOwner {
   ): Promise<BrowserReaderCanvasArtifactResources> {
     this.assertOpen();
     assertArtifactOwner(this.session, artifact);
-    const fonts = uniqueFonts(artifact);
+    // A face the page registers itself is only waited for; the rest are
+    // read from the session and counted, so the last artifact to use one
+    // removes it.
+    const hosted: Promise<FontFace>[] = [];
+    const fonts = uniqueFonts(artifact).filter((font) => {
+      const face = this.hostFont(font);
+      if (face !== undefined) hosted.push(face);
+      return face === undefined;
+    });
     const fontKeys = fonts.map(fontKey);
     let imageLease: BrowserReaderCanvasImageLease | undefined;
     try {
       const [fontResult, imageResult] = await Promise.allSettled([
-        this.acquireFonts(artifact, fonts),
+        Promise.all([this.acquireFonts(artifact, fonts), ...hosted]),
         this.images.prepare(artifact, list),
       ]);
       if (imageResult.status === 'fulfilled') imageLease = imageResult.value;

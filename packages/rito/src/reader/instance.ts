@@ -292,7 +292,16 @@ export interface ReaderThemeOptions {
 }
 export interface Reader {
   readonly metadata: PackageMetadata;
-  /** Whole-book counts of the committed layout; every revision is laid out complete. */
+  /**
+   * What the committed layout covers. A book that has just opened, or whose
+   * layout has just changed, commits the chapter being read first
+   * (`'chapter'`): pages count from that chapter's first, and `pageCount`,
+   * `spreads`, `chapterMap` and every page index describe that chapter
+   * alone. The whole book follows and commits again (`'book'`), showing the
+   * same page under its book-wide number. Absent means `'book'`.
+   */
+  readonly layoutScope?: 'chapter' | 'book';
+  /** Counts of the committed layout, within its {@link layoutScope}. */
   readonly totalSpreads: number;
   readonly pageCount: number;
   /** Spread selected by the latest committed layout/navigation transaction. */

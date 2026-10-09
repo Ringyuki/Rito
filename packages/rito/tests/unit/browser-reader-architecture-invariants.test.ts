@@ -74,7 +74,10 @@ const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3332;
 // Includes the experimental fragment-pagination option.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
 // from, and the reader's four font methods.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 771;
+// +15 lines (2026-10-09): `layoutScope` tells a chapter-first commit from
+// the whole book's, and createReader chooses the session-protocol reader
+// behind a page-level flag while the two exist side by side.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 786;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
