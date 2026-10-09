@@ -90,6 +90,14 @@ void main() {
         expect(await session.unresolvedFontFamilies('Arimo'), <String>[
           'Arimo',
         ]);
+
+        // A family this host could not load crosses the ABI by name; the
+        // engine's own tests pin what the mark does to the next layout.
+        await session.markFontFamiliesUnavailable(<String>[
+          'Book Face',
+          '书的字体',
+        ]);
+        await session.markFontFamiliesUnavailable(const <String>[]);
       } finally {
         await session.dispose();
       }

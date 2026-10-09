@@ -424,6 +424,18 @@ final class RitoIsolateGateway
   );
 
   @override
+  Future<void> markFontFamiliesUnavailable({
+    required int sessionId,
+    required List<String> families,
+  }) => _fontEdit(
+    sessionId,
+    _MarkFontFamiliesUnavailableOperation(
+      sessionId: sessionId,
+      families: families,
+    ),
+  );
+
+  @override
   Future<RitoArtifact> requestArtifact({
     required RitoArtifactRequest request,
   }) async {

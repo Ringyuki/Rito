@@ -1,6 +1,7 @@
 //! The session's fonts across the C ABI: the catalog of families a
 //! `font-family` list can name (`RITOFNT1`), the names a list would skip
-//! (`RITOFNN1`), and host faces added or removed while the session is open.
+//! (`RITOFNN1`), host faces added or removed while the session is open, and
+//! publication faces the host could not load.
 
 // `#[no_mangle]` exports only; no raw memory is touched here.
 #![allow(unsafe_code)]
@@ -79,5 +80,23 @@ pub extern "C" fn rito_remove_host_font_faces(
         let sha256s = input::sha256_digests(sha256_hex, count)?;
         let admission = registry::try_admit(session_id)?;
         registry::remove_host_font_faces(admission, sha256s)
+    })
+}
+
+/// Marks a publication face the host cannot paint by its UTF-8 family —
+/// the family an artifact lists it under, or the one it declares. The next
+/// request lays out without it; artifacts already published keep their
+/// layout, and the mark lasts for the session.
+#[no_mangle]
+pub extern "C" fn rito_mark_font_family_unavailable(
+    session_id: u64,
+    family_data: *const u8,
+    family_len: u64,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        let family = input::text(family_data, family_len, "font family")?;
+        let admission = registry::try_admit(session_id)?;
+        registry::mark_font_family_unavailable(admission, family)
     })
 }

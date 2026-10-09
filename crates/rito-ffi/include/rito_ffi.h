@@ -528,6 +528,19 @@ uint32_t rito_remove_host_font_faces(uint64_t session_id,
                                         rito_owned_buffer *error_out);
 
 /*
+ * Marks a publication face this host cannot paint - its font decoder refused
+ * it - by the UTF-8 family an artifact lists it under, or the family it
+ * declares. A run is measured with the face it is shaped with, so a face that
+ * will be painted with another must not shape: the next request lays out
+ * without it. Artifacts already published keep their layout, and the mark
+ * lasts for the session.
+ */
+uint32_t rito_mark_font_family_unavailable(uint64_t session_id,
+                                              const uint8_t *family_data,
+                                              uint64_t family_len,
+                                              rito_owned_buffer *error_out);
+
+/*
  * Idempotent for an artifact already released from this session. BUSY means
  * the release was not queued and the artifact remains live; retry it or dispose
  * the owning session.

@@ -92,6 +92,13 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
   addHostFontFaces(faces: readonly RitoCoreWasmHostFontFaceInput[]): Promise<void>;
   /** Removes host faces by SHA-256; at least one must remain. */
   removeHostFontFaces(sha256s: readonly string[]): Promise<void>;
+  /**
+   * Marks publication faces the page could not load, by the family an
+   * artifact lists them under. A run is measured with the face it is
+   * shaped with, so a face painted with another must not shape: the next
+   * request lays out without them. The mark lasts for the session.
+   */
+  markFontFamiliesUnavailable(families: readonly string[]): Promise<void>;
   /** Cooperatively resumes one quantum per host turn and returns an unadopted candidate. */
   requestAdjacent(
     fromArtifactId: bigint,
@@ -221,6 +228,7 @@ export interface RitoReaderRawSession {
   unresolvedFontFamilies(familyList: string): Uint8Array;
   addHostFontFaces(metadataJson: string, faces: readonly Uint8Array[]): void;
   removeHostFontFaces(sha256s: readonly string[]): void;
+  markFontFamiliesUnavailable(families: readonly string[]): void;
   releaseArtifact(artifactId: bigint): boolean;
   dispose(): boolean;
   free?(): void;

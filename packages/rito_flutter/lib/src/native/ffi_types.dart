@@ -255,3 +255,7 @@ typedef _RemoveHostFontFacesNative =
     Uint32 Function(Uint64, Pointer<Uint8>, Uint32, Pointer<_RitoOwnedBuffer>);
 typedef _RemoveHostFontFacesDart =
     int Function(int, Pointer<Uint8>, int, Pointer<_RitoOwnedBuffer>);
+typedef _MarkFontFamilyUnavailableNative =
+    Uint32 Function(Uint64, Pointer<Uint8>, Uint64, Pointer<_RitoOwnedBuffer>);
+typedef _MarkFontFamilyUnavailableDart =
+    int Function(int, Pointer<Uint8>, int, Pointer<_RitoOwnedBuffer>);

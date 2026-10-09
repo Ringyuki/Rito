@@ -331,6 +331,7 @@ void _discardUnsentWire(
       case _UnresolvedFontFamiliesOperation():
       case _AddHostFontFacesOperation():
       case _RemoveHostFontFacesOperation():
+      case _MarkFontFamiliesUnavailableOperation():
       case _ReadPublicationOperation():
       case _ReadResourceOperation():
       case _SearchOperation():
@@ -404,6 +405,14 @@ Object? _perform(
         sha256s: operation.sha256s,
       ),
     ),
+    _MarkFontFamiliesUnavailableOperation() => _done(() {
+      for (final family in operation.families) {
+        bindings.markFontFamilyUnavailable(
+          sessionId: operation.sessionId,
+          family: family,
+        );
+      }
+    }),
     _RequestArtifactOperation() => bindings.requestArtifactEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,

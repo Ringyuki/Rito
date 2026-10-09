@@ -100,6 +100,11 @@ export interface BrowserReaderSession {
   /** Removes host faces by SHA-256; at least one must remain. */
   removeFontFaces(sha256s: readonly string[]): Promise<void>;
   /**
+   * Marks publication faces the page could not load, by the family an
+   * artifact lists them under: the next request lays out without them.
+   */
+  markFontFamiliesUnavailable(families: readonly string[]): Promise<void>;
+  /**
    * Returns an unadopted incoming candidate and keeps the source live. Prepare
    * and adopt the candidate before painting; release the source only after the
    * host's page-turn animation finishes.
@@ -282,6 +287,7 @@ function browserReaderSession(
     removeFontFaces: async (sha256s) => {
       await client.removeHostFontFaces(sha256s);
     },
+    markFontFamiliesUnavailable: (families) => client.markFontFamiliesUnavailable(families),
     peekAdjacent: (...args) => client.peekAdjacent(...args),
     peekSpread: (...args) => client.peekSpread(...args),
     commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),

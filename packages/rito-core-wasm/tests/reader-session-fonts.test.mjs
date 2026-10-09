@@ -57,6 +57,10 @@ function fontRawSession(log, answers) {
       log.push(['remove', sha256s]);
     }
 
+    markFontFamiliesUnavailable(families) {
+      log.push(['unavailable', families]);
+    }
+
     releaseArtifact() {
       return true;
     }
@@ -155,6 +159,15 @@ test('added faces cross with their bytes handed over', async () => {
     { schemaVersion: 1, faces: [{ expectedSha256: SANS, genericRole: 'sansSerif' }] },
     [[1, 2, 3, 4]],
   ]);
+  await client.dispose();
+});
+
+test('faces the page could not load are marked by family', async () => {
+  const log = [];
+  const client = await openClient(log, {});
+  await client.markFontFamiliesUnavailable(['__RitoFont_ab', 'Book Face']);
+  assert.deepEqual(log, [['unavailable', ['__RitoFont_ab', 'Book Face']]]);
+  await assert.rejects(client.markFontFamiliesUnavailable([7]), { code: 'invalid-request' });
   await client.dispose();
 });
 

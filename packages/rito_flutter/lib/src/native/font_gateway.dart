@@ -23,6 +23,13 @@ abstract interface class RitoFontGateway {
     required int sessionId,
     required List<String> sha256s,
   });
+
+  /// Marks publication faces the host could not load, by the family an
+  /// artifact lists them under. The next request lays out without them.
+  Future<void> markFontFamiliesUnavailable({
+    required int sessionId,
+    required List<String> families,
+  });
 }
 
 extension _FontOperations on RitoIsolateGateway {
@@ -87,4 +94,14 @@ final class _RemoveHostFontFacesOperation extends _WorkerOperation {
 
   final int sessionId;
   final List<String> sha256s;
+}
+
+final class _MarkFontFamiliesUnavailableOperation extends _WorkerOperation {
+  const _MarkFontFamiliesUnavailableOperation({
+    required this.sessionId,
+    required this.families,
+  });
+
+  final int sessionId;
+  final List<String> families;
 }

@@ -197,6 +197,16 @@ async function handleMessage(state, deps, message) {
       state.session.removeHostFontFaces([...message.sha256s]);
       return { payload: { kind: 'host-font-faces' } };
     }
+    case 'mark-font-families-unavailable': {
+      if (
+        !Array.isArray(message.families) ||
+        message.families.some((family) => typeof family !== 'string')
+      ) {
+        throw readerWorkerError('invalid-request', 'Font families must be strings');
+      }
+      state.session.markFontFamiliesUnavailable([...message.families]);
+      return { payload: { kind: 'font-families-unavailable' } };
+    }
     case 'release': {
       const released = state.session.releaseArtifact(message.artifactId);
       state.liveArtifacts.delete(message.artifactId);

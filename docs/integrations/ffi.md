@@ -129,6 +129,15 @@ the faces its runs paint with, pinned ones included under a
 `rito-host-font:<sha256>` href readable through `rito_read_resource`, so a host
 registers exactly what it draws from the artifact alone.
 
+A publication face a host cannot load — its font decoder refuses the bytes,
+or the platform takes no such format — must not stay in the layout: a run is
+measured with the face it is shaped with, so text painted with a fallback
+would sit in boxes sized for another face. `rito_mark_font_family_unavailable`
+marks such a face by the family its artifact lists it under (or the family it
+declares). Like a face added or removed, the mark applies to the next request,
+and it lasts for the session: paint the artifact in hand with a fallback, mark
+the family, and request the page again.
+
 ## Keeping a hand-written decoder honest
 
 The Dart decoder in `packages/rito_flutter/lib/src/protocol/` is the

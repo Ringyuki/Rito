@@ -2,8 +2,8 @@ part of 'bindings.dart';
 
 /// The session's fonts across the C ABI (see `rito_font_catalog` and its
 /// siblings): the `RITOFNT1` catalog, the `RITOFNN1` names a `font-family`
-/// list would skip, and host faces added or removed while the session is
-/// open.
+/// list would skip, host faces added or removed while the session is open,
+/// and publication faces the host could not load.
 extension RitoNativeFontBindings on RitoNativeBindings {
   /// The session's font catalog as a `RITOFNT1` message.
   Uint8List fontCatalogWire({required int sessionId}) {
@@ -76,6 +76,24 @@ extension RitoNativeFontBindings on RitoNativeBindings {
       _statusCall(
         (error) =>
             _removeHostFontFaces(sessionId, input, sha256s.length, error),
+      );
+    } finally {
+      calloc.free(input);
+    }
+  }
+
+  /// Marks a publication face this host could not load, by its family.
+  void markFontFamilyUnavailable({
+    required int sessionId,
+    required String family,
+  }) {
+    _validateId(sessionId, 'session id');
+    final bytes = Uint8List.fromList(utf8.encode(family));
+    final input = _copyInput(bytes);
+    try {
+      _statusCall(
+        (error) =>
+            _markFontFamilyUnavailable(sessionId, input, bytes.length, error),
       );
     } finally {
       calloc.free(input);

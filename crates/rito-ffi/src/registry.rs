@@ -345,6 +345,13 @@ pub(crate) fn remove_host_font_faces(
     actor::request_remove_host_font_faces(admission, sha256s)
 }
 
+pub(crate) fn mark_font_family_unavailable(
+    admission: CommandAdmission,
+    family: String,
+) -> Result<(), FfiError> {
+    actor::request_mark_font_family_unavailable(admission, family)
+}
+
 pub(crate) fn supply_shard(
     admission: CommandAdmission,
     shard: Vec<u8>,

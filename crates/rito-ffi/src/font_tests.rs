@@ -9,9 +9,9 @@ use rito_core::runtime::{
 
 use crate::{
     rito_add_host_font_faces, rito_buffer_free, rito_dispose, rito_font_catalog,
-    rito_remove_host_font_faces, rito_unresolved_font_families, RitoOwnedBuffer,
-    RitoPinnedFontFace, RITO_PINNED_FONT_ROLE_SANS_SERIF, RITO_STATUS_INVALID_ARGUMENT,
-    RITO_STATUS_OK,
+    rito_mark_font_family_unavailable, rito_remove_host_font_faces, rito_unresolved_font_families,
+    RitoOwnedBuffer, RitoPinnedFontFace, RITO_PINNED_FONT_ROLE_SANS_SERIF,
+    RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_OK,
 };
 
 use super::tests::{call_open, call_owned_wire, next_session_id, publication, request};
@@ -90,6 +90,22 @@ fn host_faces_are_listed_added_and_removed_across_the_abi() {
     // The last face cannot go.
     assert_eq!(
         status(|error| rito_remove_host_font_faces(session_id, tinos.as_ptr(), 1, error)),
+        RITO_STATUS_INVALID_ARGUMENT
+    );
+
+    // A family the host could not load is marked by its UTF-8 name.
+    let family = "Book Face";
+    assert_eq!(
+        status(|error| rito_mark_font_family_unavailable(
+            session_id,
+            family.as_ptr(),
+            family.len() as u64,
+            error
+        )),
+        RITO_STATUS_OK
+    );
+    assert_eq!(
+        status(|error| rito_mark_font_family_unavailable(session_id, std::ptr::null(), 4, error)),
         RITO_STATUS_INVALID_ARGUMENT
     );
     assert_eq!(

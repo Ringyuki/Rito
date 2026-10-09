@@ -21,8 +21,8 @@ mod shard_tests;
 mod tests;
 
 pub use abi::{
-    rito_add_host_font_faces, rito_font_catalog, rito_remove_host_font_faces,
-    rito_unresolved_font_families,
+    rito_add_host_font_faces, rito_font_catalog, rito_mark_font_family_unavailable,
+    rito_remove_host_font_faces, rito_unresolved_font_families,
 };
 pub use abi::{
     rito_adopt_background_candidate, rito_adopt_foreground_candidate, rito_advance_background,

@@ -128,6 +128,10 @@ pub(crate) enum ActorCommand {
         sha256s: Vec<String>,
         reply: Reply<()>,
     },
+    MarkFontFamilyUnavailable {
+        family: String,
+        reply: Reply<()>,
+    },
 }
 
 /// Where an actor's session reads its publication from.
@@ -734,6 +738,12 @@ fn run_commands(
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::MarkFontFamilyUnavailable { family, reply } => {
+                let result = session
+                    .mark_font_families_unavailable(std::slice::from_ref(&family))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ReadFootnote {
                 artifact_id,
                 key,
@@ -1049,6 +1059,17 @@ pub(crate) fn request_remove_host_font_faces(
         admission,
         |reply| ActorCommand::RemoveHostFontFaces { sha256s, reply },
         "remove host font faces",
+    )
+}
+
+pub(crate) fn request_mark_font_family_unavailable(
+    admission: CommandAdmission,
+    family: String,
+) -> Result<(), FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::MarkFontFamilyUnavailable { family, reply },
+        "mark font family unavailable",
     )
 }
 

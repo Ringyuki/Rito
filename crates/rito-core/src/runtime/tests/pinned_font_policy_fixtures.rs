@@ -35,7 +35,7 @@ pub(super) fn face(
     }
 }
 
-pub(super) fn title_font() -> Vec<u8> {
+pub(crate) fn title_font() -> Vec<u8> {
     read_font_from_epub("apps/reader/src/assets/demo.epub", "OEBPS/Fonts/title.ttf")
 }
 
@@ -72,7 +72,7 @@ pub(super) fn variable_title_font() -> Vec<u8> {
     append_sfnt_table(&title_font(), *b"fvar", &minimal_fvar_table())
 }
 
-pub(super) fn content_epub(
+pub(crate) fn content_epub(
     language: &str,
     body: &str,
     stylesheet: &str,

@@ -270,6 +270,17 @@ impl RitoReaderSession {
             .map_err(|error| ReaderProjectionError::from(error).into_js_value())
     }
 
+    /// Marks publication faces the page could not load, by the family an
+    /// artifact lists them under. The next request lays out without them.
+    #[wasm_bindgen(js_name = markFontFamiliesUnavailable)]
+    pub fn mark_font_families_unavailable(&mut self, families: Vec<String>) -> Result<(), JsValue> {
+        self.inner
+            .live_session()
+            .map_err(ReaderProjectionError::into_js_value)?
+            .mark_font_families_unavailable(&families)
+            .map_err(|error| ReaderProjectionError::from(error).into_js_value())
+    }
+
     /// Disposes the session. Repeated disposal is a successful no-op and
     /// returns `false`.
     #[wasm_bindgen(js_name = dispose)]

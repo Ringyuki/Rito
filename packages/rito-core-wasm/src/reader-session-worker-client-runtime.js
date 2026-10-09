@@ -388,6 +388,12 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
   };
 
+  const markFontFamiliesUnavailable = async (families) => {
+    requireOpen();
+    const payload = await send('mark-font-families-unavailable', { families: [...families] });
+    if (payload?.kind !== 'font-families-unavailable') throw invalidPayload('font families');
+  };
+
   const requestArtifact = (request) => {
     requireOpen();
     const deferred = createDeferred();
@@ -872,6 +878,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     unresolvedFontFamilies,
     addHostFontFaces,
     removeHostFontFaces,
+    markFontFamiliesUnavailable,
     requestAdjacent,
     requestArtifact,
     seek,

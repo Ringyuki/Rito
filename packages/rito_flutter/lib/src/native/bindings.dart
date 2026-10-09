@@ -164,6 +164,17 @@ external int _ritoRemoveHostFontFaces(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_MarkFontFamilyUnavailableNative>(
+  symbol: 'rito_mark_font_family_unavailable',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoMarkFontFamilyUnavailable(
+  int sessionId,
+  Pointer<Uint8> family,
+  int familyLength,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_RequestArtifactNative>(
   symbol: 'rito_request_artifact',
   assetId: ritoNativeAssetId,
@@ -404,6 +415,7 @@ final class RitoNativeBindings {
        _unresolvedFontFamilies = _ritoUnresolvedFontFamilies,
        _addHostFontFaces = _ritoAddHostFontFaces,
        _removeHostFontFaces = _ritoRemoveHostFontFaces,
+       _markFontFamilyUnavailable = _ritoMarkFontFamilyUnavailable,
        _requestArtifact = _ritoRequestArtifact,
        _requestAdjacent = _ritoRequestAdjacent,
        _peekAdjacent = _ritoPeekAdjacent,
@@ -467,6 +479,11 @@ final class RitoNativeBindings {
              _RemoveHostFontFacesNative,
              _RemoveHostFontFacesDart
            >('rito_remove_host_font_faces'),
+       _markFontFamilyUnavailable = library
+           .lookupFunction<
+             _MarkFontFamilyUnavailableNative,
+             _MarkFontFamilyUnavailableDart
+           >('rito_mark_font_family_unavailable'),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
              'rito_request_artifact',
@@ -557,6 +574,7 @@ final class RitoNativeBindings {
   final _ContentShardsNearDart _unresolvedFontFamilies;
   final _AddHostFontFacesDart _addHostFontFaces;
   final _RemoveHostFontFacesDart _removeHostFontFaces;
+  final _MarkFontFamilyUnavailableDart _markFontFamilyUnavailable;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _RequestAdjacentDart _peekAdjacent;
@@ -1756,6 +1774,12 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required List<String> sha256s,
   }) => _bindings.removeHostFontFaces(sessionId: sessionId, sha256s: sha256s);
+
+  void markFontFamilyUnavailable({
+    required int sessionId,
+    required String family,
+  }) =>
+      _bindings.markFontFamilyUnavailable(sessionId: sessionId, family: family);
 
   Uint8List requestArtifactEncoded({
     required int sessionId,

@@ -46,6 +46,20 @@ impl ReaderSession {
         Ok(summary)
     }
 
+    /// Marks publication faces the host cannot paint — its font decoder
+    /// refused them — by the family an artifact lists them under, or the
+    /// family they declare. A run is measured with the face it is shaped
+    /// with, so a face that will be painted with another must not shape:
+    /// artifacts already published keep their layout, and the next
+    /// request lays out without the faces. A mark lasts for the session.
+    pub fn mark_font_families_unavailable(
+        &mut self,
+        families: &[String],
+    ) -> Result<(), ReaderError> {
+        self.document.set_unavailable_font_faces(families);
+        self.fonts_changed()
+    }
+
     /// No revision laid out before the change serves a later request: the
     /// active publication revision is let go (retired when nothing shows
     /// it) and every revision keeps the generation it was laid out under.

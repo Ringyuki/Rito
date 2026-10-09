@@ -3,7 +3,7 @@ mod chapter_local_tests;
 mod chapter_tree_report_tests;
 pub(crate) mod fixture;
 mod fragment_page_table_tests;
-mod pinned_font_policy_fixtures;
+pub(crate) mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
 mod pinned_font_wiring_tests;

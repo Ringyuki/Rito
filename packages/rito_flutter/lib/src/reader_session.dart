@@ -1207,6 +1207,22 @@ final class RitoReaderSession {
     );
   }
 
+  /// Marks publication faces this host could not load, by the family an
+  /// artifact lists them under ([RitoFontRef.family]). A run is measured
+  /// with the face it is shaped with, so a face painted with another must
+  /// not shape: the next request lays out without them. Artifacts already
+  /// published keep their layout, and a mark lasts for the session.
+  Future<void> markFontFamiliesUnavailable(List<String> families) {
+    _requireOpen();
+    if (families.isEmpty) {
+      return Future<void>.value();
+    }
+    return _fontGateway.markFontFamiliesUnavailable(
+      sessionId: sessionId,
+      families: families,
+    );
+  }
+
   RitoFontGateway get _fontGateway => switch (gateway) {
     final RitoFontGateway fonts => fonts,
     _ => throw UnsupportedError('this gateway does not expose session fonts'),
