@@ -10,6 +10,8 @@ const VIEW = process.env.VIEW ?? 'phone';
 const viewport =
   VIEW === 'phone' ? { width: 393, height: 760, dsf: 3 } : { width: 1280, height: 860, dsf: 2 };
 const RUNS = Number(process.env.RUNS ?? 3);
+// SESSION=1 selects the reader built on the session protocol while both exist.
+const SESSION = process.env.SESSION === '1';
 
 const browser = await chromium.launch();
 const out = [];
@@ -18,6 +20,11 @@ for (let run = 0; run < RUNS; run++) {
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: viewport.dsf,
   });
+  if (SESSION) {
+    await page.addInitScript(() => {
+      window.__ritoSessionReader = true;
+    });
+  }
   await page.addInitScript(() => {
     // Samples the reader canvas on every frame; resolves when it differs from the sample taken at arm time.
     window.__sig = () => {
