@@ -58,8 +58,9 @@ function writeLayout(writer, value) {
 export function writeRitoReaderLocator(writer, value) {
   if (value === null || typeof value !== 'object')
     throw new TypeError('Reader locator is required');
+  // An empty href is the start of the book; the engine resolves it to the
+  // first linear chapter.
   writer.string(value.href, 'locator href');
-  if (value.href.length === 0) throw new RangeError('locator href must not be empty');
   writer.option(value.anchorId, (anchor) => writer.string(anchor, 'locator anchor'));
   writer.option(value.sourcePoint, (point) => writeRitoReaderSourcePoint(writer, point));
   writer.option(value.sourceRange, (range) => {

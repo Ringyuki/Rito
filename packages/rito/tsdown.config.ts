@@ -4,7 +4,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'worker-entry': 'src/bindings/browser/reader/worker-main.ts',
-    'reader-session-worker-entry': 'src/bindings/browser/reader-session-worker.ts',
+    'reader-session-worker-entry': 'src/bindings/browser/reader-session-worker-main.ts',
   },
   format: 'esm',
   // The package ships browser code end to end: resolve dependencies via

@@ -144,6 +144,8 @@ export interface RitoReaderBackgroundAdvance {
   readonly state: RitoReaderBackgroundState;
   readonly intentRequestId: bigint;
   readonly replacesArtifactId: bigint;
+  /** Whether adopting `artifact` changes what the reader sees, rather than renumbering it. */
+  readonly movesVisibleContent: boolean;
   readonly artifact?: RitoReaderArtifact | undefined;
 }
 
@@ -248,6 +250,14 @@ export interface RitoReaderArtifact {
   readonly localPageIndexes: readonly number[];
   readonly width: number;
   readonly height: number;
+  /**
+   * Zero-based page number within the whole book, present only on an
+   * artifact published from the whole-book layout. A chapter laid out alone
+   * has no book-wide numbering, so the field is absent rather than zero.
+   */
+  readonly bookPageIndex?: number | undefined;
+  /** The whole book's page count, present together with `bookPageIndex`. */
+  readonly bookPageCount?: number | undefined;
   readonly navigation: {
     readonly previous: RitoReaderAdjacentAvailability;
     readonly next: RitoReaderAdjacentAvailability;

@@ -5,10 +5,11 @@ import {
   type RitoReaderSessionWorkerScope,
 } from '@ritojs/core-wasm';
 
-createRitoCoreWasmReaderSessionWorkerHandler(
-  globalThis as unknown as RitoReaderSessionWorkerScope,
-  {
+export function startBrowserReaderSessionWorker(
+  scope: RitoReaderSessionWorkerScope = globalThis as unknown as RitoReaderSessionWorkerScope,
+): void {
+  createRitoCoreWasmReaderSessionWorkerHandler(scope, {
     initRitoCoreWasm: () => initRitoCoreWasm(),
     RitoReaderSession,
-  },
-);
+  });
+}
