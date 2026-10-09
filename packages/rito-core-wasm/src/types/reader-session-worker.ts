@@ -54,10 +54,11 @@ export interface RitoReaderSeekOverrides {
 }
 
 /**
- * Pinned fallback faces for a reader session session. Chapter-local pagination
- * shapes with pinned faces only, so an open without a policy fails closed.
- * `metadataJson` and `faces` follow the same contract as
- * `RitoWasmDocument.openWithPinnedFontPolicy`.
+ * The host faces a reader session opens with. Text is shaped with these
+ * faces and the publication's own, so an open without a policy fails
+ * closed. `metadataJson` is `{schemaVersion: 1, faces: [{expectedSha256,
+ * genericRole, language?}]}` and `faces` holds one face's bytes per entry,
+ * in the same order.
  */
 export interface RitoReaderSessionPinnedFontPolicyInput {
   readonly metadataJson: string;

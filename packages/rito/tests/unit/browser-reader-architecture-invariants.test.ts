@@ -72,6 +72,16 @@ function scan(
   return hits;
 }
 
+function walkRust(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root)) {
+    const full = join(root, entry);
+    if (statSync(full).isDirectory()) out.push(...walkRust(full));
+    else if (full.endsWith('.rs')) out.push(full);
+  }
+  return out;
+}
+
 function walkTsLike(root: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(root)) {
@@ -350,6 +360,45 @@ describe('Browser reader architecture invariant: one committed layout', () => {
       SESSION_READER_FILES,
       /\.startsWith\(['"](?:https?:|#)|epub:type|noteref|getBoundingClientRect|measureText/g,
     );
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
+  });
+});
+
+describe('Workspace architecture invariant: one host protocol, everywhere', () => {
+  // The reader session is the only way a host reaches the engine: through
+  // WASM, through the C ABI, and through the JavaScript runtime between a
+  // page and its worker. The revision runtime that stood beside it — a
+  // document binding, a worker of its own, a chapter-local preview — was
+  // removed layer by layer; each layer says here that it stays removed.
+  it('the WASM boundary exports the reader session and no other class', () => {
+    const crate = join(WORKSPACE_ROOT, 'crates/rito-wasm/src');
+    const classes = walkRust(crate)
+      .flatMap((file) => [
+        ...read(file).matchAll(/#\[wasm_bindgen\(js_name = (\w+)\)\]\s*pub struct/g),
+      ])
+      .map((match) => match[1]);
+    expect(classes).toEqual(['RitoReaderSession']);
+    expect(readdirSync(crate).sort()).toEqual(['lib.rs', 'reader_session', 'reader_session.rs']);
+  });
+
+  it('the wasm package ships the session runtime alone', () => {
+    const source = join(WORKSPACE_ROOT, 'packages/rito-core-wasm/src');
+    const modules = readdirSync(source).filter((entry) => entry.endsWith('-runtime.js'));
+    const foreign = modules.filter(
+      (entry) => !/^(?:reader-session-|shard-prefetch-lane-|pinned-font-policy-)/.test(entry),
+    );
+    expect(foreign, JSON.stringify(foreign)).toEqual([]);
+    const hits = scan(
+      [...modules.map((entry) => join(source, entry)), ...walkTs(source)],
+      /RitoWasmDocument|createRevision|AtRevision\b|RevisionSession|[cC]hapterLocal/g,
+    );
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
+  });
+
+  it('the kit has no presentation of its own beside the reader', () => {
+    const kit = join(WORKSPACE_ROOT, 'packages/kit/src');
+    expect(existsSync(join(kit, 'controller/navigation/local-preview'))).toBe(false);
+    const hits = scan(walkTsLike(kit), /[cC]hapterLocal|provisional|local-preview/g);
     expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
   });
 });
