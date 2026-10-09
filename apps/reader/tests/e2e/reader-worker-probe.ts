@@ -67,7 +67,9 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
           super(scriptURL, options);
           this.probeWorkerId = nextWorkerId;
           nextWorkerId += 1;
-          this.shouldProbe = options?.name === 'rito-browser-reader';
+          this.shouldProbe =
+            options?.name === 'rito-browser-reader-session' ||
+            options?.name === 'rito-browser-reader';
           if (!this.shouldProbe) return;
           runtime.__RITO_READER_WORKER_CREATIONS__?.push({
             workerId: this.probeWorkerId,

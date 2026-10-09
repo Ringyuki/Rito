@@ -691,6 +691,23 @@ describe('session reader interactions', () => {
     expect(opened.fake.calls.filter((call) => call === 'advance')).toHaveLength(1);
   });
 
+  it('tells a conformance harness when a spread has every image it draws', async () => {
+    const opened = await open();
+    await bookScope(opened.reader);
+    const diagnostics = (
+      globalThis as {
+        __ritoReaderDiagnostics?: {
+          readonly spreadImagesSettled: (spreadIndex: number) => Promise<boolean>;
+          readonly layout: () => { readonly scope: string; readonly spreadCount: number };
+        };
+      }
+    ).__ritoReaderDiagnostics;
+    expect(diagnostics?.layout()).toMatchObject({ scope: 'book', spreadCount: 14 });
+    // A spread the reader does not hold is loaded to answer for it.
+    expect(await diagnostics?.spreadImagesSettled(9)).toBe(true);
+    expect(await diagnostics?.spreadImagesSettled(99)).toBe(false);
+  });
+
   it('reads a footnote, and has none to show for one not indexed yet', async () => {
     const opened = await open();
     opened.fake.footnotes.set('two.xhtml#n1', { kind: 'endnote', text: 'A note', html: '<p/>' });

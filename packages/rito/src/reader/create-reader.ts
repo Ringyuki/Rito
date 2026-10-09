@@ -4,9 +4,9 @@ export async function createReader(
   canvas: HTMLCanvasElement | OffscreenCanvas,
   options: ReaderOptions,
 ): Promise<Reader> {
-  // Migration switch: the reader built on the session protocol is chosen
-  // by a page-level flag until it replaces the one below.
-  if ((globalThis as { __ritoSessionReader?: boolean }).__ritoSessionReader === true) {
+  // Migration switch: a page gets the reader built on the session protocol
+  // unless it sets the flag to false, until the one below is removed.
+  if ((globalThis as { __ritoSessionReader?: boolean }).__ritoSessionReader !== false) {
     const session = await import('../bindings/browser/session-reader/reader');
     return session.createReader(data, canvas, options);
   }

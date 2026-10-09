@@ -139,8 +139,8 @@ test.describe('reader app', () => {
   });
 });
 
-test.describe('reader app revision worker session', () => {
-  test('loads the demo through the production revision protocol', async ({ page }) => {
+test.describe('reader app session worker', () => {
+  test('loads the demo through the reader session protocol', async ({ page }) => {
     await installReaderWorkerProbe(page);
     await page.goto('/');
     await page.evaluate(() => {
@@ -151,19 +151,23 @@ test.describe('reader app revision worker session', () => {
     await loadDemoBook(page);
     await expect.poll(() => hasNonBlankCanvas(page)).toBe(true);
 
+    // The whole book follows the chapter the reader opened on.
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(0);
     const observations = await readReaderWorkerOperations(page);
     expect(observations.some((entry) => entry.ok === false)).toBe(false);
-    expect(observations.map((entry) => entry.kind)).toEqual(
+    const kinds = observations.map((entry) => entry.kind);
+    expect(kinds).toEqual(
       expect.arrayContaining([
         'open',
-        'createRevision',
-        'getRevisionPresentationAtRevision',
-        'warmFrameWindowAtRevision',
-        'getFootnotesAtRevision',
+        'adopt-foreground-candidate',
+        'navigation',
+        'advance-background-once',
+        'adopt-background-candidate',
       ]),
     );
-    expect(observations.some((entry) => entry.kind === 'createViewRevision')).toBe(false);
-    expect(observations.some((entry) => (entry.revision?.spreadCount ?? 0) > 0)).toBe(true);
+    // One protocol: no worker is asked for a revision the old way.
+    expect(kinds.filter((kind) => kind === 'open')).toHaveLength(1);
+    expect(kinds).not.toContain('createRevision');
   });
 });
 

@@ -14,17 +14,9 @@ export interface PinnedFallbackWorkerOpenRequestObservation {
   readonly faceBufferByteLengths: readonly number[];
 }
 
+/** A session a worker opened with the policy it was sent. */
 export interface PinnedFallbackWorkerOpenResultObservation {
   readonly workerId: number;
-  readonly policyId: string;
-  readonly faces: readonly {
-    readonly sha256: string;
-    readonly shapeFingerprint: string;
-    readonly familyAlias: string;
-    readonly byteLength: number;
-    readonly genericRole: string;
-    readonly language: string;
-  }[];
 }
 
 export interface PinnedFallbackProbeSnapshot {
@@ -157,15 +149,17 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
       class PinnedFallbackWorkerProbe extends NativeWorker {
         readonly pinnedFallbackWorkerId: number;
         readonly probesRitoWorker: boolean;
+        /** Ids of the open requests this worker has not answered yet. */
+        readonly pendingOpens = new Set<number>();
 
         constructor(scriptURL: string | URL, options?: WorkerOptions) {
           super(scriptURL, options);
           this.pinnedFallbackWorkerId = nextWorkerId;
           nextWorkerId += 1;
-          this.probesRitoWorker = options?.name === 'rito-browser-reader';
+          this.probesRitoWorker = options?.name === 'rito-browser-reader-session';
           if (!this.probesRitoWorker) return;
           this.addEventListener('message', (event: MessageEvent<unknown>) => {
-            recordOpenResult(state, this.pinnedFallbackWorkerId, event.data);
+            recordOpenResult(state, this.pinnedFallbackWorkerId, this.pendingOpens, event.data);
           });
         }
 
@@ -176,7 +170,7 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
           transferOrOptions?: Transferable[] | StructuredSerializeOptions,
         ): void {
           if (this.probesRitoWorker) {
-            recordOpenRequest(state, this.pinnedFallbackWorkerId, message);
+            recordOpenRequest(state, this.pinnedFallbackWorkerId, this.pendingOpens, message);
           }
           if (transferOrOptions === undefined) super.postMessage(message);
           else if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
@@ -193,12 +187,21 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
       globalThis.Worker = PinnedFallbackWorkerProbe;
     }
 
-    function recordOpenRequest(state: typeof probe, workerId: number, value: unknown): void {
+    function recordOpenRequest(
+      state: typeof probe,
+      workerId: number,
+      pendingOpens: Set<number>,
+      value: unknown,
+    ): void {
       const message = objectValue(value);
       if (message?.['kind'] !== 'open') return;
-      const metadata = objectValue(message['pinnedFontPolicyMetadata']);
+      if (typeof message['id'] === 'number') pendingOpens.add(message['id']);
+      // A session opens with the policy's metadata as JSON and one byte
+      // view per face.
+      const policy = objectValue(message['pinnedFontPolicy']);
+      const metadata = policyMetadata(policy?.['metadataJson']);
       const faces = arrayValue(metadata?.['faces']);
-      const buffers = arrayValue(message['pinnedFontFaceBuffers']);
+      const buffers = arrayValue(policy?.['faces']);
       state.openRequests.push({
         workerId,
         expectedSha256: faces.map((face) => {
@@ -206,34 +209,30 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
           return typeof record?.['expectedSha256'] === 'string' ? record['expectedSha256'] : '';
         }),
         faceBufferByteLengths: buffers.map((buffer) =>
-          buffer instanceof ArrayBuffer ? buffer.byteLength : -1,
+          buffer instanceof Uint8Array ? buffer.byteLength : -1,
         ),
       });
     }
 
-    function recordOpenResult(state: typeof probe, workerId: number, value: unknown): void {
+    function policyMetadata(value: unknown): Record<string, unknown> | undefined {
+      if (typeof value !== 'string') return undefined;
+      try {
+        return objectValue(JSON.parse(value));
+      } catch {
+        return undefined;
+      }
+    }
+
+    function recordOpenResult(
+      state: typeof probe,
+      workerId: number,
+      pendingOpens: Set<number>,
+      value: unknown,
+    ): void {
       const message = objectValue(value);
-      if (message?.['ok'] !== true) return;
-      const payload = objectValue(message['payload']);
-      if (payload?.['kind'] !== 'open') return;
-      const result = objectValue(payload['result']);
-      const policy = objectValue(result?.['pinnedFontPolicy']);
-      const faces = arrayValue(policy?.['faces']).map((face) => {
-        const record = objectValue(face);
-        return {
-          sha256: stringValue(record?.['sha256']),
-          shapeFingerprint: stringValue(record?.['shapeFingerprint']),
-          familyAlias: stringValue(record?.['familyAlias']),
-          byteLength: numberValue(record?.['byteLength']),
-          genericRole: stringValue(record?.['genericRole']),
-          language: stringValue(record?.['language']),
-        };
-      });
-      state.openResults.push({
-        workerId,
-        policyId: stringValue(policy?.['policyId']),
-        faces,
-      });
+      const id = message?.['id'];
+      if (typeof id !== 'number' || !pendingOpens.delete(id)) return;
+      if (message?.['ok'] === true) state.openResults.push({ workerId });
     }
 
     function objectValue(value: unknown): Record<string, unknown> | undefined {
@@ -243,14 +242,6 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
 
     function arrayValue(value: unknown): unknown[] {
       return Array.isArray(value) ? value : [];
-    }
-
-    function stringValue(value: unknown): string {
-      return typeof value === 'string' ? value : '';
-    }
-
-    function numberValue(value: unknown): number {
-      return typeof value === 'number' ? value : -1;
     }
   });
 }
@@ -278,10 +269,7 @@ export async function readPinnedFallbackProbe(page: Page): Promise<PinnedFallbac
         expectedSha256: [...request.expectedSha256],
         faceBufferByteLengths: [...request.faceBufferByteLengths],
       })),
-      openResults: probe.openResults.map((result) => ({
-        ...result,
-        faces: result.faces.map((face) => ({ ...face })),
-      })),
+      openResults: probe.openResults.map((result) => ({ ...result })),
       terminatedWorkerIds: [...probe.terminatedWorkerIds],
     };
   });

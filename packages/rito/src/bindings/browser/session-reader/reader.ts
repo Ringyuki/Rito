@@ -5,6 +5,7 @@ import { openBrowserReaderSession, type BrowserReaderSession } from '../reader-s
 import { createBrowserReaderSessionCanvasPresenter } from '../reader-session-canvas';
 import { startSessionReaderBackground } from './background';
 import { commitSessionReaderLayout, readSessionReaderLayout } from './commit';
+import { installSessionReaderDiagnostics } from './diagnostics';
 import { scheduleSessionReaderRelayout } from './foreground';
 import { prepareSessionReaderFrame } from './frames';
 import { SessionReaderHostFonts } from './host-fonts';
@@ -65,6 +66,7 @@ export async function createReader(
     // book is laid out again without it, and the whole book follows that.
     if (state.rejectedFontFamilies.size > 0) scheduleSessionReaderRelayout(state, true);
     else startSessionReaderBackground(state);
+    installSessionReaderDiagnostics(state);
     return buildReader(state);
   } catch (error) {
     hostFonts.dispose();
