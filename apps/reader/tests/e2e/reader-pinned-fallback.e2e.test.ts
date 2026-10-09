@@ -16,10 +16,7 @@ test.describe('production pinned fallback worker path', () => {
     await buildPinnedFallbackProductionCore();
   });
 
-  // Source locators still resolve Unavailable in the engine
-  // (chapter_engine_session/fragment), so the exact-geometry step of this
-  // scenario cannot resolve yet.
-  test.fixme('keeps Rust shape identity, Canvas paint, exact geometry, and disposal stable', async ({
+  test('keeps Rust shape identity, Canvas paint, exact geometry, and disposal stable', async ({
     page,
   }) => {
     const fixture = await createPinnedFallbackFixture();

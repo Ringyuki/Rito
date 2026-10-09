@@ -83,10 +83,7 @@ test.describe('reader app', () => {
     await expect.poll(() => currentSpread(page)).toBeGreaterThan(beforeSearchJump);
   });
 
-  // Search results carry no resolved source range yet (source locators still
-  // resolve Unavailable in chapter_engine_session/fragment), so no exact
-  // highlight geometry can be requested for a match.
-  test.fixme('paints an exact native search highlight from the committed source range', async ({
+  test('paints an exact native search highlight from the committed source range', async ({
     page,
   }) => {
     await installReaderWorkerProbe(page);
@@ -106,8 +103,7 @@ test.describe('reader app', () => {
       .poll(async () => {
         const operations = await readReaderWorkerOperations(page);
         return operations.some(
-          (operation) =>
-            operation.kind === 'resolveExactSourceRangeAtRevision' && operation.ok === true,
+          (operation) => operation.kind === 'exact-source-range' && operation.ok === true,
         );
       })
       .toBe(true);

@@ -1,6 +1,21 @@
 import type { Page } from '@playwright/test';
-import type { ReaderProfileAnimationMetrics } from './reader-profile-toc-model';
 import type { ReaderTransitionLifecycle } from './reader-transition-harness';
+
+/** What a sampled page turn looked like, frame to frame. */
+export interface ReaderTransitionAnimationMetrics {
+  /** Perceptible Canvas motion, excluding a later static exact-layout handoff. */
+  readonly durationMs: number;
+  readonly sampledFrameCount: number;
+  readonly nominalFrameIntervalMs: number;
+  readonly p50FrameIntervalMs: number;
+  readonly p95FrameIntervalMs: number;
+  readonly maxFrameIntervalMs: number;
+  readonly overBudgetFrameIntervalCount: number;
+  /** Sum of missing nominal intervals inferred from sampled rAF gaps. */
+  readonly estimatedDroppedFrameCount: number;
+  readonly distinctVisualCount: number;
+  readonly blankFrameCount: number;
+}
 
 const SAMPLE_SIZE = 32;
 const STORED_SAMPLE_BUDGET_BYTES = 2 * 1024 * 1024;
@@ -27,7 +42,7 @@ export interface ReaderVisualTransitionSnapshot {
 }
 
 export interface ReaderVisualTurnMeasurement {
-  readonly animation: ReaderProfileAnimationMetrics;
+  readonly animation: ReaderTransitionAnimationMetrics;
   readonly firstVisualChangeAt: number;
   readonly firstTargetFrameAt: number;
 }

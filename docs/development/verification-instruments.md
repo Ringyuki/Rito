@@ -54,10 +54,8 @@ Reads of the live reader (`RITO_READER_URL`, default
 `http://localhost:5173/`), through `__ritoReaderDiagnostics`:
 
 - `node geometry-check.mjs <book.epub>` — viewport, shell, canvas buffer
-  and revision keys the reader is actually using.
-- `node wasm-probe-dump.mjs <book.epub> <idref> <out.json> [--no-warm]` —
-  the WASM pipeline's page-by-page chapter lines
-  (`chapterFragmentProbe`), after a full warm traversal like the walk.
+  and the committed layout (its scope, page and spread counts) the reader
+  is actually using.
 - `node text-cmd-dump.mjs <book.epub> <spread> <needle...>` — the
   `text`/`ruby` primitives of one spread whose JSON matches a needle
   (run text, rect, paint, cluster origins).

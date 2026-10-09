@@ -38,16 +38,19 @@ const dump = await page.evaluate(async (spreads) => {
   const out = [];
   for (let s = 0; s < spreads; s += 1) {
     try {
-      const frame = await globalThis.__ritoReaderDiagnostics.frame(s);
-      if (!frame) {
-        out.push({ spread: s, error: 'no frame' });
+      const artifact = await globalThis.__ritoReaderDiagnostics.artifact(s);
+      if (!artifact) {
+        out.push({ spread: s, error: 'no artifact' });
         continue;
       }
+      const { commands } = artifact.displayList.displayList;
       out.push({
         spread: s,
-        commandCount: frame.commands.length,
-        resourceImages: frame.resourceRefs.images,
-        images: frame.commands
+        commandCount: commands.length,
+        resourceImages: artifact.resources
+          .filter((resource) => resource.kind === 'image')
+          .map((resource) => resource.href),
+        images: commands
           .filter((command) => command.kind === 'draw-image')
           .map((command) => ({ src: command.src, dest: command.dest })),
       });

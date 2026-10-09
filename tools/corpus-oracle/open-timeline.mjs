@@ -71,24 +71,26 @@ const load = async (which = bookPath) => {
   await page.waitForSelector('[data-testid=reader-shell][data-loaded=true]', { timeout: 300000 });
   return Date.now() - started;
 };
+// A layout is asked for when a session opens and on every artifact request.
+const layoutRequests = () =>
+  page.evaluate(
+    () =>
+      window.__timeline.filter(
+        (m) => m.dir === '->' && (m.kind === 'open' || m.kind === 'request-artifact'),
+      ).length,
+  );
 const wall = await load();
 if (process.env.RITO_TIMELINE_TWICE === '1') {
-  const paginations = await page.evaluate(
-    () => window.__timeline.filter((m) => m.dir === '->' && m.kind === 'createRevision').length,
-  );
+  const paginations = await layoutRequests();
   await load(process.env.RITO_TIMELINE_OTHER);
   await page.evaluate(() => {
     window.__timeline.length = 0;
     window.__t0 = performance.now();
   });
   const second = await load();
-  const secondPaginations = await page.evaluate(
-    () => window.__timeline.filter((m) => m.dir === '->' && m.kind === 'createRevision').length,
-  );
-  console.log(`first open: ${wall} ms, ${paginations} createRevision`);
-  console.log(
-    `second open of the same book (metrics already measured): ${second} ms, ${secondPaginations} createRevision`,
-  );
+  const secondPaginations = await layoutRequests();
+  console.log(`first open: ${wall} ms, ${paginations} layout requests`);
+  console.log(`second open of the same book: ${second} ms, ${secondPaginations} layout requests`);
   await browser.close();
   process.exit(0);
 }

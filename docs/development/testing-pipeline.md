@@ -65,19 +65,20 @@ Whole-book pixel verification against pinned Chromium is the pixel walk in
 
 The suite lives in `apps/reader/tests/e2e/`, builds the demo reader with
 Vite, starts `vite preview` and runs Playwright against the production
-bundle. Opt-in gates on a named machine:
+bundle. `reader-worker-probe.ts` records every request a page sends its
+reader session worker and how it was answered, for a test that has to say
+which protocol a reader spoke or that none of it failed.
+
+Opening, font-change and page-turn latency are measured by the acceptance
+probe, against a production build served by `vite preview --port 4317`:
 
 ```bash
-RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile
-RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate
-pnpm test:e2e:memory-gate
+BOOK=/abs/book.epub VIEW=phone RUNS=3 node tools/reader-accept/accept.mjs
 ```
 
-The load profile records Worker startup, open, layout, frame warming and
-first Canvas timings from the page clock; the usability gate turns them
-into thresholds pinned to an exact machine, browser and font policy; the
-memory gate samples physical footprint across load, growth, reflow,
-replacement and dispose scenarios.
+It drives the public controller, takes "the new page is on screen" from
+the canvas pixels changing, and prints the median of its runs as one JSON
+line. `VIEW=desktop` measures a 1280×860 double-page viewport.
 
 ## Flutter
 
