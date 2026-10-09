@@ -63,7 +63,7 @@ describe('controller bootstrap cleanup', () => {
     }).toThrow(sentinel);
     expect(unsubscribe).toHaveBeenCalledOnce();
     expect(listeners.size).toBe(0);
-    expect(buffers).toHaveLength(4);
+    expect(buffers).toHaveLength(3);
     expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
   });
 
@@ -84,7 +84,7 @@ describe('controller bootstrap cleanup', () => {
     expect(() => {
       createController(reader as never, canvas);
     }).toThrow(sentinel);
-    expect(buffers).toHaveLength(4);
+    expect(buffers).toHaveLength(3);
     expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
   });
 

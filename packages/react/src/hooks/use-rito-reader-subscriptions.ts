@@ -30,7 +30,7 @@ export function subscribeReaderControllerEvents(
       unsubscribers.push(
         reader.onSpreadContentInvalidated((spreadIndex) => {
           if (spreadIndex !== controller.currentSpread) return;
-          // Content-only updates (including a provisional chapter frame) need a
+          // Content-only updates (an image landing on the spread shown) need a
           // React render without inventing a spreadChange or layoutChange event.
           setState((state) => ({ ...state }));
         }),

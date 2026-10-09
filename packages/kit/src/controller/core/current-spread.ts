@@ -10,7 +10,6 @@ export type CurrentSpreadWriteReason =
   | 'navigation-start'
   | 'navigation-cancel'
   | 'jump'
-  | 'chapter-local-promotion'
   | 'settle-commit'
   | 'settle-snap-back'
   | 'layout-commit';

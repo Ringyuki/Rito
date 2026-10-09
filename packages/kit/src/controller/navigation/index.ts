@@ -22,16 +22,6 @@ import {
   startRelativeNavigation,
 } from './spread-navigation';
 import { navigateReaderLocator, navigateTocEntry } from './locator-navigation';
-import type { ProvisionalTransitionRuntime } from '../runtime-frame';
-import type { SettledEvent } from '../../driver/types';
-import {
-  disposeChapterLocalTransition,
-  handleChapterLocalTransitionSettled,
-  notifyChapterLocalContentReady,
-  presentChapterLocalInvalidation,
-  refreshChapterLocalTransitionTheme,
-  terminateChapterLocalTransitionForLayout,
-} from './local-preview';
 
 type Machine = machine.NavigationMachine;
 type EntryActionName =
@@ -57,7 +47,6 @@ export interface NavigationDeps {
   frameDriver: FrameDriver;
   pool: PageBufferPool;
   contentRenderer: ContentRenderer;
-  readonly provisionalRuntime?: ProvisionalTransitionRuntime | undefined;
   /** Invalidates older async position work as soon as a navigation intent is accepted. */
   onNavigationIntent?: () => void;
   /** Supersedes pending content interactions for every accepted navigation/position intent. */
@@ -104,12 +93,6 @@ export interface NavigationActions {
   notifyContentReady(spreadIndex: number): void;
   /** Continue a turn that waited for the whole book, once a layout is committed. */
   notifyLayoutCommitted(): void;
-  /** Route the private Reader preview signal before ordinary spread invalidation. */
-  presentChapterLocalInvalidation(spreadIndex: number): boolean;
-  /** Sole provisional branch of the runtime TD settled listener. */
-  handleTransitionSettled(event: SettledEvent): boolean;
-  terminateChapterLocalForLayout(): (() => void) | undefined;
-  refreshChapterLocalTheme(): void;
   /** Silently retire older navigation work before starting a direct selection gesture. */
   supersedeForSelectionIntent(): NavigationSelectionInputBarrier | null;
   supersedeForPositionIntent(): void;
@@ -122,11 +105,7 @@ export interface GestureNavigationToken {
 }
 
 /** The navigation-owned subset of the visible-spread write reasons. */
-export type NavigationSpreadWriteReason =
-  | 'navigation-start'
-  | 'navigation-cancel'
-  | 'jump'
-  | 'chapter-local-promotion';
+export type NavigationSpreadWriteReason = 'navigation-start' | 'navigation-cancel' | 'jump';
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
   const nav = machine.createNavigationMachine();
@@ -168,7 +147,6 @@ function createEntryActions(
     jumpToSpread(index, preservePositionIntent) {
       if (nav.disposed) return false;
       const claim = claimNavigation(nav, deps, preservePositionIntent);
-      if (machine.foregroundIsBusy(nav)) return false;
       return jump.jumpToSpread(deps, claim, index);
     },
     goToBookSpread(index, mode, source = 'api') {
@@ -181,7 +159,6 @@ function createEntryActions(
     },
     prepareSpreadForJump(index) {
       if (nav.disposed) return 'superseded';
-      if (machine.foregroundIsBusy(nav)) return 'not-ready';
       return jump.prepareSpreadForJump(deps, index);
     },
   };
@@ -198,8 +175,7 @@ function goToNamedSpread(
     startNavigation(nav, deps, target, source);
     return;
   }
-  const claim = claimNavigation(nav, deps);
-  if (!machine.foregroundIsBusy(nav)) jump.jumpToSpread(deps, claim, target);
+  jump.jumpToSpread(deps, claimNavigation(nav, deps), target);
 }
 
 function createRuntimeActions(
@@ -208,31 +184,21 @@ function createRuntimeActions(
 ): Pick<NavigationActions, RuntimeActionName> {
   return {
     notifyContentReady(spreadIndex) {
-      if (nav.disposed) return;
-      if (notifyChapterLocalContentReady(nav, deps, spreadIndex)) return;
-      continuePendingNavigation(nav, deps, spreadIndex);
+      if (!nav.disposed) continuePendingNavigation(nav, deps, spreadIndex);
     },
     notifyLayoutCommitted() {
       if (!nav.disposed) continueBookTurn(nav, deps);
-    },
-    presentChapterLocalInvalidation: (spreadIndex) =>
-      presentChapterLocalInvalidation(nav, deps, spreadIndex),
-    handleTransitionSettled: (event) => handleChapterLocalTransitionSettled(nav, deps, event),
-    terminateChapterLocalForLayout: () => terminateChapterLocalTransitionForLayout(nav, deps),
-    refreshChapterLocalTheme: () => {
-      refreshChapterLocalTransitionTheme(nav, deps);
     },
     supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(nav, deps),
     supersedeForPositionIntent: () => {
       supersedeNavigationForPositionIntent(nav, deps);
     },
-    dispose: disposeNavigation.bind(undefined, nav, deps),
+    dispose: disposeNavigation.bind(undefined, nav),
   };
 }
 
-function disposeNavigation(nav: Machine, deps: NavigationDeps): void {
+function disposeNavigation(nav: Machine): void {
   if (nav.disposed) return;
-  disposeChapterLocalTransition(nav, deps);
   nav.disposed = true;
   nav.claimSeq += 1;
   machine.clearQueuedIntent(nav);

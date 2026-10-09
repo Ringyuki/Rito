@@ -1,25 +1,7 @@
-import {
-  foregroundIsBusy,
-  supersedeNavigationForDirectInteraction,
-  type NavigationMachine,
-} from './machine';
+import { supersedeNavigationForDirectInteraction, type NavigationMachine } from './machine';
 import type { NavigationDeps } from './index';
-import { supersedeLocalPreview } from './local-preview';
 
-type DirectInteractionDeps = Pick<
-  NavigationDeps,
-  | 'td'
-  | 'pool'
-  | 'frameDriver'
-  | 'provisionalRuntime'
-  | 'getCurrentSpread'
-  | 'getReader'
-  | 'contentRenderer'
-  | 'setCurrentSpread'
-  | 'emitter'
-  | 'onNavigationCancelled'
-  | 'onContentInteractionIntent'
->;
+type DirectInteractionDeps = Pick<NavigationDeps, 'td' | 'onContentInteractionIntent'>;
 
 export interface NavigationSelectionInputBarrier {
   owns(): boolean;
@@ -47,8 +29,5 @@ function supersedeDirectInteraction(
 ): number | null {
   if (machine.disposed) return null;
   deps.onContentInteractionIntent?.();
-  supersedeLocalPreview(machine, deps as NavigationDeps);
-  const result = supersedeNavigationForDirectInteraction(machine, deps.td);
-  if (foregroundIsBusy(machine)) return null;
-  return result.attemptId;
+  return supersedeNavigationForDirectInteraction(machine, deps.td).attemptId;
 }

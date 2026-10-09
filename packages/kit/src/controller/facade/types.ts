@@ -75,6 +75,4 @@ export interface RuntimeComponents {
   readonly prerenderScheduler: PrerenderScheduler;
   readonly disposeSettledEvents: () => void;
   readonly surface: DisplaySurface;
-  readonly terminateChapterLocalForLayout?: (() => (() => void) | undefined) | undefined;
-  readonly refreshChapterLocalTheme?: (() => void) | undefined;
 }

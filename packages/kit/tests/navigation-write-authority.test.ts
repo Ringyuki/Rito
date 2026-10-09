@@ -31,12 +31,9 @@ describe('navigation write authority', () => {
     ]);
   });
 
-  it('only the machine writes its queued and foreground slots', () => {
+  it('only the machine writes its queued slot', () => {
     const scope = 'controller/navigation';
     expect(filesAssigning(/\.queued\s*=(?!=)/, scope)).toEqual([
-      'controller/navigation/machine.ts',
-    ]);
-    expect(filesAssigning(/\.foreground\s*=(?!=)/, scope)).toEqual([
       'controller/navigation/machine.ts',
     ]);
   });

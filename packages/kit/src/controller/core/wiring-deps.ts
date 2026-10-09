@@ -31,8 +31,6 @@ export interface WiringDeps {
   hasRestored: () => boolean;
   /** Continue a deferred navigation once an async content slot is ready. */
   notifyNavigationContentReady: (index: number) => void;
-  /** Claim one exact private preview signal before ordinary invalidation side effects. */
-  presentChapterLocalInvalidation: (index: number) => boolean;
   /** Sync viewport-sized buffers before painting a current-spread visual refresh. */
   syncViewport?: () => void;
 }
@@ -67,7 +65,6 @@ export function buildWiringDeps(
     notifyNavigationContentReady: (i) => {
       nav.notifyContentReady(i);
     },
-    presentChapterLocalInvalidation: (i) => nav.presentChapterLocalInvalidation(i),
   };
   if (syncViewport) return { ...deps, syncViewport };
   return deps;

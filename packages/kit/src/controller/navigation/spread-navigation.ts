@@ -6,10 +6,9 @@ import { leavesChapterLaidOutAlone, waitForBook } from './book-navigation';
 import {
   clearQueuedIntent,
   enqueueIntent,
-  foregroundIsBusy,
   queuedBookTurn,
   queuedSpreadTurn,
-  settleNavigationAttemptForContinuity,
+  settleNavigationForContinuity,
   type GestureNavigationRequest,
   type NavigationAttempt,
   type NavigationIntentSource,
@@ -112,7 +111,7 @@ function goToSpread(
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
 
-  const continuityDx = navigationContinuity(machine, deps, claim.id);
+  const continuityDx = navigationContinuity(deps);
   const previous = deps.getCurrentSpread();
   if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
   const reader = deps.getReader();
@@ -122,9 +121,6 @@ function goToSpread(
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
   const direction = target > previous ? 'forward' : 'backward';
-  if (foregroundIsBusy(machine)) {
-    return createLocalPreviewPendingAttempt(claim.id, target, direction, previous, source, gesture);
-  }
   return createKnownSpreadAttempt(
     machine,
     deps,
@@ -139,37 +135,9 @@ function goToSpread(
   );
 }
 
-function navigationContinuity(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
-  attemptId: number,
-): number {
-  if (!deps.td.isAnimating && machine.zeroContinuityClaim !== attemptId) return 0;
-  return settleNavigationAttemptForContinuity(machine, deps.td, attemptId);
-}
-
-/** A turn arriving while a chapter-local presentation owns the raster parks behind it. */
-function createLocalPreviewPendingAttempt(
-  attemptId: number,
-  target: number,
-  direction: 'forward' | 'backward',
-  previous: number,
-  source: NavigationIntentSource,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
-  return {
-    claimedIntent: true,
-    attemptId,
-    pendingNavigation: {
-      attemptId,
-      target,
-      direction,
-      previous,
-      continuityDx: 0,
-      source,
-      ...(gesture ? { gesture } : {}),
-    },
-  };
+/** How far the turn in flight still had to travel, carried into the one that replaces it. */
+function navigationContinuity(deps: NavigationDeps): number {
+  return deps.td.isAnimating ? settleNavigationForContinuity(deps.td) : 0;
 }
 
 function createKnownSpreadAttempt(

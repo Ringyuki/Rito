@@ -1,4 +1,4 @@
-import type { ReaderLocator, ReaderLocatorResolution } from '@ritojs/core';
+import type { ReaderLocator } from '@ritojs/core';
 import type { TransitionDriver } from '../../driver/transition-driver';
 
 /** Where a navigation intent came from, for diagnostics. */
@@ -47,40 +47,6 @@ export interface PendingLocatorNavigation {
   readonly failureSource: string;
   readonly targetLabel: string;
   readonly onResolved: (spreadIndex: number) => void;
-  provisionalPhase: 'none' | 'animating' | 'committed';
-  previewReadySpread: number | undefined;
-  exactResolution: Extract<ReaderLocatorResolution, { readonly status: 'resolved' }> | undefined;
-}
-
-export interface ChapterLocalPresentationLease {
-  readonly direction: 'forward' | 'backward';
-  render(context: OffscreenCanvasRenderingContext2D): boolean;
-  composited(): boolean;
-  transitionSettled(): boolean;
-  finish(): boolean;
-}
-
-export interface ChapterLocalTermination {
-  readonly kind: 'cancelled' | 'failed' | 'superseded';
-  readonly error?: unknown;
-  readonly failureSource?: string;
-  readonly fallbackToExact?: boolean;
-}
-
-export interface ActiveChapterLocalTransition {
-  readonly attemptId: number;
-  readonly pending: PendingLocatorNavigation;
-  readonly mountSpreadIndex: number;
-  readonly direction: 'forward' | 'backward';
-  readonly stageToken: number;
-  readonly lease: ChapterLocalPresentationLease;
-  phase: 'animating' | 'committed' | 'rollingBack' | 'restoringExact' | 'awaitingExactFallback';
-  visualTransitionSettled: boolean;
-  leaseFinished: boolean;
-  exactPublished: boolean;
-  mountExactPaintRequired: boolean;
-  mountExactInvalidated: boolean;
-  termination: ChapterLocalTermination | undefined;
 }
 
 export interface NavigationAttempt {
@@ -102,27 +68,14 @@ export type QueuedIntent =
   | { readonly kind: 'locator'; readonly seek: PendingLocatorNavigation };
 
 /**
- * Who owns the visible raster. `local-preview` is the chapter-local
- * provisional presentation (its own sub-phases live on the transition);
- * `local-finalizing` is the window where its runtime unwinds and no new
- * presentation may mount.
- */
-export type ForegroundPresentation =
-  | { readonly kind: 'steady' }
-  | { readonly kind: 'local-preview'; readonly active: ActiveChapterLocalTransition }
-  | { readonly kind: 'local-finalizing' };
-
-/**
- * The navigation state machine: one foreground presentation, one queued
- * intent, one ownership sequence. Every transition goes through the
- * functions in this file (architecture-tested), so a wrong-looking
- * navigation can always be attributed.
+ * The navigation state machine: one queued intent, one ownership
+ * sequence. Every transition goes through the functions in this file
+ * (architecture-tested), so a wrong-looking navigation can always be
+ * attributed.
  */
 export interface NavigationMachine {
   /** Ownership sequence: bumping it revokes every outstanding claim. */
   claimSeq: number;
-  zeroContinuityClaim: number | undefined;
-  foreground: ForegroundPresentation;
   queued: QueuedIntent | undefined;
   watchdog: ReturnType<typeof setTimeout> | undefined;
   disposed: boolean;
@@ -131,8 +84,6 @@ export interface NavigationMachine {
 export function createNavigationMachine(): NavigationMachine {
   return {
     claimSeq: 0,
-    zeroContinuityClaim: undefined,
-    foreground: { kind: 'steady' },
     queued: undefined,
     watchdog: undefined,
     disposed: false,
@@ -229,56 +180,12 @@ export function queuedLocatorSeek(
 }
 
 // ---------------------------------------------------------------------------
-// Foreground slot
-
-export function activeLocalPreview(
-  machine: NavigationMachine,
-): ActiveChapterLocalTransition | undefined {
-  return machine.foreground.kind === 'local-preview' ? machine.foreground.active : undefined;
-}
-
-export function foregroundIsBusy(machine: NavigationMachine): boolean {
-  return machine.foreground.kind !== 'steady';
-}
-
-/** The only mount point for a chapter-local presentation. */
-export function mountLocalPreview(
-  machine: NavigationMachine,
-  active: ActiveChapterLocalTransition,
-): void {
-  machine.foreground = { kind: 'local-preview', active };
-}
-
-/** Returns the foreground to steady (preview fully unwound). */
-export function dismissLocalPreview(machine: NavigationMachine): void {
-  machine.foreground = { kind: 'steady' };
-}
-
-/** The unwind window where no new presentation may mount. */
-export function beginLocalFinalizing(machine: NavigationMachine): void {
-  machine.foreground = { kind: 'local-finalizing' };
-}
-
-export function endLocalFinalizing(machine: NavigationMachine): void {
-  if (machine.foreground.kind === 'local-finalizing') {
-    machine.foreground = { kind: 'steady' };
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Diagnostics
 
 /** One-line answer to "what is navigation doing right now". */
 export function describeNavigationPhase(machine: NavigationMachine): string {
   if (machine.disposed) return 'disposed';
-  const foreground =
-    machine.foreground.kind === 'local-preview'
-      ? `local-preview-${machine.foreground.active.phase}`
-      : machine.foreground.kind;
-  const queued = machine.queued ? `${machine.queued.kind}-queued` : 'none';
-  return machine.foreground.kind === 'steady' && !machine.queued
-    ? 'idle'
-    : `${foreground} / ${queued}`;
+  return machine.queued ? `${machine.queued.kind}-queued` : 'idle';
 }
 
 // ---------------------------------------------------------------------------
@@ -305,18 +212,4 @@ export function settleNavigationForContinuity(transition: TransitionDriver): num
   const residualDx = transition.forceSettle();
   const width = transition.viewportWidth;
   return residualDx > 0 ? residualDx - width : residualDx + width;
-}
-
-/** Finish a superseded provisional rollback without carrying its displacement into a new intent. */
-export function settleNavigationAttemptForContinuity(
-  machine: NavigationMachine,
-  transition: TransitionDriver,
-  attemptId: number,
-): number {
-  if (machine.zeroContinuityClaim !== attemptId) {
-    return settleNavigationForContinuity(transition);
-  }
-  machine.zeroContinuityClaim = undefined;
-  transition.forceSettle();
-  return 0;
 }

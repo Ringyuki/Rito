@@ -11,12 +11,6 @@ import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { mergeOverlayLayers } from './overlay/merger';
 import { buildOverlayData } from './overlay/projection';
 import type { PrerenderScheduler } from './prerender';
-import type { SettledEvent } from '../driver/types';
-
-export {
-  createProvisionalTransitionRuntime,
-  type ProvisionalTransitionRuntime,
-} from './provisional-transition-runtime';
 import { transitionLifecycle } from './core/transition-lifecycle';
 
 interface RuntimeFrameParts {
@@ -98,13 +92,8 @@ export function wireSettledEvents(
   reader: Reader,
   contentRenderer: ContentRenderer,
   prerenderScheduler: PrerenderScheduler,
-  handleProvisionalSettled?: (event: SettledEvent) => boolean,
 ): () => void {
   return transitionDriver.onSettled((event) => {
-    if (handleProvisionalSettled?.(event)) {
-      frameDriver.scheduleComposite();
-      return;
-    }
     if (event.committed) {
       if (event.direction === 'forward') pool.rotateForward();
       else pool.rotateBackward();

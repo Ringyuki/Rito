@@ -196,8 +196,6 @@ function cancelScheduledFrame(state: FrameDriverState): void {
 }
 
 function ensureSlotReady(deps: FrameDriverDeps, position: SlotPosition): boolean {
-  const draw = deps.pool.resolveDrawSlot(position);
-  if (draw.provisional) return !draw.slot.contentDirty;
   const contentReady = deps.pool.ensureContent(position, deps.contentRenderer);
   if (!contentReady) return false;
   deps.pool.ensureOverlay(position, deps.overlayProvider, deps.getBackingRatio());
@@ -223,13 +221,9 @@ function drawSingleFrame(
 ): void {
   if (!ensureSlotReady(deps, slotPosition)) return;
   deps.surface.clear();
-  const draw = deps.pool.resolveDrawSlot(slotPosition);
-  const slot = draw.slot;
+  const slot = deps.pool[slotPosition];
   deps.surface.ctx.drawImage(slot.content, 0, 0, width, height);
-  notifyProvisionalComposite(deps, draw);
-  if (!draw.provisional && slot.overlay) {
-    deps.surface.ctx.drawImage(slot.overlay, 0, 0, width, height);
-  }
+  if (slot.overlay) deps.surface.ctx.drawImage(slot.overlay, 0, 0, width, height);
 }
 
 function drawTurningFrame(
@@ -266,20 +260,10 @@ function transitionPage(
   width: number,
 ): TransitionPage | null {
   if (!ensureSlotReady(deps, slotPosition)) return null;
-  const draw = deps.pool.resolveDrawSlot(slotPosition);
-  notifyProvisionalComposite(deps, draw);
+  const slot = deps.pool[slotPosition];
   return {
-    content: draw.slot.content,
-    overlay: draw.provisional ? null : draw.slot.overlay,
-    pixelRatio: width > 0 ? draw.slot.content.width / width : 1,
+    content: slot.content,
+    overlay: slot.overlay,
+    pixelRatio: width > 0 ? slot.content.width / width : 1,
   };
-}
-
-function notifyProvisionalComposite(
-  deps: FrameDriverDeps,
-  draw: ReturnType<PageBufferPool['resolveDrawSlot']>,
-): void {
-  if (draw.provisionalToken !== undefined) {
-    deps.pool.notifyProvisionalComposite(draw.provisionalToken);
-  }
 }

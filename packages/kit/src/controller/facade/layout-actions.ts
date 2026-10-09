@@ -31,7 +31,6 @@ export function buildLayoutActions(
     setTheme(options: ReaderThemeOptions): void {
       internals.reader.setTheme(options);
       runtime.pool.invalidateAllContent();
-      runtime.refreshChapterLocalTheme?.();
       runtime.frameDriver.scheduleComposite();
     },
     setTypography(options): boolean {
@@ -54,27 +53,17 @@ export function buildLayoutActions(
 function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeComponents): void {
   requireRenderScale(scale);
   if (scale === internals.renderScale) return;
-  const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
-  try {
-    invalidateSelectionForLayout(internals);
-    internals.renderScale = scale;
-    syncCanvasSize(internals, runtime);
-    runtime.pool.invalidateAllContent();
-    runtime.pool.assignSlot('curr', internals.currentSpread);
-    internals.coordState.positionUpdateMode = {
-      kind: 'skip',
-      spreadIndex: internals.currentSpread,
-    };
-    if (finishChapterLocalTransition) {
-      runtime.frameDriver.compositeNow();
-      internals.reader.notifyActiveSpread(internals.currentSpread);
-    } else {
-      runtime.frameDriver.scheduleComposite();
-      internals.reader.notifyActiveSpread(internals.currentSpread);
-    }
-  } finally {
-    finishChapterLocalTransition?.();
-  }
+  invalidateSelectionForLayout(internals);
+  internals.renderScale = scale;
+  syncCanvasSize(internals, runtime);
+  runtime.pool.invalidateAllContent();
+  runtime.pool.assignSlot('curr', internals.currentSpread);
+  internals.coordState.positionUpdateMode = {
+    kind: 'skip',
+    spreadIndex: internals.currentSpread,
+  };
+  runtime.frameDriver.scheduleComposite();
+  internals.reader.notifyActiveSpread(internals.currentSpread);
 }
 
 function refreshLayoutWhenChanged(
@@ -101,20 +90,14 @@ export function commitLayoutChange(
   anchor?: ReadingPosition | null,
   committedSpreadIndex?: number,
 ): void {
-  const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
   const previousSpread = internals.currentSpread;
-  let committedSpread: number;
-  try {
-    committedSpread = applyLayoutCommitMutation(
-      internals,
-      emitter,
-      runtime,
-      anchor,
-      committedSpreadIndex,
-    );
-  } finally {
-    finishChapterLocalTransition?.();
-  }
+  const committedSpread = applyLayoutCommitMutation(
+    internals,
+    emitter,
+    runtime,
+    anchor,
+    committedSpreadIndex,
+  );
 
   emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
   emitLayoutChange(internals, emitter);

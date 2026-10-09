@@ -7,7 +7,6 @@ import {
   type NavigationMachine,
   type PendingLocatorNavigation,
 } from './machine';
-import { failChapterLocalLocator, settleChapterLocalExact } from './local-preview';
 import { continueResolvedLocatorNavigation } from './locator-continuation';
 
 const TOC_FAILURE_SOURCE = 'reader TOC locator navigation';
@@ -94,9 +93,6 @@ function startLocatorSeek(
     failureSource,
     targetLabel,
     onResolved,
-    provisionalPhase: 'none',
-    previewReadySpread: undefined,
-    exactResolution: undefined,
   };
   enqueueIntent(machine, { kind: 'locator', seek: pending });
   let task: Promise<ReaderLocatorResolution | undefined>;
@@ -123,7 +119,6 @@ function settleLocatorSeek(
 ): void {
   if (!ownsLocatorSeek(machine, pending)) return;
   if (!resolution) {
-    if (failChapterLocalLocator(machine, deps, pending)) return;
     enqueueIntent(machine, undefined);
     deps.onNavigationCancelled?.();
     return;
@@ -153,12 +148,6 @@ function settleLocatorSeek(
     );
     return;
   }
-  try {
-    if (settleChapterLocalExact(machine, deps, pending, resolution)) return;
-  } catch (error) {
-    handleLocatorSeekFailure(machine, deps, pending, error);
-    return;
-  }
   continueResolvedLocatorNavigation(machine, deps, pending, resolution.spreadIndex);
 }
 
@@ -169,7 +158,6 @@ function failLocatorSeek(
   error: unknown,
 ): void {
   if (!ownsLocatorSeek(machine, pending)) return;
-  if (failChapterLocalLocator(machine, deps, pending, error)) return;
   enqueueIntent(machine, undefined);
   failOwnedLocatorSeek(machine, deps, pending, error);
 }
@@ -193,7 +181,6 @@ function failOwnedLocatorSeek(
   pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
-  if (failChapterLocalLocator(machine, deps, pending, error)) return;
   if (pending.attemptId === machine.claimSeq) deps.onNavigationCancelled?.();
   reportLocatorFailure(deps, pending.failureSource, error);
 }

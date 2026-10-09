@@ -14,7 +14,6 @@ import type { RuntimeComponents } from './facade/types';
 import { createNavigation } from './navigation/index';
 import { createRuntimeComponents } from './runtime-construction';
 import { scheduleControllerPrerender } from './runtime-frame';
-import type { ProvisionalTransitionRuntime } from './runtime-frame';
 import type { ControllerOptions, ReaderControllerEvents } from './types';
 import {
   wireDomHelpers,
@@ -52,7 +51,7 @@ export function bootstrapRuntime(
     disposables,
     construction,
   );
-  const { internals, runtime, contentRenderer, provisionalRuntime } = constructionParts;
+  const { internals, runtime, contentRenderer } = constructionParts;
   const nav = createRuntimeNavigation(
     internals,
     emitter,
@@ -60,9 +59,7 @@ export function bootstrapRuntime(
     runtime.frameDriver,
     runtime.pool,
     contentRenderer,
-    provisionalRuntime,
   );
-  constructionParts.bindChapterLocalNavigation(nav);
   const disposeNavigation = construction.own(() => {
     nav.dispose();
   });
@@ -78,7 +75,6 @@ function createRuntimeNavigation(
   frameDriver: FrameDriver,
   pool: PageBufferPool,
   contentRenderer: ContentRenderer,
-  provisionalRuntime: ProvisionalTransitionRuntime,
 ) {
   return createNavigation({
     getReader: () => internals.reader,
@@ -92,7 +88,6 @@ function createRuntimeNavigation(
     frameDriver,
     pool,
     contentRenderer,
-    provisionalRuntime,
     onNavigationIntent: () => {
       internals.engines.position?.claimIntent();
     },

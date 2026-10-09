@@ -1,5 +1,4 @@
 import type { Reader } from '@ritojs/core';
-import type { SettledEvent } from '../driver/types';
 import { createTransitionDriver, type TransitionDriver } from '../driver/transition-driver';
 import type { ContentRenderer } from '../painter/buffer-pool';
 import { createPageBufferPool } from '../painter/buffer-pool';
@@ -12,15 +11,9 @@ import { createCoordinatorState } from './core/index';
 import { createEngines } from './engines/index';
 import type { Internals } from './facade';
 import type { RuntimeComponents } from './facade/types';
-import type { createNavigation } from './navigation/index';
 import { createPositionPersistence } from './position-persistence';
 import { createPrerenderScheduler } from './prerender';
-import {
-  createProvisionalTransitionRuntime,
-  createRuntimeFrameParts,
-  wireSettledEvents,
-} from './runtime-frame';
-import type { ProvisionalTransitionRuntime } from './runtime-frame';
+import { createRuntimeFrameParts, wireSettledEvents } from './runtime-frame';
 import type { ControllerOptions, ReaderControllerEvents } from './types';
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
@@ -31,8 +24,6 @@ export interface RuntimeConstruction {
   readonly internals: Internals;
   readonly runtime: RuntimeComponents;
   readonly contentRenderer: ContentRenderer;
-  readonly provisionalRuntime: ProvisionalTransitionRuntime;
-  bindChapterLocalNavigation(nav: ReturnType<typeof createNavigation>): void;
 }
 
 export function createRuntimeComponents(
@@ -53,17 +44,6 @@ export function createRuntimeComponents(
   );
   const { internals, pool, prerenderScheduler, transitionDriver, contentRenderer, frameDriver } =
     parts;
-  const provisionalRuntime = createProvisionalTransitionRuntime(
-    internals,
-    emitter,
-    frameDriver,
-    reader,
-    pool,
-    contentRenderer,
-    prerenderScheduler,
-    () => transitionDriver.isAnimating,
-  );
-  const chapterLocal = createChapterLocalRuntimeBinding();
   const disposeSettledEvents = wireSettledEvents(
     internals,
     transitionDriver,
@@ -73,42 +53,10 @@ export function createRuntimeComponents(
     reader,
     contentRenderer,
     prerenderScheduler,
-    chapterLocal.handleSettled,
   );
   construction.own(disposeSettledEvents);
-  const runtime = createRuntimeFacade(parts, disposeSettledEvents, chapterLocal);
-  return {
-    internals,
-    runtime,
-    contentRenderer,
-    provisionalRuntime,
-    bindChapterLocalNavigation: chapterLocal.bind,
-  };
-}
-
-function createChapterLocalRuntimeBinding(): {
-  readonly handleSettled: (event: SettledEvent) => boolean;
-  readonly terminateForLayout: () => (() => void) | undefined;
-  readonly refreshTheme: () => void;
-  readonly bind: (nav: ReturnType<typeof createNavigation>) => void;
-} {
-  let handleSettled: ((event: SettledEvent) => boolean) | undefined;
-  let terminateForLayout: (() => (() => void) | undefined) | undefined;
-  let refreshTheme: (() => void) | undefined;
-  return {
-    handleSettled: (event) => handleSettled?.(event) ?? false,
-    terminateForLayout: () => terminateForLayout?.(),
-    refreshTheme: () => {
-      refreshTheme?.();
-    },
-    bind: (nav) => {
-      handleSettled = (event) => nav.handleTransitionSettled(event);
-      terminateForLayout = () => nav.terminateChapterLocalForLayout();
-      refreshTheme = () => {
-        nav.refreshChapterLocalTheme();
-      };
-    },
-  };
+  const runtime = createRuntimeFacade(parts, disposeSettledEvents);
+  return { internals, runtime, contentRenderer };
 }
 
 function createOwnedRuntimeParts(
@@ -154,10 +102,6 @@ function createOwnedRuntimeParts(
 function createRuntimeFacade(
   parts: ReturnType<typeof createOwnedRuntimeParts>,
   disposeSettledEvents: () => void,
-  chapterLocal: {
-    readonly terminateForLayout: () => (() => void) | undefined;
-    readonly refreshTheme: () => void;
-  },
 ): RuntimeComponents {
   return {
     td: parts.transitionDriver,
@@ -166,8 +110,6 @@ function createRuntimeFacade(
     prerenderScheduler: parts.prerenderScheduler,
     disposeSettledEvents,
     surface: parts.surface,
-    terminateChapterLocalForLayout: chapterLocal.terminateForLayout,
-    refreshChapterLocalTheme: chapterLocal.refreshTheme,
   };
 }
 

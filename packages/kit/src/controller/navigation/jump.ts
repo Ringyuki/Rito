@@ -2,7 +2,7 @@ import type { SlotPosition } from '../../painter/types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import { claimNavigation, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
-import { foregroundIsBusy, type NavigationMachine } from './machine';
+import type { NavigationMachine } from './machine';
 import { presentSpread } from './present';
 
 export type NavigationJumpOutcome = 'committed' | 'not-ready' | 'superseded';
@@ -28,7 +28,6 @@ export function performReadyJump(
 ): NavigationJumpOutcome {
   if (machine.disposed) return 'superseded';
   const claim = claimNavigation(machine, deps);
-  if (foregroundIsBusy(machine)) return 'not-ready';
   if (!claim.owns()) return 'superseded';
   const endTransfer = selectionGesture
     ? deps.beginSelectionProjectionTransfer?.(index, selectionGesture)
