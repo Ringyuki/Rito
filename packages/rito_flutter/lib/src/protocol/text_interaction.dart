@@ -205,11 +205,18 @@ final class RitoTextInteractionRequest {
     required this.sessionId,
     required this.artifactId,
     required this.query,
+    this.everyPage = false,
   });
 
   final int sessionId;
   final int artifactId;
   final RitoTextInteractionQuery query;
+
+  /// Whether points and geometry may lie on any page of the artifact's
+  /// revision, each in the display-list space of the spread that draws
+  /// its page. Unset, a point must lie on a page the artifact draws and
+  /// only those pages' rects and caret geometry come back.
+  final bool everyPage;
 }
 
 sealed class RitoTextInteractionResult {

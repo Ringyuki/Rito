@@ -31,6 +31,8 @@ fn kind_of(target: &RuntimePageTarget) -> ReaderHitKind {
 fn hits_are_the_page_targets_of_the_whole_book_revision() {
     let mut kinds = BTreeSet::new();
     let mut destination_labels = BTreeSet::new();
+    let mut image_sources = BTreeSet::new();
+    let mut images_read = 0;
     for fixture in [
         interaction_target_fixture_epub(),
         multi_chapter_fixture_epub(),
@@ -98,8 +100,22 @@ fn hits_are_the_page_targets_of_the_whole_book_revision() {
                         hit.text.clone()
                     };
                     assert_eq!(label, target.label);
+                    // An image hit names its image by the href the artifact
+                    // lists and reads it under.
+                    if let (ReaderHitKind::Image, Some(src)) = (hit.kind, &hit.image_src) {
+                        assert!(artifact.resources.iter().any(|resource| {
+                            resource.kind == ReaderResourceKind::Image && &resource.href == src
+                        }));
+                        image_sources.insert((artifact.artifact_id, src.clone()));
+                    }
                     kinds.insert(format!("{:?}", hit.kind));
                     destination_labels.extend(hit.destination_label.clone());
+                }
+                for (artifact_id, src) in std::mem::take(&mut image_sources) {
+                    session
+                        .read_resource(artifact_id, ReaderResourceKind::Image, &src)
+                        .expect("an image hit's source reads as the artifact's resource");
+                    images_read += 1;
                 }
                 session
                     .release_artifact(artifact.artifact_id)
@@ -115,6 +131,7 @@ fn hits_are_the_page_targets_of_the_whole_book_revision() {
         ["Footnote", "Image", "Link", "Text"],
         "the fixtures hold every kind a laid-out definition gives"
     );
+    assert!(images_read > 0, "the fixtures hold an image outside a link");
     assert!(
         destination_labels.contains("Two"),
         "a link into chapter two carries that chapter's TOC label: {destination_labels:?}"

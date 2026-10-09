@@ -107,6 +107,7 @@ fn every_query_answers_the_bytes_core_answers() {
             },
             granularity: ReaderSelectionGranularity::Word,
         },
+        every_page: false,
     })
     .unwrap();
     let direct_interaction = direct
@@ -148,6 +149,7 @@ fn every_query_answers_the_bytes_core_answers() {
         artifact_id,
         href: href.clone(),
         range,
+        every_page: false,
     })
     .unwrap();
     assert_eq!(

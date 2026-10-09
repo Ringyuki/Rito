@@ -961,6 +961,7 @@ pub(super) fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequ
                 text_offset: 31,
             },
         },
+        every_page: true,
     }
 }
 

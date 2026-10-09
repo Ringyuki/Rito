@@ -143,6 +143,7 @@ extension RitoExactSourceRangeEncoding on RitoRequestEncoder {
       _sourcePointRecord(writer, request.range.start);
       _sourcePointRecord(writer, request.range.end);
     });
+    writer.boolean(request.everyPage);
     return writer.finish();
   }
 }
@@ -188,6 +189,7 @@ extension RitoTextInteractionEncoding on RitoRequestEncoder {
           (value) => writer.float64(value, 'preferred block position'),
         );
     }
+    writer.boolean(request.everyPage);
     return writer.finish();
   }
 

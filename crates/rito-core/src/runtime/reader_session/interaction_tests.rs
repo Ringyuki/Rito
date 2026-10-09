@@ -72,6 +72,7 @@ fn point_over(
                     text_offset: end,
                 },
             },
+            every_page: false,
         })
         .expect("range resolves");
     let rect = resolution.rects.first().expect("paragraph 0 is drawn");
@@ -92,6 +93,7 @@ fn interact(
             session_id: SESSION,
             artifact_id,
             query,
+            every_page: false,
         })
         .expect("interaction resolves")
         .result
@@ -225,6 +227,7 @@ fn a_point_on_a_page_the_artifact_does_not_draw_is_rejected() {
                     y: 50.0,
                 },
             },
+            every_page: false,
         })
         .expect_err("page 40 is not drawn");
     assert_eq!(error.kind, ReaderErrorKind::InvalidRequest);
@@ -401,6 +404,7 @@ fn interaction_messages_round_trip_and_reject_every_truncated_prefix() {
             focus: point,
             granularity: ReaderSelectionGranularity::Paragraph,
         },
+        every_page: false,
     };
     let response = session.resolve_text_interaction(request).expect("resolves");
     let annotation = ReaderAnnotationRequest {
@@ -476,6 +480,7 @@ pub(super) fn movement_request_fixture() -> ReaderTextInteractionRequest {
             preferred_inline_position: Some(120.5),
             preferred_block_position: None,
         },
+        every_page: true,
     }
 }
 
@@ -496,6 +501,7 @@ pub(super) fn points_request_fixture() -> ReaderTextInteractionRequest {
             },
             granularity: ReaderSelectionGranularity::Paragraph,
         },
+        every_page: false,
     }
 }
 
@@ -612,17 +618,17 @@ fn hex(bytes: &[u8]) -> String {
 
 /// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
 pub(super) const MOVEMENT_HEX: &str = concat!(
-    "5249544f54495131010000006a00000000000000070000000000000009000000",
+    "5249544f54495131010000006b00000000000000070000000000000009000000",
     "0000000004150000000000000003000000020000000100000000000000040000",
     "0001150000000000000004000000000000000000000001000000060000000006",
-    "010000000000205e4000",
+    "010000000000205e400001",
 );
 
 /// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.
 pub(super) const POINTS_HEX: &str = concat!(
-    "5249544f54495131010000005e00000000000000070000000000000009000000",
+    "5249544f54495131010000005f00000000000000070000000000000009000000",
     "0000000003140000000000000003000000000000000000294000000000000044",
-    "401400000000000000030000000000000000003440000000000080444001",
+    "40140000000000000003000000000000000000344000000000008044400100",
 );
 
 /// Produced by the encoder; `rito_flutter`'s interaction wire test decodes the same bytes.

@@ -68,6 +68,7 @@ test('search and text range requests encode to the Rust bytes', () => {
       artifactId: 9n,
       href: 'OEBPS/chapter-2.xhtml',
       range: { start: point(12), end: point(31) },
+      everyPage: true,
     }),
     rustHex('EXACT_SOURCE_RANGE_REQUEST_HEX'),
   );
@@ -156,6 +157,7 @@ test('text interaction messages match the Rust bytes', () => {
         movement: 'line-down',
         preferredInlinePosition: 120.5,
       },
+      everyPage: true,
     }),
     rustHex('MOVEMENT_HEX'),
   );

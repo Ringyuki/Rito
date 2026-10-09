@@ -19,6 +19,7 @@ import type {
   RitoReaderAnnotationRequest,
   RitoReaderAnnotationResponse,
   RitoReaderExactSourceRangeResolution,
+  RitoReaderGeometryOptions,
   RitoReaderFootnote,
   RitoReaderNavigationRequest,
   RitoReaderNavigationResult,
@@ -161,16 +162,21 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
     start: RitoReaderTextPosition,
     end: RitoReaderTextPosition,
   ): Promise<RitoReaderTextRangeGeometry>;
-  /** Where a durable source range lands on the pages the artifact draws. */
+  /**
+   * Where a durable source range lands: on the pages the artifact draws,
+   * or with `everyPage` on every page it covers.
+   */
   exactSourceRange(
     artifactId: bigint,
     href: string,
     range: RitoReaderSourceRange,
+    options?: RitoReaderGeometryOptions,
   ): Promise<RitoReaderExactSourceRangeResolution>;
   /** The selection questions a browser reader asks, answered by the same engine code. */
   textInteraction(
     artifactId: bigint,
     query: RitoReaderTextInteractionQuery,
+    options?: RitoReaderGeometryOptions,
   ): Promise<RitoReaderTextInteractionResponse>;
   /** Builds or locates an annotation target; targets depend only on the source. */
   annotation(query: RitoReaderAnnotationRequest['query']): Promise<RitoReaderAnnotationResponse>;

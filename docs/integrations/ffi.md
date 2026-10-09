@@ -191,6 +191,15 @@ targets (reader protocol version 6):
   label, optional image source, optional image alt, optional footnote
   key. The `footnote pending` bool that closed the record is gone: it is
   kind 4.
+- The exact source range request (`RITOESQ1`) and the text interaction
+  request (`RITOTIQ1`) each end with a `bool` every-page flag. Unset, an
+  artifact answers for the pages it draws, as before: a point must lie
+  on one of them, and rects and caret geometry on other pages are left
+  out. Set, it answers for every page of its revision, each in the
+  display-list space of the spread that draws that page, so one live
+  artifact places a range that runs across spreads — what a host that
+  keeps a selection or a highlight across page turns needs. A host that
+  paints straight from the answer leaves the flag unset.
 
 Wire changes landed when revisions became complete on creation (reader
 protocol version 5):

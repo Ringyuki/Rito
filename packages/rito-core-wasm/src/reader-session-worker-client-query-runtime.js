@@ -120,17 +120,23 @@ export function createRitoReaderSessionQueryMethods(ctx) {
         decodeRitoReaderTextRangeGeometry,
         artifactId,
       ),
-    exactSourceRange: (artifactId, href, range) =>
+    exactSourceRange: (artifactId, href, range, options = {}) =>
       query(
         'exact-source-range',
-        { request: request({ artifactId, href, range }) },
+        { request: request({ artifactId, href, range, everyPage: options.everyPage ?? false }) },
         decodeRitoReaderExactSourceRangeResolution,
         artifactId,
       ),
-    textInteraction: (artifactId, interaction) =>
+    textInteraction: (artifactId, interaction, options = {}) =>
       query(
         'text-interaction',
-        { request: request({ artifactId, query: interaction }) },
+        {
+          request: request({
+            artifactId,
+            query: interaction,
+            everyPage: options.everyPage ?? false,
+          }),
+        },
         decodeRitoReaderTextInteractionResponse,
         artifactId,
       ),

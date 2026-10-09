@@ -63,11 +63,13 @@ pub(in crate::runtime::reader_session::wire) fn text_interaction_request(
             )))
         }
     };
+    let every_page = reader.bool("text interaction every page")?;
     reader.finish("text interaction request wire message")?;
     Ok(ReaderTextInteractionRequest {
         session_id,
         artifact_id,
         query,
+        every_page,
     })
 }
 

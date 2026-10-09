@@ -60,6 +60,7 @@ export function encodeRitoReaderExactSourceRangeRequest(request) {
   writer.externalId(request.artifactId, 'artifact id');
   writer.string(request.href, 'exact source range href');
   writeSourceRange(writer, request.range);
+  writer.bool(request.everyPage ?? false);
   return writer.finish();
 }
 
@@ -104,6 +105,7 @@ export function encodeRitoReaderTextInteractionRequest(request) {
     default:
       throw new RangeError(`unknown text interaction query: ${String(query?.kind)}`);
   }
+  writer.bool(request.everyPage ?? false);
   return writer.finish();
 }
 

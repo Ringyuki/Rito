@@ -70,6 +70,8 @@ pub const READER_PUBLICATION_WIRE_BYTES_MAX: u64 = 16 * 1024 * 1024;
 #[cfg(test)]
 mod background_tests;
 #[cfg(test)]
+mod every_page_tests;
+#[cfg(test)]
 mod font_tests;
 #[cfg(test)]
 mod hit_tests;

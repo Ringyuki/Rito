@@ -143,6 +143,11 @@ pub struct ReaderTextInteractionRequest {
     pub session_id: u64,
     pub artifact_id: u64,
     pub query: ReaderTextInteractionQuery,
+    /// Whether points and geometry may lie on any page of the artifact's
+    /// revision, each in the display-list space of the spread that draws
+    /// its page. Unset, a point must lie on a page the artifact draws,
+    /// and only those pages' rects and caret geometry come back.
+    pub every_page: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

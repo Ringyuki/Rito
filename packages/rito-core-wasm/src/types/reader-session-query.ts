@@ -79,8 +79,20 @@ export interface RitoReaderTextRangeGeometry {
   readonly rects: readonly RitoReaderTextRect[];
 }
 
+/**
+ * Which pages a geometry answer covers. By default an artifact answers
+ * for the pages it draws: a point must lie on one of them, and rects and
+ * caret geometry on any other page are left out. With `everyPage` it
+ * answers for every page of its revision, each in the display-list space
+ * of the spread that draws that page — so one artifact places a range
+ * that runs across spreads.
+ */
+export interface RitoReaderGeometryOptions {
+  readonly everyPage?: boolean | undefined;
+}
+
 /** `RITOESQ1`: where a durable source range lands on an artifact's pages. */
-export interface RitoReaderExactSourceRangeRequest {
+export interface RitoReaderExactSourceRangeRequest extends RitoReaderGeometryOptions {
   readonly sessionId: bigint;
   readonly artifactId: bigint;
   readonly href: string;
@@ -98,7 +110,7 @@ export interface RitoReaderExactSourceRangeResolution {
   /** The page the range starts on, present whenever it resolved. */
   readonly firstPageIndex?: number | undefined;
   readonly selectedText: string;
-  /** Only the pages this artifact draws. */
+  /** The pages this artifact draws, or every page the range covers when asked for. */
   readonly rects: readonly RitoReaderPageTextRect[];
 }
 
@@ -164,7 +176,7 @@ export type RitoReaderTextInteractionQuery =
     };
 
 /** `RITOTIQ1`. */
-export interface RitoReaderTextInteractionRequest {
+export interface RitoReaderTextInteractionRequest extends RitoReaderGeometryOptions {
   readonly sessionId: bigint;
   readonly artifactId: bigint;
   readonly query: RitoReaderTextInteractionQuery;

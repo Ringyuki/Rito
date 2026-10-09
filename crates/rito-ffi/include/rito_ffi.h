@@ -412,7 +412,10 @@ uint32_t rito_get_text_range_geometry(uint64_t session_id,
  * Rects are in the artifact's display-list space, like
  * rito_get_text_range_geometry, and cover only the pages this artifact draws. A
  * range that resolved onto another page comes back resolved with no rects and
- * firstPageIndex set, which is the page to navigate to.
+ * firstPageIndex set, which is the page to navigate to. A request whose
+ * every-page flag is set gets the rects of every page the range covers
+ * instead, each in the display-list space of the spread that draws its page;
+ * keep the pages a surface shows before painting them onto it.
  */
 uint32_t rito_resolve_exact_source_range(uint64_t session_id,
                                          const uint8_t *request_data,
@@ -429,8 +432,10 @@ uint32_t rito_resolve_exact_source_range(uint64_t session_id,
  *
  * These are the resolvers a browser reader runs, against the revision behind
  * the artifact, so a selection behaves identically on every host. Points and
- * geometry are in the artifact's display-list space; rects cover only the pages
- * this artifact draws.
+ * geometry are in the artifact's display-list space: a point must lie on a page
+ * the artifact draws, and rects and caret geometry cover only those pages. A
+ * request whose every-page flag is set reaches any page of the artifact's
+ * revision instead, each in the display-list space of the spread that draws it.
  */
 uint32_t rito_resolve_text_interaction(uint64_t session_id,
                                        const uint8_t *request_data,

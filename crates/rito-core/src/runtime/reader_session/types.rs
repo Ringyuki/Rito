@@ -501,6 +501,10 @@ pub struct ReaderExactSourceRangeRequest {
     /// Manifest href of the resource the range was taken from.
     pub href: String,
     pub range: ReaderSourceRange,
+    /// Whether the answer carries the rects of every page the range
+    /// covers, each in the display-list space of the spread that draws
+    /// its page, rather than only the pages this artifact draws.
+    pub every_page: bool,
 }
 
 /// What became of a durable source range.

@@ -361,6 +361,7 @@ pub(super) fn exact_source_range_request(
     writer.u64(value.artifact_id);
     writer.string(&value.href, "exact source range href")?;
     source_range(&mut writer, &value.range)?;
+    writer.bool(value.every_page);
     writer.finish_message()
 }
 

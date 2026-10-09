@@ -70,6 +70,7 @@ pub(in crate::runtime::reader_session::wire) fn text_interaction_request(
             )?;
         }
     }
+    writer.bool(value.every_page);
     writer.finish_message()
 }
 

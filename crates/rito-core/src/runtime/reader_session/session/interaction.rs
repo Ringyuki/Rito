@@ -13,13 +13,14 @@ use crate::{
         TextSelectionBoundary, TextSelectionMovement,
     },
     runtime::{
-        annotation_target_from_json, annotation_target_to_json, AnnotationOrphanReason,
-        AnnotationTarget, AnnotationTargetResolution, RuntimeExactTextRangeRect, RuntimeRevision,
-        RuntimeSourceLocatorErrorKind, RuntimeTextCaret, RuntimeTextCaretResolution,
-        RuntimeTextPointRequest, RuntimeTextRange, RuntimeTextRangeFromPointsRequest,
-        RuntimeTextRangeFromPointsResolution, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
-        RuntimeTextRangeToPointRequest, RuntimeTextSelectionGranularity,
-        RuntimeTextSelectionMovementRequest, RuntimeTextSelectionMovementResolution,
+        annotation_target_from_json, annotation_target_to_json, navigation::spread_index_for_page,
+        AnnotationOrphanReason, AnnotationTarget, AnnotationTargetResolution,
+        RuntimeExactTextRangeRect, RuntimeRevision, RuntimeSourceLocatorErrorKind,
+        RuntimeTextCaret, RuntimeTextCaretResolution, RuntimeTextPointRequest, RuntimeTextRange,
+        RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
+        RuntimeTextRangeRequest, RuntimeTextRangeResolution, RuntimeTextRangeToPointRequest,
+        RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
+        RuntimeTextSelectionMovementResolution,
     },
 };
 
@@ -34,7 +35,6 @@ use super::super::{
     ReaderTextInteractionUnavailableReason, ReaderTextPoint, ReaderTextSelection,
 };
 use super::{
-    content::page_display_origin,
     errors::{
         engine_error, missing_artifact_revision, unknown_artifact, validate_external_request_id,
     },
@@ -47,12 +47,25 @@ pub(super) struct ArtifactView<'a> {
     pub(super) revision_id: String,
     pub(super) revision: &'a RuntimeRevision,
     spread_index: usize,
+    every_page: bool,
 }
 
 impl ArtifactView<'_> {
+    /// Answers for every page of the revision, each in the display-list
+    /// space of the spread that draws it, when `every_page` is set.
+    pub(super) fn covering(mut self, every_page: bool) -> Self {
+        self.every_page = every_page;
+        self
+    }
+
     fn page_point(&self, point: ReaderTextPoint) -> Result<RuntimeTextPointRequest, ReaderError> {
         let page_index = usize_from_u32(point.page_index, "text point page index")?;
-        let origin = page_display_origin(self.revision, self.spread_index, page_index)?;
+        let origin = self.origin_of(page_index).ok_or_else(|| {
+            ReaderError::new(
+                ReaderErrorKind::InvalidRequest,
+                format!("page {page_index} is not part of this artifact"),
+            )
+        })?;
         Ok(RuntimeTextPointRequest {
             page_index,
             x: point.x - origin.0,
@@ -60,12 +73,19 @@ impl ArtifactView<'_> {
         })
     }
 
-    /// The display-list origin of a page, when this artifact draws it.
-    pub(super) fn drawn_origin(&self, page_index: usize) -> Option<(f64, f64)> {
+    /// The display-list origin of a page this view answers for: a page the
+    /// artifact draws, or any page of the revision when the view covers
+    /// every page — its slot in the spread that draws it.
+    pub(super) fn origin_of(&self, page_index: usize) -> Option<(f64, f64)> {
+        let spread_index = if self.every_page {
+            spread_index_for_page(self.revision, page_index)
+        } else {
+            self.spread_index
+        };
         let pages = self
             .revision
             .chapter_engine_session()
-            .spread_pages(self.spread_index)?;
+            .spread_pages(spread_index)?;
         let slot = pages.iter().position(|index| *index == page_index)?;
         Some(page_origin(&self.revision.layout_config, slot))
     }
@@ -77,25 +97,44 @@ impl ArtifactView<'_> {
             .ok_or_else(|| engine_error("a resolved caret carries no source point"))?;
         Ok(ReaderCaret {
             address: reader_address(caret.address)?,
-            geometry: self.drawn_origin(caret.address.page_index).map(|origin| {
-                ReaderCaretGeometry {
+            geometry: self
+                .origin_of(caret.address.page_index)
+                .map(|origin| ReaderCaretGeometry {
                     x: caret.geometry.x + origin.0,
                     y: caret.geometry.y + origin.1,
                     height: caret.geometry.height,
-                }
-            }),
+                }),
             href: caret.source_locator.href,
             source_point: reader_source_point(source_point)?,
         })
     }
 
-    fn selection(&self, range: RuntimeTextRange) -> Result<ReaderTextSelection, ReaderError> {
-        let mut rects = Vec::new();
-        for rect in &range.rects {
-            if let Some(origin) = self.drawn_origin(rect.page_index) {
-                rects.push(reader_rect(rect, origin)?);
+    /// The rects this view answers for, in display-list space. A range's
+    /// rects come page by page, so the origin is looked up once per page.
+    pub(super) fn rects(
+        &self,
+        rects: &[RuntimeExactTextRangeRect],
+    ) -> Result<Vec<ReaderExactSourceRect>, ReaderError> {
+        let mut placed = Vec::new();
+        let mut page: Option<(usize, Option<(f64, f64)>)> = None;
+        for rect in rects {
+            let origin = match page {
+                Some((index, origin)) if index == rect.page_index => origin,
+                _ => {
+                    let origin = self.origin_of(rect.page_index);
+                    page = Some((rect.page_index, origin));
+                    origin
+                }
+            };
+            if let Some(origin) = origin {
+                placed.push(reader_rect(rect, origin)?);
             }
         }
+        Ok(placed)
+    }
+
+    fn selection(&self, range: RuntimeTextRange) -> Result<ReaderTextSelection, ReaderError> {
+        let rects = self.rects(&range.rects)?;
         Ok(ReaderTextSelection {
             anchor: reader_address(range.anchor)?,
             focus: reader_address(range.focus)?,
@@ -147,7 +186,9 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
-        let view = self.artifact_view(request.artifact_id)?;
+        let view = self
+            .artifact_view(request.artifact_id)?
+            .covering(request.every_page);
         let result = self.text_interaction_result(&view, request.query)?;
         Ok(ReaderTextInteractionResponse {
             artifact_id: request.artifact_id,
@@ -226,6 +267,7 @@ impl ReaderSession {
             revision_id,
             revision,
             spread_index: artifact.local_spread_index,
+            every_page: false,
         })
     }
 

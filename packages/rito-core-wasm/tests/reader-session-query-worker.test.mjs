@@ -238,6 +238,8 @@ test('client commits a peek once and only over the visible artifact', async () =
 });
 
 test('every query round-trips through the real worker and client', async () => {
+  // The flag that closes a geometry request, as the session receives it.
+  const everyPage = [];
   class RawSession {
     requestArtifact(bytes) {
       const ids = requestIds(bytes);
@@ -256,11 +258,13 @@ test('every query round-trips through the real worker and client', async () => {
       return rustHex('TEXT_RANGE_GEOMETRY_HEX');
     }
 
-    exactSourceRange() {
+    exactSourceRange(bytes) {
+      everyPage.push(bytes.at(-1));
       return rustHex('EXACT_SOURCE_RANGE_RESOLUTION_HEX');
     }
 
-    textInteraction() {
+    textInteraction(bytes) {
+      everyPage.push(bytes.at(-1));
       return rustHex('SELECTION_HEX');
     }
 
@@ -291,6 +295,13 @@ test('every query round-trips through the real worker and client', async () => {
     point: { pageIndex: 0, x: 1, y: 1 },
   });
   assert.equal(interaction.result.kind, 'selection');
+  await client.exactSourceRange(9n, 'chapter.xhtml', range, { everyPage: true });
+  await client.textInteraction(
+    9n,
+    { kind: 'caret', point: { pageIndex: 0, x: 1, y: 1 } },
+    { everyPage: true },
+  );
+  assert.deepEqual(everyPage, [0, 0, 1, 1]);
   const annotation = await client.annotation({ kind: 'create', href: 'chapter.xhtml', range });
   assert.equal(annotation.level, 'quote');
   const location = await client.navigation({

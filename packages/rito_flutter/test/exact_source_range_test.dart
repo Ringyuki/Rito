@@ -3,21 +3,16 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
-/// Both byte strings below were produced by the Rust encoder, from the
-/// fixtures in `wire/tests.rs`
-/// (`exact_source_range_request_fixture` and
-/// `exact_source_range_resolution_fixture`). They are the point of this
-/// file: a mirror that only ever reads bytes it wrote itself keeps
-/// passing while it rejects real ones, which is how the publication
-/// decoder once stayed pinned to a version the encoder had left behind.
-/// Regenerate these from Rust whenever either message changes shape.
-const String _requestHex =
-    '5249544f45535131010000008500000000000000070000000000000009000000'
-    '00000000150000004f454250532f636861707465722d322e7868746d6c400000'
-    '00000000001800000000000000030000000100000000000000040000000c0000'
-    '00000000001800000000000000030000000100000000000000040000001f0000'
-    '0000000000';
+import 'support/rust_fixture.dart';
 
+/// The request bytes are read from the Rust test that pins them
+/// (`wire/query_tests.rs`). The resolution below was produced by the
+/// Rust encoder from `exact_source_range_resolution_fixture` in
+/// `wire/tests.rs`: a mirror that only ever reads bytes it wrote itself
+/// keeps passing while it rejects real ones, which is how the
+/// publication decoder once stayed pinned to a version the encoder had
+/// left behind. Regenerate it from Rust whenever the message changes
+/// shape.
 const String _resolutionHex =
     '5249544f4553523101000000bd000000000000000900000000000000000000000103000000'
     '100000007468652071756f74656420776f7264730200000038000000000000000300000000'
@@ -42,6 +37,7 @@ RitoExactSourceRangeRequest _request() => RitoExactSourceRangeRequest(
     start: RitoSourcePoint(nodePath: <int>[1, 0, 4], textOffset: 12),
     end: RitoSourcePoint(nodePath: <int>[1, 0, 4], textOffset: 31),
   ),
+  everyPage: true,
 );
 
 void main() {
@@ -50,7 +46,15 @@ void main() {
       _request(),
     );
 
-    expect(encoded, equals(_bytes(_requestHex)));
+    expect(
+      encoded,
+      equals(
+        rustFixtureBytes(
+          'wire/query_tests.rs',
+          'EXACT_SOURCE_RANGE_REQUEST_HEX',
+        ),
+      ),
+    );
   });
 
   test('RITOESR1 decodes a resolution the engine encoded', () {

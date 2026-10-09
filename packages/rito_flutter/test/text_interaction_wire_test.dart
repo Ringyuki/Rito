@@ -4,22 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart' show RitoTextPosition;
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
-/// Every byte string below was produced by the Rust encoder from the
-/// fixtures in `reader_session/interaction_tests.rs`, which pins the same
-/// strings. A mirror that only reads bytes it wrote itself keeps passing
-/// while it rejects real ones; regenerate these from Rust whenever a
-/// message changes shape.
-const String _movementHex =
-    '5249544f54495131010000006a00000000000000070000000000000009000000'
-    '0000000004150000000000000003000000020000000100000000000000040000'
-    '0001150000000000000004000000000000000000000001000000060000000006'
-    '010000000000205e4000';
+import 'support/rust_fixture.dart';
 
-const String _pointsHex =
-    '5249544f54495131010000005e00000000000000070000000000000009000000'
-    '0000000003140000000000000003000000000000000000294000000000000044'
-    '401400000000000000030000000000000000003440000000000080444001';
-
+/// The request bytes are read from the Rust test that pins them
+/// (`reader_session/interaction_tests.rs`). The response strings below
+/// were produced by the Rust encoder from the fixtures in the same file;
+/// regenerate them from Rust whenever a message changes shape.
 const String _selectionHex =
     '5249544f5449523101000000ee01000000000000090000000000000001016f00'
     '0000000000001500000000000000030000000200000001000000000000000400'
@@ -102,9 +92,13 @@ void main() {
           movement: RitoSelectionMovement.lineDown,
           preferredInlinePosition: 120.5,
         ),
+        everyPage: true,
       ),
     );
-    expect(movement, equals(_bytes(_movementHex)));
+    expect(
+      movement,
+      equals(rustFixtureBytes('interaction_tests.rs', 'MOVEMENT_HEX')),
+    );
 
     final points = encoder.encodeTextInteraction(
       const RitoTextInteractionRequest(
@@ -117,7 +111,10 @@ void main() {
         ),
       ),
     );
-    expect(points, equals(_bytes(_pointsHex)));
+    expect(
+      points,
+      equals(rustFixtureBytes('interaction_tests.rs', 'POINTS_HEX')),
+    );
   });
 
   test('RITOTIR1 decodes a selection the engine encoded', () {

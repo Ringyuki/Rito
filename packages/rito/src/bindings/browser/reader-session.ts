@@ -19,6 +19,7 @@ import {
   type RitoReaderAnnotationRequest,
   type RitoReaderAnnotationResponse,
   type RitoReaderExactSourceRangeResolution,
+  type RitoReaderGeometryOptions,
   type RitoReaderFootnote,
   type RitoReaderNavigationRequest,
   type RitoReaderNavigationResult,
@@ -56,6 +57,7 @@ export type BrowserReaderTextRangeGeometry = RitoReaderTextRangeGeometry;
 export type BrowserReaderSourceRange = RitoReaderSourceRange;
 export type BrowserReaderExactSourceRangeResolution = RitoReaderExactSourceRangeResolution;
 export type BrowserReaderTextInteractionQuery = RitoReaderTextInteractionQuery;
+export type BrowserReaderGeometryOptions = RitoReaderGeometryOptions;
 export type BrowserReaderTextInteractionResponse = RitoReaderTextInteractionResponse;
 export type BrowserReaderAnnotationQuery = RitoReaderAnnotationRequest['query'];
 export type BrowserReaderAnnotationResponse = RitoReaderAnnotationResponse;
@@ -173,16 +175,21 @@ export interface BrowserReaderSession {
     start: BrowserReaderTextPosition,
     end: BrowserReaderTextPosition,
   ): Promise<BrowserReaderTextRangeGeometry>;
-  /** Where a durable source range lands on the pages the artifact draws. */
+  /**
+   * Where a durable source range lands: on the pages the artifact draws,
+   * or with `everyPage` on every page it covers.
+   */
   exactSourceRange(
     artifactId: bigint,
     href: string,
     range: BrowserReaderSourceRange,
+    options?: BrowserReaderGeometryOptions,
   ): Promise<BrowserReaderExactSourceRangeResolution>;
   /** Caret, range, point-range and movement selection, answered by the engine. */
   textInteraction(
     artifactId: bigint,
     query: BrowserReaderTextInteractionQuery,
+    options?: BrowserReaderGeometryOptions,
   ): Promise<BrowserReaderTextInteractionResponse>;
   /** Builds an annotation target for a source range, or locates a stored one by its JSON. */
   annotation(query: BrowserReaderAnnotationQuery): Promise<BrowserReaderAnnotationResponse>;

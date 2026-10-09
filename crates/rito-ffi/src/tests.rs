@@ -1397,6 +1397,7 @@ fn a_word_selection_becomes_a_stored_annotation_across_the_abi() {
             focus: point,
             granularity: ReaderSelectionGranularity::Word,
         },
+        every_page: false,
     })
     .expect("interaction encodes");
     let answered = call_owned_wire(|out, error| {

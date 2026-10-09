@@ -400,6 +400,7 @@ pub(super) fn exact_source_range_request(
         artifact_id: external_id(reader.u64()?, "artifactId")?,
         href: reader.string("exact source range href")?,
         range: source_range(&mut reader)?,
+        every_page: reader.bool("exact source range every page")?,
     };
     reader.finish("exact source range request wire message")?;
     Ok(request)

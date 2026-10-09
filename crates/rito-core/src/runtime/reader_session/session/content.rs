@@ -19,12 +19,13 @@ use super::{
         engine_error, missing_artifact_revision, numeric_overflow, target_not_published,
         unknown_artifact, validate_external_request_id,
     },
+    interaction::ArtifactView,
     reader_resource_bytes_max, runtime_resource_kind, u32_from_usize, usize_from_u32, ReaderError,
     ReaderErrorKind, ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution,
-    ReaderExactSourceRangeStatus, ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind,
-    ReaderRect, ReaderResource, ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest,
-    ReaderSearchResponse, ReaderSearchResult, ReaderSession, ReaderTextPosition,
-    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
+    ReaderExactSourceRangeStatus, ReaderFootnote, ReaderFootnoteKind, ReaderRect, ReaderResource,
+    ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest, ReaderSearchResponse,
+    ReaderSearchResult, ReaderSession, ReaderTextPosition, ReaderTextRangeGeometry,
+    ReaderTextRangeRequest, ReaderTextRect,
 };
 
 impl ReaderSession {
@@ -296,11 +297,9 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
-        let artifact = self
-            .artifacts
-            .get(&request.artifact_id)
-            .cloned()
-            .ok_or_else(|| unknown_artifact(request.artifact_id))?;
+        if !self.artifacts.contains_key(&request.artifact_id) {
+            return Err(unknown_artifact(request.artifact_id));
+        }
         // Prepared first, while the document can still be borrowed
         // mutably: this is what builds the chapter's source index.
         let prepared = self
@@ -310,51 +309,14 @@ impl ReaderSession {
                 source_range: runtime_source_range(request.range)?,
             })
             .map_err(engine_error)?;
-        match artifact.backing {
-            ReaderRevisionBacking::ChapterLocal => {
-                let owner = self
-                    .revisions
-                    .get(&artifact.revision_id)
-                    .map(|revision| revision.owner.clone())
-                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                let revision = self
-                    .document
-                    .require_chapter_local_owner(&owner)
-                    .map_err(engine_error)?;
-                let resolution = self
-                    .document
-                    .resolve_prepared_in(revision, prepared)
-                    .map_err(engine_error)?;
-                reader_exact_source_range(
-                    revision,
-                    artifact.local_spread_index,
-                    request.artifact_id,
-                    resolution,
-                )
-            }
-            ReaderRevisionBacking::Publication => {
-                let owner = self
-                    .publication_revisions
-                    .get(&artifact.revision_id)
-                    .map(|revision| revision.owner.clone())
-                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                let revision = self
-                    .document
-                    .revisions
-                    .get(&owner.revision_id)
-                    .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                let resolution = self
-                    .document
-                    .resolve_prepared_in(revision, prepared)
-                    .map_err(engine_error)?;
-                reader_exact_source_range(
-                    revision,
-                    artifact.local_spread_index,
-                    request.artifact_id,
-                    resolution,
-                )
-            }
-        }
+        let view = self
+            .artifact_view(request.artifact_id)?
+            .covering(request.every_page);
+        let resolution = self
+            .document
+            .resolve_prepared_in(view.revision, prepared)
+            .map_err(engine_error)?;
+        reader_exact_source_range(&view, request.artifact_id, resolution)
     }
 
     /// Resolves where a text range sits on one of an artifact's pages.
@@ -462,34 +424,27 @@ impl ReaderSession {
     }
 }
 
-/// Turns a runtime resolution into its reader shape, keeping only the
-/// rects on pages this artifact's spread draws and shifting those into
-/// its display-list space.
+/// Turns a runtime resolution into its reader shape: the rects on the
+/// pages the view answers for, shifted into display-list space.
 fn reader_exact_source_range(
-    revision: &RuntimeRevision,
-    spread_index: usize,
+    view: &ArtifactView<'_>,
     artifact_id: u64,
     resolution: RuntimeExactSourceRangeResolution,
 ) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
+    let unresolved = |status| ReaderExactSourceRangeResolution {
+        artifact_id,
+        status,
+        first_page_index: None,
+        selected_text: String::new(),
+        rects: Vec::new(),
+    };
     let range = match resolution {
         RuntimeExactSourceRangeResolution::Resolved { range } => range,
         RuntimeExactSourceRangeResolution::Pending { .. } => {
-            return Ok(ReaderExactSourceRangeResolution {
-                artifact_id,
-                status: ReaderExactSourceRangeStatus::Pending,
-                first_page_index: None,
-                selected_text: String::new(),
-                rects: Vec::new(),
-            })
+            return Ok(unresolved(ReaderExactSourceRangeStatus::Pending))
         }
         RuntimeExactSourceRangeResolution::Unavailable { .. } => {
-            return Ok(ReaderExactSourceRangeResolution {
-                artifact_id,
-                status: ReaderExactSourceRangeStatus::Unavailable,
-                first_page_index: None,
-                selected_text: String::new(),
-                rects: Vec::new(),
-            })
+            return Ok(unresolved(ReaderExactSourceRangeStatus::Unavailable))
         }
     };
     let first_page_index = range
@@ -497,43 +452,12 @@ fn reader_exact_source_range(
         .first()
         .map(|rect| u32_from_usize(rect.page_index, "exact source first page index"))
         .transpose()?;
-    let drawn = revision
-        .chapter_engine_session()
-        .spread_pages(spread_index)
-        .unwrap_or_default();
-    let mut rects = Vec::new();
-    for rect in &range.rects {
-        let Some(slot) = drawn.iter().position(|index| *index == rect.page_index) else {
-            continue;
-        };
-        let origin = page_origin(&revision.layout_config, slot);
-        rects.push(ReaderExactSourceRect {
-            page_index: u32_from_usize(rect.page_index, "exact source rect page index")?,
-            bounds: ReaderRect {
-                x: rect.x + origin.0,
-                y: rect.y + origin.1,
-                width: rect.width,
-                height: rect.height,
-            },
-            block_index: u32_from_usize(rect.block_index, "exact source rect block index")?,
-            line_index: u32_from_usize(rect.line_index, "exact source rect line index")?,
-            run_index: u32_from_usize(rect.run_index, "exact source rect run index")?,
-            start_char_index: u32_from_usize(
-                rect.start_char_index,
-                "exact source rect start char index",
-            )?,
-            end_char_index: u32_from_usize(
-                rect.end_char_index,
-                "exact source rect end char index",
-            )?,
-        });
-    }
     Ok(ReaderExactSourceRangeResolution {
         artifact_id,
         status: ReaderExactSourceRangeStatus::Resolved,
         first_page_index,
         selected_text: range.selected_text,
-        rects,
+        rects: view.rects(&range.rects)?,
     })
 }
 

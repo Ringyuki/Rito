@@ -1927,6 +1927,7 @@ fn exact_source_range_projects_a_durable_anchor_into_display_list_space() {
             artifact_id: artifact.artifact_id,
             href: FIXTURE_CHAPTER_HREF.to_owned(),
             range: fixture_source_range(0, 0, 15),
+            every_page: false,
         })
         .expect("a range in the first paragraph resolves");
 
@@ -1969,6 +1970,7 @@ fn exact_source_range_answers_for_a_page_this_artifact_does_not_draw() {
             artifact_id: artifact.artifact_id,
             href: FIXTURE_CHAPTER_HREF.to_owned(),
             range: fixture_source_range(47, 0, 15),
+            every_page: false,
         })
         .expect("a range later in the chapter resolves");
 
@@ -2002,6 +2004,7 @@ fn exact_source_range_reports_a_stale_anchor_instead_of_painting_over_it() {
             artifact_id: artifact.artifact_id,
             href: FIXTURE_CHAPTER_HREF.to_owned(),
             range: fixture_source_range(9_999, 0, 4),
+            every_page: false,
         })
         .expect_err("a node path outside the chapter fails");
     assert_eq!(missing.kind, ReaderErrorKind::EngineFailure);
@@ -2013,6 +2016,7 @@ fn exact_source_range_reports_a_stale_anchor_instead_of_painting_over_it() {
             artifact_id: artifact.artifact_id,
             href: "not-in-the-manifest.xhtml".to_owned(),
             range: fixture_source_range(0, 0, 4),
+            every_page: false,
         })
         .expect_err("an unknown href fails");
     assert_eq!(unknown_href.kind, ReaderErrorKind::EngineFailure);

@@ -824,11 +824,15 @@ final class RitoReaderSession {
   /// the pages this artifact draws. A range that resolved elsewhere
   /// comes back resolved with no rects and
   /// [RitoExactSourceRangeResolution.firstPageIndex] set: navigate
-  /// there and ask again.
+  /// there and ask again. With [everyPage] the rects of every page the
+  /// range covers come back, each in the display-list space of the
+  /// spread that draws its page — keep only the pages a surface shows
+  /// before painting them onto it.
   Future<RitoExactSourceRangeResolution> exactSourceRange(
     RitoPreparedArtifact prepared, {
     required String href,
     required RitoSourceRange range,
+    bool everyPage = false,
   }) async {
     _requireOpen();
     final artifact = prepared.artifact;
@@ -844,6 +848,7 @@ final class RitoReaderSession {
           artifactId: artifact.artifactId,
           href: href,
           range: range,
+          everyPage: everyPage,
         ),
       );
     } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
@@ -872,11 +877,15 @@ final class RitoReaderSession {
   /// Points and geometry are in the artifact's display-list space, the
   /// space [RitoHitEntry.bounds] uses. A [RitoCaretAddress] names the
   /// revision behind the artifact it came from; pass it back only with
-  /// artifacts of that revision.
+  /// artifacts of that revision. A point must lie on a page [prepared]
+  /// draws, and rects and caret geometry cover those pages only; with
+  /// [everyPage] both reach any page of the revision, each in the
+  /// display-list space of the spread that draws it.
   Future<RitoTextInteractionResult> textInteraction(
     RitoPreparedArtifact prepared,
-    RitoTextInteractionQuery query,
-  ) async {
+    RitoTextInteractionQuery query, {
+    bool everyPage = false,
+  }) async {
     _requireOpen();
     final artifact = prepared.artifact;
     _requireLiveArtifact(artifact);
@@ -887,6 +896,7 @@ final class RitoReaderSession {
           sessionId: sessionId,
           artifactId: artifact.artifactId,
           query: query,
+          everyPage: everyPage,
         ),
       );
     } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
