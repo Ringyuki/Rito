@@ -23,8 +23,12 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // the whole-book run, interactions asked of one live artifact, resources
 // and host fonts. Lowered from 25 files and 3332 lines (2026-10-10) when it
 // replaced the reader built on revisions.
+// +50 lines (2026-10-10): the queue every operation on artifacts runs
+// through (queue.ts) and the one module that owns artifacts (artifacts.ts).
+// They took the place of three concurrent chains, whose interleavings left
+// a reader that ignored every later setting.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2600;
+const SESSION_READER_LINE_BUDGET = 2650;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -315,23 +319,58 @@ describe('Browser reader architecture invariant: one committed layout', () => {
     ).toEqual([]);
   });
 
-  it('replaces the visible artifact only by compare-and-swap, in the two queues', () => {
-    // Opening adopts the first artifact; after that a turn or a layout runs
-    // in the foreground queue and the whole book in the background run.
-    const allowed = new Set([
-      join(SESSION_READER, 'reader.ts'),
-      join(SESSION_READER, 'foreground.ts'),
-      join(SESSION_READER, 'background.ts'),
-    ]);
+  it("owns the session's artifacts in one module", () => {
+    // Asking for an artifact, having the session show one and giving one
+    // back are all in artifacts.ts, where whatever is not shown or installed
+    // is released before a function returns or throws. No other module
+    // can hold an artifact the session does not know the fate of.
     const hits = scan(
       SESSION_READER_FILES,
-      /\.(?:adoptForegroundCandidate|commitPeekedArtifact|adoptBackgroundCandidate|requestArtifact|advanceBackgroundOnce)\(/g,
-      (file) => allowed.has(file),
+      /\.(?:requestArtifact|requestAdjacent|seek|adoptForegroundCandidate|commitPeekedArtifact|adoptBackgroundCandidate|advanceBackgroundOnce|peekSpread|peekAdjacent|release)\(/g,
+      (file) => file === join(SESSION_READER, 'artifacts.ts'),
     );
     expect(
       hits,
-      `The visible artifact was replaced outside the queues:\n${JSON.stringify(hits, null, 2)}`,
+      `An artifact was asked for, shown or released outside artifacts.ts:\n${JSON.stringify(hits, null, 2)}`,
     ).toEqual([]);
+  });
+
+  it('works on artifacts through one queue, one operation at a time', () => {
+    // A request and the adoption of its result, a spread loaded ahead and a
+    // step of the whole book never overlap: the live-artifact budget is
+    // counted exactly and nothing reaches the session between a request and
+    // its adoption. So the functions that own artifacts are called only by
+    // the modules whose work is an operation of the queue (and by opening,
+    // before there is a queue), and the queue is the only scheduler: no
+    // second chain, no timer, no retry.
+    const operations = new Set(
+      ['artifacts', 'frames', 'commit', 'foreground', 'background', 'reader'].map((name) =>
+        join(SESSION_READER, `${name}.ts`),
+      ),
+    );
+    const owners = scan(
+      SESSION_READER_FILES,
+      /\b(?:adoptSessionReaderFirstFrame|requestSessionReaderLayout|advanceSessionReaderBook|peekSessionReaderFrame|commitSessionReaderFrame|releaseSessionReaderFrame|loadSessionReaderFrame)\b/g,
+      (file) => operations.has(file),
+    );
+    expect(owners, `Artifacts owned outside an operation:\n${JSON.stringify(owners)}`).toEqual([]);
+
+    const queue = read(join(SESSION_READER, 'queue.ts'));
+    expect(queue).toContain('if (queue.running) return;');
+    expect(queue).toContain('await next();');
+    const state = read(join(SESSION_READER, 'state.ts'));
+    expect(state).toContain('readonly queue: SessionReaderQueue;');
+    expect(state).not.toMatch(/:\s*Promise<void>;/);
+
+    const second = scan(
+      SESSION_READER_FILES,
+      /setTimeout\(|setInterval\(|\bretr(?:y|ies)\b|[Rr]efusedForNow/g,
+    );
+    expect(second, `A second scheduler or a retry:\n${JSON.stringify(second)}`).toEqual([]);
+    const microtasks = scan(SESSION_READER_FILES, /queueMicrotask\(/g);
+    expect(microtasks).toEqual([
+      { file: rel(join(SESSION_READER, 'queue.ts')), match: 'queueMicrotask(' },
+    ]);
   });
 
   it('asks about the committed layout through the capture that drops a superseded answer', () => {

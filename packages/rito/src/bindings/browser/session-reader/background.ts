@@ -1,79 +1,45 @@
-import { commitSessionReaderLayout, prepareSessionReaderCandidate } from './commit';
-import { releaseSessionReaderFrame } from './frames';
-import {
-  SESSION_READER_RETRY_DELAY_MS,
-  runSessionReaderForeground,
-  sessionReaderRefusedForNow,
-  type SessionReaderState,
-} from './state';
+import { advanceSessionReaderBook } from './artifacts';
+import { commitSessionReaderLayout } from './commit';
+import { sessionReaderClosed, type SessionReaderState } from './state';
 
-/** The engine paginates the whole book in one step whatever the budget says. */
-const BACKGROUND_QUANTUM = 512;
-/** Rounds a run may take before it gives up: each is one engine step or one lost race. */
-const BACKGROUND_ROUNDS = 64;
+/** Steps in a row that may bring no page for one layout before the book is reported stuck. */
+const BOOK_IDLE_STEPS = 64;
 
 /**
- * Lays the whole book out behind the chapter the reader shows and commits
- * it over that chapter: the same page, now under its book-wide number.
+ * Takes one step of laying the whole book out behind the chapter the reader
+ * shows, and commits the book over that chapter when it arrives: the same
+ * page, now under its book-wide number. Resolves whether another step is
+ * wanted.
  *
- * The step that paginates the book occupies the session, so it starts only
- * once the spreads a turn would show are loaded. A turn inside the chapter
- * while it runs is answered from them; the run then asks again for the
- * spread the reader moved to, which the finished book answers at once.
+ * It is what the reader's queue does when nothing waits. The step that
+ * paginates the book occupies the session for as long as that takes, so it
+ * starts only once what the reader was asked for is done and the spreads a
+ * turn would show are loaded; a turn made while it runs is painted from
+ * those and followed by the session afterwards.
  */
-export function startSessionReaderBackground(state: SessionReaderState): void {
-  if (state.disposed || state.view.scope === 'book') return;
-  state.backgroundToken += 1;
-  const token = state.backgroundToken;
-  // One run at a time: the run this one replaces ends at its next check.
-  state.background = state.background
-    .then(() => runBackground(state, token))
-    .catch((error: unknown) => {
-      if (!state.disposed) state.logger.warn('reader whole-book layout failed', error);
-    });
-}
-
-async function runBackground(state: SessionReaderState, token: number): Promise<void> {
-  const current = (): boolean => !state.disposed && token === state.backgroundToken;
-  for (let round = 0; round < BACKGROUND_ROUNDS && current(); round += 1) {
-    // Turns and spread loads queued so far go first.
-    await state.foreground;
-    await state.frameLoads;
-    if (!current()) return;
-    const visible = state.visible;
-    let advance;
-    try {
-      advance = await state.session.advanceBackgroundOnce(
-        visible.artifact.artifactId,
-        BACKGROUND_QUANTUM,
-      );
-    } catch (error) {
-      if (!sessionReaderRefusedForNow(error)) throw error;
-      await new Promise((resume) => setTimeout(resume, SESSION_READER_RETRY_DELAY_MS));
-      continue;
+export async function stepSessionReaderBook(state: SessionReaderState): Promise<boolean> {
+  if (state.disposed || state.view.scope === 'book' || state.bookStalled) return false;
+  const shown = state.visible.spreadIndex;
+  // The session did not follow the host to its spread (that failed, and
+  // was reported): the book would be brought for a page the reader left.
+  if (state.activeSpreadIndex !== shown) return false;
+  try {
+    const step = await advanceSessionReaderBook(state, () => state.activeSpreadIndex === shown);
+    // The reader turned meanwhile: the queue follows it, then asks again.
+    if (step === 'moved') return true;
+    if (step === 'more') {
+      state.bookIdleSteps += 1;
+      if (state.bookIdleSteps <= BOOK_IDLE_STEPS) return true;
     }
-    if (advance.artifact === undefined) {
-      if (advance.state === 'complete') return;
-      continue;
-    }
-    const { frame, layout } = await prepareSessionReaderCandidate(state, advance.artifact);
-    if (!current()) {
-      await releaseSessionReaderFrame(state, frame);
-      return;
-    }
-    const outcome = { adopted: false };
-    await runSessionReaderForeground(state, async () => {
-      if (!current() || state.visible !== visible) return;
-      await state.session.adoptBackgroundCandidate(
-        visible.artifact.artifactId,
-        frame.artifact.artifactId,
-      );
-      outcome.adopted = true;
-      commitSessionReaderLayout(state, frame, layout, state.config);
-    });
-    if (outcome.adopted) return;
-    // The reader turned while the candidate was prepared, or the session
-    // refused it: it is given back and the next round asks again.
-    await releaseSessionReaderFrame(state, frame);
+    if (typeof step === 'string')
+      throw new Error(`The whole-book layout brought no page (${step})`);
+    // A turn made while the session adopted the page is kept: the book
+    // numbers the chapter's spreads in the same order.
+    await commitSessionReaderLayout(state, step, state.config, state.activeSpreadIndex - shown);
+  } catch (error) {
+    if (!sessionReaderClosed(state)) state.logger.warn('reader whole-book layout failed', error);
+    // Left for the next thing the reader is asked to do, which tries again.
+    state.bookStalled = true;
   }
+  return false;
 }

@@ -9,17 +9,18 @@ import {
 import type { CanvasRenderingTarget } from '../primitive-renderer';
 import { openBrowserReaderSession, type BrowserReaderSession } from '../reader-session';
 import { createBrowserReaderSessionCanvasPresenter } from '../reader-session-canvas';
-import { startSessionReaderBackground } from './background';
-import { commitSessionReaderLayout, readSessionReaderLayout } from './commit';
+import { adoptSessionReaderFirstFrame, readSessionReaderLayout } from './artifacts';
+import { stepSessionReaderBook } from './background';
+import { commitSessionReaderLayout } from './commit';
 import { installSessionReaderDiagnostics } from './diagnostics';
 import { scheduleSessionReaderRelayout } from './foreground';
-import { prepareSessionReaderFrame } from './frames';
 import { SessionReaderHostFonts } from './host-fonts';
 import { createSessionReaderInteractions } from './interactions';
 import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-options';
 import { EMPTY_SESSION_READER_LAYOUT_VIEW } from './layout-view';
 import { sessionLocator, sessionReaderNavigationMethods } from './navigation';
 import { createSessionReaderPublication } from './publication';
+import { createSessionReaderQueue, wakeSessionReaderQueue } from './queue';
 import { rejectSessionReaderFont } from './rejected-fonts';
 import { sessionReaderRenderingMethods } from './render';
 import { sessionReaderResourceMethods } from './resources';
@@ -77,12 +78,13 @@ export async function createReader(
       dpr,
       log,
     });
-    const pages = await readSessionReaderLayout(state, state.visible.artifact.artifactId);
-    commitSessionReaderLayout(state, state.visible, pages, config);
+    const layout = await readSessionReaderLayout(state, state.visible.artifact.artifactId);
+    await commitSessionReaderLayout(state, { frame: state.visible, layout }, config);
     // A face the browser refused while the first page was prepared: the
     // book is laid out again without it, and the whole book follows that.
     if (state.rejectedFontFamilies.size > 0) scheduleSessionReaderRelayout(state, true);
-    else startSessionReaderBackground(state);
+    state.queue.idle = () => stepSessionReaderBook(state);
+    wakeSessionReaderQueue(state);
     installSessionReaderDiagnostics(state);
     return buildReader(state);
   } catch (error) {
@@ -127,9 +129,8 @@ async function openState(
   opened.state = state;
   const [publication, frame] = await Promise.all([
     session.readPublication(),
-    prepareSessionReaderFrame(state, session.initialArtifact, false),
+    adoptSessionReaderFirstFrame(state),
   ]);
-  await session.adoptForegroundCandidate(undefined, frame.artifact.artifactId);
   return Object.assign(state, {
     publication: createSessionReaderPublication(publication),
     visible: frame,
@@ -147,14 +148,11 @@ function idleState(): Partial<SessionReaderState> {
     activeSpreadIndex: 0,
     layoutGeneration: 0,
     relayoutToken: 0,
-    backgroundToken: 0,
-    foreground: Promise.resolve(),
-    frameLoads: Promise.resolve(),
-    background: Promise.resolve(),
+    queue: createSessionReaderQueue(),
     showQueued: false,
-    relayoutQueued: false,
     relayoutForced: false,
-    relayoutRefusals: 0,
+    bookIdleSteps: 0,
+    bookStalled: false,
     rejectedFontFamilies: new Set(),
     bookWaiters: new Set(),
     spreadRenderedListeners: new Set(),

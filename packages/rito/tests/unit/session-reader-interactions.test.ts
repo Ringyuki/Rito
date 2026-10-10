@@ -162,6 +162,8 @@ describe('session reader interactions', () => {
   });
 
   afterEach(() => {
+    // The reader's work on artifacts came one call at a time.
+    expect((harness.fake as FakeReaderSession | undefined)?.violations ?? []).toEqual([]);
     vi.restoreAllMocks();
   });
 

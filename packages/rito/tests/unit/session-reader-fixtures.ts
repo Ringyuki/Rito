@@ -35,6 +35,7 @@ export const LIVE_ARTIFACT_CAP = 6;
 export type FakeRefusable =
   | 'requestArtifact'
   | 'peekSpread'
+  | 'commitPeekedArtifact'
   | 'adoptForegroundCandidate'
   | 'adoptBackgroundCandidate'
   | 'navigation'
@@ -66,6 +67,12 @@ interface Owned {
  * spread is addressed by its position, every replacement of the visible
  * artifact is a compare-and-swap, at most six artifacts are live, and the
  * book is not laid out while a requested artifact waits to be adopted.
+ *
+ * Like the worker that hosts a session it answers one call at a time, in
+ * the order the calls were made. It also holds its reader to the reader's
+ * own discipline: calls that create, adopt, commit or release artifacts
+ * come one at a time, and one that arrives while another is unanswered is
+ * recorded in `violations` (releases may be sent together).
  */
 export class FakeReaderSession {
   readonly sessionId = 7n;
@@ -75,8 +82,12 @@ export class FakeReaderSession {
   maxLive = 0;
   visibleId: bigint | undefined;
   disposed = false;
-  /** While set, the whole-book step waits on it: the session is occupied. */
+  /** While set, the whole-book step waits on it, and so does every call made after it. */
   backgroundGate: Promise<void> | undefined;
+  /** Artifact calls the reader made while another was unanswered. */
+  readonly violations: string[] = [];
+  private readonly unanswered: string[] = [];
+  private tail: Promise<unknown> = Promise.resolve();
   private nextArtifactId = 1n;
   private nextRevisionId = 1n;
   private nextRequestId = 1n;
@@ -88,6 +99,8 @@ export class FakeReaderSession {
   private readonly refusals = new Map<FakeRefusable, Error[]>();
   /** Runs as the session refuses a call, before the caller learns of it. */
   onRefusal: ((method: FakeRefusable) => void) | undefined;
+  /** Runs as the session answers a call, before the caller learns the answer. */
+  onAnswer: ((method: FakeRefusable) => void) | undefined;
   initialArtifact!: BrowserReaderArtifact;
   /** What a page publishes beside its index; `chapterIndex` is undefined in the whole book. */
   pageContent: (pageIndex: number, chapterIndex: number | undefined) => Partial<FakePage> =
@@ -140,56 +153,85 @@ export class FakeReaderSession {
   }
 
   session(): BrowserReaderSession {
-    const later = <Value>(run: () => Value, method?: FakeRefusable): Promise<Value> =>
-      new Promise((resolve, reject) => {
-        setTimeout(() => {
-          try {
-            if (this.disposed) throw new RitoReaderError('session-disposed', 'disposed');
-            const refusal = method && this.refusals.get(method)?.shift();
-            if (refusal) {
-              this.calls.push(`refused ${method}`);
-              this.onRefusal?.(method);
-              throw refusal;
-            }
-            resolve(run());
-          } catch (error) {
-            reject(error instanceof Error ? error : new Error(String(error)));
+    const later = <Value>(
+      run: () => Value | Promise<Value>,
+      method?: FakeRefusable,
+    ): Promise<Value> => {
+      const answered = this.tail
+        .then(() => new Promise((resolve) => setTimeout(resolve, 0)))
+        .then(() => {
+          if (this.disposed) throw new RitoReaderError('session-disposed', 'disposed');
+          const refusal = method && this.refusals.get(method)?.shift();
+          if (refusal) {
+            this.calls.push(`refused ${method}`);
+            this.onRefusal?.(method);
+            throw refusal;
           }
-        }, 0);
-      });
+          if (method) this.onAnswer?.(method);
+          return run();
+        });
+      this.tail = answered.catch(() => undefined);
+      return answered;
+    };
+    // A call on artifacts: nothing but a release may be unanswered beside a
+    // release, and nothing at all beside any other.
+    const owning = <Value>(name: string, answer: () => Promise<Value>): Promise<Value> => {
+      const beside = this.unanswered.filter((other) => name !== 'release' || other !== 'release');
+      if (beside.length > 0) {
+        this.violations.push(`${name} was sent while ${beside.join(', ')} was unanswered`);
+      }
+      this.unanswered.push(name);
+      const done = (): void => {
+        this.unanswered.splice(this.unanswered.indexOf(name), 1);
+      };
+      const answered = answer();
+      answered.then(done, done);
+      return answered;
+    };
     const session: Partial<BrowserReaderSession> = {
       sessionId: this.sessionId,
       initialArtifact: this.initialArtifact,
       readPublication: () => later(() => this.publication()),
-      requestArtifact: (request) => later(() => this.request(request), 'requestArtifact'),
+      requestArtifact: (request) =>
+        owning('requestArtifact', () => later(() => this.request(request), 'requestArtifact')),
       peekSpread: (from, spreadIndex) =>
-        later(() => this.peekSpread(from, spreadIndex), 'peekSpread'),
+        owning('peekSpread', () => later(() => this.peekSpread(from, spreadIndex), 'peekSpread')),
       commitPeekedArtifact: (expected, candidate) =>
-        later(() => this.commit(expected, candidate, true)),
+        owning('commitPeekedArtifact', () =>
+          later(() => this.commit(expected, candidate, true), 'commitPeekedArtifact'),
+        ),
       adoptForegroundCandidate: (expected, candidate) =>
-        later(() => this.commit(expected, candidate, false), 'adoptForegroundCandidate'),
-      advanceBackgroundOnce: async (expected) => {
+        owning('adoptForegroundCandidate', () =>
+          later(() => this.commit(expected, candidate, false), 'adoptForegroundCandidate'),
+        ),
+      advanceBackgroundOnce: (expected) => {
         this.calls.push('advance');
-        if (this.backgroundGate) await this.backgroundGate;
-        return later(() => this.advance(expected));
+        return owning('advanceBackgroundOnce', () =>
+          later(async () => {
+            if (this.backgroundGate) await this.backgroundGate;
+            return this.advance(expected);
+          }),
+        );
       },
       adoptBackgroundCandidate: (expected, candidate) =>
-        later(() => {
-          if (this.foregroundCandidate !== undefined) {
-            throw new RitoReaderError('stale-request', 'background yields to foreground');
-          }
-          if (this.candidates.get(candidate) !== expected || this.visibleId !== expected) {
-            throw new RitoReaderError('stale-request', 'background candidate is stale');
-          }
-          this.candidates.delete(candidate);
-          this.visibleId = candidate;
-          this.calls.push(`adopt-background ${String(candidate)}`);
-          return {
-            intentRequestId: 0n,
-            replacedArtifactId: expected,
-            visibleArtifactId: candidate,
-          };
-        }, 'adoptBackgroundCandidate'),
+        owning('adoptBackgroundCandidate', () =>
+          later(() => {
+            if (this.foregroundCandidate !== undefined) {
+              throw new RitoReaderError('stale-request', 'background yields to foreground');
+            }
+            if (this.candidates.get(candidate) !== expected || this.visibleId !== expected) {
+              throw new RitoReaderError('stale-request', 'background candidate is stale');
+            }
+            this.candidates.delete(candidate);
+            this.visibleId = candidate;
+            this.calls.push(`adopt-background ${String(candidate)}`);
+            return {
+              intentRequestId: 0n,
+              replacedArtifactId: expected,
+              visibleArtifactId: candidate,
+            };
+          }, 'adoptBackgroundCandidate'),
+        ),
       navigation: (query) => later(() => this.navigation(query), 'navigation'),
       textInteraction: (artifactId, question, options) =>
         later(() => {
@@ -259,13 +301,15 @@ export class FakeReaderSession {
           this.fontCalls.push(`unavailable ${families.join(',')}`);
         }),
       release: (artifactId) =>
-        later(() => {
-          if (artifactId === this.visibleId) throw new Error('released the visible artifact');
-          this.peeked.delete(artifactId);
-          this.candidates.delete(artifactId);
-          if (this.foregroundCandidate === artifactId) this.foregroundCandidate = undefined;
-          return this.live.delete(artifactId);
-        }, 'release'),
+        owning('release', () =>
+          later(() => {
+            if (artifactId === this.visibleId) throw new Error('released the visible artifact');
+            this.peeked.delete(artifactId);
+            this.candidates.delete(artifactId);
+            if (this.foregroundCandidate === artifactId) this.foregroundCandidate = undefined;
+            return this.live.delete(artifactId);
+          }, 'release'),
+        ),
       dispose: () => {
         this.disposed = true;
         this.live.clear();

@@ -29,6 +29,12 @@ export function installSessionReaderDiagnostics(state: SessionReaderState): void
       await frame.prepared.imagesSettled;
       return true;
     },
+    /** The reader's work on artifacts: whether an operation runs, and how many wait. */
+    queue: () => ({
+      running: state.queue.running,
+      asked: state.queue.asked.length,
+      ahead: state.queue.ahead.length,
+    }),
     /** Publication faces the browser refused to decode, laid out without. */
     rejectedFontFamilies: () => [...state.rejectedFontFamilies],
     /**

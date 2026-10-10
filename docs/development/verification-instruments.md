@@ -108,7 +108,10 @@ a document without one cannot paginate. The reader pins
   every spacing from the same task to after the whole book is laid out,
   with page turns in between, and exits 1 unless after each burst the
   reader shows the last size asked for with the whole book laid out, no
-  session request was refused and none is left unanswered.
+  session request was refused, none is left unanswered, and no call that
+  creates, adopts, commits or releases an artifact was sent while another
+  was unanswered (read from the reader's own log, so it measures the real
+  worker).
 - `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
   book's open in the running reader, printing every worker message the page
   sends and receives on one clock.
@@ -179,6 +182,10 @@ a hang shows where it is. Values are shortened to their numbers and
 sizes — an artifact is its ids, indexes and byte counts, never a book's
 text. The log is one per page across every reader it opens, holds the
 last 4000 entries, and is read with `__ritoReaderDiagnostics.log()`.
+`__ritoReaderDiagnostics.queue()` says whether an operation on artifacts
+is running and how many wait behind it: a reader that stopped answering
+with a request pending in the log and operations waiting is held up by
+that request.
 
 The demo reader turns it into a report a tester can send. Its context
 menu has **Export Debug Log**, which puts on the clipboard (or saves as a
@@ -221,7 +228,18 @@ painted across the author's and a pinned fallback face
 - `packages/rito/tests/unit/architecture-invariants.test.ts` — one public
   entry, one engine, retired shapes stay retired.
 - `packages/rito/tests/unit/browser-reader-architecture-invariants.test.ts`
-  — the browser shell is a thin blitter with no layout or paint law.
+  — the browser shell is a thin blitter with no layout or paint law; one
+  module owns the session's artifacts, and one queue, with no second
+  chain, timer or retry, runs every operation on them.
+- `packages/rito/tests/unit/session-reader-fixtures.ts` — the session the
+  reader's unit tests run against answers one call at a time, as the
+  worker does, and records in `violations` any artifact call the reader
+  sends while another is unanswered; every reader test asserts there are
+  none.
+- `packages/rito-core-wasm/tests/reader-session-worker-facade.test.mjs` —
+  the worker refuses at the live-artifact cap the engine declares (read
+  from the Rust source), and its client holds a call past the pending
+  limit instead of refusing it.
 - `packages/rito_flutter/test/architecture_test.dart` and
   `protocol_version_parity_test.dart` — the Dart adapter mirrors the
   protocol.

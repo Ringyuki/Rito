@@ -26,6 +26,7 @@ interface ReaderLogEntry {
 interface ReaderDiagnostics {
   readonly log?: () => readonly ReaderLogEntry[];
   readonly layout?: () => unknown;
+  readonly queue?: () => unknown;
   readonly rejectedFontFamilies?: () => readonly string[];
 }
 
@@ -57,6 +58,7 @@ export function buildDebugReport(): string {
     `window: ${String(innerWidth)}x${String(innerHeight)} at ${String(devicePixelRatio)}x`,
     `canvas: ${canvasSize()}`,
     `layout: ${describe(safely(() => diagnostics?.layout?.()))}`,
+    `queue: ${describe(safely(() => diagnostics?.queue?.()))}`,
     `showing: ${describe(safely(showing))}`,
     `fonts refused: ${describe(safely(() => diagnostics?.rejectedFontFamilies?.()))}`,
     '',

@@ -57,6 +57,7 @@ const CHAPTERS: FakeChapter[] = [
 
 const NO_ROOM = new RitoReaderError('artifact-capacity', 'Reader retains at most 6 artifacts');
 const STALE = new RitoReaderError('stale-request', 'foreground candidate is no longer pending');
+const FAILED = 'reader session operation failed';
 
 async function open(): Promise<{ reader: Reader; fake: FakeReaderSession }> {
   const ctx = fakeCanvasContext(800, 1200);
@@ -100,8 +101,11 @@ function liveFontSizes(fake: FakeReaderSession): number[] {
   return [...new Set([...fake.live.values()].map((owned) => owned.revision.layout.rootFontSize))];
 }
 
-function requestedFontSizes(fake: FakeReaderSession): number[] {
-  return fake.requests.slice(1).map((request) => request.layout.rootFontSize);
+/** The warnings logged since the last call, by their message. */
+function takeWarnings(): string[] {
+  const messages = harness.warnings.map((warning) => String(warning[0]));
+  harness.warnings = [];
+  return messages;
 }
 
 /** Holds the whole-book step open until the returned function is called. */
@@ -134,8 +138,10 @@ describe('Reader on a session that refuses', () => {
   });
 
   afterEach(() => {
-    // A refusal the reader rides out is not a failure: nothing is reported.
+    // Every refusal a test provoked was read by that test: nothing else failed.
     expect(harness.warnings).toEqual([]);
+    // The reader's work on artifacts came one call at a time, refused or not.
+    expect((harness.fake as FakeReaderSession).violations).toEqual([]);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -148,35 +154,41 @@ describe('Reader on a session that refuses', () => {
       expect(fake.calls.at(-1)).toBe('advance');
     });
 
+    // The session is occupied with the book of 32: the change waits for
+    // that step, whose page is then not wanted, and is laid out after it.
     reader.setTypography({ fontSize: 24 });
-    await vi.waitFor(() => {
-      expect(reader.getLayoutGeometry().rootFontSize).toBe(24);
-    });
+    await settle();
+    expect(reader.getLayoutGeometry().rootFontSize).toBe(32);
     finishBook();
 
     await bookAt(reader, 24);
     await settle();
-    // The book laid out for the size replaced was given back.
+    // Nothing of the layouts replaced is held, the unwanted book page included.
     expect(liveFontSizes(fake)).toEqual([24]);
+    expect(fake.live.size).toBe(3);
     expect(fake.maxLive).toBeLessThanOrEqual(LIVE_ARTIFACT_CAP);
     await reader.dispose();
   });
 
-  it('gives back a layout the session refuses to adopt and asks for it again', async () => {
+  it('gives back a layout the session refuses to show and takes the next setting', async () => {
     const { reader, fake } = await open();
     fake.refuse('adoptForegroundCandidate', STALE);
 
     reader.setTypography({ fontSize: 32 });
-
-    await bookAt(reader, 32);
+    await vi.waitFor(() => {
+      expect(takeWarnings()).toEqual([`[rito] ${FAILED}`]);
+    });
     await settle();
-    expect(requestedFontSizes(fake)).toEqual([32, 32]);
-    // The candidate that was refused holds no slot: the visible spread and
-    // its two neighbours are all the session keeps.
+    // The reader shows what the session shows, and the candidate that was
+    // refused holds no slot: the visible spread and its two neighbours.
+    expect(reader.getLayoutGeometry().rootFontSize).toBe(16);
+    expect(reader.layoutScope).toBe('book');
+    expect(liveFontSizes(fake)).toEqual([16]);
     expect(fake.live.size).toBe(3);
-    expect(liveFontSizes(fake)).toEqual([32]);
 
-    // Every later setting still has room.
+    // The size is still the one asked for: the next change lays out for it.
+    reader.setTypography({ lineHeight: 1.8 });
+    await bookAt(reader, 32);
     for (const fontSize of [20, 24, 28]) {
       reader.setTypography({ fontSize });
       await bookAt(reader, fontSize);
@@ -186,70 +198,104 @@ describe('Reader on a session that refuses', () => {
     await reader.dispose();
   });
 
-  it('keeps a setting the session had no room for and applies it once it has', async () => {
+  it('reports a layout the session has no room for and holds nothing of it', async () => {
     const { reader, fake } = await open();
-    fake.refuse('requestArtifact', NO_ROOM, 3);
+    fake.refuse('requestArtifact', NO_ROOM);
 
     reader.setTypography({ fontSize: 32 });
+    await vi.waitFor(() => {
+      expect(takeWarnings()).toEqual([`[rito] ${FAILED}`]);
+    });
+    await settle();
+    expect(reader.getLayoutGeometry().rootFontSize).toBe(16);
+    expect(fake.live.size).toBe(3);
 
-    await bookAt(reader, 32);
-    expect(fake.calls.filter((call) => call === 'refused requestArtifact')).toHaveLength(3);
-    expect(requestedFontSizes(fake)).toEqual([32]);
+    reader.setTypography({ fontSize: 24 });
+    await bookAt(reader, 24);
     await reader.dispose();
   });
 
-  it('lays out for the newest setting when one refused before it is due again', async () => {
+  it('keeps the book coming for the layout it shows when a newer one fails', async () => {
     const { reader, fake } = await open();
     const finishBook = holdBook(fake);
     reader.setTypography({ fontSize: 32 });
     await vi.waitFor(() => {
-      expect(reader.getLayoutGeometry().rootFontSize).toBe(32);
+      expect(fake.calls.at(-1)).toBe('advance');
     });
     expect(reader.layoutScope).toBe('chapter');
 
-    // A change is refused; before it is asked again the reader is set back
-    // to what it shows, which needs no layout.
-    fake.refuse('requestArtifact', NO_ROOM);
-    fake.onRefusal = () => reader.setTypography({ fontSize: 32 });
+    // The reader turns and a change is asked for while the book is laid
+    // out; the session cannot make the layout for the change.
+    fake.refuse('adoptForegroundCandidate', new RitoReaderError('invalid-layout', 'no layout'));
+    reader.notifyActiveSpread(1);
     reader.setTypography({ fontSize: 24 });
-    await vi.waitFor(() => {
-      expect(fake.calls).toContain('refused requestArtifact');
-    });
     finishBook();
+    await vi.waitFor(() => {
+      expect(takeWarnings()).toEqual([`[rito] ${FAILED}`]);
+    });
 
-    // The chapter it shows still gets its whole book.
+    // The size it could not lay out is not shown; the one it shows gets its
+    // whole book, on the page the reader turned to, and nothing of the
+    // failed layout is held.
     await bookAt(reader, 32);
     await settle();
-    expect(requestedFontSizes(fake)).toEqual([32]);
+    expect(reader.activeSpreadIndex).toBe(fake.visibleSpread());
+    expect(liveFontSizes(fake)).toEqual([32]);
+    expect(fake.live.size).toBe(3);
     await reader.dispose();
   });
 
-  it('reports a layout the session cannot make and keeps the one it shows whole', async () => {
+  it('waits with the book while the session could not follow a turn', async () => {
     const { reader, fake } = await open();
     const finishBook = holdBook(fake);
     reader.setTypography({ fontSize: 32 });
     await vi.waitFor(() => {
-      expect(reader.getLayoutGeometry().rootFontSize).toBe(32);
+      expect(fake.calls.at(-1)).toBe('advance');
     });
 
-    fake.refuse('adoptForegroundCandidate', new RitoReaderError('invalid-layout', 'not a layout'));
-    reader.setTypography({ fontSize: 24 });
-    await vi.waitFor(() => {
-      expect(harness.warnings).toHaveLength(1);
-    });
-    expect(String(harness.warnings[0])).toContain('reader session operation failed');
-    harness.warnings = [];
+    // The reader turns while the book is laid out, and the session refuses
+    // to show the spread it turned to.
+    fake.refuse('commitPeekedArtifact', STALE);
+    reader.notifyActiveSpread(1);
     finishBook();
+    await vi.waitFor(() => {
+      expect(takeWarnings()).toEqual([`[rito] ${FAILED}`]);
+    });
+    await settle();
+    // The book is not brought for the page the reader left, and is not
+    // asked for over and over either.
+    const steps = fake.calls.filter((call) => call === 'advance').length;
+    await settle();
+    expect(fake.calls.filter((call) => call === 'advance')).toHaveLength(steps);
+    expect(reader.layoutScope).toBe('chapter');
 
-    // The size it could not lay out is not shown; the one it shows is laid
-    // out for the whole book, and nothing of the failed one is held.
+    // The next turn is followed, and the book arrives on that page.
+    reader.notifyActiveSpread(2);
     await bookAt(reader, 32);
     await settle();
-    expect(liveFontSizes(fake)).toEqual([32]);
-    expect(fake.live.size).toBe(3);
+    expect(fake.visibleSpread()).toBe(reader.activeSpreadIndex);
+    await reader.dispose();
+  });
 
-    reader.setTypography({ fontSize: 20 });
-    await bookAt(reader, 20);
+  it('tries the book again after a step of it failed, once the reader is asked something', async () => {
+    const { reader, fake } = await open();
+    fake.refuse('adoptBackgroundCandidate', STALE);
+
+    reader.setTypography({ fontSize: 32 });
+    await vi.waitFor(() => {
+      expect(takeWarnings()).toEqual(['[rito] reader whole-book layout failed']);
+    });
+    await settle();
+    // The chapter stays readable, and the page the book brought was given
+    // back: the chapter's first spread and the one after it are all that is held.
+    expect(reader.layoutScope).toBe('chapter');
+    expect(reader.getLayoutGeometry().rootFontSize).toBe(32);
+    expect(fake.live.size).toBe(2);
+
+    reader.notifyActiveSpread(reader.activeSpreadIndex + 1);
+    await bookAt(reader, 32);
+    await settle();
+    expect(reader.activeSpreadIndex).toBe(fake.visibleSpread());
     await reader.dispose();
   });
 });

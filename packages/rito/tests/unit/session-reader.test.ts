@@ -168,6 +168,8 @@ describe('Reader on a session', () => {
     // Nothing the reader does may fail quietly: every session rule the fake
     // enforces surfaces as a logged warning.
     expect(harness.warnings).toEqual([]);
+    // Its work on artifacts came one call at a time.
+    expect((harness.fake as FakeReaderSession).violations).toEqual([]);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -395,6 +397,34 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('keeps a turn made while the session adopts the whole book', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+    let turned = false;
+    fake.onAnswer = (method) => {
+      // The host turns at the last moment the book can be adopted for the
+      // page it is leaving.
+      if (method !== 'adoptBackgroundCandidate' || turned) return;
+      turned = true;
+      reader.notifyActiveSpread(reader.activeSpreadIndex + 1);
+    };
+
+    reader.setTypography({ fontSize: 32 });
+    await bookScope(reader);
+    await settle();
+
+    // The chapter's first spread sits behind the cover's two pages; the
+    // reader is on the one after it, where it turned to, and so is the session.
+    expect(commits).toEqual([
+      { index: 0, scope: 'chapter', spreads: 16 },
+      { index: 3, scope: 'book', spreads: 28 },
+    ]);
+    expect(reader.activeSpreadIndex).toBe(3);
+    expect(fake.visibleSpread()).toBe(3);
+    await reader.dispose();
+  });
+
   it('answers a locator in the chapter now and one elsewhere once the book is in', async () => {
     let finishBook: () => void = () => undefined;
     const ctx = fakeCanvasContext(800, 1200);
@@ -414,16 +444,10 @@ describe('Reader on a session', () => {
       expect(reader.layoutScope).toBe('chapter');
     });
 
-    await expect(
-      reader.navigateToLocator?.({ href: 'one.xhtml', progression: 1 }),
-    ).resolves.toEqual({
-      status: 'resolved',
-      locator: { href: 'one.xhtml', progression: 1 },
-      spineIdref: 'one',
-      pageIndex: 15,
-      spreadIndex: 15,
-      matchedBy: 'progression',
-    });
+    // The session is occupied with the book: both questions wait for it,
+    // the one in the chapter being read is answered from that chapter, the
+    // one elsewhere once the book is committed.
+    const here = reader.navigateToLocator?.({ href: 'one.xhtml', progression: 1 });
     let elsewhere: unknown = 'waiting';
     void reader.navigateToLocator?.({ href: 'two.xhtml#top' }).then((resolution) => {
       elsewhere = resolution;
@@ -433,6 +457,14 @@ describe('Reader on a session', () => {
 
     finishBook();
     fake.backgroundGate = undefined;
+    await expect(here).resolves.toEqual({
+      status: 'resolved',
+      locator: { href: 'one.xhtml', progression: 1 },
+      spineIdref: 'one',
+      pageIndex: 15,
+      spreadIndex: 15,
+      matchedBy: 'progression',
+    });
     await vi.waitFor(() => {
       expect(elsewhere).not.toBe('waiting');
     });

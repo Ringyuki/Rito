@@ -2,11 +2,7 @@ import type { LayoutConfig, ReaderOptions, Spread } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type { ReaderEventLog } from '../reader-event-log';
 import type { CanvasRenderingTarget } from '../primitive-renderer';
-import {
-  RitoReaderError,
-  type BrowserReaderArtifact,
-  type BrowserReaderSession,
-} from '../reader-session';
+import type { BrowserReaderArtifact, BrowserReaderSession } from '../reader-session';
 import type {
   BrowserReaderCanvasPresenter,
   BrowserReaderPreparedCanvasArtifact,
@@ -37,6 +33,23 @@ export interface SessionReaderTypography {
   fontFamilyForce: boolean;
 }
 
+/**
+ * A reader's work on its session's artifacts, one operation at a time.
+ * `asked` holds what the reader was asked to do (follow the host to a
+ * spread, lay out again) and `ahead` the spreads loaded before they are
+ * shown; an operation asked for runs before one loaded ahead.
+ */
+export interface SessionReaderQueue {
+  readonly asked: (() => Promise<void>)[];
+  readonly ahead: (() => Promise<void>)[];
+  running: boolean;
+  /**
+   * What the queue does when nothing waits: one step of the whole-book
+   * layout. Resolves whether another step is wanted.
+   */
+  idle: () => Promise<boolean>;
+}
+
 export interface SessionReaderState {
   readonly session: BrowserReaderSession;
   readonly presenter: BrowserReaderCanvasPresenter;
@@ -59,28 +72,23 @@ export interface SessionReaderState {
   view: SessionReaderLayoutView;
   /** Loaded spreads of the committed layout, by spread index. */
   frames: Map<number, SessionReaderFrame>;
+  /** Spread loads queued or under way, by spread index. */
   readonly pendingFrames: Map<number, Promise<SessionReaderFrame | undefined>>;
   /** The spread the session shows: every turn, layout and adoption replaces it by compare-and-swap. */
   visible: SessionReaderFrame;
   /** The spread the host shows; the session follows it. */
   activeSpreadIndex: number;
-  /** Counts layout commits; work begun under an older one is dropped. */
+  /** Counts layout commits; an answer for an older one is dropped. */
   layoutGeneration: number;
   /** Counts layout requests; only the latest commits. */
   relayoutToken: number;
-  /** Counts whole-book runs; a layout request ends the run of the layout it replaces. */
-  backgroundToken: number;
-  /** Turns, layouts and adoptions run one at a time, in order. */
-  foreground: Promise<void>;
-  /** Spread loads run one at a time, so the live-artifact budget is counted exactly. */
-  frameLoads: Promise<void>;
-  /** Whole-book runs, one after another. */
-  background: Promise<void>;
+  readonly queue: SessionReaderQueue;
   showQueued: boolean;
-  relayoutQueued: boolean;
   relayoutForced: boolean;
-  /** Layout requests in a row the session refused for now; a commit ends the row. */
-  relayoutRefusals: number;
+  /** Whole-book steps in a row that brought no page for the committed layout. */
+  bookIdleSteps: number;
+  /** A whole-book step failed; the next thing the reader is asked to do tries again. */
+  bookStalled: boolean;
   /** Publication faces the browser refused to decode, by the family artifacts list them under. */
   readonly rejectedFontFamilies: Set<string>;
   readonly bookWaiters: Set<() => void>;
@@ -96,40 +104,6 @@ export interface SessionReaderState {
  */
 export function sessionReaderClosed(state: SessionReaderState): boolean {
   return state.disposed;
-}
-
-/** Runs `operation` after every foreground operation queued before it. */
-export function runSessionReaderForeground(
-  state: SessionReaderState,
-  operation: () => Promise<void>,
-): Promise<void> {
-  const run = state.foreground.then(async () => {
-    if (sessionReaderClosed(state)) return;
-    try {
-      await operation();
-    } catch (error) {
-      if (!sessionReaderClosed(state)) state.logger.warn('reader session operation failed', error);
-    }
-  });
-  state.foreground = run;
-  return run;
-}
-
-/** How long a request the session refused for now waits before it is made again. */
-export const SESSION_READER_RETRY_DELAY_MS = 16;
-const REFUSED_FOR_NOW = new Set<string>([
-  'stale-request',
-  'request-busy',
-  'artifact-capacity',
-  'request-capacity',
-]);
-
-/**
- * Whether the session refused a request only for now: it was occupied, out
- * of artifact slots, or overtaken. The same request made again is answered.
- */
-export function sessionReaderRefusedForNow(error: unknown): boolean {
-  return error instanceof RitoReaderError && REFUSED_FOR_NOW.has(error.code);
 }
 
 export function notifySessionReaderSpreadInvalidated(

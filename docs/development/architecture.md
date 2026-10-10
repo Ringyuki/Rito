@@ -90,6 +90,41 @@ paginate, parse CSS, place a glyph or infer semantics from paint.
 them with a `CustomPainter`; the engine is compiled by Flutter's Native
 Assets hook from the tracked Rust source closure.
 
+## Host discipline
+
+The protocol leaves three things to a host, and both hosts do them the
+same way.
+
+**One operation at a time.** Whatever creates, adopts, commits or releases
+an artifact, or advances the whole-book layout, runs through one queue and
+never overlaps another such operation. The live-artifact budget is then
+counted exactly, and nothing reaches the session between a request and
+the adoption of its result. Questions about a live artifact — geometry,
+search, footnotes, positions — and font changes hold no artifact: they
+are sent as they come, and an answer for a layout that was replaced
+meanwhile is dropped.
+
+**An artifact always has an owner that knows its fate.** A request, the
+preparation of its result and its adoption are one step. A candidate that
+is not adopted — preparing it failed, the session refused it, a newer
+request overtook it — is released before the step ends. A host holds what
+it shows, what a turn would show next and the candidate of the step under
+way; the engine's cap of six live artifacts is budgeted for exactly that.
+
+**The engine's limits are the only limits.** A transport may refuse early
+what the engine would refuse, at the engine's number. It does not refuse a
+call for arriving while it is busy: a call past what it holds waits its
+turn, in order.
+
+In the browser the queue is `session-reader/queue.ts` and the owner is
+`session-reader/artifacts.ts`, the only module that calls the session's
+artifact methods. What the reader was asked for — a turn, a new layout —
+runs before a spread loaded ahead, and a step of the whole book runs when
+nothing waits. In Flutter the queue is `RitoReaderController` and the
+owner is `RitoReaderSession`. Neither host retries: with one operation at
+a time a refusal is not a race to ride out but a failure, and it is
+reported.
+
 ## Required invariants
 
 - Rust owns parsing, style, layout, pagination, paint and interaction
@@ -109,6 +144,8 @@ Assets hook from the tracked Rust source closure.
   whole-book pass produced; a disagreement fails the read.
 - Revisions and live artifacts have explicit lifecycles and a bounded
   count; a host releases what it no longer shows.
+- A host works on artifacts one operation at a time, and releases every
+  candidate it does not adopt before that operation ends.
 - Public TypeScript exports go through `packages/rito/src/index.ts` and
   stay small.
 - Engine, wire encoder and every decoder come from the same commit.
