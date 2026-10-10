@@ -96,7 +96,8 @@ abstract class RitoPageTurnEffect {
 }
 
 /// The edge of a sheet lying over the page beneath it, which casts a soft
-/// shadow on that page.
+/// shadow on that page. The shadow reaches 24 logical px and fades as its
+/// sheet leaves the frame.
 enum RitoPageEdge { left, right }
 
 /// One whole page drawn for a frame.
@@ -137,32 +138,40 @@ abstract class RitoLayeredPageTurnEffect extends RitoPageTurnEffect {
         continue;
       }
       final shadow = layer.shadow;
-      if (shadow != null) {
-        final edge = shadow == RitoPageEdge.left
-            ? layer.x
-            : layer.x + scene.size.width;
-        _paintEdgeShadow(scene.canvas, edge, shadow, scene.size.height);
-      }
+      if (shadow != null) _paintEdgeShadow(scene, layer.x, shadow);
       scene.drawPage(layer.slot, layer.x, opacity: layer.opacity);
     }
   }
 }
 
-void _paintEdgeShadow(
-  Canvas canvas,
-  double edge,
-  RitoPageEdge side,
-  double height,
-) {
-  const reach = 24.0;
-  final to = side == RitoPageEdge.left ? edge - reach : edge + reach;
+/// How far a sheet's shadow reaches over the page beneath it, logical px.
+const double _shadowReach = 24;
+
+/// How dark the shadow is at the sheet's edge.
+const double _shadowAlpha = 0.18;
+
+/// The soft shadow the sheet at [x] casts on the page beneath it, from one
+/// edge. A sheet leaving the frame takes its shadow with it: with less of
+/// the sheet in the frame than the shadow reaches, the shadow is as strong
+/// as that share, and gone when the sheet is. At full strength there it
+/// stood beside a sheet no longer shown and went out in one frame when
+/// the turn ended.
+void _paintEdgeShadow(RitoPageTurnScene scene, double x, RitoPageEdge side) {
+  final width = scene.size.width;
+  final inFrame = math.min(x + width, width) - math.max(x, 0.0);
+  final strength = math.min(1.0, inFrame / _shadowReach);
+  if (strength <= 0) return;
+  final edge = side == RitoPageEdge.left ? x : x + width;
+  final to = side == RitoPageEdge.left
+      ? edge - _shadowReach
+      : edge + _shadowReach;
   final paint = Paint()
-    ..shader = ui.Gradient.linear(Offset(edge, 0), Offset(to, 0), const [
-      Color.fromRGBO(0, 0, 0, 0.18),
-      Color.fromRGBO(0, 0, 0, 0),
+    ..shader = ui.Gradient.linear(Offset(edge, 0), Offset(to, 0), [
+      Color.fromRGBO(0, 0, 0, _shadowAlpha * strength),
+      const Color.fromRGBO(0, 0, 0, 0),
     ]);
-  canvas.drawRect(
-    Rect.fromLTRB(math.min(edge, to), 0, math.max(edge, to), height),
+  scene.canvas.drawRect(
+    Rect.fromLTRB(math.min(edge, to), 0, math.max(edge, to), scene.size.height),
     paint,
   );
 }

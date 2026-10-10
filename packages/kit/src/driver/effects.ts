@@ -2,9 +2,10 @@ import type { SlotPosition } from '../painter/types';
 
 /**
  * One frame of a page turn as an effect sees it: how far the turn has
- * travelled (`dx`, CSS px, negative while turning forward), the page width,
- * and which neighbour is coming in (`null` while pulling against the first
- * or last spread).
+ * travelled (`dx`, negative while turning forward), the page width, and
+ * which neighbour is coming in (`null` while pulling against the first or
+ * last spread). Both lengths are in the units the frame is drawn in, the
+ * display canvas's own pixels.
  */
 export interface TransitionFrame {
   readonly dx: number;
@@ -15,7 +16,8 @@ export interface TransitionFrame {
 /**
  * One page drawn for a frame, bottom to top: the slot, its x offset, its
  * opacity, and an optional shadow cast from one vertical edge (the edge of
- * a sheet lying over the page beneath it).
+ * a sheet lying over the page beneath it). The shadow reaches 24 CSS px
+ * and fades as its sheet leaves the frame.
  */
 export interface TransitionLayer {
   readonly slot: SlotPosition;
@@ -26,8 +28,8 @@ export interface TransitionLayer {
 
 /**
  * A page as a painted effect sees it: its bitmap and the overlay drawn over
- * it (highlights, selection), both covering the page at `pixelRatio` device
- * pixels per CSS pixel.
+ * it (highlights, selection), both covering the page at `pixelRatio` bitmap
+ * pixels per unit of the scene.
  */
 export interface TransitionPage {
   readonly content: CanvasImageSource;
@@ -44,6 +46,8 @@ export interface TransitionScene {
   readonly context: CanvasRenderingContext2D;
   readonly width: number;
   readonly height: number;
+  /** The length of a CSS pixel in those units: what sizes a shadow or a curl. */
+  readonly cssPixel: number;
   /** The page in a slot, or null while it is not painted yet. */
   page(slot: SlotPosition): TransitionPage | null;
   /** Draw a page whole at `x`, with its overlay; a page not painted yet is skipped. */

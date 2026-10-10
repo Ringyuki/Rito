@@ -91,12 +91,19 @@ that gap.
   pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or
   `'none'` (a turn lands at once), or a custom `TransitionEffect` of either kind:
   - layered — `layers({ dx, width, incoming })` returns whole pages to draw bottom
-    to top (`{ slot, x, opacity?, shadow? }`);
+    to top (`{ slot, x, opacity?, shadow? }`). A `shadow` is cast from that edge of
+    the sheet onto the page beneath it: it reaches 24 CSS px and fades as the sheet
+    leaves the frame, so it is gone when the sheet is;
   - painted — `paint(scene, frame)` draws the frame itself, for looks that bend or
     cut the pages such as a curl. `scene.context` is the cleared display canvas,
     `scene.page(slot)` gives a page's bitmap and overlay (`{ content, overlay,
 pixelRatio }`, or `null` while it is not painted yet) and
     `scene.drawPage(slot, x, opacity?)` draws one whole.
+
+  A frame's `dx` and `width`, like the scene's `width` and `height`, are in the
+  display canvas's own pixels; `scene.cssPixel` is the length of a CSS pixel in
+  them.
+
 - `springPresets.default | snappy | gentle` (or your own `stiffness` / `damping`).
 - `respectReducedMotion` (default `true`): while the system asks for reduced motion,
   turns cross-fade whatever the effect.

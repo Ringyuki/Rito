@@ -247,7 +247,7 @@ function drawTurningFrame(
   };
   deps.surface.clear();
   paintTransition(
-    createTransitionScene(deps.surface.ctx, width, height, pageOf),
+    createTransitionScene(deps.surface.ctx, width, height, pageOf, scale),
     deps.transitionDriver.effect,
     frame,
   );

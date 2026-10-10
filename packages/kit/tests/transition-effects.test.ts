@@ -111,6 +111,49 @@ describe('transition scene', () => {
     expect(calls).toEqual(['curr@0*1', 'prev@0*1', 'shadow', 'curr@100*1']);
   });
 
+  it('a sheet leaving the frame takes its shadow with it', () => {
+    // The shadow a cover frame at `dx` paints: where its edge is, how far
+    // it reaches and how dark it is at the edge.
+    const shadow = (dx: number, incoming: 'next' | 'prev', cssPixel = 1) => {
+      const shadows: { edge: number; reach: number; alpha: number }[] = [];
+      let stops: string[] = [];
+      const context = {
+        globalAlpha: 1,
+        fillStyle: '',
+        drawImage: () => undefined,
+        createLinearGradient: (edge: number, _y: number, to: number) => {
+          stops = [];
+          shadows.push({ edge, reach: Math.abs(to - edge), alpha: 0 });
+          return { addColorStop: (_at: number, color: string) => stops.push(color) };
+        },
+        fillRect: () => {
+          const alpha = /, ([\d.]+)\)$/.exec(stops[0] ?? '');
+          const last = shadows.at(-1);
+          if (last) last.alpha = Number(alpha?.[1]);
+        },
+      } as unknown as CanvasRenderingContext2D;
+      const scene = createTransitionScene(context, W * cssPixel, 300, page, cssPixel);
+      const frame = { dx: dx * cssPixel, width: W * cssPixel, incoming };
+      paintTransition(scene, transitionEffects.cover, frame);
+      return shadows[0] ?? null;
+    };
+
+    // Turning back, this page slides off to the right over the one before.
+    expect(shadow(150, 'prev')).toEqual({ edge: 150, reach: 24, alpha: 0.18 });
+    expect(shadow(W - 24, 'prev')?.alpha).toBe(0.18);
+    expect(shadow(W - 12, 'prev')?.alpha).toBeCloseTo(0.09);
+    expect(shadow(W - 6, 'prev')?.alpha).toBeCloseTo(0.045);
+    expect(shadow(W, 'prev')).toBeNull();
+    // Turning forward, the next page casts none before it is in the frame,
+    // and its shadow leaves the frame ahead of it as it arrives.
+    expect(shadow(0, 'next')).toBeNull();
+    expect(shadow(-12, 'next')?.alpha).toBeCloseTo(0.09);
+    expect(shadow(-W, 'next')).toEqual({ edge: 0, reach: 24, alpha: 0.18 });
+    // The reach is a length on the page, whatever the display's density.
+    expect(shadow(150, 'prev', 3)).toEqual({ edge: 450, reach: 72, alpha: 0.18 });
+    expect(shadow(W - 12, 'prev', 3)?.alpha).toBeCloseTo(0.09);
+  });
+
   it('hands a painted effect the scene, its pages and the frame', () => {
     const { context, calls } = fakeContext();
     const seen: string[] = [];
