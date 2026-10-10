@@ -2,7 +2,8 @@
 // "same task" to "after the book is laid out", with page turns in between,
 // and then asks whether the reader ended where it was told to. It passes when
 // no session request was refused, the committed size is the last one asked
-// for, and the layout covers the whole book again.
+// for, the layout covers the whole book again, and no call on an artifact
+// was sent while another was unanswered.
 //
 //   BOOK=/path/to.epub URL=http://127.0.0.1:5173/ node settings-storm.mjs
 //
@@ -95,11 +96,37 @@ for (const entry of refused) {
   const key = `${entry.kind}: ${String(entry.result).slice(0, 90)}`;
   byRefusal.set(key, (byRefusal.get(key) ?? 0) + 1);
 }
+// One operation on artifacts at a time: a call that creates, adopts,
+// commits or releases an artifact is never sent while another is
+// unanswered (releases may be sent together).
+const OWNING = new Set([
+  'requestArtifact',
+  'adoptForegroundCandidate',
+  'adoptBackgroundCandidate',
+  'advanceBackgroundOnce',
+  'peekSpread',
+  'commitPeekedArtifact',
+  'release',
+]);
+const owning = log
+  .filter((entry) => OWNING.has(entry.kind) && entry.ms !== undefined)
+  .map((entry) => ({ kind: entry.kind, from: entry.at, to: entry.at + entry.ms }))
+  .sort((a, b) => a.from - b.from);
+const interleaved = [];
+owning.forEach((call, index) => {
+  for (const later of owning.slice(index + 1)) {
+    // Timestamps are kept to a tenth of a millisecond.
+    if (later.from >= call.to - 0.3) break;
+    if (call.kind === 'release' && later.kind === 'release') continue;
+    interleaved.push(`${later.kind} at ${String(later.from)} inside ${call.kind}`);
+  }
+});
 const ok =
   rounds.every((round) => round.settled) &&
   refused.length === 0 &&
   unanswered.length === 0 &&
-  warnings.length === 0;
+  warnings.length === 0 &&
+  interleaved.length === 0;
 console.log(
   JSON.stringify(
     {
@@ -110,7 +137,10 @@ console.log(
       refused: refused.length,
       unanswered: unanswered.length,
       warnings: warnings.length,
+      artifactCalls: owning.length,
+      interleaved: interleaved.length,
       refusals: Object.fromEntries(byRefusal),
+      interleavings: interleaved.slice(0, 10),
       rounds,
     },
     null,
