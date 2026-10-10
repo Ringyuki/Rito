@@ -259,8 +259,9 @@ fn a_session_selection_matches_the_whole_book_revision() {
         y: point.y - config.margin_top,
     };
     let response = document
-        .resolve_text_range_from_points_for_revision(
+        .resolve_text_range_from_points_in(
             &revision.revision_id,
+            crate::runtime::tests::revisions::revision_by_id(&document, &revision.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: page_point,
                 focus: page_point,

@@ -1,25 +1,21 @@
 use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
-use crate::runtime::{
-    RuntimeDocument, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
-    RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
-};
+use crate::runtime::{RuntimeDocument, RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION};
 
 #[test]
 fn fixture_chapters_are_representable_and_fingerprints_are_stable() {
     let mut document =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
     let revision = document.create_revision(&layout()).expect("revision");
-    let handle = RuntimeRevisionHandle::from(&revision);
 
     let first = document
-        .chapter_tree_report_at(&handle)
+        .chapter_tree_report(&revision.revision_id)
         .expect("first report");
     let second = document
-        .chapter_tree_report_at(&handle)
+        .chapter_tree_report(&revision.revision_id)
         .expect("second report");
-    assert_eq!(first.value, second.value);
+    assert_eq!(first, second);
 
-    let report = first.value;
+    let report = first;
     assert_eq!(
         report.schema_version,
         RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION
@@ -54,26 +50,25 @@ fn multi_chapter_fixture_measures_every_chapter() {
         .expect("document opens");
     let revision = document.create_revision(&layout()).expect("revision");
     let report = document
-        .chapter_tree_report_at(&RuntimeRevisionHandle::from(&revision))
+        .chapter_tree_report(&revision.revision_id)
         .expect("report");
-    assert!(report.value.chapter_count > 1);
-    assert_eq!(
-        report.value.representable_chapter_count,
-        report.value.chapter_count
-    );
+    assert!(report.chapter_count > 1);
+    assert_eq!(report.representable_chapter_count, report.chapter_count);
 }
 
 #[test]
-fn forged_revision_handle_is_rejected() {
+fn a_revision_of_another_document_is_unknown() {
     let mut seeded =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
     let revision = seeded.create_revision(&layout()).expect("revision");
-    let handle = RuntimeRevisionHandle::from(&revision);
 
     let fresh =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("fresh document opens");
     let error = fresh
-        .chapter_tree_report_at(&handle)
-        .expect_err("handle from another document is rejected");
-    assert_eq!(error.kind, RuntimeRevisionAccessErrorKind::UnknownRevision);
+        .chapter_tree_report(&revision.revision_id)
+        .expect_err("a revision another document created is rejected");
+    assert_eq!(
+        error.to_string(),
+        format!("unknown revision: {}", revision.revision_id)
+    );
 }

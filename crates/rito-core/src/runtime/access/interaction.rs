@@ -1,32 +1,10 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    ResolvedRuntimeLocator, RuntimeDocument, RuntimeFootnote, RuntimeFootnotes,
-    RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimePositionAnswer, RuntimePositionQuery,
-    RuntimeSearchRequest, RuntimeSearchResponse, RuntimeSourceLocator,
+    RuntimeDocument, RuntimeFootnote, RuntimePageReadingAnchor, RuntimeSourceLocator,
     RuntimeSourceLocatorResolution,
 };
 
 impl RuntimeDocument {
-    pub fn search_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimeSearchRequest,
-    ) -> Result<RuntimeVersioned<RuntimeSearchResponse>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.search(revision_id, request)
-        })
-    }
-
-    pub fn resolve_locator_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimeLocatorRequest,
-    ) -> Result<RuntimeVersioned<ResolvedRuntimeLocator>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.resolve_locator(revision_id, request)
-        })
-    }
-
     pub fn resolve_source_locator_at(
         &mut self,
         handle: &RuntimeRevisionHandle,
@@ -54,33 +32,6 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimeFootnote>, RuntimeRevisionAccessError> {
         self.versioned_write(handle, |document, revision_id| {
             document.get_footnote(revision_id, key)
-        })
-    }
-
-    pub fn get_footnotes_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<RuntimeFootnotes>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, RuntimeDocument::get_footnotes)
-    }
-
-    /// Answers a source-only reading-position question; the handle keeps
-    /// the request on the document the caller is reading.
-    pub fn resolve_position_query_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        query: RuntimePositionQuery,
-    ) -> Result<RuntimeVersioned<RuntimePositionAnswer>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, _| match query {
-            RuntimePositionQuery::TocEntryAtPosition { href, point } => document
-                .toc_entry_at_source_position(&href, &point)
-                .map(|toc_index| RuntimePositionAnswer::TocEntry { toc_index }),
-            RuntimePositionQuery::Compare { first, second } => document
-                .compare_source_positions(
-                    (&first.href, &first.point),
-                    (&second.href, &second.point),
-                )
-                .map(|order| RuntimePositionAnswer::Order { order: order as i8 }),
         })
     }
 }

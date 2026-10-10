@@ -31,7 +31,6 @@ mod revision_fonts;
 mod search;
 mod source_locator;
 mod spread;
-mod style_table_summary;
 mod text_interaction;
 mod transfer_store;
 mod types;
@@ -72,19 +71,14 @@ use resource::{
 };
 use search::search_revision;
 pub use search::{SearchRuntimeResult, SearchTextPosition};
-pub use style_table_summary::{
-    RuntimeChapterStyleTableSummary, RuntimeStyleTableSummary,
-    RUNTIME_STYLE_TABLE_SUMMARY_SCHEMA_VERSION,
-};
 
 pub use source_locator::{
     annotation_target_from_json, annotation_target_to_json, AnnotationOrphanReason,
     AnnotationPosition, AnnotationQuote, AnnotationTarget, AnnotationTargetResolution,
-    RuntimePageReadingAnchor, RuntimePageReadingAnchorUnavailableReason, RuntimePositionAnswer,
-    RuntimePositionQuery, RuntimeSourceLocator, RuntimeSourceLocatorError,
-    RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
+    RuntimePageReadingAnchor, RuntimePageReadingAnchorUnavailableReason, RuntimeSourceLocator,
+    RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
     RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
-    RuntimeSourcePosition, RuntimeSourceRange, ANNOTATION_TARGET_VERSION,
+    RuntimeSourceRange, ANNOTATION_TARGET_VERSION,
 };
 pub use text_interaction::{
     RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,

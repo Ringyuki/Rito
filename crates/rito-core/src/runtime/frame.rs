@@ -454,43 +454,6 @@ impl RuntimeDocument {
         }))
     }
 
-    pub(super) fn get_chapter_local_frame_command_buffer_metadata_inner(
-        &mut self,
-        revision_id: &str,
-        local_spread_index: usize,
-    ) -> EpubResult<RuntimeFrameCommandBufferMetadata> {
-        Ok(self
-            .ensure_chapter_local_frame_cached(revision_id, local_spread_index)?
-            .command_buffer
-            .metadata
-            .clone())
-    }
-
-    pub(super) fn read_chapter_local_frame_command_buffer_inner(
-        &mut self,
-        revision_id: &str,
-        local_spread_index: usize,
-    ) -> EpubResult<Vec<u8>> {
-        Ok(self
-            .ensure_chapter_local_frame_cached(revision_id, local_spread_index)?
-            .command_buffer
-            .bytes
-            .clone())
-    }
-
-    pub(super) fn get_chapter_local_frame_image_resource_hrefs_inner(
-        &mut self,
-        revision_id: &str,
-        local_spread_index: usize,
-    ) -> EpubResult<Vec<String>> {
-        Ok(self
-            .ensure_chapter_local_frame_cached(revision_id, local_spread_index)?
-            .command_buffer
-            .metadata
-            .resource_table
-            .clone())
-    }
-
     fn ensure_frame_cached(
         &mut self,
         revision_id: &str,
@@ -515,43 +478,6 @@ impl RuntimeDocument {
                 }
                 self.service_cleanup_queue();
                 self.cached_frame(revision_id, spread_index)
-            }
-            Err(error) => {
-                self.service_cleanup_queue();
-                Err(error)
-            }
-        }
-    }
-
-    fn ensure_chapter_local_frame_cached(
-        &mut self,
-        revision_id: &str,
-        local_spread_index: usize,
-    ) -> EpubResult<&RuntimeCachedFrame> {
-        let ratio = self.render_ratio.get();
-        let document = &mut self.document;
-        let result = self
-            .chapter_local_revisions
-            .get_mut(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown chapter-local revision: {revision_id}")))
-            .and_then(|revision| {
-                cache_runtime_frame(revision, revision_id, local_spread_index, ratio, document)
-            });
-        match result {
-            Ok((replaced, evicted)) => {
-                if let Some(replaced) = replaced {
-                    self.cleanup_queue.enqueue_cached_frame(replaced);
-                }
-                if let Some(evicted) = evicted {
-                    self.cleanup_queue.enqueue_cached_frame(evicted);
-                }
-                self.service_cleanup_queue();
-                self.chapter_local_revisions
-                    .get(revision_id)
-                    .and_then(|revision| revision.frame_cache.get(&local_spread_index))
-                    .ok_or_else(|| {
-                        EpubError::new(format!("unknown local spread: {local_spread_index}"))
-                    })
             }
             Err(error) => {
                 self.service_cleanup_queue();

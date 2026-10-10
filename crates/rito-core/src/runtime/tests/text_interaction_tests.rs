@@ -1,12 +1,13 @@
 use super::pinned_font_policy_fixtures::{content_epub, face, layout, policy, title_font};
+use super::revisions::{exact_source_range, revision_by_id};
 use crate::{
     interaction::{TextCaretAddress, TextCaretAffinity, TextInteractionUnavailableReason},
     runtime::{
         RuntimeDocument, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
-        RuntimePinnedFontGenericRole, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
-        RuntimeSearchRequest, RuntimeSearchSource, RuntimeSourcePoint, RuntimeSourceRange,
-        RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
-        RuntimeTextRangeToPointRequest, RuntimeVersioned,
+        RuntimePinnedFontGenericRole, RuntimeRevisionHandle, RuntimeSearchRequest,
+        RuntimeSearchSource, RuntimeSourcePoint, RuntimeSourceRange, RuntimeTextCaretResolution,
+        RuntimeTextCaretResponse, RuntimeTextPointRequest, RuntimeTextRangeToPointRequest,
+        RuntimeVersioned,
     },
 };
 use serde_json::json;
@@ -28,8 +29,8 @@ fn native_search_source_reuses_authoritative_exact_shape_projection() {
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
     let search = document
-        .search_at(
-            &handle,
+        .search(
+            &handle.revision_id,
             RuntimeSearchRequest {
                 query: "Wi".to_owned(),
                 case_sensitive: true,
@@ -38,21 +39,21 @@ fn native_search_source_reuses_authoritative_exact_shape_projection() {
             },
         )
         .expect("native search succeeds");
-    let result = search.value.results.first().expect("search match");
+    let result = search.results.first().expect("search match");
     let RuntimeSearchSource::Resolved { href, source_range } = &result.source else {
         panic!("search match owns an exact durable source range");
     };
 
-    let projected = document
-        .resolve_exact_source_range_at(
-            &handle,
-            RuntimeExactSourceRangeRequest {
-                href: href.clone(),
-                source_range: source_range.clone(),
-            },
-        )
-        .expect("search source projects through exact shapes");
-    let RuntimeExactSourceRangeResolution::Resolved { range } = projected.value.resolution else {
+    let projected = exact_source_range(
+        &mut document,
+        &handle.revision_id,
+        RuntimeExactSourceRangeRequest {
+            href: href.clone(),
+            source_range: source_range.clone(),
+        },
+    )
+    .expect("search source projects through exact shapes");
+    let RuntimeExactSourceRangeResolution::Resolved { range } = projected else {
         panic!("pinned search match projects exactly");
     };
     assert_eq!(range.selected_text, "Wi");
@@ -75,8 +76,8 @@ fn embedded_nested_search_source_projects_non_tail_range_exactly() {
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
     let search = document
-        .search_at(
-            &handle,
+        .search(
+            &handle.revision_id,
             RuntimeSearchRequest {
                 query: "关于".to_owned(),
                 case_sensitive: true,
@@ -85,21 +86,21 @@ fn embedded_nested_search_source_projects_non_tail_range_exactly() {
             },
         )
         .expect("native search succeeds");
-    let result = search.value.results.first().expect("search match");
+    let result = search.results.first().expect("search match");
     let RuntimeSearchSource::Resolved { href, source_range } = &result.source else {
         panic!("search match owns an exact durable source range");
     };
 
-    let projected = document
-        .resolve_exact_source_range_at(
-            &handle,
-            RuntimeExactSourceRangeRequest {
-                href: href.clone(),
-                source_range: source_range.clone(),
-            },
-        )
-        .expect("search source projects through exact shapes");
-    let RuntimeExactSourceRangeResolution::Resolved { range } = projected.value.resolution else {
+    let projected = exact_source_range(
+        &mut document,
+        &handle.revision_id,
+        RuntimeExactSourceRangeRequest {
+            href: href.clone(),
+            source_range: source_range.clone(),
+        },
+    )
+    .expect("search source projects through exact shapes");
+    let RuntimeExactSourceRangeResolution::Resolved { range } = projected else {
         panic!("embedded search match projects exactly: {projected:#?}");
     };
     assert_eq!(range.selected_text, "关于");
@@ -210,60 +211,27 @@ fn exact_source_range_contract_uses_a_narrow_camel_case_request() {
 }
 
 #[test]
-fn exact_text_reads_reject_stale_versions_and_non_finite_points() {
+fn a_caret_read_rejects_a_non_finite_point() {
     let bytes = content_epub("en", "<p>Wi</p>", "", None);
     let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("document opens");
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
-    let stale = RuntimeRevisionHandle::new(&revision.revision_id, revision.revision_version + 1);
-    let request = RuntimeTextPointRequest {
-        page_index: 0,
-        x: 0.0,
-        y: 0.0,
-    };
 
     let error = document
-        .resolve_text_caret_at(&stale, request)
-        .expect_err("stale version fails");
-    assert_eq!(
-        error.kind,
-        RuntimeRevisionAccessErrorKind::StaleRevisionVersion
-    );
-    let error = document
-        .resolve_text_caret_at(
-            &RuntimeRevisionHandle::from(&revision),
+        .resolve_text_caret_in(
+            &revision.revision_id,
+            revision_by_id(&document, &revision.revision_id),
             RuntimeTextPointRequest {
+                page_index: 0,
                 x: f64::NAN,
-                ..request
+                y: 0.0,
             },
         )
         .expect_err("non-finite point fails");
-    assert_eq!(error.kind, RuntimeRevisionAccessErrorKind::OperationFailed);
-
-    let error = document
-        .resolve_exact_source_range_at(
-            &stale,
-            RuntimeExactSourceRangeRequest {
-                href: "chapter.xhtml".to_owned(),
-                source_range: crate::runtime::RuntimeSourceRange {
-                    start: crate::runtime::RuntimeSourcePoint {
-                        node_path: vec![0],
-                        text_offset: 0,
-                    },
-                    end: crate::runtime::RuntimeSourcePoint {
-                        node_path: vec![0],
-                        text_offset: 1,
-                    },
-                },
-            },
-        )
-        .expect_err("stale exact source range fails before lazy source parsing");
-    assert_eq!(
-        error.kind,
-        RuntimeRevisionAccessErrorKind::StaleRevisionVersion
-    );
+    assert_eq!(error.to_string(), "text caret point must be finite");
 }
+
 #[test]
 fn wrapped_break_all_paragraph_resolves_exact_source_range_by_node_path() {
     let mixed = "柊丁柊七柊万柊世";
@@ -295,25 +263,25 @@ p { margin: 0 0 12px; }
         .create_revision(&layout())
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
-    let projected = document
-        .resolve_exact_source_range_at(
-            &handle,
-            RuntimeExactSourceRangeRequest {
-                href: "chapter.xhtml".to_owned(),
-                source_range: RuntimeSourceRange {
-                    start: RuntimeSourcePoint {
-                        node_path: vec![4, 0],
-                        text_offset: 0,
-                    },
-                    end: RuntimeSourcePoint {
-                        node_path: vec![4, 0],
-                        text_offset: 16,
-                    },
+    let projected = exact_source_range(
+        &mut document,
+        &handle.revision_id,
+        RuntimeExactSourceRangeRequest {
+            href: "chapter.xhtml".to_owned(),
+            source_range: RuntimeSourceRange {
+                start: RuntimeSourcePoint {
+                    node_path: vec![4, 0],
+                    text_offset: 0,
+                },
+                end: RuntimeSourcePoint {
+                    node_path: vec![4, 0],
+                    text_offset: 16,
                 },
             },
-        )
-        .expect("request resolves");
-    match projected.value.resolution {
+        },
+    )
+    .expect("request resolves");
+    match projected {
         RuntimeExactSourceRangeResolution::Resolved { range } => {
             assert_eq!(range.selected_text, wrapped);
             assert!(range.rects.len() > 1, "wrapped range spans several lines");

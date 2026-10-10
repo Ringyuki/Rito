@@ -27,23 +27,6 @@ use super::{
 };
 
 impl RuntimeDocument {
-    pub(super) fn resolve_exact_source_range_for_revision(
-        &mut self,
-        revision_id: &str,
-        request: RuntimeExactSourceRangeRequest,
-    ) -> Result<RuntimeExactSourceRangeResponse, super::RuntimeSourceLocatorError> {
-        let prepared = self.prepare_exact_source_range(request)?;
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| super::RuntimeSourceLocatorError::unknown_revision(revision_id))?;
-        let resolution = self.resolve_prepared_in(revision, prepared)?;
-        Ok(RuntimeExactSourceRangeResponse {
-            revision_id: revision_id.to_owned(),
-            resolution,
-        })
-    }
-
     /// Projects a prepared range onto one revision, whichever store the
     /// caller holds it in: a reader session keeps chapter-local
     /// revisions apart from whole-book ones and both project the same
@@ -115,15 +98,6 @@ impl RuntimeDocument {
         }
     }
 
-    pub(super) fn resolve_text_caret_for_revision(
-        &self,
-        revision_id: &str,
-        request: RuntimeTextPointRequest,
-    ) -> EpubResult<RuntimeTextCaretResponse> {
-        let revision = self.require_text_interaction_revision(revision_id)?;
-        self.resolve_text_caret_in(revision_id, revision, request)
-    }
-
     /// Takes the revision itself: a reader session holds chapter-local
     /// revisions in a separate store, and both kinds answer the same way.
     pub(in crate::runtime) fn resolve_text_caret_in(
@@ -157,15 +131,6 @@ impl RuntimeDocument {
         })
     }
 
-    pub(super) fn resolve_text_range_for_revision(
-        &self,
-        revision_id: &str,
-        request: RuntimeTextRangeRequest,
-    ) -> EpubResult<RuntimeTextRangeResponse> {
-        let revision = self.require_text_interaction_revision(revision_id)?;
-        self.resolve_text_range_in(revision_id, revision, request)
-    }
-
     /// Takes the revision itself: a reader session holds chapter-local
     /// revisions in a separate store, and both kinds answer the same way.
     pub(in crate::runtime) fn resolve_text_range_in(
@@ -193,15 +158,6 @@ impl RuntimeDocument {
             revision_id: revision_id.to_owned(),
             resolution,
         })
-    }
-
-    pub(super) fn require_text_interaction_revision(
-        &self,
-        revision_id: &str,
-    ) -> EpubResult<&RuntimeRevision> {
-        self.revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
     }
 }
 

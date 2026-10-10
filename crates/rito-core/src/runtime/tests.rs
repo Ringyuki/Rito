@@ -8,7 +8,7 @@ mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
 mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
-mod style_table_summary_tests;
+pub(crate) mod revisions;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;

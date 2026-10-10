@@ -8,6 +8,7 @@ use super::{
         multi_chapter_fixture_epub,
     },
     pinned_font_policy_fixtures::{face, policy, serif_text_font},
+    revisions::{exact_source_range, revision_by_id},
 };
 use crate::interaction::TextSelectionMovement;
 use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
@@ -222,8 +223,9 @@ fn fragment_pages_resolve_pointer_selection() {
 
     // Double-tap: word granularity from a single point.
     let response = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -235,11 +237,11 @@ fn fragment_pages_resolve_pointer_selection() {
         anchor_caret,
         range,
         ..
-    } = response.value.resolution
+    } = response.resolution
     else {
         panic!(
             "word selection resolves on a fragment page, got {:?}",
-            response.value.resolution
+            response.resolution
         );
     };
     assert_eq!(range.selected_text, "quick");
@@ -247,8 +249,9 @@ fn fragment_pages_resolve_pointer_selection() {
 
     // Drag: extend from the word's anchor to a later point on the line.
     let drag = document
-        .resolve_text_range_to_point_at(
-            &handle,
+        .resolve_text_range_to_point_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeToPointRequest {
                 anchor: anchor_caret.address,
                 focus: RuntimeTextPointRequest {
@@ -259,10 +262,10 @@ fn fragment_pages_resolve_pointer_selection() {
             },
         )
         .expect("drag request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = drag.value.resolution else {
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = drag.resolution else {
         panic!(
             "drag selection resolves on a fragment page, got {:?}",
-            drag.value.resolution
+            drag.resolution
         );
     };
     assert!(
@@ -407,8 +410,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         y: rect.y + rect.height / 2.0,
     };
     let selected = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -420,7 +424,7 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         anchor_caret,
         focus_caret,
         range,
-    } = selected.value.resolution
+    } = selected.resolution
     else {
         panic!("word selection resolves");
     };
@@ -430,8 +434,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
                     focus: crate::interaction::TextCaretAddress,
                     movement: TextSelectionMovement| {
         document
-            .resolve_text_selection_movement_at(
-                &handle,
+            .resolve_text_selection_movement_in(
+                &handle.revision_id,
+                revision_by_id(&document, &handle.revision_id),
                 RuntimeTextSelectionMovementRequest {
                     anchor,
                     focus,
@@ -441,7 +446,6 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
                 },
             )
             .expect("movement request is valid")
-            .value
             .resolution
     };
 
@@ -549,8 +553,9 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         y: rect.y + rect.height / 2.0,
     };
     let selected = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -558,8 +563,7 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
             },
         )
         .expect("word request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = selected.value.resolution
-    else {
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = selected.resolution else {
         panic!("word selection resolves");
     };
     assert_eq!(range.selected_text, "quick");
@@ -581,18 +585,16 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         .create_revision(&reflowed)
         .expect("reflowed revision is created");
     let second_handle = RuntimeRevisionHandle::from(&second);
-    let projected = document
-        .resolve_exact_source_range_at(
-            &second_handle,
-            RuntimeExactSourceRangeRequest { href, source_range },
-        )
-        .expect("durable range resolves on the reflowed revision");
-    let RuntimeExactSourceRangeResolution::Resolved { range: projected } =
-        projected.value.resolution
-    else {
+    let projected = exact_source_range(
+        &mut document,
+        &second_handle.revision_id,
+        RuntimeExactSourceRangeRequest { href, source_range },
+    )
+    .expect("durable range resolves on the reflowed revision");
+    let RuntimeExactSourceRangeResolution::Resolved { range: projected } = projected else {
         panic!(
             "durable source range stays exact across a fragment reflow, got {:?}",
-            projected.value.resolution
+            projected
         );
     };
     assert_eq!(projected.selected_text, "quick");
@@ -668,8 +670,8 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
         revision_version: revision.revision_version,
     };
     let response = document
-        .search_at(
-            &handle,
+        .search(
+            &handle.revision_id,
             crate::runtime::RuntimeSearchRequest {
                 query: "chapter".to_owned(),
                 case_sensitive: false,
@@ -679,9 +681,9 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
         )
         .expect("search resolves");
     assert!(
-        response.value.result_count > 0,
+        response.result_count > 0,
         "search must find chapter text under the fragment page table, got {:?}",
-        response.value.result_count
+        response.result_count
     );
 }
 
@@ -840,8 +842,9 @@ fn resolved_text(
     granularity: RuntimeTextSelectionGranularity,
 ) -> String {
     let response = document
-        .resolve_text_range_from_points_at(
-            handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor,
                 focus,
@@ -849,12 +852,8 @@ fn resolved_text(
             },
         )
         .expect("granular request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
-    else {
-        panic!(
-            "granular selection resolves, got {:?}",
-            response.value.resolution
-        );
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution else {
+        panic!("granular selection resolves, got {:?}", response.resolution);
     };
     range.selected_text.clone()
 }
@@ -961,8 +960,9 @@ fn fragment_selection_rects_span_the_font_grid_box() {
     let handle = RuntimeRevisionHandle::from(&summary);
     let point = word_center_point(&document, &summary.revision_id, "HELLO");
     let response = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -970,12 +970,8 @@ fn fragment_selection_rects_span_the_font_grid_box() {
             },
         )
         .expect("word request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
-    else {
-        panic!(
-            "word selection resolves, got {:?}",
-            response.value.resolution
-        );
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution else {
+        panic!("word selection resolves, got {:?}", response.resolution);
     };
     let height = range.rects.first().expect("a selection rect").height;
     assert!(
@@ -1040,8 +1036,7 @@ fn a_selection_crossing_a_hard_break_copies_the_line_break() {
         let start = word_center_point(&document, &revision_id, from);
         let end = word_center_point(&document, &revision_id, to);
         let response = document
-            .resolve_text_range_from_points_at(
-                &handle,
+            .resolve_text_range_from_points_in(&handle.revision_id, revision_by_id(&document, &handle.revision_id),
                 RuntimeTextRangeFromPointsRequest {
                     anchor: start,
                     focus: end,
@@ -1049,7 +1044,7 @@ fn a_selection_crossing_a_hard_break_copies_the_line_break() {
                 },
             )
             .expect("word request is valid");
-        let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
+        let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution
         else {
             panic!("selection resolves");
         };
@@ -1373,8 +1368,8 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
     };
 
     let response = document
-        .search_at(
-            &handle,
+        .search(
+            &handle.revision_id,
             crate::runtime::RuntimeSearchRequest {
                 query: "paragraph 2.".to_owned(),
                 case_sensitive: false,
@@ -1384,11 +1379,10 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         )
         .expect("search resolves");
     assert_eq!(
-        response.value.result_count, 3,
+        response.result_count, 3,
         "every chapter of the fixture carries the phrase once"
     );
     let pages: Vec<usize> = response
-        .value
         .results
         .iter()
         .map(|result| result.page_index)
@@ -1416,8 +1410,9 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         affinity: crate::interaction::TextCaretAffinity::Downstream,
     };
     let moved = document
-        .resolve_text_selection_movement_at(
-            &handle,
+        .resolve_text_selection_movement_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextSelectionMovementRequest {
                 anchor: caret(0),
                 focus: caret(0),
@@ -1427,8 +1422,7 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
             },
         )
         .expect("movement request is valid");
-    let RuntimeTextSelectionMovementResolution::Resolved { range, .. } = moved.value.resolution
-    else {
+    let RuntimeTextSelectionMovementResolution::Resolved { range, .. } = moved.resolution else {
         panic!("a character step on page 0 resolves");
     };
     assert_eq!(range.selected_text.chars().count(), 1);

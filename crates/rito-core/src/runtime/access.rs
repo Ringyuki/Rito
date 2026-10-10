@@ -2,16 +2,9 @@ use std::{error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    RuntimeDocument, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
-    RuntimeFrameResourceWarmPlan, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
-    RuntimePrefetchRequest, RuntimePrefetchResponse, RuntimeResource, RuntimeResourceKind,
-    RuntimeRevisionSummary,
-};
+use super::{RuntimeDocument, RuntimeResource, RuntimeResourceKind, RuntimeRevisionSummary};
 
-mod geometry;
 mod interaction;
-mod revision;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,92 +132,6 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<Vec<usize>>, RuntimeRevisionAccessError> {
         self.versioned_read(handle, |document, revision_id| {
             document.spread_page_indexes(revision_id, spread_index)
-        })
-    }
-
-    pub fn get_frame_command_buffer_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrameCommandBuffer>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_command_buffer(revision_id, spread_index)
-        })
-    }
-
-    /// Returns a version-gated owned metadata snapshot without the packed bytes.
-    pub fn get_frame_command_buffer_metadata_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrameCommandBufferMetadata>, RuntimeRevisionAccessError>
-    {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_command_buffer_metadata(revision_id, spread_index)
-        })
-    }
-
-    /// Returns a version-gated copy of the packed bytes without metadata tables.
-    pub fn read_frame_command_buffer_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<Vec<u8>>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.read_frame_command_buffer(revision_id, spread_index)
-        })
-    }
-
-    /// Returns version-gated unique image-resource hrefs without frame commands.
-    pub fn get_frame_image_resource_hrefs_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<Vec<String>>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_image_resource_hrefs(revision_id, spread_index)
-        })
-    }
-
-    pub fn prefetch_frames_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimePrefetchRequest,
-    ) -> Result<RuntimeVersioned<RuntimePrefetchResponse>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.prefetch_frames(revision_id, request)
-        })
-    }
-
-    pub fn initial_frame_decision_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimeInitialFrameRequest,
-    ) -> Result<RuntimeVersioned<Option<RuntimeInitialFrameDecision>>, RuntimeRevisionAccessError>
-    {
-        self.versioned_read(handle, |document, revision_id| {
-            document.initial_frame_decision(revision_id, request)
-        })
-    }
-
-    pub fn cached_frame_count_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<Option<usize>>, RuntimeRevisionAccessError> {
-        self.validate_revision_handle(handle)?;
-        Ok(RuntimeVersioned::new(
-            handle.clone(),
-            self.cached_frame_count(&handle.revision_id),
-        ))
-    }
-
-    pub fn frame_resource_warm_plan_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        center_spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrameResourceWarmPlan>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.frame_resource_warm_plan(revision_id, center_spread_index)
         })
     }
 
