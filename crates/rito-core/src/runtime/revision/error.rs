@@ -5,13 +5,6 @@ use crate::{
     runtime::{RuntimeRevisionError, RuntimeRevisionErrorKind},
 };
 
-pub(in crate::runtime) fn unknown_revision(revision_id: &str) -> RuntimeRevisionError {
-    revision_error(
-        RuntimeRevisionErrorKind::UnknownRevision,
-        format!("unknown revision: {revision_id}"),
-    )
-}
-
 pub(in crate::runtime) fn engine_error(error: EpubError) -> RuntimeRevisionError {
     revision_error(RuntimeRevisionErrorKind::EngineFailure, error.message())
 }

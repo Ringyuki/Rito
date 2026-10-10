@@ -1,4 +1,4 @@
-use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
+use super::fixture::{fixture_epub, layout};
 use crate::runtime::{
     RuntimeDocument, RuntimeResourceKind, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
     RuntimeSourceLocator,
@@ -100,43 +100,4 @@ fn every_versioned_read_answers_under_the_handle_it_was_asked_with() {
             .kind,
         RuntimeRevisionAccessErrorKind::UnknownRevision
     );
-}
-
-#[test]
-fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
-    let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
-        .expect("document opens");
-    let initial = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let presentation = document
-        .revision_presentation(&initial.revision_id)
-        .expect("current presentation resolves");
-    let bundle = document
-        .revision_bundle(&initial.revision_id, true)
-        .expect("current bundle resolves");
-
-    assert_eq!(presentation.revision, initial);
-    assert_eq!(presentation.navigation, bundle.navigation);
-    assert_eq!(presentation.toc_targets, bundle.toc_targets);
-    assert_eq!(presentation.font_families, bundle.font_families);
-    assert_eq!(presentation.required_font_faces, bundle.required_font_faces);
-
-    let serialized = serde_json::to_value(&presentation)
-        .expect("revision presentation serializes")
-        .as_object()
-        .expect("revision presentation is an object")
-        .clone();
-    for field in ["revision", "navigation", "tocTargets", "fontFamilies"] {
-        assert!(serialized.contains_key(field), "missing {field}");
-    }
-    assert!(!serialized.contains_key("footnotes"));
-    assert!(!serialized.contains_key("chapterTextIndices"));
-    assert!(!serialized.contains_key("fontVerticalMetricDemands"));
-    assert!(!serde_json::to_value(&bundle)
-        .expect("revision bundle serializes")
-        .as_object()
-        .expect("revision bundle is an object")
-        .contains_key("fontVerticalMetricDemands"));
 }

@@ -12,90 +12,13 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
 use crate::epub::EpubResult;
 use crate::fragment_bridge::{build_chapter_formatting_tree, ChapterFormattingTree};
 use crate::xhtml::DocumentNode;
 
 use super::{frame::RuntimeChapterStyleTables, RuntimeDocument};
 
-pub const RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION: u32 = 1;
-
-/// One chapter's representability in the fragment engine.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterTreeChapter {
-    pub idref: String,
-    /// Whether the chapter built into a formatting tree.
-    pub representable: bool,
-    /// The fail-closed reason when it did not.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    /// Nodes in the built tree (0 when not representable).
-    pub formatting_node_count: usize,
-    /// The built tree's content fingerprint, stable across runs and
-    /// platforms for identical content and styles.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tree_fingerprint: Option<String>,
-}
-
-/// Fragment-engine representability of a revision's chapters: every
-/// chapter the revision retains style tables for is measured. Nothing
-/// here feeds back into production layout.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterTreeReport {
-    pub schema_version: u32,
-    /// Chapters measured (those with retained style tables).
-    pub chapter_count: usize,
-    /// Chapters that built into a formatting tree.
-    pub representable_chapter_count: usize,
-    pub chapters: Vec<RuntimeChapterTreeChapter>,
-}
-
 impl RuntimeDocument {
-    pub fn chapter_tree_report(&self, revision_id: &str) -> EpubResult<RuntimeChapterTreeReport> {
-        let revision = self.revisions.get(revision_id).ok_or_else(|| {
-            crate::epub::EpubError::new(format!("unknown revision: {revision_id}"))
-        })?;
-        let idrefs: Vec<String> = revision.chapter_style_tables.keys().cloned().collect();
-        let mut chapters = Vec::with_capacity(idrefs.len());
-        let mut representable = 0usize;
-        for idref in &idrefs {
-            let entry = self.chapter_tree_entry(revision_id, idref);
-            if entry.representable {
-                representable += 1;
-            }
-            chapters.push(entry);
-        }
-        Ok(RuntimeChapterTreeReport {
-            schema_version: RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
-            chapter_count: chapters.len(),
-            representable_chapter_count: representable,
-            chapters,
-        })
-    }
-
-    fn chapter_tree_entry(&self, revision_id: &str, idref: &str) -> RuntimeChapterTreeChapter {
-        match self.chapter_formatting_tree(revision_id, idref) {
-            Ok(built) => RuntimeChapterTreeChapter {
-                idref: idref.to_owned(),
-                representable: true,
-                reason: None,
-                formatting_node_count: built.tree.len(),
-                tree_fingerprint: Some(format!("{:016x}", built.tree.fingerprint())),
-            },
-            Err(error) => RuntimeChapterTreeChapter {
-                idref: idref.to_owned(),
-                representable: false,
-                reason: Some(error.to_string()),
-                formatting_node_count: 0,
-                tree_fingerprint: None,
-            },
-        }
-    }
-
     /// Builds the fragment engine's input for one chapter of a revision:
     /// the reader-filtered content flow (footnote asides and equivalent
     /// out-of-flow content removed, exactly as production paginates) with

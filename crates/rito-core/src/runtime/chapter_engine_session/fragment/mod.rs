@@ -200,7 +200,6 @@ impl<'a> FragmentChapterEngineSession<'a> {
             commands.push(DisplayCommand::PopState);
         }
         Ok(Some(PageArtifactFrame {
-            spread_index: spread.index,
             page_indexes,
             commands,
         }))

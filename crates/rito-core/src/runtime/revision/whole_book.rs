@@ -1,12 +1,9 @@
 use crate::{
     layout::LayoutConfig,
-    runtime::{
-        frame::revision_summary, metadata::layout_key, RuntimeDocument, RuntimeRevisionError,
-        RuntimeRevisionSummary,
-    },
+    runtime::{RuntimeDocument, RuntimeRevisionError, RuntimeRevisionSummary},
 };
 
-use super::error::{engine_error, unknown_revision};
+use super::error::engine_error;
 
 impl RuntimeDocument {
     /// Creates a whole-book revision: the book paginates in one step and
@@ -22,18 +19,5 @@ impl RuntimeDocument {
         layout_config: &LayoutConfig,
     ) -> Result<RuntimeRevisionSummary, RuntimeRevisionError> {
         self.build_revision(layout_config).map_err(engine_error)
-    }
-
-    pub fn get_revision_summary(
-        &self,
-        revision_id: &str,
-    ) -> Result<RuntimeRevisionSummary, RuntimeRevisionError> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| unknown_revision(revision_id))?;
-        let key =
-            layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
-        Ok(revision_summary(revision_id, &key, revision))
     }
 }

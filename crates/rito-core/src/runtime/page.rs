@@ -2,12 +2,10 @@ use crate::epub::{EpubError, EpubResult, LoadedEpubDocument};
 
 use super::{
     navigation::spread_index_for_page,
-    page_artifact::{
-        PageArtifactTextPosition, PageArtifactTextPositions, PageArtifactTextRangeRect,
-    },
+    page_artifact::{PageArtifactTextPosition, PageArtifactTextRangeRect},
     page_target::{runtime_page_targets, RuntimePageTargetContext},
-    RuntimePageTargets, RuntimePageTextPositions, RuntimeRevision, RuntimeTextRangeGeometry,
-    RuntimeTextRangeGeometryRequest, SearchTextPosition, TextRangeRect, TextRunOffset,
+    RuntimePageTargets, RuntimeRevision, RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
+    SearchTextPosition, TextRangeRect,
 };
 
 pub(super) fn page_targets(
@@ -31,23 +29,6 @@ pub(super) fn page_targets(
         text_hash: targets.text_hash,
         entries,
     })
-}
-
-pub(super) fn page_text_positions(
-    revision_id: &str,
-    revision: &RuntimeRevision,
-    page_index: usize,
-) -> EpubResult<RuntimePageTextPositions> {
-    let page = revision
-        .chapter_engine_session()
-        .page(page_index)
-        .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?;
-    Ok(runtime_page_text_positions(
-        revision_id,
-        page_index,
-        spread_index_for_page(revision, page_index),
-        page.text_positions(),
-    ))
 }
 
 pub(super) fn text_range_geometry(
@@ -80,33 +61,6 @@ pub(super) fn text_range_geometry(
             .map(runtime_text_range_rect)
             .collect(),
     })
-}
-
-fn runtime_page_text_positions(
-    revision_id: &str,
-    page_index: usize,
-    spread_index: usize,
-    page: PageArtifactTextPositions,
-) -> RuntimePageTextPositions {
-    RuntimePageTextPositions {
-        revision_id: revision_id.to_owned(),
-        page_index,
-        spread_index,
-        text: page.text,
-        text_length: page.text_length,
-        text_hash: page.text_hash,
-        offsets: page
-            .offsets
-            .into_iter()
-            .map(|offset| TextRunOffset {
-                start: offset.start,
-                end: offset.end,
-                block_index: offset.block_index,
-                line_index: offset.line_index,
-                run_index: offset.run_index,
-            })
-            .collect(),
-    }
 }
 
 fn artifact_text_position(position: SearchTextPosition) -> PageArtifactTextPosition {

@@ -1,11 +1,15 @@
 //! The page table of a revision and addressing a spread by its position
-//! in it. The table is checked against the whole-book revision a browser
-//! reader builds, so a host that draws pages through a session reads the
-//! same spreads, chapter ranges and TOC placements.
+//! in it. The table is checked against a whole-book revision laid out in
+//! one pass and read straight from the engine, so a host that draws pages
+//! through a session reads the spreads, chapter ranges and TOC placements
+//! the book has.
 
 use crate::runtime::{
-    tests::fixture::{long_chapter_window_fixture_epub, toc_anchor_fixture_epub},
-    RuntimeDocument, RuntimeRevisionBundle,
+    tests::{
+        fixture::{long_chapter_window_fixture_epub, toc_anchor_fixture_epub},
+        revisions::{whole_book_pages, WholeBookPages},
+    },
+    RuntimeDocument,
 };
 
 use super::{
@@ -37,14 +41,12 @@ fn double_layout() -> ReaderLayout {
     }
 }
 
-fn whole_book(bytes: &[u8], layout: ReaderLayout) -> RuntimeRevisionBundle {
+fn whole_book(bytes: &[u8], layout: ReaderLayout) -> WholeBookPages {
     let mut document = RuntimeDocument::open_pinned_for_tests(bytes).expect("opens");
     let revision = document
         .create_revision(&layout_config(layout).expect("layout"))
         .expect("revision");
-    document
-        .revision_bundle(&revision.revision_id, true)
-        .expect("bundle")
+    whole_book_pages(&mut document, &revision.revision_id)
 }
 
 fn layout_of(session: &mut ReaderSession, artifact_id: u64) -> ReaderRevisionLayout {
@@ -107,9 +109,8 @@ fn a_chapter_layout_is_that_chapters_slice_of_the_whole_book_layout() {
     let bytes = toc_anchor_fixture_epub();
     let whole = whole_book(&bytes, request(SESSION, 1, "").layout);
     let mut request_id = 0;
-    for (spine_index, chapter) in whole.navigation.chapters.iter().enumerate() {
-        let start = chapter.start_page.expect("the whole book lays it out");
-        let end = chapter.end_page.expect("the whole book lays it out");
+    for (spine_index, chapter) in whole.chapters.iter().enumerate() {
+        let (start, end) = (chapter.start_page, chapter.end_page);
         let mut session = open_test_session(SESSION, bytes.clone()).expect("opens");
         request_id += 1;
         let artifact = session
@@ -143,13 +144,12 @@ fn a_chapter_layout_is_that_chapters_slice_of_the_whole_book_layout() {
         assert_eq!(
             layout.toc_targets,
             whole
-                .toc_targets
-                .targets
+                .toc_pages
                 .iter()
-                .filter(|target| (start..=end).contains(&target.page_index))
-                .map(|target| ReaderTocTargetPage {
-                    toc_id: as_u32(target.toc_index),
-                    page_index: as_u32(target.page_index - start),
+                .filter(|(_, page_index)| (start..=end).contains(page_index))
+                .map(|(toc_index, page_index)| ReaderTocTargetPage {
+                    toc_id: as_u32(*toc_index),
+                    page_index: as_u32(page_index - start),
                 })
                 .collect::<Vec<_>>(),
             "{}",
@@ -157,7 +157,7 @@ fn a_chapter_layout_is_that_chapters_slice_of_the_whole_book_layout() {
         );
         assert_eq!(
             layout.active_toc_entry_by_page,
-            whole.toc_targets.active_entry_by_page[start..=end]
+            whole.active_toc_entry_by_page[start..=end]
                 .iter()
                 .map(|entry| entry.map(as_u32))
                 .collect::<Vec<_>>(),
@@ -179,17 +179,16 @@ fn a_whole_book_layout_matches_the_whole_book_revision() {
     let candidate = adopt_whole_book(&mut session, visible.artifact_id);
     let layout = layout_of(&mut session, candidate.artifact_id);
 
-    assert_eq!(layout.page_count, as_u32(whole.navigation.page_count));
+    assert_eq!(layout.page_count, as_u32(whole.page_count));
     assert_eq!(Some(layout.page_count), candidate.book_page_count);
     assert_eq!(
         layout.spreads,
         whole
-            .navigation
             .spreads
             .iter()
-            .map(|spread| ReaderSpreadPages {
-                left_page_index: as_u32(spread.left_page_index),
-                right_page_index: spread.right_page_index.map(as_u32),
+            .map(|(left, right)| ReaderSpreadPages {
+                left_page_index: as_u32(*left),
+                right_page_index: right.map(as_u32),
             })
             .collect::<Vec<_>>()
     );
@@ -203,26 +202,24 @@ fn a_whole_book_layout_matches_the_whole_book_revision() {
     assert_eq!(
         layout.chapters,
         whole
-            .navigation
             .chapters
             .iter()
             .enumerate()
             .map(|(spine_index, chapter)| ReaderChapterPages {
                 spine_index: as_u32(spine_index),
-                start_page: as_u32(chapter.start_page.expect("laid out")),
-                end_page: as_u32(chapter.end_page.expect("laid out")),
+                start_page: as_u32(chapter.start_page),
+                end_page: as_u32(chapter.end_page),
             })
             .collect::<Vec<_>>()
     );
     assert_eq!(
         layout.toc_targets,
         whole
-            .toc_targets
-            .targets
+            .toc_pages
             .iter()
-            .map(|target| ReaderTocTargetPage {
-                toc_id: as_u32(target.toc_index),
-                page_index: as_u32(target.page_index),
+            .map(|(toc_index, page_index)| ReaderTocTargetPage {
+                toc_id: as_u32(*toc_index),
+                page_index: as_u32(*page_index),
             })
             .collect::<Vec<_>>()
     );
@@ -230,8 +227,7 @@ fn a_whole_book_layout_matches_the_whole_book_revision() {
     assert_eq!(
         layout.active_toc_entry_by_page,
         whole
-            .toc_targets
-            .active_entry_by_page
+            .active_toc_entry_by_page
             .iter()
             .map(|entry| entry.map(as_u32))
             .collect::<Vec<_>>()

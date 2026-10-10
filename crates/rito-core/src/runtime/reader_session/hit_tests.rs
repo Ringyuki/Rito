@@ -5,7 +5,10 @@
 use std::collections::BTreeSet;
 
 use crate::runtime::{
-    tests::fixture::{interaction_target_fixture_epub, multi_chapter_fixture_epub},
+    tests::{
+        fixture::{interaction_target_fixture_epub, multi_chapter_fixture_epub},
+        revisions::whole_book_pages,
+    },
     RuntimeDocument, RuntimePageTarget, RuntimePageTargetKind,
 };
 
@@ -42,16 +45,11 @@ fn hits_are_the_page_targets_of_the_whole_book_revision() {
         let revision = document
             .create_revision(&layout_config(layout).expect("layout"))
             .expect("revision");
-        let chapters = document
-            .revision_bundle(&revision.revision_id, false)
-            .expect("bundle")
-            .navigation
-            .chapters;
+        let chapters = whole_book_pages(&mut document, &revision.revision_id).chapters;
         let mut session = open_test_session(SESSION, fixture).expect("opens");
         let mut request_id = 0;
         for chapter in chapters {
-            let start = chapter.start_page.expect("laid out");
-            let end = chapter.end_page.expect("laid out");
+            let (start, end) = (chapter.start_page, chapter.end_page);
             request_id += 1;
             let first = session
                 .request_artifact(request(SESSION, request_id, &chapter.href))

@@ -183,10 +183,7 @@ decoder (`protocol/primitive_decoder.dart`) are the reference;
 `packages/rito-core-wasm/tests/fixtures/reader-session-primitive-list.hex`
 holds bytes the live encoder wrote for one of every primitive, and a
 Rust test keeps it in step. Format 1, the semantic display list, is no
-longer written; a decoder rejects it by its version field. The same
-bytes back the reader worker's frame command buffer, whose metadata
-carries the ratio and primitive count beside the semantic frame's
-command count, kind counts and hash.
+longer written; a decoder rejects it by its version field.
 
 Wire changes landed when hit entries became the engine's classified
 targets (reader protocol version 6):

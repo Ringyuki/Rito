@@ -102,7 +102,7 @@ fn resolves_literal_content_href_to_percent_encoded_manifest_resource() {
         .create_revision(&layout())
         .expect("revision resolves literal image source");
     let image_hrefs = runtime
-        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
+        .frame_image_hrefs_for_tests(&revision.revision_id, 0)
         .expect("image frame is available");
     assert!(image_hrefs.contains(&"../Images/Cover One.png".to_owned()));
     let resource = runtime
@@ -154,7 +154,7 @@ fn transfers_query_and_fragment_image_refs_through_the_runtime() {
         .expect("revision resolves query image source");
     let source_href = "../Images/Cover One.png?size=2#view";
     let image_hrefs = runtime
-        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
+        .frame_image_hrefs_for_tests(&revision.revision_id, 0)
         .expect("query image frame is available");
     assert!(image_hrefs.contains(&source_href.to_owned()));
     let resource = runtime

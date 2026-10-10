@@ -1,6 +1,5 @@
 mod access_tests;
 mod chapter_local_tests;
-mod chapter_tree_report_tests;
 pub(crate) mod fixture;
 mod fragment_page_table_tests;
 pub(crate) mod pinned_font_policy_fixtures;
@@ -14,20 +13,21 @@ mod text_interaction_tests;
 mod text_movement_tests;
 
 use fixture::{
-    double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
-    fixture_stylesheet, interaction_target_fixture_epub, layout, malformed_chapter_fixture_epub,
-    many_chapter_fixture_epub, minimal_png, multi_chapter_fixture_epub,
+    double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_stylesheet,
+    interaction_target_fixture_epub, layout, malformed_chapter_fixture_epub, minimal_png,
     search_source_gap_fixture_epub, source_locator_fixture_epub,
 };
 
+use revisions::{revision_by_id, search, text_range_geometry};
+
 use super::{
-    frame::{chapter_window_layout_config, FRAME_CACHE_CAPACITY},
-    RuntimeDocument, RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
-    RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionExtent, RuntimeSearchRequest,
-    RuntimeSearchSource, RuntimeSemanticNode, RuntimeSemanticRole, RuntimeSourceLocator,
-    RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
-    RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
-    RuntimeSourceRange, RuntimeTextRangeGeometryRequest,
+    frame::chapter_window_layout_config,
+    page_artifact::{PageArtifactSemanticNode, PageArtifactSemanticRole},
+    RuntimeDocument, RuntimePageTargetKind, RuntimeResourceKind, RuntimeRevisionExtent,
+    RuntimeSearchRequest, RuntimeSearchSource, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
+    RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
+    RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
+    RuntimeTextRangeGeometryRequest,
 };
 use crate::interaction::FootnoteKind;
 use crate::layout::SpreadMode;
@@ -41,9 +41,22 @@ fn source_locator(href: &str) -> RuntimeSourceLocator {
     }
 }
 
+/// The semantic nodes of one page, as the page artifact a session reads
+/// them from holds them.
+fn page_semantic_nodes(
+    document: &RuntimeDocument,
+    revision_id: &str,
+    page_index: usize,
+) -> Option<Vec<PageArtifactSemanticNode>> {
+    revision_by_id(document, revision_id)
+        .chapter_engine_session()
+        .page(page_index)
+        .map(|page| page.semantic_nodes())
+}
+
 fn collect_semantic_nodes<'a>(
-    nodes: &'a [RuntimeSemanticNode],
-    output: &mut Vec<&'a RuntimeSemanticNode>,
+    nodes: &'a [PageArtifactSemanticNode],
+    output: &mut Vec<&'a PageArtifactSemanticNode>,
 ) {
     for node in nodes {
         output.push(node);
@@ -51,18 +64,18 @@ fn collect_semantic_nodes<'a>(
     }
 }
 
-fn assert_semantic_node_invariants(node: &RuntimeSemanticNode) {
+fn assert_semantic_node_invariants(node: &PageArtifactSemanticNode) {
     match node.role {
-        RuntimeSemanticRole::Heading => {
+        PageArtifactSemanticRole::Heading => {
             assert!(matches!(node.level, Some(1..=6)));
             assert!(node.alt.is_none());
             assert!(node.href.is_none());
         }
-        RuntimeSemanticRole::Image => {
+        PageArtifactSemanticRole::Image => {
             assert!(node.level.is_none());
             assert!(node.href.is_none());
         }
-        RuntimeSemanticRole::Link => {
+        PageArtifactSemanticRole::Link => {
             assert!(node.level.is_none());
             assert!(node.alt.is_none());
             assert!(node
@@ -70,12 +83,12 @@ fn assert_semantic_node_invariants(node: &RuntimeSemanticNode) {
                 .as_ref()
                 .is_some_and(|href| !href.trim().is_empty()));
         }
-        RuntimeSemanticRole::Paragraph
-        | RuntimeSemanticRole::List
-        | RuntimeSemanticRole::ListItem
-        | RuntimeSemanticRole::Blockquote
-        | RuntimeSemanticRole::Table
-        | RuntimeSemanticRole::Generic => {
+        PageArtifactSemanticRole::Paragraph
+        | PageArtifactSemanticRole::List
+        | PageArtifactSemanticRole::ListItem
+        | PageArtifactSemanticRole::Blockquote
+        | PageArtifactSemanticRole::Table
+        | PageArtifactSemanticRole::Generic => {
             assert!(node.level.is_none());
             assert!(node.alt.is_none());
             assert!(node.href.is_none());
@@ -87,19 +100,13 @@ fn assert_semantic_node_invariants(node: &RuntimeSemanticNode) {
 }
 
 #[test]
-fn creates_revisions_and_caches_frames() {
+fn creates_revisions_and_paints_their_spreads() {
     let mut document =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
 
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
-    let metadata = document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
-        .expect("frame metadata is available");
-    let cached_again = document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
-        .expect("the cached frame remains available");
     let frame = document
         .frame_commands_for_tests(&revision.revision_id, 0)
         .expect("frame commands paint");
@@ -107,15 +114,11 @@ fn creates_revisions_and_caches_frames() {
     assert_eq!(revision.revision_id, "rev-1");
     assert!(revision.page_count >= 1);
     assert!(revision.spread_count >= 1);
-    assert_eq!(metadata.revision_id, revision.revision_id);
     assert_eq!(frame.page_indexes, vec![0]);
     assert!(!frame.commands.is_empty());
-    assert_eq!(metadata.command_count, frame.commands.len());
     assert!(frame.commands.iter().any(|command| {
         matches!(command, crate::render::DisplayCommand::PaintText(input) if !input.text.is_empty())
     }));
-    assert_eq!(metadata, cached_again);
-    assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));
 }
 
 #[test]
@@ -145,12 +148,6 @@ fn a_created_revision_reports_the_extent_of_its_page_table() {
         }
     );
     assert_eq!(stored.fragment_layout.page_count(), revision.page_count);
-
-    let bundle_revision = document
-        .revision_bundle(&revision.revision_id, false)
-        .expect("revision bundle is available")
-        .revision;
-    assert_eq!(bundle_revision, revision);
 }
 
 #[test]
@@ -174,256 +171,6 @@ fn creates_revision_when_chapter_xhtml_is_malformed() {
 }
 
 #[test]
-fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let buffer = document
-        .get_frame_command_buffer(&revision.revision_id, 0)
-        .expect("command buffer is available");
-    let metadata = document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
-        .expect("command buffer metadata is available");
-    let bytes = document
-        .read_frame_command_buffer(&revision.revision_id, 0)
-        .expect("command buffer bytes are available");
-    let image_refs = document
-        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
-        .expect("frame image refs are available");
-    let repeated_buffer = document
-        .get_frame_command_buffer(&revision.revision_id, 0)
-        .expect("cached frame remains available");
-    let repeated_image_refs = document
-        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
-        .expect("cached image refs remain available");
-    let missing = document
-        .get_frame_command_buffer(&revision.revision_id, 99)
-        .expect_err("missing spread fails");
-    let commands = document
-        .frame_commands_for_tests(&revision.revision_id, 0)
-        .expect("frame commands paint")
-        .commands;
-
-    assert_eq!(repeated_buffer, buffer);
-    assert_eq!(repeated_image_refs, image_refs);
-    assert_eq!(metadata, buffer.metadata);
-    assert_eq!(bytes, buffer.bytes);
-    assert_eq!(image_refs, buffer.metadata.resource_table);
-    assert_eq!(buffer.metadata.revision_id, revision.revision_id);
-    assert_eq!(buffer.metadata.spread_index, 0);
-    assert_eq!(buffer.metadata.command_count, commands.len());
-    assert_eq!(
-        buffer.metadata.command_counts,
-        crate::render::count_display_commands(&commands)
-    );
-    assert_eq!(
-        buffer.metadata.command_hash,
-        crate::render::hash_display_commands(&commands)
-    );
-    assert_eq!(buffer.metadata.byte_length, buffer.bytes.len());
-    assert_eq!(
-        buffer.metadata.font_families,
-        crate::render::summarize_display_list_font_families(&commands)
-    );
-    // The bytes are the frame's display list lowered to the device grid:
-    // the reader wire's format 2 at the document's render ratio.
-    assert_eq!(&buffer.bytes[0..7], b"RITODL1");
-    assert_eq!(buffer.metadata.protocol_version, 2);
-    assert_eq!(buffer.metadata.ratio, 1.0);
-    assert_eq!(
-        u32::from_le_bytes(buffer.bytes[7..11].try_into().expect("version lane")),
-        2
-    );
-    assert_eq!(
-        u32::from_le_bytes(buffer.bytes[19..23].try_into().expect("count lane")) as usize,
-        buffer.metadata.primitive_count
-    );
-    assert!(buffer.metadata.primitive_count > 0);
-    assert_eq!(missing.message(), "unknown spread index: 99");
-}
-
-#[test]
-fn exposes_publication_info_before_revision_creation() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-
-    let info = document.publication_info();
-
-    assert_eq!(info.package.metadata.title, "Runtime document");
-    assert_eq!(info.package.spine_len(), 1);
-    assert_eq!(info.chapters.len(), 1);
-    assert_eq!(info.chapters[0].href, "chapter.xhtml");
-    assert_eq!(info.resources.stylesheets[0].href, "style.css");
-    assert_eq!(info.resources.fonts[0].href, "Fonts/book.otf");
-    assert_eq!(info.resources.images[0].href, "Images/cover.png");
-    assert_eq!(info.resources.images[0].width, None);
-    assert_eq!(info.resources.images[0].height, None);
-    assert_eq!(info.font_faces.len(), 1);
-    assert_eq!(info.font_faces[0].family, "Fixture");
-    assert_eq!(info.font_faces[0].href, "Fonts/book.otf");
-    assert_eq!(info.font_faces[0].style.as_deref(), Some("italic"));
-    assert_eq!(info.font_faces[0].weight.as_deref(), Some("700"));
-
-    document.create_revision(&layout()).expect("revision");
-    let info = document.publication_info();
-    assert_eq!(info.resources.images[0].width, Some(2));
-    assert_eq!(info.resources.images[0].height, Some(3));
-}
-
-#[test]
-fn publication_font_faces_preserve_last_occurrence_order_when_deduplicated() {
-    let bytes = fixture_epub_with_stylesheet(
-        r#"@font-face { font-family: "Zulu"; src: url("Fonts/book.otf"); font-style: italic; font-weight: 700; }
-@font-face { font-family: "Alpha"; src: url("Fonts/book.otf"); font-style: normal; font-weight: 400; }
-@font-face { font-family: "Zulu"; src: url("Fonts/book.otf"); font-style: italic; font-weight: 700; }"#,
-    );
-    let document = RuntimeDocument::open(&bytes).expect("document opens");
-
-    let info = document.publication_info();
-
-    assert_eq!(info.font_faces.len(), 2);
-    assert_eq!(info.font_faces[0].family, "Alpha");
-    assert_eq!(info.font_faces[0].href, "Fonts/book.otf");
-    assert_eq!(info.font_faces[1].family, "Zulu");
-    assert_eq!(info.font_faces[1].href, "Fonts/book.otf");
-}
-
-#[test]
-fn exposes_revision_navigation_chapter_ranges() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let navigation = document
-        .revision_bundle(&revision.revision_id, true)
-        .expect("bundle is available")
-        .navigation;
-    let unknown_revision = document
-        .revision_bundle("rev-missing", true)
-        .expect_err("unknown revision fails");
-
-    assert_eq!(navigation.revision_id, revision.revision_id);
-    assert_eq!(navigation.page_count, revision.page_count);
-    assert_eq!(navigation.spread_count, revision.spread_count);
-    assert_eq!(navigation.spreads.len(), revision.spread_count);
-    assert_eq!(navigation.spreads[0].spread_index, 0);
-    assert_eq!(navigation.spreads[0].page_indexes[0], 0);
-    assert_eq!(navigation.chapters.len(), 1);
-    assert_eq!(navigation.chapters[0].idref, "chapter");
-    assert_eq!(navigation.chapters[0].href, "chapter.xhtml");
-    assert_eq!(navigation.chapters[0].start_page, Some(0));
-    assert_eq!(navigation.chapter_map["chapter"].start_page, 0);
-    assert_eq!(unknown_revision.message(), "unknown revision: rev-missing");
-}
-
-#[test]
-fn resolves_toc_targets_from_runtime_navigation() {
-    let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
-        .expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-    let targets = document
-        .revision_bundle(&revision.revision_id, true)
-        .expect("bundle resolves")
-        .toc_targets;
-    let missing_revision = document
-        .revision_bundle("rev-missing", true)
-        .expect_err("missing revision fails");
-
-    assert_eq!(targets.revision_id, revision.revision_id);
-    assert_eq!(targets.targets.len(), 3);
-    assert_eq!(targets.targets[0].entry.href, "chapter-1.xhtml");
-    assert_eq!(targets.targets[1].entry.href, "chapter-2.xhtml");
-    assert_eq!(targets.targets[2].entry.href, "chapter-3.xhtml");
-    assert_eq!(targets.targets[0].page_index, 0);
-    assert_eq!(targets.targets[0].spread_index, 0);
-    assert_eq!(missing_revision.message(), "unknown revision: rev-missing");
-}
-
-#[test]
-fn returns_revision_bundle_from_runtime_source_of_truth() {
-    let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
-        .expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-    let bundle = document
-        .revision_bundle(&revision.revision_id, true)
-        .expect("revision bundle resolves");
-    let no_toc = document
-        .revision_bundle(&revision.revision_id, false)
-        .expect("revision bundle can omit toc targets");
-
-    assert_eq!(bundle.revision, revision);
-    assert_eq!(bundle.navigation.revision_id, revision.revision_id);
-    assert_eq!(bundle.toc_targets.targets.len(), 3);
-    assert_eq!(bundle.footnotes.revision_id, revision.revision_id);
-    assert!(no_toc.toc_targets.targets.is_empty());
-}
-
-#[test]
-fn resolves_initial_frame_decision_in_runtime() {
-    let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
-        .expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let explicit = document
-        .initial_frame_decision(
-            &revision.revision_id,
-            RuntimeInitialFrameRequest {
-                spread_index: Some(1),
-                anchor_progress: Some(0.0),
-            },
-        )
-        .expect("explicit spread resolves")
-        .expect("explicit spread returns decision");
-    let anchored = document
-        .initial_frame_decision(
-            &revision.revision_id,
-            RuntimeInitialFrameRequest {
-                spread_index: None,
-                anchor_progress: Some(1.0),
-            },
-        )
-        .expect("anchor progress resolves")
-        .expect("anchor progress returns decision");
-    let none = document
-        .initial_frame_decision(
-            &revision.revision_id,
-            RuntimeInitialFrameRequest {
-                spread_index: None,
-                anchor_progress: None,
-            },
-        )
-        .expect("missing request is not an error");
-    let invalid = document
-        .initial_frame_decision(
-            &revision.revision_id,
-            RuntimeInitialFrameRequest {
-                spread_index: Some(99),
-                anchor_progress: None,
-            },
-        )
-        .expect_err("invalid spread fails");
-
-    assert_eq!(explicit.revision_id, revision.revision_id);
-    assert_eq!(explicit.spread_index, 1);
-    assert_eq!(explicit.display_spread_index, 1);
-    assert_eq!(anchored.spread_index, revision.spread_count - 1);
-    assert_eq!(anchored.display_spread_index, revision.spread_count - 1);
-    assert!(none.is_none());
-    assert_eq!(invalid.message(), "unknown spread index: 99");
-}
-
-#[test]
 fn chapter_window_layout_does_not_treat_window_start_as_publication_cover() {
     let layout = double_layout();
     let window_layout = chapter_window_layout_config(&layout);
@@ -433,41 +180,6 @@ fn chapter_window_layout_does_not_treat_window_start_as_publication_cover() {
     assert_eq!(window_layout.spread_mode, SpreadMode::Double);
     assert_eq!(window_layout.page_width, layout.page_width);
     assert_eq!(window_layout.spread_gap, layout.spread_gap);
-}
-
-#[test]
-fn narrow_frame_projections_preserve_revision_and_spread_errors() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-
-    assert_frame_error(
-        document.get_frame_command_buffer_metadata("rev-missing", 0),
-        "unknown revision: rev-missing",
-    );
-    assert_frame_error(
-        document.read_frame_command_buffer("rev-missing", 0),
-        "unknown revision: rev-missing",
-    );
-    assert_frame_error(
-        document.get_frame_image_resource_hrefs("rev-missing", 0),
-        "unknown revision: rev-missing",
-    );
-
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-    assert_frame_error(
-        document.get_frame_command_buffer_metadata(&revision.revision_id, 99),
-        "unknown spread index: 99",
-    );
-    assert_frame_error(
-        document.read_frame_command_buffer(&revision.revision_id, 99),
-        "unknown spread index: 99",
-    );
-    assert_frame_error(
-        document.get_frame_image_resource_hrefs(&revision.revision_id, 99),
-        "unknown spread index: 99",
-    );
 }
 
 #[test]
@@ -506,50 +218,11 @@ fn releases_obsolete_revisions() {
     assert!(!document.release_revision(&first.revision_id));
     assert_eq!(
         document
-            .get_footnotes(&first.revision_id)
+            .get_footnote(&first.revision_id, "chapter.xhtml#fn1")
             .expect_err("released revision stays unavailable")
             .message(),
         format!("unknown revision: {}", first.revision_id)
     );
-}
-
-#[test]
-fn bounds_and_refreshes_the_revision_frame_cache() {
-    let mut document = RuntimeDocument::open_pinned_for_tests(&many_chapter_fixture_epub(
-        FRAME_CACHE_CAPACITY + 4,
-    ))
-    .expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-    assert!(revision.spread_count > FRAME_CACHE_CAPACITY);
-
-    for spread_index in 0..revision.spread_count {
-        document
-            .get_frame_command_buffer_metadata(&revision.revision_id, spread_index)
-            .expect("frame is available");
-    }
-
-    assert_eq!(
-        document.cached_frame_count(&revision.revision_id),
-        Some(FRAME_CACHE_CAPACITY)
-    );
-    let revision_state = &document.revisions[&revision.revision_id];
-    assert!(!revision_state.frame_cache.contains_key(&0));
-
-    let oldest_cached = revision.spread_count - FRAME_CACHE_CAPACITY;
-    document
-        .get_frame_command_buffer_metadata(&revision.revision_id, oldest_cached)
-        .expect("oldest cached frame is refreshed");
-    document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
-        .expect("evicted frame is regenerated");
-    let revision_state = &document.revisions[&revision.revision_id];
-    assert!(revision_state.frame_cache.contains_key(&oldest_cached));
-    assert!(revision_state.frame_cache.contains_key(&0));
-    assert_eq!(revision_state.frame_cache.len(), FRAME_CACHE_CAPACITY);
-    assert!(document.cleanup_queue.is_empty());
-    assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
 }
 
 #[test]
@@ -561,10 +234,10 @@ fn rejects_unknown_revision_and_spread() {
         .expect("revision is created");
 
     let missing_revision = document
-        .get_frame_command_buffer_metadata("rev-missing", 0)
+        .frame_commands_for_tests("rev-missing", 0)
         .expect_err("unknown revision fails");
     let missing_spread = document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 99)
+        .frame_commands_for_tests(&revision.revision_id, 99)
         .expect_err("unknown spread fails");
 
     assert_eq!(missing_revision.message(), "unknown revision: rev-missing");
@@ -651,9 +324,6 @@ fn reads_revision_scoped_footnotes() {
     let footnote = document
         .get_footnote(&revision.revision_id, "chapter.xhtml#fn1")
         .expect("footnote is available");
-    let footnotes = document
-        .get_footnotes(&revision.revision_id)
-        .expect("footnote map is available");
     let missing = document
         .get_footnote(&revision.revision_id, "chapter.xhtml#missing")
         .expect_err("missing footnote fails");
@@ -666,14 +336,6 @@ fn reads_revision_scoped_footnotes() {
     assert_eq!(footnote.kind, FootnoteKind::Footnote);
     assert_eq!(footnote.text, "Runtime note");
     assert_eq!(footnote.html, "<p>Runtime note</p>");
-    assert_eq!(footnotes.revision_id, revision.revision_id);
-    assert_eq!(
-        footnotes
-            .entries
-            .get("chapter.xhtml#fn1")
-            .map(|entry| entry.text.as_str()),
-        Some("Runtime note")
-    );
     assert_eq!(missing.message(), "unknown footnote: chapter.xhtml#missing");
     assert_eq!(unknown_revision.message(), "unknown revision: rev-missing");
 }
@@ -686,39 +348,26 @@ fn searches_revision_scoped_typed_page_text() {
         .create_revision(&layout())
         .expect("revision is created");
 
-    let response = document
-        .search(
-            &revision.revision_id,
-            RuntimeSearchRequest {
-                query: "runtime".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: Some(4),
-            },
-        )
-        .expect("search succeeds");
-    let missing = document
-        .search(
-            &revision.revision_id,
-            RuntimeSearchRequest {
-                query: "missing".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: None,
-            },
-        )
-        .expect("missing search succeeds");
-    let unknown_revision = document
-        .search(
-            "rev-missing",
-            RuntimeSearchRequest {
-                query: "runtime".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: None,
-            },
-        )
-        .expect_err("unknown revision fails");
+    let response = search(
+        &document,
+        &revision.revision_id,
+        RuntimeSearchRequest {
+            query: "runtime".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: Some(4),
+        },
+    );
+    let missing = search(
+        &document,
+        &revision.revision_id,
+        RuntimeSearchRequest {
+            query: "missing".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: None,
+        },
+    );
 
     assert_eq!(response.revision_id, revision.revision_id);
     assert_eq!(response.query, "runtime");
@@ -735,53 +384,6 @@ fn searches_revision_scoped_typed_page_text() {
         .context
         .contains("Hello runtime"));
     assert_eq!(missing.result_count, 0);
-    assert_eq!(unknown_revision.message(), "unknown revision: rev-missing");
-}
-
-#[test]
-fn resolves_href_locators_through_spine_and_anchor_pages() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let chapter = document
-        .resolve_locator(
-            &revision.revision_id,
-            RuntimeLocatorRequest {
-                href: "chapter.xhtml".to_owned(),
-            },
-        )
-        .expect("chapter href resolves");
-    let anchor = document
-        .resolve_locator(
-            &revision.revision_id,
-            RuntimeLocatorRequest {
-                href: "chapter.xhtml#intro".to_owned(),
-            },
-        )
-        .expect("anchor href resolves");
-    let missing_anchor = document
-        .resolve_locator(
-            &revision.revision_id,
-            RuntimeLocatorRequest {
-                href: "chapter.xhtml#missing".to_owned(),
-            },
-        )
-        .expect_err("missing anchor fails");
-
-    assert_eq!(chapter.revision_id, revision.revision_id);
-    assert_eq!(chapter.spine_idref, "chapter");
-    assert_eq!(chapter.page_index, 0);
-    assert_eq!(chapter.spread_index, 0);
-    assert_eq!(chapter.fragment, None);
-    assert_eq!(anchor.page_index, 0);
-    assert_eq!(anchor.fragment.as_deref(), Some("intro"));
-    assert_eq!(
-        missing_anchor.message(),
-        "locator not found: chapter.xhtml#missing"
-    );
 }
 
 #[test]
@@ -1052,73 +654,6 @@ fn resolved_page_and_locator(
 }
 
 #[test]
-fn prefetches_frames_into_revision_cache() {
-    let mut document =
-        RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
-    let unknown = document
-        .prefetch_frames(
-            "rev-missing",
-            RuntimePrefetchRequest {
-                spread_indexes: Vec::new(),
-            },
-        )
-        .expect_err("an empty prefetch still validates its revision");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let response = document
-        .prefetch_frames(
-            &revision.revision_id,
-            RuntimePrefetchRequest {
-                spread_indexes: vec![0, 0, 99],
-            },
-        )
-        .expect("prefetch succeeds");
-    let frame = document
-        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
-        .expect("warmed frame remains available");
-
-    assert_eq!(unknown.message(), "unknown revision: rev-missing");
-    assert_eq!(response.revision_id, revision.revision_id);
-    assert_eq!(response.warmed_spread_indexes, vec![0]);
-    assert_eq!(response.missing_spread_indexes, vec![99]);
-    assert_eq!(response.cached_frame_count, 1);
-    assert_eq!(frame.spread_index, 0);
-    assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));
-}
-
-fn assert_frame_error<T>(result: crate::epub::EpubResult<T>, expected: &str) {
-    let Err(error) = result else {
-        panic!("frame projection should fail");
-    };
-    assert_eq!(error.message(), expected);
-}
-
-#[test]
-fn plans_frame_resource_warm_window_in_runtime() {
-    let mut document = RuntimeDocument::open_pinned_for_tests(&multi_chapter_fixture_epub())
-        .expect("document opens");
-    let revision = document
-        .create_revision(&layout())
-        .expect("revision is created");
-
-    let middle = document
-        .frame_resource_warm_plan(&revision.revision_id, 1)
-        .expect("middle warm plan resolves");
-    let start = document
-        .frame_resource_warm_plan(&revision.revision_id, 0)
-        .expect("start warm plan resolves");
-
-    assert_eq!(middle.revision_id, revision.revision_id);
-    assert_eq!(middle.center_spread_index, 1);
-    assert_eq!(middle.display_spread_index, 1);
-    assert_eq!(middle.spread_indexes, vec![1, 2, 0]);
-    assert_eq!(start.display_spread_index, 0);
-    assert_eq!(start.spread_indexes, vec![0, 1, 2]);
-}
-
-#[test]
 fn exposes_typed_page_targets_with_canonical_footnote_and_image_semantics() {
     let mut document = RuntimeDocument::open_pinned_for_tests(&interaction_target_fixture_epub())
         .expect("document opens");
@@ -1249,7 +784,7 @@ fn text_targets_keep_their_click_source_locator() {
 }
 
 #[test]
-fn exposes_typed_page_semantics_owned_by_the_requested_revision_page() {
+fn every_page_exposes_semantic_nodes_inside_its_own_bounds() {
     let mut document = RuntimeDocument::open_pinned_for_tests(&interaction_target_fixture_epub())
         .expect("document opens");
     let layout = layout();
@@ -1258,45 +793,31 @@ fn exposes_typed_page_semantics_owned_by_the_requested_revision_page() {
         .expect("revision is created");
     let pages = (0..revision.page_count)
         .map(|page_index| {
-            document
-                .get_page_semantics(&revision.revision_id, page_index)
+            page_semantic_nodes(&document, &revision.revision_id, page_index)
                 .expect("page semantics are available")
         })
         .collect::<Vec<_>>();
-    let semantics = &pages[0];
-    let missing = document
-        .get_page_semantics(&revision.revision_id, revision.page_count)
-        .expect_err("a page outside the revision is rejected");
-    let unknown = document
-        .get_page_semantics("rev-missing", 0)
-        .expect_err("an unknown revision is rejected");
 
-    assert_eq!(semantics.revision_id, revision.revision_id);
-    assert_eq!(semantics.page_index, 0);
-    assert_eq!(semantics.spread_index, 0);
     let mut nodes = Vec::new();
-    for (page_index, semantics) in pages.iter().enumerate() {
-        assert_eq!(semantics.revision_id, revision.revision_id);
-        assert_eq!(semantics.page_index, page_index);
-        collect_semantic_nodes(&semantics.nodes, &mut nodes);
-        for node in &semantics.nodes {
+    for page in &pages {
+        collect_semantic_nodes(page, &mut nodes);
+        for node in page {
             assert_semantic_node_invariants(node);
         }
     }
     assert!(nodes
         .iter()
-        .any(|node| node.role == RuntimeSemanticRole::Paragraph));
+        .any(|node| node.role == PageArtifactSemanticRole::Paragraph));
     for node in nodes {
         assert!(node.bounds.x >= 0.0);
         assert!(node.bounds.y >= 0.0);
         assert!(node.bounds.x + node.bounds.width <= layout.page_width);
         assert!(node.bounds.y + node.bounds.height <= layout.page_height);
     }
-    assert_eq!(
-        missing.message(),
-        format!("unknown page index: {}", revision.page_count)
+    assert!(
+        page_semantic_nodes(&document, &revision.revision_id, revision.page_count).is_none(),
+        "a page outside the revision has no semantics"
     );
-    assert_eq!(unknown.message(), "unknown revision: rev-missing");
 }
 
 #[test]
@@ -1309,20 +830,21 @@ fn page_semantics_expose_link_and_image_nodes() {
         .expect("revision is created");
     let pages = (0..revision.page_count)
         .map(|page_index| {
-            document
-                .get_page_semantics(&revision.revision_id, page_index)
+            page_semantic_nodes(&document, &revision.revision_id, page_index)
                 .expect("page semantics are available")
         })
         .collect::<Vec<_>>();
     let mut nodes = Vec::new();
-    for semantics in &pages {
-        collect_semantic_nodes(&semantics.nodes, &mut nodes);
+    for page in &pages {
+        collect_semantic_nodes(page, &mut nodes);
     }
     assert!(nodes.iter().any(|node| {
-        node.role == RuntimeSemanticRole::Link && node.href.as_deref() == Some("#intro")
+        matches!(node.role, PageArtifactSemanticRole::Link)
+            && node.href.as_deref() == Some("#intro")
     }));
     assert!(nodes.iter().any(|node| {
-        node.role == RuntimeSemanticRole::Image && node.alt.as_deref() == Some("standalone cover")
+        matches!(node.role, PageArtifactSemanticRole::Image)
+            && node.alt.as_deref() == Some("standalone cover")
     }));
 }
 
@@ -1342,17 +864,13 @@ fn double_spread_page_targets_keep_page_content_coordinates() {
     let right = document
         .get_page_targets(&revision.revision_id, 2)
         .expect("right page targets");
-    let left_semantics = document
-        .get_page_semantics(&revision.revision_id, 1)
-        .expect("left page semantics");
-    let right_semantics = document
-        .get_page_semantics(&revision.revision_id, 2)
-        .expect("right page semantics");
+    let left_semantics =
+        page_semantic_nodes(&document, &revision.revision_id, 1).expect("left page semantics");
+    let right_semantics =
+        page_semantic_nodes(&document, &revision.revision_id, 2).expect("right page semantics");
 
     assert_eq!(left.spread_index, 1);
     assert_eq!(right.spread_index, 1);
-    assert_eq!(left_semantics.spread_index, 1);
-    assert_eq!(right_semantics.spread_index, 1);
     assert!(!left.entries.is_empty());
     assert!(!right.entries.is_empty());
     for target in left.entries.iter().chain(&right.entries) {
@@ -1362,8 +880,8 @@ fn double_spread_page_targets_keep_page_content_coordinates() {
         assert!(target.bounds.y + target.bounds.height <= layout.page_height);
     }
     let mut semantic_nodes = Vec::new();
-    collect_semantic_nodes(&left_semantics.nodes, &mut semantic_nodes);
-    collect_semantic_nodes(&right_semantics.nodes, &mut semantic_nodes);
+    collect_semantic_nodes(&left_semantics, &mut semantic_nodes);
+    collect_semantic_nodes(&right_semantics, &mut semantic_nodes);
     assert!(!semantic_nodes.is_empty());
     for node in semantic_nodes {
         assert!(node.bounds.x >= 0.0);
@@ -1374,23 +892,19 @@ fn double_spread_page_targets_keep_page_content_coordinates() {
 }
 
 #[test]
-fn exposes_page_text_positions_from_typed_page_content() {
+fn a_page_exposes_its_text_and_where_each_run_sits_in_it() {
     let mut document =
         RuntimeDocument::open_pinned_for_tests(&fixture_epub()).expect("document opens");
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
+    let engine = revision_by_id(&document, &revision.revision_id).chapter_engine_session();
 
-    let positions = document
-        .get_page_text_positions(&revision.revision_id, 0)
-        .expect("text positions are available");
-    let missing = document
-        .get_page_text_positions(&revision.revision_id, 99)
-        .expect_err("missing page fails");
+    let positions = engine
+        .page(0)
+        .expect("the first page exists")
+        .text_positions();
 
-    assert_eq!(positions.revision_id, revision.revision_id);
-    assert_eq!(positions.page_index, 0);
-    assert_eq!(positions.spread_index, 0);
     assert!(positions.text.contains("Hello runtime"));
     assert_eq!(positions.text_length, positions.text.encode_utf16().count());
     assert!(!positions.text_hash.is_empty());
@@ -1398,7 +912,7 @@ fn exposes_page_text_positions_from_typed_page_content() {
         .offsets
         .iter()
         .any(|offset| offset.end > offset.start));
-    assert_eq!(missing.message(), "unknown page index: 99");
+    assert!(engine.page(99).is_none(), "a page outside the revision");
 }
 
 #[test]
@@ -1410,17 +924,16 @@ fn search_source_is_unavailable_when_raw_parsed_text_has_a_hidden_gap() {
         .create_revision(&layout())
         .expect("revision is created");
 
-    let response = document
-        .search(
-            &revision.revision_id,
-            RuntimeSearchRequest {
-                query: "visiblematch".to_owned(),
-                case_sensitive: true,
-                whole_word: false,
-                limit: Some(1),
-            },
-        )
-        .expect("search succeeds");
+    let response = search(
+        &document,
+        &revision.revision_id,
+        RuntimeSearchRequest {
+            query: "visiblematch".to_owned(),
+            case_sensitive: true,
+            whole_word: false,
+            limit: Some(1),
+        },
+    );
 
     assert_eq!(response.result_count, 1);
     assert!(matches!(
@@ -1436,39 +949,38 @@ fn resolves_text_range_geometry_from_search_positions() {
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
-    let search = document
-        .search(
-            &revision.revision_id,
-            RuntimeSearchRequest {
-                query: "runtime".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: Some(1),
-            },
-        )
-        .expect("search succeeds");
+    let search = search(
+        &document,
+        &revision.revision_id,
+        RuntimeSearchRequest {
+            query: "runtime".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: Some(1),
+        },
+    );
     let result = &search.results[0];
 
-    let geometry = document
-        .get_text_range_geometry(
-            &revision.revision_id,
-            RuntimeTextRangeGeometryRequest {
-                page_index: result.page_index,
-                start: result.match_range.start,
-                end: result.match_range.end,
-            },
-        )
-        .expect("text geometry is available");
-    let wrong_page = document
-        .get_text_range_geometry(
-            &revision.revision_id,
-            RuntimeTextRangeGeometryRequest {
-                page_index: 99,
-                start: result.match_range.start,
-                end: result.match_range.end,
-            },
-        )
-        .expect_err("missing page fails");
+    let geometry = text_range_geometry(
+        &document,
+        &revision.revision_id,
+        RuntimeTextRangeGeometryRequest {
+            page_index: result.page_index,
+            start: result.match_range.start,
+            end: result.match_range.end,
+        },
+    )
+    .expect("text geometry is available");
+    let wrong_page = text_range_geometry(
+        &document,
+        &revision.revision_id,
+        RuntimeTextRangeGeometryRequest {
+            page_index: 99,
+            start: result.match_range.start,
+            end: result.match_range.end,
+        },
+    )
+    .expect_err("missing page fails");
 
     assert_eq!(geometry.revision_id, revision.revision_id);
     assert_eq!(geometry.page_index, result.page_index);

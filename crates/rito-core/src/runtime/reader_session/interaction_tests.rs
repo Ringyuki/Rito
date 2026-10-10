@@ -834,20 +834,18 @@ fn open_toc_fixture() -> (
     let revision = document
         .create_revision(&layout_config(layout()).expect("layout"))
         .expect("revision");
-    let targets = document
-        .revision_bundle(&revision.revision_id, true)
-        .expect("bundle")
-        .toc_targets;
+    let pages =
+        crate::runtime::tests::revisions::whole_book_pages(&mut document, &revision.revision_id);
     // Every entry is placed, the repeated id in the chapter that holds it.
     assert_eq!(
-        targets
-            .targets
+        pages
+            .toc_pages
             .iter()
-            .map(|target| target.toc_index)
+            .map(|(toc_index, _)| *toc_index)
             .collect::<Vec<_>>(),
         vec![0, 1, 2, 3]
     );
-    (session, artifact, document, targets.active_entry_by_page)
+    (session, artifact, document, pages.active_toc_entry_by_page)
 }
 
 /// A session and a browser revision name the same TOC entry for every

@@ -785,10 +785,11 @@ fn a_chapter_local_page_lays_images_out_with_their_real_dimensions() {
         .expect("full reference layout");
     let expected = (0..reference_revision.page_count)
         .map(|page_index| {
-            reference
-                .get_page_text_positions(&reference_revision.revision_id, page_index)
-                .expect("reference page text")
-                .text
+            crate::runtime::tests::revisions::page_text(
+                &reference,
+                &reference_revision.revision_id,
+                page_index,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -896,10 +897,11 @@ fn chapter_local_pages_match_the_whole_book_fragment_layout() {
     );
     let expected = (0..=20)
         .map(|page_index| {
-            reference
-                .get_page_text_positions(&reference_revision.revision_id, page_index)
-                .expect("reference page text")
-                .text
+            crate::runtime::tests::revisions::page_text(
+                &reference,
+                &reference_revision.revision_id,
+                page_index,
+            )
         })
         .collect::<Vec<_>>();
 

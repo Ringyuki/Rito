@@ -4,10 +4,10 @@ use crate::runtime::cleanup::CleanupProgress;
 
 use super::{
     super::{
-        frame::{RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionCoordinateSpace},
+        frame::{RuntimeRevision, RuntimeRevisionCoordinateSpace},
         RuntimeRequiredFontFace, RuntimeRevisionExtent,
     },
-    PendingRuntimeFrameCacheCleanup, PendingRuntimeRevisionInteractionsCleanup,
+    PendingRuntimeRevisionInteractionsCleanup,
 };
 
 /// Copy-only remainder of a decomposed runtime revision.
@@ -18,22 +18,20 @@ struct RuntimeRevisionShell {
     extent: RuntimeRevisionExtent,
 }
 
-/// Releases derived frames before the flat fields.
+/// Releases a retired revision a unit at a time.
 ///
-/// If frame-cache cleanup costs `FC`, the catalog contains `RF` faces, and
-/// interaction cleanup costs `RI`, this cursor costs exactly
-/// `FC + RF + RI + 5` units. The layout configuration and the fragment page
-/// table are dropped in place with the decomposition unit: the configuration
-/// is a handful of scalars and one family string, but the page table owns
-/// every materialized chapter (its formatting tree, sealed fragment trees
-/// and cached paint commands), so that single unit can be the largest
-/// release of all. Cached-frame table entries are scheduled inside `FC`;
-/// the page table and other allocation releases remain atomic residuals,
-/// so this is not an end-to-end wall-clock bound.
+/// If the catalog contains `RF` faces and interaction cleanup costs `RI`,
+/// this cursor costs exactly `RF + RI + 4` units. The layout configuration
+/// and the fragment page table are dropped in place with the decomposition
+/// unit: the configuration is a handful of scalars and one family string,
+/// but the page table owns every materialized chapter (its formatting tree,
+/// sealed fragment trees and cached paint commands), so that single unit
+/// can be the largest release of all. The page table and other allocation
+/// releases remain atomic residuals, so this is not an end-to-end
+/// wall-clock bound.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
     owner: Option<RuntimeRevision>,
-    frame_cache: Option<PendingRuntimeFrameCacheCleanup>,
     required_font_face_catalog: Option<vec::IntoIter<RuntimeRequiredFontFace>>,
     interactions: Option<PendingRuntimeRevisionInteractionsCleanup>,
     shell: Option<RuntimeRevisionShell>,
@@ -43,7 +41,6 @@ pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RuntimeRevisionCleanupStage {
     RevisionSource,
-    FrameCache,
     RequiredFontFaceCatalog,
     Interactions,
     Owner,
@@ -54,7 +51,6 @@ impl PendingRuntimeRevisionCleanup {
     pub(in crate::runtime) fn new(owner: RuntimeRevision) -> Self {
         Self {
             owner: Some(owner),
-            frame_cache: None,
             required_font_face_catalog: None,
             interactions: None,
             shell: None,
@@ -66,22 +62,9 @@ impl PendingRuntimeRevisionCleanup {
         self.stage == RuntimeRevisionCleanupStage::Complete
     }
 
-    pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
-        self.owner.as_ref().map_or_else(
-            || {
-                self.frame_cache.as_ref().map_or(
-                    0,
-                    PendingRuntimeFrameCacheCleanup::pending_frame_owner_count,
-                )
-            },
-            |owner| owner.frame_cache.len(),
-        )
-    }
-
     pub(in crate::runtime) fn advance_one(&mut self) -> bool {
         match self.stage {
             RuntimeRevisionCleanupStage::RevisionSource => self.start_revision(),
-            RuntimeRevisionCleanupStage::FrameCache => self.advance_frame_cache(),
             RuntimeRevisionCleanupStage::RequiredFontFaceCatalog => {
                 self.release_required_font_face_catalog()
             }
@@ -130,15 +113,7 @@ impl PendingRuntimeRevisionCleanup {
             fragment_layout: _,
             required_font_face_catalog,
             interactions,
-            frame_cache,
-            frame_cache_order,
         } = owner;
-        self.frame_cache = Some(PendingRuntimeFrameCacheCleanup::new(
-            RuntimeFrameCacheOwner {
-                frames: frame_cache,
-                order: frame_cache_order,
-            },
-        ));
         self.required_font_face_catalog = required_font_face_catalog.map(Vec::into_iter);
         self.interactions = Some(PendingRuntimeRevisionInteractionsCleanup::new(interactions));
         self.shell = Some(RuntimeRevisionShell {
@@ -146,22 +121,7 @@ impl PendingRuntimeRevisionCleanup {
             revision_version,
             extent,
         });
-        self.stage = RuntimeRevisionCleanupStage::FrameCache;
-        true
-    }
-
-    fn advance_frame_cache(&mut self) -> bool {
-        let frame_cache = self
-            .frame_cache
-            .as_mut()
-            .expect("frame-cache cleanup exists");
-        if frame_cache.is_complete() {
-            self.frame_cache = None;
-            self.stage = RuntimeRevisionCleanupStage::RequiredFontFaceCatalog;
-            return true;
-        }
-        let advanced = frame_cache.advance_one();
-        debug_assert!(advanced, "incomplete frame-cache cleanup has work");
+        self.stage = RuntimeRevisionCleanupStage::RequiredFontFaceCatalog;
         true
     }
 

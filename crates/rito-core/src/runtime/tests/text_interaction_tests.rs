@@ -1,5 +1,5 @@
 use super::pinned_font_policy_fixtures::{content_epub, face, layout, policy, title_font};
-use super::revisions::{exact_source_range, revision_by_id};
+use super::revisions::{exact_source_range, revision_by_id, search};
 use crate::{
     interaction::{TextCaretAddress, TextCaretAffinity, TextInteractionUnavailableReason},
     runtime::{
@@ -28,17 +28,16 @@ fn native_search_source_reuses_authoritative_exact_shape_projection() {
         .create_revision(&layout())
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
-    let search = document
-        .search(
-            &handle.revision_id,
-            RuntimeSearchRequest {
-                query: "Wi".to_owned(),
-                case_sensitive: true,
-                whole_word: false,
-                limit: Some(1),
-            },
-        )
-        .expect("native search succeeds");
+    let search = search(
+        &document,
+        &handle.revision_id,
+        RuntimeSearchRequest {
+            query: "Wi".to_owned(),
+            case_sensitive: true,
+            whole_word: false,
+            limit: Some(1),
+        },
+    );
     let result = search.results.first().expect("search match");
     let RuntimeSearchSource::Resolved { href, source_range } = &result.source else {
         panic!("search match owns an exact durable source range");
@@ -75,17 +74,16 @@ fn embedded_nested_search_source_projects_non_tail_range_exactly() {
         .create_revision(&layout())
         .expect("font-aware revision is created");
     let handle = RuntimeRevisionHandle::from(&revision);
-    let search = document
-        .search(
-            &handle.revision_id,
-            RuntimeSearchRequest {
-                query: "关于".to_owned(),
-                case_sensitive: true,
-                whole_word: false,
-                limit: Some(1),
-            },
-        )
-        .expect("native search succeeds");
+    let search = search(
+        &document,
+        &handle.revision_id,
+        RuntimeSearchRequest {
+            query: "关于".to_owned(),
+            case_sensitive: true,
+            whole_word: false,
+            limit: Some(1),
+        },
+    );
     let result = search.results.first().expect("search match");
     let RuntimeSearchSource::Resolved { href, source_range } = &result.source else {
         panic!("search match owns an exact durable source range");

@@ -3,16 +3,6 @@ pub const OWNS: &str = "Layout configuration and the page ranges a revision publ
 
 use serde::{Deserialize, Serialize};
 
-/// One chapter's page span inside a revision's page table.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaginationFlowChapterRange {
-    pub start_page: usize,
-    pub end_page: usize,
-    pub page_count: usize,
-    pub block_count: usize,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SpreadMode {

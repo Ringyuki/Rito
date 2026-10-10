@@ -8,51 +8,26 @@ use probe::RuntimeCleanupProbe;
 
 use crate::runtime::cleanup::CleanupProgress;
 
-use super::super::frame::{RuntimeCachedFrame, RuntimeRevision};
+use super::super::frame::RuntimeRevision;
 use job::RuntimeCleanupJob;
 
 pub(in crate::runtime) const RUNTIME_CLEANUP_QUANTUM: usize = 64;
-const FRAME_BACKLOG_HIGH_WATER: usize = 24;
-const FRAME_PRIORITY_BURST: usize = 8;
 
-#[derive(Debug)]
+/// Retired revisions waiting to be released, a bounded number of units at
+/// a time. Jobs take turns one unit each, so a large revision does not hold
+/// back the ones queued behind it.
+#[derive(Debug, Default)]
 pub(in crate::runtime) struct RuntimeCleanupQueue {
-    frame_jobs: VecDeque<RuntimeCleanupJob>,
-    regular_jobs: VecDeque<RuntimeCleanupJob>,
-    pending_frame_owners: usize,
-    prefer_frame: bool,
-    frame_priority_streak: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CleanupClass {
-    Frame,
-    Regular,
-}
-
-impl Default for RuntimeCleanupQueue {
-    fn default() -> Self {
-        Self {
-            frame_jobs: VecDeque::new(),
-            regular_jobs: VecDeque::new(),
-            pending_frame_owners: 0,
-            prefer_frame: true,
-            frame_priority_streak: 0,
-        }
-    }
+    jobs: VecDeque<RuntimeCleanupJob>,
 }
 
 impl RuntimeCleanupQueue {
     pub(in crate::runtime) fn enqueue_revision(&mut self, owner: RuntimeRevision) {
-        self.enqueue(RuntimeCleanupJob::revision(owner));
-    }
-
-    pub(in crate::runtime) fn enqueue_cached_frame(&mut self, owner: RuntimeCachedFrame) {
-        self.enqueue(RuntimeCleanupJob::cached_frame(owner));
+        self.jobs.push_back(RuntimeCleanupJob::revision(owner));
     }
 
     pub(in crate::runtime) fn is_empty(&self) -> bool {
-        self.frame_jobs.is_empty() && self.regular_jobs.is_empty()
+        self.jobs.is_empty()
     }
 
     pub(in crate::runtime) fn advance(&mut self, budget: NonZeroUsize) -> CleanupProgress {
@@ -67,110 +42,31 @@ impl RuntimeCleanupQueue {
     }
 
     pub(in crate::runtime) fn drain_sync(&mut self) {
-        while let Some(mut job) = self.frame_jobs.pop_front() {
+        while let Some(mut job) = self.jobs.pop_front() {
             job.drain();
         }
-        while let Some(mut job) = self.regular_jobs.pop_front() {
-            job.drain();
-        }
-        self.pending_frame_owners = 0;
-        debug_assert!(self.is_empty());
-    }
-
-    fn enqueue(&mut self, job: RuntimeCleanupJob) {
-        self.pending_frame_owners = self
-            .pending_frame_owners
-            .checked_add(job.pending_frame_owner_count())
-            .expect("pending frame-owner count must not overflow");
-        self.requeue(job);
     }
 
     fn advance_one(&mut self) -> bool {
-        let Some(class) = self.next_class() else {
+        let Some(mut job) = self.jobs.pop_front() else {
             return false;
         };
-        let mut job = self.pop(class);
-        let before = job.pending_frame_owner_count();
         let advanced = job.advance_one();
         debug_assert!(advanced, "queued cleanup job has work");
-        let after = job.pending_frame_owner_count();
-        debug_assert!(after <= before, "cleanup cannot create frame owners");
-        self.pending_frame_owners -= before - after;
-        self.note_service(class);
         if !job.is_complete() {
-            self.requeue(job);
+            self.jobs.push_back(job);
         }
         true
     }
 
-    fn next_class(&self) -> Option<CleanupClass> {
-        match (self.frame_jobs.is_empty(), self.regular_jobs.is_empty()) {
-            (true, true) => None,
-            (false, true) => Some(CleanupClass::Frame),
-            (true, false) => Some(CleanupClass::Regular),
-            (false, false)
-                if self.pending_frame_owners >= FRAME_BACKLOG_HIGH_WATER
-                    && self.frame_priority_streak < FRAME_PRIORITY_BURST =>
-            {
-                Some(CleanupClass::Frame)
-            }
-            (false, false) if self.pending_frame_owners >= FRAME_BACKLOG_HIGH_WATER => {
-                Some(CleanupClass::Regular)
-            }
-            (false, false) if self.prefer_frame => Some(CleanupClass::Frame),
-            (false, false) => Some(CleanupClass::Regular),
-        }
-    }
-
-    fn pop(&mut self, class: CleanupClass) -> RuntimeCleanupJob {
-        match class {
-            CleanupClass::Frame => self.frame_jobs.pop_front(),
-            CleanupClass::Regular => self.regular_jobs.pop_front(),
-        }
-        .expect("selected cleanup class is non-empty")
-    }
-
-    fn requeue(&mut self, job: RuntimeCleanupJob) {
-        if job.pending_frame_owner_count() > 0 {
-            self.frame_jobs.push_back(job);
-        } else {
-            self.regular_jobs.push_back(job);
-        }
-    }
-
-    fn note_service(&mut self, class: CleanupClass) {
-        match class {
-            CleanupClass::Frame => {
-                self.prefer_frame = false;
-                if self.pending_frame_owners >= FRAME_BACKLOG_HIGH_WATER {
-                    self.frame_priority_streak = self
-                        .frame_priority_streak
-                        .saturating_add(1)
-                        .min(FRAME_PRIORITY_BURST);
-                } else {
-                    self.frame_priority_streak = 0;
-                }
-            }
-            CleanupClass::Regular => {
-                self.prefer_frame = true;
-                self.frame_priority_streak = 0;
-            }
-        }
-    }
-
     #[cfg(test)]
     fn enqueue_probe(&mut self, probe: RuntimeCleanupProbe) {
-        self.enqueue(RuntimeCleanupJob::probe(probe));
-    }
-
-    #[cfg(test)]
-    pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
-        self.pending_frame_owners
+        self.jobs.push_back(RuntimeCleanupJob::probe(probe));
     }
 
     #[cfg(test)]
     pub(in crate::runtime) fn job_count(&self) -> usize {
-        self.frame_jobs.len() + self.regular_jobs.len()
+        self.jobs.len()
     }
 }
 

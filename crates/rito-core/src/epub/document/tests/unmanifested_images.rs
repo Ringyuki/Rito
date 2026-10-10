@@ -91,22 +91,21 @@ fn preserves_manifest_identity_and_media_type_before_archive_fallbacks() {
 fn transfers_an_unmanifested_image_through_the_runtime_resource_path() {
     let mut runtime =
         RuntimeDocument::open_pinned_for_tests(&unmanifested_image_epub()).expect("runtime opens");
-    let before = runtime.publication_info();
-    let summary = before
-        .resources
+    let indexed = runtime
+        .document()
         .images
         .iter()
         .find(|resource| resource.href == "Images/Undeclared Tile.png")
-        .expect("archive image metadata is published");
-    assert_eq!(summary.byte_length, minimal_png().len());
-    assert!(summary.byte_hash.is_none());
-    assert!(summary.width.is_none());
+        .expect("the archive image is indexed");
+    assert_eq!(indexed.byte_length, minimal_png().len());
+    assert!(indexed.byte_hash.is_none());
+    assert!(indexed.width.is_none());
 
     let revision = runtime
         .create_revision(&layout())
         .expect("revision is created");
     let image_hrefs = runtime
-        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
+        .frame_image_hrefs_for_tests(&revision.revision_id, 0)
         .expect("frame is available");
     assert!(image_hrefs.contains(&"../Images/Undeclared%20Tile.png".to_owned()));
 

@@ -8,7 +8,7 @@ use super::{
         multi_chapter_fixture_epub,
     },
     pinned_font_policy_fixtures::{face, policy, serif_text_font},
-    revisions::{exact_source_range, revision_by_id},
+    revisions::{exact_source_range, revision_by_id, search},
 };
 use crate::interaction::TextSelectionMovement;
 use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
@@ -303,10 +303,6 @@ fn a_revision_reports_the_extent_of_its_fragment_page_table() {
     let table = &revision.fragment_layout;
     assert_eq!(summary.page_count, table.page_count());
     assert_eq!(summary.spread_count, revision.extent.spread_count);
-    assert!(
-        revision.frame_cache.is_empty(),
-        "a new revision has no cached frames"
-    );
 }
 
 #[test]
@@ -669,17 +665,16 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
         revision_id: revision_id.clone(),
         revision_version: revision.revision_version,
     };
-    let response = document
-        .search(
-            &handle.revision_id,
-            crate::runtime::RuntimeSearchRequest {
-                query: "chapter".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: Some(50),
-            },
-        )
-        .expect("search resolves");
+    let response = search(
+        &document,
+        &handle.revision_id,
+        crate::runtime::RuntimeSearchRequest {
+            query: "chapter".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: Some(50),
+        },
+    );
     assert!(
         response.result_count > 0,
         "search must find chapter text under the fragment page table, got {:?}",
@@ -1367,17 +1362,16 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
             .revision_version,
     };
 
-    let response = document
-        .search(
-            &handle.revision_id,
-            crate::runtime::RuntimeSearchRequest {
-                query: "paragraph 2.".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: Some(50),
-            },
-        )
-        .expect("search resolves");
+    let response = search(
+        &document,
+        &handle.revision_id,
+        crate::runtime::RuntimeSearchRequest {
+            query: "paragraph 2.".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: Some(50),
+        },
+    );
     assert_eq!(
         response.result_count, 3,
         "every chapter of the fixture carries the phrase once"

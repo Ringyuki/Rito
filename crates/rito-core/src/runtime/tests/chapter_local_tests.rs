@@ -74,10 +74,7 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
     assert!(json["revision"].get("localPageCount").is_some());
     assert!(json["revision"].get("localSpreadCount").is_some());
     assert!(json["target"]["owner"].get("coordinate").is_some());
-    assert!(document.get_revision_summary(&owner.revision_id).is_err());
-    assert!(document
-        .get_frame_command_buffer_metadata(&owner.revision_id, 0)
-        .is_err());
+    assert!(document.spread_page_indexes(&owner.revision_id, 0).is_err());
     assert!(document
         .get_resource(
             &owner.revision_id,
@@ -138,7 +135,6 @@ fn fragment_target_resolves_to_its_exact_local_spread() {
     let frame = document
         .frame_commands_for_tests(&owner(&resolved).revision_id, local_spread_index)
         .expect("resolved local frame");
-    assert_eq!(frame.spread_index, local_spread_index);
     assert!(frame.page_indexes.contains(&local_page_index));
     let stylesheet = document
         .get_chapter_local_resource(

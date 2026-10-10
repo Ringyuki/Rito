@@ -5,7 +5,6 @@ pub const OWNS: &str =
 use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 
 mod access;
-mod bundle;
 mod chapter_engine_session;
 mod chapter_local;
 mod chapter_text;
@@ -19,7 +18,6 @@ mod metadata;
 mod navigation;
 mod page;
 mod page_artifact;
-mod page_semantics;
 mod page_target;
 mod pending;
 mod pinned_font_policy;
@@ -32,7 +30,6 @@ mod search;
 mod source_locator;
 mod spread;
 mod text_interaction;
-mod transfer_store;
 mod types;
 
 use crate::epub::{
@@ -43,21 +40,12 @@ pub use access::{
     RuntimeRevisionAccessError, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
     RuntimeVersioned,
 };
-pub use chapter_tree_report::{
-    RuntimeChapterTreeChapter, RuntimeChapterTreeReport, RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
-};
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
 pub use font_catalog::{
     RuntimeFontCatalog, RuntimeFontFamily, RuntimeFontFamilyFace, RuntimeFontSource,
 };
 use frame::RuntimeRevision;
-use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
-use navigation::resolve_href_locator;
-use page::{page_targets, page_text_positions, text_range_geometry};
-use page_semantics::page_semantics;
-pub use page_semantics::{
-    RuntimePageSemantics, RuntimeSemanticBounds, RuntimeSemanticNode, RuntimeSemanticRole,
-};
+use page::page_targets;
 pub use pinned_font_policy::{
     RuntimePinnedFontFaceInput, RuntimePinnedFontFaceSummary, RuntimePinnedFontGenericRole,
     RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput, RuntimePinnedFontPolicySummary,
@@ -69,7 +57,6 @@ use resource::{
     find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
     runtime_text_resource,
 };
-use search::search_revision;
 pub use search::{SearchRuntimeResult, SearchTextPosition};
 
 pub use source_locator::{
@@ -82,16 +69,15 @@ pub use source_locator::{
 };
 pub use text_interaction::{
     RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
-    RuntimeExactSourceRangeResponse, RuntimeExactTextRangeRect, RuntimeTextCaret,
-    RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
-    RuntimeTextRange, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
+    RuntimeExactTextRangeRect, RuntimeTextCaret, RuntimeTextCaretResolution,
+    RuntimeTextCaretResponse, RuntimeTextPointRequest, RuntimeTextRange,
+    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
     RuntimeTextRangeFromPointsResponse, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
     RuntimeTextRangeResponse, RuntimeTextRangeToPointRequest, RuntimeTextRangeToPointResponse,
     RuntimeTextSelectionGranularity, RuntimeTextSelectionMovementRequest,
     RuntimeTextSelectionMovementResolution, RuntimeTextSelectionMovementResponse,
     RuntimeTextSourceSpan, RuntimeTextSourceSpanEndpoint,
 };
-pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;
 
 #[derive(Debug)]
@@ -108,10 +94,6 @@ pub struct RuntimeDocument {
     parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
     fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
-    /// Device pixels per CSS pixel frames are painted at through the
-    /// document-level frame API (the reader session carries its own).
-    /// Paint snaps land on that grid; pagination never reads it.
-    render_ratio: std::cell::Cell<f64>,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
@@ -194,7 +176,6 @@ impl RuntimeDocument {
             parsed_chapters: BTreeMap::new(),
             font_face_sources: OnceCell::new(),
             fragment_engine: OnceCell::new(),
-            render_ratio: std::cell::Cell::new(1.0),
             pinned_font_policy,
             next_revision_index: 1,
             revisions: BTreeMap::new(),
@@ -241,15 +222,6 @@ impl RuntimeDocument {
 
     pub fn document(&self) -> &LoadedEpubDocument {
         &self.document
-    }
-
-    pub fn publication_info(&self) -> RuntimePublicationInfo {
-        RuntimePublicationInfo {
-            package: self.document.package.clone(),
-            resources: runtime_publication_resources(&self.document),
-            chapters: chapter_sources_from_document(&self.document),
-            font_faces: runtime_font_faces(&self.document),
-        }
     }
 
     pub fn has_revision(&self, revision_id: &str) -> bool {
@@ -382,35 +354,6 @@ impl RuntimeDocument {
         }
     }
 
-    pub fn search(
-        &self,
-        revision_id: &str,
-        request: RuntimeSearchRequest,
-    ) -> EpubResult<RuntimeSearchResponse> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(search_revision(
-            &self.document,
-            revision_id,
-            revision,
-            request,
-        ))
-    }
-
-    pub fn resolve_locator(
-        &self,
-        revision_id: &str,
-        request: RuntimeLocatorRequest,
-    ) -> EpubResult<ResolvedRuntimeLocator> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        resolve_href_locator(revision_id, &self.document.package, revision, request)
-    }
-
     pub fn get_page_targets(
         &self,
         revision_id: &str,
@@ -442,42 +385,6 @@ impl RuntimeDocument {
         page_target::runtime_page_targets(&self.document, context, revision, page_index, targets)
     }
 
-    pub fn get_page_semantics(
-        &self,
-        revision_id: &str,
-        page_index: usize,
-    ) -> EpubResult<RuntimePageSemantics> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        page_semantics(revision_id, revision, page_index)
-    }
-
-    pub fn get_page_text_positions(
-        &self,
-        revision_id: &str,
-        page_index: usize,
-    ) -> EpubResult<RuntimePageTextPositions> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        page_text_positions(revision_id, revision, page_index)
-    }
-
-    pub fn get_text_range_geometry(
-        &self,
-        revision_id: &str,
-        request: RuntimeTextRangeGeometryRequest,
-    ) -> EpubResult<RuntimeTextRangeGeometry> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        text_range_geometry(revision_id, revision, request)
-    }
-
     pub fn get_footnote(&mut self, revision_id: &str, key: &str) -> EpubResult<RuntimeFootnote> {
         let revision = self
             .revisions
@@ -493,25 +400,6 @@ impl RuntimeDocument {
             kind: entry.kind,
             text: entry.text.clone(),
             html: entry.html.clone(),
-        })
-    }
-
-    pub fn get_footnotes(&mut self, revision_id: &str) -> EpubResult<RuntimeFootnotes> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(RuntimeFootnotes {
-            revision_id: revision_id.to_owned(),
-            complete: revision.interactions.footnote_index_complete,
-            pending_keys: revision
-                .interactions
-                .pending_footnote_keys
-                .iter()
-                .filter(|key| !revision.interactions.contains_footnote(key.as_str()))
-                .cloned()
-                .collect(),
-            entries: revision.interactions.owned_footnotes(),
         })
     }
 
