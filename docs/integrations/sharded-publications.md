@@ -99,8 +99,8 @@ The reader asks for shards by id. A typical server:
 
 ## Web
 
-`createReader`, `openBrowserReaderSession` and React's `useRitoReader`
-`load` take a sharded publication wherever they took an `ArrayBuffer`:
+`createReader` and React's `useRitoReader` `load` take a sharded
+publication wherever they took an `ArrayBuffer`:
 
 ```ts
 const reader = await createReader(

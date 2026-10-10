@@ -179,6 +179,16 @@ describe('Architecture invariant: one public entry, one engine', () => {
     }
   });
 
+  it('main entry exports the reader and nothing of the session under it', () => {
+    // A host on the raw session has to queue its artifact operations and
+    // release every candidate it does not adopt. The reader does; the
+    // session, its Worker and the Canvas pen stay internal to it.
+    const source = read(MAIN_ENTRY);
+    const origins = [...source.matchAll(/from\s+'([^']+)'/g)].map((match) => match[1]);
+    expect([...new Set(origins)]).toEqual(['./reader']);
+    expect(source).not.toMatch(/BrowserReader|RitoReaderError|Presenter|Session\b/);
+  });
+
   it('the package exposes only the root entry', () => {
     const exported = Object.keys(PACKAGE_JSON_RECORD['exports'] as Record<string, unknown>);
     expect(exported.sort()).toEqual(['.', './package.json']);

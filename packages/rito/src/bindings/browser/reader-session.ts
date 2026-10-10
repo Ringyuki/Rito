@@ -1,7 +1,6 @@
 import {
   createRitoCoreWasmReaderSessionWorkerClient,
   type RitoCoreWasmReaderSessionWorkerClient,
-  type RitoReaderAdjacentDirection,
   type RitoReaderArtifactRequestInput,
   type RitoReaderArtifact,
   type RitoReaderBackgroundAdvance,
@@ -11,9 +10,7 @@ import {
   type RitoReaderPublication,
   type RitoReaderResourceKind,
   type RitoReaderResource,
-  type RitoReaderErrorCode,
   type RitoReaderForegroundHandoffAck,
-  type RitoReaderSeekOverrides,
   type RitoReaderTextProfile,
   type RitoReaderSessionWorkerLike,
   type RitoReaderAnnotationRequest,
@@ -27,8 +24,6 @@ import {
   type RitoReaderSourceRange,
   type RitoReaderTextInteractionQuery,
   type RitoReaderTextInteractionResponse,
-  type RitoReaderTextPosition,
-  type RitoReaderTextRangeGeometry,
   RitoReaderError,
 } from '@ritojs/core-wasm/decoder';
 
@@ -38,7 +33,6 @@ export { RitoReaderError };
 
 export type BrowserReaderArtifact = RitoReaderArtifact;
 export type BrowserReaderArtifactRequest = RitoReaderArtifactRequestInput;
-export type BrowserReaderErrorCode = RitoReaderErrorCode;
 export type BrowserReaderBackgroundAdvance = RitoReaderBackgroundAdvance;
 export type BrowserReaderBackgroundHandoffAck = RitoReaderBackgroundHandoffAck;
 export type BrowserReaderForegroundHandoffAck = RitoReaderForegroundHandoffAck;
@@ -46,14 +40,10 @@ export type BrowserReaderLayout = RitoReaderLayout;
 export type BrowserReaderLocator = RitoReaderLocator;
 export type BrowserReaderPublication = RitoReaderPublication;
 export type BrowserReaderResource = RitoReaderResource;
-export type BrowserReaderAdjacentDirection = RitoReaderAdjacentDirection;
 export type BrowserReaderResourceKind = RitoReaderResourceKind;
 export type BrowserReaderTextProfile = RitoReaderTextProfile;
-export type BrowserReaderSeekOverrides = RitoReaderSeekOverrides;
 export type BrowserReaderFootnote = RitoReaderFootnote;
 export type BrowserReaderSearchResponse = RitoReaderSearchResponse;
-export type BrowserReaderTextPosition = RitoReaderTextPosition;
-export type BrowserReaderTextRangeGeometry = RitoReaderTextRangeGeometry;
 export type BrowserReaderSourceRange = RitoReaderSourceRange;
 export type BrowserReaderExactSourceRangeResolution = RitoReaderExactSourceRangeResolution;
 export type BrowserReaderTextInteractionQuery = RitoReaderTextInteractionQuery;
@@ -77,6 +67,12 @@ export interface BrowserReaderSessionOpenOptions {
     | undefined;
 }
 
+/**
+ * The reader session as the browser reader uses it. It hands out artifacts
+ * that are not adopted yet and must each be shown or released, so it is
+ * internal: `session-reader/artifacts.ts` is its one caller of those
+ * methods, inside the reader's queue.
+ */
 export interface BrowserReaderSession {
   readonly sessionId: bigint;
   /**
@@ -105,20 +101,11 @@ export interface BrowserReaderSession {
    */
   markFontFamiliesUnavailable(families: readonly string[]): Promise<void>;
   /**
-   * Returns an unadopted incoming candidate and keeps the source live. Prepare
-   * and adopt the candidate before painting; release the source only after the
-   * host's page-turn animation finishes.
+   * Lays out for a request and returns its unadopted candidate; the newest
+   * request wins. The caller prepares it and has the session show it with
+   * {@link adoptForegroundCandidate}, or releases it.
    */
-  requestAdjacent(
-    fromArtifactId: bigint,
-    direction: BrowserReaderAdjacentDirection,
-  ): Promise<BrowserReaderArtifact>;
-  /** Returns an unadopted latest-wins candidate sharing the adjacent foreground lane. */
   requestArtifact(request: BrowserReaderArtifactRequest): Promise<BrowserReaderArtifact>;
-  seek(
-    locator: BrowserReaderLocator,
-    overrides?: BrowserReaderSeekOverrides,
-  ): Promise<BrowserReaderArtifact>;
   /**
    * Atomically commits a prepared, still-latest candidate. Pass undefined only
    * for the initial visible artifact; replacements must name the old visible.
@@ -143,15 +130,6 @@ export interface BrowserReaderSession {
     href: string,
   ): Promise<BrowserReaderResource>;
   /**
-   * The adjacent spread as a read-only artifact with no foreground effect,
-   * for a host that previews a page turn under a gesture. Release it, or
-   * make it visible with {@link commitPeekedArtifact}.
-   */
-  peekAdjacent(
-    fromArtifactId: bigint,
-    direction: BrowserReaderAdjacentDirection,
-  ): Promise<BrowserReaderArtifact>;
-  /**
    * One spread of the revision behind an artifact, by its position in that
    * revision's page table (the `layout` navigation query lists them), with
    * no layout work and no foreground effect. Release it, or make it visible
@@ -174,12 +152,6 @@ export interface BrowserReaderSession {
       readonly limit?: number | undefined;
     },
   ): Promise<BrowserReaderSearchResponse>;
-  textRangeGeometry(
-    artifactId: bigint,
-    pageIndex: number,
-    start: BrowserReaderTextPosition,
-    end: BrowserReaderTextPosition,
-  ): Promise<BrowserReaderTextRangeGeometry>;
   /**
    * Where a durable source range lands: on the pages the artifact draws,
    * or with `everyPage` on every page it covers.
@@ -265,7 +237,6 @@ function browserReaderSession(
     sessionId: client.sessionId,
     initialArtifact,
     readPublication: () => publicationClient.readPublication(),
-    requestAdjacent: (...args) => client.requestAdjacent(...args),
     requestArtifact: (request) =>
       client.requestArtifact({
         ...request,
@@ -274,7 +245,6 @@ function browserReaderSession(
           renderRatio: request.layout.renderRatio ?? defaultRenderRatio(),
         },
       }),
-    seek: (...args) => client.seek(...args),
     adoptForegroundCandidate: (...args) => client.adoptForegroundCandidate(...args),
     advanceBackgroundOnce: (...args) => backgroundClient.advanceBackgroundOnce(...args),
     adoptBackgroundCandidate: (...args) => backgroundClient.adoptBackgroundCandidate(...args),
@@ -288,12 +258,10 @@ function browserReaderSession(
       await client.removeHostFontFaces(sha256s);
     },
     markFontFamiliesUnavailable: (families) => client.markFontFamiliesUnavailable(families),
-    peekAdjacent: (...args) => client.peekAdjacent(...args),
     peekSpread: (...args) => client.peekSpread(...args),
     commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
     readFootnote: (...args) => client.readFootnote(...args),
     search: (...args) => client.search(...args),
-    textRangeGeometry: (...args) => client.textRangeGeometry(...args),
     exactSourceRange: (...args) => client.exactSourceRange(...args),
     textInteraction: (...args) => client.textInteraction(...args),
     annotation: (query) => client.annotation(query),

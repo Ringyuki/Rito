@@ -120,8 +120,9 @@ In the browser the queue is `session-reader/queue.ts` and the owner is
 `session-reader/artifacts.ts`, the only module that calls the session's
 artifact methods. What the reader was asked for — a turn, a new layout —
 runs before a spread loaded ahead, and a step of the whole book runs when
-nothing waits. In Flutter the queue is `RitoReaderController` and the
-owner is `RitoReaderSession`. Neither host retries: with one operation at
+nothing waits. The session and the Canvas pen are internal to that reader;
+`createReader()` is all `@ritojs/core` exports of them. In Flutter the
+queue is `RitoReaderController` and the owner is `RitoReaderSession`. Neither host retries: with one operation at
 a time a refusal is not a race to ride out but a failure, and it is
 reported.
 

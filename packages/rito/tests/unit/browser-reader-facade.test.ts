@@ -22,9 +22,7 @@ vi.mock('@ritojs/core-wasm/decoder', () => ({
   createRitoCoreWasmReaderSessionWorkerClient: vi.fn(() => ({
     sessionId: 7n,
     open: mocks.open,
-    requestAdjacent: vi.fn(),
     requestArtifact: vi.fn(),
-    seek: vi.fn(),
     adoptForegroundCandidate: mocks.adoptForegroundCandidate,
     readPublication: mocks.readPublication,
     advanceBackgroundOnce: mocks.advanceBackgroundOnce,

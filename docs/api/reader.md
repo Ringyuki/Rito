@@ -289,24 +289,11 @@ Reader implementations may return `void`, which is also safe to `await`.
 - you want one object that handles loading, pagination, and rendering
 - you do not need custom orchestration between parse/layout/render stages
 
-### Prefer `openBrowserReaderSession()` when
-
-- your host drives the artifact protocol itself: it opens a session,
-  prepares each candidate's resources, adopts it with a compare-and-swap
-  on the visible artifact, drives the background publication step itself
-  and keeps a replaced artifact alive through its own page-turn animation
-- you want the same protocol the Flutter adapter and the C ABI expose —
-  page turns and peeks, search, footnotes, selection, annotation targets
-  and reading-position questions included — with
-  `createBrowserReaderSessionCanvasPresenter()` as the Canvas pen
-
-A prepared artifact never waits for its images: `prepare()` resolves once
-its fonts are ready and each image joins as it lands. Subscribe with
-`prepared.onImagesChanged(listener)` and paint again on every call; an
-image paints nothing for its first second, then a loading placeholder, a
-late one fades in over it, and a failed one paints a broken placeholder.
-A failed read that can pass is read again while something is subscribed.
-`prepared.imagesSettled` settles once every image has landed or failed.
+A spread never waits for its images: it paints once its fonts are ready
+and again as each image lands, which `onSpreadContentInvalidated` reports.
+An image paints nothing for its first second, then a loading placeholder;
+a late one fades in over it, and a failed one paints a broken placeholder.
+A failed read that can pass is read again while the spread is held.
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 
