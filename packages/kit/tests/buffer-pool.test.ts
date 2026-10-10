@@ -14,6 +14,7 @@ beforeAll(() => {
       getContext() {
         return {
           clearRect: vi.fn(),
+          drawImage: vi.fn(),
           fillRect: vi.fn(),
           strokeRect: vi.fn(),
           save: vi.fn(),
@@ -92,6 +93,48 @@ describe('PageBufferPool', () => {
     // Second call should be no-op
     pool.ensureContent('curr', renderer);
     expect(renderer).toHaveBeenCalledTimes(1);
+  });
+
+  it('rasters a buffer when it is painted, not when a turn first composites it', () => {
+    // A canvas rasters what was drawn into it the first time it is read as
+    // an image: the pool reads each painted buffer once, into one pixel.
+    const reads: Array<{ source: unknown; width: number; height: number }> = [];
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class RecordingOffscreenCanvas {
+        constructor(
+          public width: number,
+          public height: number,
+        ) {}
+
+        getContext() {
+          return {
+            clearRect: vi.fn(),
+            drawImage: (source: unknown, _x: number, _y: number, width: number, height: number) => {
+              reads.push({ source, width, height });
+            },
+            canvas: this,
+          };
+        }
+      },
+    );
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 2);
+    pool.assignSlot('next', 6);
+
+    expect(pool.ensureContent('next', () => false)).toBe(false);
+    expect(reads).toEqual([]);
+
+    expect(pool.ensureContent('next', () => true)).toBe(true);
+    expect(reads).toEqual([{ source: pool.next.content, width: 1, height: 1 }]);
+
+    // Painted and rastered: asking again does neither.
+    expect(pool.ensureContent('next', () => true)).toBe(true);
+    expect(reads).toHaveLength(1);
+
+    pool.invalidateContentForSpread(6);
+    expect(pool.ensureContent('next', () => true)).toBe(true);
+    expect(reads).toHaveLength(2);
   });
 
   it('keeps content dirty when renderer defers painting', () => {

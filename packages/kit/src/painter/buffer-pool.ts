@@ -6,6 +6,7 @@ import {
 } from './buffer-pool-state';
 import { createInvalidationMethods } from './buffer-pool-invalidation';
 import { paintOverlayInto } from './overlay-painter';
+import { rasterNow } from './raster';
 import type { OverlayLayer, PageBufferSlot, SlotPosition } from './types';
 
 /** Provider function that produces overlay layers for a given spread index. */
@@ -137,6 +138,10 @@ function ensureContent(
   const context = slot.content.getContext('2d');
   if (!context) return false;
   if (!renderer(slot.spreadIndex, context)) return false;
+  // A buffer counts as painted once its pixels exist, so a turn onto a
+  // spread painted ahead of it has only two buffers to composite.
+  state.rasterScratch ??= new OffscreenCanvas(1, 1);
+  rasterNow(slot.content, state.rasterScratch);
   slot.contentDirty = false;
   return true;
 }

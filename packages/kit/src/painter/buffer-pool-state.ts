@@ -3,6 +3,8 @@ import type { PageBufferSlot } from './types';
 
 export interface PageBufferPoolState {
   readonly slots: [PageBufferSlot, PageBufferSlot, PageBufferSlot];
+  /** One pixel a painted buffer is read into so that it is rastered; made on first use. */
+  rasterScratch: OffscreenCanvas | null;
   indices: [number, number, number];
   width: number;
   height: number;
@@ -17,6 +19,7 @@ export function createPageBufferPoolState(): PageBufferPoolState {
     const third = createSlot(created);
     return {
       slots: [first, second, third],
+      rasterScratch: null,
       indices: [0, 1, 2],
       width: 1,
       height: 1,
@@ -47,6 +50,7 @@ export function disposePageBufferPoolState(state: PageBufferPoolState): void {
   if (state.disposed) return;
   state.disposed = true;
   releaseSlots(state.slots);
+  state.rasterScratch = null;
   state.width = 0;
   state.height = 0;
 }
