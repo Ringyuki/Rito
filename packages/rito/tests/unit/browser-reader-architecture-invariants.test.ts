@@ -373,6 +373,21 @@ describe('Browser reader architecture invariant: one committed layout', () => {
     ]);
   });
 
+  it('never has one operation wait for another', () => {
+    // With one operation at a time, an operation that awaited a queued one
+    // would wait for itself. What an operation needs from another it does
+    // itself (`loadSessionReaderFrame`), and what it only starts it does
+    // not await. Code outside the queue may wait for a spread to be loaded.
+    const operations = ['artifacts', 'frames', 'commit', 'foreground', 'background'].map((name) =>
+      join(SESSION_READER, `${name}.ts`),
+    );
+    const waits = scan(
+      operations,
+      /await\s+(?:ensureSessionReaderFrame|runSessionReaderOperation)\(/g,
+    );
+    expect(waits, `An operation waits on the queue:\n${JSON.stringify(waits)}`).toEqual([]);
+  });
+
   it('asks about the committed layout through the capture that drops a superseded answer', () => {
     // An answer names pages of the layout it was asked of. Every question
     // whose answer carries pages or geometry goes through one gate that

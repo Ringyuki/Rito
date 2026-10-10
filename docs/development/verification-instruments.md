@@ -230,7 +230,11 @@ painted across the author's and a pinned fallback face
 - `packages/rito/tests/unit/browser-reader-architecture-invariants.test.ts`
   — the browser shell is a thin blitter with no layout or paint law; one
   module owns the session's artifacts, and one queue, with no second
-  chain, timer or retry, runs every operation on them.
+  chain, timer or retry, runs every operation on them, none of which
+  waits for another.
+- `packages/rito/tests/unit/architecture-invariants.test.ts` also holds
+  the package's entry to the reader: nothing of the session under it is
+  exported.
 - `packages/rito/tests/unit/session-reader-fixtures.ts` — the session the
   reader's unit tests run against answers one call at a time, as the
   worker does, and records in `violations` any artifact call the reader
