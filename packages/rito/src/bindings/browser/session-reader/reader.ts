@@ -77,7 +77,7 @@ export async function createReader(
       dpr,
       log,
     });
-    const pages = await readSessionReaderLayout(state, state.visible);
+    const pages = await readSessionReaderLayout(state, state.visible.artifact.artifactId);
     commitSessionReaderLayout(state, state.visible, pages, config);
     // A face the browser refused while the first page was prepared: the
     // book is laid out again without it, and the whole book follows that.
@@ -154,6 +154,7 @@ function idleState(): Partial<SessionReaderState> {
     showQueued: false,
     relayoutQueued: false,
     relayoutForced: false,
+    relayoutRefusals: 0,
     rejectedFontFamilies: new Set(),
     bookWaiters: new Set(),
     spreadRenderedListeners: new Set(),

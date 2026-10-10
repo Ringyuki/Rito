@@ -1,13 +1,16 @@
-import { RitoReaderError } from '../reader-session';
-import { commitSessionReaderLayout, readSessionReaderLayout } from './commit';
-import { prepareSessionReaderFrame, releaseSessionReaderFrame } from './frames';
-import { runSessionReaderForeground, type SessionReaderState } from './state';
+import { commitSessionReaderLayout, prepareSessionReaderCandidate } from './commit';
+import { releaseSessionReaderFrame } from './frames';
+import {
+  SESSION_READER_RETRY_DELAY_MS,
+  runSessionReaderForeground,
+  sessionReaderRefusedForNow,
+  type SessionReaderState,
+} from './state';
 
 /** The engine paginates the whole book in one step whatever the budget says. */
 const BACKGROUND_QUANTUM = 512;
 /** Rounds a run may take before it gives up: each is one engine step or one lost race. */
 const BACKGROUND_ROUNDS = 64;
-const RETRY_DELAY_MS = 16;
 
 /**
  * Lays the whole book out behind the chapter the reader shows and commits
@@ -45,15 +48,15 @@ async function runBackground(state: SessionReaderState, token: number): Promise<
         BACKGROUND_QUANTUM,
       );
     } catch (error) {
-      if (!isRetryable(error)) throw error;
-      await new Promise((resume) => setTimeout(resume, RETRY_DELAY_MS));
+      if (!sessionReaderRefusedForNow(error)) throw error;
+      await new Promise((resume) => setTimeout(resume, SESSION_READER_RETRY_DELAY_MS));
       continue;
     }
     if (advance.artifact === undefined) {
       if (advance.state === 'complete') return;
       continue;
     }
-    const frame = await prepareSessionReaderFrame(state, advance.artifact, false);
+    const { frame, layout } = await prepareSessionReaderCandidate(state, advance.artifact);
     if (!current()) {
       await releaseSessionReaderFrame(state, frame);
       return;
@@ -61,30 +64,16 @@ async function runBackground(state: SessionReaderState, token: number): Promise<
     const outcome = { adopted: false };
     await runSessionReaderForeground(state, async () => {
       if (!current() || state.visible !== visible) return;
-      const [, layout] = await Promise.all([
-        state.session.adoptBackgroundCandidate(
-          visible.artifact.artifactId,
-          frame.artifact.artifactId,
-        ),
-        readSessionReaderLayout(state, frame),
-      ]);
+      await state.session.adoptBackgroundCandidate(
+        visible.artifact.artifactId,
+        frame.artifact.artifactId,
+      );
       outcome.adopted = true;
       commitSessionReaderLayout(state, frame, layout, state.config);
     });
     if (outcome.adopted) return;
-    // The reader turned while the candidate was prepared: it is for a
-    // spread no longer shown.
+    // The reader turned while the candidate was prepared, or the session
+    // refused it: it is given back and the next round asks again.
     await releaseSessionReaderFrame(state, frame);
   }
-}
-
-/** The session was busy or the reader moved: the next round asks again. */
-function isRetryable(error: unknown): boolean {
-  return (
-    error instanceof RitoReaderError &&
-    (error.code === 'stale-request' ||
-      error.code === 'request-busy' ||
-      error.code === 'artifact-capacity' ||
-      error.code === 'request-capacity')
-  );
 }

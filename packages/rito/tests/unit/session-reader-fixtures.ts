@@ -28,8 +28,17 @@ export interface FakeGeometryQuestion<Question> {
   readonly options: BrowserReaderGeometryOptions | undefined;
 }
 
-/** The session's live-artifact cap, as the engine enforces it. */
+/** The session's live-artifact cap, as the engine and the worker that hosts it enforce it. */
 export const LIVE_ARTIFACT_CAP = 6;
+
+/** The session requests a test can have refused. */
+export type FakeRefusable =
+  | 'requestArtifact'
+  | 'peekSpread'
+  | 'adoptForegroundCandidate'
+  | 'adoptBackgroundCandidate'
+  | 'navigation'
+  | 'release';
 
 export interface FakeChapter {
   readonly idref: string;
@@ -55,7 +64,8 @@ interface Owned {
  * A reader session that keeps the protocol's rules without an engine: a
  * request lays out one chapter, the background step lays out the book, a
  * spread is addressed by its position, every replacement of the visible
- * artifact is a compare-and-swap, and at most six artifacts are live.
+ * artifact is a compare-and-swap, at most six artifacts are live, and the
+ * book is not laid out while a requested artifact waits to be adopted.
  */
 export class FakeReaderSession {
   readonly sessionId = 7n;
@@ -73,6 +83,11 @@ export class FakeReaderSession {
   private readonly peeked = new Set<bigint>();
   private readonly books = new Map<string, Revision>();
   private readonly candidates = new Map<bigint, bigint>();
+  /** The artifact the newest request published, until it is adopted or released. */
+  private foregroundCandidate: bigint | undefined;
+  private readonly refusals = new Map<FakeRefusable, Error[]>();
+  /** Runs as the session refuses a call, before the caller learns of it. */
+  onRefusal: ((method: FakeRefusable) => void) | undefined;
   initialArtifact!: BrowserReaderArtifact;
   /** What a page publishes beside its index; `chapterIndex` is undefined in the whole book. */
   pageContent: (pageIndex: number, chapterIndex: number | undefined) => Partial<FakePage> =
@@ -114,12 +129,28 @@ export class FakeReaderSession {
     this.initialArtifact = this.request(request);
   }
 
+  /**
+   * Has the session refuse its next `times` calls of `method` with `error`,
+   * changing nothing, as it does when it is occupied or out of room.
+   */
+  refuse(method: FakeRefusable, error: Error, times = 1): void {
+    const queued = this.refusals.get(method) ?? [];
+    for (let count = 0; count < times; count += 1) queued.push(error);
+    this.refusals.set(method, queued);
+  }
+
   session(): BrowserReaderSession {
-    const later = <Value>(run: () => Value): Promise<Value> =>
+    const later = <Value>(run: () => Value, method?: FakeRefusable): Promise<Value> =>
       new Promise((resolve, reject) => {
         setTimeout(() => {
           try {
             if (this.disposed) throw new RitoReaderError('session-disposed', 'disposed');
+            const refusal = method && this.refusals.get(method)?.shift();
+            if (refusal) {
+              this.calls.push(`refused ${method}`);
+              this.onRefusal?.(method);
+              throw refusal;
+            }
             resolve(run());
           } catch (error) {
             reject(error instanceof Error ? error : new Error(String(error)));
@@ -130,12 +161,13 @@ export class FakeReaderSession {
       sessionId: this.sessionId,
       initialArtifact: this.initialArtifact,
       readPublication: () => later(() => this.publication()),
-      requestArtifact: (request) => later(() => this.request(request)),
-      peekSpread: (from, spreadIndex) => later(() => this.peekSpread(from, spreadIndex)),
+      requestArtifact: (request) => later(() => this.request(request), 'requestArtifact'),
+      peekSpread: (from, spreadIndex) =>
+        later(() => this.peekSpread(from, spreadIndex), 'peekSpread'),
       commitPeekedArtifact: (expected, candidate) =>
         later(() => this.commit(expected, candidate, true)),
       adoptForegroundCandidate: (expected, candidate) =>
-        later(() => this.commit(expected, candidate, false)),
+        later(() => this.commit(expected, candidate, false), 'adoptForegroundCandidate'),
       advanceBackgroundOnce: async (expected) => {
         this.calls.push('advance');
         if (this.backgroundGate) await this.backgroundGate;
@@ -143,6 +175,9 @@ export class FakeReaderSession {
       },
       adoptBackgroundCandidate: (expected, candidate) =>
         later(() => {
+          if (this.foregroundCandidate !== undefined) {
+            throw new RitoReaderError('stale-request', 'background yields to foreground');
+          }
           if (this.candidates.get(candidate) !== expected || this.visibleId !== expected) {
             throw new RitoReaderError('stale-request', 'background candidate is stale');
           }
@@ -154,8 +189,8 @@ export class FakeReaderSession {
             replacedArtifactId: expected,
             visibleArtifactId: candidate,
           };
-        }),
-      navigation: (query) => later(() => this.navigation(query)),
+        }, 'adoptBackgroundCandidate'),
+      navigation: (query) => later(() => this.navigation(query), 'navigation'),
       textInteraction: (artifactId, question, options) =>
         later(() => {
           this.requireLive(artifactId);
@@ -228,8 +263,9 @@ export class FakeReaderSession {
           if (artifactId === this.visibleId) throw new Error('released the visible artifact');
           this.peeked.delete(artifactId);
           this.candidates.delete(artifactId);
+          if (this.foregroundCandidate === artifactId) this.foregroundCandidate = undefined;
           return this.live.delete(artifactId);
-        }),
+        }, 'release'),
       dispose: () => {
         this.disposed = true;
         this.live.clear();
@@ -283,7 +319,11 @@ export class FakeReaderSession {
     const revision: Revision = { id: this.nextRevisionId++, layout: request.layout, chapterIndex };
     const pages = this.pagesOf(chapterIndex, request.layout);
     const page = Math.round((request.locator.progression ?? 0) * (pages - 1));
-    return this.publish(revision, page, 'request', request.locator);
+    // A request replaces whatever an earlier one left waiting to be adopted.
+    this.foregroundCandidate = undefined;
+    const artifact = this.publish(revision, page, 'request', request.locator);
+    this.foregroundCandidate = artifact.artifactId;
+    return artifact;
   }
 
   private peekSpread(from: bigint, spreadIndex: number): BrowserReaderArtifact {
@@ -305,12 +345,20 @@ export class FakeReaderSession {
     if (peek && !this.peeked.delete(candidate)) {
       throw new RitoReaderError('stale-request', 'artifact is not a committable peek');
     }
+    // Only the newest request's artifact is adopted; a peek does not disturb it.
+    if (!peek && this.foregroundCandidate !== candidate) {
+      throw new RitoReaderError('stale-request', 'no such foreground candidate is pending');
+    }
+    this.foregroundCandidate = undefined;
     this.visibleId = candidate;
     this.calls.push(`${peek ? 'commit' : 'adopt'} ${String(candidate)}`);
     return { intentRequestId: 0n, replacedArtifactId: expected, visibleArtifactId: candidate };
   }
 
   private advance(expected: bigint) {
+    if (this.foregroundCandidate !== undefined) {
+      throw new RitoReaderError('stale-request', 'background yields to foreground');
+    }
     if (this.visibleId !== expected) {
       throw new RitoReaderError('stale-request', 'background guard is stale');
     }

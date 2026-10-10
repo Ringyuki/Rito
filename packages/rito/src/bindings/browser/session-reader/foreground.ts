@@ -1,9 +1,8 @@
-import { RitoReaderError } from '../reader-session';
+import type { LayoutConfig } from '../../../reader';
 import { startSessionReaderBackground } from './background';
-import { commitSessionReaderLayout, readSessionReaderLayout } from './commit';
+import { commitSessionReaderLayout, prepareSessionReaderCandidate } from './commit';
 import {
   loadSessionReaderFrame,
-  prepareSessionReaderFrame,
   releaseSessionReaderFrame,
   warmSessionReaderNeighbours,
 } from './frames';
@@ -12,7 +11,15 @@ import {
   sessionReaderLayoutConfig,
   sessionReaderSessionLayout,
 } from './layout-options';
-import { runSessionReaderForeground, type SessionReaderState } from './state';
+import {
+  SESSION_READER_RETRY_DELAY_MS,
+  runSessionReaderForeground,
+  sessionReaderRefusedForNow,
+  type SessionReaderState,
+} from './state';
+
+/** Refusals in a row a layout request rides out before it is reported as failed. */
+const RELAYOUT_ATTEMPTS = 64;
 
 /**
  * Has the session show the host's active spread. Queued once however many
@@ -76,27 +83,65 @@ async function relayout(state: SessionReaderState, token: number): Promise<void>
   if (!force && sameSessionReaderLayoutConfig(config, state.config)) return;
   // The whole book of the layout being replaced is no longer wanted.
   state.backgroundToken += 1;
-  let artifact;
+  let again = false;
   try {
-    artifact = await state.session.requestArtifact({
-      layout: sessionReaderSessionLayout(config, state.dpr),
-      locator: state.visible.artifact.locator,
-      textProfile: state.visible.artifact.textProfile,
-    });
+    if (await replaceLayout(state, token, config)) state.relayoutRefusals = 0;
   } catch (error) {
-    if (error instanceof RitoReaderError && error.code === 'stale-request') return;
-    throw error;
+    // Refused for now: the options asked for stand, and are asked for again
+    // shortly. A session that keeps refusing is reported instead.
+    again = sessionReaderRefusedForNow(error) && state.relayoutRefusals < RELAYOUT_ATTEMPTS;
+    state.relayoutRefusals = again ? state.relayoutRefusals + 1 : 0;
+    if (!again) throw error;
+    state.relayoutForced ||= force;
+    setTimeout(() => {
+      retryRelayout(state, token);
+    }, SESSION_READER_RETRY_DELAY_MS);
+  } finally {
+    // The layout now committed is owed its whole book, unless it is about
+    // to be replaced.
+    if (!again) startSessionReaderBackground(state);
   }
-  const frame = await prepareSessionReaderFrame(state, artifact, false);
+}
+
+/** Makes a refused layout request again, unless one made since then stands for it. */
+function retryRelayout(state: SessionReaderState, token: number): void {
+  if (state.disposed) return;
+  // The newer request lays out for the same options; it may have found
+  // nothing to do, and the layout committed is still owed its book.
+  if (token !== state.relayoutToken) startSessionReaderBackground(state);
+  else scheduleSessionReaderRelayout(state);
+}
+
+/**
+ * Asks the session for the page shown under `config` and makes it the
+ * committed layout; resolves false for a layout a newer request overtook.
+ * The candidate is given back on every path that does not commit it, so a
+ * refusal leaves the session holding what it held before.
+ */
+async function replaceLayout(
+  state: SessionReaderState,
+  token: number,
+  config: LayoutConfig,
+): Promise<boolean> {
+  const artifact = await state.session.requestArtifact({
+    layout: sessionReaderSessionLayout(config, state.dpr),
+    locator: state.visible.artifact.locator,
+    textProfile: state.visible.artifact.textProfile,
+  });
+  const { frame, layout } = await prepareSessionReaderCandidate(state, artifact);
   if (state.disposed || token !== state.relayoutToken) {
     await releaseSessionReaderFrame(state, frame);
-    return;
+    return false;
   }
-  // The page table is read while the adoption is acknowledged.
-  const [, layout] = await Promise.all([
-    state.session.adoptForegroundCandidate(state.visible.artifact.artifactId, artifact.artifactId),
-    readSessionReaderLayout(state, frame),
-  ]);
+  try {
+    await state.session.adoptForegroundCandidate(
+      state.visible.artifact.artifactId,
+      artifact.artifactId,
+    );
+  } catch (error) {
+    await releaseSessionReaderFrame(state, frame);
+    throw error;
+  }
   commitSessionReaderLayout(state, frame, layout, config);
-  startSessionReaderBackground(state);
+  return true;
 }

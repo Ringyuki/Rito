@@ -162,6 +162,47 @@ test.describe('reader app', () => {
     await page.getByRole('button', { name: 'Dark' }).click();
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-theme', 'dark');
   });
+
+  test('applies every font size of a run of changes, however closely they follow', async ({
+    page,
+  }) => {
+    await loadDemoBook(page);
+    await expect.poll(() => committedLayout(page)).toMatchObject({ scope: 'book' });
+
+    // A change lands at every point of the layout before it: in the same
+    // task, while its page is prepared, while its whole book follows. Every
+    // third one is followed by a page turn, which loads spreads meanwhile.
+    let fontSize = 16;
+    for (const gapMs of [0, 4, 16, 40, 90, 160, 260]) {
+      for (let step = 0; step < 6; step += 1) {
+        fontSize = fontSize >= 24 ? 15 : fontSize + 1;
+        await page.evaluate(
+          ({ size, turn }) => {
+            const controller = (
+              window as unknown as {
+                __ritoController: {
+                  readonly currentSpread: number;
+                  readonly reader: { readonly totalSpreads: number };
+                  setTypography(patch: { fontSize: number }): void;
+                  jumpToSpread(index: number): void;
+                };
+              }
+            ).__ritoController;
+            controller.setTypography({ fontSize: size });
+            if (turn) {
+              const last = controller.reader.totalSpreads - 1;
+              controller.jumpToSpread(Math.min(controller.currentSpread + 1, last));
+            }
+          },
+          { size: fontSize, turn: step % 3 === 2 },
+        );
+        if (gapMs > 0) await page.waitForTimeout(gapMs);
+      }
+      await expect.poll(() => committedLayout(page)).toEqual({ scope: 'book', fontSize });
+    }
+    // The session refused nothing on the way.
+    expect(await refusedSessionRequests(page)).toEqual([]);
+  });
 });
 
 test.describe('reader app session worker', () => {
@@ -202,6 +243,37 @@ async function loadDemoBook(page: Page): Promise<void> {
   await page.getByTestId('load-demo-button').click();
   await expect(shell).toHaveAttribute('data-loaded', 'true', {
     timeout: READER_LOAD_TIMEOUT_MS,
+  });
+}
+
+/** The layout the reader has committed: its scope and root font size. */
+async function committedLayout(page: Page): Promise<{ scope: string; fontSize: number }> {
+  return page.evaluate(() => {
+    const { reader } = (
+      window as unknown as {
+        __ritoController: {
+          reader: { layoutScope: string; getLayoutGeometry(): { rootFontSize: number } };
+        };
+      }
+    ).__ritoController;
+    return { scope: reader.layoutScope, fontSize: reader.getLayoutGeometry().rootFontSize };
+  });
+}
+
+/** The session requests the reader's log shows as refused. */
+async function refusedSessionRequests(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const log =
+      (
+        globalThis as {
+          __ritoReaderDiagnostics?: {
+            log?: () => { kind: string; failed?: true; result?: string }[];
+          };
+        }
+      ).__ritoReaderDiagnostics?.log?.() ?? [];
+    return log
+      .filter((entry) => entry.failed === true)
+      .map((entry) => `${entry.kind}: ${entry.result ?? ''}`);
   });
 }
 

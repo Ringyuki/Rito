@@ -2,7 +2,11 @@ import type { LayoutConfig, ReaderOptions, Spread } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type { ReaderEventLog } from '../reader-event-log';
 import type { CanvasRenderingTarget } from '../primitive-renderer';
-import type { BrowserReaderArtifact, BrowserReaderSession } from '../reader-session';
+import {
+  RitoReaderError,
+  type BrowserReaderArtifact,
+  type BrowserReaderSession,
+} from '../reader-session';
 import type {
   BrowserReaderCanvasPresenter,
   BrowserReaderPreparedCanvasArtifact,
@@ -75,6 +79,8 @@ export interface SessionReaderState {
   showQueued: boolean;
   relayoutQueued: boolean;
   relayoutForced: boolean;
+  /** Layout requests in a row the session refused for now; a commit ends the row. */
+  relayoutRefusals: number;
   /** Publication faces the browser refused to decode, by the family artifacts list them under. */
   readonly rejectedFontFamilies: Set<string>;
   readonly bookWaiters: Set<() => void>;
@@ -107,6 +113,23 @@ export function runSessionReaderForeground(
   });
   state.foreground = run;
   return run;
+}
+
+/** How long a request the session refused for now waits before it is made again. */
+export const SESSION_READER_RETRY_DELAY_MS = 16;
+const REFUSED_FOR_NOW = new Set<string>([
+  'stale-request',
+  'request-busy',
+  'artifact-capacity',
+  'request-capacity',
+]);
+
+/**
+ * Whether the session refused a request only for now: it was occupied, out
+ * of artifact slots, or overtaken. The same request made again is answered.
+ */
+export function sessionReaderRefusedForNow(error: unknown): boolean {
+  return error instanceof RitoReaderError && REFUSED_FOR_NOW.has(error.code);
 }
 
 export function notifySessionReaderSpreadInvalidated(
