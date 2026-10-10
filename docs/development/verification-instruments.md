@@ -103,6 +103,12 @@ a document without one cannot paginate. The reader pins
   timeline per page turn in the running reader: the key event, every
   worker request and answer, every animation frame with its cost and its
   Canvas calls, and the frame the canvas changed in.
+- `settings-storm.mjs` (in `tools/reader-accept/`, `BOOK=<epub>`, or
+  without one the demo's sharded book) — changes the font size in bursts at
+  every spacing from the same task to after the whole book is laid out,
+  with page turns in between, and exits 1 unless after each burst the
+  reader shows the last size asked for with the whole book laid out, no
+  session request was refused and none is left unanswered.
 - `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
   book's open in the running reader, printing every worker message the page
   sends and receives on one clock.
