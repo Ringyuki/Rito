@@ -46,14 +46,6 @@ pub struct PublicationResources {
 }
 
 impl PublicationResources {
-    pub fn total_binary_bytes(&self) -> usize {
-        self.fonts
-            .iter()
-            .chain(self.images.iter())
-            .map(|resource| resource.byte_length)
-            .sum()
-    }
-
     pub fn image(&self, href: &str) -> Option<&BinaryResourceSummary> {
         self.images.iter().find(|resource| resource.href == href)
     }

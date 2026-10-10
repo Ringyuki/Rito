@@ -14,7 +14,6 @@ mod cleanup;
 mod font_catalog;
 mod fragment_backend;
 mod fragment_frame;
-mod fragment_probe;
 mod frame;
 mod metadata;
 mod navigation;
@@ -46,8 +45,7 @@ pub use access::{
     RuntimeVersioned,
 };
 pub use chapter_tree_report::{
-    ChapterLayoutBox, ChapterLayoutGeometry, RuntimeChapterTreeChapter, RuntimeChapterTreeReport,
-    RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
+    RuntimeChapterTreeChapter, RuntimeChapterTreeReport, RUNTIME_CHAPTER_TREE_REPORT_SCHEMA_VERSION,
 };
 use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
 pub use font_catalog::{

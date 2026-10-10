@@ -38,15 +38,11 @@ impl RuntimeDocument {
     }
 
     /// The document's fragment engine, built once from the pinned font
-    /// policy and the publication's `@font-face` bindings. `None` when no
-    /// fonts are available or a face fails to register — layout without
-    /// explicit fonts would fall back to nothing, so the bridge stays off.
-    pub(super) fn fragment_engine(&self) -> Option<&RuntimeFragmentEngine> {
-        self.initialized_fragment_engine().as_deref()
-    }
-
-    /// The same engine as a shared handle: a page table keeps one so the
-    /// chapters it rebuilds lay out on the engine they were paginated on.
+    /// policy and the publication's `@font-face` bindings, as a shared
+    /// handle: a page table keeps one so the chapters it rebuilds lay out
+    /// on the engine they were paginated on. `None` when no fonts are
+    /// available or a face fails to register — layout without explicit
+    /// fonts would fall back to nothing, so the bridge stays off.
     pub(super) fn fragment_engine_handle(&self) -> Option<Rc<RuntimeFragmentEngine>> {
         self.initialized_fragment_engine().clone()
     }
