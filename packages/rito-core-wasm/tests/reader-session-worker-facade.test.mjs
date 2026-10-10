@@ -13,7 +13,10 @@ import {
 } from '../src/reader-session-foreground-runtime.js';
 import { decodeRitoReaderPublication } from '../src/reader-session-publication-runtime.js';
 import { createRitoCoreWasmReaderSessionWorkerClient } from '../src/reader-session-worker-client-runtime.js';
-import { createRitoCoreWasmReaderSessionWorkerHandler } from '../src/reader-session-worker-runtime.js';
+import {
+  READER_LIVE_ARTIFACT_CAP,
+  createRitoCoreWasmReaderSessionWorkerHandler,
+} from '../src/reader-session-worker-runtime.js';
 import {
   READER_PROTOCOL_VERSION,
   ReaderWireReader,
@@ -953,6 +956,16 @@ test('latest-wins seek keeps one active + one replaceable request and releases s
   assert.equal(initial.artifactId, 1n, 'visible source remains live until the host releases it');
 });
 
+test('worker refuses at the live-artifact cap the engine declares', () => {
+  const engine = readFileSync(
+    new URL('../../../crates/rito-core/src/runtime/reader_session/session.rs', import.meta.url),
+    'utf8',
+  );
+  const declared = /pub const READER_LIVE_ARTIFACT_CAP: u32 = (\d+);/.exec(engine);
+  assert.ok(declared, 'the engine declares its live-artifact cap');
+  assert.equal(READER_LIVE_ARTIFACT_CAP, Number(declared[1]));
+});
+
 test('worker bounds live artifact ownership and reopens capacity only after release', async () => {
   const scope = workerScope();
   let artifactId = 0n;
@@ -989,38 +1002,43 @@ test('worker bounds live artifact ownership and reopens capacity only after rele
     sessionId: 9n,
     request: requestFor(1n),
   });
-  for (let id = 2; id <= 4; id += 1) {
+  const cap = READER_LIVE_ARTIFACT_CAP;
+  for (let id = 2; id <= cap; id += 1) {
     scope.dispatch({
       protocol: 'rito-reader-session',
       id,
       kind: 'request-artifact',
       request: requestFor(BigInt(id)),
     });
+    await settle();
   }
   await settle();
-  await settle();
-  assert.equal(scope.responses.filter(({ message }) => message.ok).length, 4);
+  assert.equal(scope.responses.filter(({ message }) => message.ok).length, cap);
 
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 5,
+    id: cap + 1,
     kind: 'request-artifact',
-    request: requestFor(5n),
+    request: requestFor(BigInt(cap + 1)),
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'artifact-capacity');
-  assert.equal(artifactId, 4n, 'capacity failure must happen before Core creates another artifact');
+  assert.equal(
+    artifactId,
+    BigInt(cap),
+    'capacity failure must happen before Core creates another artifact',
+  );
 
-  scope.dispatch({ protocol: 'rito-reader-session', id: 6, kind: 'release', artifactId: 1n });
+  scope.dispatch({ protocol: 'rito-reader-session', id: cap + 2, kind: 'release', artifactId: 1n });
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 7,
+    id: cap + 3,
     kind: 'request-artifact',
-    request: requestFor(7n),
+    request: requestFor(BigInt(cap + 3)),
   });
   await settle();
   await settle();
-  assert.equal(scope.responses.at(-1).message.payload.identity.artifactId, 5n);
+  assert.equal(scope.responses.at(-1).message.payload.identity.artifactId, BigInt(cap + 1));
 });
 
 test('client adopts one background candidate and keeps the replaced artifact for animation', async () => {
@@ -1220,28 +1238,31 @@ test('worker tracks candidate capacity and defers stale background eligibility t
   await settle();
   assert.equal(scope.responses.at(-1).message.payload.candidateIdentity.artifactId, 2n);
 
-  for (let id = 4; id <= 5; id += 1) {
+  // The visible artifact and the candidate hold two of the slots.
+  const cap = READER_LIVE_ARTIFACT_CAP;
+  let id = 4;
+  for (; id < cap + 2; id += 1) {
     scope.dispatch({
       protocol: 'rito-reader-session',
       id,
       kind: 'request-artifact',
       request: requestFor(BigInt(id - 1)),
     });
+    await settle();
   }
-  await settle();
   await settle();
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 6,
+    id,
     kind: 'request-artifact',
-    request: requestFor(5n),
+    request: requestFor(BigInt(id - 1)),
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'artifact-capacity');
 
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 7,
+    id: id + 1,
     kind: 'adopt-background-candidate',
     request: {
       sessionId: 17n,
@@ -1253,11 +1274,11 @@ test('worker tracks candidate capacity and defers stale background eligibility t
   assert.equal(scope.responses.at(-1).message.error.code, 'stale-request');
   assert.equal(handoffCalls, 1);
 
-  scope.dispatch({ protocol: 'rito-reader-session', id: 8, kind: 'release', artifactId: 2n });
-  scope.dispatch({ protocol: 'rito-reader-session', id: 9, kind: 'dispose' });
+  scope.dispatch({ protocol: 'rito-reader-session', id: id + 2, kind: 'release', artifactId: 2n });
+  scope.dispatch({ protocol: 'rito-reader-session', id: id + 3, kind: 'dispose' });
   await settle();
   assert.deepEqual(releases, [2n]);
-  assert.equal(scope.responses.at(-1).message.payload.releasedArtifacts, 3);
+  assert.equal(scope.responses.at(-1).message.payload.releasedArtifacts, cap - 1);
 });
 
 test('worker fail-closes when an adjacent artifact identity is lost during wire decode', async () => {

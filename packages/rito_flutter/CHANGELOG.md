@@ -1,5 +1,13 @@
 ## Unreleased
 
+### A peek leaves a pending navigation adoptable
+
+`peekAdjacent` and `peekSpread` consume a request id without being a
+navigation. One made between `requestArtifact` or `turn` and the adoption
+of its result used to make that adoption fail as stale; the engine now
+compares a candidate only against foreground requests, as the peek's
+contract already said.
+
 ### A revision's page table, and any spread of it
 
 `RitoReaderSession.revisionLayout` answers the page table of the revision

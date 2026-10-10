@@ -1253,6 +1253,56 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
 }
 
 #[test]
+fn a_peek_leaves_a_pending_foreground_candidate_adoptable() {
+    let mut session =
+        open_test_session(124, long_chapter_window_fixture_epub()).expect("reader session opens");
+    let visible = session
+        .request_artifact(request(124, 1, ""))
+        .expect("source chapter resolves");
+    adopt_initial(&mut session, 124, visible.artifact_id);
+
+    // A host lays the chapter out again and, before it adopts the result,
+    // loads a neighbour of the page it still shows.
+    let candidate = session
+        .request_artifact(request(124, 2, ""))
+        .expect("replacement candidate resolves");
+    let peeked_next = session
+        .peek_adjacent(adjacent(
+            124,
+            3,
+            visible.artifact_id,
+            ReaderAdjacentDirection::Next,
+        ))
+        .expect("next spread peeks");
+    let peeked_spread = session
+        .peek_spread(ReaderSpreadRequest {
+            session_id: 124,
+            request_id: 4,
+            from_artifact_id: visible.artifact_id,
+            spread_index: 0,
+        })
+        .expect("spread peeks");
+    assert_eq!(
+        session.foreground_candidate_artifact_id(),
+        Some(candidate.artifact_id)
+    );
+
+    let ack = adopt_replacement(
+        &mut session,
+        124,
+        visible.artifact_id,
+        candidate.artifact_id,
+    );
+    assert_eq!(ack.intent_request_id, 2);
+    assert_eq!(session.visible_artifact_id(), Some(candidate.artifact_id));
+    for artifact_id in [peeked_next.artifact_id, peeked_spread.artifact_id] {
+        assert!(session
+            .release_artifact(artifact_id)
+            .expect("peeked artifact releases"));
+    }
+}
+
+#[test]
 fn peek_declines_at_the_terminal_publication_boundary() {
     let mut session =
         open_test_session(121, long_chapter_window_fixture_epub()).expect("reader session opens");

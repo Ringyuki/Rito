@@ -23,7 +23,13 @@ import { prepareHostFontFaces } from './pinned-font-policy-runtime.js';
 const PROTOCOL = 'rito-reader-session';
 const COLD_OPEN_DIAGNOSTIC = 'cold-open-attribution-v1';
 const MAX_QUEUED_MESSAGES = 8;
-const MAX_LIVE_ARTIFACTS = 4;
+// The engine's live-artifact cap (READER_LIVE_ARTIFACT_CAP), which is
+// budgeted for a reader that loads its neighbours ahead: the visible spread,
+// the one a turn is leaving, a neighbour on each side and a candidate under
+// way. The worker refuses at the same number so that a host is told
+// `artifact-capacity` instead of the engine's generic refusal; a test holds
+// the two equal.
+export const READER_LIVE_ARTIFACT_CAP = 6;
 const NON_FATAL_EXACT_TERMINAL_CODES = new Set([
   'invalid-request',
   'invalid-layout',
@@ -516,7 +522,7 @@ function backgroundAdvanceResponse(state, request, raw) {
         candidate.sessionId === state.sessionId &&
         candidate.requestId === advance.intentRequestId &&
         !state.liveArtifacts.has(candidate.artifactId) &&
-        state.liveArtifacts.size < MAX_LIVE_ARTIFACTS &&
+        state.liveArtifacts.size < READER_LIVE_ARTIFACT_CAP &&
         !hasPendingCandidate(state, request.expectedVisibleArtifactId);
       if (!candidateIsValid) {
         releaseInvalidCandidate(state, candidate);
@@ -604,10 +610,10 @@ function requireOpen(state) {
 }
 
 function requireArtifactCapacity(state) {
-  if (state.liveArtifacts.size >= MAX_LIVE_ARTIFACTS) {
+  if (state.liveArtifacts.size >= READER_LIVE_ARTIFACT_CAP) {
     throw readerWorkerError(
       'artifact-capacity',
-      `Reader retains at most ${String(MAX_LIVE_ARTIFACTS)} artifacts`,
+      `Reader retains at most ${String(READER_LIVE_ARTIFACT_CAP)} artifacts`,
     );
   }
 }
