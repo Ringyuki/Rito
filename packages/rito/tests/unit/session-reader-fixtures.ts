@@ -100,6 +100,8 @@ export class FakeReaderSession {
   readonly footnotes = new Map<string, Pick<BrowserReaderFootnote, 'kind' | 'text' | 'html'>>();
   /** The resources every artifact published from now on lists. */
   resources: BrowserReaderArtifact['resources'] = [];
+  /** The faces every artifact lists: the host's, each under its own descriptors. */
+  fonts: BrowserReaderArtifact['fonts'] = [];
   /** Searches as the session received them: whether the artifact was a whole-book one. */
   readonly searches: { readonly book: boolean; readonly query: string }[] = [];
   searchResults: BrowserReaderSearchResponse['results'] = [];
@@ -416,7 +418,7 @@ export class FakeReaderSession {
       height: revision.layout.viewportHeight,
       ...(book ? { bookPageIndex: page, bookPageCount: this.spreadCount(revision) } : {}),
       textProfile: 'platform-string-runs',
-      fonts: [],
+      fonts: this.fonts,
       resources: this.resources,
       pages: [
         {

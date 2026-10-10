@@ -31,6 +31,19 @@ vi.mock('../../src/bindings/browser/reader-session', async (importOriginal) => {
         locator: options.initialLocator,
         textProfile: 'platform-string-runs',
       });
+      // The engine lists every host face for paint, under the face's own descriptors.
+      const policy = options.pinnedFontPolicy;
+      const declared = JSON.parse(policy?.metadataJson ?? '{"faces":[]}') as {
+        faces: { expectedSha256: string }[];
+      };
+      fake.fonts = declared.faces.map((face, index) => ({
+        family: `__RitoPinned_${face.expectedSha256}`,
+        href: `rito-host-font:${face.expectedSha256}`,
+        style: 'normal',
+        weight: 400,
+        shapeFingerprint: 'shape',
+        byteLength: BigInt(policy?.faces[index]?.byteLength ?? 0),
+      }));
       harness.fake = fake;
       harness.openOptions = options;
       return fake.session();
@@ -39,9 +52,14 @@ vi.mock('../../src/bindings/browser/reader-session', async (importOriginal) => {
 });
 
 vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
-  createBrowserReaderSessionCanvasPresenter: () => ({
-    prepare: (artifact: { localSpreadIndex: number }) =>
-      Promise.resolve({
+  createBrowserReaderSessionCanvasPresenter: (
+    _session: unknown,
+    options: { hostFont?: (font: unknown) => Promise<unknown> | undefined } = {},
+  ) => ({
+    // Like the presenter it stands in for, it waits for the faces the page registers itself.
+    prepare: async (artifact: { localSpreadIndex: number; fonts: readonly unknown[] }) => {
+      for (const font of artifact.fonts) await options.hostFont?.(font);
+      return {
         artifact,
         ratio: 2,
         disposed: false,
@@ -50,7 +68,8 @@ vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
         dispose() {
           harness.framesDisposed += 1;
         },
-      }),
+      };
+    },
     paint: (
       prepared: { artifact: { localSpreadIndex: number } },
       _ctx: unknown,

@@ -7,19 +7,13 @@ type FontRef = BrowserReaderArtifact['fonts'][number];
 const HOST_FONT_HREF_PREFIX = 'rito-host-font:';
 /** The family the engine paints a host face under: this prefix, then its SHA-256. */
 const HOST_FONT_FAMILY_PREFIX = '__RitoPinned_';
-/**
- * A family alias names exactly one face, so a registration that accepts
- * every weight is that face at whichever weight the engine asks for,
- * without the browser synthesizing one.
- */
-const EVERY_WEIGHT = '1 1000';
 
 interface HeldFace {
   readonly bytes: Blob;
-  /** The upright registration, accepting every weight. */
-  upright: Promise<FontFace> | undefined;
-  /** Registrations under another style, by `style|weight`. */
-  readonly styled: Map<string, Promise<FontFace>>;
+  /** The face decoded from the bytes, not yet known to the page. */
+  readonly loaded: Promise<FontFace>;
+  /** The face given the descriptors the engine lists it with, and registered. */
+  registered: Promise<FontFace> | undefined;
 }
 
 /**
@@ -27,9 +21,16 @@ interface HeldFace {
  * reader's own copy of their bytes and kept for as long as the reader is
  * open, so a family coming back into use costs nothing.
  *
+ * A face is registered under its own style and weight, the ones the engine
+ * lists it with. A run asks for the weight and style of its text, and where
+ * the face has another the browser synthesizes the difference, as it does
+ * for the same text in a page: a face registered as every weight would
+ * paint a bold heading with regular strokes.
+ *
  * A face is loaded from a blob URL: the browser decodes that off the page's
  * thread, where building a face straight from its bytes holds the page for
- * the whole decode (70ms for an 11MB face).
+ * the whole decode (70ms for an 11MB face). Decoding starts when the face
+ * is added, before the first page that names it.
  */
 export class SessionReaderHostFonts {
   private readonly held = new Map<string, HeldFace>();
@@ -41,13 +42,10 @@ export class SessionReaderHostFonts {
     for (const face of faces) {
       const sha256 = face.expectedSha256.toLowerCase();
       if (this.held.has(sha256)) continue;
-      const held: HeldFace = {
-        bytes: new Blob([face.bytes]),
-        upright: undefined,
-        styled: new Map(),
-      };
-      this.held.set(sha256, held);
-      this.upright(sha256, held).catch(ignore);
+      const bytes = new Blob([face.bytes]);
+      const loaded = loadFace(HOST_FONT_FAMILY_PREFIX + sha256, bytes);
+      loaded.catch(ignore);
+      this.held.set(sha256, { bytes, loaded, registered: undefined });
     }
   }
 
@@ -56,11 +54,9 @@ export class SessionReaderHostFonts {
       const held = this.held.get(sha256.toLowerCase());
       if (!held) continue;
       this.held.delete(sha256.toLowerCase());
-      for (const face of [held.upright, ...held.styled.values()]) {
-        void face?.then((loaded) => {
-          this.unregister(loaded);
-        }, ignore);
-      }
+      void held.registered?.then((face) => {
+        this.unregister(face);
+      }, ignore);
     }
   }
 
@@ -74,14 +70,8 @@ export class SessionReaderHostFonts {
     const held = this.held.get(sha256);
     if (held === undefined || font.family !== HOST_FONT_FAMILY_PREFIX + sha256) return undefined;
     if (BigInt(held.bytes.size) !== font.byteLength) return undefined;
-    if (font.style === 'normal') return this.upright(sha256, held);
-    const key = `${font.style}|${String(font.weight)}`;
-    let face = held.styled.get(key);
-    if (face === undefined) {
-      face = this.register(sha256, held.bytes, font.style, String(font.weight));
-      held.styled.set(key, face);
-    }
-    return face;
+    held.registered ??= this.register(held, font);
+    return held.registered;
   }
 
   dispose(): void {
@@ -90,19 +80,11 @@ export class SessionReaderHostFonts {
     for (const face of [...this.registered]) this.unregister(face);
   }
 
-  private upright(sha256: string, held: HeldFace): Promise<FontFace> {
-    held.upright ??= this.register(sha256, held.bytes, 'normal', EVERY_WEIGHT);
-    return held.upright;
-  }
-
-  private async register(
-    sha256: string,
-    bytes: Blob,
-    style: string,
-    weight: string,
-  ): Promise<FontFace> {
-    const face = await loadFace(HOST_FONT_FAMILY_PREFIX + sha256, bytes, { style, weight });
+  private async register(held: HeldFace, font: FontRef): Promise<FontFace> {
+    const face = await held.loaded;
     if (this.disposed) throw new Error('Reader closed while a host font face loaded');
+    face.style = font.style;
+    face.weight = String(font.weight);
     fontSet().add(face);
     this.registered.add(face);
     return face;
@@ -113,19 +95,15 @@ export class SessionReaderHostFonts {
   }
 }
 
-async function loadFace(
-  family: string,
-  bytes: Blob,
-  descriptors: FontFaceDescriptors,
-): Promise<FontFace> {
+async function loadFace(family: string, bytes: Blob): Promise<FontFace> {
   const url = URL.createObjectURL(bytes);
   try {
-    const face = new FontFace(family, `url("${url}")`, descriptors);
+    const face = new FontFace(family, `url("${url}")`);
     await face.load();
     return face;
   } catch {
     // A page whose policy refuses fonts from blob URLs still takes the bytes.
-    const face = new FontFace(family, await bytes.arrayBuffer(), descriptors);
+    const face = new FontFace(family, await bytes.arrayBuffer());
     await face.load();
     return face;
   } finally {
