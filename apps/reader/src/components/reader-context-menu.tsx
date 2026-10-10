@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { useCallback } from 'react';
 import {
+  Bug,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -22,6 +23,7 @@ import {
 import { ANNOTATION_COLORS } from '@/components/annotation-toolbar';
 import { FileActionsContextMenu } from '@/components/file-actions';
 import { useFileLoader } from '@/hooks/use-file-loader';
+import { copyDebugReport } from '@/lib/debug-log';
 import type { useReader } from '@/hooks/use-reader';
 
 interface Props {
@@ -73,6 +75,14 @@ export function ReaderContextMenu({
       });
     reader.selection.clear();
   }, [reader.annotations, reader.selection]);
+
+  const handleCopyDebugLog = useCallback(() => {
+    void copyDebugReport().then((outcome) => {
+      toast.success(outcome === 'copied' ? 'Debug log copied' : 'Debug log saved as a file', {
+        description: 'Paste it into the bug report.',
+      });
+    });
+  }, []);
 
   const handleSearchSelection = useCallback(() => {
     if (!reader.selection.text) return;
@@ -148,6 +158,11 @@ export function ReaderContextMenu({
         <ContextMenuItem onSelect={onOpenSettings} disabled={!reader.isLoaded}>
           <Settings className="h-4 w-4" />
           Reader Settings
+        </ContextMenuItem>
+
+        <ContextMenuItem onSelect={handleCopyDebugLog} data-testid="reader-copy-debug-log">
+          <Bug className="h-4 w-4" />
+          Export Debug Log
         </ContextMenuItem>
 
         <ContextMenuSeparator />

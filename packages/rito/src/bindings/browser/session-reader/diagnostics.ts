@@ -1,3 +1,4 @@
+import { readerEventLogEntries } from '../reader-event-log';
 import { ensureSessionReaderFrame } from './frames';
 import type { SessionReaderState } from './state';
 
@@ -30,5 +31,11 @@ export function installSessionReaderDiagnostics(state: SessionReaderState): void
     },
     /** Publication faces the browser refused to decode, laid out without. */
     rejectedFontFamilies: () => [...state.rejectedFontFamilies],
+    /**
+     * What every reader on this page asked its session and was answered,
+     * with timings, warnings and layout commits, oldest first: what a
+     * report of something going wrong should carry.
+     */
+    log: () => readerEventLogEntries(),
   };
 }

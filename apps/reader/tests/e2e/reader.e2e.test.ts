@@ -119,6 +119,35 @@ test.describe('reader app', () => {
     expect(clean).not.toBe(highlighted);
   });
 
+  test('copies a debug log of what the reader was asked and what the tester did', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await loadDemoBook(page);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(1);
+    const initial = await currentSpread(page);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentSpread(page)).toBeGreaterThan(initial);
+
+    await openReaderContextMenu(page);
+    await page.getByTestId('reader-copy-debug-log').click();
+    await expect(page.getByText('Debug log copied')).toBeVisible();
+    const report = await page.evaluate(() => navigator.clipboard.readText());
+
+    expect(report).toContain('# Rito debug log');
+    // The session requests behind the open and the turn, with their outcome.
+    expect(report).toMatch(/#1 +openSession .* → \d+(\.\d)? ms/);
+    expect(report).toMatch(/#1 +commit +\{scope: "chapter"/);
+    expect(report).toMatch(/#1 +commit +\{scope: "book"/);
+    expect(report).toMatch(/#1 +commitPeekedArtifact .* → \d+(\.\d)? ms/);
+    // What the tester did and what the controller reported for it.
+    expect(report).toMatch(/page +key +ArrowRight/);
+    expect(report).toMatch(/page +transitionStart +forward/);
+    expect(report).not.toContain('FAILED');
+    expect(report).not.toContain('NO ANSWER YET');
+  });
+
   test('applies settings that trigger reader reflow and theme changes', async ({ page }) => {
     await loadDemoBook(page);
 

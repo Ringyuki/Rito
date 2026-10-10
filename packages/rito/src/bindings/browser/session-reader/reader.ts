@@ -1,5 +1,11 @@
 import type { Reader, ReaderOptions, ReaderPublication } from '../../../reader';
 import { createBrowserHostLogger } from '../host-runtime';
+import {
+  openReaderEventLog,
+  recordReaderLogger,
+  recordReaderSession,
+  type ReaderEventLog,
+} from '../reader-event-log';
 import type { CanvasRenderingTarget } from '../primitive-renderer';
 import { openBrowserReaderSession, type BrowserReaderSession } from '../reader-session';
 import { createBrowserReaderSessionCanvasPresenter } from '../reader-session-canvas';
@@ -43,9 +49,15 @@ export async function createReader(
   const typography = initialTypography(options);
   const config = sessionReaderLayoutConfig(layoutOptions, typography);
   const dpr = options.devicePixelRatio ?? fallbackDevicePixelRatio();
+  const log = openReaderEventLog();
+  const layout = sessionReaderSessionLayout(config, dpr);
+  const initialLocator = options.initialLocator
+    ? sessionLocator(options.initialLocator)
+    : { href: '' };
+  const opened = log.begin('openSession', { layout, initialLocator, faces: policy.faces.length });
   const opening = openBrowserReaderSession(data, {
-    initialLocator: options.initialLocator ? sessionLocator(options.initialLocator) : { href: '' },
-    layout: sessionReaderSessionLayout(config, dpr),
+    initialLocator,
+    layout,
     pinnedFontPolicy: sessionPinnedFontPolicy(policy),
   });
   // The page registers the host faces while the engine opens the book.
@@ -53,15 +65,20 @@ export async function createReader(
   hostFonts.add(policy.faces);
   let session;
   try {
-    session = await opening;
+    session = recordReaderSession(await opening, log);
+    opened.end(session.initialArtifact);
   } catch (error) {
+    opened.fail(error);
     hostFonts.dispose();
     throw error;
   }
   try {
-    const state = await openState(session, canvas, ctx, layoutOptions, typography, dpr, hostFonts);
-    const layout = await readSessionReaderLayout(state, state.visible);
-    commitSessionReaderLayout(state, state.visible, layout, config);
+    const state = await openState(session, canvas, ctx, layoutOptions, typography, hostFonts, {
+      dpr,
+      log,
+    });
+    const pages = await readSessionReaderLayout(state, state.visible);
+    commitSessionReaderLayout(state, state.visible, pages, config);
     // A face the browser refused while the first page was prepared: the
     // book is laid out again without it, and the whole book follows that.
     if (state.rejectedFontFamilies.size > 0) scheduleSessionReaderRelayout(state, true);
@@ -81,8 +98,8 @@ async function openState(
   ctx: CanvasRenderingTarget,
   options: ReaderOptions,
   typography: SessionReaderTypography,
-  dpr: number,
   hostFonts: SessionReaderHostFonts,
+  { dpr, log }: { readonly dpr: number; readonly log: ReaderEventLog },
 ): Promise<SessionReaderState> {
   const opened: { state?: SessionReaderState } = {};
   const presenter = createBrowserReaderSessionCanvasPresenter(session, {
@@ -97,7 +114,8 @@ async function openState(
     hostFonts,
     canvas,
     ctx,
-    logger: createBrowserHostLogger(options.logLevel ?? 'warn'),
+    logger: recordReaderLogger(createBrowserHostLogger(options.logLevel ?? 'warn'), log),
+    log,
     options,
     typography,
     config: sessionReaderLayoutConfig(options, typography),
@@ -157,6 +175,7 @@ function buildReader(state: SessionReaderState): Reader {
     dispose() {
       if (state.disposed) return Promise.resolve();
       state.disposed = true;
+      state.log.note('dispose');
       for (const resume of [...state.bookWaiters]) resume();
       state.bookWaiters.clear();
       try {

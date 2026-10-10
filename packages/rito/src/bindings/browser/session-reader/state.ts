@@ -1,5 +1,6 @@
 import type { LayoutConfig, ReaderOptions, Spread } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
+import type { ReaderEventLog } from '../reader-event-log';
 import type { CanvasRenderingTarget } from '../primitive-renderer';
 import type { BrowserReaderArtifact, BrowserReaderSession } from '../reader-session';
 import type {
@@ -40,6 +41,8 @@ export interface SessionReaderState {
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;
   readonly logger: BrowserHostLogger;
+  /** What this reader asked its session and was answered, for a report of something going wrong. */
+  readonly log: ReaderEventLog;
   /** The layout options as last requested; a layout in flight may not have committed them. */
   options: ReaderOptions;
   readonly typography: SessionReaderTypography;

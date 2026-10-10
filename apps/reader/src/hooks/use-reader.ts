@@ -12,7 +12,9 @@ import {
   useSelection,
 } from '@ritojs/react';
 import { bookKey, createBookStorage } from '@/lib/book-storage';
+import { noteDebug } from '@/lib/debug-log';
 import { fetchShardedDemo } from '@/lib/sharded-demo';
+import { useDebugLog } from '@/hooks/use-debug-log';
 import { useReaderFonts } from '@/hooks/use-reader-fonts';
 import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
@@ -58,6 +60,14 @@ export function useReader(
   });
   const controller = rito.controller;
   useApplyTypography(controller, typography);
+  useDebugLog(controller, {
+    width: Math.round(containerWidth),
+    height: Math.round(containerHeight),
+    spreadMode,
+    theme,
+    pageTurn,
+    typography: typography.typography,
+  });
 
   useEffect(() => {
     // Headless verification drives and inspects the controller directly and
@@ -117,7 +127,17 @@ export function useReader(
     async (key: string, publication: Parameters<typeof rito.load>[0]) => {
       storage.setBook(key);
       typography.markOpening();
-      await rito.load(publication);
+      noteDebug('open-book', {
+        key,
+        bytes: publication instanceof ArrayBuffer ? publication.byteLength : 'sharded',
+      });
+      try {
+        await rito.load(publication);
+        noteDebug('book-opened', key);
+      } catch (error) {
+        noteDebug('book-failed', error);
+        throw error;
+      }
     },
     [rito, typography],
   );

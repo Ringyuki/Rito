@@ -157,9 +157,32 @@ counts, and how many layouts were committed before it),
 `artifact(spreadIndex)` (the artifact a spread is painted from, loading
 the spread when it is not held), `spreadImagesSettled(spreadIndex)`
 (await it before screenshotting a spread — a spread paints before its
-images do and again as each lands) and `rejectedFontFamilies()` (the
-publication faces the browser refused to decode, laid out without).
-Harnesses use this hook instead of adding probes to production messages.
+images do and again as each lands), `rejectedFontFamilies()` (the
+publication faces the browser refused to decode, laid out without) and
+`log()` (below). Harnesses use this hook instead of adding probes to
+production messages.
+
+## Debug log
+
+A reader keeps a bounded log of what it asked its session and what it was
+answered: every request by its method name with what it was asked, how
+long it took and what came back or why it failed, every layout commit
+(`scope`, page and spread counts, the spread shown), and every warning.
+A request that was sent and not answered stays in the log as pending, so
+a hang shows where it is. Values are shortened to their numbers and
+sizes — an artifact is its ids, indexes and byte counts, never a book's
+text. The log is one per page across every reader it opens, holds the
+last 4000 entries, and is read with `__ritoReaderDiagnostics.log()`.
+
+The demo reader turns it into a report a tester can send. Its context
+menu has **Export Debug Log**, which puts on the clipboard (or saves as a
+file where the clipboard is refused) the reader's log merged, in time
+order, with what the page saw: books opened, settings, keys pressed and
+pointers put down (never a typed character), the controller's events
+(`spreadChange`, `transitionStart`/`transitionEnd`, `positionChange`,
+`error` and the rest), console warnings and errors, uncaught failures
+and tasks that held the page 50 ms or longer. `__ritoDebugReport()`
+returns the same text in a console.
 
 ## Render diagnostic case
 

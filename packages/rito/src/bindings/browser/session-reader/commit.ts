@@ -38,6 +38,13 @@ export function commitSessionReaderLayout(
   state.visible = frame;
   state.activeSpreadIndex = frame.spreadIndex;
   state.config = config;
+  state.log.note('commit', {
+    scope,
+    pages: state.view.pageCount,
+    spreads: state.view.spreads.length,
+    spread: frame.spreadIndex,
+    generation: state.layoutGeneration,
+  });
   for (const held of replaced) void releaseSessionReaderFrame(state, held);
   for (const listener of state.layoutCommittedListeners) listener(frame.spreadIndex);
   if (scope === 'book') {
