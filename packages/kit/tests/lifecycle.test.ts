@@ -6,6 +6,7 @@ import type { Internals } from '../src/controller/core/internals';
 import type { WiringDeps } from '../src/controller/core/wiring-deps';
 import type { RuntimeComponents } from '../src/controller/facade/types';
 import { createDisposableCollection } from '../src/utils/disposable';
+import { createEmitter } from '../src/utils/event-emitter';
 
 describe('syncCanvasSize', () => {
   it('resizes a fresh buffer pool even when the reused surface already has the right size', () => {
@@ -61,6 +62,7 @@ describe('controller lifecycle', () => {
     const deps = {
       canvas,
       options: { a11y: { enabled: true, container: document.body } },
+      emitter: createEmitter(),
       reader: { spreads: [], onSpreadRendered, onLayoutCommitted },
       getCurrentSpread: () => 0,
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
@@ -114,6 +116,7 @@ describe('controller lifecycle', () => {
     const deps = {
       canvas,
       options: { a11y: { enabled: true, container: document.body } },
+      emitter: createEmitter(),
       reader: {
         spreads: [],
         onSpreadRendered,
@@ -162,6 +165,7 @@ describe('controller lifecycle', () => {
     const deps = {
       canvas,
       options: { a11y: { enabled: true, container: document.body } },
+      emitter: createEmitter(),
       reader: {
         spreads: [],
         onSpreadRendered,

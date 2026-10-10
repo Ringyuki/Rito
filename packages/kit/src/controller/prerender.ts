@@ -1,5 +1,6 @@
 import type { Reader } from '@ritojs/core';
 import type { ContentRenderer, PageBufferPool } from '../painter/buffer-pool';
+import { scheduleIdleTask } from '../utils/idle-task';
 
 export interface PrerenderJob {
   readonly getCurrentSpread: () => number;
@@ -112,54 +113,9 @@ function scheduleNext(state: PrerenderSchedulerState): void {
   if (state.disposed || state.pauseCount > 0 || state.cancelPending) return;
   const generation = state.generation;
   const eager = state.step === 0 && state.job?.eagerPosition !== undefined;
-  state.cancelPending = scheduleCancelable(() => {
+  state.cancelPending = scheduleIdleTask(() => {
     runPrerender(state, generation);
   }, eager);
-}
-
-function scheduleCancelable(callback: () => void, eager: boolean): () => void {
-  const backgroundScheduler = getBackgroundTaskScheduler();
-  if (backgroundScheduler) {
-    const controller = new AbortController();
-    void backgroundScheduler
-      .postTask(callback, { priority: 'background', signal: controller.signal })
-      .catch(() => undefined);
-    return () => {
-      controller.abort();
-    };
-  }
-  if (typeof requestIdleCallback === 'function' && typeof cancelIdleCallback === 'function') {
-    const id = requestIdleCallback(callback, { timeout: eager ? 25 : 50 });
-    return () => {
-      cancelIdleCallback(id);
-    };
-  }
-  if (typeof requestAnimationFrame === 'function' && typeof cancelAnimationFrame === 'function') {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const frame = requestAnimationFrame(() => {
-      timer = setTimeout(callback, 0);
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      if (timer !== undefined) clearTimeout(timer);
-    };
-  }
-  const id = setTimeout(callback, eager ? 16 : 50);
-  return () => {
-    clearTimeout(id);
-  };
-}
-
-interface BackgroundTaskScheduler {
-  postTask(
-    callback: () => void,
-    options: { readonly priority: 'background'; readonly signal: AbortSignal },
-  ): Promise<void>;
-}
-
-function getBackgroundTaskScheduler(): BackgroundTaskScheduler | undefined {
-  const scheduler = (globalThis as unknown as { scheduler?: BackgroundTaskScheduler }).scheduler;
-  return typeof scheduler?.postTask === 'function' ? scheduler : undefined;
 }
 
 function hasPendingInput(): boolean {
