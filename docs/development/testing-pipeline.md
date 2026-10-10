@@ -85,6 +85,8 @@ frame) and `panelFontSize` (one step of the settings panel's slider).
 `VIEW=desktop` measures a 1280×860 double-page viewport. Timings move by
 tens of milliseconds with whatever else the machine is doing; compare
 two builds by measuring them in turn on the same quiet machine.
+`accept-all.sh <out.jsonl>` measures three books in both viewports and
+starts each row only once the machine's load is low.
 
 When a turn measures slow, `turn-trace.mjs` in the same directory says
 where the time went: one timeline per turn with the key event, every
