@@ -6,8 +6,9 @@ shards**. The skeleton carries all of the book's text, styles and fonts
 and the size of every image, so the reader lays the whole book out from
 it; each image arrives in its own shard the first time a page paints
 it. Pages drawn from shards are byte-identical to pages drawn from the
-archive: the corpus check opens every book both ways and compares every
-chapter's display list, and no chapter's layout ever waits on a shard.
+archive: the corpus check opens every book both ways and compares the
+page every chapter opens on, display list bytes included, and no
+chapter's layout ever waits on a shard.
 
 ## What it protects, and what it does not
 
@@ -119,9 +120,8 @@ Opening, whole-book pagination, seeking and turning never call
 it, and repaints when the image does. When a page reads an image the session does not have yet,
 the engine names its shard; the client calls `loadShards`, hands the
 shard to the worker and retries the read. A rejected `loadShards` fails
-only that read. A reader that reopens in a new worker after a layout
-change resupplies the shards it already loaded, without calling
-`loadShards` again.
+only that read. A layout change is a request on the same session, so
+shards already supplied stay supplied.
 
 ## Flutter
 

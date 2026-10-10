@@ -758,9 +758,9 @@ final class RitoReaderSession {
   /// Searches the book from [prepared].
   ///
   /// Scope follows the revision behind the artifact: from a
-  /// chapter-local artifact the search covers that chapter's laid-out
-  /// pages; once the background pump has handed off a publication
-  /// artifact it covers the book as far as pagination has reached. Hits
+  /// chapter-local artifact the search covers that chapter's pages; from
+  /// a publication artifact, handed off by the background pump, it covers
+  /// the whole book. Hits
   /// carry positions [textRangeGeometry] consumes and, where the layout
   /// kept source identity, a durable [RitoLocator] to store instead of
   /// a page number.
@@ -1186,9 +1186,10 @@ final class RitoReaderSession {
   /// Adds host faces (a system font, one the reader imported) after the
   /// ones the session opened with, and registers them for paint. A face
   /// may share its role and language with another; it is named by its
-  /// family in a `font-family` list, and the generics keep the faces they
-  /// resolved to. Pages already shown keep their layout; the next request
-  /// lays out with the new faces.
+  /// family in a `font-family` list, and joins the faces of its generic
+  /// role behind those already there, so a generic reaches it for text
+  /// the earlier faces do not cover. Pages already shown keep their
+  /// layout; the next request lays out with the new faces.
   Future<void> addFontFaces(List<RitoPinnedFontFace> faces) async {
     _requireOpen();
     if (faces.isEmpty) {

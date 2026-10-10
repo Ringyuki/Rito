@@ -14,8 +14,8 @@ and paint items.
 
 ## XHTML
 
-- an immutable source tree with source spans on every node, addressed by
-  index by every later stage
+- an immutable source tree whose nodes every later stage addresses by
+  index
 - chapter body attributes and linked stylesheet discovery
 - footnote asides and note anchors resolved before layout
 
@@ -26,13 +26,18 @@ projected into typed tables the layout crates read:
 
 - the full selector grammar Stylo supports, specificity, inheritance and
   inline styles
-- `@font-face`, `@media` queries evaluated against the reader's viewport
+- `@font-face` with TTF or OTF sources; `@media` queries and `vw`/`vh`
+  evaluated against one page's content box, at 1x and the light colour
+  scheme
 - `rem`, `em`, `calc()`
-- presentational hints (`bgcolor`, `width`, `align` and friends)
+- presentational hints: `bgcolor` on `<body>`, `width` and `height` on
+  `<svg>`, and `dir`
 - a reading-system UA stylesheet: `img { object-fit: contain }`, images
   never exceed one page, `hr` renders as the browser's inset bevel
 - `box-sizing`, `border-radius` (uniform, per-corner and percentage),
-  `box-shadow`, `text-shadow`, `transform: rotate()`, `object-fit`
+  outer `box-shadow`, `text-shadow`, `transform: rotate()`,
+  `object-fit: fill | contain` (other values are drawn as `contain` and
+  recorded)
 - colours as 8-bit sRGB; `currentColor` resolved at the source
 
 ## Layout

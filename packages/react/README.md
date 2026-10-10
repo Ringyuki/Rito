@@ -83,4 +83,5 @@ export function App() {
   book is open with `controller.addFontFaces()`, and build font choices from `controller.fonts()`
 - use `useSelection().hasSelection` for presence; `sourceLocator` carries the durable
   source range and `viewportRects`/`handles` the geometry for selection UI
-- `useRitoReader().spreads` is the reader's navigation record (page indexes per spread)
+- `useRitoReader().spreads` is the book-wide navigation record (page indexes per spread);
+  it is empty until the whole book's layout first commits

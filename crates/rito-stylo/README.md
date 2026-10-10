@@ -57,9 +57,10 @@ Taffy, Parley, or resource-loading dependencies.
 
 ## Known gaps
 
-- Stylesheets arrive from the EPUB source ledger in author order; resolved
-  `@import` is not supported, and the adapter does not pretend that a
-  missing Stylo loader supports it.
+- Stylesheets arrive from the EPUB source ledger in author order. The adapter
+  itself rejects `@import` and does not pretend that a missing Stylo loader
+  supports it; `rito-core` inlines a publication's imports before handing its
+  sheets over.
 - Stylo 0.19's Servo selector parser hard-codes `:has()` and
   `:nth-child(... of ...)` parsing off. These are recorded capability gaps,
   not silently removed tests.

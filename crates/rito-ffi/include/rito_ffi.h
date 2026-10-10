@@ -375,8 +375,8 @@ uint32_t rito_read_resource(uint64_t session_id,
  * Searches the revision behind a live artifact and returns a complete RITOSRS1
  * message. request_data is a RITOSRQ1 message and is copied before this
  * function returns. Scope follows the artifact's revision: a chapter-local
- * artifact searches that chapter's laid-out pages, a publication artifact
- * searches the book as far as background pagination has reached.
+ * artifact searches that chapter's pages, a publication artifact searches
+ * the whole book.
  */
 uint32_t rito_search(uint64_t session_id,
                         const uint8_t *request_data,

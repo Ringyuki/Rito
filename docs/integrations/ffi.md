@@ -13,8 +13,8 @@ game engines): bridge the engine through its C ABI directly.
   function, status code, ownership rule, and the cost model live in its
   comments; treat it as the reference, not this page.
 - **Wire messages** — requests and responses cross the ABI as
-  length-framed binary messages (`RITOREQ1`, `RITOART1`, `RITODL1`,
-  `RITONAV1`, …). If you hand-write a decoder, you own keeping it in
+  length-framed binary messages (`RITOREQ1`, `RITOART1`, `RITONAV1`, …);
+  an artifact embeds its page's `RITODL1` buffer. If you hand-write a decoder, you own keeping it in
   lockstep with the engine commit you build (see below).
 
 The engine, its wire encoding, and your decoder must always come from
@@ -51,9 +51,9 @@ paint domain grows, and a stale decoder misreads the byte stream.
   the engine is the only classifier, and a browser reader shows the same
   answer. Resolve in hit order — text runs, then block-level link boxes,
   then images — so a link wrapping an image resolves as the link;
-  `RitoHitResolver` in `rito_flutter` is the reference. Paint commands
-  still carry `href` and `alt` for older bridges, but they are not the
-  hit surface.
+  `RitoHitResolver` in `rito_flutter` is the reference. Text and ruby runs
+  still carry their link `href`, and no paint primitive carries `alt`;
+  neither is the hit surface.
 
 - **A stored highlight is projected by the engine, not rebuilt by the
   host.** Persist what a range _is_ — the manifest href plus the
@@ -151,8 +151,8 @@ primitive list the engine lowers every frame to (the byte layout is in
 [Wire Format](../development/wire-format.md)). The header carries the
 render ratio (u32 format version, f64 ratio, u32 primitive count), every
 coordinate is a device pixel on the grid the host rasterizes, and the
-opcodes are state, transforms, clips, fills, strokes, shadows and images
-plus text and ruby runs. Text and ruby runs are the exception to the
+opcodes are state, transforms, clips, fills, strokes, shadows, images and
+image fallbacks plus text and ruby runs. Text and ruby runs are the exception to the
 device grid: their lengths stay in CSS pixels and a host draws them under
 a `scale(ratio)` transform, because glyph rasterization follows the CSS
 font size (a synthetic-bold run drawn at the device size on the device
@@ -230,13 +230,15 @@ protocol version 5):
 Wire changes landed with the paint-geometry lowering (reader protocol
 version 3, rito_flutter 0.3.0 era):
 
-- The artifact request's layout record gained a trailing f64 `render
-ratio` — device pixels per CSS pixel the host rasterizes at (its
-  devicePixelRatio; 1 for a 1:1 canvas). Every raster snap in the
+- The artifact request's layout record gained an f64 `render ratio` after
+  the font-family override — device pixels per CSS pixel the host
+  rasterizes at (its devicePixelRatio; 1 for a 1:1 canvas). Two bools
+  follow it today: line-height force, then font-family force. Every raster snap in the
   display list lands on that grid. It is a paint parameter: pagination,
   page counts and revision identity are identical at every ratio, and
   an adjacent request inherits the session's current ratio. A ratio that
-  is not finite and positive fails the request with `InvalidLayout`.
+  is not finite and positive fails the request with
+  `RITO_STATUS_INVALID_ARGUMENT`.
 - Artifacts and publications stamp protocol version 3; a decoder pinned
   to 2 must move with it.
 - Text and ruby runs (opcodes 12 and 13) carry glyph paint only — font,
@@ -251,13 +253,3 @@ ratio` — device pixels per CSS pixel the host rasterizes at (its
   run's (they were the annotation's em-box top): the engine places the
   annotation line over its base and a host draws every cluster the
   same way whichever run it belongs to.
-
-Wire changes landed with the chapter-local one-pass cutover
-(rito_flutter 0.2.0 era) that a hand-written decoder must mirror:
-
-- `paintBlock.background.size` gained tag 4 (explicit axes): the tag
-  byte is followed by two optional lengths (presence byte, then unit
-  tag + f64 each); a missing axis is `auto`.
-- Run paints gained a tail: one optional pair of f64 inline-box
-  offsets (top, bottom — relative to the run rect top), then two bool
-  bytes (`boxStart`, `boxEnd`).

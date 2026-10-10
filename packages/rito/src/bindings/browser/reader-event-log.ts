@@ -166,8 +166,10 @@ const LIST_LIMIT = 6;
 
 /**
  * A value in the few words a log line has room for: scalars as they are,
- * bytes and long lists by their size, objects by their fields two levels
- * down. Never the content of a book: an artifact is its numbers and sizes.
+ * bytes and long lists by their size, strings by their first 96
+ * characters, objects by their fields two levels down. An artifact is its
+ * numbers and sizes; an answer that is text (a footnote, a selected range,
+ * an annotation's quote) shows up to that much of it.
  */
 export function describeForLog(value: unknown): string {
   const text = describe(value, 0);

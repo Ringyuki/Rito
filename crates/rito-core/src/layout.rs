@@ -1,5 +1,5 @@
 pub const NAME: &str = "layout";
-pub const OWNS: &str = "Layout configuration and the page ranges a revision publishes per chapter";
+pub const OWNS: &str = "Layout configuration";
 
 use serde::{Deserialize, Serialize};
 

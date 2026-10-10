@@ -106,8 +106,9 @@ export interface ReaderControllerEvents {
   transitionProgress: { direction: 'forward' | 'backward'; progress: number };
   /**
    * The visible turn ended: it landed on its target (`committed`), went
-   * back where it started (`cancelled`), or was cut off by a relayout, a
-   * jump or another turn (`interrupted`).
+   * back where it started (`cancelled`), or was cut off by a relayout
+   * (`interrupted`). A jump or a newer turn lands the turn in flight at
+   * once, which reports `committed`, or `cancelled` if it was heading back.
    */
   transitionEnd: {
     direction: 'forward' | 'backward';
@@ -167,10 +168,10 @@ export interface ReaderController {
   readonly reader: Reader;
   readonly metadata: PackageMetadata;
   readonly toc: readonly TocEntry[];
-  /** Navigation records of the committed layout, indexed by spread. */
+  /** Book-wide navigation records, indexed by spread; empty until the whole book first commits. */
   readonly spreads: readonly Spread[];
   readonly currentSpread: number;
-  /** Final spread count of the committed layout; every revision is laid out complete. */
+  /** Book-wide spread count; 0 until the whole book's layout first commits. */
   readonly totalSpreads: number;
 
   goToSpread(index: number): void;
@@ -257,8 +258,9 @@ export interface ReaderController {
    *
    * A host that must decide on `pointerup` whether a gesture belongs to
    * the content or to the page turn cannot wait for the content events:
-   * only `linkClick` is raised synchronously, `footnoteClick` waits for
-   * the footnote read and `imageClick` for the image blob. Turning the
+   * `linkClick` and `annotationClick` are raised synchronously, but
+   * `footnoteClick` waits for the footnote read and `imageClick` for the
+   * image blob. Turning the
    * page first and undoing it later does not work either, because the
    * turn advances the content-interaction generation and the in-flight
    * image request is then disowned and revoked, so `imageClick` never

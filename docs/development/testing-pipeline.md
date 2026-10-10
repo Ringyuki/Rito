@@ -14,13 +14,13 @@ by hand.
 | WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and Worker helpers           |
 | Static       | `pnpm audit:dependencies`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | advisories, types, ESLint, Prettier                                                                 |
 | Unit         | `pnpm test:unit`                                                              | Vitest suites of core, kit and react, including the architecture invariants                         |
-| Integration  | `pnpm test:integration`                                                       | end-to-end core flows against fixture books                                                         |
+| Integration  | `pnpm test:integration`                                                       | the public entry's export surface; no book is opened                                                |
 | Pixel suite  | `pnpm test:golden:pixel`                                                      | the built reader in Chromium: engine text geometry against the painted canvas                       |
 | Reader e2e   | `pnpm test:e2e`                                                               | the demo reader in Chromium: load, navigation, TOC, search, settings, reflow, selection             |
 | Flutter      | `flutter test` in `packages/rito_flutter`                                     | protocol decoders, the pen, session lifecycle, the paint-parity render test                         |
 | Coverage     | `pnpm test:coverage`                                                          | V8 coverage for the published packages                                                              |
 | Paint parity | `node tools/paint-parity/run.mjs`                                             | the two pens on identical `RITODL1` bytes, budget-gated                                             |
-| Pixel walk   | `tools/corpus-oracle/pixel-walk.mjs`                                          | every page of a real book against pinned Chromium; the acceptance instrument                        |
+| Pixel walk   | `tools/corpus-oracle/pixel-walk.mjs`                                          | the pages of a real book against pinned Chromium; the acceptance instrument                         |
 
 `pnpm run check` (`test:ci`) is the local aggregate: bootstrap, typecheck,
 lint, format check, unit, integration and build.
@@ -41,8 +41,8 @@ verifies the exact merge result. The jobs run in parallel:
 - Coverage Gate
 
 The canvas-pixel e2e suites (selection, touch selection, production
-pinned font) run in the separate `pixel-e2e.yml` workflow on master
-pushes. The Release workflow reruns the full check before publishing.
+pinned font) run in the separate `pixel-e2e.yml` workflow on pull
+requests targeting master and on master pushes. The Release workflow reruns the full check before publishing.
 
 ## Pixel suite
 

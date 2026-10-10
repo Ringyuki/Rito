@@ -1,7 +1,8 @@
 import '../protocol/request_models.dart';
 
 /// How a page turn ended: it landed on its neighbour, went back where it
-/// started, or was cut off by a jump, a relayout or another turn.
+/// started, or was cut off by a jump or a relayout. Another turn asked for
+/// meanwhile lands the one in flight first.
 enum RitoPageTurnOutcome { committed, cancelled, interrupted }
 
 /// A page turn starting or ending. Every [RitoPageTurnStarted] is answered

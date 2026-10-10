@@ -10,7 +10,7 @@ reason or fails the chapter closed; nothing is silently misplaced.
 - no grid
 - no multicolumn layout
 - no `position: fixed`, `position: sticky` or `position: absolute`;
-  `position: relative` is accepted only with inert (auto or zero) insets
+  `position: relative` is accepted only with `auto` insets
 - no `min-height` or `max-height` on blocks yet
 - `transform` supports `rotate()` only, on block boxes
 - forced page breaks (`break-before: page` and friends) are projected as
@@ -25,16 +25,18 @@ reason or fails the chapter closed; nothing is silently misplaced.
 
 - left-to-right and `vertical-rl` only; no RTL / BiDi
 - vertical text is the first slice: upright columns with rotated and
-  shifted punctuation; ruby, markers and inline atoms keep their
-  horizontal path
+  shifted punctuation, ruby annotations run down beside their base and
+  inline images keep their physical box
 - no automatic hyphenation (`hyphens: auto` is not implemented)
 - one line breaker: greedy fill with the browser's break opportunities;
   there is no paragraph-optimal alternative
 
 ## Typography Overrides
 
-- `setTypography()` is reader-wide and coarse: it overrides root and body
-  behaviour and does not rewrite EPUB-authored selectors
+- `setTypography()` is reader-wide and coarse: `fontSize` sets the root
+  font size, and `lineHeight` and `fontFamily` apply as a user-origin rule
+  on every element, which loses to a declaration the book makes on that
+  element unless the matching force flag is set
 - `fontFamily` names faces the engine can shape with: the publication's
   `@font-face` families and the host's faces (the pinned policy plus faces
   added with `addFontFaces`). A system font is usable once its bytes are
@@ -44,21 +46,20 @@ reason or fails the chapter closed; nothing is silently misplaced.
 
 ## Durable Source Locators
 
-Durable source-locator projection resolves unavailable today for:
+A `search()` result reports its `source` as unavailable when the engine
+cannot prove the match against the chapter's source text; the match and
+navigation to it still work, and `@ritojs/kit` paints no highlight for such
+a result.
 
-- exact source-anchored reading-position restore (page-index persistence
-  works)
-- `search()` result `source` ranges for a match the engine cannot prove
-  against the chapter's source text (matches and navigation work)
-- search highlights painted from a committed source range
-
-`resolveExactSourceRange` itself works, including across soft-wrapped
-lines, so annotation re-projection from stored source ranges is unaffected.
+Otherwise reading positions are restored through their source locators, and
+annotations and search highlights are projected from stored source ranges
+by `resolveExactSourceRange`, including across soft-wrapped lines.
 
 ## Loading Model
 
-- the archive stays in memory; the first chapter is laid out eagerly and
-  later chapters and binary resources load as they are needed
+- the archive stays in memory; the chapter being read is laid out first
+  and the whole book behind it, and chapter sources and binary resources
+  are read from the archive when first needed
 - ZIP, inflation and XML budgets are enforced and fail the open or the
   chapter: at most 512 MiB archive bytes, 10,000 entries, 128 MiB per
   inflated entry, 512 MiB inflated in total and a 200:1 compression ratio,
@@ -75,9 +76,9 @@ lines, so annotation re-projection from stored source ranges is unaffected.
   engine; it depends on `Worker`, `FontFace`, `createImageBitmap`, Canvas
   and optionally `OffscreenCanvas`
 - `@ritojs/kit` assumes `OffscreenCanvas` support for its compositing
-- `rito_flutter` paints through Skia; residual differences against the
-  browser pen are rasterizer-level and itemized in
-  `tools/paint-parity/EXEMPTIONS.md`
+- `rito_flutter` paints through Flutter's own rasterizer; the differences
+  against the browser pen measured under Skia are rasterizer-level and
+  itemized in `tools/paint-parity/EXEMPTIONS.md`
 - the Flutter pen draws each text cluster left to right through Flutter's
   own shaper and cannot promise browser-identical complex-script shaping
 

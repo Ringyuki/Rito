@@ -243,11 +243,10 @@ export interface ReaderFontCatalog {
 
 /**
  * A publication split by `rito-pack` and delivered a shard at a time. The
- * reader opens from the skeleton and calls `loadShards` the first time it
- * needs a chapter, its images or the publication's fonts; nothing else is
- * fetched unless a feature reads it (background pagination for whole-book
- * page numbers reads every chapter). A rejected load fails only the call
- * that needed it.
+ * skeleton carries every chapter, stylesheet and font, so the reader opens
+ * and lays the whole book out from it; `loadShards` is called the first
+ * time a page reads an image, and for images ahead of need while the reader
+ * is idle. A rejected load fails only the read that needed it.
  */
 export interface ReaderShardedPublication {
   readonly skeleton: ArrayBuffer;
@@ -362,8 +361,9 @@ export interface Reader {
   /**
    * Adds host faces (a system font, one the reader imported) after the
    * pinned policy's and lays the book out again. A face is named by its
-   * family in a `font-family` list; the generics keep resolving to the faces
-   * they did. A face may share its role and language with another.
+   * family in a `font-family` list, and joins the faces of its generic role
+   * behind those already there, so a generic reaches it for text the earlier
+   * faces do not cover. A face may share its role and language with another.
    */
   addFontFaces?(faces: readonly ReaderHostFontFace[]): Promise<void>;
   /** Removes host faces by SHA-256 and lays the book out again; one face must remain. */

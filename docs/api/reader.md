@@ -21,29 +21,29 @@ be painted:
 4. lay out the whole book behind it and commit again under book-wide page
    numbers (see [`layoutScope`](#layout--interaction-data))
 
-Use this when you want the normal app-facing API instead of driving the
-artifact protocol yourself. Flutter apps use `rito_flutter`; other native
-hosts bridge the C ABI (see [Direct FFI integration](../integrations/ffi.md)).
+This is the browser's entry to the engine. Flutter apps use `rito_flutter`;
+other native hosts bridge the C ABI (see
+[Direct FFI integration](../integrations/ffi.md)).
 
 ## `ReaderOptions`
 
-| Option             | Type                     | Default                          | Notes                                   |
-| ------------------ | ------------------------ | -------------------------------- | --------------------------------------- |
-| `width`            | `number`                 | required                         | Viewport width in logical pixels        |
-| `height`           | `number`                 | required                         | Viewport height in logical pixels       |
-| `margin`           | `number`                 | `40`                             | Page margin                             |
-| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                   |
-| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode        |
-| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white  |
-| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it  |
-| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                     |
-| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                   |
-| `fontSize`         | `number`                 | unset                            | Initial root font-size override         |
-| `lineHeight`       | `number`                 | unset                            | Initial line-height override            |
-| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node         |
-| `fontFamily`       | `string`                 | unset                            | Body `font-family` override (see below) |
-| `fontFamilyForce`  | `boolean`                | `false`                          | Apply the override with `!important`    |
-| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces  |
+| Option             | Type                     | Default                          | Notes                                  |
+| ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
+| `width`            | `number`                 | required                         | Viewport width in logical pixels       |
+| `height`           | `number`                 | required                         | Viewport height in logical pixels      |
+| `margin`           | `number`                 | `40`                             | Page margin                            |
+| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
+| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
+| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
+| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
+| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
+| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                  |
+| `fontSize`         | `number`                 | unset                            | Initial root font-size override        |
+| `lineHeight`       | `number`                 | unset                            | Initial line-height override           |
+| `lineHeightForce`  | `boolean`                | `false`                          | Apply the override with `!important`   |
+| `fontFamily`       | `string`                 | unset                            | `font-family` override (see below)     |
+| `fontFamilyForce`  | `boolean`                | `false`                          | Apply the override with `!important`   |
+| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | **required**                     | Immutable native/Canvas fallback faces |
 
 `pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
 the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
@@ -127,11 +127,12 @@ Each `setTypography()` value accepts `undefined` (leave unchanged), `null`
 coarse:
 
 - `fontSize` overrides root font size
-- `lineHeight` overrides body line-height behavior
-- `fontFamily` overrides body font family
+- `lineHeight` and `fontFamily` apply as a user-origin rule on every element
 
-EPUB element-level rules continue to win in coarse mode. Set
-`lineHeightForce` to apply the line-height override to every element.
+A declaration the book makes on an element wins over that rule in coarse
+mode; an element without one takes the reader's value, whatever its ancestors
+declare. Set `lineHeightForce` to apply the line-height override with
+`!important`, over the book's own declarations.
 
 Set `fontFamilyForce` to replace every element's own family as well (what a
 reader's font choice usually means).
@@ -170,8 +171,10 @@ exact face that shaped it, so what is measured is what is drawn.
 genericRole, language, faces: [{ weight, style, sha256 }] }`. A face added at
 runtime takes the same shape as a pinned one (`bytes`, `expectedSha256`,
 `genericRole`, optional `language`); it may share its role and language with
-another face, is named by its family in a `font-family` list, and leaves what
-the generics resolve to unchanged. Variable fonts are rejected.
+another face, is named by its family in a `font-family` list, and joins the
+faces of its `genericRole` behind those already there — language-neutral faces
+ahead of language-tagged ones — so a generic reaches it for text the earlier
+faces do not cover. Variable fonts are rejected.
 
 ### Navigation / metadata
 
@@ -220,10 +223,12 @@ the book commit.
 
 When present, `interactions` exposes typed page-content targets plus exact-revision
 footnote (`getFootnote(key)`) and source-locator reads. Its `enabled` flag is
-true until the reader is disposed. Page targets intentionally cover semantic click
-sources only. When supported, `interactions.textSelection` exposes revision-bound
+true until the reader is disposed. Page targets list every text run (`kind: 'text'`)
+as well as links, images and note references; filter by `kind` for click sources.
+When supported, `interactions.textSelection` exposes revision-bound
 point-to-caret and exact document-order range resolution across retained logical
-flows within one chapter. Its carets are opaque and must be passed back by
+flows; a range whose ends lie in different chapters carries `sourceSpan`, each end
+with its own href, and no single-chapter `sourceLocator`. Its carets are opaque and must be passed back by
 identity; selected text preserves native line/block separators and range
 rectangles use page-content coordinates. A caret exposes its `pageIndex` because
 word and paragraph endpoints can cross the page containing the original input
@@ -242,7 +247,7 @@ anchor and live focus, advances the focus by a typed character, word, visual-lin
 line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
 Vertical line moves return a `preferredInlinePosition` that callers pass into the
 next vertical move to preserve sticky x. Reaching an incomplete retained tail is
-reported as typed `pending`; endpoints in different chapters remain unavailable.
+reported as typed `pending`.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact
@@ -287,7 +292,6 @@ Reader implementations may return `void`, which is also safe to `await`.
 
 - you are building a browser reading experience
 - you want one object that handles loading, pagination, and rendering
-- you do not need custom orchestration between parse/layout/render stages
 
 A spread never waits for its images: it paints once its fonts are ready
 and again as each image lands, which `onSpreadContentInvalidated` reports.

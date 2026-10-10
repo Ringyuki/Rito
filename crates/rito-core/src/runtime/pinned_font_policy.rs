@@ -61,9 +61,10 @@ impl RuntimePinnedFontPolicy {
     }
 
     /// Adds host faces after the existing ones, in the order given: a face
-    /// added at runtime never reorders the faces the policy opened with, so
-    /// what every generic resolves to stays put until a list names the new
-    /// family. All faces validate before any is added; a face whose bytes
+    /// added at runtime never reorders the faces the policy opened with. It
+    /// joins the faces of its generic role behind them (language-neutral
+    /// faces rank ahead of language-tagged ones), so a generic reaches it
+    /// for text the earlier faces do not cover. All faces validate before any is added; a face whose bytes
     /// are already present is rejected.
     pub(crate) fn add_faces(&mut self, input: Vec<RuntimePinnedFontFaceInput>) -> EpubResult<()> {
         let added = input

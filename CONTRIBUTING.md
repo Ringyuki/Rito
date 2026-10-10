@@ -33,7 +33,7 @@ Requirements:
 
 - Node.js 24
 - pnpm 10.22.0 (pinned by the root `packageManager` field)
-- the Rust toolchain pinned by the workspace `rust-version`
+- the Rust toolchain pinned by `rust-toolchain.toml` (1.95.0)
 - the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI matching the
   Rust dependency when building the real browser artifact
 - Flutter 3.41.7 or newer for `packages/rito_flutter`
@@ -77,7 +77,8 @@ jobs are required checks and branches must be up to date before merging).
 The pipeline fans out into parallel jobs: Rust Checks, WASM Bindings,
 Static Checks, Unit & Golden Tests, Build & Pack, Reader E2E (sharded four
 ways), Pixel Golden and the Coverage Gate. A separate non-blocking Pixel
-E2E workflow observes the canvas-pixel suites on master pushes.
+E2E workflow observes the canvas-pixel suites on pull requests targeting
+`master` and on master pushes.
 
 Keep PRs focused. Small, single-purpose changes are easier to review and
 less likely to cross the engine/host boundary.
@@ -124,11 +125,13 @@ These boundaries are not optional:
   geometry; hosts transport bytes and blit
 - keep EPUB, style, layout, render and runtime modules separated in Rust
 - layout and paint code must not depend on Canvas or browser APIs
-- the display list is typed end to end; no JSON or CSS strings on the
-  production path
+- the display list is typed end to end; no JSON or CSS strings in it or
+  on its wire
 - keep WASM and FFI bindings thin; reader policy belongs in `rito-core`
-- keep browser APIs inside `packages/rito/src/bindings/browser`
-- all public TypeScript exports go through `packages/rito/src/index.ts`
+- within `@ritojs/core`, keep browser APIs inside
+  `packages/rito/src/bindings/browser`
+- all public exports of `@ritojs/core` go through
+  `packages/rito/src/index.ts`
 - the engine, the wire encoder and every decoder change in the same commit
 - do not expose unstable internals
 

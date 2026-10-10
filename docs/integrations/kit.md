@@ -73,8 +73,10 @@ controller.mount(container);
 controller.goToSpread(0);
 ```
 
-The controller owns the mounted reading surface after `mount()`: transition layers,
-overlay canvas, and interaction bindings are attached under that container.
+`mount()` puts the display canvas given to `createController` into the container,
+and with `a11y` enabled the accessibility mirror with it. Turns and overlays are
+composited into that one canvas; pointer and touch listeners sit on the canvas from
+`createController` on, and keyboard shortcuts listen on the document element.
 
 ## Page Turns
 
@@ -112,8 +114,9 @@ Change any of it live with `controller.configureTransition({ effect: 'cover' })`
 
 `transitionStart` and `transitionEnd` bracket every visible turn: each start is
 answered by exactly one end, whose `outcome` says whether the turn landed
-(`committed`), went back (`cancelled`), or was cut off by a relayout, a jump or
-another turn (`interrupted`). In between, `transitionProgress` reports every painted
+(`committed`), went back (`cancelled`), or was cut off by a relayout
+(`interrupted`). A jump or a newer turn lands the turn in flight at once, which
+reports `committed`, or `cancelled` if it was already heading back. In between, `transitionProgress` reports every painted
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.
@@ -134,9 +137,10 @@ the controller holds no page geometry of its own. `Reader.spreads` is the naviga
 record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`. The reader commits a
 layout twice — the chapter being read, then the whole book (`Reader.layoutScope`) — and
 the controller speaks book-wide throughout: while the chapter is the committed layout,
-page numbers and progress keep their last book-wide values, a turn past the chapter's
-edge and a jump outside it wait for the book and land there, and a turn inside the
-chapter is immediate. The controller maps pointer input to page-local coordinates from
+page numbers and progress keep their last book-wide values, a turn by key or API
+past the chapter's edge and a jump outside it wait for the book and land there, a drag
+past that edge rubber-bands as at the end of the book, and a turn inside the chapter
+is immediate. The controller maps pointer input to page-local coordinates from
 the layout geometry and that record. `createController` requires `reader.interactions.textSelection`
 and throws without it.
 
@@ -144,9 +148,9 @@ Deciding a gesture: `controller.hitTestContent({ clientX, clientY })` answers
 synchronously whether interactive content sits under a point and which kind —
 `'link'`, `'footnote'`, `'image'`, `'annotation'`, or `null` — with no payload and
 no side effect. A host that must choose on `pointerup` between a page turn and the
-content cannot wait for the content events: only `linkClick` is raised
-synchronously, `footnoteClick` waits for the footnote read and `imageClick` for the
-image blob. Turning the page first and undoing it does not work either, because the
+content cannot wait for the content events: `linkClick` and `annotationClick` are
+raised synchronously, but `footnoteClick` waits for the footnote read and `imageClick`
+for the image blob. Turning the page first and undoing it does not work either, because the
 turn advances the content-interaction generation, which disowns the in-flight image
 request and revokes its blob, so `imageClick` never arrives at all. The query reads
 the same resolution the click dispatcher runs, in the same priority order
@@ -219,13 +223,16 @@ activation through page targets instead of raw EPUB-relative browser navigation.
 empty image `alt` is treated as decorative; a missing `alt` remains an image with
 unknown alternative text.
 
-Position persistence: Kit stores the visible spread's reading position and
-restores it through the asynchronous `goToPosition`
-(`Promise<number | undefined>`). Exact source-anchored locators are the design
-target, but under the fragment engine durable source-locator projection
-currently resolves unavailable (see the limitations page), so persistence and
-restore operate on page-indexed positions today. Newer user navigation and
-disposal abort an in-flight restore. `controller.position` is the position last
+Position persistence: Kit publishes the visible spread's reading position as the
+engine's source locator for its first page (`sourceLocator`: the chapter's href and a
+position in its source), with the page and spread it falls on in the committed layout
+(`projection`) and `progress`. A stored position comes back through the asynchronous
+`restorePosition()`, which loads from `positionStorage` when no serialized value is
+passed; `goToPosition(position)` goes to a position the host holds. Both resolve
+`Promise<number | undefined>`: they navigate the reader to the locator, so a position
+survives a relayout, and resolve `undefined` when the locator does not resolve. A
+position that carries no locator is placed by its stored `projection` instead. Newer user
+navigation and disposal abort an in-flight restore. `controller.position` is the position last
 published by `positionChange`; it resolves a beat after the spread it describes, so
 UI showing where the reader is (a chapter, a page number, a percentage) should read
 all of it from the position rather than mix it with `spreadChange`.
@@ -238,9 +245,10 @@ of entering a dependency cycle; adapters must not rely on reentrant restore or
 navigation. Outside adapter callbacks, concurrent restores and navigation retain
 their normal latest-wins behavior.
 
-Exact source-backed ranges are accepted across logical text flows in document order
-within one chapter and require deterministic shapes. Cross-chapter ranges and
-host-measured text are typed unavailable rather than given interpolated geometry.
+Exact source-backed ranges are accepted across logical text flows in document order.
+A selection that crosses chapters carries `sourceSpan`, each end with its own href,
+and no single-chapter `sourceLocator`; `resolveExactSourceRange` takes one chapter's
+`href` and range.
 
 ## When Not To Use It
 

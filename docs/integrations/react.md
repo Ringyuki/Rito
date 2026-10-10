@@ -116,8 +116,10 @@ Use this hook when you want a full reader lifecycle in React.
 Important behavior:
 
 - rendering the hook itself is SSR-safe
-- `spreads` is the reader's navigation record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`,
-  and `totalSpreads` is the final count of the committed layout
+- `spreads` is the navigation record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`,
+  and `totalSpreads` its length; both are book-wide: empty and 0 until the whole book's
+  layout first commits, and held at their last book-wide values while a chapter is
+  committed alone after a relayout
 - `load()` still needs a browser document and should run in an effect or event handler
 - replacement `load()` calls wait for the previous Reader's Worker/native release before opening
   the next document
@@ -134,9 +136,9 @@ Important behavior:
 `useRitoReader()` does not choose or fetch fallback fonts. A
 `ReaderPinnedFontPolicy` is **required** by the core: finish loading the
 app-owned static font bytes before calling `load()`, then pass the completed
-policy under `options.reader.pinnedFontPolicy`. The hook samples the current
-Reader options when a load starts; a missing or empty policy makes the load
-fail immediately.
+policy under `options.reader.pinnedFontPolicy`. The hook reads the current
+Reader options once the data given to `load()` has resolved; a missing or empty
+policy makes the load fail.
 
 Replacing the policy object after `load()` does not reconfigure the open Reader.
 To add a face while a book is open (a system font, a file the reader imported),

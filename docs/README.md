@@ -21,8 +21,8 @@ Rito is one Rust engine with several hosts:
 
 ## API
 
-- [Reader API](./api/reader.md) — `createReader()`, `ReaderOptions`,
-  `Reader`, and the lower-level session entry
+- [Reader API](./api/reader.md) — `createReader()`, `ReaderOptions` and
+  `Reader`
 - [Migrating to 3.0](./migration/v3.md) — what 3.0 moves into the engine
   and how to convert stored annotations
 - [Migrating to 2.0](./migration/v2.md) — what 2.0 removes and what to
@@ -34,7 +34,8 @@ Rito is one Rust engine with several hosts:
 - [Using `@ritojs/react`](./integrations/react.md)
 - [Direct FFI integration](./integrations/ffi.md)
 - [Sharded publications](./integrations/sharded-publications.md) — open a
-  book from a skeleton and receive chapters one shard at a time
+  book from a skeleton that carries every chapter and receive its images
+  one shard at a time
 
 ## Development Docs
 

@@ -2,8 +2,8 @@
 
 ### A peek leaves a pending navigation adoptable
 
-`peekAdjacent` and `peekSpread` consume a request id without being a
-navigation. One made between `requestArtifact` or `turn` and the adoption
+`RitoReaderSession.peek` and `peekSpread` consume a request id without
+being a navigation. One made between `requestArtifact` or `turn` and the adoption
 of its result used to make that adoption fail as stale; the engine now
 compares a candidate only against foreground requests, as the peek's
 contract already said.
@@ -60,9 +60,9 @@ the every-page flag, `RITONVQ1`/`RITONVR1` gain the layout query and its
 page table, the layout request gains the two force flags, and `RITOSPQ1`
 asks for a spread by its position. The C ABI gains `rito_peek_spread` and
 `rito_mark_font_family_unavailable`. `RitoReaderGateway` gains
-`peekSpread` and `markFontFamiliesUnavailable`, so a custom gateway must
-implement both, and `RitoHitEntry.kind` is required of code that builds
-hit entries itself.
+`peekSpread`, which a custom gateway must implement
+(`markFontFamiliesUnavailable` is on the optional `RitoFontGateway`), and
+`RitoHitEntry.kind` is required of code that builds hit entries itself.
 
 ### Faster layout changes
 

@@ -365,9 +365,9 @@ pub(super) fn append_fragment_display_commands_inner(
                 // A vertical-rl flow's lines are COLUMNS: the block axis
                 // ran left from the right edge during layout, so the
                 // painter rotates each line's frame instead of stacking
-                // it downward. First slice: text runs paint as upright
-                // downward columns; ruby, markers and inline atoms keep
-                // their horizontal path for now.
+                // it downward: text runs paint as upright downward
+                // columns, an inline image keeps its physical box and a
+                // ruby annotation runs down beside its base.
                 if let (Fragment::Line(line), Some((frame_right, frame_top))) =
                     (child, context.vertical_frame)
                 {

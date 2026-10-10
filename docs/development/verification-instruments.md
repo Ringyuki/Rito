@@ -13,7 +13,7 @@ RITO_READER_URL=http://127.0.0.1:4174/ RITO_WALK_DSF=1 \
   node pixel-walk.mjs /path/to/book.epub /path/to/out [maxPages]
 ```
 
-Walks every page of a book through the real reader (the `@ritojs/reader`
+Walks the pages of a book (up to `maxPages`, 400 by default) through the real reader (the `@ritojs/reader`
 build served at `RITO_READER_URL`) and through Chromium laying the same
 chapter into multicol columns of the engine's content box, with the
 book's own CSS and fonts. Pages pair chapter-page k with truth-column k;
@@ -36,8 +36,10 @@ Rules that experience has made binding:
 `book/`) of every `walk-*/` directory in `tools/corpus-oracle` except the
 ones named as arguments, keeping each `report.md`.
 
-The other scripts in `tools/corpus-oracle` are focused probes, all run
-from that directory. They fall into three groups.
+`walk-corpus.sh <corpus-dir> <ledger.tsv> [first-book-prefix]` walks a
+whole corpus one book at a time and appends each verdict to a ledger. Most
+of the other scripts in `tools/corpus-oracle` are focused probes, all run
+from that directory, in three groups.
 
 Line-break oracle against the native probe binary (build it first with
 `cargo build --release --example chapter-fragment-probe -p rito-core`):
@@ -45,9 +47,10 @@ Line-break oracle against the native probe binary (build it first with
 - `node unpack-corpus.mjs <epub-dir> <workspace-dir>` — unpacks every
   EPUB and writes the manifest the oracle scripts consume (spine-ordered
   chapter files and `@font-face` bindings).
-- `RITO_ORACLE_DIR=<workspace-dir> node corpus-ab.mjs` — lays every
-  manifest chapter out through `chapter-fragment-probe` and through
-  pinned-font Chromium and scores the two by line-break points, writing
+- `RITO_ORACLE_DIR=<workspace-dir> node corpus-ab.mjs` — lays up to three
+  sampled text chapters of each book (those 30%, 55% and 80% of the way
+  through, their first 90 lines) out through `chapter-fragment-probe` and
+  through pinned-font Chromium and scores the two by line-break points, writing
   `corpus-ab-report.json` into the workspace.
 
 Reads of the live reader (`RITO_READER_URL`, default
@@ -86,11 +89,13 @@ synthetic replica, via `Range` rects:
 
 ## Native example probes
 
-Built with `cargo build --release -p rito-core --examples`; the binaries
-land in `target/release/examples/`. Each opens the book with a pinned
-serif face because the fragment engine shapes with pinned faces only —
-a document without one cannot paginate. The reader pins
-`apps/reader/src/assets/fonts/Tinos-Regular.ttf` as its serif face.
+The `-probe` and `-bench` entries are built with
+`cargo build --release -p rito-core --examples`; the binaries land in
+`target/release/examples/`. Each opens the book with a pinned serif face
+because the engine cannot lay out without at least one host face (it
+shapes with the host's faces and the publication's own). The reader pins
+`apps/reader/src/assets/fonts/Tinos-Regular.ttf` as its serif face. The
+`.mjs` entries are Node scripts that drive the running reader.
 
 - `anchor-roundtrip-probe <epub> <serif-font-path> [width] [height]` —
   paginates the book once (default 420×640 single page, 24px margins),
@@ -108,7 +113,8 @@ a document without one cannot paginate. The reader pins
   every spacing from the same task to after the whole book is laid out,
   with page turns in between, and exits 1 unless after each burst the
   reader shows the last size asked for with the whole book laid out, no
-  session request was refused, none is left unanswered, and no call that
+  session request was refused, none is left unanswered, the reader logged
+  no warning, and no call that
   creates, adopts, commits or releases an artifact was sent while another
   was unanswered (read from the reader's own log, so it measures the real
   worker).
@@ -142,9 +148,10 @@ bitmaps. `budgets.json` pins each fixture's allowed diff-pixel count and
 channel delta; `diff.mjs` exits non-zero when a fixture exceeds its
 budget or has none. The residuals are rasterizer differences on identical
 device geometry, itemized in `EXEMPTIONS.md`. Run it whenever a pen or the
-lowering changes. The fixtures are the browser pen's JSON shape; the
-engine writes them from its own painter output (the ignored
-`write_vertical_paint_parity_fixture` test regenerates the vertical one).
+lowering changes. The fixtures are display commands in the browser pen's
+JSON shape: a hand-written corpus, except `text-vertical.json`, which the
+ignored `write_vertical_paint_parity_fixture` test writes from the
+painter's own output.
 
 ## Line baseline against Chromium
 
@@ -178,9 +185,11 @@ answered: every request by its method name with what it was asked, how
 long it took and what came back or why it failed, every layout commit
 (`scope`, page and spread counts, the spread shown), and every warning.
 A request that was sent and not answered stays in the log as pending, so
-a hang shows where it is. Values are shortened to their numbers and
-sizes — an artifact is its ids, indexes and byte counts, never a book's
-text. The log is one per page across every reader it opens, holds the
+a hang shows where it is. Values are shortened: bytes and long lists to
+their sizes, strings to their first 96 characters. An artifact is its
+ids, indexes and byte counts, but a footnote answer, a resolved range's
+selected text, an annotation's quote and a search query appear, cut to
+that length. The log is one per page across every reader it opens, holds the
 last 4000 entries, and is read with `__ritoReaderDiagnostics.log()`.
 `__ritoReaderDiagnostics.queue()` says whether an operation on artifacts
 is running and how many wait behind it: a reader that stopped answering
@@ -191,7 +200,8 @@ The demo reader turns it into a report a tester can send. Its context
 menu has **Export Debug Log**, which puts on the clipboard (or saves as a
 file where the clipboard is refused) the reader's log merged, in time
 order, with what the page saw: books opened, settings, keys pressed and
-pointers put down (never a typed character), the controller's events
+pointers put down (a key is logged by name, never the character typed
+into a field), the controller's events
 (`spreadChange`, `transitionStart`/`transitionEnd`, `positionChange`,
 `error` and the rest), console warnings and errors, uncaught failures
 and tasks that held the page 50 ms or longer. `__ritoDebugReport()`
