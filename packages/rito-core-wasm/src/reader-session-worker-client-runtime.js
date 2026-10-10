@@ -98,6 +98,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     const entry = pending.get(response.id);
     if (!entry) return;
     pending.delete(response.id);
+    admitWaiting();
     if (response.ok) entry.resolve(response.payload);
     else entry.reject(responseError(response.error));
   };
@@ -136,13 +137,31 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       resourceWaiters.shift()?.();
     }
   };
+  // The worker takes MAX_PENDING_MESSAGES at once. A call made past that
+  // waits its turn and is sent in the order it was made: a refusal would
+  // have to be handled by every caller, and one that releases an artifact
+  // cannot handle it without losing the artifact's slot.
+  const slotWaiters = [];
+  let reservedSlots = 0;
   const post = (kind, body, transfer = []) => {
     requireUsable();
-    if (pending.size >= MAX_PENDING_MESSAGES) {
-      return Promise.reject(
-        new RitoReaderError('request-capacity', 'reader session pending message limit reached'),
-      );
+    if (slotWaiters.length === 0 && pending.size + reservedSlots < MAX_PENDING_MESSAGES) {
+      return postNow(kind, body, transfer);
     }
+    return new Promise((resume) => slotWaiters.push(resume)).then(() => {
+      reservedSlots -= 1;
+      requireUsable();
+      return postNow(kind, body, transfer);
+    });
+  };
+  // Hands every free slot to the call that has waited longest.
+  const admitWaiting = () => {
+    while (slotWaiters.length > 0 && pending.size + reservedSlots < MAX_PENDING_MESSAGES) {
+      reservedSlots += 1;
+      slotWaiters.shift()();
+    }
+  };
+  const postNow = (kind, body, transfer) => {
     messageId += 1;
     const id = messageId;
     const promise = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
@@ -150,6 +169,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       worker.postMessage({ protocol: PROTOCOL, id, kind, ...body }, transfer);
     } catch (error) {
       pending.delete(id);
+      admitWaiting();
       return Promise.reject(error);
     }
     return promise;
@@ -834,6 +854,11 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   function rejectPending(error) {
     for (const entry of pending.values()) entry.reject(error);
     pending.clear();
+    // The session is closed: a call still waiting to be sent finds that out.
+    for (const resume of slotWaiters.splice(0)) {
+      reservedSlots += 1;
+      resume();
+    }
   }
 
   function detach() {

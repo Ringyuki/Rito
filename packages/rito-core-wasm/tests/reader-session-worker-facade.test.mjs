@@ -1520,6 +1520,53 @@ test('client coalesces concurrent releases of the same live artifact', async () 
   await disposing;
 });
 
+test('a call made while the worker holds its limit waits its turn instead of being refused', async () => {
+  const worker = fakeWorker();
+  const client = createRitoCoreWasmReaderSessionWorkerClient(worker);
+  const opening = client.open(new ArrayBuffer(4), request('Text/source.xhtml'));
+  worker.respondArtifact(worker.take('open'), 1n, 'Text/source.xhtml', 'open');
+  await adoptClientForeground(worker, client, undefined, await opening);
+
+  const kind = 'mark-font-families-unavailable';
+  const calls = [];
+  for (let call = 0; call < 11; call += 1) {
+    calls.push(client.markFontFamiliesUnavailable([`family-${String(call)}`]));
+  }
+  await settle();
+  assert.equal(worker.count(kind), 8, 'the worker holds eight; three wait');
+
+  const sent = [];
+  while (worker.count(kind) > 0) {
+    const message = worker.take(kind);
+    sent.push(message.families[0]);
+    worker.respond(message, { kind: 'font-families-unavailable' });
+    await settle();
+  }
+  await Promise.all(calls);
+  assert.deepEqual(
+    sent,
+    Array.from({ length: 11 }, (_, call) => `family-${String(call)}`),
+    'every call was sent, in the order it was made',
+  );
+
+  // A call still waiting when the session closes learns that it closed.
+  const held = [];
+  for (let call = 0; call < 9; call += 1) {
+    held.push(client.markFontFamiliesUnavailable(['late']));
+  }
+  await settle();
+  assert.equal(worker.count(kind), 8);
+  const disposing = client.dispose();
+  worker.respond(worker.take('dispose'), { kind: 'dispose', releasedArtifacts: 1 });
+  await disposing;
+  const outcomes = await Promise.allSettled(held);
+  assert.deepEqual(
+    outcomes.map((outcome) => outcome.reason?.code),
+    Array.from({ length: 9 }, () => 'session-disposed'),
+  );
+  assert.equal(worker.count(kind), 8, 'nothing is sent to a session that closed');
+});
+
 test('typed decoders reject unknown RITODL1 primitives and artifact metadata mismatches', () => {
   const invalidDisplay = displayWire(1, (writer) => writer.u16(99, 'opcode'));
   assert.throws(() => decodeRitoReaderPrimitiveList(invalidDisplay), /unknown primitive opcode/);
