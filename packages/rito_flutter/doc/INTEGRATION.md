@@ -37,6 +37,13 @@ final session = await RitoReaderSession.open(
     ),
     locator: const RitoLocator(href: 'chapter1.xhtml', progression: 0),
   ),
+  // Required: the open fails without host faces. See Fonts.
+  pinnedFontPolicy: RitoPinnedFontPolicy(faces: [
+    RitoPinnedFontFace(
+      bytes: serifBytes, // app asset, TTF/OTF
+      genericRole: RitoPinnedFontGenericRole.serif,
+    ),
+  ]),
   imageCache: RitoArtifactImageCache(),
   imagePixelRatio: MediaQuery.devicePixelRatioOf(context),
 );
@@ -61,31 +68,36 @@ await gateway.close();
 
 ## Session lifecycle (`RitoReaderSession`)
 
-`open`, `turn`, `requestArtifact`, and `requestAdjacent` return only
+`session.firstArtifact` and the results of `turn`, `peek`,
+`requestArtifact`, and `requestAdjacent` are only ever
 `RitoPreparedArtifact` — an artifact whose declared fonts are
-registered (and images decoded, when an image cache is configured)
-before the future completes. `RitoPageSurface` cannot accept anything
-else, so an unprepared page can never reach the screen.
+registered before the future completes. `RitoPageSurface` cannot accept
+anything else, so a page whose fonts are not ready can never reach the
+screen. Images do not hold a page back: with an image cache configured
+their reads and decodes start with the artifact and each joins it as it
+lands, the surface repainting when it does. An image still on its way
+after a second paints the engine's loading placeholder and fades in over
+it; one that failed paints the broken placeholder.
 
-| member                                                                                                      | contract                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `open(gateway:, publicationBytes:, request:, fontCache:, imageCache:, imagePixelRatio:, resourcePreparer:)` | Opens the publication and prepares the first artifact. `imagePixelRatio` scales decoded image budgets; pass the device pixel ratio.                                                                                                                                                                                                                              |
-| `peek(from:, requestId:, direction:)`                                                                       | Read-only neighbor fetch: returns the adjacent page as a fully prepared artifact **without changing the visible state**. A neighbor in another chapter is paginated on demand; null only at the book's terminal boundary (UI falls back to fade-in). The artifact counts against the live budget and must be released.                                           |
-| `turn(from:, requestId:, direction:)`                                                                       | Adjacent-page navigation via the fixed 48-byte `RITONAV1` request. Never re-runs locator seek or layout.                                                                                                                                                                                                                                                         |
-| `requestArtifact(request)`                                                                                  | Explicit seek or reflow (viewport change, font-size change, locator jump).                                                                                                                                                                                                                                                                                       |
-| `readPublication()`                                                                                         | Typed publication metadata (spine, TOC).                                                                                                                                                                                                                                                                                                                         |
-| `page.hits[].bounds`, `page.semantics[].bounds`                                                             | Rects in the artifact's **display-list space** — the coordinates `displayList` paints in, spread page offset and page margins included. Hit-test pointer positions on the painted surface directly; do not subtract margins.                                                                                                                                     |
-| `advanceBackground(...).movesVisibleContent`                                                                | Whether adopting the candidate would put different content on screen. False is the ordinary handoff — the same page renumbered onto the whole-book layout, invisible to the reader. True means pagination resolved the reading position onto another page; adopt it and the reader moves, so release the candidate instead if the page must not move unprompted. |
-| _artifact liveness_                                                                                         | `search` / `textRangeGeometry` / `readFootnote` / `readResource` raise `RitoArtifactNotLiveException` when an artifact of this session was superseded (background adoption is the usual cause) — catch it and reissue against the current artifact. An artifact from another session stays an `ArgumentError`; retrying that loops forever.                      |
-| `search(prepared, query, {caseSensitive, wholeWord, limit})`                                                | In-book search. Scope follows the artifact's revision: chapter-local before background handoff, whole book after. Hits carry a context snippet, page-text positions for `textRangeGeometry`, and a durable `locator` — store that, not the page index. `truncated` reports a `limit` cutoff; `searchedPageCount` reports how many pages the list came from.      |
-| `textRangeGeometry(prepared, pageIndex:, start:, end:)`                                                     | Rects for a text range on a published page, in the artifact's display-list space. Anchor highlights to source text (`page.textRuns` positions) instead of remembered pixels. Page text and run offsets already ship on every `page` — no extra call needed for those.                                                                                            |
-| `readFootnote(prepared, key)`                                                                               | Footnote definition (`kind`, `text`, `html`) for a hit's `footnoteKey`. Pass the key verbatim — it is already canonical, so never normalize the link href yourself. Throws `RitoNativeException(status: 6)` while the definition is still being indexed (`hit.footnotePending`), so a popup can show a loading state and retry.                                  |
-| `readResource(prepared, ref)`                                                                               | Ownership-checked resource bytes (images, stylesheets) for the given artifact.                                                                                                                                                                                                                                                                                   |
-| `advanceBackground(...)` / `adoptBackground(...)`                                                           | Host-scheduled background pagination; candidates never become visible implicitly.                                                                                                                                                                                                                                                                                |
-| `releaseArtifact(prepared)`                                                                                 | Frees a replaced artifact. Releasing the currently visible artifact is rejected — keep both alive through a page-turn animation.                                                                                                                                                                                                                                 |
-| `dispose()`                                                                                                 | Ends the session. Dispose the session before `gateway.close()`.                                                                                                                                                                                                                                                                                                  |
-| `nextRequestId`                                                                                             | Always allocate request IDs here. Exact-seek and unpublished-adjacent continuations consume native IDs internally, so one public call may burn several.                                                                                                                                                                                                          |
-| `visibleArtifactId`                                                                                         | The committed visible artifact.                                                                                                                                                                                                                                                                                                                                  |
+| member                                                                                                                         | contract                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open(gateway:, publicationBytes:, request:, pinnedFontPolicy:, fontCache:, imageCache:, imagePixelRatio:, resourcePreparer:)` | Opens the publication and prepares the first artifact. `pinnedFontPolicy` is required in practice: an open without host faces fails. `imagePixelRatio` is the device-pixel ratio pages are resolved at when a layout names no `renderRatio`; pass the device pixel ratio. Images are decoded for the size the page draws them at on that grid.                   |
+| `peek(from:, requestId:, direction:)`                                                                                          | Read-only neighbor fetch: returns the adjacent page as a prepared artifact **without changing the visible state**. A neighbor in another chapter is paginated on demand; null only at the book's terminal boundary (UI falls back to fade-in). The artifact counts against the live budget and must be released.                                                 |
+| `turn(from:, requestId:, direction:)`                                                                                          | Adjacent-page navigation: a pure visible-artifact swap when the neighbour was peeked from `from` (below), otherwise the fixed 48-byte `RITONAV1` request. Never re-runs locator seek or layout.                                                                                                                                                                  |
+| `requestArtifact(request)`                                                                                                     | Explicit seek or reflow (viewport change, font-size change, locator jump).                                                                                                                                                                                                                                                                                       |
+| `readPublication()`                                                                                                            | Typed publication metadata (spine, TOC).                                                                                                                                                                                                                                                                                                                         |
+| `page.hits[].bounds`, `page.semantics[].bounds`                                                                                | Rects in the artifact's **display-list space** — the coordinates `displayList` paints in, spread page offset and page margins included. Hit-test pointer positions on the painted surface directly; do not subtract margins.                                                                                                                                     |
+| `advanceBackground(...).movesVisibleContent`                                                                                   | Whether adopting the candidate would put different content on screen. False is the ordinary handoff — the same page renumbered onto the whole-book layout, invisible to the reader. True means pagination resolved the reading position onto another page; adopt it and the reader moves, so release the candidate instead if the page must not move unprompted. |
+| _artifact liveness_                                                                                                            | `search` / `textRangeGeometry` / `readFootnote` / `readResource` raise `RitoArtifactNotLiveException` when an artifact of this session was superseded (background adoption is the usual cause) — catch it and reissue against the current artifact. An artifact from another session stays an `ArgumentError`; retrying that loops forever.                      |
+| `search(prepared, query, {caseSensitive, wholeWord, limit})`                                                                   | In-book search. Scope follows the artifact's revision: chapter-local before background handoff, whole book after. Hits carry a context snippet, page-text positions for `textRangeGeometry`, and a durable `locator` — store that, not the page index. `truncated` reports a `limit` cutoff; `searchedPageCount` reports how many pages the list came from.      |
+| `textRangeGeometry(prepared, pageIndex:, start:, end:)`                                                                        | Rects for a text range on a published page, in the artifact's display-list space. Anchor highlights to source text (`page.textRuns` positions) instead of remembered pixels. Page text and run offsets already ship on every `page` — no extra call needed for those.                                                                                            |
+| `readFootnote(prepared, key)`                                                                                                  | Footnote definition (`kind`, `text`, `html`) for a hit's `footnoteKey`. Pass the key verbatim — it is already canonical, so never normalize the link href yourself. Throws `RitoNativeException(status: 6)` while the definition is still being indexed (`hit.footnotePending`), so a popup can show a loading state and retry.                                  |
+| `readResource(prepared, ref)`                                                                                                  | Ownership-checked bytes of a resource the artifact declares in `resources` (its images and fonts); any other reference is an `ArgumentError`.                                                                                                                                                                                                                    |
+| `advanceBackground(...)` / `adoptBackground(...)`                                                                              | Host-scheduled background pagination; candidates never become visible implicitly.                                                                                                                                                                                                                                                                                |
+| `releaseArtifact(prepared)`                                                                                                    | Frees a replaced artifact. Releasing the currently visible artifact is rejected — keep both alive through a page-turn animation.                                                                                                                                                                                                                                 |
+| `dispose()`                                                                                                                    | Ends the session. Dispose the session before `gateway.close()`.                                                                                                                                                                                                                                                                                                  |
+| `nextRequestId`                                                                                                                | Always allocate request IDs here. A peek consumes one, the continuations of an unpublished adjacent turn consume several internally, and an open or seek may be sent under a newer ID than the one passed, so one public call may burn several.                                                                                                                  |
+| `visibleArtifactId`                                                                                                            | The committed visible artifact.                                                                                                                                                                                                                                                                                                                                  |
 
 Peek → turn fast path: when the page being turned to was already
 peeked from the current page, `turn` commits the peeked artifact with a
@@ -99,9 +111,11 @@ direction + an in-flight candidate, with one slot of slack.
 
 Navigation supersession: a newer `turn`/`requestArtifact` cancels an
 in-flight one with `RitoNavigationSupersededException`. An exact open
-or seek is never silently replaced by a page-one artifact; pending
-exact seeks and unpublished adjacent turns resume one bounded native
-quantum per host turn until ready, terminal, or superseded.
+or seek is never silently replaced by a page-one artifact: its chapter
+is paginated whole in one native call, so the result is the exact
+artifact or a terminal error. An unpublished adjacent turn resumes one
+bounded native quantum per host turn until ready, terminal, or
+superseded.
 
 ## Reader controller (`RitoReaderController`)
 
@@ -118,9 +132,11 @@ screen. `RitoReaderController(session, layout: layout)` is that owner:
   controller releases it when the page changes. `canTurn(direction)`
   answers from the page itself, synchronously.
 - Background pagination runs by itself and adopts the renumbered page
-  (never one that would move the reader); `holdPagination()` pauses it,
-  `paginationComplete` reports the end, and a failure is reported through
-  `FlutterError.reportError` without closing the book.
+  (never one that would move the reader); `holdPagination()` pauses it.
+  `paginationComplete` turns true when it stops: the whole book is laid
+  out, or a step failed — the failure is reported through
+  `FlutterError.reportError` and the book stays readable chapter by
+  chapter. A `jumpTo` or `relayout` starts it again.
 - All session work runs one operation at a time; `withPage(action)` runs
   host reads (resources, footnotes, geometry) in that order with the page
   guaranteed live.
@@ -135,12 +151,14 @@ Three layers, each usable on its own:
 2. `RitoPageTurnController(reader:, vsync:)` — the turn: feed it a drag
    (`dragStart` / `dragUpdate(offset)` / `dragEnd(velocity)` /
    `dragCancel`) or call `turn(direction)` for taps and keys. It springs
-   with the web reader's physics (`RitoPageTurnPhysics`, `RitoSpring.standard
-| snappy | gentle`): a release hands its velocity to the spring, a
-   turn never bounces past the neighbour and follows the same path at any
-   refresh rate (the spring is solved in closed form), a pull against the first or last
-   page stretches. A turn commits on the reader the moment it is decided,
-   so the page is ready on arrival; a tap during a landing turn follows it;
+   with the web reader's physics (`RitoPageTurnPhysics`, with the springs
+   `RitoSpring.standard`, `snappy` and `gentle`): a release hands its
+   velocity to the spring, a turn follows the same path at any refresh
+   rate (the spring is solved in closed form) and, with these three
+   springs, never bounces past the neighbour — a custom spring damped
+   below critical does; a pull against the first or last page stretches.
+   A turn commits on the reader the moment it is decided, so the page is
+   ready on arrival; a tap during a landing turn follows it;
    a jump or relayout mid-turn ends it. `events` brings one
    `RitoPageTurnStarted` and exactly one `RitoPageTurnEnded` (`committed`,
    `cancelled`, `interrupted`) per turn; `frame.progress` follows the page
@@ -148,10 +166,12 @@ Three layers, each usable on its own:
    arrives during a turn fades in. `jumpTo(locator, animateAs:)` plays a
    jump as a turn.
 3. `RitoPageTurnView(controller:, child:)` — shows `child` (the live page)
-   at rest and paints the effect during a turn. With `dragToTurn` it reads
-   horizontal drags itself; leave it off to arbitrate gestures yourself.
-   It follows the platform's reduced-motion setting (turns cross-fade) and
-   pixel ratio.
+   at rest and paints the effect during a turn. It reads horizontal drags
+   itself (`dragToTurn`, on by default); pass `dragToTurn: false` to
+   arbitrate gestures yourself and feed the controller's drag methods.
+   It follows the platform's reduced-motion setting (turns cross-fade,
+   unless the controller was built with `respectReducedMotion: false`)
+   and pixel ratio.
 
 Effects: `RitoPageTurnEffects.slide | cover | fade | none`, a
 `RitoLayeredPageTurnEffect` returning whole pages per frame, or any
@@ -173,17 +193,20 @@ RitoPageSurface(
 ```
 
 - The surface sizes itself to `artifact.artifact.width/height` (layout
-  viewport units) and repaints only when the artifact identity changes.
+  viewport units) and repaints when the artifact identity or the
+  `colorOverride` changes, and whenever one of the artifact's images
+  lands, fades in or shows its placeholder.
 - Images: if the session was opened with a `RitoArtifactImageCache`,
   the prepared artifact carries an image lease and no `resolveImage`
   callback is needed. Otherwise supply one; hrefs arrive exactly as the
   artifact declares them (relative paths, original case). Return `null`
   to skip an image. The painter performs no I/O and no decoding.
-- The painter fails closed (throws before painting anything) on:
-  inset box shadows, `groove`/`ridge`/`inset`/`outset` borders,
-  background tile grids above 4096 tiles, and non-`platformStringRuns`
-  text profiles. Catch at the widget layer if the corpus may contain
-  these.
+- The painter throws before painting anything on a text profile other
+  than `platformStringRuns` (`UnsupportedError`), and stops at a
+  malformed primitive stream (`RitoWireException`, `FormatException`).
+  It refuses no CSS feature itself: what a page paints is decided by the
+  engine, which lowers the bevel border styles (`groove`, `ridge`,
+  `inset`, `outset`) to fills and leaves inset box shadows out.
 
 ## Themes (dark / sepia)
 
@@ -199,19 +222,32 @@ RitoPageSurface(
 )
 ```
 
-Semantics match the browser reader pixel-for-pixel (parity fixture
-`theme-override-dark`): the theme background replaces the materialized
-page ground; run text keeps its original color while it stays
-WCAG-readable (4.5:1) against the theme background and otherwise snaps
-to the theme foreground; decorations, block grounds, and images stay
-as authored. Omit the override for light mode — the authored page
-paints unmodified.
+The override makes the same decisions as the browser reader's (parity
+fixtures `theme-override-dark`, `theme-designed-page`,
+`theme-white-page-inline-band`); the theme only takes over where the
+book expressed no choice of its own:
+
+- The theme background replaces the page ground, unless the book
+  designed one — an opaque ground with relative luminance below 0.75
+  stays the book's.
+- Text over a ground the book declared — its own inline band, an opaque
+  block fill around it, or a page ground the book kept — keeps its
+  colour.
+- Text over the theme background keeps its colour while it stays
+  WCAG-readable (4.5:1) against it. Otherwise achromatic ink becomes
+  the theme foreground exactly, and coloured ink keeps its hue and
+  saturation and takes the theme foreground's lightness (falling back to
+  the theme foreground if that is still unreadable).
+- Decorations, shadows, block grounds, and images stay as authored.
+
+Omit the override for light mode — the authored page paints unmodified.
+`RitoPageTurnView` textures are drawn by the turn controller's
+`paintPage`, whose default applies no override; pass one that does.
 
 ## Fonts
 
-- **Pinned font policy (required for embedded EPUB fonts).** Pass
-  `pinnedFontPolicy` to `RitoReaderSession.open` with the app's bundled
-  fallback faces:
+- **Pinned font policy (required).** Pass `pinnedFontPolicy` to
+  `RitoReaderSession.open` with the app's bundled faces:
 
   ```dart
   pinnedFontPolicy: RitoPinnedFontPolicy(faces: [
@@ -223,48 +259,53 @@ paints unmodified.
   ]),
   ```
 
-  The policy switches on the core's required-font-face catalog: layout
-  measures text against real face bytes (pinned + the publication's own
-  embedded faces) and every artifact declares the embedded faces its
-  layout used in `artifact.fonts`, which the font cache then registers
-  automatically. **Without a policy `artifact.fonts` stays empty and
-  embedded EPUB fonts never render**, and justified lines are spaced
-  from approximate metrics. SHA-256 digests are computed automatically;
-  variable fonts are rejected by the core.
+  Layout shapes text with real face bytes — the pinned faces plus the
+  publication's own embedded faces — and every artifact declares the
+  faces its page paints with in `artifact.fonts`, which the font cache
+  then registers automatically. **Without a policy the open fails**: the
+  engine has no face to lay text out with and does not guess. SHA-256
+  digests are computed automatically; variable fonts are rejected by the
+  core.
 
   The session also registers each pinned face with `FontLoader` under
-  its engine alias (`__RitoPinned_<sha256>`) before the first paint —
-  the alias every painted run's family stack rides ahead of its generic
-  tail. Paint therefore resolves to the same bytes layout measured
-  with, and the app does **not** need to declare these faces in
-  `pubspec.yaml`. The painter splits the run's comma-joined CSS family
-  stack into `fontFamily` + `fontFamilyFallback`, so book-embedded
-  families registered from `artifact.fonts` also resolve by name.
+  its engine alias (`__RitoPinned_<sha256>`) before the first paint.
+  Every painted run names the alias of the face that shaped it, so
+  paint resolves to the same bytes layout measured with, and the app
+  does **not** need to declare these faces in `pubspec.yaml`. The
+  painter splits the run's comma-joined family stack into `fontFamily`
+  and `fontFamilyFallback`, and the publication's faces, registered
+  from `artifact.fonts` under their own aliases, resolve the same way.
 
 - Fonts are prepared by `RitoArtifactFontCache.shared` by default:
   read through the artifact's native ownership, length-checked,
   registered with `FontLoader`, deduplicated process-wide by family +
   shape fingerprint. Failed loads are evicted for retry.
 - **Font envelopes** (`RitoFontEnvelopeStore.shared`) are filled
-  automatically from the same bytes. The pen anchors ruby, text-shadow,
-  and inline background/border envelopes with OS/2 typo/win metrics —
-  the same tables Chromium's canvas uses — so pages match the browser
-  pen to the pixel. Nothing to do in the default path.
-- WOFF/WOFF2 faces fail closed: Flutter's `FontLoader` accepts only
-  OTF/TTF. Hosts may inject a transcoding `RitoFontRegistrar` into
-  `RitoArtifactFontCache`; such a registrar should also call
-  `RitoFontEnvelopeStore.shared.register(family, sfntBytes)` with the
-  transcoded bytes, since the cache only sees the original payload
-  (non-sfnt bytes are safely ignored). Without an envelope a family
-  falls back to SkParagraph metrics and 'top'-anchored features may
-  drift 1–3px.
+  automatically from the same bytes. The engine places every baseline
+  itself, so the pen anchors nothing by them; it reads one thing, the
+  weight a face was declared with, so that a bold run does not embolden
+  a face the book already ships as its bold. Nothing to do in the
+  default path.
+- WOFF and WOFF2 are not decoded. The engine shapes with TTF/OTF bytes
+  only, so text set in a WOFF publication face is laid out and painted
+  with the next face its family list resolves to, and no artifact
+  declares the face. The default registrar (Flutter's `FontLoader`,
+  OTF/TTF only) rejects WOFF bytes as well; a host can supply its own
+  `RitoFontRegistrar` through `RitoArtifactFontCache(registrar:)`.
+- A publication face this host cannot load can be taken out of layout
+  with `session.markFontFamiliesUnavailable([font.family])`: the next
+  request lays out without it, so text is never measured with one face
+  and painted with another.
 
 ## Request models
 
 - `RitoLayoutRequest`: viewport, margins, `spreadMode`
   (`single`/`double`), `firstPageAlone`, `spreadGap`, `rootFontSize`,
-  optional `lineHeightOverride` / `fontFamilyOverride`. Any change
-  requires a new `requestArtifact` (reflow).
+  optional `lineHeightOverride` / `fontFamilyOverride` (each outranks
+  the book's own declarations unless `lineHeightForce` /
+  `fontFamilyForce` is false) and optional `renderRatio` (device pixels
+  per CSS pixel; the session's `imagePixelRatio` when null). Any change
+  requires a new `requestArtifact` or the controller's `relayout`.
 - `RitoLocator`: where to open — a required spine `href` plus an
   optional `anchorId`, `sourcePoint`, `sourceRange`, or `progression`.
   The artifact reports which match kind was honored
@@ -284,22 +325,30 @@ paints unmodified.
 
 ## Fidelity contract
 
-The Flutter pen replays the same display list the calibrated browser
-pen consumes, and is held to it by a pixel-diff instrument
-(`tools/paint-parity/run.mjs` at the repo root). Every geometric rule —
-baseline snapping, letter-spacing distribution, border snapping and
-1px dotted grids, radius and §5.5 corner scaling, shadow sigma,
-background tiling, sourceRect sampling, sRGB color clipping — is
-ported and verified pixel-exact; the remaining divergence is
-rasterizer-level anti-aliasing/interpolation rounding, itemized in
+The engine resolves every page into device-pixel primitives, and the
+Flutter pen blits the same bytes the browser pen does: border bands and
+dash cadences, radii, box shadows, background sizing and tiling, inline
+boxes, decoration lines and the origin of every text cluster are
+decided in the engine, not in either pen. The two pens are held
+together by a pixel-diff instrument (`tools/paint-parity/run.mjs` at
+the repo root) that fails when a fixture exceeds its budget. What the
+pens still decide is confined to text rasterization, shadow blur,
+typed-colour conversion to sRGB and the theme override; the remaining
+divergence is rasterizer-level (glyph and edge anti-aliasing, blur
+kernels, image interpolation rounding), itemized in
 `tools/paint-parity/EXEMPTIONS.md`. When touching
 `lib/src/render/**`, re-run the instrument; a fixture climbing the
 report is a regression.
 
-Known open semantics (fail-closed or documented, never approximated):
+Known open semantics:
 
-- `RITODL1` V1 carries no bidi direction or positioned glyph runs;
-  text replay is LTR string runs.
-- Inset box shadows and `groove`/`ridge`/`inset`/`outset` borders
-  throw `UnsupportedError` before any partial paint.
-- WOFF faces throw unless a transcoding registrar is provided.
+- A text run carries its string and the origin of every cluster, not
+  glyph ids or a bidi direction; the pen draws each cluster at its
+  origin as a left-to-right string through Flutter's own shaper, so
+  right-to-left and complex-script text is not guaranteed to match the
+  browser.
+- Inset box shadows are not painted: the engine does not lower them.
+- WOFF and WOFF2 publication faces are not decoded; their text falls to
+  the next face of its family list (see Fonts).
+- An artifact whose text profile is not `platformStringRuns` throws
+  `UnsupportedError` before anything is painted.

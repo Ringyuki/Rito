@@ -88,7 +88,8 @@ final class RitoReaderController extends ChangeNotifier {
   /// The layout pages are laid out with.
   RitoLayoutRequest get layout => _layout;
 
-  /// Whether background pagination has laid out the whole book.
+  /// Whether background pagination has stopped: the whole book is laid
+  /// out, or a step failed and was reported.
   bool get paginationComplete => _paginationComplete;
 
   /// Whether [page] has a neighbour in [direction] (false at the first or

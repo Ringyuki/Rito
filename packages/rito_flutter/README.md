@@ -10,8 +10,9 @@ code contains no generic wire-value tree or CSS color-string parser.
 The adapter is not a WebView and performs no network or filesystem I/O. EPUB
 parsing, CSS, layout, seek, turn, and reflow run through `RitoIsolateGateway`;
 the UI isolate registers owned artifact fonts and replays an already-published
-artifact. Images are decoded by the application and injected with
-`RitoImageResolver`.
+artifact. Images are decoded by the package when the session is opened with a
+`RitoArtifactImageCache`, each landing after its page is shown; without one the
+application decodes them and supplies them through `RitoImageResolver`.
 
 Flutter's Native Assets build hook compiles the workspace `rito-ffi` crate and
 bundles the correct dynamic library for the selected Android, iOS, or host
@@ -37,6 +38,12 @@ final session = await RitoReaderSession.open(
   gateway: gateway,
   publicationBytes: epubBytes,
   request: request,
+  pinnedFontPolicy: RitoPinnedFontPolicy(faces: [
+    RitoPinnedFontFace(
+      bytes: serifBytes, // TTF/OTF
+      genericRole: RitoPinnedFontGenericRole.serif,
+    ),
+  ]),
 );
 
 RitoPageSurface(
@@ -49,7 +56,7 @@ final next = await session.turn(
   requestId: session.nextRequestId,
   direction: RitoAdjacentDirection.next,
 );
-final image = await session.readResource(next, next.resources.first);
+final resource = await session.readResource(next, next.resources.first);
 
 // Keep both prepared artifacts alive through the page-turn animation.
 await session.releaseArtifact(session.firstArtifact);
@@ -57,16 +64,22 @@ await session.dispose();
 await gateway.close();
 ```
 
-`open`, `turn`, and `requestArtifact` return only `RitoPreparedArtifact`
-instances. Every font declared by the artifact is read through that artifact's
-native ownership, length-checked, and registered before the future completes;
-`RitoPageSurface` cannot accept a raw decoded artifact. Immutable font faces
-are deduplicated process-wide by family plus shape fingerprint. Failed loads
-are evicted for retry, and completed cache entries do not retain font bytes.
-Hosts that must decode images or prepare other resources before visibility can
-pass `resourcePreparer` to `RitoReaderSession.open`; its ownership-checked
-reader runs after font preparation and before foreground/background adoption.
-No non-font image decoding is implied when that hook is absent.
+`pinnedFontPolicy` is required: the engine lays text out with the host's faces
+and the publication's own, and an open without host faces fails.
+
+`session.firstArtifact` and the results of `turn`, `peek` and `requestArtifact`
+are only ever `RitoPreparedArtifact` instances. Every font declared by the
+artifact is read through that artifact's native ownership, length-checked, and
+registered before the future completes; `RitoPageSurface` cannot accept a raw
+decoded artifact. Immutable font faces are deduplicated process-wide by family
+plus shape fingerprint. Failed loads are evicted for retry, and completed cache
+entries do not retain font bytes. With an image cache the session also starts
+reading and decoding the artifact's images, without waiting for them: a page is
+returned before its images land and repaints as each does. Hosts that must
+prepare other resources before a page is shown can pass `resourcePreparer` to
+`RitoReaderSession.open`; its ownership-checked reader runs after font
+preparation and before foreground/background adoption. Without an image cache
+or that hook, nothing but fonts is prepared.
 
 Native foreground results are candidates, not visible frames. The session
 prepares each candidate and then commits it with a visible-artifact CAS. A
@@ -90,10 +103,12 @@ background work yields while it is retained, and the source artifact remains
 live after the final candidate is prepared and adopted so page-turn animation
 can finish.
 
-`turn` always emits the fixed 48-byte `RITONAV1` request and calls
-`rito_request_adjacent` on the persistent worker isolate. It does not call
-`requestArtifact` or repeat locator seek/layout. `requestArtifact` remains an
-explicit API for seek or reflow requests. Image hrefs are passed to
+`turn` lands on the neighbour with a pure visible-artifact swap when `peek`
+already published it from the page being turned from. Otherwise it emits the
+fixed 48-byte `RITONAV1` request and calls `rito_request_adjacent` on the
+persistent worker isolate. Either way it does not call `requestArtifact` or
+repeat locator seek/layout. `requestArtifact` remains an explicit API for seek
+or reflow requests. Image hrefs are passed to
 `RitoImageResolver` exactly as declared by the artifact, including relative
 paths and original case.
 
@@ -157,31 +172,35 @@ final skipped = await session.unresolvedFontFamilies('"LXGW WenKai", serif');
 
 ## Paint parity
 
-The Canvas pen replays the same display list as the pixel-court
-calibrated browser pen and is held to it by the diff instrument at
-`tools/paint-parity/run.mjs` (repo root): shared fixture corpus →
-both pens → per-pixel report. All geometric rules — two-stage baseline
-snapping, letter-spacing distribution, border grid snapping and 1px
-dotted binary dots, per-corner radii with CSS §5.5 overlap scaling,
-box-shadow sigma and interior exclusion, background sizing/tiling,
-image sourceRect sampling, typed-color sRGB clipping — are ported and
-verified pixel-exact. Remaining divergence is rasterizer-level AA and
-interpolation rounding, itemized with evidence in
-`tools/paint-parity/EXEMPTIONS.md`. Font-dependent anchors (ruby,
-text-shadow, inline envelopes) use OS/2 metrics via
-`RitoFontEnvelopeStore`, filled automatically during font preparation.
+The engine resolves every page into device-pixel primitives — fills,
+strokes, clips, shadows, image draws, and text runs with the origin of
+every cluster — and the Canvas pen only blits them: border bands and
+dash cadences, radii, box shadows, background sizing and tiling, inline
+boxes and decoration lines are all decided in the engine, not here. The
+browser pen blits the same bytes, and the two are held together by the
+diff instrument at `tools/paint-parity/run.mjs` (repo root): shared
+fixtures lowered by the engine → both pens → per-pixel report against a
+budget per fixture. What the pens still decide is confined to text
+rasterization, shadow blur, typed-colour conversion to sRGB and the
+theme override. Remaining divergence is rasterizer-level (glyph and edge
+anti-aliasing, blur kernels, image interpolation rounding), itemized
+with evidence in `tools/paint-parity/EXEMPTIONS.md`.
+`RitoFontEnvelopeStore`, filled automatically during font preparation,
+records the weight each face was declared with, so the pen does not
+embolden a face the book already ships as its bold.
 
 ## Known renderer semantics still to close
 
-- `RITODL1` V1 does not carry bidi direction or visual glyph runs, so Flutter
-  text replay is currently LTR and cannot guarantee browser-identical complex
-  script shaping or glyph positioning.
-- Flutter 3.41's `FontLoader` documents OTF/TTF support only. EPUB WOFF/WOFF2
-  faces therefore fail closed before page paint unless an injected
-  `RitoFontRegistrar` transcodes them or the native adapter supplies SFNT font
-  bytes. A transcoding registrar should also register the transcoded bytes
-  with `RitoFontEnvelopeStore.shared` so 'top'-anchored features keep their
-  Chromium-sourced metrics.
-- Inset box shadows are decoded but not painted; they and `groove`/`ridge`/
-  `inset`/`outset` borders fail closed with `UnsupportedError` before any
-  partial paint.
+- A text run carries its string and the origin of every cluster, not
+  glyph ids or a bidi direction. The pen draws each cluster at its origin
+  as a left-to-right string through Flutter's own shaper, so
+  right-to-left and complex-script text is not guaranteed to match the
+  browser.
+- The engine shapes with TTF/OTF bytes and does not decode WOFF or
+  WOFF2: text set in such a publication face is laid out and painted with
+  the next face its family list resolves to. Flutter's `FontLoader`
+  documents OTF/TTF only as well, and the default `RitoFontRegistrar`
+  rejects WOFF bytes.
+- Inset box shadows are not painted: the engine does not lower them.
+- An artifact whose text profile is not `platformStringRuns` throws
+  `UnsupportedError` before anything is painted.

@@ -487,8 +487,9 @@ final class RitoReaderSession {
   /// A neighbor in another chapter is paginated on demand, so peeks
   /// normally succeed. Returns null at the book's terminal boundary
   /// (the UI falls back to its fade-in path). A returned artifact is
-  /// live, has fonts and images prepared, counts against the session's
-  /// live-artifact budget, and must be freed with [releaseArtifact]. A
+  /// live, has its fonts registered and its images on their way, counts
+  /// against the session's live-artifact budget, and must be freed with
+  /// [releaseArtifact]. A
   /// later [turn] in the same direction from the same page commits the
   /// peeked artifact directly (zero layout, pure visible swap).
   Future<RitoPreparedArtifact?> peek({
@@ -534,9 +535,9 @@ final class RitoReaderSession {
   /// is already laid out, so this costs what a peeked turn costs.
   ///
   /// Throws for a position outside the layout. The returned artifact is
-  /// live, has fonts and images prepared, counts against the session's
-  /// live-artifact budget, and must be freed with [releaseArtifact]
-  /// unless [commitSpread] makes it the visible page.
+  /// live, has its fonts registered and its images on their way, counts
+  /// against the session's live-artifact budget, and must be freed with
+  /// [releaseArtifact] unless [commitSpread] makes it the visible page.
   Future<RitoPreparedArtifact> peekSpread({
     required RitoPreparedArtifact from,
     required int requestId,

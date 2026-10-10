@@ -271,11 +271,9 @@ final class RitoArtifactFontCache {
       );
     }
     await _registrar.register(font, resource.bytes);
-    // The painter anchors ruby/text-shadow and inline envelopes with
-    // OS/2 metrics from these same bytes (see RitoFontEnvelopeStore).
-    // Non-sfnt payloads (e.g. WOFF handled by a transcoding registrar)
-    // are ignored; such registrars should register the transcoded bytes
-    // themselves.
+    // The painter reads the face's declared weight from the store (see
+    // RitoFontEnvelopeStore), so a bold run does not embolden a face the
+    // book already ships as its bold. Non-sfnt payloads are ignored.
     RitoFontEnvelopeStore.shared.register(
       font.family,
       resource.bytes,

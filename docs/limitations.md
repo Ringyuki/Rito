@@ -17,6 +17,9 @@ reason or fails the chapter closed; nothing is silently misplaced.
   `auto`: pagination follows the multicolumn oracle
 - `text-transform` and `text-justify` values other than the defaults are
   degraded
+- inset box shadows are not painted
+- `@font-face` sources in WOFF or WOFF2 are not decoded: text set in such
+  a face falls to the next face its family list resolves to
 
 ## Writing System Scope
 
@@ -62,7 +65,9 @@ lines, so annotation re-projection from stored source ranges is unaffected.
   inflation stops at the declared size, and an XHTML document is limited to
   128 levels of nesting and 1,000,000 nodes
 - browser fonts and images are prepared by the browser binding (`FontFace`,
-  `createImageBitmap`); Flutter decodes images in the application
+  `createImageBitmap`); `rito_flutter` decodes images with Flutter's codec
+  when the session has an image cache, and takes them from the application
+  otherwise
 
 ## Platform Assumptions
 
@@ -73,10 +78,8 @@ lines, so annotation re-projection from stored source ranges is unaffected.
 - `rito_flutter` paints through Skia; residual differences against the
   browser pen are rasterizer-level and itemized in
   `tools/paint-parity/EXEMPTIONS.md`
-- the Flutter pen replays text left to right and cannot promise
-  browser-identical complex-script shaping; WOFF/WOFF2 faces need a
-  transcoding registrar; inset box shadows and 3D border styles fail
-  closed there
+- the Flutter pen draws each text cluster left to right through Flutter's
+  own shaper and cannot promise browser-identical complex-script shaping
 
 ## Format Scope
 
