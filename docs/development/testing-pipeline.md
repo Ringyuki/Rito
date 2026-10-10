@@ -78,7 +78,21 @@ BOOK=/abs/book.epub VIEW=phone RUNS=3 node tools/reader-accept/accept.mjs
 
 It drives the public controller, takes "the new page is on screen" from
 the canvas pixels changing, and prints the median of its runs as one JSON
-line. `VIEW=desktop` measures a 1280×860 double-page viewport.
+line: `open` (file handed over to first page), `pageNumbers` (first page
+to the layout that covers the whole book), `fontSize` (first change and
+the next), `family` and `familyBack`, `turn` (key press to first changed
+frame) and `panelFontSize` (one step of the settings panel's slider).
+`VIEW=desktop` measures a 1280×860 double-page viewport. Timings move by
+tens of milliseconds with whatever else the machine is doing; compare
+two builds by measuring them in turn on the same quiet machine.
+
+When a turn measures slow, `turn-trace.mjs` in the same directory says
+where the time went: one timeline per turn with the key event, every
+worker request and answer, and every animation frame with its cost and
+the Canvas calls it made. `SAMPLE=none` traces without reading the canvas
+back, and `RASTER_FIRST=1` rasters every drawn canvas before each turn,
+the control for a first frame that pays for a buffer the browser had only
+recorded.
 
 ## Flutter
 

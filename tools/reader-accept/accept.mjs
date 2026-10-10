@@ -1,5 +1,7 @@
-// Acceptance probe: open, font size, font family and page-turn latency in the
-// real reader, judged only by public controller calls and canvas pixels.
+// Acceptance probe: open, page-number, font size, font family and page-turn
+// latency in the real reader, judged only by public controller calls and
+// canvas pixels, and the same font-size change made through the settings
+// panel.
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../../apps/reader/package.json', import.meta.url));
 const { chromium } = require('@playwright/test');
@@ -10,8 +12,6 @@ const VIEW = process.env.VIEW ?? 'phone';
 const viewport =
   VIEW === 'phone' ? { width: 393, height: 760, dsf: 3 } : { width: 1280, height: 860, dsf: 2 };
 const RUNS = Number(process.env.RUNS ?? 3);
-// SESSION=1 selects the reader built on the session protocol while both exist.
-const SESSION = process.env.SESSION === '1';
 
 const browser = await chromium.launch();
 const out = [];
@@ -20,11 +20,6 @@ for (let run = 0; run < RUNS; run++) {
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: viewport.dsf,
   });
-  if (SESSION) {
-    await page.addInitScript(() => {
-      window.__ritoSessionReader = true;
-    });
-  }
   await page.addInitScript(() => {
     // Samples the reader canvas on every frame; resolves when it differs from the sample taken at arm time.
     window.__sig = () => {
@@ -60,13 +55,25 @@ for (let run = 0; run < RUNS; run++) {
   });
   await page.goto(READER_URL);
   await page.waitForTimeout(800);
-  // Open: from handing the file over to the first painted page.
-  const opened = page.evaluate(() => {
+  // Open: from handing the file over to the first painted page. Page
+  // numbers: from that page to the layout that covers the whole book.
+  const opened = page.evaluate(async () => {
     const t = performance.now();
-    return window.__waitChange(t);
+    const open = await window.__waitChange(t);
+    const pageNumbers = await new Promise((resolve) => {
+      const tick = () => {
+        const reader = window.__ritoController?.reader;
+        if (reader && reader.layoutScope !== 'chapter') {
+          resolve(Math.max(0, Math.round(performance.now() - t) - open));
+        } else if (performance.now() - t > 15000) resolve(-1);
+        else requestAnimationFrame(tick);
+      };
+      tick();
+    });
+    return { open, pageNumbers };
   });
   await page.locator('input[type=file][accept=".epub"]').first().setInputFiles(BOOK);
-  const open = await opened;
+  const { open, pageNumbers } = await opened;
   await page.waitForFunction(() => window.__ritoController, null, { timeout: 30000 });
   await page.waitForTimeout(3000);
   // Measure on a text page in the middle of the book, never on the cover.
@@ -107,7 +114,23 @@ for (let run = 0; run < RUNS; run++) {
     await page.waitForTimeout(900);
   }
   const pages = await page.evaluate(() => window.__ritoController.reader.pageCount);
-  out.push({ open, size1, size2, family, familyBack, turns, pages });
+  // Through the settings panel: one step of the font-size slider, key press
+  // to the first changed frame.
+  await page.getByTestId('reader-context-trigger').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /Reader Settings/ }).click();
+  await page.getByRole('slider').first().focus();
+  await page.waitForTimeout(800);
+  const panel = [];
+  for (const key of ['ArrowRight', 'ArrowLeft', 'ArrowRight']) {
+    const r = page.evaluate(() => {
+      const t = performance.now();
+      return window.__waitChange(t);
+    });
+    await page.keyboard.press(key);
+    panel.push(await r);
+    await page.waitForTimeout(2500);
+  }
+  out.push({ open, pageNumbers, size1, size2, family, familyBack, turns, panel, pages });
   await page.close();
 }
 await browser.close();
@@ -116,15 +139,18 @@ const med = (k) => {
   return v[Math.floor(v.length / 2)];
 };
 const turnMed = out.flatMap((o) => o.turns).sort((a, b) => a - b);
+const panelMed = out.flatMap((o) => o.panel).sort((a, b) => a - b);
 console.log(
   JSON.stringify({
     book: BOOK.split('/').pop(),
     view: VIEW,
     open: med('open'),
+    pageNumbers: med('pageNumbers'),
     fontSize: [med('size1'), med('size2')],
     family: med('family'),
     familyBack: med('familyBack'),
     turn: turnMed[Math.floor(turnMed.length / 2)],
+    panelFontSize: panelMed[Math.floor(panelMed.length / 2)],
     pages: out[0].pages,
   }),
 );

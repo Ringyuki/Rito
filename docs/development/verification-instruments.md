@@ -99,6 +99,10 @@ a document without one cannot paginate. The reader pins
   unavailable, and resolutions left pending.
 - `layout-engine-bench <epub> <serif-font-path>` — one whole-book
   pagination at 420×640; prints wall-clock milliseconds and page count.
+- `turn-trace.mjs` (in `tools/reader-accept/`, `BOOK=<epub>`) — one
+  timeline per page turn in the running reader: the key event, every
+  worker request and answer, every animation frame with its cost and its
+  Canvas calls, and the frame the canvas changed in.
 - `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
   book's open in the running reader, printing every worker message the page
   sends and receives on one clock.
@@ -148,12 +152,14 @@ when the binary is not built.
 ## Reader diagnostics hook
 
 The browser reader installs `globalThis.__ritoReaderDiagnostics` on the
-page: the font availability epochs, the committed revision, `frame(spreadIndex)`,
-`spreadImagesSettled(spreadIndex)` (await it before screenshotting a
-spread — the paint path keeps the previous canvas while a bitmap
-decodes), `imageState(href)`, `warmFrameWindowDump(spreadIndex)` and
-`chapterFragmentProbe(idref)`. Harnesses use this hook instead of adding
-probes to production messages.
+page: `layout()` (what the committed layout covers, its page and spread
+counts, and how many layouts were committed before it),
+`artifact(spreadIndex)` (the artifact a spread is painted from, loading
+the spread when it is not held), `spreadImagesSettled(spreadIndex)`
+(await it before screenshotting a spread — a spread paints before its
+images do and again as each lands) and `rejectedFontFamilies()` (the
+publication faces the browser refused to decode, laid out without).
+Harnesses use this hook instead of adding probes to production messages.
 
 ## Render diagnostic case
 
