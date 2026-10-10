@@ -1,5 +1,61 @@
 ## Unreleased
 
+### A revision's page table, and any spread of it
+
+`RitoReaderSession.revisionLayout` answers the page table of the revision
+behind a page (`RitoRevisionLayout`): its spreads (`RitoSpreadPages`), the
+pages of each chapter it lays out (`RitoChapterPages`) and where its TOC
+entries land (`RitoTocTargetPage`). A page shown from a fresh request is
+laid out with its chapter alone, so the table covers that chapter and
+counts pages from zero; once the whole book is adopted it covers the
+book. `peekSpread` publishes any spread the table lists as a prepared
+read-only artifact at the cost of a peeked turn, and `commitSpread` makes
+it the visible page with a compare-and-swap, so a jump to a known page no
+longer goes through a locator and a layout request.
+
+### Hit entries say what they are
+
+Each `RitoHitEntry` carries the engine's classification — `RitoHitKind`
+`text`, `link`, `image`, `footnote` or `footnotePending` — and, for a
+link, where it leads (`targetLocator`) and what its destination is called
+(`destinationLabel`). `RitoHitResolver` decides a tap by the kind and no
+longer infers it from the fields an entry happens to carry, so a tap
+resolves the way it does in the web reader.
+
+### Geometry on every page of a range
+
+`textInteraction` and `exactSourceRange` take `everyPage`: rects and caret
+geometry then reach every page of the revision the range covers, each in
+the display-list space of the spread that draws its page, so a host can
+hold a selection or a highlight across spreads from one artifact. Without
+it an answer covers the pages the artifact draws, as before.
+
+### Faces the host cannot load
+
+`RitoReaderSession.markFontFamiliesUnavailable` tells the engine of
+publication faces the platform refused to load, by the family an artifact
+lists them under. The next request lays out without them, so a run is
+never measured with one face and painted with another.
+
+### Overrides that yield to the publication
+
+`RitoLayoutRequest.lineHeightForce` and `fontFamilyForce` say whether the
+line-height and font-family overrides outrank the publication's own
+declarations. Both default to `true`, which is what the overrides did
+until now.
+
+### Protocol and breaking changes
+
+The artifact protocol is version 6 (was 5): a hit entry gains its kind,
+target locator and destination label. `RITOTIQ1` and `RITOESQ1` end with
+the every-page flag, `RITONVQ1`/`RITONVR1` gain the layout query and its
+page table, the layout request gains the two force flags, and `RITOSPQ1`
+asks for a spread by its position. The C ABI gains `rito_peek_spread` and
+`rito_mark_font_family_unavailable`. `RitoReaderGateway` gains
+`peekSpread` and `markFontFamiliesUnavailable`, so a custom gateway must
+implement both, and `RitoHitEntry.kind` is required of code that builds
+hit entries itself.
+
 ### Faster layout changes
 
 The engine parses a publication's stylesheets once per worker instead of
@@ -108,7 +164,7 @@ The wire gains `RITOTIQ1`/`RITOTIR1`, `RITOANQ1`/`RITOANR1` and
 `RITONVQ1`/`RITONVR1`, and the C ABI gains `rito_resolve_text_interaction`,
 `rito_resolve_annotation` and `rito_resolve_navigation`.
 `RitoReaderGateway` gains `textInteraction`, `annotation` and
-`navigation`, so a custom gateway must implement all three. The artifact protocol version is unchanged.
+`navigation`, so a custom gateway must implement all three.
 
 ## 0.4.0 - 2026-09-29
 

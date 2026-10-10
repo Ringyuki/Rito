@@ -11,13 +11,15 @@ import { createReader } from '@ritojs/core';
 
 Creates a ready-to-render browser `Reader` from an EPUB `ArrayBuffer`.
 
-It performs the standard reader pipeline:
+It opens a reader session in a Worker and resolves once the first page can
+be painted:
 
 1. parse the EPUB archive
-2. open a long-lived document runtime
-3. create an initial layout revision
-4. build spread frames and resource schedules
-5. bind rendering to the provided Canvas target
+2. lay out the chapter being read, alone, and publish the spread that shows
+   the opening position
+3. bind rendering to the provided Canvas target
+4. lay out the whole book behind it and commit again under book-wide page
+   numbers (see [`layoutScope`](#layout--interaction-data))
 
 Use this when you want the normal app-facing API instead of driving the
 artifact protocol yourself. Flutter apps use `rito_flutter`; other native
@@ -189,24 +191,36 @@ the generics resolve to unchanged. Variable fonts are rejected.
 | Member                 | What it does                                                                           |
 | ---------------------- | -------------------------------------------------------------------------------------- |
 | `spreads`              | Navigation record per spread: `{ index, pageIndexes, leftPageIndex, rightPageIndex? }` |
+| `layoutScope`          | What the committed layout covers: `'chapter'` or `'book'`                              |
 | `totalSpreads`         | Number of spreads in the committed layout                                              |
 | `pageCount`            | Number of pages in the committed layout                                                |
 | `dpr`                  | Device pixel ratio used by rendering                                                   |
-| `getFootnotes()`       | Extracted footnotes keyed by `manifestHref#fragment`                                   |
 | `getImageBlobUrl(src)` | Create or asynchronously resolve an EPUB image URL                                     |
 | `interactions`         | Optional revision-safe semantic interaction provider                                   |
 
-Every revision is laid out complete in one step, so `totalSpreads`, `pageCount`
-and `spreads` describe the whole book as soon as `createReader()` resolves. A
-spread carries page indexes only; page geometry comes from `getLayoutGeometry()`
-and page content from the rendered frame and `interactions`. Page and spread
-indexes are projections of the current layout and change on reflow — persist
-a `ReaderLocator`, not an index.
+A layout is committed twice. When a book opens, and again after every change
+that re-paginates (`resize`, `setSpreadMode`, `updateLayout`, `setTypography`,
+`addFontFaces`, `removeFontFaces`), the reader lays out the chapter being read
+alone and commits it with `layoutScope: 'chapter'`: the page is on screen after
+one chapter's work, and `pageCount`, `totalSpreads`, `spreads`, `chapterMap` and
+every page index describe that chapter, counted from its first page. The whole
+book is laid out behind it and committed with `layoutScope: 'book'`, showing the
+same page under its book-wide number. Both commits call the
+`onLayoutCommitted` listeners, so a host that shows page numbers or a progress
+bar reads them again on the second one. A page of the chapter commit is the page the book
+commit gives that chapter, so nothing on screen moves between the two.
+
+A spread carries page indexes only; page geometry comes from
+`getLayoutGeometry()` and page content from the rendered frame and
+`interactions`. Page and spread indexes are projections of the committed layout
+and change on every commit — persist a `ReaderLocator`, not an index.
+`@ritojs/kit` hides the chapter commit: its page numbers, progress and
+navigation are book-wide, and a target outside the chapter is carried over to
+the book commit.
 
 When present, `interactions` exposes typed page-content targets plus exact-revision
-footnote and source-locator reads. Its `enabled` flag is false while a visual-only
-preview is displayed; callers must not reuse targets from the previous canonical
-revision during that interval. Page targets intentionally cover semantic click
+footnote (`getFootnote(key)`) and source-locator reads. Its `enabled` flag is
+true until the reader is disposed. Page targets intentionally cover semantic click
 sources only. When supported, `interactions.textSelection` exposes revision-bound
 point-to-caret and exact document-order range resolution across retained logical
 flows within one chapter. Its carets are opaque and must be passed back by
@@ -220,9 +234,9 @@ exact text/source positions rather than forging the DOM's structural
 next-block boundary. When the following flow belongs to the same chapter,
 `selectedText` includes the native paragraph separator.
 `resolveTextRangeToPoint()` rebinds an opaque caret and resolves the live point
-against one currently committed revision, so callers never combine geometry from
-two versions. A replacement layout, worker session, or unrelated revision fails
-closed.
+against one currently committed layout, so callers never combine geometry from
+two versions. A caret belongs to the layout that answered it: after either
+commit, a caret from before resolves `undefined`.
 `resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
 anchor and live focus, advances the focus by a typed character, word, visual-line,
 line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
@@ -255,13 +269,15 @@ rewrite them through an explicit caller-owned resource URL.
 
 ### Lifecycle
 
-| Member                 | What it does                                         |
-| ---------------------- | ---------------------------------------------------- |
-| `onSpreadRendered(cb)` | Subscribe to spread render notifications             |
-| `dispose()`            | Start releasing assets and close the loaded document |
+| Member                           | What it does                                            |
+| -------------------------------- | ------------------------------------------------------- |
+| `onSpreadRendered(cb)`           | Subscribe to spread render notifications                |
+| `onSpreadContentInvalidated(cb)` | A spread's content arrived or changed; paint it again   |
+| `onLayoutCommitted(cb)`          | A layout was committed (chapter, then book); re-read it |
+| `dispose()`                      | Start releasing assets and close the loaded document    |
 
 Disposal invalidates the Reader synchronously. A browser-backed Reader returns
-a promise that settles after its Worker and native document have been released;
+a promise that settles after its Worker and the session in it have been released;
 `await reader.dispose()` before creating a replacement Reader. Synchronous
 Reader implementations may return `void`, which is also safe to `await`.
 

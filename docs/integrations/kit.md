@@ -122,12 +122,15 @@ direction }` and `useReaderTransitionProgress(controller)` the progress.
 - pointer/touch/keyboard wiring
 - optional storage-backed position and annotations
 
-Every interaction reads the reader's committed revision through `reader.interactions`;
+Every interaction reads the reader's committed layout through `reader.interactions`;
 the controller holds no page geometry of its own. `Reader.spreads` is the navigation
-record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`, and every revision is
-laid out complete, so `totalSpreads` is final and a navigation target beyond it is simply
-out of range. The controller maps pointer input to page-local coordinates from the layout
-geometry and that record. `createController` requires `reader.interactions.textSelection`
+record, `{ index, pageIndexes, leftPageIndex, rightPageIndex? }`. The reader commits a
+layout twice — the chapter being read, then the whole book (`Reader.layoutScope`) — and
+the controller speaks book-wide throughout: while the chapter is the committed layout,
+page numbers and progress keep their last book-wide values, a turn past the chapter's
+edge and a jump outside it wait for the book and land there, and a turn inside the
+chapter is immediate. The controller maps pointer input to page-local coordinates from
+the layout geometry and that record. `createController` requires `reader.interactions.textSelection`
 and throws without it.
 
 Deciding a gesture: `controller.hitTestContent({ clientX, clientY })` answers
@@ -143,7 +146,7 @@ the same resolution the click dispatcher runs, in the same priority order
 (annotation first, then the page target in reverse paint order), so it predicts the
 event a click would raise; a pending footnote therefore reports `'link'`, which is
 what the dispatcher does with it. It returns `null` whenever a click would be
-dropped, including while a preview disables the reader's interactions.
+dropped.
 
 Text selection: pointer samples are resolved asynchronously against the committed
 revision through `interactions.textSelection`, exact rectangles drive the overlay,
@@ -153,12 +156,12 @@ Use `hasSelection` for presence, `selectionSourceLocator` for the durable source
 resource-qualified endpoints. Layout revision invalidation, spread changes, render-scale
 changes, cancellation, and disposal discard late async results. A content-only resource
 repaint, such as an image decode or frame warmup completing, keeps the committed
-selection because its revision and source range remain valid. A captured handle or an
+selection because its layout and source range remain valid. A captured handle or an
 active primary mouse/pen/touch drag can continue into an adjacent spread after edge
 dwell; the projection handoff is authorized by the exact active gesture and consumed
 once, so a released or replacement selection cannot inherit it. The dwell stops at the
-first and last spread. A replacement layout or new worker session invalidates the
-selection before it is painted.
+first and last spread. A newly committed layout — the book following the chapter
+included — invalidates the selection before it is painted.
 While the Canvas owns focus, Kit also maps the host platform's Shift-modified
 character, word, line, paragraph, and chapter-edge chords onto the native movement
 capability. Commands are serialized around one fixed anchor, retain sticky visual-line
@@ -188,21 +191,23 @@ it (`'exact'`, `'quote'`, `'position'`, `'progression'`) or `'orphaned'`. The lo
 target then goes through `interactions.resolveExactSourceRange` for page-content
 rectangles from the committed revision. Locations depend only on the source and
 survive relayouts; geometry is cached only for the active revision and invalidated
-before a replacement layout is painted. Preview, stale, pending, unavailable, and
+before a replacement layout is painted. Stale, pending, unavailable, and
 failed reads leave no rectangles installed. `ResolvedAnnotationSegment` carries a page
 index and page-content `rects`.
 
 Clicks: links, footnotes, and images are the reader's page targets
 (`interactions.getPageTargets`), hit-tested in reverse paint order after annotations.
-While a visual preview disables the interactions, clicks are dropped rather than tested
-against stale geometry.
+A click whose targets were read from a layout that is no longer committed is dropped
+rather than tested against stale geometry.
 
 Search: results come from `reader.search()`; highlight rectangles for the visible spread
 are resolved from each result's source range through `interactions.resolveExactSourceRange`.
 
 Accessibility: the optional mirror loads both visible pages' semantics
-(`interactions.getPageSemantics`) against the committed revision, rejects late or
-mismatched results, stays empty during visual previews, and routes accessible link
+(`interactions.getPageSemantics`) against the committed layout, rejects late or
+mismatched results, fills the mirror once the reader is at rest on the spread —
+after the frame that shows it, and after a turn onto it has ended, so laying out
+the mirror never holds a page back — and routes accessible link
 activation through page targets instead of raw EPUB-relative browser navigation. An
 empty image `alt` is treated as decorative; a missing `alt` remains an image with
 unknown alternative text.

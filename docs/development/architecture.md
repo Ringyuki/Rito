@@ -14,11 +14,11 @@ crates/rito-block            block flow, floats, tables, fragmentation into page
 crates/rito-inline           Parley-backed inline flows
 crates/rito-core             EPUB, XHTML, style projection, the bridge, paint,
                              lowering, the wire, interaction, resources, runtime
-crates/rito-wasm             wasm-bindgen facade over rito-core for the browser
+crates/rito-wasm             the reader session through wasm-bindgen, for the browser
 crates/rito-ffi              the C ABI actor for native hosts
 crates/rito-inline-spike     a line-break parity instrument, never a dependency
 
-packages/rito-core-wasm      private WASM build and decoder workspace
+packages/rito-core-wasm      private WASM build, session worker and wire decoders
 packages/rito                @ritojs/core: the browser reader and Canvas pen
 packages/kit                 @ritojs/kit: controller, transitions, overlays
 packages/react               @ritojs/react: hooks and a mount component
@@ -43,42 +43,48 @@ on kit or react.
 5. pagination through the fragment crates (`fragment_pagination`)
 6. paint: typed display commands from fragment trees (`fragment_paint`)
 7. lowering to device primitives and the `RITODL1` wire (`render`)
-8. document handles, revisions, frame caches, resources (`runtime`)
+8. documents, revisions, the reader session and its wire, resources (`runtime`)
 9. locators, search, selection, annotations, footnotes (`interaction`)
 
 `layout` holds only the layout configuration and the page ranges a
 revision publishes per chapter. The `ENGINE_MODULES` inventory in
 `lib.rs` is checked by `tests/workspace_smoke.rs`.
 
-The runtime boundary is a long-lived document handle. A layout change
-creates a revision; hosts request spread frames and resources against
-that revision. Page and spread indexes are revision-local; durable
-positions use source locators.
+The host boundary is one protocol, the reader session. A host opens a
+publication, asks for the page at a locator under a layout, and gets an
+artifact: one spread's paint, its hit targets and semantics, and the
+fonts and images it draws. The chapter that page is in is laid out first,
+alone, so the page is on screen after one chapter's work; the whole book
+is laid out behind it and adopted as the same page under its book-wide
+number. Every later question — a turn, a spread by its position, a
+selection, a search, a footnote — names an artifact, and through it the
+revision the artifact came from. Page and spread indexes are
+revision-local; durable positions use source locators.
 
-A revision holds its page table, not its pages: pagination is
-whole-book, so page numbers are final immediately, while the fragment
-trees and interaction artifacts behind those numbers are rebuilt into a
-bounded working set as queries reach them. Memory is therefore
-proportional to what is being read, not to the length of the book,
-which matters most in the browser, where a WebAssembly heap only grows
-and a peak becomes a floor.
+A revision holds its page table, not its pages: its page numbers are
+final the moment it exists, while the fragment trees and interaction
+artifacts behind those numbers are rebuilt into a bounded working set as
+queries reach them. Memory is therefore proportional to what is being
+read, not to the length of the book, which matters most in the browser,
+where a WebAssembly heap only grows and a peak becomes a floor.
 
 ## Host boundaries
 
-`rito-wasm` is a narrow binding: it serializes typed results and moves
-bytes across the boundary, and owns no reader policy. `rito-ffi` runs a
+`rito-wasm` exports one class, the reader session, and moves its wire
+messages across the boundary; it owns no reader policy. `rito-ffi` runs a
 session on one actor thread and exchanges fixed-width values and owned
-byte buffers. The session protocol — open, seek, adjacent turns and
-peeks, candidate adoption, background advance, resources, footnotes,
-search, text geometry, source ranges, selection, annotation targets and
-reading-position questions — is the same set of binary messages
-`openBrowserReaderSession()` carries in the browser.
+byte buffers. The messages are the same on both: open, seek, adjacent
+turns and peeks, a spread by its position, candidate adoption, background
+advance, resources, fonts, footnotes, search, text geometry, source
+ranges, selection, annotation targets and reading-position questions.
 
 `packages/rito/src/bindings/browser/**` is the only place browser APIs
-live: it loads the WASM module, runs the document runtime in a Worker,
-transfers frame bytes and resources, registers fonts and decodes images,
-and blits primitives on Canvas. It must not paginate, parse CSS, place a
-glyph or infer semantics from paint.
+live: it runs the session in a Worker, decodes its artifacts, registers
+fonts and decodes images, and blits primitives on Canvas. The reader it
+builds on the session (`session-reader/`) holds one committed layout at a
+time — the chapter being read, then the whole book — and replaces the
+visible artifact only by the session's compare-and-swap. It must not
+paginate, parse CSS, place a glyph or infer semantics from paint.
 
 `rito_flutter` decodes the same owned wire messages in Dart and paints
 them with a `CustomPainter`; the engine is compiled by Flutter's Native
@@ -92,12 +98,17 @@ Assets hook from the tracked Rust source closure.
 - The display list is typed end to end; JSON exists only in the
   test-support fixture codec.
 - The render module depends on no style, DOM or CSS engine.
-- A frame and every resource lease belong to a revision; a stale revision
-  response cannot replace the active one.
+- There is one host protocol. The browser through WASM and native hosts
+  through the C ABI speak the reader session; nothing else reaches the
+  engine.
+- An artifact belongs to a revision, and the visible artifact is replaced
+  only by compare-and-swap: a stale answer cannot replace the page shown.
+- A page of a chapter laid out alone is the page the whole-book layout
+  gives that chapter, byte for byte.
 - A page rebuilt into the working set is identical to the page the
   whole-book pass produced; a disagreement fails the read.
-- Revision and frame caches have explicit lifecycles and budgeted
-  cleanup.
+- Revisions and live artifacts have explicit lifecycles and a bounded
+  count; a host releases what it no longer shows.
 - Public TypeScript exports go through `packages/rito/src/index.ts` and
   stay small.
 - Engine, wire encoder and every decoder come from the same commit.

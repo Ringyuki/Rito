@@ -120,17 +120,26 @@ native hosts use the C ABI in `crates/rito-ffi`.
 
 ## Runtime
 
-`rito-core::runtime` owns document handles, layout revisions, the
-per-revision frame cache, resources and interaction geometry. A layout
-change creates a revision; hosts request spread frames (lowered bytes
-plus metadata) and resources against that revision. Interaction reads
-(page targets, text carets and ranges, search, source-anchored ranges,
-page semantics) are served from the fragment page artifacts, never
-inferred from paint.
+`rito-core::runtime` owns documents, layout revisions, resources,
+interaction geometry and the reader session, the one protocol a host
+speaks. A host asks the session for the page at a locator under a
+layout and gets an artifact: a spread's lowered paint bytes, its hit
+targets and semantics, and the fonts and images it draws. Interaction
+reads (page targets, text carets and ranges, search, source-anchored
+ranges, page semantics) name an artifact and are served from the
+fragment page artifacts, never inferred from paint.
 
-Creating a revision paginates the whole book in one call, so page
-numbers are exact from the first frame a host asks for, but the revision
-does not keep the book's pages. The pass records, per chapter, its page
+A layout the session has not seen is answered in two revisions. The
+first paginates the one chapter the locator is in, so the page costs a
+chapter's work; its pages count from that chapter's first. The second
+paginates the whole book in steps the host drives between its own work
+(`advance_background_once`), and when it is complete the host adopts it:
+the visible artifact is exchanged, by compare-and-swap, for the same
+page of the book revision. A chapter lays out the same alone as it does
+inside the book, so the exchange moves nothing on screen.
+
+A book revision's page numbers are exact, but the revision does not keep
+the book's pages. The pass records, per chapter, its page
 count and the inputs a rebuild needs, merges the book's anchors, and
 collects each page's text and run offsets for search; then it drops the
 chapter. A page's fragment tree and its artifact are rebuilt when a
