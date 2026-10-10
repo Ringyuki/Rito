@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +49,67 @@ Future<void> _settle(WidgetTester tester) async {
 }
 
 void main() {
+  // The outcomes the web reader reports for the same scenarios: both
+  // suites read the kit's fixtures/turn-lifecycle.json.
+  group('how a turn ends, as on every host', () {
+    final table =
+        (jsonDecode(
+                  File(
+                    '../kit/tests/fixtures/turn-lifecycle.json',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>)['ends']!
+            as Map<String, Object?>;
+    void run(String name, Future<void> Function(WidgetTester, _Rig) drive) {
+      testWidgets(name, (tester) async {
+        final rig = _rig(tester);
+        await tester.pump();
+        await drive(tester, rig);
+        await _settle(tester);
+        final ends = [
+          for (final event in rig.events)
+            if (event.startsWith('end:')) event.split(':').last,
+        ];
+        expect(ends, table[name]);
+        expect(
+          rig.events.where((event) => event.startsWith('start:')).length,
+          ends.length,
+        );
+      });
+    }
+
+    run('turn-lands', (tester, rig) async {
+      rig.turns.turn(_next);
+    });
+    run('drag-goes-back', (tester, rig) async {
+      rig.turns
+        ..dragStart()
+        ..dragUpdate(-20)
+        ..dragCancel();
+    });
+    run('turn-during-turn', (tester, rig) async {
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      rig.turns.turn(_next);
+    });
+    run('jump-during-turn', (tester, rig) async {
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      await rig.reader.jumpTo(const RitoLocator(href: 'b.xhtml'));
+    });
+    run('jump-during-drag', (tester, rig) async {
+      rig.turns
+        ..dragStart()
+        ..dragUpdate(-30);
+      await rig.reader.jumpTo(const RitoLocator(href: 'b.xhtml'));
+    });
+    run('relayout-during-turn', (tester, rig) async {
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      await rig.reader.relayout(fakeLayout);
+    });
+  });
+
   testWidgets('a tap turn lands on the reader and ends committed', (
     tester,
   ) async {

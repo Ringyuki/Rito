@@ -7,6 +7,7 @@ import {
   endSwipe,
   settleTransition as settle,
 } from './helpers/touch-navigation';
+import lifecycle from './fixtures/turn-lifecycle.json';
 
 describe('touch navigation lifecycle', () => {
   it('settles a canceled swipe back to its outgoing spread', () => {
@@ -217,6 +218,47 @@ describe('touch navigation lifecycle', () => {
 
     expect(scenario.td.mode).toMatchObject({ kind: 'settling', target: -300 });
     settle(scenario.td);
+    expect(scenario.internals.currentSpread).toBe(1);
+  });
+});
+
+// The outcomes rito_flutter reports for the same scenarios: both suites
+// read fixtures/turn-lifecycle.json.
+describe('how a turn ends, as on every host', () => {
+  type Scenario = ReturnType<typeof createScenario>;
+  const ends = (scenario: Scenario): string[] =>
+    scenario.transitionEnd.mock.calls.map(([event]) => (event as { outcome: string }).outcome);
+  const run = (name: keyof typeof lifecycle.ends, drive: (scenario: Scenario) => void): void => {
+    it(name, () => {
+      const scenario = createScenario();
+      drive(scenario);
+      settle(scenario.td);
+      expect(ends(scenario)).toEqual(lifecycle.ends[name]);
+      expect(scenario.transitionStart).toHaveBeenCalledTimes(lifecycle.ends[name].length);
+      scenario.disposables.disposeAll();
+    });
+  };
+
+  run('turn-lands', (scenario) => {
+    scenario.nav.goToSpread(1);
+  });
+  run('drag-goes-back', (scenario) => {
+    cancelSwipe(scenario, beginSwipe(scenario, 200, 100), 20);
+  });
+  run('turn-during-turn', (scenario) => {
+    scenario.nav.goToSpread(1);
+    scenario.td.step(16);
+    scenario.nav.goToSpread(0);
+  });
+  run('jump-during-turn', (scenario) => {
+    scenario.nav.goToSpread(1);
+    scenario.td.step(16);
+    scenario.nav.jumpToSpread(0);
+    expect(scenario.internals.currentSpread).toBe(0);
+  });
+  run('jump-during-drag', (scenario) => {
+    beginSwipe(scenario, 200, 100);
+    scenario.nav.jumpToSpread(1);
     expect(scenario.internals.currentSpread).toBe(1);
   });
 });

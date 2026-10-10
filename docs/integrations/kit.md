@@ -114,9 +114,10 @@ Change any of it live with `controller.configureTransition({ effect: 'cover' })`
 
 `transitionStart` and `transitionEnd` bracket every visible turn: each start is
 answered by exactly one end, whose `outcome` says whether the turn landed
-(`committed`), went back (`cancelled`), or was cut off by a relayout
-(`interrupted`). A jump or a newer turn lands the turn in flight at once, which
-reports `committed`, or `cancelled` if it was already heading back. In between, `transitionProgress` reports every painted
+(`committed`), went back (`cancelled`), or was cut off by a relayout or a jump
+(`interrupted`). A newer turn lands the turn in flight at once, which reports
+`committed`, or `cancelled` if it was already heading back. `rito_flutter` reports
+the same outcomes; one table of scenarios holds both test suites to them. In between, `transitionProgress` reports every painted
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.

@@ -1,5 +1,6 @@
 import type { SlotPosition } from '../../painter/types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
+import { transitionLifecycle } from '../core/transition-lifecycle';
 import { claimNavigation, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
 import type { NavigationMachine } from './machine';
@@ -44,7 +45,7 @@ export function jumpToSpread(deps: NavigationDeps, claim: NavigationClaim, index
   const reader = deps.getReader();
   if (!reader) return false;
   const target = Math.max(0, Math.min(index, reader.totalSpreads - 1));
-  if (deps.td.isAnimating) deps.td.forceSettle();
+  interruptTurnInFlight(deps);
   if (!claim.owns()) return false;
   deps.pool.jump(target);
   deps.pool.ensureContent('curr', deps.contentRenderer);
@@ -60,7 +61,7 @@ export function jumpToSpreadIfReady(
   const reader = deps.getReader();
   if (!reader) return 'superseded';
   const target = Math.max(0, Math.min(index, reader.totalSpreads - 1));
-  if (deps.td.isAnimating) deps.td.forceSettle();
+  interruptTurnInFlight(deps);
   if (!claim.owns()) return 'superseded';
 
   const previous = deps.getCurrentSpread();
@@ -72,6 +73,16 @@ export function jumpToSpreadIfReady(
 
   promoteIncomingSlot(deps, previous, target);
   return commitJump(deps, claim, target) ? 'committed' : 'superseded';
+}
+
+/**
+ * A jump takes the page before the turn in flight arrives: the turn is
+ * reported cut off, then landed at once so the jump leaves from its page.
+ */
+function interruptTurnInFlight(deps: NavigationDeps): void {
+  if (!deps.td.isAnimating) return;
+  transitionLifecycle(deps.emitter).end('interrupted');
+  deps.td.forceSettle();
 }
 
 function commitJump(deps: NavigationDeps, claim: NavigationClaim, target: number): boolean {

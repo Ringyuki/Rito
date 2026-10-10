@@ -105,10 +105,9 @@ export interface ReaderControllerEvents {
    */
   transitionProgress: { direction: 'forward' | 'backward'; progress: number };
   /**
-   * The visible turn ended: it landed on its target (`committed`), went
-   * back where it started (`cancelled`), or was cut off by a relayout
-   * (`interrupted`). A jump or a newer turn lands the turn in flight at
-   * once, which reports `committed`, or `cancelled` if it was heading back.
+   * The visible turn ended: it landed (`committed`), went back
+   * (`cancelled`), or was cut off by a relayout or a jump (`interrupted`).
+   * A newer turn lands the one in flight at once: `committed` or `cancelled`.
    */
   transitionEnd: {
     direction: 'forward' | 'backward';
@@ -258,13 +257,12 @@ export interface ReaderController {
    *
    * A host that must decide on `pointerup` whether a gesture belongs to
    * the content or to the page turn cannot wait for the content events:
-   * `linkClick` and `annotationClick` are raised synchronously, but
-   * `footnoteClick` waits for the footnote read and `imageClick` for the
-   * image blob. Turning the
-   * page first and undoing it later does not work either, because the
-   * turn advances the content-interaction generation and the in-flight
-   * image request is then disowned and revoked, so `imageClick` never
-   * arrives at all.
+   * only `linkClick` and `annotationClick` are raised synchronously,
+   * `footnoteClick` waits for the footnote read and `imageClick` for its
+   * blob. Turning the page first and undoing it later does not work
+   * either, because the turn advances the content-interaction generation
+   * and the in-flight image request is then disowned and revoked, so
+   * `imageClick` never arrives at all.
    *
    * Answers from the same resolution the click dispatcher runs, so it
    * predicts which event a click would raise, and returns null when the

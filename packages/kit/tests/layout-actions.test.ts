@@ -1,3 +1,4 @@
+import lifecycle from './fixtures/turn-lifecycle.json';
 import { describe, expect, it, vi } from 'vitest';
 import type { ReadingPosition } from '../src/interaction/index';
 import type { LayoutPositionPlan } from '../src/interaction/position/tracker';
@@ -205,7 +206,7 @@ describe('buildLayoutActions', () => {
     expect(spies.reset).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('transitionEnd', {
       direction: 'forward',
-      outcome: 'interrupted',
+      outcome: lifecycle.ends['relayout-during-turn'][0],
     });
   });
 
