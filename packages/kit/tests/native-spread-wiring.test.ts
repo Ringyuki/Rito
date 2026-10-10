@@ -224,4 +224,47 @@ describe('native target spread lifecycle', () => {
     disposables.disposeAll();
     expect(state.nativeInteractionsAlive).toBe(false);
   });
+
+  it('paints a neighbouring spread into its buffer once its content arrives', () => {
+    let invalidated: ((index: number) => void) | undefined;
+    const reader = {
+      spreads: [spread, spread, spread, spread],
+      onSpreadRendered: vi.fn(() => vi.fn()),
+      onSpreadContentInvalidated(callback: (index: number) => void) {
+        invalidated = callback;
+        return () => {
+          invalidated = undefined;
+        };
+      },
+    } as unknown as Reader;
+    const markContentDirty = vi.fn();
+    const notifyNavigationContentReady = vi.fn();
+    const prerenderAdjacent = vi.fn();
+    const deps = {
+      reader,
+      coordState: createCoordinatorState(),
+      canvas: { style: { cursor: '' } },
+      engines: { selection: {}, search: {}, position: null },
+      emitter: createEmitter<ReaderControllerEvents>(),
+      frameDriver: { markContentDirty },
+      getCurrentSpread: () => 1,
+      getRenderScale: () => 1,
+      notifyNavigationContentReady,
+      prerenderAdjacent,
+    } as unknown as WiringDeps;
+    const disposables = createDisposableCollection();
+    wireSpreadRendered(deps, disposables);
+
+    // The spread a turn forward shows, then the one a turn back shows.
+    invalidated?.(2);
+    invalidated?.(0);
+    expect(prerenderAdjacent).toHaveBeenCalledTimes(2);
+    expect(markContentDirty.mock.calls).toEqual([[2], [0]]);
+
+    // A spread two turns away has no buffer to paint into.
+    invalidated?.(3);
+    expect(prerenderAdjacent).toHaveBeenCalledTimes(2);
+    expect(notifyNavigationContentReady).toHaveBeenCalledTimes(3);
+    disposables.disposeAll();
+  });
 });

@@ -33,6 +33,8 @@ export interface WiringDeps {
   notifyNavigationContentReady: (index: number) => void;
   /** Sync viewport-sized buffers before painting a current-spread visual refresh. */
   syncViewport?: () => void;
+  /** Paint the spreads a turn would show into their buffers while the reader is idle. */
+  prerenderAdjacent?: () => void;
 }
 
 /** Build a WiringDeps object from internals + runtime components. */
@@ -43,6 +45,7 @@ export function buildWiringDeps(
   canvas: HTMLCanvasElement,
   nav: NavigationActions,
   syncViewport?: () => void,
+  prerenderAdjacent?: () => void,
 ): WiringDeps {
   const deps: WiringDeps = {
     reader: internals.reader,
@@ -66,8 +69,11 @@ export function buildWiringDeps(
       nav.notifyContentReady(i);
     },
   };
-  if (syncViewport) return { ...deps, syncViewport };
-  return deps;
+  return {
+    ...deps,
+    ...(syncViewport ? { syncViewport } : {}),
+    ...(prerenderAdjacent ? { prerenderAdjacent } : {}),
+  };
 }
 
 /** Convert a PointerEvent to spread-content coordinates via the mapper. */

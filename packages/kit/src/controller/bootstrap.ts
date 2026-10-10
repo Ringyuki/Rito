@@ -119,9 +119,19 @@ function wireRuntimeEvents(
   contentRenderer: ContentRenderer,
   disposables: Disposables,
 ): void {
-  const deps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav, () => {
-    syncCanvasSize(internals, runtime);
-  });
+  const deps = buildWiringDeps(
+    internals,
+    emitter,
+    runtime.frameDriver,
+    canvas,
+    nav,
+    () => {
+      syncCanvasSize(internals, runtime);
+    },
+    () => {
+      scheduleControllerPrerender(internals, runtime, contentRenderer);
+    },
+  );
   wireSpreadRendered(deps, disposables);
   if (typeof internals.reader.onLayoutCommitted === 'function') {
     disposables.add(
