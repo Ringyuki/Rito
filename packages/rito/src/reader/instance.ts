@@ -343,7 +343,6 @@ export interface Reader {
   findActiveTocEntry(pageIndex: number): TocEntry | undefined;
   getCanvasSize(scale?: number): { width: number; height: number };
   getLayoutGeometry(): Readonly<LayoutConfig>;
-  getFootnotes(): ReadonlyMap<string, FootnoteEntry>;
   getImageBlobUrl(src: string): string | undefined | Promise<string | undefined>;
   setTypography(opts: {
     fontSize?: number | null;

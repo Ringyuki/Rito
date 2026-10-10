@@ -16,6 +16,7 @@ export type {
   BrowserReaderBackgroundHandoffAck,
   BrowserReaderErrorCode,
   BrowserReaderForegroundHandoffAck,
+  BrowserReaderGeometryOptions,
   BrowserReaderLayout,
   BrowserReaderLocator,
   BrowserReaderPublication,
@@ -45,6 +46,7 @@ export type {
 export type {
   BrowserReaderCanvasPaintOptions,
   BrowserReaderCanvasPresenter,
+  BrowserReaderCanvasPresenterOptions,
   BrowserReaderCanvasTarget,
   BrowserReaderPreparedCanvasArtifact,
 } from './bindings/browser/reader-session-canvas';

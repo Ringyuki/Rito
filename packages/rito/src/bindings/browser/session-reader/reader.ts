@@ -154,7 +154,6 @@ function buildReader(state: SessionReaderState): Reader {
     ...listenerMethods(state),
     ...sessionReaderResourceMethods(state),
     getLayoutGeometry: () => state.config,
-    getFootnotes: () => new Map(),
     dispose() {
       if (state.disposed) return Promise.resolve();
       state.disposed = true;
