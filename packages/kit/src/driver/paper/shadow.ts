@@ -8,14 +8,12 @@ import {
 } from './gl';
 import { BLUR_FRAGMENT, CAST_FRAGMENT, CAST_VERTEX, QUAD_VERTEX, SHADOW_FRAGMENT } from './shaders';
 
-/** What a shadow is cast from: the sheet's surface, as the GPU holds it, in a frame. */
+/** What a shadow is cast from: the leaf's surface, as the GPU holds it, in a frame. */
 export interface ShadowCaster {
   readonly width: number;
   readonly height: number;
-  /** How high the paper rolls: what sizes the shadow and how soft it is. */
-  readonly lift: number;
-  /** How dark the shadow is, 0–1: paper barely off the page barely darkens it. */
-  readonly strength: number;
+  /** How wide the leaf is: what its shadows are sized by. */
+  readonly reach: number;
   readonly eye: number;
   readonly light: readonly [number, number, number];
   readonly positions: WebGLBuffer;
@@ -24,16 +22,22 @@ export interface ShadowCaster {
 }
 
 export interface ShadowPass {
-  /**
-   * Draws the shadow of the lifted paper, soft, as darkness over whatever
-   * is bound to draw to, and answers it as a texture for the sheet to
-   * take on its own low-lying paper.
-   */
-  draw(caster: ShadowCaster): WebGLTexture;
+  /** Draws the leaf's shadow on the pages, as darkness over whatever is bound to draw to. */
+  draw(caster: ShadowCaster): void;
 }
 
+/**
+ * A shadow is two: a close one, dark and fairly sharp, from paper just off
+ * the page, and a wide faint one from paper high above it. Each fades with
+ * the paper's height over `fade` and is blurred by `soft`, both in leaf
+ * widths.
+ */
+const SHADOWS = [
+  { fade: 0.07, soft: 0.014, strength: 0.3 },
+  { fade: 0.5, soft: 0.075, strength: 0.2 },
+] as const;
 /** How far a shadow falls sideways for each unit its paper rises. */
-const CAST_REACH = 0.3;
+const CAST_REACH = 0.32;
 /** Shadows are drawn this many times smaller than the frame, and blurred. */
 const SHADOW_SCALE = 4;
 
@@ -46,7 +50,7 @@ interface ShadowPrograms {
 }
 
 export function createShadowPass(gl: Gl): ShadowPass {
-  const uniforms = ['uSize', 'uEye', 'uCast', 'uLift'];
+  const uniforms = ['uSize', 'uEye', 'uCast', 'uFade'];
   const programs: ShadowPrograms = {
     cast: createProgram(gl, CAST_VERTEX, CAST_FRAGMENT, ['aPosition'], uniforms),
     blur: createProgram(gl, QUAD_VERTEX, BLUR_FRAGMENT, ['aCorner'], ['uSource', 'uStep']),
@@ -57,28 +61,29 @@ export function createShadowPass(gl: Gl): ShadowPass {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   let targets: [RenderTarget, RenderTarget] | null = null;
   return {
-    draw(caster): WebGLTexture {
+    draw(caster): void {
       const drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
       targets = sized(gl, targets, caster.width, caster.height);
       const [first, second] = targets;
       gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      castOnto(gl, programs.cast, first, caster);
-      gl.disable(gl.BLEND);
-      // The higher the paper rolls, the softer the edge of its shadow.
-      const soft = Math.max(0.75, (0.22 * caster.lift * first.width) / caster.width);
-      blurInto(gl, programs, first, second, soft / first.width, 0);
-      blurInto(gl, programs, second, first, 0, soft / first.height);
+      for (const shadow of SHADOWS) {
+        gl.enable(gl.BLEND);
+        castOnto(gl, programs.cast, first, caster, shadow.fade * caster.reach);
+        gl.disable(gl.BLEND);
+        // The blur reaches a few steps either way: `soft` across the frame, in the target's texels.
+        const step = Math.max(0.6, (shadow.soft * caster.reach * first.width) / caster.width / 2);
+        blurInto(gl, programs, first, second, step / first.width, 0);
+        blurInto(gl, programs, second, first, 0, step / first.height);
 
-      gl.bindFramebuffer(gl.FRAMEBUFFER, drawingTo);
-      gl.viewport(0, 0, caster.width, caster.height);
-      gl.enable(gl.BLEND);
-      across(gl, programs.lay, programs.quad, first.texture);
-      gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, caster.strength);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, drawingTo);
+        gl.viewport(0, 0, caster.width, caster.height);
+        gl.enable(gl.BLEND);
+        across(gl, programs.lay, programs.quad, first.texture);
+        gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, shadow.strength);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
       gl.disable(gl.BLEND);
-      return first.texture;
     },
   };
 }
@@ -124,8 +129,14 @@ function sized(
   return [createRenderTarget(gl, w, h), createRenderTarget(gl, w, h)];
 }
 
-/** The lifted paper as the light throws it onto what lies beneath. */
-function castOnto(gl: Gl, cast: Program, target: RenderTarget, caster: ShadowCaster): void {
+/** The leaf as the light throws it onto the pages, fading over `fade` of height. */
+function castOnto(
+  gl: Gl,
+  cast: Program,
+  target: RenderTarget,
+  caster: ShadowCaster,
+  fade: number,
+): void {
   gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
   gl.viewport(0, 0, target.width, target.height);
   gl.clearColor(0, 0, 0, 0);
@@ -139,7 +150,7 @@ function castOnto(gl: Gl, cast: Program, target: RenderTarget, caster: ShadowCas
     caster.light[0] * sideways,
     caster.light[1] * sideways,
   );
-  gl.uniform1f(cast.uniforms['uLift'] ?? null, Math.max(caster.lift, 1e-3));
+  gl.uniform1f(cast.uniforms['uFade'] ?? null, Math.max(fade, 1e-3));
   attribute(gl, cast, 'aPosition', caster.positions, 3);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, caster.indices);
   gl.drawElements(gl.TRIANGLES, caster.indexCount, gl.UNSIGNED_SHORT, 0);

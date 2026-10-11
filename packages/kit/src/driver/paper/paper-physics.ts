@@ -1,66 +1,57 @@
 import type { TransitionTouch } from '../effects';
-import type { TransitionBounds, TransitionPhysics } from '../physics';
+import type { TransitionBounds, TransitionPhysics, TransitionSettle } from '../physics';
 import { springSettle } from '../spring';
+import type { LeafGrab } from './leaf';
 
-/** The point of the sheet a hand holds: `u` from the spine outward, `v` from the top down. */
-export interface PaperGrab {
-  readonly u: number;
-  readonly v: number;
-}
-
-/** A hand takes the sheet no nearer the spine than this share of its width. */
+/** A hand takes the leaf no nearer the spine than this share of its width. */
 const NEAREST_GRAB = 0.35;
-/** Where a turn no finger started takes the sheet: by its lower outer corner. */
-const UNHELD_GRAB: PaperGrab = { u: 1, v: 1 };
-/** A page takes its time: slower than the built-in spring, and never past its target. */
-const PAPER_SPRING = { stiffness: 110, damping: 21 };
+/** Where a turn no finger started takes the leaf: its outer edge, toward the lower corner. */
+const UNHELD_GRAB: LeafGrab = { u: 1, v: 0.86 };
+/** A leaf let go on the move finishes on this spring: quick, and never past its target. */
+const LEAF_SPRING = { stiffness: 260, damping: 32.3 };
+/** How long a leaf turned by no finger takes, seconds: the whole way, and a nudge of it. */
+const WHOLE_TURN = 0.38;
+const SHORTEST_TURN = 0.2;
 /**
  * A turn let go slower than this many of its remaining lengths a second is
- * carried by an unhurried hand: it lifts, swings and sets down. A faster
- * one keeps its momentum, on the spring.
+ * finished at the leaf's own pace; a faster one keeps its momentum.
  */
-const UNHURRIED = 0.8;
+const UNHURRIED = 1.2;
 /** A finger must have moved this far, CSS px, for letting go to turn the page. */
 const LEAST_PULL = 24;
-/** How long past the hand's arrival the turn waits for the paper to lie flat, seconds. */
-const LONGEST_WAIT = 0.4;
 
 /**
- * Which point of the sheet a finger took hold of. A finger moving toward
- * the next spread takes the sheet lying right of the spine where it went
- * down; one moving back takes the sheet lying left of it, or, when a spread
- * is one page and that sheet is out of sight, its outer edge.
+ * Which point of the leaf a finger took hold of. A finger moving toward
+ * the next spread takes the leaf lying right of the spine where it went
+ * down; one moving back takes the leaf lying left of it, or, when a spread
+ * is one page and that leaf is out of sight, its outer edge.
  */
 export function grabOf(
   touch: TransitionTouch | null,
   bounds: TransitionBounds & { readonly height: number },
-): PaperGrab {
+): LeafGrab {
   if (!touch) return UNHELD_GRAB;
-  const sheet = bounds.width - bounds.spine;
+  const leaf = bounds.width - bounds.spine;
   const back = touch.position.x > touch.origin.x;
   const out = back
     ? bounds.spine > 0
       ? bounds.spine - touch.origin.x
-      : sheet
+      : leaf
     : touch.origin.x - bounds.spine;
   return {
-    u: Math.min(1, Math.max(NEAREST_GRAB, out / (sheet || 1))),
+    u: Math.min(1, Math.max(NEAREST_GRAB, out / (leaf || 1))),
     v: Math.min(1, Math.max(0, touch.origin.y / (bounds.height || 1))),
   };
-}
-
-export interface PaperPhysicsHost {
-  /** Whether the paper on screen has reached where its turn wants it; true when none is drawn. */
-  arrived(): boolean;
 }
 
 /**
  * How a paper turn moves. A whole turn carries the held point from one side
  * of the spine to the same distance on the other, so the point stays under
- * the finger; a page takes longer to land than a slide does; and the turn
- * is over when the paper has come to lie flat.
+ * the finger; a leaf turned by no finger starts at once and lands softly in
+ * well under half a second; and the last frame drawn is the leaf lying
+ * exactly where it lands.
  */
-export function createPaperPhysics(host: PaperPhysicsHost): TransitionPhysics {
+export function createPaperPhysics(): TransitionPhysics {
   return {
     travel(touch, bounds) {
       const moved = touch.position.x - touch.origin.x;
@@ -68,7 +59,7 @@ export function createPaperPhysics(host: PaperPhysicsHost): TransitionPhysics {
       const grab = grabOf(touch, { ...bounds, height: 1 });
       const radius = grab.u * (bounds.width - bounds.spine);
       if (moved < 0) return -bounds.width * Math.min(1, -moved / (2 * radius));
-      // Turning back: the sheet comes over the spine to meet the finger.
+      // Turning back: the leaf comes over the spine to meet the finger.
       const turned =
         bounds.spine > 0
           ? 1 - moved / (2 * radius)
@@ -87,32 +78,41 @@ export function createPaperPhysics(host: PaperPhysicsHost): TransitionPhysics {
     },
 
     settle(from, velocity, to) {
-      const spring =
+      const motion =
         Math.abs(velocity) < UNHURRIED * Math.abs(to - from)
           ? unhurried(from, to)
-          : springSettle(PAPER_SPRING, from, velocity, to);
-      let arrivedAt: number | null = null;
+          : springSettle(LEAF_SPRING, from, velocity, to);
+      // One frame is drawn with the leaf exactly where it lands before the turn is over.
+      let landed = false;
       return (seconds) => {
-        const at = spring(seconds);
+        const at = motion(seconds);
         if (!at.done) return at;
-        arrivedAt ??= seconds;
-        // The hand is there, exactly; the paper it carries follows a moment behind.
-        return { x: to, velocity: 0, done: host.arrived() || seconds - arrivedAt > LONGEST_WAIT };
+        const done = landed;
+        landed = true;
+        return { x: to, velocity: 0, done };
       };
     },
   };
 }
 
 /**
- * From `from` to `to`, starting and stopping gently: the longer the way,
- * the longer it takes, from a third of a second to two thirds.
+ * From `from` to `to` at the leaf's own pace: off at once, fastest early,
+ * slowing all the way in. The whole way across takes `WHOLE_TURN`; a
+ * shorter way takes less, but not less than `SHORTEST_TURN`.
  */
-function unhurried(from: number, to: number): ReturnType<typeof springSettle> {
-  const duration = Math.min(0.66, 0.32 + Math.abs(to - from) / 1100);
+function unhurried(from: number, to: number): TransitionSettle {
+  const share = Math.min(1, Math.abs(to - from) / 800);
+  const duration = SHORTEST_TURN + (WHOLE_TURN - SHORTEST_TURN) * share;
   return (seconds) => {
     const t = Math.min(1, seconds / duration);
-    const eased = t * t * (3 - 2 * t);
-    const speed = (6 * t * (1 - t)) / duration;
-    return { x: from + (to - from) * eased, velocity: (to - from) * speed, done: t >= 1 };
+    // A smooth step taken early: two thirds of the way by half time.
+    const early = t ** 0.72;
+    const eased = early * early * (3 - 2 * early);
+    const speed = (6 * early * (1 - early) * 0.72 * t ** -0.28) / duration;
+    return {
+      x: from + (to - from) * eased,
+      velocity: t > 0 ? (to - from) * speed : 0,
+      done: t >= 1,
+    };
   };
 }

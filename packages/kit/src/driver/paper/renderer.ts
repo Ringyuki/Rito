@@ -13,7 +13,7 @@ import { sheetGrid, type SheetGrid } from './mesh';
 import { SHEET_FRAGMENT, SHEET_VERTEX } from './shaders';
 import { createShadowPass, type ShadowPass } from './shadow';
 
-/** One frame of the sheet: where its paper is, how it faces, and the pages on its two faces. */
+/** One frame of the leaf: where its paper is, how it faces, and the pages on its two faces. */
 export interface PaperFrame {
   readonly width: number;
   readonly height: number;
@@ -24,10 +24,6 @@ export interface PaperFrame {
   readonly normals: Float32Array;
   readonly columns: number;
   readonly rows: number;
-  /** How high the paper rolls at most: what sizes its shadow. */
-  readonly lift: number;
-  /** How far the roll is from its full size, 0–1: what its shadow is as dark as. */
-  readonly relief: number;
   /** The spread the sheet is lifted from, or null for bare paper. */
   readonly front: TransitionPage | null;
   /** The spread it lands on, or null for bare paper. */
@@ -45,22 +41,16 @@ export interface PaperRenderer {
 }
 
 /** Where the light comes from: over the reader's left shoulder. */
-const LIGHT = normalized([-0.3, -0.4, 0.87]);
-/** How dark the shadow of a full roll is, on the pages beneath and on the sheet's own low paper. */
-const SHADOW_STRENGTH = 0.3;
+const LIGHT = normalized([-0.32, -0.42, 0.85]);
 /** The eye's height above the spread, in spreads. Lower exaggerates what rises. */
-const EYE_HEIGHT = 5;
+const EYE_HEIGHT = 2.4;
 /** The sampler of each face of the sheet, and the flag saying a page is printed on it. */
 const FACES = [
   ['uFront', 'uHasFront'],
   ['uBack', 'uHasBack'],
 ] as const;
 
-const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight'].concat([
-  'uShadow',
-  'uShadowStrength',
-  'uLift',
-]);
+const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight'];
 
 /** How high the eye is over a spread of this size. */
 export function eyeHeight(width: number, height: number): number {
@@ -160,11 +150,10 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   gl.viewport(0, 0, width, height);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  const shadow = gpu.shadow.draw({
+  gpu.shadow.draw({
     width,
     height,
-    lift: frame.lift,
-    strength: SHADOW_STRENGTH * frame.relief,
+    reach: frame.width - frame.spine,
     eye,
     light: LIGHT,
     positions: gpu.positions,
@@ -172,7 +161,7 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     indexCount: mesh.indices.length,
   });
   gl.enable(gl.DEPTH_TEST);
-  drawSheet(gpu, frame, mesh, eye, shadow);
+  drawSheet(gpu, frame, mesh, eye);
 }
 
 /** Sends the sheet's surface, and the way each point of it faces, to the GPU. */
@@ -194,13 +183,7 @@ function uploadSheet(gpu: Gpu, frame: PaperFrame): SheetGrid {
   return gpu.mesh;
 }
 
-function drawSheet(
-  gpu: Gpu,
-  frame: PaperFrame,
-  mesh: SheetGrid,
-  eye: number,
-  shadow: WebGLTexture,
-): void {
+function drawSheet(gpu: Gpu, frame: PaperFrame, mesh: SheetGrid, eye: number): void {
   const { gl, sheet, textures } = gpu;
   const reach = frame.width - frame.spine;
   gl.useProgram(sheet.program);
@@ -211,11 +194,6 @@ function drawSheet(
   gl.uniform1f(sheet.uniforms['uSheet'] ?? null, reach / frame.width);
   gl.uniform3f(sheet.uniforms['uPaper'] ?? null, ...frame.paper);
   gl.uniform3f(sheet.uniforms['uLight'] ?? null, ...LIGHT);
-  gl.uniform1f(sheet.uniforms['uLift'] ?? null, Math.max(frame.lift, 1e-3));
-  gl.uniform1f(sheet.uniforms['uShadowStrength'] ?? null, SHADOW_STRENGTH * frame.relief);
-  gl.activeTexture(gl.TEXTURE2);
-  gl.bindTexture(gl.TEXTURE_2D, shadow);
-  gl.uniform1i(sheet.uniforms['uShadow'] ?? null, 2);
   [frame.front, frame.back].forEach((page, unit) => {
     const [sampler, printed] = FACES[unit] ?? FACES[0];
     gl.activeTexture(unit === 0 ? gl.TEXTURE0 : gl.TEXTURE1);

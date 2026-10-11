@@ -11,10 +11,7 @@ const touch = (fromX: number, toX: number, y = 300) => ({
   position: { x: toX, y },
 });
 
-/** Physics for paper that has, or has not yet, come to where its turn wants it. */
-function physics(paper: { arrived: boolean } = { arrived: true }) {
-  return createPaperPhysics({ arrived: () => paper.arrived });
-}
+const physics = createPaperPhysics;
 
 describe('how far a finger carries a paper turn', () => {
   const paper = physics();
@@ -39,8 +36,8 @@ describe('how far a finger carries a paper turn', () => {
   it('takes a sheet no nearer the spine than a hand could turn it by', () => {
     expect(grabOf(touch(20, 10), { ...one, height: 600 }).u).toBe(0.35);
     expect(grabOf(touch(380, 370, 150), { ...one, height: 600 })).toEqual({ u: 0.95, v: 0.25 });
-    // A turn no finger started takes the lower outer corner.
-    expect(grabOf(null, { ...one, height: 600 })).toEqual({ u: 1, v: 1 });
+    // A turn no finger started takes the outer edge, toward the lower corner.
+    expect(grabOf(null, { ...one, height: 600 })).toEqual({ u: 1, v: 0.86 });
   });
 });
 
@@ -59,18 +56,19 @@ describe('whether letting a paper turn go turns the page', () => {
 });
 
 describe('how a paper turn comes to rest', () => {
-  it('an unhurried hand starts and stops gently', () => {
-    const settle = physics().settle?.(0, 0, -400);
+  it('a leaf no finger turned is off at once, lands softly, and takes well under half a second', () => {
+    const settle = physics().settle?.(0, 0, -800);
     if (!settle) throw new Error('the paper turn carries a released turn itself');
-    expect(settle(0).velocity).toBeCloseTo(0, 9);
     expect(settle(0)).toMatchObject({ x: 0, done: false });
-    const early = settle(0.05);
-    const middle = settle(0.33);
-    expect(early.x).toBeGreaterThan(-8);
-    expect(middle.x).toBeCloseTo(-200, 6);
-    expect(Math.abs(middle.velocity)).toBeGreaterThan(Math.abs(early.velocity) * 3);
-    expect(settle(0.66).velocity).toBeCloseTo(0, 9);
-    expect(settle(0.66)).toMatchObject({ x: -400, done: true });
+    // Nearly a quarter of the way in the first fifth of the time, two thirds by half time.
+    expect(settle(0.076).x / -800).toBeGreaterThan(0.22);
+    expect(settle(0.19).x / -800).toBeCloseTo(0.658, 2);
+    expect(Math.abs(settle(0.36).velocity)).toBeLessThan(Math.abs(settle(0.1).velocity) / 4);
+    expect(settle(0.37).done).toBe(false);
+    // A shorter way takes less time, though never none.
+    const nudge = physics().settle?.(-40, 0, 0);
+    expect(nudge?.(0.15).x).toBeLessThan(0);
+    expect(nudge?.(0.25).x).toBe(0);
   });
 
   it('a turn let go on the move keeps its momentum', () => {
@@ -78,18 +76,11 @@ describe('how a paper turn comes to rest', () => {
     expect(settle?.(0.016).velocity).toBeLessThan(-700);
   });
 
-  it('is over when the paper has come to lie flat, and waits no longer than it must', () => {
-    const paper = { arrived: false };
-    const settle = physics(paper).settle?.(-390, 0, -400);
+  it('draws the leaf exactly where it lands before the turn is over', () => {
+    const settle = physics().settle?.(0, 0, -800);
     if (!settle) throw new Error('the paper turn carries a released turn itself');
-    // The hand has arrived, exactly; the paper it carries has not.
-    expect(settle(0.4)).toEqual({ x: -400, velocity: 0, done: false });
-    paper.arrived = true;
-    expect(settle(0.45).done).toBe(true);
-
-    const stuck = physics({ arrived: false }).settle?.(-390, 0, -400);
-    expect(stuck?.(0.4).done).toBe(false);
-    expect(stuck?.(0.9).done).toBe(true);
+    expect(settle(0.38)).toEqual({ x: -800, velocity: 0, done: false });
+    expect(settle(0.397)).toEqual({ x: -800, velocity: 0, done: true });
   });
 });
 
@@ -143,7 +134,8 @@ describe('a paper turn where there is no GPU', () => {
     effect.paint(fake, frame(-100, 'next'));
     expect(drawn).toEqual(['curr@0', 'next@300']);
     const settle = effect.physics?.settle?.(-100, 0, -400);
-    expect(settle?.(2).done).toBe(true);
+    expect(settle?.(2)).toEqual({ x: -400, velocity: 0, done: false });
+    expect(settle?.(2.02).done).toBe(true);
     error.mockRestore();
   });
 

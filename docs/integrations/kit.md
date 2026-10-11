@@ -127,18 +127,18 @@ pixelRatio }`, or `null` while it is not painted yet) and
 Change any of it live with `controller.configureTransition({ effect: 'cover' })`.
 
 `createPaperTurn()` is a painted effect with physics of its own: the page turns as
-a sheet of paper. The sheet is held at a point — under the finger, or by its lower
-outer corner when a key or a call turns it — and rolls back over itself between
-where that point was and where it is: flat on either side of a round fold, the
-shape paper takes because it bends without stretching. The held point follows the
-turn without overshooting, and the turn is over when the paper lies flat again. It
-is drawn with WebGL in three dimensions: both faces, lit along the roll, with the
-shadow of the lifted paper on what lies beneath. With two pages a spread the sheet
-turns over the spine like a leaf of a book and carries the next page on its back;
-with one page a spread it leaves by the left edge, its back bare paper, and a turn
-back brings the last sheet in from there to meet the finger. Paper lying flat is
-exactly the page's own colours. Where WebGL is not to be had the effect paints the
-built-in `cover`. It holds one sheet, so make one per controller:
+a leaf of a book. The leaf stays bound at the spine, bends round a cone as it lifts
+— arched in the air, the corner it is taken by leading — swings over the spine, and
+comes down on the far side edge first, the arch settling after. Paper bends without
+stretching, and the leaf is never folded. Under a finger the point taken hold of
+stays under it; turned by a key or a call the leaf is off at once and lands softly
+in about 0.4 s on a wide spread, less on a narrow one. It is drawn with WebGL in
+three dimensions, seen from above the spread: both faces, softly lit, with its
+shadow on the pages beneath. With two pages a spread the leaf carries the next page
+on its back; with one page a spread it swings up and out of sight past the left
+edge, and a turn back brings it in from there. A leaf lying flat is exactly the
+page's own colours. Where WebGL is not to be had the effect paints the built-in
+`cover`. It holds one leaf, so make one per controller:
 
 ```ts
 import { createPaperTurn } from '@ritojs/kit';

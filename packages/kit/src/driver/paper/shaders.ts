@@ -17,8 +17,11 @@ vec4 project(vec3 at, float depth) {
 
 /**
  * The light on the paper is worked out at each point of the grid, for the
- * face of it the reader sees, and spread between them: paper folded hard,
- * facing up on both sides of the crease, is then lit alike across it.
+ * face of it the reader sees, and spread between them. White paper in a
+ * lit room is bright on every side: a face turned from the light dims by a
+ * few parts in a hundred, no more, and the paper near the spine a little
+ * further where a steep leaf closes the light off. Paper lying flat is lit
+ * to exactly 1.
  */
 export const SHEET_VERTEX = `
 attribute vec3 aPosition;
@@ -27,45 +30,36 @@ attribute vec2 aUv;
 uniform float uDepth;
 uniform vec3 uLight;
 varying float vLit;
-varying float vSheen;
-varying vec3 vAt;
 varying vec2 vUv;
 ${PROJECTION}
 void main() {
-  vec3 facing = aNormal.z >= 0.0 ? aNormal : -aNormal;
-  vLit = dot(facing, uLight) / uLight.z;
-  vec3 halfway = normalize(uLight + vec3(0.0, 0.0, 1.0));
-  vSheen = pow(max(dot(facing, halfway), 0.0), 40.0) - pow(halfway.z, 40.0);
-  vAt = aPosition;
+  vec3 toEye = vec3(0.5 * uSize - aPosition.xy, uEye - aPosition.z);
+  vec3 facing = dot(aNormal, toEye) >= 0.0 ? aNormal : -aNormal;
+  float toward = clamp(dot(facing, uLight) / uLight.z, -1.0, 1.0);
+  float steep = 1.0 - abs(aNormal.z);
+  vLit = 0.5 + 0.5 * toward - 0.45 * steep * exp(-aUv.x / 0.2);
   vUv = aUv;
   gl_Position = project(aPosition, -aPosition.z / uDepth);
 }
 `;
 
 /**
- * Both faces of the sheet. The front shows the spread it is lifted from,
+ * Both faces of the leaf. The front shows the spread it is lifted from,
  * the back the spread it lands on, mirrored; a back with nothing printed
  * on it is bare paper, the colour of the page's own margin, with the front
  * showing faintly through. Paper lying flat is exactly the page's own
- * colours; where it rolls it dims toward the side turned from the light,
- * and what lies low takes the shadow of the paper rolled over it.
+ * colours.
  */
 export const SHEET_FRAGMENT = `
 precision highp float;
 uniform sampler2D uFront;
 uniform sampler2D uBack;
-uniform sampler2D uShadow;
 uniform float uHasFront;
 uniform float uHasBack;
 uniform float uSpine;
 uniform float uSheet;
-uniform vec2 uSize;
-uniform float uLift;
-uniform float uShadowStrength;
 uniform vec3 uPaper;
 varying float vLit;
-varying float vSheen;
-varying vec3 vAt;
 varying vec2 vUv;
 
 vec3 printed(sampler2D page, vec2 at) {
@@ -82,29 +76,26 @@ void main() {
     vec3 bare = uHasFront > 0.5 ? printed(uFront, vec2(uSpine + 0.985 * uSheet, 0.012)) : uPaper;
     colour = uHasBack > 0.5 && onBack.x >= 0.0
       ? printed(uBack, onBack)
-      : mix(bare, front, 0.05) * 0.965;
+      : mix(bare, front, 0.05) * 0.97;
   }
-  float shade = clamp(0.8 + 0.2 * vLit, 0.8, 1.03);
-  float under = texture2D(uShadow, vec2(vAt.x / uSize.x, 1.0 - vAt.y / uSize.y)).a;
-  float low = 1.0 - smoothstep(0.0, uLift, vAt.z);
-  colour *= shade * (1.0 - uShadowStrength * under * low);
-  gl_FragColor = vec4(colour + max(vSheen, 0.0) * 0.1, 1.0);
+  gl_FragColor = vec4(colour * (0.86 + 0.14 * vLit), 1.0);
 }
 `;
 
 /**
- * The sheet as the light throws it onto what lies beneath: each point
- * lands where its shadow falls. Paper lying on the page casts none.
+ * The leaf as the light throws it onto the pages: each point lands where
+ * its shadow falls, darkest where the paper is just off the page and
+ * fading the higher it is. Paper lying on the page casts none.
  */
 export const CAST_VERTEX = `
 attribute vec3 aPosition;
 uniform vec2 uCast;
-uniform float uLift;
+uniform float uFade;
 varying float vDark;
 ${PROJECTION}
 void main() {
   float height = max(aPosition.z, 0.0);
-  vDark = smoothstep(0.0, 0.5 * uLift, height);
+  vDark = exp(-height / uFade) * smoothstep(0.0, 0.08 * uFade, height);
   gl_Position = project(vec3(aPosition.xy + uCast * height, 0.0), 0.0);
 }
 `;
