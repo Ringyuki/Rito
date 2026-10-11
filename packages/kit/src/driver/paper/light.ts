@@ -8,7 +8,7 @@
  */
 
 /** The direction the lamp's light comes from, a unit vector: x right, y down, z toward the reader. */
-export const KEY_DIRECTION = normalized([-0.25, -0.35, 0.9]);
+export const KEY_DIRECTION = normalized([-0.28, -0.12, 0.95]);
 
 /** The share of the light on a page lying flat that comes from the lamp; the rest comes from all around. */
 export const KEY_SHARE = 0.3;

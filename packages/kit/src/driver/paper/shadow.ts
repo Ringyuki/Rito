@@ -14,7 +14,7 @@ import {
   OCCLUSION_FRAGMENT,
   QUAD_VERTEX,
   SHADOW_FRAGMENT,
-} from './shaders';
+} from './shadow-shaders';
 
 /** What a shadow is cast from: the leaf's surface, as the GPU holds it, in a frame. */
 export interface ShadowCaster {
@@ -24,8 +24,11 @@ export interface ShadowCaster {
   readonly eye: number;
   /** The highest any of the leaf stands above the pages. */
   readonly tallest: number;
-  /** Eight points down the leaf's outer edge, x, y and z of each. */
-  readonly edge: Float32Array;
+  /**
+   * The leaf's shape as its shadow needs it: eight rows down the leaf, four
+   * points out from the spine in each, x, y and z of each.
+   */
+  readonly profile: Float32Array;
   readonly positions: WebGLBuffer;
   readonly indices: WebGLBuffer;
   readonly indexCount: number;
@@ -36,6 +39,8 @@ export interface ShadowPass {
   draw(caster: ShadowCaster): void;
 }
 
+/** How far from the spine the page beside a standing leaf shares its shade, in leaf widths. */
+const GUTTER = 0.07;
 /** The shadow is worked out this many times smaller than the frame. */
 const SHADOW_SCALE = 2;
 
@@ -59,7 +64,9 @@ export function createShadowPass(gl: Gl): ShadowPass {
   const occlusion = ['uBlockers', 'uSize', 'uTallest', 'uKeySize', 'uKeyShare', 'uThrough'].concat([
     'uAlbedo',
     'uSpine',
-    'uEdge',
+    'uProfile',
+    'uGutter',
+    'uLight',
   ]);
   const programs: ShadowPrograms = {
     cast: createProgram(
@@ -192,7 +199,9 @@ function occlude(
   gl.uniform1f(uniforms['uThrough'] ?? null, PAPER_THROUGH);
   gl.uniform1f(uniforms['uAlbedo'] ?? null, PAPER_ALBEDO);
   gl.uniform1f(uniforms['uSpine'] ?? null, caster.spine);
-  gl.uniform3fv(uniforms['uEdge'] ?? null, caster.edge);
+  gl.uniform3fv(uniforms['uProfile'] ?? null, caster.profile);
+  gl.uniform1f(uniforms['uGutter'] ?? null, GUTTER * (caster.width - caster.spine));
+  gl.uniform3f(uniforms['uLight'] ?? null, ...KEY_DIRECTION);
   attribute(gl, programs.occlusion, 'aCorner', programs.quad, 2);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }

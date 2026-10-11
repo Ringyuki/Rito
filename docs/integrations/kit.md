@@ -137,7 +137,9 @@ three dimensions, seen from above the spread. One light serves the leaf's shadin
 and its shadow, so they agree: a soft lamp over the reader's left shoulder and the
 light of the room. The shadow on the pages is sharp where the leaf meets them and
 soft where it stands high above them, and where the leaf hides the sky from a page
-the page dims, less than it would if white paper did not hand light back. With two
+the page dims, less than it would if white paper did not hand light back. By the
+spine the leaf's shade runs on into the page beside it and fades there, as it does
+where pages are bound together, instead of stopping at the spine. With two
 pages a spread the leaf carries the next page
 on its back; with one page a spread it swings up and out of sight past the left
 edge, and a turn back brings it in from there. A leaf lying flat is exactly the

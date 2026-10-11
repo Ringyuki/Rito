@@ -215,18 +215,23 @@ function drawSheet(gpu: Gpu, frame: PaperFrame, mesh: SheetGrid, eye: number): v
   gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
 }
 
-/** How high the leaf stands at most, and eight points down its outer edge: what its shadow is sized by. */
-function outline(frame: PaperFrame): { tallest: number; edge: Float32Array } {
+/** How far out from the spine the leaf's shape is sampled for its shadow, as shares of its width. */
+const PROFILE = [0.03, 0.25, 0.6, 1];
+
+/** How high the leaf stands at most, and its shape in eight rows of four points: what its shadow is worked out from. */
+function outline(frame: PaperFrame): { tallest: number; profile: Float32Array } {
   const { positions, columns, rows } = frame;
   let tallest = 1;
   for (let index = 2; index < positions.length; index += 3) {
     tallest = Math.max(tallest, positions[index] ?? 0);
   }
-  const edge = new Float32Array(24);
-  for (let point = 0; point < 8; point += 1) {
-    const row = Math.round((point / 7) * (rows - 1));
-    const at = (row * columns + columns - 1) * 3;
-    edge.set(positions.subarray(at, at + 3), point * 3);
+  const profile = new Float32Array(8 * PROFILE.length * 3);
+  for (let line = 0; line < 8; line += 1) {
+    const row = Math.round((line / 7) * (rows - 1));
+    PROFILE.forEach((out, point) => {
+      const at = (row * columns + Math.round(out * (columns - 1))) * 3;
+      profile.set(positions.subarray(at, at + 3), (line * PROFILE.length + point) * 3);
+    });
   }
-  return { tallest, edge };
+  return { tallest, profile };
 }
