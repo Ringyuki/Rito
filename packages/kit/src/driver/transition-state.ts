@@ -22,6 +22,11 @@ export function activeEffect(state: TransitionDriverState): TransitionEffect {
   return resolveTransitionEffect(state.opts.effect);
 }
 
+/** Tells the configured effect it has been set, for whatever it does ahead of its first turn. */
+export function prepareEffect(state: TransitionDriverState): void {
+  resolveTransitionEffect(state.opts.effect).prepare?.();
+}
+
 /** How turns move now: the options' physics, else the ones the effect brings. */
 export function activePhysics(state: TransitionDriverState): TransitionPhysics | undefined {
   return state.opts.physics ?? activeEffect(state).physics;

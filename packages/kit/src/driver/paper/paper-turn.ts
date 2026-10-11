@@ -11,7 +11,7 @@ import { colourOf, paintPlain } from './pages';
 import { createPaperPhysics, grabOf } from './paper-physics';
 import { createPaperRenderer, type PaperRenderer, type PaperSheet } from './renderer';
 import { createSheets } from './sheets';
-import { aloneBy, wantedOf, type LeafTurn } from './swing';
+import { aloneBy, leafTurn, wantedOf, type LeafTurn } from './swing';
 
 export interface PaperTurnOptions {
   /**
@@ -42,6 +42,10 @@ interface PaperTurn {
   paintedAt: number;
   /** The GPU context the leaves' pages were taken in. */
   epoch: number;
+  /** The leaf whose turn began before the GPU was ready, and is drawn plain to its end; else null. */
+  plain: number | null;
+  /** That a turn was drawn plain for that reason has been said. */
+  said: boolean;
   /** The sheets of a frame: the leaves, and the pages lying flat under them. */
   readonly sheets: (book: readonly Leaf[], shape: LeafShape) => PaperSheet[];
 }
@@ -64,14 +68,24 @@ interface PaperTurn {
  * built-in `cover`. Make one per reader.
  */
 export function createPaperTurn(options: PaperTurnOptions = {}): PaintedTransitionEffect {
+  return paperTurnWith(createPaperRenderer(), options);
+}
+
+/** The paper turn drawn by `renderer`: what `createPaperTurn` makes, with a renderer of its own. */
+export function paperTurnWith(
+  renderer: PaperRenderer,
+  options: PaperTurnOptions = {},
+): PaintedTransitionEffect {
   const state: PaperTurn = {
     now: options.now ?? ((): number => performance.now()),
     paper: colourOf(options.paper),
-    renderer: createPaperRenderer(),
+    renderer,
     book: [],
     led: null,
     paintedAt: Number.NEGATIVE_INFINITY,
     epoch: 0,
+    plain: null,
+    said: false,
     sheets: createSheets(),
   };
   // A leaf left to come down counts for as long as frames are drawn to bring it down.
@@ -81,6 +95,10 @@ export function createPaperTurn(options: PaperTurnOptions = {}): PaintedTransiti
   return {
     paint(scene, frame): void {
       paint(state, scene, frame);
+    },
+    // The shaders are compiled while the book is opened, not in the first frame of the first turn.
+    prepare(): void {
+      state.renderer.prepare();
     },
     physics: createPaperPhysics(aloft),
   };
@@ -96,9 +114,16 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
   }
   const time = state.now();
   const shape = { spine: scene.spine, width: scene.width - scene.spine, height: scene.height };
-  if (stale(state, shape, time)) forget(state);
+  if (stale(state, shape, time)) {
+    forget(state);
+    state.plain = null;
+  }
   const seconds = Math.min(0.05, Math.max(0, (time - state.paintedAt) / 1000));
   state.paintedAt = time;
+  if (drawnPlain(state, read.spread)) {
+    paintPlain(scene, frame);
+    return;
+  }
   state.epoch = state.renderer.epoch;
 
   const known = state.book.length;
@@ -125,28 +150,21 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
 }
 
 /**
- * The leaf a frame turns: forward it is the one lying right of the spine,
- * printed with this spread and, on its back, the next; turning back it is
- * the one before, coming over from the left. Null when there is no such
- * leaf to show.
+ * Whether this frame is drawn as the built-in cover: there is no GPU, or the
+ * turn began while the GPU was still compiling. Such a turn stays plain to
+ * its end, for a leaf appearing halfway would be a jump, and nothing waits:
+ * a turn is never held up for its looks.
  */
-function leafTurn(scene: TransitionScene, frame: TransitionFrame): LeafTurn | null {
-  const forward = frame.incoming ? frame.incoming === 'next' : frame.dx < 0;
-  if (!forward && !frame.incoming && scene.spine === 0) return null;
-  const toward = forward ? -frame.dx : frame.dx;
-  const along = Math.min(1, Math.max(0, toward / (scene.width || 1)));
-  const frontSlot = forward ? 'curr' : frame.incoming;
-  const afterSlot = forward ? frame.incoming : 'curr';
-  const front = frontSlot ? scene.page(frontSlot) : null;
-  const after = afterSlot ? scene.page(afterSlot) : null;
-  return {
-    // A bare leaf before the first spread comes before it.
-    spread: front ? front.spread : (after?.spread ?? 0) - 1,
-    forward,
-    turned: forward ? along : 1 - along,
-    front,
-    after,
-  };
+function drawnPlain(state: PaperTurn, leaf: number): boolean {
+  if (state.plain === leaf) return true;
+  const standing = state.renderer.standing;
+  state.plain = standing === 'ready' ? null : leaf;
+  if (standing === 'ready') return false;
+  if (standing === 'waiting' && !state.said) {
+    state.said = true;
+    console.warn('[rito] the paper turn was not ready for this turn, which is drawn plain');
+  }
+  return true;
 }
 
 /** Whether what is remembered of the leaves is of another moment: long ago, another size, another GPU. */
@@ -157,7 +175,8 @@ function stale(state: PaperTurn, shape: LeafShape, time: number): boolean {
     leaf.shape.height === shape.height;
   return (
     time - state.paintedAt > SAME_TURN_WITHIN ||
-    state.epoch !== state.renderer.epoch ||
+    // Leaves hold pages of the GPU context they were taken in; with none held it is all one.
+    (state.book.length > 0 && state.epoch !== state.renderer.epoch) ||
     !state.book.every(sized)
   );
 }

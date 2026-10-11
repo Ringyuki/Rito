@@ -22,6 +22,31 @@ export interface LeafTurn {
   readonly after: TransitionPage | null;
 }
 
+/**
+ * The leaf a frame turns: forward it is the one lying right of the spine,
+ * printed with this spread and, on its back, the next; turning back it is
+ * the one before, coming over from the left. Null when there is no such
+ * leaf to show.
+ */
+export function leafTurn(scene: TransitionScene, frame: TransitionFrame): LeafTurn | null {
+  const forward = frame.incoming ? frame.incoming === 'next' : frame.dx < 0;
+  if (!forward && !frame.incoming && scene.spine === 0) return null;
+  const toward = forward ? -frame.dx : frame.dx;
+  const along = Math.min(1, Math.max(0, toward / (scene.width || 1)));
+  const frontSlot = forward ? 'curr' : frame.incoming;
+  const afterSlot = forward ? frame.incoming : 'curr';
+  const front = frontSlot ? scene.page(frontSlot) : null;
+  const after = afterSlot ? scene.page(afterSlot) : null;
+  return {
+    // A bare leaf before the first spread comes before it.
+    spread: front ? front.spread : (after?.spread ?? 0) - 1,
+    forward,
+    turned: forward ? along : 1 - along,
+    front,
+    after,
+  };
+}
+
 /** How a leaf nothing leads comes down, in turns of the leaf: as a turn let go does, in a frame this wide. */
 export function aloneBy(
   width: number,

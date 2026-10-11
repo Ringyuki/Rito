@@ -20,11 +20,16 @@ export interface RenderTarget {
   readonly height: number;
 }
 
-/** A canvas with a WebGL context, or null where there is none to be had. */
-export function createGlCanvas(): { canvas: PaperCanvas; gl: Gl } | null {
+/**
+ * A canvas with a WebGL context, or null where there is none to be had.
+ * `multisampled` asks for every pixel to be drawn at several points, which
+ * smooths the edge of whatever is drawn at the cost of clearing and
+ * resolving all of them each frame.
+ */
+export function createGlCanvas(multisampled: boolean): { canvas: PaperCanvas; gl: Gl } | null {
   const canvas = blankCanvas(1, 1);
   if (!canvas) return null;
-  const options = { alpha: true, antialias: true, depth: true, premultipliedAlpha: true };
+  const options = { alpha: true, antialias: multisampled, depth: true, premultipliedAlpha: true };
   for (const kind of ['webgl2', 'webgl'] as const) {
     const gl = contextOf(canvas, kind, options);
     if (gl) return { canvas, gl };
@@ -63,38 +68,67 @@ export function isSecondGeneration(gl: Gl): gl is WebGL2RenderingContext {
   return typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext;
 }
 
-export function createProgram(
+/** A program handed to the GPU to compile and link, its outcome not yet asked for. */
+export interface StartedProgram {
+  readonly program: WebGLProgram;
+  readonly shaders: readonly WebGLShader[];
+  readonly attributes: readonly string[];
+  readonly uniforms: readonly string[];
+}
+
+/**
+ * Hands a program to the GPU without waiting for it. Asking whether a
+ * shader compiled makes the page wait until it has; nothing is asked here.
+ */
+export function startProgram(
   gl: Gl,
   vertex: string,
   fragment: string,
   attributes: readonly string[],
   uniforms: readonly string[],
-): Program {
+): StartedProgram {
   const program = gl.createProgram();
-  for (const [kind, source] of [
-    [gl.VERTEX_SHADER, vertex],
-    [gl.FRAGMENT_SHADER, fragment],
-  ] as const) {
+  const shaders = ([gl.VERTEX_SHADER, gl.FRAGMENT_SHADER] as const).map((kind) => {
     const shader = gl.createShader(kind);
     if (!shader) throw new Error('paper turn: the GPU gave no shader');
-    gl.shaderSource(shader, source);
+    gl.shaderSource(shader, kind === gl.VERTEX_SHADER ? vertex : fragment);
     gl.compileShader(shader);
-    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) !== true) {
-      throw new Error(`paper turn: ${gl.getShaderInfoLog(shader) ?? 'a shader did not compile'}`);
-    }
     gl.attachShader(program, shader);
-  }
+    return shader;
+  });
   gl.linkProgram(program);
+  return { program, shaders, attributes, uniforms };
+}
+
+/**
+ * Whether the GPU has finished with a program, where it can say so without
+ * being waited for; null where it cannot.
+ */
+export function programDone(gl: Gl, started: StartedProgram): boolean | null {
+  const parallel = gl.getExtension('KHR_parallel_shader_compile') as {
+    readonly COMPLETION_STATUS_KHR: number;
+  } | null;
+  if (!parallel) return null;
+  return gl.getProgramParameter(started.program, parallel.COMPLETION_STATUS_KHR) === true;
+}
+
+/** The program ready to draw with. Waits for the GPU if it has not finished, and throws what it reports. */
+export function finishProgram(gl: Gl, started: StartedProgram): Program {
+  const { program } = started;
   if (gl.getProgramParameter(program, gl.LINK_STATUS) !== true) {
-    throw new Error(`paper turn: ${gl.getProgramInfoLog(program) ?? 'a program did not link'}`);
+    const said = started.shaders
+      .map((shader) => gl.getShaderInfoLog(shader))
+      .concat(gl.getProgramInfoLog(program))
+      .filter(Boolean);
+    throw new Error(`paper turn: ${said.join(' ') || 'a program did not link'}`);
   }
   return {
     program,
     attributes: Object.fromEntries(
-      attributes.map((name) => [name, gl.getAttribLocation(program, name)]),
+      started.attributes.map((name) => [name, gl.getAttribLocation(program, name)]),
     ),
     uniforms: Object.fromEntries(
-      uniforms.map((name) => [name, gl.getUniformLocation(program, name)]),
+      started.uniforms.map((name) => [name, gl.getUniformLocation(program, name)]),
     ),
   };
 }

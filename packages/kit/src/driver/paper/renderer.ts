@@ -1,6 +1,14 @@
 import type { TransitionPage } from '../effects';
 import { attribute, type PageSnapshot } from './gl';
-import { createGpu, FACES, type Gpu, type SheetBuffers } from './gpu';
+import {
+  FACES,
+  finishGpu,
+  gpuDone,
+  startGpu,
+  type Gpu,
+  type SheetBuffers,
+  type StartedGpu,
+} from './gpu';
 import { KEY_DIRECTION, KEY_SHARE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
 import { sheetGrid, type SheetGrid } from './mesh';
 
@@ -36,6 +44,13 @@ export interface PaperFrame {
 export interface PaperRenderer {
   /** Counts the GPU contexts made: a snapshot is good for the one it was taken in. */
   readonly epoch: number;
+  /**
+   * Whether frames can be drawn: `waiting` while the GPU is still compiling
+   * what it was handed, `none` where there is no GPU to be had.
+   */
+  readonly standing: 'ready' | 'waiting' | 'none';
+  /** Hands the GPU its programs ahead of the first frame, without waiting for them. */
+  prepare(): void;
   /** The page as last painted, held until released. Null where the GPU is not to be had. */
   snapshot(page: TransitionPage): PageSnapshot | null;
   release(snapshot: PageSnapshot): void;
@@ -54,35 +69,48 @@ export function eyeHeight(width: number, height: number): number {
   return EYE_HEIGHT * Math.max(width, height);
 }
 
-export function createPaperRenderer(): PaperRenderer {
+/** `make` is how the GPU is set to work; a test brings its own. */
+export function createPaperRenderer(make: () => StartedGpu | null = startGpu): PaperRenderer {
   let gpu: Gpu | null | undefined;
+  let started: StartedGpu | null = null;
   let losses = 0;
   let epoch = 0;
-  const ready = (): Gpu | null => {
+  const prepare = (): void => {
+    if (gpu !== undefined || started) return;
+    started = make();
+    if (!started) gpu = null;
+  };
+  const standing = (): 'ready' | 'waiting' | 'none' => {
     if (gpu?.gl.isContextLost()) {
       // A lost context is asked for again twice, then given up on.
       losses += 1;
       gpu = losses > 2 ? null : undefined;
     }
-    if (gpu === undefined) {
-      gpu = createGpu();
+    prepare();
+    if (started) {
+      if (!gpuDone(started)) return 'waiting';
+      gpu = finishGpu(started);
+      started = null;
       epoch += 1;
     }
-    return gpu;
+    return gpu ? 'ready' : 'none';
   };
   return {
     get epoch(): number {
       return epoch;
     },
-    snapshot: (page) => ready()?.textures.take(page) ?? null,
+    get standing(): 'ready' | 'waiting' | 'none' {
+      return standing();
+    },
+    prepare,
+    snapshot: (page) => gpu?.textures.take(page) ?? null,
     release(snapshot): void {
       if (gpu && !gpu.gl.isContextLost()) gpu.textures.release(snapshot);
     },
     draw(frame): CanvasImageSource | null {
-      const live = ready();
-      if (!live) return null;
-      drawFrame(live, frame);
-      return live.canvas;
+      if (!gpu || gpu.gl.isContextLost()) return null;
+      drawFrame(gpu, frame);
+      return gpu.canvas;
     },
   };
 }
@@ -118,6 +146,30 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     if (!standing[index]) drawn(index);
   });
 
+  castShadows(gpu, frame, mesh, eye, standing);
+
+  gl.enable(gl.DEPTH_TEST);
+  // An edge softened where it is drawn lets what lies beneath show through it.
+  if (gpu.softened) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+  frame.sheets.forEach((_, index) => {
+    if (standing[index]) drawn(index);
+  });
+  gl.disable(gl.BLEND);
+}
+
+/** Lays over the pages the darkness every sheet standing off them leaves there. */
+function castShadows(
+  gpu: Gpu,
+  frame: PaperFrame,
+  mesh: SheetGrid,
+  eye: number,
+  standing: readonly boolean[],
+): void {
+  const width = Math.max(1, Math.round(frame.width));
+  const height = Math.max(1, Math.round(frame.height));
   gpu.shadow.begin(width, height);
   frame.sheets.forEach((sheet, index) => {
     const buffers = gpu.sheets[index];
@@ -134,11 +186,6 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     });
   });
   gpu.shadow.lay(width, height);
-
-  gl.enable(gl.DEPTH_TEST);
-  frame.sheets.forEach((_, index) => {
-    if (standing[index]) drawn(index);
-  });
 }
 
 /**

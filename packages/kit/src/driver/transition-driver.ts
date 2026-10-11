@@ -7,14 +7,9 @@ import {
   updateTrackingMode,
 } from './transition-actions';
 import { handOverMode } from './transition-hand-over';
-import { activeEffect, activePhysics, type TransitionDriverState } from './transition-state';
-import {
-  turningInstruction,
-  stepSettling,
-  stepBoundaryElastic,
-  stepFinishing,
-  forceSettleMode,
-} from './transition-steps';
+import { activeEffect, activePhysics, prepareEffect } from './transition-state';
+import type { TransitionDriverState } from './transition-state';
+import { emitSettled, forceSettle, stepTransition } from './transition-stepping';
 import type {
   DrawInstruction,
   SettledEvent,
@@ -123,6 +118,7 @@ export function createTransitionDriver(
     settledListeners: new Set<(event: SettledEvent) => void>(),
     restListeners: new Set<() => void>(),
   };
+  prepareEffect(state);
   const driver = createDriverAccessors(state) as TransitionDriver;
   Object.assign(
     driver,
@@ -240,6 +236,7 @@ function createConfigurationActions(
   return {
     configure(update): void {
       state.opts = { ...state.opts, ...update };
+      if (update.effect !== undefined) prepareEffect(state);
     },
     reset(): void {
       state.mode = { kind: 'idle' };
@@ -253,46 +250,4 @@ function createConfigurationActions(
       return () => state.restListeners.delete(cb);
     },
   };
-}
-
-function stepTransition(state: TransitionDriverState, dt: number): DrawInstruction {
-  switch (state.mode.kind) {
-    case 'idle':
-      return { kind: 'single', slot: 'curr' };
-    case 'tracking':
-      return turningInstruction(state.mode);
-    case 'settling':
-      return applyStepResult(
-        state,
-        stepSettling(state.mode, state.opts, dt, activeEffect(state).instant),
-      );
-    case 'boundary-elastic':
-      return applyStepResult(state, stepBoundaryElastic(state.mode, state.opts, dt));
-    case 'finishing': {
-      const result = stepFinishing(state.mode, state.opts, dt);
-      state.mode = result.nextMode;
-      if (result.nextMode.kind === 'idle') for (const cb of state.restListeners) cb();
-      return result.instruction;
-    }
-  }
-}
-
-function applyStepResult(
-  state: TransitionDriverState,
-  result: ReturnType<typeof stepSettling> | ReturnType<typeof stepBoundaryElastic>,
-): DrawInstruction {
-  state.mode = result.nextMode;
-  if (result.settled) emitSettled(state, result.settled);
-  return result.instruction;
-}
-
-function forceSettle(state: TransitionDriverState): number {
-  const result = forceSettleMode(state.mode);
-  state.mode = { kind: 'idle' };
-  if (result.settled) emitSettled(state, result.settled);
-  return result.residualDx;
-}
-
-function emitSettled(state: TransitionDriverState, event: SettledEvent): void {
-  for (const cb of state.settledListeners) cb(event);
 }

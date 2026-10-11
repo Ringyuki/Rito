@@ -107,6 +107,8 @@ export type TransitionEffect = LayeredTransitionEffect | PaintedTransitionEffect
 export interface LayeredTransitionEffect {
   /** The pages to draw, bottom to top. */
   layers(frame: TransitionFrame): readonly TransitionLayer[];
+  /** See `PaintedTransitionEffect.prepare`. */
+  prepare?(): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
   /** The physics the effect is made for; `physics` in the options outranks them. */
@@ -115,6 +117,12 @@ export interface LayeredTransitionEffect {
 
 export interface PaintedTransitionEffect {
   paint(scene: TransitionScene, frame: TransitionFrame): void;
+  /**
+   * Called when the effect is set, before any turn: the place for work that
+   * would otherwise hold up the first frame of the first turn. It may be
+   * called more than once.
+   */
+  prepare?(): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
   /** The physics the effect is made for; `physics` in the options outranks them. */

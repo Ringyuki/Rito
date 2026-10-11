@@ -1,10 +1,12 @@
 import {
   attribute,
-  createProgram,
   createRenderTarget,
+  finishProgram,
+  startProgram,
   type Gl,
   type Program,
   type RenderTarget,
+  type StartedProgram,
 } from './gl';
 import { KEY_DIRECTION, KEY_SHARE, KEY_SIZE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
 import {
@@ -74,7 +76,15 @@ interface ShadowFrame {
   cast: number;
 }
 
-export function createShadowPass(gl: Gl): ShadowPass {
+/** The shadow's programs, handed to the GPU and not yet asked for. */
+export interface StartedShadow {
+  readonly cast: StartedProgram;
+  readonly occlusion: StartedProgram;
+  readonly blur: StartedProgram;
+  readonly lay: StartedProgram;
+}
+
+export function startShadowPrograms(gl: Gl): StartedShadow {
   const occlusion = ['uBlockers', 'uSize', 'uTallest', 'uKeySize', 'uKeyShare', 'uThrough'].concat([
     'uAlbedo',
     'uSpine',
@@ -82,17 +92,21 @@ export function createShadowPass(gl: Gl): ShadowPass {
     'uGutter',
     'uLight',
   ]);
+  const cast = ['uSize', 'uEye', 'uCast', 'uTallest', 'uPixel'];
+  return {
+    cast: startProgram(gl, CAST_VERTEX, CAST_FRAGMENT, ['aPosition'], cast),
+    occlusion: startProgram(gl, QUAD_VERTEX, OCCLUSION_FRAGMENT, ['aCorner'], occlusion),
+    blur: startProgram(gl, QUAD_VERTEX, BLUR_FRAGMENT, ['aCorner'], ['uSource', 'uStep']),
+    lay: startProgram(gl, QUAD_VERTEX, SHADOW_FRAGMENT, ['aCorner'], ['uSource', 'uStrength']),
+  };
+}
+
+export function createShadowPass(gl: Gl, started: StartedShadow): ShadowPass {
   const programs: ShadowPrograms = {
-    cast: createProgram(
-      gl,
-      CAST_VERTEX,
-      CAST_FRAGMENT,
-      ['aPosition'],
-      ['uSize', 'uEye', 'uCast', 'uTallest', 'uPixel'],
-    ),
-    occlusion: createProgram(gl, QUAD_VERTEX, OCCLUSION_FRAGMENT, ['aCorner'], occlusion),
-    blur: createProgram(gl, QUAD_VERTEX, BLUR_FRAGMENT, ['aCorner'], ['uSource', 'uStep']),
-    lay: createProgram(gl, QUAD_VERTEX, SHADOW_FRAGMENT, ['aCorner'], ['uSource', 'uStrength']),
+    cast: finishProgram(gl, started.cast),
+    occlusion: finishProgram(gl, started.occlusion),
+    blur: finishProgram(gl, started.blur),
+    lay: finishProgram(gl, started.lay),
     quad: gl.createBuffer(),
   };
   gl.bindBuffer(gl.ARRAY_BUFFER, programs.quad);

@@ -107,6 +107,9 @@ pixelRatio }`, or `null` while it is not painted yet) and
   `'landing'` on the neighbour or `'returning'` to the spread it left), how fast
   `dx` is changing (`velocity`, per second) and the finger that moved it
   (`touch.origin` and `touch.position`, `null` for a turn no finger has held).
+  An effect of either kind may have a `prepare()`: it is called when the effect is
+  set, before any turn, for work that would otherwise hold up the first frame of
+  the first turn, and may be called more than once.
   `scene.spine` is where the pages are bound — the left edge when a spread is one
   page, the middle when it is two — and a page's `version` changes whenever its
   bitmap or overlay is painted again, so an effect can keep a texture of it. A
@@ -157,9 +160,13 @@ not stop its leaf: turned back, the same leaf slows, stops and comes back from
 where it is; turned on, it carries on down by itself while the next leaf lifts, so
 several are in the air at once (up to three coming down by themselves) and none
 passes through another; and a finger that takes a leaf in the air holds it by the
-point it touched. A leaf lying flat is exactly the page's own colours. Where WebGL
-is not to be had the effect paints the built-in `cover`. It keeps the leaves in the
-air, so make one per controller:
+point it touched. A leaf lying flat is exactly the page's own colours. The effect
+hands the GPU its shaders when it is set and does not wait for them: a turn begun
+before they are compiled is drawn as the built-in `cover` to its end, so no turn is
+held up, and so is every turn where WebGL is not to be had. At two device pixels or
+more to a CSS pixel the canvas is not multisampled and a leaf's edge is softened
+where it is drawn instead. It keeps the leaves in the air, so make one per
+controller:
 
 ```ts
 import { createPaperTurn } from '@ritojs/kit';
