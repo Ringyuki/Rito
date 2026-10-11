@@ -1,6 +1,20 @@
 /** The grid a leaf is drawn with: fine enough for its bend to look smooth. */
 export const COLUMNS = 64;
 export const ROWS = 48;
+/**
+ * The grid a page curled over is drawn with. Its roll is tight and may lie
+ * at any angle across the page, so the grid is fine both ways: a few CSS
+ * pixels a cell on a phone.
+ */
+const CURLED_COLUMNS = 96;
+const CURLED_ROWS = 160;
+
+/** The grid the sheets of a spread are drawn with: one page a spread is curled, two are leaves. */
+export function gridFor(spine: number): { readonly columns: number; readonly rows: number } {
+  return spine === 0
+    ? { columns: CURLED_COLUMNS, rows: CURLED_ROWS }
+    : { columns: COLUMNS, rows: ROWS };
+}
 
 /** How a grid of points over the sheet is told to the GPU. */
 export interface SheetGrid {

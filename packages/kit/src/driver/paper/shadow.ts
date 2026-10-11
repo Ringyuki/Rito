@@ -1,4 +1,5 @@
 import { attribute, type Gl, type Program, type RenderTarget } from './gl';
+import type { Curl } from './curl';
 import { KEY_DIRECTION, KEY_SHARE, KEY_SIZE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
 import { finishShadowPrograms, type ShadowPrograms, type StartedShadow } from './shadow-programs';
 import { sidesOf, targetsFor, type ShadowTargets, type SpineSides } from './shadow-targets';
@@ -15,6 +16,8 @@ export interface ShadowCaster {
    * of them from the eye; negative for a sheet that hides them wherever it is.
    */
   readonly offPage: number;
+  /** The curl of a page curled over; null for a leaf, whose shape is told by `profile`. */
+  readonly curl: Curl | null;
   /**
    * The leaf's shape as its shadow needs it: eight rows down the leaf, four
    * points out from the spine in each, x, y and z of each.
@@ -240,6 +243,14 @@ function occlude(
   gl.uniform1f(uniforms['uSpine'] ?? null, frame.spine);
   parted(gl, programs.occlusion, frame.sides, frame.sides.edge);
   gl.uniform3fv(uniforms['uProfile'] ?? null, caster.profile);
+  const { curl } = caster;
+  gl.uniform4f(
+    uniforms['uRoll'] ?? null,
+    curl?.dx ?? 0,
+    curl?.dy ?? 0,
+    curl?.at ?? 0,
+    curl?.radius ?? -1,
+  );
   gl.uniform1f(uniforms['uGutter'] ?? null, GUTTER * (caster.width - frame.spine));
   gl.uniform3f(uniforms['uLight'] ?? null, ...KEY_DIRECTION);
   attribute(gl, programs.occlusion, 'aCorner', programs.quad, 2);

@@ -1,4 +1,5 @@
 import type { TransitionPage } from '../effects';
+import type { Curl } from './curl';
 import { drawSheet, liesOnThePages, outline, uploadSheets, type SheetPart } from './draw-sheet';
 import type { PageSnapshot } from './gl';
 import { finishGpu, gpuDone, startGpu, type Gpu, type StartedGpu } from './gpu';
@@ -21,11 +22,13 @@ export interface PaperSheet {
   /** How far over it is, 0 lying right and 1 lying left: what says which sheet lies on which. */
   readonly shown: number;
   /**
-   * A page curled over on itself, part of it still lying on the pages: that
-   * part is drawn under the shadows, which fall on it as on any page, and
-   * its back shows its own front through.
+   * The curl of a page curled over on itself, part of it still lying on the
+   * pages: that part is drawn under the shadows, which fall on it as on any
+   * page, and its back shows its own front through.
    */
-  readonly curled?: boolean;
+  readonly curl?: Curl;
+  /** That it lies flat and is laid out the same from frame to frame. */
+  readonly still?: boolean;
 }
 
 /** One frame: the sheets from the front of the book to the back, and the paper they are made of. */
@@ -138,7 +141,7 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   };
   frame.sheets.forEach((sheet, index) => {
     if (!standing[index]) drawn(index, 'whole');
-    else if (sheet.curled) drawn(index, 'lying');
+    else if (sheet.curl) drawn(index, 'lying');
   });
 
   castShadows(gpu, frame, mesh, eye, standing);
@@ -150,7 +153,7 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
   frame.sheets.forEach((sheet, index) => {
-    if (standing[index]) drawn(index, sheet.curled ? 'lifted' : 'whole');
+    if (standing[index]) drawn(index, sheet.curl ? 'lifted' : 'whole');
   });
   gl.disable(gl.BLEND);
 }
@@ -175,7 +178,8 @@ function castShadows(
       eye,
       ...outline(frame, sheet.positions),
       // What lies on the pages of a page curled over is where its shadow falls, and hides nothing.
-      offPage: sheet.curled ? LIES_BELOW : -1,
+      offPage: sheet.curl ? LIES_BELOW : -1,
+      curl: sheet.curl ?? null,
       positions: buffers.positions,
       indices: gpu.indices,
       indexCount: mesh.indices.length,

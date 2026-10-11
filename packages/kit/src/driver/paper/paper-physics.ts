@@ -24,8 +24,9 @@ const LEAST_PULL = 24;
 /**
  * Which point of the leaf a finger took hold of. A finger moving toward
  * the next spread takes the leaf lying right of the spine where it went
- * down; one moving back takes the leaf lying left of it, or, when a spread
- * is one page and that leaf is out of sight, its outer edge.
+ * down; one moving back takes the leaf lying left of it. With one page a
+ * spread the page is curled over from its outer edge, wherever the finger
+ * went down.
  */
 export function grabOf(
   touch: TransitionTouch | null,
@@ -34,15 +35,24 @@ export function grabOf(
   if (!touch) return UNHELD_GRAB;
   const leaf = bounds.width - bounds.spine;
   const back = touch.position.x > touch.origin.x;
-  const out = back
-    ? bounds.spine > 0
-      ? bounds.spine - touch.origin.x
-      : leaf
-    : touch.origin.x - bounds.spine;
+  const out =
+    bounds.spine > 0
+      ? back
+        ? bounds.spine - touch.origin.x
+        : touch.origin.x - bounds.spine
+      : leaf;
   return {
     u: Math.min(1, Math.max(NEAREST_HOLD, out / (leaf || 1))),
     v: Math.min(1, Math.max(0, touch.origin.y / (bounds.height || 1))),
   };
+}
+
+/** What the effect tells of the page a turn is of, beyond whether a leaf is still in the air. */
+export interface PaperPicture {
+  /** How many frames have been painted. */
+  painted(): number;
+  /** Whether that page has left the frame for good, with its turn still slowing down. */
+  gone(): boolean;
 }
 
 /**
@@ -55,22 +65,22 @@ export function grabOf(
  * A turn that cuts into another takes up the same leaf when it is that leaf
  * turned again, and otherwise lifts the next one from flat: the leaf it cut
  * into is the effect's to bring down, and `aloft` says whether one still is
- * in the air, for no turn is over before every leaf has come to rest.
+ * in the air, for no turn is over before every leaf has come to rest. A
+ * page curled over leaves the frame while its turn is still slowing down;
+ * `picture` says when it has, and the turn is over a frame later.
  */
-export function createPaperPhysics(aloft: () => boolean = () => false): TransitionPhysics {
+export function createPaperPhysics(
+  aloft: () => boolean = () => false,
+  picture: PaperPicture = { painted: () => 0, gone: () => false },
+): TransitionPhysics {
   return {
     travel(touch, bounds) {
       const moved = touch.position.x - touch.origin.x;
       if (moved === 0) return 0;
       const grab = grabOf(touch, { ...bounds, height: 1 });
+      // The held point goes as far as the finger, and a whole turn takes it twice its distance from the spine.
       const radius = grab.u * (bounds.width - bounds.spine);
-      if (moved < 0) return -bounds.width * Math.min(1, -moved / (2 * radius));
-      // Turning back: the leaf comes over the spine to meet the finger.
-      const turned =
-        bounds.spine > 0
-          ? 1 - moved / (2 * radius)
-          : (bounds.spine + radius - touch.position.x) / (2 * radius);
-      return bounds.width * Math.min(1, Math.max(0, 1 - turned));
+      return bounds.width * Math.min(1, Math.max(-1, moved / (2 * radius)));
     },
 
     lands({ dx, from, velocity, width, direction, touch }) {
@@ -85,14 +95,25 @@ export function createPaperPhysics(aloft: () => boolean = () => false): Transiti
     },
 
     begins({ dx, velocity, sameSpreads }) {
-      return sameSpreads ? { dx, velocity } : { dx: 0, velocity: 0 };
+      if (!sameSpreads) return { dx: 0, velocity: 0 };
+      // A page already out of the frame has nothing left to carry on with: it is brought back at once.
+      return { dx, velocity: picture.gone() ? 0 : velocity };
     },
 
     settle(from, velocity, to) {
       const motion = leafMotion(from, velocity, to);
+      const began = picture.painted();
+      let shown = false;
       return (seconds) => {
         const at = motion(seconds);
-        return at.done && aloft() ? { ...at, done: false } : at;
+        if (at.done) return aloft() ? { ...at, done: false } : at;
+        // Nothing of the page is left to show: one frame is drawn of that, and the turn is over.
+        if (picture.painted() > began && picture.gone() && !aloft()) {
+          const done = shown;
+          shown = true;
+          return { x: to, velocity: 0, done };
+        }
+        return at;
       };
     },
   };

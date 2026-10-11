@@ -21,21 +21,29 @@ describe('how far a finger carries a paper turn', () => {
   it('keeps the held point under the finger: over the spine at half a turn', () => {
     // Two pages: taken 180 px right of the spine and carried to it.
     expect(travel(touch(380, 200), two)).toBeCloseTo(-200, 6);
-    // One page: the same finger travel is a smaller share of a wider sheet.
-    expect(travel(touch(380, 180), one)).toBeCloseTo(-400 * (200 / 760), 6);
     expect(travel(touch(380, 380), one)).toBe(0);
   });
 
-  it('turns back by the sheet lying left of the spine, or brings it in from out of sight', () => {
+  it('carries the edge of one page as far as the finger goes, wherever it went down', () => {
+    // The edge of a page 400 wide comes over the spine after the finger has gone 400: half a turn.
+    expect(travel(touch(380, 180), one)).toBeCloseTo(-400 * (200 / 800), 6);
+    expect(travel(touch(250, 50), one)).toBeCloseTo(-400 * (200 / 800), 6);
+    // Back the same: the page before comes in by half what the finger has gone, from nothing.
+    expect(travel(touch(60, 100), one)).toBeCloseTo(400 * (40 / 800), 6);
+    expect(travel(touch(60, 66), one)).toBeCloseTo(400 * (6 / 800), 6);
+  });
+
+  it('turns back by the sheet lying left of the spine', () => {
     // Two pages: taken 160 px left of the spine and carried to it.
     expect(travel(touch(40, 200), two)).toBeCloseTo(200, 6);
-    // One page: the last sheet comes over the spine to meet the finger where it is.
-    expect(travel(touch(60, 100), one)).toBeCloseTo(400 * (1 - 300 / 800), 6);
   });
 
   it('takes a sheet no nearer the spine than a hand could turn it by', () => {
-    expect(grabOf(touch(20, 10), { ...one, height: 600 }).u).toBe(0.35);
-    expect(grabOf(touch(380, 370, 150), { ...one, height: 600 })).toEqual({ u: 0.95, v: 0.25 });
+    expect(grabOf(touch(210, 200), { ...two, height: 600 }).u).toBe(0.35);
+    expect(grabOf(touch(390, 380, 150), { ...two, height: 600 })).toEqual({ u: 0.95, v: 0.25 });
+    // One page is taken by its outer edge, whichever way it is turned.
+    expect(grabOf(touch(20, 10), { ...one, height: 600 }).u).toBe(1);
+    expect(grabOf(touch(20, 60), { ...one, height: 600 }).u).toBe(1);
     // A turn no finger started takes the outer edge, toward the lower corner.
     expect(grabOf(null, { ...one, height: 600 })).toEqual({ u: 1, v: 0.86 });
   });

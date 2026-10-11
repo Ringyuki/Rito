@@ -34,7 +34,7 @@ const PARTED = ['uSpineAt', 'uBeside'];
 
 export function startShadowPrograms(gl: Gl): StartedShadow {
   const occlusion = ['uBlockers', 'uCover', 'uSize', 'uTallest', 'uKeySize', 'uKeyShare'].concat(
-    ['uThrough', 'uAlbedo', 'uSpine', 'uProfile', 'uGutter', 'uLight'],
+    ['uThrough', 'uAlbedo', 'uSpine', 'uProfile', 'uGutter', 'uLight', 'uRoll'],
     PARTED,
   );
   const cast = ['uSize', 'uEye', 'uCast', 'uTallest', 'uPixel'];

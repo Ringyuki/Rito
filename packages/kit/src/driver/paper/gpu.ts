@@ -30,13 +30,15 @@ const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper',
   'uTurnedLift',
   'uShows',
   'uPart',
-  'uLies',
+  'uCurl',
 ]);
 
 /** What the GPU holds of one sheet in a frame. */
 export interface SheetBuffers {
   readonly positions: WebGLBuffer;
   readonly normals: WebGLBuffer;
+  /** The surface of a sheet lying still that the buffers hold, so it is not sent again. */
+  holds: Float32Array | null;
 }
 
 /** Everything the paper turn holds on the GPU. */

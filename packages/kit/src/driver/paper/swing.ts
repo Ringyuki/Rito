@@ -1,7 +1,7 @@
 import type { TransitionFrame, TransitionPage, TransitionScene } from '../effects';
 import type { TransitionSettle } from '../physics';
 import { holdOf, swungTo, type View } from './hold';
-import { inTheAir, OUT_OF_SIGHT, sendOff, swungAt, throughAt, type Leaf } from './leaves';
+import { inTheAir, sendOff, type Leaf } from './leaves';
 import { COLUMNS, ROWS } from './mesh';
 import { grabOf, leafMotion } from './paper-physics';
 import { eyeHeight } from './renderer';
@@ -76,7 +76,7 @@ export function wantedOf(
     leaf.hold = null;
     leaf.heldFrom = null;
     leaf.flight = null;
-    return swungAt(leaf, read.turned);
+    return read.turned;
   }
   if (frame.phase === 'held') {
     leaf.letGo = null;
@@ -87,14 +87,7 @@ export function wantedOf(
       eye: eyeHeight(scene.width, scene.height),
     };
     const held = heldBy(leaf, scene, frame, view);
-    return swungTo(
-      leaf.shape,
-      leaf.grab,
-      held,
-      view,
-      touch.position.x,
-      leaf.leaves ? OUT_OF_SIGHT : 1,
-    );
+    return swungTo(leaf.shape, leaf.grab, held, view, touch.position.x, 1);
   }
   const end = (frame.phase === 'landing') === read.forward ? 1 : 0;
   if (!leaf.letGo) {
@@ -103,12 +96,11 @@ export function wantedOf(
     const stranded =
       Math.abs(end - read.turned) < NO_WAY_LEFT && Math.abs(end - leaf.shown) > NO_WAY_LEFT;
     if (stranded) sendOff(leaf, end, aloneBy(scene.width));
-    leaf.letGo = { through: throughAt(leaf, leaf.shown), turned: read.turned };
+    leaf.letGo = { through: leaf.shown, turned: read.turned };
   }
   const left = end - leaf.letGo.turned;
   const done = Math.abs(left) < 1e-6 ? 1 : (read.turned - leaf.letGo.turned) / left;
-  const through = leaf.letGo.through + (end - leaf.letGo.through) * Math.min(1, Math.max(0, done));
-  return swungAt(leaf, through);
+  return leaf.letGo.through + (end - leaf.letGo.through) * Math.min(1, Math.max(0, done));
 }
 
 /**
@@ -127,17 +119,13 @@ function heldBy(
   if (!touch) return leaf.hold ?? { u: leaf.grab.u, v: leaf.grab.v, offset: 0 };
   if (leaf.hold && from?.x === touch.origin.x && from.y === touch.origin.y) return leaf.hold;
   leaf.heldFrom = touch.origin;
-  // A leaf that has left the frame is out of sight: it comes in to meet the finger as one lying left does.
-  const gone = leaf.leaves && leaf.shown >= OUT_OF_SIGHT;
-  if (inTheAir(leaf) && !gone) {
+  if (inTheAir(leaf)) {
     leaf.hold = holdOf(leaf.positions, COLUMNS, ROWS, view, touch.position);
     return leaf.hold;
   }
   leaf.grab = grabOf(touch, scene);
   const out = leaf.grab.u * leaf.shape.width;
-  // Lying left with one page a spread it is out of sight, and comes in to meet the finger.
   const lies = leaf.shown < 0.5 ? leaf.shape.spine + out : leaf.shape.spine - out;
-  const offset = leaf.leaves && leaf.shown >= 0.5 ? 0 : touch.origin.x - lies;
-  leaf.hold = { u: leaf.grab.u, v: leaf.grab.v, offset };
+  leaf.hold = { u: leaf.grab.u, v: leaf.grab.v, offset: touch.origin.x - lies };
   return leaf.hold;
 }

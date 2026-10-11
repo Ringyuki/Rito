@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { TransitionSettle } from '../src/driver/physics';
+import { curledFlat } from '../src/driver/paper/curled';
 import { holdOf, NEAREST_HOLD, swungTo, type View } from '../src/driver/paper/hold';
 import { layLeaf, leafPoint, poseAt, type LeafShape } from '../src/driver/paper/leaf';
 import {
   fly,
+  GONE_BY,
   hasLanded,
   inTheAir,
   keepInOrder,
   leaveAlone,
-  OUT_OF_SIGHT,
   placeInBook,
   sendOff,
   type Leaf,
@@ -25,7 +26,7 @@ function leaf(spread: number, shown: number, shape: LeafShape = two): Leaf {
     spread,
     printed: { spread },
     shape,
-    leaves: shape.spine === 0,
+    curled: shape.spine === 0 ? curledFlat() : null,
     grab: { u: 1, v: 0.86 },
     hold: null,
     heldFrom: null,
@@ -98,17 +99,27 @@ describe('the leaves in the air', () => {
     expect(hasLanded(settling)).toBe(true);
   });
 
-  it('a leaf that leaves the frame is soon out of sight and takes little longer to come down', () => {
+  it('a page curled over has left the frame while its motion is still going', () => {
     const leaving = leaf(10, 0.2, one);
     sendOff(leaving, 1, evenly);
-    const from = leaving.shown;
-    fly(leaving, 0.3);
-    // Most of its motion is getting out of sight.
-    expect(leaving.shown).toBeGreaterThan(from);
-    expect(leaving.shown).toBeLessThan(OUT_OF_SIGHT);
-    fly(leaving, 0.3);
-    expect(leaving.shown).toBeGreaterThan(OUT_OF_SIGHT);
-    expect(fly(leaving, 0.2)).toBe(true);
+    // Half of its own way on, it is well over half of the way out.
+    expect(fly(leaving, 0.4)).toBe(false);
+    expect(leaving.shown).toBeCloseTo(0.2 + 0.4 / GONE_BY, 6);
+    // It is out once its motion has gone that share of the way, and then it has landed.
+    expect(fly(leaving, 0.8 * GONE_BY - 0.4 + 0.001)).toBe(true);
+    expect(leaving.shown).toBe(1);
+    expect(hasLanded(leaving)).toBe(true);
+
+    // Coming back to lie flat it arrives with its motion, as a leaf does.
+    const returning = leaf(11, 0.6, one);
+    sendOff(returning, 0, evenly);
+    expect(fly(returning, 0.3)).toBe(false);
+    expect(returning.shown).toBeCloseTo(0.3, 6);
+    // A leaf of two pages is never hurried out.
+    const swung = leaf(12, 0.2);
+    sendOff(swung, 1, evenly);
+    fly(swung, 0.4);
+    expect(swung.shown).toBeCloseTo(0.6, 6);
   });
 });
 

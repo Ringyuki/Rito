@@ -140,12 +140,14 @@ pixelRatio }`, or `null` while it is not painted yet) and
 Change any of it live with `controller.configureTransition({ effect: 'cover' })`.
 
 `createPaperTurn()` is a painted effect with physics of its own: the page turns as
-a leaf of a book. The leaf stays bound at the spine, bends round a cone as it lifts
-— arched in the air, the corner it is taken by leading — swings over the spine, and
-comes down on the far side edge first, the arch settling after. Paper bends without
-stretching, and the leaf is never folded. Under a finger the point taken hold of
-stays under it; turned by a key or a call the leaf is off at once and lands softly
-in about 0.4 s on a wide spread, less on a narrow one. It is drawn with WebGL in
+paper does. With two pages a spread it is a leaf of a book. The leaf stays bound at
+the spine, bends round a cone as it lifts — arched in the air, the corner it is
+taken by leading — swings over the spine, and comes down on the far side edge
+first, the arch settling after. Paper bends without stretching, and the leaf is
+never folded. Under a finger the point taken hold of stays under it; turned by a
+key or a call the leaf is off at once and lands softly in about 0.4 s on a wide
+spread, less on a narrow one. With one page a spread the page is curled over on
+itself instead: see below. Either way it is drawn with WebGL in
 three dimensions, seen from above the spread. One light serves the leaf's shading
 and its shadow, so they agree: a soft lamp over the reader's left shoulder and the
 light of the room. The shadow on the pages is sharp where the leaf meets them and
@@ -154,13 +156,22 @@ the page dims, less than it would if white paper did not hand light back. By the
 spine the leaf's shade runs on into the page beside it and fades there, as it does
 where pages are bound together, instead of stopping at the spine. With two
 pages a spread the leaf carries the next page
-on its back; with one page a spread it swings up and out of sight past the left
-edge, and a turn back brings it in from there. A turn that cuts into another does
-not stop its leaf: turned back, the same leaf slows, stops and comes back from
-where it is; turned on, it carries on down by itself while the next leaf lifts, so
-several are in the air at once (up to three coming down by themselves) and none
+on its back. With one page a spread the page is peeled back over itself round a
+small roll, from its outer edge or from a corner, its back showing its own print
+faintly and the wrong way round, until the line it leaves the page at reaches the
+spine; that line never crosses the spine, and stands the more upright the nearer
+it comes. The lifted edge goes as far as the finger does, keeping the distance from
+it that it had when the finger came down, so a page taken at its edge has its edge
+under the finger; a page taken low on the page lifts by its lower corner, high on
+the page by its upper one, and at mid height by its whole edge, and the line leans
+on as the finger moves up or down. Turned by a key or a call the line is upright
+and sweeps across in about a quarter of a second, the page leaving the frame while
+still on the move. A turn that cuts into another does
+not stop its page: turned back, the same page slows, stops and comes back from
+where it is; turned on, it carries on by itself while the next lifts, so
+several are in the air at once (up to three going by themselves) and none
 passes through another; and a finger that takes a leaf in the air holds it by the
-point it touched. A leaf lying flat is exactly the page's own colours. The effect
+point it touched, a curled page where it is. A leaf lying flat is exactly the page's own colours. The effect
 hands the GPU its shaders when it is set and does not wait for them: a turn begun
 before they are compiled is drawn as the built-in `cover` to its end, so no turn is
 held up, and so is every turn where WebGL is not to be had. At two device pixels or

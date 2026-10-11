@@ -3,7 +3,6 @@ import { FACES, type Gpu } from './gpu';
 import {
   KEY_DIRECTION,
   KEY_SHARE,
-  LIES_BELOW,
   PAPER_ALBEDO,
   PAPER_THROUGH,
   SHOWS_THROUGH,
@@ -35,7 +34,7 @@ export function liesOnThePages(sheet: PaperSheet): boolean {
 function liftOf(frame: PaperFrame, index: number): { lying: number; turned: number } {
   const sheet = frame.sheets[index];
   const behind = frame.sheets.length - 1 - index;
-  if (sheet?.curled) {
+  if (sheet?.curl) {
     return { lying: SHEET_APART * behind, turned: SHEET_APART * (index - behind) };
   }
   const shown = sheet?.shown ?? 0;
@@ -66,7 +65,11 @@ export function uploadSheets(gpu: Gpu, frame: PaperFrame): SheetGrid {
     const buffers = (gpu.sheets[index] ??= {
       positions: gl.createBuffer(),
       normals: gl.createBuffer(),
+      holds: null,
     });
+    // A sheet lying still is already there as it was sent.
+    if (sheet.still && buffers.holds === sheet.positions) return;
+    buffers.holds = sheet.still ? sheet.positions : null;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.positions);
     gl.bufferData(gl.ARRAY_BUFFER, sheet.positions, gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
@@ -76,6 +79,18 @@ export function uploadSheets(gpu: Gpu, frame: PaperFrame): SheetGrid {
 }
 
 const PARTS: Record<SheetPart, number> = { whole: 0, lying: 1, lifted: -1 };
+
+/** Tells the program what is drawn of which sheet: how it is lifted, which part, how its back shows. */
+function drawnAs(gpu: Gpu, frame: PaperFrame, index: number, part: SheetPart): void {
+  const { gl, sheet: program } = gpu;
+  const lift = liftOf(frame, index);
+  const curl = frame.sheets[index]?.curl;
+  gl.uniform1f(program.uniforms['uLift'] ?? null, lift.lying);
+  gl.uniform1f(program.uniforms['uTurnedLift'] ?? null, lift.turned);
+  gl.uniform1f(program.uniforms['uPart'] ?? null, PARTS[part]);
+  gl.uniform4f(program.uniforms['uCurl'] ?? null, curl?.dx ?? 0, curl?.dy ?? 0, curl?.at ?? 0, 0);
+  gl.uniform1f(program.uniforms['uShows'] ?? null, curl ? SHOWS_THROUGH_CURLED : SHOWS_THROUGH);
+}
 
 /** Draws one sheet of a frame, or one part of it. */
 export function drawSheet(
@@ -91,19 +106,11 @@ export function drawSheet(
   if (!sheet || !buffers) return;
   const { gl, sheet: program } = gpu;
   const reach = frame.width - frame.spine;
-  const lift = liftOf(frame, index);
   gl.useProgram(program.program);
   gl.uniform2f(program.uniforms['uSize'] ?? null, frame.width, frame.height);
   gl.uniform1f(program.uniforms['uEye'] ?? null, eye);
   gl.uniform1f(program.uniforms['uDepth'] ?? null, reach * 1.25);
-  gl.uniform1f(program.uniforms['uLift'] ?? null, lift.lying);
-  gl.uniform1f(program.uniforms['uTurnedLift'] ?? null, lift.turned);
-  gl.uniform1f(program.uniforms['uPart'] ?? null, PARTS[part]);
-  gl.uniform1f(program.uniforms['uLies'] ?? null, LIES_BELOW);
-  gl.uniform1f(
-    program.uniforms['uShows'] ?? null,
-    sheet.curled ? SHOWS_THROUGH_CURLED : SHOWS_THROUGH,
-  );
+  drawnAs(gpu, frame, index, part);
   gl.uniform1f(program.uniforms['uSpine'] ?? null, frame.spine / frame.width);
   gl.uniform1f(program.uniforms['uSheet'] ?? null, reach / frame.width);
   gl.uniform3f(program.uniforms['uPaper'] ?? null, ...frame.paper);

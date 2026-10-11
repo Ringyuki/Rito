@@ -109,9 +109,13 @@ const SOFT_EDGE = `
  * showing through, by `uShows`. Paper lying flat is exactly the page's own
  * colours.
  *
- * A sheet may be drawn in two parts: `uPart` above zero draws only what of
- * it lies on the pages, below zero only what stands off them, so that the
- * shadows can be laid between the two.
+ * A page curled over is drawn in two parts, so that the shadows can be laid
+ * between them: `uPart` above zero draws only what of it still lies on the
+ * pages, below zero only what has left them. The two part at the line the
+ * paper leaves the page at, told by `uCurl` as a direction across the page
+ * (xy) and where the line lies along it (z); which side a point of the
+ * sheet is on is told from where it is on the sheet, not from how high it
+ * has risen, so the parts meet along a straight line.
  *
  * `softened` is for a canvas that is not multisampled: the three edges of
  * a sheet in the air that are not bound are faded out over the last pixel
@@ -132,7 +136,8 @@ uniform float uSpine;
 uniform float uSheet;
 uniform float uShows;
 uniform float uPart;
-uniform float uLies;
+uniform vec4 uCurl;
+uniform vec2 uSize;
 uniform vec3 uPaper;
 varying float vLit;
 varying float vHeight;
@@ -144,9 +149,10 @@ vec3 printed(sampler2D page, vec2 at) {
 }
 
 void main() {
-  if (uPart > 0.5 && vHeight > uLies) discard;
-  if (uPart < -0.5 && vHeight <= uLies) discard;
   vec2 onFront = vec2(uSpine + vUv.x * uSheet, vUv.y);
+  float past = dot(onFront * uSize, uCurl.xy) - uCurl.z;
+  if (uPart > 0.5 && past > 0.0) discard;
+  if (uPart < -0.5 && past <= 0.0) discard;
   vec3 front = uHasFront > 0.5 ? printed(uFront, onFront) : uPaper;
   vec3 colour = front;
   if (!gl_FrontFacing) {

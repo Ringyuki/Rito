@@ -1,5 +1,6 @@
 import type { TransitionPoint } from '../effects';
 import type { TransitionSettle } from '../physics';
+import type { Curled } from './curled';
 import type { PageSnapshot } from './gl';
 import type { Hold } from './hold';
 import type { LeafGrab, LeafShape } from './leaf';
@@ -10,16 +11,16 @@ interface Flight {
   readonly motion: TransitionSettle;
   elapsed: number;
   readonly to: 0 | 1;
+  /** Where it was left alone. */
+  readonly from: number;
 }
 
 /**
- * With one page a spread a leaf is out of sight once it is just past
- * upright, at the frame's left edge: `OUT_OF_SIGHT` of the way over. The
- * turn spends `IN_SIGHT` of itself getting there and the rest swinging on
- * down, unseen, which takes the leaf's shadow off the page with it.
+ * A page curled over is out of the frame once it is turned, and is there
+ * while still on the move: by this share of the way it had left to go. The
+ * rest of its motion is the slowing down, which nobody is shown.
  */
-export const OUT_OF_SIGHT = 0.53;
-const IN_SIGHT = 0.9;
+export const GONE_BY = 0.85;
 
 /**
  * A leaf of the book that is, or lately was, in the air. It is told from
@@ -33,8 +34,8 @@ export interface Leaf {
   /** The bitmap of that spread it was first seen with: a leaf found again is of the same one. */
   readonly printed: unknown;
   readonly shape: LeafShape;
-  /** Whether it leaves the frame as it turns: a spread of one page. */
-  readonly leaves: boolean;
+  /** How it is curled over, with one page a spread; null for a leaf swung about the spine. */
+  readonly curled: Curled | null;
   /** The point its bend is shaped by. */
   grab: LeafGrab;
   /** What a finger holds of it, and where that finger took hold. */
@@ -63,32 +64,6 @@ const AT_REST = 1e-4;
  */
 const LANDED_WITHIN = 0.001;
 const LANDED_BELOW = 0.05;
-
-/**
- * How far over the leaf is when it is `through` its motion (0–1). A leaf
- * that stays in the frame swings evenly. One that leaves it takes most of
- * its motion to get out of sight and the last of it to swing on down.
- */
-export function swungAt(leaf: Leaf, through: number): number {
-  if (!leaf.leaves) return through;
-  return through <= IN_SIGHT
-    ? (through / IN_SIGHT) * OUT_OF_SIGHT
-    : OUT_OF_SIGHT + ((through - IN_SIGHT) / (1 - IN_SIGHT)) * (1 - OUT_OF_SIGHT);
-}
-
-/** How far through its motion a leaf `shown` of the way over is. */
-export function throughAt(leaf: Leaf, shown: number): number {
-  if (!leaf.leaves) return shown;
-  return shown <= OUT_OF_SIGHT
-    ? (shown / OUT_OF_SIGHT) * IN_SIGHT
-    : IN_SIGHT + ((shown - OUT_OF_SIGHT) / (1 - OUT_OF_SIGHT)) * (1 - IN_SIGHT);
-}
-
-/** How fast a leaf goes through its motion for each turn a second it swings at, where it is. */
-function paceAt(leaf: Leaf): number {
-  if (!leaf.leaves) return 1;
-  return leaf.shown <= OUT_OF_SIGHT ? IN_SIGHT / OUT_OF_SIGHT : (1 - IN_SIGHT) / (1 - OUT_OF_SIGHT);
-}
 
 export function inTheAir(leaf: Leaf): boolean {
   return leaf.shown > AT_REST && leaf.shown < 1 - AT_REST;
@@ -150,17 +125,21 @@ export function fly(leaf: Leaf, seconds: number): boolean {
   if (!flight) return false;
   flight.elapsed += seconds;
   const at = flight.motion(flight.elapsed);
+  // A page curled over leaves the frame on the move, ahead of its own motion.
+  const hurried = leaf.curled !== null && flight.to === 1 && flight.from < 1;
+  const reached = hurried ? flight.from + (at.x - flight.from) / GONE_BY : at.x;
   const landed =
-    at.done || (Math.abs(flight.to - at.x) < LANDED_WITHIN && Math.abs(at.velocity) < LANDED_BELOW);
-  leaf.shown = landed ? flight.to : swungAt(leaf, Math.min(1, Math.max(0, at.x)));
-  leaf.speed = landed ? 0 : at.velocity / paceAt(leaf);
+    at.done ||
+    (hurried && reached >= 1) ||
+    (Math.abs(flight.to - at.x) < LANDED_WITHIN && Math.abs(at.velocity) < LANDED_BELOW);
+  leaf.shown = landed ? flight.to : Math.min(1, Math.max(0, reached));
+  leaf.speed = landed ? 0 : at.velocity;
   return landed;
 }
 
 /**
  * Sends a leaf on its own way to lying right (0) or left (1), from where it
- * is and as fast. It goes as a leaf its turn leads does: one that leaves the
- * frame is soon out of sight and takes little longer to come down unseen.
+ * is and as fast: it goes as a leaf its turn leads does.
  */
 export function sendOff(
   leaf: Leaf,
@@ -170,6 +149,6 @@ export function sendOff(
   leaf.hold = null;
   leaf.heldFrom = null;
   leaf.letGo = null;
-  const from = throughAt(leaf, leaf.shown);
-  leaf.flight = { motion: motion(from, leaf.speed * paceAt(leaf), to), elapsed: 0, to };
+  const from = leaf.shown;
+  leaf.flight = { motion: motion(from, leaf.speed, to), elapsed: 0, to, from };
 }
