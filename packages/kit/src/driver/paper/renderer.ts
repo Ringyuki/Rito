@@ -9,6 +9,7 @@ import {
   type PaperCanvas,
   type Program,
 } from './gl';
+import { KEY_DIRECTION, KEY_SHARE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
 import { sheetGrid, type SheetGrid } from './mesh';
 import { SHEET_FRAGMENT, SHEET_VERTEX } from './shaders';
 import { createShadowPass, type ShadowPass } from './shadow';
@@ -40,8 +41,6 @@ export interface PaperRenderer {
   draw(frame: PaperFrame): CanvasImageSource | null;
 }
 
-/** Where the light comes from: over the reader's left shoulder. */
-const LIGHT = normalized([-0.32, -0.42, 0.85]);
 /** The eye's height above the spread, in spreads. Lower exaggerates what rises. */
 const EYE_HEIGHT = 2.4;
 /** The sampler of each face of the sheet, and the flag saying a page is printed on it. */
@@ -50,7 +49,11 @@ const FACES = [
   ['uBack', 'uHasBack'],
 ] as const;
 
-const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight'];
+const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight'].concat([
+  'uKeyShare',
+  'uThrough',
+  'uAlbedo',
+]);
 
 /** How high the eye is over a spread of this size. */
 export function eyeHeight(width: number, height: number): number {
@@ -153,9 +156,9 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   gpu.shadow.draw({
     width,
     height,
-    reach: frame.width - frame.spine,
+    spine: frame.spine,
     eye,
-    light: LIGHT,
+    ...outline(frame),
     positions: gpu.positions,
     indices: gpu.indices,
     indexCount: mesh.indices.length,
@@ -193,7 +196,10 @@ function drawSheet(gpu: Gpu, frame: PaperFrame, mesh: SheetGrid, eye: number): v
   gl.uniform1f(sheet.uniforms['uSpine'] ?? null, frame.spine / frame.width);
   gl.uniform1f(sheet.uniforms['uSheet'] ?? null, reach / frame.width);
   gl.uniform3f(sheet.uniforms['uPaper'] ?? null, ...frame.paper);
-  gl.uniform3f(sheet.uniforms['uLight'] ?? null, ...LIGHT);
+  gl.uniform3f(sheet.uniforms['uLight'] ?? null, ...KEY_DIRECTION);
+  gl.uniform1f(sheet.uniforms['uKeyShare'] ?? null, KEY_SHARE);
+  gl.uniform1f(sheet.uniforms['uThrough'] ?? null, PAPER_THROUGH);
+  gl.uniform1f(sheet.uniforms['uAlbedo'] ?? null, PAPER_ALBEDO);
   [frame.front, frame.back].forEach((page, unit) => {
     const [sampler, printed] = FACES[unit] ?? FACES[0];
     gl.activeTexture(unit === 0 ? gl.TEXTURE0 : gl.TEXTURE1);
@@ -209,7 +215,18 @@ function drawSheet(gpu: Gpu, frame: PaperFrame, mesh: SheetGrid, eye: number): v
   gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
 }
 
-function normalized(vector: [number, number, number]): [number, number, number] {
-  const length = Math.hypot(...vector);
-  return [vector[0] / length, vector[1] / length, vector[2] / length];
+/** How high the leaf stands at most, and eight points down its outer edge: what its shadow is sized by. */
+function outline(frame: PaperFrame): { tallest: number; edge: Float32Array } {
+  const { positions, columns, rows } = frame;
+  let tallest = 1;
+  for (let index = 2; index < positions.length; index += 3) {
+    tallest = Math.max(tallest, positions[index] ?? 0);
+  }
+  const edge = new Float32Array(24);
+  for (let point = 0; point < 8; point += 1) {
+    const row = Math.round((point / 7) * (rows - 1));
+    const at = (row * columns + columns - 1) * 3;
+    edge.set(positions.subarray(at, at + 3), point * 3);
+  }
+  return { tallest, edge };
 }

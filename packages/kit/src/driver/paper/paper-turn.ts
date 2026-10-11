@@ -26,11 +26,13 @@ const ROWS = 48;
 /** How fast the leaf swings at most, in turns per second: what a jump of the hand becomes. */
 const FASTEST = 9;
 /**
- * How far over a leaf swings when a spread is one page: just past upright,
- * where it has left the frame by its left edge. The rest of the way round
- * would be out of sight.
+ * With one page a spread a leaf is out of sight once it is just past
+ * upright, at the frame's left edge: `OUT_OF_SIGHT` of the way over. The
+ * turn spends `IN_SIGHT` of itself getting there and the rest swinging on
+ * down, unseen, which takes the leaf's shadow off the page with it.
  */
 const OUT_OF_SIGHT = 0.53;
+const IN_SIGHT = 0.9;
 /** A frame this long after the last one, in ms, begins a turn of its own. */
 const SAME_TURN_WITHIN = 250;
 
@@ -41,12 +43,12 @@ interface Turn {
   readonly shape: LeafShape;
   readonly forward: boolean;
   readonly grab: LeafGrab;
-  /** How far over the leaf is once turned: lying left of the spine, or out of sight. */
-  readonly far: number;
+  /** Whether the leaf leaves the frame as it turns: a spread of one page. */
+  readonly leaves: boolean;
   /** How far over the leaf is drawn: 0 lying right of the spine, 1 lying left of it. */
   shown: number;
-  /** Where the leaf was, and the turn had got to, when the finger let go. */
-  letGo: { readonly shown: number; readonly turned: number } | null;
+  /** How far through its motion the leaf was, and the turn had got to, when the finger let go. */
+  letGo: { readonly through: number; readonly turned: number } | null;
 }
 
 interface PaperTurn {
@@ -188,16 +190,35 @@ function turnOf(
     turn.shape.height === shape.height &&
     time - state.paintedAt <= SAME_TURN_WITHIN;
   if (same) return turn;
-  const far = shape.spine > 0 ? 1 : OUT_OF_SIGHT;
   return {
     key,
     shape,
     forward: read.forward,
     grab: grabOf(frame.touch, scene),
-    far,
-    shown: read.forward ? 0 : far,
+    leaves: shape.spine === 0,
+    shown: read.forward ? 0 : 1,
     letGo: null,
   };
+}
+
+/**
+ * How far over the leaf is when it is `through` its motion (0–1). A leaf
+ * that stays in the frame swings evenly. One that leaves it takes most of
+ * its motion to get out of sight and the last of it to swing on down.
+ */
+function swungAt(turn: Turn, through: number): number {
+  if (!turn.leaves) return through;
+  return through <= IN_SIGHT
+    ? (through / IN_SIGHT) * OUT_OF_SIGHT
+    : OUT_OF_SIGHT + ((through - IN_SIGHT) / (1 - IN_SIGHT)) * (1 - OUT_OF_SIGHT);
+}
+
+/** How far through its motion a leaf `shown` of the way over is. */
+function throughAt(turn: Turn, shown: number): number {
+  if (!turn.leaves) return shown;
+  return shown <= OUT_OF_SIGHT
+    ? (shown / OUT_OF_SIGHT) * IN_SIGHT
+    : IN_SIGHT + ((shown - OUT_OF_SIGHT) / (1 - OUT_OF_SIGHT)) * (1 - IN_SIGHT);
 }
 
 /**
@@ -211,19 +232,19 @@ function wantedOf(
   frame: TransitionFrame,
   turned: number,
 ): number {
-  if (!frame.touch) return turned * turn.far;
+  if (!frame.touch) return swungAt(turn, turned);
   if (frame.phase === 'held') {
     turn.letGo = null;
     // The turn's own measure of the finger: where across the spread the held point should show.
     const out = turn.grab.u * turn.shape.width;
     return swungTo(turn, scene, turn.shape.spine + out * (1 - 2 * turned));
   }
-  turn.letGo ??= { shown: turn.shown, turned };
-  const over = (frame.phase === 'landing') === turn.forward;
-  const left = (over ? 1 : 0) - turn.letGo.turned;
+  turn.letGo ??= { through: throughAt(turn, turn.shown), turned };
+  const end = (frame.phase === 'landing') === turn.forward ? 1 : 0;
+  const left = end - turn.letGo.turned;
   const done = Math.abs(left) < 1e-6 ? 1 : (turned - turn.letGo.turned) / left;
-  const end = over ? turn.far : 0;
-  return turn.letGo.shown + (end - turn.letGo.shown) * Math.min(1, Math.max(0, done));
+  const through = turn.letGo.through + (end - turn.letGo.through) * Math.min(1, Math.max(0, done));
+  return swungAt(turn, through);
 }
 
 /** How far over the leaf must be for its held point to show at `x` across the frame. */
@@ -235,9 +256,9 @@ function swungTo(turn: Turn, scene: TransitionScene, x: number): number {
     const [px, , pz] = leafPoint(turn.shape, poseAt(turn.shape, turn.grab, shown), out, down);
     return scene.width / 2 + ((px - scene.width / 2) * eye) / (eye - pz);
   };
-  // The point shows farther left the farther over the leaf is.
+  // The point shows farther left the farther over the leaf is, until it is out of sight.
   let low = 0;
-  let high = turn.far;
+  let high = turn.leaves ? OUT_OF_SIGHT : 1;
   for (let pass = 0; pass < 22; pass += 1) {
     const middle = (low + high) / 2;
     if (showsAt(middle) > x) low = middle;

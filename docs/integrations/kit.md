@@ -133,8 +133,12 @@ comes down on the far side edge first, the arch settling after. Paper bends with
 stretching, and the leaf is never folded. Under a finger the point taken hold of
 stays under it; turned by a key or a call the leaf is off at once and lands softly
 in about 0.4 s on a wide spread, less on a narrow one. It is drawn with WebGL in
-three dimensions, seen from above the spread: both faces, softly lit, with its
-shadow on the pages beneath. With two pages a spread the leaf carries the next page
+three dimensions, seen from above the spread. One light serves the leaf's shading
+and its shadow, so they agree: a soft lamp over the reader's left shoulder and the
+light of the room. The shadow on the pages is sharp where the leaf meets them and
+soft where it stands high above them, and where the leaf hides the sky from a page
+the page dims, less than it would if white paper did not hand light back. With two
+pages a spread the leaf carries the next page
 on its back; with one page a spread it swings up and out of sight past the left
 edge, and a turn back brings it in from there. A leaf lying flat is exactly the
 page's own colours. Where WebGL is not to be had the effect paints the built-in
