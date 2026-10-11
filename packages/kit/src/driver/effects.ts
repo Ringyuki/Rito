@@ -61,6 +61,8 @@ export interface TransitionLayer {
  * pixels per unit of the scene.
  */
 export interface TransitionPage {
+  /** Which spread of the book it is: what tells a page from every other across turns. */
+  readonly spread: number;
   readonly content: CanvasImageSource;
   readonly overlay: CanvasImageSource | null;
   readonly pixelRatio: number;

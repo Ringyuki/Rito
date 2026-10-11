@@ -47,6 +47,7 @@ attribute vec3 aPosition;
 attribute vec3 aNormal;
 attribute vec2 aUv;
 uniform float uDepth;
+uniform float uLift;
 uniform vec3 uLight;
 uniform float uKeyShare;
 uniform float uThrough;
@@ -62,7 +63,8 @@ void main() {
   float room = withBounces(0.5 + 0.5 * facing.z);
   vLit = uKeyShare * lamp + (1.0 - uKeyShare) * room;
   vUv = aUv;
-  gl_Position = project(aPosition, -aPosition.z / uDepth);
+  // Sheets lying on each other are at one height; the lift tells the depth test which is on top.
+  gl_Position = project(aPosition, -(aPosition.z + uLift) / uDepth);
 }
 `;
 

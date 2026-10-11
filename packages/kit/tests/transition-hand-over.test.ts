@@ -248,6 +248,41 @@ describe('the turn that cuts in', () => {
     expect(lands.mock.calls[0]?.[0].from).toBeGreaterThan(120);
   });
 
+  it('begins where its physics say, told what the turn it cut into left', () => {
+    const begins = vi.fn<NonNullable<TransitionPhysics['begins']>>(() => ({ dx: 0, velocity: 0 }));
+    const { td } = driver({ physics: { begins } });
+    const before = inFlight(td);
+    td.handOver();
+    td.goToTarget('forward', 1, 2);
+
+    expect(begins).toHaveBeenCalledOnce();
+    const told = begins.mock.calls[0]?.[0];
+    expect(told).toMatchObject({ width: W, direction: 'forward', sameSpreads: false });
+    expect(told?.dx).toBeCloseTo(before.dx + W, 6);
+    expect(told?.velocity).toBeCloseTo(before.velocity, 6);
+    // It starts at rest, and its frames are of itself alone: nothing of the turn before.
+    expect(frame(td)).toMatchObject({ incoming: 'next', dx: 0, phase: 'landing' });
+  });
+
+  it('is told when it is the same page turned again, and never asked when it begins at rest', () => {
+    const begins = vi.fn<NonNullable<TransitionPhysics['begins']>>(({ dx, velocity }) => ({
+      dx,
+      velocity,
+    }));
+    const { td } = driver({ physics: { begins } });
+    td.goToTarget('forward', 0, 1);
+    expect(begins).not.toHaveBeenCalled();
+    for (let step = 0; step < 6; step += 1) td.step(16);
+    td.handOver();
+    td.goToTarget('backward', 1, 0);
+    expect(begins.mock.calls[0]?.[0]).toMatchObject({ direction: 'backward', sameSpreads: true });
+
+    // A pull against the end of the book brings in no neighbour: never the same page.
+    td.handOver();
+    td.startTracking('forward', 0, null, 0);
+    expect(begins.mock.calls[1]?.[0]).toMatchObject({ direction: 'forward', sameSpreads: false });
+  });
+
   it('measures the finger from when it took hold', () => {
     const { td } = driver();
     td.startTracking('forward', 0, 1, 0);

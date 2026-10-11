@@ -91,6 +91,70 @@ describe('how a paper turn comes to rest', () => {
   });
 });
 
+describe('a paper turn that cuts into another', () => {
+  const left = { dx: 150, velocity: -900, width: 400, direction: 'forward' as const };
+
+  it('takes up the same leaf where it is, and lifts another from flat', () => {
+    const paper = physics();
+    // Turned back: the same sheet, from where it is and as fast.
+    expect(paper.begins?.({ ...left, direction: 'backward', sameSpreads: true })).toEqual({
+      dx: 150,
+      velocity: -900,
+    });
+    // Turned on: the next sheet starts flat; the one in the air is the effect's to bring down.
+    expect(paper.begins?.({ ...left, sameSpreads: false })).toEqual({ dx: 0, velocity: 0 });
+  });
+
+  it('is not over while a leaf it left in the air is still coming down', () => {
+    let aloft = true;
+    const settle = physics(() => aloft).settle?.(0, 0, -800);
+    if (!settle) throw new Error('the paper turn carries a released turn itself');
+    settle(0.38);
+    expect(settle(0.4)).toEqual({ x: -800, velocity: 0, done: false });
+    expect(settle(0.6).done).toBe(false);
+    aloft = false;
+    expect(settle(0.62)).toEqual({ x: -800, velocity: 0, done: true });
+  });
+
+  it('sent back the way it came, slows to a stop before it comes back', () => {
+    const settle = physics().settle?.(-300, -1400, 0);
+    if (!settle) throw new Error('the paper turn carries a released turn itself');
+    // It carries on, slower and slower, for a tenth of a second.
+    expect(settle(0).velocity).toBeCloseTo(-1400, 6);
+    expect(settle(0.05).x).toBeLessThan(-300);
+    expect(settle(0.05).velocity).toBeCloseTo(-700, 6);
+    const stopped = settle(0.1);
+    expect(stopped.x).toBeCloseTo(-370, 6);
+    expect(stopped.velocity).toBeCloseTo(0, 6);
+    // Then back at its own pace, never the old way again.
+    expect(settle(0.15).x).toBeGreaterThan(stopped.x);
+    expect(settle(0.15).velocity).toBeGreaterThan(0);
+    expect(settle(0.6).x).toBe(0);
+  });
+
+  it('with nowhere left to go is there, whatever speed it was let go at', () => {
+    const settle = physics().settle?.(-400, -900, -400);
+    expect(settle?.(0)).toEqual({ x: -400, velocity: 0, done: false });
+    expect(settle?.(0.016)).toEqual({ x: -400, velocity: 0, done: true });
+  });
+
+  it('is let go by what the finger carried it, wherever the finger took it', () => {
+    const paper = physics();
+    const release = (dx: number, from: number): boolean | undefined =>
+      paper.lands?.({
+        dx,
+        from,
+        velocity: 0,
+        width: 400,
+        direction: 'backward',
+        touch: touch(100, 100 + (dx - from)),
+      });
+    // Taken 170 px short of lying flat again: a nudge leaves it, a pull of a quarter turns it back.
+    expect(release(200, 170)).toBe(false);
+    expect(release(270, 170)).toBe(true);
+  });
+});
+
 describe('the spring as a motion', () => {
   it('follows the path the stepped spring does', () => {
     const config = { stiffness: 180, damping: 27 };
@@ -109,6 +173,7 @@ describe('a paper turn where there is no GPU', () => {
   function scene(spine: number) {
     const drawn: string[] = [];
     const page = (slot: string): TransitionPage => ({
+      spread: ['prev', 'curr', 'next'].indexOf(slot),
       content: { slot } as unknown as CanvasImageSource,
       overlay: null,
       pixelRatio: 1,

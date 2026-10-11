@@ -137,6 +137,7 @@ describe('transition scene', () => {
     return { context: context as unknown as CanvasRenderingContext2D, calls };
   }
   const page = (id: string): TransitionPage => ({
+    spread: 0,
     content: { id } as unknown as CanvasImageSource,
     overlay: null,
     pixelRatio: 2,

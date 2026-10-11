@@ -1,3 +1,7 @@
+/** The grid a leaf is drawn with: fine enough for its bend to look smooth. */
+export const COLUMNS = 64;
+export const ROWS = 48;
+
 /** How a grid of points over the sheet is told to the GPU. */
 export interface SheetGrid {
   /** Where each point is on the sheet: from the spine outward, from the top down. */

@@ -4,10 +4,14 @@ import type {
   TransitionPage,
   TransitionScene,
 } from '../effects';
-import { layLeaf, leafPoint, poseAt, type LeafGrab, type LeafShape } from './leaf';
-import { colourOf, drawUnder, paintPlain } from './pages';
+import { layLeaf, poseAt, type LeafShape } from './leaf';
+import { fly, hasLanded, keepInOrder, leaveAlone, placeInBook, type Leaf } from './leaves';
+import { COLUMNS, ROWS } from './mesh';
+import { colourOf, paintPlain } from './pages';
 import { createPaperPhysics, grabOf } from './paper-physics';
-import { createPaperRenderer, eyeHeight, type PaperRenderer } from './renderer';
+import { createPaperRenderer, type PaperRenderer, type PaperSheet } from './renderer';
+import { createSheets } from './sheets';
+import { aloneBy, wantedOf, type LeafTurn } from './swing';
 
 export interface PaperTurnOptions {
   /**
@@ -20,54 +24,26 @@ export interface PaperTurnOptions {
   readonly now?: () => number;
 }
 
-/** The grid the leaf is drawn with: fine enough for its bend to look smooth. */
-const COLUMNS = 64;
-const ROWS = 48;
 /** How fast the leaf swings at most, in turns per second: what a jump of the hand becomes. */
 const FASTEST = 9;
-/**
- * With one page a spread a leaf is out of sight once it is just past
- * upright, at the frame's left edge: `OUT_OF_SIGHT` of the way over. The
- * turn spends `IN_SIGHT` of itself getting there and the rest swinging on
- * down, unseen, which takes the leaf's shadow off the page with it.
- */
-const OUT_OF_SIGHT = 0.53;
-const IN_SIGHT = 0.9;
-/** A frame this long after the last one, in ms, begins a turn of its own. */
+/** A frame this long after the last one, in ms, begins anew: nothing is in the air. */
 const SAME_TURN_WITHIN = 250;
-
-/** The turn the leaf is in the middle of. */
-interface Turn {
-  /** What the turn is told from the next by: the page on the leaf's front, and its size. */
-  readonly key: unknown;
-  readonly shape: LeafShape;
-  readonly forward: boolean;
-  readonly grab: LeafGrab;
-  /** Whether the leaf leaves the frame as it turns: a spread of one page. */
-  readonly leaves: boolean;
-  /** How far over the leaf is drawn: 0 lying right of the spine, 1 lying left of it. */
-  shown: number;
-  /** How far through its motion the leaf was, and the turn had got to, when the finger let go. */
-  letGo: { readonly through: number; readonly turned: number } | null;
-}
+/** How many leaves may be coming down by themselves; one more and the first left lands at once. */
+const ALONE_AT_MOST = 3;
 
 interface PaperTurn {
   readonly now: () => number;
   readonly paper: readonly [number, number, number];
   readonly renderer: PaperRenderer;
-  readonly positions: Float32Array;
-  readonly normals: Float32Array;
-  turn: Turn | null;
+  /** The leaves in the air, in the order they come in the book. */
+  book: Leaf[];
+  /** The leaf the turn on screen is of. */
+  led: Leaf | null;
   paintedAt: number;
-}
-
-/** A frame read as a leaf's turn: which way, how far over, and the pages on its faces. */
-interface LeafTurn {
-  readonly forward: boolean;
-  /** How far the turn has gone toward lying left of the spine, 0–1. */
-  readonly turned: number;
-  readonly front: TransitionPage | null;
-  readonly back: TransitionPage | null;
+  /** The GPU context the leaves' pages were taken in. */
+  epoch: number;
+  /** The sheets of a frame: the leaves, and the pages lying flat under them. */
+  readonly sheets: (book: readonly Leaf[], shape: LeafShape) => PaperSheet[];
 }
 
 /**
@@ -79,6 +55,11 @@ interface LeafTurn {
  * pages beneath. With two pages a spread the leaf carries the next page on
  * its back; with one it swings out of sight past the left edge.
  *
+ * A turn that cuts into another does not stop its leaf. Turned back, the
+ * same leaf comes back from where it is; turned on, it carries on down by
+ * itself while the next leaf lifts, so several are in the air at once; and
+ * a finger that takes a leaf in the air holds it by the point it touched.
+ *
  * It is drawn by the GPU; where there is none, turns fall back to the
  * built-in `cover`. Make one per reader.
  */
@@ -87,66 +68,60 @@ export function createPaperTurn(options: PaperTurnOptions = {}): PaintedTransiti
     now: options.now ?? ((): number => performance.now()),
     paper: colourOf(options.paper),
     renderer: createPaperRenderer(),
-    positions: new Float32Array(COLUMNS * ROWS * 3),
-    normals: new Float32Array(COLUMNS * ROWS * 3),
-    turn: null,
+    book: [],
+    led: null,
     paintedAt: Number.NEGATIVE_INFINITY,
+    epoch: 0,
+    sheets: createSheets(),
   };
+  // A leaf left to come down counts for as long as frames are drawn to bring it down.
+  const aloft = (): boolean =>
+    state.now() - state.paintedAt <= SAME_TURN_WITHIN &&
+    state.book.some((leaf) => leaf.flight !== null);
   return {
     paint(scene, frame): void {
       paint(state, scene, frame);
     },
-    physics: createPaperPhysics(),
+    physics: createPaperPhysics(aloft),
   };
 }
 
 function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame): void {
-  const { width, height, spine } = scene;
   const read = leafTurn(scene, frame);
   // One page a spread has no leaf to bring back before the first page.
   if (!read) {
+    forget(state);
     scene.drawPage('curr', frame.dx);
     return;
   }
   const time = state.now();
-  const turn = turnOf(state, scene, frame, read, time);
-  const seconds =
-    turn === state.turn ? Math.min(0.05, Math.max(0, (time - state.paintedAt) / 1000)) : 0;
-  state.turn = turn;
+  const shape = { spine: scene.spine, width: scene.width - scene.spine, height: scene.height };
+  if (stale(state, shape, time)) forget(state);
+  const seconds = Math.min(0.05, Math.max(0, (time - state.paintedAt) / 1000));
   state.paintedAt = time;
-  const wanted = wantedOf(turn, scene, frame, read.turned);
-  const reach = FASTEST * seconds;
-  turn.shown += Math.min(reach, Math.max(-reach, wanted - turn.shown));
+  state.epoch = state.renderer.epoch;
 
-  layLeaf(
-    turn.shape,
-    poseAt(turn.shape, turn.grab, turn.shown),
-    COLUMNS,
-    ROWS,
-    state.positions,
-    state.normals,
-  );
+  const known = state.book.length;
+  const led = leafOf(state, scene, frame, read, shape);
+  // A leaf first seen this frame lies where its turn starts from.
+  move(state, led, scene, frame, read, state.book.length > known ? 0 : seconds, seconds);
+  hold(state, led, read);
+
   const image = state.renderer.draw({
-    width,
-    height,
-    spine,
-    positions: state.positions,
-    normals: state.normals,
+    width: scene.width,
+    height: scene.height,
+    spine: scene.spine,
     columns: COLUMNS,
     rows: ROWS,
-    front: read.front,
-    back: read.back,
+    sheets: state.sheets(state.book, shape),
     paper: state.paper,
   });
   if (!image) {
-    state.turn = null;
+    forget(state);
     paintPlain(scene, frame);
     return;
   }
-  // The pages the leaf leaves and lands on, then the leaf and its shadow over them.
-  drawUnder(scene, 0, spine, read.forward ? 'curr' : frame.incoming);
-  drawUnder(scene, spine, width, read.forward ? frame.incoming : 'curr');
-  scene.context.drawImage(image, 0, 0, width, height);
+  scene.context.drawImage(image, 0, 0, scene.width, scene.height);
 }
 
 /**
@@ -161,108 +136,139 @@ function leafTurn(scene: TransitionScene, frame: TransitionFrame): LeafTurn | nu
   const toward = forward ? -frame.dx : frame.dx;
   const along = Math.min(1, Math.max(0, toward / (scene.width || 1)));
   const frontSlot = forward ? 'curr' : frame.incoming;
-  // One page a spread shows nothing of the spread a leaf lands on.
-  const backSlot = scene.spine === 0 ? null : forward ? frame.incoming : 'curr';
+  const afterSlot = forward ? frame.incoming : 'curr';
+  const front = frontSlot ? scene.page(frontSlot) : null;
+  const after = afterSlot ? scene.page(afterSlot) : null;
   return {
+    // A bare leaf before the first spread comes before it.
+    spread: front ? front.spread : (after?.spread ?? 0) - 1,
     forward,
     turned: forward ? along : 1 - along,
-    front: frontSlot ? scene.page(frontSlot) : null,
-    back: backSlot ? scene.page(backSlot) : null,
+    front,
+    after,
   };
 }
 
-/** The turn this frame belongs to: the one in flight, or a new one lying where it starts from. */
-function turnOf(
+/** Whether what is remembered of the leaves is of another moment: long ago, another size, another GPU. */
+function stale(state: PaperTurn, shape: LeafShape, time: number): boolean {
+  const sized = (leaf: Leaf): boolean =>
+    leaf.shape.spine === shape.spine &&
+    leaf.shape.width === shape.width &&
+    leaf.shape.height === shape.height;
+  return (
+    time - state.paintedAt > SAME_TURN_WITHIN ||
+    state.epoch !== state.renderer.epoch ||
+    !state.book.every(sized)
+  );
+}
+
+/** Nothing is in the air any more: the pages the leaves held are let go. */
+function forget(state: PaperTurn): void {
+  // Pages taken from a GPU context since lost went with it.
+  if (state.epoch === state.renderer.epoch) for (const leaf of state.book) letGoOf(state, leaf);
+  state.book = [];
+  state.led = null;
+}
+
+function letGoOf(state: PaperTurn, leaf: Leaf): void {
+  if (leaf.front) state.renderer.release(leaf.front);
+  if (leaf.after) state.renderer.release(leaf.after);
+  leaf.front = null;
+  leaf.after = null;
+}
+
+/**
+ * The leaf this frame is of: one already in the air, taken up where it is,
+ * or a new one lying where its turn starts from. Every other leaf in the
+ * air is left to come down by itself.
+ */
+function leafOf(
   state: PaperTurn,
   scene: TransitionScene,
   frame: TransitionFrame,
   read: LeafTurn,
-  time: number,
-): Turn {
-  const shape = { spine: scene.spine, width: scene.width - scene.spine, height: scene.height };
-  const key = read.front?.content ?? null;
-  const turn = state.turn;
-  const same =
-    turn?.key === key &&
-    turn.forward === read.forward &&
-    turn.shape.spine === shape.spine &&
-    turn.shape.width === shape.width &&
-    turn.shape.height === shape.height &&
-    time - state.paintedAt <= SAME_TURN_WITHIN;
-  if (same) return turn;
-  return {
-    key,
-    shape,
-    forward: read.forward,
-    grab: grabOf(frame.touch, scene),
-    leaves: shape.spine === 0,
-    shown: read.forward ? 0 : 1,
-    letGo: null,
-  };
+  shape: LeafShape,
+): Leaf {
+  const printed = read.front?.content ?? null;
+  let led = state.book.find((leaf) => leaf.spread === read.spread);
+  // The same place in another book: what is remembered of it is of something else.
+  if (led && led.printed !== printed) {
+    letGoOf(state, led);
+    state.book.splice(state.book.indexOf(led), 1);
+    led = undefined;
+  }
+  if (!led) {
+    led = {
+      spread: read.spread,
+      printed,
+      shape,
+      leaves: shape.spine === 0,
+      grab: grabOf(frame.touch, scene),
+      hold: null,
+      heldFrom: null,
+      shown: read.forward ? 0 : 1,
+      speed: 0,
+      letGo: null,
+      front: null,
+      after: null,
+      flight: null,
+      positions: new Float32Array(COLUMNS * ROWS * 3),
+      normals: new Float32Array(COLUMNS * ROWS * 3),
+    };
+    placeInBook(state.book, led);
+  }
+  if (state.led !== led) {
+    led.flight = null;
+    leaveAlone(state.book, led, aloneBy(scene.width));
+  }
+  state.led = led;
+  return led;
 }
 
-/**
- * How far over the leaf is when it is `through` its motion (0–1). A leaf
- * that stays in the frame swings evenly. One that leaves it takes most of
- * its motion to get out of sight and the last of it to swing on down.
- */
-function swungAt(turn: Turn, through: number): number {
-  if (!turn.leaves) return through;
-  return through <= IN_SIGHT
-    ? (through / IN_SIGHT) * OUT_OF_SIGHT
-    : OUT_OF_SIGHT + ((through - IN_SIGHT) / (1 - IN_SIGHT)) * (1 - OUT_OF_SIGHT);
-}
-
-/** How far through its motion a leaf `shown` of the way over is. */
-function throughAt(turn: Turn, shown: number): number {
-  if (!turn.leaves) return shown;
-  return shown <= OUT_OF_SIGHT
-    ? (shown / OUT_OF_SIGHT) * IN_SIGHT
-    : IN_SIGHT + ((shown - OUT_OF_SIGHT) / (1 - OUT_OF_SIGHT)) * (1 - IN_SIGHT);
-}
-
-/**
- * How far over the leaf should be drawn. Under a finger, as far as puts the
- * held point of it under the finger. Let go, on from there in step with
- * the turn. Turned by no finger, as far as the turn has gone.
- */
-function wantedOf(
-  turn: Turn,
+/** Moves every leaf on by a frame and lays each out where it now is. */
+function move(
+  state: PaperTurn,
+  led: Leaf,
   scene: TransitionScene,
   frame: TransitionFrame,
-  turned: number,
-): number {
-  if (!frame.touch) return swungAt(turn, turned);
-  if (frame.phase === 'held') {
-    turn.letGo = null;
-    // The turn's own measure of the finger: where across the spread the held point should show.
-    const out = turn.grab.u * turn.shape.width;
-    return swungTo(turn, scene, turn.shape.spine + out * (1 - 2 * turned));
+  read: LeafTurn,
+  ledSeconds: number,
+  seconds: number,
+): void {
+  const wanted = wantedOf(led, scene, frame, read);
+  if (led.flight) {
+    // Let go with nowhere left for its turn to take it, it comes down by itself.
+    if (fly(led, seconds)) led.flight = null;
+  } else {
+    const reach = FASTEST * ledSeconds;
+    const before = led.shown;
+    led.shown += Math.min(reach, Math.max(-reach, wanted - led.shown));
+    if (ledSeconds > 0) led.speed = (led.shown - before) / ledSeconds;
   }
-  turn.letGo ??= { through: throughAt(turn, turn.shown), turned };
-  const end = (frame.phase === 'landing') === turn.forward ? 1 : 0;
-  const left = end - turn.letGo.turned;
-  const done = Math.abs(left) < 1e-6 ? 1 : (turned - turn.letGo.turned) / left;
-  const through = turn.letGo.through + (end - turn.letGo.through) * Math.min(1, Math.max(0, done));
-  return swungAt(turn, through);
+
+  for (const leaf of state.book) if (leaf !== led) fly(leaf, seconds);
+  keepInOrder(state.book, led);
+  const landed = state.book.filter((leaf) => leaf !== led && hasLanded(leaf));
+  const alone = state.book.filter((leaf) => leaf !== led && !landed.includes(leaf));
+  // More in the air than can be: the one left alone longest lands at once.
+  alone.sort((a, b) => (b.flight?.elapsed ?? 0) - (a.flight?.elapsed ?? 0));
+  for (const leaf of [...landed, ...alone.slice(ALONE_AT_MOST)]) {
+    letGoOf(state, leaf);
+    state.book.splice(state.book.indexOf(leaf), 1);
+  }
+  for (const leaf of state.book) {
+    const pose = poseAt(leaf.shape, leaf.grab, leaf.shown);
+    layLeaf(leaf.shape, pose, COLUMNS, ROWS, leaf.positions, leaf.normals);
+  }
 }
 
-/** How far over the leaf must be for its held point to show at `x` across the frame. */
-function swungTo(turn: Turn, scene: TransitionScene, x: number): number {
-  const eye = eyeHeight(scene.width, scene.height);
-  const out = turn.grab.u * turn.shape.width;
-  const down = turn.grab.v * turn.shape.height;
-  const showsAt = (shown: number): number => {
-    const [px, , pz] = leafPoint(turn.shape, poseAt(turn.shape, turn.grab, shown), out, down);
-    return scene.width / 2 + ((px - scene.width / 2) * eye) / (eye - pz);
+/** The led leaf shows its pages as they are now; a leaf left alone keeps them as they were. */
+function hold(state: PaperTurn, led: Leaf, read: LeafTurn): void {
+  const taken = (page: TransitionPage | null, was: Leaf['front']): Leaf['front'] => {
+    const now = page ? state.renderer.snapshot(page) : null;
+    if (was) state.renderer.release(was);
+    return now;
   };
-  // The point shows farther left the farther over the leaf is, until it is out of sight.
-  let low = 0;
-  let high = turn.leaves ? OUT_OF_SIGHT : 1;
-  for (let pass = 0; pass < 22; pass += 1) {
-    const middle = (low + high) / 2;
-    if (showsAt(middle) > x) low = middle;
-    else high = middle;
-  }
-  return (low + high) / 2;
+  led.front = taken(read.front, led.front);
+  led.after = taken(read.after, led.after);
 }

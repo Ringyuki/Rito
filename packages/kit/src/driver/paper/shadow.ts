@@ -34,9 +34,16 @@ export interface ShadowCaster {
   readonly indexCount: number;
 }
 
+/**
+ * The darkness the leaves in the air leave on the pages: begun for a frame,
+ * added to by each leaf that stands off them, then laid over whatever is
+ * bound to draw to.
+ */
 export interface ShadowPass {
-  /** Darkens whatever is bound to draw to by what the leaf keeps of the light from each point of the pages. */
-  draw(caster: ShadowCaster): void;
+  begin(width: number, height: number): void;
+  /** Adds what one leaf keeps of the light from each point of the pages. */
+  cast(caster: ShadowCaster): void;
+  lay(width: number, height: number): void;
 }
 
 /** How far from the spine the page beside a standing leaf shares its shade, in leaf widths. */
@@ -58,6 +65,13 @@ interface ShadowTargets {
   readonly blockers: RenderTarget;
   readonly dark: RenderTarget;
   readonly spare: RenderTarget;
+}
+
+/** The shadows of one frame: where they are worked out, what was drawn to, how many leaves cast. */
+interface ShadowFrame {
+  targets: ShadowTargets | null;
+  drawingTo: WebGLFramebuffer | null;
+  cast: number;
 }
 
 export function createShadowPass(gl: Gl): ShadowPass {
@@ -83,29 +97,57 @@ export function createShadowPass(gl: Gl): ShadowPass {
   };
   gl.bindBuffer(gl.ARRAY_BUFFER, programs.quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-  let targets: ShadowTargets | null = null;
+  const frame: ShadowFrame = { targets: null, drawingTo: null, cast: 0 };
   return {
-    draw(caster): void {
-      const drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
-      targets = sized(gl, targets, caster.width, caster.height);
-      const { blockers, dark, spare } = targets;
+    begin(width, height): void {
+      frame.drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+      frame.targets = sized(gl, frame.targets, width, height);
+      frame.cast = 0;
       gl.disable(gl.DEPTH_TEST);
-      castOnto(gl, programs.cast, blockers, caster);
-      occlude(gl, programs, blockers, dark, caster);
-      // The shadow is sampled with a pattern turned from pixel to pixel; a light blur takes its grain out.
-      blurInto(gl, programs, dark, spare, 1.2 / dark.width, 0);
-      blurInto(gl, programs, spare, dark, 0, 1.2 / dark.height);
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, drawingTo);
-      gl.viewport(0, 0, caster.width, caster.height);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frame.targets.dark.framebuffer);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    },
+    cast(caster): void {
+      if (!frame.targets) return;
+      frame.cast += 1;
+      castOnto(gl, programs.cast, frame.targets.blockers, caster);
+      // What two leaves keep of the light is kept by both: each takes its share of what the other left.
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      across(gl, programs.lay, programs.quad, dark.texture);
-      gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, 1);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      occlude(gl, programs, frame.targets.blockers, frame.targets.dark, caster);
       gl.disable(gl.BLEND);
     },
+    lay(width, height): void {
+      layOver(gl, programs, frame, width, height);
+    },
   };
+}
+
+/** Lays the darkness the leaves of a frame left over whatever was being drawn to before it began. */
+function layOver(
+  gl: Gl,
+  programs: ShadowPrograms,
+  frame: ShadowFrame,
+  width: number,
+  height: number,
+): void {
+  if (!frame.targets) return;
+  const { dark, spare } = frame.targets;
+  if (frame.cast > 0) {
+    // The shadow is sampled with a pattern turned from pixel to pixel; a light blur takes its grain out.
+    blurInto(gl, programs, dark, spare, 1.2 / dark.width, 0);
+    blurInto(gl, programs, spare, dark, 0, 1.2 / dark.height);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, frame.drawingTo);
+  gl.viewport(0, 0, width, height);
+  if (frame.cast === 0) return;
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  across(gl, programs.lay, programs.quad, dark.texture);
+  gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, 1);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.disable(gl.BLEND);
 }
 
 /** Readies `program` to draw `source` across whatever is drawn to. */

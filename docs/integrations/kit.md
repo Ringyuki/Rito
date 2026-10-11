@@ -97,7 +97,7 @@ damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
     leaves the frame, so it is gone when the sheet is;
   - painted — `paint(scene, frame)` draws the frame itself, for looks that bend or
     cut the pages such as a curl. `scene.context` is the cleared display canvas,
-    `scene.page(slot)` gives a page's bitmap and overlay (`{ content, overlay,
+    `scene.page(slot)` gives a page's bitmap and overlay (`{ spread, content, overlay,
 pixelRatio }`, or `null` while it is not painted yet) and
     `scene.drawPage(slot, x, opacity?)` draws one whole.
 
@@ -109,7 +109,9 @@ pixelRatio }`, or `null` while it is not painted yet) and
   (`touch.origin` and `touch.position`, `null` for a turn no finger has held).
   `scene.spine` is where the pages are bound — the left edge when a spread is one
   page, the middle when it is two — and a page's `version` changes whenever its
-  bitmap or overlay is painted again, so an effect can keep a texture of it.
+  bitmap or overlay is painted again, so an effect can keep a texture of it. A
+  page's `spread` is which spread of the book it is: what tells it from every
+  other from one turn to the next.
 
 - `springPresets.default | snappy | gentle` (or your own `stiffness` / `damping`).
 - `physics`: your own rules in place of the built-in ones, each part optional.
@@ -122,8 +124,13 @@ pixelRatio }`, or `null` while it is not painted yet) and
   the finger carried it), and
   `settle(from, velocity, to)` returns the motion that carries a released turn to
   rest: a function of the seconds since, answering `{ x, velocity, done }`. A turn
-  left alone stays on screen until it is `done`. An effect may bring the physics
-  it is made for as its own `physics`; the option outranks them.
+  left alone stays on screen until it is `done`. `begins(leftover)` says where a
+  turn that cuts into another begins and how fast, told where the picture is
+  (`dx`), its `velocity`, and whether the two turns are between the same two
+  spreads (`sameSpreads`); left out, the turn begins where the picture is and as
+  fast, so nothing jumps, and physics that answer otherwise leave what was left of
+  the other turn to their effect. An effect may bring the physics it is made for
+  as its own `physics`; the option outranks them.
 - `respectReducedMotion` (default `true`): while the system asks for reduced motion,
   turns cross-fade whatever the effect.
 
@@ -145,9 +152,14 @@ spine the leaf's shade runs on into the page beside it and fades there, as it do
 where pages are bound together, instead of stopping at the spine. With two
 pages a spread the leaf carries the next page
 on its back; with one page a spread it swings up and out of sight past the left
-edge, and a turn back brings it in from there. A leaf lying flat is exactly the
-page's own colours. Where WebGL is not to be had the effect paints the built-in
-`cover`. It holds one leaf, so make one per controller:
+edge, and a turn back brings it in from there. A turn that cuts into another does
+not stop its leaf: turned back, the same leaf slows, stops and comes back from
+where it is; turned on, it carries on down by itself while the next leaf lifts, so
+several are in the air at once (up to three coming down by themselves) and none
+passes through another; and a finger that takes a leaf in the air holds it by the
+point it touched. A leaf lying flat is exactly the page's own colours. Where WebGL
+is not to be had the effect paints the built-in `cover`. It keeps the leaves in the
+air, so make one per controller:
 
 ```ts
 import { createPaperTurn } from '@ritojs/kit';

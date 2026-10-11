@@ -1,10 +1,9 @@
 import type { TransitionTouch } from '../effects';
 import type { TransitionBounds, TransitionPhysics, TransitionSettle } from '../physics';
 import { springSettle } from '../spring';
+import { NEAREST_HOLD } from './hold';
 import type { LeafGrab } from './leaf';
 
-/** A hand takes the leaf no nearer the spine than this share of its width. */
-const NEAREST_GRAB = 0.35;
 /** Where a turn no finger started takes the leaf: its outer edge, toward the lower corner. */
 const UNHELD_GRAB: LeafGrab = { u: 1, v: 0.86 };
 /** A leaf let go on the move finishes on this spring: quick, and never past its target. */
@@ -17,6 +16,8 @@ const SHORTEST_TURN = 0.2;
  * finished at the leaf's own pace; a faster one keeps its momentum.
  */
 const UNHURRIED = 1.2;
+/** How long a leaf sent back the way it came takes to stop, seconds. */
+const STOPS_IN = 0.1;
 /** A finger must have moved this far, CSS px, for letting go to turn the page. */
 const LEAST_PULL = 24;
 
@@ -39,7 +40,7 @@ export function grabOf(
       : leaf
     : touch.origin.x - bounds.spine;
   return {
-    u: Math.min(1, Math.max(NEAREST_GRAB, out / (leaf || 1))),
+    u: Math.min(1, Math.max(NEAREST_HOLD, out / (leaf || 1))),
     v: Math.min(1, Math.max(0, touch.origin.y / (bounds.height || 1))),
   };
 }
@@ -50,8 +51,13 @@ export function grabOf(
  * the finger; a leaf turned by no finger starts at once and lands softly in
  * well under half a second; and the last frame drawn is the leaf lying
  * exactly where it lands.
+ *
+ * A turn that cuts into another takes up the same leaf when it is that leaf
+ * turned again, and otherwise lifts the next one from flat: the leaf it cut
+ * into is the effect's to bring down, and `aloft` says whether one still is
+ * in the air, for no turn is over before every leaf has come to rest.
  */
-export function createPaperPhysics(): TransitionPhysics {
+export function createPaperPhysics(aloft: () => boolean = () => false): TransitionPhysics {
   return {
     travel(touch, bounds) {
       const moved = touch.position.x - touch.origin.x;
@@ -67,9 +73,10 @@ export function createPaperPhysics(): TransitionPhysics {
       return bounds.width * Math.min(1, Math.max(0, 1 - turned));
     },
 
-    lands({ dx, velocity, width, direction, touch }) {
+    lands({ dx, from, velocity, width, direction, touch }) {
       const toward = direction === 'forward' ? -1 : 1;
-      const along = Math.max(0, (dx * toward) / (width || 1));
+      // How far the finger carried the leaf, wherever it took it.
+      const along = Math.max(0, ((dx - from) * toward) / (width || 1));
       const speed = (velocity * toward) / (width || 1);
       const pulled = touch ? (touch.position.x - touch.origin.x) * toward : Infinity;
       // Pulling back, or barely moved: the page stays.
@@ -77,21 +84,66 @@ export function createPaperPhysics(): TransitionPhysics {
       return along + speed * 0.15 > 0.2 || speed > 1;
     },
 
+    begins({ dx, velocity, sameSpreads }) {
+      return sameSpreads ? { dx, velocity } : { dx: 0, velocity: 0 };
+    },
+
     settle(from, velocity, to) {
-      const motion =
-        Math.abs(velocity) < UNHURRIED * Math.abs(to - from)
-          ? unhurried(from, to)
-          : springSettle(LEAF_SPRING, from, velocity, to);
-      // One frame is drawn with the leaf exactly where it lands before the turn is over.
-      let landed = false;
+      const motion = leafMotion(from, velocity, to);
       return (seconds) => {
         const at = motion(seconds);
-        if (!at.done) return at;
-        const done = landed;
-        landed = true;
-        return { x: to, velocity: 0, done };
+        return at.done && aloft() ? { ...at, done: false } : at;
       };
     },
+  };
+}
+
+/**
+ * How a leaf nothing holds goes from `from` at `velocity` to `to`: at its
+ * own pace when it is slow, keeping its momentum when it is not, and with
+ * one frame drawn exactly where it lands before it is done.
+ */
+export function leafMotion(from: number, velocity: number, to: number): TransitionSettle {
+  const motion = motionOf(from, velocity, to);
+  let landed = false;
+  return (seconds) => {
+    const at = motion(seconds);
+    if (!at.done) return at;
+    const done = landed;
+    landed = true;
+    return { x: to, velocity: 0, done };
+  };
+}
+
+function motionOf(from: number, velocity: number, to: number): TransitionSettle {
+  const way = to - from;
+  // Already there: a spring would carry what speed it had past the page and creep back.
+  if (Math.abs(way) < 0.5) return () => ({ x: to, velocity: 0, done: true });
+  if (velocity * way < 0 && Math.abs(velocity) > UNHURRIED * Math.abs(way)) {
+    return turnedRound(from, velocity, to);
+  }
+  return Math.abs(velocity) < UNHURRIED * Math.abs(way)
+    ? unhurried(from, to)
+    : springSettle(LEAF_SPRING, from, velocity, to);
+}
+
+/**
+ * A leaf sent back the way it came while still on the move: it carries on,
+ * slowing evenly to a stop in `STOPS_IN`, and comes back from there at its
+ * own pace. Turned round by a spring it would be going the other way a
+ * frame later, as if it had struck something.
+ */
+function turnedRound(from: number, velocity: number, to: number): TransitionSettle {
+  const stop = from + (velocity * STOPS_IN) / 2;
+  const back = unhurried(stop, to);
+  return (seconds) => {
+    if (seconds >= STOPS_IN) return back(seconds - STOPS_IN);
+    const slowed = 1 - seconds / STOPS_IN;
+    return {
+      x: stop - (velocity * STOPS_IN * slowed * slowed) / 2,
+      velocity: velocity * slowed,
+      done: false,
+    };
   };
 }
 

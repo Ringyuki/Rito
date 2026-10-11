@@ -288,6 +288,7 @@ function transitionPage(
   if (!ensureSlotReady(deps, slotPosition)) return null;
   const slot = deps.pool[slotPosition];
   return {
+    spread: slot.spreadIndex ?? 0,
     content: slot.content,
     overlay: slot.overlay,
     pixelRatio: width > 0 ? slot.content.width / width : 1,

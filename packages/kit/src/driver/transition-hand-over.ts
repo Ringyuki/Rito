@@ -18,6 +18,31 @@ export function leftoverOf(state: TransitionDriverState): Leftover {
 }
 
 /**
+ * What a turn beginning now, `direction` with or without a neighbour to
+ * bring in, starts from: what its physics make of what the turn it cut into
+ * left, or that itself.
+ */
+export function beginningOf(
+  state: TransitionDriverState,
+  direction: 'forward' | 'backward',
+  hasIncoming: boolean,
+): Leftover {
+  const left = leftoverOf(state);
+  const physics = activePhysics(state);
+  if (left.leaving === null || !physics?.begins) return left;
+  const own = hasIncoming ? (direction === 'forward' ? 'next' : 'prev') : null;
+  const at = physics.begins({
+    dx: left.dx,
+    velocity: left.vx,
+    width: state.viewportWidth,
+    direction,
+    sameSpreads: left.leaving === own,
+  });
+  // A turn that begins elsewhere shows nothing of the one it cut into.
+  return { dx: at.dx, vx: at.velocity, leaving: at.dx === left.dx ? left.leaving : null };
+}
+
+/**
  * Cuts into the open turn: its outcome is settled now, as a forced settle
  * would settle it, and the picture carries on from where it is. Returns the
  * event to report, or null when no turn is open. The mode is what is left

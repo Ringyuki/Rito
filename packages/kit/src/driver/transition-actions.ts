@@ -1,6 +1,6 @@
 import type { TransitionTouch } from './effects';
 import { rubberBand } from './rubber-band';
-import { leftoverOf } from './transition-hand-over';
+import { beginningOf } from './transition-hand-over';
 import { activePhysics, type TransitionDriverState } from './transition-state';
 import { estimateVelocity, VELOCITY_WINDOW_SIZE } from './transition-velocity';
 import type { LeavingNeighbour, TransitionMode } from './types';
@@ -33,7 +33,7 @@ export function startTrackingMode(
   timestamp: number,
 ): void {
   // A finger that cuts into a turn takes the picture from where that turn left it.
-  const begun = leftoverOf(state);
+  const begun = beginningOf(state, direction, incomingSpread !== null);
   state.velocitySamples = [{ dx: begun.dx, timestamp }];
   state.mode = {
     kind: 'tracking',
@@ -105,7 +105,7 @@ export function goToTargetMode(
   outgoingSpread: number,
   incomingSpread: number | null,
 ): void {
-  const begun = leftoverOf(state);
+  const begun = beginningOf(state, direction, incomingSpread !== null);
   const turn = { direction, outgoingSpread, incomingSpread, touch: null, leaving: begun.leaving };
   state.mode = settling(state, turn, turnTarget(state, direction), begun.dx, begun.vx);
 }

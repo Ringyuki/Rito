@@ -51,6 +51,7 @@ export {
 export type {
   TransitionBounds,
   TransitionPhysics,
+  TransitionLeftover,
   TransitionRelease,
   TransitionSettle,
 } from './driver/physics';

@@ -133,45 +133,77 @@ function clampAndSmooth(gl: Gl): void {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 }
 
-/** The textures kept of pages, each good for the version of the page it was made from. */
-export interface PageTextures {
-  /** The texture of a page as last painted, with its overlay over it. */
-  of(page: TransitionPage): WebGLTexture;
+/** A page as it was painted, kept as a texture for as long as anything shows it. */
+export interface PageSnapshot {
+  readonly texture: WebGLTexture;
 }
 
-interface KeptTexture {
-  readonly texture: WebGLTexture;
-  version: number;
+/**
+ * The textures kept of pages. A snapshot is of one painting of a page:
+ * painted again, the page gets another, and the first lasts as long as a
+ * leaf still in the air shows it.
+ */
+export interface PageTextures {
+  /** The page as last painted, with its overlay over it, held until it is released. */
+  take(page: TransitionPage): PageSnapshot;
+  release(snapshot: PageSnapshot): void;
+}
+
+interface Kept extends PageSnapshot {
+  readonly content: object;
+  readonly version: number;
+  held: number;
   used: number;
 }
 
-/** A reader turns among three spreads: the one on screen and its neighbours. */
+/** Snapshots nothing shows are kept for the turn that may want them next: this many. */
 const KEPT_PAGES = 3;
 
 export function createPageTextures(gl: Gl): PageTextures {
-  const kept = new Map<object, KeptTexture>();
+  /** The snapshot of each page as last painted. */
+  const latest = new Map<object, Kept>();
   const limit = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
   let scratch: PaperCanvas | null = null;
   let uses = 0;
+  const made = (page: TransitionPage, texture: WebGLTexture): Kept => {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    scratch ??= blankCanvas(1, 1);
+    upload(gl, flattened(page, limit, scratch));
+    return { texture, content: page.content, version: page.version, held: 0, used: 0 };
+  };
   return {
-    of(page): WebGLTexture {
+    take(page): PageSnapshot {
       uses += 1;
-      let entry = kept.get(page.content);
-      if (!entry) {
-        entry = { texture: gl.createTexture(), version: Number.NaN, used: uses };
-        kept.set(page.content, entry);
+      let kept = latest.get(page.content);
+      if (kept?.version !== page.version) {
+        // Nothing shows the older painting: its texture takes the new one.
+        const texture = kept && kept.held === 0 ? kept.texture : gl.createTexture();
+        kept = made(page, texture);
+        latest.set(page.content, kept);
       }
-      entry.used = uses;
-      gl.bindTexture(gl.TEXTURE_2D, entry.texture);
-      if (entry.version !== page.version) {
-        scratch ??= blankCanvas(1, 1);
-        upload(gl, flattened(page, limit, scratch));
-        entry.version = page.version;
-      }
-      if (kept.size > KEPT_PAGES) dropOldest(gl, kept);
-      return entry.texture;
+      kept.held += 1;
+      kept.used = uses;
+      return kept;
+    },
+    release(snapshot): void {
+      const kept = snapshot as Kept;
+      kept.held = Math.max(0, kept.held - 1);
+      if (kept.held > 0) return;
+      // A painting the page has since replaced is of no further use.
+      if (latest.get(kept.content) !== kept) gl.deleteTexture(kept.texture);
+      else dropUnshown(gl, latest);
     },
   };
+}
+
+/** Forgets the snapshots nothing shows, oldest first, beyond those kept for the next turn. */
+function dropUnshown(gl: Gl, latest: Map<object, Kept>): void {
+  const unshown = [...latest.values()].filter((kept) => kept.held === 0);
+  unshown.sort((a, b) => a.used - b.used);
+  for (const kept of unshown.slice(0, Math.max(0, unshown.length - KEPT_PAGES))) {
+    gl.deleteTexture(kept.texture);
+    latest.delete(kept.content);
+  }
 }
 
 /** The page with its overlay over it, no larger than a texture may be. */
@@ -202,21 +234,6 @@ function upload(gl: Gl, source: TexImageSource): void {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   const anisotropy = gl.getExtension('EXT_texture_filter_anisotropic');
   if (anisotropy) gl.texParameterf(gl.TEXTURE_2D, anisotropy.TEXTURE_MAX_ANISOTROPY_EXT, 8);
-}
-
-function dropOldest(gl: Gl, kept: Map<object, KeptTexture>): void {
-  let oldest: object | null = null;
-  let used = Infinity;
-  for (const [key, entry] of kept) {
-    if (entry.used < used) {
-      used = entry.used;
-      oldest = key;
-    }
-  }
-  if (!oldest) return;
-  const entry = kept.get(oldest);
-  if (entry) gl.deleteTexture(entry.texture);
-  kept.delete(oldest);
 }
 
 function sizeOf(source: CanvasImageSource): { width: number; height: number } {

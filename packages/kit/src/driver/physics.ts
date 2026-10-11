@@ -24,6 +24,21 @@ export interface TransitionRelease {
 }
 
 /**
+ * What a turn that cuts into another finds: where the picture is (`dx`, CSS
+ * px, in the coordinates the turn cut into left: its page was this far short
+ * of rest), how fast it moves (CSS px per second), the viewport width, which
+ * way the turn beginning goes, and whether it is between the same two
+ * spreads as the turn cut into: the same page, turned again.
+ */
+export interface TransitionLeftover {
+  readonly dx: number;
+  readonly velocity: number;
+  readonly width: number;
+  readonly direction: 'forward' | 'backward';
+  readonly sameSpreads: boolean;
+}
+
+/**
  * The motion of a turn nothing holds: where it is `seconds` after it was
  * let go, how fast, and whether it has come to rest. A turn left alone
  * stays on screen until it is done.
@@ -52,6 +67,13 @@ export interface TransitionPhysics {
   lands?(release: TransitionRelease): boolean;
   /** The motion from `from` at `velocity` to `to`: a viewport width away, or 0. */
   settle?(from: number, velocity: number, to: number): TransitionSettle;
+  /**
+   * Where a turn that cuts into another begins, and how fast. Left out, it
+   * begins where the picture is and as fast, so nothing jumps. Physics that
+   * answer otherwise leave what was left of the other turn to their effect:
+   * the frames that follow are of the new turn alone.
+   */
+  begins?(leftover: TransitionLeftover): { readonly dx: number; readonly velocity: number };
 }
 
 /** The built-in travel: a finger carries the turn as far as it has moved sideways. */
