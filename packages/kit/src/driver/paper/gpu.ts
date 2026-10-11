@@ -27,6 +27,10 @@ const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper',
   'uThrough',
   'uAlbedo',
   'uLift',
+  'uTurnedLift',
+  'uShows',
+  'uPart',
+  'uLies',
 ]);
 
 /** What the GPU holds of one sheet in a frame. */

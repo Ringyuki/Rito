@@ -28,19 +28,27 @@ void main() {
 `;
 
 /**
- * The leaf as the eye sees it: wherever it is drawn, it hides the pages.
+ * A sheet as the eye sees it: wherever it is drawn, it hides the pages.
+ * What of it lies on the pages hides nothing of them: it is where the
+ * shadow falls. `uOffPage` leaves that part out, for a sheet whose lying
+ * part is drawn under the shadows.
  */
 export const COVER_VERTEX = `
 attribute vec3 aPosition;
+varying float vHeight;
 ${PROJECTION}
 void main() {
+  vHeight = aPosition.z;
   gl_Position = project(aPosition, 0.0);
 }
 `;
 
 export const COVER_FRAGMENT = `
-precision mediump float;
+precision highp float;
+uniform float uOffPage;
+varying float vHeight;
 void main() {
+  if (vHeight <= uOffPage) discard;
   gl_FragColor = vec4(1.0);
 }
 `;

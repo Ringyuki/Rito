@@ -11,6 +11,11 @@ export interface ShadowCaster {
   /** The highest any of the leaf stands above the pages. */
   readonly tallest: number;
   /**
+   * Below what height the sheet's paper lies on the pages and hides nothing
+   * of them from the eye; negative for a sheet that hides them wherever it is.
+   */
+  readonly offPage: number;
+  /**
    * The leaf's shape as its shadow needs it: eight rows down the leaf, four
    * points out from the spine in each, x, y and z of each.
    */
@@ -138,6 +143,7 @@ function hide(
   for (const caster of casters) {
     gl.uniform2f(cover.uniforms['uSize'] ?? null, caster.width, caster.height);
     gl.uniform1f(cover.uniforms['uEye'] ?? null, caster.eye);
+    gl.uniform1f(cover.uniforms['uOffPage'] ?? null, caster.offPage);
     attribute(gl, cover, 'aPosition', caster.positions, 3);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, caster.indices);
     gl.drawElements(gl.TRIANGLES, caster.indexCount, gl.UNSIGNED_SHORT, 0);

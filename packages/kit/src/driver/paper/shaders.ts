@@ -70,6 +70,7 @@ attribute vec3 aNormal;
 attribute vec2 aUv;
 uniform float uDepth;
 uniform float uLift;
+uniform float uTurnedLift;
 uniform vec3 uLight;
 uniform float uKeyShare;
 uniform float uThrough;
@@ -88,7 +89,9 @@ void main() {
   vUv = aUv;
   vHeight = aPosition.z;
   // Sheets lying on each other are at one height; the lift tells the depth test which is on top.
-  gl_Position = project(aPosition, -(aPosition.z + uLift) / uDepth);
+  // Paper turned over lies the other way up, and so in the other order: it is lifted by its own amount.
+  float turned = smoothstep(0.0, 0.2, 0.5 - 0.5 * aNormal.z);
+  gl_Position = project(aPosition, -(aPosition.z + uLift + uTurnedLift * turned) / uDepth);
 }
 `;
 
@@ -103,8 +106,12 @@ const SOFT_EDGE = `
  * Both faces of the leaf. The front shows the spread it is lifted from,
  * the back the spread it lands on, mirrored; a back with nothing printed
  * on it is bare paper, the colour of the page's own margin, with the front
- * showing faintly through. Paper lying flat is exactly the page's own
+ * showing through, by `uShows`. Paper lying flat is exactly the page's own
  * colours.
+ *
+ * A sheet may be drawn in two parts: `uPart` above zero draws only what of
+ * it lies on the pages, below zero only what stands off them, so that the
+ * shadows can be laid between the two.
  *
  * `softened` is for a canvas that is not multisampled: the three edges of
  * a sheet in the air that are not bound are faded out over the last pixel
@@ -123,6 +130,9 @@ uniform float uHasFront;
 uniform float uHasBack;
 uniform float uSpine;
 uniform float uSheet;
+uniform float uShows;
+uniform float uPart;
+uniform float uLies;
 uniform vec3 uPaper;
 varying float vLit;
 varying float vHeight;
@@ -134,6 +144,8 @@ vec3 printed(sampler2D page, vec2 at) {
 }
 
 void main() {
+  if (uPart > 0.5 && vHeight > uLies) discard;
+  if (uPart < -0.5 && vHeight <= uLies) discard;
   vec2 onFront = vec2(uSpine + vUv.x * uSheet, vUv.y);
   vec3 front = uHasFront > 0.5 ? printed(uFront, onFront) : uPaper;
   vec3 colour = front;
@@ -142,7 +154,7 @@ void main() {
     vec3 bare = uHasFront > 0.5 ? printed(uFront, vec2(uSpine + 0.985 * uSheet, 0.012)) : uPaper;
     colour = uHasBack > 0.5 && onBack.x >= 0.0
       ? printed(uBack, onBack)
-      : mix(bare, front, 0.05) * 0.97;
+      : mix(bare, front, uShows) * 0.97;
   }
   float kept = 1.0;
   ${softened ? SOFT_EDGE : ''}

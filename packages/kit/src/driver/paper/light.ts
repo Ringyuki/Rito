@@ -26,6 +26,20 @@ export const KEY_SIZE = 0.2;
  */
 export const PAPER_THROUGH = 0.09;
 
+/**
+ * How much of what is printed on a sheet shows through from its back, where
+ * nothing is printed there: of a leaf, faintly; of a page curled over on
+ * itself, plainly, for its back is all there is to tell it by.
+ */
+export const SHOWS_THROUGH = 0.05;
+export const SHOWS_THROUGH_CURLED = 0.2;
+
+/**
+ * Paper no higher than this above the pages, in the frame's units, lies on
+ * them: under the height a sheet's edge begins to be softened at.
+ */
+export const LIES_BELOW = 0.25;
+
 /** The share of the light falling on a page that it gives back to the room. */
 export const PAPER_ALBEDO = 0.85;
 

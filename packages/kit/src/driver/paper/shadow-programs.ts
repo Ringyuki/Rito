@@ -41,7 +41,13 @@ export function startShadowPrograms(gl: Gl): StartedShadow {
   const read = ['uSource', ...PARTED];
   return {
     cast: startProgram(gl, CAST_VERTEX, CAST_FRAGMENT, ['aPosition'], cast),
-    cover: startProgram(gl, COVER_VERTEX, COVER_FRAGMENT, ['aPosition'], ['uSize', 'uEye']),
+    cover: startProgram(
+      gl,
+      COVER_VERTEX,
+      COVER_FRAGMENT,
+      ['aPosition'],
+      ['uSize', 'uEye', 'uOffPage'],
+    ),
     occlusion: startProgram(gl, QUAD_VERTEX, OCCLUSION_FRAGMENT, ['aCorner'], occlusion),
     blur: startProgram(gl, QUAD_VERTEX, BLUR_FRAGMENT, ['aCorner'], [...read, 'uStep']),
     lay: startProgram(gl, QUAD_VERTEX, SHADOW_FRAGMENT, ['aCorner'], [...read, 'uStrength']),

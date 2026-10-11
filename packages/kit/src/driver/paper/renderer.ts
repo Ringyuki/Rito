@@ -1,16 +1,9 @@
 import type { TransitionPage } from '../effects';
-import { attribute, type PageSnapshot } from './gl';
-import {
-  FACES,
-  finishGpu,
-  gpuDone,
-  startGpu,
-  type Gpu,
-  type SheetBuffers,
-  type StartedGpu,
-} from './gpu';
-import { KEY_DIRECTION, KEY_SHARE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
-import { sheetGrid, type SheetGrid } from './mesh';
+import { drawSheet, liesOnThePages, outline, uploadSheets, type SheetPart } from './draw-sheet';
+import type { PageSnapshot } from './gl';
+import { finishGpu, gpuDone, startGpu, type Gpu, type StartedGpu } from './gpu';
+import { LIES_BELOW } from './light';
+import type { SheetGrid } from './mesh';
 
 /**
  * One sheet of the book as a frame shows it: a leaf in the air, or one of
@@ -27,6 +20,12 @@ export interface PaperSheet {
   readonly back: PageSnapshot | null;
   /** How far over it is, 0 lying right and 1 lying left: what says which sheet lies on which. */
   readonly shown: number;
+  /**
+   * A page curled over on itself, part of it still lying on the pages: that
+   * part is drawn under the shadows, which fall on it as on any page, and
+   * its back shows its own front through.
+   */
+  readonly curled?: boolean;
 }
 
 /** One frame: the sheets from the front of the book to the back, and the paper they are made of. */
@@ -60,10 +59,6 @@ export interface PaperRenderer {
 
 /** The eye's height above the spread, in spreads. Lower exaggerates what rises. */
 const EYE_HEIGHT = 2.4;
-/** A sheet standing less than this above the pages, in the frame's units, casts no shadow. */
-const LYING = 0.5;
-/** How far apart sheets lying on each other are told to the depth test, in the frame's units. */
-const SHEET_APART = 0.05;
 /** How high the eye is over a spread of this size. */
 export function eyeHeight(width: number, height: number): number {
   return EYE_HEIGHT * Math.max(width, height);
@@ -116,8 +111,9 @@ export function createPaperRenderer(make: () => StartedGpu | null = startGpu): P
 }
 
 /**
- * The sheets lying flat are the pages: they are drawn first, the shadows of
- * the sheets in the air are laid over them, and those sheets are drawn last.
+ * The sheets lying flat are the pages: they are drawn first, with what lies
+ * on them of a page curled over; the shadows of the paper in the air are
+ * laid over them, and that paper is drawn last.
  */
 function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   const { gl, canvas } = gpu;
@@ -129,7 +125,7 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   }
   const mesh = uploadSheets(gpu, frame);
   const eye = eyeHeight(width, height);
-  const standing = frame.sheets.map((sheet) => tallestOf(sheet.positions) > LYING);
+  const standing = frame.sheets.map((sheet) => !liesOnThePages(sheet));
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, width, height);
@@ -137,13 +133,12 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
-  const drawn = (index: number): void => {
-    const sheet = frame.sheets[index];
-    const buffers = gpu.sheets[index];
-    if (sheet && buffers) drawSheet(gpu, frame, sheet, buffers, mesh, eye, liftOf(frame, index));
+  const drawn = (index: number, part: SheetPart): void => {
+    drawSheet(gpu, frame, index, mesh, eye, part);
   };
-  frame.sheets.forEach((_, index) => {
-    if (!standing[index]) drawn(index);
+  frame.sheets.forEach((sheet, index) => {
+    if (!standing[index]) drawn(index, 'whole');
+    else if (sheet.curled) drawn(index, 'lying');
   });
 
   castShadows(gpu, frame, mesh, eye, standing);
@@ -154,8 +149,8 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
-  frame.sheets.forEach((_, index) => {
-    if (standing[index]) drawn(index);
+  frame.sheets.forEach((sheet, index) => {
+    if (standing[index]) drawn(index, sheet.curled ? 'lifted' : 'whole');
   });
   gl.disable(gl.BLEND);
 }
@@ -179,111 +174,12 @@ function castShadows(
       height,
       eye,
       ...outline(frame, sheet.positions),
+      // What lies on the pages of a page curled over is where its shadow falls, and hides nothing.
+      offPage: sheet.curled ? LIES_BELOW : -1,
       positions: buffers.positions,
       indices: gpu.indices,
       indexCount: mesh.indices.length,
     });
   });
   gpu.shadow.lay(width, height);
-}
-
-/**
- * How far a sheet is lifted for the depth test alone. Lying right, a sheet
- * nearer the front of the book lies on the ones behind it; lying left, the
- * other way about.
- */
-function liftOf(frame: PaperFrame, index: number): number {
-  const shown = frame.sheets[index]?.shown ?? 0;
-  const behind = frame.sheets.length - 1 - index;
-  return SHEET_APART * ((1 - shown) * behind + shown * index);
-}
-
-function tallestOf(positions: Float32Array): number {
-  let tallest = 0;
-  for (let index = 2; index < positions.length; index += 3) {
-    tallest = Math.max(tallest, positions[index] ?? 0);
-  }
-  return tallest;
-}
-
-/** Sends every sheet's surface, and the way each point of it faces, to the GPU. */
-function uploadSheets(gpu: Gpu, frame: PaperFrame): SheetGrid {
-  const { gl } = gpu;
-  const grid = `${String(frame.columns)}x${String(frame.rows)}`;
-  if (!gpu.mesh || gpu.grid !== grid) {
-    gpu.grid = grid;
-    gpu.mesh = sheetGrid(frame.columns, frame.rows);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gpu.uvs);
-    gl.bufferData(gl.ARRAY_BUFFER, gpu.mesh.uvs, gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gpu.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gpu.mesh.indices, gl.STATIC_DRAW);
-  }
-  frame.sheets.forEach((sheet, index) => {
-    const buffers = (gpu.sheets[index] ??= {
-      positions: gl.createBuffer(),
-      normals: gl.createBuffer(),
-    });
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.positions);
-    gl.bufferData(gl.ARRAY_BUFFER, sheet.positions, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
-    gl.bufferData(gl.ARRAY_BUFFER, sheet.normals, gl.DYNAMIC_DRAW);
-  });
-  return gpu.mesh;
-}
-
-function drawSheet(
-  gpu: Gpu,
-  frame: PaperFrame,
-  sheet: PaperSheet,
-  buffers: SheetBuffers,
-  mesh: SheetGrid,
-  eye: number,
-  lift: number,
-): void {
-  const { gl, sheet: program } = gpu;
-  const reach = frame.width - frame.spine;
-  gl.useProgram(program.program);
-  gl.uniform2f(program.uniforms['uSize'] ?? null, frame.width, frame.height);
-  gl.uniform1f(program.uniforms['uEye'] ?? null, eye);
-  gl.uniform1f(program.uniforms['uDepth'] ?? null, reach * 1.25);
-  gl.uniform1f(program.uniforms['uLift'] ?? null, lift);
-  gl.uniform1f(program.uniforms['uSpine'] ?? null, frame.spine / frame.width);
-  gl.uniform1f(program.uniforms['uSheet'] ?? null, reach / frame.width);
-  gl.uniform3f(program.uniforms['uPaper'] ?? null, ...frame.paper);
-  gl.uniform3f(program.uniforms['uLight'] ?? null, ...KEY_DIRECTION);
-  gl.uniform1f(program.uniforms['uKeyShare'] ?? null, KEY_SHARE);
-  gl.uniform1f(program.uniforms['uThrough'] ?? null, PAPER_THROUGH);
-  gl.uniform1f(program.uniforms['uAlbedo'] ?? null, PAPER_ALBEDO);
-  [sheet.front, sheet.back].forEach((page, unit) => {
-    const [sampler, printed] = FACES[unit] ?? FACES[0];
-    gl.activeTexture(unit === 0 ? gl.TEXTURE0 : gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, page ? page.texture : gpu.bare);
-    gl.uniform1i(program.uniforms[sampler] ?? null, unit);
-    gl.uniform1f(program.uniforms[printed] ?? null, page ? 1 : 0);
-  });
-  attribute(gl, program, 'aPosition', buffers.positions, 3);
-  attribute(gl, program, 'aNormal', buffers.normals, 3);
-  attribute(gl, program, 'aUv', gpu.uvs, 2);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gpu.indices);
-  gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
-}
-
-/** How far out from the spine the leaf's shape is sampled for its shadow, as shares of its width. */
-const PROFILE = [0.03, 0.25, 0.6, 1];
-
-/** How high the leaf stands at most, and its shape in eight rows of four points: what its shadow is worked out from. */
-function outline(
-  frame: PaperFrame,
-  positions: Float32Array,
-): { tallest: number; profile: Float32Array } {
-  const { columns, rows } = frame;
-  const profile = new Float32Array(8 * PROFILE.length * 3);
-  for (let line = 0; line < 8; line += 1) {
-    const row = Math.round((line / 7) * (rows - 1));
-    PROFILE.forEach((out, point) => {
-      const at = (row * columns + Math.round(out * (columns - 1))) * 3;
-      profile.set(positions.subarray(at, at + 3), (line * PROFILE.length + point) * 3);
-    });
-  }
-  return { tallest: Math.max(1, tallestOf(positions)), profile };
 }
