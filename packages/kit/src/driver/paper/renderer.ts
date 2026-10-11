@@ -9,18 +9,25 @@ import {
   type PaperCanvas,
   type Program,
 } from './gl';
-import { createSheetMesh, type SheetMesh } from './mesh';
+import { sheetGrid, type SheetGrid } from './mesh';
 import { SHEET_FRAGMENT, SHEET_VERTEX } from './shaders';
 import { createShadowPass, type ShadowPass } from './shadow';
 
-/** One frame of the sheet: where every particle is, and the pages on its two faces. */
+/** One frame of the sheet: where its paper is, how it faces, and the pages on its two faces. */
 export interface PaperFrame {
   readonly width: number;
   readonly height: number;
   readonly spine: number;
+  /** x, y, z of a grid of points over the sheet, row by row from the spine outward. */
   readonly positions: Float32Array;
+  /** The direction the paper faces at each of those points. */
+  readonly normals: Float32Array;
   readonly columns: number;
   readonly rows: number;
+  /** How high the paper rolls at most: what sizes its shadow. */
+  readonly lift: number;
+  /** How far the roll is from its full size, 0–1: what its shadow is as dark as. */
+  readonly relief: number;
   /** The spread the sheet is lifted from, or null for bare paper. */
   readonly front: TransitionPage | null;
   /** The spread it lands on, or null for bare paper. */
@@ -38,14 +45,22 @@ export interface PaperRenderer {
 }
 
 /** Where the light comes from: over the reader's left shoulder. */
-const LIGHT = normalized([-0.38, -0.5, 0.78]);
+const LIGHT = normalized([-0.3, -0.4, 0.87]);
+/** How dark the shadow of a full roll is, on the pages beneath and on the sheet's own low paper. */
+const SHADOW_STRENGTH = 0.3;
 /** The eye's height above the spread, in spreads. Lower exaggerates what rises. */
-const EYE_HEIGHT = 3;
+const EYE_HEIGHT = 5;
 /** The sampler of each face of the sheet, and the flag saying a page is printed on it. */
 const FACES = [
   ['uFront', 'uHasFront'],
   ['uBack', 'uHasBack'],
 ] as const;
+
+const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight'].concat([
+  'uShadow',
+  'uShadowStrength',
+  'uLift',
+]);
 
 /** How high the eye is over a spread of this size. */
 export function eyeHeight(width: number, height: number): number {
@@ -64,8 +79,8 @@ interface Gpu {
   readonly textures: PageTextures;
   /** What a face with no page samples: nothing. */
   readonly bare: WebGLTexture;
-  /** The surface drawn through the particles, for the grid it was made for. */
-  mesh: SheetMesh | null;
+  /** The grid the buffers are laid out for, and which it is. */
+  mesh: SheetGrid | null;
   grid: string;
 }
 
@@ -100,7 +115,7 @@ function createGpu(): Gpu | null {
         SHEET_VERTEX,
         SHEET_FRAGMENT,
         ['aPosition', 'aNormal', 'aUv'],
-        ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight', ...FACES.flat()],
+        [...SHEET_UNIFORMS, ...FACES.flat()],
       ),
       shadow: createShadowPass(gl),
       positions: gl.createBuffer(),
@@ -140,16 +155,16 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   }
   const mesh = uploadSheet(gpu, frame);
   const eye = eyeHeight(width, height);
-  const reach = frame.width - frame.spine;
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, width, height);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gpu.shadow.draw({
+  const shadow = gpu.shadow.draw({
     width,
     height,
-    reach,
+    lift: frame.lift,
+    strength: SHADOW_STRENGTH * frame.relief,
     eye,
     light: LIGHT,
     positions: gpu.positions,
@@ -157,31 +172,37 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     indexCount: mesh.indices.length,
   });
   gl.enable(gl.DEPTH_TEST);
-  drawSheet(gpu, frame, mesh, eye, reach);
+  drawSheet(gpu, frame, mesh, eye, shadow);
 }
 
 /** Sends the sheet's surface, and the way each point of it faces, to the GPU. */
-function uploadSheet(gpu: Gpu, frame: PaperFrame): SheetMesh {
+function uploadSheet(gpu: Gpu, frame: PaperFrame): SheetGrid {
   const { gl } = gpu;
   const grid = `${String(frame.columns)}x${String(frame.rows)}`;
   if (!gpu.mesh || gpu.grid !== grid) {
     gpu.grid = grid;
-    gpu.mesh = createSheetMesh(frame.columns, frame.rows);
+    gpu.mesh = sheetGrid(frame.columns, frame.rows);
     gl.bindBuffer(gl.ARRAY_BUFFER, gpu.uvs);
     gl.bufferData(gl.ARRAY_BUFFER, gpu.mesh.uvs, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gpu.indices);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gpu.mesh.indices, gl.STATIC_DRAW);
   }
-  gpu.mesh.update(frame.positions);
   gl.bindBuffer(gl.ARRAY_BUFFER, gpu.positions);
-  gl.bufferData(gl.ARRAY_BUFFER, gpu.mesh.positions, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, frame.positions, gl.DYNAMIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER, gpu.normals);
-  gl.bufferData(gl.ARRAY_BUFFER, gpu.mesh.normals, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, frame.normals, gl.DYNAMIC_DRAW);
   return gpu.mesh;
 }
 
-function drawSheet(gpu: Gpu, frame: PaperFrame, mesh: SheetMesh, eye: number, reach: number): void {
+function drawSheet(
+  gpu: Gpu,
+  frame: PaperFrame,
+  mesh: SheetGrid,
+  eye: number,
+  shadow: WebGLTexture,
+): void {
   const { gl, sheet, textures } = gpu;
+  const reach = frame.width - frame.spine;
   gl.useProgram(sheet.program);
   gl.uniform2f(sheet.uniforms['uSize'] ?? null, frame.width, frame.height);
   gl.uniform1f(sheet.uniforms['uEye'] ?? null, eye);
@@ -190,6 +211,11 @@ function drawSheet(gpu: Gpu, frame: PaperFrame, mesh: SheetMesh, eye: number, re
   gl.uniform1f(sheet.uniforms['uSheet'] ?? null, reach / frame.width);
   gl.uniform3f(sheet.uniforms['uPaper'] ?? null, ...frame.paper);
   gl.uniform3f(sheet.uniforms['uLight'] ?? null, ...LIGHT);
+  gl.uniform1f(sheet.uniforms['uLift'] ?? null, Math.max(frame.lift, 1e-3));
+  gl.uniform1f(sheet.uniforms['uShadowStrength'] ?? null, SHADOW_STRENGTH * frame.relief);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, shadow);
+  gl.uniform1i(sheet.uniforms['uShadow'] ?? null, 2);
   [frame.front, frame.back].forEach((page, unit) => {
     const [sampler, printed] = FACES[unit] ?? FACES[0];
     gl.activeTexture(unit === 0 ? gl.TEXTURE0 : gl.TEXTURE1);

@@ -12,8 +12,10 @@ import { BLUR_FRAGMENT, CAST_FRAGMENT, CAST_VERTEX, QUAD_VERTEX, SHADOW_FRAGMENT
 export interface ShadowCaster {
   readonly width: number;
   readonly height: number;
-  /** How far the sheet reaches from the spine. */
-  readonly reach: number;
+  /** How high the paper rolls: what sizes the shadow and how soft it is. */
+  readonly lift: number;
+  /** How dark the shadow is, 0–1: paper barely off the page barely darkens it. */
+  readonly strength: number;
   readonly eye: number;
   readonly light: readonly [number, number, number];
   readonly positions: WebGLBuffer;
@@ -23,17 +25,17 @@ export interface ShadowCaster {
 
 export interface ShadowPass {
   /**
-   * Draws the shadow the sheet casts on the pages, soft, into what is
-   * bound to draw to when it is called, as darkness over what is there.
+   * Draws the shadow of the lifted paper, soft, as darkness over whatever
+   * is bound to draw to, and answers it as a texture for the sheet to
+   * take on its own low-lying paper.
    */
-  draw(caster: ShadowCaster): void;
+  draw(caster: ShadowCaster): WebGLTexture;
 }
 
 /** How far a shadow falls sideways for each unit its paper rises. */
-const CAST_REACH = 0.36;
-const SHADOW_STRENGTH = 0.36;
+const CAST_REACH = 0.3;
 /** Shadows are drawn this many times smaller than the frame, and blurred. */
-const SHADOW_SCALE = 6;
+const SHADOW_SCALE = 4;
 
 interface ShadowPrograms {
   readonly cast: Program;
@@ -44,7 +46,7 @@ interface ShadowPrograms {
 }
 
 export function createShadowPass(gl: Gl): ShadowPass {
-  const uniforms = ['uSize', 'uEye', 'uCast', 'uReach'];
+  const uniforms = ['uSize', 'uEye', 'uCast', 'uLift'];
   const programs: ShadowPrograms = {
     cast: createProgram(gl, CAST_VERTEX, CAST_FRAGMENT, ['aPosition'], uniforms),
     blur: createProgram(gl, QUAD_VERTEX, BLUR_FRAGMENT, ['aCorner'], ['uSource', 'uStep']),
@@ -55,7 +57,7 @@ export function createShadowPass(gl: Gl): ShadowPass {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   let targets: [RenderTarget, RenderTarget] | null = null;
   return {
-    draw(caster): void {
+    draw(caster): WebGLTexture {
       const drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
       targets = sized(gl, targets, caster.width, caster.height);
       const [first, second] = targets;
@@ -64,16 +66,19 @@ export function createShadowPass(gl: Gl): ShadowPass {
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       castOnto(gl, programs.cast, first, caster);
       gl.disable(gl.BLEND);
-      blurInto(gl, programs, first, second, 1 / first.width, 0);
-      blurInto(gl, programs, second, first, 0, 1 / first.height);
+      // The higher the paper rolls, the softer the edge of its shadow.
+      const soft = Math.max(0.75, (0.22 * caster.lift * first.width) / caster.width);
+      blurInto(gl, programs, first, second, soft / first.width, 0);
+      blurInto(gl, programs, second, first, 0, soft / first.height);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, drawingTo);
       gl.viewport(0, 0, caster.width, caster.height);
       gl.enable(gl.BLEND);
       across(gl, programs.lay, programs.quad, first.texture);
-      gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, SHADOW_STRENGTH);
+      gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, caster.strength);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disable(gl.BLEND);
+      return first.texture;
     },
   };
 }
@@ -109,7 +114,7 @@ function sized(
   width: number,
   height: number,
 ): [RenderTarget, RenderTarget] {
-  const w = Math.min(384, Math.max(64, Math.round(width / SHADOW_SCALE)));
+  const w = Math.min(512, Math.max(64, Math.round(width / SHADOW_SCALE)));
   const h = Math.max(1, Math.round((w * height) / width));
   if (targets && targets[0].width === w && targets[0].height === h) return targets;
   for (const target of targets ?? []) {
@@ -119,7 +124,7 @@ function sized(
   return [createRenderTarget(gl, w, h), createRenderTarget(gl, w, h)];
 }
 
-/** The sheet as the light throws it onto the pages. */
+/** The lifted paper as the light throws it onto what lies beneath. */
 function castOnto(gl: Gl, cast: Program, target: RenderTarget, caster: ShadowCaster): void {
   gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
   gl.viewport(0, 0, target.width, target.height);
@@ -134,7 +139,7 @@ function castOnto(gl: Gl, cast: Program, target: RenderTarget, caster: ShadowCas
     caster.light[0] * sideways,
     caster.light[1] * sideways,
   );
-  gl.uniform1f(cast.uniforms['uReach'] ?? null, caster.reach);
+  gl.uniform1f(cast.uniforms['uLift'] ?? null, Math.max(caster.lift, 1e-3));
   attribute(gl, cast, 'aPosition', caster.positions, 3);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, caster.indices);
   gl.drawElements(gl.TRIANGLES, caster.indexCount, gl.UNSIGNED_SHORT, 0);

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TransitionFrame, TransitionPage, TransitionScene } from '../src/driver/effects';
 import { createPaperPhysics, grabOf } from '../src/driver/paper/paper-physics';
 import { createPaperTurn } from '../src/driver/paper/paper-turn';
-import type { Sheet } from '../src/driver/paper/sheet';
 import { springSettle, stepSpring } from '../src/driver/spring';
 
 const one = { width: 400, spine: 0 };
@@ -12,16 +11,9 @@ const touch = (fromX: number, toX: number, y = 300) => ({
   position: { x: toX, y },
 });
 
-/** Physics with a sheet that lies `away` from flat, moving at `speed`. */
-function physics(sheet: { away: number; speed: number } | null = null) {
-  const fake = sheet && {
-    distanceFromFlat: () => sheet.away,
-    speed: () => sheet.speed,
-  };
-  return createPaperPhysics({
-    settling: () => fake as Sheet | null,
-    forward: () => true,
-  });
+/** Physics for paper that has, or has not yet, come to where its turn wants it. */
+function physics(paper: { arrived: boolean } = { arrived: true }) {
+  return createPaperPhysics({ arrived: () => paper.arrived });
 }
 
 describe('how far a finger carries a paper turn', () => {
@@ -47,7 +39,8 @@ describe('how far a finger carries a paper turn', () => {
   it('takes a sheet no nearer the spine than a hand could turn it by', () => {
     expect(grabOf(touch(20, 10), { ...one, height: 600 }).u).toBe(0.35);
     expect(grabOf(touch(380, 370, 150), { ...one, height: 600 })).toEqual({ u: 0.95, v: 0.25 });
-    expect(grabOf(null, { ...one, height: 600 }).u).toBe(1);
+    // A turn no finger started takes the lower outer corner.
+    expect(grabOf(null, { ...one, height: 600 })).toEqual({ u: 1, v: 1 });
   });
 });
 
@@ -66,18 +59,18 @@ describe('whether letting a paper turn go turns the page', () => {
 });
 
 describe('how a paper turn comes to rest', () => {
-  it('an unhurried hand lifts, swings and sets down, with no jolt at either end', () => {
+  it('an unhurried hand starts and stops gently', () => {
     const settle = physics().settle?.(0, 0, -400);
     if (!settle) throw new Error('the paper turn carries a released turn itself');
     expect(settle(0).velocity).toBeCloseTo(0, 9);
     expect(settle(0)).toMatchObject({ x: 0, done: false });
     const early = settle(0.05);
-    const middle = settle(0.375);
+    const middle = settle(0.33);
     expect(early.x).toBeGreaterThan(-8);
     expect(middle.x).toBeCloseTo(-200, 6);
-    expect(Math.abs(middle.velocity)).toBeGreaterThan(Math.abs(early.velocity) * 5);
-    expect(settle(0.75).velocity).toBeCloseTo(0, 9);
-    expect(settle(0.75)).toMatchObject({ x: -400, done: true });
+    expect(Math.abs(middle.velocity)).toBeGreaterThan(Math.abs(early.velocity) * 3);
+    expect(settle(0.66).velocity).toBeCloseTo(0, 9);
+    expect(settle(0.66)).toMatchObject({ x: -400, done: true });
   });
 
   it('a turn let go on the move keeps its momentum', () => {
@@ -85,19 +78,18 @@ describe('how a paper turn comes to rest', () => {
     expect(settle?.(0.016).velocity).toBeLessThan(-700);
   });
 
-  it('is over when the sheet lies still, and waits no longer than it must', () => {
-    const sheet = { away: 80, speed: 900 };
-    const settle = physics(sheet).settle?.(-390, 0, -400);
+  it('is over when the paper has come to lie flat, and waits no longer than it must', () => {
+    const paper = { arrived: false };
+    const settle = physics(paper).settle?.(-390, 0, -400);
     if (!settle) throw new Error('the paper turn carries a released turn itself');
-    // The hand has arrived; the paper is still in the air.
-    expect(settle(0.4).done).toBe(false);
-    sheet.away = 0.3;
-    sheet.speed = 20;
+    // The hand has arrived, exactly; the paper it carries has not.
+    expect(settle(0.4)).toEqual({ x: -400, velocity: 0, done: false });
+    paper.arrived = true;
     expect(settle(0.45).done).toBe(true);
 
-    const stuck = physics({ away: 80, speed: 900 }).settle?.(-390, 0, -400);
+    const stuck = physics({ arrived: false }).settle?.(-390, 0, -400);
     expect(stuck?.(0.4).done).toBe(false);
-    expect(stuck?.(1.4).done).toBe(true);
+    expect(stuck?.(0.9).done).toBe(true);
   });
 });
 

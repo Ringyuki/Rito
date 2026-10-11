@@ -15,16 +15,28 @@ vec4 project(vec3 at, float depth) {
 }
 `;
 
+/**
+ * The light on the paper is worked out at each point of the grid, for the
+ * face of it the reader sees, and spread between them: paper folded hard,
+ * facing up on both sides of the crease, is then lit alike across it.
+ */
 export const SHEET_VERTEX = `
 attribute vec3 aPosition;
 attribute vec3 aNormal;
 attribute vec2 aUv;
 uniform float uDepth;
-varying vec3 vNormal;
+uniform vec3 uLight;
+varying float vLit;
+varying float vSheen;
+varying vec3 vAt;
 varying vec2 vUv;
 ${PROJECTION}
 void main() {
-  vNormal = aNormal;
+  vec3 facing = aNormal.z >= 0.0 ? aNormal : -aNormal;
+  vLit = dot(facing, uLight) / uLight.z;
+  vec3 halfway = normalize(uLight + vec3(0.0, 0.0, 1.0));
+  vSheen = pow(max(dot(facing, halfway), 0.0), 40.0) - pow(halfway.z, 40.0);
+  vAt = aPosition;
   vUv = aUv;
   gl_Position = project(aPosition, -aPosition.z / uDepth);
 }
@@ -34,20 +46,26 @@ void main() {
  * Both faces of the sheet. The front shows the spread it is lifted from,
  * the back the spread it lands on, mirrored; a back with nothing printed
  * on it is bare paper, the colour of the page's own margin, with the front
- * showing faintly through. A flat sheet is lit to exactly the page's own
- * colours, so lifting it changes nothing until it tilts.
+ * showing faintly through. Paper lying flat is exactly the page's own
+ * colours; where it rolls it dims toward the side turned from the light,
+ * and what lies low takes the shadow of the paper rolled over it.
  */
 export const SHEET_FRAGMENT = `
 precision highp float;
 uniform sampler2D uFront;
 uniform sampler2D uBack;
+uniform sampler2D uShadow;
 uniform float uHasFront;
 uniform float uHasBack;
 uniform float uSpine;
 uniform float uSheet;
+uniform vec2 uSize;
+uniform float uLift;
+uniform float uShadowStrength;
 uniform vec3 uPaper;
-uniform vec3 uLight;
-varying vec3 vNormal;
+varying float vLit;
+varying float vSheen;
+varying vec3 vAt;
 varying vec2 vUv;
 
 vec3 printed(sampler2D page, vec2 at) {
@@ -56,42 +74,37 @@ vec3 printed(sampler2D page, vec2 at) {
 }
 
 void main() {
-  vec3 normal = normalize(vNormal);
   vec2 onFront = vec2(uSpine + vUv.x * uSheet, vUv.y);
   vec3 front = uHasFront > 0.5 ? printed(uFront, onFront) : uPaper;
   vec3 colour = front;
   if (!gl_FrontFacing) {
-    normal = -normal;
     vec2 onBack = vec2(uSpine - vUv.x * uSheet, vUv.y);
     vec3 bare = uHasFront > 0.5 ? printed(uFront, vec2(uSpine + 0.985 * uSheet, 0.012)) : uPaper;
     colour = uHasBack > 0.5 && onBack.x >= 0.0
       ? printed(uBack, onBack)
-      : mix(bare, front, 0.06) * 0.975;
+      : mix(bare, front, 0.05) * 0.965;
   }
-  // Paper lets light through: a face turned from the light is dimmer, not dark.
-  float toward = dot(normal, uLight) / uLight.z;
-  float lit = max(toward, 0.0) + 0.72 * max(-toward, 0.0);
-  float shade = min(0.66 + 0.34 * lit, 1.05);
-  vec3 halfway = normalize(uLight + vec3(0.0, 0.0, 1.0));
-  float sheen = pow(max(dot(normal, halfway), 0.0), 26.0) - pow(halfway.z, 26.0);
-  gl_FragColor = vec4(colour * shade + max(sheen, 0.0) * 0.18, 1.0);
+  float shade = clamp(0.8 + 0.2 * vLit, 0.8, 1.03);
+  float under = texture2D(uShadow, vec2(vAt.x / uSize.x, 1.0 - vAt.y / uSize.y)).a;
+  float low = 1.0 - smoothstep(0.0, uLift, vAt.z);
+  colour *= shade * (1.0 - uShadowStrength * under * low);
+  gl_FragColor = vec4(colour + max(vSheen, 0.0) * 0.1, 1.0);
 }
 `;
 
 /**
- * The sheet as the light throws it onto the pages: each point lands where
- * its shadow falls. Paper lying on the page casts none, and the higher it
- * rises the fainter its shadow.
+ * The sheet as the light throws it onto what lies beneath: each point
+ * lands where its shadow falls. Paper lying on the page casts none.
  */
 export const CAST_VERTEX = `
 attribute vec3 aPosition;
 uniform vec2 uCast;
-uniform float uReach;
+uniform float uLift;
 varying float vDark;
 ${PROJECTION}
 void main() {
   float height = max(aPosition.z, 0.0);
-  vDark = smoothstep(0.0, 0.04 * uReach, height) * mix(1.0, 0.2, min(height / (0.7 * uReach), 1.0));
+  vDark = smoothstep(0.0, 0.5 * uLift, height);
   gl_Position = project(vec3(aPosition.xy + uCast * height, 0.0), 0.0);
 }
 `;
