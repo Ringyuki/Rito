@@ -24,6 +24,11 @@ import 'page_turn_events.dart';
 /// decided, so the page is ready when the animation arrives; the reader is
 /// paused from paginating while a turn is on screen. [RitoPageTurnView]
 /// paints it.
+///
+/// A turn or a finger that arrives while a turn is on screen cuts into it:
+/// that turn ends as soon as the reader has landed it, wherever its picture
+/// is, and the picture is not stopped. The turn that cut in begins where
+/// the page is and as fast as it moves.
 final class RitoPageTurnController extends ChangeNotifier {
   RitoPageTurnController({
     required this.reader,
@@ -72,10 +77,11 @@ final class RitoPageTurnController extends ChangeNotifier {
   VoidCallback? _releasePagination;
 
   bool _dragActive = false;
-  double _dragBase = 0;
   Offset _dragOrigin = Offset.zero;
   Offset _dragPosition = Offset.zero;
-  bool _dragDeferred = false;
+
+  /// A finger came down on a turn and takes hold once its outcome is settled.
+  bool _dragWaiting = false;
   RitoPageTurnTouch? _touch;
 
   /// One start and exactly one end for every turn.
@@ -86,9 +92,27 @@ final class RitoPageTurnController extends ChangeNotifier {
 
   bool get isTurning => _open != null;
 
-  /// The frame effects paint now; with no turn on screen, the page at rest.
+  /// Whether anything is moving: a turn, or what is left of one that
+  /// another cut into, still on its way to rest though it has ended.
+  /// [RitoPageTurnView] paints while it is.
+  bool get isMoving =>
+      _open != null || _motion.phase != RitoTurnMotionPhase.idle;
+
+  /// The frame effects paint now; with nothing moving, the page at rest.
+  /// While a turn is still on the far side of where it began, the frame is
+  /// the picture of the turn it cut into: [RitoPageTurnFrame.incoming]
+  /// names the page that turn was leaving.
   RitoPageTurnFrame get frame {
     final open = _open;
+    if (open == null && _motion.phase == RitoTurnMotionPhase.finishing) {
+      return RitoPageTurnFrame(
+        offset: _motion.offset,
+        width: _motion.width,
+        incoming: _motion.showing,
+        phase: RitoPageTurnPhase.returning,
+        velocity: _motion.velocity,
+      );
+    }
     if (open == null) {
       return RitoPageTurnFrame(
         offset: 0,
@@ -100,10 +124,10 @@ final class RitoPageTurnController extends ChangeNotifier {
     return RitoPageTurnFrame(
       offset: _motion.offset,
       width: _motion.width,
-      incoming: _motion.hasIncoming ? _slotOf(open) : null,
+      incoming: _motion.showing,
       phase: _motion.phase == RitoTurnMotionPhase.dragging
           ? RitoPageTurnPhase.held
-          : _committing
+          : _committing && !_motion.onFarSide
           ? RitoPageTurnPhase.landing
           : RitoPageTurnPhase.returning,
       velocity: _motion.velocity,
@@ -143,24 +167,17 @@ final class RitoPageTurnController extends ChangeNotifier {
   set width(double value) => _motion.width = value;
 
   /// A finger took hold of the page at [position], in the coordinates the
-  /// turn is painted in ([RitoPageTurnView]'s own).
+  /// turn is painted in ([RitoPageTurnView]'s own). On a turn already on
+  /// screen it cuts into it, and takes the page where it is once that turn
+  /// is over.
   void dragStart(Offset position) {
     _dragOrigin = position;
     _dragPosition = position;
     if (_open == null) {
       _dragActive = true;
-      _dragBase = 0;
-    } else if (_motion.committing || _landing) {
-      // The page is already on its way: the drag picks up once it lands.
-      _dragDeferred = true;
-      _motion.finish();
-      _finishIfSettled();
-    } else if (_motion.phase == RitoTurnMotionPhase.settling) {
-      _motion.resumeDrag();
-      _dragActive = true;
-      _dragBase = _motion.offset;
-      _touch = RitoPageTurnTouch(origin: position, position: position);
-      notifyListeners();
+    } else {
+      _dragWaiting = true;
+      _settleTurn();
     }
   }
 
@@ -181,13 +198,13 @@ final class RitoPageTurnController extends ChangeNotifier {
       );
     }
     _touch = RitoPageTurnTouch(origin: _dragOrigin, position: position);
-    _motion.drag(_dragBase + travel);
+    _motion.drag(travel);
     notifyListeners();
   }
 
   /// The finger lifted, moving at [velocity] logical px/s.
   void dragEnd(Offset velocity) {
-    _dragDeferred = false;
+    _dragWaiting = false;
     if (!_dragActive) return;
     _dragActive = false;
     if (_motion.release(_speedAlongTurn(velocity), touch: _touch)) _commit();
@@ -205,7 +222,7 @@ final class RitoPageTurnController extends ChangeNotifier {
 
   /// The drag was taken away (another gesture won); the page goes back.
   void dragCancel() {
-    _dragDeferred = false;
+    _dragWaiting = false;
     if (!_dragActive) return;
     _dragActive = false;
     _motion.cancel();
@@ -213,7 +230,8 @@ final class RitoPageTurnController extends ChangeNotifier {
   }
 
   /// Turns to the neighbour in [direction] (a tap, a key). A turn asked for
-  /// while another one is landing follows it; false at the end of the book.
+  /// while another one is on screen cuts into it and begins where its page
+  /// is; false at the end of the book.
   bool turn(RitoAdjacentDirection direction) {
     if (_dragActive) return false;
     if (_open == null) {
@@ -231,8 +249,7 @@ final class RitoPageTurnController extends ChangeNotifier {
       return true;
     }
     _pendingTurn = direction;
-    _motion.finish();
-    _finishIfSettled();
+    _settleTurn();
     return true;
   }
 
@@ -311,30 +328,56 @@ final class RitoPageTurnController extends ChangeNotifier {
         .whenComplete(() {
           _landing = false;
           _revision = reader.revision;
-          _finishIfSettled();
+          _settleTurn();
         });
   }
 
-  void _finishIfSettled() {
+  /// Ends the turn on screen once it can be ended: when it has come to
+  /// rest, or at once when a turn or a finger has cut into it. A turn that
+  /// was decided waits for the reader to land it either way; cut into, it
+  /// then ends wherever its picture is and the picture carries on.
+  void _settleTurn() {
     final open = _open;
-    if (open == null || _motion.phase != RitoTurnMotionPhase.idle) return;
-    if (_committing) {
-      if (_landing) return;
-      final landed = _landed;
-      if (landed == null) {
-        // The neighbour could not be shown: the page goes back.
-        _committing = false;
-        _motion.cancel();
-        _run();
-        return;
+    if (open == null) return;
+    final atRest =
+        !_motion.moving && _motion.phase != RitoTurnMotionPhase.dragging;
+    final cut = _pendingTurn != null || _dragWaiting;
+    if (!atRest && !cut) return;
+    if (_committing && _landing) return;
+    if (_committing && _landed == null) {
+      // The neighbour could not be shown: the page goes back.
+      _committing = false;
+      _motion.cancel();
+      _run();
+      if (!cut) return;
+    }
+    // Nothing is left of a turn at rest, or of one that lands at once.
+    final carries =
+        _motion.phase != RitoTurnMotionPhase.idle && !effectiveEffect.instant;
+    final landed = _landed;
+    if (_committing && landed != null) {
+      final incoming = _slotOf(open);
+      if (carries) {
+        // The page it left is still in the frame: its image stays beside
+        // the page it landed on.
+        textures.move(RitoPageSlot.current, _slotOf(_opposite(open)));
+      } else {
+        textures.clear(except: {incoming});
       }
-      textures.clear(except: {_slotOf(open)});
-      textures.move(_slotOf(open), RitoPageSlot.current);
+      textures.move(incoming, RitoPageSlot.current);
       textures.assign(RitoPageSlot.current, landed);
-      _motion.reset();
+      if (carries) {
+        _motion.carryOn(committed: true);
+      } else {
+        _motion.reset();
+      }
       _end(RitoPageTurnOutcome.committed);
     } else {
-      _motion.reset();
+      if (carries) {
+        _motion.carryOn(committed: false);
+      } else {
+        _motion.reset();
+      }
       _end(RitoPageTurnOutcome.cancelled);
     }
     _afterTurn();
@@ -343,15 +386,15 @@ final class RitoPageTurnController extends ChangeNotifier {
   void _afterTurn() {
     final pending = _pendingTurn;
     _pendingTurn = null;
-    if (_dragDeferred) {
+    if (_dragWaiting) {
       // The finger that waited takes hold where it is now.
-      _dragDeferred = false;
+      _dragWaiting = false;
       _dragActive = true;
-      _dragBase = 0;
       _dragOrigin = _dragPosition;
     } else if (pending != null && turn(pending)) {
       return;
     }
+    if (_motion.moving) _run();
     _prewarm();
   }
 
@@ -380,13 +423,18 @@ final class RitoPageTurnController extends ChangeNotifier {
         ? 1 / 60
         : ((elapsed - _lastTick).inMicroseconds / 1e6).clamp(0.0, 0.032);
     _lastTick = elapsed;
+    final finishing = _motion.phase == RitoTurnMotionPhase.finishing;
     final settled = _motion.step(seconds, instant: effectiveEffect.instant);
     final fading = textures.advanceReveal(seconds);
     notifyListeners();
-    if (settled) _finishIfSettled();
-    if (_motion.phase != RitoTurnMotionPhase.settling && !fading) {
-      _ticker.stop();
+    if (settled) _settleTurn();
+    // What was left of a turn has come to rest with nothing having taken
+    // it up: the page it left is no longer in the frame.
+    if (finishing && _open == null && !_motion.moving) {
+      textures.clear(except: {RitoPageSlot.current});
+      _prewarm();
     }
+    if (!_motion.moving && !fading) _ticker.stop();
   }
 
   void _readerChanged() {
@@ -405,8 +453,15 @@ final class RitoPageTurnController extends ChangeNotifier {
       if (open == null) _prewarm();
       return;
     }
-    // Something else moved the reader (a jump, a relayout).
+    // Something else moved the reader (a jump, a relayout): nothing that
+    // was on its way carries on, and a finger that waited takes hold.
     _motion.reset();
+    _pendingTurn = null;
+    if (_dragWaiting) {
+      _dragWaiting = false;
+      _dragActive = true;
+      _dragOrigin = _dragPosition;
+    }
     _end(RitoPageTurnOutcome.interrupted);
     _prewarm();
   }
@@ -442,6 +497,11 @@ final class RitoPageTurnController extends ChangeNotifier {
       direction == RitoAdjacentDirection.next
       ? RitoPageSlot.next
       : RitoPageSlot.previous;
+
+  static RitoAdjacentDirection _opposite(RitoAdjacentDirection direction) =>
+      direction == RitoAdjacentDirection.next
+      ? RitoAdjacentDirection.previous
+      : RitoAdjacentDirection.next;
 
   void _report(Object error, StackTrace stack) {
     FlutterError.reportError(

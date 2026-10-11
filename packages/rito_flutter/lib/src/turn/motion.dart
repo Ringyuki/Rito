@@ -28,10 +28,13 @@ final class RitoSpring {
 /// A turn at the moment its finger lets go: where the turn is ([offset],
 /// logical px, negative toward the next page), how fast the finger was
 /// carrying it ([velocity], logical px/s along the turn), the page [width],
-/// which way it turns and the finger itself.
+/// which way it turns and the finger itself. [from] is where the turn was
+/// when the finger took it: 0 unless it began from what a turn in flight
+/// had left, so `offset - from` is how far the finger carried it.
 final class RitoPageTurnRelease {
   const RitoPageTurnRelease({
     required this.offset,
+    this.from = 0,
     required this.velocity,
     required this.width,
     required this.forward,
@@ -39,10 +42,33 @@ final class RitoPageTurnRelease {
   });
 
   final double offset;
+  final double from;
   final double velocity;
   final double width;
   final bool forward;
   final RitoPageTurnTouch? touch;
+}
+
+/// What a turn that cuts into another finds: where the picture is ([offset],
+/// logical px, in the coordinates the turn cut into left: its page was this
+/// far short of rest), how fast it moves ([velocity], logical px/s), the
+/// page [width], which way the turn beginning goes, and whether it is
+/// between the same two pages as the turn cut into: the same page, turned
+/// again.
+final class RitoPageTurnLeftover {
+  const RitoPageTurnLeftover({
+    required this.offset,
+    required this.velocity,
+    required this.width,
+    required this.forward,
+    required this.samePages,
+  });
+
+  final double offset;
+  final double velocity;
+  final double width;
+  final bool forward;
+  final bool samePages;
 }
 
 /// How a page turn moves, whatever it looks like. The defaults are the
@@ -50,7 +76,8 @@ final class RitoPageTurnRelease {
 ///
 /// Extend it to move a turn another way: [travel] reads the finger,
 /// [resist] holds the page at the ends of the book, [lands] decides a
-/// release and [settle] carries the turn to rest.
+/// release, [settle] carries the turn to rest and [begins] says where a
+/// turn that cuts into another starts.
 class RitoPageTurnPhysics {
   const RitoPageTurnPhysics({
     this.spring = RitoSpring.standard,
@@ -90,15 +117,27 @@ class RitoPageTurnPhysics {
 
   /// Whether a turn let go turns the page; otherwise it goes back. Not
   /// asked at the ends of the book, where there is no page to turn to.
+  ///
+  /// The built-in rule goes by how far the finger carried the turn: where
+  /// the turn was when the finger took it says nothing of what the finger
+  /// meant.
   bool lands(RitoPageTurnRelease release) {
-    final RitoPageTurnRelease(:offset, :velocity) = release;
+    final velocity = release.velocity;
+    final carried = release.offset - release.from;
     final toward = release.forward ? -1.0 : 1.0;
-    // Dragged back past the start, or pulling back: the page stays.
-    if (offset * toward < 0 || velocity * toward < -50) return false;
+    // Dragged back past where it took it, or pulling back: the page stays.
+    if (carried * toward < 0 || velocity * toward < -50) return false;
     final seconds = projection.inMicroseconds / 1e6;
-    return (offset + velocity * seconds).abs() > swipeThreshold ||
+    return (carried + velocity * seconds).abs() > swipeThreshold ||
         velocity.abs() > velocityCommit;
   }
+
+  /// Where a turn that cuts into another begins, and how fast: by default
+  /// where the picture is and as fast, so nothing jumps. Physics that answer
+  /// otherwise leave what was left of the other turn to their effect: the
+  /// frames that follow are of the new turn alone.
+  ({double offset, double velocity}) begins(RitoPageTurnLeftover leftover) =>
+      (offset: leftover.offset, velocity: leftover.velocity);
 
   /// The motion of a turn nothing holds, from [from] at [velocity] to
   /// [to]: the neighbour, a page width away, or 0, the page it left. A
@@ -159,11 +198,27 @@ final class _SpringSettle extends Simulation {
   }
 }
 
-enum RitoTurnMotionPhase { idle, dragging, settling }
+enum RitoTurnMotionPhase {
+  idle,
+  dragging,
+  settling,
+
+  /// What was left of a turn that another cut into: its outcome is
+  /// settled, and the picture goes the rest of the way to rest.
+  finishing,
+}
+
+/// The neighbour a turn that was cut into left in the frame; [none] for a
+/// pull against the end of the book, which shows no neighbour.
+enum _Leaving { next, previous, none }
 
 /// The motion of one page turn: the finger while dragging, then its
 /// physics' simulation to the neighbour or back. Displacement is in logical
 /// px, negative while turning forward. Pure: the caller supplies time.
+///
+/// A turn that another cuts into is not stopped: [carryOn] settles its
+/// outcome and leaves its picture going, and the turn that cuts in begins
+/// where that picture is.
 final class RitoTurnMotion {
   RitoTurnMotion(this.physics);
 
@@ -181,11 +236,26 @@ final class RitoTurnMotion {
   Simulation? _settling;
   double _elapsed = 0;
 
+  /// Added to what the simulation says: the coordinates moved when the turn
+  /// it was made for landed.
+  double _shift = 0;
+
+  /// Where the turn was when the finger took it: what its travel adds to.
+  double _from = 0;
+
+  /// What the turn this one began from left in the frame; null when it
+  /// began at rest.
+  _Leaving? _leaving;
+
   RitoTurnMotionPhase get phase => _phase;
   double get offset => _offset;
 
   /// How fast the turn is moving, logical px/s; 0 while a finger holds it.
-  double get velocity => _phase == RitoTurnMotionPhase.settling ? _velocity : 0;
+  double get velocity =>
+      _phase == RitoTurnMotionPhase.settling ||
+          _phase == RitoTurnMotionPhase.finishing
+      ? _velocity
+      : 0;
 
   /// Whether the turn goes toward the next page.
   bool get forward => _forward;
@@ -196,26 +266,56 @@ final class RitoTurnMotion {
   /// Whether the spring is carrying the turn to the neighbour.
   bool get committing => _phase == RitoTurnMotionPhase.settling && _target != 0;
 
+  /// Whether anything is moving by itself.
+  bool get moving =>
+      _phase == RitoTurnMotionPhase.settling ||
+      _phase == RitoTurnMotionPhase.finishing;
+
+  /// Whether the frame is still the picture of the turn this one cut into:
+  /// it has not crossed its own start yet.
+  bool get onFarSide =>
+      _phase != RitoTurnMotionPhase.finishing &&
+      _leaving != null &&
+      (_forward ? _offset > 0 : _offset < 0);
+
+  /// The neighbour in the frame: the turn's own, or the one the turn it
+  /// cut into was leaving while this one is on the far side of its start.
+  RitoPageSlot? get showing {
+    final leaving = _leaving;
+    if (leaving != null &&
+        (_phase == RitoTurnMotionPhase.finishing || onFarSide)) {
+      return switch (leaving) {
+        _Leaving.next => RitoPageSlot.next,
+        _Leaving.previous => RitoPageSlot.previous,
+        _Leaving.none => null,
+      };
+    }
+    if (!_hasIncoming) return null;
+    return _forward ? RitoPageSlot.next : RitoPageSlot.previous;
+  }
+
+  /// A finger takes the turn: from rest, or from what a turn it cut into
+  /// had left.
   void startDrag({required bool forward, required bool hasIncoming}) {
+    final begun = _beginning(forward: forward, hasIncoming: hasIncoming);
     _phase = RitoTurnMotionPhase.dragging;
     _forward = forward;
     _hasIncoming = hasIncoming;
-    _offset = 0;
+    _offset = begun.offset;
+    _from = begun.offset;
+    _leaving = begun.leaving;
     _velocity = 0;
+    _settling = null;
+    _shift = 0;
   }
 
-  /// Picks a settling turn back up under the finger, where it is.
-  void resumeDrag() {
-    if (_phase == RitoTurnMotionPhase.settling) {
-      _phase = RitoTurnMotionPhase.dragging;
-    }
-  }
-
-  /// Follows a finger that has carried the turn [travel] px; a pull with
-  /// no neighbour is resisted.
+  /// Follows a finger that has carried the turn [travel] px from where it
+  /// took it; a pull with no neighbour is resisted, what the turn had
+  /// already travelled is not.
   void drag(double travel) {
     if (_phase != RitoTurnMotionPhase.dragging) return;
-    _offset = _hasIncoming ? travel : physics.resist(travel, width);
+    final carried = _hasIncoming ? travel : physics.resist(travel, width);
+    _offset = _withinAPage(_from + carried);
   }
 
   /// Lets go at [velocity] logical px/s; true when the page turns.
@@ -227,6 +327,7 @@ final class RitoTurnMotion {
         physics.lands(
           RitoPageTurnRelease(
             offset: _offset,
+            from: _from,
             velocity: velocity,
             width: width,
             forward: _forward,
@@ -244,31 +345,79 @@ final class RitoTurnMotion {
     _settleTo(0);
   }
 
-  /// Turns toward a neighbour without a finger (a tap, a key).
+  /// Turns toward a neighbour without a finger (a tap, a key): from rest,
+  /// from what a turn it cut into had left, or on from where a turn that
+  /// was going back is.
   void turn({required bool forward}) {
+    if (_phase == RitoTurnMotionPhase.idle ||
+        _phase == RitoTurnMotionPhase.finishing) {
+      final begun = _beginning(forward: forward, hasIncoming: true);
+      _offset = begun.offset;
+      _velocity = begun.velocity;
+      _leaving = begun.leaving;
+    }
     _forward = forward;
     _hasIncoming = true;
-    if (_phase == RitoTurnMotionPhase.idle) {
-      _offset = 0;
-      _velocity = 0;
-    }
     _settleTo(_turnTarget);
   }
 
-  /// Advances the turn [seconds]; true when it came to rest. [instant]
+  /// Settles the outcome of the turn that is open and leaves its picture
+  /// going: the rest of it, in the coordinates that outcome leaves. A turn
+  /// that landed ([committed]) has a new current page: what was a page
+  /// width short of arriving is now that far from rest, the page it left
+  /// beside it. One that was going back stays where it is. Nothing lies
+  /// more than a page from rest.
+  void carryOn({required bool committed}) {
+    if (_phase == RitoTurnMotionPhase.idle ||
+        _phase == RitoTurnMotionPhase.finishing) {
+      return;
+    }
+    final shift = committed ? (_forward ? width : -width) : 0.0;
+    final moved = _offset + shift;
+    final offset = _withinAPage(moved);
+    final shown = showing;
+    _leaving = committed
+        ? (_forward ? _Leaving.previous : _Leaving.next)
+        : switch (shown) {
+            RitoPageSlot.next => _Leaving.next,
+            RitoPageSlot.previous => _Leaving.previous,
+            _ => _Leaving.none,
+          };
+    // A turn left alone keeps the motion it was on; one a finger held, or
+    // cut short, starts one.
+    final keeps =
+        _phase == RitoTurnMotionPhase.settling &&
+        _settling != null &&
+        offset == moved;
+    if (keeps) {
+      _shift += shift;
+    } else {
+      if (_phase == RitoTurnMotionPhase.dragging) _velocity = 0;
+      _settling = physics.settle(from: offset, velocity: _velocity, to: 0);
+      _elapsed = 0;
+      _shift = 0;
+    }
+    _offset = offset;
+    _target = 0;
+    _from = 0;
+    _phase = RitoTurnMotionPhase.finishing;
+  }
+
+  /// Advances the turn [seconds]; true when a turn came to rest. [instant]
   /// lands at once. The motion is read off its simulation at the time
-  /// elapsed, so its path is the same whatever the frame rate.
+  /// elapsed, so its path is the same whatever the frame rate. What was
+  /// left of a turn that was cut into comes to rest without saying so: its
+  /// turn was over when it was cut into.
   bool step(double seconds, {bool instant = false}) {
     final settling = _settling;
-    if (_phase != RitoTurnMotionPhase.settling || settling == null) {
-      return false;
-    }
+    if (!moving || settling == null) return false;
     _elapsed += seconds;
-    _offset = settling.x(_elapsed);
+    _offset = settling.x(_elapsed) + _shift;
     _velocity = settling.dx(_elapsed);
     if (instant || settling.isDone(_elapsed)) {
+      final finishing = _phase == RitoTurnMotionPhase.finishing;
       finish();
-      return true;
+      return !finishing;
     }
     return false;
   }
@@ -279,6 +428,8 @@ final class RitoTurnMotion {
     _velocity = 0;
     _phase = RitoTurnMotionPhase.idle;
     _settling = null;
+    _shift = 0;
+    if (_target == 0) _leaving = null;
   }
 
   void reset() {
@@ -287,15 +438,55 @@ final class RitoTurnMotion {
     _velocity = 0;
     _target = 0;
     _settling = null;
+    _shift = 0;
+    _from = 0;
+    _leaving = null;
   }
 
   double get _turnTarget => _forward ? -width : width;
+
+  /// A turn goes no farther than a page either way: beyond it there is no
+  /// page to show.
+  double _withinAPage(double offset) =>
+      width > 0 ? offset.clamp(-width, width).toDouble() : offset;
+
+  /// What a turn beginning now starts from: what its physics make of what
+  /// the turn it cut into left, or rest.
+  ({double offset, double velocity, _Leaving? leaving}) _beginning({
+    required bool forward,
+    required bool hasIncoming,
+  }) {
+    final leaving = _leaving;
+    if (_phase != RitoTurnMotionPhase.finishing || leaving == null) {
+      return (offset: 0, velocity: 0, leaving: null);
+    }
+    final own = !hasIncoming
+        ? null
+        : (forward ? _Leaving.next : _Leaving.previous);
+    final at = physics.begins(
+      RitoPageTurnLeftover(
+        offset: _offset,
+        velocity: _velocity,
+        width: width,
+        forward: forward,
+        samePages: leaving == own,
+      ),
+    );
+    // A turn that begins elsewhere shows nothing of the one it cut into.
+    return (
+      offset: at.offset,
+      velocity: at.velocity,
+      leaving: at.offset == _offset ? leaving : null,
+    );
+  }
 
   void _settleTo(double target) {
     _target = target;
     _phase = RitoTurnMotionPhase.settling;
     _settling = physics.settle(from: _offset, velocity: _velocity, to: target);
     _elapsed = 0;
+    _shift = 0;
+    _from = 0;
   }
 }
 

@@ -159,8 +159,14 @@ Three layers, each usable on its own:
    springs, never bounces past the neighbour — a custom spring damped
    below critical does; a pull against the first or last page stretches.
    A turn commits on the reader the moment it is decided, so the page is
-   ready on arrival; a tap during a landing turn follows it;
-   a jump or relayout mid-turn ends it. `events` brings one
+   ready on arrival. A tap, a turn back or a finger that arrives during a
+   turn cuts into it: that turn ends once the reader has landed it,
+   wherever its picture is, and the next begins where the page is and as
+   fast as it moves, so nothing jumps (`RitoPageTurnPhysics.begins` says
+   otherwise for physics of your own; a release is judged by how far the
+   finger carried the turn, `RitoPageTurnRelease.from` being where it took
+   it). `isMoving` is true while a turn or what is left of one is on
+   screen. A jump or relayout mid-turn ends it. `events` brings one
    `RitoPageTurnStarted` and exactly one `RitoPageTurnEnded` (`committed`,
    `cancelled`, `interrupted`) per turn; `frame.progress` follows the page
    every frame. Neighbours are prewarmed while idle; a neighbour that

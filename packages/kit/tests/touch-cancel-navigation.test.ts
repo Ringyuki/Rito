@@ -465,7 +465,7 @@ describe('how a turn ends, as on every host', () => {
     scenario.transitionEnd.mock.calls.map(([event]) => (event as { outcome: string }).outcome);
   const run = (name: keyof typeof lifecycle.ends, drive: (scenario: Scenario) => void): void => {
     it(name, () => {
-      const scenario = createScenario();
+      const scenario = createScenario(true, 4);
       drive(scenario);
       settle(scenario.td);
       expect(ends(scenario)).toEqual(lifecycle.ends[name]);
@@ -481,9 +481,28 @@ describe('how a turn ends, as on every host', () => {
     cancelSwipe(scenario, beginSwipe(scenario, 200, 100), 20);
   });
   run('turn-during-turn', (scenario) => {
-    scenario.nav.goToSpread(1);
+    scenario.nav.nextSpread();
     scenario.td.step(16);
-    scenario.nav.goToSpread(0);
+    scenario.nav.nextSpread();
+  });
+  run('turn-back-during-turn', (scenario) => {
+    scenario.nav.nextSpread();
+    scenario.td.step(16);
+    scenario.nav.prevSpread();
+  });
+  // A finger takes the page a turn is carrying, and flicks it on.
+  run('finger-during-turn', (scenario) => {
+    scenario.nav.nextSpread();
+    scenario.td.step(16);
+    endSwipe(scenario, beginSwipe(scenario, 300, 240), 20);
+  });
+  // A finger that comes down and lifts without moving leaves the turn be.
+  run('finger-rests-during-turn', (scenario) => {
+    scenario.nav.nextSpread();
+    scenario.td.step(16);
+    const down = touch(1, 300, 20);
+    scenario.dom.emit('touchstart', touchEvent([down], [down], 0));
+    scenario.dom.emit('touchend', touchEvent([], [down], 30));
   });
   run('jump-during-turn', (scenario) => {
     scenario.nav.goToSpread(1);

@@ -74,7 +74,8 @@ final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
         return ListenableBuilder(
           listenable: controller,
           builder: (context, child) {
-            final turning = controller.isTurning;
+            // Painted while anything moves: a turn, or what is left of one.
+            final turning = controller.isMoving;
             return Stack(
               fit: StackFit.expand,
               children: [

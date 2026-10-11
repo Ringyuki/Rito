@@ -4,6 +4,9 @@
     "turn-lands": ["committed"],
     "drag-goes-back": ["cancelled"],
     "turn-during-turn": ["committed", "committed"],
+    "turn-back-during-turn": ["committed", "committed"],
+    "finger-during-turn": ["committed", "committed"],
+    "finger-rests-during-turn": ["committed"],
     "jump-during-turn": ["interrupted"],
     "jump-during-drag": ["interrupted"],
     "relayout-during-turn": ["interrupted"]

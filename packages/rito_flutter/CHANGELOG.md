@@ -92,7 +92,13 @@ turn (`travel`), how the ends of the book resist (`resist`), whether a
 release turns the page (`lands`) and the `Simulation` that carries the
 turn to rest (`settle`), which also decides when the turn is over. The
 controller's drag methods take the finger's position and its velocity as
-an `Offset`.
+an `Offset`. A turn or a finger that arrives while a turn is on screen
+cuts into it: that turn ends once the reader has landed it, wherever its
+picture is, and the next begins where the page is and as fast as it moves
+(`RitoPageTurnPhysics.begins` says otherwise; a release is judged by how
+far the finger carried the turn, `RitoPageTurnRelease.from` being where it
+took it; `RitoPageTurnController.isMoving` is true while a turn or what is
+left of one is on screen).
 
 ### Pages never wait for their images
 

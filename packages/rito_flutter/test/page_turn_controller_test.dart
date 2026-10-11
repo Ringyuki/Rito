@@ -146,6 +146,28 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
       rig.turns.turn(_next);
     });
+    run('turn-back-during-turn', (tester, rig) async {
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      rig.turns.turn(_previous);
+    });
+    // A finger takes the page a turn is carrying, and flicks it on.
+    run('finger-during-turn', (tester, rig) async {
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      rig.turns
+        ..dragStart(const Offset(300, 0))
+        ..dragUpdate(const Offset(240, 0))
+        ..dragEnd(const Offset(-900, 0));
+    });
+    // A finger that comes down and lifts without moving leaves the turn be.
+    run('finger-rests-during-turn', (tester, rig) async {
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      rig.turns
+        ..dragStart(const Offset(300, 0))
+        ..dragEnd(Offset.zero);
+    });
     run('jump-during-turn', (tester, rig) async {
       rig.turns.turn(_next);
       await tester.pump(const Duration(milliseconds: 16));
@@ -370,6 +392,161 @@ void main() {
     rig.turns.dragCancel();
     await _settle(tester);
     expect(rig.events.sublist(2), ['start:next', 'end:next:cancelled']);
+  });
+
+  group('a turn cut into', () {
+    const both = [
+      'start:next',
+      'end:next:committed',
+      'start:next',
+      'end:next:committed',
+    ];
+
+    /// A turn to the next page, some of the way there, landed by the reader.
+    Future<RitoPageTurnFrame> inFlight(WidgetTester tester, _Rig rig) async {
+      rig.turns.turn(_next);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      return rig.turns.frame;
+    }
+
+    testWidgets('by a second turn carries its page on, as fast', (
+      tester,
+    ) async {
+      final rig = _rig(tester);
+      final before = await inFlight(tester, rig);
+      expect(before.offset, lessThan(0));
+
+      rig.turns.turn(_next);
+
+      // The first turn is over, landed where it stood; the second is its
+      // picture still moving, the page it left beside it.
+      expect(rig.turns.direction, _next);
+      final after = rig.turns.frame;
+      expect(after.offset, closeTo(before.offset + 400, 1e-6));
+      expect(after.velocity, closeTo(before.velocity, 1e-6));
+      expect(after.incoming, RitoPageSlot.previous);
+      expect(after.phase, RitoPageTurnPhase.returning);
+      expect(rig.turns.textures.page(RitoPageSlot.previous), isNotNull);
+
+      var last = after.offset;
+      var crossed = false;
+      for (var i = 0; i < 120 && rig.turns.isTurning; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (!rig.turns.isTurning) break;
+        final frame = rig.turns.frame;
+        // One motion: the page never moves back on itself.
+        expect(frame.offset, lessThanOrEqualTo(last));
+        last = frame.offset;
+        crossed = crossed || frame.offset <= 0;
+        expect(
+          frame.incoming,
+          crossed ? RitoPageSlot.next : RitoPageSlot.previous,
+        );
+      }
+      await _settle(tester);
+      expect(rig.events, both);
+      expect(rig.source.turns, ['next', 'next']);
+    });
+
+    testWidgets('by a turn back turns the same page round', (tester) async {
+      final rig = _rig(tester);
+      final before = await inFlight(tester, rig);
+
+      rig.turns.turn(_previous);
+
+      expect(rig.turns.direction, _previous);
+      final after = rig.turns.frame;
+      expect(after.offset, closeTo(before.offset + 400, 1e-6));
+      expect(after.velocity, closeTo(before.velocity, 1e-6));
+      expect(after.incoming, RitoPageSlot.previous);
+      expect(after.phase, RitoPageTurnPhase.landing);
+      for (var i = 0; i < 120 && rig.turns.isTurning; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (!rig.turns.isTurning) break;
+        // The page never leaves the stretch between the two pages.
+        expect(rig.turns.frame.offset, inInclusiveRange(0, 400));
+      }
+      await _settle(tester);
+      expect(rig.events, [
+        'start:next',
+        'end:next:committed',
+        'start:previous',
+        'end:previous:committed',
+      ]);
+      expect(rig.source.turns, ['next', 'previous']);
+    });
+
+    testWidgets('by a finger hands it the page where it is', (tester) async {
+      final rig = _rig(tester);
+      final before = await inFlight(tester, rig);
+
+      rig.turns.dragStart(const Offset(300, 0));
+      // The turn is over; its picture is not, and no turn is open yet.
+      expect(rig.turns.isTurning, isFalse);
+      expect(rig.turns.isMoving, isTrue);
+      expect(rig.turns.frame.offset, closeTo(before.offset + 400, 1e-6));
+
+      rig.turns.dragUpdate(const Offset(270, 0));
+      expect(rig.turns.direction, _next);
+      final held = rig.turns.frame;
+      // What was left of the first turn, and the finger's 30 px on top of it.
+      expect(held.offset, closeTo(before.offset + 400 - 30, 1e-6));
+      expect(held.phase, RitoPageTurnPhase.held);
+      expect(held.incoming, RitoPageSlot.previous);
+
+      // A flick on: still short of its own start, and two pages on all the
+      // same.
+      rig.turns.dragEnd(const Offset(-900, 0));
+      await _settle(tester);
+      expect(rig.events, both);
+      expect(rig.source.turns, ['next', 'next']);
+    });
+
+    testWidgets('by a finger that then does nothing comes to rest by itself', (
+      tester,
+    ) async {
+      final rig = _rig(tester);
+      await inFlight(tester, rig);
+
+      rig.turns
+        ..dragStart(const Offset(300, 0))
+        ..dragEnd(Offset.zero);
+      expect(rig.turns.isMoving, isTrue);
+      await _settle(tester);
+
+      expect(rig.turns.isMoving, isFalse);
+      expect(rig.turns.frame.offset, 0);
+      expect(rig.events, ['start:next', 'end:next:committed']);
+      expect(rig.source.turns, ['next']);
+    });
+
+    testWidgets('before the reader has landed it keeps moving and waits', (
+      tester,
+    ) async {
+      final rig = _rig(tester);
+      final gate = rig.source.turnGate = Completer<void>();
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 16));
+      final before = rig.turns.frame.offset;
+
+      rig.turns.turn(_next);
+      // Nothing is settled before the reader has the page; the turn goes on.
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(rig.events, ['start:next']);
+      expect(rig.source.turns, ['next']);
+      expect(rig.turns.frame.offset, lessThan(before));
+
+      gate.complete();
+      rig.source.turnGate = null;
+      await tester.pump(const Duration(milliseconds: 16));
+      // Landed where it stood: the page it left is still in the frame.
+      expect(rig.source.turns, ['next', 'next']);
+      expect(rig.turns.frame.offset, greaterThan(0));
+      await _settle(tester);
+      expect(rig.events, both);
+    });
   });
 
   testWidgets('physics an application writes move the turn', (tester) async {
