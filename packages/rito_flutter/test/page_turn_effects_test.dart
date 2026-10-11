@@ -8,7 +8,12 @@ import 'package:rito_flutter/rito_flutter.dart';
 const _w = 400.0;
 
 RitoPageTurnFrame _frame(double offset, RitoPageSlot? incoming) =>
-    RitoPageTurnFrame(offset: offset, width: _w, incoming: incoming);
+    RitoPageTurnFrame(
+      offset: offset,
+      width: _w,
+      incoming: incoming,
+      phase: RitoPageTurnPhase.held,
+    );
 
 Future<ui.Image> _whitePage() {
   final recorder = ui.PictureRecorder();

@@ -131,7 +131,8 @@ out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
 For an app, `RitoReaderController` owns the visible page (turns, jumps,
 relayouts, neighbour peeks, background pagination and every release), and
 `RitoPageTurnController` with `RitoPageTurnView` turns pages with the same
-physics and effects as the web reader, or with an effect you paint:
+physics and effects as the web reader, or with an effect you paint and
+physics you write:
 
 ```dart
 final reader = RitoReaderController(session, layout: layout);

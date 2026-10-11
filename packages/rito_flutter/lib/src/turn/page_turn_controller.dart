@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -12,8 +13,10 @@ import 'motion.dart';
 import 'page_textures.dart';
 import 'page_turn_events.dart';
 
-/// Drives page turns over a [RitoReaderController]: the drag, the spring,
-/// landing the turn on the reader, and the page textures an effect paints.
+/// Drives page turns over a [RitoReaderController]: landing the turn on
+/// the reader, the page textures an effect paints, and one start and one
+/// end per turn. How a turn moves is its [physics] and how it looks its
+/// [effect]; both are the application's to replace.
 ///
 /// Feed it a drag ([dragStart] / [dragUpdate] / [dragEnd]) or ask for a
 /// [turn]; listen for every frame, or read [events] for one start and
@@ -70,8 +73,10 @@ final class RitoPageTurnController extends ChangeNotifier {
 
   bool _dragActive = false;
   double _dragBase = 0;
-  double _dragLatest = 0;
+  Offset _dragOrigin = Offset.zero;
+  Offset _dragPosition = Offset.zero;
   bool _dragDeferred = false;
+  RitoPageTurnTouch? _touch;
 
   /// One start and exactly one end for every turn.
   Stream<RitoPageTurnEvent> get events => _events.stream;
@@ -81,13 +86,28 @@ final class RitoPageTurnController extends ChangeNotifier {
 
   bool get isTurning => _open != null;
 
-  /// The frame effects paint now.
+  /// The frame effects paint now; with no turn on screen, the page at rest.
   RitoPageTurnFrame get frame {
     final open = _open;
+    if (open == null) {
+      return RitoPageTurnFrame(
+        offset: 0,
+        width: _motion.width,
+        incoming: null,
+        phase: RitoPageTurnPhase.returning,
+      );
+    }
     return RitoPageTurnFrame(
-      offset: open == null ? 0 : _motion.offset,
+      offset: _motion.offset,
       width: _motion.width,
-      incoming: open == null || !_motion.hasIncoming ? null : _slotOf(open),
+      incoming: _motion.hasIncoming ? _slotOf(open) : null,
+      phase: _motion.phase == RitoTurnMotionPhase.dragging
+          ? RitoPageTurnPhase.held
+          : _committing
+          ? RitoPageTurnPhase.landing
+          : RitoPageTurnPhase.returning,
+      velocity: _motion.velocity,
+      touch: _touch,
     );
   }
 
@@ -122,9 +142,11 @@ final class RitoPageTurnController extends ChangeNotifier {
   double get width => _motion.width;
   set width(double value) => _motion.width = value;
 
-  /// A finger went down on the page.
-  void dragStart() {
-    _dragLatest = 0;
+  /// A finger took hold of the page at [position], in the coordinates the
+  /// turn is painted in ([RitoPageTurnView]'s own).
+  void dragStart(Offset position) {
+    _dragOrigin = position;
+    _dragPosition = position;
     if (_open == null) {
       _dragActive = true;
       _dragBase = 0;
@@ -137,16 +159,19 @@ final class RitoPageTurnController extends ChangeNotifier {
       _motion.resumeDrag();
       _dragActive = true;
       _dragBase = _motion.offset;
+      _touch = RitoPageTurnTouch(origin: position, position: position);
+      notifyListeners();
     }
   }
 
-  /// The finger is [offset] logical px from where it went down.
-  void dragUpdate(double offset) {
-    _dragLatest = offset;
+  /// The finger is at [position].
+  void dragUpdate(Offset position) {
+    _dragPosition = position;
     if (!_dragActive) return;
+    final travel = physics.travel(_dragOrigin, position);
     if (_open == null) {
-      if (offset == 0) return;
-      final direction = offset < 0
+      if (travel == 0) return;
+      final direction = travel < 0
           ? RitoAdjacentDirection.next
           : RitoAdjacentDirection.previous;
       _begin(direction);
@@ -155,17 +180,27 @@ final class RitoPageTurnController extends ChangeNotifier {
         hasIncoming: reader.canTurn(direction),
       );
     }
-    _motion.drag(_dragBase + offset);
+    _touch = RitoPageTurnTouch(origin: _dragOrigin, position: position);
+    _motion.drag(_dragBase + travel);
     notifyListeners();
   }
 
-  /// The finger lifted at [velocity] logical px/s.
-  void dragEnd(double velocity) {
+  /// The finger lifted, moving at [velocity] logical px/s.
+  void dragEnd(Offset velocity) {
     _dragDeferred = false;
     if (!_dragActive) return;
     _dragActive = false;
-    if (_motion.release(velocity)) _commit();
+    if (_motion.release(_speedAlongTurn(velocity), touch: _touch)) _commit();
     _run();
+  }
+
+  /// How fast the turn moves under a finger moving at [velocity]: how far
+  /// the physics' travel changes over the next 1/1024 s of it.
+  double _speedAlongTurn(Offset velocity) {
+    const step = 1 / 1024;
+    return (physics.travel(_dragOrigin, _dragPosition + velocity * step) -
+            physics.travel(_dragOrigin, _dragPosition)) /
+        step;
   }
 
   /// The drag was taken away (another gesture won); the page goes back.
@@ -240,6 +275,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _open = direction;
     _committing = false;
     _landed = null;
+    _touch = null;
     _releasePagination ??= reader.holdPagination();
     if (!fromShown) {
       textures.assign(RitoPageSlot.current, reader.page);
@@ -308,9 +344,11 @@ final class RitoPageTurnController extends ChangeNotifier {
     final pending = _pendingTurn;
     _pendingTurn = null;
     if (_dragDeferred) {
+      // The finger that waited takes hold where it is now.
       _dragDeferred = false;
       _dragActive = true;
-      _dragBase = -_dragLatest;
+      _dragBase = 0;
+      _dragOrigin = _dragPosition;
     } else if (pending != null && turn(pending)) {
       return;
     }
@@ -322,6 +360,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     if (open == null) return;
     _open = null;
     _committing = false;
+    _touch = null;
     _releasePagination?.call();
     _releasePagination = null;
     notifyListeners();

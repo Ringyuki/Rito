@@ -12,8 +12,9 @@ import 'page_turn_controller.dart';
 /// page: textures are drawn to fill it.
 ///
 /// With [dragToTurn] it turns pages under a horizontal drag itself; a host
-/// that arbitrates gestures (text selection, taps on links) leaves it off
-/// and feeds the controller's drag methods from its own recognizers.
+/// that arbitrates gestures (text selection, taps on links) or turns pages
+/// with another gesture leaves it off and feeds the controller's drag
+/// methods from its own recognizers, in this view's coordinates.
 final class RitoPageTurnView extends StatefulWidget {
   const RitoPageTurnView({
     required this.controller,
@@ -35,8 +36,6 @@ final class RitoPageTurnView extends StatefulWidget {
 }
 
 final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
-  double _dragStart = 0;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -101,14 +100,13 @@ final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
       view = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onHorizontalDragStart: (details) {
-          _dragStart = details.globalPosition.dx;
-          controller.dragStart();
+          controller.dragStart(details.localPosition);
         },
         onHorizontalDragUpdate: (details) {
-          controller.dragUpdate(details.globalPosition.dx - _dragStart);
+          controller.dragUpdate(details.localPosition);
         },
         onHorizontalDragEnd: (details) {
-          controller.dragEnd(details.velocity.pixelsPerSecond.dx);
+          controller.dragEnd(details.velocity.pixelsPerSecond);
         },
         onHorizontalDragCancel: controller.dragCancel,
         child: view,
@@ -119,15 +117,20 @@ final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
 }
 
 final class _TurnPainter extends CustomPainter {
-  _TurnPainter(this.controller, this.background) : super(repaint: controller);
+  _TurnPainter(RitoPageTurnController controller, Color background)
+    : this._(controller, background, controller.effectiveEffect);
+
+  _TurnPainter._(this.controller, this.background, this.effect)
+    : super(repaint: Listenable.merge([controller, effect.repaint]));
 
   final RitoPageTurnController controller;
   final Color background;
+  final RitoPageTurnEffect effect;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = background);
-    controller.effectiveEffect.paint(
+    effect.paint(
       RitoPageTurnScene(
         canvas: canvas,
         size: size,
@@ -141,5 +144,6 @@ final class _TurnPainter extends CustomPainter {
   @override
   bool shouldRepaint(_TurnPainter oldDelegate) =>
       oldDelegate.controller != controller ||
-      oldDelegate.background != background;
+      oldDelegate.background != background ||
+      oldDelegate.effect != effect;
 }

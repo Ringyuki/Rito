@@ -149,8 +149,9 @@ Three layers, each usable on its own:
 
 1. `RitoReaderController` — the pages (above).
 2. `RitoPageTurnController(reader:, vsync:)` — the turn: feed it a drag
-   (`dragStart` / `dragUpdate(offset)` / `dragEnd(velocity)` /
-   `dragCancel`) or call `turn(direction)` for taps and keys. It springs
+   (`dragStart(position)` / `dragUpdate(position)` / `dragEnd(velocity)` /
+   `dragCancel`, positions in the view's coordinates and the velocity in
+   logical px/s) or call `turn(direction)` for taps and keys. It moves
    with the web reader's physics (`RitoPageTurnPhysics`, with the springs
    `RitoSpring.standard`, `snappy` and `gentle`): a release hands its
    velocity to the spring, a turn follows the same path at any refresh
@@ -178,10 +179,26 @@ Effects: `RitoPageTurnEffects.slide | cover | fade | none`, a
 `RitoPageTurnEffect` painting the frame itself — `paint(scene, frame)`
 gets the canvas, the page images (`scene.pages.image(slot)` at
 `pixelRatio`, `reveal(slot)` for a late page's fade-in) and the paper
-colour, which is how a curl is built. Page textures are drawn by
-`paintPage` (default `ritoPaintArtifactPage`); draw highlights or a theme
-there and call `invalidatePages()` when they change. A page whose images
-land late is rasterized again.
+colour, which is how a curl is built. A frame says how far the turn has
+gone (`offset`, `progress`), which neighbour is coming in, what is moving
+it (`phase`: `held` by a finger, `landing` on the neighbour or
+`returning` to the page it left), how fast (`velocity`) and the finger
+that moved it (`touch.origin` and `touch.position`, null for a turn no
+finger has held). An effect that moves on a clock of its own returns a
+`Listenable` as `repaint`, and the view paints the turn again whenever it
+notifies. Page textures are drawn by `paintPage` (default
+`ritoPaintArtifactPage`); draw highlights or a theme there and call
+`invalidatePages()` when they change. A page whose images land late is
+rasterized again.
+
+Physics: extend `RitoPageTurnPhysics` to move a turn another way.
+`travel(origin, position)` says how far a finger has carried the turn — a
+whole turn is one page width, and the way a drag first moves is the way
+its page turns; `resist(travel, width)` says where a pull against the
+first or last page leaves it; `lands(release)` decides whether letting go
+turns the page; and `settle(from:, velocity:, to:)` returns the
+`Simulation` that carries a released or tapped turn to rest. A turn left
+alone stays on screen until that simulation is done.
 
 ## Rendering (`RitoPageSurface`)
 

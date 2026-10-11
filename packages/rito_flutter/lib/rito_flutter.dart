@@ -127,7 +127,8 @@ export 'src/render/page_surface.dart'
         RitoPageSurface;
 export 'src/render/typed_color.dart' show ritoUiColor;
 export 'src/turn/effects.dart';
-export 'src/turn/motion.dart' show RitoPageTurnPhysics, RitoSpring;
+export 'src/turn/motion.dart'
+    show RitoPageTurnPhysics, RitoPageTurnRelease, RitoSpring;
 export 'src/turn/page_textures.dart'
     show RitoPagePainter, RitoPageTextures, ritoPaintArtifactPage;
 export 'src/turn/page_turn_controller.dart';

@@ -1,6 +1,9 @@
 import 'dart:math' as math;
+import 'dart:ui' show Offset;
 
 import 'package:flutter/physics.dart';
+
+import 'effects.dart';
 
 /// A damped spring: stiffness in 1/s², damping in 1/s. The presets are
 /// damped at or just above critical, so a turn never bounces: past the
@@ -22,9 +25,33 @@ final class RitoSpring {
   static const RitoSpring gentle = RitoSpring(stiffness: 110, damping: 21);
 }
 
+/// A turn at the moment its finger lets go: where the turn is ([offset],
+/// logical px, negative toward the next page), how fast the finger was
+/// carrying it ([velocity], logical px/s along the turn), the page [width],
+/// which way it turns and the finger itself.
+final class RitoPageTurnRelease {
+  const RitoPageTurnRelease({
+    required this.offset,
+    required this.velocity,
+    required this.width,
+    required this.forward,
+    this.touch,
+  });
+
+  final double offset;
+  final double velocity;
+  final double width;
+  final bool forward;
+  final RitoPageTurnTouch? touch;
+}
+
 /// How a page turn moves, whatever it looks like. The defaults are the
 /// web reader's (`@ritojs/kit`), so a book turns the same on both.
-final class RitoPageTurnPhysics {
+///
+/// Extend it to move a turn another way: [travel] reads the finger,
+/// [resist] holds the page at the ends of the book, [lands] decides a
+/// release and [settle] carries the turn to rest.
+class RitoPageTurnPhysics {
   const RitoPageTurnPhysics({
     this.spring = RitoSpring.standard,
     this.swipeThreshold = 50,
@@ -46,13 +73,97 @@ final class RitoPageTurnPhysics {
 
   /// How hard a pull against the first or last page resists (0–1).
   final double elasticFactor;
+
+  /// How far a finger at [position] has carried the turn since it took
+  /// hold at [origin]: logical px, negative toward the next page, one page
+  /// width for a whole turn. The way a drag first moves is the way its
+  /// page turns.
+  double travel(Offset origin, Offset position) => position.dx - origin.dx;
+
+  /// Where a pull of [travel] px leaves the page when no neighbour lies
+  /// that way: it stretches like a rubber band.
+  double resist(double travel, double width) {
+    if (travel == 0 || width <= 0) return 0;
+    final stretch = 1 - 1 / (travel.abs() / width + 1);
+    return travel.sign * stretch * width * elasticFactor;
+  }
+
+  /// Whether a turn let go turns the page; otherwise it goes back. Not
+  /// asked at the ends of the book, where there is no page to turn to.
+  bool lands(RitoPageTurnRelease release) {
+    final RitoPageTurnRelease(:offset, :velocity) = release;
+    final toward = release.forward ? -1.0 : 1.0;
+    // Dragged back past the start, or pulling back: the page stays.
+    if (offset * toward < 0 || velocity * toward < -50) return false;
+    final seconds = projection.inMicroseconds / 1e6;
+    return (offset + velocity * seconds).abs() > swipeThreshold ||
+        velocity.abs() > velocityCommit;
+  }
+
+  /// The motion of a turn nothing holds, from [from] at [velocity] to
+  /// [to]: the neighbour, a page width away, or 0, the page it left. A
+  /// turn left alone stays on screen until the simulation is done, then
+  /// stands at [to].
+  Simulation settle({
+    required double from,
+    required double velocity,
+    required double to,
+  }) => _SpringSettle(spring, from, velocity, to);
+}
+
+/// The spring toward [to]. It is at rest once what motion remains is
+/// sub-pixel: within half a pixel, and not fast enough to carry more than
+/// half a pixel further.
+final class _SpringSettle extends Simulation {
+  _SpringSettle(RitoSpring spring, double from, double velocity, this.to)
+    : _omega = math.sqrt(spring.stiffness),
+      _spring = SpringSimulation(
+        SpringDescription(
+          mass: 1,
+          stiffness: spring.stiffness,
+          damping: spring.damping,
+        ),
+        from - to,
+        0,
+        _boundedVelocity(spring, from - to, velocity),
+      );
+
+  final double to;
+  final double _omega;
+  final SpringSimulation _spring;
+
+  @override
+  double x(double time) => to + _spring.x(time);
+
+  @override
+  double dx(double time) => _spring.dx(time);
+
+  @override
+  bool isDone(double time) =>
+      _spring.x(time).abs() < 0.5 && _spring.dx(time).abs() / _omega < 0.5;
+
+  /// A spring that does not oscillate passes its target only when it
+  /// starts toward it faster than ω times the distance; bounding a
+  /// handed-over velocity there keeps it on its side of the target, with
+  /// the motion continuous. An oscillating spring was chosen to bounce.
+  static double _boundedVelocity(
+    RitoSpring spring,
+    double offset,
+    double velocity,
+  ) {
+    final omega = math.sqrt(spring.stiffness);
+    if (spring.damping < 2 * omega || offset == 0) return velocity;
+    final limit = omega * offset.abs();
+    final toward = -offset.sign * velocity;
+    return toward > limit ? -offset.sign * limit : velocity;
+  }
 }
 
 enum RitoTurnMotionPhase { idle, dragging, settling }
 
-/// The motion of one page turn: the finger while dragging, then a spring
-/// to the neighbour or back. Displacement is in logical px, negative while
-/// turning forward. Pure: the caller supplies time.
+/// The motion of one page turn: the finger while dragging, then its
+/// physics' simulation to the neighbour or back. Displacement is in logical
+/// px, negative while turning forward. Pure: the caller supplies time.
 final class RitoTurnMotion {
   RitoTurnMotion(this.physics);
 
@@ -67,9 +178,14 @@ final class RitoTurnMotion {
   double _offset = 0;
   double _velocity = 0;
   double _target = 0;
+  Simulation? _settling;
+  double _elapsed = 0;
 
   RitoTurnMotionPhase get phase => _phase;
   double get offset => _offset;
+
+  /// How fast the turn is moving, logical px/s; 0 while a finger holds it.
+  double get velocity => _phase == RitoTurnMotionPhase.settling ? _velocity : 0;
 
   /// Whether the turn goes toward the next page.
   bool get forward => _forward;
@@ -95,20 +211,30 @@ final class RitoTurnMotion {
     }
   }
 
-  /// Follows the finger [rawOffset] px from where the drag began; a pull
-  /// with no neighbour stretches like a rubber band.
-  void drag(double rawOffset) {
+  /// Follows a finger that has carried the turn [travel] px; a pull with
+  /// no neighbour is resisted.
+  void drag(double travel) {
     if (_phase != RitoTurnMotionPhase.dragging) return;
-    _offset = _hasIncoming ? rawOffset : _rubberBand(rawOffset);
+    _offset = _hasIncoming ? travel : physics.resist(travel, width);
   }
 
   /// Lets go at [velocity] logical px/s; true when the page turns.
-  bool release(double velocity) {
+  bool release(double velocity, {RitoPageTurnTouch? touch}) {
     if (_phase != RitoTurnMotionPhase.dragging) return false;
     _velocity = velocity;
-    final commit = _hasIncoming && _releaseCommits(velocity);
-    _settleTo(commit ? _turnTarget : 0);
-    return commit;
+    final lands =
+        _hasIncoming &&
+        physics.lands(
+          RitoPageTurnRelease(
+            offset: _offset,
+            velocity: velocity,
+            width: width,
+            forward: _forward,
+            touch: touch,
+          ),
+        );
+    _settleTo(lands ? _turnTarget : 0);
+    return lands;
   }
 
   /// Sends the turn back to where it started (also from a turn that
@@ -129,38 +255,30 @@ final class RitoTurnMotion {
     _settleTo(_turnTarget);
   }
 
-  /// Advances the spring [seconds]; true when it came to rest. [instant]
-  /// lands at once. The spring is solved in closed form from where it is,
-  /// so its path is the same whatever the frame rate.
+  /// Advances the turn [seconds]; true when it came to rest. [instant]
+  /// lands at once. The motion is read off its simulation at the time
+  /// elapsed, so its path is the same whatever the frame rate.
   bool step(double seconds, {bool instant = false}) {
-    if (_phase != RitoTurnMotionPhase.settling) return false;
-    final spring = physics.spring;
-    final offset = _offset - _target;
-    final next = springAt(
-      spring,
-      offset,
-      _boundedVelocity(spring, offset, _velocity),
-      seconds,
-    );
-    _offset = _target + next.offset;
-    _velocity = next.velocity;
-    // At rest once what motion remains is sub-pixel: within half a pixel,
-    // and not fast enough to carry more than half a pixel further.
-    final omega = math.sqrt(spring.stiffness);
-    final atRest =
-        (_offset - _target).abs() < 0.5 && _velocity.abs() / omega < 0.5;
-    if (instant || atRest) {
+    final settling = _settling;
+    if (_phase != RitoTurnMotionPhase.settling || settling == null) {
+      return false;
+    }
+    _elapsed += seconds;
+    _offset = settling.x(_elapsed);
+    _velocity = settling.dx(_elapsed);
+    if (instant || settling.isDone(_elapsed)) {
       finish();
       return true;
     }
     return false;
   }
 
-  /// Puts the turn where its spring was going and stops it.
+  /// Puts the turn where it was going and stops it.
   void finish() {
     _offset = _target;
     _velocity = 0;
     _phase = RitoTurnMotionPhase.idle;
+    _settling = null;
   }
 
   void reset() {
@@ -168,44 +286,16 @@ final class RitoTurnMotion {
     _offset = 0;
     _velocity = 0;
     _target = 0;
+    _settling = null;
   }
 
   double get _turnTarget => _forward ? -width : width;
 
-  /// A spring that does not oscillate passes its target only when it
-  /// starts toward it faster than ω times the distance; bounding a
-  /// handed-over velocity there keeps it on its side of the target, with
-  /// the motion continuous. An oscillating spring was chosen to bounce.
-  static double _boundedVelocity(
-    RitoSpring spring,
-    double offset,
-    double velocity,
-  ) {
-    final omega = math.sqrt(spring.stiffness);
-    if (spring.damping < 2 * omega || offset == 0) return velocity;
-    final limit = omega * offset.abs();
-    final toward = -offset.sign * velocity;
-    return toward > limit ? -offset.sign * limit : velocity;
-  }
-
   void _settleTo(double target) {
     _target = target;
     _phase = RitoTurnMotionPhase.settling;
-  }
-
-  bool _releaseCommits(double velocity) {
-    final toward = _forward ? -1.0 : 1.0;
-    // Dragged back past the start, or pulling back: the page stays.
-    if (_offset * toward < 0 || velocity * toward < -50) return false;
-    final seconds = physics.projection.inMicroseconds / 1e6;
-    return (_offset + velocity * seconds).abs() > physics.swipeThreshold ||
-        velocity.abs() > physics.velocityCommit;
-  }
-
-  double _rubberBand(double raw) {
-    if (raw == 0 || width <= 0) return 0;
-    final travel = 1 - 1 / (raw.abs() / width + 1);
-    return raw.sign * travel * width * physics.elasticFactor;
+    _settling = physics.settle(from: _offset, velocity: _velocity, to: target);
+    _elapsed = 0;
   }
 }
 

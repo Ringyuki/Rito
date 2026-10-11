@@ -1,25 +1,59 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 /// The pages a turn can show: the one on screen and its neighbours.
 enum RitoPageSlot { previous, current, next }
 
+/// What is moving a page turn.
+enum RitoPageTurnPhase {
+  /// A finger holds it.
+  held,
+
+  /// It is on its way to the neighbour.
+  landing,
+
+  /// It is on its way back to the page it left.
+  returning,
+}
+
+/// The finger that moved a turn: where it took hold of the page and where
+/// it is — or, once it lifted, where it let go — in the view's logical px.
+final class RitoPageTurnTouch {
+  const RitoPageTurnTouch({required this.origin, required this.position});
+
+  final Offset origin;
+  final Offset position;
+}
+
 /// One frame of a page turn as an effect sees it: how far the turn has
 /// travelled ([offset], logical px, negative while turning forward), the
-/// page width, and which neighbour is coming in (null while pulling
-/// against the first or last page).
+/// page width, which neighbour is coming in (null while pulling against the
+/// first or last page), and what is moving it.
 final class RitoPageTurnFrame {
   const RitoPageTurnFrame({
     required this.offset,
     required this.width,
     required this.incoming,
+    required this.phase,
+    this.velocity = 0,
+    this.touch,
   });
 
   final double offset;
   final double width;
   final RitoPageSlot? incoming;
+  final RitoPageTurnPhase phase;
+
+  /// How fast [offset] is changing, logical px/s; 0 while a finger holds
+  /// the turn.
+  final double velocity;
+
+  /// The finger that moved the turn; null for a turn no finger has held
+  /// (a tap, a key, a jump played as a turn).
+  final RitoPageTurnTouch? touch;
 
   /// How far the page has moved toward [incoming]: 0 at rest, 1 on arrival.
   double get progress {
@@ -78,9 +112,9 @@ final class RitoPageTurnScene {
   }
 }
 
-/// How a page turn looks. The motion — the spring, the drag, the commit
-/// decision and the rubber band at the ends — is the same for every
-/// effect; an effect only paints what a frame shows at a displacement.
+/// How a page turn looks. How it moves — the drag, the decision to turn,
+/// the way to rest, the pull at the ends of the book — is the controller's
+/// `RitoPageTurnPhysics`; an effect paints what a frame shows.
 ///
 /// Paint the frame directly for looks that bend or cut the pages (a curl),
 /// or extend [RitoLayeredPageTurnEffect] to lay whole pages over each
@@ -91,6 +125,12 @@ abstract class RitoPageTurnEffect {
   /// A turn lands at once instead of animating (a drag still decides
   /// whether it turns).
   bool get instant => false;
+
+  /// Notifies when the turn must be painted again though it has not
+  /// moved: an effect on a clock of its own (a sheet that lags the finger,
+  /// a ripple as it lands). Null for an effect that only follows the
+  /// frame.
+  Listenable? get repaint => null;
 
   void paint(RitoPageTurnScene scene, RitoPageTurnFrame frame);
 }

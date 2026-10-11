@@ -83,7 +83,16 @@ with an outcome), committing on the reader while the animation plays,
 prewarming neighbours and redrawing a page whose images land late.
 `RitoPageTurnView` paints the turn with `RitoPageTurnEffects.slide`,
 `cover`, `fade` or `none`, a layered effect, or an effect that paints the
-frame itself from the page images.
+frame itself from the page images. How a turn moves and looks is the
+application's to replace: a frame tells an effect what is moving the turn
+(`phase`), how fast, and where the finger took hold and where it is
+(`touch`); an effect on a clock of its own asks for repaints (`repaint`);
+and a `RitoPageTurnPhysics` subclass decides how far a finger carries the
+turn (`travel`), how the ends of the book resist (`resist`), whether a
+release turns the page (`lands`) and the `Simulation` that carries the
+turn to rest (`settle`), which also decides when the turn is over. The
+controller's drag methods take the finger's position and its velocity as
+an `Offset`.
 
 ### Pages never wait for their images
 
