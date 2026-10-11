@@ -31,7 +31,7 @@ function compiling() {
     gl,
     softened: false,
     sheet: program,
-    shadow: { cast: program, occlusion: program, blur: program, lay: program },
+    shadow: { cast: program, cover: program, occlusion: program, blur: program, lay: program },
   };
   return { state, asked, started };
 }

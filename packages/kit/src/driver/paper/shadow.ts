@@ -1,28 +1,12 @@
-import {
-  attribute,
-  createRenderTarget,
-  finishProgram,
-  startProgram,
-  type Gl,
-  type Program,
-  type RenderTarget,
-  type StartedProgram,
-} from './gl';
+import { attribute, type Gl, type Program, type RenderTarget } from './gl';
 import { KEY_DIRECTION, KEY_SHARE, KEY_SIZE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
-import {
-  BLUR_FRAGMENT,
-  CAST_FRAGMENT,
-  CAST_VERTEX,
-  OCCLUSION_FRAGMENT,
-  QUAD_VERTEX,
-  SHADOW_FRAGMENT,
-} from './shadow-shaders';
+import { finishShadowPrograms, type ShadowPrograms, type StartedShadow } from './shadow-programs';
+import { sidesOf, targetsFor, type ShadowTargets, type SpineSides } from './shadow-targets';
 
 /** What a shadow is cast from: the leaf's surface, as the GPU holds it, in a frame. */
 export interface ShadowCaster {
   readonly width: number;
   readonly height: number;
-  readonly spine: number;
   readonly eye: number;
   /** The highest any of the leaf stands above the pages. */
   readonly tallest: number;
@@ -38,139 +22,152 @@ export interface ShadowCaster {
 
 /**
  * The darkness the leaves in the air leave on the pages: begun for a frame,
- * added to by each leaf that stands off them, then laid over whatever is
- * bound to draw to.
+ * told each leaf that stands off them, then worked out and laid over
+ * whatever was bound to draw to when it began.
+ *
+ * It is worked out for every point of the pages and smoothed among those
+ * the eye sees. Under a leaf a page is in deep shade, and where the leaf
+ * leans toward the eye some of that is in sight; the rest, behind the leaf,
+ * must not darken what shows beside it.
  */
 export interface ShadowPass {
-  begin(width: number, height: number): void;
-  /** Adds what one leaf keeps of the light from each point of the pages. */
+  /** Begins the shadows of a frame `width` by `height` whose pages meet at `spine`. */
+  begin(width: number, height: number, spine: number): void;
+  /** Tells of a leaf that stands off the pages. */
   cast(caster: ShadowCaster): void;
   lay(width: number, height: number): void;
 }
 
 /** How far from the spine the page beside a standing leaf shares its shade, in leaf widths. */
 const GUTTER = 0.07;
-/** The shadow is worked out this many times smaller than the frame. */
-const SHADOW_SCALE = 2;
 
-interface ShadowPrograms {
-  readonly cast: Program;
-  readonly occlusion: Program;
-  readonly blur: Program;
-  readonly lay: Program;
-  /** The two triangles that cover whatever is drawn to. */
-  readonly quad: WebGLBuffer;
-}
-
-/** The small textures a shadow is worked out in: where the leaf blocks the lamp, and the darkness. */
-interface ShadowTargets {
-  readonly blockers: RenderTarget;
-  readonly dark: RenderTarget;
-  readonly spare: RenderTarget;
-}
-
-/** The shadows of one frame: where they are worked out, what was drawn to, how many leaves cast. */
+/** The shadows of one frame: where they are worked out, what was drawn to, the leaves that cast them. */
 interface ShadowFrame {
   targets: ShadowTargets | null;
   drawingTo: WebGLFramebuffer | null;
-  cast: number;
-}
-
-/** The shadow's programs, handed to the GPU and not yet asked for. */
-export interface StartedShadow {
-  readonly cast: StartedProgram;
-  readonly occlusion: StartedProgram;
-  readonly blur: StartedProgram;
-  readonly lay: StartedProgram;
-}
-
-export function startShadowPrograms(gl: Gl): StartedShadow {
-  const occlusion = ['uBlockers', 'uSize', 'uTallest', 'uKeySize', 'uKeyShare', 'uThrough'].concat([
-    'uAlbedo',
-    'uSpine',
-    'uProfile',
-    'uGutter',
-    'uLight',
-  ]);
-  const cast = ['uSize', 'uEye', 'uCast', 'uTallest', 'uPixel'];
-  return {
-    cast: startProgram(gl, CAST_VERTEX, CAST_FRAGMENT, ['aPosition'], cast),
-    occlusion: startProgram(gl, QUAD_VERTEX, OCCLUSION_FRAGMENT, ['aCorner'], occlusion),
-    blur: startProgram(gl, QUAD_VERTEX, BLUR_FRAGMENT, ['aCorner'], ['uSource', 'uStep']),
-    lay: startProgram(gl, QUAD_VERTEX, SHADOW_FRAGMENT, ['aCorner'], ['uSource', 'uStrength']),
-  };
+  casters: ShadowCaster[];
+  /** Where the frame's pages meet, in its own units. */
+  spine: number;
+  sides: SpineSides;
 }
 
 export function createShadowPass(gl: Gl, started: StartedShadow): ShadowPass {
-  const programs: ShadowPrograms = {
-    cast: finishProgram(gl, started.cast),
-    occlusion: finishProgram(gl, started.occlusion),
-    blur: finishProgram(gl, started.blur),
-    lay: finishProgram(gl, started.lay),
-    quad: gl.createBuffer(),
+  const programs = finishShadowPrograms(gl, started);
+  const frame: ShadowFrame = {
+    targets: null,
+    drawingTo: null,
+    casters: [],
+    spine: 0,
+    sides: sidesOf(0, 1, 1),
   };
-  gl.bindBuffer(gl.ARRAY_BUFFER, programs.quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-  const frame: ShadowFrame = { targets: null, drawingTo: null, cast: 0 };
   return {
-    begin(width, height): void {
+    begin(width, height, spine): void {
       frame.drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
-      frame.targets = sized(gl, frame.targets, width, height);
-      frame.cast = 0;
-      gl.disable(gl.DEPTH_TEST);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, frame.targets.dark.framebuffer);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+      frame.targets = targetsFor(gl, frame.targets, width, height);
+      frame.casters = [];
+      frame.spine = spine;
+      frame.sides = sidesOf(spine, width, frame.targets.dark.width);
     },
     cast(caster): void {
-      if (!frame.targets) return;
-      frame.cast += 1;
-      castOnto(gl, programs.cast, frame.targets.blockers, caster);
-      // What two leaves keep of the light is kept by both: each takes its share of what the other left.
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      occlude(gl, programs, frame.targets.blockers, frame.targets.dark, caster);
-      gl.disable(gl.BLEND);
+      frame.casters.push(caster);
     },
     lay(width, height): void {
-      layOver(gl, programs, frame, width, height);
+      if (!frame.targets) return;
+      gl.disable(gl.DEPTH_TEST);
+      if (frame.casters.length > 0) workOut(gl, programs, frame, frame.targets);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frame.drawingTo);
+      gl.viewport(0, 0, width, height);
+      if (frame.casters.length === 0) return;
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      // What is drawn to is finer than what the shadow was worked out in: there a page ends at the spine itself.
+      const { dark } = frame.targets;
+      across(gl, programs.lay, programs.quad, dark.texture, frame.sides, frame.sides.spine);
+      gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, 1);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.disable(gl.BLEND);
     },
   };
 }
 
-/** Lays the darkness the leaves of a frame left over whatever was being drawn to before it began. */
-function layOver(
+/**
+ * Works out the darkness the leaves of a frame leave on its pages: what
+ * they hide from the eye first, then what each keeps of the light from what
+ * is left in sight, then a light blur among those points.
+ */
+function workOut(
   gl: Gl,
   programs: ShadowPrograms,
   frame: ShadowFrame,
-  width: number,
-  height: number,
+  targets: ShadowTargets,
 ): void {
-  if (!frame.targets) return;
-  const { dark, spare } = frame.targets;
-  if (frame.cast > 0) {
-    // The shadow is sampled with a pattern turned from pixel to pixel; a light blur takes its grain out.
-    blurInto(gl, programs, dark, spare, 1.2 / dark.width, 0);
-    blurInto(gl, programs, spare, dark, 0, 1.2 / dark.height);
-  }
-  gl.bindFramebuffer(gl.FRAMEBUFFER, frame.drawingTo);
-  gl.viewport(0, 0, width, height);
-  if (frame.cast === 0) return;
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  across(gl, programs.lay, programs.quad, dark.texture);
-  gl.uniform1f(programs.lay.uniforms['uStrength'] ?? null, 1);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  const { dark, spare } = targets;
   gl.disable(gl.BLEND);
+  hide(gl, programs.cover, targets.cover, frame.casters);
+  clear(gl, dark);
+  for (const caster of frame.casters) {
+    castOnto(gl, programs.cast, targets.blockers, caster);
+    // In sight stays as it is told; what two leaves keep of the light is kept by both, each
+    // taking its share of what the other left.
+    gl.enable(gl.BLEND);
+    gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    occlude(gl, programs, frame, targets, caster);
+    gl.disable(gl.BLEND);
+  }
+  // The shadow is sampled with a pattern turned from pixel to pixel; a light blur takes its grain out.
+  blurInto(gl, programs, dark, spare, frame.sides, 1.2 / dark.width, 0);
+  blurInto(gl, programs, spare, dark, frame.sides, 0, 1.2 / dark.height);
 }
 
-/** Readies `program` to draw `source` across whatever is drawn to. */
-function across(gl: Gl, program: Program, quad: WebGLBuffer, source: WebGLTexture): void {
+function clear(gl: Gl, target: RenderTarget): void {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+  gl.viewport(0, 0, target.width, target.height);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+}
+
+/** Marks in `target` what the leaves hide of the pages from the eye: each drawn where it is seen. */
+function hide(
+  gl: Gl,
+  cover: Program,
+  target: RenderTarget,
+  casters: readonly ShadowCaster[],
+): void {
+  clear(gl, target);
+  gl.useProgram(cover.program);
+  for (const caster of casters) {
+    gl.uniform2f(cover.uniforms['uSize'] ?? null, caster.width, caster.height);
+    gl.uniform1f(cover.uniforms['uEye'] ?? null, caster.eye);
+    attribute(gl, cover, 'aPosition', caster.positions, 3);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, caster.indices);
+    gl.drawElements(gl.TRIANGLES, caster.indexCount, gl.UNSIGNED_SHORT, 0);
+  }
+}
+
+/**
+ * Readies `program` to draw `source` across whatever is drawn to, each page
+ * read from its own side of the spine; `parts` is where the pages of what is
+ * drawn to part.
+ */
+function across(
+  gl: Gl,
+  program: Program,
+  quad: WebGLBuffer,
+  source: WebGLTexture,
+  sides: SpineSides,
+  parts: number,
+): void {
   gl.useProgram(program.program);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, source);
   gl.uniform1i(program.uniforms['uSource'] ?? null, 0);
+  parted(gl, program, sides, parts);
   attribute(gl, program, 'aCorner', quad, 2);
+}
+
+function parted(gl: Gl, program: Program, sides: SpineSides, parts: number): void {
+  gl.uniform1f(program.uniforms['uSpineAt'] ?? null, parts);
+  gl.uniform2f(program.uniforms['uBeside'] ?? null, sides.left, sides.right);
 }
 
 function blurInto(
@@ -178,34 +175,15 @@ function blurInto(
   programs: ShadowPrograms,
   from: RenderTarget,
   to: RenderTarget,
+  sides: SpineSides,
   x: number,
   y: number,
 ): void {
   gl.bindFramebuffer(gl.FRAMEBUFFER, to.framebuffer);
   gl.viewport(0, 0, to.width, to.height);
-  across(gl, programs.blur, programs.quad, from.texture);
+  across(gl, programs.blur, programs.quad, from.texture, sides, sides.edge);
   gl.uniform2f(programs.blur.uniforms['uStep'] ?? null, x, y);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
-function sized(
-  gl: Gl,
-  targets: ShadowTargets | null,
-  width: number,
-  height: number,
-): ShadowTargets {
-  const w = Math.min(1024, Math.max(64, Math.round(width / SHADOW_SCALE)));
-  const h = Math.max(1, Math.round((w * height) / width));
-  if (targets && targets.dark.width === w && targets.dark.height === h) return targets;
-  for (const target of targets ? [targets.blockers, targets.dark, targets.spare] : []) {
-    gl.deleteFramebuffer(target.framebuffer);
-    gl.deleteTexture(target.texture);
-  }
-  return {
-    blockers: createRenderTarget(gl, w, h),
-    dark: createRenderTarget(gl, w, h),
-    spare: createRenderTarget(gl, w, h),
-  };
 }
 
 /**
@@ -213,11 +191,7 @@ function sized(
  * point of it drawn where the middle of the lamp would throw its shadow.
  */
 function castOnto(gl: Gl, cast: Program, target: RenderTarget, caster: ShadowCaster): void {
-  gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
-  gl.viewport(0, 0, target.width, target.height);
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.disable(gl.BLEND);
+  clear(gl, target);
   gl.useProgram(cast.program);
   gl.uniform2f(cast.uniforms['uSize'] ?? null, caster.width, caster.height);
   gl.uniform1f(cast.uniforms['uEye'] ?? null, caster.eye);
@@ -233,18 +207,21 @@ function castOnto(gl: Gl, cast: Program, target: RenderTarget, caster: ShadowCas
   gl.drawElements(gl.TRIANGLES, caster.indexCount, gl.UNSIGNED_SHORT, 0);
 }
 
-/** How much darker the leaf leaves each point of the pages, into `target`. */
+/** How much darker the leaf leaves each point of the frame's pages in sight, into the darkness of its shadows. */
 function occlude(
   gl: Gl,
   programs: ShadowPrograms,
-  blockers: RenderTarget,
-  target: RenderTarget,
+  frame: ShadowFrame,
+  { blockers, cover, dark }: ShadowTargets,
   caster: ShadowCaster,
 ): void {
   const { uniforms } = programs.occlusion;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
-  gl.viewport(0, 0, target.width, target.height);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, dark.framebuffer);
+  gl.viewport(0, 0, dark.width, dark.height);
   gl.useProgram(programs.occlusion.program);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, cover.texture);
+  gl.uniform1i(uniforms['uCover'] ?? null, 1);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, blockers.texture);
   gl.uniform1i(uniforms['uBlockers'] ?? null, 0);
@@ -254,9 +231,10 @@ function occlude(
   gl.uniform1f(uniforms['uKeyShare'] ?? null, KEY_SHARE);
   gl.uniform1f(uniforms['uThrough'] ?? null, PAPER_THROUGH);
   gl.uniform1f(uniforms['uAlbedo'] ?? null, PAPER_ALBEDO);
-  gl.uniform1f(uniforms['uSpine'] ?? null, caster.spine);
+  gl.uniform1f(uniforms['uSpine'] ?? null, frame.spine);
+  parted(gl, programs.occlusion, frame.sides, frame.sides.edge);
   gl.uniform3fv(uniforms['uProfile'] ?? null, caster.profile);
-  gl.uniform1f(uniforms['uGutter'] ?? null, GUTTER * (caster.width - caster.spine));
+  gl.uniform1f(uniforms['uGutter'] ?? null, GUTTER * (caster.width - frame.spine));
   gl.uniform3f(uniforms['uLight'] ?? null, ...KEY_DIRECTION);
   attribute(gl, programs.occlusion, 'aCorner', programs.quad, 2);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

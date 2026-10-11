@@ -13,12 +13,8 @@ import {
 } from './gl';
 import type { SheetGrid } from './mesh';
 import { sheetFragment, sheetVertex } from './shaders';
-import {
-  createShadowPass,
-  startShadowPrograms,
-  type ShadowPass,
-  type StartedShadow,
-} from './shadow';
+import { createShadowPass, type ShadowPass } from './shadow';
+import { shadowPrograms, startShadowPrograms, type StartedShadow } from './shadow-programs';
 
 /** The sampler of each face of the sheet, and the flag saying a page is printed on it. */
 export const FACES = [
@@ -115,9 +111,7 @@ export function startGpu(): StartedGpu | null {
 /** Whether the GPU has finished with every program; true where it does not say without being waited for. */
 export function gpuDone(started: StartedGpu): boolean {
   const { gl, sheet, shadow } = started;
-  return [sheet, shadow.cast, shadow.occlusion, shadow.blur, shadow.lay].every(
-    (program) => programDone(gl, program) !== false,
-  );
+  return [sheet, ...shadowPrograms(shadow)].every((program) => programDone(gl, program) !== false);
 }
 
 /** The GPU set up to draw sheets and their shadows; waits for it if it has not finished. */

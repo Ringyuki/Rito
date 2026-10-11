@@ -170,14 +170,13 @@ function castShadows(
 ): void {
   const width = Math.max(1, Math.round(frame.width));
   const height = Math.max(1, Math.round(frame.height));
-  gpu.shadow.begin(width, height);
+  gpu.shadow.begin(width, height, frame.spine);
   frame.sheets.forEach((sheet, index) => {
     const buffers = gpu.sheets[index];
     if (!standing[index] || !buffers) return;
     gpu.shadow.cast({
       width,
       height,
-      spine: frame.spine,
       eye,
       ...outline(frame, sheet.positions),
       positions: buffers.positions,
