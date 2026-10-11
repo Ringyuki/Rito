@@ -1,5 +1,12 @@
 import type { SlotPosition } from '../painter/types';
-import { springPresets, type TransitionEffect, type TransitionEffectName } from './effects';
+import {
+  springPresets,
+  type TransitionEffect,
+  type TransitionEffectName,
+  type TransitionPhase,
+  type TransitionTouch,
+} from './effects';
+import type { TransitionPhysics, TransitionSettle } from './physics';
 
 /** What the FrameDriver should draw each frame. */
 export type DrawInstruction =
@@ -9,6 +16,10 @@ export type DrawInstruction =
       readonly outgoing: SlotPosition;
       readonly incoming: 'next' | 'prev' | null;
       readonly dx: number;
+      readonly phase: TransitionPhase;
+      /** How fast `dx` is changing, px/s; 0 while a finger holds the turn. */
+      readonly velocity: number;
+      readonly touch: TransitionTouch | null;
     };
 
 /** Transition state machine modes. */
@@ -23,6 +34,8 @@ export type TransitionMode =
       /** Finger velocity, px/ms. */
       vx: number;
       lastSampleAt: number;
+      /** The finger holding the turn, when the gesture reports where it is. */
+      touch: TransitionTouch | null;
     }
   | {
       readonly kind: 'settling';
@@ -33,6 +46,11 @@ export type TransitionMode =
       dx: number;
       /** Spring velocity, px/s. */
       vx: number;
+      readonly touch: TransitionTouch | null;
+      /** The physics' own way to rest; null for the built-in spring. */
+      readonly settle: TransitionSettle | null;
+      /** Seconds since `settle` began. */
+      elapsed: number;
     }
   | {
       readonly kind: 'boundary-elastic';
@@ -41,6 +59,9 @@ export type TransitionMode =
       dx: number;
       /** Spring velocity, px/s. */
       vx: number;
+      readonly touch: TransitionTouch | null;
+      readonly settle: TransitionSettle | null;
+      elapsed: number;
     };
 
 /** Callback when a transition settles (animation completes). */
@@ -62,6 +83,11 @@ export interface TransitionDriverOptions {
   readonly elasticFactor: number;
   /** How a turn looks: a built-in effect by name, or a custom one. */
   readonly effect: TransitionEffectName | TransitionEffect;
+  /**
+   * How a turn moves, in place of the built-in rules and of the physics an
+   * effect brings. The numbers above feed the built-in rules only.
+   */
+  readonly physics?: TransitionPhysics | undefined;
   /**
    * When the user asks the system for reduced motion, turns cross-fade
    * instead of moving (default true). Set false to keep `effect` as is.

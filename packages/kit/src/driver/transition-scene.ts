@@ -15,7 +15,8 @@ const SHADOW_ALPHA = 0.18;
 /**
  * A scene over a cleared surface whose pages come from `pageOf`, which
  * answers null for a page that is not painted yet. `cssPixel` is the
- * length of a CSS pixel in the surface's units.
+ * length of a CSS pixel in the surface's units and `spine` where the pages
+ * are bound.
  */
 export function createTransitionScene(
   context: CanvasRenderingContext2D,
@@ -23,12 +24,14 @@ export function createTransitionScene(
   height: number,
   pageOf: (slot: SlotPosition) => TransitionPage | null,
   cssPixel = 1,
+  spine = 0,
 ): TransitionScene {
   return {
     context,
     width,
     height,
     cssPixel,
+    spine,
     page: pageOf,
     drawPage(slot, x, opacity = 1): void {
       const page = pageOf(slot);

@@ -143,6 +143,7 @@ function ensureContent(
   state.rasterScratch ??= new OffscreenCanvas(1, 1);
   rasterNow(slot.content, state.rasterScratch);
   slot.contentDirty = false;
+  slot.paints += 1;
   return true;
 }
 
@@ -167,6 +168,7 @@ function ensureOverlay(
   if (!context) return;
   paintOverlayInto(context, layers, backingRatio);
   slot.overlayDirty = false;
+  slot.paints += 1;
 }
 
 function clearOverlay(slot: PageBufferSlot): void {
@@ -174,6 +176,7 @@ function clearOverlay(slot: PageBufferSlot): void {
   const context = slot.overlay.getContext('2d');
   if (context) {
     context.clearRect(0, 0, slot.overlay.width, slot.overlay.height);
+    slot.paints += 1;
   }
 }
 

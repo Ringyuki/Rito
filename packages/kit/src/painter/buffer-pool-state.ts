@@ -44,6 +44,7 @@ export function resizeBufferSlot(slot: PageBufferSlot, width: number, height: nu
   }
   slot.contentDirty = true;
   slot.overlayDirty = true;
+  slot.paints += 1;
 }
 
 export function disposePageBufferPoolState(state: PageBufferPoolState): void {
@@ -62,6 +63,7 @@ function createSlot(created: PageBufferSlot[]): PageBufferSlot {
     overlay: null,
     contentDirty: true,
     overlayDirty: true,
+    paints: 0,
   };
   created.push(slot);
   return slot;

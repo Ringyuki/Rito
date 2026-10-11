@@ -1,0 +1,61 @@
+import type { TransitionTouch } from './effects';
+
+/** The viewport a turn crosses, CSS px: its width and where the pages are bound. */
+export interface TransitionBounds {
+  readonly width: number;
+  readonly spine: number;
+}
+
+/**
+ * A turn at the moment its finger lets go: where the turn is (`dx`, CSS px,
+ * negative toward the next spread), how fast the finger was carrying it
+ * (`velocity`, CSS px per second), the viewport width, which way it turns
+ * and the finger itself.
+ */
+export interface TransitionRelease {
+  readonly dx: number;
+  readonly velocity: number;
+  readonly width: number;
+  readonly direction: 'forward' | 'backward';
+  readonly touch: TransitionTouch | null;
+}
+
+/**
+ * The motion of a turn nothing holds: where it is `seconds` after it was
+ * let go, how fast, and whether it has come to rest. A turn left alone
+ * stays on screen until it is done.
+ */
+export type TransitionSettle = (seconds: number) => {
+  readonly x: number;
+  readonly velocity: number;
+  readonly done: boolean;
+};
+
+/**
+ * How a turn moves. Every part is optional and falls back to the built-in
+ * rule. Lengths are CSS px, points are from the display canvas's top-left
+ * corner, velocities per second.
+ */
+export interface TransitionPhysics {
+  /**
+   * How far a finger has carried the turn: negative toward the next
+   * spread, one viewport width for a whole turn. The way a drag first
+   * moves is the way it turns.
+   */
+  travel?(touch: TransitionTouch, bounds: TransitionBounds): number;
+  /** Where a pull of `travel` leaves the page when no neighbour lies that way. */
+  resist?(travel: number, width: number): number;
+  /** Whether a turn let go turns the page; otherwise it goes back. */
+  lands?(release: TransitionRelease): boolean;
+  /** The motion from `from` at `velocity` to `to`: a viewport width away, or 0. */
+  settle?(from: number, velocity: number, to: number): TransitionSettle;
+}
+
+/** The built-in travel: a finger carries the turn as far as it has moved sideways. */
+export function travelOf(
+  physics: TransitionPhysics | undefined,
+  touch: TransitionTouch,
+  bounds: TransitionBounds,
+): number {
+  return physics?.travel?.(touch, bounds) ?? touch.position.x - touch.origin.x;
+}

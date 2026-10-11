@@ -29,6 +29,7 @@ function createMocks(options?: {
     manifestHrefMap: new Map(),
     dpr: 2,
     getCanvasSize,
+    getLayoutGeometry: () => ({ spreadMode: 'single' }),
     setTypography,
     setSpreadMode,
     setTheme,

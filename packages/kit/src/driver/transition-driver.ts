@@ -6,9 +6,9 @@ import {
   startTrackingMode,
   updateTrackingMode,
 } from './transition-actions';
-import type { TransitionDriverState } from './transition-state';
+import { activeEffect, activePhysics, type TransitionDriverState } from './transition-state';
 import {
-  getSlotPositions,
+  turningInstruction,
   stepSettling,
   stepBoundaryElastic,
   forceSettleMode,
@@ -20,7 +20,8 @@ import type {
   TransitionMode,
 } from './types';
 import { DEFAULT_TRANSITION_OPTIONS } from './types';
-import { resolveTransitionEffect, transitionEffects, type TransitionEffect } from './effects';
+import type { TransitionEffect, TransitionTouch } from './effects';
+import type { TransitionPhysics } from './physics';
 
 /**
  * Pure JS transition state machine with spring physics.
@@ -33,11 +34,15 @@ export interface TransitionDriver {
   readonly isAnimating: boolean;
   /** The viewport width used for displacement calculations. */
   viewportWidth: number;
+  /** Where the pages are bound, as an x in the viewport: 0, or the middle of a two-page spread. */
+  spine: number;
   /**
    * How turns look: the configured effect, or a cross-fade while the
    * system asks for reduced motion (unless `respectReducedMotion` is off).
    */
   readonly effect: TransitionEffect;
+  /** How turns move when not by the built-in rules: the options' physics, else the effect's. */
+  readonly physics: TransitionPhysics | undefined;
   /** Whether the system asks for reduced motion. */
   reducedMotion: boolean;
 
@@ -49,8 +54,8 @@ export interface TransitionDriver {
     timestamp: number,
   ): void;
 
-  /** Update tracking position during gesture. */
-  updateTracking(rawDx: number, timestamp: number): void;
+  /** Update tracking position during gesture; `touch` says where the finger is. */
+  updateTracking(rawDx: number, timestamp: number, touch?: TransitionTouch): void;
 
   /**
    * Release tracking (touchend). Returns whether the transition commits or cancels.
@@ -99,6 +104,7 @@ export function createTransitionDriver(
     mode: { kind: 'idle' },
     viewportWidth: 0,
     reducedMotion: false,
+    spine: 0,
     velocitySamples: [],
     settledListeners: new Set<(event: SettledEvent) => void>(),
   };
@@ -114,10 +120,22 @@ export function createTransitionDriver(
 
 function createDriverAccessors(
   state: TransitionDriverState,
-): Pick<TransitionDriver, 'mode' | 'isAnimating' | 'viewportWidth' | 'effect' | 'reducedMotion'> {
+): Pick<
+  TransitionDriver,
+  'mode' | 'isAnimating' | 'viewportWidth' | 'spine' | 'effect' | 'physics' | 'reducedMotion'
+> {
   return {
     get effect() {
-      return effectiveEffect(state);
+      return activeEffect(state);
+    },
+    get physics() {
+      return activePhysics(state);
+    },
+    get spine() {
+      return state.spine;
+    },
+    set spine(x: number) {
+      state.spine = x;
     },
     get reducedMotion() {
       return state.reducedMotion;
@@ -155,8 +173,8 @@ function createTrackingActions(
     startTracking(direction, outgoingSpread, incomingSpread, timestamp): void {
       startTrackingMode(state, direction, outgoingSpread, incomingSpread, timestamp);
     },
-    updateTracking(rawDx, timestamp): void {
-      updateTrackingMode(state, rawDx, timestamp);
+    updateTracking(rawDx, timestamp, touch): void {
+      updateTrackingMode(state, rawDx, timestamp, touch);
     },
     releaseTracking(): 'commit' | 'cancel' {
       return releaseTrackingMode(state);
@@ -208,11 +226,11 @@ function stepTransition(state: TransitionDriverState, dt: number): DrawInstructi
     case 'idle':
       return { kind: 'single', slot: 'curr' };
     case 'tracking':
-      return { kind: 'turning', ...getSlotPositions(state.mode), dx: state.mode.dx };
+      return turningInstruction(state.mode);
     case 'settling':
       return applyStepResult(
         state,
-        stepSettling(state.mode, state.opts, dt, effectiveEffect(state).instant),
+        stepSettling(state.mode, state.opts, dt, activeEffect(state).instant),
       );
     case 'boundary-elastic':
       return applyStepResult(state, stepBoundaryElastic(state.mode, state.opts, dt));
@@ -226,11 +244,6 @@ function applyStepResult(
   state.mode = result.nextMode;
   if (result.settled) emitSettled(state, result.settled);
   return result.instruction;
-}
-
-function effectiveEffect(state: TransitionDriverState): TransitionEffect {
-  if (state.reducedMotion && state.opts.respectReducedMotion) return transitionEffects.fade;
-  return resolveTransitionEffect(state.opts.effect);
 }
 
 function forceSettle(state: TransitionDriverState): number {

@@ -80,14 +80,13 @@ composited into that one canvas; pointer and touch listeners sit on the canvas f
 
 ## Page Turns
 
-A turn is spring physics plus an effect. The physics — the spring, the drag, the
-commit decision and the rubber band at the first and last spread — is shared; the
-effect only says what a frame shows at a given displacement. A release hands the
-finger's momentum to the spring. The spring is solved in closed form, so a turn
-follows the same path at any refresh rate, and the presets never bounce: past the
-neighbour, or back past the starting page, there may be no page to show. A
-custom spring damped below critical (`damping < 2√stiffness`) bounces, and shows
-that gap.
+A turn is physics plus an effect. The physics say how it moves — the drag, the
+decision to turn, the way to rest and the pull at the first and last spread — and
+the effect what a frame shows. The built-in physics are a spring: a release hands
+the finger's momentum to it, it is solved in closed form, so a turn follows the
+same path at any refresh rate, and the presets never bounce: past the neighbour,
+or back past the starting page, there may be no page to show. A custom spring
+damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
 
 - `effect`: `'slide'` (the spread moves, the neighbour follows), `'cover'` (later
   pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or
@@ -104,9 +103,24 @@ pixelRatio }`, or `null` while it is not painted yet) and
 
   A frame's `dx` and `width`, like the scene's `width` and `height`, are in the
   display canvas's own pixels; `scene.cssPixel` is the length of a CSS pixel in
-  them.
+  them. A frame also says what is moving the turn (`phase`: `'held'` by a finger,
+  `'landing'` on the neighbour or `'returning'` to the spread it left), how fast
+  `dx` is changing (`velocity`, per second) and the finger that moved it
+  (`touch.origin` and `touch.position`, `null` for a turn no finger has held).
+  `scene.spine` is where the pages are bound — the left edge when a spread is one
+  page, the middle when it is two — and a page's `version` changes whenever its
+  bitmap or overlay is painted again, so an effect can keep a texture of it.
 
 - `springPresets.default | snappy | gentle` (or your own `stiffness` / `damping`).
+- `physics`: your own rules in place of the built-in ones, each part optional.
+  `travel(touch, bounds)` says how far a finger has carried the turn (CSS px, one
+  viewport width for a whole turn; the way a drag first moves is the way it
+  turns), `resist(travel, width)` where a pull against the first or last spread
+  leaves the page, `lands(release)` whether letting go turns the page, and
+  `settle(from, velocity, to)` returns the motion that carries a released turn to
+  rest: a function of the seconds since, answering `{ x, velocity, done }`. A turn
+  left alone stays on screen until it is `done`. An effect may bring the physics
+  it is made for as its own `physics`; the option outranks them.
 - `respectReducedMotion` (default `true`): while the system asks for reduced motion,
   turns cross-fade whatever the effect.
 

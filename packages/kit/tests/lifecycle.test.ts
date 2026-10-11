@@ -17,6 +17,7 @@ describe('syncCanvasSize', () => {
       reader: {
         dpr: 2,
         getCanvasSize: vi.fn(() => ({ width: 800, height: 600 })),
+        getLayoutGeometry: () => ({ spreadMode: 'double' }),
       },
     } as unknown as Internals;
     const runtime = {
@@ -38,6 +39,8 @@ describe('syncCanvasSize', () => {
     expect(setSize).not.toHaveBeenCalled();
     expect(resize).toHaveBeenCalledWith(800, 600, 2);
     expect(runtime.td.viewportWidth).toBe(800);
+    // Two pages a spread are bound down the middle.
+    expect(runtime.td.spine).toBe(400);
   });
 });
 

@@ -1,3 +1,4 @@
+import type { TransitionTouch } from '../../driver/effects';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { GestureNavigationToken } from '../navigation/index';
@@ -8,6 +9,7 @@ export interface GestureSession {
   status: 'active' | 'ended' | 'cancelled';
   latestDx: number;
   latestTimestamp: number;
+  latestTouch: TransitionTouch | undefined;
 }
 
 export interface GestureSessionContext {
@@ -19,13 +21,18 @@ export interface GestureSessionContext {
   ownsTransition: boolean;
 }
 
-export function createGestureSession(dx: number, timestamp: number): GestureSession {
+export function createGestureSession(
+  dx: number,
+  timestamp: number,
+  touch?: TransitionTouch,
+): GestureSession {
   return {
     token: null,
     started: false,
     status: 'active',
     latestDx: dx,
     latestTimestamp: timestamp,
+    latestTouch: touch,
   };
 }
 
@@ -54,18 +61,28 @@ export function activateGestureTransition(
   context.deps.frameDriver.scheduleComposite();
 }
 
-export function updateGesture(context: GestureSessionContext, dx: number, timestamp: number): void {
+export function updateGesture(
+  context: GestureSessionContext,
+  dx: number,
+  timestamp: number,
+  touch?: TransitionTouch,
+): void {
   const session = context.gesture;
   if (!session) return;
-  updateGestureSample(session, dx, timestamp);
+  updateGestureSample(session, dx, timestamp, touch);
   if (session.started) applyGestureSample(context, session);
   context.deps.frameDriver.scheduleComposite();
 }
 
-export function finishGesture(context: GestureSessionContext, dx: number, timestamp: number): void {
+export function finishGesture(
+  context: GestureSessionContext,
+  dx: number,
+  timestamp: number,
+  touch?: TransitionTouch,
+): void {
   const session = context.gesture;
   if (!session) return;
-  updateGestureSample(session, dx, timestamp);
+  updateGestureSample(session, dx, timestamp, touch);
   session.status = 'ended';
   if (session.started) {
     applyGestureSample(context, session);
@@ -100,11 +117,18 @@ export function settleOwnedTransition(context: GestureSessionContext): void {
   context.ownsTransition = false;
 }
 
-function updateGestureSample(session: GestureSession, dx: number, timestamp: number): void {
+function updateGestureSample(
+  session: GestureSession,
+  dx: number,
+  timestamp: number,
+  touch: TransitionTouch | undefined,
+): void {
   session.latestDx = dx;
   session.latestTimestamp = timestamp;
+  session.latestTouch = touch;
 }
 
-function applyGestureSample(context: GestureSessionContext, session: GestureSession): void {
-  context.deps.td.updateTracking(session.latestDx, session.latestTimestamp);
+/** Hands the driver the gesture's latest sample: how far, when, and where the finger is. */
+export function applyGestureSample(context: GestureSessionContext, session: GestureSession): void {
+  context.deps.td.updateTracking(session.latestDx, session.latestTimestamp, session.latestTouch);
 }

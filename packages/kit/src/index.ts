@@ -43,8 +43,17 @@ export {
   type TransitionFrame,
   type TransitionLayer,
   type TransitionPage,
+  type TransitionPhase,
+  type TransitionPoint,
   type TransitionScene,
+  type TransitionTouch,
 } from './driver/effects';
+export type {
+  TransitionBounds,
+  TransitionPhysics,
+  TransitionRelease,
+  TransitionSettle,
+} from './driver/physics';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';
 export { createDisposableCollection, type DisposableCollection } from './utils/disposable';

@@ -40,14 +40,14 @@ describe('transition lifecycle', () => {
   it('reports progress toward the neighbour only while a turn is open', () => {
     const { emitter, events } = recordedEmitter();
     const lifecycle = transitionLifecycle(emitter);
-    lifecycle.progress({ dx: -100, width: 400, incoming: 'next' });
+    lifecycle.progress({ dx: -100, width: 400 });
     lifecycle.begin('forward');
-    lifecycle.progress({ dx: -100, width: 400, incoming: 'next' });
+    lifecycle.progress({ dx: -100, width: 400 });
     // A spring settling back past its origin is at rest, not moving away.
-    lifecycle.progress({ dx: 12, width: 400, incoming: 'next' });
+    lifecycle.progress({ dx: 12, width: 400 });
     lifecycle.end('cancelled');
     lifecycle.begin('backward');
-    lifecycle.progress({ dx: 500, width: 400, incoming: 'prev' });
+    lifecycle.progress({ dx: 500, width: 400 });
     expect(events).toEqual([
       'start:forward',
       'progress:forward:0.25',

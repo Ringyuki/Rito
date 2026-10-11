@@ -457,4 +457,51 @@ describe('FrameDriver', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(surface.ctx.drawImage).not.toHaveBeenCalled();
   });
+
+  it('hands a painted effect the finger, the phase, the spine and each page as last painted', () => {
+    const surface = createMockSurface();
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 0);
+    pool.assignSlot('next', 1);
+    const seen: { frame: unknown; spine: number; version: number | undefined }[] = [];
+    const td = createTransitionDriver({
+      effect: {
+        paint(scene, frame) {
+          seen.push({ frame, spine: scene.spine, version: scene.page('curr')?.version });
+        },
+      },
+    });
+    // The surface is 800 device pixels across a 400 px viewport.
+    td.viewportWidth = 400;
+    td.spine = 200;
+    const driver = createFrameDriver({
+      surface,
+      pool,
+      transitionDriver: td,
+      contentRenderer: vi.fn(() => true),
+      overlayProvider: () => [],
+      getBackingRatio: () => 2,
+    });
+    td.startTracking('forward', 0, 1, 0);
+    td.updateTracking(-50, 16, { origin: { x: 300, y: 100 }, position: { x: 250, y: 90 } });
+    driver.compositeNow();
+
+    expect(seen[0]).toMatchObject({
+      spine: 400,
+      frame: {
+        dx: -100,
+        width: 800,
+        phase: 'held',
+        velocity: 0,
+        touch: { origin: { x: 600, y: 200 }, position: { x: 500, y: 180 } },
+      },
+    });
+
+    // The page is painted again (an image landed): its version moves on.
+    driver.markContentDirty(0);
+    flushRaf();
+    expect(seen[1]?.version).toBeGreaterThan(seen[0]?.version ?? Infinity);
+    driver.dispose();
+  });
 });

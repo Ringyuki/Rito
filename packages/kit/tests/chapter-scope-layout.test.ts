@@ -460,6 +460,7 @@ function controllerHarness() {
     manifestHrefMap: new Map(),
     dpr: 2,
     getCanvasSize: () => ({ width: 800, height: 600 }),
+    getLayoutGeometry: () => ({ spreadMode: 'single' }),
     notifyActiveSpread: vi.fn(),
   };
   const internals = {

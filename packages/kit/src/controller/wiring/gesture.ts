@@ -2,8 +2,11 @@ import type { SelectionEngine } from '../../interaction/index';
 import type { InteractionModeManager } from '../interaction-mode/index';
 import type { DisposableCollection } from '../../utils/disposable';
 import type { PrimarySelectionDragNavigation } from './selection-drag';
+import type { TransitionTouch } from '../../driver/effects';
+import { travelOf } from '../../driver/physics';
 import {
   activateGestureTransition,
+  applyGestureSample,
   cancelDeferredGesture,
   cancelGestureSession,
   createGestureSession,
@@ -48,6 +51,10 @@ export function wireUnifiedTouchHandler(
     toContent,
     onTap,
     selectionNavigation,
+    (client) => {
+      const frame = target.getBoundingClientRect();
+      return { x: client.x - frame.left, y: client.y - frame.top };
+    },
   );
   const stopWatchingSettled = watchOwnedTransition(context);
   let removeTouchListeners = (): void => undefined;
@@ -135,26 +142,50 @@ function handleWaitingMove(context: TouchHandlerContext, event: TouchEvent, touc
     resetTouchState(context.state);
     return;
   }
-  beginGesture(context, dx, event.timeStamp);
+  beginGesture(context, gestureSample(context, touch), event.timeStamp);
 }
 
-function beginGesture(context: TouchHandlerContext, dx: number, timestamp: number): void {
+interface GestureSample {
+  readonly dx: number;
+  readonly touch: TransitionTouch;
+}
+
+/**
+ * Where the finger took hold and where it is, as the display canvas sees
+ * them, and how far the turn's physics say that has carried it.
+ */
+function gestureSample(context: TouchHandlerContext, touch: Touch): GestureSample {
+  const position = { x: touch.clientX, y: touch.clientY };
+  const points: TransitionTouch = {
+    origin: context.toLocal(context.state.startTouch ?? position),
+    position: context.toLocal(position),
+  };
+  const { td } = context.deps;
+  const dx = travelOf(td.physics, points, { width: td.viewportWidth, spine: td.spine });
+  return { dx, touch: points };
+}
+
+function beginGesture(
+  context: TouchHandlerContext,
+  sample: GestureSample,
+  timestamp: number,
+): void {
   const { state, deps, modeManager } = context;
   clearTouchTimer(state);
   state.phase = 'gesture';
   modeManager.setMode('gesture');
   if (deps.td.isAnimating) deps.commitPendingTransition();
 
-  const direction = dx < 0 ? 'forward' : 'backward';
+  const direction = sample.dx < 0 ? 'forward' : 'backward';
   const current = deps.getCurrentSpread();
   const target = direction === 'forward' ? current + 1 : current - 1;
-  const session = createGestureSession(dx, timestamp);
+  const session = createGestureSession(sample.dx, timestamp, sample.touch);
   context.gesture = session;
   if (target < 0 || target >= deps.getTotalSpreads()) {
     deps.td.startTracking(direction, current, null, timestamp);
     session.started = true;
     context.ownsTransition = true;
-    deps.td.updateTracking(session.latestDx, session.latestTimestamp);
+    applyGestureSample(context, session);
   } else {
     const token = deps.startGestureNavigation(
       target,
@@ -176,8 +207,8 @@ function beginGesture(context: TouchHandlerContext, dx: number, timestamp: numbe
 
 function handleGestureMove(context: TouchHandlerContext, event: TouchEvent, touch: Touch): void {
   if (event.cancelable) event.preventDefault();
-  const dx = touch.clientX - (context.state.startTouch?.x ?? 0);
-  updateGesture(context, dx, event.timeStamp);
+  const sample = gestureSample(context, touch);
+  updateGesture(context, sample.dx, event.timeStamp, sample.touch);
 }
 
 function handleTouchEnd(context: TouchHandlerContext, event: TouchEvent): void {
@@ -187,8 +218,8 @@ function handleTouchEnd(context: TouchHandlerContext, event: TouchEvent): void {
   clearTouchTimer(context.state);
   try {
     if (currentPhase === 'gesture') {
-      const dx = touch.clientX - (context.state.startTouch?.x ?? touch.clientX);
-      finishGesture(context, dx, event.timeStamp);
+      const sample = gestureSample(context, touch);
+      finishGesture(context, sample.dx, event.timeStamp, sample.touch);
     } else if (currentPhase === 'long-press') {
       finishLongPressSelection(context, touch);
     } else if (

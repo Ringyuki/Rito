@@ -20,8 +20,8 @@ export type TransitionOutcome = 'committed' | 'cancelled' | 'interrupted';
 export interface TransitionLifecycle {
   readonly openDirection: TransitionDirection | null;
   begin(direction: TransitionDirection): void;
-  /** Report a painted frame of the open turn. */
-  progress(frame: TransitionFrame): void;
+  /** Report a painted frame of the open turn: how far it has travelled, of what width. */
+  progress(frame: Pick<TransitionFrame, 'dx' | 'width'>): void;
   end(outcome: TransitionOutcome): void;
 }
 

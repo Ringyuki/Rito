@@ -3,7 +3,7 @@ import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painte
 import type { SlotPosition } from '../painter/types';
 import type { TransitionDriver } from './transition-driver';
 import type { DrawInstruction } from './types';
-import type { TransitionFrame, TransitionPage } from './effects';
+import type { TransitionFrame, TransitionPage, TransitionTouch } from './effects';
 import { createTransitionScene, paintTransition } from './transition-scene';
 
 export interface FrameDriverDeps {
@@ -239,6 +239,9 @@ function drawTurningFrame(
     dx: instruction.dx * scale,
     width,
     incoming: instruction.incoming,
+    phase: instruction.phase,
+    velocity: instruction.velocity * scale,
+    touch: instruction.touch && scaledTouch(instruction.touch, scale),
   };
   const pages = new Map<SlotPosition, TransitionPage | null>();
   const pageOf = (slot: SlotPosition): TransitionPage | null => {
@@ -247,7 +250,14 @@ function drawTurningFrame(
   };
   deps.surface.clear();
   paintTransition(
-    createTransitionScene(deps.surface.ctx, width, height, pageOf, scale),
+    createTransitionScene(
+      deps.surface.ctx,
+      width,
+      height,
+      pageOf,
+      scale,
+      deps.transitionDriver.spine * scale,
+    ),
     deps.transitionDriver.effect,
     frame,
   );
@@ -265,5 +275,14 @@ function transitionPage(
     content: slot.content,
     overlay: slot.overlay,
     pixelRatio: width > 0 ? slot.content.width / width : 1,
+    version: slot.paints,
+  };
+}
+
+/** A finger's points, from CSS px into the units the frame is drawn in. */
+function scaledTouch(touch: TransitionTouch, scale: number): TransitionTouch {
+  return {
+    origin: { x: touch.origin.x * scale, y: touch.origin.y * scale },
+    position: { x: touch.position.x * scale, y: touch.position.y * scale },
   };
 }

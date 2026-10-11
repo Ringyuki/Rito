@@ -33,6 +33,8 @@ export interface PageBufferSlot {
   contentDirty: boolean;
   /** Whether the overlay buffer needs re-rendering. */
   overlayDirty: boolean;
+  /** Counts every change to the pixels of either buffer. */
+  paints: number;
 }
 
 /** Named slot positions in the three-slot ring buffer. */

@@ -1,16 +1,45 @@
 import type { SlotPosition } from '../painter/types';
+import type { TransitionPhysics } from './physics';
+
+/** A point of the display canvas, from its top-left corner. */
+export interface TransitionPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The finger that moved a turn: where it took hold of the page and where it
+ * is, or, once it lifted, where it let go.
+ */
+export interface TransitionTouch {
+  readonly origin: TransitionPoint;
+  readonly position: TransitionPoint;
+}
+
+/**
+ * What is moving a turn: a finger holds it (`held`), it is on its way to
+ * the neighbour (`landing`), or on its way back to the spread it left
+ * (`returning`).
+ */
+export type TransitionPhase = 'held' | 'landing' | 'returning';
 
 /**
  * One frame of a page turn as an effect sees it: how far the turn has
- * travelled (`dx`, negative while turning forward), the page width, and
- * which neighbour is coming in (`null` while pulling against the first or
- * last spread). Both lengths are in the units the frame is drawn in, the
- * display canvas's own pixels.
+ * travelled (`dx`, negative while turning forward), the page width, which
+ * neighbour is coming in (`null` while pulling against the first or last
+ * spread), what is moving it (`phase`), how fast `dx` is changing
+ * (`velocity`, per second; 0 while a finger holds the turn) and the finger
+ * that moved it (`touch`; `null` for a turn no finger has held: a key, a
+ * tap, a call). Lengths and points are in the units the frame is drawn in,
+ * the display canvas's own pixels.
  */
 export interface TransitionFrame {
   readonly dx: number;
   readonly width: number;
   readonly incoming: 'next' | 'prev' | null;
+  readonly phase: TransitionPhase;
+  readonly velocity: number;
+  readonly touch: TransitionTouch | null;
 }
 
 /**
@@ -35,6 +64,11 @@ export interface TransitionPage {
   readonly content: CanvasImageSource;
   readonly overlay: CanvasImageSource | null;
   readonly pixelRatio: number;
+  /**
+   * Changes whenever the bitmap or the overlay is painted again: what an
+   * effect keeps of a page (a texture) is good for one version.
+   */
+  readonly version: number;
 }
 
 /**
@@ -48,6 +82,11 @@ export interface TransitionScene {
   readonly height: number;
   /** The length of a CSS pixel in those units: what sizes a shadow or a curl. */
   readonly cssPixel: number;
+  /**
+   * Where the pages are bound, as an x in those units: the left edge when a
+   * spread is one page, the middle when it is two.
+   */
+  readonly spine: number;
   /** The page in a slot, or null while it is not painted yet. */
   page(slot: SlotPosition): TransitionPage | null;
   /** Draw a page whole at `x`, with its overlay; a page not painted yet is skipped. */
@@ -55,11 +94,11 @@ export interface TransitionScene {
 }
 
 /**
- * How a page turn looks. The physics — the spring, the drag, the commit
- * decision and the rubber band at the ends — is the same for every effect;
- * an effect only says what a frame shows at a given displacement, either as
- * whole pages laid over each other (`layers`) or by painting the frame
- * itself (`paint`), for looks such as a curl that bend or cut the pages.
+ * How a page turn looks: whole pages laid over each other (`layers`), or
+ * the frame painted directly (`paint`) for looks such as a curl that bend
+ * or cut the pages. How a turn moves — the drag, the decision to turn, the
+ * way to rest, the pull at the ends of the book — is its physics: the
+ * built-in spring unless the options or the effect bring their own.
  */
 export type TransitionEffect = LayeredTransitionEffect | PaintedTransitionEffect;
 
@@ -68,12 +107,16 @@ export interface LayeredTransitionEffect {
   layers(frame: TransitionFrame): readonly TransitionLayer[];
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
+  /** The physics the effect is made for; `physics` in the options outranks them. */
+  readonly physics?: TransitionPhysics;
 }
 
 export interface PaintedTransitionEffect {
   paint(scene: TransitionScene, frame: TransitionFrame): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
+  /** The physics the effect is made for; `physics` in the options outranks them. */
+  readonly physics?: TransitionPhysics;
 }
 
 /** The whole spread moves with the turn; the neighbour follows edge to edge. */
