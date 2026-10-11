@@ -10,10 +10,13 @@ export interface TransitionBounds {
  * A turn at the moment its finger lets go: where the turn is (`dx`, CSS px,
  * negative toward the next spread), how fast the finger was carrying it
  * (`velocity`, CSS px per second), the viewport width, which way it turns
- * and the finger itself.
+ * and the finger itself. `from` is where the turn was when the finger took
+ * it: 0 unless it began from what a turn in flight had left, so `dx - from`
+ * is how far the finger carried it.
  */
 export interface TransitionRelease {
   readonly dx: number;
+  readonly from: number;
   readonly velocity: number;
   readonly width: number;
   readonly direction: 'forward' | 'backward';
@@ -38,9 +41,9 @@ export type TransitionSettle = (seconds: number) => {
  */
 export interface TransitionPhysics {
   /**
-   * How far a finger has carried the turn: negative toward the next
-   * spread, one viewport width for a whole turn. The way a drag first
-   * moves is the way it turns.
+   * How far a finger has carried the turn since it took hold: negative
+   * toward the next spread, one viewport width for a whole turn. The way a
+   * drag first moves is the way it turns.
    */
   travel?(touch: TransitionTouch, bounds: TransitionBounds): number;
   /** Where a pull of `travel` leaves the page when no neighbour lies that way. */

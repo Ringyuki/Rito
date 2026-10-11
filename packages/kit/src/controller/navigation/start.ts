@@ -21,7 +21,6 @@ export function emitNavigationStart(
   target: number,
   direction: 'forward' | 'backward',
   previous: number,
-  continuityDx: number,
   gesture?: GestureNavigationRequest,
 ): void {
   const claim = claimOf(machine, attemptId);
@@ -39,7 +38,7 @@ export function emitNavigationStart(
     revertCancelledGesture(deps, reader, claim, previous, true);
     return;
   }
-  deps.td.goToTarget(direction, previous, target, continuityDx);
+  deps.td.goToTarget(direction, previous, target);
   if (gesture) {
     gesture.started = true;
     gesture.onTransitionStart();

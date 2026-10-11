@@ -69,6 +69,7 @@ describe('controller lifecycle', () => {
       reader: { spreads: [], onSpreadRendered, onLayoutCommitted },
       getCurrentSpread: () => 0,
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
+      frameDriver: { animating: false, onRest: () => () => undefined },
     } as unknown as WiringDeps;
     const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
 
@@ -127,6 +128,7 @@ describe('controller lifecycle', () => {
       },
       getCurrentSpread: () => 0,
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
+      frameDriver: { animating: false, onRest: () => () => undefined },
     } as unknown as WiringDeps;
     const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
     lifecycle.mount(firstContainer);
@@ -176,6 +178,7 @@ describe('controller lifecycle', () => {
       },
       getCurrentSpread: () => 0,
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
+      frameDriver: { animating: false, onRest: () => () => undefined },
     } as unknown as WiringDeps;
     const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
     lifecycle.mount(firstContainer);

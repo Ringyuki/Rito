@@ -72,18 +72,13 @@ describe('selection physical input ownership', () => {
     dispose();
   });
 
-  it('keeps an animating touch settlement-only when selection claim settles the transition', () => {
+  it('claims nothing for a touch that comes down while a turn is on screen', () => {
     vi.useFakeTimers();
-    let isAnimating = true;
     const navigation = primarySelectionNavigation(primarySelectionDragSession());
-    navigation.claim.mockImplementation(() => {
-      isAnimating = false;
-      return { owns: () => true };
-    });
     const harness = createTouchSelectionHarness(
       navigation,
       (value) => ({ x: value.clientX, y: value.clientY }),
-      () => isAnimating,
+      () => true,
     );
     const first = touch(1, 10, 20);
 
@@ -91,7 +86,8 @@ describe('selection physical input ownership', () => {
     vi.advanceTimersByTime(350);
     harness.dom.emit('touchend', touchEvent([], [first]));
 
-    expect(navigation.claim).toHaveBeenCalledOnce();
+    // A claim would stop the page; the touch is no selection, no long press and no tap.
+    expect(navigation.claim).not.toHaveBeenCalled();
     expect(navigation.begin).not.toHaveBeenCalled();
     expect(harness.selection.down).not.toHaveBeenCalled();
     expect(harness.selection.clear).not.toHaveBeenCalled();

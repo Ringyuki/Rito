@@ -3,8 +3,8 @@ import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painte
 import type { SlotPosition } from '../painter/types';
 import type { TransitionDriver } from './transition-driver';
 import type { DrawInstruction } from './types';
-import type { TransitionFrame, TransitionPage, TransitionTouch } from './effects';
-import { createTransitionScene, paintTransition } from './transition-scene';
+import type { TransitionFrame, TransitionPage } from './effects';
+import { createTransitionScene, paintTransition, scaledTouch } from './transition-scene';
 
 export interface FrameDriverDeps {
   readonly surface: DisplaySurface;
@@ -24,6 +24,10 @@ export interface FrameDriverDeps {
  * and composites to the display surface. Stops the rAF loop when idle.
  */
 export interface FrameDriver {
+  /** Whether a turn, or what is left of one that was cut into, is being drawn frame by frame. */
+  readonly animating: boolean;
+  /** Calls back when what a cut turn had left comes to rest: no turn's end says the page is still. */
+  onRest(cb: () => void): () => void;
   /** Request a composite on the next animation frame (idempotent). */
   scheduleComposite(): void;
   /** Composite immediately in the current task. Used for atomic layout commits. */
@@ -93,14 +97,16 @@ function createFrameDriverApi(
   onFrame: FrameRequestCallback,
 ): FrameDriver {
   const driver: FrameDriver = {
+    get animating(): boolean {
+      return deps.transitionDriver.isAnimating;
+    },
+
+    onRest(cb): () => void {
+      return deps.transitionDriver.onRest(cb);
+    },
+
     scheduleComposite(): void {
-      if (state.disposed) return;
-      if (state.firstCompositeHoldCount > 0) {
-        requestHeldComposite(state, 'scheduled');
-        return;
-      }
-      if (state.rafId !== null) return;
-      state.rafId = requestAnimationFrame(onFrame);
+      scheduleComposite(state, onFrame);
     },
 
     compositeNow(): void {
@@ -132,6 +138,16 @@ function createFrameDriverApi(
   };
 
   return driver;
+}
+
+function scheduleComposite(state: FrameDriverState, onFrame: FrameRequestCallback): void {
+  if (state.disposed) return;
+  if (state.firstCompositeHoldCount > 0) {
+    requestHeldComposite(state, 'scheduled');
+    return;
+  }
+  if (state.rafId !== null) return;
+  state.rafId = requestAnimationFrame(onFrame);
 }
 
 function compositeNow(deps: FrameDriverDeps, state: FrameDriverState): void {
@@ -276,13 +292,5 @@ function transitionPage(
     overlay: slot.overlay,
     pixelRatio: width > 0 ? slot.content.width / width : 1,
     version: slot.paints,
-  };
-}
-
-/** A finger's points, from CSS px into the units the frame is drawn in. */
-function scaledTouch(touch: TransitionTouch, scale: number): TransitionTouch {
-  return {
-    origin: { x: touch.origin.x * scale, y: touch.origin.y * scale },
-    position: { x: touch.position.x * scale, y: touch.position.y * scale },
   };
 }

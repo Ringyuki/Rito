@@ -130,7 +130,7 @@ function harness(currentSpread: number): Harness {
       current = index;
     },
     emitter: { emit: vi.fn() },
-    td: { isAnimating: false, goToTarget },
+    td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
     frameDriver: { scheduleComposite: vi.fn() },
     pool: {
       getSlotFor: vi.fn(() => null),
@@ -171,7 +171,7 @@ describe('a turn past the chapter laid out alone', () => {
 
     commitBook(20, 40);
     expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 23, 24, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 23, 24);
     expect(current()).toBe(24);
   });
 
@@ -185,7 +185,7 @@ describe('a turn past the chapter laid out alone', () => {
     const backward = harness(0);
     backward.nav.prevSpread();
     backward.commitBook(20, 40);
-    expect(backward.goToTarget).toHaveBeenCalledWith('backward', 20, 19, 0);
+    expect(backward.goToTarget).toHaveBeenCalledWith('backward', 20, 19);
   });
 
   it('is undone by a turn back, and replaced by a turn to a spread named outright', () => {
@@ -398,7 +398,7 @@ describe('a spread a host names by its book-wide index', () => {
     reader.layoutScope = 'book';
 
     nav.goToBookSpread(1, 'turn');
-    expect(goToTarget).toHaveBeenCalledWith('backward', 3, 1, 0);
+    expect(goToTarget).toHaveBeenCalledWith('backward', 3, 1);
     expect(current()).toBe(1);
   });
 
@@ -408,7 +408,7 @@ describe('a spread a host names by its book-wide index', () => {
     expect(turned.goToTarget).not.toHaveBeenCalled();
     expect(turned.current()).toBe(3);
     turned.commitBook(20, 40);
-    expect(turned.goToTarget).toHaveBeenCalledWith('forward', 23, 30, 0);
+    expect(turned.goToTarget).toHaveBeenCalledWith('forward', 23, 30);
 
     // The last spread is read when the book is there to count.
     const last = harness(3);

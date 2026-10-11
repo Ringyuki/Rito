@@ -17,7 +17,6 @@ export interface PendingNavigation {
   readonly target: number;
   readonly direction: 'forward' | 'backward';
   readonly previous: number;
-  readonly continuityDx: number;
   readonly source?: NavigationIntentSource;
   readonly gesture?: GestureNavigationRequest;
 }
@@ -189,7 +188,7 @@ export function describeNavigationPhase(machine: NavigationMachine): string {
 }
 
 // ---------------------------------------------------------------------------
-// Continuity (unchanged semantics from the pre-machine implementation)
+// A newer intent meeting a turn in flight
 
 export interface SupersededNavigation {
   readonly attemptId: number;
@@ -208,8 +207,16 @@ export function supersedeNavigationForDirectInteraction(
   return { attemptId, cancelledPending };
 }
 
-export function settleNavigationForContinuity(transition: TransitionDriver): number {
-  const residualDx = transition.forceSettle();
-  const width = transition.viewportWidth;
-  return residualDx > 0 ? residualDx - width : residualDx + width;
+/**
+ * A finger begins a turn of its own: older navigation work is retired, and
+ * the turn in flight is cut into rather than landed at once, so the finger
+ * takes the picture from where it is.
+ */
+export function supersedeNavigationForGesture(
+  machine: NavigationMachine,
+  transition: TransitionDriver,
+): void {
+  const attemptId = ++machine.claimSeq;
+  clearQueuedIntent(machine);
+  if (machine.claimSeq === attemptId) transition.handOver();
 }

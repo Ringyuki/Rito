@@ -141,6 +141,10 @@ describe('search navigation', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
+        handOver: vi.fn(),
         forceSettle,
       },
       frameDriver: { scheduleComposite: vi.fn() },
@@ -214,7 +218,7 @@ describe('search navigation', () => {
           internals.currentSpread = index;
         },
         emitter: { emit: vi.fn() },
-        td: { isAnimating: false },
+        td: { isAnimating: false, turning: false, handOver: vi.fn() },
         frameDriver: { scheduleComposite: vi.fn() },
         pool,
         contentRenderer: vi.fn(),

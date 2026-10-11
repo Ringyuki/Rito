@@ -155,7 +155,7 @@ describe('a touch on the reader', () => {
       getCurrentSpread: () => 0,
       // One spread: every drag pulls against the end of the book.
       getTotalSpreads: () => 1,
-      commitPendingTransition: vi.fn(),
+      supersedeTurnInFlight: vi.fn(),
     };
     const modes = { mode: 'gesture', setMode: vi.fn(), onModeChange: () => () => undefined };
     const disposables = createDisposableCollection();

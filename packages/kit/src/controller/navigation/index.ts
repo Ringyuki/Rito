@@ -10,6 +10,7 @@ import * as jump from './jump';
 import { continuePendingNavigation } from './pending';
 import { claimNavigation } from './claim';
 import {
+  supersedeNavigationForGestureIntent,
   supersedeNavigationForPositionIntent,
   supersedeNavigationForSelectionIntent,
   type NavigationSelectionInputBarrier,
@@ -96,6 +97,12 @@ export interface NavigationActions {
   /** Silently retire older navigation work before starting a direct selection gesture. */
   supersedeForSelectionIntent(): NavigationSelectionInputBarrier | null;
   supersedeForPositionIntent(): void;
+  /**
+   * Retire older navigation work before a finger turns the page itself. A
+   * turn in flight is cut into, not landed at once: its outcome is settled
+   * and the finger's turn begins from where its picture is.
+   */
+  supersedeForGesture(): void;
   dispose(): void;
 }
 
@@ -192,6 +199,9 @@ function createRuntimeActions(
     supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(nav, deps),
     supersedeForPositionIntent: () => {
       supersedeNavigationForPositionIntent(nav, deps);
+    },
+    supersedeForGesture: () => {
+      supersedeNavigationForGestureIntent(nav, deps);
     },
     dispose: disposeNavigation.bind(undefined, nav),
   };

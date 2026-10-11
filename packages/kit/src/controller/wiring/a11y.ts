@@ -51,6 +51,11 @@ export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): v
       installAtRest(state, deps);
     }),
   );
+  disposables.add(
+    deps.frameDriver.onRest(() => {
+      installAtRest(state, deps);
+    }),
+  );
   if (typeof deps.reader.onLayoutCommitted === 'function') {
     disposables.add(
       deps.reader.onLayoutCommitted((activeSpreadIndex) => {
@@ -111,7 +116,8 @@ function updateA11ySpread(
  * spread has been produced and no turn is on screen. Rebuilding the mirror
  * lays out both pages' text as DOM, which nobody sees: done at once it would
  * hold back the first frame of the turn or relayout that brought the spread.
- * A turn still open leaves them waiting for its `transitionEnd`.
+ * A turn still open leaves them waiting for its `transitionEnd`; what is
+ * left of a turn that was cut into, for its picture to come to rest.
  */
 function installAtRest(state: A11yLoadState, deps: WiringDeps): void {
   if (!state.install) return;
@@ -119,6 +125,7 @@ function installAtRest(state: A11yLoadState, deps: WiringDeps): void {
   state.cancelInstall = scheduleAfterNextFrame(() => {
     state.cancelInstall = null;
     if (transitionLifecycle(deps.emitter).openDirection !== null) return;
+    if (deps.frameDriver.animating) return;
     const install = state.install;
     state.install = null;
     install?.();

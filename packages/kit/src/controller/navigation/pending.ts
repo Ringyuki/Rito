@@ -32,7 +32,6 @@ export function continuePendingNavigation(
     pending.target,
     pending.direction,
     pending.previous,
-    pending.continuityDx,
     pending.gesture,
   );
 }

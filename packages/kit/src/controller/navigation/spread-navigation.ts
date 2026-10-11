@@ -8,7 +8,6 @@ import {
   enqueueIntent,
   queuedBookTurn,
   queuedSpreadTurn,
-  settleNavigationForContinuity,
   type GestureNavigationRequest,
   type NavigationAttempt,
   type NavigationIntentSource,
@@ -46,7 +45,8 @@ export function startRelativeNavigation(
   source: NavigationIntentSource = 'api',
 ): void {
   const waiting = queuedBookTurn(machine)?.delta ?? 0;
-  startNavigation(machine, deps, deps.getCurrentSpread() + waiting + step, source);
+  const index = deps.getCurrentSpread() + waiting + step;
+  replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, source, undefined, true));
 }
 
 export function startGestureNavigation(
@@ -88,12 +88,18 @@ function createGestureToken(
   };
 }
 
+/**
+ * `relative` says `index` was counted from the spread the reader was on
+ * when asked. Cutting into a turn that was going back puts the reader back
+ * on the spread it left, and a step is taken from there.
+ */
 function goToSpread(
   machine: NavigationMachine,
   deps: NavigationDeps,
   index: number,
   source: NavigationIntentSource,
   gesture?: GestureNavigationRequest,
+  relative = false,
 ): NavigationAttempt {
   const initialReader = deps.getReader();
   if (machine.disposed || !initialReader) return { claimedIntent: false };
@@ -111,12 +117,14 @@ function goToSpread(
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
 
-  const continuityDx = navigationContinuity(deps);
+  // The turn in flight is settled where it stands; its picture carries on into this one.
+  deps.td.handOver();
   const previous = deps.getCurrentSpread();
   if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
   const reader = deps.getReader();
   if (!reader) return { claimedIntent: true, attemptId: claim.id };
-  const target = navigationTarget(reader, index);
+  const requested = relative ? previous + index - initialPrevious : index;
+  const target = navigationTarget(reader, requested);
   if (target === previous) {
     return completeNoOpNavigation(deps, claim.id, gesture);
   }
@@ -129,15 +137,9 @@ function goToSpread(
     target,
     direction,
     previous,
-    continuityDx,
     source,
     gesture,
   );
-}
-
-/** How far the turn in flight still had to travel, carried into the one that replaces it. */
-function navigationContinuity(deps: NavigationDeps): number {
-  return deps.td.isAnimating ? settleNavigationForContinuity(deps.td) : 0;
 }
 
 function createKnownSpreadAttempt(
@@ -148,7 +150,6 @@ function createKnownSpreadAttempt(
   target: number,
   direction: 'forward' | 'backward',
   previous: number,
-  continuityDx: number,
   source: NavigationIntentSource,
   gesture?: GestureNavigationRequest,
 ): NavigationAttempt {
@@ -162,23 +163,12 @@ function createKnownSpreadAttempt(
         target,
         direction,
         previous,
-        continuityDx,
         source,
         ...(gesture ? { gesture } : {}),
       },
     };
   }
-  emitNavigationStart(
-    machine,
-    deps,
-    reader,
-    attemptId,
-    target,
-    direction,
-    previous,
-    continuityDx,
-    gesture,
-  );
+  emitNavigationStart(machine, deps, reader, attemptId, target, direction, previous, gesture);
   return { claimedIntent: true, attemptId };
 }
 

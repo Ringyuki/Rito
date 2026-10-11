@@ -1,4 +1,8 @@
-import { supersedeNavigationForDirectInteraction, type NavigationMachine } from './machine';
+import {
+  supersedeNavigationForDirectInteraction,
+  supersedeNavigationForGesture,
+  type NavigationMachine,
+} from './machine';
 import type { NavigationDeps } from './index';
 
 type DirectInteractionDeps = Pick<NavigationDeps, 'td' | 'onContentInteractionIntent'>;
@@ -21,6 +25,16 @@ export function supersedeNavigationForPositionIntent(
   deps: DirectInteractionDeps,
 ): void {
   supersedeDirectInteraction(machine, deps);
+}
+
+/** Retires older navigation work for a finger about to turn the page itself. */
+export function supersedeNavigationForGestureIntent(
+  machine: NavigationMachine,
+  deps: DirectInteractionDeps,
+): void {
+  if (machine.disposed) return;
+  deps.onContentInteractionIntent?.();
+  supersedeNavigationForGesture(machine, deps.td);
 }
 
 function supersedeDirectInteraction(

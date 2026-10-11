@@ -93,27 +93,40 @@ export function wireSettledEvents(
   contentRenderer: ContentRenderer,
   prerenderScheduler: PrerenderScheduler,
 ): () => void {
-  return transitionDriver.onSettled((event) => {
+  const prerender = (eagerPosition?: 'next' | 'prev'): void => {
+    prerenderScheduler.schedule({
+      getCurrentSpread: () => internals.currentSpread,
+      isAnimating: () => transitionDriver.isAnimating,
+      reader,
+      pool,
+      contentRenderer,
+      ...(eagerPosition ? { eagerPosition } : {}),
+    });
+  };
+  // A turn cut into was settled while its picture still moved, when the
+  // neighbours could not be painted ahead; once it is still they can be.
+  const stopWatchingRest = transitionDriver.onRest(() => {
+    prerender();
+  });
+  const stopWatchingSettled = transitionDriver.onSettled((event) => {
     if (event.committed) {
       if (event.direction === 'forward') pool.rotateForward();
       else pool.rotateBackward();
       commitCurrentSpread(internals, event.targetSpread, 'settle-commit');
-      prerenderScheduler.schedule({
-        getCurrentSpread: () => internals.currentSpread,
-        isAnimating: () => transitionDriver.isAnimating,
-        reader,
-        pool,
-        contentRenderer,
-        eagerPosition: event.direction === 'forward' ? 'next' : 'prev',
-      });
+      prerender(event.direction === 'forward' ? 'next' : 'prev');
     } else {
       restoreCanceledTransition(internals, emitter, reader, event.targetSpread);
     }
-    if (!transitionDriver.isAnimating) {
+    // A listener above may have begun another turn, which ended this one itself.
+    if (!transitionDriver.turning) {
       transitionLifecycle(emitter).end(event.committed ? 'committed' : 'cancelled');
     }
     frameDriver.scheduleComposite();
   });
+  return () => {
+    stopWatchingRest();
+    stopWatchingSettled();
+  };
 }
 
 function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProvider {

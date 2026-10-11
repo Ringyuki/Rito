@@ -22,6 +22,13 @@ export type DrawInstruction =
       readonly touch: TransitionTouch | null;
     };
 
+/**
+ * The neighbour a turn that was cut into left in the frame: the page it was
+ * leaving or going back to, or `none` for a pull against the end of the
+ * book, which shows no neighbour.
+ */
+export type LeavingNeighbour = 'next' | 'prev' | 'none';
+
 /** Transition state machine modes. */
 export type TransitionMode =
   | { readonly kind: 'idle' }
@@ -36,6 +43,10 @@ export type TransitionMode =
       lastSampleAt: number;
       /** The finger holding the turn, when the gesture reports where it is. */
       touch: TransitionTouch | null;
+      /** Where the turn was when the finger took it: what its travel is added to. */
+      readonly from: number;
+      /** What the turn this one began from left in the frame; null when it began at rest. */
+      readonly leaving: LeavingNeighbour | null;
     }
   | {
       readonly kind: 'settling';
@@ -51,6 +62,7 @@ export type TransitionMode =
       readonly settle: TransitionSettle | null;
       /** Seconds since `settle` began. */
       elapsed: number;
+      readonly leaving: LeavingNeighbour | null;
     }
   | {
       readonly kind: 'boundary-elastic';
@@ -62,6 +74,24 @@ export type TransitionMode =
       readonly touch: TransitionTouch | null;
       readonly settle: TransitionSettle | null;
       elapsed: number;
+      readonly leaving: LeavingNeighbour | null;
+    }
+  | {
+      /**
+       * What was left of a turn that another one cut into: its outcome is
+       * settled and reported, and the picture goes the rest of the way to 0
+       * in the coordinates that outcome left.
+       */
+      readonly kind: 'finishing';
+      readonly leaving: LeavingNeighbour;
+      dx: number;
+      /** px/s. */
+      vx: number;
+      /** The motion the turn was already on, when its physics brought one. */
+      readonly settle: TransitionSettle | null;
+      elapsed: number;
+      /** Added to what `settle` says: the turn's coordinates moved when it landed. */
+      readonly shift: number;
     };
 
 /** Callback when a transition settles (animation completes). */

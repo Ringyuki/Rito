@@ -55,7 +55,7 @@ describe('selection input navigation ownership', () => {
         internals.currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),

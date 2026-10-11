@@ -440,6 +440,10 @@ describe('position actions ownership', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
+        handOver: vi.fn(),
         forceSettle: vi.fn(() => {
           animating = false;
           navigation.current?.goToSpread(2);
@@ -475,7 +479,7 @@ describe('position actions ownership', () => {
     expect(tracker.getCurrent()?.projection).toEqual({ pageIndex: 2, spreadIndex: 2 });
     expect(internals.coordState.positionUpdateMode).toEqual({ kind: 'capture' });
     expect(jump).not.toHaveBeenCalled();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
   });
 
   it('does not start locator work after navigation supersession loses ownership', async () => {

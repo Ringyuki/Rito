@@ -44,7 +44,14 @@ describe('how far a finger carries a paper turn', () => {
 describe('whether letting a paper turn go turns the page', () => {
   const paper = physics();
   const release = (dx: number, velocity: number, fromX: number, toX: number) =>
-    paper.lands?.({ dx, velocity, width: 400, direction: 'forward', touch: touch(fromX, toX) });
+    paper.lands?.({
+      dx,
+      from: 0,
+      velocity,
+      width: 400,
+      direction: 'forward',
+      touch: touch(fromX, toX),
+    });
 
   it('a pull of a fifth of the way or a flick does, a nudge or a pull back does not', () => {
     expect(release(-100, 0, 380, 190)).toBe(true);

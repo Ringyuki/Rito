@@ -54,6 +54,45 @@ describe('transition effects', () => {
     expect(transitionEffects.none.layers(frameAt(30, null))).toEqual([{ slot: 'curr', x: 0 }]);
   });
 
+  it('paint the same picture once a turn that was cut into has landed', () => {
+    // Which spread shows where, and how much of it: what a frame comes to on screen.
+    const picture = (
+      name: 'slide' | 'cover' | 'fade',
+      frame: TransitionFrame,
+      spreads: Record<'prev' | 'curr' | 'next', number>,
+    ): { spread: number; x: number; share: number; shadow: string | undefined }[] => {
+      const layers = transitionEffects[name].layers(frame);
+      return layers
+        .map((layer, index) => ({
+          spread: spreads[layer.slot],
+          x: layer.x,
+          // What the layers drawn over it leave showing.
+          share: layers
+            .slice(index + 1)
+            .reduce((left, over) => left * (1 - (over.opacity ?? 1)), layer.opacity ?? 1),
+          shadow: layer.shadow,
+        }))
+        .filter((shown) => shown.x > -W && shown.x < W)
+        .sort((a, b) => a.spread - b.spread);
+    };
+    for (const name of ['slide', 'cover', 'fade'] as const) {
+      for (const dx of [-340, -228, -100, -12]) {
+        // A turn to spread 5, and what is left of it once 5 is the current spread.
+        const flying = picture(name, frameAt(dx, 'next'), { prev: 3, curr: 4, next: 5 });
+        const landed = picture(name, frameAt(dx + W, 'prev'), { prev: 4, curr: 5, next: 6 });
+        expect(landed).toHaveLength(flying.length);
+        landed.forEach((shown, index) => {
+          const before = flying[index];
+          expect(shown.spread).toBe(before?.spread);
+          expect(shown.x).toBeCloseTo(before?.x ?? NaN, 9);
+          // Slide and cover lay whole pages side by side or over each other; a fade mixes them.
+          if (name === 'fade') expect(shown.share).toBeCloseTo(before?.share ?? NaN, 9);
+          expect(shown.shadow).toBe(before?.shadow);
+        });
+      }
+    }
+  });
+
   it('an instant effect lands a turn on its first frame', () => {
     const td = createTransitionDriver({ effect: 'none' });
     td.viewportWidth = W;

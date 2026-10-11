@@ -1,8 +1,9 @@
 import type { TransitionTouch } from './effects';
 import { rubberBand } from './rubber-band';
+import { leftoverOf } from './transition-hand-over';
 import { activePhysics, type TransitionDriverState } from './transition-state';
 import { estimateVelocity, VELOCITY_WINDOW_SIZE } from './transition-velocity';
-import type { TransitionMode } from './types';
+import type { LeavingNeighbour, TransitionMode } from './types';
 
 /** Time horizon (ms) for projecting current velocity into commit decision. */
 const PROJECTION_MS = 150;
@@ -15,6 +16,7 @@ interface TurnIdentity {
   readonly outgoingSpread: number;
   readonly incomingSpread: number | null;
   readonly touch: TransitionTouch | null;
+  readonly leaving: LeavingNeighbour | null;
 }
 
 // A drag measures its velocity in px/ms (pointer samples carry ms
@@ -30,16 +32,20 @@ export function startTrackingMode(
   incomingSpread: number | null,
   timestamp: number,
 ): void {
-  state.velocitySamples = [{ dx: 0, timestamp }];
+  // A finger that cuts into a turn takes the picture from where that turn left it.
+  const begun = leftoverOf(state);
+  state.velocitySamples = [{ dx: begun.dx, timestamp }];
   state.mode = {
     kind: 'tracking',
     direction,
     outgoingSpread,
     incomingSpread,
-    dx: 0,
+    dx: begun.dx,
     vx: 0,
     lastSampleAt: timestamp,
     touch: null,
+    from: begun.dx,
+    leaving: begun.leaving,
   };
 }
 
@@ -50,7 +56,9 @@ export function updateTrackingMode(
   touch?: TransitionTouch,
 ): void {
   if (state.mode.kind !== 'tracking') return;
-  const dx = state.mode.incomingSpread === null ? resisted(state, rawDx) : rawDx;
+  // What the finger has carried the turn is added to where it took it; only that is resisted.
+  const carried = state.mode.incomingSpread === null ? resisted(state, rawDx) : rawDx;
+  const dx = withinAPage(state, state.mode.from + carried);
   state.velocitySamples.push({ dx, timestamp });
   if (state.velocitySamples.length > VELOCITY_WINDOW_SIZE) state.velocitySamples.shift();
   state.mode.vx = estimateVelocity(state.velocitySamples);
@@ -90,52 +98,47 @@ export function cancelTrackingMode(state: TransitionDriverState): boolean {
   return state.mode.kind === 'boundary-elastic';
 }
 
+/** A turn no finger holds, from what the turn it cut into left: where that was, as fast. */
 export function goToTargetMode(
   state: TransitionDriverState,
   direction: Direction,
   outgoingSpread: number,
   incomingSpread: number | null,
-  initialDx: number,
 ): void {
-  const turn = { direction, outgoingSpread, incomingSpread, touch: null };
-  state.mode = settling(state, turn, turnTarget(state, direction), initialDx, 0);
+  const begun = leftoverOf(state);
+  const turn = { direction, outgoingSpread, incomingSpread, touch: null, leaving: begun.leaving };
+  state.mode = settling(state, turn, turnTarget(state, direction), begun.dx, begun.vx);
 }
 
 export function interruptMode(
   state: TransitionDriverState,
   timestamp: number,
 ): { dx: number; vx: number } | null {
-  if (state.mode.kind === 'settling') {
-    const { direction, outgoingSpread, incomingSpread, dx, touch } = state.mode;
-    const vx = dragVelocity(state.mode.vx);
-    state.mode = {
-      kind: 'tracking',
-      direction,
-      outgoingSpread,
-      incomingSpread,
-      dx,
-      vx,
-      lastSampleAt: timestamp,
-      touch,
-    };
-    return { dx, vx };
-  }
-  if (state.mode.kind === 'boundary-elastic') {
-    const { direction, slotSpread, dx, touch } = state.mode;
-    const vx = dragVelocity(state.mode.vx);
-    state.mode = {
-      kind: 'tracking',
-      direction,
-      outgoingSpread: slotSpread,
-      incomingSpread: null,
-      dx,
-      vx,
-      lastSampleAt: timestamp,
-      touch,
-    };
-    return { dx, vx };
-  }
-  return null;
+  const mode = state.mode;
+  if (mode.kind !== 'settling' && mode.kind !== 'boundary-elastic') return null;
+  const { direction, dx, touch, leaving } = mode;
+  const vx = dragVelocity(mode.vx);
+  // The finger's speed is measured from here on, and its travel added to where the turn is.
+  state.velocitySamples = [{ dx, timestamp }];
+  state.mode = {
+    kind: 'tracking',
+    direction,
+    outgoingSpread: mode.kind === 'settling' ? mode.outgoingSpread : mode.slotSpread,
+    incomingSpread: mode.kind === 'settling' ? mode.incomingSpread : null,
+    dx,
+    vx,
+    lastSampleAt: timestamp,
+    touch,
+    from: dx,
+    leaving,
+  };
+  return { dx, vx };
+}
+
+/** A turn goes no farther than a page width either way: beyond it there is no page to show. */
+function withinAPage(state: TransitionDriverState, dx: number): number {
+  const width = state.viewportWidth;
+  return width > 0 ? Math.max(-width, Math.min(width, dx)) : dx;
 }
 
 function turnTarget(state: TransitionDriverState, direction: Direction): number {
@@ -161,6 +164,7 @@ function settling(
     vx,
     settle: activePhysics(state)?.settle?.(dx, vx, target) ?? null,
     elapsed: 0,
+    leaving: turn.leaving,
   };
 }
 
@@ -180,6 +184,7 @@ function boundaryElastic(
     vx,
     settle: activePhysics(state)?.settle?.(dx, vx, 0) ?? null,
     elapsed: 0,
+    leaving: turn.leaving,
   };
 }
 
@@ -191,21 +196,32 @@ function resisted(state: TransitionDriverState, rawDx: number): number {
   );
 }
 
-/** Whether a release turns the page: the physics' rule, else the built-in one. */
-function lands(state: TransitionDriverState, turn: TurnIdentity, dx: number, vx: number): boolean {
+/**
+ * Whether a release turns the page: the physics' rule, else the built-in
+ * one, which goes by how far the finger carried the turn. Where the turn
+ * was when the finger took it says nothing of what the finger meant.
+ */
+function lands(
+  state: TransitionDriverState,
+  turn: TurnIdentity & { readonly from: number },
+  dx: number,
+  vx: number,
+): boolean {
   const physics = activePhysics(state);
   if (physics?.lands) {
     return physics.lands({
       dx,
+      from: turn.from,
       velocity: springVelocity(vx),
       width: state.viewportWidth,
       direction: turn.direction,
       touch: turn.touch,
     });
   }
-  if (shouldCancelTracking(turn.direction, dx, vx)) return false;
+  const carried = dx - turn.from;
+  if (shouldCancelTracking(turn.direction, carried, vx)) return false;
   return (
-    Math.abs(dx + vx * PROJECTION_MS) > state.opts.swipeThreshold ||
+    Math.abs(carried + vx * PROJECTION_MS) > state.opts.swipeThreshold ||
     Math.abs(vx) > state.opts.velocityCommit
   );
 }

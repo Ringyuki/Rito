@@ -23,7 +23,7 @@ describe('navigation animation contract', () => {
       },
       getRenderScale: () => 1,
       emitter: { emit },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -39,9 +39,9 @@ describe('navigation animation contract', () => {
     navigation.navigateToTocEntry(tocEntry);
 
     expect(goToTarget.mock.calls).toEqual([
-      ['forward', 1, 2, 0],
-      ['backward', 2, 1, 0],
-      ['backward', 1, 0, 0],
+      ['forward', 1, 2],
+      ['backward', 2, 1],
+      ['backward', 1, 0],
     ]);
     expect(emit).toHaveBeenCalledWith('transitionStart', { direction: 'forward' });
     expect(emit).toHaveBeenCalledWith('transitionStart', { direction: 'backward' });

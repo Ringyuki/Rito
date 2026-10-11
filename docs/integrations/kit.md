@@ -116,7 +116,10 @@ pixelRatio }`, or `null` while it is not painted yet) and
   `travel(touch, bounds)` says how far a finger has carried the turn (CSS px, one
   viewport width for a whole turn; the way a drag first moves is the way it
   turns), `resist(travel, width)` where a pull against the first or last spread
-  leaves the page, `lands(release)` whether letting go turns the page, and
+  leaves the page, `lands(release)` whether letting go turns the page
+  (`release.from` is where the turn was when the finger took it, 0 unless it began
+  from what a turn in flight had left, so `release.dx - release.from` is how far
+  the finger carried it), and
   `settle(from, velocity, to)` returns the motion that carries a released turn to
   rest: a function of the seconds since, answering `{ x, velocity, done }`. A turn
   left alone stays on screen until it is `done`. An effect may bring the physics
@@ -155,8 +158,12 @@ controller.configureTransition({ effect: createPaperTurn() });
 `transitionStart` and `transitionEnd` bracket every visible turn: each start is
 answered by exactly one end, whose `outcome` says whether the turn landed
 (`committed`), went back (`cancelled`), or was cut off by a relayout or a jump
-(`interrupted`). A newer turn lands the turn in flight at once, which reports
-`committed`, or `cancelled` if it was already heading back. `rito_flutter` reports
+(`interrupted`). A newer turn, by key or by a finger that starts to drag, settles the
+turn in flight at once, which reports `committed`, or `cancelled` if it was already
+heading back; its picture is not stopped: the newer turn begins where the page is and
+as fast as it moves, so a second turn, a turn back and a finger all take the page on
+without a jump. A finger that only comes down on a moving page leaves it alone.
+`rito_flutter` reports
 the same outcomes; one table of scenarios holds both test suites to them. In between, `transitionProgress` reports every painted
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,

@@ -5,12 +5,21 @@ import type {
   TransitionLayer,
   TransitionPage,
   TransitionScene,
+  TransitionTouch,
 } from './effects';
 
 /** How far a sheet's shadow reaches over the page beneath it, CSS px. */
 const SHADOW_REACH = 24;
 /** How dark the shadow is at the sheet's edge. */
 const SHADOW_ALPHA = 0.18;
+
+/** A finger's points, from CSS px into the units the frame is drawn in. */
+export function scaledTouch(touch: TransitionTouch, scale: number): TransitionTouch {
+  return {
+    origin: { x: touch.origin.x * scale, y: touch.origin.y * scale },
+    position: { x: touch.position.x * scale, y: touch.position.y * scale },
+  };
+}
 
 /**
  * A scene over a cleared surface whose pages come from `pageOf`, which

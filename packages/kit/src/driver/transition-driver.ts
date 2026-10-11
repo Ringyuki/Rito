@@ -6,11 +6,13 @@ import {
   startTrackingMode,
   updateTrackingMode,
 } from './transition-actions';
+import { handOverMode } from './transition-hand-over';
 import { activeEffect, activePhysics, type TransitionDriverState } from './transition-state';
 import {
   turningInstruction,
   stepSettling,
   stepBoundaryElastic,
+  stepFinishing,
   forceSettleMode,
 } from './transition-steps';
 import type {
@@ -30,8 +32,10 @@ import type { TransitionPhysics } from './physics';
 export interface TransitionDriver {
   /** Current mode. */
   readonly mode: TransitionMode;
-  /** Whether any animation is in progress. */
+  /** Whether anything is moving: a turn, or what is left of one that was cut into. */
   readonly isAnimating: boolean;
+  /** Whether a turn is open: held, landing, going back, or pulling against the end of the book. */
+  readonly turning: boolean;
   /** The viewport width used for displacement calculations. */
   viewportWidth: number;
   /** Where the pages are bound, as an x in the viewport: 0, or the middle of a two-page spread. */
@@ -66,23 +70,30 @@ export interface TransitionDriver {
   /** Cancel an owned drag/settle and settle back to its outgoing spread. */
   cancelTracking(): boolean;
 
-  /** Programmatic navigation (keyboard, TOC). Goes directly to settling. */
+  /** Programmatic navigation (keyboard, TOC): settling from rest, or from what a cut turn left. */
   goToTarget(
     direction: 'forward' | 'backward',
     outgoingSpread: number,
     incomingSpread: number | null,
-    initialDx?: number,
   ): void;
 
-  /** Interrupt a settling animation to resume tracking. Preserves dx/vx. */
+  /** Interrupt a settling animation to resume tracking; the finger's travel adds to where it is. */
   interrupt(timestamp: number): { dx: number; vx: number } | null;
+
+  /**
+   * Cut into the open turn for another to begin: its outcome is settled and
+   * reported at once, as `forceSettle` would, and its picture carries on
+   * until the next turn takes it up or it comes to rest.
+   */
+  handOver(): void;
 
   /** Advance one frame. Returns what to draw. `dt` is in milliseconds. */
   step(dt: number): DrawInstruction;
 
   /**
-   * Instantly complete the current animation: snap dx to target, trigger onSettled.
-   * Returns the residual dx at the moment of force-settle (for visual continuity).
+   * Instantly complete the current animation: snap dx to target, trigger
+   * onSettled, stop what a cut turn had left. For what cannot carry on (a
+   * jump, a relayout, a selection). Returns the dx it stopped at.
    */
   forceSettle(): number;
 
@@ -94,6 +105,9 @@ export interface TransitionDriver {
 
   /** Register callback for when settling completes. */
   onSettled(cb: (event: SettledEvent) => void): () => void;
+
+  /** Register callback for when what a cut turn had left comes to rest, taken up by no turn. */
+  onRest(cb: () => void): () => void;
 }
 
 export function createTransitionDriver(
@@ -107,6 +121,7 @@ export function createTransitionDriver(
     spine: 0,
     velocitySamples: [],
     settledListeners: new Set<(event: SettledEvent) => void>(),
+    restListeners: new Set<() => void>(),
   };
   const driver = createDriverAccessors(state) as TransitionDriver;
   Object.assign(
@@ -122,7 +137,14 @@ function createDriverAccessors(
   state: TransitionDriverState,
 ): Pick<
   TransitionDriver,
-  'mode' | 'isAnimating' | 'viewportWidth' | 'spine' | 'effect' | 'physics' | 'reducedMotion'
+  | 'mode'
+  | 'isAnimating'
+  | 'turning'
+  | 'viewportWidth'
+  | 'spine'
+  | 'effect'
+  | 'physics'
+  | 'reducedMotion'
 > {
   return {
     get effect() {
@@ -149,6 +171,9 @@ function createDriverAccessors(
     get isAnimating() {
       return state.mode.kind !== 'idle';
     },
+    get turning() {
+      return state.mode.kind !== 'idle' && state.mode.kind !== 'finishing';
+    },
     get viewportWidth() {
       return state.viewportWidth;
     },
@@ -168,6 +193,7 @@ function createTrackingActions(
   | 'cancelTracking'
   | 'goToTarget'
   | 'interrupt'
+  | 'handOver'
 > {
   return {
     startTracking(direction, outgoingSpread, incomingSpread, timestamp): void {
@@ -182,11 +208,15 @@ function createTrackingActions(
     cancelTracking(): boolean {
       return cancelTrackingMode(state);
     },
-    goToTarget(direction, outgoingSpread, incomingSpread, initialDx = 0): void {
-      goToTargetMode(state, direction, outgoingSpread, incomingSpread, initialDx);
+    goToTarget(direction, outgoingSpread, incomingSpread): void {
+      goToTargetMode(state, direction, outgoingSpread, incomingSpread);
     },
     interrupt(timestamp): { dx: number; vx: number } | null {
       return interruptMode(state, timestamp);
+    },
+    handOver(): void {
+      const settled = handOverMode(state);
+      if (settled) emitSettled(state, settled);
     },
   };
 }
@@ -206,7 +236,7 @@ function createAnimationActions(
 
 function createConfigurationActions(
   state: TransitionDriverState,
-): Pick<TransitionDriver, 'configure' | 'reset' | 'onSettled'> {
+): Pick<TransitionDriver, 'configure' | 'reset' | 'onSettled' | 'onRest'> {
   return {
     configure(update): void {
       state.opts = { ...state.opts, ...update };
@@ -217,6 +247,10 @@ function createConfigurationActions(
     onSettled(cb): () => void {
       state.settledListeners.add(cb);
       return () => state.settledListeners.delete(cb);
+    },
+    onRest(cb): () => void {
+      state.restListeners.add(cb);
+      return () => state.restListeners.delete(cb);
     },
   };
 }
@@ -234,6 +268,12 @@ function stepTransition(state: TransitionDriverState, dt: number): DrawInstructi
       );
     case 'boundary-elastic':
       return applyStepResult(state, stepBoundaryElastic(state.mode, state.opts, dt));
+    case 'finishing': {
+      const result = stepFinishing(state.mode, state.opts, dt);
+      state.mode = result.nextMode;
+      if (result.nextMode.kind === 'idle') for (const cb of state.restListeners) cb();
+      return result.instruction;
+    }
   }
 }
 

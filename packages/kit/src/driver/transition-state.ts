@@ -13,6 +13,7 @@ export interface TransitionDriverState {
   reducedMotion: boolean;
   velocitySamples: VelocitySample[];
   readonly settledListeners: Set<(event: SettledEvent) => void>;
+  readonly restListeners: Set<() => void>;
 }
 
 /** How turns look now: the configured effect, or a cross-fade under reduced motion. */

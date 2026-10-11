@@ -34,8 +34,12 @@ export interface GestureDeps {
   ) => GestureNavigationToken;
   readonly getCurrentSpread: () => number;
   readonly getTotalSpreads: () => number;
-  /** Commits an active same-direction transition before a rapid flip. */
-  readonly commitPendingTransition: () => void;
+  /**
+   * Retires older navigation work before the finger's own turn. A turn in
+   * flight is cut into: its outcome is settled, and the finger takes its
+   * picture from where it is.
+   */
+  readonly supersedeTurnInFlight: () => void;
 }
 
 export interface TouchHandlerContext extends GestureSessionContext {

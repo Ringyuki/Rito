@@ -119,6 +119,27 @@ describe('native accessibility wiring', () => {
     expect(mirror?.textContent).toBe('turned to');
   });
 
+  it('leaves the mirror empty while what a cut turn left is still moving, and rebuilds it at rest', async () => {
+    const fixture = createFixture((_pageIndex) => Promise.resolve(pageSemantics('came to rest')));
+    wireA11y(fixture.deps, fixture.disposables);
+    await settle();
+    const mirror = document.body.querySelector('[role="document"]');
+    const turn = transitionLifecycle(fixture.deps.emitter);
+
+    // The turn is reported over when another cuts into it; its picture is not yet still.
+    turn.begin('forward');
+    fixture.page.moving = true;
+    fixture.spreadRendered?.(0, fixture.spread);
+    turn.end('committed');
+    await settle();
+    await settle();
+    expect(mirror?.textContent).toBe('');
+
+    fixture.comeToRest();
+    await settle();
+    expect(mirror?.textContent).toBe('came to rest');
+  });
+
   it('drops semantics waiting for a turn when another spread replaces theirs', async () => {
     let text = 'first';
     const fixture = createFixture((_pageIndex) => Promise.resolve(pageSemantics(text)));
@@ -332,6 +353,18 @@ function createFixture(read: (pageIndex: number) => Promise<ReaderPageSemantics>
   const emit = vi.fn<(typeof emitter)['emit']>((event, data) => {
     emitter.emit(event, data);
   });
+  // The page as the frame loop sees it: moving or still, and told when it stops.
+  const page = { moving: false };
+  const restListeners = new Set<() => void>();
+  const frameDriver = {
+    get animating() {
+      return page.moving;
+    },
+    onRest(listener: () => void) {
+      restListeners.add(listener);
+      return () => restListeners.delete(listener);
+    },
+  };
   const coordState = createCoordinatorState();
   coordState.mapper = {
     pageContentToScreen: () => bounds,
@@ -350,6 +383,7 @@ function createFixture(read: (pageIndex: number) => Promise<ReaderPageSemantics>
     },
     coordState,
     getCurrentSpread: () => 0,
+    frameDriver,
   } as unknown as WiringDeps;
   const disposables = createDisposableCollection();
   return {
@@ -361,6 +395,11 @@ function createFixture(read: (pageIndex: number) => Promise<ReaderPageSemantics>
     getPageSemantics,
     getPageTargets,
     spread,
+    page,
+    comeToRest(): void {
+      page.moving = false;
+      for (const listener of restListeners) listener();
+    },
     get spreadRendered() {
       return spreadRendered;
     },

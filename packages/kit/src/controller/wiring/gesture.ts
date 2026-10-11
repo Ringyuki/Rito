@@ -106,9 +106,13 @@ function handleTouchStart(context: TouchHandlerContext, event: TouchEvent): void
   const touch = event.changedTouches[0] ?? event.touches[0];
   if (!touch) return;
   const { state, deps } = context;
+  // A finger that comes down while the page is moving claims nothing: a
+  // claim would stop the page where a selection needs it still, and this
+  // touch can only become a turn of its own, which takes the picture as it
+  // is. It is no tap and no long press.
   const wasAnimating = deps.td.isAnimating;
-  const selectionInput = context.selectionNavigation?.claim() ?? null;
-  if (context.selectionNavigation && !selectionInput) return;
+  const selectionInput = wasAnimating ? null : (context.selectionNavigation?.claim() ?? null);
+  if (!wasAnimating && context.selectionNavigation && !selectionInput) return;
   state.activeTouchId = touch.identifier;
   state.startTouch = { x: touch.clientX, y: touch.clientY };
   state.selectionStart = touch;
@@ -174,7 +178,9 @@ function beginGesture(
   clearTouchTimer(state);
   state.phase = 'gesture';
   modeManager.setMode('gesture');
-  if (deps.td.isAnimating) deps.commitPendingTransition();
+  // Before the spread is read: cutting into a turn that was going back puts
+  // the reader back on the spread it left.
+  if (state.wasAnimating || deps.td.isAnimating) deps.supersedeTurnInFlight();
 
   const direction = sample.dx < 0 ? 'forward' : 'backward';
   const current = deps.getCurrentSpread();

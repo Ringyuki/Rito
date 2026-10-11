@@ -78,10 +78,11 @@ export function jumpToSpreadIfReady(
 /**
  * A jump takes the page before the turn in flight arrives: the turn is
  * reported cut off, then landed at once so the jump leaves from its page.
+ * What a turn already cut into had left is stopped with it.
  */
 function interruptTurnInFlight(deps: NavigationDeps): void {
   if (!deps.td.isAnimating) return;
-  transitionLifecycle(deps.emitter).end('interrupted');
+  if (deps.td.turning) transitionLifecycle(deps.emitter).end('interrupted');
   deps.td.forceSettle();
 }
 

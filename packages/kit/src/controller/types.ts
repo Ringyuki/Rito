@@ -105,9 +105,9 @@ export interface ReaderControllerEvents {
    */
   transitionProgress: { direction: 'forward' | 'backward'; progress: number };
   /**
-   * The visible turn ended: it landed (`committed`), went back
-   * (`cancelled`), or was cut off by a relayout or a jump (`interrupted`).
-   * A newer turn lands the one in flight at once: `committed` or `cancelled`.
+   * The visible turn ended: it landed (`committed`), went back (`cancelled`),
+   * or was cut off by a relayout or a jump (`interrupted`). A newer turn
+   * settles the one in flight at once and takes its picture on from there.
    */
   transitionEnd: {
     direction: 'forward' | 'backward';

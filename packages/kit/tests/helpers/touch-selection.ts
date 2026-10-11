@@ -64,7 +64,7 @@ export function createTouchSelectionHarness(
     startGestureNavigation,
     getCurrentSpread: () => 0,
     getTotalSpreads: () => 3,
-    commitPendingTransition: vi.fn(),
+    supersedeTurnInFlight: vi.fn(),
   };
   const modeManager = {
     mode: 'gesture',

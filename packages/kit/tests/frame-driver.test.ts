@@ -246,7 +246,7 @@ describe('FrameDriver', () => {
     driver.dispose();
   });
 
-  it('draws the previous slot during chained forward page turns', () => {
+  it('draws the page a cut turn was leaving until the next turn has crossed its own start', () => {
     const surface = createMockSurface();
     const pool = createPageBufferPool();
     pool.resize(800, 600, 1);
@@ -255,6 +255,9 @@ describe('FrameDriver', () => {
     pool.assignSlot('next', 2);
     const td = createTransitionDriver();
     td.viewportWidth = 800;
+    td.onSettled((event) => {
+      if (event.committed) pool.rotateForward();
+    });
 
     const driver = createFrameDriver({
       surface,
@@ -265,27 +268,35 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('forward', 1, 2, 400);
+    // A turn to spread 2 is cut into part of the way: it lands, and 2 is the current spread.
+    td.goToTarget('forward', 1, 2);
+    td.step(80);
+    td.handOver();
+    pool.assignSlot('next', 3);
+    td.goToTarget('forward', 2, 3);
     driver.compositeNow();
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const drawImage = vi.mocked(surface.ctx.drawImage);
-    expect(drawImage.mock.calls[0]?.[0]).toBe(pool.prev.content);
-    expect(drawImage.mock.calls[1]?.[0]).toBe(pool.curr.content);
-    expect(drawImage.mock.calls[2]?.[0]).toBe(pool.next.content);
+    const drawn = vi.mocked(surface.ctx.drawImage).mock.calls.map((call) => call[0]);
+    // Spread 2 still arriving, spread 1 still leaving; nothing of spread 3 yet.
+    expect(drawn).toEqual([pool.curr.content, pool.prev.content]);
+    expect(pool.getSlotFor(1)).toBe('prev');
 
     driver.dispose();
   });
 
-  it('draws the next slot during chained backward page turns', () => {
+  it('draws the page a cut turn back was leaving, on the other side', () => {
     const surface = createMockSurface();
     const pool = createPageBufferPool();
     pool.resize(800, 600, 1);
-    pool.assignSlot('prev', 0);
-    pool.assignSlot('curr', 1);
-    pool.assignSlot('next', 2);
+    pool.assignSlot('prev', 1);
+    pool.assignSlot('curr', 2);
+    pool.assignSlot('next', 3);
     const td = createTransitionDriver();
     td.viewportWidth = 800;
+    td.onSettled((event) => {
+      if (event.committed) pool.rotateBackward();
+    });
 
     const driver = createFrameDriver({
       surface,
@@ -296,14 +307,17 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('backward', 1, 0, -400);
+    td.goToTarget('backward', 2, 1);
+    td.step(80);
+    td.handOver();
+    pool.assignSlot('prev', 0);
+    td.goToTarget('backward', 1, 0);
     driver.compositeNow();
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const drawImage = vi.mocked(surface.ctx.drawImage);
-    expect(drawImage.mock.calls[0]?.[0]).toBe(pool.next.content);
-    expect(drawImage.mock.calls[1]?.[0]).toBe(pool.curr.content);
-    expect(drawImage.mock.calls[2]?.[0]).toBe(pool.prev.content);
+    const drawn = vi.mocked(surface.ctx.drawImage).mock.calls.map((call) => call[0]);
+    expect(drawn).toEqual([pool.curr.content, pool.next.content]);
+    expect(pool.getSlotFor(2)).toBe('next');
 
     driver.dispose();
   });

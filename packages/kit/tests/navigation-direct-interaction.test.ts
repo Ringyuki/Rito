@@ -30,6 +30,10 @@ describe('navigation direct interaction ownership', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
+        handOver: vi.fn(),
         forceSettle,
         goToTarget,
       },
