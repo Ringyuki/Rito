@@ -126,6 +126,25 @@ pixelRatio }`, or `null` while it is not painted yet) and
 
 Change any of it live with `controller.configureTransition({ effect: 'cover' })`.
 
+`createPaperTurn()` is a painted effect with physics of its own: the page turns as
+a sheet of paper. The sheet is a grid of particles — bound at the spine, unable to
+stretch, stiff against bending, falling under gravity onto the pages beneath it —
+carried by the point a finger took hold of, so it bows behind the hand, twists when
+taken by a corner and comes to rest on the page it lands on; the turn is over when
+the sheet lies still. It is drawn with WebGL: both faces, lit, with a soft shadow
+on the pages under it. With two pages a spread the sheet turns over the spine like
+a leaf of a book and carries the next page on its back; with one page a spread it
+leaves by the left edge, its back bare paper, and a turn back brings the last
+sheet in from there to meet the finger. A sheet lying flat is lit to exactly the
+page's own colours. Where WebGL is not to be had the effect paints the built-in
+`cover`. It simulates one sheet, so make one per controller:
+
+```ts
+import { createPaperTurn } from '@ritojs/kit';
+
+controller.configureTransition({ effect: createPaperTurn() });
+```
+
 `transitionStart` and `transitionEnd` bracket every visible turn: each start is
 answered by exactly one end, whose `outcome` says whether the turn landed
 (`committed`), went back (`cancelled`), or was cut off by a relayout or a jump

@@ -63,6 +63,32 @@ function boundedVelocity(config: SpringConfig, offset: number, velocity: number)
   return toward > limit ? -Math.sign(offset) * limit : velocity;
 }
 
+/**
+ * The spring from `from` at `velocity` to `to`, as a function of the
+ * seconds since: where it is, how fast, and whether what motion remains is
+ * sub-pixel.
+ */
+export function springSettle(
+  config: SpringConfig,
+  from: number,
+  velocity: number,
+  to: number,
+): (seconds: number) => { x: number; velocity: number; done: boolean } {
+  const offset = from - to;
+  const start = boundedVelocity(config, offset, velocity);
+  const omega = Math.sqrt(config.stiffness);
+  return (seconds) => {
+    const at = springAt(config, offset, start, seconds);
+    return {
+      x: to + at.offset,
+      velocity: at.velocity,
+      done:
+        Math.abs(at.offset) < SETTLE_DISTANCE_PX &&
+        Math.abs(at.velocity) / omega < SETTLE_DISTANCE_PX,
+    };
+  };
+}
+
 /** The spring's offset from its target and velocity `t` seconds on. */
 export function springAt(
   config: SpringConfig,

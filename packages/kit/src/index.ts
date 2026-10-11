@@ -54,6 +54,7 @@ export type {
   TransitionRelease,
   TransitionSettle,
 } from './driver/physics';
+export { createPaperTurn, type PaperTurnOptions } from './driver/paper/paper-turn';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';
 export { createDisposableCollection, type DisposableCollection } from './utils/disposable';

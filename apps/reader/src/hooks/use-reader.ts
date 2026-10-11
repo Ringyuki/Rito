@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
-import { springPresets, type ReaderControllerEvents, type TransitionEffectName } from '@ritojs/kit';
+import { createPaperTurn, springPresets, type ReaderControllerEvents } from '@ritojs/kit';
+import type { PageTurn } from '@/components/settings-panel';
 import {
   useAnnotations,
   useControllerEvent,
@@ -37,7 +38,13 @@ export function useReader(
 ) {
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
   const typography = useTypography();
-  const [pageTurn, setPageTurnState] = useState<TransitionEffectName>('slide');
+  const [pageTurn, setPageTurnState] = useState<PageTurn>('slide');
+  // The paper turn simulates one sheet: one of it for this reader.
+  const paperTurn = useMemo(() => createPaperTurn(), []);
+  const effectOf = useCallback(
+    (turn: PageTurn) => (turn === 'paper' ? paperTurn : turn),
+    [paperTurn],
+  );
 
   // Everything a book opens with — size, spread, theme, typography — goes
   // in here, so it lays out once, already styled.
@@ -52,7 +59,7 @@ export function useReader(
       ...typographyReaderOptions(typography.typography),
     },
     controller: {
-      transition: { ...springPresets.default, effect: pageTurn },
+      transition: { ...springPresets.default, effect: effectOf(pageTurn) },
       positionStorage: storage.positionStorage,
       annotationStorage: storage.annotationStorage,
       a11y: { enabled: true },
@@ -175,11 +182,11 @@ export function useReader(
 
   // How pages turn; a reader on "reduced motion" gets a cross-fade anyway.
   const setPageTurn = useCallback(
-    (effect: TransitionEffectName) => {
-      setPageTurnState(effect);
-      controller?.configureTransition({ effect });
+    (turn: PageTurn) => {
+      setPageTurnState(turn);
+      controller?.configureTransition({ effect: effectOf(turn) });
     },
-    [controller],
+    [controller, effectOf],
   );
 
   const setRenderScale = useCallback(

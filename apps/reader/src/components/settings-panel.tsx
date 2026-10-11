@@ -17,6 +17,9 @@ import { FontFamilyCombobox } from '@/components/font-family-combobox';
 import type { ReaderFonts } from '@/hooks/use-reader-fonts';
 import type { TransitionEffectName } from '@ritojs/kit';
 
+/** How pages turn: a built-in effect, or the simulated sheet of paper. */
+export type PageTurn = TransitionEffectName | 'paper';
+
 export interface ReaderSettings {
   /** Root font size in px, passed to `setTypography`; changing it re-lays the text. */
   fontSize: number;
@@ -34,12 +37,13 @@ export interface ReaderSettings {
   /** Canvas zoom (`setRenderScale`): sharper glyphs, same pagination. */
   renderScale: number;
   /** How pages turn (`configureTransition({ effect })`). */
-  pageTurn: TransitionEffectName;
+  pageTurn: PageTurn;
 }
 
-const PAGE_TURNS: SegmentedOption<TransitionEffectName>[] = [
+const PAGE_TURNS: SegmentedOption<PageTurn>[] = [
   { value: 'slide', label: 'Slide' },
   { value: 'cover', label: 'Cover' },
+  { value: 'paper', label: 'Paper' },
   { value: 'fade', label: 'Fade' },
   { value: 'none', label: 'None' },
 ];
@@ -63,7 +67,7 @@ interface SettingsPanelProps {
   onFontFamilyForceChange: (value: boolean) => void;
   fonts: ReaderFonts;
   onRenderScaleChange: (value: number) => void;
-  onPageTurnChange: (value: TransitionEffectName) => void;
+  onPageTurnChange: (value: PageTurn) => void;
   onSpreadModeChange: (value: 'single' | 'double') => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onRestoreDefaults: () => void;
