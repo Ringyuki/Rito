@@ -51,7 +51,9 @@ export function grabOf(
 export interface PaperPicture {
   /** How many frames have been painted. */
   painted(): number;
-  /** Whether that page has left the frame for good, with its turn still slowing down. */
+  /** Whether that page is where its turn takes it, with the turn still on its way. */
+  there(): boolean;
+  /** Whether it has left the frame for good. */
   gone(): boolean;
 }
 
@@ -66,12 +68,13 @@ export interface PaperPicture {
  * turned again, and otherwise lifts the next one from flat: the leaf it cut
  * into is the effect's to bring down, and `aloft` says whether one still is
  * in the air, for no turn is over before every leaf has come to rest. A
- * page curled over leaves the frame while its turn is still slowing down;
- * `picture` says when it has, and the turn is over a frame later.
+ * page curled over is out of the frame, or lying flat again, while its turn
+ * is still slowing down; `picture` says when it is, and the turn is over a
+ * frame later.
  */
 export function createPaperPhysics(
   aloft: () => boolean = () => false,
-  picture: PaperPicture = { painted: () => 0, gone: () => false },
+  picture: PaperPicture = { painted: () => 0, there: () => false, gone: () => false },
 ): TransitionPhysics {
   return {
     travel(touch, bounds) {
@@ -107,8 +110,8 @@ export function createPaperPhysics(
       return (seconds) => {
         const at = motion(seconds);
         if (at.done) return aloft() ? { ...at, done: false } : at;
-        // Nothing of the page is left to show: one frame is drawn of that, and the turn is over.
-        if (picture.painted() > began && picture.gone() && !aloft()) {
+        // The page has got there: one frame is drawn of that, and the turn is over.
+        if (picture.painted() > began && picture.there() && !aloft()) {
           const done = shown;
           shown = true;
           return { x: to, velocity: 0, done };

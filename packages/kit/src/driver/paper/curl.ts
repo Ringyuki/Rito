@@ -100,6 +100,27 @@ function pastOf(curl: Curl, x: number, y: number): number {
 }
 
 /**
+ * How far back toward the spine paper is laid that lay `past` beyond the
+ * line when flat, round a roll of `radius`: round the roll it comes back by
+ * what the roll takes up, and on top of it by twice what is left.
+ */
+export function laidBack(past: number, radius: number): number {
+  if (past <= 0) return 0;
+  const halfTurn = Math.PI * radius;
+  return past < halfTurn && radius > A_CREASE
+    ? past - radius * Math.sin(past / radius)
+    : 2 * past - halfTurn;
+}
+
+/** How high above the pages that paper stands. */
+export function standsAt(past: number, radius: number): number {
+  if (past <= 0) return 0;
+  return past < Math.PI * radius && radius > A_CREASE
+    ? radius * (1 - Math.cos(past / radius))
+    : 2 * radius;
+}
+
+/**
  * Lays the sheet out through a curl: the position of every point of a grid
  * of `columns` by `rows` over it, row by row from the spine outward, and
  * the direction the paper faces there (its front, the side up when it lies
@@ -121,20 +142,15 @@ export function layCurl(
       const flatX = shape.spine + (column / (columns - 1)) * shape.width;
       const p = (row * columns + column) * 3;
       const past = pastOf(curl, flatX, flatY);
+      const back = laidBack(past, radius);
+      set(positions, p, flatX - dx * back, flatY - dy * back, standsAt(past, radius));
       if (past <= 0) {
-        set(positions, p, flatX, flatY, 0);
         set(normals, p, 0, 0, 1);
       } else if (past < halfTurn && radius > A_CREASE) {
-        // Round the cylinder: `angle` of the way from lying flat to lying on top.
+        // Round the roll: this far of the way from lying flat to lying on top.
         const angle = past / radius;
-        const back = past - radius * Math.sin(angle);
-        set(positions, p, flatX - dx * back, flatY - dy * back, radius * (1 - Math.cos(angle)));
-        const lean = Math.sin(angle);
-        set(normals, p, -dx * lean, -dy * lean, Math.cos(angle));
+        set(normals, p, -dx * Math.sin(angle), -dy * Math.sin(angle), Math.cos(angle));
       } else {
-        // On top, face down, as far back from the line as it reached past it.
-        const back = 2 * past - halfTurn;
-        set(positions, p, flatX - dx * back, flatY - dy * back, 2 * radius);
         set(normals, p, 0, 0, -1);
       }
     }

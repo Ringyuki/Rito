@@ -164,7 +164,10 @@ it comes. The lifted edge goes as far as the finger does, keeping the distance f
 it that it had when the finger came down, so a page taken at its edge has its edge
 under the finger; a page taken low on the page lifts by its lower corner, high on
 the page by its upper one, and at mid height by its whole edge, and the line leans
-on as the finger moves up or down. Turned by a key or a call the line is upright
+on as the finger moves up or down, no more than keeps the paper lifted where the
+finger is and the corner it is peeled from beside it. A page brought back by a
+finger going the other way is brought by its roll, which keeps its distance from
+the finger the same way. Turned by a key or a call the line is upright
 and sweeps across in about a quarter of a second, the page leaving the frame while
 still on the move. A turn that cuts into another does
 not stop its page: turned back, the same page slows, stops and comes back from

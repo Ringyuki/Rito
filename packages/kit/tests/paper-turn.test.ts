@@ -140,6 +140,24 @@ describe('a paper turn that cuts into another', () => {
     expect(settle(0.6).x).toBe(0);
   });
 
+  it('is over a frame after its page is where it takes it, with its own motion still on its way', () => {
+    const picture = { painted: 0, there: false };
+    const paper = physics(() => false, {
+      painted: () => picture.painted,
+      there: () => picture.there,
+      gone: () => false,
+    });
+    const settle = paper.settle?.(100, 0, 400);
+    if (!settle) throw new Error('the paper turn carries a released turn itself');
+    expect(settle(0.05).done).toBe(false);
+    // The page lies flat again, but no frame has shown it so since the turn was let go.
+    picture.there = true;
+    expect(settle(0.06).x).toBeLessThan(400);
+    picture.painted = 1;
+    expect(settle(0.08)).toEqual({ x: 400, velocity: 0, done: false });
+    expect(settle(0.1)).toEqual({ x: 400, velocity: 0, done: true });
+  });
+
   it('with nowhere left to go is there, whatever speed it was let go at', () => {
     const settle = physics().settle?.(-400, -900, -400);
     expect(settle?.(0)).toEqual({ x: -400, velocity: 0, done: false });

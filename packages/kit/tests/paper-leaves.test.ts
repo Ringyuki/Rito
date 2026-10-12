@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TransitionSettle } from '../src/driver/physics';
+import { moveOn } from '../src/driver/paper/aloft';
 import { curledFlat } from '../src/driver/paper/curled';
 import { holdOf, NEAREST_HOLD, swungTo, type View } from '../src/driver/paper/hold';
 import { layLeaf, leafPoint, poseAt, type LeafShape } from '../src/driver/paper/leaf';
@@ -120,6 +121,23 @@ describe('the leaves in the air', () => {
     sendOff(swung, 1, evenly);
     fly(swung, 0.4);
     expect(swung.shown).toBeCloseTo(0.6, 6);
+  });
+});
+
+describe('how the leaf a turn leads is brought where it is wanted', () => {
+  it('no faster than a jump of the hand may be, but for a page that is where a finger has it', () => {
+    const jumped = leaf(5, 0.1, one);
+    moveOn([jumped], jumped, 0.9, 1 / 60, 1 / 60);
+    expect(jumped.shown).toBeCloseTo(0.1 + 9 / 60, 9);
+    // First seen this frame, with no time gone, it stays where its turn starts from.
+    const seen = leaf(6, 0, one);
+    moveOn([seen], seen, 0.5, 0, 1 / 60);
+    expect(seen.shown).toBe(0);
+    // Under a finger it is where the finger has it, and its speed is what that took.
+    const held = leaf(7, 0.1, one);
+    moveOn([held], held, 0.9, 1 / 60, 1 / 60, true);
+    expect(held.shown).toBe(0.9);
+    expect(held.speed).toBeCloseTo(0.8 * 60, 6);
   });
 });
 

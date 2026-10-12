@@ -4,7 +4,7 @@ import type {
   TransitionPage,
   TransitionScene,
 } from '../effects';
-import { layOut, moveOn } from './aloft';
+import { bring, layOut } from './aloft';
 import { curledFlat, wantedCurled } from './curled';
 import type { LeafShape } from './leaf';
 import { leaveAlone, placeInBook, type Leaf } from './leaves';
@@ -110,7 +110,8 @@ export function paperTurnWith(
     },
     physics: createPaperPhysics(aloft, {
       painted: () => state.painted,
-      // A page curled over is out of the frame before its turn has slowed to a stop.
+      // A page curled over is where its turn takes it before the turn has slowed to a stop.
+      there: () => state.led !== null && state.led.curled?.pace?.toward === state.led.shown,
       gone: () => state.led?.curled?.pace?.toward === 1 && state.led.shown >= 1,
     }),
   };
@@ -145,9 +146,9 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
   const wanted = led.curled
     ? wantedCurled(led, led.curled, scene, frame, read)
     : wantedOf(led, scene, frame, read);
-  // A leaf first seen this frame lies where its turn starts from.
-  const ledSeconds = state.book.length > known ? 0 : seconds;
-  for (const leaf of moveOn(state.book, led, wanted, ledSeconds, seconds)) letGoOf(state, leaf);
+  const first = state.book.length > known;
+  const out = bring(state.book, led, wanted, frame.phase === 'held', first, seconds);
+  for (const leaf of out) letGoOf(state, leaf);
   layOut(state.book, grid.columns, grid.rows);
   hold(state, led, read);
 
