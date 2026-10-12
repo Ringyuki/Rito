@@ -95,6 +95,43 @@ void main() {
 }
 `;
 
+/**
+ * The light of the room on the face a curled page is rolled in on: the one
+ * it shows where its paper ends before it is half way round the roll. That
+ * face looks into the roll, and of the sky sees what shows between the page
+ * it rose from and where its own paper ends, round the roll or lying on top
+ * of it. At the line it leaves the pages at that is what the page beside
+ * it sees too, so the paper is lit alike on both sides of the line, as one
+ * sheet. `uCurl` is the direction across the page it is rolled back from
+ * (xy), where that line lies along it (z) and the radius of the roll (w).
+ */
+const IN_THE_ROLL = `
+// How much less of the room's light a point of the sheet's front gets, past beyond the line,
+// than a face leaning as it does would get under an open sky.
+float lostInTheRoll(vec2 onSheet, float past) {
+  float r = uCurl.w;
+  if (past <= 0.0 || past >= 3.1415927 * r) return 0.0;
+  vec2 d = uCurl.xy;
+  // How far the paper goes on from here before the page ends.
+  float reach = (uSize.x - onSheet.x) / max(d.x, 0.0001);
+  if (d.y > 0.0001) reach = min(reach, (uSize.y - onSheet.y) / d.y);
+  if (d.y < -0.0001) reach = min(reach, -onSheet.y / d.y);
+  float paper = past + reach;
+  // How far round the roll the point is, and the angle from its face to where the paper ends:
+  // round the roll, or over the edge of what lies on top.
+  float here = past / r;
+  float over = paper - 3.1415927 * r;
+  float toEnd = 0.5 * (min(3.1415927, paper / r) - here);
+  if (over > 0.0) {
+    vec2 at = r * vec2(sin(here), 1.0 - cos(here));
+    toEnd = atan(2.0 * r - at.y, -over - at.x) - here;
+  }
+  float open = 0.5 + 0.5 * cos(here);
+  float seen = 0.5 * (cos(toEnd) + cos(here));
+  return (1.0 - uKeyShare) * (withBounces(open) - withBounces(seen));
+}
+`;
+
 /** Fades a sheet's unbound edges out over the last pixel of it, the more the higher it stands. */
 const SOFT_EDGE = `
   vec2 pixel = max(fwidth(vUv), vec2(1e-6));
@@ -115,7 +152,8 @@ const SOFT_EDGE = `
  * paper leaves the page at, told by `uCurl` as a direction across the page
  * (xy) and where the line lies along it (z); which side a point of the
  * sheet is on is told from where it is on the sheet, not from how high it
- * has risen, so the parts meet along a straight line.
+ * has risen, so the parts meet along a straight line. The part that has left
+ * them is lit on its front by what it sees from inside the roll.
  *
  * `softened` is for a canvas that is not multisampled: the three edges of
  * a sheet in the air that are not bound are faded out over the last pixel
@@ -139,9 +177,12 @@ uniform float uPart;
 uniform vec4 uCurl;
 uniform vec2 uSize;
 uniform vec3 uPaper;
+uniform float uKeyShare;
 varying float vLit;
 varying float vHeight;
 varying vec2 vUv;
+${BOUNCES}
+${IN_THE_ROLL}
 
 vec3 printed(sampler2D page, vec2 at) {
   vec4 ink = texture2D(page, at);
@@ -164,7 +205,9 @@ void main() {
   }
   float kept = 1.0;
   ${softened ? SOFT_EDGE : ''}
-  gl_FragColor = vec4(colour * min(vLit, 1.0) * kept, kept);
+  float lit = vLit;
+  if (uPart < -0.5 && gl_FrontFacing) lit -= lostInTheRoll(onFront * uSize, past);
+  gl_FragColor = vec4(colour * min(lit, 1.0) * kept, kept);
 }
 `;
 }

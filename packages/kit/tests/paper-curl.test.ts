@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { TransitionFrame, TransitionScene } from '../src/driver/effects';
 import { behind, curlThrough, layCurl, lineAt, type CurlLine } from '../src/driver/paper/curl';
 import { curledFlat, layCurled, wantedCurled, type Curled } from '../src/driver/paper/curled';
+import { paperBeneathFirst } from '../src/driver/paper/draw-sheet';
 import type { LeafShape } from '../src/driver/paper/leaf';
 import { GONE_BY, type Leaf } from '../src/driver/paper/leaves';
+import { sheetGrid } from '../src/driver/paper/mesh';
+import type { PaperSheet } from '../src/driver/paper/renderer';
 import type { LeafTurn } from '../src/driver/paper/swing';
 
 const page: LeafShape = { spine: 0, width: 400, height: 600 };
@@ -278,5 +281,59 @@ describe('how a curled page keeps step with its turn', () => {
     const alone = sheet(0.5, curledFlat(), 6);
     layCurled([alone], COLUMNS, ROWS);
     expect(alone.curled?.curl?.at).toBeLessThan(back.curled?.curl?.at ?? 0);
+  });
+});
+
+describe('the order a curled page is drawn in', () => {
+  const columns = 41;
+  const rows = 61;
+  const grid = sheetGrid(columns, rows);
+
+  /** A page curled over, and the middle of each cell of it in the order its lifted part is drawn. */
+  function drawn(lean: number): { sheet: PaperSheet; cells: [number, number, number][] } {
+    const positions = new Float32Array(columns * rows * 3);
+    const normals = new Float32Array(columns * rows * 3);
+    const curl = curlThrough(page, lineAt(page, 0.45, lean));
+    layCurl(page, curl, columns, rows, positions, normals);
+    const sheet: PaperSheet = { positions, normals, front: null, back: null, shown: 0.45, curl };
+    const order =
+      paperBeneathFirst(sheet, 'lifted') === 'fromBelow' ? grid.fromBelow : grid.indices;
+    const cells: [number, number, number][] = [];
+    for (let first = 0; first < order.length; first += 6) {
+      // The four corners of a cell: its first triangle, and the last point of its second.
+      const corners = [0, 1, 2, 5].map((corner) => (order[first + corner] ?? 0) * 3);
+      const middle = (axis: number): number =>
+        corners.reduce((sum, corner) => sum + (positions[corner + axis] ?? 0), 0) / 4;
+      cells.push([middle(0), middle(1), middle(2)]);
+    }
+    return { sheet, cells };
+  }
+
+  it('draws the paper beneath before the paper lying over it, whichever corner it is rolled back from', () => {
+    for (const lean of [0.5, 0, -0.5]) {
+      const { cells } = drawn(lean);
+      let lyingOver = 0;
+      let drawnFirst = 0;
+      cells.forEach((later, index) => {
+        for (const earlier of cells.slice(0, index)) {
+          const over = Math.abs(later[0] - earlier[0]) < 4 && Math.abs(later[1] - earlier[1]) < 4;
+          if (!over || Math.abs(later[2] - earlier[2]) < 1) continue;
+          lyingOver += 1;
+          if (later[2] < earlier[2]) drawnFirst += 1;
+        }
+      });
+      // The paper does lie over itself, and nowhere is what lies on top drawn first.
+      expect(lyingOver).toBeGreaterThan(20);
+      expect(drawnFirst).toBe(0);
+    }
+  });
+
+  it('draws what still lies on the pages, and a leaf, from the top row down', () => {
+    const { sheet } = drawn(-0.5);
+    expect(paperBeneathFirst(sheet, 'lifted')).toBe('fromBelow');
+    expect(paperBeneathFirst(sheet, 'lying')).toBe('fromAbove');
+    const { positions, normals } = sheet;
+    const leaf: PaperSheet = { positions, normals, front: null, back: null, shown: 0.45 };
+    expect(paperBeneathFirst(leaf, 'whole')).toBe('fromAbove');
   });
 });

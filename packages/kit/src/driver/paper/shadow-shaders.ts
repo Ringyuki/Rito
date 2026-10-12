@@ -30,26 +30,33 @@ void main() {
 
 /**
  * A sheet as the eye sees it: wherever it is drawn, it hides the pages.
- * What of it lies on the pages hides nothing of them: it is where the
- * shadow falls. `uOffPage` leaves that part out, for a sheet whose lying
- * part is drawn under the shadows.
+ * What of a page curled over still lies on the pages hides nothing of them:
+ * it is where the shadow falls. That part is told by where it is on the
+ * sheet, this side of the line the paper leaves the pages at, and not by
+ * how high the paper has risen: just past the line it has hardly risen at
+ * all, and the page under it there is as dark as can be. `uLine` is the
+ * direction across the page the paper is rolled back from (xy) and where
+ * the line lies along it (z); a leaf is past its line everywhere.
  */
 export const COVER_VERTEX = `
 attribute vec3 aPosition;
-varying float vHeight;
+attribute vec2 aUv;
+uniform float uSpine;
+uniform vec3 uLine;
+varying float vPast;
 ${PROJECTION}
 void main() {
-  vHeight = aPosition.z;
+  vec2 onSheet = vec2(uSpine + aUv.x * (uSize.x - uSpine), aUv.y * uSize.y);
+  vPast = dot(onSheet, uLine.xy) - uLine.z;
   gl_Position = project(aPosition, 0.0);
 }
 `;
 
 export const COVER_FRAGMENT = `
 precision highp float;
-uniform float uOffPage;
-varying float vHeight;
+varying float vPast;
 void main() {
-  if (vHeight <= uOffPage) discard;
+  if (vPast <= 0.0) discard;
   gl_FragColor = vec4(1.0);
 }
 `;

@@ -58,8 +58,13 @@ export function uploadSheets(gpu: Gpu, frame: PaperFrame): SheetGrid {
     gpu.mesh = sheetGrid(frame.columns, frame.rows);
     gl.bindBuffer(gl.ARRAY_BUFFER, gpu.uvs);
     gl.bufferData(gl.ARRAY_BUFFER, gpu.mesh.uvs, gl.STATIC_DRAW);
+    // Both orders of the triangles, one after the other.
+    const { indices, fromBelow } = gpu.mesh;
+    const both = new Uint16Array(indices.length + fromBelow.length);
+    both.set(indices);
+    both.set(fromBelow, indices.length);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gpu.indices);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gpu.mesh.indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, both, gl.STATIC_DRAW);
   }
   frame.sheets.forEach((sheet, index) => {
     const buffers = (gpu.sheets[index] ??= {
@@ -88,7 +93,8 @@ function drawnAs(gpu: Gpu, frame: PaperFrame, index: number, part: SheetPart): v
   gl.uniform1f(program.uniforms['uLift'] ?? null, lift.lying);
   gl.uniform1f(program.uniforms['uTurnedLift'] ?? null, lift.turned);
   gl.uniform1f(program.uniforms['uPart'] ?? null, PARTS[part]);
-  gl.uniform4f(program.uniforms['uCurl'] ?? null, curl?.dx ?? 0, curl?.dy ?? 0, curl?.at ?? 0, 0);
+  const line = program.uniforms['uCurl'] ?? null;
+  gl.uniform4f(line, curl?.dx ?? 0, curl?.dy ?? 0, curl?.at ?? 0, curl?.radius ?? 0);
   gl.uniform1f(program.uniforms['uShows'] ?? null, curl ? SHOWS_THROUGH_CURLED : SHOWS_THROUGH);
 }
 
@@ -129,7 +135,21 @@ export function drawSheet(
   attribute(gl, program, 'aNormal', buffers.normals, 3);
   attribute(gl, program, 'aUv', gpu.uvs, 2);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gpu.indices);
-  gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+  const first = paperBeneathFirst(sheet, part) === 'fromBelow' ? mesh.indices.byteLength : 0;
+  gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, first);
+}
+
+/**
+ * The order a sheet's rows are drawn in. A page curled over lies over its
+ * own paper, and the softened edge of what is on top is blended with what
+ * was drawn before it: so the paper nearer the line it leaves the pages at,
+ * which is the paper beneath, is drawn first. Along a row that is from the
+ * spine outward; from row to row it is up the page where the page is rolled
+ * back from its top corner, and down it where it is rolled back from its
+ * bottom one.
+ */
+export function paperBeneathFirst(sheet: PaperSheet, part: SheetPart): 'fromAbove' | 'fromBelow' {
+  return part === 'lifted' && (sheet.curl?.dy ?? 0) < 0 ? 'fromBelow' : 'fromAbove';
 }
 
 /** How far out from the spine the leaf's shape is sampled for its shadow, as shares of its width. */

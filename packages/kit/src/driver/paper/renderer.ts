@@ -3,7 +3,6 @@ import type { Curl } from './curl';
 import { drawSheet, liesOnThePages, outline, uploadSheets, type SheetPart } from './draw-sheet';
 import type { PageSnapshot } from './gl';
 import { finishGpu, gpuDone, startGpu, type Gpu, type StartedGpu } from './gpu';
-import { LIES_BELOW } from './light';
 import type { SheetGrid } from './mesh';
 
 /**
@@ -177,10 +176,9 @@ function castShadows(
       height,
       eye,
       ...outline(frame, sheet.positions),
-      // What lies on the pages of a page curled over is where its shadow falls, and hides nothing.
-      offPage: sheet.curl ? LIES_BELOW : -1,
       curl: sheet.curl ?? null,
       positions: buffers.positions,
+      uvs: gpu.uvs,
       indices: gpu.indices,
       indexCount: mesh.indices.length,
     });

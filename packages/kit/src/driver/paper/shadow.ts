@@ -12,11 +12,10 @@ export interface ShadowCaster {
   /** The highest any of the leaf stands above the pages. */
   readonly tallest: number;
   /**
-   * Below what height the sheet's paper lies on the pages and hides nothing
-   * of them from the eye; negative for a sheet that hides them wherever it is.
+   * The curl of a page curled over, whose paper this side of the line it
+   * leaves the pages at lies on them and hides nothing of them; null for a
+   * leaf, whose shape is told by `profile`.
    */
-  readonly offPage: number;
-  /** The curl of a page curled over; null for a leaf, whose shape is told by `profile`. */
   readonly curl: Curl | null;
   /**
    * The leaf's shape as its shadow needs it: eight rows down the leaf, four
@@ -24,6 +23,8 @@ export interface ShadowCaster {
    */
   readonly profile: Float32Array;
   readonly positions: WebGLBuffer;
+  /** Where each point of the surface is on the sheet. */
+  readonly uvs: WebGLBuffer;
   readonly indices: WebGLBuffer;
   readonly indexCount: number;
 }
@@ -48,6 +49,14 @@ export interface ShadowPass {
 
 /** How far from the spine the page beside a standing leaf shares its shade, in leaf widths. */
 const GUTTER = 0.07;
+/**
+ * How far this side of its line a curled page's paper is already counted as
+ * hiding the pages, in the frame's units. What hides them and what shades
+ * them are worked out apart, and must not differ over a point on the line:
+ * taken for in sight and for under the paper at once, it would be a speck
+ * of the deepest shade on the open page.
+ */
+const ON_THE_LINE = 0.5;
 
 /** The shadows of one frame: where they are worked out, what was drawn to, the leaves that cast them. */
 interface ShadowFrame {
@@ -111,7 +120,7 @@ function workOut(
 ): void {
   const { dark, spare } = targets;
   gl.disable(gl.BLEND);
-  hide(gl, programs.cover, targets.cover, frame.casters);
+  hide(gl, programs.cover, targets.cover, frame);
   clear(gl, dark);
   for (const caster of frame.casters) {
     castOnto(gl, programs.cast, targets.blockers, caster);
@@ -134,20 +143,27 @@ function clear(gl: Gl, target: RenderTarget): void {
   gl.clear(gl.COLOR_BUFFER_BIT);
 }
 
+/**
+ * From where a sheet's paper hides the pages, as the cover is told it: the
+ * direction across the page it is rolled back from, and how far along it
+ * its paper begins to count. A page curled over hides them from its line
+ * on, and a leaf wherever it is.
+ */
+export function hidesFrom(curl: Curl | null): readonly [number, number, number] {
+  return curl ? [curl.dx, curl.dy, curl.at - ON_THE_LINE] : [0, 0, -1];
+}
+
 /** Marks in `target` what the leaves hide of the pages from the eye: each drawn where it is seen. */
-function hide(
-  gl: Gl,
-  cover: Program,
-  target: RenderTarget,
-  casters: readonly ShadowCaster[],
-): void {
+function hide(gl: Gl, cover: Program, target: RenderTarget, frame: ShadowFrame): void {
   clear(gl, target);
   gl.useProgram(cover.program);
-  for (const caster of casters) {
+  for (const caster of frame.casters) {
     gl.uniform2f(cover.uniforms['uSize'] ?? null, caster.width, caster.height);
     gl.uniform1f(cover.uniforms['uEye'] ?? null, caster.eye);
-    gl.uniform1f(cover.uniforms['uOffPage'] ?? null, caster.offPage);
+    gl.uniform1f(cover.uniforms['uSpine'] ?? null, frame.spine);
+    gl.uniform3f(cover.uniforms['uLine'] ?? null, ...hidesFrom(caster.curl));
     attribute(gl, cover, 'aPosition', caster.positions, 3);
+    attribute(gl, cover, 'aUv', caster.uvs, 2);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, caster.indices);
     gl.drawElements(gl.TRIANGLES, caster.indexCount, gl.UNSIGNED_SHORT, 0);
   }
