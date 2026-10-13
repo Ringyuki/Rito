@@ -124,6 +124,33 @@ describe('touch navigation lifecycle', () => {
     scenario.disposables.disposeAll();
   });
 
+  it('says where the finger had carried the turn farthest, from before the turn could begin', () => {
+    const scenario = createScenario(false);
+    beginSwipe(scenario, 250, 100);
+    // Out 150, and back to 60 while the neighbour is still being painted: the turn takes no samples yet.
+    const back = touch(1, 190, 20);
+    scenario.dom.emit('touchmove', touchEvent([back], [back], 15));
+    expect(scenario.td.mode.kind).toBe('idle');
+    scenario.markContentReady();
+    const finger = { origin: { x: 250, y: 20 }, position: { x: 190, y: 20 } };
+    expect(scenario.td.mode).toMatchObject({
+      kind: 'tracking',
+      touch: { ...finger, farthest: { x: 100, y: 20 } },
+    });
+    // Farther the way the turn goes moves it on; the other way, however far, does not.
+    const on = touch(1, 60, 30);
+    scenario.dom.emit('touchmove', touchEvent([on], [on], 20));
+    expect(scenario.td.mode).toMatchObject({ touch: { farthest: { x: 60, y: 30 } } });
+    const past = touch(1, 460, 40);
+    scenario.dom.emit('touchmove', touchEvent([past], [past], 25));
+    expect(scenario.td.mode).toMatchObject({
+      touch: { position: { x: 460, y: 40 }, farthest: { x: 60, y: 30 } },
+    });
+    cancelSwipe(scenario, past, 30);
+    settle(scenario.td);
+    scenario.disposables.disposeAll();
+  });
+
   it('does not revive a deferred swipe after touchcancel', () => {
     const scenario = createScenario(false);
     const moved = beginSwipe(scenario, 200, 100);

@@ -5,7 +5,8 @@ import type {
   TransitionScene,
 } from '../effects';
 import { bring, layOut } from './aloft';
-import { curledFlat, wantedCurled } from './curled';
+import { stillHeld } from './curl-held';
+import { byItself, curledFlat, isThere, wantedCurled } from './curled';
 import type { LeafShape } from './leaf';
 import { leaveAlone, placeInBook, type Leaf } from './leaves';
 import { gridFor } from './mesh';
@@ -111,8 +112,8 @@ export function paperTurnWith(
     physics: createPaperPhysics(aloft, {
       painted: () => state.painted,
       // A page curled over is where its turn takes it before the turn has slowed to a stop.
-      there: () => state.led !== null && state.led.curled?.pace?.toward === state.led.shown,
-      gone: () => state.led?.curled?.pace?.toward === 1 && state.led.shown >= 1,
+      there: () => state.led !== null && isThere(state.led),
+      gone: () => state.led !== null && isThere(state.led) && state.led.shown >= 1,
     }),
   };
 }
@@ -128,7 +129,7 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
   }
   const time = state.now();
   const shape = { spine: scene.spine, width: scene.width - scene.spine, height: scene.height };
-  if (stale(state, shape, time)) {
+  if (stale(state, shape, time, frame)) {
     forget(state);
     state.plain = null;
   }
@@ -144,7 +145,7 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
   const known = state.book.length;
   const led = leafOf(state, scene, frame, read, shape);
   const wanted = led.curled
-    ? wantedCurled(led, led.curled, scene, frame, read)
+    ? wantedCurled(led, led.curled, scene, frame, read, seconds)
     : wantedOf(led, scene, frame, read);
   const first = state.book.length > known;
   const out = bring(state.book, led, wanted, frame.phase === 'held', first, seconds);
@@ -186,14 +187,19 @@ function drawnPlain(state: PaperTurn, leaf: number): boolean {
   return true;
 }
 
-/** Whether what is remembered of the leaves is of another moment: long ago, another size, another GPU. */
-function stale(state: PaperTurn, shape: LeafShape, time: number): boolean {
+/**
+ * Whether what is remembered of the leaves is of another moment: long ago,
+ * another size, another GPU. A page a finger still holds is of this one
+ * however long its last frame took.
+ */
+function stale(state: PaperTurn, shape: LeafShape, time: number, frame: TransitionFrame): boolean {
   const sized = (leaf: Leaf): boolean =>
     leaf.shape.spine === shape.spine &&
     leaf.shape.width === shape.width &&
     leaf.shape.height === shape.height;
+  const held = stillHeld(state.led?.curled ?? null, frame);
   return (
-    time - state.paintedAt > SAME_TURN_WITHIN ||
+    (time - state.paintedAt > SAME_TURN_WITHIN && !held) ||
     // Leaves hold pages of the GPU context they were taken in; with none held it is all one.
     (state.book.length > 0 && state.epoch !== state.renderer.epoch) ||
     !state.book.every(sized)
@@ -241,7 +247,7 @@ function leafOf(
     taken.flight = null;
     // It goes on from where it is, whatever it was doing by itself.
     if (taken.curled) taken.curled.pace = null;
-    leaveAlone(state.book, taken, aloneBy(scene.width));
+    leaveAlone(state.book, taken, taken.curled ? byItself(scene) : aloneBy(scene.width));
   }
   state.led = taken;
   return taken;

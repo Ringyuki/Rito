@@ -1,86 +1,77 @@
-import type {
-  TransitionFrame,
-  TransitionPoint,
-  TransitionScene,
-  TransitionTouch,
-} from '../effects';
+import type { TransitionFrame, TransitionScene } from '../effects';
 import { behind, curlThrough, layCurl, lineAt, type Curl, type CurlLine } from './curl';
-import { easedIn, gotTo, leantBack, leantBy, shownFor, type Carried } from './curl-hold';
-import type { View } from './hold';
-import { GONE_BY, inTheAir, sendOff, type Leaf } from './leaves';
+import { underFinger, type Held } from './curl-held';
+import { GONE_BY, sendOff, type Leaf } from './leaves';
 import { eyeHeight } from './renderer';
 import { aloneBy, type LeafTurn } from './swing';
 
 /**
- * How the picture of a curled page keeps step with its turn: what moves the
- * turn (a finger, `null`; or its own way on to turned, 1, or back to flat,
- * 0), what of the page a finger carries, and how far the turn had gone and
- * the page had got when this began: under a finger how far what it carries
- * had got, let go how far over the page was.
+ * How a curled page keeps step with its turn's own way: what moves the turn
+ * (a finger, `null`; or its own way on to turned, 1, or back to flat, 0),
+ * and how far the turn had gone and the page had got when this began: under
+ * a finger how far its edge had gone, by itself how far over the page was.
  */
-interface Pace {
+export interface Pace {
   readonly toward: 0 | 1 | null;
-  readonly carries: Carried;
   readonly turned: number;
   readonly at: number;
-  /** That a finger took the page lying at rest, and the first of its way is eased into. */
+  /** That a finger took the page lying at rest to turn it on, and the first of its way is eased into. */
   readonly eased: boolean;
-}
-
-/** What a finger that took the page holds of it. */
-interface Held {
-  /** Where the finger came down: what tells one hold from the next. */
-  readonly from: TransitionPoint;
-  /** How the page leant when it was taken, and the height its lean is told from as the finger goes up or down. */
-  readonly leant: number;
-  readonly fromY: number;
-  /** The lean it was drawn with when taken in the air, which it may keep. */
-  readonly kept: number;
-  /** The height the finger holds it at: where it last did, once it has let go. */
-  y: number;
-  /** The lean the finger asks for. */
-  wanted: number;
 }
 
 /**
  * What a page curled over keeps from frame to frame beside how far over it
- * is: how its line leans, how it keeps step, and the finger's hold of it.
+ * is: how its line leans, where its turn takes it, how it keeps step, and
+ * the finger's hold of it.
  */
 export interface Curled {
   /** The tangent of the angle its line leans from upright by, above zero when its lower end leads. */
   lean: number;
+  /** Where the turn takes it as last drawn: turned, 1, or flat, 0; null under a finger. */
+  toward: 0 | 1 | null;
   pace: Pace | null;
   held: Held | null;
   /** The curl it was last laid out through. */
   curl: Curl | null;
 }
 
-/** A page lying flat taken by a corner leans by this much, as a tangent. */
-const BY_A_CORNER = 0.55;
-/** A finger moved up or down by this many page heights leans the line by a tangent of 1. */
-const LEANS_OVER = 0.8;
 /** A turn this near its end, in turns of the page, has nowhere left to take its page. */
 const NO_WAY_LEFT = 0.02;
 
 /** A page curled over that has yet to be turned, held or laid out. */
 export function curledFlat(): Curled {
-  return { lean: 0, pace: null, held: null, curl: null };
+  return { lean: 0, toward: null, pace: null, held: null, curl: null };
 }
 
 /**
- * How far over a curled page should be drawn.
+ * How a curled page goes by itself: as a turn let go does. A turn's motion
+ * is told in CSS px, so the page's is too, whatever its frame is drawn at.
+ */
+export function byItself(scene: TransitionScene): ReturnType<typeof aloneBy> {
+  return aloneBy(scene.width / (scene.cssPixel || 1));
+}
+
+/** Whether a curled page is where its turn takes it; under a finger its turn takes it nowhere. */
+export function isThere(leaf: Leaf): boolean {
+  const toward = leaf.curled?.toward ?? null;
+  return toward !== null && leaf.shown === toward;
+}
+
+/**
+ * How far over a curled page should be drawn, `seconds` after its last
+ * frame.
  *
- * Under a finger, where that puts what the finger carries. A turn is told
- * as how far the finger has gone, twice the turn's own way: that is how far
- * the edge of the paper turned over has gone at the height the finger holds
- * it, or, of a page brought back, how far its line has; the page is laid
- * out for that.
+ * Under a finger, where the finger has it: see `underFinger`.
  *
- * Let go, its line goes on from where it is in step with the turn: on its
- * way to turned it is out of the frame while the turn is still slowing
- * down, and a page brought back by its line goes on no slower than the
- * finger had it, and lies flat before the turn is over. A page whose turn
- * has nowhere left to take it finishes by itself.
+ * Let go by a finger, it finishes by itself. Where the finger had it says
+ * nothing of how far its turn has gone, so the turn cannot carry it: it
+ * goes on from where it is, on to turned or back to flat as its turn goes,
+ * and is there while the turn is still slowing down.
+ *
+ * Turned by no finger, or let go where there is no page to turn to, its
+ * line keeps step with the turn; on its way to turned it is out of the
+ * frame while the turn is still slowing down, and a page whose turn has
+ * nowhere left to take it finishes by itself.
  */
 export function wantedCurled(
   leaf: Leaf,
@@ -88,147 +79,71 @@ export function wantedCurled(
   scene: TransitionScene,
   frame: TransitionFrame,
   read: LeafTurn,
+  seconds: number,
 ): number {
-  const view = {
-    width: scene.width,
-    height: scene.height,
-    eye: eyeHeight(scene.width, scene.height),
-  };
   const toward =
     frame.phase === 'held' ? null : (frame.phase === 'landing') === read.forward ? 1 : 0;
-  if (toward === null && frame.touch) hold(leaf, curled, frame.touch, read);
-  // Sent on its own way, it is not the turn's to place until it has got there.
-  if (leaf.flight) return leaf.shown;
-  const y = curled.held?.y ?? leaf.shape.height / 2;
-  const carries: Carried = frame.touch && !read.forward ? 'line' : 'edge';
-  if (curled.pace?.toward !== toward || curled.pace.carries !== carries) {
-    const touch = frame.touch;
-    // How much of a turn the finger itself has carried: half its own way across.
-    const carried = touch ? Math.abs(touch.position.x - touch.origin.x) / (2 * scene.width) : null;
-    const begun = paceFrom(leaf, curled, toward, carries, read.turned, carried, y, view);
-    if (!begun) {
-      // The turn is at its end and the page is not: it goes the rest of the way by itself.
-      sendOff(leaf, toward === 1 ? 1 : 0, aloneBy(scene.width));
-      return leaf.shown;
-    }
-    curled.pace = begun;
-  }
-  const pace = curled.pace;
-  const aTurn = 2 * scene.width;
-  if (pace.toward !== null) return onItsWay(pace, read.turned, aTurn / leaf.shape.width);
-  const reached = pace.at + aTurn * (read.turned - pace.turned);
-  const got = pace.eased ? easedIn(leaf.shape, reached) : reached;
-  curled.lean = leanFor(leaf, curled, pace.carries, got, y);
-  return shownFor(pace.carries, leaf.shape, got, curled.lean, y, view);
-}
-
-/**
- * The finger's hold of the page, taken anew when another finger has come
- * down. A page lying flat is taken by a lower corner low on the page, by an
- * upper one high on it, by its edge between; a page in the air goes on
- * leaning as it does. From there the line leans as the finger moves up or
- * down.
- */
-function hold(leaf: Leaf, curled: Curled, touch: TransitionTouch, read: LeafTurn): void {
-  leaf.flight = null;
-  const from = curled.held?.from;
-  if (from?.x !== touch.origin.x || from.y !== touch.origin.y) {
-    const atRest = !inTheAir(leaf);
-    const drawn = leanOf(leaf, curled);
-    const down = touch.origin.y / (leaf.shape.height || 1);
-    curled.held = {
-      from: touch.origin,
-      leant: atRest && read.forward ? byACorner(down) : drawn,
-      // A finger has moved before it takes a page in the air: its lean is told from where it took it.
-      fromY: atRest ? touch.origin.y : touch.position.y,
-      kept: atRest ? 0 : drawn,
-      y: touch.position.y,
-      wanted: 0,
+  curled.toward = toward;
+  if (toward === null) {
+    const view = {
+      width: scene.width,
+      height: scene.height,
+      eye: eyeHeight(scene.width, scene.height),
     };
-    // A new hold: the page goes on from where it is.
-    curled.pace = null;
+    return underFinger(leaf, curled, scene, frame, read, view, seconds);
   }
-  const held = curled.held;
-  if (!held) return;
-  held.y = touch.position.y;
-  held.wanted =
-    held.leant + (held.fromY - touch.position.y) / (leaf.shape.height || 1) / LEANS_OVER;
+  if (curled.held) curled.held.released = true;
+  // Sent on its own way, it is not the turn's to place until it has got there: unless the
+  // turn now takes it the other way.
+  if (leaf.flight?.to === toward) return leaf.shown;
+  leaf.flight = null;
+  if (frame.touch && frame.incoming) return letGo(leaf, toward, scene);
+  return inStep(leaf, curled, toward, read.turned, scene);
 }
 
 /**
- * Where a pace begins: how far the turn has gone and the page has got. A
- * page lying at rest that a finger has turned all the way the turn has
- * gone (`carried` of a turn) begins where the turn did, so nothing of the
- * finger's way is lost before the first frame; any other begins where it
- * is: a page gone from the frame with its turn still on its way lies at
- * rest too, and must not start from there. Null when the turn has nowhere
- * left to go and the page is not there.
+ * A page a finger has let go, sent on its way to where its turn takes it:
+ * from where it is, and as fast as it was going if that was the way it is
+ * sent. A page still coming to its finger when it is sent back starts from
+ * rest: it was not the hand that had it going on.
  */
-function paceFrom(
+function letGo(leaf: Leaf, toward: 0 | 1, scene: TransitionScene): number {
+  if (leaf.shown === toward) return toward;
+  if (leaf.speed * (toward - leaf.shown) < 0) leaf.speed = 0;
+  sendOff(leaf, toward, byItself(scene));
+  return leaf.shown;
+}
+
+/**
+ * How far over a page no finger moves is, its turn `turned` of its way: it
+ * goes on from where it was when its turn began to carry it, and gets there
+ * with the turn; on its way to turned sooner, by `GONE_BY` of what the turn
+ * had left.
+ */
+function inStep(
   leaf: Leaf,
   curled: Curled,
-  toward: 0 | 1 | null,
-  carries: Carried,
+  toward: 0 | 1,
   turned: number,
-  carried: number | null,
-  y: number,
-  view: View,
-): Pace | null {
-  if (toward !== null) {
+  scene: TransitionScene,
+): number {
+  let pace = curled.pace;
+  if (pace?.toward !== toward) {
     const left = toward === 1 ? 1 - turned : turned;
-    if (left < NO_WAY_LEFT && Math.abs(toward - leaf.shown) > NO_WAY_LEFT) return null;
-    return { toward, carries, turned, at: leaf.shown, eased: false };
+    if (left < NO_WAY_LEFT && Math.abs(toward - leaf.shown) > NO_WAY_LEFT) {
+      // The turn is at its end and the page is not: it goes the rest of the way by itself.
+      sendOff(leaf, toward, byItself(scene));
+      return leaf.shown;
+    }
+    pace = { toward, turned, at: leaf.shown, eased: false };
+    curled.pace = pace;
   }
-  const rest = Math.round(leaf.shown);
-  const fresh =
-    !inTheAir(leaf) && carried !== null && Math.abs(Math.abs(turned - rest) - carried) < 1e-3;
-  return {
-    toward,
-    carries,
-    turned: fresh ? rest : turned,
-    at: gotTo(carries, leaf.shape, leaf.shown, curled.lean, y, view),
-    eased: fresh && carries === 'edge',
-  };
-}
-
-/**
- * How far over a page let go is, its turn `turned` of its way. It gets
- * there with its turn, but on its way to turned sooner, by `GONE_BY` of
- * what the turn had left; and a page a finger brought back by its line goes
- * on at the pace the finger had it, `held` of its own way to each of the
- * turn's, where that is the faster.
- */
-function onItsWay(pace: Pace, turned: number, held: number): number {
-  if (pace.toward === null) return pace.at;
-  const way = pace.toward - pace.at;
-  const left = pace.toward === 1 ? (1 - pace.turned) * GONE_BY : pace.turned;
-  if (Math.abs(way) < 1e-9 || left <= 1e-6) return pace.toward;
+  const way = toward - pace.at;
+  const left = toward === 1 ? (1 - pace.turned) * GONE_BY : pace.turned;
+  if (Math.abs(way) < 1e-9 || left <= 1e-6) return toward;
   // A turn sent back the way it came goes on a little before it turns round, and its page with it.
-  const gone = pace.toward === 1 ? turned - pace.turned : pace.turned - turned;
-  const aWay = Math.max(pace.carries === 'line' ? held : 0, Math.abs(way) / left);
-  const there = pace.at + way * Math.min(1, (aWay * gone) / Math.abs(way));
-  return Math.min(1, Math.max(0, there));
-}
-
-/** How the page leans with what its turn carries got to `got`: as it is held, within what its shape lets it. */
-function leanFor(leaf: Leaf, curled: Curled, carries: Carried, got: number, y: number): number {
-  const held = curled.held;
-  if (!held) return curled.lean;
-  return carries === 'edge'
-    ? leantBy(leaf.shape, held.wanted, got, y, held.kept)
-    : leantBack(held.wanted);
-}
-
-/** How the page's line leans as it is drawn: no more than the spine lets it. */
-function leanOf(leaf: Leaf, curled: Curled): number {
-  const line = lineAt(leaf.shape, leaf.shown, curled.lean);
-  return (line.top - line.bottom) / leaf.shape.height;
-}
-
-function byACorner(down: number): number {
-  const off = Math.min(1, Math.max(-1, 2 * down - 1));
-  const t = Math.min(1, Math.max(0, (Math.abs(off) - 0.2) / 0.7));
-  return Math.sign(off) * BY_A_CORNER * t * t * (3 - 2 * t);
+  const gone = toward === 1 ? turned - pace.turned : pace.turned - turned;
+  return Math.min(1, Math.max(0, pace.at + way * Math.min(1, gone / left)));
 }
 
 /**

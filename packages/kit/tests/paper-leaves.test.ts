@@ -111,16 +111,23 @@ describe('the leaves in the air', () => {
     expect(leaving.shown).toBe(1);
     expect(hasLanded(leaving)).toBe(true);
 
-    // Coming back to lie flat it arrives with its motion, as a leaf does.
+    // Coming back to lie flat it is as far ahead of its motion, and flat while that still goes.
     const returning = leaf(11, 0.6, one);
     sendOff(returning, 0, evenly);
     expect(fly(returning, 0.3)).toBe(false);
-    expect(returning.shown).toBeCloseTo(0.3, 6);
-    // A leaf of two pages is never hurried out.
+    expect(returning.shown).toBeCloseTo(0.6 - 0.3 / GONE_BY, 6);
+    expect(fly(returning, 0.6 * GONE_BY - 0.3 + 0.001)).toBe(true);
+    expect(returning.shown).toBe(0);
+    expect(returning.flight?.motion(returning.flight.elapsed).done).toBe(false);
+    // A leaf of two pages is never hurried, either way.
     const swung = leaf(12, 0.2);
     sendOff(swung, 1, evenly);
     fly(swung, 0.4);
     expect(swung.shown).toBeCloseTo(0.6, 6);
+    const swungBack = leaf(13, 0.6);
+    sendOff(swungBack, 0, evenly);
+    fly(swungBack, 0.3);
+    expect(swungBack.shown).toBeCloseTo(0.3, 6);
   });
 });
 

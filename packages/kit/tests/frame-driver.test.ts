@@ -498,7 +498,11 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 2,
     });
     td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-50, 16, { origin: { x: 300, y: 100 }, position: { x: 250, y: 90 } });
+    td.updateTracking(-50, 16, {
+      origin: { x: 300, y: 100 },
+      position: { x: 250, y: 90 },
+      farthest: { x: 240, y: 95 },
+    });
     driver.compositeNow();
 
     expect(seen[0]).toMatchObject({
@@ -508,7 +512,11 @@ describe('FrameDriver', () => {
         width: 800,
         phase: 'held',
         velocity: 0,
-        touch: { origin: { x: 600, y: 200 }, position: { x: 500, y: 180 } },
+        touch: {
+          origin: { x: 600, y: 200 },
+          position: { x: 500, y: 180 },
+          farthest: { x: 480, y: 190 },
+        },
       },
     });
 

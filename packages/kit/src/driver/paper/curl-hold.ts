@@ -1,13 +1,11 @@
 /**
- * What of a curled page a turn carries, and how far over the page must be
- * for that to have got where the turn has it.
+ * How far over a curled page must be for the edge of its paper turned over
+ * to be where a finger has it.
  *
- * A turn is told as how far a finger has gone, and a finger does not move
- * the line the paper leaves the pages at: turning on, it moves the edge of
- * the paper turned over, which the line follows by the shape of the roll;
- * bringing a page back, with that edge out of the frame, it moves the roll
- * itself. So a page is laid out by asking how far over it must be for its
- * edge, or its line, to have gone as far as the turn says, at the height a
+ * A finger does not move the line the paper leaves the pages at: it moves
+ * the edge of the paper turned over, which the line follows by the shape of
+ * the roll. So a held page is laid out by asking how far over it must be
+ * for its edge to have gone as far as the finger has it, at the height the
  * finger holds it. The edge goes round the roll before it runs on top of
  * it, so the line comes in fast as a page lifts and at half the finger's
  * pace after.
@@ -27,9 +25,11 @@ const EASES_IN = 0.008;
 
 /** The least the edge counts as gone for each unit its line has come in, so that it comes in all the way. */
 const STILL_COMES_IN = 1e-3;
-
-/** What a turn carries of a page: the edge of its paper turned over, or the line it leaves the pages at. */
-export type Carried = 'edge' | 'line';
+/**
+ * What a page's way to the finger that has set off with it is timed by,
+ * seconds: nine tenths of the way in a tenth of a second.
+ */
+const COMES_IN = 0.027;
 
 /** Where the line crosses the page at the height `y`, as x. */
 function lineAcross(shape: LeafShape, line: CurlLine, y: number): number {
@@ -87,48 +87,51 @@ export function edgeGone(shape: LeafShape, line: CurlLine, y: number, view: View
   return Math.max(STILL_COMES_IN * short, edge - shows);
 }
 
-/** How far in from the page's edge the line is at the height `y`. */
-export function lineIn(shape: LeafShape, line: CurlLine, y: number): number {
-  return shape.spine + shape.width - lineAcross(shape, line, y);
-}
-
-/** How far `what` of a page has got, the page `shown` of the way over and leaning by `lean`. */
+/** How far the edge of a page's paper has gone, the page `shown` of the way over and leaning by `lean`. */
 export function gotTo(
-  what: Carried,
   shape: LeafShape,
   shown: number,
   lean: number,
   y: number,
   view: View,
 ): number {
-  const line = lineAt(shape, shown, lean);
-  return what === 'edge' ? edgeGone(shape, line, y, view) : lineIn(shape, line, y);
+  return edgeGone(shape, lineAt(shape, shown, lean), y, view);
 }
 
 /**
- * How far over a page leaning by `lean` must be for `what` of it to have
- * got `to`, at the height `y`. Both come in as the page turns, so there is
+ * How far over a page leaning by `lean` must be for its edge to have gone
+ * `to`, at the height `y`. The edge comes in as the page turns, so there is
  * one such place; short of lying flat it lies flat, and past turned it is
  * turned.
  */
 export function shownFor(
-  what: Carried,
   shape: LeafShape,
   to: number,
   lean: number,
   y: number,
   view: View,
 ): number {
-  if (gotTo(what, shape, 0, lean, y, view) >= to) return 0;
-  if (gotTo(what, shape, 1, lean, y, view) <= to) return 1;
+  if (gotTo(shape, 0, lean, y, view) >= to) return 0;
+  if (gotTo(shape, 1, lean, y, view) <= to) return 1;
   let low = 0;
   let high = 1;
   for (let pass = 0; pass < 30; pass += 1) {
     const middle = (low + high) / 2;
-    if (gotTo(what, shape, middle, lean, y, view) < to) low = middle;
+    if (gotTo(shape, middle, lean, y, view) < to) low = middle;
     else high = middle;
   }
   return (low + high) / 2;
+}
+
+/**
+ * The share still to go of what a page was short of its finger, `seconds`
+ * after the finger set off with it. It is off from rest, so the page
+ * gathers speed where it would otherwise leap, and all but there in a tenth
+ * of a second.
+ */
+export function stillShort(seconds: number): number {
+  const through = Math.max(0, seconds) / COMES_IN;
+  return (1 + through) * Math.exp(-through);
 }
 
 /** A finger's way as a page taken lying flat is drawn for it: the first of it eased into. */
@@ -164,9 +167,4 @@ export function leantBy(
   const lowerLeads = within(shape.height - y, Math.max(kept, 0));
   const upperLeads = within(y, Math.max(-kept, 0));
   return Math.min(lowerLeads, Math.max(-upperLeads, wanted));
-}
-
-/** How much a page brought back by its line leans: what the finger asks for, no more than any line may. */
-export function leantBack(wanted: number): number {
-  return Math.min(LEANS_MOST, Math.max(-LEANS_MOST, wanted));
 }

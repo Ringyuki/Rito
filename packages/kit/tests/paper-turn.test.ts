@@ -70,6 +70,88 @@ describe('whether letting a paper turn go turns the page', () => {
   });
 });
 
+describe('whether letting a page curled over go turns it', () => {
+  const paper = physics();
+  /** A finger down at `from`, at `to` when it lifts, having been as far as `farthest`; the turn going at `velocity`. */
+  const release = (
+    from: number,
+    to: number,
+    farthest = to,
+    velocity = 0,
+    direction: 'forward' | 'backward' = 'forward',
+  ) =>
+    paper.lands?.({
+      // Under a finger the page is where the finger is, whatever the turn's own way says.
+      dx: (to - from) / 2,
+      from: 0,
+      velocity,
+      width: 400,
+      direction,
+      touch: { ...touch(from, to), farthest: { x: farthest, y: 300 } },
+      spine: 0,
+    });
+
+  it('a pull out does, however short; a nudge does not', () => {
+    expect(release(250, 220)).toBe(true);
+    expect(release(250, 226)).toBe(true);
+    expect(release(250, 228)).toBe(false);
+    expect(release(250, 250)).toBe(false);
+    // A page brought back goes by the same, the other way.
+    expect(release(60, 90, 90, 0, 'backward')).toBe(true);
+    expect(release(60, 80, 80, 0, 'backward')).toBe(false);
+    // Left out, the farthest the finger has been is where it is.
+    expect(
+      paper.lands?.({
+        dx: -15,
+        from: 0,
+        velocity: 0,
+        width: 400,
+        direction: 'forward',
+        touch: touch(250, 220),
+        spine: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it('a finger come back from its farthest does not, more of it after a long pull', () => {
+    // Out 60, back 20: within what a hand gives as it lifts.
+    expect(release(250, 210, 190)).toBe(true);
+    expect(release(250, 216, 190)).toBe(false);
+    // Out 300 and relaxed by 60 turns still; brought back 90 does not.
+    expect(release(380, 140, 80)).toBe(true);
+    expect(release(380, 170, 80)).toBe(false);
+    // Back past where it came down.
+    expect(release(250, 270, 150)).toBe(false);
+    expect(release(60, 120, 200, 0, 'backward')).toBe(false);
+  });
+
+  it('a finger flinging it back does not, whatever it had pulled', () => {
+    // The turn goes half as fast as the finger: 260 a second of it is the finger at 520.
+    expect(release(250, 150, 140, 260)).toBe(false);
+    expect(release(250, 150, 140, 240)).toBe(true);
+    // Going on, however fast, is no reason to go back.
+    expect(release(250, 150, 150, -900)).toBe(true);
+    expect(release(60, 160, 170, -260, 'backward')).toBe(false);
+  });
+
+  it('is asked of one page a spread only: a leaf of two goes by how far its turn has gone', () => {
+    const leaf = (spine: number | undefined) =>
+      paper.lands?.({
+        dx: -15,
+        from: 0,
+        velocity: 0,
+        width: 400,
+        direction: 'forward',
+        touch: touch(380, 350),
+        ...(spine === undefined ? {} : { spine }),
+      });
+    expect(leaf(0)).toBe(true);
+    expect(leaf(200)).toBe(false);
+    // A caller that does not say where the pages are bound gets the leaf's rule.
+    expect(leaf(undefined)).toBe(false);
+  });
+});
+
 describe('how a paper turn comes to rest', () => {
   it('a leaf no finger turned is off at once, lands softly, and takes well under half a second', () => {
     const settle = physics().settle?.(0, 0, -800);

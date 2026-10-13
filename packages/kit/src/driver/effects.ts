@@ -9,11 +9,15 @@ export interface TransitionPoint {
 
 /**
  * The finger that moved a turn: where it took hold of the page and where it
- * is, or, once it lifted, where it let go.
+ * is, or, once it lifted, where it let go; and where it was when it had
+ * carried the turn farthest the way the turn goes (`farthest`), which is
+ * where it is when that is left out. A finger short of its farthest has
+ * come back.
  */
 export interface TransitionTouch {
   readonly origin: TransitionPoint;
   readonly position: TransitionPoint;
+  readonly farthest?: TransitionPoint;
 }
 
 /**

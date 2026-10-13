@@ -16,9 +16,10 @@ interface Flight {
 }
 
 /**
- * A page curled over is out of the frame once it is turned, and is there
- * while still on the move: by this share of the way it had left to go. The
- * rest of its motion is the slowing down, which nobody is shown.
+ * A page curled over is where it is going while still on the move: by this
+ * share of the way it had left to go. Turned, it is out of the frame by
+ * then; laid back, it lies flat. The rest of its motion is the slowing
+ * down, which nobody is shown and every turn would wait for.
  */
 export const GONE_BY = 0.85;
 
@@ -125,12 +126,12 @@ export function fly(leaf: Leaf, seconds: number): boolean {
   if (!flight) return false;
   flight.elapsed += seconds;
   const at = flight.motion(flight.elapsed);
-  // A page curled over leaves the frame on the move, ahead of its own motion.
-  const hurried = leaf.curled !== null && flight.to === 1 && flight.from < 1;
+  // A page curled over is where it is going on the move, ahead of its own motion.
+  const hurried = leaf.curled !== null && flight.from !== flight.to;
   const reached = hurried ? flight.from + (at.x - flight.from) / GONE_BY : at.x;
   const landed =
     at.done ||
-    (hurried && reached >= 1) ||
+    (hurried && (flight.to === 1 ? reached >= 1 : reached <= 0)) ||
     (Math.abs(flight.to - at.x) < LANDED_WITHIN && Math.abs(at.velocity) < LANDED_BELOW);
   leaf.shown = landed ? flight.to : Math.min(1, Math.max(0, reached));
   leaf.speed = landed ? 0 : at.velocity;

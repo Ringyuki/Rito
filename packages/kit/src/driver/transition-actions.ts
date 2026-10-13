@@ -216,6 +216,7 @@ function lands(
       width: state.viewportWidth,
       direction: turn.direction,
       touch: turn.touch,
+      spine: state.spine,
     });
   }
   const carried = dx - turn.from;

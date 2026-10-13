@@ -92,6 +92,29 @@ describe('physics an application writes', () => {
     expect(td.mode.kind).toBe('idle');
   });
 
+  it('are told of the finger, and of where the pages are bound, when a turn is let go', () => {
+    const lands = vi.fn(() => true);
+    const td = driver({ physics: { lands } });
+    td.spine = 0;
+    td.startTracking('forward', 0, 1, 0);
+    const finger = {
+      origin: { x: 300, y: 200 },
+      position: { x: 240, y: 210 },
+      farthest: { x: 200, y: 205 },
+    };
+    td.updateTracking(-60, 16, finger);
+    td.releaseTracking();
+    expect(lands).toHaveBeenCalledWith(
+      expect.objectContaining({ dx: -60, from: 0, direction: 'forward', touch: finger, spine: 0 }),
+    );
+    td.reset();
+    td.spine = 640;
+    td.startTracking('forward', 0, 1, 0);
+    td.updateTracking(-60, 16, finger);
+    td.releaseTracking();
+    expect(lands).toHaveBeenLastCalledWith(expect.objectContaining({ spine: 640 }));
+  });
+
   it('say where a pull against the end of the book leaves the page', () => {
     const td = driver({ physics: { resist: (travel) => travel / 10 } });
     td.startTracking('forward', 0, null, 0);

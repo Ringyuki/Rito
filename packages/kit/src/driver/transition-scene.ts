@@ -4,6 +4,7 @@ import type {
   TransitionFrame,
   TransitionLayer,
   TransitionPage,
+  TransitionPoint,
   TransitionScene,
   TransitionTouch,
 } from './effects';
@@ -15,9 +16,14 @@ const SHADOW_ALPHA = 0.18;
 
 /** A finger's points, from CSS px into the units the frame is drawn in. */
 export function scaledTouch(touch: TransitionTouch, scale: number): TransitionTouch {
+  const scaled = (point: TransitionPoint): TransitionPoint => ({
+    x: point.x * scale,
+    y: point.y * scale,
+  });
   return {
-    origin: { x: touch.origin.x * scale, y: touch.origin.y * scale },
-    position: { x: touch.position.x * scale, y: touch.position.y * scale },
+    origin: scaled(touch.origin),
+    position: scaled(touch.position),
+    ...(touch.farthest ? { farthest: scaled(touch.farthest) } : {}),
   };
 }
 

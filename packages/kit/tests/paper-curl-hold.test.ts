@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { layCurl, curlThrough, lineAt } from '../src/driver/paper/curl';
-import { edgeGone, gotTo, leantBy, lineIn, shownFor } from '../src/driver/paper/curl-hold';
+import { edgeGone, gotTo, leantBy, shownFor, stillShort } from '../src/driver/paper/curl-hold';
+import type { CurlLine } from '../src/driver/paper/curl';
 import type { LeafShape } from '../src/driver/paper/leaf';
 
 const viewOf = (shape: LeafShape) => ({
@@ -43,7 +44,12 @@ function edgeOnTheMesh(shape: LeafShape, shown: number, lean: number, y: number)
   return null;
 }
 
-describe('how far over a curled page is for what its turn carries', () => {
+/** How far in from the page's edge the line is at the height `y`. */
+function lineIn(shape: LeafShape, line: CurlLine, y: number): number {
+  return shape.spine + shape.width - (line.top + ((line.bottom - line.top) * y) / shape.height);
+}
+
+describe('how far over a curled page is for where its edge is wanted', () => {
   const phone = { spine: 0, width: 393, height: 760 };
 
   it('puts the edge where it is asked for, at any height and lean the paper can take', () => {
@@ -53,7 +59,7 @@ describe('how far over a curled page is for what its turn carries', () => {
       for (const to of [0.5, 3, 12, 40, 61, 62, 90, 180, 300, 500]) {
         for (const wanted of [-0.7, -0.2, 0, 0.2, 0.7]) {
           const lean = leantBy(phone, wanted, to, y, 0);
-          const shown = shownFor('edge', phone, to, lean, y, view);
+          const shown = shownFor(phone, to, lean, y, view);
           const read = edgeOnTheMesh(phone, shown, lean, y);
           if (read === null) throw new Error(`no edge at ${String(y)} for ${String(to)}`);
           expect(Math.abs(read - to)).toBeLessThan(0.35);
@@ -76,30 +82,28 @@ describe('how far over a curled page is for what its turn carries', () => {
             const lean = leantBy(shape, wanted, to, y, 0);
             // Short of it everywhere before, and at or past it everywhere after.
             let crossed = 0;
-            let before = gotTo('edge', shape, 0, lean, y, view) >= to;
+            let before = gotTo(shape, 0, lean, y, view) >= to;
             for (let shown = 0.0025; shown <= 1.0001; shown += 0.0025) {
-              const past = gotTo('edge', shape, shown, lean, y, view) >= to;
+              const past = gotTo(shape, shown, lean, y, view) >= to;
               if (past !== before) crossed += 1;
               before = past;
             }
             expect(crossed).toBe(1);
-            const shown = shownFor('edge', shape, to, lean, y, view);
-            expect(gotTo('edge', shape, shown, lean, y, view)).toBeCloseTo(to, 3);
+            const shown = shownFor(shape, to, lean, y, view);
+            expect(gotTo(shape, shown, lean, y, view)).toBeCloseTo(to, 3);
           }
         }
       }
     }
-    // On a page taller than wide it comes in one way only, with any lean at all: kept from
-    // when it was taken, or brought back by its line.
-    for (const what of ['edge', 'line'] as const) {
-      for (const lean of [-0.8, -0.4, 0, 0.4, 0.8]) {
-        for (const y of [0, 230, 680]) {
-          let last = -Infinity;
-          for (let shown = 0; shown <= 1.0001; shown += 0.0025) {
-            const got = gotTo(what, phone, shown, lean, y, viewOf(phone));
-            expect(got).toBeGreaterThanOrEqual(last);
-            last = got;
-          }
+    // On a page taller than wide it comes in one way only, with any lean at all: one kept
+    // from when it was taken, and all the way from turned for a page brought back.
+    for (const lean of [-0.8, -0.4, 0, 0.4, 0.8]) {
+      for (const y of [0, 230, 680]) {
+        let last = -Infinity;
+        for (let shown = 0; shown <= 1.0001; shown += 0.0025) {
+          const got = gotTo(phone, shown, lean, y, viewOf(phone));
+          expect(got).toBeGreaterThanOrEqual(last);
+          last = got;
         }
       }
     }
@@ -113,10 +117,10 @@ describe('how far over a curled page is for what its turn carries', () => {
     const there = edgeGone(phone, line, 300, view);
     expect(there).toBeLessThan(0);
     // Asked to be a little farther on, the page is a little farther over, and so on until it lifts there.
-    expect(shownFor('edge', phone, there, 0.5, 300, view)).toBeCloseTo(0.1, 6);
+    expect(shownFor(phone, there, 0.5, 300, view)).toBeCloseTo(0.1, 6);
     let last = 0.1;
     for (let more = 1; more <= 620; more += 1) {
-      const shown = shownFor('edge', phone, there + more, 0.5, 300, view);
+      const shown = shownFor(phone, there + more, 0.5, 300, view);
       expect(shown).toBeGreaterThanOrEqual(last);
       expect((shown - last) * phone.width).toBeLessThan(8);
       last = shown;
@@ -126,18 +130,33 @@ describe('how far over a curled page is for what its turn carries', () => {
     expect(lineIn(phone, lineAt(phone, last, 0.5), 300)).toBeGreaterThan(0);
   });
 
-  it('finds how far over a page is from where its line is, to the spine and to lying flat', () => {
+  it('lies flat short of anything asked of it, and is turned past all its edge can go', () => {
     const view = viewOf(phone);
-    for (const lean of [-0.5, 0, 0.5]) {
-      for (const to of [5, 60, 200, 380]) {
-        const shown = shownFor('line', phone, to, lean, 380, view);
-        expect(lineIn(phone, lineAt(phone, shown, lean), 380)).toBeCloseTo(to, 3);
-      }
+    expect(shownFor(phone, 0, 0, 380, view)).toBe(0);
+    expect(shownFor(phone, 2 * 393, 0.3, 380, view)).toBe(1);
+    // Turned, its edge has gone twice the page's width: where a page brought back begins.
+    expect(gotTo(phone, 1, 0, 380, view)).toBeCloseTo(2 * 393, 6);
+  });
+});
+
+describe('how a page comes to the finger that has set off with it', () => {
+  it('is off from rest, nine tenths of the way in a tenth of a second, and never turns round', () => {
+    expect(stillShort(0)).toBe(1);
+    // A frame on it has hardly moved: at a sixtieth of a second an eighth of the way, where
+    // an approach that slows from the start would have taken a third.
+    expect(1 - stillShort(1 / 60)).toBeLessThan(0.14);
+    expect(1 - stillShort(1 / 120)).toBeLessThan(0.04);
+    expect(stillShort(0.11)).toBeLessThan(0.1);
+    expect(stillShort(0.1)).toBeGreaterThan(0.1);
+    expect(stillShort(0.25)).toBeLessThan(0.001);
+    let last = 1;
+    for (let seconds = 0.004; seconds < 0.4; seconds += 0.004) {
+      const now = stillShort(seconds);
+      expect(now).toBeLessThan(last);
+      // No more than a quarter of the way in any frame of a sixtieth.
+      expect(stillShort(seconds) - stillShort(seconds + 1 / 60)).toBeLessThan(0.25);
+      last = now;
     }
-    expect(shownFor('line', phone, 393, 0, 380, view)).toBe(1);
-    expect(shownFor('line', phone, 0, 0, 380, view)).toBe(0);
-    expect(shownFor('edge', phone, 0, 0, 380, view)).toBe(0);
-    expect(shownFor('edge', phone, 2 * 393, 0.3, 380, view)).toBe(1);
   });
 });
 
@@ -167,7 +186,7 @@ describe('how much a held page leans', () => {
     for (const y of [100, 380, 600, 720, 755]) {
       for (let gone = 2; gone <= 600; gone += 7) {
         const lean = leantBy(phone, 0.8, gone, y, 0);
-        const shown = shownFor('edge', phone, gone, lean, y, view);
+        const shown = shownFor(phone, gone, lean, y, view);
         const line = lineAt(phone, shown, lean);
         expect(lineIn(phone, line, y)).toBeGreaterThan(0);
         // The edge that shows at the finger's height is the page's own, not past its corner:

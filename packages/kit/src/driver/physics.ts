@@ -12,7 +12,8 @@ export interface TransitionBounds {
  * (`velocity`, CSS px per second), the viewport width, which way it turns
  * and the finger itself. `from` is where the turn was when the finger took
  * it: 0 unless it began from what a turn in flight had left, so `dx - from`
- * is how far the finger carried it.
+ * is how far the finger carried it. `spine` is where the pages are bound, as
+ * the bounds of `travel` have it; a caller that does not say leaves it out.
  */
 export interface TransitionRelease {
   readonly dx: number;
@@ -21,6 +22,7 @@ export interface TransitionRelease {
   readonly width: number;
   readonly direction: 'forward' | 'backward';
   readonly touch: TransitionTouch | null;
+  readonly spine?: number;
 }
 
 /**

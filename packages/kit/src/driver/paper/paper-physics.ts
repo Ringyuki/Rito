@@ -19,7 +19,16 @@ const UNHURRIED = 1.2;
 /** How long a leaf sent back the way it came takes to stop, seconds. */
 const STOPS_IN = 0.1;
 /** A finger must have moved this far, CSS px, for letting go to turn the page. */
-const LEAST_PULL = 24;
+export const LEAST_PULL = 24;
+/**
+ * A page curled over goes back when its finger has come back this far from
+ * its farthest, CSS px, or by this share of its farthest pull where that is
+ * more: a hand at the end of a long pull gives a little before it lifts.
+ */
+const CAME_BACK = 24;
+const CAME_BACK_SHARE = 0.25;
+/** And when its finger is going back faster than this as it lets go, CSS px a second. */
+const FLUNG_BACK = 500;
 
 /**
  * Which point of the leaf a finger took hold of. A finger moving toward
@@ -86,8 +95,9 @@ export function createPaperPhysics(
       return bounds.width * Math.min(1, Math.max(-1, moved / (2 * radius)));
     },
 
-    lands({ dx, from, velocity, width, direction, touch }) {
+    lands({ dx, from, velocity, width, direction, touch, spine }) {
       const toward = direction === 'forward' ? -1 : 1;
+      if (spine === 0 && touch) return curledLands(touch, toward, velocity);
       // How far the finger carried the leaf, wherever it took it.
       const along = Math.max(0, ((dx - from) * toward) / (width || 1));
       const speed = (velocity * toward) / (width || 1);
@@ -120,6 +130,25 @@ export function createPaperPhysics(
       };
     },
   };
+}
+
+/**
+ * Whether a page curled over turns when its finger lets go, the finger
+ * having carried its turn at `velocity`. Under the finger the page's edge
+ * is where the finger is, whatever way the turn itself has gone, so it goes
+ * by the finger: a page pulled out and not brought back turns, however
+ * short the pull; one brought back, or flung back, does not.
+ */
+function curledLands(touch: TransitionTouch, toward: number, velocity: number): boolean {
+  const pulled = (touch.position.x - touch.origin.x) * toward;
+  const most = ((touch.farthest ?? touch.position).x - touch.origin.x) * toward;
+  // The finger goes twice as far as the turn it carries, and as fast.
+  const goingBack = -2 * velocity * toward;
+  return (
+    pulled >= LEAST_PULL &&
+    most - pulled <= Math.max(CAME_BACK, CAME_BACK_SHARE * most) &&
+    goingBack <= FLUNG_BACK
+  );
 }
 
 /**

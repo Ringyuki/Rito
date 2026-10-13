@@ -106,7 +106,9 @@ pixelRatio }`, or `null` while it is not painted yet) and
   them. A frame also says what is moving the turn (`phase`: `'held'` by a finger,
   `'landing'` on the neighbour or `'returning'` to the spread it left), how fast
   `dx` is changing (`velocity`, per second) and the finger that moved it
-  (`touch.origin` and `touch.position`, `null` for a turn no finger has held).
+  (`touch.origin` and `touch.position`, `null` for a turn no finger has held;
+  `touch.farthest` is where the finger was when it had carried the turn farthest
+  the way the turn goes, so a finger short of it has come back).
   An effect of either kind may have a `prepare()`: it is called when the effect is
   set, before any turn, for work that would otherwise hold up the first frame of
   the first turn, and may be called more than once.
@@ -124,7 +126,8 @@ pixelRatio }`, or `null` while it is not painted yet) and
   leaves the page, `lands(release)` whether letting go turns the page
   (`release.from` is where the turn was when the finger took it, 0 unless it began
   from what a turn in flight had left, so `release.dx - release.from` is how far
-  the finger carried it), and
+  the finger carried it; `release.touch` is the finger and `release.spine` where
+  the pages are bound), and
   `settle(from, velocity, to)` returns the motion that carries a released turn to
   rest: a function of the seconds since, answering `{ x, velocity, done }`. A turn
   left alone stays on screen until it is `done`. `begins(leftover)` says where a
@@ -160,14 +163,22 @@ on its back. With one page a spread the page is peeled back over itself round a
 small roll, from its outer edge or from a corner, its back showing its own print
 faintly and the wrong way round, until the line it leaves the page at reaches the
 spine; that line never crosses the spine, and stands the more upright the nearer
-it comes. The lifted edge goes as far as the finger does, keeping the distance from
-it that it had when the finger came down, so a page taken at its edge has its edge
-under the finger; a page taken low on the page lifts by its lower corner, high on
-the page by its upper one, and at mid height by its whole edge, and the line leans
-on as the finger moves up or down, no more than keeps the paper lifted where the
-finger is and the corner it is peeled from beside it. A page brought back by a
-finger going the other way is brought by its roll, which keeps its distance from
-the finger the same way. Turned by a key or a call the line is upright
+it comes. Under a finger the edge of the paper turned over is where the finger is,
+at the finger's height, wherever on the page the finger came down: for the first
+24 CSS px of the finger's way it goes as far as the finger does, so a tap that
+slips lifts next to nothing, and once the finger has gone that far the way the
+turn goes the edge comes to it in about a tenth of a second and stays under it. A
+page brought back by a finger going the other way comes in the same way, until its
+edge is under the finger and the page lies flat on the finger's left. A page taken
+low on the page lifts by its lower corner, high on the page by its upper one, and
+at mid height by its whole edge, and the line leans on as the finger moves up or
+down, no more than keeps the paper lifted where the finger is and the corner it is
+peeled from beside it. Let go, the page finishes by itself from where it is, and
+its turn is over when it is out of the frame or lying flat again. It turns if the
+finger had pulled it 24 CSS px or more and had not come back: a finger come back
+24 CSS px from its farthest, or a quarter of its farthest pull where that is more,
+or going back faster than 500 CSS px a second as it lets go, leaves the page where
+it was. Turned by a key or a call the line is upright
 and sweeps across in about a quarter of a second, the page leaving the frame while
 still on the move. A turn that cuts into another does
 not stop its page: turned back, the same page slows, stops and comes back from

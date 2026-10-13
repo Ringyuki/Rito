@@ -1,4 +1,4 @@
-import type { TransitionTouch } from '../../driver/effects';
+import type { TransitionPoint, TransitionTouch } from '../../driver/effects';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { GestureNavigationToken } from '../navigation/index';
@@ -10,6 +10,14 @@ export interface GestureSession {
   latestDx: number;
   latestTimestamp: number;
   latestTouch: TransitionTouch | undefined;
+  /** Whether the drag first moved toward the next spread: the way its turn goes. */
+  readonly forward: boolean;
+  /**
+   * How far the finger had carried the turn at its farthest that way, and
+   * where it was then. It is kept here because a turn whose neighbour is
+   * not ready yet takes no samples: only the latest is handed over.
+   */
+  farthest: { readonly dx: number; readonly at: TransitionPoint } | null;
 }
 
 export interface GestureSessionContext {
@@ -26,14 +34,18 @@ export function createGestureSession(
   timestamp: number,
   touch?: TransitionTouch,
 ): GestureSession {
-  return {
+  const session: GestureSession = {
     token: null,
     started: false,
     status: 'active',
     latestDx: dx,
     latestTimestamp: timestamp,
-    latestTouch: touch,
+    latestTouch: undefined,
+    forward: dx < 0,
+    farthest: null,
   };
+  updateGestureSample(session, dx, timestamp, touch);
+  return session;
 }
 
 export function watchOwnedTransition(context: GestureSessionContext): () => void {
@@ -125,7 +137,20 @@ function updateGestureSample(
 ): void {
   session.latestDx = dx;
   session.latestTimestamp = timestamp;
-  session.latestTouch = touch;
+  session.latestTouch = touch && withFarthest(session, dx, touch);
+}
+
+/** The finger, with where it was when it had carried the turn farthest the way the turn goes. */
+function withFarthest(
+  session: GestureSession,
+  dx: number,
+  touch: TransitionTouch,
+): TransitionTouch {
+  const far = session.farthest;
+  const farther = !far || (session.forward ? dx < far.dx : dx > far.dx);
+  const farthest = farther ? { dx, at: touch.position } : far;
+  session.farthest = farthest;
+  return { origin: touch.origin, position: touch.position, farthest: farthest.at };
 }
 
 /** Hands the driver the gesture's latest sample: how far, when, and where the finger is. */
