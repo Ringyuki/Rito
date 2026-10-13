@@ -4,7 +4,15 @@ import { lineAt } from '../src/driver/paper/curl';
 import { curledFlat, isThere, wantedCurled } from '../src/driver/paper/curled';
 import { fly, type Leaf } from '../src/driver/paper/leaves';
 import type { LeafTurn } from '../src/driver/paper/swing';
-import { edgeGoneAt, forward, lineAtHeight, page, scene, sheet } from './helpers/curled-page';
+import {
+  edgeGoneAt,
+  forward,
+  lineAtHeight,
+  page,
+  ROLL_RADIUS,
+  scene,
+  sheet,
+} from './helpers/curled-page';
 
 const FRAME = 1 / 60;
 type Point = readonly [number, number];
@@ -168,7 +176,7 @@ describe('a curled page whose finger has set off', () => {
     expect(Math.abs(gap)).toBeLessThan(0.6);
   });
 
-  it('brought back, comes in until its edge is under the finger, lying flat on the left of it', () => {
+  it('brought back, comes in until its edge is under the finger, lying flat left of its roll', () => {
     const leaf = sheet(1);
     // Before the finger has set off next to nothing shows: a sliver by the spine.
     drag(leaf, [30, 300], [50, 300], FRAME, false);
@@ -196,7 +204,9 @@ describe('a curled page whose finger has set off', () => {
     ] as const) {
       drag(leaf, [30, 300], [x, y], FRAME, false);
       expect(Math.abs(edgeGoneAt(leaf, y) - (400 - x))).toBeLessThan(within);
-      expect(lineAtHeight(leaf, y)).toBeGreaterThan(x);
+      // Nearly flat again the edge is still round the roll, which stands a little past the
+      // finger: all that is farther left of the finger than the roll is wide lies flat.
+      expect(lineAtHeight(leaf, y)).toBeGreaterThan(x - ROLL_RADIUS);
     }
   });
 
@@ -269,9 +279,10 @@ describe('a curled page whose finger has set off', () => {
       expect(lineAt(page, taken, leaf.curled?.lean ?? 0).top).toBeCloseTo(line.top, 2);
       expect(lineAt(page, taken, leaf.curled?.lean ?? 0).bottom).toBeCloseTo(line.bottom, 2);
       // A hair's way on, a moment later, is a hair's difference; barely lifted, its line comes
-      // in as fast as it does when a page first lifts, and no faster.
+      // in as fast as it does when a page first lifts, and no faster: a share of the roll's
+      // radius, for the paper must round the roll before its edge shows coming in.
       const on = drag(leaf, [380, y + 9], [199, y], 1e-4);
-      expect(Math.abs(on - taken) * 400).toBeLessThan(shown < 0.02 ? 14 : 3);
+      expect(Math.abs(on - taken) * 400).toBeLessThan(shown < 0.02 ? 0.7 * ROLL_RADIUS : 3);
       expect(on).toBeGreaterThanOrEqual(taken);
       // And whatever comes of it from there, it does not go back the way it came.
       let last = on;

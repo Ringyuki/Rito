@@ -25,6 +25,8 @@ const EASES_IN = 0.008;
 
 /** The least the edge counts as gone for each unit its line has come in, so that it comes in all the way. */
 const STILL_COMES_IN = 1e-3;
+/** How many times where the edge shows is worked out again from how high it stands there. */
+const SETTLES_IN = 3;
 /**
  * What a page's way to the finger that has set off with it is timed by,
  * seconds: nine tenths of the way in a tenth of a second.
@@ -73,12 +75,16 @@ export function edgeGone(shape: LeafShape, line: CurlLine, y: number, view: View
   const short = edge - lineAcross(shape, line, y);
   if (short <= 0) return (2 * short) / (1 - (curl.dy / curl.dx) ** 2);
   // Paper in the air shows farther from the middle of the frame than it is: the edge that
-  // shows at this height lies nearer the middle by how high it stands.
-  const stands = standsAt(pastFor(curl, short), curl.radius);
-  const lies = view.height / 2 + ((y - view.height / 2) * (view.eye - stands)) / view.eye;
-  const there = edge - lineAcross(shape, line, lies);
-  if (there <= 0) return STILL_COMES_IN * short;
-  const past = pastFor(curl, there);
+  // shows at this height lies nearer the middle by how high it stands, and how high it stands
+  // is told by where it lies. Three rounds put it within a fiftieth of a unit of where it shows.
+  let past = pastFor(curl, short);
+  for (let round = 0; round < SETTLES_IN; round += 1) {
+    const stands = standsAt(past, curl.radius);
+    const lies = view.height / 2 + ((y - view.height / 2) * (view.eye - stands)) / view.eye;
+    const there = edge - lineAcross(shape, line, lies);
+    if (there <= 0) return STILL_COMES_IN * short;
+    past = pastFor(curl, there);
+  }
   const gone = curl.dx * laidBack(past, curl.radius);
   const middle = view.width / 2;
   const shows =

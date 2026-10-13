@@ -1,6 +1,6 @@
 import { attribute, type Gl, type Program, type RenderTarget } from './gl';
 import type { Curl } from './curl';
-import { KEY_DIRECTION, KEY_SHARE, KEY_SIZE, PAPER_ALBEDO, PAPER_THROUGH } from './light';
+import { HANDED_BACK, KEY_DIRECTION, KEY_SHARE, KEY_SIZE, PAPER_THROUGH } from './light';
 import { finishShadowPrograms, type ShadowPrograms, type StartedShadow } from './shadow-programs';
 import { sidesOf, targetsFor, type ShadowTargets, type SpineSides } from './shadow-targets';
 
@@ -255,7 +255,7 @@ function occlude(
   gl.uniform1f(uniforms['uKeySize'] ?? null, KEY_SIZE);
   gl.uniform1f(uniforms['uKeyShare'] ?? null, KEY_SHARE);
   gl.uniform1f(uniforms['uThrough'] ?? null, PAPER_THROUGH);
-  gl.uniform1f(uniforms['uAlbedo'] ?? null, PAPER_ALBEDO);
+  gl.uniform1f(uniforms['uHandedBack'] ?? null, HANDED_BACK);
   gl.uniform1f(uniforms['uSpine'] ?? null, frame.spine);
   parted(gl, programs.occlusion, frame.sides, frame.sides.edge);
   gl.uniform3fv(uniforms['uProfile'] ?? null, caster.profile);

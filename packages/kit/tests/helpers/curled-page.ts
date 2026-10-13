@@ -10,6 +10,8 @@ export const page: LeafShape = { spine: 0, width: 400, height: 600 };
 export const COLUMNS = 201;
 export const ROWS = 151;
 export const scene = { width: 400, height: 600, spine: 0, cssPixel: 1 } as TransitionScene;
+/** The radius the page rolls over at, away from the spine. */
+export const ROLL_RADIUS = 0.13 * 400;
 
 /** The page laid out `shown` of the way over, leaning by `lean`, or through `line`. */
 export function laid(shown: number, lean: number, line?: CurlLine): Float32Array {

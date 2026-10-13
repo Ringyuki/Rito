@@ -6,7 +6,18 @@ import { fly, GONE_BY, type Leaf } from '../src/driver/paper/leaves';
 import { sheetGrid } from '../src/driver/paper/mesh';
 import type { PaperSheet } from '../src/driver/paper/renderer';
 import type { TransitionFrame } from '../src/driver/effects';
-import { at, COLUMNS, forward, frame, laid, page, ROWS, scene, sheet } from './helpers/curled-page';
+import {
+  at,
+  COLUMNS,
+  forward,
+  frame,
+  laid,
+  page,
+  ROLL_RADIUS,
+  ROWS,
+  scene,
+  sheet,
+} from './helpers/curled-page';
 
 const apart = (a: readonly number[], b: readonly number[]): number =>
   Math.hypot((a[0] ?? 0) - (b[0] ?? 0), (a[1] ?? 0) - (b[1] ?? 0), (a[2] ?? 0) - (b[2] ?? 0));
@@ -76,10 +87,10 @@ describe('a page curled over on itself', () => {
 
   it('rolls at one radius until its line nears the spine, and tightens evenly from there', () => {
     let before = curlThrough(page, lineAt(page, 0, 0.5));
-    expect(before.radius).toBeCloseTo(0.05 * 400, 9);
+    expect(before.radius).toBeCloseTo(ROLL_RADIUS, 9);
     for (let shown = 0.002; shown <= 1; shown += 0.002) {
       const now = curlThrough(page, lineAt(page, shown, 0.5));
-      expect(now.radius).toBeLessThanOrEqual(0.05 * 400 + 1e-9);
+      expect(now.radius).toBeLessThanOrEqual(ROLL_RADIUS + 1e-9);
       // No step in the radius, nor in where the line lies or how it leans.
       expect(Math.abs(now.radius - before.radius)).toBeLessThan(0.6);
       // The end that trails comes in faster than the one that leads once the line must stand up.
@@ -90,13 +101,14 @@ describe('a page curled over on itself', () => {
     expect(before.radius).toBeLessThan(0.6);
   });
 
-  it('carries its lifted edge twice as far as its line goes', () => {
+  it('carries its lifted edge twice as far as its line goes, once it lies on top of its roll', () => {
     const middle = Math.floor(ROWS / 2);
-    const [early] = at(laid(0.2, 0), COLUMNS - 1, middle);
-    const [later] = at(laid(0.3, 0), COLUMNS - 1, middle);
+    const [early] = at(laid(0.5, 0), COLUMNS - 1, middle);
+    const [later] = at(laid(0.6, 0), COLUMNS - 1, middle);
     // A tenth of a turn: the line comes in 40, the edge lying on top 80.
-    expect(later - early).toBeCloseTo(-80, 6);
-    expect(at(laid(0.3, 0), COLUMNS - 1, middle)[2]).toBeCloseTo(2 * 0.05 * 400, 6);
+    // Positions are kept in single precision, which at 300 or so is good to a few millionths.
+    expect(later - early).toBeCloseTo(-80, 4);
+    expect(at(laid(0.6, 0), COLUMNS - 1, middle)[2]).toBeCloseTo(2 * ROLL_RADIUS, 6);
   });
 
   it('lifts no farther than the page lying on it has', () => {

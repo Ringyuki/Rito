@@ -1,9 +1,9 @@
 import { attribute } from './gl';
 import { FACES, type Gpu } from './gpu';
 import {
+  HANDED_BACK,
   KEY_DIRECTION,
   KEY_SHARE,
-  PAPER_ALBEDO,
   PAPER_THROUGH,
   SHOWS_THROUGH,
   SHOWS_THROUGH_CURLED,
@@ -123,7 +123,7 @@ export function drawSheet(
   gl.uniform3f(program.uniforms['uLight'] ?? null, ...KEY_DIRECTION);
   gl.uniform1f(program.uniforms['uKeyShare'] ?? null, KEY_SHARE);
   gl.uniform1f(program.uniforms['uThrough'] ?? null, PAPER_THROUGH);
-  gl.uniform1f(program.uniforms['uAlbedo'] ?? null, PAPER_ALBEDO);
+  gl.uniform1f(program.uniforms['uHandedBack'] ?? null, HANDED_BACK);
   [sheet.front, sheet.back].forEach((page, unit) => {
     const [sampler, printed] = FACES[unit] ?? FACES[0];
     gl.activeTexture(unit === 0 ? gl.TEXTURE0 : gl.TEXTURE1);

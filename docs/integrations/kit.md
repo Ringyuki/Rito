@@ -152,16 +152,18 @@ key or a call the leaf is off at once and lands softly in about 0.4 s on a wide
 spread, less on a narrow one. With one page a spread the page is curled over on
 itself instead: see below. Either way it is drawn with WebGL in
 three dimensions, seen from above the spread. One light serves the leaf's shading
-and its shadow, so they agree: a soft lamp over the reader's left shoulder and the
-light of the room. The shadow on the pages is sharp where the leaf meets them and
-soft where it stands high above them, and where the leaf hides the sky from a page
-the page dims, less than it would if white paper did not hand light back. By the
+and its shadow, so they agree: mostly the soft light of the room, with a tenth
+from a large window over the reader's left shoulder. The shadow on the pages is
+sharp where the leaf meets them and soft where it stands high above them, and
+where the leaf hides the sky from a page the page dims, little, for the paper
+that hides it is lit itself and hands most of that light back. By the
 spine the leaf's shade runs on into the page beside it and fades there, as it does
 where pages are bound together, instead of stopping at the spine. With two
 pages a spread the leaf carries the next page
 on its back. With one page a spread the page is peeled back over itself round a
-small roll, from its outer edge or from a corner, its back showing its own print
-faintly and the wrong way round, until the line it leaves the page at reaches the
+soft roll, its radius about an eighth of the page's width, from its outer edge or from
+a corner, its back white and showing its own print through, the wrong way round,
+until the line it leaves the page at reaches the
 spine; that line never crosses the spine, and stands the more upright the nearer
 it comes. Under a finger the edge of the paper turned over is where the finger is,
 at the finger's height, wherever on the page the finger came down: for the first

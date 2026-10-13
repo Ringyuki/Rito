@@ -25,7 +25,7 @@ export const FACES = [
 const SHEET_UNIFORMS = ['uSize', 'uEye', 'uDepth', 'uSpine', 'uSheet', 'uPaper', 'uLight'].concat([
   'uKeyShare',
   'uThrough',
-  'uAlbedo',
+  'uHandedBack',
   'uLift',
   'uTurnedLift',
   'uShows',

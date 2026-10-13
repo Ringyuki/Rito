@@ -36,8 +36,12 @@ export interface Curl {
   readonly radius: number;
 }
 
-/** The radius the paper rolls over at, as a share of the page's width. */
-const ROLL = 0.05;
+/**
+ * The radius the paper rolls over at, as a share of the page's width: a
+ * soft roll, its light and shade spread across it, as the page of the
+ * reference recording rolls; at a twentieth it read as a crease.
+ */
+const ROLL = 0.13;
 /**
  * How far the line may lean, as the tangent of its angle from upright, for
  * each page height its leading end is from the spine: at this, the end that

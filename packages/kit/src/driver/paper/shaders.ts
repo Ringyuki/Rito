@@ -16,18 +16,14 @@ vec4 project(vec3 at, float depth) {
 `;
 
 /**
- * The light a surface gets from the room when it sees `seen` of the sky
- * and its neighbours hand some of theirs back: the fit of Jimenez and
- * others for surfaces of one albedo, which never makes it darker than the
- * sky alone would.
+ * The light a surface gets from the room when it sees `seen` of the sky:
+ * that, and what the paper hiding the rest hands back of it
+ * (`uHandedBack`). Seeing all the sky, it is lit to exactly 1.
  */
 export const BOUNCES = `
-uniform float uAlbedo;
+uniform float uHandedBack;
 float withBounces(float seen) {
-  float a = 2.0404 * uAlbedo - 0.3324;
-  float b = 4.7951 * uAlbedo - 0.6417;
-  float c = 2.7552 * uAlbedo + 0.6903;
-  return max(seen, ((a * seen - b) * seen + c) * seen);
+  return seen + (1.0 - seen) * uHandedBack;
 }
 `;
 
@@ -201,7 +197,7 @@ void main() {
     vec3 bare = uHasFront > 0.5 ? printed(uFront, vec2(uSpine + 0.985 * uSheet, 0.012)) : uPaper;
     colour = uHasBack > 0.5 && onBack.x >= 0.0
       ? printed(uBack, onBack)
-      : mix(bare, front, uShows) * 0.97;
+      : mix(bare, front, uShows);
   }
   float kept = 1.0;
   ${softened ? SOFT_EDGE : ''}

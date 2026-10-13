@@ -62,7 +62,8 @@ describe('how far over a curled page is for where its edge is wanted', () => {
           const shown = shownFor(phone, to, lean, y, view);
           const read = edgeOnTheMesh(phone, shown, lean, y);
           if (read === null) throw new Error(`no edge at ${String(y)} for ${String(to)}`);
-          expect(Math.abs(read - to)).toBeLessThan(0.35);
+          // Where the edge shows is worked out again from how high it stands until it settles.
+          expect(Math.abs(read - to)).toBeLessThan(0.1);
           checked += 1;
         }
       }
@@ -119,10 +120,12 @@ describe('how far over a curled page is for where its edge is wanted', () => {
     // Asked to be a little farther on, the page is a little farther over, and so on until it lifts there.
     expect(shownFor(phone, there, 0.5, 300, view)).toBeCloseTo(0.1, 6);
     let last = 0.1;
+    // No step: the line comes in by no more than a share of the roll's radius for each unit.
+    const radius = 0.13 * phone.width;
     for (let more = 1; more <= 620; more += 1) {
       const shown = shownFor(phone, there + more, 0.5, 300, view);
       expect(shown).toBeGreaterThanOrEqual(last);
-      expect((shown - last) * phone.width).toBeLessThan(8);
+      expect((shown - last) * phone.width).toBeLessThan(0.4 * radius);
       last = shown;
     }
     // By the time the edge is asked to have gone somewhere, the paper has lifted there.
