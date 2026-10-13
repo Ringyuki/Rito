@@ -39,6 +39,7 @@ export type FakeRefusable =
   | 'adoptForegroundCandidate'
   | 'adoptBackgroundCandidate'
   | 'navigation'
+  | 'markFontFamiliesUnavailable'
   | 'release';
 
 export interface FakeChapter {
@@ -299,7 +300,7 @@ export class FakeReaderSession {
       markFontFamiliesUnavailable: (families) =>
         later(() => {
           this.fontCalls.push(`unavailable ${families.join(',')}`);
-        }),
+        }, 'markFontFamiliesUnavailable'),
       release: (artifactId) =>
         owning('release', () =>
           later(() => {

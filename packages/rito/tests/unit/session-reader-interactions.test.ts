@@ -674,6 +674,31 @@ describe('session reader interactions', () => {
     expect(opened.fake.requests).toHaveLength(requests + 1);
   });
 
+  it('says so and lays out again when the engine could not be told of a refused face', async () => {
+    const warned: unknown[][] = [];
+    vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+      warned.push(args);
+    });
+    const opened = await open({ logLevel: 'warn' });
+    await bookScope(opened.reader);
+    opened.fake.refuse('markFontFamiliesUnavailable', new RitoReaderError('internal', 'no'));
+    const requests = opened.fake.requests.length;
+    const { fontRejected } = harness.presenterOptions as {
+      readonly fontRejected: (font: { family: string }, error: unknown) => void;
+    };
+    fontRejected({ family: '__RitoFont_ab' }, new Error('OTS parsing error'));
+    // Nothing waits on the engine hearing of it: the book is laid out again all the same.
+    await vi.waitFor(() => {
+      expect(opened.fake.requests).toHaveLength(requests + 1);
+    });
+    await bookScope(opened.reader);
+    expect(opened.fake.calls).toContain('refused markFontFamiliesUnavailable');
+    expect(warned.map((args) => String(args[0]))).toEqual([
+      expect.stringContaining('"__RitoFont_ab" could not be decoded'),
+      expect.stringContaining('could not be marked unavailable'),
+    ]);
+  });
+
   it('opens a book whose first page lists a face the browser refuses', async () => {
     let told = false;
     harness.onPrepare = () => {
@@ -708,6 +733,51 @@ describe('session reader interactions', () => {
     // A spread the reader does not hold is loaded to answer for it.
     expect(await diagnostics?.spreadImagesSettled(9)).toBe(true);
     expect(await diagnostics?.spreadImagesSettled(99)).toBe(false);
+  });
+
+  it('shows a harness what it holds, what it is doing and what it has done', async () => {
+    harness.onPrepare = () => {
+      const { fontRejected } = harness.presenterOptions as {
+        readonly fontRejected: (font: { family: string }, error: unknown) => void;
+      };
+      fontRejected({ family: '__RitoFont_ef' }, new Error('OTS parsing error'));
+    };
+    const opened = await open();
+    await bookScope(opened.reader);
+    const diagnostics = (
+      globalThis as {
+        __ritoReaderDiagnostics?: {
+          readonly artifact: (spreadIndex: number) => Promise<{ localSpreadIndex: number }>;
+          readonly queue: () => { running: boolean; asked: number; ahead: number };
+          readonly rejectedFontFamilies: () => readonly string[];
+          readonly log: () => readonly { readonly kind: string }[];
+        };
+      }
+    ).__ritoReaderDiagnostics;
+    // The artifact a spread of the book is painted from, loaded to answer for it.
+    expect((await diagnostics?.artifact(9))?.localSpreadIndex).toBe(9);
+    await vi.waitFor(() => {
+      expect(diagnostics?.queue()).toEqual({ running: false, asked: 0, ahead: 0 });
+    });
+    expect(diagnostics?.rejectedFontFamilies()).toEqual(['__RitoFont_ef']);
+    const kinds = new Set(diagnostics?.log().map((entry) => entry.kind));
+    expect(kinds.has('warn')).toBe(true);
+    expect(kinds.size).toBeGreaterThan(1);
+  });
+
+  it('answers while open, places a locator in the layout committed, and stops when closed', async () => {
+    const opened = await open();
+    await bookScope(opened.reader);
+    expect(opened.interactions.enabled).toBe(true);
+    expect(await opened.interactions.resolveLocator({ href: 'two.xhtml' })).toMatchObject({
+      status: 'resolved',
+      spineIdref: 'two',
+      pageIndex: 9,
+      spreadIndex: 9,
+    });
+    await opened.reader.dispose();
+    expect(opened.interactions.enabled).toBe(false);
+    expect(await opened.interactions.resolveLocator({ href: 'two.xhtml' })).toBeUndefined();
   });
 
   it('reads a footnote, and has none to show for one not indexed yet', async () => {

@@ -512,6 +512,23 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('sizes its canvas for a spread it renders, and gives its size in CSS pixels', async () => {
+    const ctx = fakeCanvasContext(800, 1200);
+    const canvas = { width: 0, height: 0, getContext: () => ctx };
+    const reader = await createReader(new ArrayBuffer(4), canvas as never, options());
+    await bookScope(reader);
+    harness.painted = [];
+    // Twice the size, at the device's two pixels to each CSS one.
+    reader.renderSpread(0, 2);
+    expect(canvas).toMatchObject({ width: 1600, height: 2400 });
+    expect(harness.painted).toEqual(['0:#ffffff']);
+    expect(reader.getCanvasSize()).toEqual({ width: 400, height: 600 });
+    // A fraction of a device pixel is rounded to the nearest one.
+    expect(reader.getCanvasSize(1.0003)).toEqual({ width: 400, height: 600 });
+    expect(reader.getCanvasSize(0.5)).toEqual({ width: 200, height: 300 });
+    await reader.dispose();
+  });
+
   it('repaints for a theme change and releases everything when it closes', async () => {
     const { reader, fake, ctx, invalidated } = await open({
       initialLocator: { href: 'one.xhtml' },
