@@ -104,6 +104,7 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
   await page.goto(`${origin}/production-parity.html`);
   return await page.evaluate(
     async ({
+      authorBase64,
       authorOnly,
       bookBase64,
       fontBase64,
@@ -135,6 +136,13 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
         },
       });
       try {
+        // The reader registers a book's faces under names of its own, so the
+        // page knows no "Author": the measurement registers the author face
+        // under its CSS name, and the browser falls back between the same two
+        // faces the engine does.
+        const author = new FontFace('Author', decode(authorBase64));
+        await author.load();
+        document.fonts.add(author);
         const context = document.createElement('canvas').getContext('2d');
         if (!context) throw new Error('Canvas measurement context is unavailable');
         context.font = `32px "Author", "${pinnedAlias}", serif`;
@@ -232,6 +240,7 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
       }
     },
     {
+      authorBase64: Buffer.from(AUTHOR_FONT).toString('base64'),
       authorOnly: AUTHOR_ONLY,
       bookBase64: Buffer.from(buildExactFallbackEpub()).toString('base64'),
       fontBase64: Buffer.from(PINNED_FONT).toString('base64'),
