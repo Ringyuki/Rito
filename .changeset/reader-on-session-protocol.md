@@ -2,7 +2,6 @@
 '@ritojs/core': major
 '@ritojs/kit': major
 '@ritojs/react': major
-'@ritojs/core-wasm': minor
 ---
 
 `createReader()` opens a book on the reader session protocol, the one the Flutter adapter and the C ABI speak, and the revision runtime it used to run on is removed. A layout — at open and after every change that paginates again — is committed twice: the chapter being read first, laid out alone, so its page is on screen after one chapter's work, then the whole book under book-wide page numbers. `Reader.layoutScope` says which commit is current (`'chapter'` or `'book'`), `onLayoutCommitted` fires for both, and during the chapter commit `pageCount`, `totalSpreads`, `spreads`, `chapterMap` and every page index describe that chapter alone. `@ritojs/kit` keeps its page numbers, progress and navigation book-wide throughout: a turn inside the chapter is immediate, and a turn past its edge or a jump outside it waits for the book and lands there.
