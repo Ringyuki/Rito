@@ -1,5 +1,16 @@
 ## Unreleased
 
+### Unsupported sizing keywords no longer fail a chapter
+
+A block or image sized with `fit-content`, `min-content`, `max-content`,
+`fit-content()`, `-webkit-fill-available` or `stretch` used to fail its
+chapter's layout. Until these sizes are computed they lay out as `auto`
+(an image keeps its natural size), an intrinsic `max-width` caps nothing,
+and the rest of the element's style — numeric widths and caps, padding,
+margins and borders — still applies. A float with `stretch` or
+`-webkit-fill-available` fills the available width; with the other
+keywords it shrinks to fit.
+
 ### A peek leaves a pending navigation adoptable
 
 `RitoReaderSession.peek` and `peekSpread` consume a request id without
