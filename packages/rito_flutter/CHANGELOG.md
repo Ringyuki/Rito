@@ -1,4 +1,4 @@
-## Unreleased
+## 0.5.0 - 2026-10-14
 
 ### Unsupported sizing keywords no longer fail a chapter
 
