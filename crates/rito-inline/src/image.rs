@@ -23,8 +23,8 @@ pub(crate) enum PercentageImageSizing {
 /// and a `max-width` length or percentage caps the result preserving the
 /// ratio. Percentages resolve against `available_inline_size`; in intrinsic
 /// (min/max-content) sizing there is none, and percentage-based fields are
-/// treated as their auto/none behavior per CSS. Everything else fails
-/// closed.
+/// treated as their auto/none behavior per CSS. Intrinsic and stretch sizing
+/// keywords fall back to auto.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn image_display_size(
     intrinsic_width: f64,
@@ -89,20 +89,27 @@ pub(crate) fn image_display_size(
                 .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis),
         }
     };
-    let preferred =
-        |value: PreferredSize, axis: &str, block: bool| -> Result<Option<f64>, LayoutError> {
-            match value {
-                PreferredSize::Auto => Ok(None),
-                PreferredSize::Value(value) => Ok(if block {
+    let preferred = |value: PreferredSize, block: bool| -> Option<f64> {
+        match value {
+            PreferredSize::Auto => None,
+            PreferredSize::Value(value) => {
+                if block {
                     resolve_block(value.value())
                 } else {
                     resolve(value.value())
-                }),
-                other => Err(LayoutError::Invalid(format!(
-                    "image {axis} sizing {other:?} is not representable yet"
-                ))),
+                }
             }
-        };
+            // No used-size calculation for these keywords yet. The chapter
+            // bridge records them; the image keeps its natural size as for
+            // auto, which the intrinsic keywords match for a replaced box.
+            PreferredSize::MaxContent
+            | PreferredSize::MinContent
+            | PreferredSize::FitContent
+            | PreferredSize::WebkitFillAvailable
+            | PreferredSize::Stretch
+            | PreferredSize::FitContentFunction(_) => None,
+        }
+    };
     // The ELEMENT box of an svg-folded image sizes by the svg's own
     // viewBox ratio, not the inner raster's (they differ on covers:
     // viewBox 1434x2048 vs raster 1119x1600); the raster then
@@ -118,8 +125,8 @@ pub(crate) fn image_display_size(
     } else {
         1.0
     };
-    let preferred_width = preferred(layout_style.width, "width", false)?;
-    let preferred_height = preferred(layout_style.height, "height", true)?;
+    let preferred_width = preferred(layout_style.width, false);
+    let preferred_height = preferred(layout_style.height, true);
     // A percentage `max-width` makes the element just as shrinkable as a
     // percentage `width` does, so it collapses the same way when there is
     // no basis to resolve against.
