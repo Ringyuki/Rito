@@ -1,31 +1,10 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    ResolvedRuntimeLocator, RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnote,
-    RuntimeFootnotes, RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimeSearchRequest,
-    RuntimeSearchResponse, RuntimeSourceLocator, RuntimeSourceLocatorResolution,
+    RuntimeDocument, RuntimeFootnote, RuntimePageReadingAnchor, RuntimeSourceLocator,
+    RuntimeSourceLocatorResolution,
 };
 
 impl RuntimeDocument {
-    pub fn search_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimeSearchRequest,
-    ) -> Result<RuntimeVersioned<RuntimeSearchResponse>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.search(revision_id, request)
-        })
-    }
-
-    pub fn resolve_locator_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimeLocatorRequest,
-    ) -> Result<RuntimeVersioned<ResolvedRuntimeLocator>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.resolve_locator(revision_id, request)
-        })
-    }
-
     pub fn resolve_source_locator_at(
         &mut self,
         handle: &RuntimeRevisionHandle,
@@ -54,19 +33,5 @@ impl RuntimeDocument {
         self.versioned_write(handle, |document, revision_id| {
             document.get_footnote(revision_id, key)
         })
-    }
-
-    pub fn get_footnotes_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<RuntimeFootnotes>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, RuntimeDocument::get_footnotes)
-    }
-
-    pub fn get_chapter_text_indices_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<RuntimeChapterTextIndices>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, RuntimeDocument::get_chapter_text_indices)
     }
 }

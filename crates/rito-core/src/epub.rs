@@ -8,6 +8,8 @@ mod layout_bridge;
 mod parser;
 mod paths;
 mod prepared;
+mod reader;
+pub mod shard;
 mod toc;
 
 use std::{error::Error, fmt};
@@ -16,8 +18,9 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) use document::ChapterSourceScanSession;
 pub use document::{
-    open_document, open_runtime_document, open_runtime_document_owned, LoadedBinaryResource,
-    LoadedChapter, LoadedEpubDocument, LoadedTextResource,
+    open_document, open_runtime_document, open_runtime_document_from_shards,
+    open_runtime_document_owned, LoadedBinaryResource, LoadedChapter, LoadedEpubDocument,
+    LoadedTextResource,
 };
 pub(crate) use fonts::{
     parse_font_family_list, publication_font_face_catalog, resolve_font_face_sources,
@@ -97,17 +100,39 @@ impl PackageDocument {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EpubError {
     message: String,
+    pending_shards: Vec<u32>,
 }
 
 impl EpubError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            pending_shards: Vec::new(),
+        }
+    }
+
+    /// A read that needs content shards the host has not supplied yet.
+    pub fn shards_pending(mut shard_ids: Vec<u32>, message: impl Into<String>) -> Self {
+        shard_ids.sort_unstable();
+        shard_ids.dedup();
+        Self {
+            message: message.into(),
+            pending_shards: shard_ids,
         }
     }
 
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    /// The content shards whose absence caused this error, ascending; empty
+    /// for every other failure.
+    pub fn pending_shards(&self) -> &[u32] {
+        &self.pending_shards
+    }
+
+    pub fn is_pending(&self) -> bool {
+        !self.pending_shards.is_empty()
     }
 }
 

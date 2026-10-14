@@ -35,6 +35,7 @@ use super::commands::{
 
 mod block;
 mod border;
+mod image_fallback;
 #[cfg(test)]
 mod json;
 mod path;
@@ -45,8 +46,8 @@ mod tests;
 mod text;
 
 pub(crate) use primitive::{
-    DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, PathOp,
-    Primitive, PrimitiveList, StrokeCap, TilePlan,
+    DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, IconPiece,
+    ImageFallbackState, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
 };
 
 /// An image's intrinsic size in CSS pixels, as the publication's resource
@@ -152,12 +153,19 @@ fn lower_command(
             rect,
             source_rect,
             ..
-        } => out.push(Primitive::DrawImage {
-            src: src.clone(),
-            dest: rect.into(),
-            source_rect: *source_rect,
-            tiles: None,
-        }),
+        } => {
+            // The image's own box (not a clamp-bleed edge slice of it)
+            // stands in for the bitmap while that is not there.
+            if source_rect.is_none() {
+                out.extend(image_fallback::image_fallbacks(src, rect.into()));
+            }
+            out.push(Primitive::DrawImage {
+                src: src.clone(),
+                dest: rect.into(),
+                source_rect: *source_rect,
+                tiles: None,
+            });
+        }
         DisplayCommand::PaintHorizontalRule { rect, paint } => {
             border::lower_horizontal_rule(rect.into(), paint, out);
         }

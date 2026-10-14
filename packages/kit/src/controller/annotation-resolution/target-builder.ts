@@ -1,64 +1,19 @@
 /**
- * Build an AnnotationTarget from the selection's durable source range.
- *
- * The exact source range is kept as the authoritative selector; the fallback
- * selectors are derived from normalized chapter offsets by createAnnotationTarget().
+ * Build an AnnotationTarget from the selection's durable source range. The
+ * engine builds it, so the target is byte-for-byte what every other host
+ * would store for the same range.
  */
 
-import {
-  createAnnotationTarget,
-  sourcePointToOffset,
-  type AnnotationTarget,
-  type ChapterTextIndex,
-} from '../../interaction/index';
 import type { ReaderLocator } from '@ritojs/core';
+import type { AnnotationTarget } from '../../interaction/index';
 import type { Internals } from '../core/internals';
-import { findChapterSpineIndex } from './chapter-identity';
 
-export function buildAnnotationTargetFromLocator(
+export async function buildAnnotationTargetFromLocator(
   locator: ReaderLocator,
   internals: Internals,
-): AnnotationTarget | undefined {
+): Promise<AnnotationTarget | undefined> {
   const sourceRange = locator.sourceRange;
-  if (!sourceRange) return undefined;
-  const chapterIndex = findChapterIndex(locator.href, internals);
-  if (!chapterIndex) return undefined;
-  const startOffset = sourcePointToOffset(chapterIndex, sourceRange.start);
-  const endOffset = sourcePointToOffset(chapterIndex, sourceRange.end);
-  if (startOffset === undefined || endOffset === undefined) return undefined;
-  const target = createAnnotationTarget({
-    href: locator.href,
-    chapterIndex,
-    chapterSpineIndex: findChapterSpineIndex(internals.reader, locator.href),
-    startOffset,
-    endOffset,
-  });
-  if (!target) return undefined;
-  return {
-    ...target,
-    selectors: {
-      ...target.selectors,
-      sourceRange: {
-        type: 'SourceRangeSelector',
-        start: {
-          nodePath: [...sourceRange.start.nodePath],
-          textOffset: sourceRange.start.textOffset,
-        },
-        end: {
-          nodePath: [...sourceRange.end.nodePath],
-          textOffset: sourceRange.end.textOffset,
-        },
-      },
-    },
-  };
-}
-
-function findChapterIndex(href: string, internals: Internals): ChapterTextIndex | undefined {
-  const direct = internals.coordState.chapterIndices.get(href);
-  if (direct) return direct;
-  const canonicalHref = internals.reader.manifestHrefMap.get(href);
-  if (canonicalHref) {
-    return internals.coordState.chapterIndices.get(canonicalHref);
-  }
-  return undefined;
+  const interactions = internals.reader.interactions;
+  if (!sourceRange || !interactions?.createAnnotationTarget) return undefined;
+  return interactions.createAnnotationTarget({ href: locator.href, sourceRange });
 }

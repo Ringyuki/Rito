@@ -25,7 +25,6 @@ pub use footnote::{FootnoteEntry, FootnoteKind};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InteractionSummary {
-    pub chapter_text_index_ids: Vec<String>,
     pub footnote_keys: Vec<String>,
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub footnotes: std::collections::BTreeMap<String, FootnoteEntry>,
@@ -79,14 +78,10 @@ pub(crate) fn summarize_interaction_from_parsed<'a>(
 }
 
 pub(crate) fn summarize_interaction_with_footnotes(
-    chapter_text_index_ids: impl IntoIterator<Item = String>,
     footnotes: std::collections::BTreeMap<String, FootnoteEntry>,
 ) -> InteractionSummary {
-    let mut chapter_text_index_ids = chapter_text_index_ids.into_iter().collect::<Vec<_>>();
-    chapter_text_index_ids.sort();
     let footnote_keys = footnotes.keys().cloned().collect();
     InteractionSummary {
-        chapter_text_index_ids,
         footnote_keys,
         footnotes,
     }
@@ -98,10 +93,7 @@ fn interaction_summary(
     targets: &FootnoteTargetSet,
 ) -> InteractionSummary {
     let footnotes = extract_footnotes_for_targets(&footnote_inputs(chapters), targets).footnotes;
-    summarize_interaction_with_footnotes(
-        chapters.iter().map(|chapter| chapter.idref.to_owned()),
-        footnotes,
-    )
+    summarize_interaction_with_footnotes(footnotes)
 }
 
 #[cfg(test)]

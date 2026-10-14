@@ -62,10 +62,6 @@ fn pinned_font_policy_summary_is_bytes_free_canonical_and_publication_neutral() 
     assert_eq!(summary.faces[1].sha256, illustration_hash);
     assert_eq!(summary.faces[1].byte_length, illustration.len());
 
-    let baseline = RuntimeDocument::open(&fixture_epub())
-        .expect("baseline opens")
-        .publication_info();
-    assert_eq!(document.publication_info(), baseline);
     let json = serde_json::to_value(summary).expect("summary serializes");
     assert!(json.get("faces").is_some());
     assert!(json.to_string().find("bytes").is_none());
@@ -104,13 +100,6 @@ fn pinned_policy_changes_layout_identity_and_is_stable_across_runtime_paths() {
         .create_revision(&layout())
         .expect("revision is created");
     assert_eq!(summary.layout_key, title_revision.layout_key);
-    assert_eq!(
-        document
-            .get_revision_summary(&summary.revision_id)
-            .expect("revision summary")
-            .layout_key,
-        title_revision.layout_key
-    );
 }
 
 #[test]

@@ -7,16 +7,23 @@ import 'dart:typed_data';
 
 import 'font/artifact_font_cache.dart';
 import 'image/artifact_image_cache.dart';
+import 'native/bindings.dart'
+    show RitoNativeException, ritoNativeStatusResourcePending;
 import 'native/gateway.dart';
+import 'protocol/annotation_target.dart';
 import 'protocol/artifact_models.dart';
 import 'protocol/background_models.dart';
 import 'protocol/exact_source_range.dart';
+import 'protocol/font_catalog.dart';
 import 'protocol/footnote_decoder.dart';
 import 'protocol/foreground_models.dart';
+import 'protocol/navigation_query.dart';
 import 'protocol/publication_models.dart';
 import 'protocol/request_models.dart';
+import 'protocol/revision_layout.dart';
 import 'protocol/search.dart';
 import 'protocol/text_geometry.dart';
+import 'protocol/text_interaction.dart';
 
 typedef RitoArtifactResourceReader =
     Future<RitoResource> Function(RitoResourceRef reference);
@@ -79,6 +86,79 @@ final class RitoReaderSession {
     double imagePixelRatio = 1,
     RitoArtifactResourcePreparer? resourcePreparer,
     RitoPinnedFontPolicy? pinnedFontPolicy,
+  }) {
+    return _openWith(
+      gateway: gateway,
+      request: request,
+      fontCache: fontCache,
+      imageCache: imageCache,
+      imagePixelRatio: imagePixelRatio,
+      resourcePreparer: resourcePreparer,
+      pinnedFontPolicy: pinnedFontPolicy,
+      openNative: (request) => gateway.open(
+        publicationBytes: publicationBytes,
+        request: request,
+        pinnedFontPolicy: pinnedFontPolicy,
+      ),
+    );
+  }
+
+  /// Opens a publication split by `rito-pack` from its skeleton shard.
+  ///
+  /// The skeleton carries every chapter, stylesheet and font and every
+  /// image's dimensions, so opening, seeking, turning and whole-book
+  /// pagination never wait on the network. An image is loaded through
+  /// [loadShards] the first time a page needs it, and the read is retried,
+  /// so the rest of the session API behaves exactly as for [open]. A
+  /// sharded open always pins faces.
+  static Future<RitoReaderSession> openShards({
+    required RitoReaderGateway gateway,
+    required Uint8List skeletonBytes,
+    Uint8List? skeletonKey,
+    required RitoShardLoader loadShards,
+    required RitoArtifactRequest request,
+    required RitoPinnedFontPolicy pinnedFontPolicy,
+    RitoArtifactFontCache? fontCache,
+    RitoArtifactImageCache? imageCache,
+    double imagePixelRatio = 1,
+    RitoArtifactResourcePreparer? resourcePreparer,
+  }) {
+    if (gateway is! RitoShardedPublicationGateway) {
+      throw ArgumentError.value(
+        gateway,
+        'gateway',
+        'cannot open a publication from shards',
+      );
+    }
+    final shardedGateway = gateway as RitoShardedPublicationGateway;
+    return _openWith(
+      gateway: gateway,
+      request: request,
+      fontCache: fontCache,
+      imageCache: imageCache,
+      imagePixelRatio: imagePixelRatio,
+      resourcePreparer: resourcePreparer,
+      pinnedFontPolicy: pinnedFontPolicy,
+      openNative: (request) => shardedGateway.openShards(
+        skeletonBytes: skeletonBytes,
+        skeletonKey: skeletonKey,
+        request: request,
+        pinnedFontPolicy: pinnedFontPolicy,
+        loadShards: loadShards,
+      ),
+    );
+  }
+
+  static Future<RitoReaderSession> _openWith({
+    required RitoReaderGateway gateway,
+    required RitoArtifactRequest request,
+    required RitoArtifactFontCache? fontCache,
+    required RitoArtifactImageCache? imageCache,
+    required double imagePixelRatio,
+    required RitoArtifactResourcePreparer? resourcePreparer,
+    required RitoPinnedFontPolicy? pinnedFontPolicy,
+    required Future<RitoArtifact> Function(RitoArtifactRequest request)
+    openNative,
   }) async {
     if (!imagePixelRatio.isFinite || imagePixelRatio <= 0) {
       throw ArgumentError.value(
@@ -100,11 +180,7 @@ final class RitoReaderSession {
     // grid: every raster snap in the display list lands on the device
     // pixels the host draws at.
     request = _withSessionRenderRatio(request, imagePixelRatio);
-    final artifact = await gateway.open(
-      publicationBytes: publicationBytes,
-      request: request,
-      pinnedFontPolicy: pinnedFontPolicy,
-    );
+    final artifact = await openNative(request);
     // Marker capabilities are unrelated to RitoReaderGateway, so an `is`
     // check cannot promote; the pattern binds the capable view instead.
     final resumedIdentity =
@@ -157,6 +233,9 @@ final class RitoReaderSession {
   // stay owned by the caller.
   final Map<({int fromArtifactId, String direction}), RitoPreparedArtifact>
   _peeked = <({int fromArtifactId, String direction}), RitoPreparedArtifact>{};
+  // Artifacts published by [peekSpread] that [commitSpread] may still
+  // make visible.
+  final Set<int> _peekedSpreads = <int>{};
   late final RitoPreparedArtifact firstArtifact;
   _NavigationTicket? _activeNavigation;
   _NavigationTicket? _navigationTail;
@@ -408,8 +487,9 @@ final class RitoReaderSession {
   /// A neighbor in another chapter is paginated on demand, so peeks
   /// normally succeed. Returns null at the book's terminal boundary
   /// (the UI falls back to its fade-in path). A returned artifact is
-  /// live, has fonts and images prepared, counts against the session's
-  /// live-artifact budget, and must be freed with [releaseArtifact]. A
+  /// live, has its fonts registered and its images on their way, counts
+  /// against the session's live-artifact budget, and must be freed with
+  /// [releaseArtifact]. A
   /// later [turn] in the same direction from the same page commits the
   /// peeked artifact directly (zero layout, pure visible swap).
   Future<RitoPreparedArtifact?> peek({
@@ -447,6 +527,81 @@ final class RitoReaderSession {
     _peeked[(fromArtifactId: from.artifactId, direction: direction.name)] =
         prepared;
     return prepared;
+  }
+
+  /// Publishes the spread at [spreadIndex] of [from]'s revision as a
+  /// fully prepared read-only artifact without changing the visible
+  /// state. [revisionLayout] lists the revision's spreads; the revision
+  /// is already laid out, so this costs what a peeked turn costs.
+  ///
+  /// Throws for a position outside the layout. The returned artifact is
+  /// live, has its fonts registered and its images on their way, counts
+  /// against the session's live-artifact budget, and must be freed with
+  /// [releaseArtifact] unless [commitSpread] makes it the visible page.
+  Future<RitoPreparedArtifact> peekSpread({
+    required RitoPreparedArtifact from,
+    required int requestId,
+    required int spreadIndex,
+  }) async {
+    _requireOpen();
+    if (from.sessionId != sessionId) {
+      throw ArgumentError('Spread source belongs to another Rito session.');
+    }
+    if (!_liveArtifacts.contains(from.artifactId)) {
+      throw ArgumentError('Spread source artifact is not live.');
+    }
+    final artifact = await gateway.peekSpread(
+      request: RitoSpreadRequest(
+        sessionId: sessionId,
+        requestId: requestId,
+        fromArtifactId: from.artifactId,
+        spreadIndex: spreadIndex,
+      ),
+    );
+    _recordConsumedRequestId(requestId);
+    _liveArtifacts.add(artifact.artifactId);
+    late final RitoPreparedArtifact prepared;
+    try {
+      prepared = await _prepareOwnedArtifact(artifact);
+    } on Object {
+      await _discardFailedArtifact(artifact);
+      rethrow;
+    }
+    _peekedSpreads.add(prepared.artifactId);
+    return prepared;
+  }
+
+  /// Makes [spread], published by [peekSpread], the visible page in place
+  /// of [from] with a pure visible-artifact swap and zero layout work.
+  ///
+  /// [from] stays live so both can be animated; release it once it is no
+  /// longer painted. Throws a [StateError] when [spread] did not come
+  /// from [peekSpread], was released, or [from] is no longer the visible
+  /// page — the caller then navigates from its current page instead.
+  Future<RitoPreparedArtifact> commitSpread({
+    required RitoPreparedArtifact from,
+    required RitoPreparedArtifact spread,
+  }) async {
+    _requireOpen();
+    if (!_peekedSpreads.contains(spread.artifactId) ||
+        !_liveArtifacts.contains(spread.artifactId) ||
+        _visibleArtifactId != from.artifactId ||
+        _activeNavigation != null) {
+      throw StateError('The spread is not committable over the visible page.');
+    }
+    final ack = await gateway.commitPeeked(
+      handoff: RitoForegroundHandoff(
+        sessionId: sessionId,
+        expectedVisibleArtifactId: from.artifactId,
+        candidateArtifactId: spread.artifactId,
+      ),
+      intentRequestId: spread.requestId,
+    );
+    _visibleArtifactId = ack.visibleArtifactId;
+    _visibleRequestId = ack.intentRequestId;
+    _peeked.clear();
+    _peekedSpreads.remove(spread.artifactId);
+    return spread;
   }
 
   /// Turns from an already-published artifact without re-seeking or rebuilding
@@ -603,9 +758,9 @@ final class RitoReaderSession {
   /// Searches the book from [prepared].
   ///
   /// Scope follows the revision behind the artifact: from a
-  /// chapter-local artifact the search covers that chapter's laid-out
-  /// pages; once the background pump has handed off a publication
-  /// artifact it covers the book as far as pagination has reached. Hits
+  /// chapter-local artifact the search covers that chapter's pages; from
+  /// a publication artifact, handed off by the background pump, it covers
+  /// the whole book. Hits
   /// carry positions [textRangeGeometry] consumes and, where the layout
   /// kept source identity, a durable [RitoLocator] to store instead of
   /// a page number.
@@ -670,11 +825,15 @@ final class RitoReaderSession {
   /// the pages this artifact draws. A range that resolved elsewhere
   /// comes back resolved with no rects and
   /// [RitoExactSourceRangeResolution.firstPageIndex] set: navigate
-  /// there and ask again.
+  /// there and ask again. With [everyPage] the rects of every page the
+  /// range covers come back, each in the display-list space of the
+  /// spread that draws its page — keep only the pages a surface shows
+  /// before painting them onto it.
   Future<RitoExactSourceRangeResolution> exactSourceRange(
     RitoPreparedArtifact prepared, {
     required String href,
     required RitoSourceRange range,
+    bool everyPage = false,
   }) async {
     _requireOpen();
     final artifact = prepared.artifact;
@@ -690,6 +849,7 @@ final class RitoReaderSession {
           artifactId: artifact.artifactId,
           href: href,
           range: range,
+          everyPage: everyPage,
         ),
       );
     } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
@@ -706,6 +866,211 @@ final class RitoReaderSession {
       );
     }
     return resolution;
+  }
+
+  /// Resolves a caret, a range or a caret movement against [prepared].
+  ///
+  /// These are the five queries a browser reader runs — [RitoCaretQuery],
+  /// [RitoRangeQuery], [RitoRangeToPointQuery], [RitoRangeFromPointsQuery]
+  /// and [RitoMovementQuery] — answered by the same engine code, so a
+  /// selection behaves the same on every host: word boundaries come from
+  /// the engine's segmenter, character drags snap to shaped cluster edges.
+  /// Points and geometry are in the artifact's display-list space, the
+  /// space [RitoHitEntry.bounds] uses. A [RitoCaretAddress] names the
+  /// revision behind the artifact it came from; pass it back only with
+  /// artifacts of that revision. A point must lie on a page [prepared]
+  /// draws, and rects and caret geometry cover those pages only; with
+  /// [everyPage] both reach any page of the revision, each in the
+  /// display-list space of the spread that draws it.
+  Future<RitoTextInteractionResult> textInteraction(
+    RitoPreparedArtifact prepared,
+    RitoTextInteractionQuery query, {
+    bool everyPage = false,
+  }) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    late final RitoTextInteractionResponse response;
+    try {
+      response = await gateway.textInteraction(
+        request: RitoTextInteractionRequest(
+          sessionId: sessionId,
+          artifactId: artifact.artifactId,
+          query: query,
+          everyPage: everyPage,
+        ),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (response.artifactId != artifact.artifactId) {
+      throw StateError(
+        'Text interaction ownership does not match its artifact.',
+      );
+    }
+    return response.result;
+  }
+
+  /// Builds the annotation target for a source range, normally a
+  /// selection's [RitoTextSelection.sourceStart] and
+  /// [RitoTextSelection.sourceEnd].
+  ///
+  /// The target is the engine's canonical JSON ([RitoAnnotationTarget.json]),
+  /// the same bytes a browser host stores for the same range: persist it
+  /// as it is.
+  Future<RitoAnnotationTarget> createAnnotationTarget({
+    required String href,
+    required RitoSourceRange range,
+  }) async {
+    if (href.isEmpty) {
+      throw ArgumentError.value(href, 'href', 'must not be empty');
+    }
+    final response = await _annotation(
+      RitoCreateAnnotationQuery(href: href, range: range),
+    );
+    final target = response.target;
+    if (target == null) {
+      throw StateError('A created annotation target carries no target.');
+    }
+    return target;
+  }
+
+  /// Finds a stored annotation target in the publication as it is now.
+  /// [targetJson] is the [RitoAnnotationTarget.json] the host persisted.
+  ///
+  /// The engine tries the source range (checked against its quote), then
+  /// the quote with the best-matching context, then the stored offsets,
+  /// then the length-scaled position, and returns the target re-anchored
+  /// where it landed — project that through [exactSourceRange] to paint
+  /// it. An orphaned response carries no target.
+  Future<RitoAnnotationResponse> resolveAnnotationTarget(String targetJson) {
+    if (targetJson.isEmpty) {
+      throw ArgumentError.value(targetJson, 'targetJson', 'must not be empty');
+    }
+    return _annotation(RitoResolveAnnotationQuery(targetJson));
+  }
+
+  Future<RitoAnnotationResponse> _annotation(RitoAnnotationQuery query) async {
+    _requireOpen();
+    late final RitoAnnotationResponse response;
+    try {
+      response = await gateway.annotation(
+        request: RitoAnnotationRequest(sessionId: sessionId, query: query),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    return response;
+  }
+
+  /// The TOC entry (its `tocId`) a page of [prepared]'s revision reads
+  /// under: the last entry, in TOC order, whose target sits at or before
+  /// the page. Null when no entry precedes it.
+  Future<int?> tocEntryAtPage(
+    RitoPreparedArtifact prepared,
+    int pageIndex,
+  ) async {
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    final result = await _navigation(
+      RitoTocEntryAtPageQuery(
+        artifactId: artifact.artifactId,
+        pageIndex: pageIndex,
+      ),
+    );
+    return (result as RitoTocEntryResult).tocId;
+  }
+
+  /// The TOC entry (its `tocId`) a source position reads under, decided on
+  /// the source alone — the chapter of a stored highlight or bookmark.
+  Future<int?> tocEntryAtPosition({
+    required String href,
+    required RitoSourcePoint point,
+  }) async {
+    final result = await _navigation(
+      RitoTocEntryAtPositionQuery(href: href, point: point),
+    );
+    return (result as RitoTocEntryResult).tocId;
+  }
+
+  /// Where a stored locator lands in [prepared]'s revision: the page, and
+  /// whether [prepared] draws it — the check for "is this bookmark on the
+  /// current page".
+  Future<RitoLocation> locate(
+    RitoPreparedArtifact prepared,
+    RitoLocator locator,
+  ) async {
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    final result = await _navigation(
+      RitoLocateQuery(artifactId: artifact.artifactId, locator: locator),
+    );
+    return (result as RitoLocationResult).location;
+  }
+
+  /// The page table of [prepared]'s revision: its spreads, the pages of
+  /// each chapter it lays out, and where its TOC entries land.
+  ///
+  /// A page shown from a fresh request is laid out with its chapter
+  /// alone, so the table covers that chapter and counts pages from zero;
+  /// once the whole book is adopted the table covers the book and its
+  /// pages are book pages. [peekSpread] reaches any spread it lists.
+  Future<RitoRevisionLayout> revisionLayout(
+    RitoPreparedArtifact prepared,
+  ) async {
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    final result = await _navigation(
+      RitoLayoutQuery(artifactId: artifact.artifactId),
+    );
+    return (result as RitoLayoutResult).layout;
+  }
+
+  /// -1, 0 or 1 as the first source position reads before, at or after
+  /// the second — the direction to animate a jump in.
+  Future<int> compareSourcePositions({
+    required String firstHref,
+    required RitoSourcePoint first,
+    required String secondHref,
+    required RitoSourcePoint second,
+  }) async {
+    final result = await _navigation(
+      RitoCompareQuery(
+        firstHref: firstHref,
+        first: first,
+        secondHref: secondHref,
+        second: second,
+      ),
+    );
+    return (result as RitoOrderResult).order;
+  }
+
+  Future<RitoNavigationResult> _navigation(RitoNavigationQuery query) async {
+    _requireOpen();
+    late final RitoNavigationResult result;
+    try {
+      result = await gateway.navigation(
+        request: RitoNavigationRequest(sessionId: sessionId, query: query),
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    return result;
   }
 
   /// Resolves where a text range sits on one of [prepared]'s pages.
@@ -798,6 +1163,98 @@ final class RitoReaderSession {
     return footnote;
   }
 
+  /// Every family a `font-family` list can name in this publication: the
+  /// host's faces by the family their name tables declare, then the
+  /// publication's own `@font-face` families. Build a font picker from it.
+  Future<RitoFontCatalog> fontCatalog() {
+    _requireOpen();
+    return _fontGateway.fontCatalog(sessionId: sessionId);
+  }
+
+  /// The names in a CSS `font-family` list no family in [fontCatalog]
+  /// answers to. Layout skips such a name the way a browser skips an
+  /// uninstalled font; check a reader's choice with this before applying
+  /// it, so a typo is reported instead of silently ignored.
+  Future<List<String>> unresolvedFontFamilies(String familyList) {
+    _requireOpen();
+    return _fontGateway.unresolvedFontFamilies(
+      sessionId: sessionId,
+      familyList: familyList,
+    );
+  }
+
+  /// Adds host faces (a system font, one the reader imported) after the
+  /// ones the session opened with, and registers them for paint. A face
+  /// may share its role and language with another; it is named by its
+  /// family in a `font-family` list, and joins the faces of its generic
+  /// role behind those already there, so a generic reaches it for text
+  /// the earlier faces do not cover. Pages already shown keep their
+  /// layout; the next request lays out with the new faces.
+  Future<void> addFontFaces(List<RitoPinnedFontFace> faces) async {
+    _requireOpen();
+    if (faces.isEmpty) {
+      return;
+    }
+    await _fontGateway.addHostFontFaces(sessionId: sessionId, faces: faces);
+    await _fontCache.registerPinnedFaces(RitoPinnedFontPolicy(faces: faces));
+  }
+
+  /// Removes host faces by SHA-256 ([RitoFontFamilyFace.sha256]); at least
+  /// one face must remain. The next request lays out without them.
+  Future<void> removeFontFaces(List<String> sha256s) {
+    _requireOpen();
+    return _fontGateway.removeHostFontFaces(
+      sessionId: sessionId,
+      sha256s: sha256s,
+    );
+  }
+
+  /// Marks publication faces this host could not load, by the family an
+  /// artifact lists them under ([RitoFontRef.family]). A run is measured
+  /// with the face it is shaped with, so a face painted with another must
+  /// not shape: the next request lays out without them. Artifacts already
+  /// published keep their layout, and a mark lasts for the session.
+  Future<void> markFontFamiliesUnavailable(List<String> families) {
+    _requireOpen();
+    if (families.isEmpty) {
+      return Future<void>.value();
+    }
+    return _fontGateway.markFontFamiliesUnavailable(
+      sessionId: sessionId,
+      families: families,
+    );
+  }
+
+  RitoFontGateway get _fontGateway => switch (gateway) {
+    final RitoFontGateway fonts => fonts,
+    _ => throw UnsupportedError('this gateway does not expose session fonts'),
+  };
+
+  /// An image read for the image cache: a failure that can pass (the host
+  /// could not load the image's shard) is marked so the cache reads the
+  /// image again; one the engine or this session refused is final.
+  Future<RitoResource> _readImageResource(
+    RitoArtifact artifact,
+    RitoResourceRef reference,
+  ) async {
+    try {
+      return await _readOwnedResource(artifact, reference);
+    } on RitoNativeException catch (error) {
+      if (error.status == ritoNativeStatusResourcePending) {
+        throw RitoTransientResourceFailure(error);
+      }
+      rethrow;
+    } on Object catch (error) {
+      if (error is ArgumentError ||
+          error is StateError ||
+          error is RitoArtifactNotLiveException ||
+          error is RitoNativeSessionInvalidatedException) {
+        rethrow;
+      }
+      throw RitoTransientResourceFailure(error);
+    }
+  }
+
   Future<RitoResource> _readOwnedResource(
     RitoArtifact artifact,
     RitoResourceRef reference,
@@ -852,6 +1309,7 @@ final class RitoReaderSession {
           value.artifactId == artifact.artifactId ||
           key.fromArtifactId == artifact.artifactId,
     );
+    _peekedSpreads.remove(artifact.artifactId);
     try {
       await gateway.releaseArtifact(
         sessionId: sessionId,
@@ -1238,7 +1696,7 @@ final class RitoReaderSession {
       if (imageCache != null) {
         imageLease = await imageCache.prepare(
           artifact: artifact,
-          readResource: (reference) => _readOwnedResource(artifact, reference),
+          readResource: (reference) => _readImageResource(artifact, reference),
         );
         prepared = RitoPreparedArtifact.withImageLease(
           fontPrepared: prepared,

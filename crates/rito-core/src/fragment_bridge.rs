@@ -439,6 +439,8 @@ struct InlineCollector {
     has_content: bool,
 }
 
+/// A contentless chapter tree, for sources the parser found no body in:
+/// the chapter renders as one empty page instead of blocking the book.
 pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
     let mut layout = LayoutStyleTable::new(1);
     let style = layout

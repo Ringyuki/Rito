@@ -40,16 +40,3 @@ pub(crate) fn summarize_display_list_resource_refs(
         images,
     }
 }
-
-pub(crate) fn summarize_display_list_font_families(commands: &[DisplayCommand]) -> Vec<String> {
-    let mut families = BTreeSet::new();
-    for command in commands {
-        if let DisplayCommand::PaintText(input) | DisplayCommand::PaintRuby(input) = command {
-            let family = &input.paint.font.family;
-            if !family.is_empty() {
-                families.insert(family.clone());
-            }
-        }
-    }
-    families.into_iter().collect()
-}

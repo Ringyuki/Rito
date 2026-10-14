@@ -8,6 +8,7 @@ use std::{
 
 use crate::{
     abi::RitoOwnedBuffer,
+    actor::ActorPublication,
     error::{FfiError, RITO_STATUS_OK},
     input, registry,
 };
@@ -73,7 +74,19 @@ fn clear_buffer(target: *mut RitoOwnedBuffer) -> Result<(), FfiError> {
     Ok(())
 }
 
-fn write_buffer(target: *mut RitoOwnedBuffer, mut bytes: Vec<u8>) -> Result<(), FfiError> {
+fn write_u32(target: *mut u32, value: u32, field: &str) -> Result<(), FfiError> {
+    if target.is_null() {
+        return Err(FfiError::invalid(format!("{field} pointer is null")));
+    }
+    // SAFETY: The caller supplies one writable `u32`.
+    unsafe { ptr::write(target, value) };
+    Ok(())
+}
+
+pub(super) fn write_buffer(
+    target: *mut RitoOwnedBuffer,
+    mut bytes: Vec<u8>,
+) -> Result<(), FfiError> {
     clear_buffer(target)?;
     if bytes.is_empty() {
         return Ok(());
@@ -153,7 +166,12 @@ pub extern "C" fn rito_open(
         let session_id = request.session_id;
         let reservation = registry::reserve_open(session_id)?;
         let publication = input::publication(publication_data, publication_len)?;
-        let artifact = registry::open(reservation, publication, request, None)?;
+        let artifact = registry::open(
+            reservation,
+            ActorPublication::Archive(publication),
+            request,
+            None,
+        )?;
         write_session_result(session_id, artifact_out, artifact, "initial artifact")
     })
 }
@@ -186,8 +204,103 @@ pub extern "C" fn rito_open_with_pinned_fonts(
         let session_id = request.session_id;
         let reservation = registry::reserve_open(session_id)?;
         let publication = input::publication(publication_data, publication_len)?;
-        let artifact = registry::open(reservation, publication, request, Some(policy))?;
+        let artifact = registry::open(
+            reservation,
+            ActorPublication::Archive(publication),
+            request,
+            Some(policy),
+        )?;
         write_session_result(session_id, artifact_out, artifact, "initial artifact")
+    })
+}
+
+#[no_mangle]
+/// Opens a reader from a publication's skeleton shard (see `rito-pack`)
+/// with a pinned measurement-font policy, and requests its initial
+/// artifact. `key_len` is 0 for plain shards or 32 for the skeleton's key.
+/// The skeleton carries everything layout reads, so this never waits on a
+/// content shard; pending/terminal semantics match `rito_open`.
+pub extern "C" fn rito_open_shards_with_pinned_fonts(
+    skeleton_data: *const u8,
+    skeleton_len: u64,
+    key_data: *const u8,
+    key_len: u64,
+    request_data: *const u8,
+    request_len: u64,
+    faces: *const super::RitoPinnedFontFace,
+    face_count: u32,
+    artifact_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_artifact_output(artifact_out, error_out)?;
+        let request = input::request(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITOREQ1 session_id")?;
+        validate_external_id(request.request_id, "RITOREQ1 request_id")?;
+        let policy = input::pinned_font_policy(faces, face_count)?;
+        let key = input::shard_key(key_data, key_len)?;
+        let session_id = request.session_id;
+        let reservation = registry::reserve_open(session_id)?;
+        let skeleton = input::shard(skeleton_data, skeleton_len, "skeleton shard")?;
+        let artifact = registry::open(
+            reservation,
+            ActorPublication::Shards { skeleton, key },
+            request,
+            Some(policy),
+        )?;
+        write_session_result(session_id, artifact_out, artifact, "initial artifact")
+    })
+}
+
+#[no_mangle]
+/// Hands an open reader one content shard and writes its id to
+/// `shard_id_out`. `key_len` is 0 for plain shards or 32 for the shard's
+/// key. A shard of another publication, one that fails authentication or
+/// one the skeleton does not declare is refused with
+/// `RITO_STATUS_INVALID_ARGUMENT`; supplying a shard twice is harmless.
+pub extern "C" fn rito_supply_shard(
+    session_id: u64,
+    shard_data: *const u8,
+    shard_len: u64,
+    key_data: *const u8,
+    key_len: u64,
+    shard_id_out: *mut u32,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        write_u32(shard_id_out, 0, "shard_id_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let key = input::shard_key(key_data, key_len)?;
+        let shard = input::shard(shard_data, shard_len, "content shard")?;
+        let admission = registry::try_admit(session_id)?;
+        let shard_id = registry::supply_shard(admission, shard, key)?;
+        write_u32(shard_id_out, shard_id, "shard_id_out")
+    })
+}
+
+#[no_mangle]
+/// Writes every content shard id of a reader opened from shards to
+/// `shards_out` as little-endian `u32`s, ordered for fetching ahead of
+/// need from the chapter at `href`: the shards that chapter draws, then
+/// those of the chapters around it by reading distance. A reader opened
+/// from an archive writes an empty buffer.
+pub extern "C" fn rito_content_shards_near(
+    session_id: u64,
+    href_data: *const u8,
+    href_len: u64,
+    shards_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(shards_out, error_out, "shards_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let href = input::resource_href(href_data, href_len)?;
+        let admission = registry::try_admit(session_id)?;
+        let shards = registry::content_shards_near(admission, href)?;
+        write_buffer(
+            shards_out,
+            shards.iter().flat_map(|id| id.to_le_bytes()).collect(),
+        )
     })
 }
 
@@ -294,9 +407,42 @@ pub extern "C" fn rito_peek_adjacent(
 }
 
 #[no_mangle]
+/// Publishes one spread of the revision behind an artifact as a read-only
+/// artifact, addressed by its position in that revision's layout (the
+/// `RITONVQ1` layout query lists the spreads). The revision is already
+/// laid out, so this does no layout work and, like `rito_peek_adjacent`,
+/// has no foreground side effect. A position outside the layout returns
+/// `RITO_STATUS_INVALID_ARGUMENT`. The artifact occupies one live slot and
+/// must be released by the caller.
+pub extern "C" fn rito_peek_spread(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    artifact_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_artifact_output(artifact_out, error_out)?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::spread_request(request_data, request_len)?;
+        validate_external_id(request.session_id, "RITOSPQ1 session_id")?;
+        validate_external_id(request.request_id, "RITOSPQ1 request_id")?;
+        validate_external_id(request.from_artifact_id, "RITOSPQ1 from_artifact_id")?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOSPQ1 session_id does not match the ABI session_id",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let artifact = registry::peek_spread(admission, request)?;
+        write_session_result(session_id, artifact_out, artifact, "spread artifact")
+    })
+}
+
+#[no_mangle]
 /// Commits a previously peeked artifact as the visible foreground with a
 /// visible-artifact CAS and zero layout work. Only artifacts produced by
-/// `rito_peek_adjacent` qualify; a successful commit supersedes any
+/// `rito_peek_adjacent` or `rito_peek_spread` qualify; a successful commit supersedes any
 /// in-flight foreground intent exactly as a fresh navigation would.
 pub extern "C" fn rito_commit_peeked_artifact(
     session_id: u64,
@@ -544,6 +690,100 @@ pub extern "C" fn rito_resolve_exact_source_range(
     })
 }
 
+/// Resolves one text selection query against a live artifact and
+/// returns a complete RITOTIR1 message. `request_data` is a RITOTIQ1
+/// message: a caret at a point, the range between two carets, a kept
+/// caret extended to a point, the range two points span widened to words
+/// or paragraphs, or a caret movement.
+///
+/// These are the resolvers a browser reader runs, against the revision
+/// behind the artifact, so a selection behaves identically on every
+/// host. Points and geometry are in the artifact's display-list space;
+/// rects cover only the pages this artifact draws.
+#[no_mangle]
+pub extern "C" fn rito_resolve_text_interaction(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::text_interaction_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOTIQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::text_interaction(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
+/// Builds an annotation target for a source range, or locates a stored
+/// one, and returns a complete RITOANR1 message. `request_data` is a
+/// RITOANQ1 message.
+///
+/// The target crosses as the engine's canonical JSON, which is what a
+/// host persists: every host builds and reads targets with the same
+/// code, so a highlight stored on one resolves the same way on another.
+#[no_mangle]
+pub extern "C" fn rito_resolve_annotation(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::annotation_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITOANQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::annotation(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
+/// Answers a reading-position question and returns a complete RITONVR1
+/// message. `request_data` is a RITONVQ1 message: the TOC entry a page or
+/// a source position reads under, where a stored locator lands in an
+/// artifact's revision, or the reading order of two source positions.
+///
+/// The engine answers each the way it answers a browser reader, so a
+/// chapter title, a bookmark check or a turn direction is the same on
+/// every host.
+#[no_mangle]
+pub extern "C" fn rito_resolve_navigation(
+    session_id: u64,
+    request_data: *const u8,
+    request_len: u64,
+    response_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(response_out, error_out, "response_out")?;
+        validate_external_id(session_id, "session_id")?;
+        let request = input::navigation_request(request_data, request_len)?;
+        if request.session_id != session_id {
+            return Err(FfiError::invalid(
+                "RITONVQ1 session_id must match the session",
+            ));
+        }
+        let admission = registry::try_admit(session_id)?;
+        let response = registry::navigation(admission, request)?;
+        write_buffer(response_out, response)
+    })
+}
+
 /// Reads a footnote definition an artifact's hits referenced. The key
 /// is the hit's `footnote_key` verbatim — it is already canonical, so
 /// hosts must not normalize the link href themselves. A definition the
@@ -604,7 +844,7 @@ fn prepare_artifact_output(
     prepare_owned_output(artifact_out, error_out, "artifact_out")
 }
 
-fn prepare_owned_output(
+pub(super) fn prepare_owned_output(
     output: *mut RitoOwnedBuffer,
     error_out: *mut RitoOwnedBuffer,
     field: &str,
@@ -617,7 +857,7 @@ fn prepare_owned_output(
     clear_buffer(output)
 }
 
-fn invoke(
+pub(super) fn invoke(
     error_out: *mut RitoOwnedBuffer,
     operation: impl FnOnce() -> Result<(), FfiError>,
 ) -> u32 {
@@ -634,7 +874,8 @@ fn invoke(
 
 fn return_error(error_out: *mut RitoOwnedBuffer, error: FfiError) -> u32 {
     let status = error.status;
-    let _ = write_buffer(error_out, error.message.into_bytes());
+    let bytes = error.payload.unwrap_or_else(|| error.message.into_bytes());
+    let _ = write_buffer(error_out, bytes);
     status
 }
 

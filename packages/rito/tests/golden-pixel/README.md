@@ -10,11 +10,12 @@ The suite has one spec today:
 - `production-exact-fallback-selection.test.ts` builds a minimal EPUB whose
   text needs both the author's embedded face and a pinned fallback face
   (the glyphs are chosen so each face is the only one that has them),
-  renders it, and asserts that the exact text ranges the Rust engine
-  resolves land on the glyphs the Canvas painted, within a width drift of
-  0.05 px, across author and pinned faces, wrapped lines and variable
-  Latin; it also checks that fragment search resolves durable source
-  ranges for those samples.
+  renders it, and asserts that the width of each exact text range the
+  Rust engine resolves matches what Canvas `measureText` gives the same
+  text, within 0.05 px, across author and pinned faces, wrapped lines
+  and variable Latin, and that the rendered page is not blank; it also
+  checks that fragment search resolves durable source ranges for those
+  samples.
 
 `helpers/render-server.ts` serves the built package to the page;
 `helpers/sfnt-cmap.ts` reads a font's character map so a fixture can prove
@@ -28,8 +29,9 @@ RITO_PIXEL_WORKERS=4 pnpm test:golden:pixel
 ```
 
 The command builds `@ritojs/core` first. There are no checked-in PNG
-baselines: the spec compares the live render against the engine's own
-geometry, so it never needs updating when the browser is upgraded.
+baselines: the spec compares the engine's own geometry against the
+browser's text measurement, so it never needs updating when the browser
+is upgraded.
 
 ## Browser Setup
 

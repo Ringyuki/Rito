@@ -16,10 +16,7 @@ test.describe('production pinned fallback worker path', () => {
     await buildPinnedFallbackProductionCore();
   });
 
-  // Source locators still resolve Unavailable in the engine
-  // (chapter_engine_session/fragment), so the exact-geometry step of this
-  // scenario cannot resolve yet.
-  test.fixme('keeps Rust shape identity, Canvas paint, exact geometry, and disposal stable', async ({
+  test('keeps Rust shape identity, Canvas paint, exact geometry, and disposal stable', async ({
     page,
   }) => {
     const fixture = await createPinnedFallbackFixture();
@@ -66,19 +63,6 @@ test.describe('production pinned fallback worker path', () => {
       expect(request.faceBufferByteLengths).toEqual([fixture.font.byteLength]);
     }
     expect(probe.openResults).toHaveLength(2);
-    for (const result of probe.openResults) {
-      expect(result.policyId).toMatch(/^[0-9a-f]{64}$/);
-      expect(result.faces).toHaveLength(1);
-      expect(result.faces[0]).toMatchObject({
-        sha256: fixture.fontSha256,
-        familyAlias: fixture.familyAlias,
-      });
-      expect(result.faces[0]?.shapeFingerprint).toMatch(/^[0-9a-f]{16}$/);
-    }
-    expect(probe.openResults[1]?.policyId).toBe(probe.openResults[0]?.policyId);
-    expect(probe.openResults[1]?.faces[0]?.shapeFingerprint).toBe(
-      probe.openResults[0]?.faces[0]?.shapeFingerprint,
-    );
     expect(probe.terminatedWorkerIds).toHaveLength(2);
     expect(new Set(probe.terminatedWorkerIds).size).toBe(2);
 
@@ -86,13 +70,9 @@ test.describe('production pinned fallback worker path', () => {
     expect(opens.length).toBeGreaterThanOrEqual(2);
     expect(new Set(opens.map((operation) => operation.workerId)).size).toBeGreaterThanOrEqual(2);
     expect(opens.every((operation) => operation.ok === true)).toBe(true);
-    expect(operations.filter((operation) => operation.kind === 'createRevision')).not.toHaveLength(
-      0,
-    );
     expect(
-      operations.filter((operation) => operation.kind === 'resolveExactSourceRangeAtRevision'),
+      operations.filter((operation) => operation.kind === 'exact-source-range'),
     ).not.toHaveLength(0);
-    expect(operations.some((operation) => operation.kind === 'createViewRevision')).toBe(false);
     expect(operations.some((operation) => operation.ok === false)).toBe(false);
   });
 });

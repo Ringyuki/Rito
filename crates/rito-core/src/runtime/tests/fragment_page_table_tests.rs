@@ -8,6 +8,7 @@ use super::{
         multi_chapter_fixture_epub,
     },
     pinned_font_policy_fixtures::{face, policy, serif_text_font},
+    revisions::{exact_source_range, revision_by_id, search},
 };
 use crate::interaction::TextSelectionMovement;
 use crate::layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode};
@@ -222,8 +223,9 @@ fn fragment_pages_resolve_pointer_selection() {
 
     // Double-tap: word granularity from a single point.
     let response = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -235,11 +237,11 @@ fn fragment_pages_resolve_pointer_selection() {
         anchor_caret,
         range,
         ..
-    } = response.value.resolution
+    } = response.resolution
     else {
         panic!(
             "word selection resolves on a fragment page, got {:?}",
-            response.value.resolution
+            response.resolution
         );
     };
     assert_eq!(range.selected_text, "quick");
@@ -247,8 +249,9 @@ fn fragment_pages_resolve_pointer_selection() {
 
     // Drag: extend from the word's anchor to a later point on the line.
     let drag = document
-        .resolve_text_range_to_point_at(
-            &handle,
+        .resolve_text_range_to_point_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeToPointRequest {
                 anchor: anchor_caret.address,
                 focus: RuntimeTextPointRequest {
@@ -259,10 +262,10 @@ fn fragment_pages_resolve_pointer_selection() {
             },
         )
         .expect("drag request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = drag.value.resolution else {
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = drag.resolution else {
         panic!(
             "drag selection resolves on a fragment page, got {:?}",
-            drag.value.resolution
+            drag.resolution
         );
     };
     assert!(
@@ -300,10 +303,6 @@ fn a_revision_reports_the_extent_of_its_fragment_page_table() {
     let table = &revision.fragment_layout;
     assert_eq!(summary.page_count, table.page_count());
     assert_eq!(summary.spread_count, revision.extent.spread_count);
-    assert!(
-        revision.frame_cache.is_empty(),
-        "a new revision has no cached frames"
-    );
 }
 
 #[test]
@@ -407,8 +406,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         y: rect.y + rect.height / 2.0,
     };
     let selected = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -420,7 +420,7 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         anchor_caret,
         focus_caret,
         range,
-    } = selected.value.resolution
+    } = selected.resolution
     else {
         panic!("word selection resolves");
     };
@@ -430,8 +430,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
                     focus: crate::interaction::TextCaretAddress,
                     movement: TextSelectionMovement| {
         document
-            .resolve_text_selection_movement_at(
-                &handle,
+            .resolve_text_selection_movement_in(
+                &handle.revision_id,
+                revision_by_id(&document, &handle.revision_id),
                 RuntimeTextSelectionMovementRequest {
                     anchor,
                     focus,
@@ -441,7 +442,6 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
                 },
             )
             .expect("movement request is valid")
-            .value
             .resolution
     };
 
@@ -549,8 +549,9 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         y: rect.y + rect.height / 2.0,
     };
     let selected = document
-        .resolve_text_range_from_points_at(
-            &handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor: point,
                 focus: point,
@@ -558,8 +559,7 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
             },
         )
         .expect("word request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = selected.value.resolution
-    else {
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = selected.resolution else {
         panic!("word selection resolves");
     };
     assert_eq!(range.selected_text, "quick");
@@ -581,18 +581,16 @@ fn fragment_source_locators_round_trip_across_a_reflow() {
         .create_revision(&reflowed)
         .expect("reflowed revision is created");
     let second_handle = RuntimeRevisionHandle::from(&second);
-    let projected = document
-        .resolve_exact_source_range_at(
-            &second_handle,
-            RuntimeExactSourceRangeRequest { href, source_range },
-        )
-        .expect("durable range resolves on the reflowed revision");
-    let RuntimeExactSourceRangeResolution::Resolved { range: projected } =
-        projected.value.resolution
-    else {
+    let projected = exact_source_range(
+        &mut document,
+        &second_handle.revision_id,
+        RuntimeExactSourceRangeRequest { href, source_range },
+    )
+    .expect("durable range resolves on the reflowed revision");
+    let RuntimeExactSourceRangeResolution::Resolved { range: projected } = projected else {
         panic!(
             "durable source range stays exact across a fragment reflow, got {:?}",
-            projected.value.resolution
+            projected
         );
     };
     assert_eq!(projected.selected_text, "quick");
@@ -667,21 +665,20 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
         revision_id: revision_id.clone(),
         revision_version: revision.revision_version,
     };
-    let response = document
-        .search_at(
-            &handle,
-            crate::runtime::RuntimeSearchRequest {
-                query: "chapter".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: Some(50),
-            },
-        )
-        .expect("search resolves");
+    let response = search(
+        &document,
+        &handle.revision_id,
+        crate::runtime::RuntimeSearchRequest {
+            query: "chapter".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: Some(50),
+        },
+    );
     assert!(
-        response.value.result_count > 0,
+        response.result_count > 0,
         "search must find chapter text under the fragment page table, got {:?}",
-        response.value.result_count
+        response.result_count
     );
 }
 
@@ -840,8 +837,9 @@ fn resolved_text(
     granularity: RuntimeTextSelectionGranularity,
 ) -> String {
     let response = document
-        .resolve_text_range_from_points_at(
-            handle,
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(document, &handle.revision_id),
             RuntimeTextRangeFromPointsRequest {
                 anchor,
                 focus,
@@ -849,12 +847,8 @@ fn resolved_text(
             },
         )
         .expect("granular request is valid");
-    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
-    else {
-        panic!(
-            "granular selection resolves, got {:?}",
-            response.value.resolution
-        );
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution else {
+        panic!("granular selection resolves, got {:?}", response.resolution);
     };
     range.selected_text.clone()
 }
@@ -936,86 +930,48 @@ fn a_paragraph_selection_copies_the_trailing_paragraph_separator() {
 }
 
 #[test]
-fn fragment_selection_rects_span_the_injected_font_grid_box() {
-    // A selection rect spans the run's font box (host grid ascent +
-    // descent hung from the baseline) the way a Chromium native
-    // selection does; the 48px line box only serves hosts that inject
-    // no grid metric.
+fn fragment_selection_rects_span_the_font_grid_box() {
+    // A selection rect spans the run's font box (the serving font's
+    // whole-pixel ascent + descent hung from the baseline) the way a
+    // Chromium native selection does: Tinos at 32px is 29 + 7, inside a
+    // 48px line box.
     let chapter: &[u8] = br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p style="font-size: 32px; line-height: 48px">HELLO GRID WORLD</p></body></html>"#;
-    let rect_height = |with_grid: bool| -> f64 {
-        let mut known: Vec<(String, f64, String)> = Vec::new();
-        for round in 0..6 {
-            let epub = fixture_epub_with_chapter_and_stylesheet(chapter, "p { margin: 0; }\n");
-            let mut document = RuntimeDocument::open_with_pinned_font_policy(
-                &epub,
-                policy(vec![face(
-                    serif_text_font(),
-                    RuntimePinnedFontGenericRole::Serif,
-                    Some("en"),
-                )]),
-            )
-            .expect("selection fixture opens");
-            for (family, size, sample) in &known {
-                document.set_host_line_metric(
-                    family,
-                    *size,
-                    sample,
-                    rito_inline::HostNormalLineMetric {
-                        height: (1.15 * size).round(),
-                        baseline: (0.9 * size).round(),
-                        grid: with_grid
-                            .then(|| ((0.90625 * size).round(), (0.21875 * size).round())),
-                        advance: None,
-                    },
-                );
-            }
-            let mut layout = layout();
-            layout.font_family_override = Some("serif".to_owned());
-            layout.font_family_force = Some(true);
-            let summary = document
-                .create_revision(&layout)
-                .expect("revision is created");
-            let requests = document.take_host_line_metric_requests();
-            if !requests.is_empty() {
-                for (family, _measure, size, sample) in requests {
-                    known.push((family, size, sample));
-                }
-                assert!(round < 5, "metric requests must converge");
-                continue;
-            }
-            let handle = RuntimeRevisionHandle::from(&summary);
-            let point = word_center_point(&document, &summary.revision_id, "HELLO");
-            let response = document
-                .resolve_text_range_from_points_at(
-                    &handle,
-                    RuntimeTextRangeFromPointsRequest {
-                        anchor: point,
-                        focus: point,
-                        granularity: RuntimeTextSelectionGranularity::Word,
-                    },
-                )
-                .expect("word request is valid");
-            let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } =
-                response.value.resolution
-            else {
-                panic!(
-                    "word selection resolves, got {:?}",
-                    response.value.resolution
-                );
-            };
-            return range.rects.first().expect("a selection rect").height;
-        }
-        unreachable!("loop returns once requests drain");
+    let epub = fixture_epub_with_chapter_and_stylesheet(chapter, "p { margin: 0; }\n");
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &epub,
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("selection fixture opens");
+    let mut layout = layout();
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let handle = RuntimeRevisionHandle::from(&summary);
+    let point = word_center_point(&document, &summary.revision_id, "HELLO");
+    let response = document
+        .resolve_text_range_from_points_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
+            RuntimeTextRangeFromPointsRequest {
+                anchor: point,
+                focus: point,
+                granularity: RuntimeTextSelectionGranularity::Word,
+            },
+        )
+        .expect("word request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution else {
+        panic!("word selection resolves, got {:?}", response.resolution);
     };
-    let grid = rect_height(true);
+    let height = range.rects.first().expect("a selection rect").height;
     assert!(
-        (grid - 36.0).abs() < 1e-9,
-        "with a host grid the rect spans the font box (29 + 7), got {grid}"
-    );
-    let fallback = rect_height(false);
-    assert!(
-        (fallback - 48.0).abs() < 1e-9,
-        "without a grid the rect falls back to the 48px line box, got {fallback}"
+        (height - 36.0).abs() < 1e-9,
+        "the rect spans the font box (29 + 7), got {height}"
     );
 }
 
@@ -1075,8 +1031,7 @@ fn a_selection_crossing_a_hard_break_copies_the_line_break() {
         let start = word_center_point(&document, &revision_id, from);
         let end = word_center_point(&document, &revision_id, to);
         let response = document
-            .resolve_text_range_from_points_at(
-                &handle,
+            .resolve_text_range_from_points_in(&handle.revision_id, revision_by_id(&document, &handle.revision_id),
                 RuntimeTextRangeFromPointsRequest {
                     anchor: start,
                     focus: end,
@@ -1084,7 +1039,7 @@ fn a_selection_crossing_a_hard_break_copies_the_line_break() {
                 },
             )
             .expect("word request is valid");
-        let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.value.resolution
+        let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution
         else {
             panic!("selection resolves");
         };
@@ -1184,12 +1139,14 @@ fn painted_commands_carry_link_targets_and_image_alt() {
 
 #[test]
 fn render_ratio_moves_raster_snaps_without_re_paginating() {
-    // A quarter-pixel line top: at ratio 1 the baseline snap rounds it
-    // down to the row; at ratio 2 the device row sits at the half pixel.
-    // Pagination is identical either way — only the raster snaps move.
+    // A quarter-pixel line top over a line a super-shifted run raised:
+    // the shift (floor64(16 / 3) + 1) gives the line a fractional
+    // baseline, which the unshifted run (the last one painted) rounds to
+    // a whole CSS pixel at ratio 1 and to a half pixel at ratio 2. Pagination is identical either way — only
+    // the raster snaps move.
     let (document, _handle, revision_id) = pointer_selection_document_with_css(
-        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><p class="a">Snap grid</p></body></html>"#,
-        "p { margin: 0; }\n.a { margin-top: 0.25px; font-size: 16px; line-height: 20px; }\n",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body><p class="a"><span class="s">Snap</span> grid</p></body></html>"#,
+        "p { margin: 0; }\n.a { margin-top: 0.25px; font-size: 16px; line-height: 20px; }\n.s { vertical-align: super; }\n",
     );
     let revision = document
         .revisions
@@ -1204,6 +1161,7 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
         frame
             .commands
             .iter()
+            .rev()
             .find_map(|command| match command {
                 crate::render::DisplayCommand::PaintText(input) => Some(input.rect.y),
                 _ => None,
@@ -1220,12 +1178,12 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
         ((at_two + 0.8 * 16.0) * 2.0).fract().abs() < 1e-9,
         "ratio 2 baseline lands on a half CSS pixel, got {at_two}"
     );
-    // Both snap stages (line top, then the within-line baseline) move
-    // to the finer grid, so the painted baseline differs from the
-    // ratio-1 one by up to a whole CSS pixel — never by nothing.
+    // The fractional sum rounds on the finer grid, so the painted
+    // baseline differs from the ratio-1 one by up to a whole CSS pixel —
+    // never by nothing.
     assert!(
         (at_two - at_one).abs() > 1e-9 && (at_two - at_one).abs() <= 1.0 + 1e-9,
-        "the quarter-pixel top snaps differently on the finer grid: {at_one} vs {at_two}"
+        "the fractional baseline snaps differently on the finer grid: {at_one} vs {at_two}"
     );
     assert_eq!(
         session
@@ -1404,23 +1362,21 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
             .revision_version,
     };
 
-    let response = document
-        .search_at(
-            &handle,
-            crate::runtime::RuntimeSearchRequest {
-                query: "paragraph 2.".to_owned(),
-                case_sensitive: false,
-                whole_word: false,
-                limit: Some(50),
-            },
-        )
-        .expect("search resolves");
+    let response = search(
+        &document,
+        &handle.revision_id,
+        crate::runtime::RuntimeSearchRequest {
+            query: "paragraph 2.".to_owned(),
+            case_sensitive: false,
+            whole_word: false,
+            limit: Some(50),
+        },
+    );
     assert_eq!(
-        response.value.result_count, 3,
+        response.result_count, 3,
         "every chapter of the fixture carries the phrase once"
     );
     let pages: Vec<usize> = response
-        .value
         .results
         .iter()
         .map(|result| result.page_index)
@@ -1448,8 +1404,9 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         affinity: crate::interaction::TextCaretAffinity::Downstream,
     };
     let moved = document
-        .resolve_text_selection_movement_at(
-            &handle,
+        .resolve_text_selection_movement_in(
+            &handle.revision_id,
+            revision_by_id(&document, &handle.revision_id),
             RuntimeTextSelectionMovementRequest {
                 anchor: caret(0),
                 focus: caret(0),
@@ -1459,8 +1416,7 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
             },
         )
         .expect("movement request is valid");
-    let RuntimeTextSelectionMovementResolution::Resolved { range, .. } = moved.value.resolution
-    else {
+    let RuntimeTextSelectionMovementResolution::Resolved { range, .. } = moved.resolution else {
         panic!("a character step on page 0 resolves");
     };
     assert_eq!(range.selected_text.chars().count(), 1);

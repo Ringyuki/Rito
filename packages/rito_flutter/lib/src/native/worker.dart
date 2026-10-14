@@ -43,6 +43,16 @@ final class _RitoWorkerClient {
   final Isolate _isolate;
   final _WorkerSignals _signals;
   final RitoWorkerCloseGate _closeGate = RitoWorkerCloseGate();
+  int _inFlight = 0;
+  Completer<void>? _idle;
+
+  /// Completes once no operation is in flight.
+  Future<void> whenIdle() {
+    if (_inFlight == 0) {
+      return Future<void>.value();
+    }
+    return (_idle ??= Completer<void>()).future;
+  }
 
   Future<T> invoke<T>(_WorkerOperation operation) async {
     final result = await _invoke(operation);
@@ -61,6 +71,7 @@ final class _RitoWorkerClient {
     }
     final reply = ReceivePort();
     late final Object? message;
+    _inFlight += 1;
     try {
       _commands.send(_WorkerEnvelope(operation, reply.sendPort));
       message = await _signals.latch.race<Object?>(
@@ -69,6 +80,11 @@ final class _RitoWorkerClient {
       );
     } finally {
       reply.close();
+      _inFlight -= 1;
+      if (_inFlight == 0) {
+        _idle?.complete();
+        _idle = null;
+      }
     }
     if (message is! _WorkerResult) {
       throw StateError('Rito native worker returned an invalid reply.');
@@ -246,6 +262,14 @@ void _discardUnsentWire(
         bindings.dispose(sessionId: operation.sessionId);
         liveSessions.remove(operation.sessionId);
         break;
+      case _OpenShardsOperation():
+        bindings.dispose(sessionId: operation.sessionId);
+        liveSessions.remove(operation.sessionId);
+        break;
+      case _SupplyShardOperation():
+        break;
+      case _ContentShardsNearOperation():
+        break;
       case _RequestArtifactOperation():
         final artifactId = _wireArtifactId(wireBytes);
         if (artifactId != null) {
@@ -265,6 +289,15 @@ void _discardUnsentWire(
         }
         break;
       case _PeekAdjacentOperation():
+        final artifactId = _wireArtifactId(wireBytes);
+        if (artifactId != null) {
+          bindings.releaseArtifact(
+            sessionId: operation.sessionId,
+            artifactId: artifactId,
+          );
+        }
+        break;
+      case _PeekSpreadOperation():
         final artifactId = _wireArtifactId(wireBytes);
         if (artifactId != null) {
           bindings.releaseArtifact(
@@ -294,11 +327,19 @@ void _discardUnsentWire(
         bindings.dispose(sessionId: operation.sessionId);
         liveSessions.remove(operation.sessionId);
         break;
+      case _FontCatalogOperation():
+      case _UnresolvedFontFamiliesOperation():
+      case _AddHostFontFacesOperation():
+      case _RemoveHostFontFacesOperation():
+      case _MarkFontFamiliesUnavailableOperation():
       case _ReadPublicationOperation():
       case _ReadResourceOperation():
       case _SearchOperation():
       case _TextRangeGeometryOperation():
       case _ExactSourceRangeOperation():
+      case _TextInteractionOperation():
+      case _AnnotationOperation():
+      case _NavigationOperation():
       case _ReadFootnoteOperation():
       case _ReleaseArtifactOperation():
       case _DisposeOperation():
@@ -308,6 +349,12 @@ void _discardUnsentWire(
   } on Object {
     // Preserve the ownership-transfer failure as the primary diagnostic.
   }
+}
+
+/// Runs an operation that answers with nothing but its success.
+Object? _done(void Function() operation) {
+  operation();
+  return null;
 }
 
 int? _wireArtifactId(Uint8List wireBytes) {
@@ -329,6 +376,43 @@ Object? _perform(
 ) {
   return switch (operation) {
     _OpenOperation() => _open(bindings, operation, liveSessions),
+    _OpenShardsOperation() => _openShards(bindings, operation, liveSessions),
+    _SupplyShardOperation() => bindings.supplyShard(
+      sessionId: operation.sessionId,
+      shardBytes: RitoOwnedByteTransfer.materialize(operation.shardBytes),
+      key: operation.key,
+    ),
+    _ContentShardsNearOperation() => bindings.contentShardsNear(
+      sessionId: operation.sessionId,
+      href: operation.href,
+    ),
+    _FontCatalogOperation() => bindings.fontCatalogWire(
+      sessionId: operation.sessionId,
+    ),
+    _UnresolvedFontFamiliesOperation() => bindings.unresolvedFontFamiliesWire(
+      sessionId: operation.sessionId,
+      familyList: operation.familyList,
+    ),
+    _AddHostFontFacesOperation() => _done(
+      () => bindings.addHostFontFaces(
+        sessionId: operation.sessionId,
+        faces: operation.faces,
+      ),
+    ),
+    _RemoveHostFontFacesOperation() => _done(
+      () => bindings.removeHostFontFaces(
+        sessionId: operation.sessionId,
+        sha256s: operation.sha256s,
+      ),
+    ),
+    _MarkFontFamiliesUnavailableOperation() => _done(() {
+      for (final family in operation.families) {
+        bindings.markFontFamilyUnavailable(
+          sessionId: operation.sessionId,
+          family: family,
+        );
+      }
+    }),
     _RequestArtifactOperation() => bindings.requestArtifactEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
@@ -338,6 +422,10 @@ Object? _perform(
       requestBytes: operation.requestBytes,
     ),
     _PeekAdjacentOperation() => bindings.peekAdjacentEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _PeekSpreadOperation() => bindings.peekSpreadEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
     ),
@@ -375,6 +463,18 @@ Object? _perform(
       requestBytes: operation.requestBytes,
     ),
     _ExactSourceRangeOperation() => bindings.exactSourceRangeEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _TextInteractionOperation() => bindings.textInteractionEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _AnnotationOperation() => bindings.annotationEncoded(
+      sessionId: operation.sessionId,
+      requestBytes: operation.requestBytes,
+    ),
+    _NavigationOperation() => bindings.navigationEncoded(
       sessionId: operation.sessionId,
       requestBytes: operation.requestBytes,
     ),
@@ -417,6 +517,36 @@ Uint8List _open(
   );
   liveSessions.add(operation.sessionId);
   return wireBytes;
+}
+
+Uint8List _openShards(
+  RitoNativeWireBindings bindings,
+  _OpenShardsOperation operation,
+  Set<int> liveSessions,
+) {
+  // A failed open registers no native session, so only success is tracked.
+  final wireBytes = bindings.openShardsEncoded(
+    skeletonBytes: RitoOwnedByteTransfer.materialize(operation.skeletonBytes),
+    skeletonKey: operation.skeletonKey,
+    requestBytes: operation.requestBytes,
+    pinnedFontPolicy: _pinnedPolicy(operation.pinnedFontFaces),
+  );
+  liveSessions.add(operation.sessionId);
+  return wireBytes;
+}
+
+RitoPinnedFontPolicy _pinnedPolicy(List<_PinnedFontFaceTransfer> faces) {
+  return RitoPinnedFontPolicy(
+    faces: <RitoPinnedFontFace>[
+      for (final face in faces)
+        RitoPinnedFontFace(
+          bytes: RitoOwnedByteTransfer.materialize(face.bytes),
+          sha256Hex: face.sha256Hex,
+          genericRole: face.genericRole,
+          language: face.language,
+        ),
+    ],
+  );
 }
 
 Object? _release(
@@ -518,6 +648,44 @@ final class _PinnedFontFaceTransfer {
   final String? language;
 }
 
+final class _OpenShardsOperation extends _WorkerOperation {
+  const _OpenShardsOperation({
+    required this.sessionId,
+    required this.skeletonBytes,
+    required this.skeletonKey,
+    required this.requestBytes,
+    required this.pinnedFontFaces,
+  });
+
+  final int sessionId;
+  final TransferableTypedData skeletonBytes;
+  final Uint8List? skeletonKey;
+  final Uint8List requestBytes;
+  final List<_PinnedFontFaceTransfer> pinnedFontFaces;
+}
+
+final class _SupplyShardOperation extends _WorkerOperation {
+  const _SupplyShardOperation({
+    required this.sessionId,
+    required this.shardBytes,
+    required this.key,
+  });
+
+  final int sessionId;
+  final TransferableTypedData shardBytes;
+  final Uint8List? key;
+}
+
+final class _ContentShardsNearOperation extends _WorkerOperation {
+  const _ContentShardsNearOperation({
+    required this.sessionId,
+    required this.href,
+  });
+
+  final int sessionId;
+  final String href;
+}
+
 final class _RequestArtifactOperation extends _WorkerOperation {
   const _RequestArtifactOperation({
     required this.sessionId,
@@ -540,6 +708,16 @@ final class _RequestAdjacentOperation extends _WorkerOperation {
 
 final class _PeekAdjacentOperation extends _WorkerOperation {
   const _PeekAdjacentOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _PeekSpreadOperation extends _WorkerOperation {
+  const _PeekSpreadOperation({
     required this.sessionId,
     required this.requestBytes,
   });
@@ -627,6 +805,36 @@ final class _TextRangeGeometryOperation extends _WorkerOperation {
 
 final class _ExactSourceRangeOperation extends _WorkerOperation {
   const _ExactSourceRangeOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _TextInteractionOperation extends _WorkerOperation {
+  const _TextInteractionOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _AnnotationOperation extends _WorkerOperation {
+  const _AnnotationOperation({
+    required this.sessionId,
+    required this.requestBytes,
+  });
+
+  final int sessionId;
+  final Uint8List requestBytes;
+}
+
+final class _NavigationOperation extends _WorkerOperation {
+  const _NavigationOperation({
     required this.sessionId,
     required this.requestBytes,
   });

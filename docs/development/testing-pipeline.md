@@ -14,13 +14,13 @@ by hand.
 | WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and Worker helpers           |
 | Static       | `pnpm audit:dependencies`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | advisories, types, ESLint, Prettier                                                                 |
 | Unit         | `pnpm test:unit`                                                              | Vitest suites of core, kit and react, including the architecture invariants                         |
-| Integration  | `pnpm test:integration`                                                       | end-to-end core flows against fixture books                                                         |
+| Integration  | `pnpm test:integration`                                                       | the public entry's export surface; no book is opened                                                |
 | Pixel suite  | `pnpm test:golden:pixel`                                                      | the built reader in Chromium: engine text geometry against the painted canvas                       |
 | Reader e2e   | `pnpm test:e2e`                                                               | the demo reader in Chromium: load, navigation, TOC, search, settings, reflow, selection             |
 | Flutter      | `flutter test` in `packages/rito_flutter`                                     | protocol decoders, the pen, session lifecycle, the paint-parity render test                         |
 | Coverage     | `pnpm test:coverage`                                                          | V8 coverage for the published packages                                                              |
 | Paint parity | `node tools/paint-parity/run.mjs`                                             | the two pens on identical `RITODL1` bytes, budget-gated                                             |
-| Pixel walk   | `tools/corpus-oracle/pixel-walk.mjs`                                          | every page of a real book against pinned Chromium; the acceptance instrument                        |
+| Pixel walk   | `tools/corpus-oracle/pixel-walk.mjs`                                          | the pages of a real book against pinned Chromium; the acceptance instrument                         |
 
 `pnpm run check` (`test:ci`) is the local aggregate: bootstrap, typecheck,
 lint, format check, unit, integration and build.
@@ -41,8 +41,8 @@ verifies the exact merge result. The jobs run in parallel:
 - Coverage Gate
 
 The canvas-pixel e2e suites (selection, touch selection, production
-pinned font) run in the separate `pixel-e2e.yml` workflow on master
-pushes. The Release workflow reruns the full check before publishing.
+pinned font) run in the separate `pixel-e2e.yml` workflow on pull
+requests targeting master and on master pushes. The Release workflow reruns the full check before publishing.
 
 ## Pixel suite
 
@@ -65,19 +65,36 @@ Whole-book pixel verification against pinned Chromium is the pixel walk in
 
 The suite lives in `apps/reader/tests/e2e/`, builds the demo reader with
 Vite, starts `vite preview` and runs Playwright against the production
-bundle. Opt-in gates on a named machine:
+bundle. `reader-worker-probe.ts` records every request a page sends its
+reader session worker and how it was answered, for a test that has to say
+which protocol a reader spoke or that none of it failed.
+
+Opening, font-change and page-turn latency are measured by the acceptance
+probe, against a production build served by `vite preview --port 4317`:
 
 ```bash
-RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile
-RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate
-pnpm test:e2e:memory-gate
+BOOK=/abs/book.epub VIEW=phone RUNS=3 node tools/reader-accept/accept.mjs
 ```
 
-The load profile records Worker startup, open, layout, frame warming and
-first Canvas timings from the page clock; the usability gate turns them
-into thresholds pinned to an exact machine, browser and font policy; the
-memory gate samples physical footprint across load, growth, reflow,
-replacement and dispose scenarios.
+It drives the public controller, takes "the new page is on screen" from
+the canvas pixels changing, and prints the median of its runs as one JSON
+line: `open` (file handed over to first page), `pageNumbers` (first page
+to the layout that covers the whole book), `fontSize` (first change and
+the next), `family` and `familyBack`, `turn` (key press to first changed
+frame) and `panelFontSize` (one step of the settings panel's slider).
+`VIEW=desktop` measures a 1280×860 double-page viewport. Timings move by
+tens of milliseconds with whatever else the machine is doing; compare
+two builds by measuring them in turn on the same quiet machine.
+`accept-all.sh <out.jsonl>` measures three books in both viewports and
+starts each row only once the machine's load is low.
+
+When a turn measures slow, `turn-trace.mjs` in the same directory says
+where the time went: one timeline per turn with the key event, every
+worker request and answer, and every animation frame with its cost and
+the Canvas calls it made. `SAMPLE=none` traces without reading the canvas
+back, and `RASTER_FIRST=1` rasters every drawn canvas before each turn,
+the control for a first frame that pays for a buffer the browser had only
+recorded.
 
 ## Flutter
 

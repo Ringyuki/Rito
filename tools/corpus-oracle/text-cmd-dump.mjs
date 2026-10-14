@@ -42,8 +42,8 @@ for (let s = 0; s < total; s += 1) {
   await page.waitForTimeout(60);
 }
 await page.waitForTimeout(2000);
-// Walk back ONTO the target spread: frames far from the current one may
-// be evicted, and the diagnostics read the cached frame.
+// Walk back ONTO the target spread, so the spread is the one on screen
+// when its artifact is read.
 for (let s = total - 1; s > SPREAD; s -= 1) {
   await page.keyboard.press('ArrowLeft');
   await page.waitForTimeout(60);
@@ -52,17 +52,18 @@ await page.waitForTimeout(1500);
 
 const dump = await page.evaluate(
   async ({ spread, needles }) => {
-    const frame = await globalThis.__ritoReaderDiagnostics.frame(spread);
-    if (!frame) return { error: `no frame for spread ${spread}` };
+    const artifact = await globalThis.__ritoReaderDiagnostics.artifact(spread);
+    if (!artifact) return { error: `no artifact for spread ${spread}` };
+    const list = artifact.displayList.displayList;
     const hits = [];
-    for (const command of frame.commands) {
+    for (const command of list.commands) {
       if (command.kind !== 'text' && command.kind !== 'ruby') continue;
       const json = JSON.stringify(command, (_key, value) =>
         typeof value === 'bigint' ? value.toString() : value,
       );
       if (needles.some((needle) => json.includes(needle))) hits.push(JSON.parse(json));
     }
-    return { spread, ratio: frame.ratio, commandCount: frame.commands.length, hits };
+    return { spread, ratio: list.ratio, commandCount: list.commands.length, hits };
   },
   { spread: SPREAD, needles },
 );

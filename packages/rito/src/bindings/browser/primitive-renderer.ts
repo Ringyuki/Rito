@@ -1,7 +1,14 @@
 import type { CoreReaderPrimitive, CoreReaderPrimitiveList } from './core-contracts';
 import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/renderer';
 import type { CanvasTextColorOverride } from './canvas-text/types';
-import { applyTransform, drawImage, drawShadow, strokePath, tracePath } from './primitive-blits';
+import {
+  applyTransform,
+  drawImage,
+  drawImageFallback,
+  drawShadow,
+  strokePath,
+  tracePath,
+} from './primitive-blits';
 import {
   convertReaderRuby,
   convertReaderText,
@@ -15,12 +22,23 @@ type TextPrimitive = Extract<Primitive, { readonly kind: 'text' | 'ruby' }>;
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 export type CanvasImageResolver = (src: string) => ImageBitmap | HTMLImageElement | undefined;
+/** Which of an image's fallbacks stands in its place now; none while its
+ * bitmap paints (or before a late one is worth showing a placeholder). */
+export type CanvasImageFallbackResolver = (src: string) => 'loading' | 'broken' | undefined;
 
 export interface PrimitiveRenderOptions {
   readonly resolveImage?: CanvasImageResolver;
+  readonly imageFallback?: CanvasImageFallbackResolver;
+  /** The opacity an image paints at: below one while a late image fades in. */
+  readonly imageOpacity?: (src: string) => number;
   readonly foregroundColor?: string;
   readonly backgroundColor?: string;
 }
+
+// The page and ink an image fallback is tinted from when the host names
+// neither.
+const DEFAULT_PAGE = '#ffffff';
+const DEFAULT_INK = '#000000';
 
 interface DeviceRect {
   readonly x: number;
@@ -39,6 +57,9 @@ interface DeclaredGrounds {
 
 interface RenderState extends DeclaredGrounds {
   readonly resolveImage: CanvasImageResolver;
+  readonly imageFallback: CanvasImageFallbackResolver;
+  readonly imageOpacity: (src: string) => number;
+  readonly fallbackColors: { readonly background: string; readonly foreground: string };
   readonly colorOverride?: CanvasTextColorOverride;
   /** Device pixels per CSS pixel the list was resolved at. */
   readonly ratio: number;
@@ -157,6 +178,12 @@ function createRenderState(options: PrimitiveRenderOptions, ratio: number): Rend
       : undefined;
   return {
     resolveImage: options.resolveImage ?? (() => undefined),
+    imageFallback: options.imageFallback ?? (() => undefined),
+    imageOpacity: options.imageOpacity ?? (() => 1),
+    fallbackColors: {
+      background: options.backgroundColor ?? DEFAULT_PAGE,
+      foreground: options.foregroundColor ?? DEFAULT_INK,
+    },
     ratio,
     saveDepth: 0,
     blockGrounds: [],
@@ -215,7 +242,12 @@ function renderPrimitive(
       drawShadow(ctx, primitive);
       return;
     case 'draw-image':
-      drawImage(ctx, primitive, state.resolveImage);
+      drawImage(ctx, primitive, state.resolveImage, state.imageOpacity(primitive.src));
+      return;
+    case 'image-fallback':
+      if (state.imageFallback(primitive.src) === primitive.state) {
+        drawImageFallback(ctx, primitive, state.fallbackColors);
+      }
       return;
     case 'text':
     case 'ruby':

@@ -2,6 +2,7 @@
 members = [
   "crates/rito-core",
   "crates/rito-ffi",
+  "crates/rito-pack",
   "crates/rito-block",
   "crates/rito-fragment",
   "crates/rito-inline",

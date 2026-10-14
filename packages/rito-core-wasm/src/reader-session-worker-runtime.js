@@ -17,11 +17,19 @@ import {
   encodeRitoReaderBackgroundHandoff,
   encodeRitoReaderBackgroundRequest,
 } from './reader-session-background-runtime.js';
+import { handleRitoReaderSessionQuery } from './reader-session-worker-query-runtime.js';
+import { prepareHostFontFaces } from './pinned-font-policy-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const COLD_OPEN_DIAGNOSTIC = 'cold-open-attribution-v1';
 const MAX_QUEUED_MESSAGES = 8;
-const MAX_LIVE_ARTIFACTS = 4;
+// The engine's live-artifact cap (READER_LIVE_ARTIFACT_CAP), which is
+// budgeted for a reader that loads its neighbours ahead: the visible spread,
+// the one a turn is leaving, a neighbour on each side and a candidate under
+// way. The worker refuses at the same number so that a host is told
+// `artifact-capacity` instead of the engine's generic refusal; a test holds
+// the two equal.
+export const READER_LIVE_ARTIFACT_CAP = 6;
 const NON_FATAL_EXACT_TERMINAL_CODES = new Set([
   'invalid-request',
   'invalid-layout',
@@ -30,6 +38,7 @@ const NON_FATAL_EXACT_TERMINAL_CODES = new Set([
   'stale-request',
   'target-not-published',
   'numeric-overflow',
+  'resource-pending',
 ]);
 
 export function createRitoCoreWasmReaderSessionWorkerHandler(scope, deps) {
@@ -41,6 +50,7 @@ export function createRitoCoreWasmReaderSessionWorkerHandler(scope, deps) {
     liveArtifacts: new Set(),
     foregroundArtifactRequests: new Map(),
     backgroundCandidates: new Map(),
+    peekedArtifacts: new Map(),
   };
   let queued = 0;
   let tail = Promise.resolve();
@@ -146,19 +156,85 @@ async function handleMessage(state, deps, message) {
       const wire = standaloneBuffer(raw);
       return { payload: { kind: 'resource', wire }, transfer: [wire] };
     }
+    case 'supply-shard': {
+      if (!(message.shard instanceof ArrayBuffer)) {
+        throw readerWorkerError('invalid-request', 'A shard must be an ArrayBuffer');
+      }
+      const shardId = state.session.supplyShard(new Uint8Array(message.shard), message.key);
+      return { payload: { kind: 'supply-shard', shardId } };
+    }
+    case 'content-shards-near': {
+      if (typeof message.href !== 'string') {
+        throw readerWorkerError('invalid-request', 'A chapter href must be a string');
+      }
+      return {
+        payload: {
+          kind: 'content-shards-near',
+          shardIds: Array.from(state.session.contentShardsNear(message.href)),
+        },
+      };
+    }
+    case 'font-catalog': {
+      const wire = standaloneBuffer(state.session.fontCatalog());
+      return { payload: { kind: 'font-catalog', wire }, transfer: [wire] };
+    }
+    case 'unresolved-font-families': {
+      if (typeof message.familyList !== 'string') {
+        throw readerWorkerError('invalid-request', 'A font-family list must be a string');
+      }
+      const wire = standaloneBuffer(state.session.unresolvedFontFamilies(message.familyList));
+      return { payload: { kind: 'unresolved-font-families', wire }, transfer: [wire] };
+    }
+    case 'add-host-font-faces': {
+      const prepared = prepareHostFontFaces(message.faces, 'arrayBuffer');
+      state.session.addHostFontFaces(
+        JSON.stringify(prepared.metadata),
+        prepared.faceBytes.map((bytes) => new Uint8Array(bytes)),
+      );
+      return { payload: { kind: 'host-font-faces' } };
+    }
+    case 'remove-host-font-faces': {
+      if (
+        !Array.isArray(message.sha256s) ||
+        message.sha256s.some((sha) => typeof sha !== 'string')
+      ) {
+        throw readerWorkerError('invalid-request', 'Host font face digests must be strings');
+      }
+      state.session.removeHostFontFaces([...message.sha256s]);
+      return { payload: { kind: 'host-font-faces' } };
+    }
+    case 'mark-font-families-unavailable': {
+      if (
+        !Array.isArray(message.families) ||
+        message.families.some((family) => typeof family !== 'string')
+      ) {
+        throw readerWorkerError('invalid-request', 'Font families must be strings');
+      }
+      state.session.markFontFamiliesUnavailable([...message.families]);
+      return { payload: { kind: 'font-families-unavailable' } };
+    }
     case 'release': {
       const released = state.session.releaseArtifact(message.artifactId);
       state.liveArtifacts.delete(message.artifactId);
       state.foregroundArtifactRequests.delete(message.artifactId);
       state.backgroundCandidates.delete(message.artifactId);
+      state.peekedArtifacts.delete(message.artifactId);
       if (state.visibleArtifactId === message.artifactId) state.visibleArtifactId = undefined;
       return { payload: { kind: 'release', released } };
     }
-    default:
+    default: {
+      const answered = handleRitoReaderSessionQuery(state, message, {
+        requireArtifactCapacity,
+        requireOwnedArtifact,
+        disposeTerminalSession,
+        workerError: readerWorkerError,
+      });
+      if (answered) return answered;
       throw readerWorkerError(
         'invalid-request',
         `Unknown reader session request: ${String(message.kind)}`,
       );
+    }
   }
 }
 
@@ -172,6 +248,17 @@ async function openSession(state, deps, message) {
       return await openSessionWithColdDiagnostic(state, deps, message);
     }
     await deps.initRitoCoreWasm();
+    if (message.skeleton !== undefined) {
+      state.session = openShardSession(deps, message);
+      state.sessionId = message.sessionId;
+      state.phase = 'open';
+      return exactArtifactResponse(
+        state,
+        message.request,
+        () => state.session.requestArtifact(encodeRitoReaderArtifactRequest(message.request)),
+        'open',
+      );
+    }
     const publication = new Uint8Array(message.publication);
     state.session = message.pinnedFontPolicy
       ? deps.RitoReaderSession.openWithPinnedFontPolicy(
@@ -193,6 +280,22 @@ async function openSession(state, deps, message) {
     if (state.phase !== 'disposed') disposeTerminalSession(state);
     throw error;
   }
+}
+
+function openShardSession(deps, message) {
+  if (!(message.skeleton instanceof ArrayBuffer)) {
+    throw readerWorkerError('invalid-request', 'A skeleton shard must be an ArrayBuffer');
+  }
+  if (!message.pinnedFontPolicy) {
+    throw readerWorkerError('invalid-request', 'A sharded publication opens with pinned fonts');
+  }
+  return deps.RitoReaderSession.openShardsWithPinnedFontPolicy(
+    new Uint8Array(message.skeleton),
+    message.key,
+    message.sessionId,
+    message.pinnedFontPolicy.metadataJson,
+    message.pinnedFontPolicy.faces,
+  );
 }
 
 async function openSessionWithColdDiagnostic(state, deps, message) {
@@ -419,7 +522,7 @@ function backgroundAdvanceResponse(state, request, raw) {
         candidate.sessionId === state.sessionId &&
         candidate.requestId === advance.intentRequestId &&
         !state.liveArtifacts.has(candidate.artifactId) &&
-        state.liveArtifacts.size < MAX_LIVE_ARTIFACTS &&
+        state.liveArtifacts.size < READER_LIVE_ARTIFACT_CAP &&
         !hasPendingCandidate(state, request.expectedVisibleArtifactId);
       if (!candidateIsValid) {
         releaseInvalidCandidate(state, candidate);
@@ -489,6 +592,7 @@ function releaseRawSession(state) {
   state.session = undefined;
   state.visibleArtifactId = undefined;
   state.liveArtifacts.clear();
+  state.peekedArtifacts.clear();
   state.foregroundArtifactRequests.clear();
   state.backgroundCandidates.clear();
   if (!session) return;
@@ -506,10 +610,10 @@ function requireOpen(state) {
 }
 
 function requireArtifactCapacity(state) {
-  if (state.liveArtifacts.size >= MAX_LIVE_ARTIFACTS) {
+  if (state.liveArtifacts.size >= READER_LIVE_ARTIFACT_CAP) {
     throw readerWorkerError(
       'artifact-capacity',
-      `Reader retains at most ${String(MAX_LIVE_ARTIFACTS)} artifacts`,
+      `Reader retains at most ${String(READER_LIVE_ARTIFACT_CAP)} artifacts`,
     );
   }
 }
@@ -605,10 +709,14 @@ function postError(scope, id, error) {
 
 function normalizeWorkerError(error) {
   const value = error !== null && typeof error === 'object' ? error : {};
+  const code = typeof value.code === 'string' ? value.code : 'engine-failure';
   return {
     name: typeof value.name === 'string' ? value.name : 'RitoReaderError',
-    code: typeof value.code === 'string' ? value.code : 'engine-failure',
+    code,
     message: typeof value.message === 'string' ? value.message : String(error),
+    ...(code === 'resource-pending' && Array.isArray(value.pendingShards)
+      ? { pendingShards: [...value.pendingShards] }
+      : {}),
   };
 }
 

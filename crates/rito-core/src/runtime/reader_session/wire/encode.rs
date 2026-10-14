@@ -18,7 +18,7 @@ use crate::runtime::reader_session::{
     ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
     ReaderLayout, ReaderLocator, ReaderPublication, ReaderResource, ReaderSearchRequest,
     ReaderSearchResponse, ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode,
-    ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest,
+    ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest,
     ReaderTextRenderingProfile, READER_PROTOCOL_VERSION, READER_PUBLICATION_WIRE_BYTES_MAX,
 };
 
@@ -55,6 +55,18 @@ pub(super) fn adjacent_request(value: &ReaderAdjacentRequest) -> Result<Vec<u8>,
     writer.u64(value.request_id);
     writer.u64(value.from_artifact_id);
     writer.u32(adjacent_direction(value.direction));
+    writer.finish_message()
+}
+
+pub(super) fn spread_request(value: &ReaderSpreadRequest) -> Result<Vec<u8>, ReaderError> {
+    super::primitives::external_id(value.session_id, "sessionId")?;
+    super::primitives::external_id(value.request_id, "requestId")?;
+    super::primitives::external_id(value.from_artifact_id, "fromArtifactId")?;
+    let mut writer = Writer::message(super::READER_SPREAD_REQUEST_WIRE_MAGIC, READER_WIRE_VERSION);
+    writer.u64(value.session_id);
+    writer.u64(value.request_id);
+    writer.u64(value.from_artifact_id);
+    writer.u32(value.spread_index);
     writer.finish_message()
 }
 
@@ -315,7 +327,10 @@ fn layout(writer: &mut Writer, value: &ReaderLayout) -> Result<(), ReaderError> 
         writer.option(value.font_family_override.as_ref(), |writer, value| {
             writer.string(value, "font family override")
         })?;
-        writer.f64(value.render_ratio, "render ratio")
+        writer.f64(value.render_ratio, "render ratio")?;
+        writer.bool(value.line_height_force);
+        writer.bool(value.font_family_force);
+        Ok(())
     })
 }
 
@@ -346,6 +361,7 @@ pub(super) fn exact_source_range_request(
     writer.u64(value.artifact_id);
     writer.string(&value.href, "exact source range href")?;
     source_range(&mut writer, &value.range)?;
+    writer.bool(value.every_page);
     writer.finish_message()
 }
 
@@ -391,7 +407,10 @@ pub(super) fn exact_source_range_resolution(
     writer.finish_message()
 }
 
-fn source_point(writer: &mut Writer, value: &ReaderSourcePoint) -> Result<(), ReaderError> {
+pub(super) fn source_point(
+    writer: &mut Writer,
+    value: &ReaderSourcePoint,
+) -> Result<(), ReaderError> {
     writer.record(|writer| {
         writer.count(value.node_path.len(), "source point path count")?;
         for part in &value.node_path {
@@ -402,7 +421,10 @@ fn source_point(writer: &mut Writer, value: &ReaderSourcePoint) -> Result<(), Re
     })
 }
 
-fn source_range(writer: &mut Writer, value: &ReaderSourceRange) -> Result<(), ReaderError> {
+pub(super) fn source_range(
+    writer: &mut Writer,
+    value: &ReaderSourceRange,
+) -> Result<(), ReaderError> {
     writer.record(|writer| {
         source_point(writer, &value.start)?;
         source_point(writer, &value.end)

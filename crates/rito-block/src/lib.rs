@@ -8,21 +8,21 @@
 //! resuming from a break token that records the consumed block size.
 //!
 //! Vertical margins resolve from the typed layout styles carried by the
-//! tree: adjacent siblings collapse (max of positives plus min of
-//! negatives), the container is a formatting-context root so no margin
-//! collapses through it, and a margin that meets an unforced fragmentainer
-//! break is truncated to zero, matching CSS fragmentation.
+//! tree: adjoining margins collapse as a set (the largest positive plus
+//! the most negative), and a margin that meets an unforced fragmentainer
+//! break is truncated to zero, matching CSS fragmentation. Parent-child
+//! collapse through plain wrappers is folded statically by the caller
+//! before layout; what the fold cannot resolve (a percentage has no basis
+//! until the containing block is known) joins the set here through the
+//! first-in-flow-descendant chain.
 //!
 //! Nested block containers lay out recursively; a break inside one comes
 //! back as a break token whose resume path names the whole ancestor chain,
-//! so resumption re-enters exactly the interrupted subtree. Each container
-//! is treated as a formatting-context root for margins (no through-collapse
-//! yet — the parent-child collapse of plain `display: block` wrappers is an
-//! explicit remaining gap tracked for the oracle round).
+//! so resumption re-enters exactly the interrupted subtree.
 //!
-//! Content the block model cannot lay out yet — anything beyond block
-//! containers, sized leaves, and inline flows — fails closed instead of
-//! guessing.
+//! Inputs the block model cannot lay out (a malformed tree, an invalid
+//! break token, a sizing keyword it does not resolve) fail closed with
+//! `LayoutError::Invalid` instead of guessing.
 //!
 //! The context is one type spread over the modules that own its parts:
 //! `context` (construction, the inline-outcome cache and the two

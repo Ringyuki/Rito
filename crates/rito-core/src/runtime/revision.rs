@@ -10,11 +10,10 @@ use crate::{
 };
 
 use super::{
-    chapter_text::runtime_chapter_text_index_entries,
     cleanup::PendingRuntimeRevisionCleanup,
     frame::{
-        revision_summary, RuntimeChapterTextIndexSource, RuntimeRevision,
-        RuntimeRevisionCoordinateSpace, RuntimeRevisionInteractions,
+        revision_summary, RuntimeRevision, RuntimeRevisionCoordinateSpace,
+        RuntimeRevisionInteractions,
     },
     metadata::layout_key,
     RuntimeDocument, RuntimeRevisionSummary,
@@ -229,13 +228,6 @@ fn runtime_revision_interactions_with_footnotes(
             .iter()
             .map(|chapter| chapter.source.idref.clone())
             .collect(),
-        chapter_text_indices: if full_document {
-            RuntimeChapterTextIndexSource::FullDocument
-        } else {
-            RuntimeChapterTextIndexSource::Materialized(runtime_chapter_text_index_entries(
-                prepared,
-            ))
-        },
     }
 }
 

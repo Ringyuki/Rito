@@ -1,22 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
-import type { ReaderControllerEvents } from '@ritojs/kit';
+import { createPaperTurn, springPresets, type ReaderControllerEvents } from '@ritojs/kit';
+import type { PageTurn } from '@/components/settings-panel';
 import {
-  useRitoReader,
-  useSelection,
-  useSearch,
   useAnnotations,
   useControllerEvent,
+  useReaderTransition,
+  useReadingPosition,
+  useRitoReader,
+  useSearch,
+  useSelection,
 } from '@ritojs/react';
-import {
-  createLocalStoragePositionAdapter,
-  createLocalStorageAnnotationAdapter,
-} from '@ritojs/kit';
-import { DEFAULT_SETTINGS } from '@/components/settings-panel';
+import { bookKey, createBookStorage } from '@/lib/book-storage';
+import { noteDebug } from '@/lib/debug-log';
+import { fetchShardedDemo } from '@/lib/sharded-demo';
+import { useDebugLog } from '@/hooks/use-debug-log';
+import { useReaderFonts } from '@/hooks/use-reader-fonts';
+import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
-const positionStorage = createLocalStoragePositionAdapter('rito-position');
-const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
+const storage = createBookStorage();
 let demoEpubBlobPromise: Promise<Blob> | undefined;
 
 void preloadReaderRuntime().catch(() => undefined);
@@ -32,204 +36,199 @@ export function useReader(
   containerHeight: number,
   pinnedFontPolicy: ReaderPinnedFontPolicy,
 ) {
-  const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>(
-    DEFAULT_SETTINGS.spreadMode,
+  const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
+  const typography = useTypography();
+  const [pageTurn, setPageTurnState] = useState<PageTurn>('slide');
+  // The paper turn simulates one sheet: one of it for this reader.
+  const paperTurn = useMemo(() => createPaperTurn(), []);
+  const effectOf = useCallback(
+    (turn: PageTurn) => (turn === 'paper' ? paperTurn : turn),
+    [paperTurn],
   );
-  const [fontSize, setFontSizeState] = useState(DEFAULT_SETTINGS.fontSize);
-  const [lineHeight, setLineHeightState] = useState(DEFAULT_SETTINGS.lineHeight);
-  const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
-  const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
-  const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
 
-  const vpWidth = containerWidth > 0 ? Math.round(containerWidth) : 0;
-  const vpHeight = containerHeight > 0 ? Math.round(containerHeight) : 0;
-  const margin = readerViewportMargin(containerWidth);
-
+  // Everything a book opens with — size, spread, theme, typography — goes
+  // in here, so it lays out once, already styled.
   const rito = useRitoReader({
     reader: {
-      width: vpWidth,
-      height: vpHeight,
-      margin,
+      width: containerWidth > 0 ? Math.round(containerWidth) : 0,
+      height: containerHeight > 0 ? Math.round(containerHeight) : 0,
+      margin: readerViewportMargin(containerWidth),
       spread: spreadMode,
       pinnedFontPolicy,
       ...getThemeOptions(theme),
+      ...typographyReaderOptions(typography.typography),
     },
     controller: {
-      transition: { stiffness: 180, damping: 22 },
-      positionStorage,
-      annotationStorage,
-      a11y: {
-        enabled: true,
-      },
+      transition: { ...springPresets.default, effect: effectOf(pageTurn) },
+      positionStorage: storage.positionStorage,
+      annotationStorage: storage.annotationStorage,
+      a11y: { enabled: true },
     },
   });
+  const controller = rito.controller;
+  useApplyTypography(controller, typography);
+  useDebugLog(controller, {
+    width: Math.round(containerWidth),
+    height: Math.round(containerHeight),
+    spreadMode,
+    theme,
+    pageTurn,
+    typography: typography.typography,
+  });
 
-  if (typeof window !== 'undefined') {
-    // Exposes the controller so headless verification can drive and inspect it directly.
-    (window as unknown as { __ritoController?: unknown }).__ritoController = rito.controller;
-  }
-  const selection = useSelection(rito.controller);
-  const search = useSearch(rito.controller);
-  const annotations = useAnnotations(rito.controller);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  useEffect(() => {
+    // Headless verification drives and inspects the controller directly and
+    // opens any publication, a sharded one included.
+    const host = window as unknown as { __ritoController?: unknown; __ritoLoad?: unknown };
+    host.__ritoController = controller;
+    host.__ritoLoad = rito.load;
+  }, [controller, rito.load]);
 
-  // Content interaction events
+  const selection = useSelection(controller);
+  const search = useSearch(controller);
+  const annotations = useAnnotations(controller);
+  const position = useReadingPosition(controller);
+  const fonts = useReaderFonts(controller, rito.isLoaded);
+  const transition = useReaderTransition(controller);
+  const [renderScale, setRenderScaleState] = useState(1);
+
   const [pendingLink, setPendingLink] = useState<ReaderControllerEvents['linkClick'] | null>(null);
   const [footnote, setFootnote] = useState<ReaderControllerEvents['footnoteClick'] | null>(null);
   const [lightboxImage, setLightboxImage] = useState<ReaderControllerEvents['imageClick'] | null>(
     null,
   );
+  // The lightbox stays "open" until its exit animation completes.
   const [lightboxActive, setLightboxActive] = useState(false);
-
-  useControllerEvent(rito.controller, 'linkClick', setPendingLink);
-  useControllerEvent(rito.controller, 'footnoteClick', setFootnote);
-  useControllerEvent(rito.controller, 'imageClick', (img) => {
-    setLightboxImage(img);
-    setLightboxActive(true);
-  });
-  useControllerEvent(rito.controller, 'searchOpen', () => {
-    setSearchOpen(true);
-  });
-  useControllerEvent(rito.controller, 'transitionStart', () => {
-    setIsTransitioning(true);
-  });
-  useControllerEvent(rito.controller, 'transitionEnd', () => {
-    setIsTransitioning(false);
-  });
-
-  useEffect(() => {
-    setIsTransitioning(false);
-  }, [rito.controller]);
-
-  // Disable keyboard navigation while lightbox is open (including exit animation)
-  useEffect(() => {
-    rito.controller?.keyboard.setEnabled(!lightboxActive);
-  }, [lightboxActive, rito.controller]);
-
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Sync theme
-  useEffect(() => {
-    if (!rito.controller) return;
-    rito.setTheme(getThemeOptions(theme));
-  }, [theme, rito.controller]);
+  useControllerEvent(controller, 'linkClick', setPendingLink);
+  useControllerEvent(controller, 'footnoteClick', setFootnote);
+  useControllerEvent(controller, 'imageClick', (image) => {
+    setLightboxImage(image);
+    setLightboxActive(true);
+  });
+  useControllerEvent(controller, 'searchOpen', () => {
+    setSearchOpen(true);
+  });
+  // The controller's errors are non-fatal: the book stays open.
+  useControllerEvent(controller, 'error', ({ message, source }) => {
+    if (source !== 'font-family') toast.error(message, { description: source });
+  });
 
-  // Sync typography when values change after load.
-  // Skipped until the reader is loaded: setTypography is a no-op without a document.
-  // `null` clears the override so the book's natural value is restored.
   useEffect(() => {
-    if (!rito.controller || !rito.isLoaded) return;
-    rito.setTypography({
-      fontSize,
-      lineHeight: lineHeightActive ? lineHeight : null,
-      lineHeightForce: lineHeightActive && lineHeightForce,
-      fontFamily,
-    });
-  }, [
-    fontSize,
-    lineHeight,
-    lineHeightActive,
-    lineHeightForce,
-    fontFamily,
-    rito.controller,
-    rito.isLoaded,
-  ]);
+    setRenderScaleState(1);
+  }, [controller]);
 
-  // Actions
+  // Page turns by keyboard only while nothing covers the page.
+  const overlayOpen = lightboxActive || pendingLink !== null || footnote !== null || searchOpen;
+  useEffect(() => {
+    controller?.keyboard.setEnabled(!overlayOpen);
+  }, [overlayOpen, controller]);
+
+  useEffect(() => {
+    if (!controller) return;
+    controller.setTheme(getThemeOptions(theme));
+  }, [theme, controller]);
+
+  const open = useCallback(
+    async (key: string, publication: Parameters<typeof rito.load>[0]) => {
+      storage.setBook(key);
+      typography.markOpening();
+      noteDebug('open-book', {
+        key,
+        bytes: publication instanceof ArrayBuffer ? publication.byteLength : 'sharded',
+      });
+      try {
+        await rito.load(publication);
+        noteDebug('book-opened', key);
+      } catch (error) {
+        noteDebug('book-failed', error);
+        throw error;
+      }
+    },
+    [rito, typography],
+  );
+
   const loadFromArrayBuffer = useCallback(
     async (data: ArrayBuffer) => {
-      await rito.load(data);
+      await open(await bookKey(data), data);
     },
-    [rito],
+    [open],
   );
 
   const loadDemo = useCallback(async () => {
-    await rito.load(fetchDemoEpubData());
-  }, [rito]);
+    await open('demo', await fetchDemoEpubData());
+  }, [open]);
 
-  const toggleSpreadMode = useCallback(() => {
-    setSpreadModeState((prev) => {
-      const next = prev === 'single' ? 'double' : 'single';
-      rito.setSpreadMode(next);
-      return next;
-    });
-  }, [rito]);
+  const loadShardedDemo = useCallback(async () => {
+    try {
+      const { bookId, publication } = await fetchShardedDemo();
+      await open(`shards:${bookId}`, publication);
+    } catch (error) {
+      toast.error('Could not open the sharded demo', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [open]);
 
   const setSpreadMode = useCallback(
     (mode: 'single' | 'double') => {
-      setSpreadModeState((prev) => {
-        if (prev === mode) return prev;
-        rito.setSpreadMode(mode);
-        return mode;
-      });
+      if (mode === spreadMode) return;
+      setSpreadModeState(mode);
+      controller?.setSpreadMode(mode);
     },
-    [rito],
+    [controller, spreadMode],
   );
 
-  // Moving the slider activates the override (a no-op slider would be confusing).
-  const setLineHeight = useCallback((v: number) => {
-    setLineHeightState(v);
-    setLineHeightActive(true);
-  }, []);
+  // How pages turn; a reader on "reduced motion" gets a cross-fade anyway.
+  const setPageTurn = useCallback(
+    (turn: PageTurn) => {
+      setPageTurnState(turn);
+      controller?.configureTransition({ effect: effectOf(turn) });
+    },
+    [controller, effectOf],
+  );
 
-  const setLineHeightForce = useCallback((v: boolean) => {
-    setLineHeightForceState(v);
-    setLineHeightActive(true);
-  }, []);
-
-  // Restore initial state: slider snaps back to default, override cleared, force off.
-  const useBookLineHeight = useCallback(() => {
-    setFontSizeState(DEFAULT_SETTINGS.fontSize);
-    setLineHeightState(DEFAULT_SETTINGS.lineHeight);
-    setLineHeightActive(false);
-    setLineHeightForceState(false);
-  }, []);
-
-  const setFontFamily = useCallback((v: string | null) => {
-    setFontFamilyState(v);
-  }, []);
+  const setRenderScale = useCallback(
+    (scale: number) => {
+      setRenderScaleState(scale);
+      controller?.setRenderScale(scale);
+    },
+    [controller],
+  );
 
   const navigateToTocEntry = useCallback(
     (entry: TocEntry) => {
-      rito.navigateToTocEntry(entry);
+      controller?.navigateToTocEntry(entry);
     },
-    [rito],
+    [controller],
   );
 
-  const bookTitle = rito.metadata?.title ?? '';
-  const activeChapterHref = (() => {
-    const ctrl = rito.controller;
-    if (!ctrl || rito.spreads.length === 0) return '';
-    const spread = rito.spreads[rito.currentSpread];
-    const pageIndex = spread?.leftPageIndex ?? 0;
-    return ctrl.reader.findActiveTocEntry(pageIndex)?.href ?? '';
-  })();
+  const spread = rito.spreads[rito.currentSpread];
+  const activeTocEntry =
+    controller && spread ? controller.reader.findActiveTocEntry(spread.leftPageIndex) : undefined;
 
   return {
     ...rito,
     selection,
     search,
     annotations,
+    position,
+    fonts,
+    typography,
     spreadMode,
-    fontSize,
-    setFontSize: setFontSizeState,
-    lineHeight,
-    lineHeightActive,
-    lineHeightForce,
-    fontFamily,
-    isTransitioning,
-    bookTitle,
-    activeChapterHref,
+    setSpreadMode,
+    renderScale,
+    setRenderScale,
+    isTransitioning: transition.isTransitioning,
+    pageTurn,
+    setPageTurn,
+    bookTitle: rito.metadata?.title ?? '',
+    activeTocEntry,
     loadFromArrayBuffer,
     loadDemo,
+    loadShardedDemo,
     navigateToTocEntry,
-    toggleSpreadMode,
-    setSpreadMode,
-    setLineHeight,
-    setLineHeightForce,
-    useBookLineHeight,
-    setFontFamily,
-    // Content interaction
     pendingLink,
     dismissLink: useCallback(() => {
       setPendingLink(null);

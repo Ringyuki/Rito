@@ -4,6 +4,8 @@
 
 use serde_json::{json, Map, Number, Value};
 
+use super::ImageFallbackState;
+
 use super::super::commands::contract::{
     ReaderColor, ReaderRect, ReaderTextRun, ReaderTextRunPaint,
 };
@@ -139,6 +141,37 @@ fn primitive(primitive: &Primitive) -> Value {
         }
         Primitive::Text(command) => text("text", command),
         Primitive::Ruby(command) => text("ruby", command),
+        Primitive::ImageFallback {
+            src,
+            state,
+            block,
+            block_ink,
+            icon_ink,
+            pieces,
+        } => json!({
+            "kind": "image-fallback",
+            "src": src,
+            "state": match state {
+                ImageFallbackState::Loading => "loading",
+                ImageFallbackState::Broken => "broken",
+            },
+            "block": device_rect(*block),
+            "blockInk": number(*block_ink),
+            "iconInk": number(*icon_ink),
+            "pieces": pieces
+                .iter()
+                .map(|piece| {
+                    let mut object = object([
+                        ("offset", point(piece.offset)),
+                        ("path", path(&piece.path)),
+                    ]);
+                    if let Some(clip) = &piece.clip {
+                        object.insert("clip".to_owned(), path(clip));
+                    }
+                    Value::Object(object)
+                })
+                .collect::<Vec<_>>(),
+        }),
     }
 }
 

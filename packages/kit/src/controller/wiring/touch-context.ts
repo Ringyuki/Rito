@@ -1,4 +1,5 @@
 import type { SelectionEngine } from '../../interaction/index';
+import type { TransitionPoint } from '../../driver/effects';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { InteractionModeManager } from '../interaction-mode/index';
@@ -33,8 +34,12 @@ export interface GestureDeps {
   ) => GestureNavigationToken;
   readonly getCurrentSpread: () => number;
   readonly getTotalSpreads: () => number;
-  /** Commits an active same-direction transition before a rapid flip. */
-  readonly commitPendingTransition: () => void;
+  /**
+   * Retires older navigation work before the finger's own turn. A turn in
+   * flight is cut into: its outcome is settled, and the finger takes its
+   * picture from where it is.
+   */
+  readonly supersedeTurnInFlight: () => void;
 }
 
 export interface TouchHandlerContext extends GestureSessionContext {
@@ -43,6 +48,8 @@ export interface TouchHandlerContext extends GestureSessionContext {
   readonly selection: SelectionEngine;
   readonly modeManager: InteractionModeManager;
   readonly toContent: (touch: Touch) => { x: number; y: number };
+  /** A client point as the display canvas sees it: from its top-left corner. */
+  readonly toLocal: (client: TransitionPoint) => TransitionPoint;
   readonly onTap: (pos: { x: number; y: number }) => void;
   readonly selectionNavigation: PrimarySelectionDragNavigation | undefined;
 }
@@ -54,6 +61,7 @@ export function createTouchHandlerContext(
   toContent: (touch: Touch) => { x: number; y: number },
   onTap: (pos: { x: number; y: number }) => void,
   selectionNavigation: PrimarySelectionDragNavigation | undefined,
+  toLocal: (client: TransitionPoint) => TransitionPoint = (client) => client,
 ): TouchHandlerContext {
   return {
     state: createTouchState(),
@@ -61,6 +69,7 @@ export function createTouchHandlerContext(
     selection,
     modeManager,
     toContent,
+    toLocal,
     onTap,
     selectionNavigation,
     gesture: null,

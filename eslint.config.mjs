@@ -40,7 +40,6 @@ export default defineConfig([
   {
     files: [
       'packages/rito-core-wasm/src/**/*.js',
-      'packages/rito/src/bindings/browser/reader/worker-entry.mjs',
       'packages/rito/src/bindings/browser/reader-session-worker-entry.mjs',
     ],
     languageOptions: {

@@ -15,10 +15,11 @@ interface ExactSourcePoint {
   readonly textOffset: number;
 }
 
+/** A persisted position: a page of text is anchored at a source point, a plate at its progression. */
 interface ExactSavedPosition {
   readonly sourceLocator: {
     readonly href: string;
-    readonly sourcePoint: ExactSourcePoint;
+    readonly sourcePoint?: ExactSourcePoint | undefined;
     readonly progression?: number | undefined;
   };
   readonly projection: {
@@ -27,10 +28,7 @@ interface ExactSavedPosition {
   };
 }
 
-// Source locators still resolve Unavailable in the engine
-// (chapter_engine_session/fragment), so a saved source-anchored position
-// cannot be restored before the first frame yet.
-test.fixme('restores a saved position before the first visible reader frame', async ({ page }) => {
+test('restores a saved position before the first visible reader frame', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => {
     localStorage.clear();
@@ -57,22 +55,24 @@ test.fixme('restores a saved position before the first visible reader frame', as
     })
     .toBe(true);
 
+  // The first frame is the saved page itself: the session opens on the
+  // saved position's chapter and lays the rest of the book out behind it,
+  // so the page is on screen before its book-wide spread number is known.
   const firstFrame = await readFirstVisibleReaderFrame(page);
-  expect(firstFrame.firstLoadedSpread).toBe(expectedSpread);
-  expect(await currentSpread(page)).toBe(expectedSpread);
-  expect(await readerAttribute(page, 'data-active-chapter-href')).toContain('Section001.xhtml');
   expect(firstFrame.checksum).toBe(expectedChecksum);
+  await expect.poll(() => currentSpread(page)).toBe(expectedSpread);
+  expect(await readerAttribute(page, 'data-active-chapter-href')).toContain('Section001.xhtml');
 
   const restoredPosition = await readExactSavedPosition(page);
   expect(restoredPosition?.sourceLocator).toEqual(expectedPosition.sourceLocator);
   expect(restoredPosition?.projection).toEqual(expectedPosition.projection);
 
+  // One session, opened on that position: nothing was laid out and thrown
+  // away to get there.
   const operations = await readReaderWorkerOperations(page);
   expect(operations.some((operation) => operation.ok === false)).toBe(false);
-  const firstFrameRead = operations.find(
-    (operation) => operation.kind === 'warmFrameWindowAtRevision' && operation.ok === true,
-  );
-  expect(firstFrameRead?.spreadIndex).toBe(expectedSpread);
+  expect(operations.filter((operation) => operation.kind === 'open')).toHaveLength(1);
+  expect(operations.some((operation) => operation.kind === 'request-artifact')).toBe(false);
 });
 
 async function loadDemoBook(page: Page): Promise<void> {
@@ -136,7 +136,9 @@ async function waitForExactPositionAtCurrentSpread(page: Page): Promise<void> {
 
 async function readExactSavedPosition(page: Page): Promise<ExactSavedPosition | null> {
   return page.evaluate((targetHref) => {
-    const serialized = localStorage.getItem('rito-position');
+    // The demo keeps one position per book.
+    const key = Object.keys(localStorage).find((name) => name.startsWith('rito-position:'));
+    const serialized = key === undefined ? null : localStorage.getItem(key);
     if (!serialized) return null;
     try {
       return parseExactSavedPosition(JSON.parse(serialized) as unknown);
@@ -150,12 +152,15 @@ async function readExactSavedPosition(page: Page): Promise<ExactSavedPosition | 
       const sourcePoint = objectValue(sourceLocator?.['sourcePoint']);
       const projection = objectValue(position?.['projection']);
       const nodePath = sourcePoint?.['nodePath'];
+      const exactPoint =
+        Array.isArray(nodePath) &&
+        nodePath.every((part) => Number.isSafeInteger(part) && part >= 0) &&
+        typeof sourcePoint?.['textOffset'] === 'number' &&
+        Number.isSafeInteger(sourcePoint['textOffset']);
       if (
         sourceLocator?.['href'] !== targetHref ||
-        !Array.isArray(nodePath) ||
-        !nodePath.every((part) => Number.isSafeInteger(part) && part >= 0) ||
-        typeof sourcePoint?.['textOffset'] !== 'number' ||
-        !Number.isSafeInteger(sourcePoint['textOffset']) ||
+        (sourcePoint !== undefined && !exactPoint) ||
+        (sourcePoint === undefined && typeof sourceLocator['progression'] !== 'number') ||
         typeof projection?.['spreadIndex'] !== 'number' ||
         !Number.isSafeInteger(projection['spreadIndex']) ||
         typeof projection['pageIndex'] !== 'number' ||
@@ -167,7 +172,14 @@ async function readExactSavedPosition(page: Page): Promise<ExactSavedPosition | 
       return {
         sourceLocator: {
           href: sourceLocator['href'],
-          sourcePoint: { nodePath, textOffset: sourcePoint['textOffset'] },
+          ...(exactPoint
+            ? {
+                sourcePoint: {
+                  nodePath: nodePath as number[],
+                  textOffset: sourcePoint['textOffset'] as number,
+                },
+              }
+            : {}),
           ...(typeof progression === 'number' ? { progression } : {}),
         },
         projection: {

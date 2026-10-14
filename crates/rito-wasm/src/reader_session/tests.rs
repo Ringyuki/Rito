@@ -4,14 +4,14 @@ use std::{
     path::Path,
 };
 
-fn open_test_projection(
+pub(super) fn open_test_projection(
     publication: Vec<u8>,
     session_id: u64,
 ) -> Result<ReaderSessionProjection, super::ReaderProjectionError> {
     ReaderSessionProjection::open_with_pinned_font_policy(
         publication,
         session_id,
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
 }
 
@@ -36,7 +36,7 @@ use super::{
     ReaderProjectionError, ReaderProjectionErrorCode, ReaderSessionProjection, RitoReaderSession,
 };
 
-const SESSION_ID: u64 = (1u64 << 60) + 41;
+pub(super) const SESSION_ID: u64 = (1u64 << 60) + 41;
 
 #[test]
 fn wasm_error_codes_match_actionable_core_reader_kinds() {
@@ -57,6 +57,7 @@ fn wasm_error_codes_match_actionable_core_reader_kinds() {
         let projected = ReaderProjectionError::from(ReaderError {
             kind,
             message: "typed code probe".to_owned(),
+            pending_shards: Vec::new(),
         });
         assert_eq!(projected.code, expected);
     }
@@ -156,7 +157,7 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_request =
@@ -192,7 +193,7 @@ fn adjacent_projection_is_core_identical_across_three_turns() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_first = direct
@@ -263,7 +264,7 @@ fn background_handoff_and_adopted_adjacent_are_byte_identical_to_core() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_first = direct
@@ -391,7 +392,7 @@ fn each_background_transport_call_matches_exactly_one_core_quantum() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_first = direct
@@ -737,7 +738,7 @@ fn resource_projection_is_core_identical_for_the_real_0005_image() {
     let mut direct = ReaderSession::open_owned_with_pinned_font_policy(
         SESSION_ID,
         publication.clone(),
-        crate::tests::fixture::pinned_test_policy_input(),
+        pinned_test_policy_input(),
     )
     .expect("direct Core session opens");
     let direct_request =
@@ -884,7 +885,7 @@ fn wasm_projection_rejects_top_bit_ids_instead_of_converting_them_to_negative() 
     );
 }
 
-fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
+pub(super) fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
     encode_reader_artifact_request(&ReaderArtifactRequest {
         session_id,
         request_id,
@@ -902,6 +903,8 @@ fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
             root_font_size: 16.0,
             line_height_override: None,
             font_family_override: None,
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: ReaderLocator {
             href: href.to_owned(),
@@ -915,7 +918,7 @@ fn request_wire(session_id: u64, request_id: u64, href: &str) -> Vec<u8> {
     .expect("request encodes")
 }
 
-fn adjacent_wire(
+pub(super) fn adjacent_wire(
     session_id: u64,
     request_id: u64,
     from_artifact_id: u64,
@@ -956,7 +959,7 @@ fn handoff_wire(
     .expect("background handoff encodes")
 }
 
-fn foreground_handoff_wire(
+pub(super) fn foreground_handoff_wire(
     session_id: u64,
     expected_visible_artifact_id: Option<u64>,
     candidate_artifact_id: u64,
@@ -1038,7 +1041,7 @@ fn advance_projection_to_candidate(
     panic!("background did not produce a candidate within the fixture bound");
 }
 
-fn source_locator_fixture_epub() -> Vec<u8> {
+pub(crate) fn source_locator_fixture_epub() -> Vec<u8> {
     let paragraphs = (0..48)
         .map(|index| {
             format!(
@@ -1052,7 +1055,7 @@ fn source_locator_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(chapter.as_bytes())
 }
 
-fn book_10_publication() -> Vec<u8> {
+pub(crate) fn book_10_publication() -> Vec<u8> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../packages/rito/tests/fixtures/books/book-10.epub");
     fs::read(path).expect("book-10 fixture is readable")
@@ -1154,4 +1157,142 @@ fn tmp_pt_margin_probe() {
     let mut projection = open_test_projection(epub, SESSION_ID).expect("projection opens");
     let request = request_wire(SESSION_ID, 1, "chapter.xhtml#point-0");
     projection.request_artifact(&request).expect("artifact");
+}
+
+#[test]
+fn a_session_opened_from_shards_lays_out_alone_and_names_an_image_shard() {
+    let epub = book_10_publication();
+    let mut counter = 7u8;
+    let mut random = |buffer: &mut [u8]| {
+        for byte in buffer {
+            counter = counter.wrapping_mul(31).wrapping_add(17);
+            *byte = counter;
+        }
+    };
+    let packed = rito_core::epub::shard::pack_publication(
+        &epub,
+        rito_core::epub::shard::PackOptions { encrypt: true },
+        &mut random,
+    )
+    .expect("packs");
+    let skeleton_key = packed
+        .skeleton
+        .key
+        .as_ref()
+        .map(|key| key.as_bytes().to_vec());
+    assert_eq!(
+        ReaderSessionProjection::open_shards(
+            &packed.skeleton.bytes,
+            Some(&[1, 2, 3]),
+            SESSION_ID,
+            pinned_test_policy_input(),
+        )
+        .expect_err("a short key is refused")
+        .code,
+        ReaderProjectionErrorCode::InvalidRequest
+    );
+    let mut sharded = ReaderSessionProjection::open_shards(
+        &packed.skeleton.bytes,
+        skeleton_key.as_deref(),
+        SESSION_ID,
+        pinned_test_policy_input(),
+    )
+    .expect("opens from the skeleton");
+    let mut archive = open_test_projection(epub, SESSION_ID).expect("archive opens");
+    let request = request_wire(SESSION_ID, 1, "OEBPS/Text/Section001.xhtml");
+    let actual = decode_reader_artifact(
+        &sharded
+            .request_artifact(&request)
+            .expect("laid out from the skeleton"),
+    )
+    .expect("decodes");
+    let expected = decode_reader_artifact(
+        &archive
+            .request_artifact(&request)
+            .expect("archive artifact"),
+    )
+    .expect("decodes");
+    assert_eq!(actual.display_list, expected.display_list);
+    assert_eq!(actual.pages, expected.pages);
+
+    let href = actual
+        .resources
+        .iter()
+        .find(|resource| resource.kind == ReaderResourceKind::Image)
+        .expect("the chapter draws an image")
+        .href
+        .clone();
+    let pending = sharded
+        .read_resource(actual.artifact_id, 0, &href)
+        .expect_err("the image has not arrived");
+    assert_eq!(pending.code, ReaderProjectionErrorCode::ResourcePending);
+    assert_eq!(pending.pending_shards.len(), 1);
+    let shard = &packed.shards[pending.pending_shards[0] as usize - 1];
+    let key = shard.key.as_ref().map(|key| key.as_bytes().to_vec());
+    assert_eq!(
+        sharded
+            .supply_shard(&shard.bytes, key.as_deref())
+            .expect("supplies"),
+        pending.pending_shards[0]
+    );
+    let read = decode_reader_resource(
+        &sharded
+            .read_resource(actual.artifact_id, 0, &href)
+            .expect("reads once supplied"),
+    )
+    .expect("decodes");
+    let archived = decode_reader_resource(
+        &archive
+            .read_resource(expected.artifact_id, 0, &href)
+            .expect("archive reads"),
+    )
+    .expect("decodes");
+    assert_eq!(read.bytes, archived.bytes);
+}
+
+#[test]
+fn font_queries_cross_the_projection_as_core_wires() {
+    let projection =
+        open_test_projection(source_locator_fixture_epub(), SESSION_ID).expect("projection opens");
+    let wasm = RitoReaderSession { inner: projection };
+
+    let catalog_wire = wasm
+        .font_catalog()
+        .unwrap_or_else(|_| panic!("catalog resolves"));
+    assert_eq!(&catalog_wire[..8], b"RITOFNT1");
+    let catalog = rito_core::runtime::decode_reader_font_catalog(&catalog_wire)
+        .expect("catalog wire decodes");
+    let session_catalog = wasm.inner.session().expect("session").font_catalog();
+    assert_eq!(catalog, session_catalog);
+    assert!(!catalog.families.is_empty());
+
+    let names_wire = wasm
+        .unresolved_font_families("\"No Such Face\", serif")
+        .unwrap_or_else(|_| panic!("names resolve"));
+    assert_eq!(&names_wire[..8], b"RITOFNN1");
+    assert_eq!(
+        rito_core::runtime::decode_reader_font_names(&names_wire).expect("names wire decodes"),
+        vec!["No Such Face".to_owned()]
+    );
+}
+
+/// Pinned test policy for wasm-side sessions: chapter-local pagination
+/// shapes with pinned faces only.
+pub(super) fn pinned_test_policy_input() -> rito_core::runtime::RuntimePinnedFontPolicyInput {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"
+    );
+    let bytes = std::fs::read(path).expect("pinned Tinos test font reads");
+    rito_core::runtime::RuntimePinnedFontPolicyInput {
+        faces: vec![rito_core::runtime::RuntimePinnedFontFaceInput {
+            expected_sha256: {
+                use sha2::{Digest, Sha256};
+                format!("{:x}", Sha256::digest(&bytes))
+            },
+            bytes,
+            generic_role: rito_core::runtime::RuntimePinnedFontGenericRole::Serif,
+            language: None,
+        }],
+    }
 }

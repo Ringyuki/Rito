@@ -11,12 +11,7 @@ import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { mergeOverlayLayers } from './overlay/merger';
 import { buildOverlayData } from './overlay/projection';
 import type { PrerenderScheduler } from './prerender';
-import type { SettledEvent } from '../driver/types';
-
-export {
-  createProvisionalTransitionRuntime,
-  type ProvisionalTransitionRuntime,
-} from './provisional-transition-runtime';
+import { transitionLifecycle } from './core/transition-lifecycle';
 
 interface RuntimeFrameParts {
   readonly contentRenderer: ContentRenderer;
@@ -29,6 +24,7 @@ export function createRuntimeFrameParts(
   surface: DisplaySurface,
   pool: PageBufferPool,
   transitionDriver: TransitionDriver,
+  emitter: Emitter,
 ): RuntimeFrameParts {
   const contentRenderer: ContentRenderer = (spreadIndex, context) => {
     // Last-resort paint boundary: an exception here would leave the
@@ -52,6 +48,9 @@ export function createRuntimeFrameParts(
     contentRenderer,
     overlayProvider: buildOverlayProvider(internals, reader),
     getBackingRatio: () => reader.dpr * internals.renderScale,
+    onTurnFrame: (frame) => {
+      transitionLifecycle(emitter).progress(frame);
+    },
   });
   return { contentRenderer, frameDriver };
 }
@@ -93,33 +92,41 @@ export function wireSettledEvents(
   reader: Reader,
   contentRenderer: ContentRenderer,
   prerenderScheduler: PrerenderScheduler,
-  handleProvisionalSettled?: (event: SettledEvent) => boolean,
 ): () => void {
-  return transitionDriver.onSettled((event) => {
-    if (handleProvisionalSettled?.(event)) {
-      frameDriver.scheduleComposite();
-      return;
-    }
+  const prerender = (eagerPosition?: 'next' | 'prev'): void => {
+    prerenderScheduler.schedule({
+      getCurrentSpread: () => internals.currentSpread,
+      isAnimating: () => transitionDriver.isAnimating,
+      reader,
+      pool,
+      contentRenderer,
+      ...(eagerPosition ? { eagerPosition } : {}),
+    });
+  };
+  // A turn cut into was settled while its picture still moved, when the
+  // neighbours could not be painted ahead; once it is still they can be.
+  const stopWatchingRest = transitionDriver.onRest(() => {
+    prerender();
+  });
+  const stopWatchingSettled = transitionDriver.onSettled((event) => {
     if (event.committed) {
       if (event.direction === 'forward') pool.rotateForward();
       else pool.rotateBackward();
       commitCurrentSpread(internals, event.targetSpread, 'settle-commit');
-      prerenderScheduler.schedule({
-        getCurrentSpread: () => internals.currentSpread,
-        isAnimating: () => transitionDriver.isAnimating,
-        reader,
-        pool,
-        contentRenderer,
-        eagerPosition: event.direction === 'forward' ? 'next' : 'prev',
-      });
+      prerender(event.direction === 'forward' ? 'next' : 'prev');
     } else {
       restoreCanceledTransition(internals, emitter, reader, event.targetSpread);
     }
-    if (!transitionDriver.isAnimating) {
-      emitter.emit('transitionEnd', { direction: event.direction });
+    // A listener above may have begun another turn, which ended this one itself.
+    if (!transitionDriver.turning) {
+      transitionLifecycle(emitter).end(event.committed ? 'committed' : 'cancelled');
     }
     frameDriver.scheduleComposite();
   });
+  return () => {
+    stopWatchingRest();
+    stopWatchingSettled();
+  };
 }
 
 function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProvider {

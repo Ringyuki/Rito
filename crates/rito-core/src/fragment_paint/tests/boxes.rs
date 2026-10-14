@@ -28,7 +28,7 @@ fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
         0.0,
         FragmentPaintContext {
             image_border_paints: None,
-            family_policy: None,
+            faces: None,
             node_paints: Some(&node_paints),
             list_markers: None,
             ruby_annotation_runs: None,
@@ -95,9 +95,21 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
             run: Some(rito_inline::MeasuredRun {
                 advance: 16.0,
                 clusters: vec![
-                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
-                    rito_fragment::ClusterPosition { byte: 1, x: 8.0 },
-                    rito_fragment::ClusterPosition { byte: 2, x: 12.0 },
+                    rito_fragment::ClusterPosition {
+                        byte: 0,
+                        x: 0.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 1,
+                        x: 8.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 2,
+                        x: 12.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
                 ],
                 grid: false,
             }),

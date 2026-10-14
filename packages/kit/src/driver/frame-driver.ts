@@ -3,6 +3,8 @@ import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painte
 import type { SlotPosition } from '../painter/types';
 import type { TransitionDriver } from './transition-driver';
 import type { DrawInstruction } from './types';
+import type { TransitionFrame, TransitionPage } from './effects';
+import { createTransitionScene, paintTransition, scaledTouch } from './transition-scene';
 
 export interface FrameDriverDeps {
   readonly surface: DisplaySurface;
@@ -11,6 +13,8 @@ export interface FrameDriverDeps {
   readonly contentRenderer: ContentRenderer;
   readonly overlayProvider: OverlayProvider;
   readonly getBackingRatio: () => number;
+  /** Called after each frame of a turn is painted. */
+  readonly onTurnFrame?: ((frame: TransitionFrame) => void) | undefined;
 }
 
 /**
@@ -20,6 +24,10 @@ export interface FrameDriverDeps {
  * and composites to the display surface. Stops the rAF loop when idle.
  */
 export interface FrameDriver {
+  /** Whether a turn, or what is left of one that was cut into, is being drawn frame by frame. */
+  readonly animating: boolean;
+  /** Calls back when what a cut turn had left comes to rest: no turn's end says the page is still. */
+  onRest(cb: () => void): () => void;
   /** Request a composite on the next animation frame (idempotent). */
   scheduleComposite(): void;
   /** Composite immediately in the current task. Used for atomic layout commits. */
@@ -89,14 +97,16 @@ function createFrameDriverApi(
   onFrame: FrameRequestCallback,
 ): FrameDriver {
   const driver: FrameDriver = {
+    get animating(): boolean {
+      return deps.transitionDriver.isAnimating;
+    },
+
+    onRest(cb): () => void {
+      return deps.transitionDriver.onRest(cb);
+    },
+
     scheduleComposite(): void {
-      if (state.disposed) return;
-      if (state.firstCompositeHoldCount > 0) {
-        requestHeldComposite(state, 'scheduled');
-        return;
-      }
-      if (state.rafId !== null) return;
-      state.rafId = requestAnimationFrame(onFrame);
+      scheduleComposite(state, onFrame);
     },
 
     compositeNow(): void {
@@ -128,6 +138,16 @@ function createFrameDriverApi(
   };
 
   return driver;
+}
+
+function scheduleComposite(state: FrameDriverState, onFrame: FrameRequestCallback): void {
+  if (state.disposed) return;
+  if (state.firstCompositeHoldCount > 0) {
+    requestHeldComposite(state, 'scheduled');
+    return;
+  }
+  if (state.rafId !== null) return;
+  state.rafId = requestAnimationFrame(onFrame);
 }
 
 function compositeNow(deps: FrameDriverDeps, state: FrameDriverState): void {
@@ -192,8 +212,6 @@ function cancelScheduledFrame(state: FrameDriverState): void {
 }
 
 function ensureSlotReady(deps: FrameDriverDeps, position: SlotPosition): boolean {
-  const draw = deps.pool.resolveDrawSlot(position);
-  if (draw.provisional) return !draw.slot.contentDirty;
   const contentReady = deps.pool.ensureContent(position, deps.contentRenderer);
   if (!contentReady) return false;
   deps.pool.ensureOverlay(position, deps.overlayProvider, deps.getBackingRatio());
@@ -219,13 +237,9 @@ function drawSingleFrame(
 ): void {
   if (!ensureSlotReady(deps, slotPosition)) return;
   deps.surface.clear();
-  const draw = deps.pool.resolveDrawSlot(slotPosition);
-  const slot = draw.slot;
+  const slot = deps.pool[slotPosition];
   deps.surface.ctx.drawImage(slot.content, 0, 0, width, height);
-  notifyProvisionalComposite(deps, draw);
-  if (!draw.provisional && slot.overlay) {
-    deps.surface.ctx.drawImage(slot.overlay, 0, 0, width, height);
-  }
+  if (slot.overlay) deps.surface.ctx.drawImage(slot.overlay, 0, 0, width, height);
 }
 
 function drawTurningFrame(
@@ -234,66 +248,50 @@ function drawTurningFrame(
   width: number,
   height: number,
 ): void {
-  const { outgoing, incoming, dx } = instruction;
-  if (!ensureSlotReady(deps, outgoing)) return;
-  const pxDx = Math.round(dx * (width / (deps.transitionDriver.viewportWidth || width)));
+  // The outgoing page must be drawable before anything changes on screen.
+  if (!ensureSlotReady(deps, 'curr')) return;
+  const scale = width / (deps.transitionDriver.viewportWidth || width);
+  const frame: TransitionFrame = {
+    dx: instruction.dx * scale,
+    width,
+    incoming: instruction.incoming,
+    phase: instruction.phase,
+    velocity: instruction.velocity * scale,
+    touch: instruction.touch && scaledTouch(instruction.touch, scale),
+  };
+  const pages = new Map<SlotPosition, TransitionPage | null>();
+  const pageOf = (slot: SlotPosition): TransitionPage | null => {
+    if (!pages.has(slot)) pages.set(slot, transitionPage(deps, slot, width));
+    return pages.get(slot) ?? null;
+  };
   deps.surface.clear();
-  drawContinuitySlot(deps, instruction, pxDx, width, height);
-  drawSlotAt(deps, outgoing, pxDx, width, height);
-  if (!incoming) return;
-  const incomingX = pxDx + (incoming === 'next' ? width : -width);
-  if (!ensureSlotReady(deps, incoming)) return;
-  drawSlotAt(deps, incoming, incomingX, width, height);
+  paintTransition(
+    createTransitionScene(
+      deps.surface.ctx,
+      width,
+      height,
+      pageOf,
+      scale,
+      deps.transitionDriver.spine * scale,
+    ),
+    deps.transitionDriver.effect,
+    frame,
+  );
+  deps.onTurnFrame?.(frame);
 }
 
-function drawContinuitySlot(
-  deps: FrameDriverDeps,
-  instruction: Extract<DrawInstruction, { kind: 'turning' }>,
-  pxDx: number,
-  width: number,
-  height: number,
-): void {
-  const carry = continuitySlot(instruction, pxDx, width);
-  if (!carry) return;
-  if (!ensureSlotReady(deps, carry.slot)) return;
-  drawSlotAt(deps, carry.slot, carry.x, width, height);
-}
-
-function continuitySlot(
-  instruction: Extract<DrawInstruction, { kind: 'turning' }>,
-  pxDx: number,
-  width: number,
-): { readonly slot: SlotPosition; readonly x: number } | null {
-  if (instruction.incoming === 'next' && pxDx > 0) {
-    return { slot: 'prev', x: pxDx - width };
-  }
-  if (instruction.incoming === 'prev' && pxDx < 0) {
-    return { slot: 'next', x: pxDx + width };
-  }
-  return null;
-}
-
-function drawSlotAt(
+function transitionPage(
   deps: FrameDriverDeps,
   slotPosition: SlotPosition,
-  x: number,
   width: number,
-  height: number,
-): void {
-  const draw = deps.pool.resolveDrawSlot(slotPosition);
-  const slot = draw.slot;
-  deps.surface.ctx.drawImage(slot.content, x, 0, width, height);
-  notifyProvisionalComposite(deps, draw);
-  if (!draw.provisional && slot.overlay) {
-    deps.surface.ctx.drawImage(slot.overlay, x, 0, width, height);
-  }
-}
-
-function notifyProvisionalComposite(
-  deps: FrameDriverDeps,
-  draw: ReturnType<PageBufferPool['resolveDrawSlot']>,
-): void {
-  if (draw.provisionalToken !== undefined) {
-    deps.pool.notifyProvisionalComposite(draw.provisionalToken);
-  }
+): TransitionPage | null {
+  if (!ensureSlotReady(deps, slotPosition)) return null;
+  const slot = deps.pool[slotPosition];
+  return {
+    spread: slot.spreadIndex ?? 0,
+    content: slot.content,
+    overlay: slot.overlay,
+    pixelRatio: width > 0 ? slot.content.width / width : 1,
+    version: slot.paints,
+  };
 }

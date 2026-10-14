@@ -33,14 +33,8 @@ export interface PageBufferSlot {
   contentDirty: boolean;
   /** Whether the overlay buffer needs re-rendering. */
   overlayDirty: boolean;
-}
-
-/** Paint-only stage that is never addressable as a publication spread slot. */
-export interface ProvisionalBufferStage {
-  readonly token: number;
-  readonly mountSpreadIndex: number;
-  readonly direction: 'forward' | 'backward';
-  readonly slot: PageBufferSlot;
+  /** Counts every change to the pixels of either buffer. */
+  paints: number;
 }
 
 /** Named slot positions in the three-slot ring buffer. */

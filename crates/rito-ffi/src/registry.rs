@@ -4,13 +4,14 @@ use std::{
 };
 
 use rito_core::runtime::{
-    ReaderAdjacentRequest, ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
-    ReaderSearchRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSpreadRequest,
+    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
 use crate::{
-    actor::{self, ActorHandle, CommandAdmission, InitialArtifactReply},
+    actor::{self, ActorHandle, ActorPublication, CommandAdmission, InitialArtifactReply},
     error::FfiError,
 };
 
@@ -69,7 +70,7 @@ pub(crate) fn reserve_open(session_id: u64) -> Result<OpenReservation, FfiError>
 
 pub(crate) fn open(
     reservation: OpenReservation,
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Vec<u8>, FfiError> {
@@ -93,7 +94,7 @@ pub(crate) fn open(
 fn start_registered(
     session_id: u64,
     generation: u64,
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
 ) -> Result<Receiver<InitialArtifactReply>, FfiError> {
@@ -221,6 +222,13 @@ pub(crate) fn peek_adjacent(
     actor::peek_adjacent(admission, request)
 }
 
+pub(crate) fn peek_spread(
+    admission: CommandAdmission,
+    request: ReaderSpreadRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::peek_spread(admission, request)
+}
+
 pub(crate) fn adopt_foreground_candidate(
     admission: CommandAdmission,
     request: ReaderForegroundHandoff,
@@ -276,6 +284,27 @@ pub(crate) fn text_range_geometry(
     actor::request_text_range_geometry(admission, request)
 }
 
+pub(crate) fn text_interaction(
+    admission: CommandAdmission,
+    request: ReaderTextInteractionRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_text_interaction(admission, request)
+}
+
+pub(crate) fn annotation(
+    admission: CommandAdmission,
+    request: ReaderAnnotationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_annotation(admission, request)
+}
+
+pub(crate) fn navigation(
+    admission: CommandAdmission,
+    request: ReaderNavigationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_navigation(admission, request)
+}
+
 pub(crate) fn exact_source_range(
     admission: CommandAdmission,
     request: ReaderExactSourceRangeRequest,
@@ -289,6 +318,53 @@ pub(crate) fn read_footnote(
     key: String,
 ) -> Result<Vec<u8>, FfiError> {
     actor::request_footnote(admission, artifact_id, key)
+}
+
+pub(crate) fn font_catalog(admission: CommandAdmission) -> Result<Vec<u8>, FfiError> {
+    actor::request_font_catalog(admission)
+}
+
+pub(crate) fn unresolved_font_families(
+    admission: CommandAdmission,
+    list: String,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_unresolved_font_families(admission, list)
+}
+
+pub(crate) fn add_host_font_faces(
+    admission: CommandAdmission,
+    faces: Vec<rito_core::runtime::RuntimePinnedFontFaceInput>,
+) -> Result<(), FfiError> {
+    actor::request_add_host_font_faces(admission, faces)
+}
+
+pub(crate) fn remove_host_font_faces(
+    admission: CommandAdmission,
+    sha256s: Vec<String>,
+) -> Result<(), FfiError> {
+    actor::request_remove_host_font_faces(admission, sha256s)
+}
+
+pub(crate) fn mark_font_family_unavailable(
+    admission: CommandAdmission,
+    family: String,
+) -> Result<(), FfiError> {
+    actor::request_mark_font_family_unavailable(admission, family)
+}
+
+pub(crate) fn supply_shard(
+    admission: CommandAdmission,
+    shard: Vec<u8>,
+    key: Option<rito_core::epub::shard::ShardKey>,
+) -> Result<u32, FfiError> {
+    actor::request_supply_shard(admission, shard, key)
+}
+
+pub(crate) fn content_shards_near(
+    admission: CommandAdmission,
+    href: String,
+) -> Result<Vec<u32>, FfiError> {
+    actor::request_content_shards_near(admission, href)
 }
 
 pub(crate) fn release_artifact(

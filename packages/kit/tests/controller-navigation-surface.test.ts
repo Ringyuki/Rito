@@ -103,7 +103,7 @@ function createInternalsStub(
       search: { getResults: vi.fn(() => []), getActiveIndex: vi.fn(() => -1) },
       position: null,
     },
-    coordState: { annotationStore: null },
+    coordState: { annotationStore: null, searchResults: { stale: false, refresh: null } },
     restoreCompleted: false,
   } as unknown as Internals;
 }

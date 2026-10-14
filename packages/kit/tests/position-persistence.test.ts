@@ -15,6 +15,8 @@ describe('position persistence wiring', () => {
       chapterMap: new Map(),
     }));
     const deps = {
+      reader: {},
+      coordState: {},
       engines: { position: tracker },
       emitter: { emit },
       hasRestored: () => true,
@@ -45,6 +47,8 @@ describe('position persistence wiring', () => {
     const errorListener = vi.fn();
     emitter.on('error', errorListener);
     const deps = {
+      reader: {},
+      coordState: {},
       engines: { position: tracker },
       emitter,
       hasRestored: () => true,
@@ -78,6 +82,8 @@ describe('position persistence wiring', () => {
     });
     emitter.on('error', listener);
     const deps = {
+      reader: {},
+      coordState: {},
       engines: { position: tracker },
       emitter,
       hasRestored: () => true,

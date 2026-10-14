@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
 import { readerInteractions } from './helpers/native-selection';
+import { annotationTarget } from './annotation-target-fixture';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -62,7 +63,7 @@ describe('controller bootstrap cleanup', () => {
     }).toThrow(sentinel);
     expect(unsubscribe).toHaveBeenCalledOnce();
     expect(listeners.size).toBe(0);
-    expect(buffers).toHaveLength(4);
+    expect(buffers).toHaveLength(3);
     expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
   });
 
@@ -83,7 +84,7 @@ describe('controller bootstrap cleanup', () => {
     expect(() => {
       createController(reader as never, canvas);
     }).toThrow(sentinel);
-    expect(buffers).toHaveLength(4);
+    expect(buffers).toHaveLength(3);
     expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
   });
 
@@ -196,8 +197,6 @@ function createReaderStub(input: {
       marginTop: 40,
       spreadGap: 20,
     })),
-    getChapterTextIndices: vi.fn(() => new Map()),
-    getFootnotes: vi.fn(() => new Map()),
     getImageBlobUrl: vi.fn(),
     setTypography: vi.fn(() => false),
     onSpreadRendered: vi.fn((listener: (spreadIndex: number, spread: unknown) => void) => {
@@ -250,20 +249,7 @@ function annotationRecord(): import('../src/interaction').AnnotationRecord {
     id: 'late',
     kind: 'highlight',
     createdAt: 1,
-    target: {
-      href: 'chapter.xhtml',
-      selectors: {
-        sourceRange: {
-          type: 'SourceRangeSelector',
-          start: { nodePath: [0], textOffset: 0 },
-          end: { nodePath: [0], textOffset: 1 },
-        },
-        textQuote: { type: 'TextQuoteSelector', exact: 'x' },
-        textPosition: { type: 'TextPositionSelector', start: 0, end: 1 },
-        progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 0 },
-      },
-      text: { highlight: 'x' },
-    },
+    target: annotationTarget('x'),
   };
 }
 

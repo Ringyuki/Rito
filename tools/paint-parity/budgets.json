@@ -27,6 +27,18 @@
     "maxDelta": 3,
     "maxDiffPx": 416
   },
+  "image-broken-fallback": {
+    "maxDelta": 1,
+    "maxDiffPx": 121
+  },
+  "image-broken-fallback-dark": {
+    "maxDelta": 2,
+    "maxDiffPx": 538
+  },
+  "image-loading-fallback": {
+    "maxDelta": 1,
+    "maxDiffPx": 102
+  },
   "image-source-rect": {
     "maxDelta": 16,
     "maxDiffPx": 13244

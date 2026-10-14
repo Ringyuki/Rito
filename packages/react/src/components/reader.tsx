@@ -10,7 +10,7 @@ export interface ReaderProps {
 }
 
 /**
- * Mounts the controller's DOM elements (transition canvases + overlay canvas).
+ * Mounts the controller's display canvas (and its accessibility mirror when enabled).
  * Fills its parent container — apply sizing via className or parent layout.
  *
  * NOTE: This component does NOT call controller.resize(). The consumer is

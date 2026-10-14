@@ -49,11 +49,13 @@ final class RitoPageSurface extends StatelessWidget {
 /// resolved it. Text runs, which the list keeps in CSS pixels, paint
 /// under the ratio again — back in logical pixels, at their CSS size.
 final class RitoArtifactPainter extends CustomPainter {
-  const RitoArtifactPainter({
+  /// Repaints whenever the artifact's images change: one landing, a
+  /// placeholder appearing, a late image fading in.
+  RitoArtifactPainter({
     required this.artifact,
     required this.resolveImage,
     this.colorOverride,
-  });
+  }) : super(repaint: artifact.imageChanges);
 
   final RitoPreparedArtifact artifact;
   final RitoImageResolver resolveImage;
@@ -69,6 +71,10 @@ final class RitoArtifactPainter extends CustomPainter {
     final target = RitoPrimitiveCanvasTarget(
       canvas,
       resolveImage: resolveImage,
+      imageFallback: artifact.imageChanges == null
+          ? null
+          : artifact.imageFallback,
+      imageOpacity: artifact.imageOpacity,
       fontEnvelopes: RitoFontEnvelopeStore.shared,
       colorOverride: colorOverride,
       ratio: list.ratio,

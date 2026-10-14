@@ -52,17 +52,18 @@ jobs:
             echo "RELEASE_GITHUB_TOKEN must be a non-GITHUB_TOKEN credential that can create tags and trigger workflows."
             exit 1
           fi
+      # The action learns what was published from the file it names in
+      # CHANGESETS_OUTPUT, which release:ci hands down to `changeset publish`.
       - name: Create Release PR Or Publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          version: pnpm version-packages
-          publish: pnpm run release:ci
-          commit: 'release: version packages'
-          title: 'release: version packages'
-          createGithubReleases: true
+          version-script: pnpm version-packages
+          publish-script: pnpm run release:ci
+          commit-message: 'release: version packages'
+          pr-title: 'release: version packages'
+          create-github-releases: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: 0
       - name: Trigger unpublished Flutter release
         if: steps.changesets.outputs.published == 'true'

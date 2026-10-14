@@ -1,3 +1,5 @@
+import type { RitoCoreWasmFontCatalog, RitoCoreWasmHostFontFaceInput } from './pinned-font';
+import type { RitoCoreWasmShardedPublication } from './sharded-publication';
 import type {
   RitoReaderAdjacentDirection,
   RitoReaderArtifactRequestInput,
@@ -11,7 +13,22 @@ import type {
   RitoReaderResourceKind,
   RitoReaderResource,
   RitoReaderTextProfile,
+  RitoReaderSourceRange,
 } from './reader-session';
+import type {
+  RitoReaderAnnotationRequest,
+  RitoReaderAnnotationResponse,
+  RitoReaderExactSourceRangeResolution,
+  RitoReaderGeometryOptions,
+  RitoReaderFootnote,
+  RitoReaderNavigationRequest,
+  RitoReaderNavigationResult,
+  RitoReaderSearchResponse,
+  RitoReaderTextInteractionQuery,
+  RitoReaderTextInteractionResponse,
+  RitoReaderTextPosition,
+  RitoReaderTextRangeGeometry,
+} from './reader-session-query';
 
 export type RitoReaderErrorCode =
   | 'invalid-session'
@@ -25,6 +42,7 @@ export type RitoReaderErrorCode =
   | 'numeric-overflow'
   | 'invalid-wire'
   | 'engine-failure'
+  | 'resource-pending'
   | 'session-disposed'
   | 'request-busy'
   | 'request-capacity'
@@ -36,10 +54,11 @@ export interface RitoReaderSeekOverrides {
 }
 
 /**
- * Pinned fallback faces for a reader session session. Chapter-local pagination
- * shapes with pinned faces only, so an open without a policy fails closed.
- * `metadataJson` and `faces` follow the same contract as
- * `RitoWasmDocument.openWithPinnedFontPolicy`.
+ * The host faces a reader session opens with. Text is shaped with these
+ * faces and the publication's own, so an open without a policy fails
+ * closed. `metadataJson` is `{schemaVersion: 1, faces: [{expectedSha256,
+ * genericRole, language?}]}` and `faces` holds one face's bytes per entry,
+ * in the same order.
  */
 export interface RitoReaderSessionPinnedFontPolicyInput {
   readonly metadataJson: string;
@@ -49,13 +68,38 @@ export interface RitoReaderSessionPinnedFontPolicyInput {
 export interface RitoCoreWasmReaderSessionWorkerClient {
   readonly sessionId: bigint;
   /** Opens the worker-owned session and returns an unadopted initial candidate. */
+  /**
+   * `publication` is a whole EPUB, or a publication split by `rito-pack`:
+   * the session opens from its skeleton and asks `loadShards` for each
+   * content shard the first time a request needs it, then retries that
+   * request. A sharded open requires `pinnedFontPolicy`.
+   */
   open(
-    publication: ArrayBuffer,
+    publication: ArrayBuffer | RitoCoreWasmShardedPublication,
     initialRequest: RitoReaderArtifactRequestInput,
     pinnedFontPolicy?: RitoReaderSessionPinnedFontPolicyInput,
   ): Promise<RitoReaderArtifact>;
   /** Reads Core's immutable, session-owned RITOPUB1 metadata snapshot. */
   readPublication(): Promise<RitoReaderPublication>;
+  /** Every family a `font-family` list can name in this publication. */
+  fontCatalog(): Promise<RitoCoreWasmFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to. */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces after the session's. The face buffers are transferred.
+   * Artifacts already published keep their layout; the next request lays
+   * out with the new faces.
+   */
+  addHostFontFaces(faces: readonly RitoCoreWasmHostFontFaceInput[]): Promise<void>;
+  /** Removes host faces by SHA-256; at least one must remain. */
+  removeHostFontFaces(sha256s: readonly string[]): Promise<void>;
+  /**
+   * Marks publication faces the page could not load, by the family an
+   * artifact lists them under. A run is measured with the face it is
+   * shaped with, so a face painted with another must not shape: the next
+   * request lays out without them. The mark lasts for the session.
+   */
+  markFontFamiliesUnavailable(families: readonly string[]): Promise<void>;
   /** Cooperatively resumes one quantum per host turn and returns an unadopted candidate. */
   requestAdjacent(
     fromArtifactId: bigint,
@@ -87,6 +131,68 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
     kind: RitoReaderResourceKind,
     href: string,
   ): Promise<RitoReaderResource>;
+  /**
+   * Publishes the adjacent spread as a read-only artifact with no
+   * foreground effect: no intent begins and no pending candidate is
+   * cleared. Release it, or commit it with {@link commitPeekedArtifact}.
+   */
+  peekAdjacent(
+    fromArtifactId: bigint,
+    direction: RitoReaderAdjacentDirection,
+  ): Promise<RitoReaderArtifact>;
+  /**
+   * Publishes one spread of the revision behind an artifact, addressed by
+   * its position in that revision's layout (the `layout` navigation query
+   * lists them). The revision is already laid out, so this is as cheap as
+   * a peeked turn and, like one, has no foreground effect. Release it, or
+   * commit it with {@link commitPeekedArtifact}.
+   */
+  peekSpread(fromArtifactId: bigint, spreadIndex: number): Promise<RitoReaderArtifact>;
+  /** Makes a peeked artifact visible, superseding every foreground intent in flight. */
+  commitPeekedArtifact(
+    expectedVisibleArtifactId: bigint | undefined,
+    candidateArtifactId: bigint,
+  ): Promise<RitoReaderForegroundHandoffAck>;
+  readFootnote(artifactId: bigint, key: string): Promise<RitoReaderFootnote>;
+  /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
+  search(
+    artifactId: bigint,
+    options: {
+      readonly query: string;
+      readonly caseSensitive?: boolean | undefined;
+      readonly wholeWord?: boolean | undefined;
+      readonly limit?: number | undefined;
+    },
+  ): Promise<RitoReaderSearchResponse>;
+  textRangeGeometry(
+    artifactId: bigint,
+    pageIndex: number,
+    start: RitoReaderTextPosition,
+    end: RitoReaderTextPosition,
+  ): Promise<RitoReaderTextRangeGeometry>;
+  /**
+   * Where a durable source range lands: on the pages the artifact draws,
+   * or with `everyPage` on every page it covers.
+   */
+  exactSourceRange(
+    artifactId: bigint,
+    href: string,
+    range: RitoReaderSourceRange,
+    options?: RitoReaderGeometryOptions,
+  ): Promise<RitoReaderExactSourceRangeResolution>;
+  /** The selection questions a browser reader asks, answered by the same engine code. */
+  textInteraction(
+    artifactId: bigint,
+    query: RitoReaderTextInteractionQuery,
+    options?: RitoReaderGeometryOptions,
+  ): Promise<RitoReaderTextInteractionResponse>;
+  /** Builds or locates an annotation target; targets depend only on the source. */
+  annotation(query: RitoReaderAnnotationRequest['query']): Promise<RitoReaderAnnotationResponse>;
+  /**
+   * The TOC entry at a page or position, where a locator lands, two
+   * positions' order, or the page table of the revision behind an artifact.
+   */
+  navigation(query: RitoReaderNavigationRequest['query']): Promise<RitoReaderNavigationResult>;
   release(artifactId: bigint): Promise<boolean>;
   dispose(): Promise<void>;
 }
@@ -119,6 +225,11 @@ export interface RitoReaderRawSession {
   advanceBackgroundOnce(request: Uint8Array): Uint8Array;
   adoptBackgroundCandidate(request: Uint8Array): Uint8Array;
   readResource(artifactId: bigint, kind: number, href: string): Uint8Array;
+  fontCatalog(): Uint8Array;
+  unresolvedFontFamilies(familyList: string): Uint8Array;
+  addHostFontFaces(metadataJson: string, faces: readonly Uint8Array[]): void;
+  removeHostFontFaces(sha256s: readonly string[]): void;
+  markFontFamiliesUnavailable(families: readonly string[]): void;
   releaseArtifact(artifactId: bigint): boolean;
   dispose(): boolean;
   free?(): void;

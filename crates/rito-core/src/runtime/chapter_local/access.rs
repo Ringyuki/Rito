@@ -1,26 +1,15 @@
 use crate::runtime::{
-    frame::RuntimeRevision, metadata::layout_key, RuntimeChapterLocalRevisionError,
-    RuntimeChapterLocalRevisionHandle, RuntimeChapterLocalRevisionSummary,
-    RuntimeChapterLocalSourceLocatorResolution, RuntimeDocument, RuntimeFrameCommandBufferMetadata,
-    RuntimeResource, RuntimeResourceKind, RuntimeRevisionErrorKind, RuntimeSourceLocator,
+    frame::RuntimeRevision, RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
+    RuntimeChapterLocalSourceLocatorResolution, RuntimeDocument, RuntimeResource,
+    RuntimeResourceKind, RuntimeRevisionErrorKind, RuntimeSourceLocator,
 };
 
 use super::model::{
-    chapter_local_owner, chapter_local_summary, local_engine_error, local_error,
-    local_error_from_source, local_locator_resolution, local_unknown_revision,
+    chapter_local_owner, local_engine_error, local_error, local_error_from_source,
+    local_locator_resolution, local_unknown_revision,
 };
 
 impl RuntimeDocument {
-    pub fn get_chapter_local_revision_summary(
-        &self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-    ) -> Result<RuntimeChapterLocalRevisionSummary, RuntimeChapterLocalRevisionError> {
-        let revision = self.require_chapter_local_owner(owner)?;
-        let key = layout_key(&revision.layout_config, &self.pinned_font_policy)
-            .map_err(local_engine_error)?;
-        Ok(chapter_local_summary(owner, &key, revision))
-    }
-
     pub fn resolve_chapter_local_source_locator(
         &mut self,
         owner: &RuntimeChapterLocalRevisionHandle,
@@ -57,42 +46,6 @@ impl RuntimeDocument {
             .expect("validated provisional revision exists");
         crate::runtime::cleanup::PendingRuntimeRevisionCleanup::new(revision).drain();
         Ok(true)
-    }
-
-    pub fn get_chapter_local_frame_command_buffer_metadata(
-        &mut self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-        local_spread_index: usize,
-    ) -> Result<RuntimeFrameCommandBufferMetadata, RuntimeChapterLocalRevisionError> {
-        self.require_chapter_local_owner(owner)?;
-        self.get_chapter_local_frame_command_buffer_metadata_inner(
-            &owner.revision_id,
-            local_spread_index,
-        )
-        .map_err(local_engine_error)
-    }
-
-    pub fn read_chapter_local_frame_command_buffer(
-        &mut self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-        local_spread_index: usize,
-    ) -> Result<Vec<u8>, RuntimeChapterLocalRevisionError> {
-        self.require_chapter_local_owner(owner)?;
-        self.read_chapter_local_frame_command_buffer_inner(&owner.revision_id, local_spread_index)
-            .map_err(local_engine_error)
-    }
-
-    pub fn get_chapter_local_frame_image_resource_hrefs(
-        &mut self,
-        owner: &RuntimeChapterLocalRevisionHandle,
-        local_spread_index: usize,
-    ) -> Result<Vec<String>, RuntimeChapterLocalRevisionError> {
-        self.require_chapter_local_owner(owner)?;
-        self.get_chapter_local_frame_image_resource_hrefs_inner(
-            &owner.revision_id,
-            local_spread_index,
-        )
-        .map_err(local_engine_error)
     }
 
     pub fn get_chapter_local_resource(

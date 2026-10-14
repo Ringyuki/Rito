@@ -10,16 +10,10 @@ use crate::{
     layout::{create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode},
     runtime::{
         fragment_backend::FragmentBuiltLayout,
-        frame::{
-            RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionCoordinateSpace,
-            RuntimeRevisionInteractions,
-        },
-        RuntimeChapterTextIndex, RuntimeChapterTextSpan, RuntimeRequiredFontFace,
-        RuntimeRevisionExtent,
+        frame::{RuntimeRevision, RuntimeRevisionCoordinateSpace, RuntimeRevisionInteractions},
+        RuntimeRequiredFontFace, RuntimeRevisionExtent,
     },
 };
-
-use super::super::test_support::cached_frame;
 
 const LARGE_FONT_FACE_COUNT: usize = 16_384;
 
@@ -35,17 +29,14 @@ fn empty_revision_units_include_each_required_font_face() {
         owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
         let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-        let expected = 13 + usize::from(has_font_catalog);
+        let expected = 7 + usize::from(has_font_catalog);
         assert_eq!(drive_q1(&mut cleanup, expected), expected);
     }
 }
 
 #[test]
-fn cache_and_flat_fields_release_in_order() {
+fn the_font_catalog_releases_before_the_interactions() {
     let mut owner = revision();
-    owner.frame_cache.insert(9, cached_frame(9, 3));
-    owner.frame_cache.insert(2, cached_frame(2, 0));
-    owner.frame_cache_order.extend([9, 2]);
     owner.layout_config.font_family_override = Some("Pinned Serif".to_owned());
     owner.required_font_face_catalog = Some(vec![font_face()]);
     owner
@@ -55,33 +46,24 @@ fn cache_and_flat_fields_release_in_order() {
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
     assert_one(&mut cleanup);
-    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::FrameCache);
-    let frame_cache_units = 3 + (6 + 1) + (6 + 1);
-    for _ in 0..frame_cache_units {
-        assert_one(&mut cleanup);
-    }
-    assert!(cleanup
-        .frame_cache
-        .as_ref()
-        .is_some_and(|cache| cache.is_complete()));
-
-    assert_one(&mut cleanup);
-    assert!(cleanup.frame_cache.is_none());
     assert_eq!(
         cleanup.stage,
         RuntimeRevisionCleanupStage::RequiredFontFaceCatalog
     );
+    assert_one(&mut cleanup);
+    assert_one(&mut cleanup);
+    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Interactions);
 
-    assert_eq!(drive_q1(&mut cleanup, 10), 10);
+    assert_eq!(drive_q1(&mut cleanup, 6), 6);
 }
 
 #[test]
-fn materialized_interactions_compose_with_revision_retirement() {
+fn interactions_compose_with_revision_retirement() {
     let mut owner = revision();
-    owner.interactions = materialized_interactions(2);
+    owner.interactions = populated_interactions();
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 24), 24);
+    assert_eq!(drive_q1(&mut cleanup, 9), 9);
 }
 
 #[test]
@@ -89,7 +71,7 @@ fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
     let mut owner = revision();
     owner.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
-    let expected = LARGE_FONT_FACE_COUNT + 13;
+    let expected = LARGE_FONT_FACE_COUNT + 7;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 
@@ -109,24 +91,6 @@ fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
     }));
 
     assert!(result.is_err());
-}
-
-#[test]
-fn outer_drop_finishes_after_partial_full_cache_cleanup() {
-    let mut owner = revision();
-    for spread_index in 0..12 {
-        owner
-            .frame_cache
-            .insert(spread_index, cached_frame(spread_index, 128));
-        owner.frame_cache_order.push_back(spread_index);
-    }
-    let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
-
-    for _ in 0..5 {
-        assert_one(&mut cleanup);
-    }
-    assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::FrameCache);
-    drop(cleanup);
 }
 
 fn drive_q1(cleanup: &mut PendingRuntimeRevisionCleanup, expected: usize) -> usize {
@@ -162,12 +126,11 @@ fn interactions() -> RuntimeRevisionInteractions {
         footnotes: BTreeMap::new(),
         pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
         footnote_index_complete: false,
-        chapter_text_indices: RuntimeChapterTextIndexSource::FullDocument,
         completed_chapter_idrefs: BTreeSet::new(),
     }
 }
 
-fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
+fn populated_interactions() -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
         publication_footnotes: None,
         footnotes: BTreeMap::from([(
@@ -180,25 +143,7 @@ fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
         )]),
         pending_footnote_keys: crate::interaction::FootnoteTargetSet::default(),
         footnote_index_complete: false,
-        chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
-            "chapter".to_owned(),
-            RuntimeChapterTextIndex {
-                href: "chapter.xhtml".to_owned(),
-                normalized_text: "chapter text".to_owned(),
-                spans: (0..span_count).map(runtime_text_span).collect(),
-            },
-        )])),
         completed_chapter_idrefs: BTreeSet::from(["chapter".to_owned()]),
-    }
-}
-
-fn runtime_text_span(index: usize) -> RuntimeChapterTextSpan {
-    RuntimeChapterTextSpan {
-        node_path: vec![index],
-        source_start: index,
-        source_end: index + 1,
-        normalized_start: index,
-        normalized_end: index + 1,
     }
 }
 

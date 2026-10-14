@@ -1,6 +1,5 @@
 use std::{error::Error, fmt};
 
-pub const READER_DISPLAY_LIST_VERSION: u32 = 1;
 pub const READER_CAPABILITY_PROFILE_STRING_TEXT: u32 = 1;
 pub const READER_IMAGE_RESOURCE_BYTES_MAX: u64 = 32 * 1024 * 1024;
 pub const READER_FONT_RESOURCE_BYTES_MAX: u64 = 16 * 1024 * 1024;
@@ -138,6 +137,13 @@ pub struct ReaderLayout {
     pub root_font_size: f64,
     pub line_height_override: Option<f64>,
     pub font_family_override: Option<String>,
+    /// Whether the line-height override outranks the publication's own
+    /// declarations. Unforced, it loses to them: a rule the book wrote for
+    /// an element keeps its value and only text that inherits takes the
+    /// reader's. Ignored without an override.
+    pub line_height_force: bool,
+    /// The same choice for the font-family override.
+    pub font_family_force: bool,
     /// Device pixels per CSS pixel the host rasterizes this artifact at.
     /// Every raster snap in the display list lands on that grid. It is a
     /// paint parameter, not a layout one: pagination, page counts and
@@ -184,6 +190,16 @@ pub struct ReaderAdjacentRequest {
     pub request_id: u64,
     pub from_artifact_id: u64,
     pub direction: ReaderAdjacentDirection,
+}
+
+/// Asks for one spread of the revision behind an artifact, addressed by its
+/// position in that revision's layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderSpreadRequest {
+    pub session_id: u64,
+    pub request_id: u64,
+    pub from_artifact_id: u64,
+    pub spread_index: u32,
 }
 
 /// Host acknowledgement that atomically makes one foreground artifact
@@ -329,6 +345,20 @@ pub struct ReaderRect {
     pub height: f64,
 }
 
+/// What a hit is, as the engine classifies it: a note reference first
+/// (its definition indexed or not yet), then a link, an image, text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderHitKind {
+    Text,
+    Link,
+    Image,
+    Footnote,
+    /// A note reference whose definition has not been indexed yet. The key
+    /// stays valid and the same read succeeds once the publication's
+    /// footnote index completes; a host may show a loading affordance.
+    FootnotePending,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderHitEntry {
     pub page_index: u32,
@@ -343,21 +373,25 @@ pub struct ReaderHitEntry {
     /// different hosts; do not "unify" them without moving that
     /// transform too.
     pub bounds: ReaderRect,
+    pub kind: ReaderHitKind,
     pub text: String,
+    /// The href as the publication wrote it.
     pub href: Option<String>,
     pub source_point: Option<ReaderSourcePoint>,
+    /// Where an internal link leads, canonical: its chapter and anchor.
+    /// Absent for an external href and for a hit that has none.
+    pub target_locator: Option<ReaderLocator>,
+    /// The TOC label of the place a link leads to, when the TOC names it.
+    /// It does not depend on that place being laid out.
+    pub destination_label: Option<String>,
     pub image_src: Option<String>,
     pub image_alt: Option<String>,
     /// Canonical footnote key when this hit is a semantic noteref, in
     /// the publication-relative `href#fragment` form the footnote index
     /// is keyed by. Present for both indexed and not-yet-indexed
-    /// definitions; [`Self::footnote_pending`] distinguishes them. Hosts
-    /// pass it to `read_footnote` verbatim — no host-side normalization.
+    /// definitions; [`Self::kind`] distinguishes them. Hosts pass it to
+    /// `read_footnote` verbatim — no host-side normalization.
     pub footnote_key: Option<String>,
-    /// True while the key's definition has not been indexed yet. The
-    /// host may show a loading affordance; the key stays valid and the
-    /// same read succeeds once the publication footnote index completes.
-    pub footnote_pending: bool,
 }
 
 /// Asks the revision behind an artifact for matches.
@@ -467,6 +501,10 @@ pub struct ReaderExactSourceRangeRequest {
     /// Manifest href of the resource the range was taken from.
     pub href: String,
     pub range: ReaderSourceRange,
+    /// Whether the answer carries the rects of every page the range
+    /// covers, each in the display-list space of the spread that draws
+    /// its page, rather than only the pages this artifact draws.
+    pub every_page: bool,
 }
 
 /// What became of a durable source range.
@@ -653,12 +691,18 @@ pub enum ReaderErrorKind {
     NumericOverflow,
     InvalidWire,
     EngineFailure,
+    /// The publication was opened from shards and the operation reads a
+    /// shard the host has not supplied; `pending_shards` names them.
+    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReaderError {
     pub kind: ReaderErrorKind,
     pub message: String,
+    /// Content shards to supply before retrying, ascending; non-empty
+    /// exactly for `ResourcePending`.
+    pub pending_shards: Vec<u32>,
 }
 
 impl ReaderError {
@@ -666,6 +710,15 @@ impl ReaderError {
         Self {
             kind,
             message: message.into(),
+            pending_shards: Vec::new(),
+        }
+    }
+
+    pub(super) fn resource_pending(pending_shards: Vec<u32>, message: impl Into<String>) -> Self {
+        Self {
+            kind: ReaderErrorKind::ResourcePending,
+            message: message.into(),
+            pending_shards,
         }
     }
 }

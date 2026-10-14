@@ -152,7 +152,7 @@ impl ReaderSession {
                 .publication_revisions
                 .get(&revision_id)
                 .ok_or_else(|| missing_artifact_revision(ReaderRevisionBacking::Publication))?;
-            if revision.layout == *layout {
+            if revision.layout == *layout && revision.fonts == self.font_generation {
                 return Ok(());
             }
             let retire = revision.artifact_ref_count == 0;
@@ -166,7 +166,8 @@ impl ReaderSession {
                 .iter()
                 .rev()
                 .find_map(|(revision_id, revision)| {
-                    (revision.layout == *layout).then_some(*revision_id)
+                    (revision.layout == *layout && revision.fonts == self.font_generation)
+                        .then_some(*revision_id)
                 });
         Ok(())
     }
@@ -185,7 +186,7 @@ impl ReaderSession {
         };
         self.publication_revisions.insert(
             reader_revision_id,
-            ReaderPublicationRevisionOwner::from_summary(&summary, layout),
+            ReaderPublicationRevisionOwner::from_summary(&summary, layout, self.font_generation),
         );
         self.active_publication_revision_id = Some(reader_revision_id);
         Ok(reader_revision_id)

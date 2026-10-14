@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { buildLifecycle } from './lifecycle';
 import { buildReaderProxies } from './reader-proxies';
+import { buildFontActions } from './font-actions';
 import { buildLayoutActions } from './layout-actions';
 import { buildSearchActions } from './search-actions';
 import { buildSelectionAccessors } from './selection-accessors';
@@ -40,6 +41,7 @@ export function buildController(
     buildLifecycle(disposables, runtime, lifecycleDeps),
     buildNavigationActions(nav),
     buildLayoutActions(internals, emitter, runtime),
+    buildFontActions(internals),
     buildSearchActions(internals, emitter, nav, runtime),
     buildSelectionAccessors(internals, canvas, nav),
     buildAnnotationActions(internals, emitter),
@@ -48,7 +50,7 @@ export function buildController(
     buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),
-    buildReaderProxies(internals),
+    buildReaderProxies(internals, emitter),
   );
   return controller;
 }

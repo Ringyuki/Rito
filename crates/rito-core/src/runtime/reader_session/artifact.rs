@@ -7,19 +7,20 @@ use crate::{
     runtime::{
         page_artifact::{
             PageArtifact, PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
-            PageArtifactSemanticRole,
+            PageArtifactSemanticRole, PageArtifactTarget,
         },
-        RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimeRevision, RuntimeRevisionHandle,
-        RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourcePoint,
+        RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTarget,
+        RuntimePageTargetKind, RuntimeRevision, RuntimeRevisionHandle, RuntimeSourceLocator,
+        RuntimeSourceLocatorMatchedBy, RuntimeSourcePoint,
     },
 };
 
 use super::{
     convert::{reader_locator, u32_from_usize, u64_from_usize},
     ReaderArtifact, ReaderDisplayList, ReaderError, ReaderErrorKind, ReaderFontRef, ReaderHitEntry,
-    ReaderNavigation, ReaderPage, ReaderRect, ReaderResourceKind, ReaderResourceRef,
-    ReaderSemanticNode, ReaderSemanticRole, ReaderSourcePoint, ReaderTextRenderingProfile,
-    ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT, READER_PROTOCOL_VERSION,
+    ReaderHitKind, ReaderNavigation, ReaderPage, ReaderRect, ReaderResourceKind, ReaderResourceRef,
+    ReaderSemanticNode, ReaderSemanticRole, ReaderTextRenderingProfile, ReaderTextRunOffset,
+    READER_CAPABILITY_PROFILE_STRING_TEXT, READER_PROTOCOL_VERSION,
 };
 
 #[derive(Debug, Clone)]
@@ -326,46 +327,20 @@ fn reader_page(
     origin: (f64, f64),
 ) -> Result<ReaderPage, ReaderError> {
     let metadata = page.metadata();
-    let targets = page.targets();
-    // Classified through the same resolver `get_page_targets` uses, so
-    // the artifact's hits and the runtime's page targets never disagree
-    // about which hrefs are footnotes or under which key they are held.
-    let footnotes = document.footnote_hit_resolver(revision, page_index);
+    // Each hit is the target the runtime's own page targets hold: one
+    // classifier decides what it is, where its link leads and under which
+    // key its footnote is held, for every host.
+    let targets = page.targets().entries;
+    let resolved = document.page_targets_of(revision, page_index, targets.clone());
     let text = page.text_positions();
     Ok(ReaderPage {
         page_index: u32_from_usize(page_index, "page index")?,
         width: metadata.width,
         height: metadata.height,
         hits: targets
-            .entries
             .into_iter()
-            .map(|target| {
-                let source_point = match (target.source_path, target.source_text_offset) {
-                    (Some(node_path), Some(text_offset)) => Some(ReaderSourcePoint {
-                        node_path: node_path
-                            .into_iter()
-                            .map(|part| u32_from_usize(part, "hit source path"))
-                            .collect::<Result<Vec<_>, _>>()?,
-                        text_offset: u64_from_usize(text_offset, "hit source offset")?,
-                    }),
-                    _ => None,
-                };
-                let footnote = target
-                    .href
-                    .as_deref()
-                    .and_then(|href| footnotes.resolve(href));
-                Ok(ReaderHitEntry {
-                    page_index: u32_from_usize(page_index, "hit page index")?,
-                    bounds: reader_rect_at(target.bounds, origin),
-                    text: target.text,
-                    href: target.href,
-                    source_point,
-                    image_src: target.image_src,
-                    image_alt: target.image_alt,
-                    footnote_key: footnote.as_ref().map(|(key, _)| key.clone()),
-                    footnote_pending: footnote.is_some_and(|(_, pending)| pending),
-                })
-            })
+            .zip(resolved)
+            .map(|(target, resolved)| reader_hit(page_index, target, resolved, origin))
             .collect::<Result<Vec<_>, ReaderError>>()?,
         semantics: page
             .semantic_nodes()
@@ -387,6 +362,38 @@ fn reader_page(
                 })
             })
             .collect::<Result<Vec<_>, ReaderError>>()?,
+    })
+}
+
+fn reader_hit(
+    page_index: usize,
+    target: PageArtifactTarget,
+    resolved: RuntimePageTarget,
+    origin: (f64, f64),
+) -> Result<ReaderHitEntry, ReaderError> {
+    let source_point = resolved
+        .source_locator
+        .and_then(|locator| locator.source_point)
+        .map(super::convert::reader_source_point)
+        .transpose()?;
+    Ok(ReaderHitEntry {
+        page_index: u32_from_usize(page_index, "hit page index")?,
+        bounds: reader_rect_at(target.bounds, origin),
+        kind: match resolved.kind {
+            RuntimePageTargetKind::Text => ReaderHitKind::Text,
+            RuntimePageTargetKind::Link => ReaderHitKind::Link,
+            RuntimePageTargetKind::Image => ReaderHitKind::Image,
+            RuntimePageTargetKind::Footnote => ReaderHitKind::Footnote,
+            RuntimePageTargetKind::FootnotePending => ReaderHitKind::FootnotePending,
+        },
+        text: target.text,
+        href: resolved.href,
+        source_point,
+        target_locator: resolved.target_locator.map(reader_locator).transpose()?,
+        destination_label: resolved.destination_label,
+        image_src: resolved.image_src,
+        image_alt: resolved.image_alt,
+        footnote_key: resolved.footnote_key,
     })
 }
 

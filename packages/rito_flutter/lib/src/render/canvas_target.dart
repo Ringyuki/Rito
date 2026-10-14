@@ -34,14 +34,40 @@ const double _clipReach = 1048576;
 /// and the device size on the device grid rasters different ink from the
 /// browser's). The theme override's ground tracking is shared between
 /// fills and that text painter.
+// The page and ink an image fallback is tinted from when the host names
+// neither.
+const ui.Color _defaultPage = ui.Color(0xffffffff);
+const ui.Color _defaultInk = ui.Color(0xff000000);
+
+/// [background] mixed with [share] of [foreground], each channel rounded to
+/// a whole 8-bit step exactly as the browser pen mixes.
+ui.Color _mixThemeColors(
+  ui.Color background,
+  ui.Color foreground,
+  double share,
+) {
+  int channel(double ground, double ink) =>
+      (ground * 255 + (ink * 255 - ground * 255) * share).round();
+  return ui.Color.fromARGB(
+    255,
+    channel(background.r, foreground.r),
+    channel(background.g, foreground.g),
+    channel(background.b, foreground.b),
+  );
+}
+
 final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
   RitoPrimitiveCanvasTarget(
     this._canvas, {
     required RitoImageResolver resolveImage,
+    RitoImageFallbackState? Function(String src)? imageFallback,
+    double Function(String src)? imageOpacity,
     RitoFontEnvelopeStore? fontEnvelopes,
     RitoCanvasColorOverride? colorOverride,
     double ratio = 1,
   }) : _resolveImage = resolveImage,
+       _imageFallback = imageFallback,
+       _imageOpacity = imageOpacity,
        _fontEnvelopes = fontEnvelopes,
        _colorOverride = colorOverride,
        _ratio = ratio {
@@ -52,6 +78,11 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
 
   final ui.Canvas _canvas;
   final RitoImageResolver _resolveImage;
+
+  /// Which placeholder stands in an image's place; without one, an image
+  /// the resolver cannot give paints broken.
+  final RitoImageFallbackState? Function(String src)? _imageFallback;
+  final double Function(String src)? _imageOpacity;
 
   /// Device pixels per CSS pixel the list was resolved at; text runs
   /// paint under it.
@@ -278,7 +309,7 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
           )
         : _rect(sourceRect);
     final dest = _rect(primitive.dest);
-    final paint = _imagePaint();
+    final paint = _imagePaint(_imageOpacity?.call(primitive.src) ?? 1);
     final tiles = primitive.tiles;
     if (tiles == null) {
       _canvas.drawImageRect(image, source, dest, paint);
@@ -297,6 +328,42 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
           ),
           paint,
         );
+      }
+    }
+  }
+
+  /// An image's stand-in, painted only in the state its image is in.
+  @override
+  void imageFallback(RitoPrimitiveImageFallback primitive) {
+    final fallback = _imageFallback;
+    final state = fallback != null
+        ? fallback(primitive.src)
+        : _resolveImage(primitive.src) == null
+        ? RitoImageFallbackState.broken
+        : null;
+    if (state != primitive.state) {
+      return;
+    }
+    final background = _colorOverride?.background ?? _defaultPage;
+    final foreground = _colorOverride?.foreground ?? _defaultInk;
+    final block = _mixThemeColors(background, foreground, primitive.blockInk);
+    _canvas.drawRect(_rect(primitive.block), ui.Paint()..color = block);
+    final icon = ui.Paint()
+      ..color = _mixThemeColors(block, foreground, primitive.iconInk);
+    for (final piece in primitive.pieces) {
+      _canvas.save();
+      try {
+        _canvas.translate(piece.offset.x, piece.offset.y);
+        final clip = piece.clip;
+        if (clip != null) {
+          _canvas.clipPath(_devicePath(clip));
+        }
+        _canvas.drawPath(
+          _devicePath(piece.path)..fillType = ui.PathFillType.evenOdd,
+          icon,
+        );
+      } finally {
+        _canvas.restore();
       }
     }
   }
@@ -383,11 +450,13 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
     return color.withValues(alpha: color.a * _opacity);
   }
 
-  ui.Paint _imagePaint() {
+  ui.Paint _imagePaint(double imageOpacity) {
     // Canvas 2D's default smoothing quality is 'low' — plain bilinear,
     // no mipmaps — so 'medium' would diverge on every downscale.
     return ui.Paint()
       ..filterQuality = ui.FilterQuality.low
-      ..color = const ui.Color(0xffffffff).withValues(alpha: _opacity);
+      ..color = const ui.Color(
+        0xffffffff,
+      ).withValues(alpha: _opacity * imageOpacity);
   }
 }

@@ -23,7 +23,7 @@ describe('navigation no-op ownership', () => {
         currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -66,7 +66,7 @@ describe('navigation no-op ownership', () => {
         currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -89,7 +89,7 @@ describe('navigation no-op ownership', () => {
     expect(currentSpread).toBe(1);
     expect(onNavigationCancelled).not.toHaveBeenCalled();
     expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1);
   });
 
   it('recaptures when settling the active transition reaches the requested target', () => {
@@ -113,11 +113,14 @@ describe('navigation no-op ownership', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
         viewportWidth: 800,
-        forceSettle: vi.fn(() => {
+        // The turn in flight lands on the spread asked for when it is cut into.
+        handOver: vi.fn(() => {
           animating = false;
           currentSpread = 1;
-          return 0;
         }),
         goToTarget,
       },

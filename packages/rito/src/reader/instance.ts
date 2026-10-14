@@ -1,11 +1,13 @@
 import type {
   ChapterRange,
-  ChapterTextIndex,
   FootnoteEntry,
   LayoutConfig,
   LogLevel,
   PackageMetadata,
+  ReaderAnnotationTarget,
+  ReaderAnnotationTargetResolution,
   ReaderDocumentSourceSpan,
+  ReaderSourcePosition,
   ReaderLocator,
   ReaderLocatorResolution,
   ReaderPageReadingAnchor,
@@ -170,6 +172,21 @@ export interface ReaderInteractions {
   resolveExactSourceRange?(
     request: ReaderExactSourceRangeRequest,
   ): Promise<ReaderExactSourceRangeResolution | undefined>;
+  /** Builds the persisted annotation target for a source range, normally a selection's. */
+  createAnnotationTarget?(
+    request: ReaderExactSourceRangeRequest,
+  ): Promise<ReaderAnnotationTarget | undefined>;
+  /** Finds a stored annotation target in the chapter as it is now. */
+  resolveAnnotationTarget?(
+    target: ReaderAnnotationTarget,
+  ): Promise<ReaderAnnotationTargetResolution | undefined>;
+  /** The TOC entry a source position reads under, decided on the source alone. */
+  tocEntryAtPosition?(position: ReaderSourcePosition): Promise<TocEntry | null | undefined>;
+  /** -1, 0 or 1 as the first source position reads before, at or after the second. */
+  compareSourcePositions?(
+    first: ReaderSourcePosition,
+    second: ReaderSourcePosition,
+  ): Promise<-1 | 0 | 1 | undefined>;
   /** Native document-order accessibility content for one committed page. */
   getPageSemantics?(pageIndex: number): Promise<ReaderPageSemantics | undefined>;
   /** Durable source identity for the first readable content on one committed page. */
@@ -189,6 +206,64 @@ export interface ReaderPinnedFontPolicy {
     readonly language?: string | undefined;
   }[];
 }
+
+/** A host face added to an open reader; its bytes are copied. */
+export type ReaderHostFontFace = ReaderPinnedFontPolicy['faces'][number];
+
+/** One face of a nameable family. */
+export interface ReaderFontFamilyFace {
+  readonly weight: number;
+  readonly style: string;
+  /** A host face's SHA-256, the handle it is removed by; null for a publication face. */
+  readonly sha256: string | null;
+}
+
+/** A family a `font-family` choice can name. */
+export interface ReaderFontFamily {
+  /** The name to write in a `font-family` list. */
+  readonly name: string;
+  /** A host face (the pinned policy and later additions) or the book's own `@font-face`. */
+  readonly source: 'host' | 'publication';
+  /** The generic family a host family serves; null for a publication's. */
+  readonly genericRole: 'serif' | 'sansSerif' | 'monospace' | null;
+  /** A host family's language (`und` serves every language); null for a publication's. */
+  readonly language: string | null;
+  readonly faces: readonly ReaderFontFamilyFace[];
+}
+
+/**
+ * Every family a `font-family` choice can name in the open book: the host's
+ * faces by the family their name tables declare, then the book's own
+ * `@font-face` families. A generic (`serif`, `sans-serif`, `monospace`)
+ * resolves to the host families of its role.
+ */
+export interface ReaderFontCatalog {
+  readonly families: readonly ReaderFontFamily[];
+}
+
+/**
+ * A publication split by `rito-pack` and delivered a shard at a time. The
+ * skeleton carries every chapter, stylesheet and font, so the reader opens
+ * and lays the whole book out from it; `loadShards` is called the first
+ * time a page reads an image, and for images ahead of need while the reader
+ * is idle. A rejected load fails only the read that needed it.
+ */
+export interface ReaderShardedPublication {
+  readonly skeleton: ArrayBuffer;
+  /** The skeleton's 32-byte key when the shards are encrypted. */
+  readonly key?: Uint8Array | undefined;
+  loadShards(shardIds: readonly number[]): Promise<readonly ReaderPublicationShard[]>;
+}
+
+export interface ReaderPublicationShard {
+  readonly id: number;
+  readonly bytes: ArrayBuffer | Uint8Array;
+  /** The shard's own 32-byte key when the shards are encrypted. */
+  readonly key?: Uint8Array | undefined;
+}
+
+/** A whole EPUB archive, or a publication delivered as shards. */
+export type ReaderPublication = ArrayBuffer | ReaderShardedPublication;
 
 export interface ReaderOptions {
   readonly width: number;
@@ -216,7 +291,16 @@ export interface ReaderThemeOptions {
 }
 export interface Reader {
   readonly metadata: PackageMetadata;
-  /** Whole-book counts of the committed layout; every revision is laid out complete. */
+  /**
+   * What the committed layout covers. A book that has just opened, or whose
+   * layout has just changed, commits the chapter being read first
+   * (`'chapter'`): pages count from that chapter's first, and `pageCount`,
+   * `spreads`, `chapterMap` and every page index describe that chapter
+   * alone. The whole book follows and commits again (`'book'`), showing the
+   * same page under its book-wide number. Absent means `'book'`.
+   */
+  readonly layoutScope?: 'chapter' | 'book';
+  /** Counts of the committed layout, within its {@link layoutScope}. */
   readonly totalSpreads: number;
   readonly pageCount: number;
   /** Spread selected by the latest committed layout/navigation transaction. */
@@ -258,8 +342,6 @@ export interface Reader {
   findActiveTocEntry(pageIndex: number): TocEntry | undefined;
   getCanvasSize(scale?: number): { width: number; height: number };
   getLayoutGeometry(): Readonly<LayoutConfig>;
-  getChapterTextIndices(): ReadonlyMap<string, ChapterTextIndex>;
-  getFootnotes(): ReadonlyMap<string, FootnoteEntry>;
   getImageBlobUrl(src: string): string | undefined | Promise<string | undefined>;
   setTypography(opts: {
     fontSize?: number | null;
@@ -268,6 +350,24 @@ export interface Reader {
     fontFamily?: string | null;
     fontFamilyForce?: boolean;
   }): boolean;
+  /** Every family a `font-family` choice can name in the open book. */
+  fonts?(): Promise<ReaderFontCatalog>;
+  /**
+   * The names in a CSS `font-family` list no family in {@link fonts}
+   * answers to. Layout skips such a name the way a browser skips an
+   * uninstalled font; check a reader's choice with this before applying it.
+   */
+  unresolvedFontFamilies?(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces (a system font, one the reader imported) after the
+   * pinned policy's and lays the book out again. A face is named by its
+   * family in a `font-family` list, and joins the faces of its generic role
+   * behind those already there, so a generic reaches it for text the earlier
+   * faces do not cover. A face may share its role and language with another.
+   */
+  addFontFaces?(faces: readonly ReaderHostFontFace[]): Promise<void>;
+  /** Removes host faces by SHA-256 and lays the book out again; one face must remain. */
+  removeFontFaces?(sha256s: readonly string[]): Promise<void>;
   onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
   onSpreadContentInvalidated(cb: (spreadIndex: number) => void): () => void;
   onLayoutCommitted(cb: (activeSpreadIndex: number) => void): () => void;

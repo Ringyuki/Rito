@@ -97,6 +97,20 @@ function readPrimitive(reader) {
       return { kind: 'text', ...readRitoDisplayTextCommand(reader) };
     case 13:
       return { kind: 'ruby', ...readRitoDisplayTextCommand(reader) };
+    case 14:
+      return {
+        kind: 'image-fallback',
+        src: reader.string('image fallback source'),
+        state: readerWireEnum(reader, 'image fallback state', ['loading', 'broken']),
+        block: readRitoDisplayRect(reader, 'image fallback block'),
+        blockInk: reader.f64('image fallback block ink'),
+        iconInk: reader.f64('image fallback icon ink'),
+        pieces: Array.from({ length: reader.count('image fallback piece count') }, () => ({
+          offset: readPoint(reader, 'icon piece offset'),
+          clip: reader.option('icon piece clip', () => readPath(reader)),
+          path: readPath(reader),
+        })),
+      };
     default:
       reader.fail(`unknown primitive opcode: ${String(opcode)}`);
   }

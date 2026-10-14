@@ -33,18 +33,25 @@ export interface TouchNavigationScenario {
   readonly transitionEnd: Mock;
   readonly transitionStart: Mock;
   readonly disposables: ReturnType<typeof createDisposableCollection>;
-  readonly markContentReady: () => void;
+  /** The page of a spread is painted: of spread 1 unless another is named. */
+  readonly markContentReady: (index?: number) => void;
+  /** The page of a spread is not painted yet: a turn to it waits. */
+  readonly holdContent: (index: number) => void;
 }
 
-export function createTouchNavigationScenario(initialContentReady = true): TouchNavigationScenario {
+export function createTouchNavigationScenario(
+  initialContentReady = true,
+  spreadCount = 2,
+): TouchNavigationScenario {
   const dom = createDomTarget();
-  const spreads = [spread(0), spread(1)];
+  const spreads = Array.from({ length: spreadCount }, (_, index) => spread(index));
   const notifyActiveSpread = vi.fn();
-  const reader = { totalSpreads: 2, spreads, notifyActiveSpread } as unknown as Reader;
+  const reader = { totalSpreads: spreadCount, spreads, notifyActiveSpread } as unknown as Reader;
   const td = createTransitionDriver();
   td.viewportWidth = 300;
   let contentReady = initialContentReady;
-  const poolHarness = createPoolHarness(() => contentReady);
+  const held = new Set<number>();
+  const poolHarness = createPoolHarness((index) => contentReady && !held.has(index ?? -1));
   const frameDriver = { scheduleComposite: vi.fn() } as unknown as FrameDriver;
   const emitter = createEmitter<ReaderControllerEvents>();
   const spreadChange = vi.fn();
@@ -89,8 +96,8 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
-    commitPendingTransition: () => {
-      if (td.isAnimating) td.forceSettle();
+    supersedeTurnInFlight: () => {
+      nav.supersedeForGesture();
     },
   };
   wireUnifiedTouchHandler(
@@ -118,9 +125,13 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
     transitionEnd,
     transitionStart,
     disposables,
-    markContentReady(): void {
+    markContentReady(index = 1): void {
       contentReady = true;
-      nav.notifyContentReady(1);
+      held.delete(index);
+      nav.notifyContentReady(index);
+    },
+    holdContent(index): void {
+      held.add(index);
     },
   };
 }
@@ -162,7 +173,7 @@ export function settleTransition(td: ReturnType<typeof createTransitionDriver>):
   if (td.isAnimating) throw new Error('transition did not settle');
 }
 
-function createPoolHarness(isContentReady: () => boolean): PoolHarness {
+function createPoolHarness(isContentReady: (index: number | null) => boolean): PoolHarness {
   const slots: { prev: number | null; curr: number | null; next: number | null } = {
     prev: null,
     curr: 0,
@@ -188,7 +199,7 @@ function createPoolHarness(isContentReady: () => boolean): PoolHarness {
     assignSlot(position: 'prev' | 'curr' | 'next', index: number) {
       slots[position] = index;
     },
-    ensureContent: vi.fn(() => isContentReady()),
+    ensureContent: vi.fn((position: 'prev' | 'curr' | 'next') => isContentReady(slots[position])),
     rotateForward,
     rotateBackward,
     jump: vi.fn((spreadIndex: number) => {

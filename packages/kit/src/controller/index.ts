@@ -115,10 +115,12 @@ function wireIntegrations(
       prevSpread: () => {
         nav.prevSpread('keyboard');
       },
-      goToSpread: (index) => {
-        nav.goToSpread(index, 'keyboard');
+      goToFirstSpread: () => {
+        nav.goToBookSpread(0, 'turn', 'keyboard');
       },
-      getTotalSpreads: () => internals.reader.totalSpreads,
+      goToLastSpread: () => {
+        nav.goToBookSpread(() => internals.reader.totalSpreads - 1, 'turn', 'keyboard');
+      },
       searchNext: () => internals.engines.search.nextResult(),
       searchPrev: () => internals.engines.search.prevResult(),
       clearSearch: () => {

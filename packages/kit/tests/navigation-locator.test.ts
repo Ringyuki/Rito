@@ -14,7 +14,7 @@ describe('locator navigation', () => {
     await settleTasks();
 
     expect(fixture.current()).toBe(3);
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 3, 0);
+    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 3);
   });
 
   it('reports an unresolved internal-link locator without pretending to navigate', async () => {
@@ -52,7 +52,7 @@ describe('locator navigation', () => {
 
     expect(fixture.current()).toBe(2);
     expect(fixture.notifyActiveSpread).toHaveBeenCalledWith(2);
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
+    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 2);
   });
 
   it('uses latest-wins ownership and ignores an older locator completion', async () => {
@@ -217,7 +217,14 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     },
     getRenderScale: () => 1,
     emitter: { emit },
-    td: { isAnimating: false, viewportWidth: 800, forceSettle: vi.fn(), goToTarget },
+    td: {
+      isAnimating: false,
+      turning: false,
+      handOver: vi.fn(),
+      viewportWidth: 800,
+      forceSettle: vi.fn(),
+      goToTarget,
+    },
     frameDriver: { scheduleComposite: vi.fn() },
     pool: {
       getSlotFor: vi.fn(() => null),

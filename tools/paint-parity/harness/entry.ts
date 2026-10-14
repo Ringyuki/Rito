@@ -108,6 +108,10 @@ function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
   }
   renderReaderPrimitivesToCanvas(list, ctx, {
     resolveImage: makeSyntheticImage,
+    // A `pending:` source is still on its way past its first second; any
+    // other source no synthetic image answers can no longer arrive.
+    imageFallback: (src) =>
+      src.startsWith('pending:') ? 'loading' : makeSyntheticImage(src) ? undefined : 'broken',
     ...(fixture.theme
       ? {
           foregroundColor: fixture.theme.foreground,

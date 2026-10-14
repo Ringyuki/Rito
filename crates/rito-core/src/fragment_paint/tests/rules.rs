@@ -43,7 +43,7 @@ fn rule_paints_stroke_across_its_sized_box() {
         0.0,
         FragmentPaintContext {
             image_border_paints: None,
-            family_policy: None,
+            faces: None,
             node_paints: Some(&paints),
             list_markers: None,
             ruby_annotation_runs: None,

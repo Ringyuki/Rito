@@ -55,10 +55,6 @@ impl FootnoteTargetSet {
     pub(crate) fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &String> {
-        self.0.iter()
-    }
 }
 
 pub(crate) struct FootnoteTargetDiscovery {

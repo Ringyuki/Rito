@@ -83,10 +83,7 @@ test.describe('reader app', () => {
     await expect.poll(() => currentSpread(page)).toBeGreaterThan(beforeSearchJump);
   });
 
-  // Search results carry no resolved source range yet (source locators still
-  // resolve Unavailable in chapter_engine_session/fragment), so no exact
-  // highlight geometry can be requested for a match.
-  test.fixme('paints an exact native search highlight from the committed source range', async ({
+  test('paints an exact native search highlight from the committed source range', async ({
     page,
   }) => {
     await installReaderWorkerProbe(page);
@@ -106,8 +103,7 @@ test.describe('reader app', () => {
       .poll(async () => {
         const operations = await readReaderWorkerOperations(page);
         return operations.some(
-          (operation) =>
-            operation.kind === 'resolveExactSourceRangeAtRevision' && operation.ok === true,
+          (operation) => operation.kind === 'exact-source-range' && operation.ok === true,
         );
       })
       .toBe(true);
@@ -121,6 +117,35 @@ test.describe('reader app', () => {
     const clean = await stableReaderCanvasChecksum(page);
 
     expect(clean).not.toBe(highlighted);
+  });
+
+  test('copies a debug log of what the reader was asked and what the tester did', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await loadDemoBook(page);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(1);
+    const initial = await currentSpread(page);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentSpread(page)).toBeGreaterThan(initial);
+
+    await openReaderContextMenu(page);
+    await page.getByTestId('reader-copy-debug-log').click();
+    await expect(page.getByText('Debug log copied')).toBeVisible();
+    const report = await page.evaluate(() => navigator.clipboard.readText());
+
+    expect(report).toContain('# Rito debug log');
+    // The session requests behind the open and the turn, with their outcome.
+    expect(report).toMatch(/#1 +openSession .* → \d+(\.\d)? ms/);
+    expect(report).toMatch(/#1 +commit +\{scope: "chapter"/);
+    expect(report).toMatch(/#1 +commit +\{scope: "book"/);
+    expect(report).toMatch(/#1 +commitPeekedArtifact .* → \d+(\.\d)? ms/);
+    // What the tester did and what the controller reported for it.
+    expect(report).toMatch(/page +key +ArrowRight/);
+    expect(report).toMatch(/page +transitionStart +forward/);
+    expect(report).not.toContain('FAILED');
+    expect(report).not.toContain('NO ANSWER YET');
   });
 
   test('applies settings that trigger reader reflow and theme changes', async ({ page }) => {
@@ -137,10 +162,51 @@ test.describe('reader app', () => {
     await page.getByRole('button', { name: 'Dark' }).click();
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-theme', 'dark');
   });
+
+  test('applies every font size of a run of changes, however closely they follow', async ({
+    page,
+  }) => {
+    await loadDemoBook(page);
+    await expect.poll(() => committedLayout(page)).toMatchObject({ scope: 'book' });
+
+    // A change lands at every point of the layout before it: in the same
+    // task, while its page is prepared, while its whole book follows. Every
+    // third one is followed by a page turn, which loads spreads meanwhile.
+    let fontSize = 16;
+    for (const gapMs of [0, 4, 16, 40, 90, 160, 260]) {
+      for (let step = 0; step < 6; step += 1) {
+        fontSize = fontSize >= 24 ? 15 : fontSize + 1;
+        await page.evaluate(
+          ({ size, turn }) => {
+            const controller = (
+              window as unknown as {
+                __ritoController: {
+                  readonly currentSpread: number;
+                  readonly reader: { readonly totalSpreads: number };
+                  setTypography(patch: { fontSize: number }): void;
+                  jumpToSpread(index: number): void;
+                };
+              }
+            ).__ritoController;
+            controller.setTypography({ fontSize: size });
+            if (turn) {
+              const last = controller.reader.totalSpreads - 1;
+              controller.jumpToSpread(Math.min(controller.currentSpread + 1, last));
+            }
+          },
+          { size: fontSize, turn: step % 3 === 2 },
+        );
+        if (gapMs > 0) await page.waitForTimeout(gapMs);
+      }
+      await expect.poll(() => committedLayout(page)).toEqual({ scope: 'book', fontSize });
+    }
+    // The session refused nothing on the way.
+    expect(await refusedSessionRequests(page)).toEqual([]);
+  });
 });
 
-test.describe('reader app revision worker session', () => {
-  test('loads the demo through the production revision protocol', async ({ page }) => {
+test.describe('reader app session worker', () => {
+  test('loads the demo through the reader session protocol', async ({ page }) => {
     await installReaderWorkerProbe(page);
     await page.goto('/');
     await page.evaluate(() => {
@@ -151,20 +217,23 @@ test.describe('reader app revision worker session', () => {
     await loadDemoBook(page);
     await expect.poll(() => hasNonBlankCanvas(page)).toBe(true);
 
+    // The whole book follows the chapter the reader opened on.
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(0);
     const observations = await readReaderWorkerOperations(page);
     expect(observations.some((entry) => entry.ok === false)).toBe(false);
-    expect(observations.map((entry) => entry.kind)).toEqual(
+    const kinds = observations.map((entry) => entry.kind);
+    expect(kinds).toEqual(
       expect.arrayContaining([
         'open',
-        'createRevision',
-        'getRevisionPresentationAtRevision',
-        'warmFrameWindowAtRevision',
-        'getFootnotesAtRevision',
-        'getChapterTextIndicesAtRevision',
+        'adopt-foreground-candidate',
+        'navigation',
+        'advance-background-once',
+        'adopt-background-candidate',
       ]),
     );
-    expect(observations.some((entry) => entry.kind === 'createViewRevision')).toBe(false);
-    expect(observations.some((entry) => (entry.revision?.spreadCount ?? 0) > 0)).toBe(true);
+    // One protocol: no worker is asked for a revision the old way.
+    expect(kinds.filter((kind) => kind === 'open')).toHaveLength(1);
+    expect(kinds).not.toContain('createRevision');
   });
 });
 
@@ -174,6 +243,37 @@ async function loadDemoBook(page: Page): Promise<void> {
   await page.getByTestId('load-demo-button').click();
   await expect(shell).toHaveAttribute('data-loaded', 'true', {
     timeout: READER_LOAD_TIMEOUT_MS,
+  });
+}
+
+/** The layout the reader has committed: its scope and root font size. */
+async function committedLayout(page: Page): Promise<{ scope: string; fontSize: number }> {
+  return page.evaluate(() => {
+    const { reader } = (
+      window as unknown as {
+        __ritoController: {
+          reader: { layoutScope: string; getLayoutGeometry(): { rootFontSize: number } };
+        };
+      }
+    ).__ritoController;
+    return { scope: reader.layoutScope, fontSize: reader.getLayoutGeometry().rootFontSize };
+  });
+}
+
+/** The session requests the reader's log shows as refused. */
+async function refusedSessionRequests(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const log =
+      (
+        globalThis as {
+          __ritoReaderDiagnostics?: {
+            log?: () => { kind: string; failed?: true; result?: string }[];
+          };
+        }
+      ).__ritoReaderDiagnostics?.log?.() ?? [];
+    return log
+      .filter((entry) => entry.failed === true)
+      .map((entry) => `${entry.kind}: ${entry.result ?? ''}`);
   });
 }
 

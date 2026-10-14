@@ -20,6 +20,9 @@ export function syncCanvasSize(internals: Internals, runtime: RuntimeComponents)
   }
   runtime.pool.resize(size.width, size.height, dpr);
   runtime.td.viewportWidth = size.width;
+  // Two pages a spread are bound down the middle, one at its left edge.
+  const twoPages = internals.reader.getLayoutGeometry().spreadMode === 'double';
+  runtime.td.spine = twoPages ? size.width / 2 : 0;
 }
 
 function shouldResizeSurface(

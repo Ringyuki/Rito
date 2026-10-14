@@ -137,7 +137,9 @@ describe('Browser reader session Canvas presenter', () => {
     const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(first));
 
     const current = await presenter.prepare(first);
+    await current.imagesSettled;
     const incoming = await presenter.prepare(second);
+    await incoming.imagesSettled;
 
     expect(readResource).toHaveBeenCalledTimes(2);
     expect(
@@ -284,6 +286,7 @@ describe('Browser reader session Canvas presenter', () => {
     const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact));
 
     const prepared = await presenter.prepare(artifact);
+    await prepared.imagesSettled;
 
     expect(readResource).toHaveBeenCalledTimes(hrefs.length);
     expect(peak).toBe(4);
@@ -307,14 +310,13 @@ describe('Browser reader session Canvas presenter', () => {
     });
     const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(first));
 
-    const firstPrepare = presenter.prepare(first);
-    const secondPrepare = presenter.prepare(second);
-    await Promise.resolve();
-    await Promise.resolve();
+    // Images never hold their artifact's preparation back.
+    const prepared = await Promise.all([presenter.prepare(first), presenter.prepare(second)]);
+    for (let tick = 0; tick < 8; tick += 1) await Promise.resolve();
 
     expect(peak).toBe(4);
     gate.resolve(undefined);
-    const prepared = await Promise.all([firstPrepare, secondPrepare]);
+    await Promise.all(prepared.map((value) => value.imagesSettled));
     expect(readResource).toHaveBeenCalledTimes(12);
     prepared.forEach((value) => {
       value.dispose();
@@ -355,12 +357,14 @@ describe('Browser reader session Canvas presenter', () => {
     });
     const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact));
 
-    await expect(presenter.prepare(artifact)).rejects.toEqual(
-      expect.objectContaining<Partial<BrowserReaderCanvasUnsupportedError>>({
-        feature: 'image-format:image/svg+xml',
-      }),
-    );
+    // The image paints broken; its artifact still prepares, and a format
+    // the canvas cannot decode is never read again.
+    const prepared = await presenter.prepare(artifact);
+    await prepared.imagesSettled;
     expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(lastImageFailure()).toContain('image-format:image/svg+xml');
+    expect(readResource).toHaveBeenCalledOnce();
+    prepared.dispose();
     presenter.dispose();
   });
 
@@ -370,12 +374,15 @@ describe('Browser reader session Canvas presenter', () => {
     readResource.mockResolvedValue(imageResource(artifact.artifactId, href, 20_000, 1));
     const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact));
 
-    await expect(presenter.prepare(artifact)).rejects.toThrow('source dimension budget');
+    const prepared = await presenter.prepare(artifact);
+    await prepared.imagesSettled;
+    expect(lastImageFailure()).toContain('source dimension budget');
     expect(createImageBitmap).not.toHaveBeenCalled();
+    prepared.dispose();
     presenter.dispose();
   });
 
-  it('rolls back an acquired font when later image preparation fails', async () => {
+  it('prepares an artifact whose image fails and releases its font with it', async () => {
     vi.stubGlobal(
       'createImageBitmap',
       vi.fn(() => Promise.reject(new Error('bad image'))),
@@ -385,7 +392,10 @@ describe('Browser reader session Canvas presenter', () => {
     const session = readerSession(visible);
     const presenter = createBrowserReaderSessionCanvasPresenter(session);
 
-    await expect(presenter.prepare(candidate)).rejects.toThrow('bad image');
+    const prepared = await presenter.prepare(candidate);
+    await prepared.imagesSettled;
+    expect(lastImageFailure()).toContain('bad image');
+    prepared.dispose();
     await Promise.resolve();
     await session.release(candidate.artifactId);
     await session.advanceBackgroundOnce(visible.artifactId, 1);
@@ -395,6 +405,49 @@ describe('Browser reader session Canvas presenter', () => {
     expect(adoptForegroundCandidate).not.toHaveBeenCalled();
     expect(releaseArtifact).toHaveBeenCalledWith(candidate.artifactId);
     expect(advanceBackgroundOnce).toHaveBeenCalledWith(visible.artifactId, 1);
+    presenter.dispose();
+  });
+
+  it('reports a face the browser refuses to decode and prepares the artifact without it', async () => {
+    class RefusedFontFace extends FakeFontFace {
+      override load(): Promise<FakeFontFace> {
+        return Promise.reject(new Error('OTS parsing error'));
+      }
+    }
+    vi.stubGlobal('FontFace', RefusedFontFace);
+    const artifact = readerArtifact();
+    const fontRejected = vi.fn();
+    const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact), {
+      fontRejected,
+    });
+
+    const prepared = await presenter.prepare(artifact);
+    // A second artifact of the same layout lists the same face: it is not
+    // read, decoded or reported again.
+    const again = await presenter.prepare({ ...artifact, requestId: 2n, artifactId: 12n });
+
+    expect(fontRejected).toHaveBeenCalledOnce();
+    expect(fontRejected.mock.calls[0]?.[0]).toBe(artifact.fonts[0]);
+    expect(String(fontRejected.mock.calls[0]?.[1])).toContain('OTS parsing error');
+    expect(fontSet.add).not.toHaveBeenCalled();
+    prepared.dispose();
+    again.dispose();
+    await Promise.resolve();
+    expect(fontSet.delete).not.toHaveBeenCalled();
+    presenter.dispose();
+  });
+
+  it('fails an artifact whose face the browser refuses when nobody is told', async () => {
+    class RefusedFontFace extends FakeFontFace {
+      override load(): Promise<FakeFontFace> {
+        return Promise.reject(new Error('OTS parsing error'));
+      }
+    }
+    vi.stubGlobal('FontFace', RefusedFontFace);
+    const artifact = readerArtifact();
+    const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact));
+
+    await expect(presenter.prepare(artifact)).rejects.toThrow('OTS parsing error');
     presenter.dispose();
   });
 
@@ -670,4 +723,10 @@ function srgb(red: number, green: number, blue: number) {
     alpha: 1,
     none: { component0: false, component1: false, component2: false, alpha: false },
   };
+}
+
+function lastImageFailure(): string {
+  const failures = (globalThis as { __ritoImageFailures?: { readonly error: string }[] })
+    .__ritoImageFailures;
+  return failures?.at(-1)?.error ?? '';
 }

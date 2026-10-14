@@ -228,6 +228,11 @@ final class _NavigationGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request}) {
+    throw UnimplementedError('peekSpread is not exercised by this fake.');
+  }
+
+  @override
   Future<RitoForegroundHandoffAck> commitPeeked({
     required RitoForegroundHandoff handoff,
     required int intentRequestId,
@@ -330,6 +335,27 @@ final class _NavigationGateway implements RitoReaderGateway {
     throw UnimplementedError(
       'exact source ranges are out of scope for this fake',
     );
+  }
+
+  @override
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  }) async {
+    throw UnimplementedError('text interaction is out of scope for this fake');
+  }
+
+  @override
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
+  }) async {
+    throw UnimplementedError('annotations are out of scope for this fake');
+  }
+
+  @override
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
+  }) async {
+    throw UnimplementedError('navigation is out of scope for this fake');
   }
 
   @override

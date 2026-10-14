@@ -7,7 +7,8 @@ import 'support/image_cache_fixture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('CAS waits for images and old/new animation leases coexist', () async {
+  test('a page turn never waits for its images and old/new animation leases '
+      'share one decode', () async {
     const href = 'images/shared.png';
     const spec = TestImageSpec(code: 1, width: 400, height: 200);
     final first = imageArtifact(
@@ -26,7 +27,6 @@ void main() {
       first: first,
       next: next,
       specs: const <String, TestImageSpec>{href: spec},
-      beforeAdopt: (_) => expect(decoder.decodedCodes, isNotEmpty),
     );
     final cache = RitoArtifactImageCache(decoder: decoder, targetBucketSize: 1);
     final session = await RitoReaderSession.open(
@@ -36,6 +36,7 @@ void main() {
       imageCache: cache,
       imagePixelRatio: 2,
     );
+    await session.firstArtifact.imagesSettled;
     final oldImage = session.firstArtifact.resolveImage(href)!;
     expect(
       () => session.firstArtifact.resolveImage('images/unprepared.png'),
@@ -51,6 +52,7 @@ void main() {
       requestId: 13,
       direction: RitoAdjacentDirection.next,
     );
+    await incoming.imagesSettled;
 
     expect(session.firstArtifact.hasPreparedImages, isTrue);
     expect(incoming.hasPreparedImages, isTrue);
@@ -109,6 +111,7 @@ void main() {
         request: _request(12),
         imageCache: cache,
       );
+      await session.firstArtifact.imagesSettled;
       final visibleImage = session.firstArtifact.resolveImage(firstHref)!;
 
       final reports = <FlutterErrorDetails>[];
@@ -121,6 +124,7 @@ void main() {
           requestId: 13,
           direction: RitoAdjacentDirection.next,
         );
+        await adopted.imagesSettled;
       } finally {
         FlutterError.onError = priorOnError;
       }
@@ -156,17 +160,11 @@ RitoArtifactRequest _request(int requestId) {
 }
 
 final class _ImageGateway implements RitoReaderGateway {
-  _ImageGateway({
-    required this.first,
-    required this.next,
-    required this.specs,
-    this.beforeAdopt,
-  });
+  _ImageGateway({required this.first, required this.next, required this.specs});
 
   final RitoArtifact first;
   final RitoArtifact next;
   final Map<String, TestImageSpec> specs;
-  final void Function(RitoForegroundHandoff handoff)? beforeAdopt;
   final List<RitoForegroundHandoff> foregroundHandoffs =
       <RitoForegroundHandoff>[];
   final List<int> releasedArtifactIds = <int>[];
@@ -177,6 +175,11 @@ final class _ImageGateway implements RitoReaderGateway {
   @override
   Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request}) {
     throw UnimplementedError('peekAdjacent is not exercised by this fake.');
+  }
+
+  @override
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request}) {
+    throw UnimplementedError('peekSpread is not exercised by this fake.');
   }
 
   @override
@@ -208,7 +211,6 @@ final class _ImageGateway implements RitoReaderGateway {
   Future<RitoForegroundHandoffAck> adoptForeground({
     required RitoForegroundHandoff handoff,
   }) async {
-    beforeAdopt?.call(handoff);
     foregroundHandoffs.add(handoff);
     final artifact = handoff.candidateArtifactId == first.artifactId
         ? first
@@ -237,6 +239,27 @@ final class _ImageGateway implements RitoReaderGateway {
     throw UnimplementedError(
       'exact source ranges are out of scope for this fake',
     );
+  }
+
+  @override
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  }) async {
+    throw UnimplementedError('text interaction is out of scope for this fake');
+  }
+
+  @override
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
+  }) async {
+    throw UnimplementedError('annotations are out of scope for this fake');
+  }
+
+  @override
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
+  }) async {
+    throw UnimplementedError('navigation is out of scope for this fake');
   }
 
   @override

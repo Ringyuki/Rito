@@ -39,6 +39,9 @@ function createHandler(
 ): (e: KeyboardEvent) => void {
   return (e: KeyboardEvent): void => {
     if (!acceptsKeyboardInputState(state)) return;
+    // A key a widget on the page has already handled — a slider stepping
+    // on an arrow key, a menu moving its highlight — is not a shortcut.
+    if (e.defaultPrevented) return;
     if (isEditableTarget(e.target)) return;
     const shortcut = eventToShortcut(e);
     const action = bindings.get(shortcut);

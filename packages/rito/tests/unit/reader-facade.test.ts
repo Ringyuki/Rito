@@ -1,25 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const binding = vi.hoisted(() => ({
-  createReader: vi.fn(() => Promise.resolve({ facade: true })),
-  preloadReaderRuntime: vi.fn(() => Promise.resolve()),
+  createReader: vi.fn(() => Promise.resolve({ session: true })),
 }));
-vi.mock('../../src/bindings/browser/reader/reader', () => binding);
+vi.mock('../../src/bindings/browser/session-reader/reader', () => binding);
 
 import { createReader, preloadReaderRuntime } from '../../src/reader/create-reader';
 
 describe('root reader facade', () => {
-  it('forwards createReader to the browser binding', async () => {
+  it('opens a book on the session reader', async () => {
     const data = new ArrayBuffer(0);
     const canvas = {} as HTMLCanvasElement;
     const options = { width: 1, height: 1 } as never;
     const reader = await createReader(data, canvas, options);
-    expect(reader).toEqual({ facade: true });
+    expect(reader).toEqual({ session: true });
     expect(binding.createReader).toHaveBeenCalledWith(data, canvas, options);
   });
 
-  it('forwards preloadReaderRuntime to the browser binding', async () => {
+  it('loads the reader ahead of a book without opening one', async () => {
     await preloadReaderRuntime();
-    expect(binding.preloadReaderRuntime).toHaveBeenCalledOnce();
+    expect(binding.createReader).toHaveBeenCalledOnce();
   });
 });

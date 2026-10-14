@@ -28,7 +28,6 @@ describe('native target spread lifecycle', () => {
       spreads: [spread, spreadOne],
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-      getChapterTextIndices: () => new Map(),
       onSpreadRendered(callback: (index: number, value: Spread) => void) {
         listeners.add(callback);
         return () => {
@@ -90,7 +89,6 @@ describe('native target spread lifecycle', () => {
       spreads: [spread, spreadOne],
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-      getChapterTextIndices: () => new Map(),
       onSpreadRendered(callback: (index: number, value: Spread) => void) {
         listeners.add(callback);
         return () => {
@@ -169,7 +167,6 @@ describe('native target spread lifecycle', () => {
       spreads: [spread],
       getLayoutGeometry: () =>
         createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
-      getChapterTextIndices: () => new Map(),
       onSpreadRendered(callback: typeof rendered) {
         rendered = callback;
         return () => {
@@ -200,7 +197,6 @@ describe('native target spread lifecycle', () => {
       getCurrentSpread: () => 0,
       getRenderScale: () => 1,
       notifyNavigationContentReady: vi.fn(),
-      presentChapterLocalInvalidation: vi.fn(() => false),
       syncViewport: vi.fn(),
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
@@ -229,10 +225,10 @@ describe('native target spread lifecycle', () => {
     expect(state.nativeInteractionsAlive).toBe(false);
   });
 
-  it('claims a provisional invalidation before every ordinary current-spread side effect', () => {
+  it('paints a neighbouring spread into its buffer once its content arrives', () => {
     let invalidated: ((index: number) => void) | undefined;
     const reader = {
-      spreads: [spread],
+      spreads: [spread, spread, spread, spread],
       onSpreadRendered: vi.fn(() => vi.fn()),
       onSpreadContentInvalidated(callback: (index: number) => void) {
         invalidated = callback;
@@ -241,37 +237,34 @@ describe('native target spread lifecycle', () => {
         };
       },
     } as unknown as Reader;
-    const state = createCoordinatorState();
-    state.nativeTargetsByPage.set(0, []);
     const markContentDirty = vi.fn();
     const notifyNavigationContentReady = vi.fn();
-    const syncViewport = vi.fn();
-    const presentChapterLocalInvalidation = vi.fn(() => true);
-    const canvas = { style: { cursor: 'pointer' } };
+    const prerenderAdjacent = vi.fn();
     const deps = {
       reader,
-      coordState: state,
-      canvas,
+      coordState: createCoordinatorState(),
+      canvas: { style: { cursor: '' } },
       engines: { selection: {}, search: {}, position: null },
       emitter: createEmitter<ReaderControllerEvents>(),
       frameDriver: { markContentDirty },
-      getCurrentSpread: () => 0,
+      getCurrentSpread: () => 1,
       getRenderScale: () => 1,
       notifyNavigationContentReady,
-      presentChapterLocalInvalidation,
-      syncViewport,
+      prerenderAdjacent,
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
     wireSpreadRendered(deps, disposables);
 
+    // The spread a turn forward shows, then the one a turn back shows.
+    invalidated?.(2);
     invalidated?.(0);
+    expect(prerenderAdjacent).toHaveBeenCalledTimes(2);
+    expect(markContentDirty.mock.calls).toEqual([[2], [0]]);
 
-    expect(presentChapterLocalInvalidation).toHaveBeenCalledWith(0);
-    expect(markContentDirty).not.toHaveBeenCalled();
-    expect(notifyNavigationContentReady).not.toHaveBeenCalled();
-    expect(syncViewport).not.toHaveBeenCalled();
-    expect(state.nativeTargetsByPage.has(0)).toBe(true);
-    expect(canvas.style.cursor).toBe('pointer');
+    // A spread two turns away has no buffer to paint into.
+    invalidated?.(3);
+    expect(prerenderAdjacent).toHaveBeenCalledTimes(2);
+    expect(notifyNavigationContentReady).toHaveBeenCalledTimes(3);
     disposables.disposeAll();
   });
 });

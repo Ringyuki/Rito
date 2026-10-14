@@ -7,8 +7,8 @@ export interface KeyboardWiringDeps {
   emitter: TypedEmitter<ReaderControllerEvents>;
   nextSpread: () => void;
   prevSpread: () => void;
-  goToSpread: (index: number) => void;
-  getTotalSpreads: () => number;
+  goToFirstSpread: () => void;
+  goToLastSpread: () => void;
   searchNext: () => void;
   searchPrev: () => void;
   clearSearch: () => void;
@@ -30,12 +30,8 @@ export function wireKeyboard(
   keyboard.registerPreset('reader-navigation', {
     next: deps.nextSpread,
     prev: deps.prevSpread,
-    first: () => {
-      deps.goToSpread(0);
-    },
-    last: () => {
-      deps.goToSpread(deps.getTotalSpreads() - 1);
-    },
+    first: deps.goToFirstSpread,
+    last: deps.goToLastSpread,
   });
 
   keyboard.registerPreset('search', {

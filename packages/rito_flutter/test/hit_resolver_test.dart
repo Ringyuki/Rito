@@ -11,7 +11,7 @@ RitoHitEntry _hit(
   String? imageSrc,
   String? imageAlt,
   String? footnoteKey,
-  bool footnotePending = false,
+  RitoHitKind? kind,
 }) {
   return RitoHitEntry(
     pageIndex: 0,
@@ -21,7 +21,17 @@ RitoHitEntry _hit(
     imageSrc: imageSrc,
     imageAlt: imageAlt,
     footnoteKey: footnoteKey,
-    footnotePending: footnotePending,
+    // What the engine's classifier answers for these fields, unless a
+    // test states the kind itself.
+    kind:
+        kind ??
+        (footnoteKey != null
+            ? RitoHitKind.footnote
+            : href != null
+            ? RitoHitKind.link
+            : imageSrc != null
+            ? RitoHitKind.image
+            : RitoHitKind.text),
   );
 }
 
@@ -66,7 +76,7 @@ void main() {
           width: 40,
           href: '#note1',
           footnoteKey: 'Text/Section001.xhtml#note1',
-          footnotePending: true,
+          kind: RitoHitKind.footnotePending,
         ),
       ]);
       final target = resolver.resolve(x: 120, y: 310);
@@ -151,6 +161,32 @@ void main() {
     final target = resolver.resolve(x: 200, y: 120);
     expect(target, isA<RitoTapLink>());
     expect((target as RitoTapLink).label, isNull);
+  });
+
+  test('the kind decides, not the fields a hit happens to carry', () {
+    // An href the engine did not class as a link, and an image source it
+    // did not class as an image, are not tap targets.
+    final resolver = _resolver([
+      _hit(
+        'plain',
+        x: 40,
+        y: 300,
+        width: 80,
+        href: 'Text/ch2.xhtml',
+        kind: RitoHitKind.text,
+      ),
+      _hit(
+        '',
+        x: 50,
+        y: 400,
+        width: 120,
+        height: 160,
+        imageSrc: 'Images/plate.png',
+        kind: RitoHitKind.text,
+      ),
+    ]);
+    expect(resolver.resolve(x: 60, y: 310), isNull);
+    expect(resolver.resolve(x: 100, y: 480), isNull);
   });
 
   test('a tap on nothing resolves to null', () {

@@ -1,8 +1,9 @@
 import type { SlotPosition } from '../../painter/types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
+import { transitionLifecycle } from '../core/transition-lifecycle';
 import { claimNavigation, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
-import { foregroundIsBusy, type NavigationMachine } from './machine';
+import type { NavigationMachine } from './machine';
 import { presentSpread } from './present';
 
 export type NavigationJumpOutcome = 'committed' | 'not-ready' | 'superseded';
@@ -28,7 +29,6 @@ export function performReadyJump(
 ): NavigationJumpOutcome {
   if (machine.disposed) return 'superseded';
   const claim = claimNavigation(machine, deps);
-  if (foregroundIsBusy(machine)) return 'not-ready';
   if (!claim.owns()) return 'superseded';
   const endTransfer = selectionGesture
     ? deps.beginSelectionProjectionTransfer?.(index, selectionGesture)
@@ -45,7 +45,7 @@ export function jumpToSpread(deps: NavigationDeps, claim: NavigationClaim, index
   const reader = deps.getReader();
   if (!reader) return false;
   const target = Math.max(0, Math.min(index, reader.totalSpreads - 1));
-  if (deps.td.isAnimating) deps.td.forceSettle();
+  interruptTurnInFlight(deps);
   if (!claim.owns()) return false;
   deps.pool.jump(target);
   deps.pool.ensureContent('curr', deps.contentRenderer);
@@ -61,7 +61,7 @@ export function jumpToSpreadIfReady(
   const reader = deps.getReader();
   if (!reader) return 'superseded';
   const target = Math.max(0, Math.min(index, reader.totalSpreads - 1));
-  if (deps.td.isAnimating) deps.td.forceSettle();
+  interruptTurnInFlight(deps);
   if (!claim.owns()) return 'superseded';
 
   const previous = deps.getCurrentSpread();
@@ -73,6 +73,17 @@ export function jumpToSpreadIfReady(
 
   promoteIncomingSlot(deps, previous, target);
   return commitJump(deps, claim, target) ? 'committed' : 'superseded';
+}
+
+/**
+ * A jump takes the page before the turn in flight arrives: the turn is
+ * reported cut off, then landed at once so the jump leaves from its page.
+ * What a turn already cut into had left is stopped with it.
+ */
+function interruptTurnInFlight(deps: NavigationDeps): void {
+  if (!deps.td.isAnimating) return;
+  if (deps.td.turning) transitionLifecycle(deps.emitter).end('interrupted');
+  deps.td.forceSettle();
 }
 
 function commitJump(deps: NavigationDeps, claim: NavigationClaim, target: number): boolean {

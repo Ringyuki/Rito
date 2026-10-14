@@ -1,5 +1,5 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
-import { createReader, type Reader } from '@ritojs/core';
+import { createReader, type Reader, type ReaderPublication } from '@ritojs/core';
 import { createController, type ReaderController } from '@ritojs/kit';
 import {
   createLoadedState,
@@ -26,7 +26,7 @@ export function useReaderLoader(
   optionsRef: RefBox<UseRitoReaderOptions>,
   setState: Dispatch<SetStateAction<InternalState>>,
   disposeCurrent: () => Promise<void>,
-): (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => Promise<void> {
+): (data: ReaderPublication | PromiseLike<ReaderPublication>) => Promise<void> {
   const creationTailRef = useRef(Promise.resolve());
   return useCallback(
     (data) => {
@@ -55,7 +55,7 @@ export function useReaderLoader(
 }
 
 async function loadReader(
-  data: ArrayBuffer | PromiseLike<ArrayBuffer>,
+  data: ReaderPublication | PromiseLike<ReaderPublication>,
   requestId: number,
   creationTailRef: RefBox<Promise<void>>,
   refs: ReaderRefs,
@@ -116,7 +116,7 @@ function enqueueReaderCreation(
 }
 
 async function createAndCommitReader(
-  data: ArrayBuffer,
+  data: ReaderPublication,
   requestId: number,
   disposeTask: Promise<void>,
   refs: ReaderRefs,
@@ -193,7 +193,7 @@ function scheduleLoadingIndicator(
 }
 
 async function loadReaderStack(
-  data: ArrayBuffer,
+  data: ReaderPublication,
   requestId: number,
   opts: UseRitoReaderOptions,
   initialPosition: InitialPositionLoad,

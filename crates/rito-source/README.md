@@ -24,7 +24,9 @@ but the Rito adapter implements those traits as a read-only view over this
 arena and keeps Stylo's mutable computed-style data in a separate private
 sidecar.
 
-The parser accepts bounded internal DTD entities, repairs the legacy EPUB
-forms already supported by Rito (`&nbsp;`, single-quoted XML declarations, and
-unpaired HTML void elements), then applies strict XML validation. Nesting is
+The parser strips document-type declarations and never expands DTD entities
+(a reference to one stays literal text), repairs the legacy EPUB forms already
+supported by Rito (`&nbsp;`, single-quoted XML declarations, and unpaired HTML
+void elements), then parses strictly; when that fails it retries once with
+mismatched tags repaired the way an HTML parser recovers. Nesting is
 limited to 128 elements and parser nodes are limited to 1,000,000.

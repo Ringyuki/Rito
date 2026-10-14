@@ -171,8 +171,11 @@ impl PublicationFootnoteProgress {
 }
 
 impl RuntimeDocument {
-    /// Explicit compatibility API. It drains the cooperative index to a final
-    /// immutable snapshot; reader session foreground paths never call this method.
+    /// Drains the cooperative index to its final immutable snapshot. The
+    /// chapter-local fragment build calls this before laying a chapter out:
+    /// a chapter's footnote filtering needs the whole publication's targets
+    /// or it paginates differently from the same chapter in the book table,
+    /// so the first chapter-local open scans every spine source.
     pub(super) fn publication_footnote_index(&mut self) -> EpubResult<&PublicationFootnoteIndex> {
         while self.publication_footnotes.get().is_none() {
             self.advance_publication_footnote_index_once()?;
@@ -218,8 +221,8 @@ impl RuntimeDocument {
         self.publication_footnotes.get().is_some()
     }
 
-    /// Foreground admission scans only the chapter being opened. This is the
-    /// hard upper bound that prevents a large spine from delaying first paint.
+    /// The footnote targets for one chapter: the complete index's targets
+    /// once it exists, otherwise a scan of only the chapter being opened.
     pub(super) fn prepare_chapter_footnote_targets(
         &mut self,
         chapter_index: usize,

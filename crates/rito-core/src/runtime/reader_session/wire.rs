@@ -2,17 +2,30 @@
 
 mod decode;
 mod encode;
+mod fonts;
+mod interaction;
+mod pending;
 mod primitives;
 
+#[cfg(test)]
+mod query_tests;
 #[cfg(test)]
 mod tests;
 
 use super::{
-    ReaderAdjacentRequest, ReaderArtifact, ReaderArtifactRequest, ReaderBackgroundAdvance,
-    ReaderBackgroundHandoff, ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderAnnotationResponse, ReaderArtifact,
+    ReaderArtifactRequest, ReaderBackgroundAdvance, ReaderBackgroundHandoff,
+    ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderFootnote,
-    ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderPublication, ReaderResource,
-    ReaderSearchRequest, ReaderSearchResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
+    ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderNavigationRequest,
+    ReaderNavigationResult, ReaderPublication, ReaderResource, ReaderSearchRequest,
+    ReaderSearchResponse, ReaderSpreadRequest, ReaderTextInteractionRequest,
+    ReaderTextInteractionResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
+};
+
+pub use fonts::{
+    decode_reader_font_catalog, decode_reader_font_names, encode_reader_font_catalog,
+    encode_reader_font_names, READER_FONT_CATALOG_WIRE_MAGIC, READER_FONT_NAMES_WIRE_MAGIC,
 };
 
 pub const READER_ADJACENT_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONAV1";
@@ -26,11 +39,9 @@ pub const READER_ARTIFACT_WIRE_MAGIC: [u8; 8] = *b"RITOART1";
 //   * Dart        packages/rito_flutter/lib/src/protocol/
 //   * JavaScript  packages/rito-core-wasm/src/reader-session-*-runtime.js
 //
-// Which mirrors exist depends on the message. RITOART1, RITOPUB1,
-// RITORES1, RITOBGA1 and the handoffs have all three. RITOFTN1,
-// RITOTRQ1/RITOTRG1 and RITOSRQ1/RITOSRS1 are FFI-only today and have
-// no JavaScript mirror — if the browser ever consumes one, it gains a
-// third mirror and this obligation with it.
+// Every message has all three mirrors except RITOPSH1, which has no
+// JavaScript mirror — if the browser ever consumes it, it gains a third
+// mirror and this obligation with it.
 //
 // The failure mode is silent, because every mirror ships hand-built
 // test fixtures that agree with their own decoder. A stale mirror keeps
@@ -50,16 +61,25 @@ pub const READER_PUBLICATION_WIRE_MAGIC: [u8; 8] = *b"RITOPUB1";
 pub const READER_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOREQ1";
 pub const READER_RESOURCE_WIRE_MAGIC: [u8; 8] = *b"RITORES1";
 pub const READER_FOOTNOTE_WIRE_MAGIC: [u8; 8] = *b"RITOFTN1";
+pub const READER_PENDING_SHARDS_WIRE_MAGIC: [u8; 8] = *b"RITOPSH1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTRQ1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES: u32 = 72;
 pub const READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC: [u8; 8] = *b"RITOTRG1";
 pub const READER_EXACT_SOURCE_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOESQ1";
 pub const READER_EXACT_SOURCE_RANGE_RESOLUTION_WIRE_MAGIC: [u8; 8] = *b"RITOESR1";
+pub const READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTIQ1";
+pub const READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOTIR1";
+pub const READER_ANNOTATION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOANQ1";
+pub const READER_ANNOTATION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOANR1";
+pub const READER_NAVIGATION_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITONVQ1";
+pub const READER_NAVIGATION_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITONVR1";
 pub const READER_SEARCH_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSRQ1";
 pub const READER_SEARCH_RESPONSE_WIRE_MAGIC: [u8; 8] = *b"RITOSRS1";
+pub const READER_SPREAD_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOSPQ1";
 pub const READER_WIRE_VERSION: u32 = 1;
 pub const READER_WIRE_HEADER_BYTES: u32 = 20;
 pub const READER_ADJACENT_REQUEST_WIRE_BYTES: u32 = 48;
+pub const READER_SPREAD_REQUEST_WIRE_BYTES: u32 = 48;
 pub const READER_BACKGROUND_REQUEST_WIRE_BYTES: u32 = 40;
 pub const READER_BACKGROUND_ADVANCE_WIRE_PREFIX_BYTES: u32 = 49;
 pub const READER_BACKGROUND_HANDOFF_WIRE_BYTES: u32 = 44;
@@ -93,6 +113,14 @@ pub fn encode_reader_adjacent_request(
 
 pub fn decode_reader_adjacent_request(bytes: &[u8]) -> Result<ReaderAdjacentRequest, ReaderError> {
     decode::adjacent_request(bytes)
+}
+
+pub fn encode_reader_spread_request(request: &ReaderSpreadRequest) -> Result<Vec<u8>, ReaderError> {
+    encode::spread_request(request)
+}
+
+pub fn decode_reader_spread_request(bytes: &[u8]) -> Result<ReaderSpreadRequest, ReaderError> {
+    decode::spread_request(bytes)
 }
 
 pub fn encode_reader_foreground_handoff(
@@ -183,6 +211,15 @@ pub fn decode_reader_resource(bytes: &[u8]) -> Result<ReaderResource, ReaderErro
     decode::resource(bytes)
 }
 
+/// Encodes a `ResourcePending` error as `RITOPSH1`.
+pub fn encode_reader_pending_shards(error: &ReaderError) -> Result<Vec<u8>, ReaderError> {
+    pending::encode(error)
+}
+
+pub fn decode_reader_pending_shards(bytes: &[u8]) -> Result<ReaderError, ReaderError> {
+    pending::decode(bytes)
+}
+
 pub fn encode_reader_footnote(footnote: &ReaderFootnote) -> Result<Vec<u8>, ReaderError> {
     encode::footnote(footnote)
 }
@@ -255,4 +292,76 @@ pub fn decode_reader_exact_source_range_resolution(
     bytes: &[u8],
 ) -> Result<ReaderExactSourceRangeResolution, ReaderError> {
     decode::exact_source_range_resolution(bytes)
+}
+
+pub fn encode_reader_text_interaction_request(
+    request: &ReaderTextInteractionRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_text_interaction_request(request)
+}
+
+pub fn decode_reader_text_interaction_request(
+    bytes: &[u8],
+) -> Result<ReaderTextInteractionRequest, ReaderError> {
+    interaction::text_interaction_request(bytes)
+}
+
+pub fn encode_reader_text_interaction_response(
+    response: &ReaderTextInteractionResponse,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_text_interaction_response(response)
+}
+
+pub fn decode_reader_text_interaction_response(
+    bytes: &[u8],
+) -> Result<ReaderTextInteractionResponse, ReaderError> {
+    interaction::text_interaction_response(bytes)
+}
+
+pub fn encode_reader_annotation_request(
+    request: &ReaderAnnotationRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_annotation_request(request)
+}
+
+pub fn decode_reader_annotation_request(
+    bytes: &[u8],
+) -> Result<ReaderAnnotationRequest, ReaderError> {
+    interaction::annotation_request(bytes)
+}
+
+pub fn encode_reader_annotation_response(
+    response: &ReaderAnnotationResponse,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_annotation_response(response)
+}
+
+pub fn decode_reader_annotation_response(
+    bytes: &[u8],
+) -> Result<ReaderAnnotationResponse, ReaderError> {
+    interaction::annotation_response(bytes)
+}
+
+pub fn encode_reader_navigation_request(
+    request: &ReaderNavigationRequest,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_navigation_request(request)
+}
+
+pub fn decode_reader_navigation_request(
+    bytes: &[u8],
+) -> Result<ReaderNavigationRequest, ReaderError> {
+    interaction::navigation_request(bytes)
+}
+
+pub fn encode_reader_navigation_result(
+    result: &ReaderNavigationResult,
+) -> Result<Vec<u8>, ReaderError> {
+    interaction::encode_navigation_result(result)
+}
+
+pub fn decode_reader_navigation_result(
+    bytes: &[u8],
+) -> Result<ReaderNavigationResult, ReaderError> {
+    interaction::navigation_result(bytes)
 }

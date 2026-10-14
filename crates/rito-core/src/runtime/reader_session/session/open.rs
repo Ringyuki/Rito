@@ -36,6 +36,52 @@ impl ReaderSession {
         Self::from_document(session_id, document)
     }
 
+    /// Opens a reader from a publication's skeleton shard, which carries
+    /// everything layout reads. Reading an image whose shard the host has
+    /// not supplied fails with `ResourcePending` naming it; supply it and
+    /// retry the read.
+    pub fn open_shards_with_pinned_font_policy(
+        session_id: u64,
+        skeleton: &[u8],
+        key: Option<&crate::epub::shard::ShardKey>,
+        policy: crate::runtime::RuntimePinnedFontPolicyInput,
+    ) -> Result<Self, ReaderError> {
+        validate_session_id(session_id)?;
+        let document = RuntimeDocument::open_shards_with_pinned_font_policy(skeleton, key, policy)
+            .map_err(engine_error)?;
+        Self::from_document(session_id, document)
+    }
+
+    pub fn open_shards(
+        session_id: u64,
+        skeleton: &[u8],
+        key: Option<&crate::epub::shard::ShardKey>,
+    ) -> Result<Self, ReaderError> {
+        validate_session_id(session_id)?;
+        let document = RuntimeDocument::open_shards(skeleton, key).map_err(engine_error)?;
+        Self::from_document(session_id, document)
+    }
+
+    /// Hands the engine one content shard. A shard that does not belong to
+    /// this publication, fails authentication or does not match the
+    /// skeleton is refused as an invalid request.
+    pub fn supply_shard(
+        &mut self,
+        shard: &[u8],
+        key: Option<&crate::epub::shard::ShardKey>,
+    ) -> Result<u32, ReaderError> {
+        self.document
+            .supply_shard(shard, key)
+            .map_err(|error| ReaderError::new(ReaderErrorKind::InvalidRequest, error.message()))
+    }
+
+    /// Every content shard, those the chapter at `href` draws first, then
+    /// those of the chapters around it by reading distance. Empty for a
+    /// session opened from an archive.
+    pub fn content_shards_near(&self, href: &str) -> Vec<u32> {
+        self.document.content_shards_near(href)
+    }
+
     fn from_document(session_id: u64, document: RuntimeDocument) -> Result<Self, ReaderError> {
         let publication = build_reader_publication(session_id, &document)?;
         Ok(Self {
@@ -55,6 +101,7 @@ impl ReaderSession {
             foreground_candidate: None,
             pending_adjacent: None,
             render_ratio: 1.0,
+            font_generation: 0,
             #[cfg(test)]
             exact_cache_hit_count: 0,
             #[cfg(test)]

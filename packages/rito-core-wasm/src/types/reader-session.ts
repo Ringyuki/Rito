@@ -78,6 +78,14 @@ export interface RitoReaderLayout {
   readonly renderRatio?: number | undefined;
   readonly lineHeightOverride?: number | undefined;
   readonly fontFamilyOverride?: string | undefined;
+  /**
+   * Whether the line-height override outranks the publication's own
+   * declarations. Unforced, a rule the book wrote for an element keeps its
+   * value and only text that inherits takes the reader's. Default true.
+   */
+  readonly lineHeightForce?: boolean | undefined;
+  /** The same choice for the font-family override. Default true. */
+  readonly fontFamilyForce?: boolean | undefined;
 }
 
 export interface RitoReaderArtifactRequestInput {
@@ -96,6 +104,14 @@ export interface RitoReaderAdjacentRequest {
   readonly requestId: bigint;
   readonly fromArtifactId: bigint;
   readonly direction: RitoReaderAdjacentDirection;
+}
+
+/** `RITOSPQ1`: one spread of the revision behind an artifact, by its position in the layout. */
+export interface RitoReaderSpreadRequest {
+  readonly sessionId: bigint;
+  readonly requestId: bigint;
+  readonly fromArtifactId: bigint;
+  readonly spreadIndex: number;
 }
 
 export interface RitoReaderForegroundHandoff {
@@ -128,6 +144,8 @@ export interface RitoReaderBackgroundAdvance {
   readonly state: RitoReaderBackgroundState;
   readonly intentRequestId: bigint;
   readonly replacesArtifactId: bigint;
+  /** Whether adopting `artifact` changes what the reader sees, rather than renumbering it. */
+  readonly movesVisibleContent: boolean;
   readonly artifact?: RitoReaderArtifact | undefined;
 }
 
@@ -167,14 +185,29 @@ export interface RitoReaderFontRef {
   readonly byteLength: bigint;
 }
 
+/**
+ * What a hit is, as the engine classifies it: a note reference first (its
+ * definition indexed, or not yet), then a link, an image, text.
+ */
+export type RitoReaderHitKind = 'text' | 'link' | 'image' | 'footnote' | 'footnote-pending';
+
 export interface RitoReaderHitEntry {
   readonly pageIndex: number;
+  /** In the artifact's display-list space: page offset and margins included. */
   readonly bounds: RitoReaderRect;
+  readonly kind: RitoReaderHitKind;
   readonly text: string;
+  /** The href as the publication wrote it. */
   readonly href?: string | undefined;
   readonly sourcePoint?: RitoReaderSourcePoint | undefined;
+  /** Where an internal link leads, canonical; absent for an external href. */
+  readonly targetLocator?: RitoReaderLocator | undefined;
+  /** The TOC label of the place a link leads to, when the TOC names it. */
+  readonly destinationLabel?: string | undefined;
   readonly imageSrc?: string | undefined;
   readonly imageAlt?: string | undefined;
+  /** The key a note reference's definition is read by, verbatim. */
+  readonly footnoteKey?: string | undefined;
 }
 
 export type RitoReaderSemanticRole =
@@ -232,6 +265,14 @@ export interface RitoReaderArtifact {
   readonly localPageIndexes: readonly number[];
   readonly width: number;
   readonly height: number;
+  /**
+   * Zero-based page number within the whole book, present only on an
+   * artifact published from the whole-book layout. A chapter laid out alone
+   * has no book-wide numbering, so the field is absent rather than zero.
+   */
+  readonly bookPageIndex?: number | undefined;
+  /** The whole book's page count, present together with `bookPageIndex`. */
+  readonly bookPageCount?: number | undefined;
   readonly navigation: {
     readonly previous: RitoReaderAdjacentAvailability;
     readonly next: RitoReaderAdjacentAvailability;

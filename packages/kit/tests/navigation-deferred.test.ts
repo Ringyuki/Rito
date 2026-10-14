@@ -38,7 +38,7 @@ function createNotifyRedirectFixture() {
         }
       }),
     },
-    td: { isAnimating: false, goToTarget },
+    td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
     frameDriver: { scheduleComposite },
     pool: {
       getSlotFor: vi.fn(() => null),
@@ -81,7 +81,14 @@ describe('navigation deferred content', () => {
         currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: { isAnimating: false, viewportWidth: 800, forceSettle: vi.fn(), goToTarget: vi.fn() },
+      td: {
+        isAnimating: false,
+        turning: false,
+        handOver: vi.fn(),
+        viewportWidth: 800,
+        forceSettle: vi.fn(),
+        goToTarget: vi.fn(),
+      },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -121,7 +128,14 @@ describe('navigation deferred content', () => {
         currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: { isAnimating: false, viewportWidth: 800, forceSettle: vi.fn(), goToTarget: vi.fn() },
+      td: {
+        isAnimating: false,
+        turning: false,
+        handOver: vi.fn(),
+        viewportWidth: 800,
+        forceSettle: vi.fn(),
+        goToTarget: vi.fn(),
+      },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -167,7 +181,7 @@ describe('navigation deferred content', () => {
         currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -227,6 +241,10 @@ describe('navigation deferred content', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
+        handOver: vi.fn(),
         forceSettle,
         goToTarget,
       },
@@ -248,7 +266,7 @@ describe('navigation deferred content', () => {
     expect(barrier).toBeNull();
     expect(onNavigationIntent).toHaveBeenCalledOnce();
     expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
   });
 
   it('does not let a stale jump overwrite navigation from its force-settle callback', () => {
@@ -281,6 +299,10 @@ describe('navigation deferred content', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
+        handOver: vi.fn(),
         forceSettle,
         goToTarget,
       },
@@ -304,7 +326,7 @@ describe('navigation deferred content', () => {
     expect(notified).toEqual([2]);
     expect(jump).not.toHaveBeenCalled();
     expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
   });
 
   it('installs jump content before a spread listener can redirect synchronously', () => {
@@ -332,7 +354,7 @@ describe('navigation deferred content', () => {
           }
         }),
       },
-      td: { isAnimating: false },
+      td: { isAnimating: false, turning: false, handOver: vi.fn() },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: { jump: vi.fn(), ensureContent: vi.fn() },
       contentRenderer: vi.fn(),
@@ -353,7 +375,7 @@ describe('navigation deferred content', () => {
     expect(fixture.notified).toEqual([1, 2]);
     expect(fixture.spreadEvents).toEqual([2]);
     expect(fixture.goToTarget).toHaveBeenCalledOnce();
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 1, 2, 0);
+    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 1, 2);
     expect(fixture.scheduleComposite).toHaveBeenCalledOnce();
   });
 
@@ -381,7 +403,7 @@ describe('navigation deferred content', () => {
           if (event === 'spreadChange') redirect.current?.();
         }),
       },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -412,7 +434,7 @@ describe('navigation deferred content', () => {
     expect(fixture.notified).toEqual([1, 2]);
     expect(fixture.spreadEvents).toEqual([2]);
     expect(fixture.goToTarget).toHaveBeenCalledOnce();
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 1, 2, 0);
+    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 1, 2);
     expect(fixture.scheduleComposite).toHaveBeenCalledOnce();
   });
 
@@ -444,7 +466,7 @@ describe('navigation deferred content', () => {
           redirect.current?.();
         }),
       },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -468,7 +490,7 @@ describe('navigation deferred content', () => {
 
     expect(currentSpread).toBe(2);
     expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 1, 2, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 1, 2);
   });
 
   it('waits for an async content slot before starting the page turn', () => {
@@ -494,6 +516,8 @@ describe('navigation deferred content', () => {
       emitter: { emit },
       td: {
         isAnimating: false,
+        turning: false,
+        handOver: vi.fn(),
         viewportWidth: 800,
         forceSettle: vi.fn(() => 0),
         goToTarget,
@@ -518,7 +542,7 @@ describe('navigation deferred content', () => {
     nav.notifyContentReady(1);
 
     expect(currentSpread).toBe(1);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1);
     expect(notifyActiveSpread).toHaveBeenCalledWith(1);
     expect(emit).toHaveBeenCalledWith('spreadChange', { spreadIndex: 1, spread });
   });
@@ -554,7 +578,7 @@ describe('navigation deferred content', () => {
         currentSpread = index;
       },
       emitter: { emit },
-      td: { isAnimating: false, goToTarget },
+      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
       frameDriver: { scheduleComposite },
       pool: {
         getSlotFor: vi.fn((spreadIndex: number) => {
@@ -608,6 +632,8 @@ describe('navigation deferred content', () => {
       emitter: { emit: vi.fn() },
       td: {
         isAnimating: false,
+        turning: false,
+        handOver: vi.fn(),
         viewportWidth: 800,
         forceSettle: vi.fn(() => 0),
         goToTarget,
@@ -631,7 +657,7 @@ describe('navigation deferred content', () => {
     nav.notifyContentReady(1);
 
     expect(currentSpread).toBe(1);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1);
   });
 
   it('a stale gesture token cannot cancel a newer programmatic request', () => {
@@ -654,6 +680,8 @@ describe('navigation deferred content', () => {
       emitter: { emit: vi.fn() },
       td: {
         isAnimating: false,
+        turning: false,
+        handOver: vi.fn(),
         viewportWidth: 800,
         forceSettle: vi.fn(() => 0),
         goToTarget,
@@ -675,7 +703,7 @@ describe('navigation deferred content', () => {
     nav.notifyContentReady(2);
 
     expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
+    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
     expect(gestureStarted).not.toHaveBeenCalled();
   });
 
@@ -703,6 +731,8 @@ describe('navigation deferred content', () => {
       emitter: { emit: vi.fn() },
       td: {
         isAnimating: false,
+        turning: false,
+        handOver: vi.fn(),
         viewportWidth: 800,
         forceSettle: vi.fn(() => 0),
         goToTarget,
@@ -725,7 +755,7 @@ describe('navigation deferred content', () => {
     nav.notifyContentReady(2);
 
     expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenLastCalledWith('forward', 0, 2, 0);
+    expect(goToTarget).toHaveBeenLastCalledWith('forward', 0, 2);
     expect(firstGestureStarted).not.toHaveBeenCalled();
 
     contentReady = false;

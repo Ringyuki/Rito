@@ -2,47 +2,7 @@ use crate::epub::{EpubError, LoadedBinaryResource, LoadedTextResource};
 use crate::render::ImageSize;
 use crate::resources::resolve_resource_href_index;
 
-use super::{RuntimeFrameResourceWarmPlan, RuntimeResource, RuntimeResourceKind};
-
-const FRAME_RESOURCE_WARM_OFFSETS: [isize; 5] = [0, 1, -1, 2, -2];
-
-impl super::RuntimeDocument {
-    pub fn frame_resource_warm_plan(
-        &self,
-        revision_id: &str,
-        center_spread_index: usize,
-    ) -> Result<RuntimeFrameResourceWarmPlan, EpubError> {
-        let revision = self
-            .revisions
-            .get(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let spread_count = revision.extent.spread_count;
-        let spread_indexes = warm_spread_indexes(center_spread_index, spread_count);
-        Ok(RuntimeFrameResourceWarmPlan {
-            revision_id: revision_id.to_owned(),
-            center_spread_index,
-            display_spread_index: center_spread_index,
-            spread_indexes,
-        })
-    }
-}
-
-fn warm_spread_indexes(center: usize, spread_count: usize) -> Vec<usize> {
-    if spread_count == 0 {
-        return Vec::new();
-    }
-    let max = spread_count.saturating_sub(1);
-    FRAME_RESOURCE_WARM_OFFSETS
-        .iter()
-        .filter_map(|offset| center.checked_add_signed(*offset))
-        .filter(|index| *index <= max)
-        .fold(Vec::new(), |mut indexes, index| {
-            if !indexes.contains(&index) {
-                indexes.push(index);
-            }
-            indexes
-        })
-}
+use super::{RuntimeResource, RuntimeResourceKind};
 
 fn find_binary_resource<'a>(
     resources: &'a [LoadedBinaryResource],

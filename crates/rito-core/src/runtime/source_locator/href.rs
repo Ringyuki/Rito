@@ -2,6 +2,7 @@ use crate::{epub::LoadedEpubDocument, resources::ResourceHrefIndex};
 
 use super::{RuntimeSourceLocator, RuntimeSourceLocatorError};
 
+#[derive(Debug, Clone)]
 pub(super) struct CanonicalSourceLocator {
     pub(super) chapter_index: usize,
     pub(super) spine_idref: String,

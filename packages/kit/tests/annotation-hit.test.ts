@@ -6,6 +6,7 @@ import {
 import { createCoordinatorState } from '../src/controller/core/coordinator-state';
 import type { WiringDeps } from '../src/controller/core/wiring-deps';
 import type { ResolvedAnnotation } from '../src/interaction';
+import { annotationTarget } from './annotation-target-fixture';
 
 describe('annotation hit projection', () => {
   it('anchors a multi-page annotation to the segment that was actually hit', () => {
@@ -87,20 +88,7 @@ function resolvedAnnotation(): ResolvedAnnotation {
       id: 'annotation',
       kind: 'highlight',
       createdAt: 1,
-      target: {
-        href: 'chapter.xhtml',
-        selectors: {
-          sourceRange: {
-            type: 'SourceRangeSelector',
-            start: { nodePath: [0], textOffset: 0 },
-            end: { nodePath: [0], textOffset: 2 },
-          },
-          textQuote: { type: 'TextQuoteSelector', exact: 'ab' },
-          textPosition: { type: 'TextPositionSelector', start: 0, end: 2 },
-          progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 0 },
-        },
-        text: { highlight: 'ab' },
-      },
+      target: annotationTarget('ab'),
     },
     status: 'exact',
     segments: [

@@ -46,14 +46,6 @@ pub struct PublicationResources {
 }
 
 impl PublicationResources {
-    pub fn total_binary_bytes(&self) -> usize {
-        self.fonts
-            .iter()
-            .chain(self.images.iter())
-            .map(|resource| resource.byte_length)
-            .sum()
-    }
-
     pub fn image(&self, href: &str) -> Option<&BinaryResourceSummary> {
         self.images.iter().find(|resource| resource.href == href)
     }
@@ -133,6 +125,14 @@ pub(crate) fn binary_summary_from_metadata(
         height,
     }
 }
+
+/// Revision of what [`detect_image_dimensions`] and
+/// [`detect_image_dimensions_from_reader`] report for given bytes.
+/// Publication shards carry every image's dimensions so a reader can lay a
+/// book out before any image arrives; a change to either function's output
+/// must bump this, and the engine then refuses shards packed under another
+/// revision.
+pub(crate) const IMAGE_DIMENSION_RULE_REVISION: u32 = 1;
 
 pub(crate) fn detect_image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     image_dimensions(bytes).map(|dimensions| (dimensions.width, dimensions.height))

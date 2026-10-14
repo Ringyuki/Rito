@@ -68,6 +68,11 @@ final class RitoArtifactImageCache {
       <_SourceKey, Future<_ImageEntry>>{};
   bool _disposed = false;
 
+  /// Starts preparing [artifact]'s images and returns its lease at once:
+  /// a page never waits for its images. Each image reads, decodes and
+  /// joins the lease as it lands, and the lease notifies its listeners
+  /// whenever what a page paints changes ([RitoArtifactImageLease.settled]
+  /// completes once every image has arrived or failed).
   Future<RitoArtifactImageLease> prepare({
     required RitoArtifact artifact,
     required RitoArtifactImageResourceReader readResource,
@@ -83,73 +88,24 @@ final class RitoArtifactImageCache {
       }
     }
     final budget = _LeaseBudget(limits);
-    final acquired = <String, _CacheKey>{};
-    final failed = <String, Object>{};
-    try {
-      await Future.wait<void>(
-        plan.hrefs.map(
-          (href) => _limiter.run(() async {
-            _requireOpen();
-            try {
-              final key = await _acquire(
-                artifact: artifact,
-                reference: declarations[href]!,
-                plan: plan,
-                budget: budget,
-                readResource: readResource,
-              );
-              acquired[href] = key;
-            } on Object catch (error, stackTrace) {
-              // Cache teardown is structural and fails the whole
-              // preparation. Everything else is one image's own fault
-              // (unreadable bytes, header mismatch, budget, a codec
-              // that cannot reproduce itself): that image paints as
-              // absence and the page still turns — reported loudly,
-              // never silently.
-              if (_disposed) {
-                rethrow;
-              }
-              failed[href] = error;
-              FlutterError.reportError(
-                FlutterErrorDetails(
-                  exception: error,
-                  stack: stackTrace,
-                  library: 'rito_flutter',
-                  context: ErrorDescription(
-                    'preparing artifact image $href; the image will paint '
-                    'as absence',
-                  ),
-                ),
-              );
-            }
-          }),
-        ),
-      );
-      _requireOpen();
-      return RitoArtifactImageLease._(
-        owner: this,
-        sessionId: artifact.sessionId,
-        artifactId: artifact.artifactId,
-        images: Map<String, _CacheKey>.unmodifiable(acquired),
-        failedImages: Map<String, Object>.unmodifiable(failed),
-      );
-    } on Object catch (error, stackTrace) {
-      Object? rollbackError;
-      for (final key in acquired.values) {
-        try {
-          _release(key);
-        } on Object catch (cleanupError) {
-          rollbackError ??= cleanupError;
-        }
-      }
-      if (rollbackError != null) {
-        Error.throwWithStackTrace(
-          _ImagePrepareRollbackFailure(error, rollbackError),
-          stackTrace,
+    final lease = RitoArtifactImageLease._(
+      owner: this,
+      sessionId: artifact.sessionId,
+      artifactId: artifact.artifactId,
+      hrefs: plan.hrefs.toSet(),
+      load: (href) => _limiter.run(() {
+        _requireOpen();
+        return _acquire(
+          artifact: artifact,
+          reference: declarations[href]!,
+          plan: plan,
+          budget: budget,
+          readResource: readResource,
         );
-      }
-      Error.throwWithStackTrace(error, stackTrace);
-    }
+      }),
+    );
+    lease._begin();
+    return lease;
   }
 
   Future<_CacheKey> _acquire({

@@ -21,6 +21,7 @@ final class RitoExactSourceRangeRequest {
     required this.artifactId,
     required this.href,
     required this.range,
+    this.everyPage = false,
   });
 
   final int sessionId;
@@ -30,6 +31,11 @@ final class RitoExactSourceRangeRequest {
   /// identity [RitoLocator.href] carries.
   final String href;
   final RitoSourceRange range;
+
+  /// Whether the answer carries the rects of every page the range
+  /// covers, each in the display-list space of the spread that draws
+  /// its page, rather than only the pages the artifact draws.
+  final bool everyPage;
 }
 
 /// What became of a durable source range.

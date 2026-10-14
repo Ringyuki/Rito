@@ -1348,8 +1348,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         content_width: f64,
     ) -> Result<HorizontalBox, LayoutError> {
         let hbox = resolve_horizontal_box(child_style, content_width)?;
-        if !(matches!(child_style.width, PreferredSize::Auto)
-            && child_style.max_width == MaximumSize::None)
+        // `stretch` and `-webkit-fill-available` fill the available width as
+        // an in-flow block does; the intrinsic keywords shrink to fit like
+        // auto, which is exact for `fit-content`.
+        if matches!(
+            child_style.width,
+            PreferredSize::Value(_) | PreferredSize::Stretch | PreferredSize::WebkitFillAvailable
+        ) || matches!(child_style.max_width, MaximumSize::Value(_))
         {
             return Ok(hbox);
         }

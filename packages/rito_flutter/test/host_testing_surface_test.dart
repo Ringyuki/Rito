@@ -22,19 +22,17 @@ Future<ui.Image> solidImage(int width, int height) async {
   return image;
 }
 
-RitoPinnedFontPolicy _testPinnedPolicy() {
-  final pinned = File(
-    '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
-  ).readAsBytesSync();
-  return RitoPinnedFontPolicy(
-    faces: <RitoPinnedFontFace>[
-      RitoPinnedFontFace(
-        bytes: pinned,
-        genericRole: RitoPinnedFontGenericRole.serif,
-      ),
-    ],
-  );
-}
+RitoPinnedFontFace _face(String file, RitoPinnedFontGenericRole role) =>
+    RitoPinnedFontFace(
+      bytes: File('../../apps/reader/src/assets/fonts/$file').readAsBytesSync(),
+      genericRole: role,
+    );
+
+final _serif = _face('Tinos-Regular.ttf', RitoPinnedFontGenericRole.serif);
+final _sans = _face('Arimo-Regular.ttf', RitoPinnedFontGenericRole.sansSerif);
+
+RitoPinnedFontPolicy _testPinnedPolicy() =>
+    RitoPinnedFontPolicy(faces: <RitoPinnedFontFace>[_serif, _sans]);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -101,10 +99,9 @@ void main() {
       reason: 'lineHeightOverride is a scale and must reflow the page',
     );
 
-    // The family override replaces the book's families, so the paint
-    // stack the display list carries changes. Run counts are a weak
-    // proxy (without pinned faces every family measures the same), so
-    // assert the family string the pen will actually resolve.
+    // The family override replaces the book's families, so the face the
+    // display list names changes: paint draws every run with the exact
+    // face that shaped it, by that face's alias.
     String firstFamily(RitoArtifact artifact) => artifact
         .displayList
         .displayList
@@ -113,25 +110,15 @@ void main() {
         .map((primitive) => primitive.command.paint.font.family)
         .first;
 
-    final overridden = open(9203, family: 'Courier New, monospace');
+    expect(firstFamily(baseline), _serif.familyAlias);
+    final overridden = open(9203, family: 'Courier New, sans-serif');
     expect(
       firstFamily(overridden),
-      isNot(firstFamily(baseline)),
-      reason: 'fontFamilyOverride must reach the paint stack',
-    );
-    expect(
-      firstFamily(overridden),
-      isNot(contains('Courier New')),
+      _sans.familyAlias,
       reason:
-          'a pinned-font open shapes only pinned and embedded faces: an '
-          'override naming an unavailable system family resolves through '
-          'the pinned policy instead of leaking a face the engine never '
-          'measured with',
-    );
-    expect(
-      firstFamily(overridden),
-      endsWith('monospace'),
-      reason: 'the generic tail is what a pinned policy attaches to',
+          'a name no face answers to is skipped and the generic resolves '
+          'to the host face of its role, never to a face the engine did '
+          'not measure with',
     );
   });
 

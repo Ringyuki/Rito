@@ -6,9 +6,9 @@
 //! the browser snaps box edges and border widths on that grid whatever the
 //! density — and scales the finished list by the render ratio last. Text
 //! runs are the one semantic shape left, and they stay in CSS pixels for
-//! the renderer to draw under the ratio; their glyph placement is still
-//! the renderer's until the text laws move here, while their inline box
-//! and decoration line already lower to fills and strokes.
+//! the renderer to draw under the ratio; each cluster's origin is already
+//! placed, and their inline box and decoration line lower to fills and
+//! strokes.
 
 use super::super::commands::contract::{ReaderColor, ReaderPoint, ReaderRect, ReaderTextRun};
 
@@ -171,6 +171,32 @@ pub(crate) struct TilePlan {
     pub rows: u32,
 }
 
+/// When an image's fallback paints: while its bitmap is on the way, or
+/// once it can no longer arrive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ImageFallbackState {
+    Loading,
+    Broken,
+}
+
+impl ImageFallbackState {
+    pub(crate) const fn tag(self) -> u8 {
+        match self {
+            Self::Loading => 1,
+            Self::Broken => 2,
+        }
+    }
+}
+
+/// One even-odd filled outline of an image fallback icon, moved by
+/// `offset` and cut to `clip` (both in the outline's own coordinates).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct IconPiece {
+    pub offset: DevicePoint,
+    pub clip: Option<DevicePath>,
+    pub path: DevicePath,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum DeviceTransform {
     Rotate { radians: f64 },
@@ -232,17 +258,31 @@ pub(crate) enum Primitive {
         source_rect: Option<ReaderRect>,
         tiles: Option<TilePlan>,
     },
+    /// What stands in an image's place while its bitmap is not there,
+    /// painted only while the image named `src` is in `state`: `block`
+    /// filled with the page background mixed with `block_ink` of the text
+    /// colour, then each icon piece filled even-odd with the block colour
+    /// mixed with `icon_ink` of the text colour, translated by its offset
+    /// and clipped to its clip. Both colours follow the renderer's theme.
+    ImageFallback {
+        src: String,
+        state: ImageFallbackState,
+        block: DeviceRect,
+        block_ink: f64,
+        icon_ink: f64,
+        pieces: Vec<IconPiece>,
+    },
     /// A text run in CSS pixels, drawn under `scale(ratio)`: the
     /// rasterizer needs the CSS size (synthetic bold widens with it) and
     /// the scale separately. Its inline box and decoration line have
-    /// lowered to primitives around it; glyph placement is still the
-    /// renderer's.
+    /// lowered to primitives around it, and its clusters carry their
+    /// origins.
     Text(ReaderTextRun),
     Ruby(ReaderTextRun),
 }
 
 impl Primitive {
-    /// The `RITODL1` format-2 opcode; state opcodes match format 1.
+    /// The `RITODL1` format-2 opcode.
     pub(crate) const fn opcode(&self) -> u16 {
         match self {
             Self::PushState => 1,
@@ -258,6 +298,7 @@ impl Primitive {
             Self::DrawImage { .. } => 11,
             Self::Text(_) => 12,
             Self::Ruby(_) => 13,
+            Self::ImageFallback { .. } => 14,
         }
     }
 }

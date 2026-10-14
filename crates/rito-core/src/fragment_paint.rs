@@ -15,8 +15,8 @@
 //! fragments), `line` (a horizontal line box), `text_run` (one run's
 //! baseline, ruby annotation and clusters), `image` (one inline image),
 //! `vertical` (vertical-rl lines painted as columns), `run_style` (the
-//! typed run paint from a computed style) and `family` (font family
-//! stacks under the pinned-font policy).
+//! typed run paint from a computed style) and `family` (the face each
+//! piece of a run paints with).
 
 use rito_fragment::{FormattingTree, Fragment};
 
@@ -36,27 +36,7 @@ mod text_run;
 mod vertical;
 mod walk;
 
-pub(crate) use family::measure_family_stack;
-
 use walk::append_fragment_display_commands_inner;
-
-/// How painted family stacks reach the canvas when the reader pins fonts.
-///
-/// The renderer resolves the painted `font-family` string against the
-/// host's font set, while layout resolved it against exactly the faces
-/// registered in the engine. Left as computed, a family the host happens
-/// to own (but the engine does not) would render in a font layout never
-/// measured. This policy reproduces the retained pipeline's rewrite:
-/// families the engine cannot resolve are dropped, and the reader's
-/// pinned faces are appended under their stable alias names ahead of the
-/// generic fallback, which the host has registered via `FontFace`.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct PaintFamilyPolicy {
-    /// Lowercased family names layout can actually resolve.
-    pub(crate) available: std::collections::BTreeSet<String>,
-    /// Pinned-face alias names, in policy order.
-    pub(crate) aliases: Vec<String>,
-}
 
 /// Fraction of the font size between a run's alphabetic baseline and the
 /// edge the reader's canvas painter anchors text at (`textBaseline: 'top'`
@@ -69,9 +49,10 @@ const CANVAS_TOP_ASCENT_RATIO: f64 = 0.8;
 /// Everything the paint walk needs besides the fragments themselves.
 #[derive(Clone, Copy)]
 pub(crate) struct FragmentPaintContext<'a> {
-    /// Family-stack rewrite for pinned-font readers; `None` paints
-    /// computed stacks as-is.
-    pub(crate) family_policy: Option<&'a PaintFamilyPolicy>,
+    /// The alias every face the engine shaped with is registered under
+    /// for paint, indexed by face id; `None` (a tree painted outside a
+    /// document) paints computed family lists as-is.
+    pub(crate) faces: Option<&'a [String]>,
     /// Layout-inert per-node paint the bridge collected (rules today).
     pub(crate) node_paints: Option<&'a BTreeMap<u32, NodePaint>>,
     /// Flank border strokes for inline images, keyed by the `<img>`
@@ -110,7 +91,7 @@ pub(crate) struct FragmentPaintContext<'a> {
 impl Default for FragmentPaintContext<'_> {
     fn default() -> Self {
         Self {
-            family_policy: None,
+            faces: None,
             node_paints: None,
             image_border_paints: None,
             list_markers: None,

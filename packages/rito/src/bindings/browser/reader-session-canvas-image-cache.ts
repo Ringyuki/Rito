@@ -24,18 +24,15 @@ import {
 } from './reader-session-canvas-image-metadata';
 import { BrowserReaderCanvasImageTargetPlan } from './reader-session-canvas-image-plan';
 import type { BrowserReaderCanvasResourceLimiter } from './reader-session-canvas-resource-limiter';
-import { settleCanvasResourcesWithLimiter } from './reader-session-canvas-resource-limiter';
-
-export interface BrowserReaderCanvasImageLease {
-  has(href: string): boolean;
-  resolve(href: string): BrowserReaderCanvasDecodedImage | undefined;
-  release(): void;
-}
+import {
+  BrowserReaderCanvasImageLease,
+  classifyImageReadFailure,
+} from './reader-session-canvas-image-lease';
 
 export class BrowserReaderCanvasImageCache {
   private readonly entries = new Map<string, BrowserReaderCanvasImageEntry>();
   private readonly loads = new Map<string, Promise<BrowserReaderCanvasImageEntry>>();
-  private disposed = false;
+  disposed = false;
 
   constructor(
     private readonly session: BrowserReaderSession,
@@ -43,7 +40,7 @@ export class BrowserReaderCanvasImageCache {
     private readonly limits: BrowserReaderCanvasImageLimits = BROWSER_READER_CANVAS_IMAGE_LIMITS,
   ) {}
 
-  async prepare(
+  prepare(
     artifact: BrowserReaderArtifact,
     list: CoreReaderPrimitiveList,
   ): Promise<BrowserReaderCanvasImageLease> {
@@ -57,24 +54,21 @@ export class BrowserReaderCanvasImageCache {
       }
     }
     const budget = new BrowserReaderCanvasImageLeaseBudget(this.limits);
-    const acquired = new Map<string, string>();
-    try {
-      const settled = await settleCanvasResourcesWithLimiter(
-        plan.hrefs,
-        this.limiter,
-        async (href) => {
-          const key = await this.acquire(artifact, href, plan, budget);
-          acquired.set(href, key);
+    // The lease fills in as images land: an artifact never waits for them.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the source reads the cache's live state
+    const cache = this;
+    return Promise.resolve(
+      new BrowserReaderCanvasImageLease(new Set(plan.hrefs), {
+        load: (href) => this.limiter.run(() => this.acquire(artifact, href, plan, budget)),
+        resolve: (key) => this.resolve(key),
+        release: (key) => {
+          this.release(key);
         },
-      );
-      const failure = settled.find((result) => result.status === 'rejected');
-      if (failure?.status === 'rejected') throw failure.reason;
-      this.assertOpen();
-      return imageLease(this, acquired);
-    } catch (error: unknown) {
-      releaseKeys(this, acquired.values(), error);
-      throw error;
-    }
+        get disposed() {
+          return cache.disposed;
+        },
+      }),
+    );
   }
 
   resolve(key: string): BrowserReaderCanvasDecodedImage | undefined {
@@ -155,7 +149,11 @@ export class BrowserReaderCanvasImageCache {
     budget: BrowserReaderCanvasImageLeaseBudget,
     expected: BrowserReaderCanvasImageEntry | undefined,
   ): Promise<BrowserReaderCanvasImageEntry> {
-    const resource = await this.session.readResource(artifact.artifactId, 'image', href);
+    const resource = await this.session
+      .readResource(artifact.artifactId, 'image', href)
+      .catch((error: unknown) => {
+        throw classifyImageReadFailure(error);
+      });
     this.assertOpen();
     assertImageResource(resource, artifact, href);
     budget.reserveEncoded(resource.bytes.byteLength, href);
@@ -292,41 +290,4 @@ function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return copy.buffer;
-}
-
-function imageLease(
-  owner: BrowserReaderCanvasImageCache,
-  images: ReadonlyMap<string, string>,
-): BrowserReaderCanvasImageLease {
-  let released = false;
-  return {
-    has: (href) => !released && images.has(href),
-    resolve: (href) => (released ? undefined : owner.resolve(images.get(href) ?? '')),
-    release() {
-      if (released) return;
-      released = true;
-      releaseKeys(owner, images.values());
-    },
-  };
-}
-
-function releaseKeys(
-  owner: BrowserReaderCanvasImageCache,
-  keys: Iterable<string>,
-  primaryError?: unknown,
-): void {
-  const failures: unknown[] = [];
-  for (const key of keys) {
-    try {
-      owner.release(key);
-    } catch (error: unknown) {
-      failures.push(error);
-    }
-  }
-  if (failures.length) {
-    throw new AggregateError(
-      primaryError === undefined ? failures : [primaryError, ...failures],
-      'reader session image lease release failed.',
-    );
-  }
 }

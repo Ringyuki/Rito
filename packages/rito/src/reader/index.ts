@@ -2,8 +2,6 @@ export { createReader, preloadReaderRuntime } from './create-reader';
 export { createLayoutConfig } from './layout-config';
 export type {
   ChapterRange,
-  ChapterTextIndex,
-  ChapterTextSpan,
   FootnoteEntry,
   FootnoteKind,
   LayoutConfig,
@@ -22,7 +20,10 @@ export type {
   ReaderPageSemantics,
   ReaderPageTargets,
   ReaderSemanticNode,
+  ReaderAnnotationTarget,
+  ReaderAnnotationTargetResolution,
   ReaderSourcePoint,
+  ReaderSourcePosition,
   ReaderSourceRange,
   ReaderSearchSourceResolution,
   ReaderTextSelectionMovement,
@@ -42,6 +43,9 @@ export type {
   ReaderInteractions,
   ReaderOptions,
   ReaderPinnedFontPolicy,
+  ReaderPublication,
+  ReaderPublicationShard,
+  ReaderShardedPublication,
   ReaderTextRange,
   ReaderTextRangeFromPointsRequest,
   ReaderTextRangeFromPointsResolution,
@@ -56,4 +60,8 @@ export type {
   ReaderTextSelectionGranularity,
   ReaderTextSelectionMovementRequest,
   ReaderTextSelectionMovementResolution,
+  ReaderFontCatalog,
+  ReaderFontFamily,
+  ReaderFontFamilyFace,
+  ReaderHostFontFace,
 } from './instance';

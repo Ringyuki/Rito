@@ -1,6 +1,7 @@
 import type { PositionIntent, ReadingPosition } from '../../interaction/index';
 import { getPositionIntentSupersessionSignal } from '../../interaction/position/intent';
 import type { FrameDriver } from '../../driver/frame-driver';
+import { showsChapterAlone } from '../core/spread-change';
 import type { Internals, Nav, PositionActionsSlice } from './types';
 
 export function buildPositionActions(
@@ -25,6 +26,10 @@ export function buildPositionActions(
     }
   };
   return {
+    get position() {
+      if (showsChapterAlone(internals.reader)) return internals.coordState.publishedPosition;
+      return internals.engines.position?.getCurrent() ?? null;
+    },
     restorePosition: (serialized) => {
       const restoreId = ++latestRestoreId;
       return holdFirstCompositeDuring(frameDriver, (releaseFirstComposite) =>

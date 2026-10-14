@@ -3,223 +3,113 @@ import type { ReaderLocator } from '@ritojs/core';
 import { buildAnnotationActions } from '../src/controller/facade/annotation-actions';
 import type { ReaderControllerEvents } from '../src/controller/types';
 import { createEmitter } from '../src/utils/event-emitter';
-import {
-  buildAnnotationTargetFromLocator,
-  syncChapterIndices,
-} from '../src/controller/annotation-resolution';
+import { buildAnnotationTargetFromLocator } from '../src/controller/annotation-resolution';
 import type { Internals } from '../src/controller/core/internals';
-import type { CoordinatorState } from '../src/controller/core/coordinator-state';
+import { annotationTarget } from './annotation-target-fixture';
+
+const sourceRange = {
+  start: { nodePath: [0], textOffset: 2 },
+  end: { nodePath: [0], textOffset: 6 },
+};
 
 describe('native selection annotation target', () => {
-  it('fails closed for a cross-resource selection without a compatible locator', () => {
+  it('fails closed for a cross-resource selection without a compatible locator', async () => {
     const add = vi.fn();
-    const internals = {
-      engines: {
-        selection: {
-          getSourceLocator: () => null,
-          getSourceSpan: () => ({
-            start: { href: 'chapter.xhtml', sourcePoint: { nodePath: [0], textOffset: 1 } },
-            end: { href: 'next.xhtml', sourcePoint: { nodePath: [0], textOffset: 2 } },
-          }),
-        },
-      },
-      coordState: {
-        annotationStore: { add, persist: () => Promise.resolve(), getAll: () => [] },
-      },
-    } as unknown as Internals;
-    const actions = buildAnnotationActions(internals, createEmitter<ReaderControllerEvents>());
+    const create = vi.fn();
+    const actions = buildAnnotationActions(
+      internalsFor({ locator: null, create, store: { add } }),
+      createEmitter<ReaderControllerEvents>(),
+    );
 
-    expect(actions.addAnnotation({ kind: 'highlight' })).toBeUndefined();
+    await expect(actions.addAnnotation({ kind: 'highlight' })).resolves.toBeUndefined();
+    expect(create).not.toHaveBeenCalled();
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('keeps idrefs and resource hrefs in separate namespaces', () => {
-    const first = { href: 'a.xhtml', normalizedText: 'a', spans: [] };
-    const second = { href: 'chapter.xhtml', normalizedText: 'b', spans: [] };
-    const state = { chapterIndices: new Map() } as unknown as CoordinatorState;
-    const reader = {
-      getChapterTextIndices: () =>
-        new Map([
-          ['chapter.xhtml', first],
-          ['b', second],
-        ]),
-      manifestHrefMap: new Map([
-        ['chapter.xhtml', 'a.xhtml'],
-        ['b', 'chapter.xhtml'],
-      ]),
-    } as never;
-
-    syncChapterIndices(state, reader);
-
-    expect(state.chapterIndices.get('a.xhtml')).toBe(first);
-    expect(state.chapterIndices.get('chapter.xhtml')).toBe(second);
-    expect(state.chapterIndices.has('b')).toBe(false);
-  });
-
-  it('reuses the href projection while the Reader source Map is unchanged', () => {
-    const chapter = { href: 'chapter.xhtml', normalizedText: 'text', spans: [] };
-    const source = new Map([['chapter', chapter]]);
-    const state = {
-      chapterIndices: new Map(),
-      chapterIndexSource: null,
-    } as unknown as CoordinatorState;
-    const reader = { getChapterTextIndices: () => source } as never;
-
-    syncChapterIndices(state, reader);
-    const projected = state.chapterIndices;
-    syncChapterIndices(state, reader);
-
-    expect(state.chapterIndices).toBe(projected);
-    expect(state.chapterIndices.get('chapter.xhtml')).toBe(chapter);
-  });
-
-  it('derives persistent selectors directly from the exact source range', () => {
-    const idref = 'chapter-item';
-    const href = 'chapter.xhtml';
-    const locator: ReaderLocator = {
-      href,
-      sourceRange: {
-        start: { nodePath: [0], textOffset: 2 },
-        end: { nodePath: [0], textOffset: 6 },
-      },
-    };
-    const internals = {
-      coordState: {
-        chapterIndices: new Map([
-          [
-            href,
-            {
-              href,
-              normalizedText: '0123456789',
-              spans: [
-                {
-                  nodePath: [0],
-                  sourceStart: 0,
-                  sourceEnd: 10,
-                  normalizedStart: 0,
-                  normalizedEnd: 10,
-                },
-              ],
-            },
-          ],
-        ]),
-      },
-      reader: {
-        chapterMap: new Map([
-          [idref, { startPage: 1, endPage: 1 }],
-          ['cover-item', { startPage: 0, endPage: 0 }],
-        ]),
-        manifestHrefMap: new Map([
-          ['cover-item', 'cover.xhtml'],
-          [idref, href],
-        ]),
-      },
-    } as unknown as Internals;
-
-    const target = buildAnnotationTargetFromLocator(locator, internals);
-
-    expect(target).toMatchObject({
-      href,
-      selectors: {
-        sourceRange: locator.sourceRange,
-        textPosition: { start: 2, end: 6 },
-        progression: { chapter: 1 },
-      },
-      text: { highlight: '2345' },
-    });
-  });
-
-  it('refuses a locator without an exact source range', () => {
-    const internals = {
-      coordState: { chapterIndices: new Map() },
-      reader: { chapterMap: new Map() },
-    } as unknown as Internals;
-
-    expect(buildAnnotationTargetFromLocator({ href: 'chapter.xhtml' }, internals)).toBeUndefined();
-  });
-
-  it('preserves the native source identity at adjacent text-node boundaries', () => {
-    const href = 'chapter.xhtml';
-    const sourceRange = {
-      start: { nodePath: [1], textOffset: 0 },
-      end: { nodePath: [1], textOffset: 1 },
-    };
-    const target = buildAnnotationTargetFromLocator({ href, sourceRange }, {
-      coordState: {
-        chapterIndices: new Map([
-          [
-            href,
-            {
-              href,
-              normalizedText: 'abcd',
-              spans: [
-                {
-                  nodePath: [0],
-                  sourceStart: 0,
-                  sourceEnd: 2,
-                  normalizedStart: 0,
-                  normalizedEnd: 2,
-                },
-                {
-                  nodePath: [1],
-                  sourceStart: 0,
-                  sourceEnd: 2,
-                  normalizedStart: 2,
-                  normalizedEnd: 4,
-                },
-              ],
-            },
-          ],
-        ]),
-      },
-      reader: {
-        chapterMap: new Map([['chapter-item', { startPage: 0, endPage: 0 }]]),
-        manifestHrefMap: new Map([['chapter-item', href]]),
-      },
-    } as unknown as Internals);
-
-    expect(target?.selectors.sourceRange).toEqual({
-      type: 'SourceRangeSelector',
-      ...sourceRange,
-    });
-    expect(target?.selectors.textPosition).toEqual({
-      type: 'TextPositionSelector',
-      start: 2,
-      end: 3,
-    });
-  });
-
-  it('resolves href locators against idref-keyed Reader navigation', () => {
-    const href = 'chapter.xhtml';
-    const chapterIndex = {
-      href,
-      normalizedText: '0123456789',
-      spans: [
-        {
-          nodePath: [0],
-          sourceStart: 0,
-          sourceEnd: 10,
-          normalizedStart: 0,
-          normalizedEnd: 10,
-        },
-      ],
-    };
-    const target = buildAnnotationTargetFromLocator(
-      {
-        href,
-        sourceRange: {
-          start: { nodePath: [0], textOffset: 2 },
-          end: { nodePath: [0], textOffset: 6 },
-        },
-      },
-      {
-        coordState: { chapterIndices: new Map([[href, chapterIndex]]) },
-        reader: {
-          chapterMap: new Map([['chapter-item', { startPage: 1, endPage: 1 }]]),
-          manifestHrefMap: new Map([['chapter-item', href]]),
-        },
-      } as unknown as Internals,
+  it('stores the target the engine built for the selection read at call time', async () => {
+    const target = annotationTarget('2345');
+    const add = vi.fn((draft: object) => ({ id: 'a', createdAt: 1, ...draft }));
+    const getSourceLocator = vi.fn(() => ({ href: 'chapter.xhtml', sourceRange }));
+    const create = vi.fn(() => Promise.resolve(target));
+    const actions = buildAnnotationActions(
+      internalsFor({ locator: getSourceLocator, create, store: { add } }),
+      createEmitter<ReaderControllerEvents>(),
     );
-    expect(target).toBeDefined();
+
+    const pending = actions.addAnnotation({ kind: 'highlight', color: '#ff0' });
+    expect(getSourceLocator).toHaveBeenCalledOnce();
+    const record = await pending;
+
+    expect(create).toHaveBeenCalledWith({ href: 'chapter.xhtml', sourceRange });
+    expect(add).toHaveBeenCalledWith({ kind: 'highlight', target, color: '#ff0' });
+    expect(record?.target).toBe(target);
+  });
+
+  it('drops the record when the store was replaced while the engine built it', async () => {
+    const add = vi.fn();
+    let finish: (value: ReturnType<typeof annotationTarget>) => void = () => {};
+    const internals = internalsFor({
+      locator: () => ({ href: 'chapter.xhtml', sourceRange }),
+      create: () => new Promise((resolve) => (finish = resolve)),
+      store: { add },
+    });
+    const actions = buildAnnotationActions(internals, createEmitter<ReaderControllerEvents>());
+
+    const pending = actions.addAnnotation({ kind: 'highlight' });
+    (internals.coordState as { annotationStore: unknown }).annotationStore = null;
+    finish(annotationTarget());
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('asks the engine with the exact source range and refuses a locator without one', async () => {
+    const create = vi.fn(() => Promise.resolve(annotationTarget()));
+    const internals = internalsFor({ locator: null, create, store: {} });
+    const locator: ReaderLocator = { href: 'chapter.xhtml', sourceRange };
+
+    await expect(buildAnnotationTargetFromLocator(locator, internals)).resolves.toEqual(
+      annotationTarget(),
+    );
+    await expect(
+      buildAnnotationTargetFromLocator({ href: 'chapter.xhtml' }, internals),
+    ).resolves.toBeUndefined();
+    expect(create).toHaveBeenCalledOnce();
+  });
+});
+
+function internalsFor(options: {
+  readonly locator: (() => ReaderLocator | null) | null;
+  readonly create: (...args: never[]) => unknown;
+  readonly store: object;
+}): Internals {
+  return {
+    engines: { selection: { getSourceLocator: options.locator ?? (() => null) } },
+    coordState: {
+      annotationStore: { persist: () => Promise.resolve(), getAll: () => [], ...options.store },
+    },
+    reader: { interactions: { createAnnotationTarget: options.create } },
+  } as unknown as Internals;
+}
+
+describe('native selection annotation failures', () => {
+  it('reports an engine failure on the error event instead of rejecting', async () => {
+    const emitter = createEmitter<ReaderControllerEvents>();
+    const errors = vi.fn();
+    emitter.on('error', errors);
+    const actions = buildAnnotationActions(
+      internalsFor({
+        locator: () => ({ href: 'chapter.xhtml', sourceRange }),
+        create: () => Promise.reject(new Error('an annotation target cannot be empty')),
+        store: { add: vi.fn() },
+      }),
+      emitter,
+    );
+
+    await expect(actions.addAnnotation({ kind: 'highlight' })).resolves.toBeUndefined();
+    expect(errors).toHaveBeenCalledWith({
+      message: 'an annotation target cannot be empty',
+      source: 'annotation-target',
+    });
   });
 });

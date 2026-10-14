@@ -571,6 +571,8 @@ fn artifact_request(session_id: u64, request_id: u64, href: &str) -> ReaderArtif
             root_font_size: 16.0,
             line_height_override: None,
             font_family_override: None,
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: ReaderLocator {
             href: href.to_owned(),

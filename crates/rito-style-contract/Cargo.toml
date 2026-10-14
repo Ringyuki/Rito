@@ -11,5 +11,10 @@ version.workspace = true
 [lib]
 path = "src/lib.rs"
 
+[dependencies]
+# A fast non-cryptographic hasher for the in-memory style interner; the
+# fingerprints are never persisted. Already in the graph through stylo.
+rustc-hash = "2"
+
 [lints]
 workspace = true

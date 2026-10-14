@@ -1,6 +1,8 @@
 import type {
   FootnoteEntry,
   PackageMetadata,
+  ReaderFontCatalog,
+  ReaderHostFontFace,
   ReaderDocumentSourceSpan,
   ReaderLocator,
   Spread,
@@ -56,9 +58,6 @@ export interface SelectionHandleDrag {
   cancel(): void;
 }
 
-/** Defaults matching `@ritojs/core` ReaderOptions defaults. */
-export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
-
 export interface ControllerOptions {
   readonly transition?: Partial<TransitionDriverOptions> | undefined;
   /** Initial display scale applied before the first canvas mount/render. */
@@ -68,13 +67,6 @@ export interface ControllerOptions {
   readonly positionStorage?: PositionStorageAdapter | undefined;
   /** Accessibility mirror configuration (opt-in). */
   readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
-  /**
-   * @deprecated Controller now reads geometry from reader.getLayoutGeometry().
-   * These fields are kept for backwards compatibility but are no longer used.
-   */
-  readonly margin?: number | undefined;
-  /** @deprecated See `margin`. */
-  readonly spreadGap?: number | undefined;
 }
 
 export interface ReaderControllerEvents {
@@ -104,8 +96,23 @@ export interface ReaderControllerEvents {
   annotationHover: { annotation: ResolvedAnnotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
+  /** A page turn became visible. Exactly one `transitionEnd` follows. */
   transitionStart: { direction: 'forward' | 'backward' };
-  transitionEnd: { direction: 'forward' | 'backward' };
+  /**
+   * A frame of the visible turn was painted. `progress` is how far the page
+   * has moved toward its neighbour: 0 at rest, 1 on arrival (a pull against
+   * the first or last page reports its rubber-band travel).
+   */
+  transitionProgress: { direction: 'forward' | 'backward'; progress: number };
+  /**
+   * The visible turn ended: it landed (`committed`), went back (`cancelled`),
+   * or was cut off by a relayout or a jump (`interrupted`). A newer turn
+   * settles the one in flight at once and takes its picture on from there.
+   */
+  transitionEnd: {
+    direction: 'forward' | 'backward';
+    outcome: 'committed' | 'cancelled' | 'interrupted';
+  };
   /** Link clicked. Call `navigate()` to execute internal navigation. */
   linkClick: {
     href: string;
@@ -160,10 +167,10 @@ export interface ReaderController {
   readonly reader: Reader;
   readonly metadata: PackageMetadata;
   readonly toc: readonly TocEntry[];
-  /** Navigation records of the committed layout, indexed by spread. */
+  /** Book-wide navigation records, indexed by spread; empty until the whole book first commits. */
   readonly spreads: readonly Spread[];
   readonly currentSpread: number;
-  /** Final spread count of the committed layout; every revision is laid out complete. */
+  /** Book-wide spread count; 0 until the whole book's layout first commits. */
   readonly totalSpreads: number;
 
   goToSpread(index: number): void;
@@ -197,6 +204,23 @@ export interface ReaderController {
     fontFamily?: string | null;
     fontFamilyForce?: boolean;
   }): boolean;
+
+  /**
+   * Every family a `font-family` choice can name in the open book: the
+   * host's faces by their family, then the book's own. Build font choices
+   * from it; `setTypography({ fontFamily })` reports names no face answers
+   * to as an `error` event with source `font-family`.
+   */
+  fonts(): Promise<ReaderFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to. */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
+  /**
+   * Adds host faces (a system font, one the reader imported) and lays the
+   * book out again; a face is then named by its family in `setTypography`.
+   */
+  addFontFaces(faces: readonly ReaderHostFontFace[]): Promise<void>;
+  /** Removes host faces by SHA-256 and lays the book out again. */
+  removeFontFaces(sha256s: readonly string[]): Promise<void>;
 
   /** Set render scale (e.g. for font zoom). Canvas display size = viewport × scale. */
   setRenderScale(scale: number): void;
@@ -233,12 +257,12 @@ export interface ReaderController {
    *
    * A host that must decide on `pointerup` whether a gesture belongs to
    * the content or to the page turn cannot wait for the content events:
-   * only `linkClick` is raised synchronously, `footnoteClick` waits for
-   * the footnote read and `imageClick` for the image blob. Turning the
-   * page first and undoing it later does not work either, because the
-   * turn advances the content-interaction generation and the in-flight
-   * image request is then disowned and revoked, so `imageClick` never
-   * arrives at all.
+   * only `linkClick` and `annotationClick` are raised synchronously,
+   * `footnoteClick` waits for the footnote read and `imageClick` for its
+   * blob. Turning the page first and undoing it later does not work
+   * either, because the turn advances the content-interaction generation
+   * and the in-flight image request is then disowned and revoked, so
+   * `imageClick` never arrives at all.
    *
    * Answers from the same resolution the click dispatcher runs, so it
    * predicts which event a click would raise, and returns null when the
@@ -247,11 +271,14 @@ export interface ReaderController {
    */
   hitTestContent(point: ReaderClientPoint): ContentHitKind | null;
 
-  addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
+  /** Resolves once the engine has built the target; the selection is read at call time. */
+  addAnnotation(input: AddAnnotationInput): Promise<AnnotationRecord | undefined>;
   removeAnnotation(id: string): boolean;
   updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
   readonly annotations: readonly AnnotationRecord[];
 
+  /** The position last published by `positionChange` (a beat after its spread); null before. */
+  readonly position: ReadingPosition | null;
   /** Restore a preloaded serialized position, or load it from positionStorage when omitted. */
   restorePosition(serialized?: string | null): Promise<number | undefined>;
   /** Rejects during action setup, an owned restore load, or an active adapter write. */

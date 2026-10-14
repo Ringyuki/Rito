@@ -28,16 +28,19 @@ use super::{
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
     ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPublication, ReaderRect,
     ReaderResource, ReaderResourceKind, ReaderSearchRequest, ReaderSearchResponse,
-    ReaderSearchResult, ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest,
-    ReaderTextRect, ReaderTextRenderingProfile, READER_EXTERNAL_ID_MAX,
+    ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry,
+    ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile, READER_EXTERNAL_ID_MAX,
 };
 
 mod content;
 mod errors;
 mod exact_cache;
+mod fonts;
 mod handoff;
+mod interaction;
 mod navigate;
 mod open;
+mod position;
 #[cfg(test)]
 mod probe;
 mod project;
@@ -74,6 +77,8 @@ struct ReaderArtifactOwner {
 struct ReaderRevisionOwner {
     owner: RuntimeChapterLocalRevisionHandle,
     layout: LayoutConfig,
+    /// The session's font generation the revision was laid out under.
+    fonts: u64,
     local_spread_count: usize,
     artifact_ref_count: u32,
 }
@@ -94,11 +99,13 @@ impl ReaderRevisionOwner {
     fn from_created(
         created: &RuntimeCreatedChapterLocalRevision,
         layout: LayoutConfig,
+        fonts: u64,
         artifact_ref_count: u32,
     ) -> Self {
         Self {
             owner: owner_from_created(created),
             layout,
+            fonts,
             local_spread_count: created.revision.local_spread_count,
             artifact_ref_count,
         }
@@ -130,6 +137,10 @@ pub struct ReaderSession {
     /// Device pixels per CSS pixel the host rasterizes artifacts at; paint
     /// snaps land on that grid. Pagination never reads it.
     render_ratio: f64,
+    /// Bumped whenever host faces are added or removed: a revision laid
+    /// out under an earlier generation is never reused for a request, even
+    /// at an equal layout config.
+    font_generation: u64,
     #[cfg(test)]
     exact_cache_hit_count: u64,
     #[cfg(test)]

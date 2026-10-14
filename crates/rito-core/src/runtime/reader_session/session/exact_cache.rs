@@ -108,6 +108,7 @@ impl ReaderSession {
         (revision.artifact_ref_count > 0
             && revision.owner.coordinate.chapter_index == chapter_index
             && revision.layout == *layout
+            && revision.fonts == self.font_generation
             && self.projection_is_proven(revision_id, locator))
         .then(|| revision.owner.clone())
     }

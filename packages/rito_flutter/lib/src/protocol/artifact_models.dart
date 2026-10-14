@@ -157,17 +157,23 @@ final class RitoFontRef {
   final int byteLength;
 }
 
+/// What a hit is, as the engine classifies it: a note reference first
+/// (its definition indexed, or not yet), then a link, an image, text.
+enum RitoHitKind { text, link, image, footnote, footnotePending }
+
 final class RitoHitEntry {
   const RitoHitEntry({
     required this.pageIndex,
     required this.bounds,
+    required this.kind,
     required this.text,
     this.href,
     this.sourcePoint,
+    this.targetLocator,
+    this.destinationLabel,
     this.imageSrc,
     this.imageAlt,
     this.footnoteKey,
-    this.footnotePending = false,
   });
 
   final int pageIndex;
@@ -177,9 +183,22 @@ final class RitoHitEntry {
   /// margins included. Hit-test taps on the painted surface directly
   /// against this — no host-side margin correction.
   final RitoRect bounds;
+
+  /// What this hit is. The engine is the only classifier: a host reads
+  /// this and never infers a class from [href] or [imageSrc].
+  final RitoHitKind kind;
   final String text;
+
+  /// The href as the publication wrote it.
   final String? href;
   final RitoSourcePoint? sourcePoint;
+
+  /// Where an internal link leads, canonical: its chapter and anchor.
+  /// Null for an external href and for a hit that has none.
+  final RitoLocator? targetLocator;
+
+  /// The TOC label of the place a link leads to, when the TOC names it.
+  final String? destinationLabel;
   final String? imageSrc;
   final String? imageAlt;
 
@@ -193,7 +212,7 @@ final class RitoHitEntry {
   /// is already valid; reading it fails until background indexing
   /// reaches the definition, so a host can show the popup with a
   /// loading state and retry.
-  final bool footnotePending;
+  bool get footnotePending => kind == RitoHitKind.footnotePending;
 }
 
 final class RitoSemanticNode {

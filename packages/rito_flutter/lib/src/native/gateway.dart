@@ -3,16 +3,19 @@ import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import '../protocol/annotation_target.dart';
 import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/background_decoder.dart';
 import '../protocol/background_encoder.dart';
 import '../protocol/background_models.dart';
 import '../protocol/exact_source_range.dart';
+import '../protocol/font_catalog.dart';
 import '../protocol/footnote_decoder.dart';
 import '../protocol/foreground_decoder.dart';
 import '../protocol/foreground_encoder.dart';
 import '../protocol/foreground_models.dart';
+import '../protocol/navigation_query.dart';
 import '../protocol/publication_decoder.dart';
 import '../protocol/publication_models.dart';
 import '../protocol/request_encoder.dart';
@@ -20,6 +23,7 @@ import '../protocol/request_models.dart';
 import '../protocol/resource_decoder.dart';
 import '../protocol/search.dart';
 import '../protocol/text_geometry.dart';
+import '../protocol/text_interaction.dart';
 import 'bindings.dart';
 import 'gateway_queue.dart';
 import 'owned_byte_transfer.dart';
@@ -44,6 +48,8 @@ export 'session_lane.dart'
         RitoNavigationSupersededException;
 export 'worker_lifecycle.dart' show RitoNativeWorkerTerminatedException;
 
+part 'font_gateway.dart';
+part 'shard_supply.dart';
 part 'worker.dart';
 
 abstract interface class RitoReaderGateway {
@@ -64,8 +70,16 @@ abstract interface class RitoReaderGateway {
   /// slot and must be released.
   Future<RitoArtifact?> peekAdjacent({required RitoAdjacentRequest request});
 
-  /// Commits an artifact previously produced by [peekAdjacent] as the
-  /// visible foreground with a CAS and zero layout work.
+  /// Publishes one spread of the revision behind an artifact as a
+  /// read-only artifact, addressed by its position in that revision's
+  /// layout — no visible-state change, no pending navigation, no layout
+  /// work. A position outside the layout throws. The artifact occupies a
+  /// live slot and must be released.
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request});
+
+  /// Commits an artifact previously produced by [peekAdjacent] or
+  /// [peekSpread] as the visible foreground with a CAS and zero layout
+  /// work.
   Future<RitoForegroundHandoffAck> commitPeeked({
     required RitoForegroundHandoff handoff,
     required int intentRequestId,
@@ -103,6 +117,21 @@ abstract interface class RitoReaderGateway {
   /// Projects a durable source range onto the pages an artifact draws.
   Future<RitoExactSourceRangeResolution> exactSourceRange({
     required RitoExactSourceRangeRequest request,
+  });
+
+  /// Resolves a caret, a range or a caret movement against an artifact.
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  });
+
+  /// Builds an annotation target or locates a stored one.
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
+  });
+
+  /// Answers a reading-position question.
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
   });
 
   /// Reads a footnote definition an artifact referenced. [key] is the
@@ -182,7 +211,9 @@ final class RitoIsolateGateway
     implements
         RitoReaderGateway,
         RitoResumableExactSeekGateway,
-        RitoResumableAdjacentGateway {
+        RitoResumableAdjacentGateway,
+        RitoShardedPublicationGateway,
+        RitoFontGateway {
   RitoIsolateGateway({this.diagnosticLibrary}) {
     _worker = _RitoWorkerClient.start(diagnosticLibrary);
   }
@@ -207,6 +238,12 @@ final class RitoIsolateGateway
       const RitoTextGeometryEncoder();
   final RitoExactSourceRangeDecoder _exactSourceRangeDecoder =
       const RitoExactSourceRangeDecoder();
+  final RitoTextInteractionDecoder _textInteractionDecoder =
+      const RitoTextInteractionDecoder();
+  final RitoAnnotationDecoder _annotationDecoder =
+      const RitoAnnotationDecoder();
+  final RitoNavigationDecoder _navigationDecoder =
+      const RitoNavigationDecoder();
   final RitoTextGeometryDecoder _textGeometryDecoder =
       const RitoTextGeometryDecoder();
   final RitoRequestEncoder _searchEncoder = const RitoRequestEncoder();
@@ -221,6 +258,10 @@ final class RitoIsolateGateway
   final Map<int, RitoBackgroundAdvance> _pendingBackgroundCandidates =
       <int, RitoBackgroundAdvance>{};
   late final Future<_RitoWorkerClient> _worker;
+  final Map<int, RitoShardLoader> _shardLoaders = <int, RitoShardLoader>{};
+  final Map<(int, int), Future<void>> _supplying = <(int, int), Future<void>>{};
+  final Map<int, _ShardPrefetchLane> _prefetchLanes =
+      <int, _ShardPrefetchLane>{};
 
   @override
   Future<RitoArtifact> open({
@@ -278,6 +319,121 @@ final class RitoIsolateGateway
       rethrow;
     }
   }
+
+  @override
+  Future<RitoArtifact> openShards({
+    required Uint8List skeletonBytes,
+    Uint8List? skeletonKey,
+    required RitoArtifactRequest request,
+    required RitoPinnedFontPolicy pinnedFontPolicy,
+    required RitoShardLoader loadShards,
+  }) async {
+    _requestEncoder.encode(request);
+    final sessionId = request.sessionId;
+    final intent = _claimExactSeekIntent(sessionId, request.requestId);
+    final pinnedFontFaces = <_PinnedFontFaceTransfer>[
+      for (final face in pinnedFontPolicy.faces)
+        _PinnedFontFaceTransfer(
+          bytes: RitoOwnedByteTransfer.take(face.bytes),
+          sha256Hex: face.sha256Hex,
+          genericRole: face.genericRole,
+          language: face.language,
+        ),
+    ];
+    _shardLoaders[sessionId] = loadShards;
+    _prefetchLanes[sessionId] = _ShardPrefetchLane(
+      (shardId) => _supplyShards(sessionId, <int>[shardId]),
+      () async => (await _worker).whenIdle(),
+    );
+    try {
+      return await _queue.open<RitoArtifact>(
+        sessionId: sessionId,
+        requestId: intent.requestId,
+        onSupersededResult: _releaseSupersededArtifact,
+        disposeAfterCleanupFailure: (_, _) => _disposeNativeSession(sessionId),
+        operation: () => _guardNativeSessionOperation<RitoArtifact>(
+          sessionId: sessionId,
+          requestId: intent.requestId,
+          operation: () async {
+            final worker = await _worker;
+            final wireBytes = await worker.invokeWire(
+              _OpenShardsOperation(
+                sessionId: sessionId,
+                skeletonBytes: RitoOwnedByteTransfer.take(skeletonBytes),
+                skeletonKey: skeletonKey,
+                requestBytes: _requestEncoder.encode(
+                  request.withRequestId(intent.requestId),
+                ),
+                pinnedFontFaces: pinnedFontFaces,
+              ),
+            );
+            return _decodeArtifact(
+              wireBytes: wireBytes,
+              sessionId: sessionId,
+              requestId: intent.requestId,
+            );
+          },
+        ),
+      );
+    } on Object {
+      // A failed open registers no native session, so nothing consumed
+      // the request ID.
+      _forgetIntent(intent);
+      _shardLoaders.remove(sessionId);
+      _prefetchLanes.remove(sessionId)?.stop();
+      rethrow;
+    }
+  }
+
+  @override
+  Future<RitoFontCatalog> fontCatalog({required int sessionId}) => _fontQuery(
+    sessionId,
+    _FontCatalogOperation(sessionId: sessionId),
+    const RitoFontDecoder().decodeCatalog,
+  );
+
+  @override
+  Future<List<String>> unresolvedFontFamilies({
+    required int sessionId,
+    required String familyList,
+  }) => _fontQuery(
+    sessionId,
+    _UnresolvedFontFamiliesOperation(
+      sessionId: sessionId,
+      familyList: familyList,
+    ),
+    const RitoFontDecoder().decodeNames,
+  );
+
+  @override
+  Future<void> addHostFontFaces({
+    required int sessionId,
+    required List<RitoPinnedFontFace> faces,
+  }) => _fontEdit(
+    sessionId,
+    _AddHostFontFacesOperation(sessionId: sessionId, faces: faces),
+  );
+
+  @override
+  Future<void> removeHostFontFaces({
+    required int sessionId,
+    required List<String> sha256s,
+  }) => _fontEdit(
+    sessionId,
+    _RemoveHostFontFacesOperation(sessionId: sessionId, sha256s: sha256s),
+  );
+
+  @override
+  Future<void> markFontFamiliesUnavailable({
+    required int sessionId,
+    required List<String> families,
+  }) => _fontEdit(
+    sessionId,
+    _MarkFontFamiliesUnavailableOperation(
+      sessionId: sessionId,
+      families: families,
+    ),
+  );
 
   @override
   Future<RitoArtifact> requestArtifact({
@@ -407,38 +563,12 @@ final class RitoIsolateGateway
   }) async {
     final requestBytes = _requestEncoder.encodeAdjacent(request);
     try {
-      return await _queue.ordered<RitoArtifact>(
+      return await _peek(
         sessionId: request.sessionId,
-        operation: () => _guardNativeMutation<RitoArtifact>(
+        requestId: request.requestId,
+        operation: _PeekAdjacentOperation(
           sessionId: request.sessionId,
-          requestId: request.requestId,
-          operation: () async {
-            final worker = await _worker;
-            final wireBytes = await worker.invokeWire(
-              _PeekAdjacentOperation(
-                sessionId: request.sessionId,
-                requestBytes: requestBytes,
-              ),
-            );
-            // Deliberately NOT _decodeArtifact: a peeked artifact is
-            // read-only and must never register as the pending
-            // foreground candidate.
-            final artifact = _artifactDecoder.decode(wireBytes);
-            if (artifact.sessionId != request.sessionId ||
-                artifact.requestId != request.requestId) {
-              return _rejectMalformedArtifact(
-                sessionId: request.sessionId,
-                requestId: request.requestId,
-                contractError: const RitoNativeException(
-                  status: 4,
-                  message:
-                      'Native peeked artifact identity does not match its request.',
-                ),
-                contractStackTrace: StackTrace.current,
-              );
-            }
-            return artifact;
-          },
+          requestBytes: requestBytes,
         ),
       );
     } on RitoNativeException catch (error) {
@@ -447,6 +577,55 @@ final class RitoIsolateGateway
       }
       rethrow;
     }
+  }
+
+  @override
+  Future<RitoArtifact> peekSpread({required RitoSpreadRequest request}) {
+    final requestBytes = _requestEncoder.encodeSpread(request);
+    return _peek(
+      sessionId: request.sessionId,
+      requestId: request.requestId,
+      operation: _PeekSpreadOperation(
+        sessionId: request.sessionId,
+        requestBytes: requestBytes,
+      ),
+    );
+  }
+
+  Future<RitoArtifact> _peek({
+    required int sessionId,
+    required int requestId,
+    required _WorkerOperation operation,
+  }) {
+    return _queue.ordered<RitoArtifact>(
+      sessionId: sessionId,
+      operation: () => _guardNativeMutation<RitoArtifact>(
+        sessionId: sessionId,
+        requestId: requestId,
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(operation);
+          // Deliberately NOT _decodeArtifact: a peeked artifact is
+          // read-only and must never register as the pending
+          // foreground candidate.
+          final artifact = _artifactDecoder.decode(wireBytes);
+          if (artifact.sessionId != sessionId ||
+              artifact.requestId != requestId) {
+            return _rejectMalformedArtifact(
+              sessionId: sessionId,
+              requestId: requestId,
+              contractError: const RitoNativeException(
+                status: 4,
+                message:
+                    'Native peeked artifact identity does not match its request.',
+              ),
+              contractStackTrace: StackTrace.current,
+            );
+          }
+          return artifact;
+        },
+      ),
+    );
   }
 
   @override
@@ -571,10 +750,13 @@ final class RitoIsolateGateway
         requestId: _diagnosticRequestId(request.sessionId),
         operation: () async {
           final worker = await _worker;
-          final wireBytes = await worker.invokeWire(
-            _AdvanceBackgroundOperation(
-              sessionId: request.sessionId,
-              requestBytes: requestBytes,
+          final wireBytes = await _withShards(
+            request.sessionId,
+            () => worker.invokeWire(
+              _AdvanceBackgroundOperation(
+                sessionId: request.sessionId,
+                requestBytes: requestBytes,
+              ),
             ),
           );
           final advance = await _decodeSessionWire<RitoBackgroundAdvance>(
@@ -673,12 +855,15 @@ final class RitoIsolateGateway
         requestId: _diagnosticRequestId(sessionId),
         operation: () async {
           final worker = await _worker;
-          final wireBytes = await worker.invokeWire(
-            _ReadResourceOperation(
-              sessionId: sessionId,
-              artifactId: artifactId,
-              kind: kind,
-              href: href,
+          final wireBytes = await _withShards(
+            sessionId,
+            () => worker.invokeWire(
+              _ReadResourceOperation(
+                sessionId: sessionId,
+                artifactId: artifactId,
+                kind: kind,
+                href: href,
+              ),
             ),
           );
           return _decodeSessionWire<RitoResource>(
@@ -707,10 +892,13 @@ final class RitoIsolateGateway
         requestId: _diagnosticRequestId(request.sessionId),
         operation: () async {
           final worker = await _worker;
-          final wireBytes = await worker.invokeWire(
-            _SearchOperation(
-              sessionId: request.sessionId,
-              requestBytes: _searchEncoder.encodeSearch(request),
+          final wireBytes = await _withShards(
+            request.sessionId,
+            () => worker.invokeWire(
+              _SearchOperation(
+                sessionId: request.sessionId,
+                requestBytes: _searchEncoder.encodeSearch(request),
+              ),
             ),
           );
           return _decodeSessionWire<RitoSearchResponse>(
@@ -739,10 +927,15 @@ final class RitoIsolateGateway
             requestId: _diagnosticRequestId(request.sessionId),
             operation: () async {
               final worker = await _worker;
-              final wireBytes = await worker.invokeWire(
-                _ExactSourceRangeOperation(
-                  sessionId: request.sessionId,
-                  requestBytes: _requestEncoder.encodeExactSourceRange(request),
+              final wireBytes = await _withShards(
+                request.sessionId,
+                () => worker.invokeWire(
+                  _ExactSourceRangeOperation(
+                    sessionId: request.sessionId,
+                    requestBytes: _requestEncoder.encodeExactSourceRange(
+                      request,
+                    ),
+                  ),
                 ),
               );
               return _decodeSessionWire<RitoExactSourceRangeResolution>(
@@ -759,6 +952,114 @@ final class RitoIsolateGateway
   }
 
   @override
+  Future<RitoTextInteractionResponse> textInteraction({
+    required RitoTextInteractionRequest request,
+  }) async {
+    return _queue.ordered<RitoTextInteractionResponse>(
+      sessionId: request.sessionId,
+      operation: () =>
+          _guardNativeSessionOperation<RitoTextInteractionResponse>(
+            sessionId: request.sessionId,
+            requestId: _diagnosticRequestId(request.sessionId),
+            operation: () async {
+              final worker = await _worker;
+              final wireBytes = await _withShards(
+                request.sessionId,
+                () => worker.invokeWire(
+                  _TextInteractionOperation(
+                    sessionId: request.sessionId,
+                    requestBytes: _requestEncoder.encodeTextInteraction(
+                      request,
+                    ),
+                  ),
+                ),
+              );
+              return _decodeSessionWire<RitoTextInteractionResponse>(
+                sessionId: request.sessionId,
+                field: 'text interaction',
+                wireBytes: wireBytes,
+                decode: _textInteractionDecoder.decode,
+                validate: (response) =>
+                    response.artifactId == request.artifactId,
+              );
+            },
+          ),
+    );
+  }
+
+  @override
+  Future<RitoAnnotationResponse> annotation({
+    required RitoAnnotationRequest request,
+  }) async {
+    return _queue.ordered<RitoAnnotationResponse>(
+      sessionId: request.sessionId,
+      operation: () => _guardNativeSessionOperation<RitoAnnotationResponse>(
+        sessionId: request.sessionId,
+        requestId: _diagnosticRequestId(request.sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await _withShards(
+            request.sessionId,
+            () => worker.invokeWire(
+              _AnnotationOperation(
+                sessionId: request.sessionId,
+                requestBytes: _requestEncoder.encodeAnnotation(request),
+              ),
+            ),
+          );
+          return _decodeSessionWire<RitoAnnotationResponse>(
+            sessionId: request.sessionId,
+            field: 'annotation',
+            wireBytes: wireBytes,
+            decode: _annotationDecoder.decode,
+            validate: (response) =>
+                request.query is! RitoCreateAnnotationQuery ||
+                response.level == RitoAnnotationLevel.created,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoNavigationResult> navigation({
+    required RitoNavigationRequest request,
+  }) async {
+    return _queue.ordered<RitoNavigationResult>(
+      sessionId: request.sessionId,
+      operation: () => _guardNativeSessionOperation<RitoNavigationResult>(
+        sessionId: request.sessionId,
+        requestId: _diagnosticRequestId(request.sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await _withShards(
+            request.sessionId,
+            () => worker.invokeWire(
+              _NavigationOperation(
+                sessionId: request.sessionId,
+                requestBytes: _requestEncoder.encodeNavigation(request),
+              ),
+            ),
+          );
+          return _decodeSessionWire<RitoNavigationResult>(
+            sessionId: request.sessionId,
+            field: 'navigation',
+            wireBytes: wireBytes,
+            decode: _navigationDecoder.decode,
+            validate: (result) => switch (request.query) {
+              RitoTocEntryAtPageQuery() ||
+              RitoTocEntryAtPositionQuery() => result is RitoTocEntryResult,
+              RitoLocateQuery() => result is RitoLocationResult,
+              RitoCompareQuery() => result is RitoOrderResult,
+              RitoLayoutQuery() => result is RitoLayoutResult,
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  @override
   Future<RitoTextRangeGeometry> textRangeGeometry({
     required RitoTextRangeRequest request,
   }) async {
@@ -769,10 +1070,13 @@ final class RitoIsolateGateway
         requestId: _diagnosticRequestId(request.sessionId),
         operation: () async {
           final worker = await _worker;
-          final wireBytes = await worker.invokeWire(
-            _TextRangeGeometryOperation(
-              sessionId: request.sessionId,
-              requestBytes: _textGeometryEncoder.encodeRequest(request),
+          final wireBytes = await _withShards(
+            request.sessionId,
+            () => worker.invokeWire(
+              _TextRangeGeometryOperation(
+                sessionId: request.sessionId,
+                requestBytes: _textGeometryEncoder.encodeRequest(request),
+              ),
             ),
           );
           return _decodeSessionWire<RitoTextRangeGeometry>(
@@ -802,11 +1106,14 @@ final class RitoIsolateGateway
         requestId: _diagnosticRequestId(sessionId),
         operation: () async {
           final worker = await _worker;
-          final wireBytes = await worker.invokeWire(
-            _ReadFootnoteOperation(
-              sessionId: sessionId,
-              artifactId: artifactId,
-              key: key,
+          final wireBytes = await _withShards(
+            sessionId,
+            () => worker.invokeWire(
+              _ReadFootnoteOperation(
+                sessionId: sessionId,
+                artifactId: artifactId,
+                key: key,
+              ),
             ),
           );
           return _decodeSessionWire<RitoFootnote>(
@@ -855,6 +1162,8 @@ final class RitoIsolateGateway
   @override
   Future<void> dispose({required int sessionId}) async {
     _intents.remove(sessionId);
+    _shardLoaders.remove(sessionId);
+    _prefetchLanes.remove(sessionId)?.stop();
     _pendingForegroundCandidates.remove(sessionId);
     _pendingBackgroundCandidates.remove(sessionId);
     await _queue.dispose(
@@ -1095,7 +1404,8 @@ final class RitoIsolateGateway
         error.status != ritoNativeStatusTargetNotPublished &&
         error.status != ritoNativeStatusUnsupportedProfile &&
         error.status != ritoNativeStatusBusy &&
-        error.status != ritoNativeStatusAdjacentPending;
+        error.status != ritoNativeStatusAdjacentPending &&
+        error.status != ritoNativeStatusResourcePending;
   }
 
   Future<T> _decodeSessionWire<T>({
@@ -1159,6 +1469,7 @@ final class RitoIsolateGateway
       }
       _pendingForegroundCandidates[sessionId] = artifact;
       _pendingBackgroundCandidates.remove(sessionId);
+      _prefetchNear(sessionId, artifact.locator.href);
       return artifact;
     } on Object catch (error, stackTrace) {
       return _rejectMalformedArtifact(

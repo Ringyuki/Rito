@@ -10,4 +10,9 @@ export { useAnnotations, type AnnotationsState } from './use-annotations';
 export { useReadingPosition, type ReadingPositionState } from './use-reading-position';
 export { useContainerSize, type ContainerSize } from './use-container-size';
 export { useReaderAutoResize, type ReaderAutoResizeOptions } from './use-reader-auto-resize';
+export {
+  useReaderTransition,
+  useReaderTransitionProgress,
+  type ReaderTransitionState,
+} from './use-reader-transition';
 export { useControllerEvent } from '../utils/use-controller-event';

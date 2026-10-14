@@ -7,7 +7,7 @@ decodes and blits; every raster decision was made in the engine.
 The Rust encoder is the definition
 (`crates/rito-core/src/render/commands/reader_wire/encode/`). Two
 production decoders are kept in the same commit as the encoder: the
-JavaScript one in `packages/rito-core-wasm/src/frame-command-buffer-decoder-runtime.js`
+JavaScript one in `packages/rito-core-wasm/src/reader-session-primitive-decoder-runtime.js`
 and the Dart one in `packages/rito_flutter/lib/src/protocol/primitive_decoder.dart`.
 `packages/rito-core-wasm/tests/fixtures/reader-session-primitive-list.hex`
 holds bytes the live encoder wrote for one of every primitive, and a
@@ -57,21 +57,22 @@ rejects it by the version field.
 Every primitive is a u16 opcode followed by its fields. Coordinates are
 device pixels unless noted.
 
-| Opcode | Primitive  | Fields                                                                         |
-| -----: | ---------- | ------------------------------------------------------------------------------ |
-|      1 | PushState  | none                                                                           |
-|      2 | PopState   | none                                                                           |
-|      3 | Translate  | f64 dx, f64 dy                                                                 |
-|      4 | Opacity    | f64 value                                                                      |
-|      5 | Transform  | point origin; u32 count; per transform a u8 tag and its fields                 |
-|      6 | ClipPath   | path                                                                           |
-|      7 | FillRect   | rect, colour, ground                                                           |
-|      8 | FillPath   | path, u8 fill rule, colour, ground                                             |
-|      9 | StrokePath | path, f64 width, colour, u8 cap, optional dash (f64 on, f64 off)               |
-|     10 | Shadow     | path shape, f64 sigma, point offset, colour, optional path clip-out            |
-|     11 | DrawImage  | string src, rect dest, optional rect source (image pixels), optional tile plan |
-|     12 | Text       | text run body                                                                  |
-|     13 | Ruby       | text run body                                                                  |
+| Opcode | Primitive     | Fields                                                                                                                                                           |
+| -----: | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|      1 | PushState     | none                                                                                                                                                             |
+|      2 | PopState      | none                                                                                                                                                             |
+|      3 | Translate     | f64 dx, f64 dy                                                                                                                                                   |
+|      4 | Opacity       | f64 value                                                                                                                                                        |
+|      5 | Transform     | point origin; u32 count; per transform a u8 tag and its fields                                                                                                   |
+|      6 | ClipPath      | path                                                                                                                                                             |
+|      7 | FillRect      | rect, colour, ground                                                                                                                                             |
+|      8 | FillPath      | path, u8 fill rule, colour, ground                                                                                                                               |
+|      9 | StrokePath    | path, f64 width, colour, u8 cap, optional dash (f64 on, f64 off)                                                                                                 |
+|     10 | Shadow        | path shape, f64 sigma, point offset, colour, optional path clip-out                                                                                              |
+|     11 | DrawImage     | string src, rect dest, optional rect source (image pixels), optional tile plan                                                                                   |
+|     12 | Text          | text run body                                                                                                                                                    |
+|     13 | Ruby          | text run body                                                                                                                                                    |
+|     14 | ImageFallback | string src, u8 state (1 loading, 2 broken), rect block, f64 block ink, f64 icon ink, u32 piece count; per piece a point offset, an optional path clip and a path |
 
 Transform tags: 1 rotate (f64 radians), 2 scale (f64 sx, f64 sy),
 3 translate (f64 dx, f64 dy). Percentages were resolved in the engine.
@@ -125,9 +126,8 @@ quarter-turn transform primitive.
 
 ## Frame metadata
 
-The buffer travels with metadata the host does not need to blit:
-protocol version, ratio, primitive count, byte length, the semantic
-display list's command count, kind counts and hash (an identity within
-one engine build), the resource table (sorted image hrefs the frame
-references), the font families it paints with, and whether the frame is
-image-dominated.
+The buffer travels inside `RITOART1`'s display-list record: a u32 format
+version, a u32 primitive count, the 32-byte SHA-256 of the buffer, and
+the buffer itself behind a u64 length. Beside it the artifact lists the
+resources the page reads (its image hrefs, then its font hrefs) and the
+font faces it paints with.

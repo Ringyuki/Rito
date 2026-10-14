@@ -13,25 +13,26 @@ import {
 } from '../src/reader-session-foreground-runtime.js';
 import { decodeRitoReaderPublication } from '../src/reader-session-publication-runtime.js';
 import { createRitoCoreWasmReaderSessionWorkerClient } from '../src/reader-session-worker-client-runtime.js';
-import { createRitoCoreWasmReaderSessionWorkerHandler } from '../src/reader-session-worker-runtime.js';
+import {
+  READER_LIVE_ARTIFACT_CAP,
+  createRitoCoreWasmReaderSessionWorkerHandler,
+} from '../src/reader-session-worker-runtime.js';
 import {
   READER_PROTOCOL_VERSION,
   ReaderWireReader,
   ReaderWireWriter,
 } from '../src/reader-session-wire-base-runtime.js';
-
-const layout = {
-  viewportWidth: 800,
-  viewportHeight: 600,
-  marginTop: 24,
-  marginRight: 24,
-  marginBottom: 24,
-  marginLeft: 24,
-  spreadMode: 'single',
-  firstPageAlone: false,
-  spreadGap: 24,
-  rootFontSize: 16,
-};
+import {
+  artifactWire,
+  displayWire,
+  fakeWorker,
+  foregroundHandoffAckWire,
+  layout,
+  request,
+  settle,
+  workerScope,
+  writeLocator,
+} from './helpers/reader-session-fixtures.mjs';
 
 test('adjacent continuations reuse the shared host-turn primitive without a timer retry loop', () => {
   const source = readFileSync(
@@ -955,6 +956,16 @@ test('latest-wins seek keeps one active + one replaceable request and releases s
   assert.equal(initial.artifactId, 1n, 'visible source remains live until the host releases it');
 });
 
+test('worker refuses at the live-artifact cap the engine declares', () => {
+  const engine = readFileSync(
+    new URL('../../../crates/rito-core/src/runtime/reader_session/session.rs', import.meta.url),
+    'utf8',
+  );
+  const declared = /pub const READER_LIVE_ARTIFACT_CAP: u32 = (\d+);/.exec(engine);
+  assert.ok(declared, 'the engine declares its live-artifact cap');
+  assert.equal(READER_LIVE_ARTIFACT_CAP, Number(declared[1]));
+});
+
 test('worker bounds live artifact ownership and reopens capacity only after release', async () => {
   const scope = workerScope();
   let artifactId = 0n;
@@ -991,38 +1002,43 @@ test('worker bounds live artifact ownership and reopens capacity only after rele
     sessionId: 9n,
     request: requestFor(1n),
   });
-  for (let id = 2; id <= 4; id += 1) {
+  const cap = READER_LIVE_ARTIFACT_CAP;
+  for (let id = 2; id <= cap; id += 1) {
     scope.dispatch({
       protocol: 'rito-reader-session',
       id,
       kind: 'request-artifact',
       request: requestFor(BigInt(id)),
     });
+    await settle();
   }
   await settle();
-  await settle();
-  assert.equal(scope.responses.filter(({ message }) => message.ok).length, 4);
+  assert.equal(scope.responses.filter(({ message }) => message.ok).length, cap);
 
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 5,
+    id: cap + 1,
     kind: 'request-artifact',
-    request: requestFor(5n),
+    request: requestFor(BigInt(cap + 1)),
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'artifact-capacity');
-  assert.equal(artifactId, 4n, 'capacity failure must happen before Core creates another artifact');
+  assert.equal(
+    artifactId,
+    BigInt(cap),
+    'capacity failure must happen before Core creates another artifact',
+  );
 
-  scope.dispatch({ protocol: 'rito-reader-session', id: 6, kind: 'release', artifactId: 1n });
+  scope.dispatch({ protocol: 'rito-reader-session', id: cap + 2, kind: 'release', artifactId: 1n });
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 7,
+    id: cap + 3,
     kind: 'request-artifact',
-    request: requestFor(7n),
+    request: requestFor(BigInt(cap + 3)),
   });
   await settle();
   await settle();
-  assert.equal(scope.responses.at(-1).message.payload.identity.artifactId, 5n);
+  assert.equal(scope.responses.at(-1).message.payload.identity.artifactId, BigInt(cap + 1));
 });
 
 test('client adopts one background candidate and keeps the replaced artifact for animation', async () => {
@@ -1222,28 +1238,31 @@ test('worker tracks candidate capacity and defers stale background eligibility t
   await settle();
   assert.equal(scope.responses.at(-1).message.payload.candidateIdentity.artifactId, 2n);
 
-  for (let id = 4; id <= 5; id += 1) {
+  // The visible artifact and the candidate hold two of the slots.
+  const cap = READER_LIVE_ARTIFACT_CAP;
+  let id = 4;
+  for (; id < cap + 2; id += 1) {
     scope.dispatch({
       protocol: 'rito-reader-session',
       id,
       kind: 'request-artifact',
       request: requestFor(BigInt(id - 1)),
     });
+    await settle();
   }
-  await settle();
   await settle();
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 6,
+    id,
     kind: 'request-artifact',
-    request: requestFor(5n),
+    request: requestFor(BigInt(id - 1)),
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'artifact-capacity');
 
   scope.dispatch({
     protocol: 'rito-reader-session',
-    id: 7,
+    id: id + 1,
     kind: 'adopt-background-candidate',
     request: {
       sessionId: 17n,
@@ -1255,11 +1274,11 @@ test('worker tracks candidate capacity and defers stale background eligibility t
   assert.equal(scope.responses.at(-1).message.error.code, 'stale-request');
   assert.equal(handoffCalls, 1);
 
-  scope.dispatch({ protocol: 'rito-reader-session', id: 8, kind: 'release', artifactId: 2n });
-  scope.dispatch({ protocol: 'rito-reader-session', id: 9, kind: 'dispose' });
+  scope.dispatch({ protocol: 'rito-reader-session', id: id + 2, kind: 'release', artifactId: 2n });
+  scope.dispatch({ protocol: 'rito-reader-session', id: id + 3, kind: 'dispose' });
   await settle();
   assert.deepEqual(releases, [2n]);
-  assert.equal(scope.responses.at(-1).message.payload.releasedArtifacts, 3);
+  assert.equal(scope.responses.at(-1).message.payload.releasedArtifacts, cap - 1);
 });
 
 test('worker fail-closes when an adjacent artifact identity is lost during wire decode', async () => {
@@ -1501,6 +1520,53 @@ test('client coalesces concurrent releases of the same live artifact', async () 
   await disposing;
 });
 
+test('a call made while the worker holds its limit waits its turn instead of being refused', async () => {
+  const worker = fakeWorker();
+  const client = createRitoCoreWasmReaderSessionWorkerClient(worker);
+  const opening = client.open(new ArrayBuffer(4), request('Text/source.xhtml'));
+  worker.respondArtifact(worker.take('open'), 1n, 'Text/source.xhtml', 'open');
+  await adoptClientForeground(worker, client, undefined, await opening);
+
+  const kind = 'mark-font-families-unavailable';
+  const calls = [];
+  for (let call = 0; call < 11; call += 1) {
+    calls.push(client.markFontFamiliesUnavailable([`family-${String(call)}`]));
+  }
+  await settle();
+  assert.equal(worker.count(kind), 8, 'the worker holds eight; three wait');
+
+  const sent = [];
+  while (worker.count(kind) > 0) {
+    const message = worker.take(kind);
+    sent.push(message.families[0]);
+    worker.respond(message, { kind: 'font-families-unavailable' });
+    await settle();
+  }
+  await Promise.all(calls);
+  assert.deepEqual(
+    sent,
+    Array.from({ length: 11 }, (_, call) => `family-${String(call)}`),
+    'every call was sent, in the order it was made',
+  );
+
+  // A call still waiting when the session closes learns that it closed.
+  const held = [];
+  for (let call = 0; call < 9; call += 1) {
+    held.push(client.markFontFamiliesUnavailable(['late']));
+  }
+  await settle();
+  assert.equal(worker.count(kind), 8);
+  const disposing = client.dispose();
+  worker.respond(worker.take('dispose'), { kind: 'dispose', releasedArtifacts: 1 });
+  await disposing;
+  const outcomes = await Promise.allSettled(held);
+  assert.deepEqual(
+    outcomes.map((outcome) => outcome.reason?.code),
+    Array.from({ length: 9 }, () => 'session-disposed'),
+  );
+  assert.equal(worker.count(kind), 8, 'nothing is sent to a session that closed');
+});
+
 test('typed decoders reject unknown RITODL1 primitives and artifact metadata mismatches', () => {
   const invalidDisplay = displayWire(1, (writer) => writer.u16(99, 'opcode'));
   assert.throws(() => decodeRitoReaderPrimitiveList(invalidDisplay), /unknown primitive opcode/);
@@ -1557,47 +1623,6 @@ async function adoptClientForeground(worker, client, expectedVisibleArtifactId, 
   return adopting;
 }
 
-function request(href) {
-  return { layout, locator: { href }, textProfile: 'platform-string-runs' };
-}
-
-function artifactWire(sessionId, requestId, artifactId, href, options = {}) {
-  const writer = ReaderWireWriter.message('RITOART1');
-  writer.u32(READER_PROTOCOL_VERSION, 'protocol');
-  writer.u32(1, 'capability');
-  writer.externalId(sessionId, 'session');
-  writer.externalId(requestId, 'request');
-  writer.externalId(1n, 'revision');
-  writer.u32(1, 'revision version');
-  writer.externalId(artifactId, 'artifact');
-  writer.record((record) => writeLocator(record, { href }));
-  writer.u32(4, 'locator match');
-  writer.u32(0, 'page index');
-  writer.u32(0, 'spread index');
-  writer.count(1, 'page indexes');
-  writer.u32(0, 'page index');
-  writer.f64(800, 'width');
-  writer.f64(600, 'height');
-  writer.option(undefined, () => undefined);
-  writer.option(undefined, () => undefined);
-  writer.u32(2, 'previous');
-  writer.u32(2, 'next');
-  writer.u32(0, 'text profile');
-  writer.record((record) => {
-    const display = displayWire(0);
-    record.u32(2, 'display version');
-    record.u32(options.displayCommandCount ?? 0, 'display commands');
-    record.u32(32, 'digest length');
-    record.raw(new Uint8Array(32));
-    record.u64(BigInt(display.byteLength), 'display bytes length');
-    record.raw(display);
-  });
-  writer.count(0, 'resources');
-  writer.count(0, 'fonts');
-  writer.count(0, 'pages');
-  return writer.finish();
-}
-
 function publicationWire(sessionId) {
   const writer = ReaderWireWriter.message('RITOPUB1');
   writer.u32(READER_PROTOCOL_VERSION, 'protocol');
@@ -1627,16 +1652,6 @@ function publicationWire(sessionId) {
   return writer.finish();
 }
 
-function displayWire(count, write = () => undefined) {
-  const writer = new ReaderWireWriter();
-  writer.raw(new TextEncoder().encode('RITODL1'));
-  writer.u32(2, 'display version');
-  writer.f64(1, 'display ratio');
-  writer.count(count, 'display commands');
-  write(writer);
-  return Uint8Array.from(writer.bytes);
-}
-
 function backgroundAdvanceWire(state, intentRequestId, replacesArtifactId, artifact) {
   const writer = ReaderWireWriter.message('RITOBGA1');
   writer.u32(state, 'state');
@@ -1657,21 +1672,6 @@ function handoffAckWire(intentRequestId, replacedArtifactId, visibleArtifactId) 
   return writer.finish();
 }
 
-function foregroundHandoffAckWire(
-  intentRequestId,
-  replacedArtifactId,
-  visibleArtifactId,
-  optionTag = replacedArtifactId === undefined ? 0 : 1,
-  optionValue = replacedArtifactId ?? 0n,
-) {
-  const writer = ReaderWireWriter.message('RITOFGA1');
-  writer.externalId(intentRequestId, 'intent');
-  writer.u32(optionTag, 'replaced option tag');
-  writer.u64(optionValue, 'replaced option value');
-  writer.externalId(visibleArtifactId, 'visible');
-  return writer.finish();
-}
-
 function artifactIdentity(requestValue, artifactId) {
   return {
     sessionId: requestValue.sessionId,
@@ -1680,14 +1680,6 @@ function artifactIdentity(requestValue, artifactId) {
     revisionVersion: 1,
     artifactId,
   };
-}
-
-function writeLocator(writer, locator) {
-  writer.string(locator.href, 'href');
-  writer.option(undefined, () => undefined);
-  writer.option(undefined, () => undefined);
-  writer.option(undefined, () => undefined);
-  writer.option(locator.progression, (value) => writer.f64(value, 'progression'));
 }
 
 function requestIdentity(bytes) {
@@ -1768,93 +1760,4 @@ function requestLocator(bytes) {
   reader.u32('text profile');
   reader.finish('request');
   return { href, progression };
-}
-
-function workerScope() {
-  let listener;
-  const responses = [];
-  return {
-    responses,
-    addEventListener(type, value) {
-      if (type === 'message') listener = value;
-    },
-    postMessage(message, transfer = []) {
-      responses.push({ message, transfer });
-    },
-    dispatch(message) {
-      listener({ data: message });
-    },
-  };
-}
-
-function fakeWorker() {
-  const listeners = new Map();
-  const messages = [];
-  return {
-    messages,
-    terminateCount: 0,
-    addEventListener(type, listener) {
-      listeners.set(type, listener);
-    },
-    removeEventListener(type) {
-      listeners.delete(type);
-    },
-    postMessage(message) {
-      messages.push(message);
-    },
-    terminate() {
-      this.terminateCount += 1;
-    },
-    count(kind) {
-      return messages.filter((message) => message.kind === kind).length;
-    },
-    take(kind) {
-      const index = messages.findIndex((message) => message.kind === kind);
-      assert.notEqual(index, -1, `missing ${kind} message`);
-      return messages.splice(index, 1)[0];
-    },
-    respond(requestMessage, payload) {
-      listeners.get('message')({
-        data: {
-          protocol: 'rito-reader-session',
-          id: requestMessage.id,
-          ok: true,
-          payload,
-        },
-      });
-    },
-    respondError(requestMessage, code, message) {
-      listeners.get('message')({
-        data: {
-          protocol: 'rito-reader-session',
-          id: requestMessage.id,
-          ok: false,
-          error: { name: 'RitoReaderError', code, message },
-        },
-      });
-    },
-    respondArtifact(requestMessage, artifactId, href, kind = 'artifact') {
-      const wire = artifactWire(
-        requestMessage.request.sessionId,
-        requestMessage.request.requestId,
-        artifactId,
-        href,
-      );
-      this.respond(requestMessage, {
-        kind,
-        identity: {
-          sessionId: requestMessage.request.sessionId,
-          requestId: requestMessage.request.requestId,
-          revisionId: 1n,
-          revisionVersion: 1,
-          artifactId,
-        },
-        wire: wire.buffer,
-      });
-    },
-  };
-}
-
-async function settle() {
-  for (let index = 0; index < 24; index += 1) await Promise.resolve();
 }

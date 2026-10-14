@@ -1,3 +1,205 @@
+## 0.5.0 - 2026-10-14
+
+### Unsupported sizing keywords no longer fail a chapter
+
+A block or image sized with `fit-content`, `min-content`, `max-content`,
+`fit-content()`, `-webkit-fill-available` or `stretch` used to fail its
+chapter's layout. Until these sizes are computed they lay out as `auto`
+(an image keeps its natural size), an intrinsic `max-width` caps nothing,
+and the rest of the element's style — numeric widths and caps, padding,
+margins and borders — still applies. A float with `stretch` or
+`-webkit-fill-available` fills the available width; with the other
+keywords it shrinks to fit.
+
+### A peek leaves a pending navigation adoptable
+
+`RitoReaderSession.peek` and `peekSpread` consume a request id without
+being a navigation. One made between `requestArtifact` or `turn` and the adoption
+of its result used to make that adoption fail as stale; the engine now
+compares a candidate only against foreground requests, as the peek's
+contract already said.
+
+### A revision's page table, and any spread of it
+
+`RitoReaderSession.revisionLayout` answers the page table of the revision
+behind a page (`RitoRevisionLayout`): its spreads (`RitoSpreadPages`), the
+pages of each chapter it lays out (`RitoChapterPages`) and where its TOC
+entries land (`RitoTocTargetPage`). A page shown from a fresh request is
+laid out with its chapter alone, so the table covers that chapter and
+counts pages from zero; once the whole book is adopted it covers the
+book. `peekSpread` publishes any spread the table lists as a prepared
+read-only artifact at the cost of a peeked turn, and `commitSpread` makes
+it the visible page with a compare-and-swap, so a jump to a known page no
+longer goes through a locator and a layout request.
+
+### Hit entries say what they are
+
+Each `RitoHitEntry` carries the engine's classification — `RitoHitKind`
+`text`, `link`, `image`, `footnote` or `footnotePending` — and, for a
+link, where it leads (`targetLocator`) and what its destination is called
+(`destinationLabel`). `RitoHitResolver` decides a tap by the kind and no
+longer infers it from the fields an entry happens to carry, so a tap
+resolves the way it does in the web reader.
+
+### Geometry on every page of a range
+
+`textInteraction` and `exactSourceRange` take `everyPage`: rects and caret
+geometry then reach every page of the revision the range covers, each in
+the display-list space of the spread that draws its page, so a host can
+hold a selection or a highlight across spreads from one artifact. Without
+it an answer covers the pages the artifact draws, as before.
+
+### Faces the host cannot load
+
+`RitoReaderSession.markFontFamiliesUnavailable` tells the engine of
+publication faces the platform refused to load, by the family an artifact
+lists them under. The next request lays out without them, so a run is
+never measured with one face and painted with another.
+
+### Overrides that yield to the publication
+
+`RitoLayoutRequest.lineHeightForce` and `fontFamilyForce` say whether the
+line-height and font-family overrides outrank the publication's own
+declarations. Both default to `true`, which is what the overrides did
+until now.
+
+### Protocol and breaking changes
+
+The artifact protocol is version 6 (was 5): a hit entry gains its kind,
+target locator and destination label. `RITOTIQ1` and `RITOESQ1` end with
+the every-page flag, `RITONVQ1`/`RITONVR1` gain the layout query and its
+page table, the layout request gains the two force flags, and `RITOSPQ1`
+asks for a spread by its position. The C ABI gains `rito_peek_spread` and
+`rito_mark_font_family_unavailable`. `RitoReaderGateway` gains
+`peekSpread`, which a custom gateway must implement
+(`markFontFamiliesUnavailable` is on the optional `RitoFontGateway`), and
+`RitoHitEntry.kind` is required of code that builds hit entries itself.
+
+### Faster layout changes
+
+The engine parses a publication's stylesheets once per worker instead of
+once per chapter per layout, and its layout cache evicts in logarithmic time
+(a full cache used to scan every entry on each insert, which made layouts
+after the first slower than the first).
+
+### Page turns and a reader controller
+
+`RitoReaderController` owns the page a session shows: turns, jumps and
+relayouts replace it and release the page they replaced, neighbours are
+peeked once per page and released with it, background pagination adopts
+the renumbered page by itself, and all session work runs one operation at
+a time. `RitoPageTurnController` turns pages over it with the web
+reader's physics and lifecycle (one start and exactly one end per turn,
+with an outcome), committing on the reader while the animation plays,
+prewarming neighbours and redrawing a page whose images land late.
+`RitoPageTurnView` paints the turn with `RitoPageTurnEffects.slide`,
+`cover`, `fade` or `none`, a layered effect, or an effect that paints the
+frame itself from the page images. How a turn moves and looks is the
+application's to replace: a frame tells an effect what is moving the turn
+(`phase`), how fast, and where the finger took hold and where it is
+(`touch`); an effect on a clock of its own asks for repaints (`repaint`);
+and a `RitoPageTurnPhysics` subclass decides how far a finger carries the
+turn (`travel`), how the ends of the book resist (`resist`), whether a
+release turns the page (`lands`) and the `Simulation` that carries the
+turn to rest (`settle`), which also decides when the turn is over. The
+controller's drag methods take the finger's position and its velocity as
+an `Offset`. A turn or a finger that arrives while a turn is on screen
+cuts into it: that turn ends once the reader has landed it, wherever its
+picture is, and the next begins where the page is and as fast as it moves
+(`RitoPageTurnPhysics.begins` says otherwise; a release is judged by how
+far the finger carried the turn, `RitoPageTurnRelease.from` being where it
+took it; `RitoPageTurnController.isMoving` is true while a turn or what is
+left of one is on screen).
+
+### Pages never wait for their images
+
+`RitoArtifactImageCache.prepare` returns its lease at once and each image
+joins it as it lands, so a page turn presents immediately. The lease is a
+`Listenable` and `RitoPageSurface` repaints from it: an image under a
+second on its way paints nothing, then its loading placeholder (a block
+tinted toward the text colour with a picture icon); a late image fades in
+over it in 150ms; a failed one paints a broken-picture placeholder. A
+read that failed because the host could not load the image's shard
+(`RitoTransientResourceFailure`) is read again after 2s, 5s and then every
+15s while a page shows the artifact, and at once when one shows it again.
+`RitoPreparedArtifact.imagesSettled` completes once every image has landed
+or failed, for a host capturing a finished page.
+
+### Publications delivered as shards
+
+`RitoReaderSession.openShards` opens a book split by `rito-pack` from its
+skeleton shard. The skeleton carries every chapter, stylesheet and font
+and every image's size, so opening, seeks, turns, peeks and whole-book
+pagination behave exactly as on a session opened from the whole EPUB.
+Each image sits in a shard of its own: the engine names it the first time
+the image is read, and the gateway loads it through the `loadShards`
+callback, hands it to the native session and retries the read. While the
+native worker is idle, the gateway supplies image shards ahead of need,
+nearest the chapter being read first, one at a time. Encrypted shards carry their own 32-byte keys.
+`ritoNativeStatusResourcePending` reports a call whose shards could not be
+supplied, with the shard ids in `RitoNativeException.pendingShards`; the C
+ABI gains `rito_open_shards_with_pinned_fonts`, `rito_supply_shard`,
+`rito_content_shards_near` and
+`RITO_STATUS_RESOURCE_PENDING`, whose `error_out` carries a `RITOPSH1`
+message.
+
+### Line heights match the web reader
+
+The engine now derives `line-height: normal` geometry — plain lines,
+ruby annotations and super/subscript lines — from the fonts it shapes
+with, the way Chromium does. A browser host used to measure these with
+the DOM while a native host fell back to shaped metrics, so the same
+book could paginate differently; both now get identical lines.
+
+### Selection runs through the engine, exactly as on the web
+
+`RitoReaderSession.textInteraction` answers the five queries a browser
+reader runs, with the same engine code: `RitoCaretQuery` (the caret at a
+point), `RitoRangeQuery` (the range between two carets, as when a handle
+is dropped), `RitoRangeToPointQuery` (a kept caret extended to a point,
+as while a handle or a character-wise drag moves),
+`RitoRangeFromPointsQuery` (the range two points span, widened to words
+or paragraphs) and `RitoMovementQuery` (a caret step by character, word,
+line, paragraph or chapter edge, keeping its column across vertical
+steps when the returned preferred positions are passed back). Word
+boundaries come from the engine's segmenter, so CJK text selects words
+the way it does in a browser. Points and geometry are in the artifact's
+display-list space, and a `RitoCaretAddress` names the revision behind
+the artifact it came from.
+
+### Annotation targets are built and located by the engine
+
+`RitoReaderSession.createAnnotationTarget` builds the target for a
+selection's source range and `resolveAnnotationTarget` locates a stored
+one, trying the source range (checked against its quote), then the quote
+with the best-matching context, then the stored offsets, then the
+length-scaled position, and returning the target re-anchored where it
+landed with the `RitoAnnotationLevel` that found it. A
+`RitoAnnotationTarget` carries the engine's canonical JSON in `json` —
+the bytes a browser host stores for the same range; persist it as it is
+— and its decoded contents, so the adapter never parses JSON.
+
+### Reading positions are the engine's answer
+
+`RitoReaderSession.tocEntryAtPage` names the TOC entry (its `tocId`) a
+page reads under — the last entry, in TOC order, whose target sits at or
+before it, the rule the web reader's active entry follows — and
+`tocEntryAtPosition` names the entry a source position reads under, on
+the source alone, for a stored highlight's chapter. `locate` places a
+stored locator in an artifact's revision (`RitoLocatedPage` with whether
+the artifact draws it, `RitoNotLaidOut`, or `RitoLocationUnavailable`), and
+`compareSourcePositions` orders two positions for a turn's direction. An
+empty `<a id/>` marker, an image id or an id after the last text now
+resolves where a browser scrolls to it instead of refusing the target.
+
+### Protocol
+
+The wire gains `RITOTIQ1`/`RITOTIR1`, `RITOANQ1`/`RITOANR1` and
+`RITONVQ1`/`RITONVR1`, and the C ABI gains `rito_resolve_text_interaction`,
+`rito_resolve_annotation` and `rito_resolve_navigation`.
+`RitoReaderGateway` gains `textInteraction`, `annotation` and
+`navigation`, so a custom gateway must implement all three.
+
 ## 0.4.0 - 2026-09-29
 
 ### A stored highlight is projected by the engine

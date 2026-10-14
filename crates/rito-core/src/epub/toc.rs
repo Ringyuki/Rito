@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use roxmltree::{Document, Node};
 
 use super::{
-    archive::EpubArchive, is_external_href, join_epub_href, opf_dir, EpubResult, ManifestItem,
+    is_external_href, join_epub_href, opf_dir, reader::PublicationReader, EpubResult, ManifestItem,
     PackageDocument, TocEntry,
 };
 
@@ -11,7 +11,7 @@ const EPUB_OPS_NAMESPACE: &str = "http://www.idpf.org/2007/ops";
 const NCX_MEDIA_TYPE: &str = "application/x-dtbncx+xml";
 
 pub(super) fn load_toc(
-    archive: &mut EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     package: &PackageDocument,
     opf_dir: &str,
 ) -> Vec<TocEntry> {
@@ -25,7 +25,7 @@ pub(super) fn load_toc(
 }
 
 fn load_nav_toc(
-    archive: &mut EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     manifest: &[ManifestItem],
     opf_dir: &str,
 ) -> Option<Vec<TocEntry>> {
@@ -40,7 +40,7 @@ fn load_nav_toc(
 }
 
 fn load_ncx_toc(
-    archive: &mut EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     manifest: &[ManifestItem],
     opf_dir: &str,
 ) -> Option<Vec<TocEntry>> {

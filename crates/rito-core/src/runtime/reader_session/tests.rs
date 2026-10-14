@@ -785,10 +785,11 @@ fn a_chapter_local_page_lays_images_out_with_their_real_dimensions() {
         .expect("full reference layout");
     let expected = (0..reference_revision.page_count)
         .map(|page_index| {
-            reference
-                .get_page_text_positions(&reference_revision.revision_id, page_index)
-                .expect("reference page text")
-                .text
+            crate::runtime::tests::revisions::page_text(
+                &reference,
+                &reference_revision.revision_id,
+                page_index,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -896,10 +897,11 @@ fn chapter_local_pages_match_the_whole_book_fragment_layout() {
     );
     let expected = (0..=20)
         .map(|page_index| {
-            reference
-                .get_page_text_positions(&reference_revision.revision_id, page_index)
-                .expect("reference page text")
-                .text
+            crate::runtime::tests::revisions::page_text(
+                &reference,
+                &reference_revision.revision_id,
+                page_index,
+            )
         })
         .collect::<Vec<_>>();
 
@@ -1045,7 +1047,7 @@ fn protocol_source_has_no_platform_or_dynamic_primary_wire_types() {
     assert!(!include_str!("types.rs").contains("usize"));
 }
 
-fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactRequest {
+pub(super) fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactRequest {
     ReaderArtifactRequest {
         session_id,
         request_id,
@@ -1063,6 +1065,8 @@ fn request(session_id: u64, request_id: u64, href: &str) -> ReaderArtifactReques
             root_font_size: 16.0,
             line_height_override: None,
             font_family_override: None,
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: ReaderLocator {
             href: href.to_owned(),
@@ -1089,7 +1093,7 @@ fn adjacent(
     }
 }
 
-fn adopt_initial(
+pub(super) fn adopt_initial(
     session: &mut ReaderSession,
     session_id: u64,
     candidate_artifact_id: u64,
@@ -1246,6 +1250,56 @@ fn peek_publishes_known_neighbors_without_foreground_side_effects() {
         .release_artifact(paginated_ahead.artifact_id)
         .expect("peeked artifact releases");
     assert_eq!(session.visible_artifact_id(), Some(next.artifact_id));
+}
+
+#[test]
+fn a_peek_leaves_a_pending_foreground_candidate_adoptable() {
+    let mut session =
+        open_test_session(124, long_chapter_window_fixture_epub()).expect("reader session opens");
+    let visible = session
+        .request_artifact(request(124, 1, ""))
+        .expect("source chapter resolves");
+    adopt_initial(&mut session, 124, visible.artifact_id);
+
+    // A host lays the chapter out again and, before it adopts the result,
+    // loads a neighbour of the page it still shows.
+    let candidate = session
+        .request_artifact(request(124, 2, ""))
+        .expect("replacement candidate resolves");
+    let peeked_next = session
+        .peek_adjacent(adjacent(
+            124,
+            3,
+            visible.artifact_id,
+            ReaderAdjacentDirection::Next,
+        ))
+        .expect("next spread peeks");
+    let peeked_spread = session
+        .peek_spread(ReaderSpreadRequest {
+            session_id: 124,
+            request_id: 4,
+            from_artifact_id: visible.artifact_id,
+            spread_index: 0,
+        })
+        .expect("spread peeks");
+    assert_eq!(
+        session.foreground_candidate_artifact_id(),
+        Some(candidate.artifact_id)
+    );
+
+    let ack = adopt_replacement(
+        &mut session,
+        124,
+        visible.artifact_id,
+        candidate.artifact_id,
+    );
+    assert_eq!(ack.intent_request_id, 2);
+    assert_eq!(session.visible_artifact_id(), Some(candidate.artifact_id));
+    for artifact_id in [peeked_next.artifact_id, peeked_spread.artifact_id] {
+        assert!(session
+            .release_artifact(artifact_id)
+            .expect("peeked artifact releases"));
+    }
 }
 
 #[test]
@@ -1454,7 +1508,7 @@ fn artifact_hits_carry_footnote_keys_that_read_back_directly() {
             .any(|hit| hit.href.is_some() && hit.footnote_key.is_none()),
         "ordinary links must stay unclassified: {hits:?}"
     );
-    assert!(!noteref.footnote_pending, "{noteref:?}");
+    assert_eq!(noteref.kind, ReaderHitKind::Footnote, "{noteref:?}");
     let key = noteref.footnote_key.clone().expect("key");
     assert!(
         key.contains('#'),
@@ -1629,6 +1683,8 @@ fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayout {
         root_font_size: config.root_font_size,
         line_height_override: config.line_height_override,
         font_family_override: config.font_family_override.clone(),
+        line_height_force: true,
+        font_family_force: true,
     }
 }
 
@@ -1809,88 +1865,44 @@ fn every_kitchen_sink_page_survives_display_list_encoding() {
 }
 
 #[test]
-fn selection_geometry_spans_the_injected_font_grid_box() {
-    // Chromium's native selection rect spans the font box (canvas
-    // fontBoundingBoxAscent/Descent), not the declared line box. With a
-    // 32px font on a 48px fixed line-height, the host grid below sums to
-    // 36px — geometry must serve 36, and 48 only when no grid metric was
-    // injected (the documented line-box fallback).
+fn selection_geometry_spans_the_font_grid_box() {
+    // Chromium's native selection rect spans the font box (the serving
+    // font's whole-pixel ascent and descent), not the declared line box:
+    // Tinos at 32px is 29 + 7 = 36 tall on a 48px fixed line-height.
     let chapter: &[u8] = br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p class="sel">HELLO GRID WORLD</p></body></html>"#;
-    let epub = || {
-        crate::runtime::tests::fixture::fixture_epub_with_chapter_and_stylesheet(
-            chapter,
-            ".sel { font-size: 32px; line-height: 48px; }",
-        )
-    };
-
-    let geometry_height = |with_grid: bool| -> f64 {
-        // Fresh session per round: metric injection converges the same
-        // measure → inject → relayout cycle the browser host drives.
-        let mut known: Vec<(String, f64, String)> = Vec::new();
-        for round in 0..6 {
-            let mut session = open_test_session(164, epub()).expect("reader session opens");
-            for (family, size, sample) in &known {
-                session.document_for_tests().set_host_line_metric(
-                    family,
-                    *size,
-                    sample,
-                    rito_inline::HostNormalLineMetric {
-                        height: (1.15 * size).round(),
-                        baseline: (0.9 * size).round(),
-                        grid: with_grid
-                            .then(|| ((0.90625 * size).round(), (0.21875 * size).round())),
-                        advance: None,
-                    },
-                );
-            }
-            let artifact = session
-                .request_artifact(request(164, 1, ""))
-                .expect("artifact resolves");
-            let requests = session
-                .document_for_tests()
-                .take_host_line_metric_requests();
-            if !requests.is_empty() {
-                for (family, _measure, size, sample) in requests {
-                    known.push((family, size, sample));
-                }
-                assert!(round < 5, "metric requests must converge");
-                continue;
-            }
-            let page = artifact.pages.first().expect("a page");
-            let run = page.text_runs.first().copied().expect("a text run");
-            let geometry = session
-                .get_text_range_geometry(ReaderTextRangeRequest {
-                    session_id: 164,
-                    artifact_id: artifact.artifact_id,
-                    page_index: page.page_index,
-                    start: ReaderTextPosition {
-                        block_index: run.block_index,
-                        line_index: run.line_index,
-                        run_index: run.run_index,
-                        char_index: 0,
-                    },
-                    end: ReaderTextPosition {
-                        block_index: run.block_index,
-                        line_index: run.line_index,
-                        run_index: run.run_index,
-                        char_index: 5,
-                    },
-                })
-                .expect("range resolves geometry");
-            return geometry.rects.first().expect("a rect").bounds.height;
-        }
-        unreachable!("loop returns once requests drain");
-    };
-
-    let grid_height = geometry_height(true);
-    assert!(
-        (grid_height - 36.0).abs() < 1e-9,
-        "with a host grid the rect spans the font box (29 + 7), got {grid_height}"
+    let epub = crate::runtime::tests::fixture::fixture_epub_with_chapter_and_stylesheet(
+        chapter,
+        ".sel { font-size: 32px; line-height: 48px; }",
     );
-    let fallback_height = geometry_height(false);
+    let mut session = open_test_session(164, epub).expect("reader session opens");
+    let artifact = session
+        .request_artifact(request(164, 1, ""))
+        .expect("artifact resolves");
+    let page = artifact.pages.first().expect("a page");
+    let run = page.text_runs.first().copied().expect("a text run");
+    let geometry = session
+        .get_text_range_geometry(ReaderTextRangeRequest {
+            session_id: 164,
+            artifact_id: artifact.artifact_id,
+            page_index: page.page_index,
+            start: ReaderTextPosition {
+                block_index: run.block_index,
+                line_index: run.line_index,
+                run_index: run.run_index,
+                char_index: 0,
+            },
+            end: ReaderTextPosition {
+                block_index: run.block_index,
+                line_index: run.line_index,
+                run_index: run.run_index,
+                char_index: 5,
+            },
+        })
+        .expect("range resolves geometry");
+    let height = geometry.rects.first().expect("a rect").bounds.height;
     assert!(
-        (fallback_height - 48.0).abs() < 1e-9,
-        "without a grid the rect falls back to the 48px line box, got {fallback_height}"
+        (height - 36.0).abs() < 1e-9,
+        "the rect spans the font box (29 + 7), got {height}"
     );
 }
 
@@ -1967,6 +1979,7 @@ fn exact_source_range_projects_a_durable_anchor_into_display_list_space() {
             artifact_id: artifact.artifact_id,
             href: FIXTURE_CHAPTER_HREF.to_owned(),
             range: fixture_source_range(0, 0, 15),
+            every_page: false,
         })
         .expect("a range in the first paragraph resolves");
 
@@ -2009,6 +2022,7 @@ fn exact_source_range_answers_for_a_page_this_artifact_does_not_draw() {
             artifact_id: artifact.artifact_id,
             href: FIXTURE_CHAPTER_HREF.to_owned(),
             range: fixture_source_range(47, 0, 15),
+            every_page: false,
         })
         .expect("a range later in the chapter resolves");
 
@@ -2042,6 +2056,7 @@ fn exact_source_range_reports_a_stale_anchor_instead_of_painting_over_it() {
             artifact_id: artifact.artifact_id,
             href: FIXTURE_CHAPTER_HREF.to_owned(),
             range: fixture_source_range(9_999, 0, 4),
+            every_page: false,
         })
         .expect_err("a node path outside the chapter fails");
     assert_eq!(missing.kind, ReaderErrorKind::EngineFailure);
@@ -2053,6 +2068,7 @@ fn exact_source_range_reports_a_stale_anchor_instead_of_painting_over_it() {
             artifact_id: artifact.artifact_id,
             href: "not-in-the-manifest.xhtml".to_owned(),
             range: fixture_source_range(0, 0, 4),
+            every_page: false,
         })
         .expect_err("an unknown href fails");
     assert_eq!(unknown_href.kind, ReaderErrorKind::EngineFailure);

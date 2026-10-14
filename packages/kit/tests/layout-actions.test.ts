@@ -1,9 +1,11 @@
+import lifecycle from './fixtures/turn-lifecycle.json';
 import { describe, expect, it, vi } from 'vitest';
 import type { ReadingPosition } from '../src/interaction/index';
 import type { LayoutPositionPlan } from '../src/interaction/position/tracker';
 import type { Internals } from '../src/controller/core/internals';
 import { buildLayoutActions, commitLayoutChange } from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
+import { transitionLifecycle } from '../src/controller/core/transition-lifecycle';
 
 function createMocks(options?: {
   readonly setTypographyChanged?: boolean;
@@ -27,7 +29,7 @@ function createMocks(options?: {
     manifestHrefMap: new Map(),
     dpr: 2,
     getCanvasSize,
-    getChapterTextIndices: vi.fn(() => new Map()),
+    getLayoutGeometry: () => ({ spreadMode: 'single' }),
     setTypography,
     setSpreadMode,
     setTheme,
@@ -91,6 +93,7 @@ function createMocks(options?: {
       misses: new Set(),
       pending: new Map(),
     },
+    searchResults: { stale: false, refresh: null },
   };
   const compositeNow = vi.fn(() => {
     annotationStateAtComposite = {
@@ -192,6 +195,20 @@ describe('buildLayoutActions', () => {
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
     expect(spies.invalidateSelection).toHaveBeenCalledOnce();
     expect(internals.coordState.contentInteractionGeneration).toBe(7);
+  });
+
+  it('ends a turn in flight as interrupted when a relayout commits', () => {
+    const { internals, runtime, emitter, spies } = createMocks();
+    transitionLifecycle(emitter).begin('forward');
+    spies.emit.mockClear();
+
+    buildLayoutActions(internals, emitter, runtime).setTypography({ fontSize: 18 });
+
+    expect(spies.reset).toHaveBeenCalledOnce();
+    expect(spies.emit).toHaveBeenCalledWith('transitionEnd', {
+      direction: 'forward',
+      outcome: lifecycle.ends['relayout-during-turn'][0],
+    });
   });
 
   it('invalidates native annotation geometry before compositing a replacement revision', () => {
@@ -457,114 +474,5 @@ describe('buildLayoutActions', () => {
     expect(reader.setSpreadMode).toHaveBeenCalledWith('double');
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
-  });
-
-  it('finishes a layout-owned preview after exact composite and before reentrant public events', () => {
-    const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
-    const order: string[] = [];
-    fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
-    fixture.spies.notifyActiveSpread.mockImplementation(() => {
-      order.push('notify');
-    });
-    fixture.spies.compositeNow.mockImplementation(() => {
-      order.push('composite');
-    });
-    fixture.spies.emit.mockImplementation((event: string) => {
-      order.push(event);
-    });
-    const finish = vi.fn(() => {
-      order.push('end');
-      expect(fixture.internals.currentSpread).toBe(1);
-      expect(fixture.spies.compositeNow).toHaveBeenCalledOnce();
-    });
-    Object.assign(fixture.runtime, {
-      terminateChapterLocalForLayout: vi.fn(() => finish),
-    });
-
-    commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
-
-    expect(finish).toHaveBeenCalledOnce();
-    expect(order).toEqual([
-      'notify',
-      'composite',
-      'end',
-      'annotationHover',
-      'layoutChange',
-      'spreadChange',
-    ]);
-  });
-
-  it('releases a layout-owned preview even when an exact reader listener throws', () => {
-    const fixture = createMocks({ currentSpread: 0, totalSpreads: 2 });
-    const failure = new Error('reader listener failed');
-    const finish = vi.fn();
-    fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
-    fixture.spies.notifyActiveSpread.mockImplementation(() => {
-      throw failure;
-    });
-    Object.assign(fixture.runtime, {
-      terminateChapterLocalForLayout: vi.fn(() => finish),
-    });
-
-    expect(() => {
-      commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
-    }).toThrow(failure);
-    expect(finish).toHaveBeenCalledOnce();
-  });
-
-  it('composites render-scale exact content before completing a provisional transition', () => {
-    const fixture = createMocks({ currentSpread: 1 });
-    const order: string[] = [];
-    fixture.spies.compositeNow.mockImplementation(() => {
-      order.push('composite');
-    });
-    fixture.spies.notifyActiveSpread.mockImplementation(() => {
-      order.push('notify');
-    });
-    const finish = vi.fn(() => {
-      order.push('end');
-    });
-    Object.assign(fixture.runtime, {
-      terminateChapterLocalForLayout: vi.fn(() => finish),
-    });
-
-    buildLayoutActions(fixture.internals, fixture.emitter, fixture.runtime).setRenderScale(2);
-
-    expect(order).toEqual(['composite', 'notify', 'end']);
-    expect(fixture.spies.scheduleComposite).not.toHaveBeenCalled();
-    expect(fixture.internals.renderScale).toBe(2);
-  });
-
-  it('releases a layout-owned preview when render-scale canvas sync throws', () => {
-    const fixture = createMocks({ currentSpread: 1 });
-    const failure = new Error('pool resize failed');
-    let finalizing = false;
-    const finish = vi.fn(() => {
-      finalizing = false;
-    });
-    Object.assign(fixture.runtime, {
-      terminateChapterLocalForLayout: vi.fn(() => {
-        finalizing = true;
-        return finish;
-      }),
-    });
-    fixture.spies.resize.mockImplementationOnce(() => {
-      throw failure;
-    });
-    const actions = buildLayoutActions(fixture.internals, fixture.emitter, fixture.runtime);
-
-    expect(() => {
-      actions.setRenderScale(2);
-    }).toThrow(failure);
-    expect(finalizing).toBe(false);
-    expect(finish).toHaveBeenCalledOnce();
-    expect(fixture.spies.compositeNow).not.toHaveBeenCalled();
-
-    expect(() => {
-      actions.setRenderScale(3);
-    }).not.toThrow();
-    expect(finalizing).toBe(false);
-    expect(finish).toHaveBeenCalledTimes(2);
-    expect(fixture.spies.compositeNow).toHaveBeenCalledOnce();
   });
 });

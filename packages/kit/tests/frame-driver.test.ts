@@ -246,47 +246,7 @@ describe('FrameDriver', () => {
     driver.dispose();
   });
 
-  it('notifies a provisional owner only after its raster reaches the display surface', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
-    pool.resize(800, 600, 1);
-    pool.assignSlot('curr', 0);
-    pool.ensureContent('curr', () => true);
-    const composited = vi.fn();
-    const stage = pool.beginProvisionalStage(0, 'forward', composited);
-    expect(pool.ensureProvisionalStage(stage.token, () => true)).toBe(true);
-    const td = createTransitionDriver();
-    td.viewportWidth = 800;
-    const driver = createFrameDriver({
-      surface,
-      pool,
-      transitionDriver: td,
-      contentRenderer: vi.fn(() => true),
-      overlayProvider: () => [],
-      getBackingRatio: () => 1,
-    });
-
-    expect(composited).not.toHaveBeenCalled();
-    td.goToTarget('forward', 0, 0);
-    driver.scheduleComposite();
-    expect(composited).not.toHaveBeenCalled();
-
-    flushRaf(16);
-
-    expect(surface.drawImage).toHaveBeenCalledWith(
-      stage.slot.content,
-      expect.any(Number),
-      0,
-      800,
-      600,
-    );
-    expect(composited).toHaveBeenCalledOnce();
-    flushRaf(32);
-    expect(composited).toHaveBeenCalledOnce();
-    driver.dispose();
-  });
-
-  it('draws the previous slot during chained forward page turns', () => {
+  it('draws the page a cut turn was leaving until the next turn has crossed its own start', () => {
     const surface = createMockSurface();
     const pool = createPageBufferPool();
     pool.resize(800, 600, 1);
@@ -295,6 +255,9 @@ describe('FrameDriver', () => {
     pool.assignSlot('next', 2);
     const td = createTransitionDriver();
     td.viewportWidth = 800;
+    td.onSettled((event) => {
+      if (event.committed) pool.rotateForward();
+    });
 
     const driver = createFrameDriver({
       surface,
@@ -305,27 +268,35 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('forward', 1, 2, 400);
+    // A turn to spread 2 is cut into part of the way: it lands, and 2 is the current spread.
+    td.goToTarget('forward', 1, 2);
+    td.step(80);
+    td.handOver();
+    pool.assignSlot('next', 3);
+    td.goToTarget('forward', 2, 3);
     driver.compositeNow();
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const drawImage = vi.mocked(surface.ctx.drawImage);
-    expect(drawImage.mock.calls[0]?.[0]).toBe(pool.prev.content);
-    expect(drawImage.mock.calls[1]?.[0]).toBe(pool.curr.content);
-    expect(drawImage.mock.calls[2]?.[0]).toBe(pool.next.content);
+    const drawn = vi.mocked(surface.ctx.drawImage).mock.calls.map((call) => call[0]);
+    // Spread 2 still arriving, spread 1 still leaving; nothing of spread 3 yet.
+    expect(drawn).toEqual([pool.curr.content, pool.prev.content]);
+    expect(pool.getSlotFor(1)).toBe('prev');
 
     driver.dispose();
   });
 
-  it('draws the next slot during chained backward page turns', () => {
+  it('draws the page a cut turn back was leaving, on the other side', () => {
     const surface = createMockSurface();
     const pool = createPageBufferPool();
     pool.resize(800, 600, 1);
-    pool.assignSlot('prev', 0);
-    pool.assignSlot('curr', 1);
-    pool.assignSlot('next', 2);
+    pool.assignSlot('prev', 1);
+    pool.assignSlot('curr', 2);
+    pool.assignSlot('next', 3);
     const td = createTransitionDriver();
     td.viewportWidth = 800;
+    td.onSettled((event) => {
+      if (event.committed) pool.rotateBackward();
+    });
 
     const driver = createFrameDriver({
       surface,
@@ -336,14 +307,17 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('backward', 1, 0, -400);
+    td.goToTarget('backward', 2, 1);
+    td.step(80);
+    td.handOver();
+    pool.assignSlot('prev', 0);
+    td.goToTarget('backward', 1, 0);
     driver.compositeNow();
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const drawImage = vi.mocked(surface.ctx.drawImage);
-    expect(drawImage.mock.calls[0]?.[0]).toBe(pool.next.content);
-    expect(drawImage.mock.calls[1]?.[0]).toBe(pool.curr.content);
-    expect(drawImage.mock.calls[2]?.[0]).toBe(pool.prev.content);
+    const drawn = vi.mocked(surface.ctx.drawImage).mock.calls.map((call) => call[0]);
+    expect(drawn).toEqual([pool.curr.content, pool.next.content]);
+    expect(pool.getSlotFor(2)).toBe('next');
 
     driver.dispose();
   });
@@ -496,5 +470,60 @@ describe('FrameDriver', () => {
     flushRaf();
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(surface.ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it('hands a painted effect the finger, the phase, the spine and each page as last painted', () => {
+    const surface = createMockSurface();
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 0);
+    pool.assignSlot('next', 1);
+    const seen: { frame: unknown; spine: number; version: number | undefined }[] = [];
+    const td = createTransitionDriver({
+      effect: {
+        paint(scene, frame) {
+          seen.push({ frame, spine: scene.spine, version: scene.page('curr')?.version });
+        },
+      },
+    });
+    // The surface is 800 device pixels across a 400 px viewport.
+    td.viewportWidth = 400;
+    td.spine = 200;
+    const driver = createFrameDriver({
+      surface,
+      pool,
+      transitionDriver: td,
+      contentRenderer: vi.fn(() => true),
+      overlayProvider: () => [],
+      getBackingRatio: () => 2,
+    });
+    td.startTracking('forward', 0, 1, 0);
+    td.updateTracking(-50, 16, {
+      origin: { x: 300, y: 100 },
+      position: { x: 250, y: 90 },
+      farthest: { x: 240, y: 95 },
+    });
+    driver.compositeNow();
+
+    expect(seen[0]).toMatchObject({
+      spine: 400,
+      frame: {
+        dx: -100,
+        width: 800,
+        phase: 'held',
+        velocity: 0,
+        touch: {
+          origin: { x: 600, y: 200 },
+          position: { x: 500, y: 180 },
+          farthest: { x: 480, y: 190 },
+        },
+      },
+    });
+
+    // The page is painted again (an image landed): its version moves on.
+    driver.markContentDirty(0);
+    flushRaf();
+    expect(seen[1]?.version).toBeGreaterThan(seen[0]?.version ?? Infinity);
+    driver.dispose();
   });
 });

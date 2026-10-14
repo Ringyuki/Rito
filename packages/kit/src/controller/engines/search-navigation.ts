@@ -7,9 +7,20 @@ export interface SearchNavDeps {
   reader: Reader;
   nav: ReturnType<typeof createNavigation>;
   getCurrentSpread: () => number;
+  /** Whether the results name pages of a layout that has since been replaced. */
+  resultsAreStale: () => boolean;
 }
 
 export function goToSearchResult(result: SearchResult, deps: SearchNavDeps): void {
+  // A result's page belongs to the layout it was found in; its source is
+  // the same place in any layout.
+  if (deps.resultsAreStale() && result.source?.status === 'resolved') {
+    deps.nav.navigateToLocator({
+      href: result.source.href,
+      sourcePoint: result.source.sourceRange.start,
+    });
+    return;
+  }
   const spreadIdx = deps.reader.findSpread(result.pageIndex);
   if (spreadIdx === undefined) return;
 

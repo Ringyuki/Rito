@@ -1,5 +1,7 @@
+import { toast } from 'sonner';
 import { useCallback } from 'react';
 import {
+  Bug,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -21,6 +23,7 @@ import {
 import { ANNOTATION_COLORS } from '@/components/annotation-toolbar';
 import { FileActionsContextMenu } from '@/components/file-actions';
 import { useFileLoader } from '@/hooks/use-file-loader';
+import { copyDebugReport } from '@/lib/debug-log';
 import type { useReader } from '@/hooks/use-reader';
 
 interface Props {
@@ -31,6 +34,7 @@ interface Props {
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onLoadDemo: () => void;
+  onLoadShardedDemo: () => void;
   onFileLoad: (data: ArrayBuffer) => void;
   children: React.ReactNode;
 }
@@ -43,6 +47,7 @@ export function ReaderContextMenu({
   onOpenSearch,
   onOpenSettings,
   onLoadDemo,
+  onLoadShardedDemo,
   onFileLoad,
   children,
 }: Props) {
@@ -56,22 +61,33 @@ export function ReaderContextMenu({
     void navigator.clipboard.writeText(reader.selection.text).catch(() => {
       // Clipboard access may be denied; swallow silently.
     });
-    reader.controller?.clearSelection();
-  }, [reader.controller, reader.selection.text]);
+    reader.selection.clear();
+  }, [reader.selection]);
 
   const handleHighlight = useCallback(() => {
     if (!reader.selection.hasSelection) return;
-    reader.annotations.add({
-      kind: 'highlight',
-      color: ANNOTATION_COLORS[0].value,
+    reader.annotations
+      .add({ kind: 'highlight', color: ANNOTATION_COLORS[0].value })
+      .catch((error: unknown) => {
+        toast.error('Could not add the highlight', {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      });
+    reader.selection.clear();
+  }, [reader.annotations, reader.selection]);
+
+  const handleCopyDebugLog = useCallback(() => {
+    void copyDebugReport().then((outcome) => {
+      toast.success(outcome === 'copied' ? 'Debug log copied' : 'Debug log saved as a file', {
+        description: 'Paste it into the bug report.',
+      });
     });
-    reader.controller?.clearSelection();
-  }, [reader.annotations, reader.controller, reader.selection.hasSelection]);
+  }, []);
 
   const handleSearchSelection = useCallback(() => {
     if (!reader.selection.text) return;
     const text = reader.selection.text;
-    reader.controller?.clearSelection();
+    reader.selection.clear();
     reader.search.setQuery(text);
     reader.setSearchOpen(true);
   }, [reader]);
@@ -144,11 +160,17 @@ export function ReaderContextMenu({
           Reader Settings
         </ContextMenuItem>
 
+        <ContextMenuItem onSelect={handleCopyDebugLog} data-testid="reader-copy-debug-log">
+          <Bug className="h-4 w-4" />
+          Export Debug Log
+        </ContextMenuItem>
+
         <ContextMenuSeparator />
 
         <FileActionsContextMenu
           isLoading={reader.isLoading}
           onLoadDemo={onLoadDemo}
+          onLoadShardedDemo={onLoadShardedDemo}
           onOpenFile={openFilePicker}
         />
       </ContextMenuContent>

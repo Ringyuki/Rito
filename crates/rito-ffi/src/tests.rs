@@ -5,18 +5,24 @@ use std::{
 };
 
 use rito_core::runtime::{
-    decode_reader_artifact, decode_reader_background_advance, decode_reader_background_handoff_ack,
-    decode_reader_footnote, decode_reader_foreground_handoff_ack, decode_reader_publication,
-    decode_reader_resource, decode_reader_search_response, decode_reader_text_range_geometry,
-    encode_reader_adjacent_request, encode_reader_artifact_request,
+    decode_reader_annotation_response, decode_reader_artifact, decode_reader_background_advance,
+    decode_reader_background_handoff_ack, decode_reader_footnote,
+    decode_reader_foreground_handoff_ack, decode_reader_publication, decode_reader_resource,
+    decode_reader_search_response, decode_reader_text_interaction_response,
+    decode_reader_text_range_geometry, encode_reader_adjacent_request,
+    encode_reader_annotation_request, encode_reader_artifact_request,
     encode_reader_background_handoff, encode_reader_background_request,
     encode_reader_foreground_handoff, encode_reader_search_request,
-    encode_reader_text_range_request, ReaderAdjacentDirection, ReaderAdjacentRequest,
-    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderBackgroundState,
-    ReaderError, ReaderErrorKind, ReaderForegroundHandoff, ReaderLayout, ReaderLocator,
-    ReaderResourceKind, ReaderSearchRequest, ReaderSpreadMode, ReaderTextPosition,
-    ReaderTextRangeRequest, ReaderTextRenderingProfile, READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES,
-    READER_FOREGROUND_HANDOFF_WIRE_BYTES, READER_WIRE_HEADER_BYTES,
+    encode_reader_text_interaction_request, encode_reader_text_range_request,
+    ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderAnnotationLevel, ReaderAnnotationQuery,
+    ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderBackgroundState, ReaderError, ReaderErrorKind,
+    ReaderForegroundHandoff, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderResourceKind,
+    ReaderSearchRequest, ReaderSelectionGranularity, ReaderSourceRange, ReaderSpreadMode,
+    ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResult,
+    ReaderTextPoint, ReaderTextPosition, ReaderTextRangeRequest, ReaderTextRenderingProfile,
+    READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_BYTES,
+    READER_WIRE_HEADER_BYTES,
 };
 
 use crate::{
@@ -25,12 +31,12 @@ use crate::{
     rito_commit_peeked_artifact, rito_dispose, rito_get_text_range_geometry, rito_open,
     rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote, rito_read_publication,
     rito_read_resource, rito_release_artifact, rito_request_adjacent, rito_request_artifact,
-    rito_search, RitoOwnedBuffer, RitoPinnedFontFace, RITO_ACTOR_MAX_IN_FLIGHT,
-    RITO_PINNED_FONT_ROLE_SERIF, RITO_PUBLICATION_WIRE_BYTES_MAX, RITO_RESOURCE_KIND_IMAGE,
-    RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_ALREADY_EXISTS, RITO_STATUS_BUSY,
-    RITO_STATUS_INVALID_ARGUMENT, RITO_STATUS_NOT_FOUND, RITO_STATUS_OK, RITO_STATUS_QUEUE_FULL,
-    RITO_STATUS_SESSION_TERMINATED, RITO_STATUS_STALE_REQUEST, RITO_STATUS_TARGET_NOT_PUBLISHED,
-    RITO_STATUS_UNSUPPORTED_PROFILE,
+    rito_resolve_annotation, rito_resolve_text_interaction, rito_search, RitoOwnedBuffer,
+    RitoPinnedFontFace, RITO_ACTOR_MAX_IN_FLIGHT, RITO_PINNED_FONT_ROLE_SERIF,
+    RITO_PUBLICATION_WIRE_BYTES_MAX, RITO_RESOURCE_KIND_IMAGE, RITO_STATUS_ADJACENT_PENDING,
+    RITO_STATUS_ALREADY_EXISTS, RITO_STATUS_BUSY, RITO_STATUS_INVALID_ARGUMENT,
+    RITO_STATUS_NOT_FOUND, RITO_STATUS_OK, RITO_STATUS_QUEUE_FULL, RITO_STATUS_SESSION_TERMINATED,
+    RITO_STATUS_STALE_REQUEST, RITO_STATUS_TARGET_NOT_PUBLISHED, RITO_STATUS_UNSUPPORTED_PROFILE,
 };
 
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(10_000);
@@ -51,6 +57,7 @@ fn ffi_status_mapping_keeps_actionable_reader_failures_distinct() {
         let error = FfiError::from(ReaderError {
             kind,
             message: "typed status probe".to_owned(),
+            pending_shards: Vec::new(),
         });
         assert_eq!(error.status, expected);
     }
@@ -682,22 +689,22 @@ struct ResourceResult {
     error: String,
 }
 
-struct OpenResult {
-    status: u32,
-    artifact: Vec<u8>,
-    error: String,
+pub(crate) struct OpenResult {
+    pub(crate) status: u32,
+    pub(crate) artifact: Vec<u8>,
+    pub(crate) error: String,
 }
 
-struct OwnedWireResult {
-    status: u32,
-    wire: Vec<u8>,
-    error: String,
+pub(crate) struct OwnedWireResult {
+    pub(crate) status: u32,
+    pub(crate) wire: Vec<u8>,
+    pub(crate) error: String,
 }
 
 /// Chapter-local pagination shapes with pinned faces only, so the shared
 /// open helper routes through the pinned-fonts entry point; the bare
 /// `rito_open` keeps its own fail-closed test.
-fn call_open(publication: &[u8], request: &[u8]) -> OpenResult {
+pub(crate) fn call_open(publication: &[u8], request: &[u8]) -> OpenResult {
     let pinned_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
     let pinned = fs::read(pinned_path).expect("pinned face is readable");
@@ -921,17 +928,17 @@ fn call_dispose(session_id: u64) -> u32 {
     status
 }
 
-fn next_session_id() -> u64 {
+pub(crate) fn next_session_id() -> u64 {
     NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-fn publication() -> Vec<u8> {
+pub(crate) fn publication() -> Vec<u8> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../packages/rito/tests/fixtures/books/book-10.epub");
     fs::read(path).expect("book-10 fixture is readable")
 }
 
-fn request(session_id: u64) -> ReaderArtifactRequest {
+pub(crate) fn request(session_id: u64) -> ReaderArtifactRequest {
     ReaderArtifactRequest {
         session_id,
         request_id: 1,
@@ -949,6 +956,8 @@ fn request(session_id: u64) -> ReaderArtifactRequest {
             root_font_size: 16.0,
             line_height_override: None,
             font_family_override: None,
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: ReaderLocator {
             href: "OEBPS/Text/Section001.xhtml".to_owned(),
@@ -1158,7 +1167,11 @@ fn footnote_hits_read_back_through_the_abi() {
             .pages
             .iter()
             .flat_map(|page| page.hits.iter())
-            .find_map(|hit| hit.footnote_key.clone().filter(|_| !hit.footnote_pending))
+            .find_map(|hit| {
+                hit.footnote_key
+                    .clone()
+                    .filter(|_| hit.kind == ReaderHitKind::Footnote)
+            })
         {
             found = Some((current.artifact_id, key));
             break;
@@ -1323,5 +1336,113 @@ fn search_crosses_the_abi_with_locators_and_context() {
     assert!(hit.context.contains(&needle), "{hit:?}");
     // A durable anchor is what a host stores; page indexes move.
     assert!(hit.locator.is_some(), "{hit:?}");
+    call_dispose(session_id);
+}
+
+pub(crate) fn call_owned_wire(
+    call: impl FnOnce(&mut RitoOwnedBuffer, &mut RitoOwnedBuffer) -> u32,
+) -> OwnedWireResult {
+    let mut wire = RitoOwnedBuffer::EMPTY;
+    let mut error = RitoOwnedBuffer::EMPTY;
+    let status = call(&mut wire, &mut error);
+    let result = OwnedWireResult {
+        status,
+        wire: copy_owned_buffer_for_test(&wire),
+        error: String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned(),
+    };
+    rito_buffer_free(&mut wire);
+    rito_buffer_free(&mut error);
+    result
+}
+
+#[test]
+fn a_word_selection_becomes_a_stored_annotation_across_the_abi() {
+    let session_id = next_session_id();
+    let open_wire = encode_reader_artifact_request(&request(session_id)).expect("request encodes");
+    let opened = call_open(&publication(), &open_wire);
+    assert_eq!(opened.status, RITO_STATUS_OK, "{}", opened.error);
+    let mut artifact = decode_reader_artifact(&opened.artifact).expect("artifact decodes");
+    for request_id in 2..14 {
+        if artifact
+            .pages
+            .iter()
+            .any(|page| !page.hits.is_empty() && !page.text_runs.is_empty())
+        {
+            break;
+        }
+        let wire = adjacent_wire(session_id, request_id, artifact.artifact_id);
+        let next = call_request_adjacent(session_id, &wire);
+        if next.status != RITO_STATUS_OK {
+            break;
+        }
+        artifact = decode_reader_artifact(&next.artifact).expect("next decodes");
+    }
+    let page = artifact
+        .pages
+        .iter()
+        .find(|page| !page.text_runs.is_empty())
+        .expect("a page with text");
+    let hit = page.hits.first().expect("text pages publish hits");
+    let point = ReaderTextPoint {
+        page_index: page.page_index,
+        x: hit.bounds.x + hit.bounds.width / 2.0,
+        y: hit.bounds.y + hit.bounds.height / 2.0,
+    };
+
+    let wire = encode_reader_text_interaction_request(&ReaderTextInteractionRequest {
+        session_id,
+        artifact_id: artifact.artifact_id,
+        query: ReaderTextInteractionQuery::RangeFromPoints {
+            anchor: point,
+            focus: point,
+            granularity: ReaderSelectionGranularity::Word,
+        },
+        every_page: false,
+    })
+    .expect("interaction encodes");
+    let answered = call_owned_wire(|out, error| {
+        rito_resolve_text_interaction(session_id, wire.as_ptr(), wire.len() as u64, out, error)
+    });
+    assert_eq!(answered.status, RITO_STATUS_OK, "{}", answered.error);
+    let response = decode_reader_text_interaction_response(&answered.wire).expect("decodes");
+    let ReaderTextInteractionResult::Selection(word) = response.result else {
+        panic!("a hit's centre selects a word: {:?}", response.result);
+    };
+    assert!(!word.selection.selected_text.is_empty());
+
+    let wire = encode_reader_annotation_request(&ReaderAnnotationRequest {
+        session_id,
+        query: ReaderAnnotationQuery::Create {
+            href: word.selection.source_start_href.clone(),
+            range: ReaderSourceRange {
+                start: word.selection.source_start.clone(),
+                end: word.selection.source_end.clone(),
+            },
+        },
+    })
+    .expect("annotation encodes");
+    let created = call_owned_wire(|out, error| {
+        rito_resolve_annotation(session_id, wire.as_ptr(), wire.len() as u64, out, error)
+    });
+    assert_eq!(created.status, RITO_STATUS_OK, "{}", created.error);
+    let created = decode_reader_annotation_response(&created.wire).expect("decodes");
+    assert_eq!(created.level, ReaderAnnotationLevel::Created);
+    let target = created.target.clone().expect("a created target");
+    assert_eq!(target.exact, word.selection.selected_text);
+
+    let wire = encode_reader_annotation_request(&ReaderAnnotationRequest {
+        session_id,
+        query: ReaderAnnotationQuery::Resolve {
+            target_json: target.json.clone(),
+        },
+    })
+    .expect("annotation encodes");
+    let found = call_owned_wire(|out, error| {
+        rito_resolve_annotation(session_id, wire.as_ptr(), wire.len() as u64, out, error)
+    });
+    assert_eq!(found.status, RITO_STATUS_OK, "{}", found.error);
+    let found = decode_reader_annotation_response(&found.wire).expect("decodes");
+    assert_eq!(found.level, ReaderAnnotationLevel::Exact);
+    assert_eq!(found.target, created.target);
     call_dispose(session_id);
 }

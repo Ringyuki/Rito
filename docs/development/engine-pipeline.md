@@ -120,24 +120,35 @@ native hosts use the C ABI in `crates/rito-ffi`.
 
 ## Runtime
 
-`rito-core::runtime` owns document handles, layout revisions, the
-per-revision frame cache, resources and interaction geometry. A layout
-change creates a revision; hosts request spread frames (lowered bytes
-plus metadata) and resources against that revision. Interaction reads
-(page targets, text carets and ranges, search, source-anchored ranges,
-page semantics) are served from the fragment page artifacts, never
-inferred from paint.
+`rito-core::runtime` owns documents, layout revisions, resources,
+interaction geometry and the reader session, the one protocol a host
+speaks. A host asks the session for the page at a locator under a
+layout and gets an artifact: a spread's lowered paint bytes, its hit
+targets and semantics, and the fonts and images it draws. Interaction
+reads (page targets, text carets and ranges, search, source-anchored
+ranges, page semantics) name an artifact and are served from the
+fragment page artifacts, never inferred from paint.
 
-Creating a revision paginates the whole book in one call, so page
-numbers are exact from the first frame a host asks for, but the revision
-does not keep the book's pages. The pass records, per chapter, its page
+A layout the session has not seen is answered in two revisions. The
+first paginates the one chapter the locator is in, so the page costs a
+chapter's work; its pages count from that chapter's first. The second
+is built by `advance_background_once`, which the host calls between its
+own work: each call advances the footnote index by one step, and the call
+after the index is complete paginates the whole book at once. The host
+then adopts it:
+the visible artifact is exchanged, by compare-and-swap, for the same
+page of the book revision. A chapter lays out the same alone as it does
+inside the book, so the exchange moves nothing on screen.
+
+A book revision's page numbers are exact, but the revision does not keep
+the book's pages. The pass records, per chapter, its page
 count and the inputs a rebuild needs, merges the book's anchors, and
 collects each page's text and run offsets for search; then it drops the
 chapter. A page's fragment tree and its artifact are rebuilt when a
 query reaches that page and live in a bounded working set of recently
 read chapters. Rebuilding is exact rather than approximate: a chapter
-lays out the same alone as it does inside a warmed book, which two
-tests pin, and a rebuild whose page count disagrees with the recorded
+lays out the same alone as it does inside a warmed book, which tests
+pin, and a rebuild whose page count disagrees with the recorded
 one fails the read instead of serving a page the book does not have.
 
 ## Doctrine
@@ -145,6 +156,8 @@ one fails the read instead of serving a page the book does not have.
 - The browser is the oracle. A layout or paint rule is proven by the
   pixel walk against pinned Chromium, not by a unit test alone.
 - Fail closed or degrade with a record. No stage guesses.
-- Typed end to end. No JSON, CSS token strings or host-side inference on
-  the production path; JSON exists only in the test-support fixture
-  codec the paint-parity instrument reads and writes.
+- Typed end to end. No JSON, CSS token strings or host-side inference in
+  the display list or on its wire; there JSON exists only in the
+  test-support fixture codec the paint-parity instrument reads and
+  writes. (Annotation targets and the pinned-font policy's metadata are
+  JSON by design.)

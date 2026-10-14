@@ -31,13 +31,14 @@ export async function captureNativeSpreadPosition(
   interactions: NativePositionInteractions,
   isCurrent: () => boolean,
   publish: (position: ReadingPosition) => void,
+  knownProgress: () => number = () => 0,
 ): Promise<void> {
   const pageIndexes = spreadPageIndexes(getLayout(), spreadIndex);
   for (const pageIndex of pageIndexes) {
     const anchor = await interactions.getPageReadingAnchor(pageIndex);
     if (!isCurrent() || anchor === undefined) return;
     if (anchor.status === 'resolved') {
-      publish(positionFromAnchor(anchor, getLayout()));
+      publish(positionFromAnchor(anchor, getLayout(), knownProgress()));
       return;
     }
   }
@@ -66,11 +67,12 @@ export function withPortableLocator(
 export function positionFromAnchor(
   anchor: Extract<ReaderPageReadingAnchor, { readonly status: 'resolved' }>,
   layout: PositionLayout,
+  knownProgress = 0,
 ): ReadingPosition {
   return {
     sourceLocator: anchor.locator,
     projection: { spreadIndex: anchor.spreadIndex, pageIndex: anchor.pageIndex },
-    progress: progressForPage(anchor.pageIndex, layout),
+    progress: progressForPage(anchor.pageIndex, layout, knownProgress),
     timestamp: Date.now(),
   };
 }
@@ -84,7 +86,7 @@ export function positionFromResolution(
     ...position,
     sourceLocator: resolution.locator,
     projection: { spreadIndex: resolution.spreadIndex, pageIndex: resolution.pageIndex },
-    progress: progressForPage(resolution.pageIndex, layout),
+    progress: progressForPage(resolution.pageIndex, layout, position.progress),
     timestamp: Date.now(),
   };
 }

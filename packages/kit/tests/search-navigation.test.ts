@@ -20,6 +20,7 @@ describe('search navigation', () => {
       reader,
       nav: { goToSpread: navGoToSpread, jumpToSpreadIfReady },
       getCurrentSpread: () => 20,
+      resultsAreStale: () => false,
     } as unknown as SearchNavDeps;
 
     goToSearchResult(createSearchResult(12), deps);
@@ -38,12 +39,44 @@ describe('search navigation', () => {
       reader,
       nav: { goToSpread: navGoToSpread, jumpToSpreadIfReady },
       getCurrentSpread: () => 20,
+      resultsAreStale: () => false,
     } as unknown as SearchNavDeps;
 
     goToSearchResult(createSearchResult(12), deps);
 
     expect(jumpToSpreadIfReady).toHaveBeenCalledWith(4);
     expect(navGoToSpread).toHaveBeenCalledWith(4);
+  });
+
+  it('goes to a result by its source once its page belongs to a replaced layout', () => {
+    const navigateToLocator = vi.fn();
+    const jumpToSpreadIfReady = vi.fn();
+    const goToSpread = vi.fn();
+    const source = {
+      status: 'resolved' as const,
+      href: 'chapter-2.xhtml',
+      sourceRange: {
+        start: { nodePath: [4, 0], textOffset: 14 },
+        end: { nodePath: [4, 0], textOffset: 18 },
+      },
+    };
+    const deps = {
+      reader: { findSpread: () => 4 },
+      nav: { goToSpread, jumpToSpreadIfReady, navigateToLocator },
+      getCurrentSpread: () => 20,
+      resultsAreStale: () => true,
+    } as unknown as SearchNavDeps;
+
+    goToSearchResult({ ...createSearchResult(12), source }, deps);
+    expect(navigateToLocator).toHaveBeenCalledWith({
+      href: 'chapter-2.xhtml',
+      sourcePoint: { nodePath: [4, 0], textOffset: 14 },
+    });
+    expect(jumpToSpreadIfReady).not.toHaveBeenCalled();
+
+    // A result without a source has only its page to go by.
+    goToSearchResult(createSearchResult(12), deps);
+    expect(jumpToSpreadIfReady).toHaveBeenCalledWith(4);
   });
 
   it('does not overwrite a navigation that supersedes the ready-jump attempt', () => {
@@ -55,6 +88,7 @@ describe('search navigation', () => {
       reader,
       nav: { goToSpread: navGoToSpread, jumpToSpreadIfReady },
       getCurrentSpread: () => 20,
+      resultsAreStale: () => false,
     } as unknown as SearchNavDeps);
 
     expect(jumpToSpreadIfReady).toHaveBeenCalledWith(4);
@@ -107,6 +141,10 @@ describe('search navigation', () => {
         get isAnimating() {
           return animating;
         },
+        get turning() {
+          return animating;
+        },
+        handOver: vi.fn(),
         forceSettle,
       },
       frameDriver: { scheduleComposite: vi.fn() },
@@ -124,6 +162,7 @@ describe('search navigation', () => {
       reader,
       nav,
       getCurrentSpread: () => internals.currentSpread,
+      resultsAreStale: () => false,
     } as unknown as SearchNavDeps);
 
     expect(internals.currentSpread).toBe(4);
@@ -179,7 +218,7 @@ describe('search navigation', () => {
           internals.currentSpread = index;
         },
         emitter: { emit: vi.fn() },
-        td: { isAnimating: false },
+        td: { isAnimating: false, turning: false, handOver: vi.fn() },
         frameDriver: { scheduleComposite: vi.fn() },
         pool,
         contentRenderer: vi.fn(),
@@ -195,6 +234,7 @@ describe('search navigation', () => {
           reader,
           nav,
           getCurrentSpread: () => internals.currentSpread,
+          resultsAreStale: () => false,
         } as unknown as SearchNavDeps);
       } else {
         nav.goToSpread(0);

@@ -74,10 +74,7 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
     assert!(json["revision"].get("localPageCount").is_some());
     assert!(json["revision"].get("localSpreadCount").is_some());
     assert!(json["target"]["owner"].get("coordinate").is_some());
-    assert!(document.get_revision_summary(&owner.revision_id).is_err());
-    assert!(document
-        .get_frame_command_buffer_metadata(&owner.revision_id, 0)
-        .is_err());
+    assert!(document.spread_page_indexes(&owner.revision_id, 0).is_err());
     assert!(document
         .get_resource(
             &owner.revision_id,
@@ -100,7 +97,7 @@ fn wire_shape_and_access_layers_keep_local_coordinates_discriminated() {
     };
     assert_eq!(
         document
-            .get_chapter_local_revision_summary(&forged_local_owner)
+            .get_chapter_local_footnote(&forged_local_owner, "chapter.xhtml#none")
             .expect_err("local API cannot see absolute revision")
             .kind,
         RuntimeRevisionErrorKind::UnknownRevision
@@ -138,17 +135,7 @@ fn fragment_target_resolves_to_its_exact_local_spread() {
     let frame = document
         .frame_commands_for_tests(&owner(&resolved).revision_id, local_spread_index)
         .expect("resolved local frame");
-    assert_eq!(frame.spread_index, local_spread_index);
     assert!(frame.page_indexes.contains(&local_page_index));
-    let metadata = document
-        .get_chapter_local_frame_command_buffer_metadata(&owner(&resolved), local_spread_index)
-        .expect("local packed metadata");
-    let bytes = document
-        .read_chapter_local_frame_command_buffer(&owner(&resolved), local_spread_index)
-        .expect("local packed bytes");
-    let image_hrefs = document
-        .get_chapter_local_frame_image_resource_hrefs(&owner(&resolved), local_spread_index)
-        .expect("local image hrefs");
     let stylesheet = document
         .get_chapter_local_resource(
             &owner(&resolved),
@@ -156,10 +143,6 @@ fn fragment_target_resolves_to_its_exact_local_spread() {
             "style.css",
         )
         .expect("local resource");
-    assert_eq!(metadata.revision_id, resolved.revision.revision_id);
-    assert_eq!(metadata.spread_index, local_spread_index);
-    assert_eq!(metadata.byte_length, bytes.len());
-    assert!(image_hrefs.is_empty());
     assert_eq!(stylesheet.revision_id, resolved.revision.revision_id);
 }
 
@@ -206,7 +189,9 @@ fn exact_owner_release_rejects_stale_and_forged_coordinates() {
     );
     assert!(!document.has_revision(&exact.revision_id));
     assert!(!document.release_revision(&exact.revision_id));
-    assert!(document.get_chapter_local_revision_summary(&exact).is_ok());
+    assert!(document
+        .get_chapter_local_footnote(&exact, "chapter.xhtml#none")
+        .is_ok());
     assert!(document.release_chapter_local_revision(&exact).unwrap());
     assert!(!document.has_revision(&exact.revision_id));
 }

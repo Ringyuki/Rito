@@ -144,19 +144,36 @@ static void consume(void) {
   const uint8_t search[] = {'R','I','T','O','S','R','Q','1'};
   const uint8_t text_range[] = {'R','I','T','O','T','R','Q','1'};
   const uint8_t source_range[] = {'R','I','T','O','E','S','Q','1'};
+  const uint8_t interaction[] = {'R','I','T','O','T','I','Q','1'};
+  const uint8_t annotation[] = {'R','I','T','O','A','N','Q','1'};
+  const uint8_t navigation[] = {'R','I','T','O','N','V','Q','1'};
+  const uint8_t spread[] = {'R','I','T','O','S','P','Q','1'};
   const uint8_t footnote_key[] = {'c','h','.','x','h','t','m','l','#','n'};
   rito_owned_buffer peeked = {0};
   rito_owned_buffer commit_ack = {0};
   rito_owned_buffer search_response = {0};
   rito_owned_buffer text_geometry = {0};
   rito_owned_buffer source_geometry = {0};
+  rito_owned_buffer interaction_response = {0};
+  rito_owned_buffer annotation_response = {0};
+  rito_owned_buffer navigation_response = {0};
   rito_owned_buffer footnote = {0};
   rito_pinned_font_face face = {0};
   face.generic_role = RITO_PINNED_FONT_ROLE_SERIF;
   (void)rito_open(epub, 1, request, 8, &artifact, &error);
   (void)rito_open_with_pinned_fonts(epub, 1, request, 8, &face, 1,
                                        &artifact, &error);
+  uint8_t shard_key[32] = {0};
+  uint32_t shard_id = 0;
+  (void)rito_open_shards_with_pinned_fonts(epub, 1, shard_key, sizeof(shard_key),
+                                              request, 8, &face, 1,
+                                              &artifact, &error);
+  (void)rito_supply_shard(1, epub, 1, shard_key, sizeof(shard_key), &shard_id,
+                             &error);
+  rito_owned_buffer shard_order = {0};
+  (void)rito_content_shards_near(1, epub, 1, &shard_order, &error);
   (void)rito_peek_adjacent(1, adjacent, 8, &peeked, &error);
+  (void)rito_peek_spread(1, spread, 8, &peeked, &error);
   (void)rito_commit_peeked_artifact(1, foreground_handoff, 8,
                                        &commit_ack, &error);
   (void)rito_search(1, search, 8, &search_response, &error);
@@ -164,8 +181,20 @@ static void consume(void) {
                                         &text_geometry, &error);
   (void)rito_resolve_exact_source_range(1, source_range, 8,
                                            &source_geometry, &error);
+  (void)rito_resolve_text_interaction(1, interaction, 8,
+                                         &interaction_response, &error);
+  (void)rito_resolve_annotation(1, annotation, 8, &annotation_response,
+                                   &error);
+  (void)rito_resolve_navigation(1, navigation, 8, &navigation_response,
+                                   &error);
   (void)rito_read_footnote(1, 1, footnote_key, sizeof(footnote_key),
                               &footnote, &error);
+  rito_owned_buffer font_answer = {0};
+  (void)rito_font_catalog(1, &font_answer, &error);
+  (void)rito_unresolved_font_families(1, epub, 1, &font_answer, &error);
+  (void)rito_add_host_font_faces(1, &face, 1, &error);
+  (void)rito_remove_host_font_faces(1, epub, 1, &error);
+  (void)rito_mark_font_family_unavailable(1, epub, 1, &error);
   (void)rito_request_artifact(1, request, 8, &next_artifact, &error);
   (void)rito_read_publication(1, &publication_metadata, &error);
   (void)rito_request_adjacent(1, adjacent, 8, &next_artifact, &error);

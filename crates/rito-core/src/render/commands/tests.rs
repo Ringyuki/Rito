@@ -7,8 +7,7 @@ use crate::render::{
 };
 
 use super::{
-    count_display_commands, display_number, display_rect, hash_display_commands,
-    summarize_display_list_font_families, summarize_display_list_resource_refs,
+    display_number, display_rect, summarize_display_list_resource_refs,
     test_support::{css_color, display_command_values, parse_display_command, FixtureError},
     DisplayCommand, DisplayTextCommand,
 };
@@ -42,23 +41,6 @@ fn text(text: &str, family: &str) -> DisplayTextCommand {
 }
 
 #[test]
-fn counts_display_commands_by_kind() {
-    let commands = vec![
-        DisplayCommand::PushState,
-        DisplayCommand::PaintText(text("a", "serif")),
-        DisplayCommand::PaintText(text("b", "serif")),
-        DisplayCommand::paint_image("images/cover.jpg".to_owned(), rect(), None, None),
-    ];
-
-    let counts = count_display_commands(&commands);
-
-    assert_eq!(counts.get("paintText"), Some(&2));
-    assert_eq!(counts.get("paintImage"), Some(&1));
-    assert_eq!(counts.get("pushState"), Some(&1));
-    assert!(!counts.contains_key("ignored"));
-}
-
-#[test]
 fn summarizes_image_refs_from_images_and_block_backgrounds() {
     let commands = vec![
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), rect(), None, None),
@@ -81,45 +63,6 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
 
     assert_eq!(refs.image_refs, 3);
     assert_eq!(refs.images, vec!["images/bg.png", "images/cover.jpg"]);
-}
-
-#[test]
-fn summarizes_font_families_from_text_commands() {
-    let commands = vec![
-        DisplayCommand::PaintText(text("Hello", "Rito Serif")),
-        DisplayCommand::PaintRuby(text("Ruby", "Rito Sans")),
-        DisplayCommand::PaintText(text("Duplicate", "Rito Serif")),
-    ];
-
-    assert_eq!(
-        summarize_display_list_font_families(&commands),
-        vec!["Rito Sans", "Rito Serif"]
-    );
-}
-
-#[test]
-fn the_hash_identifies_the_commands_and_moves_with_any_field() {
-    let commands = vec![
-        DisplayCommand::Translate { dx: 12.0, dy: 0.0 },
-        DisplayCommand::PaintText(text("Hello", "Rito Serif")),
-    ];
-    let hash = hash_display_commands(&commands);
-    assert_eq!(hash.len(), 16);
-    assert_eq!(hash, hash_display_commands(&commands.clone()));
-
-    let mut moved = commands.clone();
-    moved[0] = DisplayCommand::Translate { dx: 12.5, dy: 0.0 };
-    assert_ne!(hash_display_commands(&moved), hash);
-
-    let mut recoloured = commands;
-    if let DisplayCommand::PaintText(text) = &mut recoloured[1] {
-        text.paint = RunPaint::new(ReaderRunPaint {
-            color: css_color("#ff0000"),
-            ..(*text.paint).clone()
-        });
-    }
-    assert_ne!(hash_display_commands(&recoloured), hash);
-    assert_eq!(hash_display_commands(&[]), hash_display_commands(&[]));
 }
 
 #[test]

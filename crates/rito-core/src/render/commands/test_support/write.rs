@@ -19,11 +19,29 @@ pub(crate) fn display_command_values(commands: &[DisplayCommand]) -> Vec<Value> 
     commands.iter().map(command_value).collect()
 }
 
+/// The name a command's kind takes in a fixture.
+fn kind_name(command: &DisplayCommand) -> &'static str {
+    match command {
+        DisplayCommand::PushState => "pushState",
+        DisplayCommand::PopState => "popState",
+        DisplayCommand::Translate { .. } => "translate",
+        DisplayCommand::Opacity { .. } => "opacity",
+        DisplayCommand::Transform { .. } => "transform",
+        DisplayCommand::ClipRect { .. } => "clipRect",
+        DisplayCommand::PaintPage { .. } => "paintPage",
+        DisplayCommand::PaintBlock { .. } => "paintBlock",
+        DisplayCommand::PaintText(_) => "paintText",
+        DisplayCommand::PaintRuby(_) => "paintRuby",
+        DisplayCommand::PaintImage { .. } => "paintImage",
+        DisplayCommand::PaintHorizontalRule { .. } => "paintHorizontalRule",
+    }
+}
+
 fn command_value(command: &DisplayCommand) -> Value {
     let mut fields = Map::new();
     fields.insert(
         "kind".to_owned(),
-        Value::String(command.kind_name().to_owned()),
+        Value::String(kind_name(command).to_owned()),
     );
     match command {
         DisplayCommand::PushState | DisplayCommand::PopState => {}

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { stepSpring, DEFAULT_SPRING, type SpringState } from '../src/driver/spring';
+import { springPresets } from '../src/driver/effects';
+import { springAt, stepSpring, type SpringState } from '../src/driver/spring';
+import samples from './fixtures/spring-samples.json';
 
 describe('stepSpring', () => {
   it('converges from displaced position to target', () => {
     const state: SpringState = { x: 100, vx: 0 };
     let steps = 0;
-    while (!stepSpring(state, 0, DEFAULT_SPRING, 16) && steps < 500) {
+    while (!stepSpring(state, 0, springPresets.default, 16) && steps < 500) {
       steps++;
     }
     expect(state.x).toBe(0);
@@ -16,7 +18,7 @@ describe('stepSpring', () => {
   it('converges with initial velocity', () => {
     const state: SpringState = { x: 0, vx: 2 };
     let steps = 0;
-    while (!stepSpring(state, 0, DEFAULT_SPRING, 16) && steps < 500) {
+    while (!stepSpring(state, 0, springPresets.default, 16) && steps < 500) {
       steps++;
     }
     expect(state.x).toBe(0);
@@ -45,7 +47,7 @@ describe('stepSpring', () => {
   it('can target non-zero values', () => {
     const state: SpringState = { x: 0, vx: 0 };
     let steps = 0;
-    while (!stepSpring(state, 500, DEFAULT_SPRING, 16) && steps < 500) {
+    while (!stepSpring(state, 500, springPresets.default, 16) && steps < 500) {
       steps++;
     }
     expect(state.x).toBe(500);
@@ -53,7 +55,7 @@ describe('stepSpring', () => {
 
   it('returns true immediately when already at target', () => {
     const state: SpringState = { x: 0, vx: 0 };
-    const settled = stepSpring(state, 0, DEFAULT_SPRING, 16);
+    const settled = stepSpring(state, 0, springPresets.default, 16);
     expect(settled).toBe(true);
   });
 
@@ -62,19 +64,81 @@ describe('stepSpring', () => {
     (viewportWidth) => {
       const state: SpringState = { x: 0, vx: 0 };
       let elapsedMs = 0;
-      while (!stepSpring(state, -viewportWidth, DEFAULT_SPRING, 16) && elapsedMs < 1_000) {
+      while (!stepSpring(state, -viewportWidth, springPresets.default, 16) && elapsedMs < 1_000) {
         elapsedMs += 16;
       }
 
-      // The spring integrates until motion is sub-pixel AND essentially
-      // stationary (0.5px / 0.05px/s — the 0.13 thresholds). Numerically
-      // that is ~860-950ms, but everything past ~350ms is an
-      // imperceptible sub-pixel tail: the eased landing IS the feel. A
-      // coarser cut (4px/300px/s, settling in ~350ms) ended every page
+      // The spring runs until what motion remains is sub-pixel — 600-750ms
+      // for the critically damped default, most of it the eased landing.
+      // A coarser cut (4px/300px/s, settling in ~350ms) ended every page
       // turn with a visible snap.
-      expect(elapsedMs).toBeGreaterThanOrEqual(700);
+      expect(elapsedMs).toBeGreaterThanOrEqual(600);
       expect(elapsedMs).toBeLessThanOrEqual(1000);
       expect(state).toEqual({ x: -viewportWidth, vx: 0 });
     },
   );
+});
+
+describe('springAt', () => {
+  const springs = {
+    underdamped: { stiffness: 180, damping: 10 },
+    critical: { stiffness: 180, damping: 2 * Math.sqrt(180) },
+    overdamped: { stiffness: 180, damping: 40 },
+  };
+
+  it.each(Object.entries(springs))('solves the %s oscillator exactly', (_, spring) => {
+    const start = springAt(spring, 700, -1500, 0);
+    expect(start.offset).toBeCloseTo(700, 9);
+    expect(start.velocity).toBeCloseTo(-1500, 6);
+    // x'' + c·x' + k·x = 0, checked by finite differences along the curve.
+    const h = 1e-4;
+    for (const t of [0.03, 0.2, 0.6]) {
+      const a = springAt(spring, 700, -1500, t - h);
+      const b = springAt(spring, 700, -1500, t);
+      const c = springAt(spring, 700, -1500, t + h);
+      const acceleration = (c.offset - 2 * b.offset + a.offset) / (h * h);
+      const residual = acceleration + spring.damping * b.velocity + spring.stiffness * b.offset;
+      expect(Math.abs(residual)).toBeLessThan(1e-2 * spring.stiffness);
+      expect(b.velocity).toBeCloseTo((c.offset - a.offset) / (2 * h), 2);
+    }
+  });
+
+  it('traces the same turn whatever the frame rate', () => {
+    const at = (frameMs: number) => {
+      const state: SpringState = { x: -60, vx: -900 };
+      for (let t = 0; t < 300; t += frameMs)
+        stepSpring(state, -800, springPresets.default, frameMs);
+      return state.x;
+    };
+    const reference = at(1);
+    for (const frameMs of [6, 7.5, 10, 12, 15, 20, 30])
+      expect(at(frameMs)).toBeCloseTo(reference, 6);
+  });
+
+  it('matches the sample table rito_flutter checks itself against', () => {
+    for (const entry of samples.cases) {
+      const spring =
+        'preset' in entry
+          ? springPresets[entry.preset as keyof typeof springPresets]
+          : entry.spring;
+      for (const sample of entry.samples) {
+        const value = springAt(spring, entry.offset, entry.velocity, sample.t);
+        expect(value.offset).toBeCloseTo(sample.offset, 9);
+        expect(value.velocity).toBeCloseTo(sample.velocity, 9);
+      }
+    }
+  });
+
+  it('never carries a preset past its target, however hard it is flicked', () => {
+    for (const spring of Object.values(springPresets)) {
+      for (const velocity of [0, -800, -3000, -20_000]) {
+        const state: SpringState = { x: -120, vx: velocity };
+        let lowest = 0;
+        for (let i = 0; i < 300 && !stepSpring(state, -800, spring, 8); i++) {
+          lowest = Math.min(lowest, state.x);
+        }
+        expect(lowest).toBeGreaterThanOrEqual(-800);
+      }
+    }
+  });
 });

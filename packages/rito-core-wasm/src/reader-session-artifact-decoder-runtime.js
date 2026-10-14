@@ -103,7 +103,7 @@ export function decodeRitoReaderResource(value) {
   return resource;
 }
 
-function readLocator(reader) {
+export function readLocator(reader) {
   const record = reader.record('locator');
   const locator = {
     href: record.string('locator href'),
@@ -120,7 +120,7 @@ function readLocator(reader) {
   return locator;
 }
 
-function readSourcePoint(reader) {
+export function readSourcePoint(reader) {
   const record = reader.record('source point');
   const point = {
     nodePath: readCollection(record, 'source point path', () => record.u32('source path part')),
@@ -130,7 +130,7 @@ function readSourcePoint(reader) {
   return point;
 }
 
-function readSourceRange(reader) {
+export function readSourceRange(reader) {
   const record = reader.record('source range');
   const range = { start: readSourcePoint(record), end: readSourcePoint(record) };
   record.finish('source range');
@@ -191,18 +191,26 @@ function readPage(reader) {
   return page;
 }
 
+const HIT_KINDS = ['text', 'link', 'image', 'footnote', 'footnote-pending'];
+
 function readHit(reader) {
   const record = reader.record('hit');
+  const pageIndex = record.u32('hit page index');
+  const bounds = readRect(record);
+  const kind = HIT_KINDS[record.u8('hit kind')];
+  if (kind === undefined) record.fail('unknown hit kind');
   const hit = {
-    pageIndex: record.u32('hit page index'),
-    bounds: readRect(record),
+    pageIndex,
+    bounds,
+    kind,
     text: record.string('hit text'),
     href: readOptionalString(record, 'hit href'),
     sourcePoint: record.option('hit source point', () => readSourcePoint(record)),
+    targetLocator: record.option('hit target locator', () => readLocator(record)),
+    destinationLabel: readOptionalString(record, 'hit destination label'),
     imageSrc: readOptionalString(record, 'hit image source'),
     imageAlt: readOptionalString(record, 'hit image alternative'),
     footnoteKey: readOptionalString(record, 'hit footnote key'),
-    footnotePending: record.bool('hit footnote pending'),
   };
   record.finish('hit');
   return hit;
@@ -241,7 +249,7 @@ function readTextRun(reader) {
   return run;
 }
 
-function readRect(reader) {
+export function readRect(reader) {
   return {
     x: reader.f64('rectangle x'),
     y: reader.f64('rectangle y'),
@@ -250,7 +258,7 @@ function readRect(reader) {
   };
 }
 
-function readCollection(reader, field, read) {
+export function readCollection(reader, field, read) {
   return Array.from({ length: reader.count(field) }, read);
 }
 
@@ -258,7 +266,7 @@ function readOptionalString(reader, field) {
   return reader.option(field, () => reader.string(field));
 }
 
-function readTaggedU32(reader, field, values) {
+export function readTaggedU32(reader, field, values) {
   const tag = reader.u32(field);
   const value = values[tag];
   if (value === undefined) reader.fail(`unknown ${field}: ${String(tag)}`);

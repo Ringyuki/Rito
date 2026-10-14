@@ -10,26 +10,19 @@ import * as jump from './jump';
 import { continuePendingNavigation } from './pending';
 import { claimNavigation } from './claim';
 import {
+  supersedeNavigationForGestureIntent,
   supersedeNavigationForPositionIntent,
   supersedeNavigationForSelectionIntent,
   type NavigationSelectionInputBarrier,
 } from './direct-interaction';
+import { continueBookTurn, startBookNavigation } from './book-navigation';
 import {
   createLocatorNavigator,
   startGestureNavigation,
   startNavigation,
+  startRelativeNavigation,
 } from './spread-navigation';
 import { navigateReaderLocator, navigateTocEntry } from './locator-navigation';
-import type { ProvisionalTransitionRuntime } from '../runtime-frame';
-import type { SettledEvent } from '../../driver/types';
-import {
-  disposeChapterLocalTransition,
-  handleChapterLocalTransitionSettled,
-  notifyChapterLocalContentReady,
-  presentChapterLocalInvalidation,
-  refreshChapterLocalTransitionTheme,
-  terminateChapterLocalTransitionForLayout,
-} from './local-preview';
 
 type Machine = machine.NavigationMachine;
 type EntryActionName =
@@ -40,6 +33,7 @@ type EntryActionName =
   | 'navigateToTocEntry'
   | 'navigateToLocator'
   | 'jumpToSpread'
+  | 'goToBookSpread'
   | 'jumpToSpreadIfReady'
   | 'prepareSpreadForJump';
 type RuntimeActionName = Exclude<keyof NavigationActions, EntryActionName>;
@@ -54,7 +48,6 @@ export interface NavigationDeps {
   frameDriver: FrameDriver;
   pool: PageBufferPool;
   contentRenderer: ContentRenderer;
-  readonly provisionalRuntime?: ProvisionalTransitionRuntime | undefined;
   /** Invalidates older async position work as soon as a navigation intent is accepted. */
   onNavigationIntent?: () => void;
   /** Supersedes pending content interactions for every accepted navigation/position intent. */
@@ -80,6 +73,16 @@ export interface NavigationActions {
   navigateToLocator(locator: ReaderLocator): void;
   /** Snap to a spread without playing a transition animation. */
   jumpToSpread(index: number, preservePositionIntent?: boolean): boolean;
+  /**
+   * Navigate to a spread a host names by its book-wide index, with a turn
+   * or a snap: at once when the whole book is laid out, otherwise when it
+   * is. `index` may be read at that moment (the book's last spread).
+   */
+  goToBookSpread(
+    index: number | (() => number),
+    mode: 'turn' | 'jump',
+    source?: machine.NavigationIntentSource,
+  ): void;
   /** Snap only when the target is immediately paintable. */
   jumpToSpreadIfReady(
     index: number,
@@ -89,15 +92,17 @@ export interface NavigationActions {
   prepareSpreadForJump(index: number): jump.NavigationJumpReadiness;
   /** Continue a deferred navigation once its async content slot is ready. */
   notifyContentReady(spreadIndex: number): void;
-  /** Route the private Reader preview signal before ordinary spread invalidation. */
-  presentChapterLocalInvalidation(spreadIndex: number): boolean;
-  /** Sole provisional branch of the runtime TD settled listener. */
-  handleTransitionSettled(event: SettledEvent): boolean;
-  terminateChapterLocalForLayout(): (() => void) | undefined;
-  refreshChapterLocalTheme(): void;
+  /** Continue a turn that waited for the whole book, once a layout is committed. */
+  notifyLayoutCommitted(): void;
   /** Silently retire older navigation work before starting a direct selection gesture. */
   supersedeForSelectionIntent(): NavigationSelectionInputBarrier | null;
   supersedeForPositionIntent(): void;
+  /**
+   * Retire older navigation work before a finger turns the page itself. A
+   * turn in flight is cut into, not landed at once: its outcome is settled
+   * and the finger's turn begins from where its picture is.
+   */
+  supersedeForGesture(): void;
   dispose(): void;
 }
 
@@ -107,11 +112,7 @@ export interface GestureNavigationToken {
 }
 
 /** The navigation-owned subset of the visible-spread write reasons. */
-export type NavigationSpreadWriteReason =
-  | 'navigation-start'
-  | 'navigation-cancel'
-  | 'jump'
-  | 'chapter-local-promotion';
+export type NavigationSpreadWriteReason = 'navigation-start' | 'navigation-cancel' | 'jump';
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
   const nav = machine.createNavigationMachine();
@@ -139,10 +140,10 @@ function createEntryActions(
       return startGestureNavigation(nav, deps, index, onTransitionStart, onUnavailable);
     },
     nextSpread(source) {
-      startNavigation(nav, deps, deps.getCurrentSpread() + 1, source);
+      startRelativeNavigation(nav, deps, 1, source);
     },
     prevSpread(source) {
-      startNavigation(nav, deps, deps.getCurrentSpread() - 1, source);
+      startRelativeNavigation(nav, deps, -1, source);
     },
     navigateToTocEntry(entry) {
       navigateTocEntry(nav, deps, entry, locatorNavigator);
@@ -153,18 +154,35 @@ function createEntryActions(
     jumpToSpread(index, preservePositionIntent) {
       if (nav.disposed) return false;
       const claim = claimNavigation(nav, deps, preservePositionIntent);
-      if (machine.foregroundIsBusy(nav)) return false;
       return jump.jumpToSpread(deps, claim, index);
+    },
+    goToBookSpread(index, mode, source = 'api') {
+      startBookNavigation(nav, deps, source, () => {
+        goToNamedSpread(nav, deps, typeof index === 'function' ? index() : index, mode, source);
+      });
     },
     jumpToSpreadIfReady(index, selectionGesture) {
       return jump.performReadyJump(nav, deps, index, selectionGesture);
     },
     prepareSpreadForJump(index) {
       if (nav.disposed) return 'superseded';
-      if (machine.foregroundIsBusy(nav)) return 'not-ready';
       return jump.prepareSpreadForJump(deps, index);
     },
   };
+}
+
+function goToNamedSpread(
+  nav: Machine,
+  deps: NavigationDeps,
+  target: number,
+  mode: 'turn' | 'jump',
+  source: machine.NavigationIntentSource,
+): void {
+  if (mode === 'turn') {
+    startNavigation(nav, deps, target, source);
+    return;
+  }
+  jump.jumpToSpread(deps, claimNavigation(nav, deps), target);
 }
 
 function createRuntimeActions(
@@ -173,28 +191,24 @@ function createRuntimeActions(
 ): Pick<NavigationActions, RuntimeActionName> {
   return {
     notifyContentReady(spreadIndex) {
-      if (nav.disposed) return;
-      if (notifyChapterLocalContentReady(nav, deps, spreadIndex)) return;
-      continuePendingNavigation(nav, deps, spreadIndex);
+      if (!nav.disposed) continuePendingNavigation(nav, deps, spreadIndex);
     },
-    presentChapterLocalInvalidation: (spreadIndex) =>
-      presentChapterLocalInvalidation(nav, deps, spreadIndex),
-    handleTransitionSettled: (event) => handleChapterLocalTransitionSettled(nav, deps, event),
-    terminateChapterLocalForLayout: () => terminateChapterLocalTransitionForLayout(nav, deps),
-    refreshChapterLocalTheme: () => {
-      refreshChapterLocalTransitionTheme(nav, deps);
+    notifyLayoutCommitted() {
+      if (!nav.disposed) continueBookTurn(nav, deps);
     },
     supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(nav, deps),
     supersedeForPositionIntent: () => {
       supersedeNavigationForPositionIntent(nav, deps);
     },
-    dispose: disposeNavigation.bind(undefined, nav, deps),
+    supersedeForGesture: () => {
+      supersedeNavigationForGestureIntent(nav, deps);
+    },
+    dispose: disposeNavigation.bind(undefined, nav),
   };
 }
 
-function disposeNavigation(nav: Machine, deps: NavigationDeps): void {
+function disposeNavigation(nav: Machine): void {
   if (nav.disposed) return;
-  disposeChapterLocalTransition(nav, deps);
   nav.disposed = true;
   nav.claimSeq += 1;
   machine.clearQueuedIntent(nav);

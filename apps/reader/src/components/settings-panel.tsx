@@ -14,6 +14,11 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { FontFamilyCombobox } from '@/components/font-family-combobox';
+import type { ReaderFonts } from '@/hooks/use-reader-fonts';
+import type { TransitionEffectName } from '@ritojs/kit';
+
+/** How pages turn: a built-in effect, or the simulated sheet of paper. */
+export type PageTurn = TransitionEffectName | 'paper';
 
 export interface ReaderSettings {
   /** Root font size in px, passed to `setTypography`; changing it re-lays the text. */
@@ -25,19 +30,30 @@ export interface ReaderSettings {
   lineHeightForce: boolean;
   /** CSS font-family value passed to setTypography. null = use book's own font. */
   fontFamily: string | null;
+  /** When true, the font family replaces every element's own. */
+  fontFamilyForce: boolean;
   spreadMode: 'single' | 'double';
   theme: 'light' | 'dark';
+  /** Canvas zoom (`setRenderScale`): sharper glyphs, same pagination. */
+  renderScale: number;
+  /** How pages turn (`configureTransition({ effect })`). */
+  pageTurn: PageTurn;
 }
 
-export const DEFAULT_SETTINGS: ReaderSettings = {
-  fontSize: 16,
-  lineHeight: 1.2,
-  lineHeightActive: false,
-  lineHeightForce: false,
-  fontFamily: null,
-  spreadMode: 'double',
-  theme: 'light',
-};
+const PAGE_TURNS: SegmentedOption<PageTurn>[] = [
+  { value: 'slide', label: 'Slide' },
+  { value: 'cover', label: 'Cover' },
+  { value: 'paper', label: 'Paper' },
+  { value: 'fade', label: 'Fade' },
+  { value: 'none', label: 'None' },
+];
+
+const ZOOM_LEVELS = [
+  { value: '1', label: '100%' },
+  { value: '1.25', label: '125%' },
+  { value: '1.5', label: '150%' },
+  { value: '2', label: '200%' },
+];
 
 interface SettingsPanelProps {
   open: boolean;
@@ -48,6 +64,10 @@ interface SettingsPanelProps {
   onLineHeightForceChange: (value: boolean) => void;
   onUseBookLineHeight: () => void;
   onFontFamilyChange: (value: string | null) => void;
+  onFontFamilyForceChange: (value: boolean) => void;
+  fonts: ReaderFonts;
+  onRenderScaleChange: (value: number) => void;
+  onPageTurnChange: (value: PageTurn) => void;
   onSpreadModeChange: (value: 'single' | 'double') => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onRestoreDefaults: () => void;
@@ -62,6 +82,10 @@ export function SettingsPanel({
   onLineHeightForceChange,
   onUseBookLineHeight,
   onFontFamilyChange,
+  onFontFamilyForceChange,
+  fonts,
+  onRenderScaleChange,
+  onPageTurnChange,
   onSpreadModeChange,
   onThemeChange,
   onRestoreDefaults,
@@ -144,7 +168,36 @@ export function SettingsPanel({
           </Section>
 
           <Section label="Font Family">
-            <FontFamilyCombobox value={settings.fontFamily} onChange={onFontFamilyChange} />
+            <FontFamilyCombobox
+              value={settings.fontFamily}
+              onChange={onFontFamilyChange}
+              fonts={fonts}
+            />
+            <div className="flex items-center gap-2">
+              <Switch
+                id="font-family-force"
+                size="sm"
+                checked={settings.fontFamilyForce}
+                onCheckedChange={onFontFamilyForceChange}
+                disabled={settings.fontFamily === null}
+              />
+              <Label
+                htmlFor="font-family-force"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Apply to every element
+              </Label>
+            </div>
+          </Section>
+
+          <Section label="Zoom">
+            <SegmentedControl
+              value={String(settings.renderScale)}
+              onChange={(value) => {
+                onRenderScaleChange(Number(value));
+              }}
+              options={ZOOM_LEVELS}
+            />
           </Section>
 
           <Separator />
@@ -157,6 +210,14 @@ export function SettingsPanel({
                 { value: 'single', label: 'Single Page' },
                 { value: 'double', label: 'Double Page' },
               ]}
+            />
+          </Section>
+
+          <Section label="Page Turn">
+            <SegmentedControl
+              value={settings.pageTurn}
+              onChange={onPageTurnChange}
+              options={PAGE_TURNS}
             />
           </Section>
 

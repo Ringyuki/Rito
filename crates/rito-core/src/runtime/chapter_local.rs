@@ -30,6 +30,7 @@ impl RuntimeDocument {
             .map_err(|message| RuntimeChapterLocalRevisionError {
                 kind: RuntimeRevisionErrorKind::EngineFailure,
                 message,
+                pending_shards: Vec::new(),
             })?;
         self.publish_chapter_local_revision(prepared, built)
     }

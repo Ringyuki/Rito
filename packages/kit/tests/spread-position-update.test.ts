@@ -14,7 +14,6 @@ const spread: Spread = { index: 0, pageIndexes: [0], leftPageIndex: 0 };
 
 function createReader() {
   return {
-    getChapterTextIndices: vi.fn(() => new Map()),
     getLayoutGeometry: vi.fn(() => ({
       viewportWidth: 300,
       viewportHeight: 400,

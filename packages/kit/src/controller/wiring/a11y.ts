@@ -6,6 +6,8 @@ import type {
 } from '@ritojs/core';
 import { createA11yMirror, type A11yMirror } from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
+import { scheduleAfterNextFrame } from '../../utils/idle-task';
+import { transitionLifecycle } from '../core/transition-lifecycle';
 import type { WiringDeps } from '../core/wiring-deps';
 import { dispatchNativeClickTarget } from './native-click';
 import { supersedePendingImageRequest } from './image-click';
@@ -15,6 +17,9 @@ interface A11yLoadState {
   generation: number;
   spreadIndex: number | null;
   pageByNode: WeakMap<ReaderSemanticNode, number>;
+  /** Puts the visible spread's semantics, already read, into the mirror. */
+  install: (() => void) | null;
+  cancelInstall: (() => void) | null;
 }
 
 export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): void {
@@ -27,6 +32,8 @@ export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): v
     generation: 0,
     spreadIndex: null,
     pageByNode: new WeakMap(),
+    install: null,
+    cancelInstall: null,
   };
   const mirror = createA11yMirror(parent, {
     onLinkActivate: (node) => activateNativeLink(node, deps, state),
@@ -37,6 +44,16 @@ export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): v
   disposables.add(
     deps.reader.onSpreadRendered((_index, spread) => {
       updateA11ySpread(spread, deps, mirror, state);
+    }),
+  );
+  disposables.add(
+    deps.emitter.on('transitionEnd', () => {
+      installAtRest(state, deps);
+    }),
+  );
+  disposables.add(
+    deps.frameDriver.onRest(() => {
+      installAtRest(state, deps);
     }),
   );
   if (typeof deps.reader.onLayoutCommitted === 'function') {
@@ -56,7 +73,11 @@ export function wireA11y(deps: WiringDeps, disposables: DisposableCollection): v
   if (initial) updateA11ySpread(initial, deps, mirror, state);
 }
 
-/** Load both visible pages' semantics against the committed revision; the mirror stays empty until they arrive. */
+/**
+ * Load both visible pages' semantics against the committed layout. The
+ * mirror stays empty until they are installed, which waits for the reader
+ * to be at rest on the spread.
+ */
 function updateA11ySpread(
   spread: Spread,
   deps: WiringDeps,
@@ -75,12 +96,40 @@ function updateA11ySpread(
     .then((results) => {
       if (!canInstall(state, deps, interactions, generation)) return;
       const semantics = requireMatchingSemantics(spread, pageIndexes, results);
-      for (const page of semantics) bindPageNodes(page.nodes, page.pageIndex, state.pageByNode);
-      mirror.update(semantics.flatMap((page) => page.nodes));
+      state.install = () => {
+        try {
+          for (const page of semantics) bindPageNodes(page.nodes, page.pageIndex, state.pageByNode);
+          mirror.update(semantics.flatMap((page) => page.nodes));
+        } catch (error: unknown) {
+          containA11yFailure(error, 'native-page-semantics', state, deps, interactions, generation);
+        }
+      };
+      installAtRest(state, deps);
     })
     .catch((error: unknown) => {
       containA11yFailure(error, 'native-page-semantics', state, deps, interactions, generation);
     });
+}
+
+/**
+ * Installs the semantics that are waiting once the frame showing their
+ * spread has been produced and no turn is on screen. Rebuilding the mirror
+ * lays out both pages' text as DOM, which nobody sees: done at once it would
+ * hold back the first frame of the turn or relayout that brought the spread.
+ * A turn still open leaves them waiting for its `transitionEnd`; what is
+ * left of a turn that was cut into, for its picture to come to rest.
+ */
+function installAtRest(state: A11yLoadState, deps: WiringDeps): void {
+  if (!state.install) return;
+  state.cancelInstall?.();
+  state.cancelInstall = scheduleAfterNextFrame(() => {
+    state.cancelInstall = null;
+    if (transitionLifecycle(deps.emitter).openDirection !== null) return;
+    if (deps.frameDriver.animating) return;
+    const install = state.install;
+    state.install = null;
+    install?.();
+  });
 }
 
 function requireMatchingSemantics(
@@ -104,10 +153,17 @@ function requireMatchingSemantics(
 }
 
 function invalidateA11y(state: A11yLoadState, mirror: A11yMirror): void {
+  dropPendingInstall(state);
   state.generation += 1;
   state.spreadIndex = null;
   state.pageByNode = new WeakMap();
   mirror.update([]);
+}
+
+function dropPendingInstall(state: A11yLoadState): void {
+  state.cancelInstall?.();
+  state.cancelInstall = null;
+  state.install = null;
 }
 
 function bindPageNodes(
@@ -223,6 +279,7 @@ function canInstall(
 }
 
 function disposeA11y(state: A11yLoadState, mirror: A11yMirror): void {
+  dropPendingInstall(state);
   state.alive = false;
   state.generation += 1;
   state.spreadIndex = null;

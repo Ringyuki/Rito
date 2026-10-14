@@ -1,0 +1,14 @@
+{
+  "note": "How a page turn ends, the same in @ritojs/kit and rito_flutter: for each scenario, the outcome of every turn it starts, in order. Each suite drives its own controller through the scenario and compares.",
+  "ends": {
+    "turn-lands": ["committed"],
+    "drag-goes-back": ["cancelled"],
+    "turn-during-turn": ["committed", "committed"],
+    "turn-back-during-turn": ["committed", "committed"],
+    "finger-during-turn": ["committed", "committed"],
+    "finger-rests-during-turn": ["committed"],
+    "jump-during-turn": ["interrupted"],
+    "jump-during-drag": ["interrupted"],
+    "relayout-during-turn": ["interrupted"]
+  }
+}

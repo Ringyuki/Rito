@@ -611,3 +611,76 @@ pub fn paint_command_kitchen_sink_fixture_epub() -> Vec<u8> {
 </body></html>"##;
     fixture_epub_with_chapter(chapter.as_bytes())
 }
+
+/// Two chapters whose TOC targets every awkward anchor shape: an inline
+/// `<span id>`, an empty `<a id/>` marker deep in chapter one, and an id
+/// chapter two repeats from chapter one.
+pub fn toc_anchor_fixture_epub() -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+<rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Toc anchors</dc:title>
+<dc:language>en</dc:language>
+<dc:identifier id="id">toc-anchors</dc:identifier>
+  </metadata>
+  <manifest>
+<item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/>
+<item id="chapter-2" href="chapter-2.xhtml" media-type="application/xhtml+xml"/>
+<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+  </manifest>
+  <spine>
+<itemref idref="chapter-1"/>
+<itemref idref="chapter-2"/>
+  </spine>
+</package>"#,
+    );
+    let paragraphs = (0..40)
+        .map(|index| {
+            let body = match index {
+                12 => r#"Paragraph twelve holds an <span id="inline">inline anchor</span> mid-sentence."#.to_owned(),
+                30 => r#"<a id="empty"/>Paragraph thirty follows an empty anchor marker."#.to_owned(),
+                _ => format!("Paragraph {index} has enough words to wrap across lines in a narrow page."),
+            };
+            format!("<p>{body}</p>")
+        })
+        .collect::<String>();
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-1.xhtml",
+        format!(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p id="intro">Chapter one opens here.</p>{paragraphs}</body></html>"#
+        )
+        .as_bytes(),
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-2.xhtml",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p>Chapter two leads in.</p><p id="intro">Chapter two repeats the intro id.</p></body></html>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/nav.xhtml",
+        br##"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="chapter-1.xhtml">One</a><ol><li><a href="chapter-1.xhtml#inline">Inline</a></li><li><a href="chapter-1.xhtml#empty">Empty</a></li></ol></li><li><a href="chapter-2.xhtml#intro">Two</a></li></ol></nav></body></html>"##,
+    );
+    writer.finish().expect("zip finalizes").into_inner()
+}

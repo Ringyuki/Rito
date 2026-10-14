@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use crate::render::{
     lower::{
         lower, DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground,
-        ImageSize, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
+        ImageFallbackState, ImageSize, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
     },
     test_support::css_color,
     DisplayCommand, DisplayTextCommand, RunPaint,
@@ -67,9 +67,9 @@ fn every_primitive_shape_roundtrips_through_the_strict_validator() {
     let encoded = encode_reader_primitive_list(&all_primitive_shapes()).expect("encode");
 
     assert_eq!(encoded.format_version, READER_PRIMITIVE_LIST_FORMAT_VERSION);
-    assert_eq!(encoded.command_count, 13);
+    assert_eq!(encoded.command_count, 14);
     assert_eq!(&encoded.bytes[..7], b"RITODL1");
-    assert_eq!(validate(&encoded.bytes), Ok(13));
+    assert_eq!(validate(&encoded.bytes), Ok(14));
     let expected_digest: [u8; 32] = Sha256::digest(&encoded.bytes).into();
     assert_eq!(encoded.semantic_digest, expected_digest);
     assert_eq!(encoded.image_hrefs, vec!["images/cover.jpg"]);
@@ -484,6 +484,17 @@ fn all_primitive_shapes() -> PrimitiveList {
             _ => None,
         })
         .expect("representative image lowers to a draw");
+    let fallback = lowered
+        .commands
+        .iter()
+        .find(|primitive| {
+            matches!(primitive, Primitive::ImageFallback { src, state, pieces, .. }
+                if src == "images/cover.jpg"
+                    && *state == ImageFallbackState::Broken
+                    && pieces.len() == 2)
+        })
+        .cloned()
+        .expect("the representative image lowers a broken fallback in two pieces");
     let color = ReaderColor {
         space: ReaderColorSpace::Srgb,
         components: [0.25, 0.5, 0.75],
@@ -566,6 +577,7 @@ fn all_primitive_shapes() -> PrimitiveList {
             },
             Primitive::Text(text.clone()),
             Primitive::Ruby(text),
+            fallback,
         ],
     }
 }

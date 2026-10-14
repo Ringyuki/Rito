@@ -3,75 +3,39 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const SRC = join(import.meta.dirname, '../../src');
+const WORKSPACE_ROOT = join(SRC, '../../..');
 const READER_ROOT = join(SRC, 'reader');
-const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
-const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
-const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
-const BROWSER_CANVAS_TEXT = join(SRC, 'bindings/browser/canvas-text');
-const BROWSER_PRIMITIVE_RENDERER = join(SRC, 'bindings/browser/primitive-renderer.ts');
-const BROWSER_PRIMITIVE_BLITS = join(SRC, 'bindings/browser/primitive-blits.ts');
-const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
-const BROWSER_COMMIT_FRAME = join(SRC, 'bindings/browser/commit-frame.ts');
-const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
-const BROWSER_READER_FACADE = join(BROWSER_READER_BINDING, 'reader.ts');
-const BROWSER_READER_TYPES = join(BROWSER_READER_BINDING, 'types.ts');
-const BROWSER_READER_WORKER_CLIENT = join(BROWSER_READER_BINDING, 'worker-client.ts');
-const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.mjs');
-const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/revision-reflow.ts');
-const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
-const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
-const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
-const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
-const BROWSER_READER_SOURCE_RANGE = join(BROWSER_READER_BINDING, 'source-range.ts');
-const BROWSER_READER_TEXT_SELECTION = join(BROWSER_READER_BINDING, 'text-selection.ts');
-const BROWSER_READER_TEXT_SELECTION_FROM_POINTS = join(
-  BROWSER_READER_BINDING,
-  'text-selection-from-points.ts',
-);
-const BROWSER_READER_TEXT_SELECTION_SUPPORT = join(
-  BROWSER_READER_BINDING,
-  'text-selection-support.ts',
-);
-const BROWSER_READER_WORKER_BOOTSTRAP = join(BROWSER_READER_BINDING, 'worker-bootstrap.ts');
-const BROWSER_READER_WORKER_MAIN = join(BROWSER_READER_BINDING, 'worker-main.ts');
-const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
-const BROWSER_PUBLICATION_FONTS = join(SRC, 'bindings/browser/publication-fonts.ts');
-const BROWSER_READER_SESSION_HOST = join(SRC, 'bindings/browser/reader-session-host.ts');
-const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resources/scheduler.ts');
-const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
+const BROWSER_BINDING = join(SRC, 'bindings/browser');
+const SESSION_READER = join(BROWSER_BINDING, 'session-reader');
+const BROWSER_CORE_CONTRACTS = join(BROWSER_BINDING, 'core-contracts.ts');
+const BROWSER_CANVAS_TEXT = join(BROWSER_BINDING, 'canvas-text');
+const BROWSER_PRIMITIVE_RENDERER = join(BROWSER_BINDING, 'primitive-renderer.ts');
+const BROWSER_PRIMITIVE_BLITS = join(BROWSER_BINDING, 'primitive-blits.ts');
+const BROWSER_SESSION = join(BROWSER_BINDING, 'reader-session.ts');
+const BROWSER_SESSION_WORKER = join(BROWSER_BINDING, 'reader-session-worker.ts');
+const BROWSER_SESSION_WORKER_ENTRY = join(BROWSER_BINDING, 'reader-session-worker-entry.mjs');
+const BROWSER_SESSION_CANVAS = join(BROWSER_BINDING, 'reader-session-canvas.ts');
+const BROWSER_BINDING_FILES = walkTs(BROWSER_BINDING);
+const SESSION_READER_FILES = walkTs(SESSION_READER);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
-// Worker-scoped revision ownership, stale-result guards, exact selection, durable
-// source reads, granular point ranges, fixed-anchor selection movement, double-page anchors,
-// atomic reflow, locator navigation, and
-// exact-version frame/resource/search ownership, failure-isolated disposal, and
-// host-task disposal barriers are required orchestration capabilities.
-// Raised for the conformance diagnostics surface: the pixel oracle reads
-// the live metric world and committed frames through one debug module.
-const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 25;
-// Raised for the exact-read reclaim path: a suspended session that never
-// reopens its gate must be retired, not waited on forever.
-// Raised again for the fragment page-table lever: open threading, the
-// backend-change frame-cache guard, and background completion.
-// Raised for host line-metric sync: post-reflow and post-completion
-// drain/measure/inject of browser-measured `line-height: normal` metrics
-// with a forced reflow converging on a metric-faithful page table.
-// Raised again to converge those metrics before the first paint instead of
-// a second after it: the page the reader first sees must not be laid out
-// with metrics the next pass is going to correct. The drain/measure/reflow
-// step is shared with the background completion loop rather than copied.
-// Raised for the theme-invalidation signal: `setTheme` changed state and
-// told nobody, so a dark-mode switch never reached the screen. The binding
-// cannot repaint for the host (it knows neither the target nor the scale),
-// so it reports the invalidation the host already listens for.
-// +12 lines (2026-07-27): element-sourced natural image decode — the only
-// drawImage source that reproduces the browser raster bit for bit.
-// +4 lines (2026-09-07): every worker open hands the engine the canvas
-// device pixel ratio, so raster snaps land on the device grid.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3334;
+// The reader built on the session protocol: opening, the two-phase layout
+// commit, spreads held within the session's live-artifact budget, turns,
+// the whole-book run, interactions asked of one live artifact, resources
+// and host fonts. Lowered from 25 files and 3332 lines (2026-10-10) when it
+// replaced the reader built on revisions.
+// +50 lines (2026-10-10): the queue every operation on artifacts runs
+// through (queue.ts) and the one module that owns artifacts (artifacts.ts).
+// They took the place of three concurrent chains, whose interleavings left
+// a reader that ignored every later setting.
+const SESSION_READER_FILE_BUDGET = 22;
+const SESSION_READER_LINE_BUDGET = 2650;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
-// Includes the experimental fragment-pagination option.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 719;
+// +52 lines (2026-10-03): the font catalog types a font picker is built
+// from, and the reader's four font methods.
+// +9 lines (2026-10-09): `layoutScope` tells a chapter-first commit from
+// the whole book's.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 782;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -112,50 +76,37 @@ function scan(
   return hits;
 }
 
-describe('Browser reader architecture invariant: browser reader binding stays product-facing', () => {
+function walkRust(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root)) {
+    const full = join(root, entry);
+    if (statSync(full).isDirectory()) out.push(...walkRust(full));
+    else if (full.endsWith('.rs')) out.push(full);
+  }
+  return out;
+}
+
+function walkTsLike(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root)) {
+    const full = join(root, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) out.push(...walkTsLike(full));
+    else if (full.endsWith('.ts') || full.endsWith('.tsx')) out.push(full);
+  }
+  return out;
+}
+
+describe('Browser reader architecture invariant: the reader stays a thin shell', () => {
   it('stays within the counted thin-shell budget', () => {
-    expect(BROWSER_READER_BINDING_FILES.length).toBeLessThanOrEqual(
-      BROWSER_READER_THIN_SHELL_FILE_BUDGET,
-    );
-    expect(lineCount(BROWSER_READER_BINDING_FILES)).toBeLessThanOrEqual(
-      BROWSER_READER_THIN_SHELL_LINE_BUDGET,
-    );
+    expect(SESSION_READER_FILES.length).toBeLessThanOrEqual(SESSION_READER_FILE_BUDGET);
+    expect(lineCount(SESSION_READER_FILES)).toBeLessThanOrEqual(SESSION_READER_LINE_BUDGET);
     expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(6);
     expect(lineCount(READER_ROOT_FILES)).toBeLessThanOrEqual(READER_PUBLIC_CONTRACT_LINE_BUDGET);
   });
 
-  it('keeps runtime pipeline and state machine files out of the binding root', () => {
-    const rootFiles = readdirSync(BROWSER_READER_BINDING)
-      .filter((entry) => entry.endsWith('.ts'))
-      .sort();
-    const misplaced = rootFiles.filter((entry) =>
-      /^(?:reflow|revision-|visual-preview|state|state-groups|resource-scheduler)\.ts$/.test(entry),
-    );
-    expect(
-      misplaced,
-      `Browser reader root should stay facade/platform oriented; move pipeline/state files into subdirectories:\n${JSON.stringify(
-        misplaced,
-        null,
-        2,
-      )}`,
-    ).toEqual([]);
-  });
-
-  it('keeps worker protocol aliases behind the core binding boundary', () => {
-    expect(
-      existsSync(join(BROWSER_READER_BINDING, 'worker-protocol.ts')),
-      'Browser reader should consume private core-wasm worker contracts through core-contracts.ts.',
-    ).toBe(false);
-    expect(
-      existsSync(join(BROWSER_READER_BINDING, 'worker-client-methods.ts')),
-      'Worker request wrappers should not live in a separate Browser-owned protocol layer.',
-    ).toBe(false);
-    expect(read(BROWSER_CORE_CONTRACTS)).toContain('BrowserReaderWorkerRequest');
-    expect(read(BROWSER_READER_WORKER_CLIENT)).toContain('createInProcessBrowserReaderSession');
-  });
-
   it('does not keep implementation-language filenames in reader/', () => {
-    const files = walkTs(READER_ROOT).map(rel).sort();
+    const files = [...walkTs(READER_ROOT), ...BROWSER_BINDING_FILES].map(rel).sort();
     const hits = files.filter((file) => /(^|\/)rust-|rust-reader|rust-worker/.test(file));
     expect(
       hits,
@@ -165,7 +116,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
 
   it('does not use implementation-prefixed symbols in TypeScript reader glue', () => {
     const hits = scan(
-      BROWSER_READER_BINDING_FILES,
+      SESSION_READER_FILES,
       /\b(?:Rust[A-Za-z0-9_]*|RUST_[A-Z0-9_]*|rust-|CoreWasm[A-Za-z0-9_]*|Wasm[A-Za-z0-9_]*)/g,
     );
     expect(
@@ -176,7 +127,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
 
   it('does not revive migration-era engine naming in browser reader glue', () => {
     const hits = scan(
-      BROWSER_READER_BINDING_FILES,
+      BROWSER_BINDING_FILES,
       /\bReaderEngine\b|reader-engine|reader engine|Reader engine/g,
     );
     expect(
@@ -187,8 +138,8 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
 
   it('keeps browser reader bindings free of engine-level modules', () => {
     const hits = scan(
-      BROWSER_READER_BINDING_FILES,
-      /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){3,}(?:layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
+      BROWSER_BINDING_FILES,
+      /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){2,}(?:layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
     );
     expect(
       hits,
@@ -199,14 +150,93 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       )}`,
     ).toEqual([]);
   });
+});
 
-  it('keeps the Canvas renderer adapter a primitive blitter', () => {
-    const source = read(BROWSER_RENDERING);
+describe('Browser reader architecture invariant: one host protocol', () => {
+  it('speaks the reader session protocol and nothing of the revision runtime', () => {
+    // A reader lays out, turns and answers through one session. The
+    // revision runtime it replaced had its own worker, its own handles and
+    // a chapter-local preview beside it; none of that may come back.
+    const hits = scan(
+      BROWSER_BINDING_FILES,
+      /createRevision|AtRevision\b|RevisionSession|revisionBundle|[cC]hapterLocal|createViewRevision|visualPreview/g,
+    );
+    expect(hits, `Revision runtime vocabulary found:\n${JSON.stringify(hits, null, 2)}`).toEqual(
+      [],
+    );
+    for (const retired of ['reader', 'chapter-local-preview']) {
+      expect(existsSync(join(BROWSER_BINDING, retired)), retired).toBe(false);
+    }
+    const workers = scan(BROWSER_BINDING_FILES, /new Worker\(/g);
+    expect(workers).toEqual([{ file: rel(BROWSER_SESSION), match: 'new Worker(' }]);
+  });
+
+  it('builds one worker', () => {
+    const tsdownSource = read(join(SRC, '../tsdown.config.ts'));
+    const entries = [...tsdownSource.matchAll(/['"]?([\w-]+)['"]?:\s*['"]src\/[^'"]+['"]/g)].map(
+      (match) => match[1],
+    );
+    expect(entries.sort()).toEqual(['index', 'reader-session-worker-entry']);
+  });
+
+  it('uses one statically analyzable worker URL in source and published builds', () => {
+    const sessionSource = read(BROWSER_SESSION);
+    const workerEntrySource = read(BROWSER_SESSION_WORKER_ENTRY);
+    const tsdownSource = read(join(SRC, '../tsdown.config.ts'));
+
+    expect(sessionSource).toContain(
+      "new Worker(new URL('./reader-session-worker-entry.mjs', import.meta.url)",
+    );
+    expect(sessionSource).not.toContain('new URL(import.meta.url).pathname');
+    expect(workerEntrySource).toContain(
+      "import { startBrowserReaderSessionWorker } from './reader-session-worker.ts'",
+    );
+    expect(workerEntrySource).toContain('startBrowserReaderSessionWorker()');
+    expect(tsdownSource).toMatch(
+      /['"]reader-session-worker-entry['"]:\s*['"]src\/bindings\/browser\/reader-session-worker-main\.ts['"]/,
+    );
+  });
+
+  it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {
+    const coreContractsSource = read(BROWSER_CORE_CONTRACTS);
+    const rootContractStatements = coreContractsSource
+      .split(';')
+      .filter((statement) => statement.includes("from '@ritojs/core-wasm'"));
+    expect(rootContractStatements.length).toBeGreaterThan(0);
+    expect(
+      rootContractStatements.every((statement) => statement.trimStart().startsWith('export type')),
+    ).toBe(true);
+    expect(read(BROWSER_SESSION_WORKER)).toContain("from '@ritojs/core-wasm'");
+
+    const allowed = new Set([BROWSER_CORE_CONTRACTS, BROWSER_SESSION_WORKER]);
+    const hits = scan(
+      BROWSER_BINDING_FILES,
+      /(?:from\s+|import\s*\()\s*['"]@ritojs\/core-wasm['"]/g,
+      (file) => allowed.has(file),
+    );
+    expect(
+      hits,
+      `The page side reaches the wasm package only through its decoder entry:\n${JSON.stringify(
+        hits,
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+  });
+
+  it('delegates worker payload construction to the private core-wasm wrapper', () => {
+    const workerSource = read(BROWSER_SESSION_WORKER);
+    expect(workerSource).toContain('createRitoCoreWasmReaderSessionWorkerHandler');
+    expect(lineCount([BROWSER_SESSION_WORKER])).toBeLessThanOrEqual(40);
+  });
+});
+
+describe('Browser reader architecture invariant: the engine lays out, the shell paints', () => {
+  it('paints an artifact through the primitive renderer and nothing else', () => {
+    const source = read(BROWSER_SESSION_CANVAS);
+    expect(source).toContain('renderReaderPrimitivesToCanvas');
     expect(source).not.toContain('drawTextFragment');
     expect(source).not.toContain('drawRubyFragment');
-    expect(source).toContain("from './image-href-resolver'");
-    expect(source).toContain('renderReaderPrimitivesToCanvas');
-    expect(source).not.toContain('canvasDisplayListRenderer');
     expect(source).not.toContain('as unknown as');
   });
 
@@ -220,10 +250,9 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     // outlines, shadow spread, background tiling) is the engine's; the
     // binding only traces device paths. A block-painting module returning
     // here means a law was re-implemented on the host.
-    const browserRoot = join(SRC, 'bindings/browser');
-    const entries = readdirSync(browserRoot);
+    const entries = readdirSync(BROWSER_BINDING);
     expect(entries.filter((entry) => /^canvas-block$|^canvas-path\.ts$/.test(entry))).toEqual([]);
-    expect(existsSync(join(browserRoot, 'frame-command-renderer.ts'))).toBe(false);
+    expect(existsSync(join(BROWSER_BINDING, 'frame-command-renderer.ts'))).toBe(false);
     const hits = scan(
       [BROWSER_PRIMITIVE_RENDERER, BROWSER_PRIMITIVE_BLITS],
       /Math\.(?:round|floor|ceil)\(/g,
@@ -246,286 +275,201 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {
-    const coreContractsSource = read(BROWSER_CORE_CONTRACTS);
-    const wasmModuleSource = read(BROWSER_READER_WASM_MODULE);
-    const workerBootstrapSource = read(BROWSER_READER_WORKER_BOOTSTRAP);
-    const rootContractStatements = coreContractsSource
-      .split(';')
-      .filter((statement) => statement.includes("from '@ritojs/core-wasm'"));
-
-    expect(coreContractsSource).toContain("from '@ritojs/core-wasm/decoder'");
-    expect(rootContractStatements.length).toBeGreaterThan(0);
+  it('never reads a display list outside the presenter', () => {
+    // What a reader decides — which spread, which page, what a tap means —
+    // it decides from an artifact's metadata. The display list is paint.
+    const hits = scan(SESSION_READER_FILES, /displayList/g);
     expect(
-      rootContractStatements.every((statement) => statement.trimStart().startsWith('export type')),
-    ).toBe(true);
-    expect(wasmModuleSource).toContain("import('@ritojs/core-wasm')");
-    expect(wasmModuleSource).not.toContain("import('@ritojs/core-wasm/decoder')");
-    expect(workerBootstrapSource).toContain("from '@ritojs/core-wasm'");
-    expect(workerBootstrapSource).not.toContain("from '../core-contracts'");
+      hits,
+      `Reader policy code read a display list:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
 
+  it('converts between page and display-list coordinates in one place', () => {
+    // The session speaks the display-list space of a spread; a reader
+    // speaks page-content coordinates. The difference is the page's content
+    // origin, taken from the geometry the reader publishes — in one module.
     const allowed = new Set([
-      BROWSER_CORE_CONTRACTS,
-      BROWSER_READER_WASM_MODULE,
-      BROWSER_READER_WORKER_BOOTSTRAP,
+      join(SESSION_READER, 'page-space.ts'),
+      join(SESSION_READER, 'layout-options.ts'),
     ]);
     const hits = scan(
-      [...BROWSER_READER_BINDING_FILES, BROWSER_CORE_CONTRACTS],
-      /(?:from\s+|import\s*\()\s*['"]@ritojs\/core-wasm(?:\/decoder)?['"]/g,
+      SESSION_READER_FILES,
+      /\b(?:marginLeft|marginTop|marginRight|marginBottom|pageWidth|pageHeight|spreadGap)\b/g,
       (file) => allowed.has(file),
     );
     expect(
       hits,
-      `Browser reader binding should import the private wasm package only through core-contracts/wasm-module/worker-main:\n${JSON.stringify(
-        hits,
-        null,
-        2,
-      )}`,
+      `Page geometry used outside page-space:\n${JSON.stringify(hits, null, 2)}`,
     ).toEqual([]);
   });
+});
 
-  it('only the frame decoder and renderer consume decoded frame commands', () => {
-    const allowed = new Set([join(BROWSER_READER_BINDING, 'frame.ts'), BROWSER_RENDERING]);
+describe('Browser reader architecture invariant: one committed layout', () => {
+  it('replaces the committed layout only by committing one', () => {
+    const allowed = new Set([join(SESSION_READER, 'commit.ts')]);
     const hits = scan(
-      BROWSER_READER_BINDING_FILES,
-      /\bframe\.commands\b|commands:\s*decoded\.commands/g,
+      SESSION_READER_FILES,
+      /state\.(?:view|config|layoutGeneration)\s*(?:\+=|=(?!=))/g,
       (file) => allowed.has(file),
     );
     expect(
       hits,
-      `Browser reader policy code should use Rust metadata, not decoded commands:\n${JSON.stringify(
-        hits,
-        null,
-        2,
-      )}`,
+      `The committed layout was replaced outside its commit:\n${JSON.stringify(hits, null, 2)}`,
     ).toEqual([]);
   });
 
-  it('keeps reflow scheduler state behind a nested runtime state object', () => {
-    const source = read(BROWSER_READER_TYPES);
-    const stateBody = source.match(/export interface BrowserReaderState \{([\s\S]*?)\n\}/)?.[1];
-    expect(stateBody).toBeDefined();
-    expect(stateBody).toContain('reflow: BrowserReaderReflowState');
-    for (const field of [
-      'reflowActive',
-      'fullReflowActive',
-      'reflowToken',
-      'queuedReflow',
-      'deferredFullReflow',
-      'lastReflowError',
-    ]) {
-      expect(stateBody).not.toContain(field);
-    }
-  });
-
-  it('keeps committed revision state anchored on one Rust revision bundle', () => {
-    const source = read(BROWSER_READER_TYPES);
-    const stateBody = source.match(/export interface BrowserReaderState \{([\s\S]*?)\n\}/)?.[1];
-    expect(stateBody).toBeDefined();
-    expect(stateBody).toContain('revisionBundle: CoreRevisionBundle');
-    expect(stateBody).not.toContain('revision: CoreRevisionSummary');
-    expect(stateBody).not.toContain('navigation: CoreRevisionNavigation');
-  });
-
-  it('centralizes revision session ownership and exact-read gating in the Browser host', () => {
-    const contracts = read(BROWSER_CORE_CONTRACTS);
-    const state = read(BROWSER_READER_TYPES);
-    const host = read(BROWSER_READER_SESSION_HOST);
-    const handles = read(join(BROWSER_READER_BINDING, 'pipeline/revision-handle.ts'));
-
-    expect(contracts).toContain('createRitoCoreWasmReaderRevisionSession');
-    expect(state).toContain('revisionSessions: BrowserReaderRevisionSessionSlots');
-    expect(host).toContain('slots.current');
-    expect(host).toContain('slots.candidate');
-    expect(host).toContain('suspendBrowserReaderExactReads');
-    expect(host).toContain('Promise.allSettled');
-    expect(handles).toContain('revisionOwnerAllowsRead');
-  });
-
-  it('keeps reader-methods as the Reader API facade', () => {
-    const source = read(BROWSER_READER_METHODS);
-    expect(source).not.toContain("from './methods/");
-    expect(source).toContain('buildBrowserReaderMethods');
-    expect(source).toContain('scheduleBrowserReaderReflow');
-  });
-
-  it('keeps production reflow on Rust revision session candidates', () => {
-    const source = read(BROWSER_READER_REFLOW);
-    expect(source).toContain('startBrowserReaderRevisionCandidate');
-    expect(source).toContain('createBrowserReaderRevisionSessionOwner');
-    expect(source).not.toContain('createViewRevision');
-    expect(source).not.toContain('visualPreview');
-    expect(source).not.toContain('deferred');
-    expect(source).not.toContain('fullReflowWorker');
-  });
-
-  it('does not retain the preview, deferred, or host-owned revision lifecycle', () => {
-    const sources = [
-      read(BROWSER_READER_TYPES),
-      read(BROWSER_READER_REVISION),
-      read(BROWSER_RENDERING),
-      read(BROWSER_RESOURCE_ADAPTER),
-      read(BROWSER_COMMIT_FRAME),
-    ];
-    for (const source of sources) {
-      expect(source).not.toContain('visualPreview');
-      expect(source).not.toContain('fullReflowWorker');
-      expect(source).not.toContain('commitBrowserReaderViewResult');
-    }
-    expect(read(BROWSER_READER_TYPES)).not.toContain('deferredTimer');
-    expect(read(BROWSER_READER_REVISION)).not.toContain('releaseRevisionAtRevision');
-  });
-
-  it('keeps semantic interaction reads exact-versioned and gated', () => {
-    const source = read(BROWSER_READER_INTERACTION);
-    const captureSource = read(BROWSER_READER_INTERACTION_CAPTURE);
-    const sourceRangeSource = read(BROWSER_READER_SOURCE_RANGE);
-    const textSelectionSource = read(BROWSER_READER_TEXT_SELECTION);
-    const pointRangeSource = read(BROWSER_READER_TEXT_SELECTION_FROM_POINTS);
-    const textSelectionSupport = read(BROWSER_READER_TEXT_SELECTION_SUPPORT);
-    expect(source).toContain('getPageTargetsAtRevision');
-    expect(source).toContain('getFootnoteAtRevision');
-    expect(source).toContain('resolveSourceLocatorAtRevision');
-    expect(captureSource).toContain('isCurrentRevisionHandle');
-    expect(captureSource).not.toContain('visualPreview');
-    expect(sourceRangeSource).toContain('resolveExactSourceRangeAtRevision');
-    expect(sourceRangeSource).toContain('readCapturedInteraction');
-    expect(textSelectionSource).toContain('resolveTextCaretAtRevision');
-    expect(textSelectionSource).toContain('resolveTextRangeAtRevision');
-    expect(pointRangeSource).toContain('resolveTextRangeFromPointsAtRevision');
-    expect(textSelectionSupport).toContain('WeakMap<ReaderTextCaret, BoundCaret>');
-  });
-
-  it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {
-    const reflowSource = read(BROWSER_READER_REFLOW);
-    const revisionCommitSource = read(BROWSER_REVISION_COMMIT);
-    const commitFrameSource = read(BROWSER_COMMIT_FRAME);
-    expect(reflowSource).not.toContain('warmFrameWindow');
-    expect(reflowSource).toContain('startBrowserReaderRevisionCandidate');
-    expect(reflowSource).not.toContain('decodeBrowserReaderFrame');
-    expect(revisionCommitSource).not.toContain('warmFrameWindow');
-    expect(revisionCommitSource).toContain('prepareControllerOwnedBrowserReaderCommitFrame');
-    expect(commitFrameSource).toContain('decodeBrowserReaderFrame');
-    expect(commitFrameSource).toContain('result.selectedFrame');
-  });
-
-  it('does not keep a TypeScript resource scheduler layer for frame windows', () => {
-    expect(
-      existsSync(BROWSER_READER_RESOURCE_SCHEDULER),
-      'Frame/resource warm policy should stay behind the Rust warm-window API; browser code should only apply returned frames and resources.',
-    ).toBe(false);
-  });
-
-  it('does not duplicate initial frame buffers outside the Rust planned frame window', () => {
-    expect(read(BROWSER_CORE_CONTRACTS)).not.toContain('readonly initialFrame');
-    expect(read(BROWSER_READER_WORKER_MAIN)).not.toContain('initialFrame.bytes');
-    expect(existsSync(join(BROWSER_READER_BINDING, 'worker-main/frame.ts'))).toBe(false);
-  });
-
-  it('does not expose unused worker warmup commands from the browser binding', () => {
-    const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
-    const workerBootstrapSource = read(BROWSER_READER_WORKER_BOOTSTRAP);
-    expect(workerClientSource).not.toContain('warmupWorker');
-    expect(workerBootstrapSource).not.toContain("case 'warmup'");
-  });
-
-  it('uses one statically analyzable worker URL in source and published builds', () => {
-    const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
-    const workerEntrySource = read(BROWSER_READER_WORKER_ENTRY);
-    const tsdownSource = read(join(SRC, '../tsdown.config.ts'));
-
-    expect(workerClientSource).toContain(
-      "new Worker(new URL('./worker-entry.mjs', import.meta.url)",
-    );
-    expect(workerClientSource).not.toContain('new URL(import.meta.url).pathname');
-    expect(workerClientSource).not.toContain('worker-main.mjs');
-    expect(workerEntrySource).toContain(
-      "import { startBrowserReaderWorker } from './worker-bootstrap.ts'",
-    );
-    expect(workerEntrySource).toContain('startBrowserReaderWorker()');
-    expect(tsdownSource).toMatch(
-      /['"]worker-entry['"]:\s*['"]src\/bindings\/browser\/reader\/worker-main\.ts['"]/,
-    );
-  });
-
-  it('uses Rust revision sessions instead of browser-owned revision variants', () => {
-    const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
-    const reflowSource = read(BROWSER_READER_REFLOW);
-    expect(workerClientSource).toContain('createRitoCoreWasmWorkerReaderClient');
-    expect(reflowSource).toContain('startBrowserReaderRevisionCandidate');
-    expect(reflowSource).not.toContain('createViewRevision');
-    for (const legacyName of [
-      'createRevision',
-      'createPreviewRevision',
-      'createInitialPreviewRevision',
-      'createActiveChapterPreviewRevision',
-    ]) {
-      expect(workerClientSource).not.toContain(legacyName);
-      expect(reflowSource).not.toContain(legacyName);
-    }
-  });
-
-  it('scopes the shared session cache to one BrowserReader factory', () => {
-    const facadeSource = read(BROWSER_READER_FACADE);
-    const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
-    const reflowSource = read(BROWSER_READER_REFLOW);
-    const stateSource = read(BROWSER_READER_TYPES);
-
-    expect(workerClientSource).toContain('createBrowserReaderWorkerClientFactory');
-    expect(workerClientSource).toContain('let cache: BrowserReaderSessionCache | undefined = {}');
-    expect(workerClientSource).toContain('const activeCache = cache');
-    expect(workerClientSource).toContain(
-      'createInProcessBrowserReaderSession(module, activeCache)',
-    );
-    expect(workerClientSource).toContain('createRitoCoreWasmWorkerReaderClient(worker, cache');
-    expect(workerClientSource).toContain('createBrowserReaderWorkerShellPool');
-    expect(workerClientSource).toContain('factory.dispose = () =>');
-    expect(workerClientSource).toContain('cache = undefined');
-    expect(facadeSource).toContain('const workerFactory = createBrowserReaderWorkerClientFactory');
-    expect(facadeSource).toContain('const worker = workerFactory()');
-    expect(stateSource).toContain('readonly workerFactory: BrowserReaderWorkerClientFactory');
-    expect(reflowSource).toContain('const worker = state.workerFactory()');
-    expect(reflowSource).not.toContain('createBrowserReaderWorkerClient');
-  });
-
-  it('delegates worker payload construction to the private core-wasm wrapper', () => {
-    const workerBootstrapSource = read(BROWSER_READER_WORKER_BOOTSTRAP);
-    expect(workerBootstrapSource).toContain('createRitoCoreWasmReaderWorkerHandler');
-    expect(workerBootstrapSource).not.toContain('readerWorkerPayload');
-    for (const file of [
-      'worker-main/frame.ts',
-      'worker-main/revision.ts',
-      'worker-main/resource.ts',
-      'worker-main/document-session.ts',
-      'worker-main/message.ts',
-    ]) {
-      expect(existsSync(join(BROWSER_READER_BINDING, file))).toBe(false);
-    }
-  });
-
-  it('keeps revision-owned Browser reads and releases on exact-version worker methods', () => {
-    const files = [
-      ...BROWSER_READER_BINDING_FILES,
-      BROWSER_RESOURCE_ADAPTER,
-      join(SRC, 'bindings/browser/required-fonts.ts'),
-      BROWSER_COMMIT_FRAME,
-    ];
+  it("owns the session's artifacts in one module", () => {
+    // Asking for an artifact, having the session show one and giving one
+    // back are all in artifacts.ts, where whatever is not shown or installed
+    // is released before a function returns or throws. No other module
+    // can hold an artifact the session does not know the fate of.
     const hits = scan(
-      files,
-      /\.(?:readResource|warmFrameWindow|search|releaseRevision|releaseRevisionTransfers)\s*\(/g,
+      SESSION_READER_FILES,
+      /\.(?:requestArtifact|requestAdjacent|seek|adoptForegroundCandidate|commitPeekedArtifact|adoptBackgroundCandidate|advanceBackgroundOnce|peekSpread|peekAdjacent|release)\(/g,
+      (file) => file === join(SESSION_READER, 'artifacts.ts'),
     );
-
     expect(
       hits,
-      `Browser reader used a revisionId-only worker operation:\n${JSON.stringify(hits, null, 2)}`,
+      `An artifact was asked for, shown or released outside artifacts.ts:\n${JSON.stringify(hits, null, 2)}`,
     ).toEqual([]);
   });
 
-  it('uses Rust revision font summaries instead of probing frames for fallback fonts', () => {
-    const source = read(BROWSER_RESOURCE_ADAPTER) + read(BROWSER_PUBLICATION_FONTS);
-    expect(source).toContain('state.revisionBundle.fontFamilies');
-    expect(source).not.toContain('./frame-cache');
-    expect(source).not.toContain('ensureFrameLoaded');
-    expect(source).not.toContain('firstFrameFontFamily');
+  it('works on artifacts through one queue, one operation at a time', () => {
+    // A request and the adoption of its result, a spread loaded ahead and a
+    // step of the whole book never overlap: the live-artifact budget is
+    // counted exactly and nothing reaches the session between a request and
+    // its adoption. So the functions that own artifacts are called only by
+    // the modules whose work is an operation of the queue (and by opening,
+    // before there is a queue), and the queue is the only scheduler: no
+    // second chain, no timer, no retry.
+    const operations = new Set(
+      ['artifacts', 'frames', 'commit', 'foreground', 'background', 'reader'].map((name) =>
+        join(SESSION_READER, `${name}.ts`),
+      ),
+    );
+    const owners = scan(
+      SESSION_READER_FILES,
+      /\b(?:adoptSessionReaderFirstFrame|requestSessionReaderLayout|advanceSessionReaderBook|peekSessionReaderFrame|commitSessionReaderFrame|releaseSessionReaderFrame|loadSessionReaderFrame)\b/g,
+      (file) => operations.has(file),
+    );
+    expect(owners, `Artifacts owned outside an operation:\n${JSON.stringify(owners)}`).toEqual([]);
+
+    const queue = read(join(SESSION_READER, 'queue.ts'));
+    expect(queue).toContain('if (queue.running) return;');
+    expect(queue).toContain('await next();');
+    const state = read(join(SESSION_READER, 'state.ts'));
+    expect(state).toContain('readonly queue: SessionReaderQueue;');
+    expect(state).not.toMatch(/:\s*Promise<void>;/);
+
+    const second = scan(
+      SESSION_READER_FILES,
+      /setTimeout\(|setInterval\(|\bretr(?:y|ies)\b|[Rr]efusedForNow/g,
+    );
+    expect(second, `A second scheduler or a retry:\n${JSON.stringify(second)}`).toEqual([]);
+    const microtasks = scan(SESSION_READER_FILES, /queueMicrotask\(/g);
+    expect(microtasks).toEqual([
+      { file: rel(join(SESSION_READER, 'queue.ts')), match: 'queueMicrotask(' },
+    ]);
+  });
+
+  it('never has one operation wait for another', () => {
+    // With one operation at a time, an operation that awaited a queued one
+    // would wait for itself. What an operation needs from another it does
+    // itself (`loadSessionReaderFrame`), and what it only starts it does
+    // not await. Code outside the queue may wait for a spread to be loaded.
+    const operations = ['artifacts', 'frames', 'commit', 'foreground', 'background'].map((name) =>
+      join(SESSION_READER, `${name}.ts`),
+    );
+    const waits = scan(
+      operations,
+      /await\s+(?:ensureSessionReaderFrame|runSessionReaderOperation)\(/g,
+    );
+    expect(waits, `An operation waits on the queue:\n${JSON.stringify(waits)}`).toEqual([]);
+  });
+
+  it('asks about the committed layout through the capture that drops a superseded answer', () => {
+    // An answer names pages of the layout it was asked of. Every question
+    // whose answer carries pages or geometry goes through one gate that
+    // resolves undefined once the layout was replaced.
+    const gated = /\.(?:textInteraction|exactSourceRange|readFootnote|search|textRangeGeometry)\(/g;
+    for (const file of SESSION_READER_FILES) {
+      const source = read(file);
+      if (!gated.test(source)) continue;
+      gated.lastIndex = 0;
+      expect(source, rel(file)).toContain('askSessionReaderLayout');
+    }
+    expect(read(join(SESSION_READER, 'text-selection.ts'))).toContain(
+      'WeakMap<ReaderTextCaret, CaretBinding>',
+    );
+    expect(read(join(SESSION_READER, 'page-space.ts'))).toContain(
+      'capture.generation !== state.layoutGeneration',
+    );
+  });
+
+  it('answers interactions from the engine: no classification or geometry of its own', () => {
+    // A target's kind, a link's destination, a caret and a range's rects
+    // arrive from the session; the reader maps names and coordinates.
+    const hits = scan(
+      SESSION_READER_FILES,
+      /\.startsWith\(['"](?:https?:|#)|epub:type|noteref|getBoundingClientRect|measureText/g,
+    );
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
+  });
+});
+
+describe('Workspace architecture invariant: one host protocol, everywhere', () => {
+  // The reader session is the only way a host reaches the engine: through
+  // WASM, through the C ABI, and through the JavaScript runtime between a
+  // page and its worker. The revision runtime that stood beside it — a
+  // document binding, a worker of its own, a chapter-local preview — was
+  // removed layer by layer; each layer says here that it stays removed.
+  it('the WASM boundary exports the reader session and no other class', () => {
+    const crate = join(WORKSPACE_ROOT, 'crates/rito-wasm/src');
+    const classes = walkRust(crate)
+      .flatMap((file) => [
+        ...read(file).matchAll(/#\[wasm_bindgen\(js_name = (\w+)\)\]\s*pub struct/g),
+      ])
+      .map((match) => match[1]);
+    expect(classes).toEqual(['RitoReaderSession']);
+    expect(readdirSync(crate).sort()).toEqual(['lib.rs', 'reader_session', 'reader_session.rs']);
+  });
+
+  it('the wasm package ships the session runtime alone', () => {
+    const source = join(WORKSPACE_ROOT, 'packages/rito-core-wasm/src');
+    const modules = readdirSync(source).filter((entry) => entry.endsWith('-runtime.js'));
+    const foreign = modules.filter(
+      (entry) => !/^(?:reader-session-|shard-prefetch-lane-|pinned-font-policy-)/.test(entry),
+    );
+    expect(foreign, JSON.stringify(foreign)).toEqual([]);
+    const hits = scan(
+      [...modules.map((entry) => join(source, entry)), ...walkTs(source)],
+      /RitoWasmDocument|createRevision|AtRevision\b|RevisionSession|[cC]hapterLocal/g,
+    );
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
+  });
+
+  it('the kit has no presentation of its own beside the reader', () => {
+    const kit = join(WORKSPACE_ROOT, 'packages/kit/src');
+    expect(existsSync(join(kit, 'controller/navigation/local-preview'))).toBe(false);
+    const hits = scan(walkTsLike(kit), /[cC]hapterLocal|provisional|local-preview/g);
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
+  });
+});
+
+describe('Workspace architecture invariant: the reader has no second way in', () => {
+  it('kit and the demo reach a reader only through createReader', () => {
+    const consumers = [
+      join(WORKSPACE_ROOT, 'packages/kit/src'),
+      join(WORKSPACE_ROOT, 'packages/react/src'),
+      join(WORKSPACE_ROOT, 'apps/reader/src'),
+    ]
+      .filter((path) => existsSync(path))
+      .flatMap(walkTsLike);
+    const hits = scan(
+      consumers,
+      /__ritoSessionReader|openBrowserReaderSession|RitoReaderSession\b/g,
+    );
+    expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
   });
 });

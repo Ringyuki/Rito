@@ -185,6 +185,46 @@ final class RitoPrimitiveDrawImage extends RitoPrimitive {
   int get opcode => 11;
 }
 
+/// When an image's fallback paints: while its bitmap is on the way, or
+/// once it can no longer arrive.
+enum RitoImageFallbackState { loading, broken }
+
+/// One even-odd filled outline of an image fallback icon, moved by
+/// [offset] and cut to [clip] (both in the outline's own coordinates).
+final class RitoIconPiece {
+  const RitoIconPiece({required this.offset, this.clip, required this.path});
+
+  final RitoDisplayPoint offset;
+  final RitoDevicePath? clip;
+  final RitoDevicePath path;
+}
+
+/// What stands in an image's place while its bitmap is not there, painted
+/// only while the image named [src] is in [state]: [block] filled with the
+/// page background mixed with [blockInk] of the text colour, then each
+/// piece filled even-odd with the block colour mixed with [iconInk] of the
+/// text colour.
+final class RitoPrimitiveImageFallback extends RitoPrimitive {
+  RitoPrimitiveImageFallback({
+    required this.src,
+    required this.state,
+    required this.block,
+    required this.blockInk,
+    required this.iconInk,
+    required List<RitoIconPiece> pieces,
+  }) : pieces = List<RitoIconPiece>.unmodifiable(pieces);
+
+  final String src;
+  final RitoImageFallbackState state;
+  final RitoDisplayRect block;
+  final double blockInk;
+  final double iconInk;
+  final List<RitoIconPiece> pieces;
+
+  @override
+  int get opcode => 14;
+}
+
 /// A text run with every length in device pixels; glyph placement is
 /// still the renderer's.
 final class RitoPrimitiveText extends RitoPrimitive {

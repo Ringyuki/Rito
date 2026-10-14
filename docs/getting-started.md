@@ -42,8 +42,9 @@ pnpm run build
 The engine shapes text inside its WASM runtime, where no system font is
 reachable: layout metrics and Canvas paint must share the exact same font
 bytes, so `createReader` **requires** a `pinnedFontPolicy` with at least
-one face. Ship a Latin face and a CJK face (the demo reader pins Tinos and
-Source Han Serif CN) and load their bytes yourself:
+one face. Ship a Latin face and a CJK face per generic role you want to
+serve (the demo reader pins Tinos + Source Han Serif CN for `serif` and
+Arimo + Source Han Sans CN for `sans-serif`) and load their bytes yourself:
 
 ```ts
 import type { ReaderPinnedFontPolicy } from '@ritojs/core';
@@ -68,7 +69,10 @@ async function loadPinnedFontPolicy(): Promise<ReaderPinnedFontPolicy> {
 A missing or empty policy makes `createReader` throw immediately — the
 engine cannot start without shapeable font bytes. EPUB-embedded fonts
 still provide exact shapes for the runs they cover; the pinned faces are
-the fallback beneath them.
+the fallback beneath them. A generic family resolves to the faces of its
+role — the language-neutral (`und`) face first, then faces tagged for the
+content's language — so a Latin face serves Latin text and the `zh-Hans`
+face serves ideographs. See [Fonts](./api/reader.md#fonts).
 
 ## Smallest Web Canvas Example
 
@@ -128,9 +132,6 @@ reader.dispose();
 
 - Use `createReader()` from `@ritojs/core` for the standard browser reader
   flow.
-- Use `openBrowserReaderSession()` from `@ritojs/core` when your host drives the
-  artifact protocol itself (candidates, adoption, background advance) —
-  the same protocol Flutter and the C ABI expose.
 - Use `@ritojs/kit` when you want transitions, overlays, pointer and
   keyboard wiring and controller state.
 - Use `@ritojs/react` when you want React hooks and a mount component.

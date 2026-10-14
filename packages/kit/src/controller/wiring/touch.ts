@@ -97,8 +97,8 @@ function createGestureDeps(
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
-    commitPendingTransition: () => {
-      if (runtime.td.isAnimating) runtime.td.forceSettle();
+    supersedeTurnInFlight: () => {
+      nav.supersedeForGesture();
     },
   };
 }

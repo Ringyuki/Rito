@@ -1,4 +1,11 @@
-import type { PackageMetadata, Reader, ReaderOptions, Spread, TocEntry } from '@ritojs/core';
+import type {
+  PackageMetadata,
+  Reader,
+  ReaderOptions,
+  ReaderPublication,
+  Spread,
+  TocEntry,
+} from '@ritojs/core';
 import type {
   ControllerOptions,
   ReaderController,
@@ -17,6 +24,12 @@ export interface RitoReaderState {
   readonly controller: ReaderController | null;
   readonly isLoaded: boolean;
   readonly isLoading: boolean;
+  /**
+   * Why the book could not be opened, or null. The controller's own `error`
+   * events are non-fatal (a font-family choice no face answers to, a search
+   * or annotation failure) and never land here: subscribe to them with
+   * `useControllerEvent(controller, 'error', …)`.
+   */
   readonly error: string | null;
   readonly currentSpread: number;
   readonly totalSpreads: number;
@@ -26,7 +39,8 @@ export interface RitoReaderState {
 }
 
 export interface RitoReaderActions {
-  readonly load: (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => Promise<void>;
+  /** Opens an EPUB archive or a sharded publication (see `rito-pack`). */
+  readonly load: (data: ReaderPublication | PromiseLike<ReaderPublication>) => Promise<void>;
   readonly nextSpread: () => void;
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
@@ -85,15 +99,19 @@ export const INITIAL: InternalState = {
 };
 
 export function createLoadedState(reader: Reader, controller: ReaderController): InternalState {
+  // The book is on screen as soon as the reader has laid a page out. Spread
+  // indexes and counts are book-wide and come from the controller: a book
+  // that opens with its first chapter laid out alone has none to give until
+  // the whole book follows, which `layoutChange` then announces.
   const hasLayout = reader.totalSpreads > 0;
   return {
     isLoaded: hasLayout,
     isLoading: !hasLayout,
     error: null,
     currentSpread: controller.currentSpread,
-    totalSpreads: reader.totalSpreads,
+    totalSpreads: controller.totalSpreads,
     metadata: reader.metadata,
     toc: reader.toc,
-    spreads: reader.spreads,
+    spreads: controller.spreads,
   };
 }

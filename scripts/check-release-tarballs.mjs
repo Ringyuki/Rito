@@ -105,18 +105,18 @@ function validatePackedCore(tarballPath, contents) {
   }
   assertWasm(readTarBuffer(tarballPath, wasmEntry), '@ritojs/core packed artifact');
 
-  const workerEntry = 'package/dist/worker-entry.mjs';
+  const workerEntry = 'package/dist/reader-session-worker-entry.mjs';
   if (!contents.includes(workerEntry)) {
-    throw new Error('@ritojs/core: packed tarball is missing dist/worker-entry.mjs');
+    throw new Error('@ritojs/core: packed tarball is missing dist/reader-session-worker-entry.mjs');
   }
   const staticWorkerPattern =
-    /new Worker\(new URL\(["']\.\/worker-entry\.mjs["'],\s*import\.meta\.url\)/;
+    /new Worker\(new URL\(["']\.\/reader-session-worker-entry\.mjs["'],\s*import\.meta\.url\)/;
   const workerClients = contents
     .filter(isJavaScriptModule)
     .filter((entry) => staticWorkerPattern.test(readTarText(tarballPath, entry)));
   if (workerClients.length !== 1 || !/^package\/dist\/[^/]+\.mjs$/.test(workerClients[0] ?? '')) {
     throw new Error(
-      `@ritojs/core: expected one root dist chunk beside worker-entry.mjs, got ${workerClients.join(', ') || 'none'}`,
+      `@ritojs/core: expected one root dist chunk beside reader-session-worker-entry.mjs, got ${workerClients.join(', ') || 'none'}`,
     );
   }
 
@@ -183,10 +183,14 @@ function smokeBuildPackedCoreWithVite(smokeDir) {
 
   const assetsDir = path.join(smokeDir, 'dist/assets');
   const assets = readdirSync(assetsDir);
-  const workerAssets = assets.filter((entry) => /^worker-entry-[\w-]+\.js$/.test(entry));
-  if (workerAssets.length !== 1) {
+  // The reader has one worker: any other worker asset is a second protocol.
+  const workerAssets = assets.filter((entry) => /worker-entry-[\w-]+\.js$/.test(entry));
+  if (
+    workerAssets.length !== 1 ||
+    !/^reader-session-worker-entry-[\w-]+\.js$/.test(workerAssets[0] ?? '')
+  ) {
     throw new Error(
-      `@ritojs/core: isolated Vite build expected one worker-entry asset, got ${workerAssets.join(', ') || 'none'}`,
+      `@ritojs/core: isolated Vite build expected one reader-session-worker-entry asset, got ${workerAssets.join(', ') || 'none'}`,
     );
   }
 
@@ -213,7 +217,7 @@ function smokeBuildPackedCoreWithVite(smokeDir) {
   if (
     consumerModules.some(
       (source) =>
-        source.includes('bindings/browser/reader/worker-main.mjs') ||
+        source.includes('bindings/browser/reader-session-worker-main.mjs') ||
         source.includes('worker-main.ts'),
     )
   ) {

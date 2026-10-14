@@ -11,7 +11,8 @@ export 'src/image/artifact_image_cache.dart'
     show
         RitoArtifactImageCache,
         RitoArtifactImageLease,
-        RitoArtifactImageResourceReader;
+        RitoArtifactImageResourceReader,
+        RitoTransientResourceFailure;
 export 'src/image/image_decoder.dart'
     show RitoImageDecoder, RitoImageDecodeSource, RitoUiImageDecoder;
 export 'src/image/image_limits.dart'
@@ -26,11 +27,21 @@ export 'src/native/bindings.dart'
         ritoNativeStatusInvalidArgument,
         ritoNativeStatusNotFound,
         ritoNativeStatusPanic,
+        ritoNativeStatusResourcePending,
         ritoNativeStatusSessionTerminated,
         ritoNativeStatusStaleRequest,
         ritoNativeStatusTargetNotPublished,
         ritoNativeStatusUnsupportedProfile;
 export 'src/native/gateway.dart';
+export 'src/protocol/annotation_target.dart'
+    show
+        RitoAnnotationLevel,
+        RitoAnnotationQuery,
+        RitoAnnotationRequest,
+        RitoAnnotationResponse,
+        RitoAnnotationTarget,
+        RitoCreateAnnotationQuery,
+        RitoResolveAnnotationQuery;
 export 'src/protocol/artifact_models.dart';
 export 'src/protocol/display_models.dart'
     show RitoPaintRuby, RitoPaintText, RitoTextPaintCommand;
@@ -40,10 +51,35 @@ export 'src/protocol/exact_source_range.dart'
         RitoExactSourceRangeResolution,
         RitoExactSourceRangeStatus,
         RitoExactSourceRect;
+export 'src/protocol/font_catalog.dart';
 export 'src/protocol/footnote_decoder.dart' show RitoFootnote, RitoFootnoteKind;
 export 'src/protocol/hit_resolver.dart';
+export 'src/protocol/navigation_query.dart'
+    show
+        RitoCompareQuery,
+        RitoLayoutQuery,
+        RitoLayoutResult,
+        RitoLocateQuery,
+        RitoLocatedPage,
+        RitoLocation,
+        RitoLocationResult,
+        RitoLocationUnavailable,
+        RitoNavigationQuery,
+        RitoNavigationRequest,
+        RitoNavigationResult,
+        RitoNotLaidOut,
+        RitoOrderResult,
+        RitoTocEntryAtPageQuery,
+        RitoTocEntryAtPositionQuery,
+        RitoTocEntryResult;
 export 'src/protocol/primitive_models.dart';
 export 'src/protocol/request_models.dart';
+export 'src/protocol/revision_layout.dart'
+    show
+        RitoChapterPages,
+        RitoRevisionLayout,
+        RitoSpreadPages,
+        RitoTocTargetPage;
 export 'src/protocol/search.dart'
     show RitoSearchRequest, RitoSearchResponse, RitoSearchResult;
 export 'src/protocol/text_geometry.dart'
@@ -52,6 +88,34 @@ export 'src/protocol/text_geometry.dart'
         RitoTextRangeGeometry,
         RitoTextRangeRequest,
         RitoTextRect;
+export 'src/protocol/text_interaction.dart'
+    show
+        RitoBoundaryResult,
+        RitoCaret,
+        RitoCaretAddress,
+        RitoCaretAffinity,
+        RitoCaretGeometry,
+        RitoCaretQuery,
+        RitoCaretResult,
+        RitoMissResult,
+        RitoMovementQuery,
+        RitoPendingResult,
+        RitoRangeFromPointsQuery,
+        RitoRangeQuery,
+        RitoRangeToPointQuery,
+        RitoSelectionBoundary,
+        RitoSelectionGranularity,
+        RitoSelectionMovement,
+        RitoSelectionResult,
+        RitoTextInteractionQuery,
+        RitoTextInteractionRequest,
+        RitoTextInteractionResponse,
+        RitoTextInteractionResult,
+        RitoTextInteractionUnavailableReason,
+        RitoTextPoint,
+        RitoTextSelection,
+        RitoUnavailableResult;
+export 'src/reader/reader_controller.dart';
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'
     show RitoFontEnvelope, RitoFontEnvelopeStore;
@@ -62,3 +126,15 @@ export 'src/render/page_surface.dart'
         RitoImageResolver,
         RitoPageSurface;
 export 'src/render/typed_color.dart' show ritoUiColor;
+export 'src/turn/effects.dart';
+export 'src/turn/motion.dart'
+    show
+        RitoPageTurnLeftover,
+        RitoPageTurnPhysics,
+        RitoPageTurnRelease,
+        RitoSpring;
+export 'src/turn/page_textures.dart'
+    show RitoPagePainter, RitoPageTextures, ritoPaintArtifactPage;
+export 'src/turn/page_turn_controller.dart';
+export 'src/turn/page_turn_events.dart';
+export 'src/turn/page_turn_view.dart';

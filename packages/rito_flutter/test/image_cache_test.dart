@@ -44,6 +44,8 @@ void main() {
       },
     );
 
+    await lease.settled;
+
     expect(peak, 4);
     expect(decoder.decodedCodes, hasLength(12));
     lease.release();
@@ -103,6 +105,7 @@ void main() {
     final leases = await Future.wait<RitoArtifactImageLease>(
       <Future<RitoArtifactImageLease>>[prepare(first), prepare(second)],
     );
+    await Future.wait<void>(leases.map((lease) => lease.settled));
 
     expect(peak, 4);
     for (final lease in leases) {
@@ -149,12 +152,13 @@ void main() {
           );
         },
       );
-      final failure = expectLater(preparation, throwsStateError);
+      final lease = await preparation;
 
       await started.future;
       cache.dispose();
       unblock.complete();
-      await failure;
+      await lease.settled;
+      expect(lease.failedImages, isEmpty, reason: 'teardown is not a fault');
 
       expect(decoder.openedCodes, isEmpty);
       expect(decoder.createdImages, isEmpty);
@@ -195,10 +199,13 @@ void main() {
       artifact: first,
       readResource: (reference) => reader(first, reference),
     );
+
+    await current.settled;
     final next = await cache.prepare(
       artifact: incoming,
       readResource: (reference) => reader(incoming, reference),
     );
+    await next.settled;
     final image = current.resolveImage(href)!;
 
     expect(identical(image, next.resolveImage(href)), isTrue);
@@ -254,6 +261,7 @@ void main() {
             spec: reference.href.endsWith('one.png') ? firstSpec : failedSpec,
           ),
         );
+        await lease.settled;
       } finally {
         FlutterError.onError = priorOnError;
       }
@@ -286,6 +294,7 @@ void main() {
         readResource: (reference) async =>
             imageResource(artifact: artifact, reference: reference, spec: spec),
       );
+      await lease.settled;
       final image = lease.resolveImage(href)!;
 
       lease.release();
@@ -321,6 +330,8 @@ void main() {
           imageResource(artifact: artifact, reference: reference, spec: spec),
     );
 
+    await lease.settled;
+
     expect(decoder.decodedCodes, hasLength(1));
     expect(lease.resolveImage('images/plate.png')!.height, 182);
     lease.release();
@@ -354,6 +365,8 @@ void main() {
         readResource: (reference) async =>
             imageResource(artifact: artifact, reference: reference, spec: spec),
       );
+
+      await lease.settled;
 
       expect(decoder.decodedCodes, hasLength(2), reason: 'fallback re-decodes');
       final image = lease.resolveImage('images/broken-scale.png')!;
@@ -395,6 +408,7 @@ void main() {
             spec: spec,
           ),
         );
+        await lease.settled;
       } finally {
         FlutterError.onError = priorOnError;
       }

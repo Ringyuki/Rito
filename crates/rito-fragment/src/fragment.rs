@@ -107,8 +107,8 @@ pub struct TextFragment {
     /// The run's font box: the primary font's grid-fit (ascent, descent)
     /// at the run's size — canvas `fontBoundingBoxAscent/Descent`, the
     /// extent Chromium gives a native selection rect. Absent when the
-    /// host injected no grid metric; consumers then fall back to the
-    /// line box.
+    /// run's style or font did not resolve; consumers then fall back to
+    /// the line box.
     pub font_grid: Option<(f64, f64)>,
     /// `ruby-align: center` under a WIDE annotation: the packed base
     /// glyphs paint this far right of the run origin — half the flow
@@ -151,14 +151,23 @@ pub struct BoxSnap {
     pub edge_bottom: f64,
 }
 
+/// One font face the inline provider shaped with, numbered by the
+/// provider that registered it. Paint names the face by this number, so
+/// a cluster is drawn with exactly the face that measured it.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct FontFaceId(pub u32);
+
 /// Where one cluster of a text run paints: the offset of its origin from
-/// the run rect's left edge, in CSS pixels, before any pixel snapping.
+/// the run rect's left edge, in CSS pixels, before any pixel snapping,
+/// and the face shaping drew it from.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ClusterPosition {
     /// Start byte of the cluster in the inline flow's concatenated text.
     pub byte: u32,
     /// Origin offset from the run rect's left edge.
     pub x: f64,
+    /// The face the cluster's glyphs come from.
+    pub face: FontFaceId,
 }
 
 /// One laid-out atomic inline (an image) inside a line.

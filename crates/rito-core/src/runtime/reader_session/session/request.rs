@@ -10,10 +10,10 @@ use super::{
     errors::{missing_artifact_revision, unknown_artifact, validate_external_request_id},
     layout_config,
     project::{publication_navigation, reader_navigation},
-    runtime_locator, ReaderAdjacentAvailability, ReaderAdjacentDirection, ReaderAdjacentRequest,
-    ReaderArtifact, ReaderArtifactOwner, ReaderArtifactRequest, ReaderError, ReaderErrorKind,
-    ReaderForegroundCandidate, ReaderPendingAdjacent, ReaderRevisionBacking, ReaderSession,
-    ReaderTextRenderingProfile,
+    runtime_locator, usize_from_u32, ReaderAdjacentAvailability, ReaderAdjacentDirection,
+    ReaderAdjacentRequest, ReaderArtifact, ReaderArtifactOwner, ReaderArtifactRequest, ReaderError,
+    ReaderErrorKind, ReaderForegroundCandidate, ReaderPendingAdjacent, ReaderRevisionBacking,
+    ReaderSession, ReaderSpreadRequest, ReaderTextRenderingProfile,
 };
 
 impl ReaderSession {
@@ -176,6 +176,62 @@ impl ReaderSession {
             ReaderRevisionBacking::Publication => {
                 self.request_publication_adjacent(source, request.request_id, request.direction)?
             }
+        };
+        self.peeked_artifacts.insert(artifact.artifact_id);
+        Ok(artifact)
+    }
+
+    /// Publishes one spread of the revision behind `from_artifact_id` as a
+    /// read-only artifact, addressed by its position in that revision's
+    /// layout (see `ReaderNavigationQuery::Layout`).
+    ///
+    /// The revision is already laid out, so this is a projection with no
+    /// layout work and, like [`Self::peek_adjacent`], no foreground side
+    /// effect: the artifact becomes visible only through
+    /// [`Self::commit_peeked_artifact`]. It occupies one live-artifact slot
+    /// and must be released by the caller.
+    pub fn peek_spread(
+        &mut self,
+        request: ReaderSpreadRequest,
+    ) -> Result<ReaderArtifact, ReaderError> {
+        self.validate_request_identity(request.session_id, request.request_id, "peek")?;
+        validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
+        self.require_artifact_capacity()?;
+        let source = self
+            .artifacts
+            .get(&request.from_artifact_id)
+            .cloned()
+            .ok_or_else(|| unknown_artifact(request.from_artifact_id))?;
+        let spread_index = usize_from_u32(request.spread_index, "spread index")?;
+        let spread_count = match source.backing {
+            ReaderRevisionBacking::ChapterLocal => self
+                .revisions
+                .get(&source.revision_id)
+                .map(|revision| revision.local_spread_count),
+            ReaderRevisionBacking::Publication => self
+                .publication_revisions
+                .get(&source.revision_id)
+                .map(|revision| revision.spread_count),
+        }
+        .ok_or_else(|| missing_artifact_revision(source.backing))?;
+        if spread_index >= spread_count {
+            return Err(ReaderError::new(
+                ReaderErrorKind::InvalidRequest,
+                format!("spread {spread_index} is not in this artifact's revision"),
+            ));
+        }
+        self.latest_request_id = request.request_id;
+        let artifact = match source.backing {
+            ReaderRevisionBacking::ChapterLocal => self.publish_revision_artifact(
+                source.revision_id,
+                spread_index,
+                request.request_id,
+            )?,
+            ReaderRevisionBacking::Publication => self.publish_publication_artifact(
+                source.revision_id,
+                spread_index,
+                request.request_id,
+            )?,
         };
         self.peeked_artifacts.insert(artifact.artifact_id);
         Ok(artifact)

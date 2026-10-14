@@ -1,45 +1,6 @@
 export { createLayoutConfig, createReader, preloadReaderRuntime } from './reader';
-export { openBrowserReaderSession, RitoReaderError } from './bindings/browser/reader-session';
-export {
-  BrowserReaderCanvasUnsupportedError,
-  createBrowserReaderSessionCanvasPresenter,
-} from './bindings/browser/reader-session-canvas';
-export {
-  BROWSER_READER_IMAGE_RESOURCE_ERROR_CODE,
-  BrowserReaderImageResourceError,
-} from './bindings/browser/image-resource-error';
-export type {
-  BrowserReaderAdjacentDirection,
-  BrowserReaderArtifactRequest,
-  BrowserReaderArtifact,
-  BrowserReaderBackgroundAdvance,
-  BrowserReaderBackgroundHandoffAck,
-  BrowserReaderErrorCode,
-  BrowserReaderForegroundHandoffAck,
-  BrowserReaderLayout,
-  BrowserReaderLocator,
-  BrowserReaderPublication,
-  BrowserReaderResourceKind,
-  BrowserReaderResource,
-  BrowserReaderSeekOverrides,
-  BrowserReaderTextProfile,
-  BrowserReaderSessionOpenOptions,
-  BrowserReaderSession,
-} from './bindings/browser/reader-session';
-export type {
-  BrowserReaderImageLoadOutcome,
-  BrowserReaderImageResourceFailureReason,
-} from './bindings/browser/image-resource-error';
-export type {
-  BrowserReaderCanvasPaintOptions,
-  BrowserReaderCanvasPresenter,
-  BrowserReaderCanvasTarget,
-  BrowserReaderPreparedCanvasArtifact,
-} from './bindings/browser/reader-session-canvas';
 export type {
   ChapterRange,
-  ChapterTextIndex,
-  ChapterTextSpan,
   FootnoteEntry,
   FootnoteKind,
   LayoutConfig,
@@ -47,11 +8,20 @@ export type {
   LogLevel,
   PackageMetadata,
   Reader,
+  ReaderAnnotationTarget,
+  ReaderAnnotationTargetResolution,
   ReaderExactSourceRange,
   ReaderExactSourceRangeRequest,
   ReaderExactSourceRangeResolution,
   ReaderOptions,
+  ReaderFontCatalog,
+  ReaderFontFamily,
+  ReaderFontFamilyFace,
+  ReaderHostFontFace,
   ReaderPinnedFontPolicy,
+  ReaderPublication,
+  ReaderPublicationShard,
+  ReaderShardedPublication,
   ReaderThemeOptions,
   Rect,
   ReaderExactTextRangeRect,
@@ -73,6 +43,7 @@ export type {
   ReaderTextRangeResolution,
   ReaderSearchSourceResolution,
   ReaderSourcePoint,
+  ReaderSourcePosition,
   ReaderSourceRange,
   ReaderTextCaret,
   ReaderTextCaretGeometry,

@@ -1,0 +1,351 @@
+//! Text selection and annotation targets over the reader session
+//! protocol. Every answer comes from the same engine resolvers the web
+//! reader calls, so a selection, a caret move or a stored highlight
+//! behaves identically on every host.
+
+use super::{ReaderExactSourceRect, ReaderSourcePoint, ReaderSourceRange, ReaderTextPosition};
+
+/// A point on one of an artifact's pages, in its display-list space
+/// (the space [`super::ReaderHitEntry::bounds`] uses).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReaderTextPoint {
+    pub page_index: u32,
+    pub x: f64,
+    pub y: f64,
+}
+
+/// Which side of a line break a caret sits on when one text offset is
+/// both a line's end and the next line's start.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderCaretAffinity {
+    Upstream,
+    Downstream,
+}
+
+/// A caret between two shaped clusters. `page_index` and `position`
+/// address the revision behind the artifact the caret came from, so a
+/// caret is only meaningful to requests on artifacts of that revision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderCaretAddress {
+    pub page_index: u32,
+    pub position: ReaderTextPosition,
+    pub affinity: ReaderCaretAffinity,
+}
+
+/// A caret's line in display-list space: its top and its height.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReaderCaretGeometry {
+    pub x: f64,
+    pub y: f64,
+    pub height: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderCaret {
+    pub address: ReaderCaretAddress,
+    /// Present when the caret's page is one this artifact draws.
+    pub geometry: Option<ReaderCaretGeometry>,
+    /// Canonical manifest href and source point the caret sits at.
+    pub href: String,
+    pub source_point: ReaderSourcePoint,
+}
+
+/// A resolved text range. `start` and `end` are `anchor` and `focus` in
+/// document order; `rects` cover only the pages this artifact draws.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderTextSelection {
+    pub anchor: ReaderCaretAddress,
+    pub focus: ReaderCaretAddress,
+    pub start: ReaderCaretAddress,
+    pub end: ReaderCaretAddress,
+    pub selected_text: String,
+    /// Durable source identity of the normalized endpoints; the two hrefs
+    /// differ only for a range that crosses resources.
+    pub source_start_href: String,
+    pub source_start: ReaderSourcePoint,
+    pub source_end_href: String,
+    pub source_end: ReaderSourcePoint,
+    pub rects: Vec<ReaderExactSourceRect>,
+}
+
+/// How far a range from two points extends past them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderSelectionGranularity {
+    Word,
+    Paragraph,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderSelectionMovement {
+    CharacterLeft,
+    CharacterRight,
+    WordLeft,
+    WordRight,
+    WordStartRight,
+    LineUp,
+    LineDown,
+    LineStart,
+    LineEnd,
+    PageUp,
+    PageDown,
+    ParagraphBackward,
+    ParagraphForward,
+    ParagraphPreviousStart,
+    ParagraphNextStart,
+    ChapterStart,
+    ChapterEnd,
+    DocumentStart,
+    DocumentEnd,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderSelectionBoundary {
+    Start,
+    End,
+}
+
+/// One text interaction against an artifact.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ReaderTextInteractionQuery {
+    /// The caret nearest a point.
+    Caret { point: ReaderTextPoint },
+    /// The range between two carets, as when a handle is dropped.
+    Range {
+        anchor: ReaderCaretAddress,
+        focus: ReaderCaretAddress,
+    },
+    /// The range from a kept caret to a point, as while a handle or a
+    /// character-wise drag moves.
+    RangeToPoint {
+        anchor: ReaderCaretAddress,
+        focus: ReaderTextPoint,
+    },
+    /// The range two points span, widened to whole words or paragraphs.
+    RangeFromPoints {
+        anchor: ReaderTextPoint,
+        focus: ReaderTextPoint,
+        granularity: ReaderSelectionGranularity,
+    },
+    /// The focus caret moved by a keyboard-style step. The preferred
+    /// positions are the ones the previous movement returned, echoed back
+    /// so vertical steps keep their column.
+    Movement {
+        anchor: ReaderCaretAddress,
+        focus: ReaderCaretAddress,
+        movement: ReaderSelectionMovement,
+        preferred_inline_position: Option<f64>,
+        preferred_block_position: Option<f64>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReaderTextInteractionRequest {
+    pub session_id: u64,
+    pub artifact_id: u64,
+    pub query: ReaderTextInteractionQuery,
+    /// Whether points and geometry may lie on any page of the artifact's
+    /// revision, each in the display-list space of the spread that draws
+    /// its page. Unset, a point must lie on a page the artifact draws,
+    /// and only those pages' rects and caret geometry come back.
+    pub every_page: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderTextInteractionUnavailableReason {
+    ShapeUnavailable,
+    SourceUnavailable,
+    UnsupportedTransform,
+    VisualGeometryUnavailable,
+    InvalidCaret,
+    DifferentChapter,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReaderTextInteractionResult {
+    Caret(ReaderCaret),
+    Selection(Box<ReaderSelectionResult>),
+    /// The point is not over text.
+    Miss,
+    /// The movement leaves this revision through that boundary.
+    Boundary(ReaderSelectionBoundary),
+    /// The movement needs pages past that boundary that are not laid out yet.
+    Pending(ReaderSelectionBoundary),
+    Unavailable(ReaderTextInteractionUnavailableReason),
+}
+
+/// A resolved range. The carets are present for every query but `Range`,
+/// and the preferred positions only for `Movement`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderSelectionResult {
+    pub anchor_caret: Option<ReaderCaret>,
+    pub focus_caret: Option<ReaderCaret>,
+    pub selection: ReaderTextSelection,
+    pub preferred_inline_position: Option<f64>,
+    pub preferred_block_position: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderTextInteractionResponse {
+    pub artifact_id: u64,
+    pub result: ReaderTextInteractionResult,
+}
+
+/// Builds or locates an annotation target. Targets depend only on the
+/// publication source, so no artifact is involved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReaderAnnotationQuery {
+    /// Builds the target for a source range, normally a selection's.
+    Create {
+        href: String,
+        range: ReaderSourceRange,
+    },
+    /// Finds a stored target, given as the JSON the engine wrote.
+    Resolve { target_json: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderAnnotationRequest {
+    pub session_id: u64,
+    pub query: ReaderAnnotationQuery,
+}
+
+/// Which level of the cascade located a target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderAnnotationLevel {
+    /// A target `Create` built.
+    Created,
+    Exact,
+    Quote,
+    Position,
+    Progression,
+    /// The chapter is gone.
+    OrphanedHrefNotFound,
+    /// The chapter holds no text.
+    OrphanedEmptyChapter,
+}
+
+/// An annotation target: `json` is the engine's canonical serialization,
+/// which is what hosts persist, and the remaining fields are its contents
+/// so a host never parses JSON itself.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderAnnotationTarget {
+    pub json: String,
+    pub href: String,
+    pub range: ReaderSourceRange,
+    pub exact: String,
+    pub prefix: String,
+    pub suffix: String,
+    /// UTF-16 offsets into the chapter's canonical text.
+    pub start: u64,
+    pub end: u64,
+    pub chapter_length: u64,
+}
+
+/// The target built, or the stored one re-anchored where it was found;
+/// absent only for the orphaned levels.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderAnnotationResponse {
+    pub level: ReaderAnnotationLevel,
+    pub target: Option<ReaderAnnotationTarget>,
+}
+
+/// A reading-position question. Every answer comes from the engine, so a
+/// chapter title, a bookmark check or a turn direction is the same on
+/// every host.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReaderNavigationQuery {
+    /// The TOC entry a page of an artifact's revision reads under: the
+    /// last entry, in TOC order, whose target sits at or before it.
+    TocEntryAtPage { artifact_id: u64, page_index: u32 },
+    /// The TOC entry a source position reads under, decided on the source
+    /// alone: the last entry whose target is at or before the position.
+    TocEntryAtPosition {
+        href: String,
+        point: ReaderSourcePoint,
+    },
+    /// Where a stored locator lands in an artifact's revision.
+    Locate {
+        artifact_id: u64,
+        locator: super::ReaderLocator,
+    },
+    /// Reading order of two source positions.
+    Compare {
+        first_href: String,
+        first: ReaderSourcePoint,
+        second_href: String,
+        second: ReaderSourcePoint,
+    },
+    /// The page table of the revision behind an artifact: its spreads,
+    /// the chapters it lays out and where its TOC entries land.
+    Layout { artifact_id: u64 },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderNavigationRequest {
+    pub session_id: u64,
+    pub query: ReaderNavigationQuery,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderLocation {
+    /// The locator lands on `page_index` of the revision; `drawn` says
+    /// whether the asking artifact draws that page.
+    Page {
+        page_index: u32,
+        drawn: bool,
+        matched_by: super::ReaderLocatorMatch,
+    },
+    /// The locator's chapter is not laid out in this revision.
+    NotLaidOut,
+    /// The locator does not resolve in the publication.
+    Unavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReaderNavigationResult {
+    /// The entry's preorder index — the `toc_id` the publication carries.
+    TocEntry(Option<u32>),
+    Location(ReaderLocation),
+    Order(std::cmp::Ordering),
+    Layout(ReaderRevisionLayout),
+}
+
+/// The page table of one revision. A chapter-local revision lays out one
+/// chapter (its pages count from zero); a whole-book revision lays out
+/// every chapter and its pages are book pages. A host addresses a spread
+/// by its position in [`Self::spreads`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderRevisionLayout {
+    pub page_count: u32,
+    /// Every spread's pages, in reading order.
+    pub spreads: Vec<ReaderSpreadPages>,
+    /// The chapters the revision lays out, in spine order.
+    pub chapters: Vec<ReaderChapterPages>,
+    /// The TOC entries the revision places on a page, in TOC order.
+    pub toc_targets: Vec<ReaderTocTargetPage>,
+    /// Per page, the TOC entry it reads under: the last entry whose target
+    /// sits at or before it.
+    pub active_toc_entry_by_page: Vec<Option<u32>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderSpreadPages {
+    pub left_page_index: u32,
+    pub right_page_index: Option<u32>,
+}
+
+/// The pages one spine item is laid out on, both ends included.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderChapterPages {
+    /// The item's index in the publication's spine.
+    pub spine_index: u32,
+    pub start_page: u32,
+    pub end_page: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReaderTocTargetPage {
+    /// The entry's preorder index — the `toc_id` the publication carries.
+    pub toc_id: u32,
+    pub page_index: u32,
+}

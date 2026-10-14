@@ -32,6 +32,8 @@ void main() {
             imageResource(artifact: artifact, reference: reference, spec: spec),
       );
 
+      await lease.settled;
+
       expect(decoder.targets[1], (width: 800, height: 800));
       lease.release();
       cache.dispose();
@@ -63,6 +65,8 @@ void main() {
             imageResource(artifact: artifact, reference: reference, spec: spec),
       );
 
+      await lease.settled;
+
       expect(decoder.targets[2], (width: 400, height: 200));
       lease.release();
       cache.dispose();
@@ -90,6 +94,8 @@ void main() {
       readResource: (reference) async =>
           imageResource(artifact: artifact, reference: reference, spec: spec),
     );
+
+    await lease.settled;
 
     expect(decoder.targets[8], (width: 600, height: 400));
     lease.release();
@@ -196,6 +202,7 @@ Future<RitoArtifactImageLease> preparedWithContainedFailure({
   final RitoArtifactImageLease lease;
   try {
     lease = await cache.prepare(artifact: artifact, readResource: readResource);
+    await lease.settled;
   } finally {
     FlutterError.onError = priorOnError;
   }

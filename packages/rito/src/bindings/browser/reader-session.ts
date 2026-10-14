@@ -1,7 +1,6 @@
 import {
   createRitoCoreWasmReaderSessionWorkerClient,
   type RitoCoreWasmReaderSessionWorkerClient,
-  type RitoReaderAdjacentDirection,
   type RitoReaderArtifactRequestInput,
   type RitoReaderArtifact,
   type RitoReaderBackgroundAdvance,
@@ -11,19 +10,29 @@ import {
   type RitoReaderPublication,
   type RitoReaderResourceKind,
   type RitoReaderResource,
-  type RitoReaderErrorCode,
   type RitoReaderForegroundHandoffAck,
-  type RitoReaderSeekOverrides,
   type RitoReaderTextProfile,
   type RitoReaderSessionWorkerLike,
+  type RitoReaderAnnotationRequest,
+  type RitoReaderAnnotationResponse,
+  type RitoReaderExactSourceRangeResolution,
+  type RitoReaderGeometryOptions,
+  type RitoReaderFootnote,
+  type RitoReaderNavigationRequest,
+  type RitoReaderNavigationResult,
+  type RitoReaderSearchResponse,
+  type RitoReaderSourceRange,
+  type RitoReaderTextInteractionQuery,
+  type RitoReaderTextInteractionResponse,
   RitoReaderError,
 } from '@ritojs/core-wasm/decoder';
+
+import type { ReaderFontCatalog, ReaderHostFontFace, ReaderPublication } from '../../reader';
 
 export { RitoReaderError };
 
 export type BrowserReaderArtifact = RitoReaderArtifact;
 export type BrowserReaderArtifactRequest = RitoReaderArtifactRequestInput;
-export type BrowserReaderErrorCode = RitoReaderErrorCode;
 export type BrowserReaderBackgroundAdvance = RitoReaderBackgroundAdvance;
 export type BrowserReaderBackgroundHandoffAck = RitoReaderBackgroundHandoffAck;
 export type BrowserReaderForegroundHandoffAck = RitoReaderForegroundHandoffAck;
@@ -31,10 +40,19 @@ export type BrowserReaderLayout = RitoReaderLayout;
 export type BrowserReaderLocator = RitoReaderLocator;
 export type BrowserReaderPublication = RitoReaderPublication;
 export type BrowserReaderResource = RitoReaderResource;
-export type BrowserReaderAdjacentDirection = RitoReaderAdjacentDirection;
 export type BrowserReaderResourceKind = RitoReaderResourceKind;
 export type BrowserReaderTextProfile = RitoReaderTextProfile;
-export type BrowserReaderSeekOverrides = RitoReaderSeekOverrides;
+export type BrowserReaderFootnote = RitoReaderFootnote;
+export type BrowserReaderSearchResponse = RitoReaderSearchResponse;
+export type BrowserReaderSourceRange = RitoReaderSourceRange;
+export type BrowserReaderExactSourceRangeResolution = RitoReaderExactSourceRangeResolution;
+export type BrowserReaderTextInteractionQuery = RitoReaderTextInteractionQuery;
+export type BrowserReaderGeometryOptions = RitoReaderGeometryOptions;
+export type BrowserReaderTextInteractionResponse = RitoReaderTextInteractionResponse;
+export type BrowserReaderAnnotationQuery = RitoReaderAnnotationRequest['query'];
+export type BrowserReaderAnnotationResponse = RitoReaderAnnotationResponse;
+export type BrowserReaderNavigationQuery = RitoReaderNavigationRequest['query'];
+export type BrowserReaderNavigationResult = RitoReaderNavigationResult;
 
 export interface BrowserReaderSessionOpenOptions {
   readonly initialLocator: BrowserReaderLocator;
@@ -49,6 +67,12 @@ export interface BrowserReaderSessionOpenOptions {
     | undefined;
 }
 
+/**
+ * The reader session as the browser reader uses it. It hands out artifacts
+ * that are not adopted yet and must each be shown or released, so it is
+ * internal: `session-reader/artifacts.ts` is its one caller of those
+ * methods, inside the reader's queue.
+ */
 export interface BrowserReaderSession {
   readonly sessionId: bigint;
   /**
@@ -59,21 +83,29 @@ export interface BrowserReaderSession {
   readonly initialArtifact: BrowserReaderArtifact;
   /** Reads Core's immutable publication metadata, spine, and nested table of contents. */
   readPublication(): Promise<BrowserReaderPublication>;
+  /** Every family a `font-family` choice can name in this publication. */
+  fonts(): Promise<ReaderFontCatalog>;
+  /** The names in a CSS `font-family` list no family answers to (layout skips them). */
+  unresolvedFontFamilies(familyList: string): Promise<readonly string[]>;
   /**
-   * Returns an unadopted incoming candidate and keeps the source live. Prepare
-   * and adopt the candidate before painting; release the source only after the
-   * host's page-turn animation finishes.
+   * Adds host faces after the session's; their bytes are copied. Artifacts
+   * already published keep their layout; the next request lays out with the
+   * new faces, and its artifact lists them among the fonts to register.
    */
-  requestAdjacent(
-    fromArtifactId: bigint,
-    direction: BrowserReaderAdjacentDirection,
-  ): Promise<BrowserReaderArtifact>;
-  /** Returns an unadopted latest-wins candidate sharing the adjacent foreground lane. */
+  addFontFaces(faces: readonly ReaderHostFontFace[]): Promise<void>;
+  /** Removes host faces by SHA-256; at least one must remain. */
+  removeFontFaces(sha256s: readonly string[]): Promise<void>;
+  /**
+   * Marks publication faces the page could not load, by the family an
+   * artifact lists them under: the next request lays out without them.
+   */
+  markFontFamiliesUnavailable(families: readonly string[]): Promise<void>;
+  /**
+   * Lays out for a request and returns its unadopted candidate; the newest
+   * request wins. The caller prepares it and has the session show it with
+   * {@link adoptForegroundCandidate}, or releases it.
+   */
   requestArtifact(request: BrowserReaderArtifactRequest): Promise<BrowserReaderArtifact>;
-  seek(
-    locator: BrowserReaderLocator,
-    overrides?: BrowserReaderSeekOverrides,
-  ): Promise<BrowserReaderArtifact>;
   /**
    * Atomically commits a prepared, still-latest candidate. Pass undefined only
    * for the initial visible artifact; replacements must name the old visible.
@@ -97,13 +129,64 @@ export interface BrowserReaderSession {
     kind: BrowserReaderResourceKind,
     href: string,
   ): Promise<BrowserReaderResource>;
+  /**
+   * One spread of the revision behind an artifact, by its position in that
+   * revision's page table (the `layout` navigation query lists them), with
+   * no layout work and no foreground effect. Release it, or make it visible
+   * with {@link commitPeekedArtifact}.
+   */
+  peekSpread(fromArtifactId: bigint, spreadIndex: number): Promise<BrowserReaderArtifact>;
+  /** Makes a peeked artifact visible, superseding every foreground request in flight. */
+  commitPeekedArtifact(
+    expectedVisibleArtifactId: bigint | undefined,
+    candidateArtifactId: bigint,
+  ): Promise<BrowserReaderForegroundHandoffAck>;
+  readFootnote(artifactId: bigint, key: string): Promise<BrowserReaderFootnote>;
+  /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
+  search(
+    artifactId: bigint,
+    options: {
+      readonly query: string;
+      readonly caseSensitive?: boolean | undefined;
+      readonly wholeWord?: boolean | undefined;
+      readonly limit?: number | undefined;
+    },
+  ): Promise<BrowserReaderSearchResponse>;
+  /**
+   * Where a durable source range lands: on the pages the artifact draws,
+   * or with `everyPage` on every page it covers.
+   */
+  exactSourceRange(
+    artifactId: bigint,
+    href: string,
+    range: BrowserReaderSourceRange,
+    options?: BrowserReaderGeometryOptions,
+  ): Promise<BrowserReaderExactSourceRangeResolution>;
+  /** Caret, range, point-range and movement selection, answered by the engine. */
+  textInteraction(
+    artifactId: bigint,
+    query: BrowserReaderTextInteractionQuery,
+    options?: BrowserReaderGeometryOptions,
+  ): Promise<BrowserReaderTextInteractionResponse>;
+  /** Builds an annotation target for a source range, or locates a stored one by its JSON. */
+  annotation(query: BrowserReaderAnnotationQuery): Promise<BrowserReaderAnnotationResponse>;
+  /**
+   * The TOC entry at a page or position, where a locator lands, two
+   * positions' order, or the page table of the revision behind an artifact.
+   */
+  navigation(query: BrowserReaderNavigationQuery): Promise<BrowserReaderNavigationResult>;
   release(artifactId: bigint): Promise<boolean>;
   dispose(): Promise<void>;
 }
 
 export async function openBrowserReaderSession(
-  /** Ownership is transferred to the dedicated reader session Worker. */
-  publication: ArrayBuffer,
+  /**
+   * A whole EPUB, whose ownership is transferred to the dedicated reader
+   * session Worker, or a publication split by `rito-pack`: the session opens
+   * from the skeleton and loads each content shard the first time a request
+   * needs it (a sharded open requires `pinnedFontPolicy`).
+   */
+  publication: ReaderPublication,
   options: BrowserReaderSessionOpenOptions,
 ): Promise<BrowserReaderSession> {
   return openBrowserReaderSessionWithWorker(
@@ -115,7 +198,7 @@ export async function openBrowserReaderSession(
 
 export async function openBrowserReaderSessionWithWorker(
   worker: RitoReaderSessionWorkerLike,
-  publication: ArrayBuffer,
+  publication: ReaderPublication,
   options: BrowserReaderSessionOpenOptions,
 ): Promise<BrowserReaderSession> {
   const client = createRitoCoreWasmReaderSessionWorkerClient(worker);
@@ -154,7 +237,6 @@ function browserReaderSession(
     sessionId: client.sessionId,
     initialArtifact,
     readPublication: () => publicationClient.readPublication(),
-    requestAdjacent: (...args) => client.requestAdjacent(...args),
     requestArtifact: (request) =>
       client.requestArtifact({
         ...request,
@@ -163,11 +245,27 @@ function browserReaderSession(
           renderRatio: request.layout.renderRatio ?? defaultRenderRatio(),
         },
       }),
-    seek: (...args) => client.seek(...args),
     adoptForegroundCandidate: (...args) => client.adoptForegroundCandidate(...args),
     advanceBackgroundOnce: (...args) => backgroundClient.advanceBackgroundOnce(...args),
     adoptBackgroundCandidate: (...args) => backgroundClient.adoptBackgroundCandidate(...args),
     readResource: (...args) => client.readResource(...args),
+    fonts: () => client.fontCatalog(),
+    unresolvedFontFamilies: (familyList) => client.unresolvedFontFamilies(familyList),
+    addFontFaces: async (faces) => {
+      await client.addHostFontFaces(faces.map((face) => ({ ...face, bytes: face.bytes.slice(0) })));
+    },
+    removeFontFaces: async (sha256s) => {
+      await client.removeHostFontFaces(sha256s);
+    },
+    markFontFamiliesUnavailable: (families) => client.markFontFamiliesUnavailable(families),
+    peekSpread: (...args) => client.peekSpread(...args),
+    commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
+    readFootnote: (...args) => client.readFootnote(...args),
+    search: (...args) => client.search(...args),
+    exactSourceRange: (...args) => client.exactSourceRange(...args),
+    textInteraction: (...args) => client.textInteraction(...args),
+    annotation: (query) => client.annotation(query),
+    navigation: (query) => client.navigation(query),
     release: (...args) => client.release(...args),
     dispose: () => client.dispose(),
   };

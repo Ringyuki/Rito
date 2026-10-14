@@ -17,13 +17,6 @@ pub struct RuntimeExactSourceRangeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeExactSourceRangeResponse {
-    pub revision_id: String,
-    pub resolution: RuntimeExactSourceRangeResolution,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "status",
     rename_all = "camelCase",

@@ -58,10 +58,16 @@ const unpackDir = path.join(outDir, 'book');
 mkdirSync(unpackDir, { recursive: true });
 // unzip exits 1 for warnings (an epub with junk bytes before the zip
 // header still extracts); only a missing container afterwards is fatal.
+// unzip also stops at an entry whose name is not UTF-8 (a GBK-named file
+// the filesystem refuses), leaving every later entry unextracted; bsdtar
+// transcodes such names and extracts the whole archive.
 try {
   execFileSync('unzip', ['-o', '-q', bookPath, '-d', unpackDir]);
 } catch (error) {
-  if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) throw error;
+  if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) {
+    execFileSync('tar', ['-xf', bookPath, '-C', unpackDir]);
+    if (!existsSync(path.join(unpackDir, 'META-INF/container.xml'))) throw error;
+  }
 }
 const container = readFileSync(path.join(unpackDir, 'META-INF/container.xml'), 'utf8');
 const opfRel = /full-path="([^"]+)"/.exec(container)?.[1];
@@ -88,7 +94,7 @@ const bookFaceFamilies = (() => {
         const body = block[1];
         if (!/url\(\s*["']?(?!res:)/i.test(body)) continue;
         const family = /font-family\s*:\s*["']?([^;"'}]+)/i.exec(body)?.[1]?.trim().toLowerCase();
-        if (family && !family.startsWith('__rito_pin')) families.add(family);
+        if (family && !family.startsWith('__rito_host')) families.add(family);
       }
     }
   };
@@ -134,13 +140,36 @@ for (const href of manifestHref.values()) {
   }
 }
 
-// The engine paints through the reader's pinned faces (Tinos for Latin,
-// SourceHan Serif for CJK) — the truth browser must render through the
-// same faces or every glyph differs and the count measures typefaces,
-// not the engine (measured: a full text page read ~150k px of pure
-// font-substitution noise).
-const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
-const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
+// The reader's host faces exactly as the demo's pinned policy declares
+// them (apps/reader/src/lib/production-pinned-font-policy.ts): the truth
+// browser must render through the same faces, resolved the way the
+// engine resolves families against them, or every glyph differs and the
+// count measures typefaces, not the engine (measured: a full text page
+// read ~150k px of pure font-substitution noise). Each face is declared
+// under its own alias so a book face of the same name never merges with
+// it, and the family rewrite below maps names onto the aliases.
+const HOST_FACES = [
+  { file: 'Tinos-Regular.ttf', name: 'tinos', role: 'serif', language: 'und', sample: 'H' },
+  {
+    file: 'SourceHanSerifCN-Regular.otf',
+    name: 'source han serif cn',
+    role: 'serif',
+    language: 'zh-hans',
+    sample: '试',
+  },
+  { file: 'Arimo-Regular.ttf', name: 'arimo', role: 'sans-serif', language: 'und', sample: 'H' },
+  {
+    file: 'SourceHanSansCN-Regular.otf',
+    name: 'source han sans cn',
+    role: 'sans-serif',
+    language: 'zh-hans',
+    sample: '试',
+  },
+].map((face, index) => ({
+  ...face,
+  alias: `__rito_host_${index}`,
+  url: path.join(REPO, 'apps/reader/src/assets/fonts', face.file),
+}));
 
 const browser = await chromium.launch();
 
@@ -550,7 +579,7 @@ for (const chapter of plan.chapters) {
       .map((target) => target.slice(href.length + 1));
     const injectTruth = (pg) =>
       pg.evaluate(
-        async ({ contentW, contentH, pinLatin, pinCjk, noteIds, bookFaceFamilies }) => {
+        async ({ contentW, contentH, hostFaces, noteIds, bookFaceFamilies }) => {
           // Vertical-rl chapters skip the multicol harness entirely: a
           // vertical root already grows sideways column by column (the
           // block axis is horizontal), so the truth is the NATIVE flow at
@@ -574,8 +603,9 @@ for (const chapter of plan.chapters) {
           // container would silently widen every column past the engine's
           // content width. Overflow columns grow to the right at the same
           // exact width (the paginated-reader idiom).
-          s.textContent = `@font-face { font-family: "__rito_pin_latin"; src: url("${pinLatin}"); }
-@font-face { font-family: "__rito_pin_cjk"; src: url("${pinCjk}"); }
+          s.textContent = `${hostFaces
+            .map((face) => `@font-face { font-family: "${face.alias}"; src: url("${face.url}"); }`)
+            .join('\n')}
 ${
   verticalRoot
     ? `html { margin:0; padding:0; height:${contentH}px; }`
@@ -667,23 +697,32 @@ img { object-fit: contain; }`;
               el.style.setProperty('height', `${budgetY}px`, 'important');
             }
           }
-          // A 404'd pin silently falls back to the browser's own font and
-          // the whole page reads as a defect — assert both faces resolved.
-          await document.fonts.load('16px "__rito_pin_latin"', 'H');
-          await document.fonts.load('16px "__rito_pin_cjk"', '试');
+          // A 404'd host face silently falls back to the browser's own font
+          // and the whole page reads as a defect — assert every face loaded.
+          for (const face of hostFaces) {
+            await document.fonts.load(`16px "${face.alias}"`, face.sample);
+          }
           await document.fonts.ready;
-          for (const name of ['__rito_pin_latin', '__rito_pin_cjk']) {
-            const face = [...document.fonts].find((f) => f.family === name);
+          for (const { alias } of hostFaces) {
+            const face = [...document.fonts].find((f) => f.family === alias);
             if (face?.status !== 'loaded') {
-              throw new Error(`pinned face ${name} did not load (${face?.status ?? 'absent'})`);
+              throw new Error(`host face ${alias} did not load (${face?.status ?? 'absent'})`);
             }
           }
-          // Mirror the engine's paint family rewrite exactly
-          // (PaintFamilyPolicy): named families the engine cannot resolve
-          // are DROPPED (the browser's UA default "Times" included — the
-          // engine's default is the generic, which its policy maps to the
-          // pins), the pin aliases ride ahead of the first generic keyword,
-          // and the stack keeps a generic tail.
+          // Mirror the engine's family resolution (rito-inline fonts.rs):
+          // a named family is the book's own @font-face family, else the
+          // host family of that name, else skipped (the browser's UA
+          // default "Times" included); a generic keyword is the host faces
+          // of its role — language-neutral faces first, then by how closely
+          // their language matches the element's; after the list every host
+          // face follows as the fallback, serif role first. The trailing
+          // generic only catches what no host face covers.
+          const roleOf = {
+            serif: 'serif',
+            'sans-serif': 'sans-serif',
+            'system-ui': 'sans-serif',
+            monospace: 'monospace',
+          };
           const generic = new Set([
             'serif',
             'sans-serif',
@@ -692,6 +731,27 @@ img { object-fit: contain; }`;
             'fantasy',
             'system-ui',
           ]);
+          const languageRank = (face, content) => {
+            if (face === 'und') return 0;
+            if (!content) return 3;
+            if (face === content) return 1;
+            return face.split('-')[0] === content.split('-')[0] ? 2 : 3;
+          };
+          const roleFaces = (role, language) =>
+            hostFaces
+              .filter((face) => face.role === role)
+              .map((face) => ({ face, rank: languageRank(face.language, language) }))
+              .sort((left, right) => left.rank - right.rank)
+              .map(({ face }) => `"${face.alias}"`);
+          const elementLanguage = (element) => {
+            for (let node = element; node; node = node.parentElement) {
+              const tag =
+                node.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'lang') ??
+                node.getAttribute('lang');
+              if (tag !== null) return tag.toLowerCase() || undefined;
+            }
+            return undefined;
+          };
           // A book face counts only when its @font-face carries a REAL
           // url() source (an embedded font file). Publisher "system font"
           // stacks declare local(黑体/微软雅黑/…) plus dead reader-device
@@ -719,33 +779,39 @@ img { object-fit: contain; }`;
                 .replaceAll('"', '')
                 .toLowerCase()
                 .trim();
-              if (family && !family.startsWith('__rito_pin')) bookFaces.add(family);
+              if (family && !family.startsWith('__rito_host')) bookFaces.add(family);
             }
           }
-          const pins = ['"__rito_pin_latin"', '"__rito_pin_cjk"'];
           for (const element of [document.documentElement, ...document.querySelectorAll('*')]) {
             const list = getComputedStyle(element).fontFamily;
+            const language = elementLanguage(element);
             const parts = [];
-            let pinsAdded = false;
+            const push = (names) => {
+              for (const name of names) if (!parts.includes(name)) parts.push(name);
+            };
             for (const raw of list
               .split(',')
               .map((name) => name.trim())
               .filter((name) => name.length > 0)) {
               const lower = raw.replaceAll('"', '').toLowerCase();
-              if (generic.has(lower)) {
-                if (!pinsAdded) {
-                  parts.push(...pins);
-                  pinsAdded = true;
-                }
-                parts.push(lower);
+              if (!raw.startsWith('"') && generic.has(lower)) {
+                const role = roleOf[lower];
+                if (role) push(roleFaces(role, language));
                 continue;
               }
-              if (!bookFaces.has(lower)) continue;
-              parts.push(raw);
+              // A list inherited from an already rewritten ancestor names
+              // the aliases themselves: the rewrite must be idempotent.
+              if (bookFaces.has(lower) || hostFaces.some((face) => face.alias === lower)) {
+                push([raw]);
+                continue;
+              }
+              push(
+                hostFaces.filter((face) => face.name === lower).map((face) => `"${face.alias}"`),
+              );
             }
-            if (!pinsAdded) parts.push(...pins);
-            const tail = parts.at(-1);
-            if (tail === undefined || !generic.has(tail)) parts.push('serif');
+            for (const role of ['serif', 'sans-serif', 'monospace'])
+              push(roleFaces(role, language));
+            parts.push('serif');
             element.style.setProperty('font-family', parts.join(', '), 'important');
           }
           // Kept book faces must actually LOAD before capture: applying a
@@ -862,7 +928,7 @@ img { object-fit: contain; }`;
           }
           return { pages, contentWidth: width };
         },
-        { contentW, contentH, pinLatin: PIN_LATIN, pinCjk: PIN_CJK, noteIds, bookFaceFamilies },
+        { contentW, contentH, hostFaces: HOST_FACES, noteIds, bookFaceFamilies },
       );
     const vertical = await injectTruth(truth);
     await truth.waitForTimeout(250);

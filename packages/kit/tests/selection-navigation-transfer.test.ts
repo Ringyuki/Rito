@@ -129,7 +129,7 @@ function navigationFixture(options: NavigationFixtureOptions) {
       currentSpread = spreadIndex;
     },
     emitter: { emit: vi.fn() },
-    td: { isAnimating: false },
+    td: { isAnimating: false, turning: false, handOver: vi.fn() },
     frameDriver: { scheduleComposite: vi.fn() },
     pool: {
       getSlotFor: (spreadIndex: number) => slots.get(spreadIndex) ?? null,

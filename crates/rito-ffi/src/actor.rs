@@ -7,14 +7,20 @@ use std::{
 };
 
 use rito_core::runtime::{
-    encode_reader_artifact, encode_reader_background_advance, encode_reader_background_handoff_ack,
-    encode_reader_exact_source_range_resolution, encode_reader_footnote,
-    encode_reader_foreground_handoff_ack, encode_reader_publication, encode_reader_resource,
-    encode_reader_search_response, encode_reader_text_range_geometry, ReaderAdjacentRequest,
-    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderError,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
-    ReaderSearchRequest, ReaderSession, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
+    encode_reader_annotation_response, encode_reader_artifact, encode_reader_background_advance,
+    encode_reader_background_handoff_ack, encode_reader_exact_source_range_resolution,
+    encode_reader_font_catalog, encode_reader_font_names, encode_reader_footnote,
+    encode_reader_foreground_handoff_ack, encode_reader_navigation_result,
+    encode_reader_publication, encode_reader_resource, encode_reader_search_response,
+    encode_reader_text_interaction_response, encode_reader_text_range_geometry,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderError, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSession,
+    ReaderSpreadRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
+    RuntimePinnedFontPolicyInput,
 };
+
+use rito_core::epub::shard::ShardKey;
 
 use crate::error::{FfiError, RITO_STATUS_ADJACENT_PENDING, RITO_STATUS_TARGET_NOT_PUBLISHED};
 
@@ -34,6 +40,10 @@ pub(crate) enum ActorCommand {
     },
     PeekAdjacent {
         request: ReaderAdjacentRequest,
+        reply: Reply<Vec<u8>>,
+    },
+    PeekSpread {
+        request: ReaderSpreadRequest,
         reply: Reply<Vec<u8>>,
     },
     AdoptForegroundCandidate {
@@ -73,6 +83,18 @@ pub(crate) enum ActorCommand {
         request: ReaderExactSourceRangeRequest,
         reply: Reply<Vec<u8>>,
     },
+    TextInteraction {
+        request: ReaderTextInteractionRequest,
+        reply: Reply<Vec<u8>>,
+    },
+    Annotation {
+        request: ReaderAnnotationRequest,
+        reply: Reply<Vec<u8>>,
+    },
+    Navigation {
+        request: ReaderNavigationRequest,
+        reply: Reply<Vec<u8>>,
+    },
     ReadFootnote {
         artifact_id: u64,
         key: String,
@@ -81,6 +103,44 @@ pub(crate) enum ActorCommand {
     ReleaseArtifact {
         artifact_id: u64,
         reply: Reply<()>,
+    },
+    SupplyShard {
+        shard: Vec<u8>,
+        key: Option<ShardKey>,
+        reply: Reply<u32>,
+    },
+    ContentShardsNear {
+        href: String,
+        reply: Reply<Vec<u32>>,
+    },
+    FontCatalog {
+        reply: Reply<Vec<u8>>,
+    },
+    UnresolvedFontFamilies {
+        list: String,
+        reply: Reply<Vec<u8>>,
+    },
+    AddHostFontFaces {
+        faces: Vec<rito_core::runtime::RuntimePinnedFontFaceInput>,
+        reply: Reply<()>,
+    },
+    RemoveHostFontFaces {
+        sha256s: Vec<String>,
+        reply: Reply<()>,
+    },
+    MarkFontFamilyUnavailable {
+        family: String,
+        reply: Reply<()>,
+    },
+}
+
+/// Where an actor's session reads its publication from.
+pub(crate) enum ActorPublication {
+    Archive(Vec<u8>),
+    /// A skeleton shard; content shards arrive through `SupplyShard`.
+    Shards {
+        skeleton: Vec<u8>,
+        key: Option<ShardKey>,
     },
 }
 
@@ -302,7 +362,7 @@ pub(crate) enum InitialArtifactReply {
 }
 
 pub(crate) fn spawn(
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     on_exit: ActorExitCallback,
@@ -379,22 +439,39 @@ fn lock_admission(shared: &ActorShared) -> MutexGuard<'_, AdmissionState> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
+fn open_session(
+    session_id: u64,
+    publication: ActorPublication,
+    pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
+) -> Result<ReaderSession, ReaderError> {
+    match (publication, pinned_font_policy) {
+        (ActorPublication::Archive(bytes), Some(policy)) => {
+            ReaderSession::open_owned_with_pinned_font_policy(session_id, bytes, policy)
+        }
+        (ActorPublication::Archive(bytes), None) => ReaderSession::open_owned(session_id, bytes),
+        (ActorPublication::Shards { skeleton, key }, Some(policy)) => {
+            ReaderSession::open_shards_with_pinned_font_policy(
+                session_id,
+                &skeleton,
+                key.as_ref(),
+                policy,
+            )
+        }
+        (ActorPublication::Shards { skeleton, key }, None) => {
+            ReaderSession::open_shards(session_id, &skeleton, key.as_ref())
+        }
+    }
+}
+
 fn run(
-    publication: Vec<u8>,
+    publication: ActorPublication,
     request: ReaderArtifactRequest,
     pinned_font_policy: Option<RuntimePinnedFontPolicyInput>,
     initial_reply: SyncSender<InitialArtifactReply>,
     commands: Receiver<ActorEnvelope>,
     client: ActorClient,
 ) -> Result<(), FfiError> {
-    let opened = match pinned_font_policy {
-        Some(policy) => ReaderSession::open_owned_with_pinned_font_policy(
-            request.session_id,
-            publication,
-            policy,
-        ),
-        None => ReaderSession::open_owned(request.session_id, publication),
-    };
+    let opened = open_session(request.session_id, publication, pinned_font_policy);
     let mut reader = match opened {
         Ok(reader) => reader,
         Err(error) => {
@@ -523,6 +600,16 @@ fn run_commands(
                 }
                 let _ = reply.send(result);
             }
+            ActorCommand::PeekSpread { request, reply } => {
+                let (result, terminate) =
+                    encode_mutation_result(session.peek_spread(request), encode_reader_artifact);
+                if terminate {
+                    let disposed = session.dispose().map(|_| ()).map_err(FfiError::from);
+                    let _ = reply.send(result);
+                    return disposed;
+                }
+                let _ = reply.send(result);
+            }
             ActorCommand::AdoptForegroundCandidate { request, reply } => {
                 let (result, terminate) = encode_mutation_result(
                     session.adopt_foreground_candidate(request),
@@ -590,10 +677,70 @@ fn run_commands(
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::TextInteraction { request, reply } => {
+                let result = session
+                    .resolve_text_interaction(request)
+                    .and_then(|response| encode_reader_text_interaction_response(&response))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::Annotation { request, reply } => {
+                let result = session
+                    .resolve_annotation(request)
+                    .and_then(|response| encode_reader_annotation_response(&response))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::Navigation { request, reply } => {
+                let result = session
+                    .resolve_navigation(request)
+                    .and_then(|result| encode_reader_navigation_result(&result))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ExactSourceRange { request, reply } => {
                 let result = session
                     .resolve_exact_source_range(request)
                     .and_then(|resolution| encode_reader_exact_source_range_resolution(&resolution))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::SupplyShard { shard, key, reply } => {
+                let result = session
+                    .supply_shard(&shard, key.as_ref())
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::ContentShardsNear { href, reply } => {
+                let _ = reply.send(Ok(session.content_shards_near(&href)));
+            }
+            ActorCommand::FontCatalog { reply } => {
+                let result =
+                    encode_reader_font_catalog(&session.font_catalog()).map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::UnresolvedFontFamilies { list, reply } => {
+                let result = encode_reader_font_names(&session.unresolved_font_families(&list))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::AddHostFontFaces { faces, reply } => {
+                let result = session
+                    .add_host_font_faces(faces)
+                    .map(|_| ())
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::RemoveHostFontFaces { sha256s, reply } => {
+                let result = session
+                    .remove_host_font_faces(&sha256s)
+                    .map(|_| ())
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
+            ActorCommand::MarkFontFamilyUnavailable { family, reply } => {
+                let result = session
+                    .mark_font_families_unavailable(std::slice::from_ref(&family))
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
@@ -685,6 +832,17 @@ pub(crate) fn peek_adjacent(
         admission,
         |reply| ActorCommand::PeekAdjacent { request, reply },
         "peeked artifact",
+    )
+}
+
+pub(crate) fn peek_spread(
+    admission: CommandAdmission,
+    request: ReaderSpreadRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::PeekSpread { request, reply },
+        "spread artifact",
     )
 }
 
@@ -780,6 +938,39 @@ pub(crate) fn request_text_range_geometry(
     )
 }
 
+pub(crate) fn request_text_interaction(
+    admission: CommandAdmission,
+    request: ReaderTextInteractionRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::TextInteraction { request, reply },
+        "text interaction",
+    )
+}
+
+pub(crate) fn request_annotation(
+    admission: CommandAdmission,
+    request: ReaderAnnotationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::Annotation { request, reply },
+        "annotation",
+    )
+}
+
+pub(crate) fn request_navigation(
+    admission: CommandAdmission,
+    request: ReaderNavigationRequest,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::Navigation { request, reply },
+        "navigation",
+    )
+}
+
 pub(crate) fn request_exact_source_range(
     admission: CommandAdmission,
     request: ReaderExactSourceRangeRequest,
@@ -804,6 +995,81 @@ pub(crate) fn request_footnote(
             reply,
         },
         "footnote",
+    )
+}
+
+pub(crate) fn request_supply_shard(
+    admission: CommandAdmission,
+    shard: Vec<u8>,
+    key: Option<ShardKey>,
+) -> Result<u32, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::SupplyShard { shard, key, reply },
+        "supply shard",
+    )
+}
+
+pub(crate) fn request_content_shards_near(
+    admission: CommandAdmission,
+    href: String,
+) -> Result<Vec<u32>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::ContentShardsNear { href, reply },
+        "content shards",
+    )
+}
+
+pub(crate) fn request_font_catalog(admission: CommandAdmission) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::FontCatalog { reply },
+        "font catalog",
+    )
+}
+
+pub(crate) fn request_unresolved_font_families(
+    admission: CommandAdmission,
+    list: String,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::UnresolvedFontFamilies { list, reply },
+        "unresolved font families",
+    )
+}
+
+pub(crate) fn request_add_host_font_faces(
+    admission: CommandAdmission,
+    faces: Vec<rito_core::runtime::RuntimePinnedFontFaceInput>,
+) -> Result<(), FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::AddHostFontFaces { faces, reply },
+        "add host font faces",
+    )
+}
+
+pub(crate) fn request_remove_host_font_faces(
+    admission: CommandAdmission,
+    sha256s: Vec<String>,
+) -> Result<(), FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::RemoveHostFontFaces { sha256s, reply },
+        "remove host font faces",
+    )
+}
+
+pub(crate) fn request_mark_font_family_unavailable(
+    admission: CommandAdmission,
+    family: String,
+) -> Result<(), FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::MarkFontFamilyUnavailable { family, reply },
+        "mark font family unavailable",
     )
 }
 
@@ -875,6 +1141,7 @@ mod tests {
         let target_error = || FfiError {
             status: RITO_STATUS_TARGET_NOT_PUBLISHED,
             message: "wording is not an ABI contract".to_owned(),
+            payload: None,
         };
         let pending: Result<Vec<u8>, FfiError> =
             classify_adjacent_result(Err(target_error()), true);
@@ -903,6 +1170,7 @@ mod tests {
         let operation_error = ReaderError {
             kind: ReaderErrorKind::InvalidRequest,
             message: "operation failed before ownership changed".to_owned(),
+            pending_shards: Vec::new(),
         };
         let (operation_result, terminate) =
             encode_mutation_result::<u8>(Err(operation_error), |_| {
@@ -918,6 +1186,7 @@ mod tests {
             let mutation_error = ReaderError {
                 kind,
                 message: "mutation may already have changed owned state".to_owned(),
+                pending_shards: Vec::new(),
             };
             let (mutation_result, terminate) =
                 encode_mutation_result::<u8>(Err(mutation_error), |_| {
@@ -935,6 +1204,7 @@ mod tests {
         let (release_error, terminate) = classify_mutation_error(ReaderError {
             kind: ReaderErrorKind::EngineFailure,
             message: "release cleanup failed after ownership work began".to_owned(),
+            pending_shards: Vec::new(),
         });
         assert_eq!(release_error.status, RITO_STATUS_SESSION_TERMINATED);
         assert!(terminate);
@@ -942,6 +1212,7 @@ mod tests {
         let wire_error = ReaderError {
             kind: ReaderErrorKind::NumericOverflow,
             message: "owned artifact exceeds wire limits".to_owned(),
+            pending_shards: Vec::new(),
         };
         let (wire_result, terminate) = encode_mutation_result(Ok(7_u8), |_| Err(wire_error));
         assert_eq!(
@@ -1386,6 +1657,8 @@ mod tests {
                 root_font_size: 16.0,
                 line_height_override: None,
                 font_family_override: None,
+                line_height_force: true,
+                font_family_force: true,
             },
             locator: ReaderLocator {
                 href: "chapter.xhtml".to_owned(),

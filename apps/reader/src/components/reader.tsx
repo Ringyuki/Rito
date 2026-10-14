@@ -22,6 +22,7 @@ interface ReaderProps {
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onLoadDemo: () => void;
+  onLoadShardedDemo: () => void;
   onFileLoad: (data: ArrayBuffer) => void;
 }
 
@@ -34,6 +35,7 @@ export function Reader({
   onOpenSearch,
   onOpenSettings,
   onLoadDemo,
+  onLoadShardedDemo,
   onFileLoad,
 }: ReaderProps) {
   return (
@@ -46,7 +48,7 @@ export function Reader({
       data-total-spreads={reader.totalSpreads}
       data-transitioning={reader.isTransitioning ? 'true' : 'false'}
       data-book-title={reader.bookTitle}
-      data-active-chapter-href={reader.activeChapterHref}
+      data-active-chapter-href={reader.activeTocEntry?.href ?? ''}
       data-spread-mode={reader.spreadMode}
       data-theme={theme}
       data-search-query={reader.search.query}
@@ -58,8 +60,8 @@ export function Reader({
       data-selection-rect-count={reader.selection.viewportRects.length}
       data-selection-first-rect-y={reader.selection.viewportRects[0]?.y ?? ''}
       data-selection-first-rect-height={reader.selection.viewportRects[0]?.height ?? ''}
-      data-render-scale={reader.controller?.renderScale ?? ''}
-      className="relative flex flex-1 bg-muted/30 select-none"
+      data-render-scale={reader.renderScale}
+      className="relative flex min-h-0 flex-1 bg-muted/30 select-none"
     >
       {reader.isLoading && (
         <div
@@ -89,7 +91,11 @@ export function Reader({
         >
           <p className="text-lg font-medium">Open an EPUB to start reading</p>
           <div className="flex gap-3">
-            <FileActions onLoadDemo={onLoadDemo} onFileLoad={onFileLoad} />
+            <FileActions
+              onLoadDemo={onLoadDemo}
+              onLoadShardedDemo={onLoadShardedDemo}
+              onFileLoad={onFileLoad}
+            />
           </div>
         </div>
       )}
@@ -113,6 +119,7 @@ export function Reader({
         onOpenSearch={onOpenSearch}
         onOpenSettings={onOpenSettings}
         onLoadDemo={onLoadDemo}
+        onLoadShardedDemo={onLoadShardedDemo}
         onFileLoad={onFileLoad}
       >
         <RitoReader
@@ -122,11 +129,7 @@ export function Reader({
         />
       </ReaderContextMenu>
 
-      <AnnotationToolbar
-        selection={reader.selection}
-        annotations={reader.annotations}
-        controller={reader.controller}
-      />
+      <AnnotationToolbar selection={reader.selection} annotations={reader.annotations} />
 
       <AnnotationTooltip hover={reader.annotations.hover} />
 
@@ -140,8 +143,10 @@ export function Reader({
 
       <LinkDialog
         link={reader.pendingLink}
-        currentSpread={reader.currentSpread}
-        goToSpread={reader.goToSpread}
+        position={reader.position.position}
+        goToPosition={(position) => {
+          void reader.controller?.goToPosition(position);
+        }}
         onClose={reader.dismissLink}
       />
 

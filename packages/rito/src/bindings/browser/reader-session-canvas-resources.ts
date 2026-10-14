@@ -2,18 +2,30 @@ import type { CoreReaderPrimitiveList } from './core-contracts';
 import type { BrowserReaderArtifact, BrowserReaderSession } from './reader-session';
 import { BrowserReaderCanvasUnsupportedError } from './reader-session-canvas-error';
 import type { BrowserReaderCanvasDecodedImage } from './reader-session-canvas-image-cache-support';
-import {
-  BrowserReaderCanvasImageCache,
-  type BrowserReaderCanvasImageLease,
-} from './reader-session-canvas-image-cache';
+import { BrowserReaderCanvasImageCache } from './reader-session-canvas-image-cache';
+import type { BrowserReaderCanvasImageLease } from './reader-session-canvas-image-lease';
 import {
   BrowserReaderCanvasResourceLimiter,
   settleCanvasResourcesWithLimiter,
 } from './reader-session-canvas-resource-limiter';
 
+type FontRef = BrowserReaderArtifact['fonts'][number];
+
 interface FontEntry {
-  readonly promise: Promise<FontFace>;
+  /** The registered face; undefined for a face the browser refused to decode. */
+  readonly promise: Promise<FontFace | undefined>;
   references: number;
+}
+
+export interface BrowserReaderCanvasFontOptions {
+  /** A host face the page registers itself: waited for, never removed here. */
+  readonly hostFont?: ((font: FontRef) => Promise<FontFace> | undefined) | undefined;
+  /**
+   * Told of a publication face the browser refused to decode. With it, the
+   * artifact still prepares and paints the face's text with a fallback;
+   * without it, preparing the artifact fails.
+   */
+  readonly fontRejected?: ((font: FontRef, error: unknown) => void) | undefined;
 }
 
 const RESOURCE_PREPARE_CONCURRENCY = 4;
@@ -23,6 +35,10 @@ const DISPOSED_DURING_PREPARE =
 export interface BrowserReaderCanvasArtifactResources {
   hasImage(href: string): boolean;
   resolveImage(href: string): BrowserReaderCanvasDecodedImage | undefined;
+  imageFallback(href: string): 'loading' | 'broken' | undefined;
+  imageOpacity(href: string): number;
+  onImagesChanged(listener: () => void): () => void;
+  readonly imagesSettled: Promise<void>;
   release(): void;
 }
 
@@ -32,7 +48,15 @@ export class BrowserReaderCanvasResourceOwner {
   private readonly images: BrowserReaderCanvasImageCache;
   private disposed = false;
 
-  constructor(private readonly session: BrowserReaderSession) {
+  private readonly hostFont: (font: FontRef) => Promise<FontFace> | undefined;
+  private readonly fontRejected: BrowserReaderCanvasFontOptions['fontRejected'];
+
+  constructor(
+    private readonly session: BrowserReaderSession,
+    options: BrowserReaderCanvasFontOptions = {},
+  ) {
+    this.hostFont = options.hostFont ?? (() => undefined);
+    this.fontRejected = options.fontRejected;
     this.images = new BrowserReaderCanvasImageCache(session, this.limiter);
   }
 
@@ -42,12 +66,20 @@ export class BrowserReaderCanvasResourceOwner {
   ): Promise<BrowserReaderCanvasArtifactResources> {
     this.assertOpen();
     assertArtifactOwner(this.session, artifact);
-    const fonts = uniqueFonts(artifact);
+    // A face the page registers itself is only waited for; the rest are
+    // read from the session and counted, so the last artifact to use one
+    // removes it.
+    const hosted: Promise<FontFace>[] = [];
+    const fonts = uniqueFonts(artifact).filter((font) => {
+      const face = this.hostFont(font);
+      if (face !== undefined) hosted.push(face);
+      return face === undefined;
+    });
     const fontKeys = fonts.map(fontKey);
     let imageLease: BrowserReaderCanvasImageLease | undefined;
     try {
       const [fontResult, imageResult] = await Promise.allSettled([
-        this.acquireFonts(artifact, fonts),
+        Promise.all([this.acquireFonts(artifact, fonts), ...hosted]),
         this.images.prepare(artifact, list),
       ]);
       if (imageResult.status === 'fulfilled') imageLease = imageResult.value;
@@ -85,7 +117,7 @@ export class BrowserReaderCanvasResourceOwner {
     for (const entry of this.fonts.values()) {
       if (!fontSet) continue;
       void entry.promise.then(
-        (face) => fontSet.delete(face),
+        (face) => face !== undefined && fontSet.delete(face),
         () => undefined,
       );
     }
@@ -95,7 +127,7 @@ export class BrowserReaderCanvasResourceOwner {
 
   private async acquireFonts(
     artifact: BrowserReaderArtifact,
-    fonts: readonly BrowserReaderArtifact['fonts'][number][],
+    fonts: readonly FontRef[],
   ): Promise<void> {
     const settled = await settleCanvasResourcesWithLimiter(fonts, this.limiter, (font) =>
       this.acquireFont(artifact, font),
@@ -106,8 +138,8 @@ export class BrowserReaderCanvasResourceOwner {
 
   private acquireFont(
     artifact: BrowserReaderArtifact,
-    font: BrowserReaderArtifact['fonts'][number],
-  ): Promise<FontFace> {
+    font: FontRef,
+  ): Promise<FontFace | undefined> {
     const key = fontKey(font);
     const cached = this.fonts.get(key);
     if (cached) {
@@ -124,19 +156,27 @@ export class BrowserReaderCanvasResourceOwner {
 
   private async createFont(
     artifact: BrowserReaderArtifact,
-    font: BrowserReaderArtifact['fonts'][number],
-  ): Promise<FontFace> {
+    font: FontRef,
+  ): Promise<FontFace | undefined> {
     const fontSet = browserFontSet(true);
     const resource = await this.session.readResource(artifact.artifactId, 'font', font.href);
     assertResource(resource, artifact, 'font', font.href);
     if (BigInt(resource.bytes.byteLength) !== font.byteLength) {
       throw new Error(`reader session font length mismatch for ${font.href}.`);
     }
-    const face = new FontFace(font.family, ownedArrayBuffer(resource.bytes), {
-      style: font.style,
-      weight: String(font.weight),
-    });
-    await face.load();
+    let face: FontFace;
+    try {
+      face = new FontFace(font.family, ownedArrayBuffer(resource.bytes), {
+        style: font.style,
+        weight: String(font.weight),
+      });
+      await face.load();
+    } catch (error: unknown) {
+      // The bytes are the engine's own; what failed is the browser's decoder.
+      if (!this.fontRejected) throw error;
+      this.fontRejected(font, error);
+      return undefined;
+    }
     this.assertOpen();
     fontSet.add(face);
     return face;
@@ -152,7 +192,7 @@ export class BrowserReaderCanvasResourceOwner {
       this.fonts.delete(key);
       if (fontSet) {
         void entry.promise.then(
-          (face) => fontSet.delete(face),
+          (face) => face !== undefined && fontSet.delete(face),
           () => undefined,
         );
       }
@@ -223,6 +263,10 @@ function disposableResources(
   return {
     hasImage: (href) => !released && images.has(href),
     resolveImage: (href) => (released ? undefined : images.resolve(href)),
+    imageFallback: (href) => (released ? undefined : images.fallback(href)),
+    imageOpacity: (href) => images.opacity(href),
+    onImagesChanged: (listener) => images.subscribe(listener),
+    imagesSettled: images.settled,
     release() {
       if (released) return;
       released = true;

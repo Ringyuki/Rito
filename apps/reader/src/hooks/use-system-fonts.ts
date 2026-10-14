@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { serializeFontFamilyName } from '@/lib/font-family-value';
-import { parseLocalizedFontNames, type LocalizedFontName } from '@/lib/local-font-name-table';
 
 export type SystemFontsStatus = 'unsupported' | 'idle' | 'loading' | 'loaded' | 'denied';
 
@@ -10,9 +9,8 @@ export interface SystemFontEntry {
   readonly fullName: string;
   readonly style: string;
   readonly postscriptName: string;
-  readonly displayName: string;
-  readonly secondaryName?: string;
-  readonly displayLang?: string;
+  /** The face's bytes, for registering it with the reader. */
+  readonly load: () => Promise<ArrayBuffer>;
 }
 
 interface FontData {
@@ -31,6 +29,11 @@ function getQueryFn(): QueryLocalFonts | null {
   return typeof host.queryLocalFonts === 'function' ? host.queryLocalFonts : null;
 }
 
+/**
+ * The system's fonts through Local Font Access, one entry per family, named
+ * as the platform names them. A font's bytes are read only when it is
+ * chosen.
+ */
 export function useSystemFonts(): {
   fonts: readonly SystemFontEntry[];
   status: SystemFontsStatus;
@@ -55,22 +58,11 @@ export function useSystemFonts(): {
 
     const token = ++requestTokenRef.current;
     setStatus('loading');
-
     void query()
-      .then(async (data) => {
+      .then((data) => {
         if (requestTokenRef.current !== token) return;
-
-        const representatives = pickFamilyRepresentatives(data);
-        const basicEntries = sortEntries(representatives.map(createBasicEntry));
-        setFonts(basicEntries);
+        setFonts(sortEntries(pickFamilyRepresentatives(data).map(createEntry)));
         setStatus('loaded');
-
-        const locales = getPreferredLocales();
-        const enriched = await mapWithConcurrencyLimit(representatives, 3, async (font) =>
-          resolveLocalizedEntry(font, locales),
-        );
-        if (requestTokenRef.current !== token) return;
-        setFonts(sortEntries(enriched));
       })
       .catch(() => {
         if (requestTokenRef.current !== token) return;
@@ -81,51 +73,14 @@ export function useSystemFonts(): {
   return { fonts, status, request };
 }
 
-async function resolveLocalizedEntry(
-  font: FontData,
-  preferredLocales: readonly string[],
-): Promise<SystemFontEntry> {
-  const fallback = createBasicEntry(font);
-
-  try {
-    const blob = await font.blob();
-    const buffer = await blob.arrayBuffer();
-    const parsed = parseLocalizedFontNames(buffer, {
-      family: font.family,
-      fullName: font.fullName,
-      postscriptName: font.postscriptName,
-    });
-    if (!parsed) return fallback;
-
-    const chosen =
-      chooseLocalizedName(parsed.familyNames, preferredLocales) ??
-      chooseLocalizedName(parsed.fullNames, preferredLocales);
-    if (!chosen) return fallback;
-
-    const secondaryName =
-      !sameText(chosen.value, font.family) && !sameText(chosen.value, fallback.displayName)
-        ? font.family
-        : undefined;
-
-    return {
-      ...fallback,
-      displayName: chosen.value,
-      ...(secondaryName ? { secondaryName } : {}),
-      ...(chosen.lang ? { displayLang: chosen.lang } : {}),
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function createBasicEntry(font: FontData): SystemFontEntry {
+function createEntry(font: FontData): SystemFontEntry {
   return {
+    load: async () => (await font.blob()).arrayBuffer(),
     family: font.family,
     cssValue: serializeFontFamilyName(font.family),
     fullName: font.fullName,
     style: font.style,
     postscriptName: font.postscriptName,
-    displayName: font.family,
   };
 }
 
@@ -157,134 +112,7 @@ function scoreStyle(style: string): number {
   return 20;
 }
 
-function chooseLocalizedName(
-  names: readonly LocalizedFontName[],
-  preferredLocales: readonly string[],
-): LocalizedFontName | undefined {
-  let best: { readonly name: LocalizedFontName; readonly score: number } | undefined;
-
-  for (const name of names) {
-    const { matchedLocale, score } = scoreLocalizedName(name, preferredLocales);
-    if (!matchedLocale) continue;
-    if (!best || score > best.score) {
-      best = { name, score };
-    }
-  }
-
-  return best?.name;
-}
-
-function scoreLocalizedName(
-  name: LocalizedFontName,
-  preferredLocales: readonly string[],
-): {
-  readonly matchedLocale: boolean;
-  readonly score: number;
-} {
-  const priority = name.nameId === 16 ? 20 : name.nameId === 1 ? 10 : 0;
-  if (!name.lang) return { matchedLocale: false, score: priority };
-
-  const candidate = parseLocale(name.lang);
-  for (let index = 0; index < preferredLocales.length; index++) {
-    const preferred = parseLocale(preferredLocales[index] ?? '');
-    const distance = preferredLocales.length - index;
-
-    if (candidate.baseName === preferred.baseName) {
-      return { matchedLocale: true, score: priority + 1000 + distance };
-    }
-    if (
-      candidate.language === preferred.language &&
-      candidate.script !== undefined &&
-      candidate.script === preferred.script
-    ) {
-      return { matchedLocale: true, score: priority + 900 + distance };
-    }
-    if (candidate.language === preferred.language) {
-      return { matchedLocale: true, score: priority + 800 + distance };
-    }
-  }
-
-  return { matchedLocale: false, score: priority };
-}
-
-function getPreferredLocales(): readonly string[] {
-  if (typeof navigator === 'undefined') return ['en-US', 'en'];
-
-  const locales = new Set<string>();
-  for (const locale of navigator.languages) {
-    const normalized = normalizeLocale(locale);
-    if (normalized) locales.add(normalized);
-  }
-
-  const primary = normalizeLocale(navigator.language);
-  if (primary) locales.add(primary);
-  locales.add('en-US');
-  locales.add('en');
-  return [...locales];
-}
-
-function normalizeLocale(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  try {
-    return new Intl.Locale(value).baseName;
-  } catch {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-}
-
-function parseLocale(value: string): {
-  readonly baseName: string;
-  readonly language: string;
-  readonly script?: string;
-} {
-  try {
-    const locale = new Intl.Locale(value).maximize();
-    return {
-      baseName: locale.baseName,
-      language: locale.language,
-      ...(locale.script ? { script: locale.script } : {}),
-    };
-  } catch {
-    const [language, script] = value.split('-');
-    return {
-      baseName: value,
-      language: language?.toLowerCase() ?? value.toLowerCase(),
-      ...(script && script.length === 4 ? { script } : {}),
-    };
-  }
-}
-
-function sameText(left: string, right: string): boolean {
-  return left.localeCompare(right, undefined, { sensitivity: 'accent' }) === 0;
-}
-
 function sortEntries(entries: readonly SystemFontEntry[]): readonly SystemFontEntry[] {
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-  return [...entries].sort((left, right) => collator.compare(left.displayName, right.displayName));
-}
-
-async function mapWithConcurrencyLimit<T, R>(
-  items: readonly T[],
-  limit: number,
-  mapper: (item: T) => Promise<R>,
-): Promise<readonly R[]> {
-  const results = new Array<R | undefined>(items.length);
-  const iterator = items.entries();
-
-  const takeNext = (): readonly [number, T] | null => {
-    const next = iterator.next();
-    return next.done ? null : next.value;
-  };
-
-  const worker = async () => {
-    for (let next = takeNext(); next !== null; next = takeNext()) {
-      const [index, item] = next;
-      results[index] = await mapper(item);
-    }
-  };
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
-  await Promise.all(workers);
-  return results.filter((result): result is R => result !== undefined);
+  return [...entries].sort((left, right) => collator.compare(left.family, right.family));
 }

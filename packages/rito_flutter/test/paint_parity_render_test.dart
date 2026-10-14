@@ -86,6 +86,13 @@ Future<void> _renderLoweredFixture(File meta, Directory outDir) async {
   final target = RitoPrimitiveCanvasTarget(
     canvas,
     resolveImage: (href) => images[href],
+    // A `pending:` source is still on its way past its first second; any
+    // other source no synthetic image answers can no longer arrive.
+    imageFallback: (href) => href.startsWith('pending:')
+        ? RitoImageFallbackState.loading
+        : images[href] == null
+        ? RitoImageFallbackState.broken
+        : null,
     fontEnvelopes: _fontEnvelopes,
     colorOverride: theme == null
         ? null

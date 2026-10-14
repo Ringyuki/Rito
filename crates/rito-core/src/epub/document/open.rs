@@ -1,14 +1,18 @@
 use crate::resources::{
     detect_image_dimensions, hash_bytes, is_font_media_type, is_image_media_type,
 };
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use super::super::{
-    archive, join_epub_href, opf_dir, parser, toc, EpubError, EpubResult, PackageDocument,
+    archive::{self, ArchiveEntryMetadata},
+    join_epub_href, opf_dir, parser,
+    reader::PublicationReader,
+    shard::{ShardKey, ShardStore},
+    toc, EpubError, EpubResult, PackageDocument,
 };
 use super::{
     LoadedArchiveSource, LoadedBinaryResource, LoadedChapter, LoadedEpubDocument,
-    LoadedTextResource,
+    LoadedTextResource, PublicationStorage,
 };
 
 mod archive_images;
@@ -27,10 +31,61 @@ pub fn open_runtime_document_owned(bytes: Vec<u8>) -> EpubResult<LoadedEpubDocum
     open_document_with_chapter_loading_owned(bytes, ChapterLoading::FirstChapterOnly)
 }
 
+/// Opens a publication from its skeleton shard, which carries every file
+/// layout reads; images, audio and video load from their content shards
+/// when they are first read.
+pub fn open_runtime_document_from_shards(
+    skeleton: &[u8],
+    key: Option<&ShardKey>,
+) -> EpubResult<LoadedEpubDocument> {
+    let store = ShardStore::open(skeleton, key)?;
+    let mut reader = PublicationReader::Shards(store.clone());
+    let opened = open_from_reader(&mut reader, ChapterLoading::Deferred)?;
+    let mut document = opened.into_document(PublicationStorage::Shards(store));
+    require_layout_inputs_inline(&document)?;
+    document.apply_packed_image_dimensions();
+    Ok(document)
+}
+
+/// Laying out reads chapters, stylesheets and fonts; a skeleton that left
+/// any of them in a content shard could make layout wait on the network.
+fn require_layout_inputs_inline(document: &LoadedEpubDocument) -> EpubResult<()> {
+    let Some(store) = document.shard_store() else {
+        return Ok(());
+    };
+    let layout_hrefs = document
+        .chapters
+        .iter()
+        .map(|chapter| chapter.href.as_str())
+        .chain(
+            document
+                .package
+                .manifest
+                .iter()
+                .filter(|item| {
+                    item.media_type == "text/css" || is_font_media_type(&item.media_type)
+                })
+                .map(|item| item.href.as_str()),
+        )
+        .filter(|href| !href.is_empty());
+    for href in layout_hrefs {
+        if store
+            .shard_of(&join_epub_href(document.opf_dir(), href))
+            .is_some()
+        {
+            return Err(EpubError::new(format!(
+                "invalid publication shard: {href:?} is laid out from, so the skeleton must carry it"
+            )));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
-enum ChapterLoading {
+pub(crate) enum ChapterLoading {
     Eager,
     FirstChapterOnly,
+    Deferred,
 }
 
 #[derive(Clone, Copy)]
@@ -50,21 +105,60 @@ fn open_document_with_chapter_loading_owned(
     bytes: Vec<u8>,
     chapter_loading: ChapterLoading,
 ) -> EpubResult<LoadedEpubDocument> {
-    let mut archive = archive::EpubArchive::new(&bytes)?;
+    let mut reader = PublicationReader::Archive(archive::EpubArchive::new(&bytes)?);
+    let opened = open_from_reader(&mut reader, chapter_loading)?;
+    drop(reader);
+    Ok(opened.into_document(PublicationStorage::Archive(Arc::new(bytes))))
+}
+
+/// Everything opening reads, before the files' storage is attached.
+pub(crate) struct OpenedPublication {
+    package: PackageDocument,
+    opf_dir: String,
+    stylesheets: Vec<LoadedTextResource>,
+    fonts: Vec<LoadedBinaryResource>,
+    images: Vec<LoadedBinaryResource>,
+    archive_image_entries: BTreeMap<String, ArchiveEntryMetadata>,
+    chapters: Vec<LoadedChapter>,
+}
+
+impl OpenedPublication {
+    fn into_document(self, storage: PublicationStorage) -> LoadedEpubDocument {
+        LoadedEpubDocument {
+            package: self.package,
+            stylesheets: self.stylesheets,
+            fonts: self.fonts,
+            images: self.images,
+            chapters: self.chapters,
+            archive_source: Some(LoadedArchiveSource {
+                storage,
+                opf_dir: self.opf_dir,
+                archive_image_entries: self.archive_image_entries,
+            }),
+        }
+    }
+}
+
+pub(crate) fn open_from_reader(
+    archive: &mut PublicationReader<'_>,
+    chapter_loading: ChapterLoading,
+) -> EpubResult<OpenedPublication> {
     let container_xml = archive.read_text(super::super::CONTAINER_PATH)?;
     let rootfile_path = join_epub_href("", &parser::parse_container(&container_xml)?);
     let opf_xml = archive.read_text(&rootfile_path)?;
     let mut package = parser::parse_package_document(&opf_xml)?;
     let opf_dir = opf_dir(&rootfile_path);
 
-    package.toc = toc::load_toc(&mut archive, &package, opf_dir);
-    let stylesheets = load_text_resources(&mut archive, &package, opf_dir);
+    package.toc = toc::load_toc(archive, &package, opf_dir);
+    let stylesheets = load_text_resources(archive, &package, opf_dir);
     let binary_loading = match chapter_loading {
         ChapterLoading::Eager => BinaryResourceLoading::Eager,
-        ChapterLoading::FirstChapterOnly => BinaryResourceLoading::Indexed,
+        ChapterLoading::FirstChapterOnly | ChapterLoading::Deferred => {
+            BinaryResourceLoading::Indexed
+        }
     };
     let fonts = load_binary_resources(
-        &mut archive,
+        archive,
         &package,
         opf_dir,
         is_font_media_type,
@@ -72,41 +166,31 @@ fn open_document_with_chapter_loading_owned(
         binary_loading,
     );
     let mut images = load_binary_resources(
-        &mut archive,
+        archive,
         &package,
         opf_dir,
         is_image_media_type,
         true,
         binary_loading,
     );
-    let archive_image_entries = append_archive_image_resources(
-        &mut archive,
-        &package,
-        opf_dir,
-        binary_loading,
-        &mut images,
-    );
-    let chapters = load_chapters(&mut archive, &package, opf_dir, chapter_loading)?;
-    drop(archive);
-
-    Ok(LoadedEpubDocument {
+    let archive_image_entries =
+        append_archive_image_resources(archive, &package, opf_dir, binary_loading, &mut images);
+    let chapters = load_chapters(archive, &package, opf_dir, chapter_loading)?;
+    Ok(OpenedPublication {
+        opf_dir: opf_dir.to_owned(),
         package,
         stylesheets,
         fonts,
         images,
+        archive_image_entries,
         chapters,
-        archive_source: Some(LoadedArchiveSource {
-            bytes: Arc::new(bytes),
-            opf_dir: opf_dir.to_owned(),
-            archive_image_entries,
-        }),
     })
 }
 
 // Real-world OPFs can retain stale ancillary manifest entries. Keep the spine
 // strict, but skip unreadable styles, fonts, and images so content still opens.
 fn load_text_resources(
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     package: &PackageDocument,
     opf_dir: &str,
 ) -> Vec<LoadedTextResource> {
@@ -127,7 +211,7 @@ fn load_text_resources(
 }
 
 fn load_binary_resources(
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     package: &PackageDocument,
     opf_dir: &str,
     matches_media_type: impl Fn(&str) -> bool,
@@ -168,7 +252,7 @@ fn load_binary_resources(
 }
 
 fn load_chapters(
-    archive: &mut archive::EpubArchive<'_>,
+    archive: &mut PublicationReader<'_>,
     package: &PackageDocument,
     opf_dir: &str,
     chapter_loading: ChapterLoading,
@@ -190,6 +274,7 @@ fn load_chapters(
             let should_load = match chapter_loading {
                 ChapterLoading::Eager => true,
                 ChapterLoading::FirstChapterOnly => index == 0,
+                ChapterLoading::Deferred => false,
             };
             let xhtml_source = if !should_load {
                 String::new()

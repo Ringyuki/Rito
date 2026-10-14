@@ -7,11 +7,11 @@ mod run_paint;
 
 #[cfg(test)]
 pub(crate) use commands::test_support;
+#[cfg(test)]
+pub(crate) use commands::READER_PRIMITIVE_LIST_FORMAT_VERSION;
 pub(crate) use commands::{
-    contract, count_display_commands, display_number, display_rect, encode_reader_primitive_list,
-    hash_display_commands, summarize_display_list_font_families,
+    contract, display_number, display_rect, encode_reader_primitive_list,
     summarize_display_list_resource_refs, DisplayCommand, DisplayTextCommand,
-    ReaderEncodedDisplayList,
 };
 pub(crate) use lower::{lower, ImageSize};
 pub(crate) use run_paint::RunPaint;

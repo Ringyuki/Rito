@@ -21,7 +21,8 @@ export interface AnnotationsState {
 }
 
 export function useAnnotations(controller: ReaderController | null): AnnotationsState & {
-  add: (input: AddAnnotationInput) => AnnotationRecord | undefined;
+  /** Reads the selection at call time; resolves once the engine has built the target. */
+  add: (input: AddAnnotationInput) => Promise<AnnotationRecord | undefined>;
   remove: (id: string) => boolean;
   update: (id: string, patch: AnnotationRecordPatch) => boolean;
   clearClicked: () => void;
@@ -43,7 +44,8 @@ export function useAnnotations(controller: ReaderController | null): Annotations
   });
 
   const add = useCallback(
-    (input: AddAnnotationInput) => controller?.addAnnotation(input),
+    (input: AddAnnotationInput) =>
+      controller ? controller.addAnnotation(input) : Promise.resolve(undefined),
     [controller],
   );
   const remove = useCallback(

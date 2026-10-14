@@ -35,7 +35,7 @@ pub(super) fn face(
     }
 }
 
-pub(super) fn title_font() -> Vec<u8> {
+pub(crate) fn title_font() -> Vec<u8> {
     read_font_from_epub("apps/reader/src/assets/demo.epub", "OEBPS/Fonts/title.ttf")
 }
 
@@ -44,6 +44,14 @@ pub(super) fn serif_text_font() -> Vec<u8> {
         "apps/reader/src/assets/fonts/Tinos-Regular.ttf",
     ))
     .expect("bundled serif text font reads")
+}
+
+/// A bundled reader font by file name (`apps/reader/src/assets/fonts`).
+pub(super) fn bundled_font(file: &str) -> Vec<u8> {
+    std::fs::read(workspace_path(&format!(
+        "apps/reader/src/assets/fonts/{file}"
+    )))
+    .expect("bundled font reads")
 }
 
 pub(super) fn author_illustration_font() -> Vec<u8> {
@@ -64,7 +72,7 @@ pub(super) fn variable_title_font() -> Vec<u8> {
     append_sfnt_table(&title_font(), *b"fvar", &minimal_fvar_table())
 }
 
-pub(super) fn content_epub(
+pub(crate) fn content_epub(
     language: &str,
     body: &str,
     stylesheet: &str,

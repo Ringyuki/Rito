@@ -1,20 +1,11 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use super::source_locator::{
     RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
 };
 use super::{SearchRuntimeResult, SearchTextPosition};
 
-use crate::{
-    epub::{PackageDocument, TocEntry},
-    interaction::{FootnoteEntry, FootnoteKind},
-    layout::{LayoutConfig, PaginationFlowChapterRange},
-    resources::PublicationResources,
-    xhtml::ChapterSource,
-};
+use crate::{interaction::FootnoteKind, layout::LayoutConfig};
 
 /// One painted rectangle of a text range on a page, addressed by the
 /// run it belongs to and the run-local UTF-16 offsets it covers.
@@ -30,18 +21,6 @@ pub struct TextRangeRect {
     pub run_index: usize,
     pub start_char_index: usize,
     pub end_char_index: usize,
-}
-
-/// One text run's span inside a page's concatenated text, in UTF-16
-/// offsets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TextRunOffset {
-    pub start: usize,
-    pub end: usize,
-    pub block_index: usize,
-    pub line_index: usize,
-    pub run_index: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,15 +40,6 @@ pub struct RuntimeResource {
     pub bytes: Vec<u8>,
     pub width: Option<u32>,
     pub height: Option<u32>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFrameResourceWarmPlan {
-    pub revision_id: String,
-    pub center_spread_index: usize,
-    pub display_spread_index: usize,
-    pub spread_indexes: Vec<usize>,
 }
 
 impl RuntimeResource {
@@ -116,7 +86,7 @@ pub enum RuntimeChapterLocalCoordinateKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RuntimeChapterLocalRevisionRequest {
     pub layout_config: LayoutConfig,
     pub target_chapter_index: usize,
@@ -182,6 +152,10 @@ pub enum RuntimeChapterLocalSourceLocatorResolution {
 pub struct RuntimeChapterLocalRevisionError {
     pub kind: RuntimeRevisionErrorKind,
     pub message: String,
+    /// Content shards the operation needs and the host has not supplied;
+    /// non-empty exactly for `ResourcePending`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_shards: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -192,6 +166,9 @@ pub enum RuntimeRevisionErrorKind {
     StaleRevisionVersion,
     ChapterLocalOwnerMismatch,
     EngineFailure,
+    /// The publication was opened from shards and the image a chapter-local
+    /// read names sits in a shard the host has not supplied.
+    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -199,40 +176,6 @@ pub enum RuntimeRevisionErrorKind {
 pub struct RuntimeRevisionError {
     pub kind: RuntimeRevisionErrorKind,
     pub message: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionPresentation {
-    pub revision: RuntimeRevisionSummary,
-    pub navigation: RuntimeRevisionNavigation,
-    pub toc_targets: RuntimeTocTargets,
-    pub font_families: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required_font_faces: Option<RuntimeRequiredFontFaces>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionBundle {
-    pub revision: RuntimeRevisionSummary,
-    pub navigation: RuntimeRevisionNavigation,
-    pub toc_targets: RuntimeTocTargets,
-    pub footnotes: RuntimeFootnotes,
-    pub chapter_text_indices: RuntimeChapterTextIndices,
-    pub font_families: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required_font_faces: Option<RuntimeRequiredFontFaces>,
-}
-
-pub const RUNTIME_REQUIRED_FONT_FACES_SCHEMA_VERSION: u32 = 1;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRequiredFontFaces {
-    pub schema_version: u32,
-    pub revision_id: String,
-    pub faces: Vec<RuntimeRequiredFontFace>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -245,125 +188,6 @@ pub struct RuntimeRequiredFontFace {
     pub shape_fingerprint: String,
     pub byte_length: usize,
     pub source_order: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeRevisionNavigation {
-    pub revision_id: String,
-    pub page_count: usize,
-    pub spread_count: usize,
-    pub spreads: Vec<RuntimeSpreadNavigation>,
-    pub chapters: Vec<RuntimeChapterNavigation>,
-    pub chapter_map: BTreeMap<String, PaginationFlowChapterRange>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeSpreadNavigation {
-    pub spread_index: usize,
-    pub page_indexes: Vec<usize>,
-    pub left_page_index: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub right_page_index: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeTocTargets {
-    pub revision_id: String,
-    pub targets: Vec<RuntimeTocTarget>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeTocTarget {
-    pub entry: TocEntry,
-    pub page_index: usize,
-    pub spread_index: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterNavigation {
-    pub idref: String,
-    pub href: String,
-    pub linear: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub start_page: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_page: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub page_count: Option<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimePublicationInfo {
-    pub package: PackageDocument,
-    pub resources: PublicationResources,
-    pub chapters: Vec<ChapterSource>,
-    pub font_faces: Vec<RuntimeFontFaceSummary>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFontFaceSummary {
-    pub family: String,
-    pub href: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub style: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub weight: Option<String>,
-}
-
-/// Describes one cached frame's bytes: the `RITODL1` primitive list the
-/// frame's display commands lower to at `ratio` device pixels per CSS
-/// pixel. The command count, kind counts and hash describe the semantic
-/// display list the bytes were lowered from — the frame's identity, which
-/// the JSON projection is validated against — while `primitive_count`
-/// and `byte_length` describe the bytes themselves.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeFrameCommandBufferMetadata {
-    pub revision_id: String,
-    pub spread_index: usize,
-    pub width: Value,
-    pub height: Value,
-    pub protocol_version: u32,
-    pub ratio: f64,
-    pub command_count: usize,
-    pub command_counts: BTreeMap<String, usize>,
-    pub primitive_count: usize,
-    pub byte_length: usize,
-    pub command_hash: String,
-    pub resource_ref_count: usize,
-    pub resource_table: Vec<String>,
-    pub font_families: Vec<String>,
-    pub image_dominated: bool,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct RuntimeFrameCommandBuffer {
-    pub metadata: RuntimeFrameCommandBufferMetadata,
-    pub bytes: Vec<u8>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeInitialFrameRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub spread_index: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor_progress: Option<f64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeInitialFrameDecision {
-    pub revision_id: String,
-    pub spread_index: usize,
-    pub display_spread_index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -416,39 +240,6 @@ pub enum RuntimeSearchSource {
 #[serde(rename_all = "camelCase")]
 pub enum RuntimeSearchSourceUnavailableReason {
     SourceUnavailable,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeLocatorRequest {
-    pub href: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ResolvedRuntimeLocator {
-    pub revision_id: String,
-    pub href: String,
-    pub spine_idref: String,
-    pub page_index: usize,
-    pub spread_index: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fragment: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimePrefetchRequest {
-    pub spread_indexes: Vec<usize>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimePrefetchResponse {
-    pub revision_id: String,
-    pub warmed_spread_indexes: Vec<usize>,
-    pub missing_spread_indexes: Vec<usize>,
-    pub cached_frame_count: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -534,18 +325,6 @@ pub struct RuntimePageTargets {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimePageTextPositions {
-    pub revision_id: String,
-    pub page_index: usize,
-    pub spread_index: usize,
-    pub text: String,
-    pub text_length: usize,
-    pub text_hash: String,
-    pub offsets: Vec<TextRunOffset>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RuntimeTextRangeGeometryRequest {
     pub page_index: usize,
     pub start: SearchTextPosition,
@@ -574,18 +353,6 @@ pub struct RuntimeFootnote {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeFootnotes {
-    pub revision_id: String,
-    /// True when publication-wide discovery and selected definition parsing
-    /// are complete for this revision.
-    pub complete: bool,
-    /// Canonical noteref keys whose definitions are not available yet.
-    pub pending_keys: Vec<String>,
-    pub entries: BTreeMap<String, FootnoteEntry>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RuntimeChapterTextSpan {
     pub node_path: Vec<usize>,
     pub source_start: usize,
@@ -600,11 +367,4 @@ pub struct RuntimeChapterTextIndex {
     pub href: String,
     pub normalized_text: String,
     pub spans: Vec<RuntimeChapterTextSpan>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimeChapterTextIndices {
-    pub revision_id: String,
-    pub entries: BTreeMap<String, RuntimeChapterTextIndex>,
 }

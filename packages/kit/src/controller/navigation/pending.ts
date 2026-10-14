@@ -3,7 +3,6 @@ import type { NavigationDeps } from './index';
 import { emitNavigationStart } from './start';
 import {
   enqueueIntent,
-  foregroundIsBusy,
   queuedSpreadTurn,
   type NavigationMachine,
   type PendingNavigation,
@@ -15,7 +14,6 @@ export function continuePendingNavigation(
   deps: NavigationDeps,
   spreadIndex: number,
 ): void {
-  if (foregroundIsBusy(machine)) return;
   const pending = currentPending(machine, spreadIndex);
   if (!pending || pending.gesture?.cancelled) return;
   if (!ensureIncomingSlot(deps, pending.target, pending.direction)) {
@@ -34,7 +32,6 @@ export function continuePendingNavigation(
     pending.target,
     pending.direction,
     pending.previous,
-    pending.continuityDx,
     pending.gesture,
   );
 }

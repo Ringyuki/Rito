@@ -5,11 +5,11 @@ use rito_fragment::{BreakToken, BreakTokenStage, FormattingNode, FragmentCache};
 use rito_style_contract::{
     AbsoluteColor, AbsoluteColorSpace, AlignmentBaseline, BaselineShift, BaselineSource,
     BorderEdge, BorderEdges, BorderRadii, BorderStyle, ColorNoneFlags, CornerRadius, CssPx,
-    FontFamilies, FontFamilyName, FontStyle, FontWeight, InlineBidi, InlineFragmentStyle,
-    InlinePaintStyle, InlineStyleTable, InlineTextFlow, LayoutStyleTable, LengthPercentageOrAuto,
-    NonNegativeCssPx, NonNegativeLengthPercentage, PhysicalSides, RubyAlign, TextAlign,
-    TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent, TextJustify,
-    TextTransform, TextTransformCase, TextWrapMode, TransformList, UnitInterval,
+    FontFamilies, FontFamily, FontFamilyName, FontStyle, FontWeight, GenericFontFamily, InlineBidi,
+    InlineFragmentStyle, InlinePaintStyle, InlineStyleTable, InlineTextFlow, LayoutStyleTable,
+    LengthPercentageOrAuto, NonNegativeCssPx, NonNegativeLengthPercentage, PhysicalSides,
+    RubyAlign, TextAlign, TextDecoration, TextDecorationLines, TextDecorationStyle, TextIndent,
+    TextJustify, TextTransform, TextTransformCase, TextWrapMode, TransformList, UnitInterval,
     WhiteSpaceCollapse, WordBreak,
 };
 use rito_style_contract::{Direction, LineBreak, OverflowWrap, UnicodeBidi, WritingMode};
@@ -21,7 +21,20 @@ mod atoms_and_grid;
 mod breaks_and_spacing;
 mod clusters;
 mod envelopes_and_ruby;
+mod fonts;
 mod punctuation_and_contract;
+
+/// A publication `@font-face` binding of `family` to `bytes`, upright at
+/// the default weight.
+fn publication_face(family: &str, bytes: Vec<u8>) -> PublicationFontFace {
+    PublicationFontFace {
+        family: family.to_owned(),
+        bytes,
+        weight: 400,
+        italic: false,
+        alias: family.to_owned(),
+    }
+}
 
 fn tinos_bytes() -> Vec<u8> {
     let path = concat!(
@@ -29,6 +42,14 @@ fn tinos_bytes() -> Vec<u8> {
         "/../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"
     );
     std::fs::read(path).expect("pinned Tinos test font reads")
+}
+
+fn source_han_bytes() -> Vec<u8> {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    );
+    std::fs::read(path).expect("pinned Source Han test font reads")
 }
 
 fn px(value: f32) -> NonNegativeCssPx {

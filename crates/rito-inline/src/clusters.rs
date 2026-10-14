@@ -12,7 +12,7 @@
 //! the way the browser's own text pen does, so a kerned Latin word's
 //! sub-pixel phases match its raster.
 
-use rito_fragment::ClusterPosition;
+use rito_fragment::{ClusterPosition, FontFaceId};
 use rito_style_contract::{InlineFormattingStyle, LengthPercentage};
 
 use crate::*;
@@ -35,7 +35,9 @@ pub(crate) struct PieceClusters {
 /// blank half further right, so such a cluster's origin moves left by its
 /// half while the clusters after it keep the trimmed advance layout
 /// stepped by.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn piece_clusters(
+    catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
     flow_text: &str,
     range: std::ops::Range<usize>,
@@ -44,7 +46,7 @@ pub(crate) fn piece_clusters(
     halt_trims: &[(std::ops::Range<usize>, f64)],
     word_spacing: bool,
 ) -> PieceClusters {
-    let mut steps: Vec<(u32, f64, f64)> = Vec::new();
+    let mut steps: Vec<(u32, f64, f64, FontFaceId)> = Vec::new();
     let mut font_size = 0.0_f64;
     let mut cluster = parley::layout::Cluster::from_byte_index(layout, range.start);
     while let Some(current) = cluster {
@@ -61,7 +63,12 @@ pub(crate) fn piece_clusters(
             .iter()
             .find(|(trimmed, _)| *trimmed == text_range)
             .map_or(0.0, |(_, half)| *half);
-        steps.push((text_range.start as u32, step, trim));
+        steps.push((
+            text_range.start as u32,
+            step,
+            trim,
+            catalog.face_id(current.run().font()),
+        ));
         cluster = current.next_logical();
     }
     let text = flow_text.get(range).unwrap_or_default();
@@ -72,20 +79,22 @@ pub(crate) fn piece_clusters(
     let mut positions = Vec::with_capacity(steps.len());
     let advance = if grid {
         let mut cumulative = 0.0_f64;
-        for (byte, step, trim) in steps {
+        for (byte, step, trim, face) in steps {
             positions.push(ClusterPosition {
                 byte,
                 x: cumulative - trim,
+                face,
             });
             cumulative += step;
         }
         cumulative
     } else {
         let mut pen = 0.0_f32;
-        for (byte, step, trim) in steps {
+        for (byte, step, trim, face) in steps {
             positions.push(ClusterPosition {
                 byte,
                 x: f64::from(pen) - trim,
+                face,
             });
             pen += step as f32;
         }
@@ -220,7 +229,7 @@ impl ParleyInlineContext {
             let mut layouts = self.layouts.borrow_mut();
             let mut builder =
                 SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
-            push_item_styles(&mut builder, shaped_style, 0..text.len());
+            push_item_styles(&mut builder, &self.catalog, shaped_style, 0..text.len());
             let (mut layout, _) = builder.build(text);
             layout.break_all_lines(None);
             let mut seen: Vec<(u64, u32)> = Vec::new();
@@ -249,7 +258,7 @@ impl ParleyInlineContext {
             .primary_font(style)
             .and_then(|(blob, index)| {
                 let font_ref = skrifa::FontRef::from_index(blob.as_ref(), index).ok()?;
-                let (ascent, descent) = platform_ascent_descent(&font_ref, size);
+                let (ascent, descent, _) = rounded_metrics(&font_ref, size);
                 let (typo_ascent, _) = normalized_typo_height(&font_ref, size);
                 Some((ascent, descent, typo_ascent))
             })
@@ -261,49 +270,24 @@ impl ParleyInlineContext {
         }
     }
 
-    /// The style's primary font — the first family of its list the
-    /// collection can serve (a named face that is registered, or the
-    /// first face behind a generic), the face Chromium reads platform
-    /// metrics from.
-    fn primary_font(
+    /// The style's primary font — the default face of the first family
+    /// its resolved list holds, the face Chromium reads platform metrics
+    /// from.
+    pub(crate) fn primary_font(
         &self,
         style: &InlineFormattingStyle,
     ) -> Option<(parley::fontique::Blob<u8>, u32)> {
-        use parley::fontique::GenericFamily;
+        let stack = self.catalog.resolve(style);
         let mut fonts = self.fonts.borrow_mut();
         let parley::FontContext {
             collection,
             source_cache,
         } = &mut *fonts;
-        for family in style.font.families.iter() {
-            let id = match family {
-                FontFamily::Named(name) => collection.family_id(name.as_str()),
-                FontFamily::Generic(generic) => collection
-                    .generic_families(match generic {
-                        GenericFontFamily::Serif => GenericFamily::Serif,
-                        GenericFontFamily::SansSerif => GenericFamily::SansSerif,
-                        GenericFontFamily::Monospace => GenericFamily::Monospace,
-                        GenericFontFamily::Cursive => GenericFamily::Cursive,
-                        GenericFontFamily::Fantasy => GenericFamily::Fantasy,
-                        GenericFontFamily::SystemUi => GenericFamily::SystemUi,
-                    })
-                    .next(),
-            };
-            let Some(id) = id else {
-                continue;
-            };
-            let Some(info) = collection.family(id) else {
-                continue;
-            };
-            let Some(font) = info.default_font() else {
-                continue;
-            };
+        stack.families.iter().find_map(|name| {
+            let font = collection.family_by_name(name)?.default_font()?.clone();
             let index = font.index();
-            if let Some(blob) = font.load(Some(source_cache)) {
-                return Some((blob, index));
-            }
-        }
-        None
+            font.load(Some(source_cache)).map(|blob| (blob, index))
+        })
     }
 
     fn shaped_run(
@@ -334,7 +318,7 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
-        push_item_styles(&mut builder, style, 0..text.len());
+        push_item_styles(&mut builder, &self.catalog, style, 0..text.len());
         if !spacing {
             // Later pushes win: the style's spacing, pushed above, is
             // overridden to zero over the whole string.
@@ -349,6 +333,7 @@ impl ParleyInlineContext {
                 LengthPercentage::Length(px) if px.get() != 0.0
             );
         let piece = piece_clusters(
+            &self.catalog,
             &layout,
             text,
             0..text.len(),
@@ -388,65 +373,6 @@ struct EmHeight {
     ascent: f64,
     descent: f64,
     primary_typo_ascent: f64,
-}
-
-/// The OS/2 typo ascent and descent of a face at `size`, normalized so
-/// they sum to the em and each rounded onto the 1/64 grid (Chromium's
-/// `NormalizedTypoAscentAndDescent`); a face without usable typo metrics
-/// normalizes its platform ascent and descent instead.
-fn normalized_typo_height(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
-    use skrifa::raw::TableProvider as _;
-    let typo = font_ref
-        .os2()
-        .ok()
-        .map(|os2| {
-            (
-                f64::from(os2.s_typo_ascender()),
-                -f64::from(os2.s_typo_descender()),
-            )
-        })
-        .filter(|(ascent, _)| *ascent > 0.0);
-    let (ascent, descent) = match typo {
-        Some(pair) => pair,
-        None => platform_ascent_descent(font_ref, size),
-    };
-    let height = ascent + descent;
-    if height <= 0.0 || ascent < 0.0 || ascent > height {
-        return (0.0, 0.0);
-    }
-    let normalized_ascent = layout_unit(ascent * size / height);
-    (normalized_ascent, layout_unit(size) - normalized_ascent)
-}
-
-/// A face's platform ascent and descent at `size`: the hhea metrics (the
-/// OS/2 typo metrics when the face sets USE_TYPO_METRICS), each rounded
-/// to a whole pixel the way Skia hands them to Blink's `FontMetrics`.
-fn platform_ascent_descent(font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
-    use skrifa::raw::TableProvider as _;
-    let Ok(head) = font_ref.head() else {
-        return (0.0, 0.0);
-    };
-    let upem = f64::from(head.units_per_em());
-    if upem <= 0.0 {
-        return (0.0, 0.0);
-    }
-    let use_typo = font_ref.os2().ok().is_some_and(|os2| {
-        os2.fs_selection()
-            .contains(skrifa::raw::tables::os2::SelectionFlags::USE_TYPO_METRICS)
-    });
-    let (ascent, descent) = match (use_typo, font_ref.os2(), font_ref.hhea()) {
-        (true, Ok(os2), _) => (
-            f64::from(os2.s_typo_ascender()),
-            -f64::from(os2.s_typo_descender()),
-        ),
-        (_, _, Ok(hhea)) => (
-            f64::from(hhea.ascender().to_i16()),
-            -f64::from(hhea.descender().to_i16()),
-        ),
-        _ => return (0.0, 0.0),
-    };
-    let scale = |units: f64| (units * size / upem + 0.5).floor();
-    (scale(ascent), scale(descent))
 }
 
 /// The CJK blocks whose clusters shape one to one with no kerning, plus

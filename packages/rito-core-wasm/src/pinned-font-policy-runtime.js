@@ -1,53 +1,14 @@
-import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
+// A reader session's host faces as a host hands them over: the policy a
+// session opens with, and faces added while it is open. What is checked
+// here never reaches the engine malformed; the engine checks the bytes.
 
 const POLICY_KEYS = new Set(['schemaVersion', 'faces']);
 const FACE_INPUT_KEYS = new Set(['bytes', 'expectedSha256', 'genericRole', 'language']);
-const SUMMARY_KEYS = new Set(['schemaVersion', 'policyId', 'faces']);
-const FACE_SUMMARY_KEYS = new Set(
-  'sha256 shapeFingerprint familyAlias byteLength genericRole language style weight'.split(' '),
-);
 const OPEN_KEYS = new Set(['pinnedFontPolicy']);
 const GENERIC_ROLES = new Set(['serif', 'sansSerif', 'monospace']);
 const ROLE_ORDER = { serif: 0, sansSerif: 1, monospace: 2 };
 const EXPECTED_HASH_RE = /^[0-9a-fA-F]{64}$/;
-const CANONICAL_HASH_RE = /^[0-9a-f]{64}$/;
-const FINGERPRINT_RE = /^[0-9a-f]{16}$/;
 
-export function openRawDocument(RawDocument, bytes, options) {
-  if (!(bytes instanceof Uint8Array)) {
-    badRequest('openDocument bytes must be a Uint8Array');
-  }
-  const pinned = preparePinnedFontPolicyOpen(options);
-  const inner =
-    pinned === undefined
-      ? new RawDocument(bytes)
-      : RawDocument.openWithPinnedFontPolicy(
-          bytes,
-          JSON.stringify(pinned.metadata),
-          pinned.faceBytes,
-        );
-  return { inner, expectedFaces: pinned === undefined ? [] : pinned.expectedFaces };
-}
-export function decodePinnedFontPolicySummary(payload, expectedFaces) {
-  const summary = parseSummaryPayload(payload, 'pinnedFontPolicy');
-  return validatePinnedFontPolicySummary(summary, expectedFaces, 'pinnedFontPolicy');
-}
-export function validatePinnedFontPolicySummary(summary, expectedFaces, operation) {
-  const label = operation ?? 'pinnedFontPolicy';
-  requireExactOutputKeys(summary, SUMMARY_KEYS, `${label} summary`);
-  if (summary.schemaVersion !== 1) {
-    throw new Error(`${label} returned an unsupported schemaVersion`);
-  }
-  if (typeof summary.policyId !== 'string' || !CANONICAL_HASH_RE.test(summary.policyId)) {
-    throw new Error(`${label} returned an invalid policyId`);
-  }
-  if (!Array.isArray(summary.faces)) {
-    throw new Error(`${label} returned invalid faces`);
-  }
-  validateSummaryFaces(summary.faces, label);
-  if (expectedFaces !== undefined) requireExpectedFaces(summary.faces, expectedFaces);
-  return summary;
-}
 export function preparePinnedFontPolicyOpen(options, bytesKind = 'uint8array') {
   if (options === undefined) return undefined;
   const open = requireInputObject(options, 'openDocument options');
@@ -57,6 +18,7 @@ export function preparePinnedFontPolicyOpen(options, bytesKind = 'uint8array') {
   }
   return preparePolicy(open.pinnedFontPolicy, bytesKind);
 }
+
 function preparePolicy(value, bytesKind) {
   const policy = requireInputObject(value, 'pinned font policy');
   requireExactInputKeys(policy, POLICY_KEYS, 'pinned font policy');
@@ -78,6 +40,7 @@ function preparePolicy(value, bytesKind) {
     expectedFaces,
   };
 }
+
 function prepareFace(value, index, bytesKind) {
   const label = `pinned font face ${String(index)}`;
   const face = requireInputObject(value, label);
@@ -120,6 +83,29 @@ function prepareFace(value, index, bytesKind) {
     },
   };
 }
+
+/**
+ * Validates host faces added to an open document: the same face contract
+ * as an open's policy, except that a face may share its role and language
+ * with another. The faces keep the order given.
+ */
+export function prepareHostFontFaces(value, bytesKind = 'uint8array') {
+  if (!Array.isArray(value) || value.length === 0) {
+    badRequest('host font faces must be a non-empty array');
+  }
+  const prepared = value.map((face, index) => prepareFace(face, index, bytesKind));
+  const hashes = new Set();
+  for (const face of prepared) {
+    if (hashes.has(face.expected.sha256)) badRequest('host font faces repeat a SHA-256');
+    hashes.add(face.expected.sha256);
+  }
+  return {
+    metadata: { schemaVersion: 1, faces: prepared.map((face) => face.metadata) },
+    faceBytes: prepared.map((face) => face.bytes),
+    expectedFaces: prepared.map((face) => face.expected),
+  };
+}
+
 function rejectDuplicateExpectedFaces(faces) {
   const hashes = new Set();
   const selectors = new Set();
@@ -131,76 +117,6 @@ function rejectDuplicateExpectedFaces(faces) {
     }
     hashes.add(face.sha256);
     selectors.add(selector);
-  }
-}
-function requireExpectedFaces(actual, expected) {
-  if (actual.length !== expected.length) {
-    throw new Error('pinnedFontPolicy returned a face count that does not match its request');
-  }
-  for (let index = 0; index < actual.length; index += 1) {
-    const returned = actual[index];
-    const requested = expected[index];
-    if (
-      returned.sha256 !== requested.sha256 ||
-      returned.byteLength !== requested.byteLength ||
-      returned.genericRole !== requested.genericRole ||
-      returned.language !== requested.language
-    ) {
-      throw new Error(`pinnedFontPolicy face ${String(index)} does not match its request`);
-    }
-  }
-}
-function validateSummaryFaces(faces, operation) {
-  const hashes = new Set();
-  const aliases = new Set();
-  const selectors = new Set();
-  let previous;
-  for (const [index, value] of faces.entries()) {
-    const face = requireSummaryFace(value, index, operation);
-    const selector = `${face.genericRole}\0${face.language}`;
-    if (hashes.has(face.sha256) || aliases.has(face.familyAlias) || selectors.has(selector)) {
-      throw new Error(`${operation} returned duplicate face identity`);
-    }
-    hashes.add(face.sha256);
-    aliases.add(face.familyAlias);
-    selectors.add(selector);
-    if (previous !== undefined && compareSummaryFaces(previous, face) >= 0) {
-      throw new Error(`${operation} returned non-canonical face order`);
-    }
-    previous = face;
-  }
-}
-function requireSummaryFace(value, index, operation) {
-  const label = `${operation} face ${String(index)}`;
-  const face = requireOutputObject(value, label);
-  requireExactOutputKeys(face, FACE_SUMMARY_KEYS, label);
-  requireSummaryFaceIdentity(face, label);
-  if (!Number.isSafeInteger(face.byteLength) || face.byteLength <= 0) {
-    throw new Error(`${label} returned an invalid byteLength`);
-  }
-  if (!GENERIC_ROLES.has(face.genericRole)) {
-    throw new Error(`${label} returned an unsupported genericRole`);
-  }
-  requireLanguage(face.language, label, true);
-  if (face.style !== 'normal' || face.weight !== 400) {
-    throw new Error(`${label} returned unsupported style or weight`);
-  }
-  return face;
-}
-
-function requireSummaryFaceIdentity(face, label) {
-  if (typeof face.sha256 !== 'string' || !CANONICAL_HASH_RE.test(face.sha256)) {
-    throw new Error(`${label} returned an invalid sha256`);
-  }
-  if (
-    typeof face.shapeFingerprint !== 'string' ||
-    !FINGERPRINT_RE.test(face.shapeFingerprint) ||
-    face.shapeFingerprint !== face.sha256.slice(0, 16)
-  ) {
-    throw new Error(`${label} returned an invalid shapeFingerprint`);
-  }
-  if (face.familyAlias !== `__RitoPinned_${face.sha256}`) {
-    throw new Error(`${label} returned an invalid familyAlias`);
   }
 }
 
@@ -237,28 +153,9 @@ function isAscii(value) {
   return true;
 }
 
-function parseSummaryPayload(payload, operation) {
-  if (typeof payload !== 'string') throw new Error(`${operation} returned a non-string payload`);
-  try {
-    return requireOutputObject(JSON.parse(payload), `${operation} summary`);
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new Error(`${operation} returned invalid JSON: ${error.message}`, { cause: error });
-    }
-    throw error;
-  }
-}
-
 function requireInputObject(value, label) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     badRequest(`${label} must be an object`);
-  }
-  return value;
-}
-
-function requireOutputObject(value, label) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${label} is not an object`);
   }
   return value;
 }
@@ -276,20 +173,10 @@ function requireExactInputKeys(value, allowed, label) {
   if (missing !== undefined) badRequest(`${label} is missing ${missing}`);
 }
 
-function requireExactOutputKeys(value, allowed, label) {
-  const unknown = Reflect.ownKeys(value).find(
-    (key) => typeof key !== 'string' || !allowed.has(key),
-  );
-  if (unknown !== undefined)
-    throw new Error(`${label} contains unknown field ${renderKey(unknown)}`);
-  const missing = [...allowed].find((key) => !Object.hasOwn(value, key));
-  if (missing !== undefined) throw new Error(`${label} is missing ${missing}`);
-}
-
 function renderKey(key) {
   return typeof key === 'symbol' ? key.toString() : key;
 }
 
 function badRequest(message) {
-  throw new RitoCoreWasmError('bad-request', message);
+  throw Object.assign(new Error(message), { name: 'RitoReaderError', code: 'invalid-request' });
 }

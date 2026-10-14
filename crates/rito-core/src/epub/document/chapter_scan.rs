@@ -1,16 +1,16 @@
 use std::fmt;
 
-use crate::epub::{archive::EpubArchive, join_epub_href, EpubResult};
+use crate::epub::{join_epub_href, reader::PublicationReader, EpubResult};
 
 use super::{LoadedChapter, LoadedEpubDocument};
 
-/// Reusable archive cursor for cooperative chapter-source scans. It owns an
-/// `Arc` handle to the EPUB bytes through `EpubArchive`, so it can survive
+/// Reusable archive cursor for cooperative chapter-source scans. It owns a
+/// handle on the publication's files, so it can survive
 /// between host-scheduled quanta without borrowing `LoadedEpubDocument` or
 /// copying the publication. The archive is opened lazily because the first
 /// runtime chapter is commonly already materialized.
 pub(crate) struct ChapterSourceScanSession {
-    archive: Option<EpubArchive<'static>>,
+    archive: Option<PublicationReader<'static>>,
     archive_initialized: bool,
 }
 
@@ -39,7 +39,7 @@ impl ChapterSourceScanSession {
         self.archive = document
             .archive_source
             .as_ref()
-            .map(|source| EpubArchive::new_shared(source.bytes.clone()))
+            .map(|source| source.storage.shared_reader())
             .transpose()?;
         self.archive_initialized = true;
         Ok(())

@@ -1,17 +1,18 @@
 use super::*;
+use crate::render::READER_PRIMITIVE_LIST_FORMAT_VERSION;
 use crate::runtime::reader_session::{
     ReaderAdjacentAvailability, ReaderAdjacentDirection, ReaderAdjacentRequest,
     ReaderBackgroundAdvance, ReaderBackgroundHandoff, ReaderBackgroundHandoffAck,
     ReaderBackgroundRequest, ReaderBackgroundState, ReaderDisplayList, ReaderErrorKind,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderExactSourceRect, ReaderFontRef, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
-    ReaderHitEntry, ReaderLayout, ReaderLocator, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
-    ReaderPublication, ReaderPublicationMetadata, ReaderPublicationSpineItem,
-    ReaderPublicationTocEntry, ReaderPublicationTocTarget, ReaderRect, ReaderResource,
-    ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
+    ReaderHitEntry, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderLocatorMatch,
+    ReaderNavigation, ReaderPage, ReaderPublication, ReaderPublicationMetadata,
+    ReaderPublicationSpineItem, ReaderPublicationTocEntry, ReaderPublicationTocTarget, ReaderRect,
+    ReaderResource, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
     ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderTextRenderingProfile,
-    ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT, READER_DISPLAY_LIST_VERSION,
-    READER_EXTERNAL_ID_MAX, READER_IMAGE_RESOURCE_BYTES_MAX, READER_PROTOCOL_VERSION,
+    ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT, READER_EXTERNAL_ID_MAX,
+    READER_IMAGE_RESOURCE_BYTES_MAX, READER_PROTOCOL_VERSION,
 };
 
 #[test]
@@ -601,6 +602,8 @@ fn request_fixture() -> ReaderArtifactRequest {
             root_font_size: 17.5,
             line_height_override: Some(1.6),
             font_family_override: Some("Noto Serif CJK JP".into()),
+            line_height_force: true,
+            font_family_force: true,
         },
         locator: locator_fixture(),
         text_profile: ReaderTextRenderingProfile::PositionedGlyphRuns,
@@ -682,7 +685,7 @@ fn artifact_fixture() -> ReaderArtifact {
         },
         text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
         display_list: ReaderDisplayList {
-            format_version: READER_DISPLAY_LIST_VERSION,
+            format_version: READER_PRIMITIVE_LIST_FORMAT_VERSION,
             command_count: 3,
             semantic_digest: std::array::from_fn(|index| u8::try_from(index).unwrap()),
             bytes: vec![0, 1, 2, 127, 128, 255],
@@ -702,6 +705,61 @@ fn artifact_fixture() -> ReaderArtifact {
         }],
         pages: vec![page_fixture()],
     }
+}
+
+/// The bytes the JavaScript and Dart artifact decoder tests read. A decoder
+/// that drifts from the encoder fails on these, not on a hand-built fixture
+/// that agrees with its own stale reading.
+const ARTIFACT_FIXTURE: &str = include_str!(
+    "../../../../../../packages/rito-core-wasm/tests/fixtures/reader-session-artifact.hex"
+);
+const PRIMITIVE_LIST_FIXTURE: &str = include_str!(
+    "../../../../../../packages/rito-core-wasm/tests/fixtures/reader-session-primitive-list.hex"
+);
+const FIXTURE_DIR: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../packages/rito-core-wasm/tests/fixtures"
+);
+
+/// The artifact fixture carrying a display list other decoders can read:
+/// the cross-language primitive list, with its real command count.
+fn cross_language_artifact() -> ReaderArtifact {
+    let list = PRIMITIVE_LIST_FIXTURE.trim();
+    let bytes = (0..list.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&list[index..index + 2], 16).expect("hex"))
+        .collect();
+    let mut artifact = artifact_fixture();
+    artifact.display_list.command_count = 14;
+    artifact.display_list.bytes = bytes;
+    artifact
+}
+
+fn artifact_fixture_hex() -> String {
+    encode_reader_artifact(&cross_language_artifact())
+        .expect("encode artifact")
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+#[test]
+fn cross_language_artifact_fixture_matches_the_encoder() {
+    assert_eq!(
+        ARTIFACT_FIXTURE.trim(),
+        artifact_fixture_hex(),
+        "regenerate with `cargo test -p rito-core --lib write_reader_artifact_fixture -- --ignored`"
+    );
+}
+
+#[test]
+#[ignore = "writes the cross-language artifact fixture the JavaScript and Dart decoder tests read"]
+fn write_reader_artifact_fixture() {
+    std::fs::write(
+        format!("{FIXTURE_DIR}/reader-session-artifact.hex"),
+        format!("{}\n", artifact_fixture_hex()),
+    )
+    .expect("write artifact fixture");
 }
 
 fn publication_fixture() -> ReaderPublication {
@@ -807,16 +865,24 @@ fn page_fixture() -> ReaderPage {
         hits: vec![ReaderHitEntry {
             page_index: 9,
             bounds: rect(11.5, 12.5, 120.0, 24.0),
+            kind: ReaderHitKind::FootnotePending,
             text: "次へ".into(),
             href: Some("chapter-02.xhtml".into()),
             source_point: Some(ReaderSourcePoint {
                 node_path: vec![1, 2, 3],
                 text_offset: 5,
             }),
+            target_locator: Some(ReaderLocator {
+                href: "Text/chapter-02.xhtml".into(),
+                anchor_id: Some("fn7".into()),
+                source_point: None,
+                source_range: None,
+                progression: None,
+            }),
+            destination_label: Some("第二章".into()),
             image_src: Some("images/next.png".into()),
             image_alt: Some("次章".into()),
             footnote_key: Some("Text/chapter-02.xhtml#fn7".into()),
-            footnote_pending: true,
         }],
         semantics: semantic_roles_fixture(),
         text: "吾輩は猫である。".into(),
@@ -880,7 +946,7 @@ const fn rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRect {
     }
 }
 
-fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
+pub(super) fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
     ReaderExactSourceRangeRequest {
         session_id: 7,
         artifact_id: 9,
@@ -895,10 +961,11 @@ fn exact_source_range_request_fixture() -> ReaderExactSourceRangeRequest {
                 text_offset: 31,
             },
         },
+        every_page: true,
     }
 }
 
-fn exact_source_range_resolution_fixture() -> ReaderExactSourceRangeResolution {
+pub(super) fn exact_source_range_resolution_fixture() -> ReaderExactSourceRangeResolution {
     ReaderExactSourceRangeResolution {
         artifact_id: 9,
         status: ReaderExactSourceRangeStatus::Resolved,

@@ -13,7 +13,6 @@ import {
   invalidateNativeAnnotationGeometry,
   refreshNativeAnnotations,
   scheduleNativeAnnotationsForSpread,
-  syncChapterIndices,
 } from '../annotation-resolution';
 import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
 import { scheduleNativeSearchForSpread } from './native-search';
@@ -40,7 +39,6 @@ export function coordinateOnSpreadRendered(
   }
   if (generation !== state.spreadCoordinationGeneration) return false;
 
-  syncChapterIndices(state, reader);
   if (state.annotationStore) refreshNativeAnnotations(reader, state);
 
   updatePosition(spreadIndex, engines.position, state);
@@ -98,20 +96,7 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
   if (typeof deps.reader.onSpreadContentInvalidated === 'function') {
     disposables.add(
       deps.reader.onSpreadContentInvalidated((idx) => {
-        if (deps.presentChapterLocalInvalidation(idx)) return;
-        if (idx === deps.getCurrentSpread()) {
-          invalidateNativeTargets(deps.coordState);
-          if (!deps.reader.interactions?.enabled) {
-            invalidateNativeAnnotationGeometry(deps.coordState);
-            deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-          }
-          deps.canvas.style.cursor = '';
-          const spread = deps.reader.spreads[idx];
-          if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
-          deps.syncViewport?.();
-        }
-        deps.frameDriver.markContentDirty(idx);
-        deps.notifyNavigationContentReady(idx);
+        refreshInvalidatedSpread(idx, deps);
       }),
     );
   }
@@ -121,6 +106,27 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
     invalidateNativeAnnotationGeometry(deps.coordState);
     deps.canvas.style.cursor = '';
   });
+}
+
+/** A spread's content arrived or changed: what was read from it is stale and its buffer is repainted. */
+function refreshInvalidatedSpread(idx: number, deps: WiringDeps): void {
+  if (idx === deps.getCurrentSpread()) {
+    invalidateNativeTargets(deps.coordState);
+    if (!deps.reader.interactions?.enabled) {
+      invalidateNativeAnnotationGeometry(deps.coordState);
+      deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+    }
+    deps.canvas.style.cursor = '';
+    const spread = deps.reader.spreads[idx];
+    if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
+    deps.syncViewport?.();
+  }
+  deps.frameDriver.markContentDirty(idx);
+  deps.notifyNavigationContentReady(idx);
+  // A spread beside the one shown has content it did not have when the
+  // last turn settled and its buffer was skipped: paint it now, while
+  // idle, so the turn onto it has nothing left to raster.
+  if (Math.abs(idx - deps.getCurrentSpread()) === 1) deps.prerenderAdjacent?.();
 }
 
 function scheduleNativeAnnotationLoad(spread: Spread, deps: WiringDeps): void {

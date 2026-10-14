@@ -22,6 +22,13 @@ extern "C" {
 /* Status value 9 is retired and is never reassigned. */
 #define RITO_STATUS_ADJACENT_PENDING UINT32_C(10)
 #define RITO_STATUS_SESSION_TERMINATED UINT32_C(11)
+/*
+ * The publication was opened from shards and a resource read needs a content
+ * shard the host has not supplied. error_out then holds a RITOPSH1 message
+ * (the ascending shard ids and a UTF-8 message) instead of plain UTF-8;
+ * supply those shards with rito_supply_shard and retry the same call.
+ */
+#define RITO_STATUS_RESOURCE_PENDING UINT32_C(12)
 #define RITO_STATUS_PANIC UINT32_C(255)
 
 /*
@@ -151,6 +158,52 @@ uint32_t rito_open_with_pinned_fonts(const uint8_t *publication_data,
                                         rito_owned_buffer *error_out);
 
 /*
+ * Opens a reader from a publication's skeleton shard (see rito-pack) with a
+ * pinned measurement-font policy and requests its initial artifact. key_len is
+ * 0 for plain shards or 32 for the skeleton's key; all bytes are copied before
+ * this call returns. The skeleton carries everything layout reads, so opening,
+ * seeking and turning never wait on a content shard; only resource reads do.
+ * Pending and terminal semantics match rito_open.
+ */
+uint32_t rito_open_shards_with_pinned_fonts(const uint8_t *skeleton_data,
+                                               uint64_t skeleton_len,
+                                               const uint8_t *key_data,
+                                               uint64_t key_len,
+                                               const uint8_t *request_data,
+                                               uint64_t request_len,
+                                               const rito_pinned_font_face *faces,
+                                               uint32_t face_count,
+                                               rito_owned_buffer *artifact_out,
+                                               rito_owned_buffer *error_out);
+
+/*
+ * Hands an open reader one content shard and writes its id to shard_id_out.
+ * key_len is 0 for plain shards or 32 for the shard's key. A shard of another
+ * publication, one that fails authentication or one the skeleton does not
+ * declare returns INVALID_ARGUMENT; supplying a shard twice is harmless.
+ */
+uint32_t rito_supply_shard(uint64_t session_id,
+                              const uint8_t *shard_data,
+                              uint64_t shard_len,
+                              const uint8_t *key_data,
+                              uint64_t key_len,
+                              uint32_t *shard_id_out,
+                              rito_owned_buffer *error_out);
+
+/*
+ * Writes every content shard id of a reader opened from shards to shards_out
+ * as little-endian uint32 values, ordered for fetching ahead of need from the
+ * chapter at href_data: the shards that chapter draws, then those of the
+ * chapters around it by reading distance. A reader opened from an archive
+ * writes an empty buffer.
+ */
+uint32_t rito_content_shards_near(uint64_t session_id,
+                                     const uint8_t *href_data,
+                                     uint64_t href_len,
+                                     rito_owned_buffer *shards_out,
+                                     rito_owned_buffer *error_out);
+
+/*
  * Reads the session's immutable publication snapshot as one complete
  * RITOPUB1 message. The output is capped at
  * RITO_PUBLICATION_WIRE_BYTES_MAX and contains only fixed-width numeric
@@ -222,6 +275,26 @@ uint32_t rito_peek_adjacent(uint64_t session_id,
                                rito_owned_buffer *error_out);
 
 /*
+ * Publishes one spread of the revision behind an artifact as a read-only
+ * artifact, addressed by its position in that revision's layout.
+ * request_data must contain exactly one 48-byte RITOSPQ1 message (session id,
+ * request id, the artifact whose revision is meant, the spread's index) whose
+ * session_id equals the explicit argument. The RITONVQ1 layout query lists the
+ * revision's spreads.
+ *
+ * The revision is already laid out, so this does no layout work and, like
+ * rito_peek_adjacent, has no foreground side effect. A position outside the
+ * layout returns RITO_STATUS_INVALID_ARGUMENT. The artifact occupies one live
+ * slot and must be released by the caller, whether or not it is later
+ * committed.
+ */
+uint32_t rito_peek_spread(uint64_t session_id,
+                             const uint8_t *request_data,
+                             uint64_t request_len,
+                             rito_owned_buffer *artifact_out,
+                             rito_owned_buffer *error_out);
+
+/*
  * Atomically makes one foreground candidate visible if the current visible
  * artifact still matches the optional compare-and-swap expectation.
  * request_data must contain exactly one 48-byte RITOFGH1 message whose
@@ -242,7 +315,7 @@ uint32_t rito_adopt_foreground_candidate(uint64_t session_id,
  * visible-artifact compare-and-swap and zero layout work. request_data is the
  * same 48-byte RITOFGH1 message rito_adopt_foreground_candidate takes.
  *
- * Only artifacts produced by rito_peek_adjacent qualify. A successful commit
+ * Only artifacts produced by rito_peek_adjacent or rito_peek_spread qualify. A successful commit
  * supersedes any in-flight foreground intent exactly as a fresh navigation
  * would, and does not release the replaced artifact.
  */
@@ -302,8 +375,8 @@ uint32_t rito_read_resource(uint64_t session_id,
  * Searches the revision behind a live artifact and returns a complete RITOSRS1
  * message. request_data is a RITOSRQ1 message and is copied before this
  * function returns. Scope follows the artifact's revision: a chapter-local
- * artifact searches that chapter's laid-out pages, a publication artifact
- * searches the book as far as background pagination has reached.
+ * artifact searches that chapter's pages, a publication artifact searches
+ * the whole book.
  */
 uint32_t rito_search(uint64_t session_id,
                         const uint8_t *request_data,
@@ -339,13 +412,63 @@ uint32_t rito_get_text_range_geometry(uint64_t session_id,
  * Rects are in the artifact's display-list space, like
  * rito_get_text_range_geometry, and cover only the pages this artifact draws. A
  * range that resolved onto another page comes back resolved with no rects and
- * firstPageIndex set, which is the page to navigate to.
+ * firstPageIndex set, which is the page to navigate to. A request whose
+ * every-page flag is set gets the rects of every page the range covers
+ * instead, each in the display-list space of the spread that draws its page;
+ * keep the pages a surface shows before painting them onto it.
  */
 uint32_t rito_resolve_exact_source_range(uint64_t session_id,
                                          const uint8_t *request_data,
                                          uint64_t request_len,
                                          rito_owned_buffer *resolution_out,
                                          rito_owned_buffer *error_out);
+
+/*
+ * Resolves one text selection query against a live artifact and returns a
+ * complete RITOTIR1 message. request_data is a RITOTIQ1 message (a caret at a
+ * point, the range between two carets, a kept caret extended to a point, the
+ * range two points span widened to words or paragraphs, or a caret movement)
+ * and is copied before this function returns.
+ *
+ * These are the resolvers a browser reader runs, against the revision behind
+ * the artifact, so a selection behaves identically on every host. Points and
+ * geometry are in the artifact's display-list space: a point must lie on a page
+ * the artifact draws, and rects and caret geometry cover only those pages. A
+ * request whose every-page flag is set reaches any page of the artifact's
+ * revision instead, each in the display-list space of the spread that draws it.
+ */
+uint32_t rito_resolve_text_interaction(uint64_t session_id,
+                                       const uint8_t *request_data,
+                                       uint64_t request_len,
+                                       rito_owned_buffer *response_out,
+                                       rito_owned_buffer *error_out);
+
+/*
+ * Builds an annotation target for a source range, or locates a stored one, and
+ * returns a complete RITOANR1 message. request_data is a RITOANQ1 message and is
+ * copied before this function returns. The target crosses as the engine's
+ * canonical JSON, which is what a host persists.
+ */
+uint32_t rito_resolve_annotation(uint64_t session_id,
+                                 const uint8_t *request_data,
+                                 uint64_t request_len,
+                                 rito_owned_buffer *response_out,
+                                 rito_owned_buffer *error_out);
+
+/*
+ * Answers a reading-position question and returns a complete RITONVR1 message.
+ * request_data is a RITONVQ1 message (the TOC entry a page or a source position
+ * reads under, where a stored locator lands in an artifact's revision, the
+ * reading order of two source positions, or the page table of an artifact's
+ * revision: its spreads, the pages of each chapter it lays out and where its
+ * TOC entries land) and is copied before this function returns. The engine
+ * answers each the way it answers a browser reader.
+ */
+uint32_t rito_resolve_navigation(uint64_t session_id,
+                                 const uint8_t *request_data,
+                                 uint64_t request_len,
+                                 rito_owned_buffer *response_out,
+                                 rito_owned_buffer *error_out);
 
 /*
  * Reads a footnote definition referenced by a live RITOART1 artifact and
@@ -361,6 +484,61 @@ uint32_t rito_read_footnote(uint64_t session_id,
                                uint64_t key_len,
                                rito_owned_buffer *footnote_out,
                                rito_owned_buffer *error_out);
+
+/*
+ * Writes the session's font catalog to catalog_out as one complete RITOFNT1
+ * message: every family a font-family list can name, host families first.
+ */
+uint32_t rito_font_catalog(uint64_t session_id,
+                              rito_owned_buffer *catalog_out,
+                              rito_owned_buffer *error_out);
+
+/*
+ * Writes to names_out, as one complete RITOFNN1 message, the names in the
+ * UTF-8 CSS font-family list at list_data that no family in the catalog
+ * answers to. Layout skips them; a host checks a user's choice with this
+ * before applying it.
+ */
+uint32_t rito_unresolved_font_families(uint64_t session_id,
+                                          const uint8_t *list_data,
+                                          uint64_t list_len,
+                                          rito_owned_buffer *names_out,
+                                          rito_owned_buffer *error_out);
+
+/*
+ * Adds host faces after the open's (descriptors as for
+ * rito_open_with_pinned_fonts; a face may share its role and language with
+ * another). Bytes are copied before this returns. Artifacts already
+ * published keep their layout; the next request lays out with the new
+ * faces nameable. Faces whose bytes are already present are refused with
+ * RITO_STATUS_INVALID_ARGUMENT.
+ */
+uint32_t rito_add_host_font_faces(uint64_t session_id,
+                                     const rito_pinned_font_face *faces,
+                                     uint32_t face_count,
+                                     rito_owned_buffer *error_out);
+
+/*
+ * Removes the host faces named by count SHA-256 digests, each 64 hex bytes,
+ * laid end to end at sha256_hex. At least one face must remain.
+ */
+uint32_t rito_remove_host_font_faces(uint64_t session_id,
+                                        const uint8_t *sha256_hex,
+                                        uint32_t count,
+                                        rito_owned_buffer *error_out);
+
+/*
+ * Marks a publication face this host cannot paint - its font decoder refused
+ * it - by the UTF-8 family an artifact lists it under, or the family it
+ * declares. A run is measured with the face it is shaped with, so a face that
+ * will be painted with another must not shape: the next request lays out
+ * without it. Artifacts already published keep their layout, and the mark
+ * lasts for the session.
+ */
+uint32_t rito_mark_font_family_unavailable(uint64_t session_id,
+                                              const uint8_t *family_data,
+                                              uint64_t family_len,
+                                              rito_owned_buffer *error_out);
 
 /*
  * Idempotent for an artifact already released from this session. BUSY means

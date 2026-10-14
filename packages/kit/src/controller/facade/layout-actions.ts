@@ -2,11 +2,13 @@ import type { Reader } from '@ritojs/core';
 import type { ReadingPosition } from '../../interaction/index';
 import type { LayoutPositionPlan } from '../../interaction/position/tracker';
 import { commitCurrentSpread } from '../core/current-spread';
-import { publishSpreadChange } from '../core/spread-change';
+import { publishSpreadChange, publishedSpread, showsChapterAlone } from '../core/spread-change';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
 import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
 import { invalidateNativeSearchLayout } from '../search-resolution';
+import { reportUnresolvedFontFamilies } from './font-actions';
+import { abortTransition } from '../core/transition-lifecycle';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -29,12 +31,14 @@ export function buildLayoutActions(
     setTheme(options: ReaderThemeOptions): void {
       internals.reader.setTheme(options);
       runtime.pool.invalidateAllContent();
-      runtime.refreshChapterLocalTheme?.();
       runtime.frameDriver.scheduleComposite();
     },
     setTypography(options): boolean {
       const anchor = currentPosition(internals);
       const changed = internals.reader.setTypography(options);
+      if (typeof options.fontFamily === 'string') {
+        reportUnresolvedFontFamilies(internals, emitter, options.fontFamily);
+      }
       return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
     setRenderScale(scale): void {
@@ -49,27 +53,17 @@ export function buildLayoutActions(
 function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeComponents): void {
   requireRenderScale(scale);
   if (scale === internals.renderScale) return;
-  const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
-  try {
-    invalidateSelectionForLayout(internals);
-    internals.renderScale = scale;
-    syncCanvasSize(internals, runtime);
-    runtime.pool.invalidateAllContent();
-    runtime.pool.assignSlot('curr', internals.currentSpread);
-    internals.coordState.positionUpdateMode = {
-      kind: 'skip',
-      spreadIndex: internals.currentSpread,
-    };
-    if (finishChapterLocalTransition) {
-      runtime.frameDriver.compositeNow();
-      internals.reader.notifyActiveSpread(internals.currentSpread);
-    } else {
-      runtime.frameDriver.scheduleComposite();
-      internals.reader.notifyActiveSpread(internals.currentSpread);
-    }
-  } finally {
-    finishChapterLocalTransition?.();
-  }
+  invalidateSelectionForLayout(internals);
+  internals.renderScale = scale;
+  syncCanvasSize(internals, runtime);
+  runtime.pool.invalidateAllContent();
+  runtime.pool.assignSlot('curr', internals.currentSpread);
+  internals.coordState.positionUpdateMode = {
+    kind: 'skip',
+    spreadIndex: internals.currentSpread,
+  };
+  runtime.frameDriver.scheduleComposite();
+  internals.reader.notifyActiveSpread(internals.currentSpread);
 }
 
 function refreshLayoutWhenChanged(
@@ -96,22 +90,35 @@ export function commitLayoutChange(
   anchor?: ReadingPosition | null,
   committedSpreadIndex?: number,
 ): void {
-  const finishChapterLocalTransition = runtime.terminateChapterLocalForLayout?.();
   const previousSpread = internals.currentSpread;
-  let committedSpread: number;
-  try {
-    committedSpread = applyLayoutCommitMutation(internals, runtime, anchor, committedSpreadIndex);
-  } finally {
-    finishChapterLocalTransition?.();
-  }
+  const committedSpread = applyLayoutCommitMutation(
+    internals,
+    emitter,
+    runtime,
+    anchor,
+    committedSpreadIndex,
+  );
 
   emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
   emitLayoutChange(internals, emitter);
   emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, committedSpread);
+  refreshSearchResults(internals);
+}
+
+/**
+ * Search results name pages of the layout that was just replaced. They are
+ * searched again in the new one — once it covers the whole book, the only
+ * layout a search runs in.
+ */
+function refreshSearchResults(internals: Internals): void {
+  const results = internals.coordState.searchResults;
+  results.stale = true;
+  if (!showsChapterAlone(internals.reader)) results.refresh?.();
 }
 
 function applyLayoutCommitMutation(
   internals: Internals,
+  emitter: Emitter,
   runtime: RuntimeComponents,
   anchor: ReadingPosition | null | undefined,
   committedSpreadIndex: number | undefined,
@@ -134,7 +141,8 @@ function applyLayoutCommitMutation(
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
-  runtime.td.reset();
+  // A turn in flight cannot land on the old layout: it ends interrupted.
+  abortTransition(runtime.td, emitter);
   const committedSpread = internals.currentSpread;
   installLayoutPositionMode(internals, positionPlan, preserved, committedSpread);
   invalidateSelectionForLayout(internals);
@@ -190,10 +198,14 @@ function currentPosition(internals: Internals): ReadingPosition | null {
 }
 
 function emitLayoutChange(internals: Internals, emitter: Emitter): void {
-  emitter.emit('layoutChange', {
+  // A chapter laid out alone is not a layout a host can count pages in.
+  if (showsChapterAlone(internals.reader)) return;
+  const layout = {
     spreads: internals.reader.spreads,
     totalSpreads: internals.reader.totalSpreads,
-  });
+  };
+  internals.coordState.publishedLayout = layout;
+  emitter.emit('layoutChange', layout);
 }
 
 function emitCommittedSpreadChangeIfCurrent(
@@ -202,6 +214,9 @@ function emitCommittedSpreadChangeIfCurrent(
   previousSpread: number,
   committedSpread: number,
 ): void {
-  if (internals.currentSpread !== committedSpread || committedSpread === previousSpread) return;
+  // Compared with the spread hosts were last told of: turns made while a
+  // chapter was laid out alone moved the reader without an event.
+  const known = publishedSpread(emitter) ?? previousSpread;
+  if (internals.currentSpread !== committedSpread || committedSpread === known) return;
   publishSpreadChange(emitter, internals.reader, committedSpread);
 }

@@ -148,8 +148,17 @@ pub(super) fn invalid_locator(error: impl std::fmt::Display) -> ReaderError {
     ReaderError::new(ReaderErrorKind::InvalidLocator, error.to_string())
 }
 
-pub(super) fn engine_error(error: impl std::fmt::Display) -> ReaderError {
-    ReaderError::new(ReaderErrorKind::EngineFailure, error.to_string())
+/// An engine failure the session reports; a failure caused by shards the
+/// host has not supplied becomes `ResourcePending` with their ids.
+pub(super) use crate::runtime::pending::PendingShardFailure as EngineFailure;
+
+pub(super) fn engine_error(error: impl EngineFailure) -> ReaderError {
+    let pending = error.pending_shards();
+    if pending.is_empty() {
+        ReaderError::new(ReaderErrorKind::EngineFailure, error.to_string())
+    } else {
+        ReaderError::resource_pending(pending.to_vec(), error.to_string())
+    }
 }
 
 #[cfg(test)]

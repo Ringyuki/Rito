@@ -17,7 +17,6 @@ pub(super) use interaction::*;
 /// backend's retained pages, boxes, lines, or fragments.
 #[derive(Debug)]
 pub(super) struct PageArtifactFrame {
-    pub(super) spread_index: usize,
     pub(super) page_indexes: Vec<usize>,
     pub(super) commands: Vec<DisplayCommand>,
 }

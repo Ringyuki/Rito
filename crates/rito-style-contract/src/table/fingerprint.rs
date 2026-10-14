@@ -1,8 +1,9 @@
 use std::{
-    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     sync::Arc,
 };
+
+use rustc_hash::FxHasher;
 
 use crate::InlineFormattingStyle;
 
@@ -10,7 +11,7 @@ use crate::InlineFormattingStyle;
 /// canonicalized. Pointer identities are never persisted or exposed; equality
 /// still decides matches, and first-seen input order still decides style IDs.
 pub(super) fn style_fingerprint(style: &InlineFormattingStyle) -> u64 {
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = FxHasher::default();
     hash_font(style, &mut hasher);
     hash_text_flow(style, &mut hasher);
     style.bidi.hash(&mut hasher);

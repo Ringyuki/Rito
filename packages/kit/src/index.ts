@@ -33,6 +33,29 @@ export { parseReadingPosition } from './interaction/index';
 
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';
+export {
+  springPresets,
+  transitionEffects,
+  type LayeredTransitionEffect,
+  type PaintedTransitionEffect,
+  type TransitionEffect,
+  type TransitionEffectName,
+  type TransitionFrame,
+  type TransitionLayer,
+  type TransitionPage,
+  type TransitionPhase,
+  type TransitionPoint,
+  type TransitionScene,
+  type TransitionTouch,
+} from './driver/effects';
+export type {
+  TransitionBounds,
+  TransitionPhysics,
+  TransitionLeftover,
+  TransitionRelease,
+  TransitionSettle,
+} from './driver/physics';
+export { createPaperTurn, type PaperTurnOptions } from './driver/paper/paper-turn';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';
 export { createDisposableCollection, type DisposableCollection } from './utils/disposable';

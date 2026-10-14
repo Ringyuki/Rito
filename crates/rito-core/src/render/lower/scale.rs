@@ -77,6 +77,16 @@ pub(super) fn primitive(primitive: &mut Primitive, ratio: f64) {
                 tiles.scale(ratio);
             }
         }
+        Primitive::ImageFallback { block, pieces, .. } => {
+            block.scale(ratio);
+            for piece in pieces {
+                piece.offset.scale(ratio);
+                if let Some(clip) = &mut piece.clip {
+                    clip.scale(ratio);
+                }
+                piece.path.scale(ratio);
+            }
+        }
     }
 }
 

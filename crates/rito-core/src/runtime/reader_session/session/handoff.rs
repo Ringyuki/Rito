@@ -218,6 +218,10 @@ impl ReaderSession {
         validate_external_request_id(request.candidate_artifact_id, "candidateArtifactId")
     }
 
+    /// The pending candidate is the newest foreground intent by construction:
+    /// every foreground request clears it before installing its own. A peek
+    /// consumes a request id without being one, so the candidate is not
+    /// compared against the newest request id.
     fn validate_foreground_candidate(
         &self,
         request: &ReaderForegroundHandoff,
@@ -226,7 +230,6 @@ impl ReaderSession {
     ) -> Result<(), ReaderError> {
         if candidate.candidate_artifact_id != request.candidate_artifact_id
             || candidate.expected_visible_artifact_id != request.expected_visible_artifact_id
-            || candidate.accepted_request_id != self.latest_request_id
             || artifact.request_id != candidate.accepted_request_id
             || artifact.revision_id != candidate.revision_id
             || artifact.locator != candidate.locator

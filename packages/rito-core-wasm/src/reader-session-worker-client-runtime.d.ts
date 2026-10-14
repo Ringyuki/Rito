@@ -6,7 +6,14 @@ import type {
 
 export declare class RitoReaderError extends Error {
   readonly code: RitoReaderErrorCode;
-  constructor(code: RitoReaderErrorCode, message: string);
+  /**
+   * Present exactly for `resource-pending`: the content shards the request
+   * waited on. The client supplies them through `loadShards` and retries
+   * before reporting anything, so this reaches a caller only when the
+   * supplied shards still did not satisfy the request.
+   */
+  readonly pendingShards?: readonly number[];
+  constructor(code: RitoReaderErrorCode, message: string, pendingShards?: readonly number[]);
 }
 
 export declare function createRitoCoreWasmReaderSessionWorkerClient(

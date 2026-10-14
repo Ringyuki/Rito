@@ -24,8 +24,8 @@ pub(crate) use paint::{
 pub(crate) struct ReaderCluster {
     pub byte: u32,
     pub x: f64,
-    /// The cluster's paint anchor: the alphabetic baseline of a text run,
-    /// the em-box top of an annotation.
+    /// The cluster's paint anchor: the alphabetic baseline, of a text run
+    /// and of an annotation alike.
     pub y: f64,
 }
 

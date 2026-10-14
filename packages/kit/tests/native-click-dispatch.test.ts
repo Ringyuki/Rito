@@ -39,7 +39,6 @@ describe('native click dispatch', () => {
     await Promise.resolve();
 
     expect(getFootnote).toHaveBeenCalledWith('Text/notes.xhtml#shared');
-    expect(fixture.reader.getFootnotes).not.toHaveBeenCalled();
     expect(event?.content.text).toBe('Exact note');
   });
 
@@ -483,7 +482,6 @@ function createFixture(initialInteractions: ReaderInteractions) {
   } as never;
   const reader = {
     interactions: initialInteractions,
-    getFootnotes: vi.fn(() => new Map()),
     getImageBlobUrl: vi.fn(() => 'blob:cover'),
   };
   const goToSpread = vi.fn();

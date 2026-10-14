@@ -7,13 +7,28 @@ import {
   decodeRitoReaderBackgroundHandoffAck,
 } from './reader-session-background-runtime.js';
 import { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';
+import {
+  decodeRitoReaderFontCatalog,
+  decodeRitoReaderFontNames,
+} from './reader-session-query-decoder-runtime.js';
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
-import { defaultYieldControl } from './reader-revision-session-support-runtime.js';
+import { defaultYieldControl } from './reader-session-yield-runtime.js';
+import { createRitoReaderSessionQueryMethods } from './reader-session-worker-client-query-runtime.js';
+import { createShardPrefetchLane } from './shard-prefetch-lane-runtime.js';
 
 const PROTOCOL = 'rito-reader-session';
 const MAX_PENDING_MESSAGES = 8;
+// Image reads, shard supplies and prefetch ordering wait for a slot rather
+// than fail, and never take the last two: a page turn or a seek always
+// finds room, however many reads a recovering network releases at once.
+const RESOURCE_MESSAGE_KINDS = new Set(['read-resource', 'supply-shard', 'content-shards-near']);
+const MAX_PENDING_RESOURCE_MESSAGES = MAX_PENDING_MESSAGES - 2;
 const MAX_ADJACENT_CONTINUATION_QUANTA = 4_096;
 const DISPOSE_TIMEOUT_MS = 1_000;
+// Only an image read waits on a shard, and only on the shards of the
+// images it names; the bound only stops a loader that keeps returning
+// shards the engine still reports missing.
+const MAX_SHARD_ROUNDS = 16;
 const ERROR_CODES = new Set([
   'invalid-session',
   'invalid-request',
@@ -26,6 +41,7 @@ const ERROR_CODES = new Set([
   'numeric-overflow',
   'invalid-wire',
   'engine-failure',
+  'resource-pending',
   'session-disposed',
   'request-busy',
   'request-capacity',
@@ -34,10 +50,13 @@ const ERROR_CODES = new Set([
 let nextSessionId = 1n;
 
 export class RitoReaderError extends Error {
-  constructor(code, message) {
+  constructor(code, message, pendingShards) {
     super(message);
     this.name = 'RitoReaderError';
     this.code = code;
+    // The content shards to supply before retrying; present exactly for
+    // `resource-pending`.
+    if (code === 'resource-pending') this.pendingShards = Object.freeze([...pendingShards]);
   }
 }
 
@@ -50,6 +69,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   const pending = new Map();
   const liveArtifacts = new Set();
   const backgroundCandidates = new Map();
+  const peekedArtifacts = new Map();
   const inFlightReleases = new Map();
   let requestId = 0n;
   let messageId = 0;
@@ -78,10 +98,12 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     const entry = pending.get(response.id);
     if (!entry) return;
     pending.delete(response.id);
+    admitWaiting();
     if (response.ok) entry.resolve(response.payload);
     else entry.reject(responseError(response.error));
   };
   const fail = (error) => {
+    prefetch.stop();
     terminalError ??= error instanceof Error ? error : new Error(String(error));
     phase = 'disposed';
     activeSeek?.deferred.reject(terminalError);
@@ -100,13 +122,46 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   worker.addEventListener('error', handleError);
   worker.addEventListener('messageerror', handleMessageError);
 
-  const send = (kind, body, transfer = []) => {
-    requireUsable();
-    if (pending.size >= MAX_PENDING_MESSAGES) {
-      return Promise.reject(
-        new RitoReaderError('request-capacity', 'reader session pending message limit reached'),
-      );
+  let resourceMessages = 0;
+  const resourceWaiters = [];
+  const sendNow = async (kind, body, transfer) => {
+    if (!RESOURCE_MESSAGE_KINDS.has(kind)) return post(kind, body, transfer);
+    while (resourceMessages >= MAX_PENDING_RESOURCE_MESSAGES) {
+      await new Promise((resume) => resourceWaiters.push(resume));
     }
+    resourceMessages += 1;
+    try {
+      return await post(kind, body, transfer);
+    } finally {
+      resourceMessages -= 1;
+      resourceWaiters.shift()?.();
+    }
+  };
+  // The worker takes MAX_PENDING_MESSAGES at once. A call made past that
+  // waits its turn and is sent in the order it was made: a refusal would
+  // have to be handled by every caller, and one that releases an artifact
+  // cannot handle it without losing the artifact's slot.
+  const slotWaiters = [];
+  let reservedSlots = 0;
+  const post = (kind, body, transfer = []) => {
+    requireUsable();
+    if (slotWaiters.length === 0 && pending.size + reservedSlots < MAX_PENDING_MESSAGES) {
+      return postNow(kind, body, transfer);
+    }
+    return new Promise((resume) => slotWaiters.push(resume)).then(() => {
+      reservedSlots -= 1;
+      requireUsable();
+      return postNow(kind, body, transfer);
+    });
+  };
+  // Hands every free slot to the call that has waited longest.
+  const admitWaiting = () => {
+    while (slotWaiters.length > 0 && pending.size + reservedSlots < MAX_PENDING_MESSAGES) {
+      reservedSlots += 1;
+      slotWaiters.shift()();
+    }
+  };
+  const postNow = (kind, body, transfer) => {
     messageId += 1;
     const id = messageId;
     const promise = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
@@ -114,29 +169,112 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       worker.postMessage({ protocol: PROTOCOL, id, kind, ...body }, transfer);
     } catch (error) {
       pending.delete(id);
+      admitWaiting();
       return Promise.reject(error);
     }
     return promise;
   };
+  // Every call counts as the reader's: shards are supplied ahead of need
+  // only while none is in flight.
+  const send = (kind, body, transfer) => prefetch.around(() => sendNow(kind, body, transfer));
+
+  let shardLoader;
+  let prefetchedNear;
+  const supplying = new Map();
+  // Loads and hands the worker the shards a failed request named; requests
+  // waiting on the same shard share one load.
+  const supplyShards = (shardIds) =>
+    Promise.all(
+      shardIds.map((shardId) => {
+        let supplied = supplying.get(shardId);
+        if (supplied === undefined) {
+          supplied = supplyShard(shardId)
+            .then(() => prefetch.noteSupplied(shardId))
+            .finally(() => supplying.delete(shardId));
+          supplying.set(shardId, supplied);
+        }
+        return supplied;
+      }),
+    );
+  const supplyShard = async (shardId) => {
+    const loaded = await shardLoader([shardId]);
+    const shard = Array.isArray(loaded) ? loaded.find((entry) => entry?.id === shardId) : undefined;
+    const bytes = shardBytes(shard?.bytes);
+    if (bytes === undefined) {
+      throw new RitoReaderError('invalid-request', `loadShards did not return shard ${shardId}`);
+    }
+    const key = shard.key === undefined ? {} : { key: shard.key };
+    const payload = await send('supply-shard', { shard: bytes, ...key }, [bytes]);
+    if (payload?.kind !== 'supply-shard' || payload.shardId !== shardId) {
+      throw new RitoReaderError(
+        'invalid-request',
+        `the bytes loaded for shard ${shardId} are another shard`,
+      );
+    }
+  };
+  const prefetch = createShardPrefetchLane((shardId) => supplyShards([shardId]));
+  // A page the reader returns moves where image shards are supplied ahead
+  // of need from: its chapter's first, then the chapters around it.
+  const prefetchNear = (artifact) => {
+    const href = artifact.locator.href;
+    if (shardLoader === undefined || href === prefetchedNear) return artifact;
+    prefetchedNear = href;
+    sendNow('content-shards-near', { href }).then(
+      (payload) => {
+        if (payload?.kind === 'content-shards-near') prefetch.restart(payload.shardIds);
+      },
+      () => {
+        prefetchedNear = undefined;
+      },
+    );
+    return artifact;
+  };
+  // Laying out never waits on a shard (the skeleton carries every chapter,
+  // stylesheet, font and image size); only reading an image does. Such a
+  // call carries no request identity, so after supplying what it waited
+  // on the identical call is sent again.
+  const sendWithShards = async (kind, body, transfer) => {
+    let previous;
+    for (let round = 0; ; round += 1) {
+      try {
+        return await send(kind, body, transfer);
+      } catch (error) {
+        if (!isPendingShardError(error) || shardLoader === undefined) throw error;
+        const named = error.pendingShards.join(',');
+        if (named === previous || round >= MAX_SHARD_ROUNDS) throw error;
+        previous = named;
+        await supplyShards(error.pendingShards);
+      }
+    }
+  };
+
+  const openPayload = (publication, request, pinnedFontPolicy) => {
+    if (publication instanceof ArrayBuffer) {
+      return send('open', { publication, sessionId, request, pinnedFontPolicy }, [publication]);
+    }
+    if (typeof publication?.loadShards !== 'function') {
+      throw new TypeError('A sharded publication needs a loadShards function');
+    }
+    if (!(publication.skeleton instanceof ArrayBuffer)) {
+      throw new TypeError('A sharded publication skeleton must be an ArrayBuffer');
+    }
+    shardLoader = publication.loadShards;
+    const skeleton = publication.skeleton.slice(0);
+    const key = publication.key === undefined ? {} : { key: publication.key };
+    return send('open', { skeleton, ...key, sessionId, request, pinnedFontPolicy }, [skeleton]);
+  };
 
   const open = async (publication, request, pinnedFontPolicy) => {
     if (phase !== 'idle') throw new RitoReaderError('invalid-session', `Reader is ${phase}`);
-    if (!(publication instanceof ArrayBuffer)) {
-      throw new TypeError('Reader publication must be a dedicated ArrayBuffer');
-    }
     phase = 'opening';
     const fullRequest = withRequestIdentity(request, sessionId, nextRequestId());
     try {
-      const payload = await send(
-        'open',
-        { publication, sessionId, request: fullRequest, pinnedFontPolicy },
-        [publication],
-      );
+      const payload = await openPayload(publication, fullRequest, pinnedFontPolicy);
       const artifact = decodeArtifactPayload(payload, fullRequest);
       liveArtifacts.add(artifact.artifactId);
       foregroundCandidate = foregroundCandidateIdentity(artifact, request);
       phase = 'open';
-      return artifact;
+      return prefetchNear(artifact);
     } catch (error) {
       await dispose().catch(() => undefined);
       throw error;
@@ -211,7 +349,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
             throw staleRequestError();
           }
           foregroundCandidate = foregroundCandidateIdentity(artifact);
-          return artifact;
+          return prefetchNear(artifact);
         }
         if (phase !== 'open') throw sessionDisposedError();
         throw staleRequestError();
@@ -236,6 +374,44 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       );
     }
     return publication;
+  };
+
+  const fontCatalog = async () => {
+    requireOpen();
+    const payload = await send('font-catalog', {});
+    if (payload?.kind !== 'font-catalog') throw invalidPayload('font catalog');
+    return decodeRitoReaderFontCatalog(payload.wire);
+  };
+
+  const unresolvedFontFamilies = async (familyList) => {
+    requireOpen();
+    const payload = await send('unresolved-font-families', { familyList });
+    if (payload?.kind !== 'unresolved-font-families') throw invalidPayload('font names');
+    return decodeRitoReaderFontNames(payload.wire);
+  };
+
+  // The face bytes travel as transferred ArrayBuffers: the caller hands
+  // over buffers it can lose.
+  const addHostFontFaces = async (faces) => {
+    requireOpen();
+    const payload = await send(
+      'add-host-font-faces',
+      { faces },
+      faces.map((face) => face.bytes),
+    );
+    if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
+  };
+
+  const removeHostFontFaces = async (sha256s) => {
+    requireOpen();
+    const payload = await send('remove-host-font-faces', { sha256s });
+    if (payload?.kind !== 'host-font-faces') throw invalidPayload('host font faces');
+  };
+
+  const markFontFamiliesUnavailable = async (families) => {
+    requireOpen();
+    const payload = await send('mark-font-families-unavailable', { families: [...families] });
+    if (payload?.kind !== 'font-families-unavailable') throw invalidPayload('font families');
   };
 
   const requestArtifact = (request) => {
@@ -283,7 +459,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
           await releaseInternal(artifact.artifactId);
         } else {
           foregroundCandidate = foregroundCandidateIdentity(artifact, operation.request);
-          operation.deferred.resolve(artifact);
+          operation.deferred.resolve(prefetchNear(artifact));
         }
       });
     } catch (error) {
@@ -354,7 +530,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     if (!liveArtifacts.has(artifactId)) {
       throw new RitoReaderError('unknown-artifact', 'Resource artifact is not live');
     }
-    const payload = await send('read-resource', { artifactId, resourceKind, href });
+    const payload = await sendWithShards('read-resource', { artifactId, resourceKind, href });
     if (payload?.kind !== 'resource') throw invalidPayload('resource');
     const resource = decodeRitoReaderResource(payload.wire);
     if (
@@ -381,7 +557,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       maxTopLevelNodesPerQuantum,
     };
     try {
-      const payload = await send('advance-background-once', { request });
+      const payload = await sendWithShards('advance-background-once', { request });
       if (payload?.kind !== 'background-advance') throw invalidPayload('background advance');
       let advance;
       try {
@@ -489,6 +665,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
       liveArtifacts.delete(artifactId);
       if (foregroundCandidate?.artifactId === artifactId) foregroundCandidate = undefined;
       backgroundCandidates.delete(artifactId);
+      peekedArtifacts.delete(artifactId);
       if (visibleArtifactId === artifactId) visibleArtifactId = undefined;
       return payload.released;
     } catch (error) {
@@ -506,6 +683,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
 
   const dispose = async () => {
     if (phase === 'disposed') return;
+    prefetch.stop();
     phase = 'disposed';
     const disposedError = new RitoReaderError(
       'session-disposed',
@@ -532,6 +710,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     terminate(worker);
     liveArtifacts.clear();
     backgroundCandidates.clear();
+    peekedArtifacts.clear();
     visibleArtifactId = undefined;
   };
 
@@ -675,6 +854,11 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
   function rejectPending(error) {
     for (const entry of pending.values()) entry.reject(error);
     pending.clear();
+    // The session is closed: a call still waiting to be sent finds that out.
+    for (const resume of slotWaiters.splice(0)) {
+      reservedSlots += 1;
+      resume();
+    }
   }
 
   function detach() {
@@ -683,10 +867,43 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     worker.removeEventListener('messageerror', handleMessageError);
   }
 
+  const queries = createRitoReaderSessionQueryMethods({
+    sessionId,
+    liveArtifacts,
+    peekedArtifacts,
+    send: sendWithShards,
+    requireOpen,
+    nextRequestId,
+    decodeArtifactPayload,
+    invalidPayload,
+    readerError: (code, message) => new RitoReaderError(code, message),
+    visibleArtifactId: () => visibleArtifactId,
+    setVisibleArtifact: (artifactId) => {
+      visibleArtifactId = artifactId;
+      foregroundCandidate = undefined;
+    },
+    supersedeForeground: () => {
+      nextForegroundIntent();
+      supersedeSeeks();
+    },
+    runInForegroundLane,
+    failIfFatal: (error) => {
+      if (phase !== 'disposed' && isFatalSessionError(error)) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  });
+
   return {
     sessionId,
     open,
+    ...queries,
     readPublication,
+    fontCatalog,
+    unresolvedFontFamilies,
+    addHostFontFaces,
+    removeHostFontFaces,
+    markFontFamiliesUnavailable,
     requestAdjacent,
     requestArtifact,
     seek,
@@ -783,10 +1000,39 @@ function isResponse(value) {
 
 function responseError(value) {
   const error = value !== null && typeof value === 'object' ? value : {};
-  return new RitoReaderError(
-    ERROR_CODES.has(error.code) ? error.code : 'engine-failure',
-    typeof error.message === 'string' ? error.message : 'reader session worker failed',
+  const message =
+    typeof error.message === 'string' ? error.message : 'reader session worker failed';
+  if (error.code === 'resource-pending') {
+    return validPendingShards(error.pendingShards)
+      ? new RitoReaderError('resource-pending', message, error.pendingShards)
+      : new RitoReaderError('invalid-wire', `${message} (malformed pending shards)`);
+  }
+  return new RitoReaderError(ERROR_CODES.has(error.code) ? error.code : 'engine-failure', message);
+}
+
+function validPendingShards(value) {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((id) => Number.isInteger(id) && id > 0 && id <= 0xffff_ffff)
   );
+}
+
+function isPendingShardError(error) {
+  return error instanceof RitoReaderError && error.code === 'resource-pending';
+}
+
+/**
+ * A dedicated copy of a shard's bytes. A view is copied by its own window:
+ * some Uint8Array subclasses (Node's Buffer) share a larger backing buffer
+ * and `slice` there does not copy.
+ */
+function shardBytes(bytes) {
+  if (bytes instanceof ArrayBuffer) return bytes.slice(0);
+  if (bytes instanceof Uint8Array) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  return undefined;
 }
 
 function invalidPayload(operation) {

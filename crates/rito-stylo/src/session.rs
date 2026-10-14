@@ -1,4 +1,7 @@
-use std::{borrow::Cow, fmt, marker::PhantomData, pin::Pin, rc::Rc, sync::Arc as StdArc};
+use std::{
+    borrow::Cow, cell::RefCell, collections::HashMap, fmt, marker::PhantomData, pin::Pin, rc::Rc,
+    sync::Arc as StdArc,
+};
 
 use cssparser::{Parser, ParserInput};
 use rito_source::{SourceArena, SourceError};
@@ -64,14 +67,14 @@ impl Viewport {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum StyleOrigin {
     UserAgent,
     User,
     Author,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct StylesheetInput {
     pub css: String,
     pub base_url: String,
@@ -129,7 +132,7 @@ impl StyleDocument {
         let document_url = parse_url("document", document_url)?;
         let document_url_string = document_url.as_str().to_owned();
         let document_url_data = UrlExtraData::from(document_url);
-        let lock = SharedRwLock::new();
+        let lock = thread_shared_lock();
         let dom = DomStorage::new(source, lock.clone(), &document_url_data)?;
         let mut stylist = Stylist::new(make_device(viewport, root_font_size), QuirksMode::NoQuirks);
 
@@ -138,11 +141,11 @@ impl StyleDocument {
             document_url_string,
             StyleOrigin::UserAgent,
         );
-        let sheet = parse_stylesheet(&registration, &lock)?;
+        let sheet = parsed_stylesheet(&registration, &lock)?;
         stylist.append_stylesheet(sheet, &lock.read());
 
         for input in stylesheets {
-            let sheet = parse_stylesheet(input, &lock)?;
+            let sheet = parsed_stylesheet(input, &lock)?;
             stylist.append_stylesheet(sheet, &lock.read());
         }
 
@@ -191,6 +194,42 @@ pub fn canonicalize_font_family_value(value: &str) -> Option<String> {
         .parse_entirely(|parser| SpecifiedFontFamily::parse(&context, parser))
         .ok()?;
     Some(family.to_css_string())
+}
+
+thread_local! {
+    // Every style document on a thread shares one lock, so a stylesheet
+    // parsed for one chapter or one layout appends unchanged to the next:
+    // a publication's sheets are parsed once, not once per chapter per
+    // layout. The parsed sheets are immutable once built.
+    static SHARED_LOCK: SharedRwLock = SharedRwLock::new();
+    static PARSED_SHEETS: RefCell<HashMap<StylesheetInput, DocumentStyleSheet>> =
+        RefCell::new(HashMap::new());
+}
+
+/// Sheets kept per thread before the cache starts over: enough for any
+/// publication's sheets plus the UA ones, bounded across publications.
+const MAX_PARSED_SHEETS: usize = 64;
+
+fn thread_shared_lock() -> SharedRwLock {
+    SHARED_LOCK.with(Clone::clone)
+}
+
+fn parsed_stylesheet(
+    input: &StylesheetInput,
+    lock: &SharedRwLock,
+) -> Result<DocumentStyleSheet, StyleError> {
+    if let Some(sheet) = PARSED_SHEETS.with(|sheets| sheets.borrow().get(input).cloned()) {
+        return Ok(sheet);
+    }
+    let sheet = parse_stylesheet(input, lock)?;
+    PARSED_SHEETS.with(|sheets| {
+        let mut sheets = sheets.borrow_mut();
+        if sheets.len() >= MAX_PARSED_SHEETS {
+            sheets.clear();
+        }
+        sheets.insert(input.clone(), sheet.clone());
+    });
+    Ok(sheet)
 }
 
 fn parse_stylesheet(
@@ -361,6 +400,23 @@ mod tests {
         assert_eq!(layout.display.outside, LayoutDisplayOutside::Block);
         assert_eq!(layout.display.inside, LayoutDisplayInside::Flow);
         assert_eq!(inline.font.size.get(), 27.0);
+    }
+
+    #[test]
+    fn a_stylesheet_parsed_once_serves_every_later_document() {
+        let css = "#target { font-size: 1.5rem }";
+        let input = StylesheetInput::author(css, URL);
+        let first = super::parsed_stylesheet(&input, &super::thread_shared_lock()).unwrap();
+        let again = super::parsed_stylesheet(&input, &super::thread_shared_lock()).unwrap();
+        assert!(style::servo_arc::Arc::ptr_eq(&first.0, &again.0));
+
+        // Two layouts at different root sizes share the sheet and still
+        // cascade each against its own root size.
+        let source = source(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="target">text</p></body></html>"#,
+        );
+        assert_eq!(target_styles(&source, 16.0, css).0.font.size.get(), 24.0);
+        assert_eq!(target_styles(&source, 20.0, css).0.font.size.get(), 30.0);
     }
 
     #[test]

@@ -8,11 +8,13 @@ import '../protocol/artifact_decoder.dart';
 import '../protocol/artifact_models.dart';
 import '../protocol/binary_reader.dart';
 import '../protocol/footnote_decoder.dart';
+import '../protocol/pending_shards_decoder.dart';
 import '../protocol/resource_decoder.dart';
 import '../protocol/text_geometry.dart';
 import 'asset.dart';
 import 'pinned_font_policy.dart';
 
+part 'bindings_fonts.dart';
 part 'ffi_types.dart';
 
 const int ritoNativeStatusInvalidArgument = 1;
@@ -26,13 +28,25 @@ const int ritoNativeStatusBusy = 8;
 // Status value 9 is retired and is never reassigned.
 const int ritoNativeStatusAdjacentPending = 10;
 const int ritoNativeStatusSessionTerminated = 11;
+
+/// The publication was opened from shards and the call needs content shards
+/// the host has not supplied; [RitoNativeException.pendingShards] names them.
+const int ritoNativeStatusResourcePending = 12;
 const int ritoNativeStatusPanic = 255;
 
 final class RitoNativeException implements Exception {
-  const RitoNativeException({required this.status, required this.message});
+  const RitoNativeException({
+    required this.status,
+    required this.message,
+    this.pendingShards = const <int>[],
+  });
 
   final int status;
   final String message;
+
+  /// For [ritoNativeStatusResourcePending]: the content shards to supply
+  /// before retrying, ascending. Empty for every other status.
+  final List<int> pendingShards;
 
   @override
   String toString() => 'RitoNativeException($status): $message';
@@ -60,6 +74,104 @@ external int _ritoOpenWithPinnedFonts(
   Pointer<_RitoPinnedFontFace> faces,
   int faceCount,
   Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OpenShardsNative>(
+  symbol: 'rito_open_shards_with_pinned_fonts',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoOpenShardsWithPinnedFonts(
+  Pointer<Uint8> skeleton,
+  int skeletonLength,
+  Pointer<Uint8> key,
+  int keyLength,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoPinnedFontFace> faces,
+  int faceCount,
+  Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_SupplyShardNative>(
+  symbol: 'rito_supply_shard',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoSupplyShard(
+  int sessionId,
+  Pointer<Uint8> shard,
+  int shardLength,
+  Pointer<Uint8> key,
+  int keyLength,
+  Pointer<Uint32> shardIdOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_ContentShardsNearNative>(
+  symbol: 'rito_content_shards_near',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoContentShardsNear(
+  int sessionId,
+  Pointer<Uint8> href,
+  int hrefLength,
+  Pointer<_RitoOwnedBuffer> shardsOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_ReadPublicationNative>(
+  symbol: 'rito_font_catalog',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoFontCatalog(
+  int sessionId,
+  Pointer<_RitoOwnedBuffer> catalogOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_ContentShardsNearNative>(
+  symbol: 'rito_unresolved_font_families',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoUnresolvedFontFamilies(
+  int sessionId,
+  Pointer<Uint8> list,
+  int listLength,
+  Pointer<_RitoOwnedBuffer> namesOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_AddHostFontFacesNative>(
+  symbol: 'rito_add_host_font_faces',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoAddHostFontFaces(
+  int sessionId,
+  Pointer<_RitoPinnedFontFace> faces,
+  int faceCount,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_RemoveHostFontFacesNative>(
+  symbol: 'rito_remove_host_font_faces',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoRemoveHostFontFaces(
+  int sessionId,
+  Pointer<Uint8> sha256Hex,
+  int count,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_MarkFontFamilyUnavailableNative>(
+  symbol: 'rito_mark_font_family_unavailable',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoMarkFontFamilyUnavailable(
+  int sessionId,
+  Pointer<Uint8> family,
+  int familyLength,
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
@@ -92,6 +204,18 @@ external int _ritoRequestAdjacent(
   assetId: ritoNativeAssetId,
 )
 external int _ritoPeekAdjacent(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> artifactOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_RequestAdjacentNative>(
+  symbol: 'rito_peek_spread',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoPeekSpread(
   int sessionId,
   Pointer<Uint8> request,
   int requestLength,
@@ -207,6 +331,42 @@ external int _ritoResolveExactSourceRange(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_text_interaction',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveTextInteraction(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_annotation',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveAnnotation(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
+@Native<_OwnedWireRequestNative>(
+  symbol: 'rito_resolve_navigation',
+  assetId: ritoNativeAssetId,
+)
+external int _ritoResolveNavigation(
+  int sessionId,
+  Pointer<Uint8> request,
+  int requestLength,
+  Pointer<_RitoOwnedBuffer> responseOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReadFootnoteNative>(
   symbol: 'rito_read_footnote',
   assetId: ritoNativeAssetId,
@@ -248,9 +408,18 @@ final class RitoNativeBindings {
     this.footnoteDecoder = const RitoFootnoteDecoder(),
   }) : _open = _ritoOpen,
        _openWithPinnedFonts = _ritoOpenWithPinnedFonts,
+       _openShards = _ritoOpenShardsWithPinnedFonts,
+       _supplyShard = _ritoSupplyShard,
+       _contentShardsNear = _ritoContentShardsNear,
+       _fontCatalog = _ritoFontCatalog,
+       _unresolvedFontFamilies = _ritoUnresolvedFontFamilies,
+       _addHostFontFaces = _ritoAddHostFontFaces,
+       _removeHostFontFaces = _ritoRemoveHostFontFaces,
+       _markFontFamilyUnavailable = _ritoMarkFontFamilyUnavailable,
        _requestArtifact = _ritoRequestArtifact,
        _requestAdjacent = _ritoRequestAdjacent,
        _peekAdjacent = _ritoPeekAdjacent,
+       _peekSpread = _ritoPeekSpread,
        _commitPeeked = _ritoCommitPeekedArtifact,
        _readPublication = _ritoReadPublication,
        _adoptForeground = _ritoAdoptForegroundCandidate,
@@ -260,6 +429,9 @@ final class RitoNativeBindings {
        _readFootnote = _ritoReadFootnote,
        _textRangeGeometry = _ritoGetTextRangeGeometry,
        _exactSourceRange = _ritoResolveExactSourceRange,
+       _textInteraction = _ritoResolveTextInteraction,
+       _annotation = _ritoResolveAnnotation,
+       _navigation = _ritoResolveNavigation,
        _search = _ritoSearch,
        _release = _ritoReleaseArtifact,
        _dispose = _ritoDispose,
@@ -279,6 +451,39 @@ final class RitoNativeBindings {
              _OpenWithPinnedFontsNative,
              _OpenWithPinnedFontsDart
            >('rito_open_with_pinned_fonts'),
+       _openShards = library.lookupFunction<_OpenShardsNative, _OpenShardsDart>(
+         'rito_open_shards_with_pinned_fonts',
+       ),
+       _supplyShard = library
+           .lookupFunction<_SupplyShardNative, _SupplyShardDart>(
+             'rito_supply_shard',
+           ),
+       _contentShardsNear = library
+           .lookupFunction<_ContentShardsNearNative, _ContentShardsNearDart>(
+             'rito_content_shards_near',
+           ),
+       _fontCatalog = library
+           .lookupFunction<_ReadPublicationNative, _ReadPublicationDart>(
+             'rito_font_catalog',
+           ),
+       _unresolvedFontFamilies = library
+           .lookupFunction<_ContentShardsNearNative, _ContentShardsNearDart>(
+             'rito_unresolved_font_families',
+           ),
+       _addHostFontFaces = library
+           .lookupFunction<_AddHostFontFacesNative, _AddHostFontFacesDart>(
+             'rito_add_host_font_faces',
+           ),
+       _removeHostFontFaces = library
+           .lookupFunction<
+             _RemoveHostFontFacesNative,
+             _RemoveHostFontFacesDart
+           >('rito_remove_host_font_faces'),
+       _markFontFamilyUnavailable = library
+           .lookupFunction<
+             _MarkFontFamilyUnavailableNative,
+             _MarkFontFamilyUnavailableDart
+           >('rito_mark_font_family_unavailable'),
        _requestArtifact = library
            .lookupFunction<_RequestArtifactNative, _RequestArtifactDart>(
              'rito_request_artifact',
@@ -290,6 +495,10 @@ final class RitoNativeBindings {
        _peekAdjacent = library
            .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
              'rito_peek_adjacent',
+           ),
+       _peekSpread = library
+           .lookupFunction<_RequestAdjacentNative, _RequestAdjacentDart>(
+             'rito_peek_spread',
            ),
        _commitPeeked = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
@@ -327,6 +536,18 @@ final class RitoNativeBindings {
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_resolve_exact_source_range',
            ),
+       _textInteraction = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_text_interaction',
+           ),
+       _annotation = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_annotation',
+           ),
+       _navigation = library
+           .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
+             'rito_resolve_navigation',
+           ),
        _search = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_search',
@@ -346,9 +567,18 @@ final class RitoNativeBindings {
   final RitoFootnoteDecoder footnoteDecoder;
   final _OpenDart _open;
   final _OpenWithPinnedFontsDart _openWithPinnedFonts;
+  final _OpenShardsDart _openShards;
+  final _SupplyShardDart _supplyShard;
+  final _ContentShardsNearDart _contentShardsNear;
+  final _ReadPublicationDart _fontCatalog;
+  final _ContentShardsNearDart _unresolvedFontFamilies;
+  final _AddHostFontFacesDart _addHostFontFaces;
+  final _RemoveHostFontFacesDart _removeHostFontFaces;
+  final _MarkFontFamilyUnavailableDart _markFontFamilyUnavailable;
   final _RequestArtifactDart _requestArtifact;
   final _RequestAdjacentDart _requestAdjacent;
   final _RequestAdjacentDart _peekAdjacent;
+  final _RequestAdjacentDart _peekSpread;
   final _OwnedWireRequestDart _commitPeeked;
   final _ReadPublicationDart _readPublication;
   final _OwnedWireRequestDart _adoptForeground;
@@ -358,6 +588,9 @@ final class RitoNativeBindings {
   final _ReadFootnoteDart _readFootnote;
   final _OwnedWireRequestDart _textRangeGeometry;
   final _OwnedWireRequestDart _exactSourceRange;
+  final _OwnedWireRequestDart _textInteraction;
+  final _OwnedWireRequestDart _annotation;
+  final _OwnedWireRequestDart _navigation;
   final _OwnedWireRequestDart _search;
   final _ReleaseDart _release;
   final _DisposeDart _dispose;
@@ -458,6 +691,156 @@ final class RitoNativeBindings {
       for (final allocation in faceAllocations) {
         calloc.free(allocation);
       }
+    }
+  }
+
+  /// Opens a reader from a publication's skeleton shard and requests its
+  /// initial artifact, returning the encoded `RITOART1`.
+  ///
+  /// When the initial request waits on content shards this throws a
+  /// [RitoNativeException] with [ritoNativeStatusResourcePending] and the
+  /// shards to supply, and the native session stays open: supply them with
+  /// [supplyShard] and request the artifact again under a newer request ID.
+  Uint8List openShardsEncodedWire({
+    required Uint8List skeletonBytes,
+    Uint8List? skeletonKey,
+    required Uint8List requestBytes,
+    required RitoPinnedFontPolicy pinnedFontPolicy,
+  }) {
+    _validateInput(skeletonBytes, 512 * 1024 * 1024, 'skeleton');
+    _validateInput(requestBytes, 16 * 1024 * 1024, 'request');
+    _validateShardKey(skeletonKey);
+    final skeleton = _copyInput(skeletonBytes);
+    final key = _copyInput(skeletonKey ?? Uint8List(0));
+    final request = _copyInput(requestBytes);
+    final artifactOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    final faceAllocations = <Pointer<NativeType>>[];
+    try {
+      final faces = _marshalPinnedFontFaces(pinnedFontPolicy, faceAllocations);
+      final status = _openShards(
+        skeleton,
+        skeletonBytes.length,
+        key,
+        skeletonKey?.length ?? 0,
+        request,
+        requestBytes.length,
+        faces,
+        pinnedFontPolicy.faces.length,
+        artifactOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      try {
+        return _copyOutput(artifactOut, 'artifact');
+      } on Object catch (error, stackTrace) {
+        _disposeAfterFailedSessionOutput(
+          _acceptedRequestSessionId(requestBytes),
+        );
+        Error.throwWithStackTrace(
+          _terminatedSessionResultError('initial artifact', error),
+          stackTrace,
+        );
+      }
+    } finally {
+      _bufferFree(artifactOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(artifactOut)
+        ..free(errorOut)
+        ..free(skeleton)
+        ..free(key)
+        ..free(request);
+      for (final allocation in faceAllocations) {
+        calloc.free(allocation);
+      }
+    }
+  }
+
+  /// Hands an open reader one content shard; returns its id.
+  int supplyShard({
+    required int sessionId,
+    required Uint8List shardBytes,
+    Uint8List? key,
+  }) {
+    _validateId(sessionId, 'sessionId');
+    _validateInput(shardBytes, 512 * 1024 * 1024, 'shard');
+    _validateShardKey(key);
+    final shard = _copyInput(shardBytes);
+    final keyPointer = _copyInput(key ?? Uint8List(0));
+    final shardIdOut = calloc<Uint32>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _supplyShard(
+        sessionId,
+        shard,
+        shardBytes.length,
+        keyPointer,
+        key?.length ?? 0,
+        shardIdOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      return shardIdOut.value;
+    } finally {
+      _bufferFree(errorOut);
+      calloc
+        ..free(errorOut)
+        ..free(shardIdOut)
+        ..free(shard)
+        ..free(keyPointer);
+    }
+  }
+
+  /// Every content shard id, ordered for supplying ahead of need from the
+  /// chapter at [href]; empty for a session opened from an archive.
+  List<int> contentShardsNear({required int sessionId, required String href}) {
+    _validateId(sessionId, 'session id');
+    final hrefBytes = Uint8List.fromList(utf8.encode(href));
+    if (hrefBytes.isEmpty || hrefBytes.length > ritoMaxStringBytes) {
+      throw ArgumentError.value(
+        href,
+        'href',
+        'must be non-empty protocol UTF-8',
+      );
+    }
+    final hrefInput = _copyInput(hrefBytes);
+    final shardsOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _contentShardsNear(
+        sessionId,
+        hrefInput,
+        hrefBytes.length,
+        shardsOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      final bytes = _copyOutput(shardsOut, 'content shards');
+      final view = ByteData.sublistView(bytes);
+      return <int>[
+        for (var offset = 0; offset + 4 <= bytes.length; offset += 4)
+          view.getUint32(offset, Endian.little),
+      ];
+    } finally {
+      _bufferFree(shardsOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(shardsOut)
+        ..free(errorOut)
+        ..free(hrefInput);
+    }
+  }
+
+  void _validateShardKey(Uint8List? key) {
+    if (key != null && key.length != 32) {
+      throw ArgumentError.value(key.length, 'key', 'a shard key is 32 bytes');
     }
   }
 
@@ -644,11 +1027,28 @@ final class RitoNativeBindings {
   RitoArtifact peekAdjacentEncoded({
     required int sessionId,
     required Uint8List requestBytes,
-  }) {
-    final owned = _peekAdjacentEncodedWire(
-      sessionId: sessionId,
-      requestBytes: requestBytes,
-    );
+  }) => _decodePeeked(
+    sessionId,
+    requestBytes,
+    _peekAdjacentEncodedWire(sessionId: sessionId, requestBytes: requestBytes),
+  );
+
+  /// One spread of the revision behind an artifact, addressed by its
+  /// position in that revision's layout, from a 48-byte RITOSPQ1 request.
+  RitoArtifact peekSpreadEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _decodePeeked(
+    sessionId,
+    requestBytes,
+    _peekSpreadEncodedWire(sessionId: sessionId, requestBytes: requestBytes),
+  );
+
+  RitoArtifact _decodePeeked(
+    int sessionId,
+    Uint8List requestBytes,
+    Uint8List owned,
+  ) {
     try {
       final artifact = artifactDecoder.decode(owned);
       _validateArtifactIdentity(
@@ -672,20 +1072,32 @@ final class RitoNativeBindings {
   Uint8List _peekAdjacentEncodedWire({
     required int sessionId,
     required Uint8List requestBytes,
-  }) {
+  }) => _peekEncodedWire(_peekAdjacent, 'RITONAV1', sessionId, requestBytes);
+
+  Uint8List _peekSpreadEncodedWire({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _peekEncodedWire(_peekSpread, 'RITOSPQ1', sessionId, requestBytes);
+
+  Uint8List _peekEncodedWire(
+    _RequestAdjacentDart peek,
+    String message,
+    int sessionId,
+    Uint8List requestBytes,
+  ) {
     _validateId(sessionId, 'session id');
     if (requestBytes.length != 48) {
       throw ArgumentError.value(
         requestBytes.length,
         'request byte length',
-        'RITONAV1 must be exactly 48 bytes',
+        '$message must be exactly 48 bytes',
       );
     }
     final request = _copyInput(requestBytes);
     final artifactOut = calloc<_RitoOwnedBuffer>();
     final errorOut = calloc<_RitoOwnedBuffer>();
     try {
-      final status = _peekAdjacent(
+      final status = peek(
         sessionId,
         request,
         requestBytes.length,
@@ -823,6 +1235,51 @@ final class RitoNativeBindings {
       wireName: 'RITOESQ1',
       outputName: 'exact source range',
       operation: _exactSourceRange,
+    );
+  }
+
+  Uint8List textInteractionEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The query decides the width.
+      expectedLength: null,
+      wireName: 'RITOTIQ1',
+      outputName: 'text interaction',
+      operation: _textInteraction,
+    );
+  }
+
+  Uint8List annotationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The href or target JSON makes this message variable width.
+      expectedLength: null,
+      wireName: 'RITOANQ1',
+      outputName: 'annotation',
+      operation: _annotation,
+    );
+  }
+
+  Uint8List navigationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) {
+    return _ownedWireRequest(
+      sessionId: sessionId,
+      requestBytes: requestBytes,
+      // The query decides the width.
+      expectedLength: null,
+      wireName: 'RITONVQ1',
+      outputName: 'navigation',
+      operation: _navigation,
     );
   }
 
@@ -1103,6 +1560,14 @@ final class RitoNativeBindings {
     Pointer<_RitoOwnedBuffer> errorOut,
   ) {
     final bytes = _copyOutput(errorOut, 'error');
+    if (status == ritoNativeStatusResourcePending) {
+      final pending = const RitoPendingShardsDecoder().decode(bytes);
+      return RitoNativeException(
+        status: status,
+        message: pending.message,
+        pendingShards: pending.shardIds,
+      );
+    }
     final message = bytes.isEmpty
         ? 'Rito native call failed without a diagnostic.'
         : utf8.decode(bytes, allowMalformed: false);
@@ -1264,6 +1729,58 @@ final class RitoNativeWireBindings {
     pinnedFontPolicy: pinnedFontPolicy,
   );
 
+  Uint8List openShardsEncoded({
+    required Uint8List skeletonBytes,
+    Uint8List? skeletonKey,
+    required Uint8List requestBytes,
+    required RitoPinnedFontPolicy pinnedFontPolicy,
+  }) => _bindings.openShardsEncodedWire(
+    skeletonBytes: skeletonBytes,
+    skeletonKey: skeletonKey,
+    requestBytes: requestBytes,
+    pinnedFontPolicy: pinnedFontPolicy,
+  );
+
+  int supplyShard({
+    required int sessionId,
+    required Uint8List shardBytes,
+    Uint8List? key,
+  }) => _bindings.supplyShard(
+    sessionId: sessionId,
+    shardBytes: shardBytes,
+    key: key,
+  );
+
+  List<int> contentShardsNear({required int sessionId, required String href}) =>
+      _bindings.contentShardsNear(sessionId: sessionId, href: href);
+
+  Uint8List fontCatalogWire({required int sessionId}) =>
+      _bindings.fontCatalogWire(sessionId: sessionId);
+
+  Uint8List unresolvedFontFamiliesWire({
+    required int sessionId,
+    required String familyList,
+  }) => _bindings.unresolvedFontFamiliesWire(
+    sessionId: sessionId,
+    familyList: familyList,
+  );
+
+  void addHostFontFaces({
+    required int sessionId,
+    required List<RitoPinnedFontFace> faces,
+  }) => _bindings.addHostFontFaces(sessionId: sessionId, faces: faces);
+
+  void removeHostFontFaces({
+    required int sessionId,
+    required List<String> sha256s,
+  }) => _bindings.removeHostFontFaces(sessionId: sessionId, sha256s: sha256s);
+
+  void markFontFamilyUnavailable({
+    required int sessionId,
+    required String family,
+  }) =>
+      _bindings.markFontFamilyUnavailable(sessionId: sessionId, family: family);
+
   Uint8List requestArtifactEncoded({
     required int sessionId,
     required Uint8List requestBytes,
@@ -1284,6 +1801,14 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings._peekAdjacentEncodedWire(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List peekSpreadEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings._peekSpreadEncodedWire(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );
@@ -1353,6 +1878,30 @@ final class RitoNativeWireBindings {
     required int sessionId,
     required Uint8List requestBytes,
   }) => _bindings.exactSourceRangeEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List textInteractionEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.textInteractionEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List annotationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.annotationEncoded(
+    sessionId: sessionId,
+    requestBytes: requestBytes,
+  );
+
+  Uint8List navigationEncoded({
+    required int sessionId,
+    required Uint8List requestBytes,
+  }) => _bindings.navigationEncoded(
     sessionId: sessionId,
     requestBytes: requestBytes,
   );

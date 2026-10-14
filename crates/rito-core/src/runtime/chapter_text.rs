@@ -1,28 +1,7 @@
-use std::collections::BTreeMap;
-
 use crate::{
-    epub::PreparedLoadedDocument,
     runtime::{RuntimeChapterTextIndex, RuntimeChapterTextSpan},
     xhtml::DocumentNode,
 };
-
-pub(super) fn runtime_chapter_text_index_entries(
-    prepared: &PreparedLoadedDocument,
-) -> BTreeMap<String, RuntimeChapterTextIndex> {
-    let mut entries = BTreeMap::new();
-    for chapter in &prepared.chapters {
-        let nodes = prepared
-            .filtered_footnote_nodes
-            .get(&chapter.source.idref)
-            .map(Vec::as_slice)
-            .unwrap_or(chapter.parsed.nodes.as_slice());
-        entries.insert(
-            chapter.source.idref.clone(),
-            build_chapter_text_index(&chapter.source.href, nodes),
-        );
-    }
-    entries
-}
 
 pub(super) fn build_chapter_text_index(
     href: &str,

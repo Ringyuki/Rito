@@ -36,6 +36,10 @@ export function createDomTarget(): DomHarness {
     releasePointerCapture(pointerId: number): void {
       captures.delete(pointerId);
     },
+    // The target sits at the client origin: client points are its own.
+    getBoundingClientRect(): Pick<DOMRect, 'left' | 'top'> {
+      return { left: 0, top: 0 };
+    },
   };
   return {
     target: target as unknown as HTMLElement,

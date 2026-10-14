@@ -95,9 +95,21 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
             run: rito_inline::MeasuredRun {
                 advance: 24.0,
                 clusters: vec![
-                    rito_fragment::ClusterPosition { byte: 0, x: 0.0 },
-                    rito_fragment::ClusterPosition { byte: 3, x: 8.0 },
-                    rito_fragment::ClusterPosition { byte: 6, x: 16.0 },
+                    rito_fragment::ClusterPosition {
+                        byte: 0,
+                        x: 0.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 3,
+                        x: 8.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
+                    rito_fragment::ClusterPosition {
+                        byte: 6,
+                        x: 16.0,
+                        face: rito_fragment::FontFaceId::default(),
+                    },
                 ],
                 grid: false,
             },

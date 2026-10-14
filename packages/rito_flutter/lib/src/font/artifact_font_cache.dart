@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../image/artifact_image_cache.dart';
 import '../native/pinned_font_policy.dart';
 import '../protocol/artifact_models.dart';
+import '../protocol/primitive_models.dart' show RitoImageFallbackState;
 import '../render/font_envelope.dart';
 
 typedef RitoFontResourceReader =
@@ -110,6 +111,23 @@ final class RitoPreparedArtifact {
     return lease.resolveImage(href);
   }
 
+  /// The placeholder that stands in [href]'s place now, if any; images a
+  /// test supplied never need one.
+  RitoImageFallbackState? imageFallback(String href) =>
+      _imageLease?.fallbackState(href);
+
+  /// The opacity [href] paints at: below one while a late image fades in.
+  double imageOpacity(String href) => _imageLease?.imageOpacity(href) ?? 1;
+
+  /// Completes once every image this artifact draws has landed or failed;
+  /// a page never waits for it, but a host capturing a finished page may.
+  Future<void> get imagesSettled =>
+      _imageLease?.settled ?? Future<void>.value();
+
+  /// Notifies whenever what this artifact's page paints for its images
+  /// changes; null when nothing about them can change.
+  Listenable? get imageChanges => _imageLease;
+
   factory RitoPreparedArtifact.withImageLease({
     required RitoPreparedArtifact fontPrepared,
     required RitoArtifactImageLease imageLease,
@@ -146,8 +164,8 @@ final class RitoArtifactFontCache {
       <({String family, String fingerprint}), _FontLoadEntry>{};
 
   /// Registers the session's pinned faces under their engine aliases
-  /// (`__RitoPinned_<sha256>`) so the family stacks the engine paints
-  /// resolve to the exact bytes layout measured with. Deduplicated
+  /// (`__RitoPinned_<sha256>`): the engine paints every run with the alias
+  /// of the exact face it shaped with. Deduplicated
   /// process-wide by alias; fonts cannot be unloaded. Uses Flutter's
   /// `FontLoader` directly — pinned faces are app assets, already
   /// TTF/OTF, so the WOFF-transcoding registrar path does not apply.
@@ -158,9 +176,8 @@ final class RitoArtifactFontCache {
         continue;
       }
       try {
-        // Policy v1 pins one Regular per generic role, so a bold run
-        // against a pinned alias synthesizes — the same thing the web
-        // reader's Regular-only pin set does.
+        // A bold run on a Regular face synthesizes, exactly where the web
+        // reader's canvas does.
         RitoFontEnvelopeStore.shared.register(
           alias,
           face.bytes,
@@ -193,12 +210,16 @@ final class RitoArtifactFontCache {
       );
     }
 
+    // A pinned face is already registered under its alias from the bytes
+    // the session opened with; only the publication's faces load here.
     await Future.wait<void>(
-      artifact.fonts.map(
-        (font) => _prepareLimiter.run<void>(
-          () => _ensureRegistered(artifact, font, () => readFont(font)),
-        ),
-      ),
+      artifact.fonts
+          .where((font) => !_pinnedAliases.contains(font.family))
+          .map(
+            (font) => _prepareLimiter.run<void>(
+              () => _ensureRegistered(artifact, font, () => readFont(font)),
+            ),
+          ),
     );
     return RitoPreparedArtifact._(artifact);
   }
@@ -250,11 +271,9 @@ final class RitoArtifactFontCache {
       );
     }
     await _registrar.register(font, resource.bytes);
-    // The painter anchors ruby/text-shadow and inline envelopes with
-    // OS/2 metrics from these same bytes (see RitoFontEnvelopeStore).
-    // Non-sfnt payloads (e.g. WOFF handled by a transcoding registrar)
-    // are ignored; such registrars should register the transcoded bytes
-    // themselves.
+    // The painter reads the face's declared weight from the store (see
+    // RitoFontEnvelopeStore), so a bold run does not embolden a face the
+    // book already ships as its bold. Non-sfnt payloads are ignored.
     RitoFontEnvelopeStore.shared.register(
       font.family,
       resource.bytes,

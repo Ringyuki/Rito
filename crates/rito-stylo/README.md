@@ -13,7 +13,7 @@ Taffy, Parley, or resource-loading dependencies.
 
 ## Boundary
 
-- Source input: `StyleDocument::from_source` accepts only an
+- Source input: `StyleDocument::from_source_with_root_font_size` accepts only an
   `Arc<rito_source::SourceArena>`. It has no constructor that accepts XHTML
   text and never parses the chapter itself.
 - Shared identity: `StyleDocument` retains the supplied `Arc`, so Stylo,
@@ -57,9 +57,10 @@ Taffy, Parley, or resource-loading dependencies.
 
 ## Known gaps
 
-- Stylesheets arrive from the EPUB source ledger in author order; resolved
-  `@import` is not supported, and the adapter does not pretend that a
-  missing Stylo loader supports it.
+- Stylesheets arrive from the EPUB source ledger in author order. The adapter
+  itself rejects `@import` and does not pretend that a missing Stylo loader
+  supports it; `rito-core` inlines a publication's imports before handing its
+  sheets over.
 - Stylo 0.19's Servo selector parser hard-codes `:has()` and
   `:nth-child(... of ...)` parsing off. These are recorded capability gaps,
   not silently removed tests.

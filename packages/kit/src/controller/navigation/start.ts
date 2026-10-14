@@ -4,6 +4,7 @@ import { claimOf, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
 import type { GestureNavigationRequest, NavigationMachine } from './machine';
 import { ownsPresentation, presentSpread } from './present';
+import { transitionLifecycle } from '../core/transition-lifecycle';
 
 /**
  * Presents an accepted spread turn and starts its transition. A gesture
@@ -20,7 +21,6 @@ export function emitNavigationStart(
   target: number,
   direction: 'forward' | 'backward',
   previous: number,
-  continuityDx: number,
   gesture?: GestureNavigationRequest,
 ): void {
   const claim = claimOf(machine, attemptId);
@@ -38,12 +38,12 @@ export function emitNavigationStart(
     revertCancelledGesture(deps, reader, claim, previous, true);
     return;
   }
-  deps.td.goToTarget(direction, previous, target, continuityDx);
+  deps.td.goToTarget(direction, previous, target);
   if (gesture) {
     gesture.started = true;
     gesture.onTransitionStart();
   }
-  deps.emitter.emit('transitionStart', { direction });
+  transitionLifecycle(deps.emitter).begin(direction);
   deps.frameDriver.scheduleComposite();
 }
 

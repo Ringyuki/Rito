@@ -29,6 +29,10 @@ export type LayoutActionsSlice = Pick<
   ReaderController,
   'resize' | 'setSpreadMode' | 'setTheme' | 'setTypography' | 'setRenderScale' | 'renderScale'
 >;
+export type FontActionsSlice = Pick<
+  ReaderController,
+  'fonts' | 'addFontFaces' | 'removeFontFaces' | 'unresolvedFontFamilies'
+>;
 export type SearchActionsSlice = Pick<
   ReaderController,
   | 'search'
@@ -55,7 +59,7 @@ export type AnnotationActionsSlice = Pick<
 >;
 export type PositionActionsSlice = Pick<
   ReaderController,
-  'restorePosition' | 'savePosition' | 'goToPosition'
+  'position' | 'restorePosition' | 'savePosition' | 'goToPosition'
 >;
 export type Keyboard = KeyboardManager;
 export type MiscSlice = Pick<
@@ -71,6 +75,4 @@ export interface RuntimeComponents {
   readonly prerenderScheduler: PrerenderScheduler;
   readonly disposeSettledEvents: () => void;
   readonly surface: DisplaySurface;
-  readonly terminateChapterLocalForLayout?: (() => (() => void) | undefined) | undefined;
-  readonly refreshChapterLocalTheme?: (() => void) | undefined;
 }

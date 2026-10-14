@@ -19,9 +19,9 @@ use crate::runtime::reader_session::{
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
     ReaderForegroundHandoffAck, ReaderLayout, ReaderLocator, ReaderPublication, ReaderRect,
     ReaderResource, ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult,
-    ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderTextPosition,
-    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
-    READER_PUBLICATION_WIRE_BYTES_MAX,
+    ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderSpreadRequest,
+    ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
+    ReaderTextRenderingProfile, READER_PUBLICATION_WIRE_BYTES_MAX,
 };
 
 pub(super) fn artifact(bytes: &[u8]) -> Result<ReaderArtifact, ReaderError> {
@@ -57,6 +57,22 @@ pub(super) fn adjacent_request(bytes: &[u8]) -> Result<ReaderAdjacentRequest, Re
         direction: adjacent_direction(reader.u32()?)?,
     };
     reader.finish("adjacent request wire message")?;
+    Ok(request)
+}
+
+pub(super) fn spread_request(bytes: &[u8]) -> Result<ReaderSpreadRequest, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_SPREAD_REQUEST_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let request = ReaderSpreadRequest {
+        session_id: external_id(reader.u64()?, "sessionId")?,
+        request_id: external_id(reader.u64()?, "requestId")?,
+        from_artifact_id: external_id(reader.u64()?, "fromArtifactId")?,
+        spread_index: reader.u32()?,
+    };
+    reader.finish("spread request wire message")?;
     Ok(request)
 }
 
@@ -351,6 +367,8 @@ fn layout(reader: &mut Reader<'_>) -> Result<ReaderLayout, ReaderError> {
                 reader.string("font family override")
             })?,
             render_ratio: reader.f64("render ratio")?,
+            line_height_force: reader.bool("line height force")?,
+            font_family_force: reader.bool("font family force")?,
         })
     })
 }
@@ -382,6 +400,7 @@ pub(super) fn exact_source_range_request(
         artifact_id: external_id(reader.u64()?, "artifactId")?,
         href: reader.string("exact source range href")?,
         range: source_range(&mut reader)?,
+        every_page: reader.bool("exact source range every page")?,
     };
     reader.finish("exact source range request wire message")?;
     Ok(request)
@@ -441,7 +460,7 @@ pub(super) fn source_point(reader: &mut Reader<'_>) -> Result<ReaderSourcePoint,
     })
 }
 
-fn source_range(reader: &mut Reader<'_>) -> Result<ReaderSourceRange, ReaderError> {
+pub(super) fn source_range(reader: &mut Reader<'_>) -> Result<ReaderSourceRange, ReaderError> {
     reader.record("source range", |reader| {
         Ok(ReaderSourceRange {
             start: source_point(reader)?,

@@ -1,7 +1,7 @@
 use super::{locator, text_profile};
 use crate::runtime::reader_session::{
     ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontRef,
-    ReaderHitEntry, ReaderLocatorMatch, ReaderPage, ReaderRect, ReaderResourceKind,
+    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderPage, ReaderRect, ReaderResourceKind,
     ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole, ReaderTextRunOffset,
 };
 
@@ -122,14 +122,30 @@ fn page(writer: &mut Writer, value: &ReaderPage) -> Result<(), ReaderError> {
 fn hit_entry(writer: &mut Writer, value: &ReaderHitEntry) -> Result<(), ReaderError> {
     writer.u32(value.page_index);
     rect(writer, value.bounds)?;
+    writer.u8(hit_kind(value.kind));
     writer.string(&value.text, "hit text")?;
     optional_string(writer, value.href.as_deref(), "hit href")?;
     writer.option(value.source_point.as_ref(), super::source_point)?;
+    writer.option(value.target_locator.as_ref(), super::locator)?;
+    optional_string(
+        writer,
+        value.destination_label.as_deref(),
+        "hit destination label",
+    )?;
     optional_string(writer, value.image_src.as_deref(), "hit image source")?;
     optional_string(writer, value.image_alt.as_deref(), "hit image alternative")?;
     optional_string(writer, value.footnote_key.as_deref(), "hit footnote key")?;
-    writer.bool(value.footnote_pending);
     Ok(())
+}
+
+const fn hit_kind(value: ReaderHitKind) -> u8 {
+    match value {
+        ReaderHitKind::Text => 0,
+        ReaderHitKind::Link => 1,
+        ReaderHitKind::Image => 2,
+        ReaderHitKind::Footnote => 3,
+        ReaderHitKind::FootnotePending => 4,
+    }
 }
 
 fn semantic_node(

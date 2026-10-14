@@ -56,7 +56,7 @@ void main() {
     expect(list.ratio, 2);
     expect(
       list.commands.map((primitive) => primitive.opcode),
-      List<int>.generate(13, (index) => index + 1),
+      List<int>.generate(14, (index) => index + 1),
     );
     final transform = list.commands[4] as RitoPrimitiveTransform;
     expect(transform.origin.x, 1);
@@ -101,6 +101,16 @@ void main() {
     expect(text.command.text, 'text');
     expect(text.command.lineHeightPx, 18.5);
     expect(list.commands[12], isA<RitoPrimitiveRuby>());
+    final fallback = list.commands[13] as RitoPrimitiveImageFallback;
+    expect(fallback.src, 'images/cover.jpg');
+    expect(fallback.state, RitoImageFallbackState.broken);
+    expect(fallback.block.width, image.dest.width);
+    expect(fallback.blockInk, 0.06);
+    expect(fallback.iconInk, 0.4);
+    expect(fallback.pieces, hasLength(2));
+    expect(fallback.pieces.every((piece) => piece.clip != null), isTrue);
+    expect(fallback.pieces.first.offset.x, lessThan(0));
+    expect(fallback.pieces.last.offset.x, greaterThan(0));
   });
 
   test('rejects format 1, every truncated prefix and trailing bytes', () {
@@ -140,6 +150,7 @@ void main() {
       'drawImage',
       'text',
       'ruby',
+      'imageFallback',
     ]);
 
     final recorder = ui.PictureRecorder();
@@ -185,6 +196,10 @@ final class _RecordingTarget implements RitoPrimitiveTarget {
 
   @override
   void drawImage(RitoPrimitiveDrawImage primitive) => calls.add('drawImage');
+
+  @override
+  void imageFallback(RitoPrimitiveImageFallback primitive) =>
+      calls.add('imageFallback');
 
   @override
   void text(RitoPrimitiveText primitive) => calls.add('text');

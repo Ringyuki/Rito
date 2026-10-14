@@ -2,16 +2,9 @@ use std::{error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    RuntimeDocument, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
-    RuntimeFrameResourceWarmPlan, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
-    RuntimePrefetchRequest, RuntimePrefetchResponse, RuntimeResource, RuntimeResourceKind,
-    RuntimeRevisionSummary,
-};
+use super::{RuntimeDocument, RuntimeResource, RuntimeResourceKind, RuntimeRevisionSummary};
 
-mod geometry;
 mod interaction;
-mod revision;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +47,7 @@ pub enum RuntimeRevisionAccessErrorKind {
     UnknownRevision,
     StaleRevisionVersion,
     OperationFailed,
+    ResourcePending,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +55,9 @@ pub enum RuntimeRevisionAccessErrorKind {
 pub struct RuntimeRevisionAccessError {
     pub kind: RuntimeRevisionAccessErrorKind,
     pub message: String,
+    /// Content shards the operation waited on; see `ResourcePending`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_shards: Vec<u32>,
 }
 
 impl RuntimeRevisionAccessError {
@@ -68,14 +65,22 @@ impl RuntimeRevisionAccessError {
         Self {
             kind,
             message: message.into(),
+            pending_shards: Vec::new(),
         }
     }
 
-    fn operation_failed(error: impl fmt::Display) -> Self {
-        Self::new(
-            RuntimeRevisionAccessErrorKind::OperationFailed,
-            error.to_string(),
-        )
+    fn operation_failed(error: impl PendingShardFailure) -> Self {
+        let pending_shards = error.pending_shards().to_vec();
+        let kind = if pending_shards.is_empty() {
+            RuntimeRevisionAccessErrorKind::OperationFailed
+        } else {
+            RuntimeRevisionAccessErrorKind::ResourcePending
+        };
+        Self {
+            kind,
+            message: error.to_string(),
+            pending_shards,
+        }
     }
 }
 
@@ -86,6 +91,8 @@ impl fmt::Display for RuntimeRevisionAccessError {
 }
 
 impl Error for RuntimeRevisionAccessError {}
+
+use super::pending::PendingShardFailure;
 
 impl RuntimeDocument {
     pub fn validate_revision_handle(
@@ -128,92 +135,6 @@ impl RuntimeDocument {
         })
     }
 
-    pub fn get_frame_command_buffer_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrameCommandBuffer>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_command_buffer(revision_id, spread_index)
-        })
-    }
-
-    /// Returns a version-gated owned metadata snapshot without the packed bytes.
-    pub fn get_frame_command_buffer_metadata_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrameCommandBufferMetadata>, RuntimeRevisionAccessError>
-    {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_command_buffer_metadata(revision_id, spread_index)
-        })
-    }
-
-    /// Returns a version-gated copy of the packed bytes without metadata tables.
-    pub fn read_frame_command_buffer_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<Vec<u8>>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.read_frame_command_buffer(revision_id, spread_index)
-        })
-    }
-
-    /// Returns version-gated unique image-resource hrefs without frame commands.
-    pub fn get_frame_image_resource_hrefs_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        spread_index: usize,
-    ) -> Result<RuntimeVersioned<Vec<String>>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.get_frame_image_resource_hrefs(revision_id, spread_index)
-        })
-    }
-
-    pub fn prefetch_frames_at(
-        &mut self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimePrefetchRequest,
-    ) -> Result<RuntimeVersioned<RuntimePrefetchResponse>, RuntimeRevisionAccessError> {
-        self.versioned_write(handle, |document, revision_id| {
-            document.prefetch_frames(revision_id, request)
-        })
-    }
-
-    pub fn initial_frame_decision_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        request: RuntimeInitialFrameRequest,
-    ) -> Result<RuntimeVersioned<Option<RuntimeInitialFrameDecision>>, RuntimeRevisionAccessError>
-    {
-        self.versioned_read(handle, |document, revision_id| {
-            document.initial_frame_decision(revision_id, request)
-        })
-    }
-
-    pub fn cached_frame_count_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-    ) -> Result<RuntimeVersioned<Option<usize>>, RuntimeRevisionAccessError> {
-        self.validate_revision_handle(handle)?;
-        Ok(RuntimeVersioned::new(
-            handle.clone(),
-            self.cached_frame_count(&handle.revision_id),
-        ))
-    }
-
-    pub fn frame_resource_warm_plan_at(
-        &self,
-        handle: &RuntimeRevisionHandle,
-        center_spread_index: usize,
-    ) -> Result<RuntimeVersioned<RuntimeFrameResourceWarmPlan>, RuntimeRevisionAccessError> {
-        self.versioned_read(handle, |document, revision_id| {
-            document.frame_resource_warm_plan(revision_id, center_spread_index)
-        })
-    }
-
     pub fn get_resource_at(
         &mut self,
         handle: &RuntimeRevisionHandle,
@@ -231,7 +152,7 @@ impl RuntimeDocument {
         operation: impl FnOnce(&Self, &str) -> Result<T, E>,
     ) -> Result<RuntimeVersioned<T>, RuntimeRevisionAccessError>
     where
-        E: fmt::Display,
+        E: PendingShardFailure,
     {
         self.validate_revision_handle(handle)?;
         let value = operation(self, &handle.revision_id)
@@ -245,7 +166,7 @@ impl RuntimeDocument {
         operation: impl FnOnce(&mut Self, &str) -> Result<T, E>,
     ) -> Result<RuntimeVersioned<T>, RuntimeRevisionAccessError>
     where
-        E: fmt::Display,
+        E: PendingShardFailure,
     {
         self.validate_revision_handle(handle)?;
         let value = operation(self, &handle.revision_id)

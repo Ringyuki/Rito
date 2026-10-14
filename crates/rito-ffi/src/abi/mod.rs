@@ -1,12 +1,19 @@
+mod fonts;
 mod memory;
 
+pub use fonts::{
+    rito_add_host_font_faces, rito_font_catalog, rito_mark_font_family_unavailable,
+    rito_remove_host_font_faces, rito_unresolved_font_families,
+};
 pub(crate) use memory::{copy_bytes, copy_face_descriptors};
 pub use memory::{
     rito_adopt_background_candidate, rito_adopt_foreground_candidate, rito_advance_background,
-    rito_buffer_free, rito_commit_peeked_artifact, rito_dispose, rito_get_text_range_geometry,
-    rito_open, rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote,
+    rito_buffer_free, rito_commit_peeked_artifact, rito_content_shards_near, rito_dispose,
+    rito_get_text_range_geometry, rito_open, rito_open_shards_with_pinned_fonts,
+    rito_open_with_pinned_fonts, rito_peek_adjacent, rito_peek_spread, rito_read_footnote,
     rito_read_publication, rito_read_resource, rito_release_artifact, rito_request_adjacent,
-    rito_request_artifact, rito_resolve_exact_source_range, rito_search,
+    rito_request_artifact, rito_resolve_annotation, rito_resolve_exact_source_range,
+    rito_resolve_navigation, rito_resolve_text_interaction, rito_search, rito_supply_shard,
 };
 
 #[cfg(test)]

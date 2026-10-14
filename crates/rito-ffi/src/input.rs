@@ -1,15 +1,20 @@
 use rito_core::runtime::{
-    decode_reader_adjacent_request, decode_reader_artifact_request,
-    decode_reader_background_handoff, decode_reader_background_request,
-    decode_reader_exact_source_range_request, decode_reader_foreground_handoff,
-    decode_reader_search_request, decode_reader_text_range_request, ReaderAdjacentRequest,
-    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest,
-    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderResourceKind,
-    ReaderSearchRequest, ReaderTextRangeRequest, RuntimePinnedFontFaceInput,
+    decode_reader_adjacent_request, decode_reader_annotation_request,
+    decode_reader_artifact_request, decode_reader_background_handoff,
+    decode_reader_background_request, decode_reader_exact_source_range_request,
+    decode_reader_foreground_handoff, decode_reader_navigation_request,
+    decode_reader_search_request, decode_reader_spread_request,
+    decode_reader_text_interaction_request, decode_reader_text_range_request,
+    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderBackgroundRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
+    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSpreadRequest,
+    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontFaceInput,
     RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
     READER_BACKGROUND_HANDOFF_WIRE_BYTES, READER_BACKGROUND_REQUEST_WIRE_BYTES,
     READER_FOREGROUND_HANDOFF_WIRE_BYTES,
 };
+
+use rito_core::epub::shard::{ShardKey, SHARD_KEY_BYTES};
 
 use crate::{
     abi::{
@@ -26,6 +31,24 @@ const MAX_HREF_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_PINNED_FONT_FACES: u32 = 16;
 const MAX_PINNED_FONT_FACE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_PINNED_FONT_LANGUAGE_BYTES: u64 = 63;
+
+pub(crate) fn shard(source: *const u8, len: u64, field: &str) -> Result<Vec<u8>, FfiError> {
+    if len == 0 {
+        return Err(FfiError::invalid(format!("{field} must not be empty")));
+    }
+    copy_bytes(source, len, MAX_EPUB_BYTES, field)
+}
+
+/// A shard key: absent (`len` 0) for plain shards, otherwise 32 bytes.
+pub(crate) fn shard_key(source: *const u8, len: u64) -> Result<Option<ShardKey>, FfiError> {
+    if len == 0 {
+        return Ok(None);
+    }
+    let bytes = copy_bytes(source, len, SHARD_KEY_BYTES as u64, "shard key")?;
+    ShardKey::from_slice(&bytes)
+        .map(Some)
+        .ok_or_else(|| FfiError::invalid(format!("a shard key is {SHARD_KEY_BYTES} bytes")))
+}
 
 pub(crate) fn publication(source: *const u8, len: u64) -> Result<Vec<u8>, FfiError> {
     if len == 0 {
@@ -51,6 +74,14 @@ pub(crate) fn adjacent_request(
     }
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "RITONAV1 input")?;
     decode_reader_adjacent_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn spread_request(source: *const u8, len: u64) -> Result<ReaderSpreadRequest, FfiError> {
+    if len == 0 {
+        return Err(FfiError::invalid("RITOSPQ1 input must not be empty"));
+    }
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "RITOSPQ1 input")?;
+    decode_reader_spread_request(&bytes).map_err(FfiError::from)
 }
 
 pub(crate) fn background_request(
@@ -128,6 +159,61 @@ pub(crate) fn exact_source_range_request(
 ) -> Result<ReaderExactSourceRangeRequest, FfiError> {
     let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "exact source range request")?;
     decode_reader_exact_source_range_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn text_interaction_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderTextInteractionRequest, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "text interaction request")?;
+    decode_reader_text_interaction_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn annotation_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderAnnotationRequest, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "annotation request")?;
+    decode_reader_annotation_request(&bytes).map_err(FfiError::from)
+}
+
+pub(crate) fn navigation_request(
+    source: *const u8,
+    len: u64,
+) -> Result<ReaderNavigationRequest, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_REQUEST_BYTES, "navigation request")?;
+    decode_reader_navigation_request(&bytes).map_err(FfiError::from)
+}
+
+/// `count` SHA-256 hex digests of 64 bytes each, laid end to end.
+pub(crate) fn sha256_digests(source: *const u8, count: u32) -> Result<Vec<String>, FfiError> {
+    if count == 0 || count > MAX_PINNED_FONT_FACES {
+        return Err(FfiError::invalid(format!(
+            "between 1 and {MAX_PINNED_FONT_FACES} digests are required"
+        )));
+    }
+    let bytes = copy_bytes(
+        source,
+        u64::from(count) * 64,
+        u64::from(count) * 64,
+        "digests",
+    )?;
+    bytes
+        .chunks(64)
+        .map(|digest| {
+            std::str::from_utf8(digest)
+                .ok()
+                .filter(|digest| digest.bytes().all(|byte| byte.is_ascii_hexdigit()))
+                .map(str::to_ascii_lowercase)
+                .ok_or_else(|| FfiError::invalid("a digest must be 64 hexadecimal digits"))
+        })
+        .collect()
+}
+
+/// A UTF-8 string argument (a `font-family` list).
+pub(crate) fn text(source: *const u8, len: u64, field: &str) -> Result<String, FfiError> {
+    let bytes = copy_bytes(source, len, MAX_HREF_BYTES, field)?;
+    String::from_utf8(bytes).map_err(|_| FfiError::invalid(format!("{field} must be valid UTF-8")))
 }
 
 pub(crate) fn footnote_key(source: *const u8, len: u64) -> Result<String, FfiError> {

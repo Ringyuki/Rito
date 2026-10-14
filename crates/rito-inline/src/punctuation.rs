@@ -68,17 +68,6 @@ pub(crate) fn cjk_punctuation_trim(left: char, right: char) -> Option<TrimmedGly
     None
 }
 
-/// Applies the boundary trims as negative letter-spacing on the character
-/// left of each trimming boundary — geometrically identical to removing
-/// the blank half, and visible to shaping, line breaking, and run
-/// splitting alike (the distinct resolved style isolates the trimmed
-/// character in its own glyph run, so painted runs stay position-exact).
-/// The boundary trims as (range, letter-spacing) edits, computed before
-/// the shaping builder exists so the trim gate can consult the font
-/// collection. Blink's Han kerning only adjusts glyphs whose resolved
-/// font carries the OpenType `halt` feature (measured: a book-embedded
-/// face without it keeps `。」` at two full advances while the pinned
-/// SourceHan trims), so each trimmed character resolves its font first.
 /// One boundary trim: the pair identity for straddle bookkeeping, the
 /// character range the edit applies to, and the edit itself.
 pub(crate) struct PunctuationTrim {
@@ -88,6 +77,10 @@ pub(crate) struct PunctuationTrim {
     pub(crate) edit: PunctuationTrimEdit,
 }
 
+/// How a boundary trim collapses a blank half. Either edit is a distinct
+/// resolved style on the trimmed character, so shaping, line breaking and
+/// run splitting all see it and the character sits in its own glyph run,
+/// keeping painted runs position-exact.
 pub(crate) enum PunctuationTrimEdit {
     /// A close/stop's blank right half collapses: negative letter-spacing
     /// on the trimmed character itself (correct fit attribution — the
@@ -104,10 +97,16 @@ pub(crate) enum PunctuationTrimEdit {
     OpenerHalt(f32),
 }
 
+/// The boundary trims as edits, computed before the shaping builder
+/// exists so the trim gate can consult the font collection. Blink's Han
+/// kerning only adjusts glyphs whose resolved font carries the OpenType
+/// `halt` feature (measured: a book-embedded face without it keeps `。」`
+/// at two full advances while the pinned SourceHan trims), so each
+/// trimmed character resolves its font first.
 pub(crate) fn compute_cjk_punctuation_trims(
     fonts: &mut FontContext,
-    registered_families: &[String],
-    halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
+    catalog: &FontCatalog,
+    halt_cache: &mut rustc_hash::FxHashMap<(u64, u32), bool>,
     text: &str,
     runs: &[(std::ops::Range<usize>, &InlineFormattingStyle, usize)],
     suppressed_pairs: &[usize],
@@ -152,13 +151,9 @@ pub(crate) fn compute_cjk_punctuation_trims(
                     TrimmedGlyph::Right => (style_at(&mut cursor, runs, byte), character),
                 };
                 if let (Some(left_style), Some(trimmed_style)) = (left_style, trimmed_style) {
-                    let Some(halt_covers_glyph) = resolved_font_halt(
-                        fonts,
-                        registered_families,
-                        halt_cache,
-                        trimmed_style,
-                        trimmed_char,
-                    ) else {
+                    let Some(halt_covers_glyph) =
+                        resolved_font_halt(fonts, catalog, halt_cache, trimmed_style, trimmed_char)
+                    else {
                         previous = Some((byte, character));
                         continue;
                     };
@@ -217,26 +212,23 @@ pub(crate) fn compute_cjk_punctuation_trims(
     trims
 }
 
+/// Whether the font the style resolves for `character` carries the
+/// OpenType `halt` feature. Resolution mirrors CSS font matching: the
+/// first stack family whose matched face covers the character wins, and
+/// the registered families (the engine's installed fallback order) stand
+/// in for script fallback. An unresolvable character trims nothing.
 pub(crate) fn resolved_font_halt(
     fonts: &mut FontContext,
-    registered_families: &[String],
-    halt_cache: &mut std::collections::HashMap<(u64, u32), bool>,
+    catalog: &FontCatalog,
+    halt_cache: &mut rustc_hash::FxHashMap<(u64, u32), bool>,
     style: &InlineFormattingStyle,
     character: char,
 ) -> Option<bool> {
     use parley::fontique::{FontStyle, FontWeight, FontWidth, SourceKind};
     use skrifa::MetadataProvider as _;
     let weight = FontWeight::new(style.font.weight.get());
-    let stack = style
-        .font
-        .families
-        .as_slice()
-        .iter()
-        .filter_map(|family| match family {
-            rito_style_contract::FontFamily::Named(name) => Some(name.as_str()),
-            rito_style_contract::FontFamily::Generic(_) => None,
-        });
-    for name in stack.chain(registered_families.iter().map(String::as_str)) {
+    let stack = catalog.resolve(style);
+    for name in &stack.families {
         let Some(family) = fonts.collection.family_by_name(name) else {
             continue;
         };

@@ -27,6 +27,26 @@ impl ResolvedFontFaceSource {
         self.resource_index
     }
 
+    /// The binding as the inline engine registers it: the declared family
+    /// over `bytes` with the declared weight and slope, painted under an
+    /// alias unique to the font file, so two publications' (or two
+    /// families') faces never shadow each other in a renderer's shared
+    /// font registry.
+    pub(crate) fn engine_face(&self, bytes: &[u8]) -> rito_inline::PublicationFontFace {
+        rito_inline::PublicationFontFace {
+            family: self.family.clone(),
+            bytes: bytes.to_vec(),
+            weight: super::face::normalized_font_weight(self.weight),
+            italic: super::face::normalized_font_style(self.style.as_deref()) != "normal",
+            alias: self.paint_alias(bytes),
+        }
+    }
+
+    /// The family name the host registers this face under for paint.
+    pub(crate) fn paint_alias(&self, bytes: &[u8]) -> String {
+        format!("__RitoFace_{}", self.catalog_fingerprint(bytes))
+    }
+
     pub(super) fn catalog_fingerprint(&self, bytes: &[u8]) -> String {
         self.shape_fingerprint
             .get_or_init(|| {

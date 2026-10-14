@@ -24,8 +24,6 @@ export function createInvalidationMethods(
     invalidateAllContent(): void {
       if (state.disposed) return;
       for (const slot of state.slots) {
-        if (slot === state.provisional?.rollbackSlot) continue;
-        if (isCommittedProvisionalCurrent(state, operations, slot)) continue;
         slot.contentDirty = true;
         slot.overlayDirty = true;
       }
@@ -33,7 +31,6 @@ export function createInvalidationMethods(
     invalidateContentForSpread(spreadIndex): void {
       if (state.disposed) return;
       for (const slot of state.slots) {
-        if (slot === state.provisional?.rollbackSlot) continue;
         if (slot.spreadIndex !== spreadIndex) continue;
         slot.contentDirty = true;
         slot.overlayDirty = true;
@@ -42,16 +39,12 @@ export function createInvalidationMethods(
     invalidateOverlayForSpread(spreadIndex): void {
       if (state.disposed) return;
       for (const slot of state.slots) {
-        if (slot === state.provisional?.rollbackSlot) continue;
-        if (isCommittedProvisionalCurrent(state, operations, slot)) continue;
         if (slot.spreadIndex === spreadIndex) slot.overlayDirty = true;
       }
     },
     invalidateAllOverlays(): void {
       if (state.disposed) return;
       for (const slot of state.slots) {
-        if (slot === state.provisional?.rollbackSlot) continue;
-        if (isCommittedProvisionalCurrent(state, operations, slot)) continue;
         if (slot.spreadIndex !== null) slot.overlayDirty = true;
       }
     },
@@ -64,18 +57,6 @@ export function createInvalidationMethods(
   };
 }
 
-function isCommittedProvisionalCurrent(
-  state: PageBufferPoolState,
-  operations: BufferInvalidationOperations,
-  slot: PageBufferSlot,
-): boolean {
-  return (
-    slot === operations.getSlot(state, 'curr') &&
-    state.provisional !== undefined &&
-    state.provisional.phase !== 'incoming'
-  );
-}
-
 function findSlotForSpread(
   state: PageBufferPoolState,
   operations: BufferInvalidationOperations,
@@ -84,13 +65,7 @@ function findSlotForSpread(
   if (state.disposed) return null;
   const current = operations.getSlot(state, 'curr');
   if (current.spreadIndex === spreadIndex) return 'curr';
-  const previous = operations.getSlot(state, 'prev');
-  if (previous !== state.provisional?.rollbackSlot && previous.spreadIndex === spreadIndex) {
-    return 'prev';
-  }
-  const next = operations.getSlot(state, 'next');
-  if (next !== state.provisional?.rollbackSlot && next.spreadIndex === spreadIndex) {
-    return 'next';
-  }
+  if (operations.getSlot(state, 'prev').spreadIndex === spreadIndex) return 'prev';
+  if (operations.getSlot(state, 'next').spreadIndex === spreadIndex) return 'next';
   return null;
 }

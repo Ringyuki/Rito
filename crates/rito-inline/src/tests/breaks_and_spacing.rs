@@ -727,7 +727,7 @@ fn named_publication_fonts_shape_instead_of_the_pinned_fallback() {
     // Tinos under a publication name: its Latin advances differ from
     // Source Han's, so a hit is measurable.
     context
-        .register_named_font("PubFace", tinos_bytes())
+        .register_publication_face(publication_face("PubFace", tinos_bytes()))
         .expect("named font registers");
 
     let shape_width = |families: Vec<FontFamily>| {

@@ -15,23 +15,32 @@ pnpm add react react-dom @ritojs/core @ritojs/kit @ritojs/react
 ## Quick Start
 
 ```tsx
-import { useEffect, useRef } from 'react';
-import { Reader, useContainerSize, useRitoReader } from '@ritojs/react';
+import { useCallback, useEffect, useRef } from 'react';
+import { Reader, useContainerSize, useReaderAutoResize, useRitoReader } from '@ritojs/react';
+import { pinnedFontPolicy } from './pinned-fonts'; // app-owned font bytes + digests
 
 export function App() {
-  const [containerRef, containerSize] = useContainerSize();
-  const width = Math.max(containerSize.width, 1);
-  const height = Math.max(containerSize.height, 1);
-  const didLoadRef = useRef(false);
-  const { controller, isLoaded, load, resize } = useRitoReader({
+  const [sizeRef, containerSize] = useContainerSize();
+  const { controller, error, load } = useRitoReader({
     reader: {
-      width,
-      height,
+      width: Math.max(containerSize.width, 1),
+      height: Math.max(containerSize.height, 1),
       margin: 40,
       spread: 'double',
+      pinnedFontPolicy,
     },
   });
+  // Re-paginates whenever the container changes size.
+  const resizeRef = useReaderAutoResize(controller, { margin: 40 });
+  const containerRef = useCallback(
+    (node: HTMLElement | null) => {
+      sizeRef(node);
+      resizeRef(node);
+    },
+    [resizeRef, sizeRef],
+  );
 
+  const didLoadRef = useRef(false);
   useEffect(() => {
     if (containerSize.width === 0 || containerSize.height === 0) return;
     if (didLoadRef.current) return;
@@ -39,14 +48,9 @@ export function App() {
     void load(fetch('/book.epub').then((resp) => resp.arrayBuffer()));
   }, [containerSize.width, containerSize.height, load]);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    resize(width, height);
-  }, [height, isLoaded, resize, width]);
-
   return (
     <div ref={containerRef} style={{ width: '100vw', height: '100vh' }}>
-      <Reader controller={controller} />
+      {error ? <p role="alert">{error}</p> : <Reader controller={controller} />}
     </div>
   );
 }
@@ -69,11 +73,15 @@ export function App() {
 
 - rendering the hook itself is SSR-safe
 - `load()` still requires a browser document and should run in an effect or event handler
-- `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
-- sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
-- load any app-owned `ReaderPinnedFontPolicy` bytes before calling `load()`;
-  changing the policy requires the next `load()` because it cannot mutate an
-  existing Reader
+- `load()` takes an EPUB `ArrayBuffer` or a sharded publication (`{ skeleton, key?, loadShards }`, see the sharded publications guide); either may be a promise
+- `useReaderAutoResize(controller)` re-paginates when the observed element changes size
+- pass everything a book should open with (size, spread, theme, typography) in `options.reader`
+  so it lays out once; later changes go through the controller
+- `error` says why the book could not be opened; the controller's own `error` events are
+  non-fatal — subscribe with `useControllerEvent(controller, 'error', …)`
+- load the app-owned `ReaderPinnedFontPolicy` bytes before calling `load()`; add a face while a
+  book is open with `controller.addFontFaces()`, and build font choices from `controller.fonts()`
 - use `useSelection().hasSelection` for presence; `sourceLocator` carries the durable
   source range and `viewportRects`/`handles` the geometry for selection UI
-- `useRitoReader().spreads` is the reader's navigation record (page indexes per spread)
+- `useRitoReader().spreads` is the book-wide navigation record (page indexes per spread);
+  it is empty until the whole book's layout first commits

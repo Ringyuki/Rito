@@ -22,7 +22,9 @@ describe('native annotation geometry', () => {
 
     schedule(fixture, updated);
     schedule(fixture, updated);
+    await settle();
 
+    expect(fixture.locate).toHaveBeenCalledTimes(1);
     expect(fixture.resolve).toHaveBeenCalledTimes(1);
     expect(fixture.resolve).toHaveBeenCalledWith({
       href: 'chapter.xhtml',
@@ -63,6 +65,7 @@ describe('native annotation geometry', () => {
     const updated = vi.fn();
 
     schedule(fixture, updated);
+    await settle();
     invalidateNativeAnnotationGeometry(fixture.state);
     schedule(fixture, updated);
     first.resolve(resolvedRange());
@@ -132,6 +135,7 @@ describe('native annotation geometry', () => {
     schedule(fixture, vi.fn());
     await settle();
     schedule(fixture, vi.fn());
+    await settle();
 
     expect(resolve).toHaveBeenCalledOnce();
     expect(fixture.state.nativeAnnotationGeometry.misses.size).toBe(1);
@@ -142,6 +146,7 @@ describe('native annotation geometry', () => {
     const fixture = createFixture(vi.fn(() => pending.promise));
     const updated = vi.fn();
     schedule(fixture, updated);
+    await settle();
     fixture.state.nativeAnnotationGeometry.cache.set('stale-cache', resolvedRange().range);
     fixture.state.nativeAnnotationGeometry.misses.add('stale-miss');
 
@@ -166,12 +171,14 @@ describe('native annotation geometry', () => {
     fixture.store.update(fixture.recordId, { color: '#123456' });
     refreshNativeAnnotations(fixture.reader, fixture.state);
     schedule(fixture, vi.fn());
+    await settle();
 
+    expect(fixture.locate).toHaveBeenCalledTimes(1);
     expect(fixture.resolve).toHaveBeenCalledTimes(1);
     expect(fixture.state.resolvedAnnotations[0]?.record.color).toBe('#123456');
   });
 
-  it('keeps a canonical href distinct from a colliding spine idref', () => {
+  it('keeps a canonical href distinct from a colliding spine idref', async () => {
     const fixture = createFixture(vi.fn(() => Promise.resolve(resolvedRange())));
     (fixture.reader.chapterMap as Map<string, { startPage: number; endPage: number }>).set(
       'chapter.xhtml',
@@ -180,6 +187,7 @@ describe('native annotation geometry', () => {
     (fixture.reader.manifestHrefMap as Map<string, string>).set('chapter.xhtml', 'other.xhtml');
 
     schedule(fixture, vi.fn());
+    await settle();
 
     expect(fixture.resolve).toHaveBeenCalledOnce();
     expect(fixture.resolve).toHaveBeenCalledWith(
@@ -197,6 +205,7 @@ describe('native annotation geometry', () => {
     invalidateNativeAnnotationGeometry(fixture.state);
     refreshNativeAnnotations(fixture.reader, fixture.state);
     schedule(fixture, vi.fn());
+    await settle();
 
     expect(fixture.state.resolvedAnnotations).toEqual([]);
     expect(fixture.resolve).toHaveBeenCalledOnce();
@@ -225,41 +234,92 @@ describe('native annotation geometry', () => {
   });
 });
 
-function createFixture(resolve: ReturnType<typeof vi.fn>) {
+describe('engine target resolution', () => {
+  it('projects the re-anchored range and reports the level that found it', async () => {
+    const resolve = vi.fn(() => Promise.resolve(resolvedRange()));
+    const locate = vi.fn((target: AnnotationTarget) =>
+      Promise.resolve({
+        level: 'quote' as const,
+        target: {
+          ...target,
+          sourceRange: {
+            start: { nodePath: [2], textOffset: 0 },
+            end: { nodePath: [2], textOffset: 3 },
+          },
+        },
+      }),
+    );
+    const fixture = createFixture(resolve, locate);
+
+    schedule(fixture, vi.fn());
+    await settle();
+
+    expect(resolve).toHaveBeenCalledWith({
+      href: 'chapter.xhtml',
+      sourceRange: {
+        start: { nodePath: [2], textOffset: 0 },
+        end: { nodePath: [2], textOffset: 3 },
+      },
+    });
+    expect(fixture.state.resolvedAnnotations).toMatchObject([{ status: 'quote' }]);
+  });
+
+  it('shows an orphaned target without asking for geometry', async () => {
+    const resolve = vi.fn();
+    const locate = vi.fn(() =>
+      Promise.resolve({ level: 'orphaned' as const, reason: 'hrefNotFound' as const }),
+    );
+    const fixture = createFixture(resolve, locate);
+    const updated = vi.fn();
+
+    schedule(fixture, updated);
+    await settle();
+
+    expect(resolve).not.toHaveBeenCalled();
+    expect(updated).toHaveBeenCalledOnce();
+    expect(fixture.state.resolvedAnnotations).toMatchObject([
+      { id: fixture.recordId, status: 'orphaned', segments: [] },
+    ]);
+  });
+
+  it('keeps a target location across a relayout and only re-projects it', async () => {
+    const fixture = createFixture(vi.fn(() => Promise.resolve(resolvedRange())));
+    schedule(fixture, vi.fn());
+    await settle();
+
+    invalidateNativeAnnotationGeometry(fixture.state);
+    schedule(fixture, vi.fn());
+    await settle();
+
+    expect(fixture.locate).toHaveBeenCalledOnce();
+    expect(fixture.resolve).toHaveBeenCalledTimes(2);
+  });
+});
+
+function createFixture(
+  resolve: ReturnType<typeof vi.fn>,
+  locate: NonNullable<ReaderInteractions['resolveAnnotationTarget']> = vi.fn(
+    (target: AnnotationTarget) => Promise.resolve({ level: 'exact' as const, target }),
+  ),
+) {
   const state = createCoordinatorState();
   const store = createAnnotationStore();
   state.annotationStore = store;
-  state.chapterIndices.set('chapter.xhtml', {
-    href: 'chapter.xhtml',
-    normalizedText: 'abcdef',
-    spans: [
-      {
-        nodePath: [0],
-        sourceStart: 0,
-        sourceEnd: 6,
-        normalizedStart: 0,
-        normalizedEnd: 6,
-      },
-    ],
-  });
   const target: AnnotationTarget = {
+    version: 1,
     href: 'chapter.xhtml',
-    selectors: {
-      sourceRange: {
-        type: 'SourceRangeSelector',
-        start: { nodePath: [0], textOffset: 1 },
-        end: { nodePath: [0], textOffset: 4 },
-      },
-      textQuote: { type: 'TextQuoteSelector', exact: 'bcd' },
-      textPosition: { type: 'TextPositionSelector', start: 1, end: 4 },
-      progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 1 / 6 },
+    sourceRange: {
+      start: { nodePath: [0], textOffset: 1 },
+      end: { nodePath: [0], textOffset: 4 },
     },
-    text: { highlight: 'bcd' },
+    quote: { exact: 'bcd', prefix: 'a', suffix: 'ef' },
+    position: { start: 1, end: 4, chapterLength: 6 },
   };
   const recordId = store.add({ kind: 'highlight', target }).id;
   const interactions: ReaderInteractions = {
     enabled: true,
     resolveExactSourceRange: resolve as NonNullable<ReaderInteractions['resolveExactSourceRange']>,
+    resolveAnnotationTarget: locate,
     getPageTargets: () => Promise.resolve(undefined),
     getFootnote: () => Promise.resolve(undefined),
     resolveLocator: () => Promise.resolve(undefined),
@@ -270,7 +330,7 @@ function createFixture(resolve: ReturnType<typeof vi.fn>) {
     chapterMap: new Map([['chapter-item', { startPage: 0, endPage: 1 }]]),
     manifestHrefMap: new Map([['chapter-item', 'chapter.xhtml']]),
   } as unknown as Reader;
-  return { interactions, reader, recordId, resolve, spread, state, store };
+  return { interactions, locate, reader, recordId, resolve, spread, state, store };
 }
 
 function schedule(fixture: ReturnType<typeof createFixture>, updated: () => void): void {

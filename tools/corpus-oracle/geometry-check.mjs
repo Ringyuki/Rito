@@ -1,4 +1,4 @@
-// What geometry is the reader actually using? Shell/canvas/revision config.
+// What geometry is the reader actually using? Shell, canvas and committed layout.
 // usage: node geometry-check.mjs <book.epub>
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -26,7 +26,7 @@ await page.waitForTimeout(1500);
 const geometry = await page.evaluate(() => {
   const shell = document.querySelector('[data-testid=reader-shell]');
   const canvas = document.querySelector('canvas');
-  const revision = globalThis.__ritoReaderDiagnostics?.revision?.();
+  const diagnostics = globalThis.__ritoReaderDiagnostics;
   return {
     viewport: { width: window.innerWidth, height: window.innerHeight },
     shell: shell ? shell.getBoundingClientRect().toJSON() : null,
@@ -36,9 +36,8 @@ const geometry = await page.evaluate(() => {
           buffer: { width: canvas.width, height: canvas.height },
         }
       : null,
-    revisionKeys: revision ? Object.keys(revision) : null,
-    presentation: revision?.presentation ?? null,
-    layout: revision?.layout ?? revision?.layoutConfig ?? null,
+    layout: diagnostics?.layout?.() ?? null,
+    rejectedFontFamilies: diagnostics?.rejectedFontFamilies?.() ?? null,
   };
 });
 console.log(JSON.stringify(geometry, null, 2));

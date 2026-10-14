@@ -152,13 +152,23 @@ void _pages(TestWireWriter writer, int pageIndex) {
     page.record((hit) {
       hit.uint32(pageIndex);
       _rect(hit, 4, 5, 20, 30);
+      hit.uint8(1);
       hit.string('body');
       hit.option(() => hit.string('#note'));
       hit.option(() => _sourcePoint(hit, <int>[1, 9, 2], 47));
+      hit.option(() {
+        hit.record((locator) {
+          locator.string('chapter-2.xhtml');
+          locator.option(() => locator.string('note'));
+          locator.option(null);
+          locator.option(null);
+          locator.option(null);
+        });
+      });
+      hit.option(() => hit.string('Chapter two'));
       hit.option(null);
       hit.option(null);
       hit.option(null);
-      hit.boolean(false);
     });
     page.uint32(1);
     page.record((semantic) {

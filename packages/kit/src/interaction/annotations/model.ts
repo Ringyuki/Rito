@@ -4,8 +4,11 @@
  * re-resolved against each committed layout revision.
  */
 
+import type { ReaderAnnotationTarget } from '@ritojs/core';
 import type { Rect } from '../layout-types';
-import type { AnnotationTarget } from '../anchors/model';
+
+/** The engine-built persisted anchor; every host stores the same form. */
+export type AnnotationTarget = ReaderAnnotationTarget;
 
 /** A persistent annotation record anchored to source content. */
 export interface AnnotationRecord {
@@ -32,13 +35,8 @@ export interface AnnotationRecordPatch {
   readonly note?: string;
 }
 
-/** Which selector of the record's cascade located it in the current source text. */
-export type ResolutionStatus =
-  | 'exact'
-  | 'quote-fallback'
-  | 'position-fallback'
-  | 'progression-fallback'
-  | 'orphaned';
+/** Which level of the engine's cascade located the record in the current source text. */
+export type ResolutionStatus = 'exact' | 'quote' | 'position' | 'progression' | 'orphaned';
 
 /** The record's rectangles on one page, in page-content coordinates from the committed revision. */
 export interface ResolvedAnnotationSegment {

@@ -1,7 +1,3 @@
-use std::collections::BTreeMap;
-
-use sha2::{Digest, Sha256};
-
 use super::RunPaint;
 
 mod reader_wire;
@@ -9,8 +5,10 @@ mod refs;
 #[cfg(test)]
 pub(crate) mod test_support;
 
-pub(crate) use reader_wire::{contract, encode_reader_primitive_list, ReaderEncodedDisplayList};
-pub(crate) use refs::{summarize_display_list_font_families, summarize_display_list_resource_refs};
+#[cfg(test)]
+pub(crate) use reader_wire::READER_PRIMITIVE_LIST_FORMAT_VERSION;
+pub(crate) use reader_wire::{contract, encode_reader_primitive_list};
+pub(crate) use refs::summarize_display_list_resource_refs;
 
 use contract::{
     ReaderBlockPaint, ReaderBorderBox, ReaderCornerRadius, ReaderHorizontalRulePaint,
@@ -123,24 +121,6 @@ impl DisplayCommand {
             source_rect: Some(source_rect),
         }
     }
-
-    /// The command's kind, as the frame metadata counts it.
-    pub(crate) fn kind_name(&self) -> &'static str {
-        match self {
-            Self::PushState => "pushState",
-            Self::PopState => "popState",
-            Self::Translate { .. } => "translate",
-            Self::Opacity { .. } => "opacity",
-            Self::Transform { .. } => "transform",
-            Self::ClipRect { .. } => "clipRect",
-            Self::PaintPage { .. } => "paintPage",
-            Self::PaintBlock { .. } => "paintBlock",
-            Self::PaintText(_) => "paintText",
-            Self::PaintRuby(_) => "paintRuby",
-            Self::PaintImage { .. } => "paintImage",
-            Self::PaintHorizontalRule { .. } => "paintHorizontalRule",
-        }
-    }
 }
 
 /// A display coordinate rounded to six decimals: every 1/64 LayoutUnit
@@ -166,31 +146,6 @@ pub(crate) fn display_rect(x: f64, y: f64, width: f64, height: f64) -> ReaderRec
         width: display_number(width),
         height: display_number(height),
     }
-}
-
-pub(crate) fn count_display_commands(commands: &[DisplayCommand]) -> BTreeMap<String, usize> {
-    let mut counts = BTreeMap::new();
-    for command in commands {
-        *counts.entry(command.kind_name().to_owned()).or_insert(0) += 1;
-    }
-    counts
-}
-
-/// Identifies a display list within one engine build: the SHA-256 of
-/// every command's complete `Debug` rendering, which serializes each
-/// typed field deterministically. The digest names a frame to hosts and
-/// caches; it is not a wire contract across builds.
-pub(crate) fn hash_display_commands(commands: &[DisplayCommand]) -> String {
-    let mut digest = Sha256::new();
-    for command in commands {
-        digest.update(format!("{command:?}\n").as_bytes());
-    }
-    digest
-        .finalize()
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 #[cfg(test)]

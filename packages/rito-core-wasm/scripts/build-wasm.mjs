@@ -1,28 +1,19 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { decoderDeclarationFiles, runtimeModules, typeModules } from './emitted-sources.mjs';
-import { documentClassDeclarations } from './document-declarations.mjs';
+import {
+  readerSessionRuntimeExports,
+  runtimeModules,
+  sharedDeclarations,
+} from './emitted-sources.mjs';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageRoot, '../..');
 const dist = resolve(packageRoot, 'dist');
 const wasmInput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release/rito_wasm.wasm');
-const runtimeSources = runtimeModules.map((name) => ({
-  source: resolve(packageRoot, `src/${name}`),
-  target: resolve(dist, name),
-}));
-const errorDeclarationSource = resolve(packageRoot, 'src/core-wasm-error-runtime.d.ts');
-const navigationDeclarationSource = resolve(packageRoot, 'src/reader-navigation-runtime.d.ts');
-const decoderDeclarationSources = decoderDeclarationFiles.map((name) =>
-  resolve(packageRoot, `src/${name}`),
-);
-const typeDeclarationSources = typeModules.map((name) =>
-  resolve(packageRoot, `src/types/${name}.ts`),
-);
 
 ensureWasmBindgen();
 run('cargo', ['build', '-p', 'rito-wasm', '--target', 'wasm32-unknown-unknown', '--release']);
@@ -35,192 +26,33 @@ await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
 run('wasm-bindgen', [wasmInput, '--out-dir', dist, '--target', 'web', '--typescript']);
-await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, target)));
-
-const errorDeclarations = stripTypeOnlyImports(await readFile(errorDeclarationSource, 'utf8'));
-const compatDeclarations = stripTypeOnlyImports(
-  await readFile(navigationDeclarationSource, 'utf8'),
+await Promise.all(
+  runtimeModules.map((name) => copyFile(resolve(packageRoot, `src/${name}`), resolve(dist, name))),
 );
-const decoderDeclarations = await readTypeDeclarations(decoderDeclarationSources);
-const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
-await writeFile(resolve(dist, 'decoder.mjs'), decoderEntry());
-await writeFile(resolve(dist, 'index.mjs'), indexEntry());
+
+const declarations = await sharedDeclarations((path) =>
+  pathToFileURL(resolve(packageRoot, `src/${path}`)),
+);
+const runtimeExports = readerSessionRuntimeExports();
+await writeFile(resolve(dist, 'decoder.mjs'), [...runtimeExports, ''].join('\n'));
+await writeFile(
+  resolve(dist, 'index.mjs'),
+  [
+    "export { default as initRitoCoreWasm, RitoReaderSession } from './rito_wasm.js';",
+    ...runtimeExports,
+    '',
+  ].join('\n'),
+);
 await writeFile(
   resolve(dist, 'index.d.mts'),
   [
-    "import type { InitInput } from './rito_wasm.js';",
-    "export { default as initRitoCoreWasm, RitoReaderSession, RitoWasmDocument } from './rito_wasm.js';",
+    "export { default as initRitoCoreWasm, RitoReaderSession } from './rito_wasm.js';",
     "export type { InitInput } from './rito_wasm.js';",
-    errorDeclarations,
-    typeDeclarations,
-    compatDeclarations,
-    decoderDeclarations,
-    documentDeclarations(),
-    readerClientDeclarations(),
-    'export declare function getRitoCoreWasmStatus(): RitoCoreWasmStatus;',
+    declarations,
     '',
   ].join('\n'),
 );
-await writeFile(
-  resolve(dist, 'decoder.d.mts'),
-  [
-    errorDeclarations,
-    typeDeclarations,
-    compatDeclarations,
-    decoderDeclarations,
-    readerClientDeclarations(),
-    '',
-  ].join('\n'),
-);
-
-function decoderEntry() {
-  return [
-    "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
-    "export { createRitoCoreWasmReaderRevisionSession } from './reader-revision-session-runtime.js';",
-    "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
-    ...readerSessionRuntimeExports(),
-    "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
-    '',
-  ].join('\n');
-}
-
-function indexEntry() {
-  return [
-    "import initRitoCoreWasm, { RitoWasmDocument as RawRitoWasmDocument } from './rito_wasm.js';",
-    "import { createRitoCoreWasmDocumentRuntime } from './core-wasm-document-runtime.js';",
-    '',
-    'const runtime = createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument);',
-    '',
-    "export { default as initRitoCoreWasm, RitoReaderSession, RitoWasmDocument } from './rito_wasm.js';",
-    "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
-    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-navigation-runtime.js';",
-    "export { createRitoCoreWasmReaderRevisionSession } from './reader-revision-session-runtime.js';",
-    "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
-    ...readerSessionRuntimeExports(),
-    "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
-    'export const initRitoCoreWasmEngine = runtime.initRitoCoreWasmEngine;',
-    'export const RitoCoreWasmDocument = runtime.RitoCoreWasmDocument;',
-    'export const ritoCoreWasmMemoryByteLength = runtime.ritoCoreWasmMemoryByteLength;',
-    '',
-    'export function getRitoCoreWasmStatus() {',
-    '  return createRitoCoreWasmStatus(true);',
-    '}',
-    '',
-    createStatusFunctionSource(),
-  ].join('\n');
-}
-
-function readerSessionRuntimeExports() {
-  return [
-    "export { decodeRitoReaderArtifact, decodeRitoReaderResource } from './reader-session-artifact-decoder-runtime.js';",
-    "export { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';",
-    "export { decodeRitoReaderPrimitiveList, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION } from './reader-session-primitive-decoder-runtime.js';",
-    "export { encodeRitoReaderAdjacentRequest, encodeRitoReaderArtifactRequest } from './reader-session-request-runtime.js';",
-    "export { decodeRitoReaderForegroundHandoffAck, encodeRitoReaderForegroundHandoff } from './reader-session-foreground-runtime.js';",
-    "export { decodeRitoReaderBackgroundAdvance, decodeRitoReaderBackgroundHandoffAck, encodeRitoReaderBackgroundHandoff, encodeRitoReaderBackgroundRequest } from './reader-session-background-runtime.js';",
-    "export { createRitoCoreWasmReaderSessionWorkerHandler } from './reader-session-worker-runtime.js';",
-    "export { createRitoCoreWasmReaderSessionWorkerClient, RitoReaderError } from './reader-session-worker-client-runtime.js';",
-    "export { RitoReaderWireError } from './reader-session-wire-base-runtime.js';",
-  ];
-}
-
-function documentDeclarations() {
-  const classDeclarations = documentClassDeclarations();
-  requireDocumentDeclarationContract(classDeclarations);
-  return [
-    'export interface RitoCoreWasmEngine {',
-    '  openDocument(',
-    '    bytes: Uint8Array,',
-    '    options?: RitoCoreWasmOpenDocumentOptions,',
-    '  ): RitoCoreWasmDocument;',
-    '}',
-    'export declare function initRitoCoreWasmEngine(',
-    '  initInput?:',
-    '    | InitInput',
-    '    | Promise<InitInput>',
-    '    | { readonly module_or_path: InitInput | Promise<InitInput> },',
-    '): Promise<RitoCoreWasmEngine>;',
-    '/**',
-    ' * Current WASM linear-memory size in bytes, or 0 before initialization.',
-    ' * Linear memory never shrinks, so this is the high-water mark a recycling',
-    ' * policy uses to bound how large a reused instance may grow.',
-    ' */',
-    'export declare function ritoCoreWasmMemoryByteLength(): number;',
-    classDeclarations,
-  ].join('\n');
-}
-
-function requireDocumentDeclarationContract(declaration) {
-  for (const required of [
-    'publication(): RitoCoreWasmPublicationInfo;',
-    'pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;',
-    'takeResourceTransfer(transferId: string): Uint8Array;',
-  ]) {
-    if (!declaration.includes(required)) {
-      throw new Error(`Document declarations are missing: ${required}`);
-    }
-  }
-}
-
-function readerClientDeclarations() {
-  return [
-    'export declare function createRitoCoreWasmWorkerReaderClient(',
-    '  worker: RitoCoreWasmReaderWorkerLike,',
-    '  cache?: RitoCoreWasmReaderSessionCache,',
-    '  options?: RitoCoreWasmWorkerReaderClientOptions,',
-    '): RitoCoreWasmReaderWorkerClient;',
-    'export declare function createRitoCoreWasmInProcessReaderClient(',
-    '  module: RitoCoreWasmReaderBindingRuntimeModule,',
-    '  cache?: RitoCoreWasmReaderSessionCache,',
-    '): RitoCoreWasmReaderWorkerClient;',
-    'export declare function createRitoCoreWasmReaderWorkerHandler(',
-    '  scope: RitoCoreWasmReaderWorkerScope,',
-    '  deps: RitoCoreWasmReaderWorkerHandlerDeps,',
-    '): void;',
-  ].join('\n');
-}
-
-function createStatusFunctionSource() {
-  return [
-    'function createRitoCoreWasmStatus(npmWasmArtifact) {',
-    '  return {',
-    "    packageName: '@ritojs/core-wasm',",
-    "    status: 'experimental',",
-    "    engine: 'rust',",
-    '    rustFacade: {',
-    '      publicationJson: true,',
-    '      pinnedFontPolicyJson: true,',
-    '      runtimeBundleRitorb1: true,',
-    '      frameJson: true,',
-    '      packedFrameCommandBuffer: true,',
-    '      footnoteJson: true,',
-    '      footnotesJson: true,',
-    '      chapterTextIndicesJson: true,',
-    '      pageTargetsJson: true,',
-    '      pageSemanticsJson: true,',
-    '      pageReadingAnchorJson: true,',
-    '      pageTextPositionsJson: true,',
-    '      textRangeGeometryJson: true,',
-    '      exactTextInteractionJson: true,',
-    '      locatorJson: true,',
-    '      resourcePrefetchJson: true,',
-    '      plannedFrameResourcePrefetchJson: true,',
-    '      searchJson: true,',
-    '      resourceTransferLeases: true,',
-    '      versionedRevisionAccess: true,',
-    '      revisionControl: true,',
-    '      chapterLocalRevisionControl: true,',
-    '      revisionSessionController: true,',
-    '      readerSession: true,',
-    '      wasmBindgen: true,',
-    '      npmWasmArtifact,',
-    '    },',
-    '  };',
-    '}',
-    '',
-  ].join('\n');
-}
+await writeFile(resolve(dist, 'decoder.d.mts'), [declarations, ''].join('\n'));
 
 function ensureWasmBindgen() {
   const result = spawnSync('wasm-bindgen', ['--version'], {
@@ -233,28 +65,6 @@ function ensureWasmBindgen() {
   throw new Error(
     'wasm-bindgen CLI is required for build:wasm. Install it with `cargo install wasm-bindgen-cli`.',
   );
-}
-
-async function readTypeDeclarations(paths) {
-  const sources = await Promise.all(paths.map((path) => readFile(path, 'utf8')));
-  return sources.map(stripTypeOnlyImports).join('\n');
-}
-
-function stripTypeOnlyImports(source) {
-  const lines = [];
-  let skippingImport = false;
-  for (const line of source.split('\n')) {
-    if (skippingImport) {
-      if (line.includes(';')) skippingImport = false;
-      continue;
-    }
-    if (!line.startsWith('import type ')) {
-      lines.push(line);
-      continue;
-    }
-    skippingImport = !line.includes(';');
-  }
-  return lines.join('\n');
 }
 
 function run(command, args) {

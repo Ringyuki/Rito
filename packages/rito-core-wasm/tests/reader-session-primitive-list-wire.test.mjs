@@ -23,7 +23,7 @@ test('decodes every primitive the Rust encoder writes', () => {
   const list = decodeRitoReaderPrimitiveList(primitiveListFixture());
   assert.equal(list.formatVersion, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION);
   assert.equal(list.ratio, 2);
-  assert.equal(list.commandCount, 13);
+  assert.equal(list.commandCount, 14);
   assert.deepEqual(
     list.commands.map((command) => command.kind),
     [
@@ -40,8 +40,18 @@ test('decodes every primitive the Rust encoder writes', () => {
       'draw-image',
       'text',
       'ruby',
+      'image-fallback',
     ],
   );
+  const fallback = list.commands[13];
+  assert.equal(fallback.src, 'images/cover.jpg');
+  assert.equal(fallback.state, 'broken');
+  assert.deepEqual(fallback.block, list.commands[10].dest);
+  assert.equal(fallback.blockInk, 0.06);
+  assert.equal(fallback.iconInk, 0.4);
+  assert.equal(fallback.pieces.length, 2);
+  assert.ok(fallback.pieces.every((piece) => piece.clip.length > 0 && piece.path.length > 0));
+  assert.ok(fallback.pieces[0].offset.x < 0 && fallback.pieces[1].offset.x > 0);
   assert.deepEqual(list.commands[2], { kind: 'translate', dx: 1, dy: 2 });
   assert.deepEqual(list.commands[4], {
     kind: 'transform',
