@@ -52,7 +52,8 @@ impl TreeBuilder<'_> {
                 .map_err(|error| EpubError::new(format!("image style resolves: {error}")))?;
             (
                 resolved.float != rito_style_contract::Float::None,
-                shared_box_capability_violation(resolved),
+                shared_box_capability_violation(resolved)
+                    .or_else(|| image_sizing_violation(resolved)),
             )
         };
         if floated {
@@ -145,9 +146,26 @@ fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
     None
 }
 
+/// Image sizing whitelist: intrinsic and stretch keywords keep the natural
+/// size, as for auto.
+fn image_sizing_violation(style: &LayoutFormattingStyle) -> Option<String> {
+    use rito_style_contract as c;
+    for (axis, size) in [("width", style.width), ("height", style.height)] {
+        match size {
+            c::PreferredSize::Auto | c::PreferredSize::Value(_) => {}
+            other => return Some(format!("{axis} {other:?} (natural size used)")),
+        }
+    }
+    None
+}
+
 /// Constraints shared by every box the engine lays out, replaced or not.
 fn shared_box_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
     use rito_style_contract as c;
+    match style.max_width {
+        c::MaximumSize::None | c::MaximumSize::Value(_) => {}
+        other => return Some(format!("max-width {other:?} (cap ignored)")),
+    }
     // Floated blocks lay out as placed float boxes: a resolvable width is
     // used directly, and an auto width shrinks to fit its content.
     // Floated images (line-box wrapping) stay rejected at collection.

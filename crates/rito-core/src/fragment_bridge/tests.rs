@@ -7,6 +7,7 @@ mod boxes;
 mod flow;
 mod inline;
 mod pagination;
+mod sizing;
 mod tree;
 
 use super::*;
