@@ -348,7 +348,12 @@ fn intrinsic_max_width_is_retained_for_consumer_compatibility() {
 
     let projection = document.resolve_production_slice().unwrap();
     assert_eq!(
-        projection.layout().table().style_for_node(target.index()).unwrap().max_width,
+        projection
+            .layout()
+            .table()
+            .style_for_node(target.index())
+            .unwrap()
+            .max_width,
         MaximumSize::MaxContent
     );
     assert!(projection.layout().is_contract_slice_complete());

@@ -18,13 +18,26 @@ fn sizing_pages(declaration: &str, floated: bool) -> (Vec<Fragment>, Vec<String>
          .hidden {{ display:none; }} .tail {{ clear:both; }}",
         if floated { "left" } else { "none" },
     );
-    let chapter = resolved_chapter_with(&xhtml, &css);
+    let (pages, degradations) = paginate(&xhtml, &css, &no_images());
+    assert!(
+        pages.len() > 1,
+        "fixture exercises continuation across pages"
+    );
+    (pages, degradations)
+}
+
+fn paginate(
+    xhtml: &str,
+    css: &str,
+    images: &BTreeMap<String, (u32, u32)>,
+) -> (Vec<Fragment>, Vec<String>) {
+    let chapter = resolved_chapter_with(xhtml, css);
     let built = build_chapter_formatting_tree(
         &chapter.nodes,
         chapter.body_index,
         &chapter.layout,
         &chapter.inline,
-        &no_images(),
+        images,
     )
     .expect("sizing fixture builds");
     let engine = BlockFormattingContext::new(
@@ -54,11 +67,17 @@ fn sizing_pages(declaration: &str, floated: bool) -> (Vec<Fragment>, Vec<String>
             "sizing fallback pagination must terminate"
         );
     }
-    assert!(
-        pages.len() > 1,
-        "fixture exercises continuation across pages"
-    );
     (pages, built.degradations)
+}
+
+fn image_pages(declaration: &str) -> (Vec<Fragment>, Vec<String>) {
+    let xhtml = format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<p>a<img src="plate.png" alt="" style="{declaration}"/>b</p></body></html>"#
+    );
+    let css = "body { margin:0; font-family:Tinos; font-size:16px; } p { margin:0; }";
+    let images = BTreeMap::from([("plate.png".to_owned(), (40, 30))]);
+    paginate(&xhtml, css, &images)
 }
 
 #[test]
@@ -91,18 +110,77 @@ fn modern_sizing_paginates_like_auto_without_losing_box_geometry_or_text() {
 }
 
 #[test]
-fn modern_sizing_on_floats_preserves_auto_shrink_to_fit() {
+fn intrinsic_sizing_on_floats_shrinks_to_fit_like_auto() {
     let (expected, _) = sizing_pages("width:auto;max-width:none", true);
     for value in [
         "fit-content",
         "min-content",
         "max-content",
-        "-webkit-fill-available",
-        "stretch",
         "fit-content(120px)",
     ] {
         let (pages, _) = sizing_pages(&format!("width:{value};max-width:{value}"), true);
         assert_eq!(pages, expected, "float fallback changes geometry: {value}");
+    }
+}
+
+#[test]
+fn stretch_sizing_on_floats_fills_the_available_width() {
+    // Short content keeps shrink-to-fit narrower than the line.
+    let float_pages = |declaration: &str| {
+        let xhtml = format!(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div class="card" style="{declaration}">Short</div><p class="tail">End.</p></body></html>"#
+        );
+        let css = "body { margin:0; font-family:Tinos; font-size:16px; } p { margin:0; }
+             .card { float:left; padding:6px 10px; margin:0 12px; border:2px solid black; }
+             .tail { clear:both; }";
+        paginate(&xhtml, css, &no_images()).0
+    };
+    // 200px line minus 12px margins, 10px padding and 2px borders per side.
+    let expected = float_pages("width:152px");
+    assert_ne!(
+        float_pages("width:auto"),
+        expected,
+        "fixture distinguishes fill from shrink"
+    );
+    for value in ["-webkit-fill-available", "stretch"] {
+        let pages = float_pages(&format!("width:{value};max-width:{value}"));
+        assert_eq!(pages, expected, "float fallback must fill: {value}");
+    }
+}
+
+#[test]
+fn modern_sizing_on_images_keeps_the_natural_size() {
+    for property in ["width", "height"] {
+        let (expected, baseline) = image_pages(&format!("{property}:auto"));
+        assert!(
+            !baseline
+                .iter()
+                .any(|reason| reason.contains("dimensions unavailable")),
+            "fixture image must be decoded: {baseline:?}",
+        );
+        for value in [
+            "fit-content",
+            "min-content",
+            "max-content",
+            "-webkit-fill-available",
+            "stretch",
+            "fit-content(120px)",
+        ] {
+            let declaration = format!("{property}:{value}");
+            let (pages, degradations) = image_pages(&declaration);
+            assert_eq!(
+                pages, expected,
+                "image fallback changes geometry: {declaration}"
+            );
+            assert!(
+                degradations
+                    .iter()
+                    .any(|reason| reason.contains("image constraint ignored")
+                        && reason.contains(property)),
+                "fallback must remain visible in diagnostics: {declaration}: {degradations:?}",
+            );
+        }
     }
 }
 

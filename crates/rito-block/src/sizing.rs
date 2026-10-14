@@ -130,7 +130,9 @@ pub(crate) fn resolve_horizontal_box(
         // Keep books readable until intrinsic/extrinsic sizing is implemented.
         // The chapter bridge records the unsupported value; use auto here,
         // preserving numeric caps, padding and margins instead of aborting
-        // the entire chapter when it becomes the adjacent navigation target.
+        // the entire chapter. This is exact for `stretch` and
+        // `-webkit-fill-available`; the intrinsic keywords fill the line
+        // where a browser would fit the block to its content.
         PreferredSize::MaxContent
         | PreferredSize::MinContent
         | PreferredSize::FitContent
