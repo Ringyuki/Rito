@@ -681,7 +681,7 @@ describe('session reader interactions', () => {
     });
     const opened = await open({ logLevel: 'warn' });
     await bookScope(opened.reader);
-    opened.fake.refuse('markFontFamiliesUnavailable', new RitoReaderError('internal', 'no'));
+    opened.fake.refuse('markFontFamiliesUnavailable', new RitoReaderError('engine-failure', 'no'));
     const requests = opened.fake.requests.length;
     const { fontRejected } = harness.presenterOptions as {
       readonly fontRejected: (font: { family: string }, error: unknown) => void;
