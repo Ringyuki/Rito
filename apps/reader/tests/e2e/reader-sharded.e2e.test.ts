@@ -1,6 +1,6 @@
 // A sharded publication in the real reader: real worker, real wasm engine,
-// real canvas. The shards are packed by the repository's own rito-pack and
-// served through an intercepted route the test controls, so the network
+// real canvas. The shards are packed by the repository's own @ritojs/pack
+// (its built `rito-pack` command) and served through an intercepted route the test controls, so the network
 // can be held, failed or released at will. Every page is compared pixel for
 // pixel with the same book opened from its archive in a second tab.
 import { execFileSync } from 'node:child_process';
@@ -96,12 +96,11 @@ let packDir: string;
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(() => {
-  // Building rito-pack can take minutes on a cold cache.
-  test.setTimeout(600_000);
   packDir = mkdtempSync(join(tmpdir(), 'rito-e2e-shards-'));
+  // Built with the rest of the workspace (`pnpm run build`).
   execFileSync(
-    'cargo',
-    ['run', '--quiet', '--release', '-p', 'rito-pack', '--', BOOK, packDir, '--encrypt'],
+    process.execPath,
+    [resolve(REPO, 'packages/pack/dist/cli.mjs'), BOOK, packDir, '--encrypt'],
     { cwd: REPO, stdio: 'inherit' },
   );
   const manifest = JSON.parse(readFileSync(join(packDir, 'manifest.json'), 'utf8')) as {
