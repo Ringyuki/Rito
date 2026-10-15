@@ -103,7 +103,7 @@ final class RitoReaderSession {
     );
   }
 
-  /// Opens a publication split by `rito-pack` from its skeleton shard.
+  /// Opens a publication split by `@ritojs/pack` from its skeleton shard.
   ///
   /// The skeleton carries every chapter, stylesheet and font and every
   /// image's dimensions, so opening, seeking, turning and whole-book
