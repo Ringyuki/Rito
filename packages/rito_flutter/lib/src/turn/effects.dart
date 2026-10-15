@@ -20,12 +20,20 @@ enum RitoPageTurnPhase {
 }
 
 /// The finger that moved a turn: where it took hold of the page and where
-/// it is — or, once it lifted, where it let go — in the view's logical px.
+/// it is — or, once it lifted, where it let go — in the view's logical px;
+/// and where it was when it had carried the turn farthest the way the turn
+/// goes ([farthest]), which is [position] when left out. A finger short of
+/// its farthest has come back.
 final class RitoPageTurnTouch {
-  const RitoPageTurnTouch({required this.origin, required this.position});
+  const RitoPageTurnTouch({
+    required this.origin,
+    required this.position,
+    Offset? farthest,
+  }) : farthest = farthest ?? position;
 
   final Offset origin;
   final Offset position;
+  final Offset farthest;
 }
 
 /// One frame of a page turn as an effect sees it: how far the turn has
@@ -70,6 +78,16 @@ abstract interface class RitoPageTurnPages {
 
   /// The page in [slot], or null while it is not painted yet.
   ui.Image? image(RitoPageSlot slot);
+
+  /// Which spread of the book the page in [slot] is: what tells it from
+  /// every other page from one turn to the next, and puts pages in reading
+  /// order. The next page's is one more than the current page's and the
+  /// previous page's one less; a page keeps it while turns move it from
+  /// slot to slot, and when background pagination renumbers it. A page
+  /// reached by a jump or a relayout gets one no page before it had (a jump
+  /// played as a turn, past them on the side it comes in from). It is not
+  /// a page number. Null while [slot] has no page.
+  int? spread(RitoPageSlot slot);
 
   /// How far a page that arrived late has faded in (0–1); a painted effect
   /// multiplies its own opacity by it.

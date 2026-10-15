@@ -41,7 +41,10 @@ final class RitoPageTurnController extends ChangeNotifier {
   }) : _motion = RitoTurnMotion(physics),
        _effect = effect,
        _revision = reader.revision {
-    textures = RitoPageTextures(painter: paintPage, onChanged: notifyListeners);
+    textures = RitoPageTextures(
+      painter: paintPage,
+      onChanged: _texturesChanged,
+    );
     _ticker = vsync.createTicker(_tick);
     reader.addListener(_readerChanged);
     _prewarm();
@@ -53,8 +56,10 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// cross-fade whatever the [effect].
   final bool respectReducedMotion;
 
-  /// Lays out and rasterizes both neighbours while no turn is on screen,
-  /// so a turn starts with its page ready.
+  /// Lays out both neighbours while no turn is on screen and, between
+  /// frames once nothing moves, rasterizes them and the page on screen, so
+  /// a turn starts with no page left to draw. Three page images stay in
+  /// memory at rest.
   final bool prewarm;
 
   /// The page images effects paint from.
@@ -83,6 +88,12 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// A finger came down on a turn and takes hold once its outcome is settled.
   bool _dragWaiting = false;
   RitoPageTurnTouch? _touch;
+
+  /// How far the finger had carried the turn at its farthest the way the
+  /// turn goes, and where it was then; null before it has carried it.
+  ({double travel, Offset at})? _farthest;
+
+  Timer? _warmTimer;
 
   /// One start and exactly one end for every turn.
   Stream<RitoPageTurnEvent> get events => _events.stream;
@@ -197,7 +208,17 @@ final class RitoPageTurnController extends ChangeNotifier {
         hasIncoming: reader.canTurn(direction),
       );
     }
-    _touch = RitoPageTurnTouch(origin: _dragOrigin, position: position);
+    final far = _farthest;
+    final farther =
+        far == null ||
+        (_motion.forward ? travel < far.travel : travel > far.travel);
+    final farthest = farther ? (travel: travel, at: position) : far;
+    _farthest = farthest;
+    _touch = RitoPageTurnTouch(
+      origin: _dragOrigin,
+      position: position,
+      farthest: farthest.at,
+    );
     _motion.drag(travel);
     notifyListeners();
   }
@@ -273,7 +294,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _revision = reader.revision;
     if (page == null || _open != null) return page;
     textures.clear(except: {RitoPageSlot.current});
-    textures.assign(_slotOf(animateAs), page);
+    textures.assign(_slotOf(animateAs), page, jump: true);
     _begin(animateAs, fromShown: true);
     _motion.turn(forward: animateAs == RitoAdjacentDirection.next);
     _committing = true;
@@ -293,6 +314,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _committing = false;
     _landed = null;
     _touch = null;
+    _farthest = null;
     _releasePagination ??= reader.holdPagination();
     if (!fromShown) {
       textures.assign(RitoPageSlot.current, reader.page);
@@ -404,6 +426,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _open = null;
     _committing = false;
     _touch = null;
+    _farthest = null;
     _releasePagination?.call();
     _releasePagination = null;
     notifyListeners();
@@ -440,9 +463,11 @@ final class RitoPageTurnController extends ChangeNotifier {
   void _readerChanged() {
     if (reader.revision == _revision || _landing) return;
     _revision = reader.revision;
-    // The neighbours peeked from the old page are about to be released.
-    textures.clear();
-    if (reader.lastChange == RitoPageChange.pagination) {
+    final renumbered = reader.lastChange == RitoPageChange.pagination;
+    // The neighbours peeked from the old page are about to be released; a
+    // page renumbered stays the same page in its slot.
+    textures.clear(except: {if (renumbered) RitoPageSlot.current});
+    if (renumbered) {
       // The same page renumbered: a turn on screen carries on with fresh
       // pages.
       final open = _open;
@@ -477,6 +502,40 @@ final class RitoPageTurnController extends ChangeNotifier {
           textures.page(_slotOf(direction)) == null) {
         _fetchNeighbour(direction, reveal: false);
       }
+    }
+    _scheduleWarm();
+  }
+
+  void _texturesChanged() {
+    notifyListeners();
+    _scheduleWarm();
+  }
+
+  /// Rasterizes the pages a turn starts from in a task of the event loop,
+  /// between frames. Not an idle-priority task of the scheduler: while any
+  /// animation runs, the scheduler retries such a task with one zero-delay
+  /// timer after another, which keeps the isolate busy for as long as the
+  /// animation runs.
+  void _scheduleWarm() {
+    if (!prewarm || _warmTimer != null || _disposed) return;
+    _warmTimer = Timer(Duration.zero, _warm);
+  }
+
+  /// Rasterizes one page that needs it, the one on screen first, and comes
+  /// back for the next: one page per task keeps each short. A turn that
+  /// began meanwhile draws its own pages, and the next rest warms again.
+  void _warm() {
+    _warmTimer = null;
+    if (_disposed || isMoving) return;
+    for (final slot in const [
+      RitoPageSlot.current,
+      RitoPageSlot.next,
+      RitoPageSlot.previous,
+    ]) {
+      if (!textures.needsDrawing(slot)) continue;
+      textures.image(slot);
+      _scheduleWarm();
+      return;
     }
   }
 
@@ -519,6 +578,7 @@ final class RitoPageTurnController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _warmTimer?.cancel();
     reader.removeListener(_readerChanged);
     _motion.reset();
     _end(RitoPageTurnOutcome.interrupted);

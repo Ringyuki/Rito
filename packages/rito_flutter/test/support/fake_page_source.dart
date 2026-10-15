@@ -37,6 +37,9 @@ final class FakePageSource implements RitoPageSource {
 
   /// A turn waits for this while it is set.
   Completer<void>? turnGate;
+
+  /// A peek waits for this while it is set.
+  Completer<void>? peekGate;
   bool failTurn = false;
   final List<String> turns = <String>[];
   int peeks = 0;
@@ -50,6 +53,7 @@ final class FakePageSource implements RitoPageSource {
     RitoAdjacentDirection direction,
   ) async {
     peeks += 1;
+    await peekGate?.future;
     return _peeked[(from.artifactId, direction.name)] = fakePage(_nextId++);
   }
 

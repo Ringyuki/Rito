@@ -1,3 +1,36 @@
+## Unreleased
+
+### Page turns tell an effect which page is which, as on the web
+
+`RitoPageTurnPages.spread(slot)` says which spread of the book a slot
+shows, like `TransitionPage.spread` in `@ritojs/kit`: what tells a page
+from every other from one turn to the next, in reading order. The next
+page's is one more than the current page's and the previous page's one
+less; a page keeps it as turns move it between slots, and when background
+pagination renumbers it; a jump or a relayout numbers its page apart from
+every page before it. It is counted by the turn controller, not taken from
+the engine's page indexes, which start again at each chapter until the
+whole book is laid out. **Breaking** for a class that implements
+`RitoPageTurnPages`: it adds `spread`.
+
+`RitoPageTurnTouch.farthest`, like `TransitionTouch.farthest`, is where
+the finger was when it had carried the turn farthest the way the turn
+goes; a finger short of it has come back. Frames and the release a
+`RitoPageTurnPhysics` judges both carry it; a touch built without it is
+at its farthest.
+
+### Prewarming rasterizes the pages a turn starts from
+
+`RitoPageTurnController(prewarm: true)` laid out both neighbours ahead
+but rasterized no page until a turn's first frame drew it, which then
+drew the page on screen and the incoming one. Now, once nothing moves,
+it rasterizes the page on screen and both neighbours, one per task of the
+event loop between frames, and does again when one changes at rest (an
+image landing late, `invalidatePages`, a new pixel ratio): a turn starts
+with nothing to draw. Three page images stay in memory at rest, as the
+web reader keeps three. A controller disposed before that work is done
+cancels it.
+
 ## 0.5.0 - 2026-10-14
 
 ### Unsupported sizing keywords no longer fail a chapter
