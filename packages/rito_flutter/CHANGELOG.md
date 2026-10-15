@@ -1,4 +1,4 @@
-## Unreleased
+## 0.6.0 - 2026-10-16
 
 ### Page turns tell an effect which page is which, as on the web
 
