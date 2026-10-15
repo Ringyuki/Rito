@@ -357,6 +357,27 @@ fn text_is_deflated_before_sealing_and_incompressible_bytes_are_not() {
 }
 
 #[test]
+fn the_skeleton_is_deflated_harder_than_media_shards() {
+    let text = "<p>Repeated chapter text compresses well.</p>".repeat(200);
+    let body = |kind| {
+        let header = ShardHeader {
+            kind,
+            encrypted: false,
+            compressed: false,
+            book_id: [1; 16],
+            shard_id: u32::from(kind == ShardKind::Content),
+            nonce: [0; 24],
+        };
+        seal_shard(header, text.as_bytes(), None).expect("seals")[super::container::HEADER_BYTES..]
+            .to_vec()
+    };
+    let deflated = |level| miniz_oxide::deflate::compress_to_vec(text.as_bytes(), level);
+    assert_ne!(deflated(6), deflated(1), "the two levels are told apart");
+    assert_eq!(body(ShardKind::Skeleton), deflated(6));
+    assert_eq!(body(ShardKind::Content), deflated(1));
+}
+
+#[test]
 fn a_body_that_claims_deflate_but_does_not_inflate_is_refused() {
     use super::container::open_shard;
 
