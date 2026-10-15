@@ -184,6 +184,37 @@ export default defineConfig([
     },
   },
   {
+    files: ['packages/pack/src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/explicit-module-boundary-types': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/no-unnecessary-condition': 'error',
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+      complexity: ['warn', 24],
+      'max-lines': ['warn', 300],
+      'max-lines-per-function': ['warn', 50],
+    },
+  },
+  {
+    // The command line prints its results.
+    files: ['packages/pack/src/cli.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['packages/pack/tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      'max-lines-per-function': 'off',
+    },
+  },
+  {
     files: ['packages/kit/tests/**/*.ts'],
     rules: {
       '@typescript-eslint/explicit-module-boundary-types': 'off',

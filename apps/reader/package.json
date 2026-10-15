@@ -8,7 +8,7 @@
     "build": "pnpm run typecheck && vite build",
     "build:e2e": "pnpm run typecheck && RITO_READER_BASE=/ vite build",
     "preview": "vite preview",
-    "pack:shards-demo": "cargo run --release -p rito-pack -- src/assets/demo.epub public/shards-demo --encrypt",
+    "pack:shards-demo": "pnpm --filter @ritojs/pack build && node ../../packages/pack/dist/cli.mjs src/assets/demo.epub public/shards-demo --encrypt",
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:e2e:downloads-smoke": "playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.e2e.json"

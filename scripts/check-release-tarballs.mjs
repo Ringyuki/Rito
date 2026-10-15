@@ -23,6 +23,7 @@ const publicPackages = [
   { name: '@ritojs/core', dir: path.join(workspaceRoot, 'packages/rito') },
   { name: '@ritojs/kit', dir: path.join(workspaceRoot, 'packages/kit') },
   { name: '@ritojs/react', dir: path.join(workspaceRoot, 'packages/react') },
+  { name: '@ritojs/pack', dir: path.join(workspaceRoot, 'packages/pack') },
 ];
 const dependencyFields = [
   'dependencies',
@@ -49,6 +50,7 @@ for (const pkg of publicPackages) {
   validatePrivateRuntimeDependencies(pkg.name, packedManifest);
 
   if (pkg.name === '@ritojs/core') validatePackedCore(tarballPath, contents);
+  if (pkg.name === '@ritojs/pack') validatePackedPack(tarballPath, contents);
 
   packedPackages.set(pkg.name, tarballPath);
   console.log(`${pkg.name}: ok (${path.basename(tarballPath)})`);
@@ -57,6 +59,9 @@ for (const pkg of publicPackages) {
 const packedCore = packedPackages.get('@ritojs/core');
 if (!packedCore) throw new Error('The @ritojs/core tarball was not produced');
 smokeInstallPackedCore(packedCore);
+const packedPack = packedPackages.get('@ritojs/pack');
+if (!packedPack) throw new Error('The @ritojs/pack tarball was not produced');
+smokeInstallPackedPack(packedPack);
 
 console.log(`Packed tarballs written to ${packDir}`);
 
@@ -128,6 +133,67 @@ function validatePackedCore(tarballPath, contents) {
     throw new Error(
       `@ritojs/core: packed dist imports private @ritojs/core-wasm modules: ${externalImports.join(', ')}`,
     );
+  }
+}
+
+function validatePackedPack(tarballPath, contents) {
+  const wasmEntry = 'package/dist/rito_pack_bg.wasm';
+  if (!contents.includes(wasmEntry)) {
+    throw new Error('@ritojs/pack: packed tarball is missing dist/rito_pack_bg.wasm');
+  }
+  assertWasm(readTarBuffer(tarballPath, wasmEntry), '@ritojs/pack packed artifact');
+  for (const entry of ['package/dist/worker.mjs', 'package/dist/cli.mjs']) {
+    if (!contents.includes(entry))
+      throw new Error(`@ritojs/pack: packed tarball is missing ${entry}`);
+  }
+  if (!readTarText(tarballPath, 'package/dist/cli.mjs').startsWith('#!/usr/bin/env node')) {
+    throw new Error('@ritojs/pack: dist/cli.mjs lost its shebang');
+  }
+  const externalImports = contents
+    .filter(isJavaScriptModule)
+    .filter((entry) => coreWasmImportPattern.test(readTarText(tarballPath, entry)));
+  if (externalImports.length > 0) {
+    throw new Error(
+      `@ritojs/pack: packed dist imports private @ritojs/core-wasm modules: ${externalImports.join(', ')}`,
+    );
+  }
+}
+
+/** Installs the tarball alone, then packs and checks a book through its API and its bin. */
+function smokeInstallPackedPack(tarballPath) {
+  const smokeDir = mkdtempSync(path.join(os.tmpdir(), 'rito-pack-install-'));
+  try {
+    writeFileSync(
+      path.join(smokeDir, 'package.json'),
+      JSON.stringify({ name: 'rito-pack-smoke', private: true, type: 'module' }),
+    );
+    run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarballPath], smokeDir);
+    const book = path.join(workspaceRoot, 'packages/rito/tests/fixtures/books/book-10.epub');
+    run(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        [
+          "import { readFileSync } from 'node:fs';",
+          "const { checkPublication, packPublication } = await import('@ritojs/pack');",
+          `const epub = readFileSync(${JSON.stringify(book)});`,
+          'const packed = await packPublication(epub, { encrypt: true });',
+          "if (packed.shards.length === 0 || packed.skeleton.key?.length !== 32) throw new Error('packed nothing');",
+          'const check = await checkPublication(epub);',
+          'if (!check.readable) throw new Error(`unreadable: ${check.error}`);',
+        ].join('\n'),
+      ],
+      smokeDir,
+    );
+    const bin = path.join(smokeDir, 'node_modules/.bin/rito-pack');
+    const output = run(bin, ['--check', book], smokeDir);
+    if (!output.includes('readable, 0 problems')) {
+      throw new Error(`@ritojs/pack: the installed rito-pack bin printed ${output}`);
+    }
+    console.log('@ritojs/pack: isolated npm install, pack, check and bin ok');
+  } finally {
+    rmSync(smokeDir, { recursive: true, force: true });
   }
 }
 

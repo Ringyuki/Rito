@@ -1,0 +1,61 @@
+{
+  "name": "@ritojs/pack",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Packs EPUBs into Rito publication shards and checks that the Rito reader can read them, in a Node server process",
+  "license": "AGPL-3.0-only",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "bin": {
+    "rito-pack": "./dist/cli.mjs"
+  },
+  "homepage": "https://github.com/Ringyuki/Rito/tree/master/packages/pack#readme",
+  "bugs": {
+    "url": "https://github.com/Ringyuki/Rito/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ringyuki/Rito.git",
+    "directory": "packages/pack"
+  },
+  "keywords": [
+    "epub",
+    "ebook",
+    "shards",
+    "encryption",
+    "validation",
+    "server"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "pnpm --filter @ritojs/core-wasm build && pnpm run build:js",
+    "build:js": "tsdown && node scripts/copy-wasm-artifact.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm run build:js && vitest run"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@ritojs/core-wasm": "workspace:*",
+    "@types/node": "^25.5.0",
+    "fflate": "^0.8.2",
+    "tsdown": "^0.21.7",
+    "vitest": "^4.1.2"
+  }
+}

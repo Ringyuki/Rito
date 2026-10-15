@@ -50,3 +50,23 @@ await writeFile(
   ].join('\n'),
 );
 await writeFile(new URL('decoder.d.mts', dist), [declarations, ''].join('\n'));
+await writeFile(
+  new URL('rito_pack.js', dist),
+  [
+    `const UNAVAILABLE = ${JSON.stringify(UNAVAILABLE)};`,
+    'export function initSync() {',
+    '  throw new Error(UNAVAILABLE);',
+    '}',
+    'export function packPublication() {',
+    '  throw new Error(UNAVAILABLE);',
+    '}',
+    'export function checkPublication() {',
+    '  throw new Error(UNAVAILABLE);',
+    '}',
+    '',
+  ].join('\n'),
+);
+await copyFile(
+  new URL('../src/rito-pack-placeholder.d.ts', import.meta.url),
+  new URL('rito_pack.d.ts', dist),
+);
