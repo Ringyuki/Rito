@@ -35,7 +35,9 @@ Rito is one Rust engine with several hosts:
 - [Direct FFI integration](./integrations/ffi.md)
 - [Sharded publications](./integrations/sharded-publications.md) — open a
   book from a skeleton that carries every chapter and receive its images
-  one shard at a time
+  one shard at a time; pack books on a server with
+  [`@ritojs/pack`](../packages/pack/README.md), which also checks that the
+  reader can read a book
 
 ## Development Docs
 

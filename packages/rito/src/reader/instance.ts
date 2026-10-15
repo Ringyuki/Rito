@@ -242,7 +242,7 @@ export interface ReaderFontCatalog {
 }
 
 /**
- * A publication split by `rito-pack` and delivered a shard at a time. The
+ * A publication split by `@ritojs/pack` and delivered a shard at a time. The
  * skeleton carries every chapter, stylesheet and font, so the reader opens
  * and lays the whole book out from it; `loadShards` is called the first
  * time a page reads an image, and for images ahead of need while the reader

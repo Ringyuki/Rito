@@ -9,10 +9,12 @@ The private `0.0.0` version is a workspace sentinel.
 
 ## What it contains
 
-- `scripts/build-wasm.mjs` — builds `crates/rito-wasm` for
-  `wasm32-unknown-unknown` with a locally installed `wasm-bindgen` CLI and
-  writes the web-target glue plus `.wasm` into `dist/`; `build:placeholder`
-  writes a WASM-free surface for fast decoder and type tests
+- `scripts/build-wasm.mjs` — builds `crates/rito-wasm` (the reader) and
+  `crates/rito-pack` (packing and the readability check, which
+  `@ritojs/pack` bundles as `./pack`) for `wasm32-unknown-unknown` with a
+  locally installed `wasm-bindgen` CLI and writes the web-target glue plus
+  `.wasm` into `dist/`; `build:placeholder` writes a WASM-free surface for
+  fast decoder and type tests
 - `src/` — the reader session runtime: the Worker that hosts a session
   and the client that speaks to it, the encoders of every request and the
   decoders of every answer (artifacts, the `RITODL1` primitive list,

@@ -1,5 +1,5 @@
 /**
- * A publication split by `rito-pack`: the reader opens from the skeleton and
+ * A publication split by `@ritojs/pack`: the reader opens from the skeleton and
  * asks `loadShards` for each content shard the first time a call needs it.
  */
 export interface RitoCoreWasmShardedPublication {
