@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use crate::{
     layout::LayoutConfig,
-    style::{resolve_prepared_chapter_style, ChapterStyleOptions, PreparedStyleChapterInput},
+    style::{
+        resolve_prepared_chapter_style, select_prepared_chapter_sources, ChapterStyleOptions,
+        PreparedStyleChapterInput, StyleBackendError,
+    },
 };
 
 mod runtime;
@@ -70,24 +73,12 @@ fn chapter_style_tables(
                     inline: rito_style_contract::InlineStyleTable::new(0),
                 });
             }
-            let input = PreparedStyleChapterInput {
-                stylesheet_ledger,
-                chapter_href: &chapter.source.href,
-                source_arena: chapter.source_arena.as_ref(),
-                body_source_node_id: chapter.parsed.body_source_node_id,
-                author_stylesheets: &chapter.parsed.author_stylesheets,
-            };
             let resolved = resolve_prepared_chapter_style(
-                input,
+                style_input(stylesheet_ledger, chapter),
                 viewport,
                 chapter_style_options(layout_config),
             )
-            .map_err(|error| {
-                EpubError::new(format!(
-                    "style resolution failed for chapter {:?}: {error}",
-                    chapter.source.href
-                ))
-            })?;
+            .map_err(|error| style_failure(chapter, error))?;
             Ok(ChapterStyleTable {
                 idref: chapter.source.idref.clone(),
                 layout: resolved.layout_style_table,
@@ -95,6 +86,40 @@ fn chapter_style_tables(
             })
         })
         .collect()
+}
+
+/// Fails as styling `chapter` would on its sources alone, before the
+/// cascade (see [`select_prepared_chapter_sources`]).
+pub(crate) fn check_chapter_style_sources(
+    stylesheet_ledger: &super::StylesheetSourceLedger,
+    chapter: &ParsedLoadedChapterSource,
+) -> EpubResult<()> {
+    if is_recovered_empty_chapter(chapter) {
+        return Ok(());
+    }
+    select_prepared_chapter_sources(&style_input(stylesheet_ledger, chapter))
+        .map(|_| ())
+        .map_err(|error| style_failure(chapter, error))
+}
+
+fn style_input<'a>(
+    stylesheet_ledger: &'a super::StylesheetSourceLedger,
+    chapter: &'a ParsedLoadedChapterSource,
+) -> PreparedStyleChapterInput<'a> {
+    PreparedStyleChapterInput {
+        stylesheet_ledger,
+        chapter_href: &chapter.source.href,
+        source_arena: chapter.source_arena.as_ref(),
+        body_source_node_id: chapter.parsed.body_source_node_id,
+        author_stylesheets: &chapter.parsed.author_stylesheets,
+    }
+}
+
+fn style_failure(chapter: &ParsedLoadedChapterSource, error: StyleBackendError) -> EpubError {
+    EpubError::new(format!(
+        "style resolution failed for chapter {:?}: {error}",
+        chapter.source.href
+    ))
 }
 
 /// One chapter's typed style tables: interned styles the fragment

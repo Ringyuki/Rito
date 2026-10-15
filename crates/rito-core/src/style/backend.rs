@@ -16,7 +16,10 @@ use rito_stylo::{
 use crate::{epub::StylesheetSourceLedger, xhtml::AuthorStylesheetSource};
 
 use super::{
-    stylo_sources::{select_stylo_sources, validate_stylo_source_arena, StyloSourceRejection},
+    stylo_sources::{
+        select_stylo_sources, validate_stylo_source_arena, StyloSourceRejection,
+        StyloSourceSelection,
+    },
     ChapterStyleOptions, CssColorScheme, CssViewport,
 };
 
@@ -110,19 +113,7 @@ fn try_resolve_with_stylo(
     options: ChapterStyleOptions<'_>,
 ) -> Result<ResolvedPreparedChapterStyle, StyleBackendError> {
     let root_font_size = configured_root_font_size(options.root_font_size)?;
-    let source_arena = input
-        .source_arena
-        .ok_or(StyleBackendError::MissingSourceArena)?;
-    if input.body_source_node_id.is_none() {
-        return Err(StyleBackendError::MissingBodySourceNodeId);
-    }
-    let selection = select_stylo_sources(
-        input.stylesheet_ledger,
-        input.chapter_href,
-        input.author_stylesheets,
-    )
-    .map_err(StyleBackendError::SourceSelection)?;
-    validate_stylo_source_arena(source_arena).map_err(StyleBackendError::SourceArena)?;
+    let (source_arena, selection) = select_prepared_chapter_sources(&input)?;
     let viewport = stylo_viewport(viewport)?;
 
     // The EPUB support profile is the UA policy: it supplies the HTML
@@ -158,6 +149,29 @@ fn try_resolve_with_stylo(
         layout_style_table: layout.into_table(),
         inline_style_table: inline.into_table(),
     })
+}
+
+/// What a chapter's sources must pass before Stylo runs: a canonical source
+/// topology with a body, stylesheets that select (every linked stylesheet
+/// found in the package), and `style` attributes that validate. None of it depends on
+/// the viewport or the fonts.
+pub(crate) fn select_prepared_chapter_sources<'a>(
+    input: &PreparedStyleChapterInput<'a>,
+) -> Result<(&'a Arc<SourceArena>, StyloSourceSelection), StyleBackendError> {
+    let source_arena = input
+        .source_arena
+        .ok_or(StyleBackendError::MissingSourceArena)?;
+    if input.body_source_node_id.is_none() {
+        return Err(StyleBackendError::MissingBodySourceNodeId);
+    }
+    let selection = select_stylo_sources(
+        input.stylesheet_ledger,
+        input.chapter_href,
+        input.author_stylesheets,
+    )
+    .map_err(StyleBackendError::SourceSelection)?;
+    validate_stylo_source_arena(source_arena).map_err(StyleBackendError::SourceArena)?;
+    Ok((source_arena, selection))
 }
 
 fn configured_root_font_size(value: f64) -> Result<f32, StyleBackendError> {

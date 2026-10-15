@@ -2,6 +2,7 @@ pub const NAME: &str = "epub";
 pub const OWNS: &str = "EPUB container, package, spine, manifest, TOC, and publication metadata";
 
 pub(crate) mod archive;
+mod check;
 mod document;
 mod fonts;
 mod layout_bridge;
@@ -16,6 +17,7 @@ use std::{error::Error, fmt};
 
 use serde::{Deserialize, Serialize};
 
+pub use check::{check_publication, PublicationProblem};
 pub(crate) use document::ChapterSourceScanSession;
 pub use document::{
     open_document, open_runtime_document, open_runtime_document_from_shards,
@@ -27,7 +29,8 @@ pub(crate) use fonts::{
     ResolvedFontFaceSource,
 };
 pub(crate) use layout_bridge::{
-    prepare_runtime_layout_chapter, project_prepared_document_styles, ChapterStyleTable,
+    check_chapter_style_sources, prepare_runtime_layout_chapter, project_prepared_document_styles,
+    ChapterStyleTable,
 };
 pub(crate) use paths::{is_external_href, join_epub_href, join_zip_path, opf_dir};
 #[cfg(test)]

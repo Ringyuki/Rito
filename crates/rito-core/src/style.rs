@@ -7,9 +7,10 @@ mod stylo_sources;
 
 #[cfg(test)]
 pub(crate) use backend::style_backend_metrics;
-#[cfg(test)]
-pub(crate) use backend::StyleBackendError;
-pub(crate) use backend::{resolve_prepared_chapter_style, PreparedStyleChapterInput};
+pub(crate) use backend::{
+    resolve_prepared_chapter_style, select_prepared_chapter_sources, PreparedStyleChapterInput,
+    StyleBackendError,
+};
 pub(crate) use paint_values::{
     background_position_axis, background_publication_href, background_repeat, background_size,
     paint_color, serialize_font_families,
