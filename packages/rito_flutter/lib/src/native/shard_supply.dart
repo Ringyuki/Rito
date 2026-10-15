@@ -1,7 +1,7 @@
 part of 'gateway.dart';
 
 /// Loads content shards of a publication opened from shards (see
-/// `rito-pack`). Called with the ids the engine named the first time a call
+/// `@ritojs/pack`). Called with the ids the engine named the first time a call
 /// needed them; a thrown error fails only that call.
 typedef RitoShardLoader =
     Future<List<RitoPublicationShard>> Function(List<int> shardIds);

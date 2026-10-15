@@ -60,8 +60,8 @@ impl RitoReaderSession {
     }
 
     /// Opens a session from a publication's skeleton shard (see
-    /// `rito-pack`). `key` is the skeleton's 32-byte key when the shards
-    /// are encrypted. Chapters, images and fonts arrive through
+    /// `@ritojs/pack`). `key` is the skeleton's 32-byte key when the shards
+    /// are encrypted. Images, audio and video arrive through
     /// `supplyShard`; an operation that needs a shard not yet supplied
     /// fails with code `resource-pending` and a `pendingShards` array.
     #[wasm_bindgen(js_name = openShardsWithPinnedFontPolicy)]

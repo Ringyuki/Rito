@@ -15,13 +15,15 @@ crates/rito-inline           Parley-backed inline flows
 crates/rito-core             EPUB, XHTML, style projection, the bridge, paint,
                              lowering, the wire, interaction, resources, runtime
 crates/rito-wasm             the reader session through wasm-bindgen, for the browser
+crates/rito-pack             packing into shards and the readability check through wasm-bindgen, for servers
 crates/rito-ffi              the C ABI actor for native hosts
 crates/rito-inline-spike     a line-break parity instrument, never a dependency
 
-packages/rito-core-wasm      private WASM build, session worker and wire decoders
+packages/rito-core-wasm      private WASM build (both modules), session worker and wire decoders
 packages/rito                @ritojs/core: the browser reader and Canvas pen
 packages/kit                 @ritojs/kit: controller, transitions, overlays
 packages/react               @ritojs/react: hooks and a mount component
+packages/pack                @ritojs/pack: packing and the readability check in Node, one worker per call
 packages/rito_flutter        the Flutter adapter and pen (pub.dev)
 apps/reader                  the demo reader and its e2e harness
 tools/corpus-oracle          the pixel walk and corpus probes

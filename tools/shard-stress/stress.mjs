@@ -11,10 +11,10 @@
 // have settled.
 //
 // Usage: node stress.mjs [steps=400] [seed=1] [book=packages/rito/tests/fixtures/books/book-10.epub]
+// Packs with the built @ritojs/pack (`pnpm --filter @ritojs/pack build`).
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
@@ -29,6 +29,7 @@ const { createRitoCoreWasmReaderSessionWorkerHandler } = await import(
 const { preparePinnedFontPolicyOpen } = await import(
   join(CORE_WASM, 'src/pinned-font-policy-runtime.js')
 );
+const { packPublication } = await import(join(REPO, 'packages/pack/dist/index.mjs'));
 
 const STEPS = Number(process.argv[2] ?? 400);
 const SEED = Number(process.argv[3] ?? 1);
@@ -56,7 +57,7 @@ const random = () => {
 const pick = (values) => values[Math.floor(random() * values.length)];
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
-const packed = pack(BOOK);
+const packed = await pack(BOOK);
 const policy = pinnedPolicy();
 const layout = {
   renderRatio: 1,
@@ -340,34 +341,13 @@ async function deadline(label, promise, ms = NAVIGATION_DEADLINE_MS) {
   }
 }
 
-function pack(book) {
-  const out = mkdtempSync(join(tmpdir(), 'rito-shard-stress-'));
-  try {
-    execFileSync(
-      'cargo',
-      ['run', '--quiet', '--release', '-p', 'rito-pack', '--', book, out, '--encrypt'],
-      {
-        cwd: REPO,
-        stdio: 'inherit',
-      },
-    );
-    const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'));
-    const keys = JSON.parse(readFileSync(join(out, 'keys.json'), 'utf8')).keys;
-    const hex = (value) => Uint8Array.from(value.match(/../g), (pair) => Number.parseInt(pair, 16));
-    const skeleton = new Uint8Array(readFileSync(join(out, 'skeleton.rshd')));
-    const shards = new Map();
-    const images = new Map();
-    for (const shard of manifest.shards) {
-      shards.set(shard.id, {
-        bytes: new Uint8Array(readFileSync(join(out, shard.file))),
-        key: hex(keys[String(shard.id)]),
-      });
-    }
-    for (const [path, digest] of archiveImageDigests(book)) images.set(path, digest);
-    return { skeleton, skeletonKey: hex(keys['0']), shards, images };
-  } finally {
-    rmSync(out, { recursive: true, force: true });
-  }
+async function pack(book) {
+  const packed = await packPublication(readFileSync(book), { encrypt: true });
+  const shards = new Map(
+    packed.shards.map((shard) => [shard.id, { bytes: shard.bytes, key: shard.key }]),
+  );
+  const images = new Map(archiveImageDigests(book));
+  return { skeleton: packed.skeleton.bytes, skeletonKey: packed.skeleton.key, shards, images };
 }
 
 /** The archive path of the book's first spine document, read from its package document. */

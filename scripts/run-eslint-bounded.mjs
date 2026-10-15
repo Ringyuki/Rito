@@ -16,6 +16,7 @@ const scopes = [
   ['packages/rito'],
   ['packages/rito-core-wasm'],
   ['packages/kit'],
+  ['packages/pack'],
   ['packages/react'],
   ['apps/reader'],
 ];

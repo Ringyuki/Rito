@@ -15,6 +15,8 @@ The repository ships:
 - `@ritojs/kit` — a framework-agnostic controller with transitions,
   overlays, selection, search, annotations, keyboard and storage
 - `@ritojs/react` — React hooks and a mount component over core and kit
+- `@ritojs/pack` — for servers: splits a book into the shards a reader
+  opens it from, and checks that the reader can read a book
 - `rito_flutter` — the Flutter adapter over the engine's C ABI (pub.dev)
 - `crates/rito-ffi` — the C ABI for other native hosts
 
@@ -31,6 +33,8 @@ flowchart TB
     flutter["rito_flutter<br/>Dart decoder + CustomPainter pen"]
     native["other native hosts"]
   end
+  server["@ritojs/pack<br/>shards + readability check (Node)"] --> packwasm["rito-pack<br/>wasm-bindgen facade"]
+  packwasm --> epub
   core --> wasm["rito-wasm<br/>wasm-bindgen facade"]
   flutter --> ffi["rito-ffi<br/>C ABI actor"]
   native --> ffi

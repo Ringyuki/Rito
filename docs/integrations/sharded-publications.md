@@ -21,7 +21,7 @@ memory.
 - Images, nearly all of a book's bytes, are separate requests, so the
   server decides who gets them and how fast. It can authorize,
   rate-limit and revoke per shard.
-- With `--encrypt`, every shard is sealed with its own random 256-bit key
+- With encryption, every shard is sealed with its own random 256-bit key
   (XChaCha20-Poly1305). A shard without its key is useless. The header
   is authenticated, so a shard cannot be replayed under another book or
   another id.
@@ -31,8 +31,24 @@ memory.
 
 ## Packing
 
+[`@ritojs/pack`](../../packages/pack/README.md) packs a book in a Node
+server process:
+
+```ts
+import { packPublication } from '@ritojs/pack';
+
+const packed = await packPublication(epubBytes, { encrypt: true });
+// packed.skeleton and each of packed.shards: { id, bytes, key, files }
+```
+
+Each shard's `{ id, bytes, key }` is what a reader's `loadShards` returns
+for it. The same package checks, before a book is accepted, whether the
+reader can read it at all (`checkPublication`).
+
+Its command line writes the shards to a directory:
+
 ```sh
-cargo run --release -p rito-pack -- book.epub out/ --encrypt
+npx rito-pack book.epub out/ --encrypt
 ```
 
 `out/` then holds:

@@ -215,7 +215,7 @@ pub extern "C" fn rito_open_with_pinned_fonts(
 }
 
 #[no_mangle]
-/// Opens a reader from a publication's skeleton shard (see `rito-pack`)
+/// Opens a reader from a publication's skeleton shard (see `@ritojs/pack`)
 /// with a pinned measurement-font policy, and requests its initial
 /// artifact. `key_len` is 0 for plain shards or 32 for the skeleton's key.
 /// The skeleton carries everything layout reads, so this never waits on a

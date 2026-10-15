@@ -13,19 +13,34 @@ import {
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageRoot, '../..');
 const dist = resolve(packageRoot, 'dist');
-const wasmInput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release/rito_wasm.wasm');
+const wasmOutput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release');
+// The reader engine, and the packer `@ritojs/pack` runs on servers.
+const wasmInputs = ['rito_wasm.wasm', 'rito_pack.wasm'].map((name) => resolve(wasmOutput, name));
 
 ensureWasmBindgen();
-run('cargo', ['build', '-p', 'rito-wasm', '--target', 'wasm32-unknown-unknown', '--release']);
+run('cargo', [
+  'build',
+  '-p',
+  'rito-wasm',
+  '-p',
+  'rito-pack',
+  '--target',
+  'wasm32-unknown-unknown',
+  '--release',
+]);
 
-if (!existsSync(wasmInput)) {
-  throw new Error(`Expected wasm artifact was not produced: ${wasmInput}`);
+for (const wasmInput of wasmInputs) {
+  if (!existsSync(wasmInput)) {
+    throw new Error(`Expected wasm artifact was not produced: ${wasmInput}`);
+  }
 }
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-run('wasm-bindgen', [wasmInput, '--out-dir', dist, '--target', 'web', '--typescript']);
+for (const wasmInput of wasmInputs) {
+  run('wasm-bindgen', [wasmInput, '--out-dir', dist, '--target', 'web', '--typescript']);
+}
 await Promise.all(
   runtimeModules.map((name) => copyFile(resolve(packageRoot, `src/${name}`), resolve(dist, name))),
 );

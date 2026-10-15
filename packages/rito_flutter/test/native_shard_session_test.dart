@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -40,7 +39,9 @@ RitoArtifactRequest _request(int sessionId) => RitoArtifactRequest(
   locator: const RitoLocator(href: 'OEBPS/Text/Section013.xhtml'),
 );
 
-/// Packs the fixture with the repository's own `rito-pack`.
+/// Packs the fixture with the engine's own packing, through the test
+/// packer in `crates/rito-pack/examples`: `<id>.rshd` and `<id>.key` for
+/// every shard, the skeleton being shard 0.
 ({
   Uint8List skeleton,
   Uint8List key,
@@ -53,35 +54,29 @@ _pack(Directory out) {
     '--quiet',
     '-p',
     'rito-pack',
+    '--example',
+    'test_shards',
     '--',
     File(_book).absolute.path,
     out.path,
-    '--encrypt',
   ], workingDirectory: '../..');
   expect(packed.exitCode, 0, reason: '${packed.stderr}');
-  Uint8List hex(String value) => Uint8List.fromList(<int>[
-    for (var index = 0; index < value.length; index += 2)
-      int.parse(value.substring(index, index + 2), radix: 16),
-  ]);
-  final manifest =
-      jsonDecode(File('${out.path}/manifest.json').readAsStringSync())
-          as Map<String, Object?>;
-  final keys =
-      (jsonDecode(File('${out.path}/keys.json').readAsStringSync())
-              as Map<String, Object?>)['keys']!
-          as Map<String, Object?>;
+  final ids = <int>[
+    for (final entry in out.listSync())
+      if (entry.path.endsWith('.rshd'))
+        int.parse(entry.uri.pathSegments.last.split('.').first),
+  ]..sort();
+  Uint8List keyOf(int id) => File('${out.path}/$id.key').readAsBytesSync();
   return (
-    skeleton: File('${out.path}/skeleton.rshd').readAsBytesSync(),
-    key: hex(keys['0']! as String),
+    skeleton: File('${out.path}/0.rshd').readAsBytesSync(),
+    key: keyOf(0),
     files: <int, File>{
-      for (final shard in manifest['shards']! as List<Object?>)
-        (shard! as Map<String, Object?>)['id']! as int: File(
-          '${out.path}/${(shard as Map<String, Object?>)['file']}',
-        ),
+      for (final id in ids)
+        if (id != 0) id: File('${out.path}/$id.rshd'),
     },
     keys: <int, Uint8List>{
-      for (final entry in keys.entries)
-        if (entry.key != '0') int.parse(entry.key): hex(entry.value! as String),
+      for (final id in ids)
+        if (id != 0) id: keyOf(id),
     },
   );
 }

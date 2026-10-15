@@ -21,7 +21,11 @@ const CIPHER_NONE: u8 = 0;
 const CIPHER_XCHACHA20_POLY1305: u8 = 1;
 const COMPRESSION_NONE: u8 = 0;
 const COMPRESSION_DEFLATE: u8 = 1;
-const DEFLATE_LEVEL: u8 = 6;
+const SKELETON_DEFLATE_LEVEL: u8 = 6;
+/// Content shards hold images, audio and video, which are compressed
+/// already. On the test corpus (682 MB of media), level 6 took 35.7 s and
+/// saved 5.74%; level 1 took 3.2 s and saved 5.16%.
+const CONTENT_DEFLATE_LEVEL: u8 = 1;
 /// No shard inflates past the largest archive a reader opens.
 const MAX_INFLATED_BYTES: usize = 512 * 1024 * 1024;
 
@@ -130,7 +134,11 @@ pub(super) fn seal_shard(
     if header.encrypted != key.is_some() {
         return Err(shard_error("an encrypted shard needs exactly one key"));
     }
-    let deflated = miniz_oxide::deflate::compress_to_vec(payload, DEFLATE_LEVEL);
+    let level = match header.kind {
+        ShardKind::Skeleton => SKELETON_DEFLATE_LEVEL,
+        ShardKind::Content => CONTENT_DEFLATE_LEVEL,
+    };
+    let deflated = miniz_oxide::deflate::compress_to_vec(payload, level);
     header.compressed = deflated.len() < payload.len();
     let payload = if header.compressed {
         deflated.as_slice()

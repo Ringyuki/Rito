@@ -10,6 +10,8 @@ const requiredFiles = [
   'reader-session-worker-client-runtime.js',
   'reader-session-display-decoder-runtime.js',
   'reader-session-primitive-decoder-runtime.js',
+  'rito_pack.js',
+  'rito_pack.d.ts',
 ];
 
 const missingFiles = [];

@@ -27,6 +27,10 @@
       "import": "./dist/decoder.mjs",
       "types": "./dist/decoder.d.mts"
     },
+    "./pack": {
+      "import": "./dist/rito_pack.js",
+      "types": "./dist/rito_pack.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [

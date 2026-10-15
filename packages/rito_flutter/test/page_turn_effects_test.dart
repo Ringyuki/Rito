@@ -38,6 +38,9 @@ final class _Pages implements RitoPageTurnPages {
 
   @override
   double reveal(RitoPageSlot slot) => 1;
+
+  @override
+  int? spread(RitoPageSlot slot) => slot.index;
 }
 
 void main() {
@@ -155,5 +158,13 @@ void main() {
     expect(_frame(-100, next).progress, 0.25);
     expect(_frame(100, previous).progress, 0.25);
     expect(_frame(-100, null).progress, 0);
+  });
+
+  test('a finger never said to have come back is at its farthest', () {
+    const touch = RitoPageTurnTouch(
+      origin: Offset(300, 0),
+      position: Offset(120, 0),
+    );
+    expect(touch.farthest, const Offset(120, 0));
   });
 }

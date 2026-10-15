@@ -182,7 +182,7 @@ export interface BrowserReaderSession {
 export async function openBrowserReaderSession(
   /**
    * A whole EPUB, whose ownership is transferred to the dedicated reader
-   * session Worker, or a publication split by `rito-pack`: the session opens
+   * session Worker, or a publication split by `@ritojs/pack`: the session opens
    * from the skeleton and loads each content shard the first time a request
    * needs it (a sharded open requires `pinnedFontPolicy`).
    */

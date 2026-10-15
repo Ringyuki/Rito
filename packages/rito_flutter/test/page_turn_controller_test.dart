@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +23,8 @@ _Rig _rig(
   WidgetTester tester, {
   FakePageSource? source,
   RitoPageTurnPhysics physics = const RitoPageTurnPhysics(),
+  RitoPagePainter? paintPage,
+  bool prewarm = true,
 }) {
   final pages = source ?? FakePageSource();
   final reader = RitoReaderController.withSource(pages, layout: fakeLayout);
@@ -29,7 +32,8 @@ _Rig _rig(
     reader: reader,
     vsync: tester,
     physics: physics,
-    paintPage: (canvas, size, page) {},
+    paintPage: paintPage ?? (canvas, size, page) {},
+    prewarm: prewarm,
   )..width = 400;
   final events = <String>[];
   final subscription = turns.events.listen(
@@ -88,6 +92,56 @@ final class _Steady extends Simulation {
 
   @override
   bool isDone(double time) => time >= 1;
+}
+
+/// The built-in physics, keeping the release it was last asked about.
+final class _RecordingPhysics extends RitoPageTurnPhysics {
+  RitoPageTurnRelease? released;
+
+  @override
+  bool lands(RitoPageTurnRelease release) {
+    released = release;
+    return super.lands(release);
+  }
+}
+
+/// Owns a reader and its turns as an application does.
+final class _TurnOwner extends StatefulWidget {
+  const _TurnOwner(this.source);
+
+  final FakePageSource source;
+
+  @override
+  State<_TurnOwner> createState() => _TurnOwnerState();
+}
+
+final class _TurnOwnerState extends State<_TurnOwner>
+    with TickerProviderStateMixin {
+  late final RitoReaderController _reader = RitoReaderController.withSource(
+    widget.source,
+    layout: fakeLayout,
+  );
+  late final RitoPageTurnController _turns = RitoPageTurnController(
+    reader: _reader,
+    vsync: this,
+    paintPage: (canvas, size, page) {},
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _turns.width = 400;
+  }
+
+  @override
+  void dispose() {
+    _turns.dispose();
+    _reader.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
 }
 
 /// An effect that asks to be painted again by itself.
@@ -297,6 +351,7 @@ void main() {
 
     expect(rig.events, ['start:previous', 'end:previous:interrupted']);
     expect(rig.turns.isTurning, isFalse);
+    await _settle(tester);
   });
 
   testWidgets('an animated jump plays as a turn onto the new page', (
@@ -367,6 +422,225 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     expect(rig.turns.frame.phase, RitoPageTurnPhase.returning);
     await _settle(tester);
+  });
+
+  testWidgets('the finger says where it carried the turn farthest', (
+    tester,
+  ) async {
+    final physics = _RecordingPhysics();
+    final rig = _rig(tester, physics: physics);
+    rig.turns
+      ..dragStart(const Offset(300, 500))
+      ..dragUpdate(const Offset(200, 480))
+      ..dragUpdate(const Offset(120, 470))
+      ..dragUpdate(const Offset(160, 460));
+    final touch = rig.turns.frame.touch!;
+    expect(touch.position, const Offset(160, 460));
+    expect(touch.farthest, const Offset(120, 470));
+
+    // The physics judging the release, and the frames after it, see it too.
+    rig.turns.dragEnd(Offset.zero);
+    expect(physics.released!.touch!.farthest, const Offset(120, 470));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(rig.turns.frame.touch!.farthest, const Offset(120, 470));
+    await _settle(tester);
+
+    // Turning back, farthest is farthest right; a new drag starts afresh.
+    rig.turns
+      ..dragStart(const Offset(100, 0))
+      ..dragUpdate(const Offset(180, 0))
+      ..dragUpdate(const Offset(140, 0));
+    expect(rig.turns.direction, _previous);
+    expect(rig.turns.frame.touch!.farthest, const Offset(180, 0));
+    rig.turns.dragCancel();
+    await _settle(tester);
+  });
+
+  group('pages are numbered', () {
+    const previous = RitoPageSlot.previous;
+    const current = RitoPageSlot.current;
+    const next = RitoPageSlot.next;
+    List<int?> numbers(_Rig rig) => [
+      for (final slot in const [previous, current, next])
+        rig.turns.textures.spread(slot),
+    ];
+
+    testWidgets('in reading order, and keep their numbers across turns', (
+      tester,
+    ) async {
+      final rig = _rig(tester);
+      await _settle(tester);
+      expect(numbers(rig), [-1, 0, 1]);
+      final incoming = rig.turns.textures.page(next);
+
+      rig.turns.turn(_next);
+      await _settle(tester);
+      expect(rig.turns.textures.page(current), same(incoming));
+      expect(numbers(rig), [0, 1, 2]);
+
+      rig.turns.turn(_previous);
+      await _settle(tester);
+      expect(numbers(rig), [-1, 0, 1]);
+
+      // A turn cut into leaves the page it left beside the one it landed
+      // on, with its number.
+      rig.turns.turn(_next);
+      await tester.pump(const Duration(milliseconds: 48));
+      final left = rig.turns.textures.page(current);
+      rig.turns.turn(_next);
+      await tester.pump();
+      await tester.pump();
+      expect(rig.events.last, 'start:next');
+      expect(rig.turns.textures.page(previous), same(left));
+      expect(numbers(rig), [0, 1, 2]);
+      await _settle(tester);
+      expect(numbers(rig), [1, 2, 3]);
+    });
+
+    testWidgets('apart from every page before after a jump or a relayout', (
+      tester,
+    ) async {
+      final rig = _rig(tester);
+      final seen = <int>{};
+      void see() => seen.addAll(numbers(rig).whereType<int>());
+      await _settle(tester);
+      rig.turns.turn(_next);
+      await _settle(tester);
+      see();
+
+      await rig.reader.jumpTo(const RitoLocator(href: 'b.xhtml'));
+      await _settle(tester);
+      final jumped = numbers(rig);
+      expect(jumped.whereType<int>().where(seen.contains), isEmpty);
+      expect([jumped[0]! + 1, jumped[2]! - 1], [jumped[1], jumped[1]]);
+      see();
+
+      await rig.reader.relayout(fakeLayout);
+      await _settle(tester);
+      expect(numbers(rig).whereType<int>().where(seen.contains), isEmpty);
+      see();
+
+      // A jump played as a turn comes in past every page on its side.
+      await rig.turns.jumpTo(
+        const RitoLocator(href: 'c.xhtml'),
+        animateAs: _next,
+      );
+      final forward = rig.turns.textures.spread(next)!;
+      expect(forward, greaterThan(seen.reduce(math.max)));
+      await _settle(tester);
+      expect(rig.turns.textures.spread(current), forward);
+      see();
+
+      await rig.turns.jumpTo(
+        const RitoLocator(href: 'd.xhtml'),
+        animateAs: _previous,
+      );
+      expect(
+        rig.turns.textures.spread(previous),
+        lessThan(seen.reduce(math.min)),
+      );
+      await _settle(tester);
+    });
+
+    testWidgets('and a page background pagination renumbers keeps its own', (
+      tester,
+    ) async {
+      final rig = _rig(tester, source: FakePageSource(paginationSteps: 2));
+      final before = rig.turns.textures.page(current);
+      await _settle(tester);
+      expect(rig.reader.lastChange, RitoPageChange.pagination);
+      expect(rig.turns.textures.page(current), isNot(same(before)));
+      expect(numbers(rig), [-1, 0, 1]);
+    });
+  });
+
+  group('prewarm', () {
+    _Rig painting(WidgetTester tester, List<int> painted, {bool on = true}) =>
+        _rig(
+          tester,
+          prewarm: on,
+          paintPage: (canvas, size, page) => painted.add(page.artifactId),
+        );
+
+    testWidgets('draws the page and both neighbours before a turn', (
+      tester,
+    ) async {
+      final painted = <int>[];
+      final rig = painting(tester, painted);
+      await _settle(tester);
+      final textures = rig.turns.textures;
+      expect(painted.toSet(), {
+        for (final slot in RitoPageSlot.values) textures.page(slot)!.artifactId,
+      });
+      expect(painted, hasLength(3));
+
+      // The first frame of a turn has nothing left to draw.
+      painted.clear();
+      rig.turns.turn(_next);
+      for (final slot in RitoPageSlot.values) {
+        textures.image(slot);
+      }
+      expect(painted, isEmpty);
+      await _settle(tester);
+    });
+
+    testWidgets('draws a neighbour laid out late once it arrives', (
+      tester,
+    ) async {
+      final source = FakePageSource()..peekGate = Completer<void>();
+      final painted = <int>[];
+      final rig = _rig(
+        tester,
+        source: source,
+        paintPage: (canvas, size, page) => painted.add(page.artifactId),
+      );
+      await _settle(tester);
+      expect(painted, [rig.reader.page.artifactId]);
+
+      source.peekGate!.complete();
+      await _settle(tester);
+      expect(painted, hasLength(3));
+    });
+
+    testWidgets('draws pages again when they change, once nothing moves', (
+      tester,
+    ) async {
+      final painted = <int>[];
+      final rig = painting(tester, painted);
+      await _settle(tester);
+      painted.clear();
+      rig.turns.invalidatePages();
+      await _settle(tester);
+      expect(painted, hasLength(3));
+
+      painted.clear();
+      rig.turns
+        ..dragStart(Offset.zero)
+        ..dragUpdate(const Offset(-30, 0))
+        ..invalidatePages();
+      await _settle(tester, frames: 10);
+      expect(painted, isEmpty);
+
+      rig.turns.dragCancel();
+      await _settle(tester);
+      expect(painted, hasLength(3));
+    });
+
+    // The test ends with pages still to draw: the widget that owns the
+    // controller disposes it with the tree, before the test's timers are
+    // checked.
+    testWidgets('leaves no timer behind once its owner is gone', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_TurnOwner(FakePageSource()));
+    });
+
+    testWidgets('off, draws nothing at rest', (tester) async {
+      final painted = <int>[];
+      painting(tester, painted, on: false);
+      await _settle(tester);
+      expect(painted, isEmpty);
+    });
   });
 
   testWidgets('a drag begun while a turn lands takes hold once it has', (
@@ -622,6 +896,7 @@ void main() {
     expect(rig.turns.effectiveEffect, same(RitoPageTurnEffects.cover));
     rig.turns.reduceMotion = true;
     expect(rig.turns.effectiveEffect, same(RitoPageTurnEffects.fade));
+    await _settle(tester);
   });
 
   testWidgets('the view paints the effect during a turn and the page at rest', (

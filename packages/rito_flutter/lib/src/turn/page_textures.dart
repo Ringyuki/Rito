@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
@@ -38,6 +39,9 @@ final class RitoPageTextures implements RitoPageTurnPages {
   double _pixelRatio = 1;
   Color _background = const Color(0xFFFFFFFF);
 
+  /// The lowest and highest [spread] given so far; null before the first.
+  ({int lowest, int highest})? _given;
+
   @override
   double get pixelRatio => _pixelRatio;
 
@@ -64,10 +68,16 @@ final class RitoPageTextures implements RitoPageTurnPages {
 
   /// Puts [page] in [slot]. A page arriving while a turn already shows its
   /// slot fades in ([reveal]); otherwise it appears at once.
+  ///
+  /// The page is numbered ([spread]) as the neighbour the slot names; one
+  /// put in place of the page in [slot] keeps its number. With [jump] it is
+  /// a page reached by a jump played as a turn, numbered past every page
+  /// before it on the side of [slot].
   void assign(
     RitoPageSlot slot,
     RitoPreparedArtifact? page, {
     bool reveal = false,
+    bool jump = false,
   }) {
     final current = _slots[slot];
     if (identical(current?.page, page)) return;
@@ -76,9 +86,53 @@ final class RitoPageTextures implements RitoPageTurnPages {
       _slots.remove(slot);
       return;
     }
-    _slots[slot] = _Texture(page, onChanged, revealed: reveal ? 0 : 1);
+    final spread = jump
+        ? _apart(slot)
+        : current?.spread ?? _neighbourly(slot) ?? _apart(slot);
+    _given = (
+      lowest: math.min(_given?.lowest ?? spread, spread),
+      highest: math.max(_given?.highest ?? spread, spread),
+    );
+    _slots[slot] = _Texture(
+      page,
+      onChanged,
+      spread: spread,
+      revealed: reveal ? 0 : 1,
+    );
     onChanged();
   }
+
+  /// The number the page in [slot] has as a neighbour of the pages in the
+  /// other slots; null when they are empty.
+  int? _neighbourly(RitoPageSlot slot) {
+    final current = _slots[RitoPageSlot.current]?.spread;
+    if (current != null) {
+      return switch (slot) {
+        RitoPageSlot.next => current + 1,
+        RitoPageSlot.previous => current - 1,
+        RitoPageSlot.current => current,
+      };
+    }
+    if (slot != RitoPageSlot.current) return null;
+    final next = _slots[RitoPageSlot.next]?.spread;
+    final previous = _slots[RitoPageSlot.previous]?.spread;
+    return next != null ? next - 1 : (previous != null ? previous + 1 : null);
+  }
+
+  /// A number no page had, with its neighbours' unused too: below every
+  /// page given one for [RitoPageSlot.previous], above them otherwise.
+  int _apart(RitoPageSlot slot) {
+    final given = _given;
+    if (given == null) return 0;
+    return slot == RitoPageSlot.previous ? given.lowest - 2 : given.highest + 2;
+  }
+
+  @override
+  int? spread(RitoPageSlot slot) => _slots[slot]?.spread;
+
+  /// Whether the page in [slot] must be rasterized before a turn can show
+  /// it: it never was, or it changed since. False for an empty slot.
+  bool needsDrawing(RitoPageSlot slot) => _slots[slot]?.drawn == false;
 
   /// Moves the texture in [from] to [to] (a landed turn: the incoming page
   /// becomes the current one without being rasterized again).
@@ -138,16 +192,24 @@ final class RitoPageTextures implements RitoPageTurnPages {
 }
 
 final class _Texture {
-  _Texture(this.page, this._onChanged, {required this.revealed}) {
+  _Texture(
+    this.page,
+    this._onChanged, {
+    required this.spread,
+    required this.revealed,
+  }) {
     page.imageChanges?.addListener(_imagesChanged);
   }
 
   final RitoPreparedArtifact page;
   final VoidCallback _onChanged;
+  final int spread;
   double revealed;
   ui.Image? _image;
   bool _dirty = true;
   bool _frozen = false;
+
+  bool get drawn => _image != null && !_dirty;
 
   ui.Image image(double pixelRatio, Color background, RitoPagePainter paint) {
     final cached = _image;

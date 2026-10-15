@@ -169,8 +169,11 @@ Three layers, each usable on its own:
    screen. A jump or relayout mid-turn ends it. `events` brings one
    `RitoPageTurnStarted` and exactly one `RitoPageTurnEnded` (`committed`,
    `cancelled`, `interrupted`) per turn; `frame.progress` follows the page
-   every frame. Neighbours are prewarmed while idle; a neighbour that
-   arrives during a turn fades in. `jumpTo(locator, animateAs:)` plays a
+   every frame. While no turn is on screen it lays out both neighbours
+   and, once nothing moves, rasterizes them and the page on screen
+   between frames (`prewarm`, on by default; three page images stay in
+   memory at rest), so a turn starts with nothing to draw; a neighbour
+   that arrives during a turn fades in. `jumpTo(locator, animateAs:)` plays a
    jump as a turn.
 3. `RitoPageTurnView(controller:, child:)` — shows `child` (the live page)
    at rest and paints the effect during a turn. It reads horizontal drags
@@ -185,12 +188,19 @@ Effects: `RitoPageTurnEffects.slide | cover | fade | none`, a
 `RitoPageTurnEffect` painting the frame itself — `paint(scene, frame)`
 gets the canvas, the page images (`scene.pages.image(slot)` at
 `pixelRatio`, `reveal(slot)` for a late page's fade-in) and the paper
-colour, which is how a curl is built. A frame says how far the turn has
+colour, which is how a curl is built. `scene.pages.spread(slot)` says
+which spread of the book a slot shows, as `TransitionPage.spread` does on
+the web: the next page's is one more than the current page's, a page
+keeps it from one turn to the next, and a jump or relayout numbers its
+page apart from every page before it — what an effect keys what it keeps
+of a page by. It orders pages; it is not a page number. A frame says how far the turn has
 gone (`offset`, `progress`), which neighbour is coming in, what is moving
 it (`phase`: `held` by a finger, `landing` on the neighbour or
 `returning` to the page it left), how fast (`velocity`) and the finger
 that moved it (`touch.origin` and `touch.position`, null for a turn no
-finger has held). An effect that moves on a clock of its own returns a
+finger has held; `touch.farthest` is where the finger was when it had
+carried the turn farthest the way the turn goes, so a finger short of it
+has come back). An effect that moves on a clock of its own returns a
 `Listenable` as `repaint`, and the view paints the turn again whenever it
 notifies. Page textures are drawn by `paintPage` (default
 `ritoPaintArtifactPage`); draw highlights or a theme there and call
