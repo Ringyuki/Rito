@@ -156,6 +156,15 @@ function project(
       if (!current() || !resolution) return;
       if (resolution.status !== 'resolved') {
         native.misses.add(key);
+        // A range the engine cannot place is lost from the page: say so,
+        // once for the layout. One still waiting for its page is not.
+        if (resolution.status === 'unavailable') {
+          callbacks.onError(
+            new Error(
+              `an annotation in ${location.request.href} cannot be drawn: ${resolution.reason}`,
+            ),
+          );
+        }
         return;
       }
       native.cache.set(key, copyRange(resolution.range));

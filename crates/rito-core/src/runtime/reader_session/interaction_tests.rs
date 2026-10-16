@@ -1115,3 +1115,106 @@ fn navigation_wire_fixtures_are_pinned_byte_for_byte() {
         }
     }
 }
+
+/// Opens a one-chapter book with `body` as the chapter's body content and
+/// resolves the range `start..end` against its first page.
+fn resolve_in(
+    body: &str,
+    start: ReaderSourcePoint,
+    end: ReaderSourcePoint,
+) -> ReaderExactSourceRangeResolution {
+    let chapter = format!(
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head></head><body>{body}</body></html>"
+    );
+    let mut session = open_test_session(
+        SESSION,
+        crate::runtime::tests::fixture::fixture_epub_with_chapter_and_stylesheet(
+            chapter.as_bytes(),
+            "",
+        ),
+    )
+    .expect("opens");
+    let artifact = session
+        .request_artifact(ReaderArtifactRequest {
+            session_id: SESSION,
+            request_id: 1,
+            layout: layout(),
+            locator: ReaderLocator {
+                href: String::new(),
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: None,
+            },
+            text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
+        })
+        .expect("artifact resolves");
+    session
+        .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+            session_id: SESSION,
+            artifact_id: artifact.artifact_id,
+            href: CHAPTER.to_owned(),
+            range: ReaderSourceRange { start, end },
+            every_page: false,
+        })
+        .expect("range resolves")
+}
+
+fn point(node_path: &[u32], text_offset: u64) -> ReaderSourcePoint {
+    ReaderSourcePoint {
+        node_path: node_path.to_vec(),
+        text_offset,
+    }
+}
+
+const PARAGRAPHS: &str =
+    "\n<p>First paragraph of the chapter.</p>\n<p>Second paragraph of the chapter.</p>\n";
+
+#[test]
+fn a_range_across_paragraphs_in_one_wrapping_block_resolves() {
+    // A chapter wrapped in one <div>: both paragraphs sit in the same
+    // top-level block, with a newline between them in the source.
+    let resolution = resolve_in(
+        &format!("\n<div>{PARAGRAPHS}</div>\n"),
+        point(&[1, 1, 0], 6),
+        point(&[1, 3, 0], 6),
+    );
+    assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
+    assert_eq!(
+        resolution.selected_text,
+        "paragraph of the chapter.\n\nSecond"
+    );
+    assert!(resolution.rects.len() >= 2, "{:?}", resolution.rects);
+}
+
+#[test]
+fn a_range_across_paragraphs_of_the_body_resolves_alike() {
+    let resolution = resolve_in(PARAGRAPHS, point(&[1, 0], 6), point(&[3, 0], 6));
+    assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
+    assert_eq!(
+        resolution.selected_text,
+        "paragraph of the chapter.\n\nSecond"
+    );
+}
+
+#[test]
+fn an_inline_block_stays_in_its_paragraph_and_a_break_keeps_one_newline() {
+    // The inline-block's own little flow is part of the host paragraph:
+    // no paragraph separator around it. A <br/> splits one paragraph's
+    // text nodes: one newline, as before.
+    let resolution = resolve_in(
+        "\n<div>\n<p>Before <span style=\"display:inline-block\">inside</span> after.</p>\n</div>\n",
+        point(&[1, 1, 0], 0),
+        point(&[1, 1, 2], 6),
+    );
+    assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
+    assert_eq!(resolution.selected_text, "Before inside after");
+
+    let resolution = resolve_in(
+        "\n<div>\n<p>Line one<br/>line two.</p>\n</div>\n",
+        point(&[1, 1, 0], 0),
+        point(&[1, 1, 2], 4),
+    );
+    assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
+    assert_eq!(resolution.selected_text, "Line one\nline");
+}

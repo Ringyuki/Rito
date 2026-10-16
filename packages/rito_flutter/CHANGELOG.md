@@ -1,5 +1,14 @@
 ## Unreleased
 
+### Ranges across paragraphs inside one wrapper resolve
+
+A source range spanning paragraphs that a chapter wraps in one element
+(a `<div>` around the text) resolved as unavailable: the paragraphs
+shared their wrapper's block, so their text ran together and no longer
+matched the source. Each paragraph now counts as its own, so such a
+highlight gets its rects, and a selection across paragraphs copies with
+the blank line between them.
+
 ### A relayout no longer waits behind the whole-book pagination
 
 `RitoReaderController` started paginating the whole book again right

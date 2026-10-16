@@ -126,19 +126,33 @@ describe('native annotation geometry', () => {
     expect(error).not.toHaveBeenCalled();
   });
 
-  it('negative-caches unavailable geometry within the current revision', async () => {
+  it('negative-caches unavailable geometry and reports it once within the revision', async () => {
     const resolve = vi.fn(() =>
-      Promise.resolve({ status: 'unavailable' as const, reason: 'shapeUnavailable' as const }),
+      Promise.resolve({ status: 'unavailable' as const, reason: 'sourceUnavailable' as const }),
     );
     const fixture = createFixture(resolve);
+    const error = vi.fn();
+    const scheduleOnce = (): void => {
+      scheduleNativeAnnotationsForSpread(
+        fixture.spread,
+        fixture.reader,
+        fixture.state,
+        vi.fn(),
+        error,
+      );
+    };
 
-    schedule(fixture, vi.fn());
+    scheduleOnce();
     await settle();
-    schedule(fixture, vi.fn());
+    scheduleOnce();
     await settle();
 
     expect(resolve).toHaveBeenCalledOnce();
     expect(fixture.state.nativeAnnotationGeometry.misses.size).toBe(1);
+    // The highlight is lost from the page: the host hears it once, and why.
+    expect(error).toHaveBeenCalledOnce();
+    expect(String(error.mock.calls[0]?.[0])).toContain('chapter.xhtml');
+    expect(String(error.mock.calls[0]?.[0])).toContain('sourceUnavailable');
   });
 
   it('prunes cached, negative, and real pending geometry after its source is removed', async () => {
