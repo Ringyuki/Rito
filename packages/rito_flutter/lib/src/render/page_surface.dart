@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../font/artifact_font_cache.dart';
 import '../protocol/artifact_models.dart' show RitoTextProfile;
 import 'canvas_target.dart';
+import 'cluster_paragraph_cache.dart';
 import 'color_override.dart';
 import 'font_envelope.dart';
 import 'primitive_replayer.dart';
@@ -77,6 +78,10 @@ final class RitoArtifactPainter extends CustomPainter {
       imageOpacity: artifact.imageOpacity,
       fontEnvelopes: RitoFontEnvelopeStore.shared,
       colorOverride: colorOverride,
+      // A painter and its target last one paint; the cache serves every
+      // page, so a page painted again, or the next one, lays out only the
+      // characters no page has painted yet.
+      clusterParagraphs: RitoClusterParagraphCache.shared,
       ratio: list.ratio,
     );
     canvas.save();

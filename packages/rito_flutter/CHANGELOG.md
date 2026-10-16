@@ -1,3 +1,18 @@
+## Unreleased
+
+### A page lays out only the characters no page has painted yet
+
+The page painter lays each character of a run out as its own paragraph
+and meant to keep them across paints, but kept them on a target it made
+anew for every paint: every page, and a page painted again (a turn
+settling, a neighbour's texture), laid out every distinct character it
+showed. One cache now serves every page and session, keyed by the
+character, its font family stack, size, weight and slope and its ink; it
+keeps at most 2048 (some twelve megabytes), dropping the least recently
+used first. Measured under
+flutter_tester on 450-character pages of a CJK book: a new page from
+about 10 ms to 2 ms, a page painted again from 10 ms to under 1 ms.
+
 ## 0.6.0 - 2026-10-16
 
 ### Page turns tell an effect which page is which, as on the web

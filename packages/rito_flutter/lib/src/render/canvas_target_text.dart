@@ -84,7 +84,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   }
 
   /// One laid-out paragraph per (cluster text, font, colour), kept across
-  /// paints; the map lives on the target, which a page surface keeps.
+  /// paints and pages by the cache the painter hands every target.
   ui.Paragraph _clusterParagraph(
     String text,
     RitoRunPaint paint,
@@ -99,9 +99,10 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       font.style == RitoFontStyle.italic,
       color.toARGB32(),
     );
-    return _clusterParagraphs.putIfAbsent(key, () {
-      return _buildClusterParagraph(text, paint, color: color);
-    });
+    return _clusterParagraphs.lookup(
+      key,
+      () => _buildClusterParagraph(text, paint, color: color),
+    );
   }
 
   ui.Paragraph _buildClusterParagraph(
