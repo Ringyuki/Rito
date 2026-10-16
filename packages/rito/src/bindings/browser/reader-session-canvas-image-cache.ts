@@ -27,6 +27,7 @@ import type { BrowserReaderCanvasResourceLimiter } from './reader-session-canvas
 import {
   BrowserReaderCanvasImageLease,
   classifyImageReadFailure,
+  readThroughReleasedArtifact,
 } from './reader-session-canvas-image-lease';
 
 export class BrowserReaderCanvasImageCache {
@@ -125,7 +126,13 @@ export class BrowserReaderCanvasImageCache {
       }
       const pending = this.loads.get(sourceKey);
       if (pending) {
-        await pending;
+        // The read in flight may be another artifact's. One that failed
+        // because its artifact was given back meanwhile (a page the
+        // whole-book layout replaced while the image's shard was on its
+        // way) says nothing about the image: read again through this one.
+        await pending.catch((error: unknown) => {
+          if (!readThroughReleasedArtifact(error)) throw error;
+        });
         continue;
       }
       const operation = this.load(artifact, href, sourceKey, plan, budget, known);

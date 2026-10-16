@@ -213,6 +213,11 @@ export function classifyImageReadFailure(error: unknown): unknown {
     : error;
 }
 
+/** Whether a read failed because the session no longer holds the artifact it was made through. */
+export function readThroughReleasedArtifact(error: unknown): boolean {
+  return (error as { readonly code?: unknown } | null)?.code === 'unknown-artifact';
+}
+
 function isRetryable(error: unknown): boolean {
   return error instanceof BrowserReaderCanvasTransientImageRead;
 }
