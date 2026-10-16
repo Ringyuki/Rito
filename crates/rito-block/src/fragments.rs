@@ -46,6 +46,18 @@ pub(crate) fn leaf_fragment(
     })
 }
 
+/// Whether the fragments a container placed so far take no block space.
+/// Zero-height boxes (an empty anchor `<div>`, a self-collapsing divider)
+/// take none, so a fragmentainer holding only them is still at its start:
+/// Blink refuses to break before a child until the fragmentainer has used
+/// space, and lays an empty anchor `<div>` followed by a page-tall
+/// illustration in one column (measured in Chromium multicol).
+pub(crate) fn hold_no_block_space(fragments: &[Fragment]) -> bool {
+    fragments
+        .iter()
+        .all(|fragment| fragment.rect().height <= 0.0)
+}
+
 pub(crate) fn set_fragment_position(fragment: &mut Fragment, x: f64, y: f64) {
     match fragment {
         Fragment::Box(inner) => {

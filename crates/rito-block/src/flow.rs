@@ -354,7 +354,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 // moves whole to the next fragmentainer, except that a
                 // monolithic float taller than a fresh empty fragmentainer
                 // still places to make progress rather than looping.
-                if fragments.is_empty() && fragmentainer_is_fresh && pending_float_breaks.is_empty()
+                if fragmentainer_is_fresh
+                    && hold_no_block_space(&fragments)
+                    && pending_float_breaks.is_empty()
                 {
                     let (fx, fy) = floats.place(
                         child_style.float,
@@ -392,6 +394,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // pending `break-after: always` from the previous one) seals the
             // fragmentainer here. A break that lands at the top of a fresh
             // fragmentainer is already satisfied, per CSS fragmentation.
+            // Any earlier sibling puts it past the top, a zero-height one
+            // included: Chromium honours a forced break after an empty
+            // `<div>` and leaves that column holding only the empty box.
             let forces_break_before =
                 pending_forced_break || child_style.break_before == PageBreak::Always;
             pending_forced_break = child_style.break_after == PageBreak::Always;
@@ -448,7 +453,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 }
             };
             clear_credit = 0.0;
-            let page_is_empty = fragments.is_empty() && fragmentainer_is_fresh;
+            let page_is_empty = fragmentainer_is_fresh && hold_no_block_space(&fragments);
             let gap = if page_is_empty {
                 gap.min(remaining.max(0.0))
             } else {
@@ -1153,7 +1158,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         && outcome.continuation.is_some()
                         && !child_resumed
                         && space.fragmentainer_remaining.is_some()
-                        && !(fragments.is_empty() && fragmentainer_is_fresh)
+                        && !(fragmentainer_is_fresh && hold_no_block_space(&fragments))
                     {
                         // A childless head — the box opened with its
                         // leading border/padding but placed NO content —
@@ -1166,7 +1171,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // head is real only when the box opens an
                         // otherwise EMPTY fragmentainer — b19's 2px-only
                         // blank column before a full-height illustration
-                        // — which the fresh-page guard preserves.
+                        // — which the fresh-page guard preserves; empty
+                        // boxes ahead of it take no space and keep the
+                        // page empty (Chromium keeps the 2px head in the
+                        // first column after an empty `<div>`).
                         return Ok(sealed_with_break(
                             container,
                             space.inline_size,
