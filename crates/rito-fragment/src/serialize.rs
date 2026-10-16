@@ -56,6 +56,7 @@ pub fn decode_layout_outcome(bytes: &[u8]) -> Result<LayoutOutcome, String> {
         fragments: FragmentTree { root },
         continuation,
         escaped_floats: Vec::new(),
+        positioned: Vec::new(),
     })
 }
 
@@ -370,6 +371,7 @@ mod tests {
     fn sample_outcome() -> LayoutOutcome {
         LayoutOutcome {
             escaped_floats: Vec::new(),
+            positioned: Vec::new(),
             fragments: FragmentTree {
                 root: Fragment::Box(BoxFragment {
                     source: FormattingNodeId(7),
@@ -508,6 +510,7 @@ mod tests {
             },
             continuation: None,
             escaped_floats: Vec::new(),
+            positioned: Vec::new(),
         }
     }
 

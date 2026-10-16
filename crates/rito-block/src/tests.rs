@@ -153,6 +153,7 @@ impl FormattingContext for FixedLineInline {
             },
             continuation: None,
             escaped_floats: Vec::new(),
+            positioned: Vec::new(),
         })
     }
 

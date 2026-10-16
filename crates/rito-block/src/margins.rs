@@ -74,7 +74,13 @@ pub(crate) fn through_collapsed_top(
         let mut first = None;
         let mut float_precedes = false;
         for id in &tree.node(node).children {
-            if style_of(*id)?.float == Float::None {
+            let child = style_of(*id)?;
+            // An absolutely positioned box is out of flow and takes no
+            // part in margin collapsing.
+            if child.position == Position::Absolute {
+                continue;
+            }
+            if child.float == Float::None {
                 first = Some(*id);
                 break;
             }

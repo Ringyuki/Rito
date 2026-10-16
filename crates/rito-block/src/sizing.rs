@@ -65,6 +65,7 @@ pub(crate) fn own_width_contribution(
 /// in CSS, as does `display: flow-root`.
 pub(crate) fn is_flow_root(style: &LayoutFormattingStyle) -> bool {
     style.float != Float::None
+        || style.position == rito_style_contract::Position::Absolute
         || style.overflow != rito_style_contract::Overflow::Visible
         || matches!(
             style.display.inside,

@@ -58,6 +58,22 @@ pub(crate) fn hold_no_block_space(fragments: &[Fragment]) -> bool {
         .all(|fragment| fragment.rect().height <= 0.0)
 }
 
+/// Takes the absolutely positioned boxes a child reported into `into`,
+/// moving their static positions from the child's coordinates into its
+/// parent's by the child's offset.
+pub(crate) fn adopt_positioned(
+    into: &mut Vec<PendingPositioned>,
+    from: Vec<PendingPositioned>,
+    x: f64,
+    y: f64,
+) {
+    into.extend(from.into_iter().map(|pending| PendingPositioned {
+        static_x: pending.static_x + x,
+        static_y: pending.static_y + y,
+        ..pending
+    }));
+}
+
 pub(crate) fn set_fragment_position(fragment: &mut Fragment, x: f64, y: f64) {
     match fragment {
         Fragment::Box(inner) => {
@@ -90,6 +106,7 @@ pub(crate) fn sealed_with_break(
         fragments: sealed(container, inline_size, used_block_size, fragments),
         continuation: Some(token),
         escaped_floats: Vec::new(),
+        positioned: Vec::new(),
     }
 }
 

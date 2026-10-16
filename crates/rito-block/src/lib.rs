@@ -43,10 +43,11 @@ use rito_fragment::{
     BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
     FormattingContext, FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment,
     FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
+    PendingPositioned,
 };
 use rito_style_contract::{
     BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
-    MaximumSize, PageBreak, PreferredSize,
+    MaximumSize, PageBreak, Position, PreferredSize,
 };
 
 mod context;
@@ -55,6 +56,7 @@ mod flow;
 mod fragments;
 mod lines;
 mod margins;
+mod positioned;
 mod resume;
 mod sizing;
 mod table;

@@ -9,6 +9,9 @@
 use crate::*;
 
 impl<I: FormattingContext> BlockFormattingContext<I> {
+    /// Lays one container out: its in-flow children and floats, then the
+    /// absolutely positioned boxes it is the containing block of. Those it
+    /// is not, it reports outward for the nearest positioned ancestor.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn layout_container(
         &self,
@@ -22,6 +25,42 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // top-margin chain into its own collapse set (§8.3.1 through-
         // collapse); the chain is spent and must not re-apply inside.
         leading_margin_consumed: bool,
+    ) -> Result<LayoutOutcome, LayoutError> {
+        let mut positioned = Vec::new();
+        let mut outcome = self.layout_container_flow(
+            tree,
+            container,
+            space,
+            token,
+            cancel,
+            collapse_root_edges,
+            leading_margin_consumed,
+            &mut positioned,
+        )?;
+        positioned.append(&mut outcome.positioned);
+        let style = container_layout_style(tree, container)?;
+        if style.position != Position::Static || container == tree.root() {
+            self.place_positioned(tree, &mut outcome, positioned, cancel)?;
+        } else {
+            outcome.positioned = positioned;
+        }
+        Ok(outcome)
+    }
+
+    /// The in-flow part of [`Self::layout_container`]. Absolutely
+    /// positioned children, and those the children report, are left out of
+    /// the flow and collected in `positioned` at their static positions.
+    #[allow(clippy::too_many_arguments)]
+    fn layout_container_flow(
+        &self,
+        tree: &FormattingTree,
+        container: FormattingNodeId,
+        space: &ConstraintSpace,
+        token: Option<&BreakToken>,
+        cancel: &CancelFlag,
+        collapse_root_edges: bool,
+        leading_margin_consumed: bool,
+        positioned: &mut Vec<PendingPositioned>,
     ) -> Result<LayoutOutcome, LayoutError> {
         let children = tree.node(container).children.clone();
         let (start_child, mut resumed_consumed, resumed_inside) = resume_point(&children, token)?;
@@ -131,6 +170,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         "float resume must produce a box fragment root".to_owned(),
                     ));
                 };
+                let resumed_positioned = outcome.positioned;
                 let head_height = child_root.rect.height;
                 // A still-splitting float owns its band to the page edge;
                 // a finishing one closes with its bottom margin.
@@ -156,6 +196,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     },
                     children: child_root.children,
                 }));
+                adopt_positioned(
+                    positioned,
+                    resumed_positioned,
+                    content_left + fx + hbox.x,
+                    fy,
+                );
                 if let Some(sub_token) = outcome.continuation {
                     pending_float_breaks.push(FloatBreak {
                         child: child_id,
@@ -177,6 +223,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // ONLY that padding (consumed 0 lines).
             let child_resumed_inside = child_resumed && resumed_inside;
             let child_style = container_layout_style(tree, *child_id)?;
+            // An absolutely positioned child leaves the flow entirely: no
+            // margin collapses with it and nothing moves for it. It is laid
+            // out against its containing block once that block's size is
+            // known, from where it would have started in flow.
+            if child_style.position == Position::Absolute {
+                positioned.push(PendingPositioned {
+                    node: *child_id,
+                    static_x: content_left,
+                    static_y: y + pending_margin.resolve().max(0.0),
+                });
+                continue;
+            }
             let (top_margin, bottom_margin) = vertical_margins(tree, *child_id, content_width)?;
             // §8.3.1 through-collapse, layout half: an in-flow child's top
             // margin joins its first-in-flow-descendant chain (whatever
@@ -239,6 +297,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 // dispatch in `layout` (content width, offsets, height);
                 // nested containers apply theirs in `layout_container`.
                 let inner_children = child_root.children;
+                let float_positioned = outcome.positioned;
                 let content_height = child_root.rect.height;
                 let occupy_width = hbox.x + hbox.border_width + margin_right;
                 // A negative top margin pulls the float's border box above
@@ -282,6 +341,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         },
                         children: inner_children,
                     }));
+                    adopt_positioned(
+                        positioned,
+                        float_positioned,
+                        content_left + fx + hbox.x,
+                        fy + top_margin,
+                    );
                     continue;
                 }
                 // A block-container float splits at the fragmentainer edge:
@@ -307,6 +372,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             "float layout must produce a box fragment root".to_owned(),
                         ));
                     };
+                    let head_positioned = outcome.positioned;
                     // A head that consumed NOTHING is not a split: the
                     // browser moves the whole float to the next
                     // fragmentainer, margins and leading padding intact
@@ -340,6 +406,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: head_root.children,
                         }));
+                        adopt_positioned(
+                            positioned,
+                            head_positioned,
+                            content_left + fx + hbox.x,
+                            fy + top_margin.max(0.0),
+                        );
                         if let Some(sub_token) = outcome.continuation {
                             pending_float_breaks.push(FloatBreak {
                                 child: *child_id,
@@ -375,6 +447,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         },
                         children: inner_children,
                     }));
+                    adopt_positioned(
+                        positioned,
+                        float_positioned,
+                        content_left + fx + hbox.x,
+                        fy + top_margin.max(0.0),
+                    );
                     continue;
                 }
                 return Ok(sealed_with_break(
@@ -577,6 +655,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         fragments: sealed(container, space.inline_size, y, fragments),
                         continuation,
                         escaped_floats: Vec::new(),
+                        positioned: Vec::new(),
                     });
                 }
                 FormattingNodeContent::InlineFlow { items } => {
@@ -1212,6 +1291,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             children: Vec::new(),
                         }));
+                        adopt_positioned(
+                            positioned,
+                            outcome.positioned,
+                            content_left + hbox.x,
+                            y + gap,
+                        );
                         pending_margin = if cleared {
                             // The spacer's swallowed set credits against
                             // the next collapse instead of resurrecting
@@ -1240,6 +1325,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         }));
                         y += child_height;
                         remaining -= child_height;
+                        adopt_positioned(
+                            positioned,
+                            outcome.positioned,
+                            content_left + hbox.x,
+                            child_top,
+                        );
                         // Floats the child could not contain keep excluding
                         // content here, translated into this container's
                         // coordinates.
@@ -1340,6 +1431,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             fragments: sealed(container, space.inline_size, y, fragments),
             continuation,
             escaped_floats,
+            positioned: Vec::new(),
         })
     }
 
@@ -1348,7 +1440,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
     /// as wide as its widest unbroken content wants, capped by the space
     /// left after margins and padding, never narrower than its longest
     /// unbreakable piece). Floats never resolve auto margins to centering.
-    fn resolve_float_box(
+    pub(crate) fn resolve_float_box(
         &self,
         tree: &FormattingTree,
         child_id: FormattingNodeId,

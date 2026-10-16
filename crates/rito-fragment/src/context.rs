@@ -18,6 +18,21 @@ pub struct LayoutOutcome {
     /// keep excluding content in the ancestor that does, which is why they
     /// travel back out instead of ending at the container's edge.
     pub escaped_floats: Vec<EscapedFloat>,
+    /// Absolutely positioned boxes this layout is not the containing block
+    /// of, at their static positions in its own coordinates. The nearest
+    /// positioned ancestor (or the tree's root) lays them out once its own
+    /// size is known; until then they travel back out like escaped floats.
+    pub positioned: Vec<PendingPositioned>,
+}
+
+/// An absolutely positioned box waiting for its containing block.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PendingPositioned {
+    pub node: FormattingNodeId,
+    /// Where its margin box would start had it stayed in flow (its static
+    /// position), relative to the reporting container's origin.
+    pub static_x: f64,
+    pub static_y: f64,
 }
 
 /// One float that escaped a non-root container, in that container's
