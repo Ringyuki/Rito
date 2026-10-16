@@ -112,7 +112,8 @@ function createGetTransform(
 ): () => DOMMatrix {
   return () => {
     records.push({ method: 'getTransform', args: [] });
-    return { a: readTransformScale() } as DOMMatrix;
+    // The uniform scale's x axis and no rotation; readers default the rest.
+    return { a: readTransformScale(), b: 0, c: 0 } as DOMMatrix;
   };
 }
 

@@ -13,6 +13,17 @@ used first. Measured under
 flutter_tester on 450-character pages of a CJK book: a new page from
 about 10 ms to 2 ms, a page painted again from 10 ms to under 1 ms.
 
+### Box shadows paint as Chromium paints them
+
+A box whose corners are rounded differently cast a square-cornered shadow
+that showed past its rounded corners; the shadow now takes each corner's
+radius. A spread shadow on a square box stays square, a corner smaller
+than the spread grows by the CSS corner correction, and the shadow is cut
+out along the box's rounded outline, one pixel inside an opaque
+background, so no thin grey line shows along its edges. Only the blurred
+shadow paints: the shape it is cast from was also drawn, unblurred, as a
+hard ring around any box with a spread.
+
 ### Floated images, `::before` and `::after`, and `position: absolute`
 
 The engine lays out three more pieces of CSS that chat-style pages

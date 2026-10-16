@@ -281,11 +281,12 @@ final class RitoPrimitiveCanvasTarget implements RitoPrimitiveTarget {
           primitive.sigma,
         );
       }
+      // Only the shadow paints, as in the browser's own box shadow: the
+      // shape itself is not drawn.
       _canvas.drawPath(
         shape.shift(ui.Offset(primitive.offset.x, primitive.offset.y)),
         blurred,
       );
-      _canvas.drawPath(shape, ui.Paint()..color = color);
     } finally {
       _canvas.restore();
     }

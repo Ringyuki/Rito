@@ -26,6 +26,8 @@ reason or fails the chapter closed; nothing is silently misplaced.
 - `text-transform` and `text-justify` values other than the defaults are
   degraded
 - inset box shadows are not painted
+- a border whose corners are rounded differently is drawn with square
+  corners (its background and shadow take each corner's radius)
 - `@font-face` sources in WOFF or WOFF2 are not decoded: text set in such
   a face falls to the next face its family list resolves to
 
