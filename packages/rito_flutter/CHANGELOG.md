@@ -1,5 +1,13 @@
 ## Unreleased
 
+### A relayout no longer waits behind the whole-book pagination
+
+`RitoReaderController` started paginating the whole book again right
+after every `relayout`, and a pagination step holds the session for as
+long as the book takes, so a relayout requested meanwhile (the next size
+of a window being resized) waited for it. Pagination now waits until no
+relayout has been asked for `RitoReaderController.layoutSettle` (300 ms).
+
 ### A page lays out only the characters no page has painted yet
 
 The page painter lays each character of a run out as its own paragraph

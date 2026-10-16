@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter.dart';
@@ -88,6 +90,30 @@ void main() {
     expect(source.paginations, 2);
     expect(reader.paginationComplete, isTrue);
     expect(reader.revision, 1);
+  });
+
+  testWidgets('pagination after a relayout waits until the layout settles', (
+    tester,
+  ) async {
+    final source = FakePageSource(paginationSteps: 2);
+    final reader = RitoReaderController.withSource(source, layout: fakeLayout);
+    addTearDown(reader.dispose);
+    final release = reader.holdPagination();
+    await tester.pump();
+    unawaited(reader.relayout(fakeLayout));
+    release();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(source.paginations, 0);
+
+    // Another size before the first settled: the wait starts over.
+    unawaited(reader.relayout(fakeLayout));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(source.paginations, 0);
+
+    await tester.pump(RitoReaderController.layoutSettle);
+    await tester.pump();
+    expect(source.paginations, 2);
+    expect(reader.paginationComplete, isTrue);
   });
 
   test('a pagination failure is reported and stops pagination', () async {

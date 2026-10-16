@@ -40,7 +40,7 @@ export function buildController(
     controller,
     buildLifecycle(disposables, runtime, lifecycleDeps),
     buildNavigationActions(nav),
-    buildLayoutActions(internals, emitter, runtime),
+    buildLayoutActions(internals, emitter, runtime, disposables),
     buildFontActions(internals),
     buildSearchActions(internals, emitter, nav, runtime),
     buildSelectionAccessors(internals, canvas, nav),
