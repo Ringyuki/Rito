@@ -1,5 +1,12 @@
 # @ritojs/react
 
+## 3.1.0
+
+### Patch Changes
+
+- @ritojs/kit@3.1.0
+  - @ritojs/core@3.1.0
+
 ## 3.0.0
 
 ### Major Changes
