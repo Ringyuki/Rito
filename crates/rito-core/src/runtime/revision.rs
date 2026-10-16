@@ -242,6 +242,7 @@ fn chapter_style_table_map(
                 Rc::new(super::frame::RuntimeChapterStyleTables {
                     layout: chapter.layout,
                     inline: chapter.inline,
+                    generated: chapter.generated,
                 }),
             )
         })

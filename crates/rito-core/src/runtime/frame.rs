@@ -29,6 +29,7 @@ pub(super) enum RuntimeRevisionCoordinateSpace {
 pub(super) struct RuntimeChapterStyleTables {
     pub(super) layout: LayoutStyleTable,
     pub(super) inline: InlineStyleTable,
+    pub(super) generated: rito_style_contract::GeneratedBoxTable,
 }
 
 /// One paginated revision: the page table the fragment engine built for

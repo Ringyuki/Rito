@@ -13,6 +13,19 @@ used first. Measured under
 flutter_tester on 450-character pages of a CJK book: a new page from
 about 10 ms to 2 ms, a page painted again from 10 ms to under 1 ms.
 
+### Floated images, `::before` and `::after`, and `position: absolute`
+
+The engine lays out three more pieces of CSS that chat-style pages
+(avatars beside speech bubbles with pointed tails) are built from. A
+floated image that opens its block's content floats, with the following
+lines and floats beside it; it used to stay an inline image on a line of
+its own. `::before` and `::after` are generated, as text, a block, a
+float or an absolutely positioned box by their `display`, `float` and
+`position`, showing their strings and `attr()` values (`counter()`,
+quotes and images show nothing). `position: absolute` takes a
+block-level box out of the flow and places it against its nearest
+positioned ancestor by its insets.
+
 ### No blank page before an illustration that follows an empty element
 
 An illustration sized to the page left a blank page before it when it

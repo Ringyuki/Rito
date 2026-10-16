@@ -117,12 +117,15 @@ impl TreeBuilder<'_> {
 
     /// Collects one image as an atomic inline item. The image element has
     /// its own projected styles; display sizing happens at layout time.
+    /// `float_content` collects it as the content of its own float box,
+    /// which carries its float and margins.
     pub(super) fn collect_image(
         &mut self,
         image: &ImageNode,
         inherited: StyleId,
         ancestor_shift_px: f64,
         collector: &mut InlineCollector,
+        float_content: bool,
     ) -> EpubResult<()> {
         let source_index = image
             .source_ref
@@ -132,6 +135,12 @@ impl TreeBuilder<'_> {
                 EpubError::new(format!("image {} carries no source identity", image.src))
             })?;
         if self.is_display_none(source_index, "image") {
+            return Ok(());
+        }
+        if !float_content && collector.takes_leading_float() && self.image_floats(source_index) {
+            let float =
+                self.build_floated_image(image, inherited, collector.current_link.clone())?;
+            collector.push_leading_float(float);
             return Ok(());
         }
         let dimensions = self.image_dimensions.get(&image.src).copied();
@@ -173,6 +182,14 @@ impl TreeBuilder<'_> {
                 self.style_with_border_padding(layout_style, widths, "image")?
             }
             _ => layout_style,
+        };
+        let (style, layout_style) = if float_content {
+            (
+                self.floated_image_inline_style(style)?,
+                self.floated_image_content_style(layout_style)?,
+            )
+        } else {
+            (style, layout_style)
         };
         self.require_image_capabilities(layout_style)?;
         self.require_inline_capabilities(style, true, "image")?;

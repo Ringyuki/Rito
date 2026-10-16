@@ -10,7 +10,8 @@
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, InlineItem};
 use rito_style_contract::{
-    LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId, StyleId, WhiteSpaceCollapse,
+    LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId, PseudoElementKind, StyleId,
+    WhiteSpaceCollapse,
 };
 
 use super::{element_source_index, inline_items_have_substance};
@@ -155,7 +156,9 @@ impl TreeBuilder<'_> {
                     }
                     return Ok(());
                 }
-                if element.children.is_empty() {
+                let before = self.generated_inline(source_index, PseudoElementKind::Before);
+                let after = self.generated_inline(source_index, PseudoElementKind::After);
+                if element.children.is_empty() && before.is_none() && after.is_none() {
                     // A childless inline box still opens on the line: its
                     // font's leaded envelope around its shifted baseline
                     // joins the line metrics (an empty <sup> footnote
@@ -164,8 +167,14 @@ impl TreeBuilder<'_> {
                     // of a page by the sup envelope with nothing in it).
                     collector.push_empty_box(style, shift, source_index);
                 }
+                if let Some(generated) = &before {
+                    self.collect_generated(generated, shift, source_index, collector)?;
+                }
                 for child in &element.children {
                     self.collect_inline(child, style, shift, collector)?;
+                }
+                if let Some(generated) = &after {
+                    self.collect_generated(generated, shift, source_index, collector)?;
                 }
                 if let Some(saved) = saved_link {
                     collector.current_link = saved;
@@ -173,7 +182,7 @@ impl TreeBuilder<'_> {
                 Ok(())
             }
             DocumentNode::Image(image) => {
-                self.collect_image(image, inherited, ancestor_shift_px, collector)
+                self.collect_image(image, inherited, ancestor_shift_px, collector, false)
             }
             DocumentNode::Block(element) => Err(EpubError::new(format!(
                 "block-level <{}> inside an inline run; anonymous box grouping missed it",
@@ -200,6 +209,9 @@ impl TreeBuilder<'_> {
     ) -> EpubResult<bool> {
         let mut sub = self.inline_collector();
         sub.current_link = collector.current_link.clone();
+        if let Some(generated) = self.generated_inline(source_index, PseudoElementKind::Before) {
+            self.collect_generated(&generated, 0.0, source_index, &mut sub)?;
+        }
         for child in &element.children {
             if let Err(error) = self.collect_inline(child, style, 0.0, &mut sub) {
                 self.degrade(format!(
@@ -208,6 +220,9 @@ impl TreeBuilder<'_> {
                 ));
                 return Ok(false);
             }
+        }
+        if let Some(generated) = self.generated_inline(source_index, PseudoElementKind::After) {
+            self.collect_generated(&generated, 0.0, source_index, &mut sub)?;
         }
         let (items, sources) = sub.finish();
         if !inline_items_have_substance(&items) {
@@ -349,7 +364,7 @@ impl TreeBuilder<'_> {
         Ok(())
     }
 
-    fn white_space_collapse(&mut self, style: StyleId) -> EpubResult<bool> {
+    pub(super) fn white_space_collapse(&mut self, style: StyleId) -> EpubResult<bool> {
         let collapse = {
             let style = self
                 .inline

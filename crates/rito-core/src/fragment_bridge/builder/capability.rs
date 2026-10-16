@@ -52,7 +52,7 @@ impl TreeBuilder<'_> {
                 .map_err(|error| EpubError::new(format!("image style resolves: {error}")))?;
             (
                 resolved.float != rito_style_contract::Float::None,
-                shared_box_capability_violation(resolved)
+                shared_box_capability_violation(resolved, false)
                     .or_else(|| image_sizing_violation(resolved)),
             )
         };
@@ -107,7 +107,7 @@ impl TreeBuilder<'_> {
 /// names the first violating field and value.
 fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
     use rito_style_contract as c;
-    if let Some(reason) = shared_box_capability_violation(style) {
+    if let Some(reason) = shared_box_capability_violation(style, true) {
         return Some(reason);
     }
     match style.display {
@@ -160,16 +160,24 @@ fn image_sizing_violation(style: &LayoutFormattingStyle) -> Option<String> {
 }
 
 /// Constraints shared by every box the engine lays out, replaced or not.
-fn shared_box_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
+/// `absolute_laid_out`: the box is block-level, which the block engine
+/// takes out of flow and places against its containing block when it is
+/// absolutely positioned; an inline image is not.
+fn shared_box_capability_violation(
+    style: &LayoutFormattingStyle,
+    absolute_laid_out: bool,
+) -> Option<String> {
     use rito_style_contract as c;
     match style.max_width {
         c::MaximumSize::None | c::MaximumSize::Value(_) => {}
         other => return Some(format!("max-width {other:?} (cap ignored)")),
     }
     // Floated blocks lay out as placed float boxes: a resolvable width is
-    // used directly, and an auto width shrinks to fit its content.
-    // Floated images (line-box wrapping) stay rejected at collection.
-    // `clear` is implemented as clearance past active floats.
+    // used directly, and an auto width shrinks to fit its content. A
+    // floated image opening its block's content is a float box too; one
+    // after content on its line stays inline (line-box wrapping), see
+    // `require_image_capabilities`. `clear` is implemented as clearance
+    // past active floats.
     match style.position {
         c::Position::Static => {}
         c::Position::Relative => {
@@ -185,7 +193,10 @@ fn shared_box_capability_violation(style: &LayoutFormattingStyle) -> Option<Stri
                 return Some("relative position with a non-auto inset".to_owned());
             }
         }
-        c::Position::Absolute => return Some("absolute position".to_owned()),
+        c::Position::Absolute if !absolute_laid_out => {
+            return Some("absolute position".to_owned());
+        }
+        c::Position::Absolute => {}
     }
 
     // justify-content / align-items only affect flex containers, which the

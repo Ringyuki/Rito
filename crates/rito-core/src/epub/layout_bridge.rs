@@ -21,6 +21,7 @@ pub(crate) struct PreparedRuntimeLayoutChapter {
     pub(crate) idref: String,
     pub(crate) layout_style_table: rito_style_contract::LayoutStyleTable,
     pub(crate) inline_style_table: rito_style_contract::InlineStyleTable,
+    pub(crate) generated_boxes: rito_style_contract::GeneratedBoxTable,
 }
 
 pub(crate) fn prepare_runtime_layout_chapter(
@@ -39,6 +40,7 @@ pub(crate) fn prepare_runtime_layout_chapter(
             idref: chapter.idref,
             layout_style_table: chapter.layout,
             inline_style_table: chapter.inline,
+            generated_boxes: chapter.generated,
         }))
 }
 
@@ -71,6 +73,7 @@ fn chapter_style_tables(
                     idref: chapter.source.idref.clone(),
                     layout: rito_style_contract::LayoutStyleTable::new(0),
                     inline: rito_style_contract::InlineStyleTable::new(0),
+                    generated: rito_style_contract::GeneratedBoxTable::new(),
                 });
             }
             let resolved = resolve_prepared_chapter_style(
@@ -83,6 +86,7 @@ fn chapter_style_tables(
                 idref: chapter.source.idref.clone(),
                 layout: resolved.layout_style_table,
                 inline: resolved.inline_style_table,
+                generated: resolved.generated_boxes,
             })
         })
         .collect()
@@ -128,6 +132,7 @@ pub(crate) struct ChapterStyleTable {
     pub(crate) idref: String,
     pub(crate) layout: rito_style_contract::LayoutStyleTable,
     pub(crate) inline: rito_style_contract::InlineStyleTable,
+    pub(crate) generated: rito_style_contract::GeneratedBoxTable,
 }
 
 /// Formal XHTML parse failures are retained as warning-only empty chapters.

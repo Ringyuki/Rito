@@ -4,7 +4,7 @@
 //! merged into a single shaping run, and each item's interaction provenance
 //! (source node, enclosing link, item-to-source text mapping) recorded.
 
-use rito_fragment::InlineItem;
+use rito_fragment::{FormattingNodeId, InlineItem};
 use rito_style_contract::StyleId;
 
 use super::{FlowItemSource, InlineCollector, SourceSegment};
@@ -405,6 +405,26 @@ impl InlineCollector {
             style,
             baseline_shift_px,
         });
+    }
+
+    /// Whether a float met now opens the flow: the collector fills a block
+    /// container and nothing that occupies a line came before it.
+    pub(super) fn takes_leading_float(&self) -> bool {
+        self.leading_floats.is_some() && !self.has_content
+    }
+
+    pub(super) fn push_leading_float(&mut self, float: FormattingNodeId) {
+        if let Some(floats) = self.leading_floats.as_mut() {
+            floats.push(float);
+        }
+    }
+
+    /// The float boxes that open the flow, in document order.
+    pub(super) fn take_leading_floats(&mut self) -> Vec<FormattingNodeId> {
+        self.leading_floats
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
     }
 
     pub(super) fn finish(self) -> (Vec<InlineItem>, Vec<FlowItemSource>) {

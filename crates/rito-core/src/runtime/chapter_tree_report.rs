@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 
 use crate::epub::EpubResult;
-use crate::fragment_bridge::{build_chapter_formatting_tree, ChapterFormattingTree};
+use crate::fragment_bridge::{build_chapter_formatting_tree_with_generated, ChapterFormattingTree};
 use crate::xhtml::DocumentNode;
 
 use super::{frame::RuntimeChapterStyleTables, RuntimeDocument};
@@ -129,11 +129,12 @@ pub(super) fn chapter_formatting_tree(
         // blocking the whole book on it.
         return crate::fragment_bridge::empty_chapter_formatting_tree();
     };
-    build_chapter_formatting_tree(
+    build_chapter_formatting_tree_with_generated(
         nodes,
         body,
         &tables.layout,
         &tables.inline,
+        &tables.generated,
         image_dimensions,
     )
 }
