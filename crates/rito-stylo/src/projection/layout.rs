@@ -111,6 +111,12 @@ impl LayoutStyleProjection {
         &self.table
     }
 
+    /// The table, for interning the styles of generated boxes beside the
+    /// elements'.
+    pub(crate) fn table_mut(&mut self) -> &mut LayoutStyleTable {
+        &mut self.table
+    }
+
     /// Consumes the projection, keeping only the interned table.
     ///
     /// Dispositions exist to explain rejection; a chapter that materialized
@@ -180,6 +186,14 @@ pub(crate) fn project_layout(
         table,
         dispositions,
     })
+}
+
+/// Projects a generated box's (`::before`, `::after`) computed layout
+/// style; the error names the field that cannot be projected.
+pub(crate) fn generated_layout_style(
+    styles: &ComputedValues,
+) -> Result<LayoutFormattingStyle, String> {
+    layout_style(styles).map_err(|failure| format!("{:?} ({:?})", failure.field, failure.reason))
 }
 
 fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingStyle> {
