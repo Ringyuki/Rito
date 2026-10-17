@@ -11,9 +11,9 @@ use crate::epub::TocEntry;
 
 use super::super::{RuntimeDocument, RuntimeRevision};
 use super::{
-    canonicalize_source_locator, matched_by, resolve_canonical_source_locator,
-    CanonicalSourceLocator, RuntimeSourceAnchor, RuntimeSourceLocator, RuntimeSourceLocatorError,
-    RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
+    matched_by, resolve_canonical_source_locator, CanonicalSourceLocator, RuntimeSourceAnchor,
+    RuntimeSourceLocator, RuntimeSourceLocatorError, RuntimeSourceLocatorMatchedBy,
+    RuntimeSourceLocatorResolution, RuntimeSourcePoint,
 };
 
 /// Every TOC entry's target, canonicalized; `None` for a target outside
@@ -47,7 +47,7 @@ impl RuntimeDocument {
         flatten(&self.document.package.toc, &mut hrefs);
         let mut entries = Vec::with_capacity(hrefs.len());
         for href in hrefs {
-            let canonical = canonicalize_source_locator(&self.document, href_locator(href)).ok();
+            let canonical = self.canonicalize_source_locator(href_locator(href)).ok();
             let indexed = match &canonical {
                 Some(target)
                     if chapters(target.chapter_index)
@@ -118,7 +118,7 @@ impl RuntimeDocument {
         href: &str,
         point: &RuntimeSourcePoint,
     ) -> Result<Option<usize>, RuntimeSourceLocatorError> {
-        let position = canonicalize_source_locator(&self.document, href_locator(href.to_owned()))?;
+        let position = self.canonicalize_source_locator(href_locator(href.to_owned()))?;
         let chapter = position.chapter_index;
         let prepared = self.prepare_toc_targets(|index| index == chapter);
         let mut active = None;
@@ -167,7 +167,7 @@ impl RuntimeDocument {
         second: (&str, &RuntimeSourcePoint),
     ) -> Result<Ordering, RuntimeSourceLocatorError> {
         let chapter = |href: &str| {
-            canonicalize_source_locator(&self.document, href_locator(href.to_owned()))
+            self.canonicalize_source_locator(href_locator(href.to_owned()))
                 .map(|canonical| canonical.chapter_index)
         };
         Ok(chapter(first.0)?

@@ -18,8 +18,8 @@ pub use annotation::{
     AnnotationPosition, AnnotationQuote, AnnotationTarget, AnnotationTargetResolution,
     ANNOTATION_TARGET_VERSION,
 };
+use href::CanonicalSourceLocator;
 pub(super) use href::RuntimeSourceLocatorCanonicalizer;
-use href::{canonicalize_source_locator, CanonicalSourceLocator};
 use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_point, SourceProjection};
@@ -236,7 +236,7 @@ impl RuntimeDocument {
         if !self.revisions.contains_key(revision_id) {
             return Err(RuntimeSourceLocatorError::unknown_revision(revision_id));
         }
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         if matched_by(&canonical.locator) == RuntimeSourceLocatorMatchedBy::Href {
             let revision = self
                 .revisions
@@ -271,7 +271,7 @@ impl RuntimeDocument {
         &mut self,
         locator: RuntimeSourceLocator,
     ) -> Result<(usize, RuntimeSourceLocator), RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         if matched_by(&canonical.locator) != RuntimeSourceLocatorMatchedBy::Href {
             self.ensure_source_chapter_index(canonical.chapter_index)?;
             let source_index = self
@@ -291,7 +291,7 @@ impl RuntimeDocument {
         if !self.chapter_local_revisions.contains_key(revision_id) {
             return Err(RuntimeSourceLocatorError::unknown_revision(revision_id));
         }
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         let source_index = if matched_by(&canonical.locator) == RuntimeSourceLocatorMatchedBy::Href
         {
             None
@@ -324,7 +324,7 @@ impl RuntimeDocument {
         &mut self,
         locator: RuntimeSourceLocator,
     ) -> Result<PreparedSourceLocator, RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         if matched_by(&canonical.locator) != RuntimeSourceLocatorMatchedBy::Href {
             self.ensure_source_chapter_index(canonical.chapter_index)?;
             let source_index = self
@@ -352,16 +352,13 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeExactSourceRangeRequest,
     ) -> Result<PreparedExactSourceRange, RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(
-            &self.document,
-            RuntimeSourceLocator {
-                href: request.href,
-                anchor_id: None,
-                source_point: None,
-                source_range: Some(request.source_range),
-                progression: None,
-            },
-        )?;
+        let canonical = self.canonicalize_source_locator(RuntimeSourceLocator {
+            href: request.href,
+            anchor_id: None,
+            source_point: None,
+            source_range: Some(request.source_range),
+            progression: None,
+        })?;
         self.ensure_source_chapter_index(canonical.chapter_index)?;
         let source_index = self
             .source_chapter_indices

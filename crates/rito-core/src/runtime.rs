@@ -92,6 +92,8 @@ pub struct RuntimeDocument {
     #[cfg(test)]
     publication_footnote_scan_count: usize,
     page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
+    /// The publication's chapter hrefs indexed for resolving a locator's.
+    source_locator_canonicalizer: OnceCell<source_locator::RuntimeSourceLocatorCanonicalizer>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
     /// Each chapter's style tables as last resolved, reused by every
@@ -177,6 +179,7 @@ impl RuntimeDocument {
             #[cfg(test)]
             publication_footnote_scan_count: 0,
             page_target_context: OnceCell::new(),
+            source_locator_canonicalizer: OnceCell::new(),
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
             chapter_styles: chapter_styles::ChapterStyleCache::default(),

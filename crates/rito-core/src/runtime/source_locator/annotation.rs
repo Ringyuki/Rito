@@ -8,9 +8,9 @@
 
 use super::super::{RuntimeChapterTextSpan, RuntimeDocument};
 use super::{
-    canonicalize_source_locator, source_point_offset, RuntimeSourceChapterIndex,
-    RuntimeSourceLocator, RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind,
-    RuntimeSourcePoint, RuntimeSourceRange,
+    source_point_offset, RuntimeSourceChapterIndex, RuntimeSourceLocator,
+    RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourcePoint,
+    RuntimeSourceRange,
 };
 
 mod quote;
@@ -96,16 +96,13 @@ impl RuntimeDocument {
     }
 
     fn annotation_chapter(&mut self, href: &str) -> Result<usize, RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(
-            &self.document,
-            RuntimeSourceLocator {
-                href: href.to_owned(),
-                anchor_id: None,
-                source_point: None,
-                source_range: None,
-                progression: None,
-            },
-        )?;
+        let canonical = self.canonicalize_source_locator(RuntimeSourceLocator {
+            href: href.to_owned(),
+            anchor_id: None,
+            source_point: None,
+            source_range: None,
+            progression: None,
+        })?;
         self.ensure_source_chapter_index(canonical.chapter_index)?;
         Ok(canonical.chapter_index)
     }
