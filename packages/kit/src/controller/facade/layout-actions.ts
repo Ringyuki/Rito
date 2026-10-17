@@ -161,7 +161,11 @@ function applyLayoutCommitMutation(
   if (internals.currentSpread === committedSpread) {
     internals.reader.notifyActiveSpread(committedSpread);
   }
-  runtime.frameDriver.compositeNow();
+  // Painted on the next animation frame, which runs before the browser
+  // presents the resized canvas: the commit returns at once, so the reader
+  // asks for the next layout while this one is painted, and the layouts a
+  // window being resized commits in one frame are painted once.
+  runtime.frameDriver.scheduleComposite();
   return committedSpread;
 }
 

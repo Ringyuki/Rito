@@ -55,7 +55,6 @@ function createMocks(options?: {
   const invalidateAllContent = vi.fn();
   const assignSlot = vi.fn();
   const reset = vi.fn();
-  const scheduleComposite = vi.fn();
   let annotationStateAtComposite:
     | {
         readonly generation: number;
@@ -100,7 +99,7 @@ function createMocks(options?: {
     },
     searchResults: { stale: false, refresh: null },
   };
-  const compositeNow = vi.fn(() => {
+  const captureCompositeState = () => {
     annotationStateAtComposite = {
       generation: coordState.nativeAnnotationGeometry.generation,
       cacheSize: coordState.nativeAnnotationGeometry.cache.size,
@@ -108,7 +107,11 @@ function createMocks(options?: {
       pendingSize: coordState.nativeAnnotationGeometry.pending.size,
       resolvedCount: coordState.resolvedAnnotations.length,
     };
-  });
+  };
+  // A layout commit asks for its composite on the next animation frame;
+  // the state it paints is the state at the request.
+  const scheduleComposite = vi.fn(captureCompositeState);
+  const compositeNow = vi.fn(captureCompositeState);
   const internals = {
     reader,
     currentSpread: options?.currentSpread ?? 1,
@@ -235,7 +238,7 @@ describe('buildLayoutActions', () => {
     expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
     expect(spies.assignSlot).toHaveBeenCalledWith('curr', 1);
     expect(spies.reset).toHaveBeenCalledOnce();
-    expect(spies.compositeNow).toHaveBeenCalledOnce();
+    expect(spies.scheduleComposite).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
       spreads: reader.spreads,
       totalSpreads: reader.totalSpreads,
@@ -298,7 +301,7 @@ describe('buildLayoutActions', () => {
     expect(spies.setTypography).toHaveBeenCalledWith({ fontFamily: 'serif' });
     expect(spies.setSize).not.toHaveBeenCalled();
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
-    expect(spies.compositeNow).not.toHaveBeenCalled();
+    expect(spies.scheduleComposite).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
   });
 
@@ -384,12 +387,12 @@ describe('buildLayoutActions', () => {
         kind: 'skip',
         spreadIndex: 1,
       });
-      expect(fixture.spies.compositeNow).not.toHaveBeenCalled();
+      expect(fixture.spies.scheduleComposite).not.toHaveBeenCalled();
     });
     fixture.spies.emit.mockImplementation((event: string) => {
       order.push(event);
       if (event !== 'layoutChange') return;
-      expect(fixture.spies.compositeNow).toHaveBeenCalledOnce();
+      expect(fixture.spies.scheduleComposite).toHaveBeenCalledOnce();
       fixture.internals.currentSpread = 2;
     });
 
@@ -422,7 +425,7 @@ describe('buildLayoutActions', () => {
       order.push('selection');
       expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalled();
     });
-    fixture.spies.compositeNow.mockImplementation(() => {
+    fixture.spies.scheduleComposite.mockImplementation(() => {
       order.push('composite');
     });
     fixture.spies.emit.mockImplementation((event: string) => {
