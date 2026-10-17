@@ -46,14 +46,12 @@ export async function adoptSessionReaderFirstFrame(
 
 /**
  * Lays the chapter out again under `config` at the page shown and has the
- * session show the result: request, prepare, adopt. Resolves undefined,
- * with the result given back, when `overtaken` says a newer request stands.
+ * session show the result: request, prepare, adopt.
  */
 export async function requestSessionReaderLayout(
   state: SessionReaderState,
   config: LayoutConfig,
-  overtaken: () => boolean,
-): Promise<SessionReaderLayoutCandidate | undefined> {
+): Promise<SessionReaderLayoutCandidate> {
   const visible = state.visible.artifact;
   const artifact = await state.session.requestArtifact({
     layout: sessionReaderSessionLayout(config, state.dpr),
@@ -61,10 +59,6 @@ export async function requestSessionReaderLayout(
     textProfile: visible.textProfile,
   });
   const candidate = await prepareCandidate(state, artifact);
-  if (overtaken()) {
-    await releaseSessionReaderFrame(state, candidate.frame);
-    return undefined;
-  }
   await adopt(state, candidate.frame, () =>
     state.session.adoptForegroundCandidate(visible.artifactId, artifact.artifactId),
   );

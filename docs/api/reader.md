@@ -213,6 +213,10 @@ same page under its book-wide number. Both commits call the
 bar reads them again on the second one. A page of the chapter commit is the page the book
 commit gives that chapter, so nothing on screen moves between the two.
 
+Changes made while a layout is under way wait for it: it commits, and then only
+the newest of them is laid out. A host that sends a new size every frame sees a
+new size each time a layout ends.
+
 A spread carries page indexes only; page geometry comes from
 `getLayoutGeometry()` and page content from the rendered frame and
 `interactions`. Page and spread indexes are projections of the committed layout

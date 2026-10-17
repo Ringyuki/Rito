@@ -332,25 +332,28 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
-  it('commits only the newest of layouts requested while one is under way', async () => {
+  it('commits a layout under way, then lays out only the newest request made meanwhile', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);
     commits.length = 0;
+    fake.layoutMs = 30;
 
     reader.setTypography({ fontSize: 20 });
     reader.setTypography({ fontSize: 24 });
     await new Promise((resolve) => setTimeout(resolve, 0));
+    // Both made while 24 is laid out.
+    reader.setTypography({ fontSize: 28 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     reader.setTypography({ fontSize: 32 });
-    await bookScope(reader);
     await vi.waitFor(() => {
       expect(reader.getLayoutGeometry().rootFontSize).toBe(32);
       expect(reader.layoutScope).toBe('book');
     });
 
-    // Requests made in one task are one layout; the one overtaken while it
-    // was laid out did not commit.
+    // Requests made in one task are one layout; 28 never laid out.
     expect(fake.requests.slice(1).map((request) => request.layout.rootFontSize)).toEqual([24, 32]);
-    expect(commits.map((commit) => commit.spreads)).toEqual([16, 28]);
+    // Chapter one at 24 (12 pages) and 32 (16), then the book at 32.
+    expect(commits.map((commit) => commit.spreads)).toEqual([12, 16, 28]);
     await reader.dispose();
   });
 
@@ -382,6 +385,33 @@ describe('Reader on a session', () => {
     release?.();
     await bookScope(reader);
     expect(reader.getLayoutGeometry().pageWidth).toBe(510);
+    await reader.dispose();
+  });
+
+  it('shows a size each time a layout ends while sizes come faster than the chapter lays out', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+    const release = reader.holdBookLayout?.();
+
+    // A new size every frame, and a chapter that takes more than two frames.
+    fake.layoutMs = 40;
+    const sizes = 15;
+    for (let frame = 0; frame < sizes; frame += 1) {
+      reader.resize(420 + frame * 10, 600);
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    const duringDrag = commits.length;
+    await vi.waitFor(() => {
+      expect(reader.getLayoutGeometry().pageWidth).toBe(560);
+    });
+    expect(duringDrag).toBeGreaterThanOrEqual(2);
+    // The sizes that came while a layout ran were laid out as the newest only.
+    expect(fake.requests.length - 1).toBeLessThan(sizes);
+    expect(commits.every((commit) => commit.scope === 'chapter')).toBe(true);
+
+    release?.();
+    await bookScope(reader);
     await reader.dispose();
   });
 

@@ -85,6 +85,8 @@ export class FakeReaderSession {
   disposed = false;
   /** While set, the whole-book step waits on it, and so does every call made after it. */
   backgroundGate: Promise<void> | undefined;
+  /** How long a requested chapter takes to lay out; every call made after it waits too. */
+  layoutMs = 0;
   /** Artifact calls the reader made while another was unanswered. */
   readonly violations: string[] = [];
   private readonly unanswered: string[] = [];
@@ -194,7 +196,14 @@ export class FakeReaderSession {
       initialArtifact: this.initialArtifact,
       readPublication: () => later(() => this.publication()),
       requestArtifact: (request) =>
-        owning('requestArtifact', () => later(() => this.request(request), 'requestArtifact')),
+        owning('requestArtifact', () =>
+          later(async () => {
+            if (this.layoutMs > 0) {
+              await new Promise((resolve) => setTimeout(resolve, this.layoutMs));
+            }
+            return this.request(request);
+          }, 'requestArtifact'),
+        ),
       peekSpread: (from, spreadIndex) =>
         owning('peekSpread', () => later(() => this.peekSpread(from, spreadIndex), 'peekSpread')),
       commitPeekedArtifact: (expected, candidate) =>
