@@ -17,16 +17,21 @@
 //! already shaped instead of shaping them again, as a browser keeps a
 //! block's shaped text across a resize.
 
-use std::{cell::Cell, collections::BTreeMap};
+use std::cell::Cell;
 
 use rito_fragment::IntrinsicInlineSizes;
 use rustc_hash::FxHashMap;
 
-use crate::ParagraphLayout;
+use crate::{segmented_lru::SegmentedLru, ParagraphLayout};
 
 /// How much the kept paragraphs may hold, by the estimate of
 /// [`estimated_bytes`]: some ten chapters of a light novel.
 const SHAPED_PARAGRAPH_BUDGET_BYTES: usize = 48 << 20;
+
+/// How much of it the paragraphs used again may hold: the rest stays for
+/// those used once, room for the chapter laid out next while a book-wide
+/// layout passes through the others.
+const SHAPED_PARAGRAPH_PROTECTED_BYTES: usize = SHAPED_PARAGRAPH_BUDGET_BYTES / 4 * 3;
 
 /// The space a paragraph is built in, recording what read it: images and
 /// inline blocks, sized in it, or percentage margins, shaped with it. A
@@ -129,14 +134,23 @@ impl ShapeKey {
     }
 }
 
-/// The kept paragraphs, least recently used evicted first.
-#[derive(Default)]
+/// The kept paragraphs. A book-wide layout shapes most paragraphs once,
+/// and would evict the chapter being read from a cache that kept the most
+/// recently used: those used again are kept apart from those used once
+/// (see [`SegmentedLru`]).
 pub(crate) struct ShapedParagraphs {
-    entries: FxHashMap<ShapeKey, Entry>,
-    /// Last use → key, so eviction finds the oldest without scanning.
-    recency: BTreeMap<u64, ShapeKey>,
-    clock: u64,
-    bytes: usize,
+    kept: SegmentedLru<ShapeKey, Entry>,
+}
+
+impl Default for ShapedParagraphs {
+    fn default() -> Self {
+        Self {
+            kept: SegmentedLru::new(
+                SHAPED_PARAGRAPH_BUDGET_BYTES,
+                SHAPED_PARAGRAPH_PROTECTED_BYTES,
+            ),
+        }
+    }
 }
 
 struct Entry {
@@ -144,8 +158,6 @@ struct Entry {
     /// The space its images and inline blocks were sized in, when it has
     /// any.
     atoms_space: Option<[Option<u64>; 3]>,
-    bytes: usize,
-    used: u64,
 }
 
 /// A kept paragraph, and whether its images and inline blocks were sized
@@ -177,46 +189,19 @@ impl ShapedParagraphs {
     ) {
         key.space = space.read_by_shaping.get().then(|| space.key());
         let atoms_space = space.read_by_atoms.get().then(|| space.key());
-        let bytes = estimated_bytes(paragraph);
-        if bytes > SHAPED_PARAGRAPH_BUDGET_BYTES {
-            return;
-        }
-        self.clock += 1;
-        if let Some(old) = self.entries.remove(&key) {
-            self.recency.remove(&old.used);
-            self.bytes -= old.bytes;
-        }
-        self.recency.insert(self.clock, key.clone());
-        self.entries.insert(
-            key,
-            Entry {
-                paragraph: paragraph.clone(),
-                atoms_space,
-                bytes,
-                used: self.clock,
-            },
-        );
-        self.bytes += bytes;
-        while self.bytes > SHAPED_PARAGRAPH_BUDGET_BYTES {
-            let Some((_, oldest)) = self.recency.pop_first() else {
-                break;
-            };
-            if let Some(evicted) = self.entries.remove(&oldest) {
-                self.bytes -= evicted.bytes;
-            }
-        }
+        let entry = Entry {
+            paragraph: paragraph.clone(),
+            atoms_space,
+        };
+        self.kept.insert(key, entry, estimated_bytes(paragraph));
     }
 
     pub(crate) fn clear(&mut self) {
-        *self = Self::default();
+        self.kept.clear();
     }
 
     fn touch(&mut self, key: &ShapeKey, space: &BuildSpace) -> Option<KeptParagraph> {
-        let entry = self.entries.get_mut(key)?;
-        self.clock += 1;
-        self.recency.remove(&entry.used);
-        entry.used = self.clock;
-        self.recency.insert(self.clock, key.clone());
+        let entry = self.kept.get(key)?;
         Some(KeptParagraph {
             paragraph: entry.paragraph.clone(),
             atoms_sized_elsewhere: entry.atoms_space.is_some_and(|sized| sized != space.key()),

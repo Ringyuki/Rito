@@ -52,6 +52,7 @@ mod marker;
 mod paragraph;
 mod punctuation;
 mod ruby;
+mod segmented_lru;
 mod shaped;
 mod shaping;
 mod strut;
