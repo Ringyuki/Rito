@@ -467,6 +467,8 @@ export class FakeReaderSession {
         location: { kind: 'page', pageIndex, drawn: false, matchedBy: 'progression' },
       };
     }
+    const whole = query.whole ?? true;
+    this.calls.push(`layout ${whole ? 'whole' : 'so far'}`);
     const chapters =
       revision.chapterIndex === undefined
         ? this.chapters.map((_, spineIndex) => spineIndex)
@@ -491,6 +493,9 @@ export class FakeReaderSession {
         activeTocEntryByPage: ranges.flatMap((range) =>
           Array.from({ length: range.endPage - range.startPage + 1 }, () => range.spineIndex),
         ),
+        // A table asked for in part stands for one whose chapter is laid
+        // out only through the spread shown.
+        complete: whole,
       },
     };
   }

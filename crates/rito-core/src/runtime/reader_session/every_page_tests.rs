@@ -61,7 +61,10 @@ fn spread_of(session: &mut ReaderSession, artifact_id: u64, page_index: u32) -> 
     let layout = match session
         .resolve_navigation(ReaderNavigationRequest {
             session_id: SESSION,
-            query: ReaderNavigationQuery::Layout { artifact_id },
+            query: ReaderNavigationQuery::Layout {
+                artifact_id,
+                whole: true,
+            },
         })
         .expect("layout resolves")
     {

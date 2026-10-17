@@ -294,7 +294,17 @@ export interface RitoReaderNavigationRequest {
         readonly secondHref: string;
         readonly second: RitoReaderSourcePoint;
       }
-    | { readonly kind: 'layout'; readonly artifactId: bigint };
+    | {
+        readonly kind: 'layout';
+        readonly artifactId: bigint;
+        /**
+         * Whether the revision's chapters are laid out to their ends before
+         * the table is read (the default). Without it the table holds the
+         * pages laid out so far: a chapter-local revision stops at the spread
+         * its reader needs, and `complete` says whether that is all of them.
+         */
+        readonly whole?: boolean;
+      };
 }
 
 /**
@@ -319,6 +329,12 @@ export interface RitoReaderRevisionLayout {
   readonly tocTargets: readonly { readonly tocId: number; readonly pageIndex: number }[];
   /** Per page, the `tocId` of the entry it reads under. */
   readonly activeTocEntryByPage: readonly (number | undefined)[];
+  /**
+   * Whether the table holds every page of its chapters. One that does not
+   * holds their first pages, numbered and spread as all of them are; a TOC
+   * entry whose target lies past them is not placed yet.
+   */
+  readonly complete: boolean;
 }
 
 export type RitoReaderLocation =

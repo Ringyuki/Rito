@@ -32,7 +32,7 @@ use crate::render::{
 
 use super::fragment_frame::RuntimeFragmentEngine;
 use super::frame::{RuntimeChapterStyleTables, RuntimeRevisionInteractions};
-use super::page_artifact::FragmentPageArtifact;
+use super::page_artifact::{FragmentPageArtifact, PageArtifactSourceRunStart};
 use super::search::{SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource};
 use super::source_locator::PaginationTarget;
 use super::RuntimeDocument;
@@ -390,6 +390,43 @@ impl FragmentBuiltLayout {
     /// Whether every page of the table's chapters is paginated.
     pub(super) fn is_complete(&self) -> bool {
         self.rest.is_none()
+    }
+
+    /// Paginates a chapter-local table's chapter until `settled` accepts a
+    /// page — given its run starts and where the chapter resumes after it —
+    /// first among the pages so far, then among the pages it lays out, or
+    /// to the chapter's end.
+    pub(super) fn settle_chapter(
+        &mut self,
+        mut settled: impl FnMut(&[PageArtifactSourceRunStart], Option<&BreakToken>) -> bool,
+    ) -> EpubResult<()> {
+        let mut page = 0;
+        loop {
+            if page == self.page_count {
+                if self.rest.is_none() {
+                    return Ok(());
+                }
+                self.extend_chapter(Some(page + 1))?;
+                if page == self.page_count {
+                    return Ok(());
+                }
+            }
+            let end = self
+                .materialized
+                .borrow()
+                .entries
+                .iter()
+                .find(|(index, _)| *index == 0)
+                .and_then(|(_, chapter)| chapter.pages.get(page).map(|entry| entry.end.clone()))
+                .ok_or_else(|| EpubError::new("a chapter-local table keeps its chapter's pages"))?;
+            let starts = self.run_starts.as_deref().unwrap_or_default();
+            let from = starts.partition_point(|start| start.page_index < page);
+            let to = starts.partition_point(|start| start.page_index <= page);
+            if settled(&starts[from..to], end.as_ref()) {
+                return Ok(());
+            }
+            page += 1;
+        }
     }
 
     /// Paginates more of a chapter-local table's chapter, resuming where

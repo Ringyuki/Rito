@@ -53,7 +53,10 @@ fn layout_of(session: &mut ReaderSession, artifact_id: u64) -> ReaderRevisionLay
     match session
         .resolve_navigation(ReaderNavigationRequest {
             session_id: SESSION,
-            query: ReaderNavigationQuery::Layout { artifact_id },
+            query: ReaderNavigationQuery::Layout {
+                artifact_id,
+                whole: true,
+            },
         })
         .expect("layout resolves")
     {
@@ -391,7 +394,10 @@ fn a_spread_request_fails_closed_without_publishing() {
 fn layout_request_fixture() -> ReaderNavigationRequest {
     ReaderNavigationRequest {
         session_id: 7,
-        query: ReaderNavigationQuery::Layout { artifact_id: 9 },
+        query: ReaderNavigationQuery::Layout {
+            artifact_id: 9,
+            whole: false,
+        },
     }
 }
 
@@ -435,6 +441,7 @@ fn layout_result_fixture() -> ReaderNavigationResult {
             },
         ],
         active_toc_entry_by_page: vec![None, Some(2), Some(2), Some(6), Some(6)],
+        complete: false,
     })
 }
 
@@ -461,17 +468,17 @@ fn unhex(hex: &str) -> Vec<u8> {
 /// Produced by the encoder; the `rito_flutter` and `@ritojs/core-wasm`
 /// layout wire tests pin the same bytes.
 const LAYOUT_REQUEST_HEX: &str = concat!(
-    "5249544f4e565131010000002500000000000000070000000000000004090000",
-    "0000000000",
+    "5249544f4e565131010000002600000000000000070000000000000004090000",
+    "000000000000",
 );
 
 /// Produced by the encoder; the `rito_flutter` and `@ritojs/core-wasm`
 /// layout wire tests pin the same bytes.
 const LAYOUT_RESULT_HEX: &str = concat!(
-    "5249544f4e565231010000007d00000000000000030500000003000000000000",
+    "5249544f4e565231010000007e00000000000000030500000003000000000000",
     "0000010000000102000000030000000104000000020000000100000000000000",
     "0200000003000000030000000400000002000000020000000000000006000000",
-    "0300000005000000000102000000010200000001060000000106000000",
+    "030000000500000000010200000001020000000106000000010600000000",
 );
 
 /// Produced by the encoder; the `rito_flutter` and `@ritojs/core-wasm`

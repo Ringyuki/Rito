@@ -1,7 +1,7 @@
 import { advanceSessionReaderBook } from './artifacts';
-import { commitSessionReaderLayout } from './commit';
+import { commitSessionReaderLayout, completeSessionReaderLayout } from './commit';
 import { warmSessionReaderNeighbours } from './frames';
-import { wakeSessionReaderQueue } from './queue';
+import { runSessionReaderOperation, wakeSessionReaderQueue } from './queue';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
 /** Steps in a row that may bring no page for one layout before the book is reported stuck. */
@@ -58,6 +58,10 @@ export function holdSessionReaderBook(state: SessionReaderState): () => void {
     released = true;
     state.bookHolds -= 1;
     if (state.bookHolds > 0 || state.disposed) return;
+    // The sizes stopped: the page table a resize read only in part is read whole.
+    if (!state.view.complete) {
+      void runSessionReaderOperation(state, 'asked', () => completeSessionReaderLayout(state));
+    }
     warmSessionReaderNeighbours(state);
     wakeSessionReaderQueue(state);
   };

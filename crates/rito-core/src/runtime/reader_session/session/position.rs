@@ -32,8 +32,10 @@ impl ReaderSession {
             ));
         }
         if let ReaderNavigationQuery::TocEntryAtPage { artifact_id, .. }
-        | ReaderNavigationQuery::Locate { artifact_id, .. }
-        | ReaderNavigationQuery::Layout { artifact_id } = &request.query
+        | ReaderNavigationQuery::Layout {
+            artifact_id,
+            whole: true,
+        } = &request.query
         {
             self.complete_artifact_revision(*artifact_id)?;
         }
@@ -72,7 +74,7 @@ impl ReaderSession {
                     .map_err(position_error)?;
                 Ok(ReaderNavigationResult::Order(order))
             }
-            ReaderNavigationQuery::Layout { artifact_id } => self.revision_layout(artifact_id),
+            ReaderNavigationQuery::Layout { artifact_id, .. } => self.revision_layout(artifact_id),
         }
     }
 
@@ -140,6 +142,7 @@ impl ReaderSession {
             chapters,
             toc_targets,
             active_toc_entry_by_page,
+            complete: self.artifact_revision_is_complete(artifact_id),
         }))
     }
 
@@ -194,6 +197,7 @@ impl ReaderSession {
                 ))
             }
         };
+        self.settle_artifact_revision(artifact_id, prepared.locator())?;
         let view = self.artifact_view(artifact_id)?;
         let location = match self.document.resolve_prepared_source_locator_in(
             &view.revision_id,

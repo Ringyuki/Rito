@@ -1,8 +1,12 @@
 //! A chapter-local revision paginates its chapter only as far as the
 //! session has needed it: through the spread it was opened on and the page
-//! after it. A turn past them paginates further, and a query that reads the
-//! whole chapter — a search, a text interaction, a page table — paginates
-//! it to its end first, so it answers as it would have over every page.
+//! after it. A turn past them paginates further, a locator paginates until
+//! it lands where it would among all pages, and a query that reads the
+//! whole chapter — a search, a text interaction, a whole page table —
+//! paginates it to its end first, so it answers as it would have over
+//! every page.
+
+use crate::runtime::RuntimeSourceLocator;
 
 use super::{errors::engine_error, ReaderError, ReaderRevisionBacking, ReaderSession};
 
@@ -55,6 +59,46 @@ impl ReaderSession {
                 self.complete_revision(artifact.revision_id)
             }
             _ => Ok(()),
+        }
+    }
+
+    /// Paginates the chapter behind a chapter-local artifact until
+    /// `locator` lands where it would among all of the chapter's pages.
+    pub(super) fn settle_artifact_revision(
+        &mut self,
+        artifact_id: u64,
+        locator: &RuntimeSourceLocator,
+    ) -> Result<(), ReaderError> {
+        let Some(revision_id) = self
+            .artifacts
+            .get(&artifact_id)
+            .filter(|artifact| artifact.backing == ReaderRevisionBacking::ChapterLocal)
+            .map(|artifact| artifact.revision_id)
+        else {
+            return Ok(());
+        };
+        let Some(owner) = self
+            .revisions
+            .get(&revision_id)
+            .map(|revision| revision.owner.clone())
+        else {
+            return Ok(());
+        };
+        self.document
+            .settle_chapter_local_revision(&owner.revision_id, locator)
+            .map_err(engine_error)?;
+        self.recount_spreads(revision_id);
+        Ok(())
+    }
+
+    /// Whether the revision behind an artifact holds every page of its
+    /// chapters.
+    pub(super) fn artifact_revision_is_complete(&self, artifact_id: u64) -> bool {
+        match self.artifacts.get(&artifact_id) {
+            Some(artifact) if artifact.backing == ReaderRevisionBacking::ChapterLocal => {
+                self.revision_is_complete(artifact.revision_id)
+            }
+            _ => true,
         }
     }
 

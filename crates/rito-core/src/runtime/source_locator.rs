@@ -38,6 +38,13 @@ pub(in crate::runtime) struct PreparedExactSourceRange {
 /// A locator checked against the source and ready to place in a revision.
 pub(in crate::runtime) struct PreparedSourceLocator(CanonicalSourceLocator);
 
+impl PreparedSourceLocator {
+    /// The locator in its canonical form.
+    pub(in crate::runtime) fn locator(&self) -> &RuntimeSourceLocator {
+        &self.0.locator
+    }
+}
+
 pub(super) enum ExactSourceRangePageWindow {
     Ready { first_page: usize, last_page: usize },
     Pending(RuntimeSourceLocatorPendingReason),

@@ -16,6 +16,12 @@ hashed the display list of every artifact it published, as for every
 size of a window being resized. `RitoDisplayListPayload.semanticDigest`
 is removed.
 
+`RITONVQ1`'s layout query ends with a `whole` flag and `RITONVR1`'s page
+table with `complete`. `RitoReaderSession.revisionLayout` takes `whole`
+(default `true`, which is what it did until now): without it the table
+holds the pages laid out so far, which `RitoRevisionLayout.complete`
+reports. Locating a position no longer lays out the rest of its chapter.
+
 ## 0.7.0 - 2026-10-17
 
 ### Ranges across paragraphs inside one wrapper resolve

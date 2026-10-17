@@ -34,8 +34,12 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // kept reader.ts within the file limit.
 // +2 lines (2026-10-17): the hold also keeps the spreads beside the one
 // shown from loading, each for a layout the next size replaces.
+// +39 lines (2026-10-17): while the hold stands a relayout reads only the
+// page table laid out so far, since the engine lays a chapter out only
+// through the spread shown and the whole table would have it lay out the
+// rest for every size; releasing the hold reads the whole table.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2676;
+const SESSION_READER_LINE_BUDGET = 2715;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built

@@ -95,6 +95,16 @@ impl RuntimeDocument {
             })
     }
 
+    /// The spine idref of the chapter a locator names, when it names one.
+    pub(in crate::runtime) fn locator_spine_idref(
+        &self,
+        locator: &RuntimeSourceLocator,
+    ) -> Option<String> {
+        self.canonicalize_source_locator(locator.clone())
+            .ok()
+            .map(|canonical| canonical.spine_idref)
+    }
+
     /// The source index of a chapter, when it has been built.
     pub(in crate::runtime) fn source_chapter_index(
         &self,

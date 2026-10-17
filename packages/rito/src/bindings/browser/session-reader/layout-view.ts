@@ -25,6 +25,8 @@ export interface SessionReaderLayoutView {
   readonly spreadIndexByPage: readonly (number | undefined)[];
   /** Per page, the manifest href of the chapter it belongs to. */
   readonly chapterHrefByPage: readonly (string | undefined)[];
+  /** Whether it holds every page: while a window is resized, only the pages laid out so far. */
+  readonly complete: boolean;
 }
 
 export function createSessionReaderLayoutView(
@@ -67,6 +69,7 @@ export function createSessionReaderLayoutView(
     activeTocIdByPage: layout.activeTocEntryByPage,
     spreadIndexByPage,
     chapterHrefByPage,
+    complete: layout.complete,
   };
 }
 
@@ -79,4 +82,5 @@ export const EMPTY_SESSION_READER_LAYOUT_VIEW: SessionReaderLayoutView = {
   activeTocIdByPage: [],
   spreadIndexByPage: [],
   chapterHrefByPage: [],
+  complete: true,
 };

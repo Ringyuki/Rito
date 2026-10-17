@@ -1025,13 +1025,18 @@ final class RitoReaderSession {
   /// alone, so the table covers that chapter and counts pages from zero;
   /// once the whole book is adopted the table covers the book and its
   /// pages are book pages. [peekSpread] reaches any spread it lists.
+  ///
+  /// A chapter is laid out only as far as the reader has needed it; with
+  /// [whole] it is laid out to its end first, and without it the table
+  /// holds the pages laid out so far ([RitoRevisionLayout.complete]).
   Future<RitoRevisionLayout> revisionLayout(
-    RitoPreparedArtifact prepared,
-  ) async {
+    RitoPreparedArtifact prepared, {
+    bool whole = true,
+  }) async {
     final artifact = prepared.artifact;
     _requireLiveArtifact(artifact);
     final result = await _navigation(
-      RitoLayoutQuery(artifactId: artifact.artifactId),
+      RitoLayoutQuery(artifactId: artifact.artifactId, whole: whole),
     );
     return (result as RitoLayoutResult).layout;
   }

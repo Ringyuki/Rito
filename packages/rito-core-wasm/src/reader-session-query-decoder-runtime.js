@@ -351,6 +351,7 @@ function readRevisionLayout(reader) {
     activeTocEntryByPage: readCollection(reader, 'layout page toc entries', () =>
       optionalU32('page toc entry'),
     ),
+    complete: reader.bool('layout complete'),
   };
 }
 

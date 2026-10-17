@@ -7,7 +7,8 @@
 use super::{
     tests::{adopt_initial, open_test_session, request},
     ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderArtifact, ReaderForegroundHandoff,
-    ReaderLocator, ReaderSearchRequest, ReaderSession,
+    ReaderLocator, ReaderNavigationQuery, ReaderNavigationRequest, ReaderNavigationResult,
+    ReaderRevisionLayout, ReaderSearchRequest, ReaderSession,
 };
 
 const SESSION: u64 = 171;
@@ -154,4 +155,61 @@ fn a_chapter_paginated_as_far_as_its_reader_needs_publishes_what_the_whole_chapt
         whole.session.artifact_pagination(whole.visible),
         "a search reads the whole chapter"
     );
+}
+
+fn navigate(reader: &mut Reader, query: ReaderNavigationQuery) -> ReaderNavigationResult {
+    reader
+        .session
+        .resolve_navigation(ReaderNavigationRequest {
+            session_id: SESSION,
+            query,
+        })
+        .expect("the navigation query answers")
+}
+
+fn page_table(reader: &mut Reader, whole: bool) -> ReaderRevisionLayout {
+    let artifact_id = reader.visible;
+    match navigate(reader, ReaderNavigationQuery::Layout { artifact_id, whole }) {
+        ReaderNavigationResult::Layout(layout) => layout,
+        other => panic!("a layout query answered {other:?}"),
+    }
+}
+
+#[test]
+fn a_page_table_and_a_locator_read_only_the_pages_laid_out_so_far() {
+    let mut whole = Reader::open(true);
+    let mut settled = Reader::open(false);
+    for reader in [&mut whole, &mut settled] {
+        reader.step(Step::Resize(388.0));
+    }
+    // The position the reader keeps lands where it does among all pages,
+    // and asking it lays nothing more out.
+    let locate = |reader: &mut Reader| {
+        let (artifact_id, locator) = (reader.visible, reader.locator.clone());
+        navigate(
+            reader,
+            ReaderNavigationQuery::Locate {
+                artifact_id,
+                locator,
+            },
+        )
+    };
+    let paginated = settled.session.artifact_pagination(settled.visible);
+    assert_eq!(locate(&mut settled), locate(&mut whole));
+    assert_eq!(
+        settled.session.artifact_pagination(settled.visible),
+        paginated,
+        "locating the shown position paginates nothing more"
+    );
+    let all = page_table(&mut whole, true);
+    let part = page_table(&mut settled, false);
+    assert!(all.complete);
+    assert!(!part.complete, "the chapter was laid out only in part");
+    assert!(part.page_count < all.page_count);
+    assert_eq!(part.spreads[..], all.spreads[..part.spreads.len()]);
+    assert_eq!(
+        part.active_toc_entry_by_page[..],
+        all.active_toc_entry_by_page[..part.active_toc_entry_by_page.len()]
+    );
+    assert_eq!(page_table(&mut settled, true), all);
 }

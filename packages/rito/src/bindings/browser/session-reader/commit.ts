@@ -1,8 +1,12 @@
 import type { LayoutConfig } from '../../../reader';
-import { releaseSessionReaderFrame, type SessionReaderLayoutCandidate } from './artifacts';
+import {
+  readSessionReaderLayout,
+  releaseSessionReaderFrame,
+  type SessionReaderLayoutCandidate,
+} from './artifacts';
 import { warmSessionReaderNeighbours } from './frames';
 import { createSessionReaderLayoutView } from './layout-view';
-import type { SessionReaderState } from './state';
+import { sessionReaderClosed, type SessionReaderState } from './state';
 
 /**
  * Makes a candidate the session already shows the committed layout: the
@@ -50,6 +54,26 @@ export async function commitSessionReaderLayout(
   } finally {
     await Promise.all(replaced.map((held) => releaseSessionReaderFrame(state, held)));
   }
+}
+
+/**
+ * Reads the whole page table of the committed layout when its commit read
+ * only the pages laid out for the spread shown (a window was being
+ * resized), and tells the host the layout's table changed: the same
+ * spreads, and the rest of them.
+ */
+export async function completeSessionReaderLayout(state: SessionReaderState): Promise<void> {
+  if (state.view.complete) return;
+  const generation = state.layoutGeneration;
+  const layout = await readSessionReaderLayout(state, state.visible.artifact.artifactId);
+  if (sessionReaderClosed(state) || generation !== state.layoutGeneration) return;
+  state.view = createSessionReaderLayoutView(layout, state.view.scope, state.publication);
+  state.log.note('commit', {
+    scope: state.view.scope,
+    pages: state.view.pageCount,
+    complete: true,
+  });
+  for (const listener of state.layoutCommittedListeners) listener(state.activeSpreadIndex);
 }
 
 /** Resolves once the committed layout covers the whole book, or the reader closes. */

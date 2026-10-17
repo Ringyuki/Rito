@@ -25,12 +25,16 @@ export interface SessionReaderLayoutCandidate {
   readonly layout: SessionReaderRevisionLayout;
 }
 
-/** The page table of the revision behind the artifact `artifactId`. */
+/**
+ * The page table of the revision behind the artifact `artifactId`: all of
+ * it, or with `whole` false the pages laid out so far.
+ */
 export async function readSessionReaderLayout(
   state: SessionReaderState,
   artifactId: bigint,
+  whole = true,
 ): Promise<SessionReaderRevisionLayout> {
-  const result = await state.session.navigation({ kind: 'layout', artifactId });
+  const result = await state.session.navigation({ kind: 'layout', artifactId, whole });
   if (result.kind !== 'layout') throw new Error('Reader session answered a layout query wrongly');
   return result.layout;
 }
@@ -58,7 +62,9 @@ export async function requestSessionReaderLayout(
     locator: visible.locator,
     textProfile: visible.textProfile,
   });
-  const candidate = await prepareCandidate(state, artifact);
+  // While the host holds the book (a window being resized), only the pages
+  // laid out so far are read: the rest would be laid out for every size.
+  const candidate = await prepareCandidate(state, artifact, state.bookHolds === 0);
   await adopt(state, candidate.frame, () =>
     state.session.adoptForegroundCandidate(visible.artifactId, artifact.artifactId),
   );
@@ -135,10 +141,11 @@ export async function releaseSessionReaderFrame(
 async function prepareCandidate(
   state: SessionReaderState,
   artifact: BrowserReaderArtifact,
+  whole = true,
 ): Promise<SessionReaderLayoutCandidate> {
   const [prepared, table] = await Promise.allSettled([
     prepareFrame(state, artifact, false),
-    readSessionReaderLayout(state, artifact.artifactId),
+    readSessionReaderLayout(state, artifact.artifactId, whole),
   ]);
   // Preparing gave the artifact back when it failed.
   if (prepared.status === 'rejected') throw prepared.reason;

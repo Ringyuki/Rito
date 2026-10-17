@@ -35,7 +35,7 @@ void main() {
       encoder.encodeNavigation(
         const RitoNavigationRequest(
           sessionId: 7,
-          query: RitoLayoutQuery(artifactId: 9),
+          query: RitoLayoutQuery(artifactId: 9, whole: false),
         ),
       ),
       equals(_rustHex('LAYOUT_REQUEST_HEX')),
@@ -133,6 +133,7 @@ void main() {
       <(int, int)>[(2, 0), (6, 3)],
     );
     expect(layout.activeTocEntryByPage, <int?>[null, 2, 2, 6, 6]);
+    expect(layout.complete, isFalse);
   });
 
   test('a revision layout rejects truncation and trailing bytes', () {

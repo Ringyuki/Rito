@@ -388,6 +388,37 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('reads only the pages laid out while the host holds the book, and the whole table once it lets go', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    await settle();
+    commits.length = 0;
+    const tables = (): string[] => fake.calls.filter((call) => call.startsWith('layout '));
+    const before = tables().length;
+
+    // The rest of the chapter would be laid out for every size of the drag.
+    const release = reader.holdBookLayout?.();
+    for (let frame = 0; frame < 4; frame += 1) {
+      reader.resize(420 + frame * 10, 600);
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    await settle();
+    const held = tables().slice(before);
+    expect(held.length).toBeGreaterThanOrEqual(3);
+    expect(held.every((call) => call === 'layout so far')).toBe(true);
+    const heldCommits = commits.length;
+
+    // Once the sizes stop, the table is read whole and the host told.
+    release?.();
+    await vi.waitFor(() => {
+      expect(tables().slice(before + held.length)[0]).toBe('layout whole');
+    });
+    await vi.waitFor(() => {
+      expect(commits.length).toBeGreaterThan(heldCommits);
+    });
+    await reader.dispose();
+  });
+
   it('loads no neighbouring spread while the host holds the book, and loads them once it lets go', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);

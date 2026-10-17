@@ -241,7 +241,10 @@ fn a_spread_by_position_and_its_layout_answer_the_bytes_core_answers() {
     let (mut direct, mut projection, artifact_id) = sessions();
     let layout = encode_reader_navigation_request(&ReaderNavigationRequest {
         session_id: SESSION_ID,
-        query: ReaderNavigationQuery::Layout { artifact_id },
+        query: ReaderNavigationQuery::Layout {
+            artifact_id,
+            whole: true,
+        },
     })
     .unwrap();
     assert_eq!(

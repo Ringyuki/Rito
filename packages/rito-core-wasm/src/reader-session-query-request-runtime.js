@@ -166,6 +166,7 @@ export function encodeRitoReaderNavigationRequest(request) {
     case 'layout':
       writer.u8(4, 'navigation query');
       writer.externalId(query.artifactId, 'artifact id');
+      writer.bool(query.whole ?? true);
       break;
     default:
       throw new RangeError(`unknown navigation query: ${String(query?.kind)}`);

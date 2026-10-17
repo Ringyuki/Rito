@@ -112,6 +112,44 @@ impl RuntimeDocument {
             .map(|revision| revision.extent.spread_count)
     }
 
+    /// Paginates a chapter-local revision's chapter until `locator` lands
+    /// on the page it would among all of the chapter's pages. A locator in
+    /// another chapter, or one placed only against the whole chapter, is
+    /// left to its resolution.
+    pub(in crate::runtime) fn settle_chapter_local_revision(
+        &mut self,
+        revision_id: &str,
+        locator: &crate::runtime::RuntimeSourceLocator,
+    ) -> Result<(), RuntimeChapterLocalRevisionError> {
+        if self.chapter_local_revision_is_complete(revision_id) {
+            return Ok(());
+        }
+        let Some(spine_idref) = self.locator_spine_idref(locator) else {
+            return Ok(());
+        };
+        let target = self.pagination_target(locator);
+        if target == PaginationTarget::Whole {
+            return self.extend_chapter_local_revision(revision_id, None);
+        }
+        let Some(revision) = self.chapter_local_revisions.get_mut(revision_id) else {
+            return Ok(());
+        };
+        if revision
+            .fragment_layout
+            .chapters()
+            .all(|(chapter, _)| chapter.idref != spine_idref)
+        {
+            return Ok(());
+        }
+        let index = self.source_chapter_indices.get(&spine_idref);
+        revision
+            .fragment_layout
+            .settle_chapter(|starts, resumes_at| target.settled_after(starts, resumes_at, index))
+            .map_err(|error| engine_failure(error.message().to_owned()))?;
+        revision.refresh_extent();
+        Ok(())
+    }
+
     /// Whether a chapter-local revision's whole chapter is paginated.
     pub(in crate::runtime) fn chapter_local_revision_is_complete(&self, revision_id: &str) -> bool {
         self.chapter_local_revisions

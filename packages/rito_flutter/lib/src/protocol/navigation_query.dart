@@ -59,9 +59,16 @@ final class RitoCompareQuery extends RitoNavigationQuery {
 /// The page table of the revision behind an artifact: its spreads, the
 /// chapters it lays out and where its TOC entries land.
 final class RitoLayoutQuery extends RitoNavigationQuery {
-  const RitoLayoutQuery({required this.artifactId});
+  const RitoLayoutQuery({required this.artifactId, this.whole = true});
 
   final int artifactId;
+
+  /// Whether the revision's chapters are laid out to their ends before
+  /// the table is read. Without it the table holds the pages laid out so
+  /// far — a chapter-local revision stops at the spread its reader
+  /// needs — and [RitoRevisionLayout.complete] says whether that is all
+  /// of them.
+  final bool whole;
 }
 
 final class RitoNavigationRequest {
