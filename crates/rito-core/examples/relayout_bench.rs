@@ -5,9 +5,12 @@
 //! The book opens with the demo reader's four pinned faces. Without a
 //! chapter href the chapter with the most pages in the whole book is used. Each frame
 //! creates the chapter-local revision the reader session creates on a
-//! resize (1190×900 double pages, 4 px narrower each frame, cycling over
-//! 30 widths) at the reading anchor of a page in the chapter, and releases
-//! it; the time of each is reported, then that of one whole-book layout.
+//! resize (900 high, double pages, from 1186 px wide and 4 px narrower
+//! each frame, cycling over 30 widths, none of them the 1190 the book was
+//! first laid out at) at the reading anchor of a page in the chapter, and
+//! releases it; the time of each is reported, then that of one whole-book
+//! layout.
+//! With `RELAYOUT_BENCH_FRAMES` set, every frame's time is printed too.
 
 use std::{env, fs, process, time::Instant};
 
@@ -126,8 +129,15 @@ fn run() -> Result<(), String> {
     };
     let (first_ms, pages) = lay(1194.0)?;
     let mut times = (0..frames)
-        .map(|frame| lay(1190.0 - 4.0 * (frame % 30) as f64).map(|(ms, _)| ms))
+        .map(|frame| lay(1186.0 - 4.0 * (frame % 30) as f64).map(|(ms, _)| ms))
         .collect::<Result<Vec<_>, _>>()?;
+    if env::var_os("RELAYOUT_BENCH_FRAMES").is_some() {
+        let each = times
+            .iter()
+            .map(|ms| format!("{ms:.1}"))
+            .collect::<Vec<_>>();
+        println!("each frame: {}", each.join(" "));
+    }
     times.sort_by(f64::total_cmp);
     println!("chapter {href}: {pages} pages; first layout {first_ms:.2} ms");
     println!(
