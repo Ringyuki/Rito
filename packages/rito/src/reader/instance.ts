@@ -336,7 +336,7 @@ export interface Reader {
    * called; holds nest. A step of it occupies the session for as long as
    * the book takes, so a host about to ask for layouts in quick succession
    * (the sizes of a window being resized) holds it and has each one laid
-   * out at once.
+   * out at once. The spreads beside the one shown load once it is released.
    */
   holdBookLayout?(): () => void;
   setTheme(options: ReaderThemeOptions): void;

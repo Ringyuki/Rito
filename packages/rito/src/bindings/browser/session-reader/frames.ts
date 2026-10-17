@@ -69,8 +69,13 @@ async function releaseFramesOutside(state: SessionReaderState, keepIndex: number
   await Promise.all(released.map((frame) => releaseSessionReaderFrame(state, frame)));
 }
 
-/** Loads the spreads a turn from the active one would show. */
+/**
+ * Loads the spreads a turn from the active one would show, unless a host
+ * holds the book: the next size replaces their layout, and a load under
+ * way holds that size back. Releasing the last hold loads them.
+ */
 export function warmSessionReaderNeighbours(state: SessionReaderState): void {
+  if (state.bookHolds > 0) return;
   const active = state.activeSpreadIndex;
   for (const index of [active + 1, active - 1]) {
     if (state.view.spreads[index] !== undefined) void ensureSessionReaderFrame(state, index);

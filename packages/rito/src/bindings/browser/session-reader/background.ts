@@ -1,5 +1,6 @@
 import { advanceSessionReaderBook } from './artifacts';
 import { commitSessionReaderLayout } from './commit';
+import { warmSessionReaderNeighbours } from './frames';
 import { wakeSessionReaderQueue } from './queue';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
@@ -56,6 +57,8 @@ export function holdSessionReaderBook(state: SessionReaderState): () => void {
     if (released) return;
     released = true;
     state.bookHolds -= 1;
-    if (state.bookHolds === 0 && !state.disposed) wakeSessionReaderQueue(state);
+    if (state.bookHolds > 0 || state.disposed) return;
+    warmSessionReaderNeighbours(state);
+    wakeSessionReaderQueue(state);
   };
 }

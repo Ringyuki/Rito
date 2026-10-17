@@ -388,6 +388,35 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('loads no neighbouring spread while the host holds the book, and loads them once it lets go', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    // The book's own neighbours are loaded.
+    await settle();
+    commits.length = 0;
+    const peeks = (): number => fake.calls.filter((call) => call.startsWith('peek ')).length;
+    const before = peeks();
+
+    // Each size's neighbours would be painted for a layout the next size
+    // replaces, and a peek under way holds that size back.
+    const release = reader.holdBookLayout?.();
+    for (let frame = 0; frame < 5; frame += 1) {
+      reader.resize(420 + frame * 10, 600);
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    await settle();
+    expect(commits.length).toBeGreaterThanOrEqual(4);
+    const held = peeks() - before;
+
+    release?.();
+    await bookScope(reader);
+    await vi.waitFor(() => {
+      expect(peeks() - before).toBeGreaterThan(held);
+    });
+    expect(held).toBe(0);
+    await reader.dispose();
+  });
+
   it('shows a size each time a layout ends while sizes come faster than the chapter lays out', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);

@@ -32,8 +32,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // run occupies the session for as long as the book takes), and the
 // listener registrations moved beside the state they register into, which
 // kept reader.ts within the file limit.
+// +2 lines (2026-10-17): the hold also keeps the spreads beside the one
+// shown from loading, each for a layout the next size replaces.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2674;
+const SESSION_READER_LINE_BUDGET = 2676;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
