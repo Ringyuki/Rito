@@ -7,10 +7,8 @@
 //! input even across rebuilt trees, and a rebuilt chapter naturally misses
 //! instead of replaying stale fragments.
 //!
-//! Styles live outside the tree (typed references into the shared style
-//! table), so a style-table edit changes layout without changing the tree.
-//! Callers own that dependency and must call [`FragmentCache::invalidate_node`]
-//! for every node whose resolved style changed.
+//! A tree that carries its style tables folds them into the fingerprint, so
+//! a style change misses too. The constraint space joins the key whole.
 //!
 //! Memory is bounded by a byte budget measured over the canonical serialized
 //! size of each outcome — the same encoding the artifacts cross boundaries
@@ -20,7 +18,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::break_token::BreakToken;
-use crate::constraint_space::ConstraintSpace;
+use crate::constraint_space::{ConstraintSpace, FloatBand};
 use crate::context::{CancelFlag, FormattingContext, LayoutError, LayoutOutcome};
 use crate::formatting_tree::FormattingTree;
 use crate::serialize::encode_layout_outcome;
@@ -38,13 +36,21 @@ pub struct CachedLayout {
 struct CacheKey {
     tree_fingerprint: u64,
     root: u32,
-    /// Constraint space by f64 bit pattern: conservative (distinguishes
-    /// `0.0` from `-0.0`) but never conflates distinct inputs.
-    inline_size_bits: u64,
-    fragmentainer_remaining_bits: Option<u64>,
-    fragmentainer_size_bits: Option<u64>,
+    space: SpaceKey,
     /// Break token in canonical form; `None` for a from-the-start layout.
     token: Option<TokenKey>,
+}
+
+/// Every field of the constraint space, by f64 bit pattern: conservative
+/// (distinguishes `0.0` from `-0.0`) but never conflates distinct inputs.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct SpaceKey {
+    inline_size: u64,
+    fragmentainer_remaining: Option<u64>,
+    fragmentainer_size: Option<u64>,
+    /// Left inset, right inset and bottom of the float band.
+    float_band: Option<[u64; 3]>,
+    containing_block_size: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -238,10 +244,34 @@ fn cache_key(
     CacheKey {
         tree_fingerprint: tree.fingerprint(),
         root: node.0,
-        inline_size_bits: space.inline_size.to_bits(),
-        fragmentainer_remaining_bits: space.fragmentainer_remaining.map(f64::to_bits),
-        fragmentainer_size_bits: space.fragmentainer_size.map(f64::to_bits),
+        space: space_key(space),
         token: token.map(token_key),
+    }
+}
+
+/// Destructured without a rest pattern: a field added to the constraint
+/// space does not compile until it joins the key, so a layout never
+/// replays an outcome computed under a different space.
+fn space_key(space: &ConstraintSpace) -> SpaceKey {
+    let ConstraintSpace {
+        inline_size,
+        fragmentainer_remaining,
+        fragmentainer_size,
+        float_band,
+        containing_block_size,
+    } = *space;
+    SpaceKey {
+        inline_size: inline_size.to_bits(),
+        fragmentainer_remaining: fragmentainer_remaining.map(f64::to_bits),
+        fragmentainer_size: fragmentainer_size.map(f64::to_bits),
+        float_band: float_band.map(
+            |FloatBand {
+                 left_inset,
+                 right_inset,
+                 bottom,
+             }| [left_inset, right_inset, bottom].map(f64::to_bits),
+        ),
+        containing_block_size: containing_block_size.map(f64::to_bits),
     }
 }
 
@@ -360,6 +390,59 @@ mod tests {
                 .from_cache
         );
         assert_eq!(provider.calls.get(), 3);
+    }
+
+    #[test]
+    fn every_field_of_the_space_keys_the_cache() {
+        let provider = CountingContext::new();
+        let tree = leaf_tree(0, &[80.0]);
+        let cancel = CancelFlag::new();
+        let mut cache = FragmentCache::new(1 << 20);
+        let base = ConstraintSpace::continuous(300.0);
+        let band = |left_inset, bottom| {
+            Some(FloatBand {
+                left_inset,
+                right_inset: 0.0,
+                bottom,
+            })
+        };
+        // Each differs from the one before it in one field only.
+        let spaces = [
+            base,
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                ..base
+            },
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                float_band: band(96.0, 72.0),
+                ..base
+            },
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                float_band: band(96.0, 40.0),
+                ..base
+            },
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                float_band: band(96.0, 40.0),
+                containing_block_size: Some(200.0),
+                ..base
+            },
+        ];
+        for space in &spaces {
+            let outcome = cache
+                .layout(&provider, &tree, tree.root(), space, None, &cancel)
+                .expect("lays out");
+            assert!(!outcome.from_cache, "{space:?} replayed another space's outcome");
+        }
+        for space in &spaces {
+            let outcome = cache
+                .layout(&provider, &tree, tree.root(), space, None, &cancel)
+                .expect("lays out again");
+            assert!(outcome.from_cache, "{space:?} did not replay its own outcome");
+        }
+        assert_eq!(provider.calls.get(), spaces.len());
     }
 
     #[test]
