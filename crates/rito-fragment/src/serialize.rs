@@ -57,6 +57,7 @@ pub fn decode_layout_outcome(bytes: &[u8]) -> Result<LayoutOutcome, String> {
         continuation,
         escaped_floats: Vec::new(),
         positioned: Vec::new(),
+        inline_size_range: None,
     })
 }
 
@@ -423,6 +424,7 @@ mod tests {
                 },
                 pending_floats: Vec::new(),
             }),
+            inline_size_range: None,
         }
     }
 
@@ -523,6 +525,7 @@ mod tests {
             continuation: None,
             escaped_floats: Vec::new(),
             positioned: Vec::new(),
+            inline_size_range: None,
         }
     }
 

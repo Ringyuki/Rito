@@ -58,6 +58,7 @@ mod shaping;
 mod strut;
 #[cfg(test)]
 mod tests;
+mod width_bounds;
 
 pub(crate) use breaking::*;
 pub(crate) use clusters::*;
@@ -78,6 +79,7 @@ pub(crate) use shaped::{
 pub(crate) use shaping::*;
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
+pub(crate) use width_bounds::WidthBounds;
 
 /// Inline formatting context backed by Parley shaping and line breaking.
 ///

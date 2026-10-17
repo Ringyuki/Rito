@@ -306,6 +306,23 @@ pub struct BreakLines<'a, B: Brush> {
     state: BreakerState,
     prev_state: Option<BreakerState>,
     done: bool,
+    /// Rito: the fit range of the line being broken (see
+    /// `LineData::fit_floor`). Kept outside the state a break opportunity
+    /// rewinds to: the comparison that sends the breaker back counts.
+    fit: (f32, f32),
+}
+
+/// Rito: whether content measured to `next_x` fits `max_advance`, narrowing
+/// `fit` to the max advances that answer the same.
+#[inline(always)]
+fn record_fit(fit: &mut (f32, f32), next_x: f32, max_advance: f32) -> bool {
+    let fits = next_x <= max_advance;
+    if fits {
+        fit.0 = fit.0.max(next_x);
+    } else {
+        fit.1 = fit.1.min(next_x);
+    }
+    fits
 }
 
 impl<'a, B: Brush> BreakLines<'a, B> {
@@ -322,6 +339,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
             state: BreakerState::default(),
             prev_state: None,
             done: false,
+            fit: (f32::NEG_INFINITY, f32::INFINITY),
         }
     }
 
@@ -340,6 +358,9 @@ impl<'a, B: Brush> BreakLines<'a, B> {
             reason,
             line_indent,
         );
+        if let Some(line) = self.lines.lines.last_mut() {
+            (line.fit_floor, line.fit_ceiling) = self.fit;
+        }
 
         let line_height = self.state.line.running_line_height;
         let line_y_start = self.state.line_y;
@@ -460,6 +481,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
             return None;
         }
         self.prev_state = Some(self.state.clone());
+        self.fit = (f32::NEG_INFINITY, f32::INFINITY);
 
         // HACK: ignore max_advance for empty layouts
         // Prevents crash when width is too small (https://github.com/linebender/parley/issues/186)
@@ -513,15 +535,15 @@ impl<'a, B: Brush> BreakLines<'a, B> {
 
                     // println!("BOX next_x: {}", next_x);
 
-                    let box_will_be_appended = next_x <= max_advance || self.state.line.x == 0.0;
+                    let box_fits = record_fit(&mut self.fit, next_x, max_advance);
+                    let box_will_be_appended = box_fits || self.state.line.x == 0.0;
                     if height_contribution > self.state.line_max_height && box_will_be_appended {
                         return self.max_height_break_data(height_contribution);
                     }
 
                     // If the box fits on the current line (or we are at the start of the current line)
                     // then simply move on to the next item
-                    if next_x <= max_advance || self.state.line.text_wrap_mode != TextWrapMode::Wrap
-                    {
+                    if box_fits || self.state.line.text_wrap_mode != TextWrapMode::Wrap {
                         // println!("BOX FITS");
 
                         self.state
@@ -623,7 +645,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         // If the content fits (the x position does NOT exceed max_advance)
                         //
                         // We simply append the cluster(s) to the current line
-                        if next_x <= max_advance {
+                        if record_fit(&mut self.fit, next_x, max_advance) {
                             if max_height_exceeded {
                                 return self.max_height_break_data(line_height);
                             }
@@ -658,6 +680,10 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             // item/run/cluster iteration state back to how it was when the line-breaking opportunity was encountered
                             else if let Some(prev) = self.state.prev_boundary.take() {
                                 self.state.reset_to(prev);
+                                // Rito: the content after the opportunity goes
+                                // to the next line however much of it fit; the
+                                // line keeps what fit up to the opportunity.
+                                self.fit.0 = self.state.line.x;
                                 return self.start_new_line(
                                     BreakReason::Regular,
                                     max_advance,
@@ -672,6 +698,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                                 self.state.emergency_boundary.take()
                             {
                                 self.state.reset_to(prev_emergency);
+                                self.fit.0 = self.state.line.x;
                                 return self.start_new_line(
                                     BreakReason::Emergency,
                                     max_advance,

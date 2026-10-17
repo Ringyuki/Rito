@@ -155,6 +155,7 @@ pub(crate) fn rewind_break_count(
     line_index: usize,
     max_advance: f64,
     item_ranges: &[std::ops::Range<usize>],
+    bounds: &mut WidthBounds,
 ) -> Option<u32> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
@@ -189,7 +190,10 @@ pub(crate) fn rewind_break_count(
         }
         let character = text[byte..].chars().next()?;
         let cluster_advance = f64::from(cluster.advance());
-        if advance + cluster_advance <= max_advance + f64::from(LINE_FIT_EPS) {
+        if bounds.fits(
+            advance + cluster_advance,
+            max_advance + f64::from(LINE_FIT_EPS),
+        ) {
             advance += cluster_advance;
             cluster = cluster.next_logical()?;
             continue;
@@ -201,7 +205,7 @@ pub(crate) fn rewind_break_count(
             return None;
         }
         let trimmed = cluster_advance - 0.5 * f64::from(cluster.run().font_size());
-        if advance + trimmed > max_advance + f64::from(LINE_FIT_EPS) {
+        if !bounds.fits(advance + trimmed, max_advance + f64::from(LINE_FIT_EPS)) {
             return None;
         }
         // Only a PARAGRAPH-FINAL candidate rewinds (measured: `……。）啊`
@@ -232,7 +236,8 @@ pub(crate) fn rewind_break_count(
 
 /// The first character after `line_index`'s soft break that did not fit,
 /// if extending the line by exactly that character with its blank right
-/// half trimmed could keep it on the line.
+/// half trimmed could keep it on the line. `decided` says whether a
+/// character's trim was already accepted or rejected.
 ///
 /// This reconstructs Blink's `ShapingLineBreaker::ShapeLine` extension:
 /// the candidate is the first character past the break that exceeds the
@@ -247,9 +252,9 @@ pub(crate) fn line_end_trim_candidate(
     text: &str,
     line_index: usize,
     max_advance: f32,
-    accepted: &[usize],
-    rejected: &[usize],
+    decided: impl Fn(usize) -> bool,
     suppressed_openers: &[(usize, usize)],
+    bounds: &mut WidthBounds,
 ) -> Option<(usize, Vec<usize>)> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
@@ -303,7 +308,7 @@ pub(crate) fn line_end_trim_candidate(
             cluster_advance -= 0.5 * cluster.run().font_size();
             unsuppress.push(*left_byte);
         }
-        if advance + cluster_advance <= max_advance + LINE_FIT_EPS {
+        if bounds.fits_f32(advance + cluster_advance, max_advance + LINE_FIT_EPS) {
             // Fits, so it only moved down under a break prohibition; the
             // overflowing character is further along.
             advance += cluster_advance;
@@ -318,11 +323,11 @@ pub(crate) fn line_end_trim_candidate(
         if !cluster_font_has_halt(&cluster) {
             return None;
         }
-        if accepted.contains(&byte) || rejected.contains(&byte) {
+        if decided(byte) {
             return None;
         }
         let trimmed = cluster_advance - 0.5 * cluster.run().font_size();
-        if advance + trimmed > max_advance + LINE_FIT_EPS {
+        if !bounds.fits_f32(advance + trimmed, max_advance + LINE_FIT_EPS) {
             return None;
         }
         return Some((byte, unsuppress));

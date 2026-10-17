@@ -84,6 +84,12 @@ impl BuildSpace {
         self.inline_size
     }
 
+    /// Whether anything in the build read the space: a paragraph that
+    /// did is laid out differently at every inline size.
+    pub(crate) fn was_read(&self) -> bool {
+        self.read_by_atoms.get() || self.read_by_shaping.get()
+    }
+
     fn key(&self) -> [Option<u64>; 3] {
         [
             self.inline_size,

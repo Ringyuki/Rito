@@ -567,6 +567,7 @@ fn a_snug_last_paragraph_keeps_its_full_margin() {
                 continuation: None,
                 escaped_floats: Vec::new(),
                 positioned: Vec::new(),
+                inline_size_range: None,
             })
         }
         fn intrinsic_inline_sizes(

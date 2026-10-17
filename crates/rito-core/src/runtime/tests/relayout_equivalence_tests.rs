@@ -50,11 +50,32 @@ fn a_document_laid_out_again_paints_what_a_fresh_document_paints() {
     }
 }
 
-/// The page content box goes 372 → 352 → 332 → 312 px wide and back:
-/// the fixture's `@media (min-width: 340px)` flips on the way down and
-/// back up. Then double pages, larger type and a forced family.
-fn steps() -> Vec<(&'static str, LayoutConfig)> {
-    let single = |width: f64| LayoutConfigInput {
+/// A window dragged narrower a pixel at a time and back up in steps that
+/// land between pixels: at most widths most paragraphs break into the
+/// lines they broke into at the last one, and whatever a layout takes from
+/// the last must paint what a fresh document paints.
+#[test]
+fn a_window_dragged_a_pixel_at_a_time_paints_what_a_fresh_document_paints() {
+    let publication = relayout_fixture_epub();
+    let narrower = (0..48).map(|step| 420.0 - f64::from(step));
+    let wider = (1..24).map(|step| 373.0 + 1.75 * f64::from(step));
+    let mut warm = open(&publication);
+    for width in narrower.chain(wider) {
+        let config = create_layout_config(single(width));
+        let mut fresh = open(&publication);
+        for (chapter, href) in CHAPTERS.iter().enumerate() {
+            assert_eq!(
+                chapter_snapshot(&mut warm, &config, chapter, &locator(href), true),
+                chapter_snapshot(&mut fresh, &config, chapter, &locator(href), true),
+                "{href} at {width}"
+            );
+        }
+    }
+}
+
+/// Single pages `width` wide and 640 tall with 24 px margins.
+fn single(width: f64) -> LayoutConfigInput {
+    LayoutConfigInput {
         width,
         height: 640.0,
         margin: MarginInput::All(24.0),
@@ -66,7 +87,13 @@ fn steps() -> Vec<(&'static str, LayoutConfig)> {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
-    };
+    }
+}
+
+/// The page content box goes 372 → 352 → 332 → 312 px wide and back:
+/// the fixture's `@media (min-width: 340px)` flips on the way down and
+/// back up. Then double pages, larger type and a forced family.
+fn steps() -> Vec<(&'static str, LayoutConfig)> {
     vec![
         ("420", create_layout_config(single(420.0))),
         ("400", create_layout_config(single(400.0))),

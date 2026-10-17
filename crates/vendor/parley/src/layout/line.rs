@@ -29,6 +29,12 @@ impl<'a, B: Brush> Line<'a, B> {
         self.data.break_reason
     }
 
+    /// Rito: the max advances (after the line's indent) at which this line
+    /// breaks exactly where it did, as `[floor, ceiling)`.
+    pub fn fit_range(&self) -> (f32, f32) {
+        (self.data.fit_floor, self.data.fit_ceiling)
+    }
+
     /// Returns the range of text for the line.
     pub fn text_range(&self) -> Range<usize> {
         self.data.text_range.clone()

@@ -23,6 +23,12 @@ pub struct LayoutOutcome {
     /// positioned ancestor (or the tree's root) lays them out once its own
     /// size is known; until then they travel back out like escaped floats.
     pub positioned: Vec<PendingPositioned>,
+    /// The inline sizes, `[lo, hi)`, this outcome holds for, its own
+    /// included, when a layout knows them: laid out without line text
+    /// (`ConstraintSpace::line_text`) at any of them, with the rest of the
+    /// space unchanged, the node yields exactly these fragments, so a
+    /// cache may answer any of them with it.
+    pub inline_size_range: Option<(f64, f64)>,
 }
 
 /// An absolutely positioned box waiting for its containing block.

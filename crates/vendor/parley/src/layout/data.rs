@@ -170,6 +170,13 @@ pub(crate) struct LineData {
     pub(crate) num_spaces: usize,
     /// Text indent applied to this line.
     pub(crate) indent: f32,
+    /// Rito: the max advances over which every fit comparison the breaker
+    /// made for this line comes out as it did — content that fit measured
+    /// at most `fit_floor`, content that did not fit at least
+    /// `fit_ceiling` — so a max advance in `[fit_floor, fit_ceiling)`
+    /// breaks the line exactly here.
+    pub(crate) fit_floor: f32,
+    pub(crate) fit_ceiling: f32,
 }
 
 impl LineData {

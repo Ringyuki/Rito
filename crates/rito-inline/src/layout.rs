@@ -153,6 +153,8 @@ impl FormattingContext for ParleyInlineContext {
                 .collect(),
             _ => Vec::new(),
         };
+        // The inline sizes every break decision below answers alike at.
+        let mut bounds = WidthBounds::new(space.inline_size);
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
@@ -204,6 +206,7 @@ impl FormattingContext for ParleyInlineContext {
                     image_edge_insets,
                     empty_box_struts,
                     cluster_steps,
+                    reads_space,
                 } = self.shaped_paragraph(
                     tree,
                     root,
@@ -216,6 +219,28 @@ impl FormattingContext for ParleyInlineContext {
                     cancel,
                 )?;
                 break_lines(&mut layout, &forced_line_breaks);
+                if reads_space {
+                    bounds.pin();
+                }
+                // Every line's fit, against the max advance the breaker gave
+                // it: the inline size plus the fit tolerance, less a float
+                // band's insets inside the band and the indent on the first
+                // line.
+                let mut line_top = 0.0_f64;
+                for (index, line) in layout.lines().enumerate() {
+                    let indent = if index == 0 { first_line_indent } else { 0.0 };
+                    let inside_band = band.is_some_and(|band| line_top < band.bottom);
+                    if let (true, Some(band)) = (inside_band, band) {
+                        if space.inline_size - band.left_inset - band.right_inset <= 0.0 {
+                            bounds.pin();
+                        }
+                    }
+                    let limit =
+                        (f64::from(line_max_advance(line_top)) + LINE_FIT_EPSILON) as f32 - indent;
+                    let (floor, ceiling) = line.fit_range();
+                    bounds.fit_range(f64::from(floor), f64::from(ceiling), f64::from(limit));
+                    line_top += f64::from(line.metrics().line_height);
+                }
                 // A pair trim is only real while both glyphs share a line
                 // (measured: a line-final comma keeps its full width when its
                 // partner bracket opens the next line, and the line's justify
@@ -387,7 +412,7 @@ impl FormattingContext for ParleyInlineContext {
                         let metrics = line.metrics();
                         let natural =
                             f64::from(metrics.advance) - f64::from(metrics.trailing_whitespace);
-                        if natural - segment_advance + segment_box <= max_advance {
+                        if bounds.fits(natural - segment_advance + segment_box, max_advance) {
                             continue;
                         }
                         if item_start <= range.start {
@@ -570,9 +595,9 @@ impl FormattingContext for ParleyInlineContext {
                         &text,
                         index,
                         max_advance,
-                        &end_trims,
-                        &rejected_trims,
+                        |byte| end_trims.contains(&byte) || rejected_trims.contains(&byte),
                         &suppressed_openers,
+                        &mut bounds,
                     )
                 });
                 match candidate {
@@ -609,6 +634,7 @@ impl FormattingContext for ParleyInlineContext {
                                 index,
                                 max_advance,
                                 &item_text_ranges,
+                                &mut bounds,
                             ) else {
                                 continue;
                             };
@@ -2835,6 +2861,10 @@ impl FormattingContext for ParleyInlineContext {
             continuation: None,
             escaped_floats: Vec::new(),
             positioned: Vec::new(),
+            // Without line text the lines are all the outcome holds: they
+            // break and stack alike at every size the decisions answered
+            // alike at.
+            inline_size_range: (!line_text).then(|| bounds.range()).flatten(),
         })
     }
 

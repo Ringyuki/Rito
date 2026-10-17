@@ -10,6 +10,12 @@
 //! A tree that carries its style tables folds them into the fingerprint, so
 //! a style change misses too. The constraint space joins the key whole.
 //!
+//! An outcome that reports the inline sizes it holds for (a layout without
+//! line text, see `LayoutOutcome::inline_size_range`) also answers a layout
+//! at any other size inside them, the rest of its inputs equal: a window
+//! being resized asks for a new width every frame, and most paragraphs
+//! break into the same lines at the next one.
+//!
 //! Memory is bounded by a byte budget charged a fixed size per fragment of
 //! each outcome: deterministic across platforms, and counted by walking the
 //! fragments rather than encoding them. Least-recently-used entries are
@@ -116,6 +122,9 @@ pub struct FragmentCache {
     /// first one instead of scanning the entries, which made a full cache
     /// cost a pass over every entry per insert.
     recency: BTreeMap<u64, CacheKey>,
+    /// The latest entry reporting the inline sizes it holds for, by its key
+    /// with the inline size left out.
+    widths: FxHashMap<CacheKey, CacheKey>,
 }
 
 impl FragmentCache {
@@ -128,11 +137,13 @@ impl FragmentCache {
             clock: 0,
             entries: FxHashMap::default(),
             recency: BTreeMap::new(),
+            widths: FxHashMap::default(),
         }
     }
 
-    /// Replays a cached outcome for these exact inputs, or invokes the
-    /// provider and caches the result.
+    /// Replays a cached outcome for these exact inputs, or for the same
+    /// inputs at another inline size the outcome reports holding for, or
+    /// invokes the provider and caches the result.
     ///
     /// A cancelled or failed invocation inserts nothing. An outcome larger
     /// than the whole budget is returned but not cached.
@@ -147,10 +158,26 @@ impl FragmentCache {
     ) -> Result<CachedLayout, LayoutError> {
         let key = cache_key(tree, node, space, token);
         self.clock += 1;
-        if let Some(entry) = self.entries.get_mut(&key) {
+        let held = if self.entries.contains_key(&key) {
+            Some(key.clone())
+        } else if space.line_text {
+            None
+        } else {
+            self.widths
+                .get(&without_inline_size(&key))
+                .filter(|held| {
+                    self.entries[*held]
+                        .outcome
+                        .inline_size_range
+                        .is_some_and(|(lo, hi)| lo <= space.inline_size && space.inline_size < hi)
+                })
+                .cloned()
+        };
+        if let Some(held) = held {
+            let entry = self.entries.get_mut(&held).expect("held key is cached");
             self.recency.remove(&entry.last_used);
             entry.last_used = self.clock;
-            self.recency.insert(self.clock, key);
+            self.recency.insert(self.clock, held);
             return Ok(CachedLayout {
                 outcome: entry.outcome.clone(),
                 from_cache: true,
@@ -161,6 +188,9 @@ impl FragmentCache {
         if bytes <= self.budget_bytes {
             self.evict_until_fits(bytes);
             self.used_bytes += bytes;
+            if outcome.inline_size_range.is_some() {
+                self.widths.insert(without_inline_size(&key), key.clone());
+            }
             self.recency.insert(self.clock, key.clone());
             self.entries.insert(
                 key,
@@ -192,6 +222,7 @@ impl FragmentCache {
     pub fn clear(&mut self) {
         self.entries.clear();
         self.recency.clear();
+        self.widths.clear();
         self.used_bytes = 0;
     }
 
@@ -222,6 +253,7 @@ impl FragmentCache {
         self.used_bytes -= released;
         let entries = &self.entries;
         self.recency.retain(|_, key| entries.contains_key(key));
+        self.widths.retain(|_, key| entries.contains_key(key));
     }
 
     fn evict_until_fits(&mut self, incoming_bytes: usize) {
@@ -233,9 +265,20 @@ impl FragmentCache {
             };
             if let Some(entry) = self.entries.remove(&victim) {
                 self.used_bytes -= entry.bytes;
+                let any_size = without_inline_size(&victim);
+                if self.widths.get(&any_size) == Some(&victim) {
+                    self.widths.remove(&any_size);
+                }
             }
         }
     }
+}
+
+/// The key every inline size shares with `key`'s other inputs.
+fn without_inline_size(key: &CacheKey) -> CacheKey {
+    let mut key = key.clone();
+    key.space.inline_size = 0;
+    key
 }
 
 /// What an outcome is charged against the budget: a fixed size per

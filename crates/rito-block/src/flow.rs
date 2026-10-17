@@ -658,6 +658,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         continuation,
                         escaped_floats: Vec::new(),
                         positioned: Vec::new(),
+                        inline_size_range: None,
                     });
                 }
                 FormattingNodeContent::InlineFlow { items } => {
@@ -1436,6 +1437,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             continuation,
             escaped_floats,
             positioned: Vec::new(),
+            inline_size_range: None,
         })
     }
 

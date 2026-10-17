@@ -96,6 +96,9 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     line_text: space.line_text,
                 };
                 let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
+                // The sizes it holds for are its content box's, not this
+                // node's.
+                outcome.inline_size_range = None;
                 // Bottom padding rides the last fragment only.
                 let trailing = if outcome.continuation.is_some() {
                     0.0
@@ -137,6 +140,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     continuation: None,
                     escaped_floats: Vec::new(),
                     positioned: Vec::new(),
+                    inline_size_range: None,
                 })
             }
             FormattingNodeContent::TableRow | FormattingNodeContent::TableCell { .. } => Err(

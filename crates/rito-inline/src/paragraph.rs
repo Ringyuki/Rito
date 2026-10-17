@@ -39,7 +39,7 @@ impl ParleyInlineContext {
             }
             return Ok(paragraph);
         }
-        let built = self.build_layout(
+        let mut built = self.build_layout(
             tree,
             node,
             &build_space,
@@ -49,6 +49,7 @@ impl ParleyInlineContext {
             edits.split_spreads,
             cancel,
         )?;
+        built.reads_space = build_space.was_read();
         self.shaped.borrow_mut().insert(key, &build_space, &built);
         Ok(built)
     }
@@ -738,6 +739,7 @@ impl ParleyInlineContext {
             ruby_annotation_widths,
             ruby_center_shifts,
             cluster_steps: std::rc::Rc::default(),
+            reads_space: false,
         })
     }
 }
@@ -808,6 +810,10 @@ impl<'a> SpacingBuilder<'a> {
 /// assembly needs.
 #[derive(Clone)]
 pub(crate) struct ParagraphLayout {
+    /// Whether the build read the space it was built in (an image or an
+    /// inline block sized in it, a percentage margin): such a paragraph's
+    /// lines hold for its exact inline size alone.
+    pub(crate) reads_space: bool,
     /// Every cluster's width-independent step, read after the first line
     /// breaking and shared by every copy of this build (see
     /// [`ClusterSteps`]).

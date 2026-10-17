@@ -107,6 +107,7 @@ pub(crate) fn sealed_with_break(
         continuation: Some(token),
         escaped_floats: Vec::new(),
         positioned: Vec::new(),
+        inline_size_range: None,
     }
 }
 
