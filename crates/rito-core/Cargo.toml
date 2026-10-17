@@ -39,6 +39,10 @@ path = "examples/paint_digest.rs"
 name = "relayout-bench"
 path = "examples/relayout_bench.rs"
 
+[[example]]
+name = "resize-bench"
+path = "examples/resize_bench.rs"
+
 [dependencies]
 rito-block = { path = "../rito-block" }
 rito-fragment = { path = "../rito-fragment" }
