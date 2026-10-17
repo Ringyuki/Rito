@@ -305,6 +305,12 @@ Clicks: links, footnotes, and images are the reader's page targets
 A click whose targets were read from a layout that is no longer committed is dropped
 rather than tested against stale geometry.
 
+Focus: the controller makes the Canvas focusable (`tabindex="0"`) so it receives keys,
+and sets its inline `outline-style` to `none`, since the browser's focus ring would
+outline the whole reading surface after a key press. Disposal gives the Canvas back the
+`tabindex` and `outline-style` it had. A host that wants a ring sets the Canvas's
+inline `outline` after `createController`.
+
 Search: results come from `reader.search()`; highlight rectangles for the visible spread
 are resolved from each result's source range through `interactions.resolveExactSourceRange`.
 
