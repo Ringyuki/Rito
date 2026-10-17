@@ -418,26 +418,39 @@ impl FragmentBuiltLayout {
                 record.page_count
             )));
         }
-        let page_index_base = self.chapter_starts[chapter_index];
-        let pages = paginated
-            .roots
-            .into_iter()
-            .enumerate()
-            .map(|(offset, root)| FragmentBackendPage {
-                artifact: Rc::new(page_artifact(
-                    page_index_base + offset,
-                    &root,
-                    &paginated.paint,
-                    &build.config,
-                )),
-                root,
-                paint_cache: RefCell::new(Vec::new()),
-            })
-            .collect();
-        Ok(MaterializedChapter {
-            paint: paginated.paint,
-            pages,
+        Ok(materialized_chapter(
+            paginated,
+            self.chapter_starts[chapter_index],
+            &build.config,
+        ))
+    }
+}
+
+/// A paginated chapter's pages, each with its query artifact, numbered
+/// from `page_index_base`.
+fn materialized_chapter(
+    paginated: PaginatedChapter,
+    page_index_base: usize,
+    config: &LayoutConfig,
+) -> MaterializedChapter {
+    let pages = paginated
+        .roots
+        .into_iter()
+        .enumerate()
+        .map(|(offset, root)| FragmentBackendPage {
+            artifact: Rc::new(page_artifact(
+                page_index_base + offset,
+                &root,
+                &paginated.paint,
+                config,
+            )),
+            root,
+            paint_cache: RefCell::new(Vec::new()),
         })
+        .collect();
+    MaterializedChapter {
+        paint: paginated.paint,
+        pages,
     }
 }
 
@@ -612,33 +625,38 @@ impl RuntimeDocument {
             config,
             &idref,
         )?;
+        let block_count = paginated.block_count;
+        // The pages stay: the revision's only chapter is read as soon as it
+        // is shown, so it starts materialized instead of being dropped and
+        // laid out a second time on that first read.
+        let materialized = materialized_chapter(paginated, 0, config);
         let mut anchors = BTreeMap::new();
-        let mut search_index = Vec::with_capacity(paginated.roots.len());
-        for (offset, root) in paginated.roots.iter().enumerate() {
+        let mut search_index = Vec::with_capacity(materialized.pages.len());
+        for (offset, page) in materialized.pages.iter().enumerate() {
             collect_page_anchors(
-                root,
-                &paginated.paint.built.node_anchors,
+                &page.root,
+                &materialized.paint.built.node_anchors,
                 offset,
                 &mut anchors,
             );
-            search_index.push(search_page_text(
-                offset,
-                &page_artifact(offset, root, &paginated.paint, config),
-            ));
+            search_index.push(search_page_text(offset, &page.artifact));
         }
         let chapter = FragmentBackendChapter {
             idref: idref.clone(),
-            page_count: paginated.roots.len(),
-            block_count: paginated.block_count,
-            page_background: paginated.paint.built.page_background,
-            page_background_image: paginated.paint.built.page_background_image.clone(),
+            page_count: materialized.pages.len(),
+            block_count,
+            page_background: materialized.paint.built.page_background,
+            page_background_image: materialized.paint.built.page_background_image.clone(),
             style_tables: Rc::clone(&style_tables),
             image_dimensions,
         };
-        drop(paginated);
         let mut layout = FragmentBuiltLayout::new(vec![chapter], Some(build));
         layout.anchors = anchors;
         layout.search_index = search_index;
+        layout
+            .materialized
+            .borrow_mut()
+            .insert(0, Rc::new(materialized));
         Ok(ChapterLocalFragmentBuild {
             layout,
             idref,

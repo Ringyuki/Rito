@@ -256,27 +256,26 @@ impl<'a> FragmentChapterEngineSession<'a> {
         if range.start > range.end || range.end > self.layout.page_count() {
             return None;
         }
-        let mut starts = Vec::new();
-        for page_index in range {
-            let Some(artifact) = self.artifact(page_index) else {
-                continue;
-            };
-            for run in artifact.interaction_runs() {
-                let Some(source) = run.source.as_ref() else {
-                    continue;
-                };
-                let Some(text_offset) = source.source_offset(0) else {
-                    continue;
-                };
-                starts.push(PageArtifactSourceRunStart {
-                    page_index,
-                    node_path: source.path.clone(),
-                    text_offset: text_offset as usize,
-                    text_length: run.end - run.start,
-                });
-            }
-        }
-        Some(starts)
+        // Read from the runs the build pass recorded for every page: no
+        // chapter is laid out again to find where a source point is.
+        let index = self.layout.search_page_index();
+        let pages = index.get(range.clone())?;
+        Some(
+            range
+                .zip(pages)
+                .flat_map(|(page_index, page)| {
+                    page.source_run_starts()
+                        .map(move |(node_path, text_offset, text_length)| {
+                            PageArtifactSourceRunStart {
+                                page_index,
+                                node_path: node_path.to_vec(),
+                                text_offset: text_offset as usize,
+                                text_length,
+                            }
+                        })
+                })
+                .collect(),
+        )
     }
 
     pub(super) fn search_page_index(&self) -> &'a [crate::runtime::search::SearchPageText] {

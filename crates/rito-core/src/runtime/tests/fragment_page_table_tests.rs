@@ -1321,6 +1321,66 @@ fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
 }
 
 #[test]
+fn finding_the_page_of_a_source_point_rebuilds_no_chapter() {
+    // A reading anchor is the first source point a page shows, and
+    // resolving a source point finds the page whose runs cover it. Both
+    // read the runs the build pass recorded for every page; laying the
+    // chapter out again to read them repeated the whole pagination.
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &chapter_eviction_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("eviction fixture opens");
+    let mut layout = create_layout_config(LayoutConfigInput {
+        width: 200.0,
+        height: 96.0,
+        margin: MarginInput::All(8.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+    });
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let page = summary.page_count - 1;
+    let crate::runtime::RuntimePageReadingAnchor::Resolved { locator, .. } = document
+        .get_page_reading_anchor(&summary.revision_id, page)
+        .expect("the last page has an anchor")
+    else {
+        panic!("the last page shows text");
+    };
+    assert!(locator.source_point.is_some(), "{locator:?}");
+    let resolution = document
+        .resolve_source_locator(&summary.revision_id, locator)
+        .expect("the anchor resolves");
+    let crate::runtime::RuntimeSourceLocatorResolution::Resolved { page_index, .. } = resolution
+    else {
+        panic!("the anchor did not resolve: {resolution:?}");
+    };
+    assert_eq!(page_index, page);
+    let table = &document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained")
+        .fragment_layout;
+    assert!(
+        table.materialized_chapter_indexes().is_empty(),
+        "the anchor and its page come from the recorded runs, so no chapter is rebuilt"
+    );
+}
+
+#[test]
 fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
     // The build pass records every page's text and run offsets, so a
     // query reads that slice; a movement builds only the pages it steps

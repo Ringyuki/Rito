@@ -38,6 +38,21 @@ impl SearchPageText {
                 .collect(),
         }
     }
+
+    /// Each run that maps to source, in page order: its source node path,
+    /// the source offset of its first character and its length in UTF-16.
+    /// The same runs, in the same order, as the page artifact's interaction
+    /// runs this record was taken from.
+    pub(crate) fn source_run_starts(&self) -> impl Iterator<Item = (&[usize], u32, usize)> + '_ {
+        self.offsets.iter().filter_map(|run| {
+            let source = run.source.as_ref()?;
+            Some((
+                source.node_path.as_slice(),
+                source.source_offset(0)?,
+                run.end - run.start,
+            ))
+        })
+    }
 }
 
 /// One text run of a search page, in page-text UTF-16 offsets.
