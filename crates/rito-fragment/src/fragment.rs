@@ -50,8 +50,10 @@ pub struct LineFragment {
     /// round. Zero on lines without ruby growth.
     pub ruby_growth: f64,
     /// The flow-text byte range of each glyph run on the line, in visual
-    /// order: the text its text fragments cover, kept when a layout leaves
-    /// them out (`ConstraintSpace::line_text`).
+    /// order, with an empty range for each atomic inline (image or inline
+    /// block) at its place among them: the text the line's text fragments
+    /// cover and where its atoms sit, kept when a layout leaves the text
+    /// fragments out (`ConstraintSpace::line_text`).
     pub text_runs: Vec<(u32, u32)>,
     /// Text (and later inline-box) fragments in visual order.
     pub children: Vec<Fragment>,

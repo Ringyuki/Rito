@@ -14,7 +14,7 @@ use crate::runtime::{
     RuntimeChapterLocalRevisionRequest, RuntimeChapterLocalSourceLocatorResolution,
     RuntimeDocument, RuntimePageReadingAnchor, RuntimePinnedFontFaceInput,
     RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
-    RuntimeSourceLocator, RuntimeSourceLocatorResolution,
+    RuntimeSourceLocator, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
 };
 
 const CHAPTERS: [&str; 3] = ["latin.xhtml", "cjk.xhtml", "viewport.xhtml"];
@@ -499,4 +499,86 @@ fn a_chapter_takes_its_search_records_when_first_searched() {
     };
     assert_eq!(in_chapter.result_count, 1);
     assert_eq!(pages(&in_chapter, chapter_start), pages(&in_book, 0));
+}
+
+#[test]
+fn every_text_run_resolves_to_the_page_that_shows_it() {
+    // What a source point resolves to is read from where each run starts:
+    // every run a page shows, its own first mapped character included,
+    // must resolve to that page.
+    let publication = relayout_fixture_epub();
+    let mut document = open(&publication);
+    let mut checked = 0;
+    let mut unindexed = 0;
+    for (_, config) in steps().into_iter().step_by(3) {
+        for (chapter, href) in CHAPTERS.iter().enumerate().take(2) {
+            let created = document
+                .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
+                    layout_config: config.clone(),
+                    target_chapter_index: chapter,
+                    target_locator: locator(href),
+                })
+                .expect("the chapter lays out");
+            let revision = &created.revision;
+            let handle = RuntimeChapterLocalRevisionHandle {
+                revision_id: revision.revision_id.clone(),
+                revision_version: revision.revision_version,
+                coordinate: revision.coordinate.clone(),
+            };
+            for page in 0..revision.local_page_count {
+                let artifact = document
+                    .chapter_local_revisions
+                    .get(&revision.revision_id)
+                    .and_then(|kept| kept.fragment_layout.page(page))
+                    .expect("the page resolves")
+                    .artifact_handle();
+                let points: Vec<RuntimeSourcePoint> = artifact
+                    .interaction_runs()
+                    .iter()
+                    .filter_map(|run| {
+                        let source = run.source.as_ref()?;
+                        let (_, source_start, _) = source.segments.first()?;
+                        Some(RuntimeSourcePoint {
+                            node_path: source.path.clone(),
+                            text_offset: *source_start as usize,
+                        })
+                    })
+                    .collect();
+                for point in points {
+                    let resolved = document.resolve_chapter_local_source_locator(
+                        &handle,
+                        RuntimeSourceLocator {
+                            href: (*href).to_owned(),
+                            anchor_id: None,
+                            source_point: Some(point.clone()),
+                            source_range: None,
+                            progression: None,
+                        },
+                    );
+                    // A node the chapter's text index does not hold (an
+                    // annotation's) is no locator target at all.
+                    let Ok(resolved) = resolved else {
+                        unindexed += 1;
+                        continue;
+                    };
+                    let RuntimeChapterLocalSourceLocatorResolution::Resolved {
+                        local_page_index,
+                        ..
+                    } = resolved
+                    else {
+                        panic!("{point:?} on page {page} did not resolve to a page");
+                    };
+                    assert_eq!(local_page_index, page, "{point:?} of {href}");
+                    checked += 1;
+                }
+            }
+            document
+                .release_chapter_local_revision(&handle)
+                .expect("the chapter releases");
+        }
+    }
+    assert!(
+        checked > 500 && unindexed * 10 < checked,
+        "{checked} runs checked, {unindexed} outside the text index"
+    );
 }

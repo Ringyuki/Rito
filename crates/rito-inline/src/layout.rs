@@ -1129,9 +1129,11 @@ impl FormattingContext for ParleyInlineContext {
             // fallback font with its own metrics, and the line is sized by
             // that font — not by the declared family.
             let mut line_run_samples: Vec<(usize, LineProbe)> = Vec::new();
-            // Each glyph run's flow-text range, and whether the line holds
-            // any item: what the line box reads of its content, with or
-            // without the text fragments (they cover exactly these ranges).
+            // Each glyph run's flow-text range, an atomic inline an empty
+            // one at its place, and whether the line holds any item: what
+            // the line box and the line's source starts read of its
+            // content, with or without the text fragments (they cover
+            // exactly these ranges).
             let mut line_runs: Vec<(u32, u32)> = Vec::new();
             let mut line_has_items = false;
             for item in line.items() {
@@ -1794,6 +1796,10 @@ impl FormattingContext for ParleyInlineContext {
                         }
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
+                        let place = item_text_ranges
+                            .get(inline_box.id as usize)
+                            .map_or(0, |range| range.start as u32);
+                        line_runs.push((place, place));
                         // An atomic inline item — an image, or a laid-out
                         // inline-block. Its vertical position is measured
                         // in Parley's ink coordinates, so it maps into the
@@ -1886,6 +1892,7 @@ impl FormattingContext for ParleyInlineContext {
             // reference browser was observed to follow.
             let line_text_range = line_runs
                 .iter()
+                .filter(|(start, end)| start < end)
                 .map(|(start, end)| (*start as usize, *end as usize))
                 .fold(None::<(usize, usize)>, |acc, (start, end)| {
                     Some(match acc {

@@ -8,7 +8,7 @@
 //! runs concatenated with a newline between text-bearing lines, offsets are
 //! UTF-16, and (block, line, run) indexes address the page's own structure.
 
-use rito_fragment::{FormattingNodeContent, Fragment, InlineItem};
+use rito_fragment::{FormattingNodeContent, Fragment, InlineItem, LineFragment};
 
 use crate::fragment_bridge::ChapterFormattingTree;
 
@@ -423,6 +423,10 @@ impl ArtifactBuilder<'_> {
                     );
                 }
             }
+            Fragment::Line(line) if self.mode == CollectMode::Starts => {
+                self.collect_line_starts(line, block_index, line_index, origin_x, origin_y);
+                *line_index += 1;
+            }
             Fragment::Line(line) => {
                 let FormattingNodeContent::InlineFlow { items } =
                     &self.chapter.tree.node(line.source).content
@@ -506,18 +510,6 @@ impl ArtifactBuilder<'_> {
                                     flow_text,
                                 )
                             });
-                            if self.mode == CollectMode::Starts {
-                                if let Some(start) = owner
-                                    .and_then(item_source)
-                                    .zip(prefix)
-                                    .and_then(|(item, prefix)| {
-                                        source_start(self.page_index, item, prefix, run_len)
-                                    })
-                                {
-                                    self.starts.push(start);
-                                }
-                                continue;
-                            }
                             let href = owner
                                 .and_then(item_source)
                                 .and_then(|source| source.href.clone());
@@ -602,6 +594,75 @@ impl ArtifactBuilder<'_> {
 }
 
 impl ArtifactBuilder<'_> {
+    /// Where each of a line's runs starts in its source, read from the
+    /// glyph-run ranges the line records rather than from its text
+    /// fragments, which cover exactly those ranges: a line laid out without
+    /// its text records the same starts. An inline block's own lines start
+    /// runs where it sits among them.
+    fn collect_line_starts(
+        &mut self,
+        line: &LineFragment,
+        block_index: usize,
+        line_index: &mut usize,
+        origin_x: f64,
+        origin_y: f64,
+    ) {
+        let Some(flow) = self.chapter.flow_texts.get(&line.source.0) else {
+            return;
+        };
+        let flow_text = flow.text.as_str();
+        let item_ranges = &flow.item_ranges;
+        let sources = self.chapter.flow_item_sources.get(&line.source.0);
+        let paragraph = self.host_paragraph.unwrap_or(line.source.0);
+        let mut atoms = line
+            .children
+            .iter()
+            .filter(|child| matches!(child, Fragment::Image(_) | Fragment::Box(_)));
+        for &(start, end) in &line.text_runs {
+            let (start, end) = (start as usize, end as usize);
+            if start == end {
+                if let Some(atom) = atoms.next().filter(|atom| matches!(atom, Fragment::Box(_))) {
+                    let host = self.host_paragraph.replace(paragraph);
+                    self.collect(
+                        atom,
+                        block_index,
+                        line_index,
+                        origin_x + line.rect.x,
+                        origin_y + line.rect.y,
+                    );
+                    self.host_paragraph = host;
+                }
+                continue;
+            }
+            let Some(run_text) = flow_text.get(start..end) else {
+                continue;
+            };
+            // The item ranges run in flow order: the owner is the first
+            // whose end passes the run's start.
+            let Some((range, item_index)) = item_ranges
+                .get(item_ranges.partition_point(|(range, _)| range.end <= start))
+                .filter(|(range, _)| range.contains(&start))
+            else {
+                continue;
+            };
+            let run_len = run_text.encode_utf16().count() as u32;
+            let prefix = self.item_prefix(
+                (line.source.0, *item_index),
+                range.start,
+                (start, end),
+                run_len,
+                flow_text,
+            );
+            if let Some(start) = sources
+                .and_then(|sources| sources.get(*item_index))
+                .zip(prefix)
+                .and_then(|(item, prefix)| source_start(self.page_index, item, prefix, run_len))
+            {
+                self.starts.push(start);
+            }
+        }
+    }
+
     /// The UTF-16 offset of byte `run.0` from its item's start (`item_start`),
     /// counted on from where the item's previous run ended when that is no
     /// further than this run's start; this run's end becomes the item's.
