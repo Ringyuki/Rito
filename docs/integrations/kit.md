@@ -305,8 +305,12 @@ selection because its layout and source range remain valid. A captured handle or
 active primary mouse/pen/touch drag can continue into an adjacent spread after edge
 dwell; the projection handoff is authorized by the exact active gesture and consumed
 once, so a released or replacement selection cannot inherit it. The dwell stops at the
-first and last spread. A newly committed layout — the book following the chapter
-included — invalidates the selection before it is painted.
+first and last spread. A newly committed layout — the book following the chapter, a
+resize, a typography or render-scale change — invalidates the selection before it is
+painted and then shows it again, as a browser keeps a selection through a resize: its
+source range is resolved in the new layout and shown when it lands on the spread on
+screen, no later layout or turn came first, and no other selection was started. While a
+selection is being made, the book's layout waits for it to be made.
 While the Canvas owns focus, Kit also maps the host platform's Shift-modified
 character, word, line, paragraph, and chapter-edge chords onto the native movement
 capability. Commands are serialized around one fixed anchor, retain sticky visual-line

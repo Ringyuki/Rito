@@ -190,7 +190,15 @@ fn a_kept_caret_extends_to_a_point_and_two_carets_bound_a_range() {
         between.selection.selected_text,
         dragged.selection.selected_text
     );
-    assert!(between.anchor_caret.is_none());
+    // The ends come back as carets at the addresses asked for, each with
+    // its geometry and source point: a host that held only the addresses
+    // (a selection carried into a new layout) holds them as resolved.
+    let anchor = between.anchor_caret.expect("the anchor caret");
+    let focus = between.focus_caret.expect("the focus caret");
+    assert_eq!(anchor.address, dragged.selection.anchor);
+    assert_eq!(focus.address, dragged.selection.focus);
+    assert!(anchor.geometry.is_some() && focus.geometry.is_some());
+    assert_eq!(anchor.source_point, start.source_point);
 }
 
 #[test]
@@ -1217,4 +1225,64 @@ fn an_inline_block_stays_in_its_paragraph_and_a_break_keeps_one_newline() {
     );
     assert_eq!(resolution.status, ReaderExactSourceRangeStatus::Resolved);
     assert_eq!(resolution.selected_text, "Line one\nline");
+}
+
+/// A source range placed on the page and then asked for by its first
+/// rectangle's start and its last rectangle's end comes back as the range
+/// those ends bound, its carets at the addresses the range normalized its
+/// ends to: how a host finds a selection again in a new layout.
+#[test]
+fn a_placed_source_range_resolves_as_a_range_with_its_carets() {
+    let (mut session, artifact) = open();
+    for (start, end) in [(1, 14), (0, 6), (7, 7 + 12)] {
+        let placed = session
+            .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+                session_id: SESSION,
+                artifact_id: artifact.artifact_id,
+                href: CHAPTER.to_owned(),
+                range: ReaderSourceRange {
+                    start: ReaderSourcePoint {
+                        node_path: vec![0, 0],
+                        text_offset: start,
+                    },
+                    end: ReaderSourcePoint {
+                        node_path: vec![0, 0],
+                        text_offset: end,
+                    },
+                },
+                every_page: true,
+            })
+            .expect("range resolves");
+        let (first, last) = (
+            placed.rects.first().expect("a first rect"),
+            placed.rects.last().expect("a last rect"),
+        );
+        let address = |rect: &ReaderExactSourceRect, char_index, affinity| ReaderCaretAddress {
+            page_index: rect.page_index,
+            position: ReaderTextPosition {
+                block_index: rect.block_index,
+                line_index: rect.line_index,
+                run_index: rect.run_index,
+                char_index,
+            },
+            affinity,
+        };
+        let range = selection(interact(
+            &mut session,
+            artifact.artifact_id,
+            ReaderTextInteractionQuery::Range {
+                anchor: address(
+                    first,
+                    first.start_char_index,
+                    ReaderCaretAffinity::Downstream,
+                ),
+                focus: address(last, last.end_char_index, ReaderCaretAffinity::Upstream),
+            },
+        ));
+        assert_eq!(range.selection.selected_text, placed.selected_text);
+        let anchor = range.anchor_caret.expect("the anchor caret");
+        let focus = range.focus_caret.expect("the focus caret");
+        assert_eq!(anchor.address, range.selection.start, "{start}..{end}");
+        assert_eq!(focus.address, range.selection.end, "{start}..{end}");
+    }
 }

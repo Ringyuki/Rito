@@ -161,6 +161,29 @@ impl RuntimeDocument {
     }
 }
 
+impl RuntimeDocument {
+    /// The carets at a resolved range's anchor and focus, each with its
+    /// geometry and source point, or `None` when either address names no
+    /// caret.
+    pub(in crate::runtime) fn range_end_carets_in(
+        &self,
+        revision: &RuntimeRevision,
+        range: &RuntimeTextRange,
+    ) -> EpubResult<Option<(RuntimeTextCaret, RuntimeTextCaret)>> {
+        let session = revision.chapter_engine_session();
+        let (Some(anchor), Some(focus)) = (
+            session.text_caret(range.anchor),
+            session.text_caret(range.focus),
+        ) else {
+            return Ok(None);
+        };
+        Ok(Some((
+            runtime_text_caret(&self.document, revision, anchor)?,
+            runtime_text_caret(&self.document, revision, focus)?,
+        )))
+    }
+}
+
 fn artifact_source_point(point: &RuntimeSourcePoint) -> PageArtifactSourcePoint {
     PageArtifactSourcePoint {
         node_path: point.node_path.clone(),

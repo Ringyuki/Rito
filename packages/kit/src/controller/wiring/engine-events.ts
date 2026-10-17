@@ -24,6 +24,7 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
 
 function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const { engines, emitter } = deps;
+  holdBookWhileSelecting(deps, disposables);
   disposables.add(
     engines.selection.onSelectionChange(() => {
       const rawRects = engines.selection.getRects();
@@ -49,6 +50,31 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
       deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
     }),
   );
+}
+
+/**
+ * A layout replacing the one a selection is being made in would end the
+ * gesture: the whole-book layout waits until the selection is made, and
+ * then carries it over like any relayout.
+ */
+export function holdBookWhileSelecting(deps: WiringDeps, disposables: DisposableCollection): void {
+  const { engines, reader } = deps;
+  let release: (() => void) | undefined;
+  const settle = (): void => {
+    const selecting = engines.selection.getState() === 'selecting';
+    if (selecting && !release) {
+      release = reader.holdBookLayout?.() ?? (() => undefined);
+    } else if (!selecting && release) {
+      const done = release;
+      release = undefined;
+      done();
+    }
+  };
+  disposables.add(engines.selection.onSelectionChange(settle));
+  disposables.add(() => {
+    release?.();
+    release = undefined;
+  });
 }
 
 function computeSelectionHandles(

@@ -1,5 +1,12 @@
 ## Unreleased
 
+### A range between two carets comes back with them
+
+A text interaction that resolves the range between two caret addresses
+answers with both carets, geometry and source point included, as a range
+resolved from points does: a host that kept only the addresses of a
+selection holds its ends as resolved.
+
 ### Decoding an artifact allocates no view per number
 
 The wire reader reads every number through one view of the message's

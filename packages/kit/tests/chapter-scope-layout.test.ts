@@ -469,7 +469,7 @@ function controllerHarness() {
     renderScale: 1,
     options: {},
     engines: {
-      selection: { invalidate: vi.fn() },
+      selection: { invalidate: vi.fn(), getState: () => 'idle' },
       search: {},
       position: {
         prepareLayoutCommit: () => ({ kind: 'portable' }),

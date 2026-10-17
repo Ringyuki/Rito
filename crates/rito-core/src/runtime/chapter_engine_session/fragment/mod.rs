@@ -614,7 +614,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     /// The caret for an exact address, with its geometry recomputed from
     /// the owning run.
-    fn caret_at(&self, address: TextCaretAddress) -> Option<PageArtifactTextCaret> {
+    pub(super) fn caret_at(&self, address: TextCaretAddress) -> Option<PageArtifactTextCaret> {
         let artifact = self.artifact(address.page_index)?;
         let run = artifact.interaction_runs().iter().find(|run| {
             run.block_index == address.block_index
@@ -625,7 +625,10 @@ impl<'a> FragmentChapterEngineSession<'a> {
         if address.char_index > length {
             return None;
         }
-        Some(caret_record(address.page_index, run, address.char_index))
+        let mut caret = caret_record(address.page_index, run, address.char_index);
+        // The caret at the address keeps the side of the boundary it names.
+        caret.address.affinity = address.affinity;
+        Some(caret)
     }
 
     fn caret_near_point(&self, point: PageArtifactTextPoint) -> Option<PageArtifactTextCaret> {

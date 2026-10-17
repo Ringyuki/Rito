@@ -120,7 +120,7 @@ function createMocks(options?: {
     renderScale: 1,
     options: {},
     engines: {
-      selection: { invalidate: invalidateSelection },
+      selection: { invalidate: invalidateSelection, getState: () => 'idle' },
       search: {},
       position: {
         getCurrent,

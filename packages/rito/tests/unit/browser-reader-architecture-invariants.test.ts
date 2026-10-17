@@ -41,8 +41,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // frame draws the size it asked for; the whole book then lays out a few
 // pages per step, each step after the page has had a turn, and a step
 // that lays pages out counts as progress however many the book takes.
+// +58 lines (2026-10-18): a source range resolved as a selection, carets
+// included, so a selection made in one layout is shown again in the next.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2750;
+const SESSION_READER_LINE_BUDGET = 2808;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -51,7 +53,9 @@ const SESSION_READER_LINE_BUDGET = 2750;
 // the whole book's.
 // +5 lines (2026-10-17): `holdBookLayout`, a host's hold on the whole-book
 // layout.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 787;
+// +8 lines (2026-10-18): `resolveTextRangeFromSource`, a source range
+// resolved as a selection with its carets.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 795;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

@@ -252,6 +252,9 @@ line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
 Vertical line moves return a `preferredInlinePosition` that callers pass into the
 next vertical move to preserve sticky x. Reaching an incomplete retained tail is
 reported as typed `pending`.
+`resolveTextRangeFromSource()`, when supported, resolves a durable
+`{ href, sourceRange }` as a range in the committed layout, carets included:
+how a selection made in one layout is found in the next.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact

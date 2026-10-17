@@ -160,6 +160,14 @@ export interface ReaderTextSelectionInteractions {
   resolveTextSelectionMovement?(
     request: ReaderTextSelectionMovementRequest,
   ): Promise<ReaderTextSelectionMovementResolution | undefined>;
+  /**
+   * The range a durable source range spans in the committed layout, with
+   * both its carets: how a selection made in one layout is found in the
+   * next. Undefined when a newer layout replaced the one it was asked of.
+   */
+  resolveTextRangeFromSource?(
+    request: ReaderExactSourceRangeRequest,
+  ): Promise<ReaderTextRangeResolution | undefined>;
 }
 
 /** Optional atomic capability for revision-safe semantic interaction reads. */
