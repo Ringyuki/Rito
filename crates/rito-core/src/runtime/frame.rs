@@ -124,6 +124,20 @@ impl RuntimeRevision {
             fragment_layout,
         }
     }
+
+    /// Recounts the extent after the page table paginated further.
+    pub(super) fn refresh_extent(&mut self) {
+        let page_count = self.fragment_layout.page_count();
+        self.extent = RuntimeRevisionExtent {
+            page_count,
+            spread_count: build_spread_slots(
+                page_count,
+                self.fragment_layout.chapter_start_pages(),
+                &self.layout_config,
+            )
+            .len(),
+        };
+    }
 }
 
 pub(super) fn revision_summary(

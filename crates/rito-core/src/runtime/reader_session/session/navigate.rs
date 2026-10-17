@@ -62,6 +62,7 @@ impl ReaderSession {
             .local_spread_index
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("local spread index"))?;
+        self.paginate_through_spread(source.revision_id, target_spread)?;
         let local_spread_count = self
             .revisions
             .get(&source.revision_id)
@@ -247,17 +248,22 @@ impl ReaderSession {
         {
             self.exact_layout_quantum_count += 1;
         }
-        self.document
-            .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
-                layout_config: layout,
-                target_chapter_index: chapter_index,
-                target_locator: canonical_locator,
-            })
-            .map_err(engine_error)
+        let request = RuntimeChapterLocalRevisionRequest {
+            layout_config: layout,
+            target_chapter_index: chapter_index,
+            target_locator: canonical_locator,
+        };
+        if self.whole_chapters {
+            self.document.create_chapter_local_revision(request)
+        } else {
+            self.document.create_settled_chapter_local_revision(request)
+        }
+        .map_err(engine_error)
     }
 
-    /// A chapter-local revision holds its whole chapter from the moment
-    /// it exists, so its target either resolved at creation or never will.
+    /// A chapter-local revision places its target among the whole
+    /// chapter's pages at creation, so its target either resolved then or
+    /// never will.
     fn require_resolved_target(
         &mut self,
         created: RuntimeCreatedChapterLocalRevision,

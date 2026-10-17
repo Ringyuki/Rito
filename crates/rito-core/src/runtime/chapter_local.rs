@@ -4,8 +4,9 @@ mod preflight;
 mod publish;
 
 use crate::runtime::{
-    RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionRequest,
-    RuntimeCreatedChapterLocalRevision, RuntimeDocument, RuntimeRevisionErrorKind,
+    source_locator::PaginationTarget, RuntimeChapterLocalRevisionError,
+    RuntimeChapterLocalRevisionRequest, RuntimeCreatedChapterLocalRevision, RuntimeDocument,
+    RuntimeRevisionErrorKind,
 };
 
 use self::preflight::prepare_chapter_local_revision;
@@ -21,17 +22,108 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeChapterLocalRevisionRequest,
     ) -> Result<RuntimeCreatedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
+        self.create_paginated_chapter_local_revision(request, false)
+    }
+
+    /// [`Self::create_chapter_local_revision`], paginating the chapter only
+    /// as far as its target needs: through the spread the target lands on
+    /// and the page after it, so the revision knows whether a spread
+    /// follows. Its pages are the first pages of the whole chapter's, and
+    /// the target lands where it would among all of them; the rest
+    /// paginates when the revision is extended
+    /// ([`Self::extend_chapter_local_revision`]).
+    pub(in crate::runtime) fn create_settled_chapter_local_revision(
+        &mut self,
+        request: RuntimeChapterLocalRevisionRequest,
+    ) -> Result<RuntimeCreatedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
+        self.create_paginated_chapter_local_revision(request, true)
+    }
+
+    fn create_paginated_chapter_local_revision(
+        &mut self,
+        request: RuntimeChapterLocalRevisionRequest,
+        settled: bool,
+    ) -> Result<RuntimeCreatedChapterLocalRevision, RuntimeChapterLocalRevisionError> {
         let prepared = prepare_chapter_local_revision(self, request)?;
+        let target = if settled {
+            self.pagination_target(&prepared.target_locator)
+        } else {
+            PaginationTarget::Whole
+        };
         let built = self
             .build_chapter_local_fragment_layout(
                 &prepared.layout_config,
                 prepared.coordinate.chapter_index,
+                &target,
             )
-            .map_err(|message| RuntimeChapterLocalRevisionError {
-                kind: RuntimeRevisionErrorKind::EngineFailure,
-                message,
+            .map_err(engine_failure)?;
+        self.publish_chapter_local_revision(prepared, built)
+    }
+
+    /// Paginates more of a chapter-local revision's chapter: until it holds
+    /// `pages` pages, or with `None` to the chapter's end. A revision whose
+    /// chapter is paginated through is left as it is.
+    pub(in crate::runtime) fn extend_chapter_local_revision(
+        &mut self,
+        revision_id: &str,
+        pages: Option<usize>,
+    ) -> Result<(), RuntimeChapterLocalRevisionError> {
+        let revision = self
+            .chapter_local_revisions
+            .get_mut(revision_id)
+            .ok_or_else(|| RuntimeChapterLocalRevisionError {
+                kind: RuntimeRevisionErrorKind::UnknownRevision,
+                message: format!("unknown chapter-local revision {revision_id}"),
                 pending_shards: Vec::new(),
             })?;
-        self.publish_chapter_local_revision(prepared, built)
+        if revision.fragment_layout.is_complete() {
+            return Ok(());
+        }
+        revision
+            .fragment_layout
+            .extend_chapter(pages)
+            .map_err(|error| engine_failure(error.message().to_owned()))?;
+        revision.refresh_extent();
+        Ok(())
+    }
+
+    /// Paginates a chapter-local revision's chapter through the spread at
+    /// `spread` and the page after it: the spread holds all its pages, and
+    /// whether a spread follows it is known.
+    pub(in crate::runtime) fn paginate_chapter_local_through_spread(
+        &mut self,
+        revision_id: &str,
+        spread: usize,
+    ) -> Result<(), RuntimeChapterLocalRevisionError> {
+        let Some(revision) = self.chapter_local_revisions.get(revision_id) else {
+            return self.extend_chapter_local_revision(revision_id, None);
+        };
+        let last = crate::runtime::spread::spread_last_page(&revision.layout_config, spread);
+        self.extend_chapter_local_revision(revision_id, Some(last.saturating_add(2)))
+    }
+
+    /// The spreads a chapter-local revision's pages so far make.
+    pub(in crate::runtime) fn chapter_local_spread_count(
+        &self,
+        revision_id: &str,
+    ) -> Option<usize> {
+        self.chapter_local_revisions
+            .get(revision_id)
+            .map(|revision| revision.extent.spread_count)
+    }
+
+    /// Whether a chapter-local revision's whole chapter is paginated.
+    pub(in crate::runtime) fn chapter_local_revision_is_complete(&self, revision_id: &str) -> bool {
+        self.chapter_local_revisions
+            .get(revision_id)
+            .is_none_or(|revision| revision.fragment_layout.is_complete())
+    }
+}
+
+fn engine_failure(message: String) -> RuntimeChapterLocalRevisionError {
+    RuntimeChapterLocalRevisionError {
+        kind: RuntimeRevisionErrorKind::EngineFailure,
+        message,
+        pending_shards: Vec::new(),
     }
 }

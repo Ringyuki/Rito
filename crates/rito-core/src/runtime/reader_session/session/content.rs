@@ -187,6 +187,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         if request.query.is_empty() {
             return Err(ReaderError::new(
                 ReaderErrorKind::InvalidRequest,
@@ -297,6 +298,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         if !self.artifacts.contains_key(&request.artifact_id) {
             return Err(unknown_artifact(request.artifact_id));
         }
@@ -338,6 +340,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         let artifact = self
             .artifacts
             .get(&request.artifact_id)

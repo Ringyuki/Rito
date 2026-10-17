@@ -40,6 +40,7 @@ mod handoff;
 mod interaction;
 mod navigate;
 mod open;
+mod paginate;
 mod position;
 #[cfg(test)]
 mod probe;
@@ -141,6 +142,9 @@ pub struct ReaderSession {
     /// out under an earlier generation is never reused for a request, even
     /// at an equal layout config.
     font_generation: u64,
+    /// Whether chapter-local revisions paginate their whole chapter when
+    /// created (see [`Self::paginate_whole_chapters`]).
+    whole_chapters: bool,
     #[cfg(test)]
     exact_cache_hit_count: u64,
     #[cfg(test)]
@@ -148,6 +152,15 @@ pub struct ReaderSession {
 }
 
 impl ReaderSession {
+    /// An instrument: with `whole` set, a chapter-local revision paginates
+    /// its whole chapter when it is created instead of stopping at the
+    /// spread its target needs. A session with it set publishes the same
+    /// artifacts as one without, which is what it is for comparing.
+    #[doc(hidden)]
+    pub fn paginate_whole_chapters(&mut self, whole: bool) {
+        self.whole_chapters = whole;
+    }
+
     /// Sets the device pixels per CSS pixel the host rasterizes at. Every
     /// raster snap in the display list lands on that grid; pagination is
     /// identical at every ratio. Artifacts requested after the change

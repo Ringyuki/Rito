@@ -10,6 +10,7 @@ mod annotation;
 mod href;
 mod index;
 mod projection;
+mod settle;
 mod toc;
 mod types;
 
@@ -23,6 +24,7 @@ pub(super) use href::RuntimeSourceLocatorCanonicalizer;
 use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_point, SourceProjection};
+pub(in crate::runtime) use settle::PaginationTarget;
 pub(super) use toc::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition};
 pub use types::*;
 

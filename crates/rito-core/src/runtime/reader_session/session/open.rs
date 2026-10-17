@@ -102,6 +102,7 @@ impl ReaderSession {
             pending_adjacent: None,
             render_ratio: 1.0,
             font_generation: 0,
+            whole_chapters: false,
             #[cfg(test)]
             exact_cache_hit_count: 0,
             #[cfg(test)]

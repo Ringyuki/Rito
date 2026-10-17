@@ -43,6 +43,10 @@ path = "examples/relayout_bench.rs"
 name = "resize-bench"
 path = "examples/resize_bench.rs"
 
+[[example]]
+name = "lazy-pagination-check"
+path = "examples/lazy_pagination_check.rs"
+
 [dependencies]
 rito-block = { path = "../rito-block" }
 rito-fragment = { path = "../rito-fragment" }

@@ -186,6 +186,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         let view = self
             .artifact_view(request.artifact_id)?
             .covering(request.every_page);

@@ -1,5 +1,13 @@
 ## Unreleased
 
+### A resize lays out only the spread it shows
+
+A request at a new size lays the chapter out only through the spread the
+reader stays on and the page after it, instead of the whole chapter. The
+rest is laid out when a turn reaches it, or when a search, a text
+interaction or a page table reads it; every spread is the one laying out
+the whole chapter shows.
+
 ### Protocol and breaking changes
 
 The artifact protocol is version 7 (was 6): the display list record no

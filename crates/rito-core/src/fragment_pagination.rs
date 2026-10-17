@@ -114,6 +114,7 @@ fn page_space(
 /// fragmentainers. Without `line_text` the pages break exactly as with it
 /// but their lines hold no text fragments: [`layout_chapter_page`] lays a
 /// page out again with them from its start.
+#[cfg(test)]
 pub(crate) fn paginate_chapter(
     engine: &dyn FormattingContext,
     tree: &FormattingTree,
@@ -122,34 +123,88 @@ pub(crate) fn paginate_chapter(
     line_text: bool,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
-    let space = page_space(tree, content_width, content_height, line_text);
-    let mut token = None;
+    let mut paginator = ChapterPaginator::new(tree, content_width, content_height, line_text);
     let mut pages = Vec::new();
-    loop {
+    while let Some(page) = paginator.next_page(engine, tree, cancel)? {
+        pages.push(page);
+    }
+    Ok(pages)
+}
+
+/// A chapter laid out one page at a time, each page resuming where the one
+/// before it ended: the pages a reader is shown need not wait for the rest
+/// of the chapter, which paginates exactly as it would have in one pass.
+#[derive(Debug, Clone)]
+pub(crate) struct ChapterPaginator {
+    space: ConstraintSpace,
+    /// Where the next page resumes; `None` before the first page and once
+    /// the chapter is exhausted.
+    token: Option<BreakToken>,
+    pages: usize,
+    done: bool,
+}
+
+impl ChapterPaginator {
+    pub(crate) fn new(
+        tree: &FormattingTree,
+        content_width: f64,
+        content_height: f64,
+        line_text: bool,
+    ) -> Self {
+        Self {
+            space: page_space(tree, content_width, content_height, line_text),
+            token: None,
+            pages: 0,
+            done: false,
+        }
+    }
+
+    /// Whether every page of the chapter has been laid out.
+    pub(crate) fn is_done(&self) -> bool {
+        self.done
+    }
+
+    /// Where the chapter resumes after the pages laid out so far.
+    pub(crate) fn resumes_at(&self) -> Option<&BreakToken> {
+        self.token.as_ref()
+    }
+
+    /// The next page, or `None` once the chapter is exhausted.
+    pub(crate) fn next_page(
+        &mut self,
+        engine: &dyn FormattingContext,
+        tree: &FormattingTree,
+        cancel: &CancelFlag,
+    ) -> EpubResult<Option<FragmentChapterPage>> {
+        if self.done {
+            return Ok(None);
+        }
         let outcome = engine
-            .layout(tree, tree.root(), &space, token.as_ref(), cancel)
+            .layout(tree, tree.root(), &self.space, self.token.as_ref(), cancel)
             .map_err(|error| {
                 EpubError::new(format!(
                     "fragment pagination failed on page {}: {error:?}",
-                    pages.len()
+                    self.pages
                 ))
             })?;
-        pages.push(FragmentChapterPage {
+        let page = FragmentChapterPage {
             root: outcome.fragments.root,
-            start: token.take(),
-        });
+            start: self.token.take(),
+        };
+        self.pages += 1;
         match outcome.continuation {
             Some(continuation) => {
-                if pages.len() >= FRAGMENT_PAGINATION_PAGE_LIMIT {
+                if self.pages >= FRAGMENT_PAGINATION_PAGE_LIMIT {
                     return Err(EpubError::new(format!(
                         "fragment pagination exceeded {FRAGMENT_PAGINATION_PAGE_LIMIT} pages \
                          without exhausting the chapter"
                     )));
                 }
-                token = Some(continuation);
+                self.token = Some(continuation);
             }
-            None => return Ok(pages),
+            None => self.done = true,
         }
+        Ok(Some(page))
     }
 }
 

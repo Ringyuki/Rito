@@ -203,6 +203,9 @@ impl ReaderSession {
             .cloned()
             .ok_or_else(|| unknown_artifact(request.from_artifact_id))?;
         let spread_index = usize_from_u32(request.spread_index, "spread index")?;
+        if source.backing == ReaderRevisionBacking::ChapterLocal {
+            self.paginate_through_spread(source.revision_id, spread_index)?;
+        }
         let spread_count = match source.backing {
             ReaderRevisionBacking::ChapterLocal => self
                 .revisions

@@ -4,7 +4,7 @@ use crate::runtime::{
     fragment_backend::ChapterLocalFragmentBuild,
     frame::{RuntimeRevision, RuntimeRevisionCoordinateSpace},
     RuntimeChapterLocalRevisionError, RuntimeChapterLocalRevisionHandle,
-    RuntimeCreatedChapterLocalRevision, RuntimeDocument,
+    RuntimeCreatedChapterLocalRevision, RuntimeDocument, RuntimeSourceLocatorResolution,
 };
 
 use super::{
@@ -50,9 +50,21 @@ impl RuntimeDocument {
             revision_version: 0,
             coordinate,
         };
-        let resolution = self
-            .resolve_chapter_local_source_locator_inner(&revision_id, target_locator)
+        let mut resolution = self
+            .resolve_chapter_local_source_locator_inner(&revision_id, target_locator.clone())
             .expect("preflight-validated chapter-local locator remains resolvable");
+        if !matches!(resolution, RuntimeSourceLocatorResolution::Resolved { .. })
+            && !self.chapter_local_revision_is_complete(&revision_id)
+        {
+            // Placed against the whole chapter, as it would have been.
+            self.extend_chapter_local_revision(&revision_id, None)?;
+            resolution = self
+                .resolve_chapter_local_source_locator_inner(&revision_id, target_locator)
+                .expect("preflight-validated chapter-local locator remains resolvable");
+        }
+        if let RuntimeSourceLocatorResolution::Resolved { spread_index, .. } = &resolution {
+            self.paginate_chapter_local_through_spread(&revision_id, *spread_index)?;
+        }
         let target = local_locator_resolution(owner.clone(), resolution);
         let revision = self
             .chapter_local_revisions

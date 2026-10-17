@@ -31,6 +31,12 @@ impl ReaderSession {
                 "navigation request belongs to a different session",
             ));
         }
+        if let ReaderNavigationQuery::TocEntryAtPage { artifact_id, .. }
+        | ReaderNavigationQuery::Locate { artifact_id, .. }
+        | ReaderNavigationQuery::Layout { artifact_id } = &request.query
+        {
+            self.complete_artifact_revision(*artifact_id)?;
+        }
         match request.query {
             ReaderNavigationQuery::TocEntryAtPage {
                 artifact_id,

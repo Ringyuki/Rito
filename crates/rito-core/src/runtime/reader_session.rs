@@ -80,6 +80,8 @@ mod interaction_tests;
 #[cfg(test)]
 mod layout_tests;
 #[cfg(test)]
+mod pagination_tests;
+#[cfg(test)]
 mod shard_tests;
 #[cfg(test)]
 mod tests;

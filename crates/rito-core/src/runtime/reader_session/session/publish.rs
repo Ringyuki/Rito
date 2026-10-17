@@ -108,14 +108,29 @@ impl ReaderSession {
         local_spread_index: usize,
         request_id: u64,
     ) -> Result<ReaderArtifact, ReaderError> {
+        self.paginate_through_spread(revision_id, local_spread_index)?;
+        let mut target = self.spread_target(revision_id, local_spread_index)?;
+        if target.locator.source_point.is_none() && !self.revision_is_complete(revision_id) {
+            // A page without text is placed by its fraction of the
+            // chapter's pages: all of them.
+            self.complete_revision(revision_id)?;
+            target = self.spread_target(revision_id, local_spread_index)?;
+        }
+        self.publish_resolved_revision_artifact(revision_id, target, request_id)
+    }
+
+    fn spread_target(
+        &self,
+        revision_id: u64,
+        local_spread_index: usize,
+    ) -> Result<ResolvedArtifactTarget, ReaderError> {
         let revision = self.revisions.get(&revision_id).ok_or_else(|| {
             ReaderError::new(
                 ReaderErrorKind::EngineFailure,
                 "artifact revision ownership is missing",
             )
         })?;
-        let target = published_spread_target(&self.document, &revision.owner, local_spread_index)?;
-        self.publish_resolved_revision_artifact(revision_id, target, request_id)
+        published_spread_target(&self.document, &revision.owner, local_spread_index)
     }
 
     pub(super) fn publish_resolved_revision_artifact(

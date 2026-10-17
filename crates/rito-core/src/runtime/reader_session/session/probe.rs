@@ -16,6 +16,22 @@ impl ReaderSession {
         self.revisions.contains_key(&revision_id)
     }
 
+    /// The pages the chapter-local revision behind an artifact has
+    /// paginated, and whether they are all of its chapter's.
+    #[cfg(test)]
+    pub(in crate::runtime::reader_session) fn artifact_pagination(
+        &self,
+        artifact_id: u64,
+    ) -> Option<(usize, bool)> {
+        let artifact = self.artifacts.get(&artifact_id)?;
+        let owner = &self.revisions.get(&artifact.revision_id)?.owner;
+        let revision = self.document.require_chapter_local_owner(owner).ok()?;
+        Some((
+            revision.extent.page_count,
+            revision.fragment_layout.is_complete(),
+        ))
+    }
+
     #[cfg(test)]
     pub(in crate::runtime::reader_session) const fn exact_cache_hit_count(&self) -> u64 {
         self.exact_cache_hit_count
