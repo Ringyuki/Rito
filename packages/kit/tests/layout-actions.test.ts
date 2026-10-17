@@ -25,6 +25,8 @@ function createMocks(options?: {
   const updateLayout = vi.fn(() => false);
   const releaseBook = vi.fn();
   const holdBookLayout = vi.fn(() => releaseBook);
+  const pausePrerender = vi.fn();
+  const resumePrerender = vi.fn();
   const spreads = Array.from({ length: options?.totalSpreads ?? 3 }, (_, index) => ({ index }));
   const reader = {
     totalSpreads: spreads.length,
@@ -136,6 +138,7 @@ function createMocks(options?: {
     pool: { resize, invalidateAllContent, assignSlot },
     td: { reset, viewportWidth: 0 },
     frameDriver: { scheduleComposite, compositeNow },
+    prerenderScheduler: { pause: pausePrerender, resume: resumePrerender },
   } as unknown as RuntimeComponents;
   const emit = vi.fn();
   const emitter = { emit } as unknown as Emitter;
@@ -148,6 +151,8 @@ function createMocks(options?: {
     spies: {
       holdBookLayout,
       releaseBook,
+      pausePrerender,
+      resumePrerender,
       setSize,
       resize,
       invalidateAllContent,
@@ -174,7 +179,7 @@ function createMocks(options?: {
 }
 
 describe('buildLayoutActions', () => {
-  it('holds the whole-book layout while sizes keep coming', () => {
+  it('holds the whole-book layout and the neighbouring spreads while sizes keep coming', () => {
     vi.useFakeTimers();
     try {
       const { internals, runtime, emitter, spies } = createMocks();
@@ -188,15 +193,20 @@ describe('buildLayoutActions', () => {
       // One hold for the run of sizes, still standing: the last size is new.
       expect(spies.holdBookLayout).toHaveBeenCalledOnce();
       expect(spies.releaseBook).not.toHaveBeenCalled();
+      // A neighbour painted for one size is replaced by the next.
+      expect(spies.pausePrerender).toHaveBeenCalledOnce();
+      expect(spies.resumePrerender).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(50);
       expect(spies.releaseBook).toHaveBeenCalledOnce();
+      expect(spies.resumePrerender).toHaveBeenCalledOnce();
 
       // A size after the settle holds again; disposing lets it go at once.
       actions.resize(720, 600);
       expect(spies.holdBookLayout).toHaveBeenCalledTimes(2);
       disposables.disposeAll();
       expect(spies.releaseBook).toHaveBeenCalledTimes(2);
+      expect(spies.resumePrerender).toHaveBeenCalledTimes(2);
       vi.advanceTimersByTime(RESIZE_SETTLE_MS);
       expect(spies.releaseBook).toHaveBeenCalledTimes(2);
     } finally {

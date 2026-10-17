@@ -9,7 +9,7 @@ import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
 import { invalidateNativeSearchLayout } from '../search-resolution';
 import { reportUnresolvedFontFamilies } from './font-actions';
 import { abortTransition } from '../core/transition-lifecycle';
-import { createResizeSettle, endResizeSettle, holdBookWhileResizing } from './resize-settle';
+import { createResizeSettle, endResizeSettle, holdWhileResizing } from './resize-settle';
 import type { Disposables } from './types';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
@@ -26,7 +26,7 @@ export function buildLayoutActions(
   });
   return {
     resize(width, height, margin): void {
-      holdBookWhileResizing(settle, internals.reader);
+      holdWhileResizing(settle, internals.reader, runtime.prerenderScheduler);
       const anchor = currentPosition(internals);
       const changed = internals.reader.updateLayout(width, height, undefined, margin);
       refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);

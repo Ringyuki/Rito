@@ -1,4 +1,5 @@
 import type { Reader } from '@ritojs/core';
+import type { PrerenderScheduler } from '../prerender';
 
 /**
  * How long a size must stand before the reader lays the whole book out
@@ -11,7 +12,7 @@ import type { Reader } from '@ritojs/core';
  */
 export const RESIZE_SETTLE_MS = 300;
 
-/** The hold a run of resizes keeps on the whole-book layout. */
+/** The hold a run of resizes keeps on the whole-book layout and the neighbouring spreads. */
 export interface ResizeSettle {
   release: (() => void) | undefined;
   timer: ReturnType<typeof setTimeout> | undefined;
@@ -21,10 +22,18 @@ export function createResizeSettle(): ResizeSettle {
   return { release: undefined, timer: undefined };
 }
 
-/** Holds the whole-book layout back until no size has come for {@link RESIZE_SETTLE_MS}. */
-export function holdBookWhileResizing(settle: ResizeSettle, reader: Reader): void {
-  if (!reader.holdBookLayout) return;
-  settle.release ??= reader.holdBookLayout();
+/**
+ * Holds the whole-book layout and the prerendering of the spreads beside
+ * the one shown back until no size has come for {@link RESIZE_SETTLE_MS}:
+ * a neighbour painted for one size is replaced by the next, and the paint
+ * holds that size back.
+ */
+export function holdWhileResizing(
+  settle: ResizeSettle,
+  reader: Reader,
+  prerender: PrerenderScheduler,
+): void {
+  settle.release ??= holdFor(reader, prerender);
   clearTimeout(settle.timer);
   settle.timer = setTimeout(() => {
     settle.timer = undefined;
@@ -32,7 +41,16 @@ export function holdBookWhileResizing(settle: ResizeSettle, reader: Reader): voi
   }, RESIZE_SETTLE_MS);
 }
 
-/** Lets the whole-book layout go at once. */
+function holdFor(reader: Reader, prerender: PrerenderScheduler): () => void {
+  const releaseBook = reader.holdBookLayout?.();
+  prerender.pause();
+  return () => {
+    releaseBook?.();
+    prerender.resume();
+  };
+}
+
+/** Lets the whole-book layout and the neighbouring spreads go at once. */
 export function endResizeSettle(settle: ResizeSettle): void {
   clearTimeout(settle.timer);
   settle.timer = undefined;
