@@ -1,4 +1,4 @@
-import { findAnnotationHitAtPos, getAnnotationScreenCenter } from './annotation';
+import { findAnnotationHitAtPos, getAnnotationScreenPlacement } from './annotation';
 import type { AnnotationHit } from './annotation';
 import type { WiringDeps } from '../core/wiring-deps';
 import type { ContentHitKind } from '../types';
@@ -73,17 +73,8 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
   const hit = resolveContentHit(pos, deps);
   if (!hit) return;
   if (hit.kind === 'annotation') {
-    const center = getAnnotationScreenCenter(
-      hit.annotation.annotation,
-      deps.canvas,
-      deps,
-      hit.annotation.segment,
-    );
-    deps.emitter.emit('annotationClick', {
-      annotation: hit.annotation.annotation,
-      x: center.x,
-      y: center.y,
-    });
+    const placement = getAnnotationScreenPlacement(hit.annotation, deps.canvas, deps);
+    deps.emitter.emit('annotationClick', { annotation: hit.annotation.annotation, ...placement });
     return;
   }
   dispatchNativeClickTarget(hit.pageIndex, hit.target, deps);

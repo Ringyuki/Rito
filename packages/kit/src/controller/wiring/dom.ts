@@ -5,7 +5,7 @@ import {
 } from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
 import { bindLinkCursor } from './link';
-import { findAnnotationHitAtPos, getAnnotationScreenCenter } from './annotation';
+import { findAnnotationHitAtPos, getAnnotationScreenPlacement } from './annotation';
 import { toSpreadContent, type WiringDeps } from '../core/wiring-deps';
 import { bindPointerEvents } from './pointer';
 import { dispatchClick } from './click-dispatch';
@@ -64,12 +64,8 @@ function bindAnnotationHover(
       emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
       return;
     }
-    const center = getAnnotationScreenCenter(hit.annotation, canvas, deps, hit.segment);
-    emitter.emit('annotationHover', {
-      annotation: hit.annotation,
-      x: center.x,
-      y: center.y,
-    });
+    const { x, y } = getAnnotationScreenPlacement(hit, canvas, deps);
+    emitter.emit('annotationHover', { annotation: hit.annotation, x, y });
   };
   const remove = (): void => {
     canvas.removeEventListener('pointermove', onMove);

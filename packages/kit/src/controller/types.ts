@@ -12,6 +12,7 @@ import type { Reader } from '@ritojs/core';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
+  Rect,
   RecordStorageAdapter,
   ResolvedAnnotation,
 } from '../interaction/index';
@@ -90,8 +91,12 @@ export interface ReaderControllerEvents {
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
   annotationsChange: { annotations: readonly AnnotationRecord[] };
-  /** Annotation click event. `x` and `y` are in **screen** coordinates (suitable for CSS `position: fixed`). */
-  annotationClick: { annotation: ResolvedAnnotation; x: number; y: number };
+  /**
+   * Annotation click, in **screen** coordinates (suitable for CSS `position: fixed`) like
+   * `imageClick.screenBounds`. `screenBounds` boxes the annotation's lines on the clicked
+   * page, so a popover can sit above or below them; `x`, `y` is the box's top centre.
+   */
+  annotationClick: { annotation: ResolvedAnnotation; x: number; y: number; screenBounds: Rect };
   /** Annotation hover event. `x` and `y` are in **screen** coordinates (suitable for CSS `position: fixed`). */
   annotationHover: { annotation: ResolvedAnnotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
@@ -140,13 +145,6 @@ export interface ReaderControllerEvents {
   /** Emitted when the search keyboard shortcut is pressed. UI layer should open the search bar. */
   searchOpen: undefined;
   error: { message: string; source: string };
-}
-
-interface Rect {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
 }
 
 /** Input for creating an annotation from the current selection. */

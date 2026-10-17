@@ -303,7 +303,10 @@ index and page-content `rects`.
 Clicks: links, footnotes, and images are the reader's page targets
 (`interactions.getPageTargets`), hit-tested in reverse paint order after annotations.
 A click whose targets were read from a layout that is no longer committed is dropped
-rather than tested against stale geometry.
+rather than tested against stale geometry. `annotationClick` carries `screenBounds`, the
+box around the annotation's rectangles on the clicked page, in the screen coordinates
+of `imageClick.screenBounds`; its `x`, `y` is that box's top centre. A popover can sit
+above or below the box without covering the highlight.
 
 Focus: the controller makes the Canvas focusable (`tabindex="0"`) so it receives keys,
 and sets its inline `outline-style` to `none`, since the browser's focus ring would

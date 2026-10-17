@@ -376,6 +376,34 @@ describe('native click dispatch', () => {
     });
   });
 
+  it('bounds a clicked annotation by its lines on the clicked page, on screen', () => {
+    const fixture = createFixture(interactions());
+    fixture.state.resolvedAnnotations = [
+      {
+        status: 'exact',
+        segments: [
+          {
+            pageIndex: 0,
+            rects: [
+              { x: 12, y: 10, width: 28, height: 14 },
+              { x: 5, y: 26, width: 25, height: 14 },
+            ],
+          },
+          { pageIndex: 1, rects: [{ x: 500, y: 300, width: 40, height: 14 }] },
+        ],
+      },
+    ] as never;
+    let event: ReaderControllerEvents['annotationClick'] | undefined;
+    fixture.emitter.on('annotationClick', (value) => {
+      event = value;
+    });
+
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+
+    expect(event?.screenBounds).toEqual({ x: 105, y: 210, width: 35, height: 30 });
+    expect(event).toMatchObject({ x: 122.5, y: 210 });
+  });
+
   it('drops clicks while a preview disables the reader interactions', () => {
     const fixture = createFixture(interactions({ enabled: false }));
     fixture.state.nativeTargetsByPage.set(0, [
