@@ -10,6 +10,7 @@ mod chapter_local;
 mod chapter_styles;
 mod chapter_text;
 mod chapter_tree_report;
+mod chapter_trees;
 mod cleanup;
 mod font_catalog;
 mod fragment_backend;

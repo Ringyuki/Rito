@@ -28,7 +28,6 @@ use crate::render::{
     DisplayCommand,
 };
 
-use super::chapter_tree_report::chapter_formatting_tree;
 use super::fragment_frame::RuntimeFragmentEngine;
 use super::frame::{RuntimeChapterStyleTables, RuntimeRevisionInteractions};
 use super::page_artifact::FragmentPageArtifact;
@@ -52,7 +51,7 @@ const MATERIALIZED_CHAPTER_FLOOR: usize = 2;
 /// A page table always filters footnote asides out of the content flow:
 /// the reader's pages are the reader-semantic flow, and an aside left in
 /// it would paginate differently from the pages the reader shows.
-const FILTER_FOOTNOTES: bool = true;
+pub(super) const FILTER_FOOTNOTES: bool = true;
 
 /// One chapter's place in the book, in spine order within the layout.
 /// This is what the table retains for every chapter: page numbers,
@@ -202,7 +201,7 @@ impl FragmentBackendPage {
 /// content width, page origin and writing mode.
 #[derive(Debug)]
 struct ChapterPaintSource {
-    built: crate::fragment_bridge::ChapterFormattingTree,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     /// The paint alias of every face the engine shapes with.
     faces: Rc<[String]>,
     vertical: bool,
@@ -372,6 +371,21 @@ impl FragmentBuiltLayout {
             .collect()
     }
 
+    /// The formatting tree a materialized chapter's pages were laid out
+    /// from.
+    #[cfg(test)]
+    pub(super) fn materialized_tree(
+        &self,
+        chapter_index: usize,
+    ) -> Option<Rc<crate::fragment_bridge::ChapterFormattingTree>> {
+        self.materialized
+            .borrow()
+            .entries
+            .iter()
+            .find(|(index, _)| *index == chapter_index)
+            .map(|(_, chapter)| Rc::clone(&chapter.paint.built))
+    }
+
     fn materialize(&self, chapter_index: usize) -> EpubResult<Rc<MaterializedChapter>> {
         if let Some(chapter) = self.materialized.borrow_mut().hit(chapter_index) {
             return Ok(chapter);
@@ -393,11 +407,10 @@ impl FragmentBuiltLayout {
                 record.idref
             ))
         })?;
-        let built = chapter_formatting_tree(
+        let built = build.engine.chapter_tree(
             &build.prepared,
             &record.style_tables,
             &record.idref,
-            FILTER_FOOTNOTES,
             &record.image_dimensions,
         )?;
         let paginated = paginate_built_chapter(
@@ -500,14 +513,10 @@ impl RuntimeDocument {
             let image_dimensions = self
                 .chapter_image_dimensions(&build.prepared, &idref, FILTER_FOOTNOTES)
                 .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            let built = chapter_formatting_tree(
-                &build.prepared,
-                style_tables,
-                &idref,
-                FILTER_FOOTNOTES,
-                &image_dimensions,
-            )
-            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+            let built = build
+                .engine
+                .chapter_tree(&build.prepared, style_tables, &idref, &image_dimensions)
+                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
             let paginated = paginate_built_chapter(
                 &build.engine,
                 Rc::clone(&build.faces),
@@ -612,14 +621,10 @@ impl RuntimeDocument {
         let image_dimensions = self
             .chapter_image_dimensions(&prepared, &idref, FILTER_FOOTNOTES)
             .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-        let built = chapter_formatting_tree(
-            &prepared,
-            &style_tables,
-            &idref,
-            FILTER_FOOTNOTES,
-            &image_dimensions,
-        )
-        .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        let built = build
+            .engine
+            .chapter_tree(&prepared, &style_tables, &idref, &image_dimensions)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
         let paginated = paginate_built_chapter(
             &build.engine,
             Rc::clone(&build.faces),
@@ -698,17 +703,10 @@ struct PaginatedChapter {
 fn paginate_built_chapter(
     engine: &RuntimeFragmentEngine,
     faces: Rc<[String]>,
-    mut built: crate::fragment_bridge::ChapterFormattingTree,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     config: &LayoutConfig,
     idref: &str,
 ) -> Result<PaginatedChapter, String> {
-    // Outside markers and ruby annotations are painted, never laid
-    // out: shape them once here with the same context the chapter
-    // lays out with, so their boxes and clusters come from the
-    // engine's own advances.
-    built
-        .measure_painted_runs(engine.engine.inline())
-        .map_err(|error| format!("chapter {idref} markers: {}", error.message()))?;
     let content_width = config.page_width - config.margin_left - config.margin_right;
     let content_height = config.page_height - config.margin_top - config.margin_bottom;
     if content_width <= 0.0 || content_height <= 0.0 {

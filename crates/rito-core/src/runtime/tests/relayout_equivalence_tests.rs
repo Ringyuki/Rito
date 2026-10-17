@@ -363,3 +363,54 @@ fn a_chapter_is_styled_once_for_every_layout_its_styles_hold_under() {
         "book and chapter share"
     );
 }
+
+#[test]
+fn a_chapter_is_bridged_once_for_every_layout_its_tree_holds_under() {
+    let publication = relayout_fixture_epub();
+    let config = |name: &str| {
+        steps()
+            .into_iter()
+            .find(|(step, _)| *step == name)
+            .map(|(_, config)| config)
+            .expect("the step exists")
+    };
+    let mut document = open(&publication);
+    let mut tree = |config: &LayoutConfig| {
+        let created = document
+            .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
+                layout_config: config.clone(),
+                target_chapter_index: 0,
+                target_locator: locator(CHAPTERS[0]),
+            })
+            .expect("the chapter lays out");
+        let revision = &created.revision;
+        let tree = document
+            .chapter_local_revisions
+            .get(&revision.revision_id)
+            .and_then(|kept| kept.fragment_layout.materialized_tree(0))
+            .expect("the chapter's pages are kept");
+        document
+            .release_chapter_local_revision(&RuntimeChapterLocalRevisionHandle {
+                revision_id: revision.revision_id.clone(),
+                revision_version: revision.revision_version,
+                coordinate: revision.coordinate.clone(),
+            })
+            .expect("the chapter releases");
+        tree
+    };
+
+    // Same styles at 420 and 400: the tree reads nothing of the page size.
+    let at_420 = tree(&config("420"));
+    let at_400 = tree(&config("400"));
+    assert!(Rc::ptr_eq(&at_420, &at_400), "narrower, same tree");
+    // A taller page with the same styles: still the same tree.
+    assert!(
+        Rc::ptr_eq(&at_420, &tree(&config("taller"))),
+        "taller, same tree"
+    );
+    // Larger type restyles the chapter, and its tree is bridged again.
+    assert!(
+        !Rc::ptr_eq(&at_400, &tree(&config("larger type"))),
+        "larger type"
+    );
+}
