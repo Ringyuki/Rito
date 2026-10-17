@@ -106,7 +106,7 @@ shapes with the host's faces and the publication's own). The reader pins
   pagination at 420×640; prints wall-clock milliseconds and page count.
 - `turn-trace.mjs` (in `tools/reader-accept/`, `BOOK=<epub>`) — one
   timeline per page turn in the running reader: the key event, every
-  worker request and answer, every animation frame with its cost and its
+  session request and how long it took, every animation frame with its cost and its
   Canvas calls, and the frame the canvas changed in.
 - `settings-storm.mjs` (in `tools/reader-accept/`, `BOOK=<epub>`, or
   without one the demo's sharded book) — changes the font size in bursts at
@@ -117,10 +117,10 @@ shapes with the host's faces and the publication's own). The reader pins
   no warning, and no call that
   creates, adopts, commits or releases an artifact was sent while another
   was unanswered (read from the reader's own log, so it measures the real
-  worker).
+  session).
 - `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
-  book's open in the running reader, printing every worker message the page
-  sends and receives on one clock.
+  book's open in the running reader, printing every request the page sends
+  its session, and how long it took, on one clock.
 - `memory-stage-probe <epub> <serif-font-path>` — resident bytes after
   each stage of opening and paginating one book, then after releasing
   the revision, paginating a second time, and dropping the document.
@@ -247,11 +247,11 @@ painted across the author's and a pinned fallback face
   exported.
 - `packages/rito/tests/unit/session-reader-fixtures.ts` — the session the
   reader's unit tests run against answers one call at a time, as the
-  worker does, and records in `violations` any artifact call the reader
+  engine does, and records in `violations` any artifact call the reader
   sends while another is unanswered; every reader test asserts there are
   none.
 - `packages/rito-core-wasm/tests/reader-session-worker-facade.test.mjs` —
-  the worker refuses at the live-artifact cap the engine declares (read
+  the protocol handler refuses at the live-artifact cap the engine declares (read
   from the Rust source), and its client holds a call past the pending
   limit instead of refusing it.
 - `packages/rito_flutter/test/architecture_test.dart` and

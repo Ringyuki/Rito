@@ -115,7 +115,8 @@ The primitive list is encoded as `RITODL1` format 2 (see
 (`packages/rito/src/bindings/browser/primitive-renderer.ts`) and the
 Flutter pen (`packages/rito_flutter/lib/src/render/primitive_replayer.dart`)
 decode and blit; neither holds a layout or paint law. A browser reader
-runs the engine in a Worker through `crates/rito-wasm`; Flutter and other
+runs the engine on the page's own thread through `crates/rito-wasm`, so a
+frame draws the size it asks for; Flutter and other
 native hosts use the C ABI in `crates/rito-ffi`.
 
 ## Runtime

@@ -19,7 +19,7 @@ crates/rito-pack             packing into shards and the readability check throu
 crates/rito-ffi              the C ABI actor for native hosts
 crates/rito-inline-spike     a line-break parity instrument, never a dependency
 
-packages/rito-core-wasm      private WASM build (both modules), session worker and wire decoders
+packages/rito-core-wasm      private WASM build (both modules), session protocol and wire decoders
 packages/rito                @ritojs/core: the browser reader and Canvas pen
 packages/kit                 @ritojs/kit: controller, transitions, overlays
 packages/react               @ritojs/react: hooks and a mount component
@@ -82,8 +82,9 @@ advance, resources, fonts, footnotes, search, text geometry, source
 ranges, selection, annotation targets and reading-position questions.
 
 Within `@ritojs/core`, `packages/rito/src/bindings/browser/**` is the only
-place browser APIs live: it runs the session in a Worker, decodes its artifacts, registers
-fonts and decodes images, and blits primitives on Canvas. The reader it
+place browser APIs live: it runs the session on the page's own thread
+(`reader-session-in-thread.ts` hosts the engine), decodes its artifacts,
+registers fonts and decodes images, and blits primitives on Canvas. The reader it
 builds on the session (`session-reader/`) holds one committed layout at a
 time — the chapter being read, then the whole book — and replaces the
 visible artifact only by the session's compare-and-swap. It must not
@@ -118,12 +119,12 @@ it shows, what a turn would show next and the candidate of the step under
 way; the engine's cap of six live artifacts is budgeted for exactly that.
 
 **The engine's limits are the ones a host meets.** A transport may refuse
-early what the engine would refuse, at the engine's number: the worker
-mirrors the cap of six live artifacts. The transports keep bounds of their
+early what the engine would refuse, at the engine's number: the browser
+protocol handler mirrors the cap of six live artifacts. The transports keep bounds of their
 own that a host working one operation at a time never reaches: the browser
 client holds a call past its eight pending messages until one is answered
-instead of refusing it, the worker and the FFI actor each refuse past
-eight queued commands, and the browser client refuses a whole-book step
+instead of refusing it, the protocol handler and the FFI actor each
+refuse past eight queued commands, and the browser client refuses a whole-book step
 sent while other artifact work is in flight.
 
 In the browser the queue is `session-reader/queue.ts` and the owner is
@@ -175,7 +176,7 @@ paint change is checked against the browser:
 
 - Rust unit and integration tests for parsing, style, layout, lowering,
   wire validation and runtime lifecycle
-- WASM build, decoder and Worker tests; TypeScript architecture, unit and
+- WASM build, decoder and session protocol tests; TypeScript architecture, unit and
   integration tests; Dart protocol and pen tests
 - the pixel suite (engine text geometry against the browser's
   measurement) and reader end-to-end tests in Chromium

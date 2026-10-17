@@ -10,8 +10,8 @@ pinned Chromium page by page; the target is pixel identity.
 
 The repository ships:
 
-- `@ritojs/core` — the browser reader: the engine as WASM in a Worker plus
-  a Canvas presenter
+- `@ritojs/core` — the browser reader: the engine as WASM on the page's
+  own thread plus a Canvas presenter
 - `@ritojs/kit` — a framework-agnostic controller with transitions,
   overlays, selection, search, annotations, keyboard and storage
 - `@ritojs/react` — React hooks and a mount component over core and kit
@@ -29,7 +29,7 @@ its bytes and blit them; no host owns a layout or paint rule.
 flowchart TB
   subgraph hosts["Hosts (blit only)"]
     react["@ritojs/react"] --> kit["@ritojs/kit<br/>controller, overlays, selection, search"]
-    kit --> core["@ritojs/core<br/>Worker runtime + Canvas pen"]
+    kit --> core["@ritojs/core<br/>WASM runtime + Canvas pen"]
     flutter["rito_flutter<br/>Dart decoder + CustomPainter pen"]
     native["other native hosts"]
   end

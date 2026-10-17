@@ -38,10 +38,7 @@ export default defineConfig([
     },
   },
   {
-    files: [
-      'packages/rito-core-wasm/src/**/*.js',
-      'packages/rito/src/bindings/browser/reader-session-worker-entry.mjs',
-    ],
+    files: ['packages/rito-core-wasm/src/**/*.js'],
     languageOptions: {
       ...tseslint.configs.disableTypeChecked.languageOptions,
     },

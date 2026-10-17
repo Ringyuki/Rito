@@ -11,8 +11,8 @@ import { createReader } from '@ritojs/core';
 
 Creates a ready-to-render browser `Reader` from an EPUB `ArrayBuffer`.
 
-It opens a reader session in a Worker and resolves once the first page can
-be painted:
+It opens a reader session, whose engine runs on the page's own thread, and
+resolves once the first page can be painted:
 
 1. parse the EPUB archive
 2. lay out the chapter being read, alone, and publish the spread that shows
@@ -286,7 +286,7 @@ rewrite them through an explicit caller-owned resource URL.
 | `dispose()`                      | Start releasing assets and close the loaded document    |
 
 Disposal invalidates the Reader synchronously. A browser-backed Reader returns
-a promise that settles after its Worker and the session in it have been released;
+a promise that settles after its session and engine have been released;
 `await reader.dispose()` before creating a replacement Reader. Synchronous
 Reader implementations may return `void`, which is also safe to `await`.
 

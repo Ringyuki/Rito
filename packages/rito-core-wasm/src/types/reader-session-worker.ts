@@ -216,6 +216,16 @@ export interface RitoReaderSessionWorkerScope {
   postMessage(message: unknown, transfer?: readonly Transferable[]): void;
 }
 
+/** The engine a worker handler hosts, as the scope that started it holds it. */
+export interface RitoReaderSessionWorkerHandle {
+  /**
+   * Releases the session as a dispose would, for a scope that ends without
+   * one: a terminated worker takes its memory with it, an engine on the
+   * page's own thread does not.
+   */
+  close(): void;
+}
+
 export interface RitoReaderRawSession {
   publication(): Uint8Array;
   hasPendingAdjacent(): boolean;

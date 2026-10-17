@@ -10,7 +10,10 @@ export interface ReaderLogEntry {
   readonly at: number;
   /** Which reader on the page, counted from 1 in the order they opened. */
   readonly reader: number;
-  /** A session request by its method name, or `commit`, `warn`, `error`, `dispose`. */
+  /**
+   * A session request by its method name, or `pinnedFaces`, `commit`,
+   * `warn`, `error`, `dispose`.
+   */
   readonly kind: string;
   /** What it was asked with, shortened. */
   readonly detail?: string;

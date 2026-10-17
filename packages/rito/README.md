@@ -1,7 +1,7 @@
 # @ritojs/core
 
-The Rito browser reader: a Rust EPUB engine compiled to WASM, run in a
-Worker, with a Canvas presenter.
+The Rito browser reader: a Rust EPUB engine compiled to WASM, run on the
+page's own thread, with a Canvas presenter.
 
 `@ritojs/core` opens EPUB archives, resolves CSS through Stylo, paginates
 chapters with the engine's fragment layout and paints device-resolved
@@ -44,7 +44,7 @@ reader.renderSpread(0);
 
 - the root entry only: `createReader()`, `preloadReaderRuntime()`,
   `createLayoutConfig()`, the `Reader` facade and its types
-- browser binding internals for WASM loading, the Worker, resource
+- browser binding internals for WASM loading, the engine's session, resource
   transfer, font registration, image decoding and Canvas blitting
 
 ## Documentation

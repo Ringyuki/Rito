@@ -110,8 +110,8 @@ function createMocks(options?: {
       resolvedCount: coordState.resolvedAnnotations.length,
     };
   };
-  // A layout commit asks for its composite on the next animation frame;
-  // the state it paints is the state at the request.
+  // A layout commit paints as it commits; the state it paints is the
+  // state at the call.
   const scheduleComposite = vi.fn(captureCompositeState);
   const compositeNow = vi.fn(captureCompositeState);
   const internals = {
@@ -248,7 +248,7 @@ describe('buildLayoutActions', () => {
     expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
     expect(spies.assignSlot).toHaveBeenCalledWith('curr', 1);
     expect(spies.reset).toHaveBeenCalledOnce();
-    expect(spies.scheduleComposite).toHaveBeenCalledOnce();
+    expect(spies.compositeNow).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
       spreads: reader.spreads,
       totalSpreads: reader.totalSpreads,
@@ -311,7 +311,7 @@ describe('buildLayoutActions', () => {
     expect(spies.setTypography).toHaveBeenCalledWith({ fontFamily: 'serif' });
     expect(spies.setSize).not.toHaveBeenCalled();
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
-    expect(spies.scheduleComposite).not.toHaveBeenCalled();
+    expect(spies.compositeNow).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
   });
 
@@ -397,12 +397,12 @@ describe('buildLayoutActions', () => {
         kind: 'skip',
         spreadIndex: 1,
       });
-      expect(fixture.spies.scheduleComposite).not.toHaveBeenCalled();
+      expect(fixture.spies.compositeNow).not.toHaveBeenCalled();
     });
     fixture.spies.emit.mockImplementation((event: string) => {
       order.push(event);
       if (event !== 'layoutChange') return;
-      expect(fixture.spies.scheduleComposite).toHaveBeenCalledOnce();
+      expect(fixture.spies.compositeNow).toHaveBeenCalledOnce();
       fixture.internals.currentSpread = 2;
     });
 
@@ -435,7 +435,7 @@ describe('buildLayoutActions', () => {
       order.push('selection');
       expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalled();
     });
-    fixture.spies.scheduleComposite.mockImplementation(() => {
+    fixture.spies.compositeNow.mockImplementation(() => {
       order.push('composite');
     });
     fixture.spies.emit.mockImplementation((event: string) => {

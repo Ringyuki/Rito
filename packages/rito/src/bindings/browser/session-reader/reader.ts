@@ -59,7 +59,12 @@ export async function createReader(
   const initialLocator = options.initialLocator
     ? sessionLocator(options.initialLocator)
     : { href: '' };
-  const opened = log.begin('openSession', { layout, initialLocator, faces: policy.faces.length });
+  // The faces by their SHA-256, which the engine checks their bytes against.
+  log.note(
+    'pinnedFaces',
+    policy.faces.map((face) => face.expectedSha256),
+  );
+  const opened = log.begin('openSession', { layout, initialLocator });
   const opening = openBrowserReaderSession(data, {
     initialLocator,
     layout,
@@ -87,7 +92,13 @@ export async function createReader(
     // A face the browser refused while the first page was prepared: the
     // book is laid out again without it, and the whole book follows that.
     if (state.rejectedFontFamilies.size > 0) scheduleSessionReaderRelayout(state, true);
-    state.queue.idle = () => stepSessionReaderBook(state);
+    // The engine runs on the page's thread: each step of the whole book
+    // waits for the page to paint and handle input first, so the steps are
+    // the page's idle time.
+    state.queue.idle = async () => {
+      await yieldToPage();
+      return stepSessionReaderBook(state);
+    };
     wakeSessionReaderQueue(state);
     installSessionReaderDiagnostics(state);
     return buildReader(state);
@@ -96,6 +107,18 @@ export async function createReader(
     await session.dispose().catch(() => undefined);
     throw error;
   }
+}
+
+/** Resolves once the page has had a turn: a task, not a microtask. */
+function yieldToPage(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(undefined);
+  });
 }
 
 async function openState(

@@ -102,32 +102,20 @@ describe('Browser reader session facade', () => {
     expect(mocks.dispose).toHaveBeenCalledOnce();
   });
 
-  it('keeps raw WASM ownership in the worker entry and the main facade on decoder-only imports', () => {
+  it('keeps raw WASM ownership in the engine module and the main facade on decoder-only imports', () => {
     const bindingRoot = join(import.meta.dirname, '../../src/bindings/browser');
     const facade = readFileSync(join(bindingRoot, 'reader-session.ts'), 'utf8');
-    const worker = readFileSync(join(bindingRoot, 'reader-session-worker.ts'), 'utf8');
+    const engine = readFileSync(join(bindingRoot, 'reader-session-in-thread.ts'), 'utf8');
 
     expect(facade).toContain("from '@ritojs/core-wasm/decoder'");
     expect(facade).not.toContain("from '@ritojs/core-wasm'");
-    // The raw WASM session class stays in the worker; the facade may still
-    // name the worker handle types built around it.
+    // The raw WASM session class stays in the engine module; the facade
+    // may still name the protocol types built around it.
     expect(facade).not.toMatch(/\bRitoReaderSession\b/);
     expect(facade).toContain('options.initialLocator');
     expect(facade).toContain('adoptForegroundCandidate');
     expect(facade).toContain('readPublication');
-    expect(worker).toMatch(/\bRitoReaderSession\b/);
-    expect(worker).toContain("from '@ritojs/core-wasm'");
-  });
-
-  it('starts the worker from its entry, never by an import kept only for its side effects', () => {
-    // The package declares no side effects, so a source-mode bundler drops a
-    // module an entry imports without using: the worker it built was empty.
-    const bindingRoot = join(import.meta.dirname, '../../src/bindings/browser');
-    for (const entry of ['reader-session-worker-entry.mjs', 'reader-session-worker-main.ts']) {
-      const source = readFileSync(join(bindingRoot, entry), 'utf8');
-      expect(source, entry).toMatch(/^import \{ start\w+ \} from '\.\//m);
-      expect(source, entry).toMatch(/^start\w+\(\);$/m);
-      expect(source, entry).not.toMatch(/^import '/m);
-    }
+    expect(engine).toMatch(/\bRitoReaderSession\b/);
+    expect(engine).toMatch(/^} from '@ritojs\/core-wasm';$/m);
   });
 });

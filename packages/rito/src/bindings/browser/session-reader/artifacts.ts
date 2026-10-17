@@ -16,8 +16,11 @@ import {
 // giving back: whatever is not adopted or installed is released before the
 // function returns or throws.
 
-/** The most pages a step of the whole-book layout lays out; the worker runs it apart from the page. */
-const BOOK_QUANTUM = 512;
+/**
+ * The most pages a step of the whole-book layout lays out. The engine runs
+ * on the page's own thread, so a step is what stands between two paints.
+ */
+const BOOK_QUANTUM = 4;
 
 /** A layout ready to commit: the page it shows, prepared, and its revision's page table. */
 export interface SessionReaderLayoutCandidate {
@@ -74,17 +77,21 @@ export async function requestSessionReaderLayout(
 /**
  * Takes one step of the whole-book layout behind the page shown. A step
  * that brings the page under its book-wide number has the session show it
- * and resolves with it; `more` says the book is not laid out yet, `moved`
- * that the reader left the page meanwhile (`stillShown` said so, and the
- * page was given back), `complete` that there is nothing left to bring.
+ * and resolves with it; `laying-out` says the step laid more of the book
+ * out, `more` that it brought nothing yet, `moved` that the reader left
+ * the page meanwhile (`stillShown` said so, and the page was given back),
+ * `complete` that there is nothing left to bring.
  */
 export async function advanceSessionReaderBook(
   state: SessionReaderState,
   stillShown: () => boolean,
-): Promise<SessionReaderLayoutCandidate | 'more' | 'moved' | 'complete'> {
+): Promise<SessionReaderLayoutCandidate | 'laying-out' | 'more' | 'moved' | 'complete'> {
   const visible = state.visible.artifact;
   const advance = await state.session.advanceBackgroundOnce(visible.artifactId, BOOK_QUANTUM);
-  if (advance.artifact === undefined) return advance.state === 'complete' ? 'complete' : 'more';
+  if (advance.artifact === undefined) {
+    if (advance.state === 'complete') return 'complete';
+    return advance.state === 'started' || advance.state === 'advanced' ? 'laying-out' : 'more';
+  }
   const candidate = await prepareCandidate(state, advance.artifact);
   if (!stillShown()) {
     await releaseSessionReaderFrame(state, candidate.frame);

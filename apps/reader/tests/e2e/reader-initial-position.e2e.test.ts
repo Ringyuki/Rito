@@ -4,7 +4,7 @@ import {
   readFirstVisibleReaderFrame,
 } from './reader-first-frame-probe';
 import { stableReaderCanvasSampleChecksum } from './reader-page-harness';
-import { installReaderWorkerProbe, readReaderWorkerOperations } from './reader-worker-probe';
+import { readReaderSessionLog } from './reader-session-log';
 
 const READER_LOAD_TIMEOUT_MS = 90_000;
 const TARGET_HREF = 'Text/Section001.xhtml';
@@ -43,7 +43,6 @@ test('restores a saved position before the first visible reader frame', async ({
   expect(expectedSpread).toBeGreaterThan(0);
   expect(expectedChecksum).not.toBe(spreadZeroChecksum);
 
-  await installReaderWorkerProbe(page);
   await page.reload();
   await expect(page.getByTestId('reader-empty')).toBeVisible();
   await installFirstVisibleReaderFrameProbe(page);
@@ -69,10 +68,10 @@ test('restores a saved position before the first visible reader frame', async ({
 
   // One session, opened on that position: nothing was laid out and thrown
   // away to get there.
-  const operations = await readReaderWorkerOperations(page);
-  expect(operations.some((operation) => operation.ok === false)).toBe(false);
-  expect(operations.filter((operation) => operation.kind === 'open')).toHaveLength(1);
-  expect(operations.some((operation) => operation.kind === 'request-artifact')).toBe(false);
+  const log = await readReaderSessionLog(page);
+  expect(log.some((entry) => entry.ok === false)).toBe(false);
+  expect(log.filter((entry) => entry.kind === 'openSession')).toHaveLength(1);
+  expect(log.some((entry) => entry.kind === 'requestArtifact')).toBe(false);
 });
 
 async function loadDemoBook(page: Page): Promise<void> {

@@ -11,7 +11,7 @@ by hand.
 | Layer        | Command                                                                       | Purpose                                                                                             |
 | ------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Rust         | `pnpm rust:check`                                                             | `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace` |
-| WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and Worker helpers           |
+| WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and session protocol         |
 | Static       | `pnpm audit:dependencies`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | advisories, types, ESLint, Prettier                                                                 |
 | Unit         | `pnpm test:unit`                                                              | Vitest suites of core, kit and react, including the architecture invariants                         |
 | Integration  | `pnpm test:integration`                                                       | the public entry's export surface; no book is opened                                                |
@@ -65,9 +65,9 @@ Whole-book pixel verification against pinned Chromium is the pixel walk in
 
 The suite lives in `apps/reader/tests/e2e/`, builds the demo reader with
 Vite, starts `vite preview` and runs Playwright against the production
-bundle. `reader-worker-probe.ts` records every request a page sends its
-reader session worker and how it was answered, for a test that has to say
-which protocol a reader spoke or that none of it failed.
+bundle. `reader-session-log.ts` reads the reader's own log of every
+request it sent its session and how it was answered, for a test that has
+to say which protocol a reader spoke or that none of it failed.
 
 Opening, font-change and page-turn latency are measured by the acceptance
 probe, against a production build served by `vite preview --port 4317`:
@@ -90,7 +90,7 @@ starts each row only once the machine's load is low.
 
 When a turn measures slow, `turn-trace.mjs` in the same directory says
 where the time went: one timeline per turn with the key event, every
-worker request and answer, and every animation frame with its cost and
+session request and how long it took, and every animation frame with its cost and
 the Canvas calls it made. `SAMPLE=none` traces without reading the canvas
 back, and `RASTER_FIRST=1` rasters every drawn canvas before each turn,
 the control for a first frame that pays for a buffer the browser had only

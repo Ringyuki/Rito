@@ -16,7 +16,6 @@ const PACKAGE_ROOT = join(SRC, '..');
 const WORKSPACE_ROOT = join(PACKAGE_ROOT, '../..');
 const PACKAGE_JSON = join(SRC, '../package.json');
 const TSDOWN_CONFIG = join(PACKAGE_ROOT, 'tsdown.config.ts');
-const PRIVATE_BUILD_ENTRIES = new Set(['src/bindings/browser/reader-session-worker-main.ts']);
 const MAIN_ENTRY = join(SRC, 'index.ts');
 const PACKAGE_JSON_RECORD = readJsonRecord(PACKAGE_JSON);
 const PUBLIC_ENTRY_FILES = packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG));
@@ -101,9 +100,7 @@ function packageSourceEntryFiles(
 ): string[] {
   const exportsValue = packageJson['exports'];
   if (!isRecord(exportsValue)) throw new Error('package.json exports must be an object');
-  const sourceEntries = sortedUnique(
-    tsdownSourceEntries(tsdownConfig).filter((entry) => !PRIVATE_BUILD_ENTRIES.has(entry)),
-  );
+  const sourceEntries = sortedUnique(tsdownSourceEntries(tsdownConfig));
   const exportEntries = sortedUnique(packageExportSourceEntries(exportsValue));
   const expected = exportEntries.filter((entry) => entry !== 'package.json');
   if (!sameStringList(sourceEntries, expected)) {
@@ -271,16 +268,17 @@ describe('Architecture invariant: the reader facade stays thin', () => {
     expect(source).toContain("import('../bindings/browser/session-reader/reader')");
   });
 
-  it('runs the engine in the session worker: the page side imports only the decoder', () => {
-    // The worker module owns the WASM engine; everything a page loads
-    // reaches the wasm package through its decoder entry, or for types.
+  it('hosts the engine in one module: the rest of the page side imports only the decoder', () => {
+    // The in-thread session module owns the WASM engine; everything else
+    // a page loads reaches the wasm package through its decoder entry, or
+    // for types.
     const hits = scan(
-      walkTs(BROWSER_BINDING).filter((file) => !file.endsWith('reader-session-worker.ts')),
+      walkTs(BROWSER_BINDING).filter((file) => !file.endsWith('reader-session-in-thread.ts')),
       /^import (?!type\b)[^;]*from '@ritojs\/core-wasm';$/gm,
     );
     expect(hits, JSON.stringify(hits, null, 2)).toEqual([]);
-    expect(read(join(BROWSER_BINDING, 'reader-session-worker.ts'))).toContain(
-      "from '@ritojs/core-wasm'",
+    expect(read(join(BROWSER_BINDING, 'reader-session-in-thread.ts'))).toMatch(
+      /^} from '@ritojs\/core-wasm';$/m,
     );
   });
 });

@@ -89,7 +89,7 @@ projected into typed tables the layout crates read:
 
 ## Hosts
 
-- web: the engine as WASM in a Worker, a Canvas presenter, `@ritojs/kit`
+- web: the engine as WASM on the page's own thread, a Canvas presenter, `@ritojs/kit`
   and `@ritojs/react` on top
 - Flutter: `rito_flutter` over the C ABI with a `CustomPainter` pen
 - any native host: the C ABI in `crates/rito-ffi`

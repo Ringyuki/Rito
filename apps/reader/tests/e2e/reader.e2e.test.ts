@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readerCanvasChecksum, stableReaderCanvasChecksum } from './reader-page-harness';
-import { installReaderWorkerProbe, readReaderWorkerOperations } from './reader-worker-probe';
+import { readReaderSessionLog } from './reader-session-log';
 
 const READER_LOAD_TIMEOUT_MS = 90_000;
 
@@ -86,7 +86,6 @@ test.describe('reader app', () => {
   test('paints an exact native search highlight from the committed source range', async ({
     page,
   }) => {
-    await installReaderWorkerProbe(page);
     await page.evaluate(() => {
       localStorage.clear();
     });
@@ -101,10 +100,8 @@ test.describe('reader app', () => {
 
     await expect
       .poll(async () => {
-        const operations = await readReaderWorkerOperations(page);
-        return operations.some(
-          (operation) => operation.kind === 'exact-source-range' && operation.ok === true,
-        );
+        const log = await readReaderSessionLog(page);
+        return log.some((entry) => entry.kind === 'exactSourceRange' && entry.ok === true);
       })
       .toBe(true);
     const highlighted = await stableReaderCanvasChecksum(page);
@@ -205,9 +202,8 @@ test.describe('reader app', () => {
   });
 });
 
-test.describe('reader app session worker', () => {
+test.describe('reader app session', () => {
   test('loads the demo through the reader session protocol', async ({ page }) => {
-    await installReaderWorkerProbe(page);
     await page.goto('/');
     await page.evaluate(() => {
       localStorage.clear();
@@ -219,20 +215,20 @@ test.describe('reader app session worker', () => {
 
     // The whole book follows the chapter the reader opened on.
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(0);
-    const observations = await readReaderWorkerOperations(page);
-    expect(observations.some((entry) => entry.ok === false)).toBe(false);
-    const kinds = observations.map((entry) => entry.kind);
+    const log = await readReaderSessionLog(page);
+    expect(log.some((entry) => entry.ok === false)).toBe(false);
+    const kinds = log.map((entry) => entry.kind);
     expect(kinds).toEqual(
       expect.arrayContaining([
-        'open',
-        'adopt-foreground-candidate',
+        'openSession',
+        'adoptForegroundCandidate',
         'navigation',
-        'advance-background-once',
-        'adopt-background-candidate',
+        'advanceBackgroundOnce',
+        'adoptBackgroundCandidate',
       ]),
     );
-    // One protocol: no worker is asked for a revision the old way.
-    expect(kinds.filter((kind) => kind === 'open')).toHaveLength(1);
+    // One protocol: no session is asked for a revision the old way.
+    expect(kinds.filter((kind) => kind === 'openSession')).toHaveLength(1);
     expect(kinds).not.toContain('createRevision');
   });
 });

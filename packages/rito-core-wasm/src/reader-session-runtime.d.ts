@@ -13,6 +13,7 @@ import type {
   RitoReaderForegroundHandoff,
   RitoReaderPublication,
   RitoReaderResource,
+  RitoReaderSessionWorkerHandle,
   RitoReaderSessionWorkerHandlerDependencies,
   RitoReaderSessionWorkerLike,
   RitoReaderSessionWorkerScope,
@@ -75,4 +76,4 @@ export declare function createRitoCoreWasmReaderSessionWorkerClient(
 export declare function createRitoCoreWasmReaderSessionWorkerHandler(
   scope: RitoReaderSessionWorkerScope,
   deps: RitoReaderSessionWorkerHandlerDependencies,
-): void;
+): RitoReaderSessionWorkerHandle;

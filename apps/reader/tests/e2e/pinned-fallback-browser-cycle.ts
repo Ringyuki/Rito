@@ -9,10 +9,7 @@ import {
   PINNED_FALLBACK_QUERY,
   type PinnedFallbackFixture,
 } from './pinned-fallback-fixture';
-import type {
-  PinnedFallbackCanvasPaintObservation,
-  PinnedFallbackProbeSnapshot,
-} from './pinned-fallback-probe';
+import type { PinnedFallbackCanvasPaintObservation } from './pinned-fallback-probe';
 
 export interface PinnedFallbackExactRect {
   readonly pageIndex: number;
@@ -32,8 +29,9 @@ export interface PinnedFallbackCycleProof {
   readonly targetCanvasPaintFonts: readonly string[];
   readonly pinnedFacePresentBeforeDispose: boolean;
   readonly pinnedFacePresentAfterDispose: boolean;
-  readonly terminatedWorkerCountBefore: number;
-  readonly terminatedWorkerCountAfter: number;
+  /** Session disposes the reader log shows answered, before and after the cycle's. */
+  readonly disposedSessionCountBefore: number;
+  readonly disposedSessionCountAfter: number;
 }
 
 interface PinnedFallbackCoreApi {
@@ -47,13 +45,14 @@ interface PinnedFallbackCoreApi {
 interface PinnedFallbackProbeGlobal {
   __RITO_PINNED_FALLBACK_PROBE__?: {
     paints: PinnedFallbackCanvasPaintObservation[];
-    openRequests: PinnedFallbackProbeSnapshot['openRequests'] extends readonly (infer Entry)[]
-      ? Entry[]
-      : never;
-    openResults: PinnedFallbackProbeSnapshot['openResults'] extends readonly (infer Entry)[]
-      ? Entry[]
-      : never;
-    terminatedWorkerIds: number[];
+  };
+  __ritoReaderDiagnostics?: {
+    log(): readonly {
+      readonly kind: string;
+      readonly ms?: number;
+      readonly failed?: true;
+      readonly times?: number;
+    }[];
   };
 }
 
@@ -67,7 +66,7 @@ export async function runPinnedFallbackCycle(
       const probe = runtime.__RITO_PINNED_FALLBACK_PROBE__;
       if (!probe) throw new Error('Pinned fallback probe is unavailable');
       const paintStart = probe.paints.length;
-      const terminatedWorkerCountBefore = probe.terminatedWorkerIds.length;
+      const disposedSessionCountBefore = disposedSessionCount();
       const core = (await import(coreUrl)) as PinnedFallbackCoreApi;
       const [epubBytes, fontBytes] = await Promise.all([
         fetchArrayBuffer(epubUrl),
@@ -100,8 +99,8 @@ export async function runPinnedFallbackCycle(
         | Omit<
             PinnedFallbackCycleProof,
             | 'pinnedFacePresentAfterDispose'
-            | 'terminatedWorkerCountBefore'
-            | 'terminatedWorkerCountAfter'
+            | 'disposedSessionCountBefore'
+            | 'disposedSessionCountAfter'
           >
         | undefined;
       try {
@@ -154,8 +153,7 @@ export async function runPinnedFallbackCycle(
       } finally {
         await reader.dispose();
         await waitUntil(
-          () =>
-            !hasFontFamily(alias) && probe.terminatedWorkerIds.length > terminatedWorkerCountBefore,
+          () => !hasFontFamily(alias) && disposedSessionCount() > disposedSessionCountBefore,
           5_000,
         );
         canvas.remove();
@@ -163,9 +161,21 @@ export async function runPinnedFallbackCycle(
       return {
         ...proof,
         pinnedFacePresentAfterDispose: hasFontFamily(alias),
-        terminatedWorkerCountBefore,
-        terminatedWorkerCountAfter: probe.terminatedWorkerIds.length,
+        disposedSessionCountBefore,
+        disposedSessionCountAfter: disposedSessionCount(),
       };
+
+      // The session requests named dispose that were answered: the
+      // engine has released the session.
+      function disposedSessionCount(): number {
+        let count = 0;
+        for (const entry of runtime.__ritoReaderDiagnostics?.log() ?? []) {
+          if (entry.kind === 'dispose' && entry.ms !== undefined && entry.failed !== true) {
+            count += entry.times ?? 1;
+          }
+        }
+        return count;
+      }
 
       async function fetchArrayBuffer(url: string): Promise<ArrayBuffer> {
         const response = await fetch(url);

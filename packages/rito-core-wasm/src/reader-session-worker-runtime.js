@@ -84,6 +84,11 @@ export function createRitoCoreWasmReaderSessionWorkerHandler(scope, deps) {
         queued -= 1;
       });
   });
+  return {
+    close() {
+      disposeTerminalSession(state);
+    },
+  };
 }
 
 async function handleMessage(state, deps, message) {
@@ -248,6 +253,7 @@ async function openSession(state, deps, message) {
       return await openSessionWithColdDiagnostic(state, deps, message);
     }
     await deps.initRitoCoreWasm();
+    requireStillOpening(state);
     if (message.skeleton !== undefined) {
       state.session = openShardSession(deps, message);
       state.sessionId = message.sessionId;
@@ -282,6 +288,13 @@ async function openSession(state, deps, message) {
   }
 }
 
+// A scope closed while the engine loaded opens nothing it could not free.
+function requireStillOpening(state) {
+  if (state.phase !== 'opening') {
+    throw readerWorkerError('session-disposed', 'Reader session closed while it opened');
+  }
+}
+
 function openShardSession(deps, message) {
   if (!(message.skeleton instanceof ArrayBuffer)) {
     throw readerWorkerError('invalid-request', 'A skeleton shard must be an ArrayBuffer');
@@ -303,6 +316,7 @@ async function openSessionWithColdDiagnostic(state, deps, message) {
   const workerOpenHandlerStartedEpochMs = diagnosticEpochNow();
   const segments = Object.create(null);
   segments.wasmInitMs = await measureDiagnosticAsync(() => deps.initRitoCoreWasm());
+  requireStillOpening(state);
   const publication = new Uint8Array(message.publication);
   [state.session, segments.epubOpenParsePublicationMetadataMs] = measureDiagnostic(() =>
     message.pinnedFontPolicy

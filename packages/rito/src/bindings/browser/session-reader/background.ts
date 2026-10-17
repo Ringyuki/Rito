@@ -32,6 +32,11 @@ export async function stepSessionReaderBook(state: SessionReaderState): Promise<
     const step = await advanceSessionReaderBook(state, () => state.activeSpreadIndex === shown);
     // The reader turned meanwhile: the queue follows it, then asks again.
     if (step === 'moved') return true;
+    // The step laid pages out: the book is under way, however many steps it takes.
+    if (step === 'laying-out') {
+      state.bookIdleSteps = 0;
+      return true;
+    }
     if (step === 'more') {
       state.bookIdleSteps += 1;
       if (state.bookIdleSteps <= BOOK_IDLE_STEPS) return true;

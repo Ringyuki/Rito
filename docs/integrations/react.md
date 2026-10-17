@@ -121,7 +121,7 @@ Important behavior:
   layout first commits, and held at their last book-wide values while a chapter is
   committed alone after a relayout
 - `load()` still needs a browser document and should run in an effect or event handler
-- replacement `load()` calls wait for the previous Reader's Worker/native release before opening
+- replacement `load()` calls wait for the previous Reader's engine session to be released before opening
   the next document
 - `load()` is separate from later responsive resizes: `useReaderAutoResize(controller)` calls
   `controller.resize()` whenever the observed element changes size (or call it yourself)
