@@ -135,7 +135,6 @@ pub(in crate::runtime) struct FragmentPageArtifact {
     height: f64,
     text: String,
     text_length: usize,
-    text_hash: String,
     runs: Vec<FragmentRunRecord>,
     images: Vec<FragmentImageRecord>,
     links: Vec<FragmentLinkRecord>,
@@ -243,14 +242,12 @@ impl FragmentPageArtifact {
             );
         }
         let text_length = builder.offset;
-        let text_hash = hash_page_text(&builder.text);
         Self {
             page_index,
             width,
             height,
             text: builder.text,
             text_length,
-            text_hash,
             runs: builder.runs,
             images: builder.images,
             links: builder.links,
@@ -266,7 +263,6 @@ impl FragmentPageArtifact {
             height,
             text: String::new(),
             text_length: 0,
-            text_hash: hash_page_text(""),
             runs: Vec::new(),
             images: Vec::new(),
             links: Vec::new(),
@@ -611,7 +607,9 @@ impl PageArtifact for FragmentPageArtifact {
         PageArtifactTextPositions {
             text: self.text.clone(),
             text_length: self.text_length,
-            text_hash: self.text_hash.clone(),
+            // Hashed when asked for: every page of a chapter is built, few
+            // are queried for their text.
+            text_hash: hash_page_text(&self.text),
             offsets: self
                 .runs
                 .iter()
