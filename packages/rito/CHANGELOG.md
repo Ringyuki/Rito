@@ -1,5 +1,28 @@
 # @ritojs/core
 
+## 3.2.0
+
+### Minor Changes
+
+- 4805fa0: The engine lays out three more pieces of CSS that chat-style pages (avatars beside speech bubbles with pointed tails) are built from:
+  - A floated image that opens its block's content floats: the following lines and floats sit beside it, and its box is exactly the image. It used to stay an inline image on a line of its own. A floated image after text on its line still stays inline.
+  - `::before` and `::after` are generated: text in the element's lines, a block, a float or an absolutely positioned box, according to their `display`, `float` and `position`, showing their strings and `attr()` values. `counter()`, quotes and images in `content` show nothing.
+  - `position: absolute` takes a block-level box out of the flow and places it against its nearest positioned ancestor by its insets; it used to lay out in the flow. A speech bubble's tail, an empty `::before` drawn by one coloured and one transparent border, now paints where Chromium paints it.
+
+- 9d05753: Resizing the reader re-lays the page every frame. The whole-book layout started again after every new size and held the session for as long as the book takes (240 ms for a 400-page novel, 1.3 s for an 800-page one), so each size after it waited: dragging a window's edge showed 8 layouts a second for the first book and 1.5 for the second while the window sent 55. `controller.resize()` in `@ritojs/kit` now holds the whole-book layout back until no size has come for 300 ms, and every size of the drag reaches the screen.
+
+  `reader.holdBookLayout()` in `@ritojs/core` is the hold kit takes: it keeps the whole-book layout from starting until the function it returns is called (holds nest), for a host about to ask for layouts in quick succession.
+
+### Patch Changes
+
+- 2e9188d: Box shadows paint as Chromium paints them. A box whose corners are rounded differently (`border-radius: 0 8px 8px 8px`, a speech bubble) cast a square-cornered shadow that showed past its rounded corners; the shadow now takes each corner's radius. A spread shadow on a square box stays square instead of rounding by the spread, and a corner smaller than the spread grows by the CSS corner correction. The shadow is cut out along the box's own rounded outline, one pixel inside an opaque background, so no thin grey line shows along the box's edges. And only the blurred shadow paints: the shape it is cast from was also drawn, unblurred, as a hard ring around any box with a spread, and a translucent shadow colour was applied twice, so such shadows painted too light.
+- 0194aec: A highlight spanning paragraphs draws in books whose chapter wraps its paragraphs in one element (a `<div>` around the text). `resolveExactSourceRange` answered `unavailable` (`sourceUnavailable`) for such a range: the paragraphs shared their wrapper's block, so their text ran together with nothing between them and no longer matched the source, where whitespace separates them. Each paragraph now counts as its own, and the text of a selection across them copies with the blank line between paragraphs a browser copies.
+
+  `@ritojs/kit` emits an `error` event (source `native-annotation-geometry`) when the engine cannot place an annotation's range, once for the layout, naming the chapter and the reason; the annotation used to vanish from the page without a word. A range still waiting for its page's layout is not reported.
+
+- 4586fea: An illustration sized to the page no longer leaves a blank page before it when it follows an element with no height, such as a `<div>` holding only an anchor. The empty element took no space but counted as content, so the illustration's line, a few pixels taller than the page, broke to the next page instead of overflowing on this one as it does in a browser. An element with no height now leaves the page empty, as in Chromium: its margins still take space, and a forced break after it still starts a new page.
+- 6b65eab: The first page of a sharded book no longer keeps its broken-image placeholder when the image's shard arrives after the whole book is laid out. The page laid out alone and the same page under the whole-book layout shared one read of the image; the reader gave the old page back while that read waited for its shard, the read then failed for the page that was gone (`Reader artifact is not live in this worker`), and the page shown took that failure as its own. A page now reads the image through itself when the read it waited on failed only because its page was given back; a failure of the image itself is still shared.
+
 ## 3.1.0
 
 No changes in this release.

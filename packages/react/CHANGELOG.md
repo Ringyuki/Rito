@@ -1,5 +1,26 @@
 # @ritojs/react
 
+## 3.2.0
+
+### Minor Changes
+
+- b99dcb1: `controller.insertAnnotation(record)` stores a whole annotation record as given (its id, colour, note and timestamps), so a host can undo removing an annotation or editing one. `addAnnotation` only made new records from the selection and the storage adapter was read once at start, so a removed highlight could not come back with its colour and note, and `updateAnnotation` cannot take a note away again. A record with a stored record's id replaces it where it stands; any other goes in creation order, which is paint order, so a removed record put back lies under and over the same neighbours. It is persisted like any change. `useAnnotations()` in `@ritojs/react` returns it as `insert`.
+
+### Patch Changes
+
+- Updated dependencies [a3b3a80]
+- Updated dependencies [b99dcb1]
+- Updated dependencies [2e9188d]
+- Updated dependencies [041e0e6]
+- Updated dependencies [0194aec]
+- Updated dependencies [4586fea]
+- Updated dependencies [4805fa0]
+- Updated dependencies [a50d373]
+- Updated dependencies [9d05753]
+- Updated dependencies [6b65eab]
+  - @ritojs/kit@3.2.0
+  - @ritojs/core@3.2.0
+
 ## 3.1.0
 
 ### Patch Changes

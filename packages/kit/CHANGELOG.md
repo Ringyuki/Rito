@@ -1,5 +1,32 @@
 # @ritojs/kit
 
+## 3.2.0
+
+### Minor Changes
+
+- a3b3a80: `annotationClick` carries `screenBounds`: the box around the clicked annotation's lines on the clicked page, in the same screen coordinates as `imageClick.screenBounds`. With only the `x`, `y` point a popover could not tell how tall the highlight is, so near the top of the page it had to drop below the point and covered the highlight's first line. `x`, `y` stay, the box's top centre.
+- b99dcb1: `controller.insertAnnotation(record)` stores a whole annotation record as given (its id, colour, note and timestamps), so a host can undo removing an annotation or editing one. `addAnnotation` only made new records from the selection and the storage adapter was read once at start, so a removed highlight could not come back with its colour and note, and `updateAnnotation` cannot take a note away again. A record with a stored record's id replaces it where it stands; any other goes in creation order, which is paint order, so a removed record put back lies under and over the same neighbours. It is persisted like any change. `useAnnotations()` in `@ritojs/react` returns it as `insert`.
+- a50d373: `paintPage` in `ControllerOptions` draws over each page as part of it, as `paintPage` does in `rito_flutter`: a page number drawn there moves with its page through every turn, a paper turn's leaf included, where a web host could only put one in its own chrome outside the page. It is called with a context clipped to the page in layout CSS pixels and the page's index, side, size and margins, with `bookPageIndex` and `bookPageCount` null while only the chapter being read is laid out. `controller.repaintPages()` paints every page again when what the painter draws changes. A painter that throws is reported on the `error` event (source `page-painter`) and leaves the page as the engine painted it.
+
+### Patch Changes
+
+- 041e0e6: The reading canvas no longer shows the browser's focus ring after a key press. The controller makes the canvas focusable so it receives keys, and now also sets its inline `outline-style` to `none`; disposing the controller gives the canvas back the `tabindex` and `outline-style` it had. A host that wants a ring sets the canvas's inline `outline` after creating the controller.
+- 0194aec: A highlight spanning paragraphs draws in books whose chapter wraps its paragraphs in one element (a `<div>` around the text). `resolveExactSourceRange` answered `unavailable` (`sourceUnavailable`) for such a range: the paragraphs shared their wrapper's block, so their text ran together with nothing between them and no longer matched the source, where whitespace separates them. Each paragraph now counts as its own, and the text of a selection across them copies with the blank line between paragraphs a browser copies.
+
+  `@ritojs/kit` emits an `error` event (source `native-annotation-geometry`) when the engine cannot place an annotation's range, once for the layout, naming the chapter and the reason; the annotation used to vanish from the page without a word. A range still waiting for its page's layout is not reported.
+
+- 9d05753: Resizing the reader re-lays the page every frame. The whole-book layout started again after every new size and held the session for as long as the book takes (240 ms for a 400-page novel, 1.3 s for an 800-page one), so each size after it waited: dragging a window's edge showed 8 layouts a second for the first book and 1.5 for the second while the window sent 55. `controller.resize()` in `@ritojs/kit` now holds the whole-book layout back until no size has come for 300 ms, and every size of the drag reaches the screen.
+
+  `reader.holdBookLayout()` in `@ritojs/core` is the hold kit takes: it keeps the whole-book layout from starting until the function it returns is called (holds nest), for a host about to ask for layouts in quick succession.
+
+- Updated dependencies [2e9188d]
+- Updated dependencies [0194aec]
+- Updated dependencies [4586fea]
+- Updated dependencies [4805fa0]
+- Updated dependencies [9d05753]
+- Updated dependencies [6b65eab]
+  - @ritojs/core@3.2.0
+
 ## 3.1.0
 
 ### Patch Changes
