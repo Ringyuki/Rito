@@ -215,8 +215,40 @@ impl FragmentPageArtifact {
         origin_x: f64,
         origin_y: f64,
     ) -> Self {
+        Self::collect_page(
+            page_index, width, height, root, chapter, origin_x, origin_y, true,
+        )
+    }
+
+    /// The page's text and text runs alone, the same as [`Self::build`]
+    /// makes them, without its links, images, semantic nodes and hard
+    /// breaks: what a page table records for every page, while the whole
+    /// artifact is built for the pages that are read.
+    pub(in crate::runtime) fn build_text(
+        page_index: usize,
+        width: f64,
+        height: f64,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+    ) -> Self {
+        Self::collect_page(page_index, width, height, root, chapter, 0.0, 0.0, false)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_page(
+        page_index: usize,
+        width: f64,
+        height: f64,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+        origin_x: f64,
+        origin_y: f64,
+        whole: bool,
+    ) -> Self {
         let mut builder = ArtifactBuilder {
             chapter,
+            whole,
+            utf16_cursors: std::collections::HashMap::new(),
             text: String::new(),
             offset: 0,
             has_text: false,
@@ -274,6 +306,13 @@ impl FragmentPageArtifact {
 
 struct ArtifactBuilder<'a> {
     chapter: &'a ChapterFormattingTree,
+    /// Whether to record links, images, semantic nodes and hard breaks
+    /// beside the text and its runs.
+    whole: bool,
+    /// Per (flow, text item): a byte offset in the flow's text and its
+    /// UTF-16 offset from the item's start, so the next run of the item
+    /// counts on from there instead of from the item's start.
+    utf16_cursors: std::collections::HashMap<(u32, usize), (usize, u32)>,
     text: String,
     /// UTF-16 running offset.
     offset: usize,
@@ -301,7 +340,12 @@ impl ArtifactBuilder<'_> {
     ) {
         match fragment {
             Fragment::Box(inner) => {
-                if let Some(href) = self.chapter.node_links.get(&inner.source.0) {
+                if let Some(href) = self
+                    .chapter
+                    .node_links
+                    .get(&inner.source.0)
+                    .filter(|_| self.whole)
+                {
                     self.links.push(FragmentLinkRecord {
                         block_index,
                         x: origin_x + inner.rect.x,
@@ -311,14 +355,19 @@ impl ArtifactBuilder<'_> {
                         href: href.clone(),
                     });
                 }
-                if let Some(tag) = self.chapter.node_tags.get(&inner.source.0) {
+                if let Some(tag) = self
+                    .chapter
+                    .node_tags
+                    .get(&inner.source.0)
+                    .filter(|_| self.whole)
+                {
                     self.semantics.push(FragmentSemanticRecord {
                         tag: tag.clone(),
                         x: origin_x + inner.rect.x,
                         y: origin_y + inner.rect.y,
                         width: inner.rect.width,
                         height: inner.rect.height,
-                        text: fragment_subtree_text(&self.chapter.tree, fragment),
+                        text: fragment_subtree_text(self.chapter, fragment),
                     });
                 }
                 for child in &inner.children {
@@ -338,17 +387,13 @@ impl ArtifactBuilder<'_> {
                     return;
                 };
                 // Text fragments address the flow's concatenated text-item
-                // bytes; rebuild the ranges to attribute each run to the
-                // item (and so to the link/source) that produced it.
-                let mut flow_text = String::new();
-                let mut item_ranges: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
-                for (item_index, item) in items.iter().enumerate() {
-                    if let InlineItem::Text { text, .. } = item {
-                        let start = flow_text.len();
-                        flow_text.push_str(text);
-                        item_ranges.push((start..flow_text.len(), item_index));
-                    }
-                }
+                // bytes; the ranges attribute each run to the item (and so
+                // to the link/source) that produced it.
+                let Some(flow) = self.chapter.flow_texts.get(&line.source.0) else {
+                    return;
+                };
+                let flow_text = flow.text.as_str();
+                let item_ranges = &flow.item_ranges;
                 let sources = self.chapter.flow_item_sources.get(&line.source.0);
                 let item_source = |item_index: usize| -> Option<&FlowItemSource> {
                     sources.and_then(|sources| sources.get(item_index))
@@ -374,7 +419,7 @@ impl ArtifactBuilder<'_> {
                         .zip(first_start)
                         .and_then(|(previous, first)| flow_text.get(*previous..first))
                         .is_some_and(|gap| gap.contains('\n'));
-                    if hard {
+                    if hard && self.whole {
                         self.hard_breaks.push(self.offset);
                     }
                     self.text.push('\n');
@@ -394,27 +439,34 @@ impl ArtifactBuilder<'_> {
                             else {
                                 continue;
                             };
-                            let owner = item_ranges
-                                .iter()
-                                .find(|(range, _)| range.contains(&(run.text_start as usize)))
-                                .map(|(_, item_index)| *item_index);
-                            let owner_range = owner.and_then(|item_index| {
-                                item_ranges
-                                    .iter()
-                                    .find(|(_, index)| *index == item_index)
-                                    .map(|(range, _)| range.clone())
-                            });
+                            // The item ranges run in flow order: the owner is
+                            // the first whose end passes the run's start.
+                            let start = run.text_start as usize;
+                            let owner_entry = item_ranges
+                                .get(item_ranges.partition_point(|(range, _)| range.end <= start))
+                                .filter(|(range, _)| range.contains(&start));
+                            let owner = owner_entry.map(|(_, item_index)| *item_index);
+                            let owner_range = owner_entry.map(|(range, _)| range.clone());
                             let href = owner
                                 .and_then(item_source)
                                 .and_then(|source| source.href.clone());
+                            let run_len = run_text.encode_utf16().count() as u32;
                             let source = owner.and_then(item_source).and_then(|item| {
                                 let path = item.source_path.clone()?;
                                 let range = owner_range.clone()?;
-                                let prefix = flow_text
-                                    .get(range.start..run.text_start as usize)?
-                                    .encode_utf16()
-                                    .count() as u32;
-                                let run_len = run_text.encode_utf16().count() as u32;
+                                let item_index = owner?;
+                                let cursor = self
+                                    .utf16_cursors
+                                    .get(&(line.source.0, item_index))
+                                    .copied()
+                                    .filter(|(byte, _)| *byte <= start)
+                                    .unwrap_or((range.start, 0));
+                                let prefix = cursor.1
+                                    + flow_text.get(cursor.0..start)?.encode_utf16().count() as u32;
+                                self.utf16_cursors.insert(
+                                    (line.source.0, item_index),
+                                    (run.text_end as usize, prefix + run_len),
+                                );
                                 let segments = item
                                     .segments
                                     .iter()
@@ -433,7 +485,7 @@ impl ArtifactBuilder<'_> {
                                     .collect::<Vec<_>>();
                                 Some(RunSourceMap { path, segments })
                             });
-                            let length = run_text.encode_utf16().count();
+                            let length = run_len as usize;
                             let font_box = run.font_grid.map(|(ascent, descent)| {
                                 (line_y + line.baseline - ascent, ascent + descent)
                             });
@@ -456,7 +508,7 @@ impl ArtifactBuilder<'_> {
                             self.offset += length;
                             self.has_text = true;
                         }
-                        Fragment::Image(image) => {
+                        Fragment::Image(image) if self.whole => {
                             let InlineItem::Image { src, .. } = &items[image.item_index as usize]
                             else {
                                 continue;
@@ -711,28 +763,19 @@ impl<T: Sized> Pipe for T {}
 
 /// Text content of one fragment subtree, lines joined by spaces — the
 /// heading/paragraph text a semantic outline shows.
-fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragment) -> String {
-    fn walk(tree: &rito_fragment::FormattingTree, fragment: &Fragment, out: &mut String) {
+fn fragment_subtree_text(chapter: &ChapterFormattingTree, fragment: &Fragment) -> String {
+    fn walk(chapter: &ChapterFormattingTree, fragment: &Fragment, out: &mut String) {
         match fragment {
             Fragment::Box(inner) => {
                 for child in &inner.children {
-                    walk(tree, child, out);
+                    walk(chapter, child, out);
                 }
             }
             Fragment::Line(line) => {
-                let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content
-                else {
+                let Some(flow) = chapter.flow_texts.get(&line.source.0) else {
                     return;
                 };
-                let flow_text: String = items
-                    .iter()
-                    .filter_map(|item| match item {
-                        InlineItem::Text { text, .. } => Some(text.as_str()),
-                        InlineItem::Image { .. }
-                        | InlineItem::InlineBlock { .. }
-                        | InlineItem::EmptyBox { .. } => None,
-                    })
-                    .collect();
+                let flow_text = flow.text.as_str();
                 for child in &line.children {
                     if let Fragment::Text(run) = child {
                         if let Some(run_text) =
@@ -750,7 +793,7 @@ fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragme
         }
     }
     let mut out = String::new();
-    walk(tree, fragment, &mut out);
+    walk(chapter, fragment, &mut out);
     out.trim().to_owned()
 }
 
@@ -832,6 +875,7 @@ mod tests {
         )
         .expect("tree builds");
         ChapterFormattingTree {
+            flow_texts: crate::fragment_bridge::flow_texts(&tree),
             tree,
             image_border_paints: BTreeMap::new(),
             source_nodes: vec![None, None],

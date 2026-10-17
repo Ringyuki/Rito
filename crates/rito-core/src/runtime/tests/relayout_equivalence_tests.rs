@@ -414,3 +414,39 @@ fn a_chapter_is_bridged_once_for_every_layout_its_tree_holds_under() {
         "larger type"
     );
 }
+
+#[test]
+fn a_chapter_builds_the_query_artifacts_of_the_pages_read_only() {
+    let publication = relayout_fixture_epub();
+    let config = &steps()[0].1;
+    let mut document = open(&publication);
+    let created = document
+        .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
+            layout_config: config.clone(),
+            target_chapter_index: 0,
+            target_locator: locator(CHAPTERS[0]),
+        })
+        .expect("the chapter lays out");
+    let revision_id = created.revision.revision_id.clone();
+    let built = |document: &RuntimeDocument| {
+        document
+            .chapter_local_revisions
+            .get(&revision_id)
+            .and_then(|kept| kept.fragment_layout.built_artifacts(0))
+            .expect("the chapter's pages are kept")
+    };
+    assert!(
+        created.revision.local_page_count > 2,
+        "the chapter spans pages"
+    );
+    // Laid out and its target found: no page was read.
+    assert_eq!(built(&document), 0);
+    document
+        .frame_commands_for_tests(&revision_id, 1)
+        .expect("the spread paints");
+    assert!(
+        built(&document) <= 2,
+        "only the spread's pages, got {}",
+        built(&document)
+    );
+}

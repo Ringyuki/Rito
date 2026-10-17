@@ -108,6 +108,28 @@ impl std::fmt::Debug for FragmentTableBuildInputs {
 pub(super) struct MaterializedChapter {
     paint: ChapterPaintSource,
     pages: Vec<FragmentBackendPage>,
+    /// The page box the pages' query artifacts are built in.
+    page_width: f64,
+    page_height: f64,
+}
+
+impl MaterializedChapter {
+    /// The page's query artifact, built when the page is first read: a
+    /// chapter's pages are laid out together, few of them are read.
+    fn artifact(&self, page: usize) -> &Rc<FragmentPageArtifact> {
+        let entry = &self.pages[page];
+        entry.artifact.get_or_init(|| {
+            Rc::new(FragmentPageArtifact::build(
+                entry.page_index,
+                self.page_width,
+                self.page_height,
+                &entry.root,
+                &self.paint.built,
+                0.0,
+                0.0,
+            ))
+        })
+    }
 }
 
 /// One page of a materialized chapter. Holding it keeps that chapter
@@ -121,14 +143,14 @@ pub(super) struct FragmentPageRef {
 
 impl FragmentPageRef {
     pub(super) fn artifact(&self) -> &FragmentPageArtifact {
-        &self.chapter.pages[self.page].artifact
+        self.chapter.artifact(self.page)
     }
 
     /// The page's query artifact as a standalone handle: it carries the
     /// page text, run table and geometry, and outlives its chapter's
     /// eviction.
     pub(super) fn artifact_handle(&self) -> Rc<FragmentPageArtifact> {
-        Rc::clone(&self.chapter.pages[self.page].artifact)
+        Rc::clone(self.chapter.artifact(self.page))
     }
 
     /// The page's paint commands at `ratio` device pixels per CSS pixel.
@@ -141,7 +163,10 @@ impl FragmentPageRef {
 /// (in page coordinates, at the page's content origin).
 #[derive(Debug)]
 struct FragmentBackendPage {
-    artifact: Rc<FragmentPageArtifact>,
+    /// The page's index in its table.
+    page_index: usize,
+    /// Its query artifact, once the page is read.
+    artifact: std::cell::OnceCell<Rc<FragmentPageArtifact>>,
     /// The page's sealed fragment tree, in content-box coordinates.
     root: rito_fragment::Fragment,
     /// Paint commands per device ratio (as f64 bits). A reader draws at
@@ -371,6 +396,24 @@ impl FragmentBuiltLayout {
             .collect()
     }
 
+    /// How many of a materialized chapter's pages have their query
+    /// artifact built.
+    #[cfg(test)]
+    pub(super) fn built_artifacts(&self, chapter_index: usize) -> Option<usize> {
+        self.materialized
+            .borrow()
+            .entries
+            .iter()
+            .find(|(index, _)| *index == chapter_index)
+            .map(|(_, chapter)| {
+                chapter
+                    .pages
+                    .iter()
+                    .filter(|page| page.artifact.get().is_some())
+                    .count()
+            })
+    }
+
     /// The formatting tree a materialized chapter's pages were laid out
     /// from.
     #[cfg(test)]
@@ -451,12 +494,8 @@ fn materialized_chapter(
         .into_iter()
         .enumerate()
         .map(|(offset, root)| FragmentBackendPage {
-            artifact: Rc::new(page_artifact(
-                page_index_base + offset,
-                &root,
-                &paginated.paint,
-                config,
-            )),
+            page_index: page_index_base + offset,
+            artifact: std::cell::OnceCell::new(),
             root,
             paint_cache: RefCell::new(Vec::new()),
         })
@@ -464,6 +503,8 @@ fn materialized_chapter(
     MaterializedChapter {
         paint: paginated.paint,
         pages,
+        page_width: config.page_width,
+        page_height: config.page_height,
     }
 }
 
@@ -531,9 +572,11 @@ impl RuntimeDocument {
                     page_index + offset,
                     &mut anchors,
                 );
-                search_index.push(search_page_text(
+                search_index.push(search_record(
                     page_index + offset,
-                    &page_artifact(page_index + offset, root, &paginated.paint, layout_config),
+                    root,
+                    &paginated.paint,
+                    layout_config,
                 ));
             }
             page_index += paginated.roots.len();
@@ -646,7 +689,12 @@ impl RuntimeDocument {
                 offset,
                 &mut anchors,
             );
-            search_index.push(search_page_text(offset, &page.artifact));
+            search_index.push(search_record(
+                offset,
+                &page.root,
+                &materialized.paint,
+                config,
+            ));
         }
         let chapter = FragmentBackendChapter {
             idref: idref.clone(),
@@ -735,30 +783,27 @@ fn paginate_built_chapter(
     })
 }
 
-/// One page's query artifact. Its geometry is in page-content space:
-/// every consumer — the selection mapper, tap targets, search bounds —
-/// translates it to the viewport, so page margins must not be baked in
-/// here.
-fn page_artifact(
+/// One page's search record: its text and text runs, taken without the
+/// rest of its query artifact. Its geometry is in page-content space, as
+/// the artifact's is: every consumer translates it to the viewport.
+fn search_record(
     page_index: usize,
     root: &rito_fragment::Fragment,
     paint: &ChapterPaintSource,
     config: &LayoutConfig,
-) -> FragmentPageArtifact {
-    FragmentPageArtifact::build(
+) -> SearchPageText {
+    search_page_text(
         page_index,
-        config.page_width,
-        config.page_height,
-        root,
-        &paint.built,
-        0.0,
-        0.0,
+        &FragmentPageArtifact::build_text(
+            page_index,
+            config.page_width,
+            config.page_height,
+            root,
+            &paint.built,
+        ),
     )
 }
 
-/// One page's search record: its text and the run offsets a query walks.
-/// Taken during the build pass while the chapter is in hand, so a query
-/// reads the recorded slice instead of rebuilding the book's chapters.
 fn search_page_text(page_index: usize, artifact: &FragmentPageArtifact) -> SearchPageText {
     let runs = artifact
         .interaction_runs()
