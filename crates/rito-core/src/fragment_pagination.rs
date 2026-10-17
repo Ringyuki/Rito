@@ -8,7 +8,9 @@
 //! exhausted. The engine arrives as a trait object so pagination is
 //! independent of which inline provider backs it.
 
-use rito_fragment::{CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment};
+use rito_fragment::{
+    BreakToken, CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment,
+};
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_paint::{append_fragment_display_commands, FragmentPaintContext};
@@ -21,6 +23,8 @@ use crate::render::DisplayCommand;
 pub(crate) struct FragmentChapterPage {
     /// Root fragment of this page's content, in content-box coordinates.
     pub(crate) root: Fragment,
+    /// Where the chapter resumes on this page: none on its first.
+    pub(crate) start: Option<BreakToken>,
 }
 
 /// Whether the chapter lays out vertical-rl: its first inline flow's
@@ -86,27 +90,39 @@ fn first_inline_strut(
         .find_map(|child| first_inline_strut(tree, child))
 }
 
+/// The page fragmentainer of a `content_width` × `content_height` content
+/// box. A vertical-rl chapter lays out in the swapped page: the column
+/// length (page height) is the inline size and the page WIDTH is the
+/// fragmentainer, so a page fills with as many columns as fit across it.
+/// The paint walk maps the swapped geometry back onto the device page
+/// through the vertical frame.
+fn page_space(
+    tree: &FormattingTree,
+    content_width: f64,
+    content_height: f64,
+    line_text: bool,
+) -> ConstraintSpace {
+    let space = if chapter_is_vertical(tree) {
+        ConstraintSpace::fragmented(content_height, content_width)
+    } else {
+        ConstraintSpace::fragmented(content_width, content_height)
+    };
+    ConstraintSpace { line_text, ..space }
+}
+
 /// Lays `tree` out page by page into `content_width` × `content_height`
-/// fragmentainers and paints each page at `(origin_x, origin_y)`.
-#[allow(clippy::too_many_arguments)]
+/// fragmentainers. Without `line_text` the pages break exactly as with it
+/// but their lines hold no text fragments: [`layout_chapter_page`] lays a
+/// page out again with them from its start.
 pub(crate) fn paginate_chapter(
     engine: &dyn FormattingContext,
     tree: &FormattingTree,
     content_width: f64,
     content_height: f64,
+    line_text: bool,
     cancel: &CancelFlag,
 ) -> EpubResult<Vec<FragmentChapterPage>> {
-    // A vertical-rl chapter lays out in the swapped page: the column
-    // length (page height) is the inline size and the page WIDTH is the
-    // fragmentainer, so a page fills with as many columns as fit across
-    // it. The paint walk maps the swapped geometry back onto the device
-    // page through the vertical frame.
-    let vertical = chapter_is_vertical(tree);
-    let space = if vertical {
-        ConstraintSpace::fragmented(content_height, content_width)
-    } else {
-        ConstraintSpace::fragmented(content_width, content_height)
-    };
+    let space = page_space(tree, content_width, content_height, line_text);
     let mut token = None;
     let mut pages = Vec::new();
     loop {
@@ -120,6 +136,7 @@ pub(crate) fn paginate_chapter(
             })?;
         pages.push(FragmentChapterPage {
             root: outcome.fragments.root,
+            start: token.take(),
         });
         match outcome.continuation {
             Some(continuation) => {
@@ -134,6 +151,23 @@ pub(crate) fn paginate_chapter(
             None => return Ok(pages),
         }
     }
+}
+
+/// One page of `tree` laid out with its text from `start`, where
+/// pagination resumed it, and where the chapter resumes after it.
+pub(crate) fn layout_chapter_page(
+    engine: &dyn FormattingContext,
+    tree: &FormattingTree,
+    content_width: f64,
+    content_height: f64,
+    start: Option<&BreakToken>,
+    cancel: &CancelFlag,
+) -> EpubResult<(Fragment, Option<BreakToken>)> {
+    let space = page_space(tree, content_width, content_height, true);
+    let outcome = engine
+        .layout(tree, tree.root(), &space, start, cancel)
+        .map_err(|error| EpubError::new(format!("fragment page layout failed: {error:?}")))?;
+    Ok((outcome.fragments.root, outcome.continuation))
 }
 
 #[cfg(test)]
@@ -288,8 +322,8 @@ mod tests {
         let sample = "The quick brown fox jumps over the lazy dog. ".repeat(40);
         let tree = paragraph_tree(sample.trim_end());
         let cancel = CancelFlag::new();
-        let pages =
-            paginate_chapter(&engine, &tree, 200.0, 100.0, &cancel).expect("chapter paginates");
+        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, true, &cancel)
+            .expect("chapter paginates");
         assert!(
             pages.len() > 1,
             "40 sentences at 200×100 must span pages, got {}",
@@ -321,8 +355,8 @@ mod tests {
         let engine = BlockFormattingContext::new(context);
         let tree = paragraph_tree("One line.");
         let cancel = CancelFlag::new();
-        let pages =
-            paginate_chapter(&engine, &tree, 200.0, 100.0, &cancel).expect("chapter paginates");
+        let pages = paginate_chapter(&engine, &tree, 200.0, 100.0, true, &cancel)
+            .expect("chapter paginates");
         assert_eq!(pages.len(), 1);
         let painted = paint(&tree, &pages);
         let DisplayCommand::PaintText(input) = &painted[0][0] else {

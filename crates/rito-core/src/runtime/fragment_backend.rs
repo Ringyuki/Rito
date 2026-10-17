@@ -17,10 +17,12 @@ use std::{
     sync::Arc,
 };
 
-use rito_fragment::CancelFlag;
+use rito_fragment::{BreakToken, CancelFlag};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
+use crate::fragment_pagination::{
+    layout_chapter_page, paginate_chapter, paint_chapter_page, FragmentChapterPage,
+};
 use crate::fragment_paint::FragmentPaintContext;
 use crate::layout::LayoutConfig;
 use crate::render::{
@@ -111,6 +113,9 @@ pub(super) struct MaterializedChapter {
     /// The page box the pages' query artifacts are built in.
     page_width: f64,
     page_height: f64,
+    /// The engine that paginated the pages, which lays one out again with
+    /// its text.
+    engine: Rc<RuntimeFragmentEngine>,
 }
 
 impl MaterializedChapter {
@@ -123,12 +128,95 @@ impl MaterializedChapter {
                 entry.page_index,
                 self.page_width,
                 self.page_height,
-                &entry.root,
+                self.text_tree(page),
                 &self.paint.built,
                 0.0,
                 0.0,
             ))
         })
+    }
+
+    /// Lays a page paginated without its text out again with it, from the
+    /// break token pagination resumed the page at, once: what reading a
+    /// page's text, paint or query artifact goes through first. A page
+    /// that then ends anywhere but where pagination ended it is an error,
+    /// never a page shown.
+    fn ensure_text(&self, page: usize) -> EpubResult<()> {
+        let entry = &self.pages[page];
+        if entry.has_text || entry.text_root.get().is_some() {
+            return Ok(());
+        }
+        let (root, end) = layout_chapter_page(
+            &self.engine.engine,
+            &self.paint.built.tree,
+            self.paint.content_width,
+            self.paint.content_height,
+            entry.start.as_ref(),
+            &CancelFlag::new(),
+        )?;
+        if end != entry.end {
+            return Err(EpubError::new(format!(
+                "page {} laid out with its text breaks where pagination did not",
+                entry.page_index
+            )));
+        }
+        let _ = entry.text_root.set(root);
+        Ok(())
+    }
+
+    /// The page's fragment tree with its text, once [`Self::ensure_text`]
+    /// laid it out.
+    fn text_tree(&self, page: usize) -> &rito_fragment::Fragment {
+        let entry = &self.pages[page];
+        if entry.has_text {
+            return &entry.root;
+        }
+        entry
+            .text_root
+            .get()
+            .expect("a page's text is laid out before the page is read")
+    }
+
+    /// The page's paint commands at `ratio` device pixels per CSS pixel,
+    /// painted on first use and cached: pagination geometry is identical
+    /// at every ratio, only the glyph baselines' device rounding moves.
+    /// The cache dies with its chapter, so it needs no bound of its own.
+    fn commands_for(&self, page: usize, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
+        let key = ratio.to_bits();
+        let entry = &self.pages[page];
+        if let Some((_, commands)) = entry
+            .paint_cache
+            .borrow()
+            .iter()
+            .find(|(cached, _)| *cached == key)
+        {
+            return Ok(Arc::clone(commands));
+        }
+        let paint = &self.paint;
+        let commands = Arc::new(paint_chapter_page(
+            &paint.built.tree,
+            self.text_tree(page),
+            paint.content_width,
+            paint.origin.0,
+            paint.origin.1,
+            FragmentPaintContext {
+                faces: Some(&paint.faces),
+                node_paints: Some(&paint.built.node_paints),
+                image_border_paints: Some(&paint.built.image_border_paints),
+                list_markers: Some(&paint.built.list_markers),
+                ruby_annotation_runs: Some(&paint.built.ruby_annotation_runs),
+                vertical_frame: None,
+                flow_item_sources: Some(&paint.built.flow_item_sources),
+                ratio,
+            },
+            paint.vertical,
+        )?);
+        let mut cache = entry.paint_cache.borrow_mut();
+        if cache.len() >= 2 {
+            cache.remove(0);
+        }
+        cache.push((key, Arc::clone(&commands)));
+        Ok(commands)
     }
 }
 
@@ -155,7 +243,7 @@ impl FragmentPageRef {
 
     /// The page's paint commands at `ratio` device pixels per CSS pixel.
     pub(super) fn commands_for(&self, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
-        self.chapter.pages[self.page].commands_for(ratio, &self.chapter.paint)
+        self.chapter.commands_for(self.page, ratio)
     }
 }
 
@@ -167,58 +255,20 @@ struct FragmentBackendPage {
     page_index: usize,
     /// Its query artifact, once the page is read.
     artifact: std::cell::OnceCell<Rc<FragmentPageArtifact>>,
-    /// The page's sealed fragment tree, in content-box coordinates.
+    /// The page's sealed fragment tree as pagination made it, in
+    /// content-box coordinates: its boxes and lines, with their text when
+    /// `has_text`. Where every anchor and run sits reads from it.
     root: rito_fragment::Fragment,
+    has_text: bool,
+    /// Where pagination resumed the chapter on this page and after it.
+    start: Option<BreakToken>,
+    end: Option<BreakToken>,
+    /// The page laid out again with its text, when pagination left it out.
+    text_root: std::cell::OnceCell<rito_fragment::Fragment>,
     /// Paint commands per device ratio (as f64 bits). A reader draws at
     /// one ratio at a time and a zoom or density change is rare, so the
     /// cache keeps the two most recent.
     paint_cache: RefCell<Vec<(u64, Arc<Vec<DisplayCommand>>)>>,
-}
-
-impl FragmentBackendPage {
-    /// The page's paint commands at `ratio` device pixels per CSS pixel,
-    /// painted on first use and cached: pagination geometry is identical
-    /// at every ratio, only the glyph baselines' device rounding moves.
-    /// The cache dies with its chapter, so it needs no bound of its own.
-    fn commands_for(
-        &self,
-        ratio: f64,
-        paint: &ChapterPaintSource,
-    ) -> EpubResult<Arc<Vec<DisplayCommand>>> {
-        let key = ratio.to_bits();
-        if let Some((_, commands)) = self
-            .paint_cache
-            .borrow()
-            .iter()
-            .find(|(cached, _)| *cached == key)
-        {
-            return Ok(Arc::clone(commands));
-        }
-        let commands = Arc::new(paint_chapter_page(
-            &paint.built.tree,
-            &self.root,
-            paint.content_width,
-            paint.origin.0,
-            paint.origin.1,
-            FragmentPaintContext {
-                faces: Some(&paint.faces),
-                node_paints: Some(&paint.built.node_paints),
-                image_border_paints: Some(&paint.built.image_border_paints),
-                list_markers: Some(&paint.built.list_markers),
-                ruby_annotation_runs: Some(&paint.built.ruby_annotation_runs),
-                vertical_frame: None,
-                flow_item_sources: Some(&paint.built.flow_item_sources),
-                ratio,
-            },
-            paint.vertical,
-        )?);
-        let mut cache = self.paint_cache.borrow_mut();
-        if cache.len() >= 2 {
-            cache.remove(0);
-        }
-        cache.push((key, Arc::clone(&commands)));
-        Ok(commands)
-    }
 }
 
 /// The paint inputs a chapter's pages share: the bridged formatting tree
@@ -231,6 +281,7 @@ struct ChapterPaintSource {
     faces: Rc<[String]>,
     vertical: bool,
     content_width: f64,
+    content_height: f64,
     origin: (f64, f64),
 }
 
@@ -346,10 +397,13 @@ impl FragmentBuiltLayout {
             let Ok(chapter) = self.materialize(chapter_index) else {
                 break;
             };
-            for (offset, page) in chapter.pages.iter().enumerate() {
+            for offset in 0..chapter.pages.len() {
+                if chapter.ensure_text(offset).is_err() {
+                    return records;
+                }
                 records.push(search_record(
                     base + offset,
-                    &page.root,
+                    chapter.text_tree(offset),
                     &chapter.paint,
                     &build.config,
                 ));
@@ -429,6 +483,7 @@ impl FragmentBuiltLayout {
             return Ok(None);
         };
         let materialized = self.materialize(chapter_index)?;
+        materialized.ensure_text(page_in_chapter)?;
         Ok(Some((
             FragmentPageRef {
                 chapter: materialized,
@@ -527,15 +582,16 @@ impl FragmentBuiltLayout {
             built,
             &build.config,
             &record.idref,
+            false,
         )
         .map_err(EpubError::new)?;
-        if paginated.roots.len() != record.page_count {
+        if paginated.pages.len() != record.page_count {
             // The page table's numbers would be lies: report it instead of
             // serving a page that is not the page the book paginated.
             return Err(EpubError::new(format!(
                 "chapter {} rebuilt to {} pages, the page table recorded {}",
                 record.idref,
-                paginated.roots.len(),
+                paginated.pages.len(),
                 record.page_count
             )));
         }
@@ -543,6 +599,7 @@ impl FragmentBuiltLayout {
             paginated,
             self.chapter_starts[chapter_index],
             &build.config,
+            Rc::clone(&build.engine),
         ))
     }
 }
@@ -553,15 +610,30 @@ fn materialized_chapter(
     paginated: PaginatedChapter,
     page_index_base: usize,
     config: &LayoutConfig,
+    engine: Rc<RuntimeFragmentEngine>,
 ) -> MaterializedChapter {
+    // Each page ends where the next starts; the last one ends the chapter.
+    let ends: Vec<Option<BreakToken>> = paginated
+        .pages
+        .iter()
+        .skip(1)
+        .map(|page| page.start.clone())
+        .chain(std::iter::once(None))
+        .collect();
+    let has_text = paginated.line_text;
     let pages = paginated
-        .roots
+        .pages
         .into_iter()
+        .zip(ends)
         .enumerate()
-        .map(|(offset, root)| FragmentBackendPage {
+        .map(|(offset, (page, end))| FragmentBackendPage {
             page_index: page_index_base + offset,
             artifact: std::cell::OnceCell::new(),
-            root,
+            root: page.root,
+            has_text,
+            start: page.start,
+            end,
+            text_root: std::cell::OnceCell::new(),
             paint_cache: RefCell::new(Vec::new()),
         })
         .collect();
@@ -570,6 +642,7 @@ fn materialized_chapter(
         pages,
         page_width: config.page_width,
         page_height: config.page_height,
+        engine,
     }
 }
 
@@ -623,14 +696,16 @@ impl RuntimeDocument {
                 .engine
                 .chapter_tree(&build.prepared, style_tables, &idref, &image_dimensions)
                 .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+            // With its text: every page's search record is taken here.
             let paginated = paginate_built_chapter(
                 &build.engine,
                 Rc::clone(&build.faces),
                 built,
                 layout_config,
                 &idref,
+                true,
             )?;
-            for (offset, root) in paginated.roots.iter().enumerate() {
+            for (offset, root) in paginated.pages.iter().map(|page| &page.root).enumerate() {
                 collect_page_anchors(
                     root,
                     &paginated.paint.built.node_anchors,
@@ -644,10 +719,10 @@ impl RuntimeDocument {
                     layout_config,
                 ));
             }
-            page_index += paginated.roots.len();
+            page_index += paginated.pages.len();
             chapters.push(FragmentBackendChapter {
                 idref,
-                page_count: paginated.roots.len(),
+                page_count: paginated.pages.len(),
                 block_count: paginated.block_count,
                 page_background: paginated.paint.built.page_background,
                 page_background_image: paginated.paint.built.page_background_image.clone(),
@@ -733,18 +808,20 @@ impl RuntimeDocument {
             .engine
             .chapter_tree(&prepared, &style_tables, &idref, &image_dimensions)
             .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        // Without its text: the page shown is laid out with it when read.
         let paginated = paginate_built_chapter(
             &build.engine,
             Rc::clone(&build.faces),
             built,
             config,
             &idref,
+            false,
         )?;
         let block_count = paginated.block_count;
         // The pages stay: the revision's only chapter is read as soon as it
         // is shown, so it starts materialized instead of being dropped and
         // laid out a second time on that first read.
-        let materialized = materialized_chapter(paginated, 0, config);
+        let materialized = materialized_chapter(paginated, 0, config, Rc::clone(&build.engine));
         let mut anchors = BTreeMap::new();
         // The run starts every resize resolves its position through; the
         // search records wait for a search.
@@ -807,7 +884,9 @@ impl RuntimeDocument {
 /// One chapter laid out into pages: the page roots, the paint inputs they
 /// share and the block count chapter ranges report.
 struct PaginatedChapter {
-    roots: Vec<rito_fragment::Fragment>,
+    pages: Vec<FragmentChapterPage>,
+    /// Whether the pages' lines hold their text.
+    line_text: bool,
     paint: ChapterPaintSource,
     block_count: usize,
 }
@@ -820,6 +899,7 @@ fn paginate_built_chapter(
     built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     config: &LayoutConfig,
     idref: &str,
+    line_text: bool,
 ) -> Result<PaginatedChapter, String> {
     let content_width = config.page_width - config.margin_left - config.margin_right;
     let content_height = config.page_height - config.margin_top - config.margin_bottom;
@@ -831,19 +911,22 @@ fn paginate_built_chapter(
         &built.tree,
         content_width,
         content_height,
+        line_text,
         &CancelFlag::new(),
     )
     .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
     let block_count = built.tree.node(built.tree.root()).children.len();
     let vertical = crate::fragment_pagination::chapter_is_vertical(&built.tree);
     Ok(PaginatedChapter {
-        roots: pages.into_iter().map(|page| page.root).collect(),
+        pages,
+        line_text,
         block_count,
         paint: ChapterPaintSource {
             built,
             faces,
             vertical,
             content_width,
+            content_height,
             origin: (config.margin_left, config.margin_top),
         },
     })
