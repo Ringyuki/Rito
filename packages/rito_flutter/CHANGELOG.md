@@ -1,5 +1,11 @@
 ## Unreleased
 
+### Decoding an artifact allocates no view per number
+
+The wire reader reads every number through one view of the message's
+bytes; it made a view and a slice for each, which for a page of text cost
+as much as laying the page out.
+
 ### A resize lays out only the spread it shows
 
 A request at a new size lays the chapter out only through the spread the
