@@ -747,16 +747,6 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let definite_content_height =
                         resolve_fixed_height(child_style, hbox.padding_top + hbox.padding_bottom)?
                             .map(|fixed| (fixed - hbox.padding_top - hbox.padding_bottom).max(0.0));
-                    let lines = self.inline_lines(
-                        tree,
-                        *child_id,
-                        hbox.content_width,
-                        space.fragmentainer_size,
-                        definite_content_height,
-                        band,
-                        space.line_text,
-                        cancel,
-                    )?;
                     let available_for_lines = (available - leading_padding).max(0.0);
                     // A fresh page narrowed by the box's own leading
                     // padding is NOT force-fit territory: the padding
@@ -771,18 +761,31 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // column before a full-height illustration whose
                     // 854px line box — 850px image plus strut descent —
                     // overflows the following column invisibly).
-                    let padding_squeezed = page_is_empty
-                        && leading_padding > 0.0
-                        && lines.first().is_some_and(|line| {
-                            line.rect().height > available_for_lines + f64::EPSILON
-                        });
-                    let placement = place_lines(
-                        &lines,
-                        consumed,
-                        available_for_lines,
-                        page_is_empty && !padding_squeezed,
+                    let (padding_squeezed, placement) = self.inline_lines(
+                        tree,
+                        *child_id,
+                        hbox.content_width,
                         space.fragmentainer_size,
-                    );
+                        definite_content_height,
+                        band,
+                        space.line_text,
+                        cancel,
+                        |lines| {
+                            let squeezed = page_is_empty
+                                && leading_padding > 0.0
+                                && lines.first().is_some_and(|line| {
+                                    line.rect().height > available_for_lines + f64::EPSILON
+                                });
+                            let placement = place_lines(
+                                lines,
+                                consumed,
+                                available_for_lines,
+                                page_is_empty && !squeezed,
+                                space.fragmentainer_size,
+                            );
+                            (squeezed, placement)
+                        },
+                    )?;
                     if placement.lines.is_empty() && !placement.exhausted {
                         if padding_squeezed {
                             // The break lands AFTER the leading padding:
@@ -1514,9 +1517,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
     }
 
     /// Lays an inline flow out in continuous space through the internal
-    /// cache and returns its line fragments in paragraph coordinates.
+    /// cache and reads its line fragments, in paragraph coordinates, where
+    /// the cache keeps them.
     #[allow(clippy::too_many_arguments)]
-    fn inline_lines(
+    fn inline_lines<R>(
         &self,
         tree: &FormattingTree,
         node: FormattingNodeId,
@@ -1526,7 +1530,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         float_band: Option<rito_fragment::FloatBand>,
         line_text: bool,
         cancel: &CancelFlag,
-    ) -> Result<Vec<Fragment>, LayoutError> {
+        read: impl FnOnce(&[Fragment]) -> R,
+    ) -> Result<R, LayoutError> {
         // Paragraphs lay out continuously — line-level slicing into pages
         // happens here in the block container — but the provider still
         // needs the page block size so replaced content can honor the
@@ -1539,16 +1544,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             containing_block_size,
             line_text,
         };
-        let outcome = self
-            .inline_cache
-            .borrow_mut()
-            .layout(&self.inline, tree, node, &space, None, cancel)?
-            .outcome;
-        let Fragment::Box(root) = outcome.fragments.root else {
-            return Err(LayoutError::Invalid(
-                "inline provider must produce a box fragment root".to_owned(),
-            ));
-        };
-        Ok(root.children)
+        self.inline_cache.borrow_mut().layout_with(
+            &self.inline,
+            tree,
+            node,
+            &space,
+            None,
+            cancel,
+            |outcome, _| match &outcome.fragments.root {
+                Fragment::Box(root) => Ok(read(&root.children)),
+                _ => Err(LayoutError::Invalid(
+                    "inline provider must produce a box fragment root".to_owned(),
+                )),
+            },
+        )?
     }
 }

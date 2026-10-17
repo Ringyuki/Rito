@@ -21,7 +21,7 @@
 //! fragments rather than encoding them. Least-recently-used entries are
 //! evicted first.
 
-use std::collections::BTreeMap;
+use std::collections::VecDeque;
 
 use rustc_hash::FxHashMap;
 
@@ -118,10 +118,11 @@ pub struct FragmentCache {
     used_bytes: usize,
     clock: u64,
     entries: FxHashMap<CacheKey, CacheEntry>,
-    /// Every entry by its last-use stamp, oldest first: eviction takes the
-    /// first one instead of scanning the entries, which made a full cache
-    /// cost a pass over every entry per insert.
-    recency: BTreeMap<u64, CacheKey>,
+    /// Every use of an entry by its stamp, oldest first: eviction takes the
+    /// first whose stamp is still its entry's last use instead of scanning
+    /// the entries, and a use only appends. Uses an entry has outlived are
+    /// skipped, and dropped once they outnumber the entries.
+    recency: VecDeque<(u64, CacheKey)>,
     /// The latest entry reporting the inline sizes it holds for, by its key
     /// with the inline size left out.
     widths: FxHashMap<CacheKey, CacheKey>,
@@ -136,7 +137,7 @@ impl FragmentCache {
             used_bytes: 0,
             clock: 0,
             entries: FxHashMap::default(),
-            recency: BTreeMap::new(),
+            recency: VecDeque::new(),
             widths: FxHashMap::default(),
         }
     }
@@ -156,6 +157,34 @@ impl FragmentCache {
         token: Option<&BreakToken>,
         cancel: &CancelFlag,
     ) -> Result<CachedLayout, LayoutError> {
+        self.layout_with(
+            provider,
+            tree,
+            node,
+            space,
+            token,
+            cancel,
+            |outcome, from_cache| CachedLayout {
+                outcome: outcome.clone(),
+                from_cache,
+            },
+        )
+    }
+
+    /// [`Self::layout`], reading the outcome where the cache keeps it
+    /// (`read` is told whether it was replayed) instead of copying it out:
+    /// a layout that only reads its child's lines copies none of them.
+    #[allow(clippy::too_many_arguments)]
+    pub fn layout_with<R>(
+        &mut self,
+        provider: &dyn FormattingContext,
+        tree: &FormattingTree,
+        node: crate::FormattingNodeId,
+        space: &ConstraintSpace,
+        token: Option<&BreakToken>,
+        cancel: &CancelFlag,
+        read: impl FnOnce(&LayoutOutcome, bool) -> R,
+    ) -> Result<R, LayoutError> {
         let key = cache_key(tree, node, space, token);
         self.clock += 1;
         let held = if self.entries.contains_key(&key) {
@@ -174,38 +203,27 @@ impl FragmentCache {
                 .cloned()
         };
         if let Some(held) = held {
-            let entry = self.entries.get_mut(&held).expect("held key is cached");
-            self.recency.remove(&entry.last_used);
-            entry.last_used = self.clock;
-            self.recency.insert(self.clock, held);
-            return Ok(CachedLayout {
-                outcome: entry.outcome.clone(),
-                from_cache: true,
-            });
+            self.touch(&held);
+            return Ok(read(&self.entries[&held].outcome, true));
         }
         let outcome = provider.layout(tree, node, space, token, cancel)?;
         let bytes = footprint(&outcome);
-        if bytes <= self.budget_bytes {
-            self.evict_until_fits(bytes);
-            self.used_bytes += bytes;
-            if outcome.inline_size_range.is_some() {
-                self.widths.insert(without_inline_size(&key), key.clone());
-            }
-            self.recency.insert(self.clock, key.clone());
-            self.entries.insert(
-                key,
-                CacheEntry {
-                    outcome: outcome.clone(),
-                    bytes,
-                    covered_nodes: tree.len() as u32,
-                    last_used: self.clock,
-                },
-            );
+        if bytes > self.budget_bytes {
+            return Ok(read(&outcome, false));
         }
-        Ok(CachedLayout {
+        self.evict_until_fits(bytes);
+        self.used_bytes += bytes;
+        if outcome.inline_size_range.is_some() {
+            self.widths.insert(without_inline_size(&key), key.clone());
+        }
+        self.recency.push_back((self.clock, key.clone()));
+        let entry = self.entries.entry(key).insert_entry(CacheEntry {
             outcome,
-            from_cache: false,
-        })
+            bytes,
+            covered_nodes: tree.len() as u32,
+            last_used: self.clock,
+        });
+        Ok(read(&entry.get().outcome, false))
     }
 
     /// Drops every entry that depends on `node` of `tree` — i.e. every
@@ -241,6 +259,18 @@ impl FragmentCache {
         self.entries.is_empty()
     }
 
+    /// Records a use of `key`, which is cached, at the current stamp.
+    fn touch(&mut self, key: &CacheKey) {
+        let entry = self.entries.get_mut(key).expect("a touched key is cached");
+        entry.last_used = self.clock;
+        self.recency.push_back((self.clock, key.clone()));
+        if self.recency.len() > 2 * self.entries.len() + 64 {
+            let entries = &self.entries;
+            self.recency
+                .retain(|(stamp, key)| is_last_use(entries, key, *stamp));
+        }
+    }
+
     fn retain(&mut self, keep: impl Fn(&CacheKey, &CacheEntry) -> bool) {
         let mut released = 0usize;
         self.entries.retain(|key, entry| {
@@ -252,17 +282,22 @@ impl FragmentCache {
         });
         self.used_bytes -= released;
         let entries = &self.entries;
-        self.recency.retain(|_, key| entries.contains_key(key));
+        self.recency
+            .retain(|(stamp, key)| is_last_use(entries, key, *stamp));
         self.widths.retain(|_, key| entries.contains_key(key));
     }
 
     fn evict_until_fits(&mut self, incoming_bytes: usize) {
         while self.used_bytes + incoming_bytes > self.budget_bytes {
             // Unique clock stamps make the least recently used entry the
-            // first in stamp order, deterministically.
-            let Some((_, victim)) = self.recency.pop_first() else {
+            // first in stamp order whose stamp is its last use,
+            // deterministically.
+            let Some((stamp, victim)) = self.recency.pop_front() else {
                 return;
             };
+            if !is_last_use(&self.entries, &victim, stamp) {
+                continue;
+            }
             if let Some(entry) = self.entries.remove(&victim) {
                 self.used_bytes -= entry.bytes;
                 let any_size = without_inline_size(&victim);
@@ -272,6 +307,13 @@ impl FragmentCache {
             }
         }
     }
+}
+
+/// Whether `stamp` is the last use of the entry `key` names.
+fn is_last_use(entries: &FxHashMap<CacheKey, CacheEntry>, key: &CacheKey, stamp: u64) -> bool {
+    entries
+        .get(key)
+        .is_some_and(|entry| entry.last_used == stamp)
 }
 
 /// The key every inline size shares with `key`'s other inputs.
@@ -558,7 +600,7 @@ mod tests {
 
         cache.invalidate_node(&tree_a, FormattingNodeId(0));
         assert_eq!(cache.len(), 1);
-        assert_eq!(cache.recency.len(), cache.entries.len());
+        assert_eq!(live_uses(&cache), cache.entries.len());
         assert!(
             cache
                 .layout(&provider, &tree_b, tree_b.root(), &space, None, &cancel)
@@ -644,7 +686,7 @@ mod tests {
                 )
                 .expect("fill");
             assert!(cache.used_bytes() <= cache_budget(&cache));
-            assert_eq!(cache.recency.len(), cache.entries.len());
+            assert_eq!(live_uses(&cache), cache.entries.len());
         }
         assert_eq!(cache.len(), 2);
         // Width 100 was least recently used and must have been evicted;
@@ -708,5 +750,14 @@ mod tests {
 
     fn cache_budget(cache: &FragmentCache) -> usize {
         cache.budget_bytes
+    }
+
+    /// The uses still standing for an entry's last one: one per entry.
+    fn live_uses(cache: &FragmentCache) -> usize {
+        cache
+            .recency
+            .iter()
+            .filter(|(stamp, key)| is_last_use(&cache.entries, key, *stamp))
+            .count()
     }
 }
