@@ -783,9 +783,10 @@ impl RuntimeDocument {
     /// paginate fails the whole table, so a revision never holds a
     /// partial one.
     ///
-    /// Each chapter's pages are dropped as soon as its record, anchors and
-    /// search text are taken, so the pass peaks at one chapter's contents
-    /// rather than the book's.
+    /// The chapters paginate without their text: each chapter's pages are
+    /// dropped as soon as its record, anchors and run starts are taken, so
+    /// the pass peaks at one chapter's contents rather than the book's, and
+    /// the search records are taken when the book is first searched.
     pub(super) fn build_fragment_page_table(
         &self,
         layout_config: &LayoutConfig,
@@ -798,7 +799,7 @@ impl RuntimeDocument {
         let build = self.fragment_table_build_inputs(prepared, layout_config)?;
         let mut chapters = Vec::with_capacity(build.prepared.chapters.len());
         let mut anchors = BTreeMap::new();
-        let mut search_index = Vec::new();
+        let mut run_starts = Vec::new();
         let mut page_index = 0;
         let idrefs: Vec<String> = build
             .prepared
@@ -817,14 +818,13 @@ impl RuntimeDocument {
                 .engine
                 .chapter_tree(&build.prepared, style_tables, &idref, &image_dimensions)
                 .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            // With its text: every page's search record is taken here.
             let paginated = paginate_built_chapter(
                 &build.engine,
                 Rc::clone(&build.faces),
                 built,
                 layout_config,
                 &idref,
-                true,
+                false,
             )?;
             for (offset, root) in paginated.pages.iter().map(|page| &page.root).enumerate() {
                 collect_page_anchors(
@@ -833,11 +833,10 @@ impl RuntimeDocument {
                     page_index + offset,
                     &mut anchors,
                 );
-                search_index.push(search_record(
+                run_starts.extend(FragmentPageArtifact::source_run_starts(
                     page_index + offset,
                     root,
-                    &paginated.paint,
-                    layout_config,
+                    &paginated.paint.built,
                 ));
             }
             page_index += paginated.pages.len();
@@ -856,7 +855,7 @@ impl RuntimeDocument {
         }
         let mut layout = FragmentBuiltLayout::new(chapters, Some(build));
         layout.anchors = anchors;
-        layout.search_index = std::cell::OnceCell::from(search_index);
+        layout.run_starts = Some(run_starts);
         Ok(layout)
     }
 

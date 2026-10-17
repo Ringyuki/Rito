@@ -1380,10 +1380,11 @@ fn finding_the_page_of_a_source_point_rebuilds_no_chapter() {
 
 #[test]
 fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
-    // The build pass records every page's text and run offsets, so a
-    // query reads that slice; a movement builds only the pages it steps
-    // onto. Neither may re-bridge and re-paginate the whole book, which
-    // is what walking the page table page by page would do.
+    // The build pass paginates without the text: the first search takes
+    // every page's text and run offsets once, and a later query reads
+    // them; a movement builds only the pages it steps onto. Neither may
+    // re-bridge and re-paginate the whole book again, which is what
+    // walking the page table page by page would do.
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
         &chapter_eviction_fixture_epub(),
         policy(vec![face(
@@ -1420,16 +1421,23 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
             .revision_version,
     };
 
-    let response = search(
-        &document,
-        &handle.revision_id,
-        crate::runtime::RuntimeSearchRequest {
-            query: "paragraph 2.".to_owned(),
-            case_sensitive: false,
-            whole_word: false,
-            limit: Some(50),
-        },
-    );
+    let query = || crate::runtime::RuntimeSearchRequest {
+        query: "paragraph 2.".to_owned(),
+        case_sensitive: false,
+        whole_word: false,
+        limit: Some(50),
+    };
+    let response = search(&document, &handle.revision_id, query());
+    let materialized = |document: &RuntimeDocument| {
+        document
+            .revisions
+            .get(&summary.revision_id)
+            .expect("revision is retained")
+            .fragment_layout
+            .materialized_chapter_indexes()
+    };
+    let after_first = materialized(&document);
+    assert_eq!(search(&document, &handle.revision_id, query()), response);
     assert_eq!(
         response.result_count, 3,
         "every chapter of the fixture carries the phrase once"
@@ -1443,14 +1451,10 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         pages.iter().any(|page| *page > 0),
         "the hits span the book, got {pages:?}"
     );
-    let table = &document
-        .revisions
-        .get(&summary.revision_id)
-        .expect("revision is retained")
-        .fragment_layout;
-    assert!(
-        table.materialized_chapter_indexes().is_empty(),
-        "search reads the recorded page text, so it rebuilds no chapter"
+    assert_eq!(
+        materialized(&document),
+        after_first,
+        "a second search reads the page text the first took, so it rebuilds no chapter"
     );
 
     let caret = |page_index| crate::interaction::TextCaretAddress {
@@ -1478,14 +1482,12 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         panic!("a character step on page 0 resolves");
     };
     assert_eq!(range.selected_text.chars().count(), 1);
-    let table = &document
-        .revisions
-        .get(&summary.revision_id)
-        .expect("revision is retained")
-        .fragment_layout;
-    assert_eq!(
-        table.materialized_chapter_indexes(),
-        vec![0],
-        "a step inside page 0 builds page 0's chapter and no other"
+    let after_step = materialized(&document);
+    assert!(
+        after_step.last() == Some(&0)
+            && after_step
+                .iter()
+                .all(|index| *index == 0 || after_first.contains(index)),
+        "a step inside page 0 builds page 0's chapter and no other: {after_first:?} -> {after_step:?}"
     );
 }
