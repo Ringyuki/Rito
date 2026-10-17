@@ -2823,6 +2823,29 @@ impl FormattingContext for ParleyInlineContext {
         tree: &FormattingTree,
         node: FormattingNodeId,
     ) -> Result<IntrinsicInlineSizes, LayoutError> {
+        let kept = self
+            .intrinsic_sizes
+            .borrow()
+            .get(tree.fingerprint(), node.0);
+        if let Some(sizes) = kept {
+            return Ok(sizes);
+        }
+        let sizes = self.measure_intrinsic_inline_sizes(tree, node)?;
+        self.intrinsic_sizes
+            .borrow_mut()
+            .insert(tree.fingerprint(), node.0, sizes);
+        Ok(sizes)
+    }
+}
+
+impl ParleyInlineContext {
+    /// The min- and max-content widths of the paragraph at `node`,
+    /// measured from two builds of it.
+    fn measure_intrinsic_inline_sizes(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+    ) -> Result<IntrinsicInlineSizes, LayoutError> {
         if node.0 as usize >= tree.len() {
             return Err(LayoutError::Invalid(format!(
                 "intrinsic-size query for out-of-bounds node {}",

@@ -55,6 +55,7 @@ impl ParleyInlineContext {
             run_samples: RefCell::default(),
             halt_feature_cache: RefCell::default(),
             shaped: RefCell::default(),
+            intrinsic_sizes: RefCell::default(),
         })
     }
 
@@ -104,6 +105,7 @@ impl ParleyInlineContext {
         self.line_metrics.get_mut().clear();
         self.run_samples.get_mut().clear();
         self.shaped.get_mut().clear();
+        self.intrinsic_sizes.get_mut().clear();
         Ok(())
     }
 }

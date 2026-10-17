@@ -1,6 +1,9 @@
 //! Paragraphs as built — text analysed, fonts chosen, runs shaped — and not
 //! yet broken into lines, kept across layouts.
 //!
+//! Kept with them: each paragraph's min- and max-content widths, which
+//! take two builds to measure and depend on nothing a layout changes.
+//!
 //! A paragraph's build depends on its content and styles, the faces the
 //! context shapes with, the trims and spreads the line loop decided, and,
 //! for an image, an inline block or a percentage margin, the space it is
@@ -16,6 +19,7 @@
 
 use std::{cell::Cell, collections::BTreeMap};
 
+use rito_fragment::IntrinsicInlineSizes;
 use rustc_hash::FxHashMap;
 
 use crate::ParagraphLayout;
@@ -217,6 +221,35 @@ impl ShapedParagraphs {
             paragraph: entry.paragraph.clone(),
             atoms_sized_elsewhere: entry.atoms_space.is_some_and(|sized| sized != space.key()),
         })
+    }
+}
+
+/// How many paragraphs' intrinsic widths are kept before all are dropped:
+/// two megabytes or so, and measuring one again is two builds.
+const INTRINSIC_SIZES_LIMIT: usize = 1 << 16;
+
+/// Each paragraph's min- and max-content widths by tree fingerprint and
+/// node: the content and styles they are measured from, as in
+/// [`ShapeKey`].
+#[derive(Default)]
+pub(crate) struct IntrinsicSizes {
+    sizes: FxHashMap<(u64, u32), IntrinsicInlineSizes>,
+}
+
+impl IntrinsicSizes {
+    pub(crate) fn get(&self, tree: u64, node: u32) -> Option<IntrinsicInlineSizes> {
+        self.sizes.get(&(tree, node)).copied()
+    }
+
+    pub(crate) fn insert(&mut self, tree: u64, node: u32, sizes: IntrinsicInlineSizes) {
+        if self.sizes.len() >= INTRINSIC_SIZES_LIMIT {
+            self.sizes.clear();
+        }
+        self.sizes.insert((tree, node), sizes);
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.sizes.clear();
     }
 }
 

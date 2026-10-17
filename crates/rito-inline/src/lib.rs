@@ -71,7 +71,9 @@ pub use paragraph::plain_paragraph_style;
 pub(crate) use paragraph::*;
 pub(crate) use punctuation::*;
 pub(crate) use ruby::*;
-pub(crate) use shaped::{BuildSpace, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs};
+pub(crate) use shaped::{
+    BuildSpace, IntrinsicSizes, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs,
+};
 pub(crate) use shaping::*;
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
@@ -102,4 +104,7 @@ pub struct ParleyInlineContext {
     /// Paragraphs as built and not yet broken into lines, reused by every
     /// layout that reads them the same (see [`ShapedParagraphs`]).
     pub(crate) shaped: RefCell<ShapedParagraphs>,
+    /// Each paragraph's min- and max-content widths, measured once (see
+    /// [`IntrinsicSizes`]).
+    pub(crate) intrinsic_sizes: RefCell<IntrinsicSizes>,
 }
