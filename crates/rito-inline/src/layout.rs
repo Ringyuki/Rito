@@ -24,6 +24,10 @@ impl FormattingContext for ParleyInlineContext {
             ));
         }
         let root = node;
+        // Without line text (pagination) every line is still placed and
+        // sized: only the text fragments, and the justification that
+        // positions them, are left out.
+        let line_text = space.line_text;
         // Float exclusion: lines inside the band are broken at the reduced
         // width and shifted past the left inset; the flow returns to the
         // full inline size below the band. CSS shortens line boxes around
@@ -763,6 +767,9 @@ impl FormattingContext for ParleyInlineContext {
         // included — shrinks the gap a following annotation may reuse by
         // one pixel at 16px), so the reuse probe must match it.
         let mut prev_line_fonts: Vec<(u64, u32)> = Vec::new();
+        // Whether the last line laid out holds any item: a trailing empty
+        // line is dropped below.
+        let mut last_line_has_items = true;
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
@@ -877,7 +884,8 @@ impl FormattingContext for ParleyInlineContext {
             // A justified line spreads its slack equally across Blink's
             // expansion opportunities (see `line_justify_plan`); the
             // paragraph's last line and forced breaks keep the start edge.
-            let justify_plan = if justify
+            let justify_plan = if line_text
+                && justify
                 && matches!(
                     line.break_reason(),
                     parley::layout::BreakReason::Regular | parley::layout::BreakReason::Emergency
@@ -1121,7 +1129,13 @@ impl FormattingContext for ParleyInlineContext {
             // fallback font with its own metrics, and the line is sized by
             // that font — not by the declared family.
             let mut line_run_samples: Vec<(usize, LineProbe)> = Vec::new();
+            // Each glyph run's flow-text range, and whether the line holds
+            // any item: what the line box reads of its content, with or
+            // without the text fragments (they cover exactly these ranges).
+            let mut line_runs: Vec<(u32, u32)> = Vec::new();
+            let mut line_has_items = false;
             for item in line.items() {
+                line_has_items = true;
                 match item {
                     PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let shaping_range = glyph_run.run().text_range();
@@ -1144,6 +1158,7 @@ impl FormattingContext for ParleyInlineContext {
                                  item's range {item_range:?}"
                             )));
                         }
+                        line_runs.push((run_range.start as u32, run_range.end as u32));
                         if let Some(style) = style_tables.and_then(|tables| {
                             item_line_heights
                                 .get(item_index)
@@ -1178,6 +1193,9 @@ impl FormattingContext for ParleyInlineContext {
                         }
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
+                        if !line_text {
+                            continue;
+                        }
                         let run_x = f64::from(glyph_run.offset()) - parley_line_x;
                         // A run inside a bordered/padded span carries the
                         // box's raster anchor: the browser snaps the
@@ -1866,14 +1884,9 @@ impl FormattingContext for ParleyInlineContext {
             // their strut and used-font metrics, declared runs keep their
             // fixed heights, and the line takes the max — the model the
             // reference browser was observed to follow.
-            let line_text_range = children
+            let line_text_range = line_runs
                 .iter()
-                .filter_map(|(fragment, _)| match fragment {
-                    Fragment::Text(text) => {
-                        Some((text.text_start as usize, text.text_end as usize))
-                    }
-                    _ => None,
-                })
+                .map(|(start, end)| (*start as usize, *end as usize))
                 .fold(None::<(usize, usize)>, |acc, (start, end)| {
                     Some(match acc {
                         Some((lo, hi)) => (lo.min(start), hi.max(end)),
@@ -2397,7 +2410,7 @@ impl FormattingContext for ParleyInlineContext {
                     }
                     None => content_height.max(strut_height.unwrap_or(0.0)),
                 }
-            } else if children.is_empty() {
+            } else if !line_has_items {
                 // An empty line (a forced break with no content) is sized
                 // by the strut alone; the shaped fallback metric only
                 // covers flows whose strut could not resolve.
@@ -2773,6 +2786,7 @@ impl FormattingContext for ParleyInlineContext {
             } else {
                 None
             };
+            last_line_has_items = line_has_items;
             lines.push(Fragment::Line(LineFragment {
                 source: root,
                 rect: FragmentRect {
@@ -2785,18 +2799,17 @@ impl FormattingContext for ParleyInlineContext {
                 trailing_whitespace: f64::from(metrics.trailing_whitespace),
                 ruby_growth,
                 marker,
+                text_runs: line_runs,
                 children,
             }));
         }
         // A forced break at the very end of the flow leaves one empty
         // trailing line; a browser generates no line box for a block-final
         // <br> unless it is the block's only content.
-        if lines.len() > 1 {
+        if lines.len() > 1 && !last_line_has_items {
             if let Some(Fragment::Line(last)) = lines.last() {
-                if last.children.is_empty() {
-                    running_top -= last.rect.height;
-                    lines.pop();
-                }
+                running_top -= last.rect.height;
+                lines.pop();
             }
         }
         Ok(LayoutOutcome {

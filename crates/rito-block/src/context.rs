@@ -93,6 +93,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     // height (border-box minus the vertical padding).
                     containing_block_size: fixed_height
                         .map(|fixed| (fixed - padding_top - padding_bottom).max(0.0)),
+                    line_text: space.line_text,
                 };
                 let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
                 // Bottom padding rides the last fragment only.

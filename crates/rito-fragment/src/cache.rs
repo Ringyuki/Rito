@@ -53,6 +53,7 @@ struct SpaceKey {
     /// Left inset, right inset and bottom of the float band.
     float_band: Option<[u64; 3]>,
     containing_block_size: Option<u64>,
+    line_text: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -275,6 +276,7 @@ fn space_key(space: &ConstraintSpace) -> SpaceKey {
         fragmentainer_size,
         float_band,
         containing_block_size,
+        line_text,
     } = *space;
     SpaceKey {
         inline_size: inline_size.to_bits(),
@@ -288,6 +290,7 @@ fn space_key(space: &ConstraintSpace) -> SpaceKey {
              }| [left_inset, right_inset, bottom].map(f64::to_bits),
         ),
         containing_block_size: containing_block_size.map(f64::to_bits),
+        line_text,
     }
 }
 

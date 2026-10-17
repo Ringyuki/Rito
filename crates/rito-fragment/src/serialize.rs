@@ -87,6 +87,11 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     out.extend_from_slice(&marker.diameter.to_bits().to_le_bytes());
                 }
             }
+            out.extend_from_slice(&(fragment.text_runs.len() as u32).to_le_bytes());
+            for (start, end) in &fragment.text_runs {
+                out.extend_from_slice(&start.to_le_bytes());
+                out.extend_from_slice(&end.to_le_bytes());
+            }
             out.extend_from_slice(&(fragment.children.len() as u32).to_le_bytes());
             for child in &fragment.children {
                 encode_fragment(child, out);
@@ -179,6 +184,11 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }),
                 tag => return Err(format!("unknown line marker tag {tag}")),
             };
+            let run_count = reader.u32()? as usize;
+            let mut text_runs = Vec::with_capacity(run_count.min(reader.remaining()));
+            for _ in 0..run_count {
+                text_runs.push((reader.u32()?, reader.u32()?));
+            }
             let child_count = reader.u32()? as usize;
             let mut children = Vec::with_capacity(child_count.min(reader.remaining()));
             for _ in 0..child_count {
@@ -191,6 +201,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 trailing_whitespace,
                 ruby_growth,
                 marker,
+                text_runs,
                 children,
             }))
         }
@@ -484,6 +495,7 @@ mod tests {
                         baseline: 14.8,
                         trailing_whitespace: 4.25,
                         ruby_growth: 1.5,
+                        text_runs: vec![(0, 42)],
                         children: vec![Fragment::Text(TextFragment {
                             source: FormattingNodeId(0),
                             rect: FragmentRect {

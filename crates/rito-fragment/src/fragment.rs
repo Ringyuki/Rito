@@ -49,6 +49,10 @@ pub struct LineFragment {
     /// device rows (ceil) while the strut part keeps the two-stage
     /// round. Zero on lines without ruby growth.
     pub ruby_growth: f64,
+    /// The flow-text byte range of each glyph run on the line, in visual
+    /// order: the text its text fragments cover, kept when a layout leaves
+    /// them out (`ConstraintSpace::line_text`).
+    pub text_runs: Vec<(u32, u32)>,
     /// Text (and later inline-box) fragments in visual order.
     pub children: Vec<Fragment>,
 }

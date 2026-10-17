@@ -162,6 +162,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragmentainer_size: space.fragmentainer_size,
                     float_band: None,
                     containing_block_size: None,
+                    line_text: space.line_text,
                 };
                 let outcome =
                     self.layout(tree, child_id, &sub_space, Some(&float_break.token), cancel)?;
@@ -365,6 +366,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         fragmentainer_size: space.fragmentainer_size,
                         float_band: None,
                         containing_block_size: None,
+                        line_text: space.line_text,
                     };
                     let outcome = self.layout(tree, *child_id, &sub_space, None, cancel)?;
                     let Fragment::Box(head_root) = outcome.fragments.root else {
@@ -751,6 +753,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         space.fragmentainer_size,
                         definite_content_height,
                         band,
+                        space.line_text,
                         cancel,
                     )?;
                     let available_for_lines = (available - leading_padding).max(0.0);
@@ -1211,6 +1214,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             floats.band_at(y + gap, content_width)
                         },
                         containing_block_size: None,
+                        line_text: space.line_text,
                     };
                     // Mirror of through_collapsed_top's descent predicate:
                     // when the child's leading chain joined THIS loop's
@@ -1518,6 +1522,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         page_block_size: Option<f64>,
         containing_block_size: Option<f64>,
         float_band: Option<rito_fragment::FloatBand>,
+        line_text: bool,
         cancel: &CancelFlag,
     ) -> Result<Vec<Fragment>, LayoutError> {
         // Paragraphs lay out continuously — line-level slicing into pages
@@ -1530,6 +1535,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             fragmentainer_size: page_block_size,
             float_band,
             containing_block_size,
+            line_text,
         };
         let outcome = self
             .inline_cache

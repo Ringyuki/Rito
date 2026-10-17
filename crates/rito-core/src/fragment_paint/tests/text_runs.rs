@@ -104,6 +104,7 @@ fn a_baseline_rounds_the_line_top_on_css_pixels_and_the_sum_on_the_device_grid()
                 baseline: within_line,
                 trailing_whitespace: 0.0,
                 ruby_growth: 0.0,
+                text_runs: Vec::new(),
                 children: vec![text_run(0.0, 8.0, 0, 1)],
             })],
         });

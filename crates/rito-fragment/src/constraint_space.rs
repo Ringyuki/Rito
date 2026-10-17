@@ -28,6 +28,11 @@ pub struct ConstraintSpace {
     /// as auto. Distinct from `fragmentainer_size`, which is the page
     /// clamp, not a containing block.
     pub containing_block_size: Option<f64>,
+    /// Whether line boxes carry their text fragments. Without them a
+    /// layout places and sizes every line, and breaks every fragmentainer,
+    /// exactly as with them: pagination reads no text, and a page laid out
+    /// again from its break token with them is the page.
+    pub line_text: bool,
 }
 
 /// One band of float exclusion at the top of a layout's block axis.
@@ -50,6 +55,7 @@ impl ConstraintSpace {
             fragmentainer_size: None,
             float_band: None,
             containing_block_size: None,
+            line_text: true,
         }
     }
 
@@ -61,6 +67,7 @@ impl ConstraintSpace {
             fragmentainer_size: Some(fragmentainer_size),
             float_band: None,
             containing_block_size: None,
+            line_text: true,
         }
     }
 }
