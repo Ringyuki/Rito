@@ -286,7 +286,12 @@ source range; a failed build is reported on the `error` event (source
 `'annotation-target'`) and resolves `undefined`. The target is versioned JSON —
 `{ version: 1, href, sourceRange, quote: { exact, prefix, suffix }, position: { start,
 end, chapterLength } }`, offsets in UTF-16 units over the chapter's raw parsed text —
-and is persisted as the engine wrote it.
+and is persisted as the engine wrote it. `insertAnnotation(record)` stores a whole
+record as given (its id, colour, note and timestamps), to undo a removal or an edit:
+it replaces the stored record with that id where it stands, and otherwise goes in
+creation order, which is the order annotations are painted in, so a removed record
+put back lies under and over the same neighbours. It is persisted like any change and
+returns `false` once the controller is disposed.
 
 Re-projection is two engine reads. `interactions.resolveAnnotationTarget` finds the
 stored target in the chapter as it is now, trying the source range (checked against

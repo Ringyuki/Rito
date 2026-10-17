@@ -11,6 +11,9 @@ export function buildAnnotationActions(
     addAnnotation(input: AddAnnotationInput): Promise<AnnotationRecord | undefined> {
       return addAnnotationImpl(input, internals, emitter);
     },
+    insertAnnotation(record: AnnotationRecord): boolean {
+      return insertAnnotationImpl(record, internals, emitter);
+    },
     removeAnnotation(id: string): boolean {
       return removeAnnotationImpl(id, internals, emitter);
     },
@@ -57,6 +60,18 @@ async function addAnnotationImpl(
   });
   persistAnnotations(store, emitter);
   return record;
+}
+
+function insertAnnotationImpl(
+  record: AnnotationRecord,
+  internals: Internals,
+  emitter: Emitter,
+): boolean {
+  const store = internals.coordState.annotationStore;
+  if (!store) return false;
+  const ok = store.insert(record);
+  if (ok) persistAnnotations(store, emitter);
+  return ok;
 }
 
 function removeAnnotationImpl(id: string, internals: Internals, emitter: Emitter): boolean {

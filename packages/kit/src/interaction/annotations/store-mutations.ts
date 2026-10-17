@@ -2,6 +2,7 @@ import type { AnnotationRecord, AnnotationRecordPatch } from './model';
 
 export type StoreMutation =
   | { readonly type: 'add'; readonly record: AnnotationRecord }
+  | { readonly type: 'insert'; readonly record: AnnotationRecord }
   | { readonly type: 'remove'; readonly id: string }
   | {
       readonly type: 'update';
@@ -26,6 +27,8 @@ function applyMutation(records: AnnotationRecord[], mutation: StoreMutation): vo
   } else if (mutation.type === 'add') {
     if (index === -1) records.push(mutation.record);
     else records[index] = mutation.record;
+  } else if (mutation.type === 'insert') {
+    placeRecord(records, mutation.record);
   } else if (index !== -1) {
     const existing = records[index];
     if (existing) records[index] = applyRecordPatch(existing, mutation);
@@ -47,8 +50,24 @@ function deduplicateRecords(records: readonly AnnotationRecord[]): AnnotationRec
   return result;
 }
 
+/**
+ * Puts a whole record back: over the record with its id, where that one
+ * stands, or else before the first record created after it. Records are
+ * kept in creation order, which is also their paint order, so a deleted
+ * record put back returns to its place under and over its neighbours.
+ */
+export function placeRecord(records: AnnotationRecord[], record: AnnotationRecord): void {
+  const same = records.findIndex((existing) => existing.id === record.id);
+  if (same !== -1) {
+    records[same] = record;
+    return;
+  }
+  const later = records.findIndex((existing) => existing.createdAt > record.createdAt);
+  records.splice(later === -1 ? records.length : later, 0, record);
+}
+
 function mutationId(mutation: StoreMutation): string {
-  return mutation.type === 'add' ? mutation.record.id : mutation.id;
+  return mutation.type === 'add' || mutation.type === 'insert' ? mutation.record.id : mutation.id;
 }
 
 function applyRecordPatch(

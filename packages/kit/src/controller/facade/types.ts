@@ -55,7 +55,7 @@ export type SelectionAccessorsSlice = Pick<
 export type ContentHitSlice = Pick<ReaderController, 'hitTestContent'>;
 export type AnnotationActionsSlice = Pick<
   ReaderController,
-  'addAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'
+  'addAnnotation' | 'insertAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'
 >;
 export type PositionActionsSlice = Pick<
   ReaderController,
