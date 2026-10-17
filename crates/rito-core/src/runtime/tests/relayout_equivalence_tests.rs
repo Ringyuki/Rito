@@ -450,3 +450,53 @@ fn a_chapter_builds_the_query_artifacts_of_the_pages_read_only() {
         built(&document)
     );
 }
+
+#[test]
+fn a_chapter_takes_its_search_records_when_first_searched() {
+    let publication = relayout_fixture_epub();
+    let config = &steps()[0].1;
+    let mut document = open(&publication);
+    let created = document
+        .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
+            layout_config: config.clone(),
+            target_chapter_index: 0,
+            target_locator: locator(CHAPTERS[0]),
+        })
+        .expect("the chapter lays out");
+    let book = document.create_revision(config).expect("the book lays out");
+    let request = || crate::runtime::RuntimeSearchRequest {
+        query: "Paragraph 12.".to_owned(),
+        case_sensitive: true,
+        whole_word: false,
+        limit: Some(10),
+    };
+    let chapter_revision = document
+        .chapter_local_revisions
+        .get(&created.revision.revision_id)
+        .expect("the chapter is kept");
+    let in_chapter = crate::runtime::search::search_revision(
+        &document.document,
+        &created.revision.revision_id,
+        chapter_revision,
+        request(),
+    );
+    let in_book = super::revisions::search(&document, &book.revision_id, request());
+    let RuntimeSourceLocatorResolution::Resolved {
+        page_index: chapter_start,
+        ..
+    } = document
+        .resolve_source_locator(&book.revision_id, locator(CHAPTERS[0]))
+        .expect("the chapter resolves")
+    else {
+        panic!("the chapter has no page in the book");
+    };
+    let pages = |response: &crate::runtime::RuntimeSearchResponse, base: usize| {
+        response
+            .results
+            .iter()
+            .map(|result| result.page_index + base)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(in_chapter.result_count, 1);
+    assert_eq!(pages(&in_chapter, chapter_start), pages(&in_book, 0));
+}

@@ -253,29 +253,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
         &self,
         range: Range<usize>,
     ) -> Option<Vec<PageArtifactSourceRunStart>> {
-        if range.start > range.end || range.end > self.layout.page_count() {
-            return None;
-        }
-        // Read from the runs the build pass recorded for every page: no
-        // chapter is laid out again to find where a source point is.
-        let index = self.layout.search_page_index();
-        let pages = index.get(range.clone())?;
-        Some(
-            range
-                .zip(pages)
-                .flat_map(|(page_index, page)| {
-                    page.source_run_starts()
-                        .map(move |(node_path, text_offset, text_length)| {
-                            PageArtifactSourceRunStart {
-                                page_index,
-                                node_path: node_path.to_vec(),
-                                text_offset: text_offset as usize,
-                                text_length,
-                            }
-                        })
-                })
-                .collect(),
-        )
+        // Read from what the build pass recorded: no chapter is laid out
+        // again to find where a source point is.
+        self.layout.source_run_starts(range)
     }
 
     pub(super) fn search_page_index(&self) -> &'a [crate::runtime::search::SearchPageText] {

@@ -26,9 +26,9 @@ fn hash_page_text(text: &str) -> String {
 
 use super::{
     PageArtifact, PageArtifactMetadata, PageArtifactRect, PageArtifactSemanticNode,
-    PageArtifactSemanticRole, PageArtifactTarget, PageArtifactTargets, PageArtifactTextPosition,
-    PageArtifactTextPositions, PageArtifactTextRangeGeometry, PageArtifactTextRangeRect,
-    PageArtifactTextRunOffset,
+    PageArtifactSemanticRole, PageArtifactSourceRunStart, PageArtifactTarget, PageArtifactTargets,
+    PageArtifactTextPosition, PageArtifactTextPositions, PageArtifactTextRangeGeometry,
+    PageArtifactTextRangeRect, PageArtifactTextRunOffset,
 };
 
 use crate::fragment_bridge::FlowItemSource;
@@ -221,8 +221,15 @@ impl FragmentPageArtifact {
         origin_y: f64,
     ) -> Self {
         Self::collect_page(
-            page_index, width, height, root, chapter, origin_x, origin_y, true,
+            page_index,
+            width,
+            height,
+            root,
+            chapter,
+            (origin_x, origin_y),
+            CollectMode::Whole,
         )
+        .0
     }
 
     /// The page's text and text runs alone, the same as [`Self::build`]
@@ -236,23 +243,53 @@ impl FragmentPageArtifact {
         root: &Fragment,
         chapter: &ChapterFormattingTree,
     ) -> Self {
-        Self::collect_page(page_index, width, height, root, chapter, 0.0, 0.0, false)
+        Self::collect_page(
+            page_index,
+            width,
+            height,
+            root,
+            chapter,
+            (0.0, 0.0),
+            CollectMode::Text,
+        )
+        .0
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Where each of the page's text runs that maps to source starts: its
+    /// node path, the source offset of its first character and its UTF-16
+    /// length, the same as [`Self::build`]'s runs give, without the page's
+    /// text. What finding the page of a source point reads.
+    pub(in crate::runtime) fn source_run_starts(
+        page_index: usize,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+    ) -> Vec<PageArtifactSourceRunStart> {
+        Self::collect_page(
+            page_index,
+            0.0,
+            0.0,
+            root,
+            chapter,
+            (0.0, 0.0),
+            CollectMode::Starts,
+        )
+        .1
+    }
+
     fn collect_page(
         page_index: usize,
         width: f64,
         height: f64,
         root: &Fragment,
         chapter: &ChapterFormattingTree,
-        origin_x: f64,
-        origin_y: f64,
-        whole: bool,
-    ) -> Self {
+        (origin_x, origin_y): (f64, f64),
+        mode: CollectMode,
+    ) -> (Self, Vec<PageArtifactSourceRunStart>) {
         let mut builder = ArtifactBuilder {
             chapter,
-            whole,
+            mode,
+            page_index,
+            starts: Vec::new(),
             utf16_cursors: std::collections::HashMap::new(),
             text: String::new(),
             offset: 0,
@@ -266,7 +303,7 @@ impl FragmentPageArtifact {
             host_paragraph: None,
         };
         let Fragment::Box(page_root) = root else {
-            return Self::empty(page_index, width, height);
+            return (Self::empty(page_index, width, height), Vec::new());
         };
         for (block_index, child) in page_root.children.iter().enumerate() {
             let mut line_index = 0usize;
@@ -279,7 +316,7 @@ impl FragmentPageArtifact {
             );
         }
         let text_length = builder.offset;
-        Self {
+        let artifact = Self {
             page_index,
             width,
             height,
@@ -290,7 +327,8 @@ impl FragmentPageArtifact {
             links: builder.links,
             semantics: builder.semantics,
             hard_breaks: builder.hard_breaks,
-        }
+        };
+        (artifact, builder.starts)
     }
 
     fn empty(page_index: usize, width: f64, height: f64) -> Self {
@@ -309,11 +347,23 @@ impl FragmentPageArtifact {
     }
 }
 
+/// What a walk over a page's fragments records.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CollectMode {
+    /// Everything a page's query artifact holds.
+    Whole,
+    /// The page's text and its runs.
+    Text,
+    /// Where each run starts in its source, alone.
+    Starts,
+}
+
 struct ArtifactBuilder<'a> {
     chapter: &'a ChapterFormattingTree,
-    /// Whether to record links, images, semantic nodes and hard breaks
-    /// beside the text and its runs.
-    whole: bool,
+    mode: CollectMode,
+    page_index: usize,
+    /// The runs' source starts, in [`CollectMode::Starts`].
+    starts: Vec<PageArtifactSourceRunStart>,
     /// Per (flow, text item): a byte offset in the flow's text and its
     /// UTF-16 offset from the item's start, so the next run of the item
     /// counts on from there instead of from the item's start.
@@ -349,7 +399,7 @@ impl ArtifactBuilder<'_> {
                     .chapter
                     .node_links
                     .get(&inner.source.0)
-                    .filter(|_| self.whole)
+                    .filter(|_| self.mode == CollectMode::Whole)
                 {
                     self.links.push(FragmentLinkRecord {
                         block_index,
@@ -364,7 +414,7 @@ impl ArtifactBuilder<'_> {
                     .chapter
                     .node_tags
                     .get(&inner.source.0)
-                    .filter(|_| self.whole)
+                    .filter(|_| self.mode == CollectMode::Whole)
                 {
                     self.semantics.push(FragmentSemanticRecord {
                         tag: tag.clone(),
@@ -424,7 +474,7 @@ impl ArtifactBuilder<'_> {
                         .zip(first_start)
                         .and_then(|(previous, first)| flow_text.get(*previous..first))
                         .is_some_and(|gap| gap.contains('\n'));
-                    if hard && self.whole {
+                    if hard && self.mode == CollectMode::Whole {
                         self.hard_breaks.push(self.offset);
                     }
                     self.text.push('\n');
@@ -451,27 +501,35 @@ impl ArtifactBuilder<'_> {
                                 .get(item_ranges.partition_point(|(range, _)| range.end <= start))
                                 .filter(|(range, _)| range.contains(&start));
                             let owner = owner_entry.map(|(_, item_index)| *item_index);
-                            let owner_range = owner_entry.map(|(range, _)| range.clone());
+                            let run_len = run_text.encode_utf16().count() as u32;
+                            // The run's UTF-16 offset from its item's start.
+                            let prefix = owner_entry.and_then(|(range, item_index)| {
+                                self.item_prefix(
+                                    (line.source.0, *item_index),
+                                    range.start,
+                                    (start, run.text_end as usize),
+                                    run_len,
+                                    flow_text,
+                                )
+                            });
+                            if self.mode == CollectMode::Starts {
+                                if let Some(start) = owner
+                                    .and_then(item_source)
+                                    .zip(prefix)
+                                    .and_then(|(item, prefix)| {
+                                        source_start(self.page_index, item, prefix, run_len)
+                                    })
+                                {
+                                    self.starts.push(start);
+                                }
+                                continue;
+                            }
                             let href = owner
                                 .and_then(item_source)
                                 .and_then(|source| source.href.clone());
-                            let run_len = run_text.encode_utf16().count() as u32;
                             let source = owner.and_then(item_source).and_then(|item| {
                                 let path = item.source_path.clone()?;
-                                let range = owner_range.clone()?;
-                                let item_index = owner?;
-                                let cursor = self
-                                    .utf16_cursors
-                                    .get(&(line.source.0, item_index))
-                                    .copied()
-                                    .filter(|(byte, _)| *byte <= start)
-                                    .unwrap_or((range.start, 0));
-                                let prefix = cursor.1
-                                    + flow_text.get(cursor.0..start)?.encode_utf16().count() as u32;
-                                self.utf16_cursors.insert(
-                                    (line.source.0, item_index),
-                                    (run.text_end as usize, prefix + run_len),
-                                );
+                                let prefix = prefix?;
                                 let segments = item
                                     .segments
                                     .iter()
@@ -513,7 +571,7 @@ impl ArtifactBuilder<'_> {
                             self.offset += length;
                             self.has_text = true;
                         }
-                        Fragment::Image(image) if self.whole => {
+                        Fragment::Image(image) if self.mode == CollectMode::Whole => {
                             let InlineItem::Image { src, .. } = &items[image.item_index as usize]
                             else {
                                 continue;
@@ -549,6 +607,52 @@ impl ArtifactBuilder<'_> {
             Fragment::Text(_) | Fragment::Image(_) => {}
         }
     }
+}
+
+impl ArtifactBuilder<'_> {
+    /// The UTF-16 offset of byte `run.0` from its item's start (`item_start`),
+    /// counted on from where the item's previous run ended when that is no
+    /// further than this run's start; this run's end becomes the item's.
+    fn item_prefix(
+        &mut self,
+        item: (u32, usize),
+        item_start: usize,
+        run: (usize, usize),
+        run_len: u32,
+        flow_text: &str,
+    ) -> Option<u32> {
+        let cursor = self
+            .utf16_cursors
+            .get(&item)
+            .copied()
+            .filter(|(byte, _)| *byte <= run.0)
+            .unwrap_or((item_start, 0));
+        let prefix = cursor.1 + flow_text.get(cursor.0..run.0)?.encode_utf16().count() as u32;
+        self.utf16_cursors.insert(item, (run.1, prefix + run_len));
+        Some(prefix)
+    }
+}
+
+/// A run's source start: the source offset its first stretch maps to, the
+/// offset a [`RunSourceMap`] of the run gives for its first character.
+fn source_start(
+    page_index: usize,
+    item: &FlowItemSource,
+    prefix: u32,
+    run_len: u32,
+) -> Option<PageArtifactSourceRunStart> {
+    let path = item.source_path.as_ref()?;
+    let text_offset = item.segments.iter().find_map(|segment| {
+        let lo = segment.item_start.max(prefix);
+        let hi = (segment.item_start + segment.len).min(prefix + run_len);
+        (hi > lo).then(|| segment.source_start + (lo - segment.item_start))
+    })?;
+    Some(PageArtifactSourceRunStart {
+        page_index,
+        node_path: path.clone(),
+        text_offset: text_offset as usize,
+        text_length: run_len as usize,
+    })
 }
 
 impl PageArtifact for FragmentPageArtifact {

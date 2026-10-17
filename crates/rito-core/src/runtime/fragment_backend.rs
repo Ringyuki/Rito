@@ -283,9 +283,14 @@ pub(super) struct FragmentBuiltLayout {
     /// the revision builder from the chapters' source nodes.
     pub(super) anchors: BTreeMap<String, usize>,
     /// One search record per page, in page order: the page text and its
-    /// run offsets, taken while the build pass had the chapter in hand.
-    /// A query reads this slice and materializes no chapter.
-    search_index: Vec<SearchPageText>,
+    /// run offsets. A book's are taken while the build pass has each
+    /// chapter in hand, so a query materializes no chapter; a chapter's
+    /// table keeps its pages and takes them when first asked.
+    search_index: std::cell::OnceCell<Vec<SearchPageText>>,
+    /// Where each text run starts in its source, by page, when the table
+    /// records them apart from its search records: what finding the page
+    /// of a source point reads, taken as a chapter's table is built.
+    run_starts: Option<Vec<super::page_artifact::PageArtifactSourceRunStart>>,
     /// What the chapters are rebuilt from; absent only for a table with
     /// no chapters.
     build: Option<FragmentTableBuildInputs>,
@@ -314,7 +319,8 @@ impl FragmentBuiltLayout {
             page_count,
             chapter_start_pages,
             anchors: BTreeMap::new(),
-            search_index: Vec::new(),
+            search_index: std::cell::OnceCell::new(),
+            run_starts: None,
             build,
             materialized: RefCell::new(MaterializedChapters::default()),
         }
@@ -326,7 +332,66 @@ impl FragmentBuiltLayout {
 
     /// Every page's searchable text and run offsets, in page order.
     pub(super) fn search_page_index(&self) -> &[SearchPageText] {
-        &self.search_index
+        self.search_index.get_or_init(|| self.take_search_records())
+    }
+
+    /// The search records of every page, read from the chapters' pages.
+    /// Only a table built without them gets here; its chapters are kept.
+    fn take_search_records(&self) -> Vec<SearchPageText> {
+        let Some(build) = self.build.as_ref() else {
+            return Vec::new();
+        };
+        let mut records = Vec::with_capacity(self.page_count);
+        for (chapter_index, &base) in self.chapter_starts.iter().enumerate() {
+            let Ok(chapter) = self.materialize(chapter_index) else {
+                break;
+            };
+            for (offset, page) in chapter.pages.iter().enumerate() {
+                records.push(search_record(
+                    base + offset,
+                    &page.root,
+                    &chapter.paint,
+                    &build.config,
+                ));
+            }
+        }
+        records
+    }
+
+    /// Where each text run of the pages in `range` starts in its source.
+    pub(super) fn source_run_starts(
+        &self,
+        range: std::ops::Range<usize>,
+    ) -> Option<Vec<super::page_artifact::PageArtifactSourceRunStart>> {
+        if range.start > range.end || range.end > self.page_count {
+            return None;
+        }
+        if let Some(starts) = &self.run_starts {
+            return Some(
+                starts
+                    .iter()
+                    .filter(|start| range.contains(&start.page_index))
+                    .cloned()
+                    .collect(),
+            );
+        }
+        let pages = self.search_page_index().get(range.clone())?;
+        Some(
+            range
+                .zip(pages)
+                .flat_map(|(page_index, page)| {
+                    page.source_run_starts()
+                        .map(move |(node_path, text_offset, text_length)| {
+                            super::page_artifact::PageArtifactSourceRunStart {
+                                page_index,
+                                node_path: node_path.to_vec(),
+                                text_offset: text_offset as usize,
+                                text_length,
+                            }
+                        })
+                })
+                .collect(),
+        )
     }
 
     pub(super) fn chapter_start_pages(&self) -> &BTreeSet<usize> {
@@ -595,7 +660,7 @@ impl RuntimeDocument {
         }
         let mut layout = FragmentBuiltLayout::new(chapters, Some(build));
         layout.anchors = anchors;
-        layout.search_index = search_index;
+        layout.search_index = std::cell::OnceCell::from(search_index);
         Ok(layout)
     }
 
@@ -681,7 +746,9 @@ impl RuntimeDocument {
         // laid out a second time on that first read.
         let materialized = materialized_chapter(paginated, 0, config);
         let mut anchors = BTreeMap::new();
-        let mut search_index = Vec::with_capacity(materialized.pages.len());
+        // The run starts every resize resolves its position through; the
+        // search records wait for a search.
+        let mut run_starts = Vec::new();
         for (offset, page) in materialized.pages.iter().enumerate() {
             collect_page_anchors(
                 &page.root,
@@ -689,11 +756,10 @@ impl RuntimeDocument {
                 offset,
                 &mut anchors,
             );
-            search_index.push(search_record(
+            run_starts.extend(FragmentPageArtifact::source_run_starts(
                 offset,
                 &page.root,
-                &materialized.paint,
-                config,
+                &materialized.paint.built,
             ));
         }
         let chapter = FragmentBackendChapter {
@@ -707,7 +773,7 @@ impl RuntimeDocument {
         };
         let mut layout = FragmentBuiltLayout::new(vec![chapter], Some(build));
         layout.anchors = anchors;
-        layout.search_index = search_index;
+        layout.run_starts = Some(run_starts);
         layout
             .materialized
             .borrow_mut()
