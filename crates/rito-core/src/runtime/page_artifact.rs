@@ -45,7 +45,7 @@ pub(super) struct PageArtifactSpread {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct PageArtifactSourceRunStart {
     pub(super) page_index: usize,
-    pub(super) node_path: Vec<usize>,
+    pub(super) node_path: std::rc::Rc<[usize]>,
     pub(super) text_offset: usize,
     pub(super) text_length: usize,
 }

@@ -278,7 +278,7 @@ impl FragmentPageArtifact {
             mode,
             page_index,
             starts: Vec::new(),
-            utf16_cursors: std::collections::HashMap::new(),
+            utf16_cursors: rustc_hash::FxHashMap::default(),
             text: String::new(),
             offset: 0,
             has_text: false,
@@ -287,7 +287,7 @@ impl FragmentPageArtifact {
             links: Vec::new(),
             semantics: Vec::new(),
             hard_breaks: Vec::new(),
-            flow_last_text_end: std::collections::HashMap::new(),
+            flow_last_text_end: rustc_hash::FxHashMap::default(),
             host_paragraph: None,
         };
         let Fragment::Box(page_root) = root else {
@@ -355,7 +355,7 @@ struct ArtifactBuilder<'a> {
     /// Per (flow, text item): a byte offset in the flow's text and its
     /// UTF-16 offset from the item's start, so the next run of the item
     /// counts on from there instead of from the item's start.
-    utf16_cursors: std::collections::HashMap<(u32, usize), (usize, u32)>,
+    utf16_cursors: rustc_hash::FxHashMap<(u32, usize), (usize, u32)>,
     text: String,
     /// UTF-16 running offset.
     offset: usize,
@@ -367,7 +367,7 @@ struct ArtifactBuilder<'a> {
     hard_breaks: Vec<usize>,
     /// Per flow: the byte end of the previous line's last text fragment
     /// in that flow's concatenated text, for hard-break detection.
-    flow_last_text_end: std::collections::HashMap<u32, usize>,
+    flow_last_text_end: rustc_hash::FxHashMap<u32, usize>,
     /// The paragraph of the line an inline-block being collected rides.
     host_paragraph: Option<u32>,
 }
@@ -468,10 +468,16 @@ impl ArtifactBuilder<'_> {
                     self.text.push('\n');
                     self.offset += 1;
                 }
-                if let Some(last_end) = line.children.iter().rev().find_map(|child| match child {
-                    Fragment::Text(run) => Some(run.text_end as usize),
-                    _ => None,
-                }) {
+                // Read only where the page's text is written.
+                let last_end = (self.mode != CollectMode::Starts)
+                    .then(|| {
+                        line.children.iter().rev().find_map(|child| match child {
+                            Fragment::Text(run) => Some(run.text_end as usize),
+                            _ => None,
+                        })
+                    })
+                    .flatten();
+                if let Some(last_end) = last_end {
                     self.flow_last_text_end.insert(line.source.0, last_end);
                 }
                 for (run_index, child) in line.children.iter().enumerate() {
@@ -516,7 +522,7 @@ impl ArtifactBuilder<'_> {
                                 .and_then(item_source)
                                 .and_then(|source| source.href.clone());
                             let source = owner.and_then(item_source).and_then(|item| {
-                                let path = item.source_path.clone()?;
+                                let path = item.source_path.as_deref()?.to_vec();
                                 let prefix = prefix?;
                                 let segments = item
                                     .segments

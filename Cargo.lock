@@ -1036,6 +1036,7 @@ dependencies = [
  "rito-style-contract",
  "rito-stylo",
  "roxmltree",
+ "rustc-hash",
  "rustybuzz",
  "serde",
  "serde_json",

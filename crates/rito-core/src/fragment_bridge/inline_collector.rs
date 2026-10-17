@@ -35,7 +35,7 @@ impl InlineCollector {
     ) {
         let source = FlowItemSource {
             source_index,
-            source_path,
+            source_path: source_path.map(Into::into),
             href: self.current_link.clone(),
             image_alt: None,
             segments: Vec::new(),
@@ -361,7 +361,7 @@ impl InlineCollector {
         }
         self.sources.push(FlowItemSource {
             source_index: Some(source_index),
-            source_path: Some(source_path),
+            source_path: Some(source_path.into()),
             href: self.current_link.clone(),
             image_alt: (!alt.is_empty()).then(|| alt.to_owned()),
             segments: Vec::new(),

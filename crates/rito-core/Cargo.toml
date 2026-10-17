@@ -47,6 +47,7 @@ rito-source = { path = "../rito-source" }
 rito-style-contract = { path = "../rito-style-contract" }
 rito-stylo = { path = "../rito-stylo" }
 roxmltree = "0.20"
+rustc-hash = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
 sha2 = "0.10"

@@ -212,7 +212,7 @@ impl RuntimeDocument {
             .expect("source chapter index was ensured");
         let (source_point, source_offset) = source_starts.into_iter().find_map(|start| {
             let source_point = RuntimeSourcePoint {
-                node_path: start.node_path,
+                node_path: start.node_path.to_vec(),
                 text_offset: start.text_offset,
             };
             source_point_offset(source_index, &source_point).map(|offset| (source_point, offset))

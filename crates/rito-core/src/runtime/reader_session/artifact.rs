@@ -262,7 +262,7 @@ pub(super) fn published_spread_target(
         .and_then(|end| engine.source_run_starts(local_page_index..end))
         .and_then(|starts| starts.into_iter().next())
         .map(|start| RuntimeSourcePoint {
-            node_path: start.node_path,
+            node_path: start.node_path.to_vec(),
             text_offset: start.text_offset,
         })
         .or_else(|| {

@@ -226,8 +226,8 @@ pub struct FlowItemSource {
     /// text run, the image element for an image).
     pub source_index: Option<usize>,
     /// Source-tree node path of the item's owner, the durable locator
-    /// coordinate shared with the retained backend.
-    pub source_path: Option<Vec<usize>>,
+    /// coordinate, shared by every run of the item a page records.
+    pub source_path: Option<std::rc::Rc<[usize]>>,
     /// Destination of the nearest enclosing `<a href>`, if any.
     pub href: Option<String>,
     /// Alt text for an image item.

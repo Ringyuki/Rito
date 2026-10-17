@@ -384,7 +384,7 @@ impl FragmentBuiltLayout {
                         .map(move |(node_path, text_offset, text_length)| {
                             super::page_artifact::PageArtifactSourceRunStart {
                                 page_index,
-                                node_path: node_path.to_vec(),
+                                node_path: node_path.into(),
                                 text_offset: text_offset as usize,
                                 text_length,
                             }
