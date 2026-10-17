@@ -40,6 +40,7 @@ mod breaking;
 mod clusters;
 mod context;
 mod fonts;
+mod forensics;
 mod image;
 mod justify;
 mod layout;

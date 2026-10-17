@@ -57,8 +57,9 @@ pub(crate) fn piece_clusters(
         if steps.is_empty() {
             font_size = f64::from(current.run().font_size());
         }
-        let step = hb_fixed_cluster_advance(&current, folded_spacing(spacing_edits, &current))
-            + justify_px;
+        let step =
+            hb_fixed_cluster_advance(catalog, &current, folded_spacing(spacing_edits, &current))
+                + justify_px;
         let trim = halt_trims
             .iter()
             .find(|(trimmed, _)| *trimmed == text_range)

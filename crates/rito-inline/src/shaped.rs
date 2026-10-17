@@ -11,10 +11,9 @@
 //! width breaks the lines it already shaped instead of shaping them again,
 //! as a browser keeps a block's shaped text across a resize.
 
-use std::{
-    cell::Cell,
-    collections::{BTreeMap, HashMap},
-};
+use std::{cell::Cell, collections::BTreeMap};
+
+use rustc_hash::FxHashMap;
 
 use crate::ParagraphLayout;
 
@@ -121,7 +120,7 @@ impl ShapeKey {
 /// The kept paragraphs, least recently used evicted first.
 #[derive(Default)]
 pub(crate) struct ShapedParagraphs {
-    entries: HashMap<ShapeKey, Entry>,
+    entries: FxHashMap<ShapeKey, Entry>,
     /// Last use → key, so eviction finds the oldest without scanning.
     recency: BTreeMap<u64, ShapeKey>,
     clock: u64,

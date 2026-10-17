@@ -104,8 +104,18 @@ pub(crate) struct ResolvedStack {
     pub key: String,
 }
 
-/// Resolved stacks per (family list key, content language).
-type StackCache = RefCell<FxHashMap<(String, Option<String>), Rc<ResolvedStack>>>;
+/// Resolved stacks per (family list, content language), compared by value:
+/// a style's lists are shared `Arc`s, so a hit hashes and compares them in
+/// place instead of formatting a key string for every run and line.
+type StackCache = RefCell<
+    FxHashMap<
+        (
+            rito_style_contract::FontFamilies,
+            Option<rito_style_contract::LanguageTag>,
+        ),
+        Rc<ResolvedStack>,
+    >,
+>;
 
 #[derive(Debug, Default)]
 pub(crate) struct FontCatalog {
@@ -114,6 +124,9 @@ pub(crate) struct FontCatalog {
     face_ids: FxHashMap<(u64, u32), FontFaceId>,
     stacks: StackCache,
     unknown: RefCell<BTreeSet<String>>,
+    /// Units per em per (blob id, face index): a face's `head` table, read
+    /// once instead of for every cluster whose advance is snapped.
+    units_per_em: RefCell<FxHashMap<(u64, u32), Option<i64>>>,
 }
 
 impl FontCatalog {
@@ -262,25 +275,30 @@ impl FontCatalog {
             .text_flow
             .language
             .as_ref()
-            .filter(|tag| !tag.is_empty())
-            .map(|tag| tag.as_str().to_owned());
-        let list_key = style
-            .font
-            .families
-            .iter()
-            .map(|family| match family {
-                FontFamily::Named(name) => format!("\"{}\"", name.as_str().to_lowercase()),
-                FontFamily::Generic(generic) => format!("{generic:?}"),
-            })
-            .collect::<Vec<_>>()
-            .join(",");
-        let key = (list_key, language);
+            .filter(|tag| !tag.is_empty());
+        let key = (style.font.families.clone(), language.cloned());
         if let Some(stack) = self.stacks.borrow().get(&key) {
             return Rc::clone(stack);
         }
-        let stack = Rc::new(self.resolve_uncached(style, key.1.as_deref()));
+        let stack = Rc::new(self.resolve_uncached(style, language.map(|tag| tag.as_str())));
         self.stacks.borrow_mut().insert(key, Rc::clone(&stack));
         stack
+    }
+
+    /// The units per em of the face a run was shaped with, from its `head`
+    /// table, read once per face.
+    pub(crate) fn units_per_em(&self, font: &parley::FontData) -> Option<i64> {
+        use skrifa::raw::TableProvider as _;
+        let key = (font.data.id(), font.index);
+        if let Some(units) = self.units_per_em.borrow().get(&key) {
+            return *units;
+        }
+        let units = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+            .ok()
+            .and_then(|face| face.head().ok())
+            .map(|head| i64::from(head.units_per_em()));
+        self.units_per_em.borrow_mut().insert(key, units);
+        units
     }
 
     fn resolve_uncached(

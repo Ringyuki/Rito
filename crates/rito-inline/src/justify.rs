@@ -284,7 +284,7 @@ pub(crate) fn line_justify_plan(
     if total == 0 {
         return None;
     }
-    if std::env::var_os("RITO_JUST_DEBUG").is_some() {
+    if crate::forensics::justify_debug() {
         let sample: String = content.chars().take(6).collect();
         eprintln!(
             "[plan] '{sample}' slack={slack} total={total} share={} counts={:?}",

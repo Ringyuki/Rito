@@ -6,20 +6,15 @@
 /// with author letter-spacing added OUTSIDE the fixed-point round trip
 /// (it was folded into the cluster advance after shaping).
 pub(crate) fn hb_fixed_cluster_advance<B: parley::style::Brush>(
+    catalog: &crate::FontCatalog,
     current: &parley::layout::Cluster<'_, B>,
     run_letter_spacing: f64,
 ) -> f64 {
-    use skrifa::raw::TableProvider as _;
     let advance = f64::from(current.advance());
     let run = current.run();
-    let font = run.font();
-    let Ok(font_ref) = skrifa::FontRef::from_index(font.data.as_ref(), font.index) else {
+    let Some(upem) = catalog.units_per_em(run.font()) else {
         return advance;
     };
-    let Ok(head) = font_ref.head() else {
-        return advance;
-    };
-    let upem = i64::from(head.units_per_em());
     let size = f64::from(run.font_size());
     if upem <= 0 || size <= 0.0 {
         return advance;

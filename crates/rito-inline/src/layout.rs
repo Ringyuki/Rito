@@ -770,7 +770,7 @@ impl FormattingContext for ParleyInlineContext {
                 .keys()
                 .filter_map(|index| item_text_ranges.get(*index).cloned())
                 .collect();
-            let line_debug = std::env::var_os("RITO_LINE_DEBUG").is_some();
+            let line_debug = crate::forensics::line_debug();
             let mut debug_misses: Vec<String> = Vec::new();
             let ink_top = f64::from(metrics.block_min_coord);
             // css-text: trailing white space HANGS at the line end and is
@@ -1001,7 +1001,7 @@ impl FormattingContext for ParleyInlineContext {
                                 // legitimately resize a glyph (halved
                                 // ruby punctuation via halt) move half
                                 // an em or more and stay shaped.
-                                if std::env::var_os("RITO_BRK_DEBUG").is_some() {
+                                if crate::forensics::break_debug() {
                                     eprintln!(
                                         "[brk] last='{last_char}' shaped={shaped:.6} base={base:.6} delta={delta:.6}"
                                     );
@@ -1048,7 +1048,7 @@ impl FormattingContext for ParleyInlineContext {
             } else {
                 None
             };
-            if std::env::var_os("RITO_JUST_DEBUG").is_some() {
+            if crate::forensics::justify_debug() {
                 let range = line.text_range();
                 let prefix: String = flow_text
                     .get(range.clone())
@@ -1443,6 +1443,7 @@ impl FormattingContext for ParleyInlineContext {
                                 let hb_cluster_advance =
                                     |current: &parley::layout::Cluster<'_, _>| -> f64 {
                                         hb_fixed_cluster_advance(
+                                            &self.catalog,
                                             current,
                                             folded_spacing(spacing_edits, current),
                                         )
@@ -1629,6 +1630,7 @@ impl FormattingContext for ParleyInlineContext {
                                             break;
                                         }
                                         correction += hb_fixed_cluster_advance(
+                                            &self.catalog,
                                             &current,
                                             folded_spacing(spacing_edits, &current),
                                         ) - f64::from(current.advance());
