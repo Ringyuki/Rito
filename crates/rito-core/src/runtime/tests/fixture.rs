@@ -7,8 +7,10 @@ use crate::layout::{
 };
 
 mod footnotes;
+mod relayout;
 
 pub use footnotes::cross_chapter_footnote_fixture_epub;
+pub use relayout::relayout_fixture_epub;
 
 pub fn layout() -> LayoutConfig {
     create_layout_config(LayoutConfigInput {
