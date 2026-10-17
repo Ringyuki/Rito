@@ -10,7 +10,10 @@
 //! first laid out at) at the reading anchor of a page in the chapter, and
 //! releases it; the time of each is reported, then that of one whole-book
 //! layout.
-//! With `RELAYOUT_BENCH_FRAMES` set, every frame's time is printed too.
+//! With `RELAYOUT_BENCH_FRAMES` set, every frame's time is printed too;
+//! with `RELAYOUT_BENCH_NO_BOOK` set, the closing whole-book layout is
+//! skipped, so the work of the frames is the difference between two runs
+//! with different frame counts.
 
 use std::{env, fs, process, time::Instant};
 
@@ -147,6 +150,9 @@ fn run() -> Result<(), String> {
         times[times.len() - 1]
     );
 
+    if env::var_os("RELAYOUT_BENCH_NO_BOOK").is_some() {
+        return Ok(());
+    }
     let started = Instant::now();
     let book = document
         .create_revision(&config(1150.0))
