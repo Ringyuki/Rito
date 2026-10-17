@@ -5,7 +5,6 @@ extension _ArtifactPages on RitoArtifactDecoder {
     final record = reader.record('display list');
     final version = record.uint32('display list format version');
     final commandCount = record.uint32('display list command count');
-    final digest = record.fixedBytes(32, 'display list digest');
     final bytes = record.blob('display list bytes');
     record.finish('display list');
     final decoded = displayListDecoder.decode(bytes);
@@ -16,7 +15,6 @@ extension _ArtifactPages on RitoArtifactDecoder {
     return RitoDisplayListPayload(
       formatVersion: version,
       commandCount: commandCount,
-      semanticDigest: digest,
       wireBytes: bytes,
       displayList: decoded,
     );

@@ -225,7 +225,6 @@ fn build_reader_artifact_from_revision(
         display_list: ReaderDisplayList {
             format_version: encoded.format_version,
             command_count: encoded.command_count,
-            semantic_digest: encoded.semantic_digest,
             bytes: encoded.bytes,
         },
         resources,

@@ -687,7 +687,6 @@ fn artifact_fixture() -> ReaderArtifact {
         display_list: ReaderDisplayList {
             format_version: READER_PRIMITIVE_LIST_FORMAT_VERSION,
             command_count: 3,
-            semantic_digest: std::array::from_fn(|index| u8::try_from(index).unwrap()),
             bytes: vec![0, 1, 2, 127, 128, 255],
         },
         resources: vec![

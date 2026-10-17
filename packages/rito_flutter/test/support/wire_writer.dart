@@ -46,11 +46,6 @@ final class TestWireWriter {
     bytes.addAll(value);
   }
 
-  void fixed(List<int> value) {
-    uint32(value.length);
-    bytes.addAll(value);
-  }
-
   void boolean(bool value) => uint8(value ? 1 : 0);
 
   void uint8(int value) => bytes.add(value);

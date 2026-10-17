@@ -1,5 +1,3 @@
-use sha2::{Digest, Sha256};
-
 use crate::render::{
     lower::{
         lower, DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground,
@@ -70,8 +68,6 @@ fn every_primitive_shape_roundtrips_through_the_strict_validator() {
     assert_eq!(encoded.command_count, 14);
     assert_eq!(&encoded.bytes[..7], b"RITODL1");
     assert_eq!(validate(&encoded.bytes), Ok(14));
-    let expected_digest: [u8; 32] = Sha256::digest(&encoded.bytes).into();
-    assert_eq!(encoded.semantic_digest, expected_digest);
     assert_eq!(encoded.image_hrefs, vec!["images/cover.jpg"]);
     assert_eq!(encoded.font_families, vec!["Rito Serif"]);
 }

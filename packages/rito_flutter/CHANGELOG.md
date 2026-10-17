@@ -1,3 +1,13 @@
+## Unreleased
+
+### Protocol and breaking changes
+
+The artifact protocol is version 7 (was 6): the display list record no
+longer carries a SHA-256 of its bytes. No host read it, and the engine
+hashed the display list of every artifact it published, as for every
+size of a window being resized. `RitoDisplayListPayload.semanticDigest`
+is removed.
+
 ## 0.7.0 - 2026-10-17
 
 ### Ranges across paragraphs inside one wrapper resolve

@@ -1931,7 +1931,7 @@ fn a_render_ratio_change_repaints_without_a_new_revision() {
     );
     assert_ne!(at_one.artifact_id, at_two.artifact_id);
     assert_ne!(
-        at_one.display_list.semantic_digest, at_two.display_list.semantic_digest,
+        at_one.display_list.bytes, at_two.display_list.bytes,
         "the ratio-2 display list snaps on the finer grid"
     );
     for ratio in [0.0, -1.0, f64::NAN, f64::INFINITY] {

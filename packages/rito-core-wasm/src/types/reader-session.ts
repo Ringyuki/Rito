@@ -166,7 +166,6 @@ export interface RitoReaderBackgroundHandoffAck {
 export interface RitoReaderDisplayListPayload {
   readonly formatVersion: 2;
   readonly commandCount: number;
-  readonly semanticDigest: Uint8Array;
   readonly wireBytes: Uint8Array;
   readonly displayList: RitoReaderPrimitiveList;
 }

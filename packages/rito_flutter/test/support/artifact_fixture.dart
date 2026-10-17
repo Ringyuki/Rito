@@ -48,7 +48,6 @@ Uint8List artifactFixture({
     record
       ..uint32(2)
       ..uint32(13)
-      ..fixed(List<int>.filled(32, 0x5a))
       ..blob(display);
   });
   _resources(writer, fontHref, includeFontResource: includeFontResource);

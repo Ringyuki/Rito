@@ -50,8 +50,6 @@ export function artifactWire(sessionId, requestId, artifactId, href, options = {
     const display = displayWire(0);
     record.u32(2, 'display version');
     record.u32(options.displayCommandCount ?? 0, 'display commands');
-    record.u32(32, 'digest length');
-    record.raw(new Uint8Array(32));
     record.u64(BigInt(display.byteLength), 'display bytes length');
     record.raw(display);
   });

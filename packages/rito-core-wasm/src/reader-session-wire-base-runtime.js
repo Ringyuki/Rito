@@ -5,7 +5,7 @@
  * against this one constant — the Rust side has a single constant too,
  * so scattering literals here is how the two drift apart unnoticed.
  */
-export const READER_PROTOCOL_VERSION = 6;
+export const READER_PROTOCOL_VERSION = 7;
 
 const MAX_WIRE_BYTES = 256 * 1024 * 1024;
 const MAX_STRING_BYTES = 16 * 1024 * 1024;
@@ -66,12 +66,6 @@ export class ReaderWireReader {
     const length = this.length64(`${field} length`);
     if (length > maxBytes) this.fail(`${field} exceeds its operation byte limit`);
     return this.take(length, field).slice();
-  }
-
-  fixedBytes(expected, field) {
-    const length = this.u32(`${field} length`);
-    if (length !== expected) this.fail(`${field} must contain ${String(expected)} bytes`);
-    return this.take(expected, field).slice();
   }
 
   option(field, read) {

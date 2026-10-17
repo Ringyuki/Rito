@@ -19,7 +19,7 @@ function artifactFixture() {
 test('decodes the artifact the Rust encoder writes, every hit field included', () => {
   const artifact = decodeRitoReaderArtifact(artifactFixture());
 
-  assert.equal(artifact.protocolVersion, 6);
+  assert.equal(artifact.protocolVersion, 7);
   assert.equal(artifact.localSpreadIndex, 5);
   assert.deepEqual(artifact.localPageIndexes, [9, 10]);
   assert.equal(artifact.bookPageIndex, 140);

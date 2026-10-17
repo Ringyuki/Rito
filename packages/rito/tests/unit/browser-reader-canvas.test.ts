@@ -648,7 +648,6 @@ function displayList(commands: Primitives, ratio: number): BrowserReaderArtifact
   return {
     formatVersion: 2,
     commandCount: commands.length,
-    semanticDigest: new Uint8Array(32),
     wireBytes: new Uint8Array(),
     displayList: { formatVersion: 2, ratio, commandCount: commands.length, commands },
   };

@@ -99,15 +99,12 @@ final class RitoDisplayListPayload {
   RitoDisplayListPayload({
     required this.formatVersion,
     required this.commandCount,
-    required Uint8List semanticDigest,
     required Uint8List wireBytes,
     required this.displayList,
-  }) : semanticDigest = semanticDigest.asUnmodifiableView(),
-       wireBytes = wireBytes.asUnmodifiableView();
+  }) : wireBytes = wireBytes.asUnmodifiableView();
 
   final int formatVersion;
   final int commandCount;
-  final Uint8List semanticDigest;
   final Uint8List wireBytes;
   final RitoPrimitiveList displayList;
 }

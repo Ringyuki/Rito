@@ -58,7 +58,6 @@ fn display_list(writer: &mut Writer, value: &ReaderDisplayList) -> Result<(), Re
     writer.record(|writer| {
         writer.u32(value.format_version);
         writer.u32(value.command_count);
-        writer.fixed_bytes(&value.semantic_digest, "display list digest")?;
         writer.blob(&value.bytes, "display list bytes")
     })
 }

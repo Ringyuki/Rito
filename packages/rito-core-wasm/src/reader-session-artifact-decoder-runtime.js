@@ -141,14 +141,13 @@ function readDisplayList(reader) {
   const record = reader.record('display list');
   const formatVersion = record.u32('display list format version');
   const commandCount = record.u32('display list command count');
-  const semanticDigest = record.fixedBytes(32, 'display list digest');
   const wireBytes = record.blob('display list bytes');
   record.finish('display list');
   const displayList = decodeRitoReaderPrimitiveList(wireBytes);
   if (displayList.formatVersion !== formatVersion || displayList.commandCount !== commandCount) {
     reader.fail('display list metadata does not match RITODL1 bytes');
   }
-  return { formatVersion, commandCount, semanticDigest, wireBytes, displayList };
+  return { formatVersion, commandCount, wireBytes, displayList };
 }
 
 function readResourceRef(reader) {

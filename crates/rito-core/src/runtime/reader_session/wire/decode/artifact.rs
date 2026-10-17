@@ -61,7 +61,6 @@ fn display_list(reader: &mut Reader<'_>) -> Result<ReaderDisplayList, ReaderErro
         Ok(ReaderDisplayList {
             format_version: reader.u32()?,
             command_count: reader.u32()?,
-            semantic_digest: reader.fixed_bytes("display list digest")?,
             bytes: reader.blob("display list bytes")?,
         })
     })

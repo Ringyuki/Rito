@@ -1,7 +1,5 @@
 use std::{collections::BTreeSet, error::Error, fmt};
 
-use sha2::{Digest, Sha256};
-
 use crate::render::lower::{Primitive, PrimitiveList};
 
 pub(crate) mod contract;
@@ -21,7 +19,6 @@ pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 2;
 pub(crate) struct ReaderEncodedDisplayList {
     pub format_version: u32,
     pub command_count: u32,
-    pub semantic_digest: [u8; 32],
     pub bytes: Vec<u8>,
     pub image_hrefs: Vec<String>,
     pub font_families: Vec<String>,
@@ -50,12 +47,10 @@ pub(crate) fn encode_reader_primitive_list(
 ) -> Result<ReaderEncodedDisplayList, ReaderDisplayListWireError> {
     let command_count = encode::checked_length(list.commands.len(), "primitive")?;
     let bytes = encode::encode_primitive_list(list)?;
-    let semantic_digest = Sha256::digest(&bytes).into();
     let (image_hrefs, font_families) = collect_primitive_refs(list);
     Ok(ReaderEncodedDisplayList {
         format_version: READER_PRIMITIVE_LIST_FORMAT_VERSION,
         command_count,
-        semantic_digest,
         bytes,
         image_hrefs,
         font_families,

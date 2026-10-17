@@ -71,14 +71,6 @@ final class RitoBinaryReader {
     return take(length, field);
   }
 
-  Uint8List fixedBytes(int expected, String field) {
-    final length = uint32('$field length');
-    if (length != expected) {
-      fail('$field must contain $expected bytes');
-    }
-    return Uint8List.fromList(take(expected, field));
-  }
-
   T? option<T>(String field, T Function() read) {
     final tag = uint8('$field option tag');
     return switch (tag) {

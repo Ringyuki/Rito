@@ -317,7 +317,6 @@ pub struct ReaderNavigation {
 pub struct ReaderDisplayList {
     pub format_version: u32,
     pub command_count: u32,
-    pub semantic_digest: [u8; 32],
     pub bytes: Vec<u8>,
 }
 

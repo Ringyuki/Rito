@@ -157,7 +157,6 @@ RitoArtifact imageArtifact({
     displayList: RitoDisplayListPayload(
       formatVersion: 2,
       commandCount: commands.length,
-      semanticDigest: Uint8List(32),
       wireBytes: Uint8List(0),
       displayList: displayList,
     ),

@@ -178,8 +178,8 @@ fn wasm_projection_is_byte_identical_to_core_for_a_nonfirst_page_locator() {
 
     assert_eq!(wasm_wire, direct_wire);
     assert_eq!(
-        wasm_artifact.display_list.semantic_digest,
-        direct_artifact.display_list.semantic_digest
+        wasm_artifact.display_list.bytes,
+        direct_artifact.display_list.bytes
     );
     assert_eq!(wasm_artifact.locator.anchor_id.as_deref(), Some("point-47"));
     assert!(wasm_artifact.local_page_index > 0);
