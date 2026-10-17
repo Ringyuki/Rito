@@ -4,20 +4,24 @@
 //! adopt it over the one shown and release that one, as the browser
 //! reader's worker does per size.
 //!
-//! Usage: `resize-bench <epub> <fonts-dir> <chapter-href> [frames]`. The
-//! session opens a tenth of the way into the chapter at 1190×900, double
-//! pages; each frame then asks for a width 4 px narrower, cycling over 30
-//! widths. Prints the median, minimum and maximum frame time; with
-//! `RESIZE_BENCH_FRAMES` set, every frame's time too. Its work over the
-//! frames alone is the difference between two runs with different frame
-//! counts.
+//! Usage: `resize-bench <epub> <fonts-dir> <chapter-href> [frames]
+//! [progression]`. The session opens `progression` of the way into the
+//! chapter (a tenth by default) at 1190×900, double pages, and turns one
+//! page, as a reader does before resizing: the window then keeps the
+//! position the turn reported, a source point, as the browser reader
+//! keeps the visible artifact's. Each frame then asks for a width 4 px
+//! narrower, cycling over 30 widths. Prints the median, minimum and
+//! maximum frame time; with `RESIZE_BENCH_FRAMES` set, every frame's time
+//! too. Its work over the frames alone is the difference between two runs
+//! with different frame counts.
 
-use std::{env, fs, process, time::Instant};
+use std::{cell::Cell, env, fs, process, time::Instant};
 
 use rito_core::runtime::{
-    ReaderArtifactRequest, ReaderForegroundHandoff, ReaderLayout, ReaderLocator, ReaderSession,
-    ReaderSpreadMode, ReaderTextRenderingProfile, RuntimePinnedFontFaceInput,
-    RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
+    ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderArtifactRequest, ReaderForegroundHandoff,
+    ReaderLayout, ReaderLocator, ReaderSession, ReaderSpreadMode, ReaderTextRenderingProfile,
+    RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole, RuntimePinnedFontLanguageTag,
+    RuntimePinnedFontPolicyInput,
 };
 use sha2::{Digest, Sha256};
 
@@ -33,27 +37,37 @@ fn main() {
 fn run() -> Result<(), String> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     if args.len() < 3 {
-        return Err("usage: resize-bench <epub> <fonts-dir> <chapter-href> [frames]".to_owned());
+        return Err(
+            "usage: resize-bench <epub> <fonts-dir> <chapter-href> [frames] [progression]"
+                .to_owned(),
+        );
     }
     let bytes = fs::read(&args[0]).map_err(|e| format!("read {}: {e}", args[0]))?;
     let frames = args
         .get(3)
         .map_or(Ok(30), |value| value.parse::<usize>())
         .map_err(|e| format!("frames: {e}"))?;
+    let progression = args
+        .get(4)
+        .map_or(Ok(0.1), |value| value.parse::<f64>())
+        .map_err(|e| format!("progression: {e}"))?;
     let mut session =
         ReaderSession::open_owned_with_pinned_font_policy(SESSION, bytes, policy(&args[1])?)
             .map_err(|e| format!("open: {e:?}"))?;
-    let mut request_id = 0;
-    let mut show = |session: &mut ReaderSession,
-                    width: f64,
-                    locator: ReaderLocator,
-                    visible: Option<u64>|
+    let request_ids = Cell::new(0);
+    let next_request_id = || {
+        request_ids.set(request_ids.get() + 1);
+        request_ids.get()
+    };
+    let show = |session: &mut ReaderSession,
+                width: f64,
+                locator: ReaderLocator,
+                visible: Option<u64>|
      -> Result<(u64, ReaderLocator), String> {
-        request_id += 1;
         let artifact = session
             .request_artifact(ReaderArtifactRequest {
                 session_id: SESSION,
-                request_id,
+                request_id: next_request_id(),
                 layout: layout(width),
                 locator,
                 text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
@@ -78,9 +92,10 @@ fn run() -> Result<(), String> {
         anchor_id: None,
         source_point: None,
         source_range: None,
-        progression: Some(0.1),
+        progression: Some(progression),
     };
-    let (mut visible, mut locator) = show(&mut session, 1190.0, opening, None)?;
+    let (opened, _) = show(&mut session, 1190.0, opening, None)?;
+    let (mut visible, mut locator) = turn(&mut session, opened, next_request_id())?;
     let mut times = Vec::with_capacity(frames);
     for frame in 0..frames {
         let width = 1186.0 - 4.0 * (frame % 30) as f64;
@@ -105,6 +120,33 @@ fn run() -> Result<(), String> {
         );
     }
     Ok(())
+}
+
+/// Turns to the spread after `visible`, adopts it and releases `visible`.
+fn turn(
+    session: &mut ReaderSession,
+    visible: u64,
+    request_id: u64,
+) -> Result<(u64, ReaderLocator), String> {
+    let artifact = session
+        .request_adjacent(ReaderAdjacentRequest {
+            session_id: SESSION,
+            request_id,
+            from_artifact_id: visible,
+            direction: ReaderAdjacentDirection::Next,
+        })
+        .map_err(|e| format!("turn: {e:?}"))?;
+    session
+        .adopt_foreground_candidate(ReaderForegroundHandoff {
+            session_id: SESSION,
+            expected_visible_artifact_id: Some(visible),
+            candidate_artifact_id: artifact.artifact_id,
+        })
+        .map_err(|e| format!("adopt the turn: {e:?}"))?;
+    session
+        .release_artifact(visible)
+        .map_err(|e| format!("release before the turn: {e:?}"))?;
+    Ok((artifact.artifact_id, artifact.locator))
 }
 
 fn layout(width: f64) -> ReaderLayout {
