@@ -29,9 +29,11 @@ pub struct ConstraintSpace {
     /// clamp, not a containing block.
     pub containing_block_size: Option<f64>,
     /// Whether line boxes carry their text fragments. Without them a
-    /// layout places and sizes every line, and breaks every fragmentainer,
-    /// exactly as with them: pagination reads no text, and a page laid out
-    /// again from its break token with them is the page.
+    /// layout breaks, sizes and stacks every line, and breaks every
+    /// fragmentainer, exactly as with them, but places nothing along a
+    /// line (inline positions are not meaningful): pagination reads no
+    /// text, and a page laid out again from its break token with them is
+    /// the page.
     pub line_text: bool,
 }
 

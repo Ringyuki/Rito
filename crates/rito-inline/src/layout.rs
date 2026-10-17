@@ -799,9 +799,7 @@ impl FormattingContext for ParleyInlineContext {
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
-            let has_inline_box = line
-                .items()
-                .any(|item| matches!(&item, PositionedLayoutItem::InlineBox(_)));
+            let has_inline_box = line.has_inline_box();
             // Env-gated line forensics for the native probe binary (wasm
             // has no env; the flag simply never sets there).
             // Flow-text ranges of the spread ruby bases: justification must
@@ -1162,12 +1160,16 @@ impl FormattingContext for ParleyInlineContext {
             // exactly these ranges).
             let mut line_runs: Vec<(u32, u32)> = Vec::new();
             let mut line_has_items = false;
-            for item in line.items() {
+            for item in line_items(&line, line_text) {
                 line_has_items = true;
                 match item {
-                    PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let shaping_range = glyph_run.run().text_range();
-                        let item_index = u32::from_le_bytes(glyph_run.style().brush) as usize;
+                    LineItemView::Glyphs {
+                        run,
+                        brush,
+                        positioned,
+                    } => {
+                        let shaping_range = run.text_range();
+                        let item_index = u32::from_le_bytes(brush) as usize;
                         let item_range =
                             item_text_ranges.get(item_index).cloned().ok_or_else(|| {
                                 LayoutError::Invalid(format!(
@@ -1206,11 +1208,8 @@ impl FormattingContext for ParleyInlineContext {
                                 .chars()
                                 .find(|c| !c.is_whitespace() || *c == '\u{3000}')
                             {
-                                let probe = LineProbe::Text(self.run_sample(
-                                    style,
-                                    glyph_run.run().font(),
-                                    character,
-                                ));
+                                let probe =
+                                    LineProbe::Text(self.run_sample(style, run.font(), character));
                                 if !line_run_samples
                                     .iter()
                                     .any(|(index, seen)| *index == item_index && *seen == probe)
@@ -1221,9 +1220,9 @@ impl FormattingContext for ParleyInlineContext {
                         }
                         let shift = shift_for_range(&run_range);
                         max_rise = max_rise.max(shift);
-                        if !line_text {
+                        let Some(glyph_run) = positioned else {
                             continue;
-                        }
+                        };
                         let run_x = f64::from(glyph_run.offset()) - parley_line_x;
                         // A run inside a bordered/padded span carries the
                         // box's raster anchor: the browser snaps the
@@ -1821,7 +1820,7 @@ impl FormattingContext for ParleyInlineContext {
                             }
                         }
                     }
-                    PositionedLayoutItem::InlineBox(inline_box) => {
+                    LineItemView::Atom(inline_box) => {
                         let place = item_text_ranges
                             .get(inline_box.id as usize)
                             .map_or(0, |range| range.start as u32);
@@ -2498,11 +2497,10 @@ impl FormattingContext for ParleyInlineContext {
             // growth. The base font (the first glyph run over the ruby
             // base) tells whether the previous line mixed fonts.
             let base_font_key = |range: &std::ops::Range<usize>| -> Option<(u64, u32)> {
-                line.items().find_map(|item| {
-                    let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                line.style_runs().find_map(|item| {
+                    let parley::LineStyleRun::Glyphs { run, .. } = item else {
                         return None;
                     };
-                    let run = glyph_run.run();
                     let shaped = run.text_range();
                     if shaped.start >= range.end || range.start >= shaped.end {
                         return None;
@@ -2723,9 +2721,9 @@ impl FormattingContext for ParleyInlineContext {
             running_top += ruby_growth;
             prev_ruby_below = Some((line_height - baseline).max(0.0));
             prev_line_fonts.clear();
-            for item in line.items() {
-                if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
-                    let font = glyph_run.run().font();
+            for item in line.style_runs() {
+                if let parley::LineStyleRun::Glyphs { run, .. } = item {
+                    let font = run.font();
                     let key = (font.data.id(), font.index);
                     if !prev_line_fonts.contains(&key) {
                         prev_line_fonts.push(key);

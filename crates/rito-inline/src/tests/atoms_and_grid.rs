@@ -130,7 +130,7 @@ fn an_atom_boundary_share_moves_the_atom_not_the_next_run() {
     );
 }
 
-fn jgap_image_layout_style() -> rito_style_contract::LayoutFormattingStyle {
+pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormattingStyle {
     use rito_style_contract::{
         AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,
         LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle,

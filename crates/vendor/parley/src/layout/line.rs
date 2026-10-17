@@ -99,6 +99,27 @@ impl<'a, B: Brush> Line<'a, B> {
             })
     }
 
+    /// Rito: the line's glyph runs and inline boxes, split and ordered as
+    /// [`Line::items`] splits and orders them, without reading a glyph or
+    /// positioning anything. `items` ends a glyph run at the first glyph of
+    /// another style; every glyph carries its cluster's style, so a glyph
+    /// run here ends at the first cluster of another style that holds a
+    /// glyph.
+    pub fn style_runs(&self) -> impl Iterator<Item = LineStyleRun<'a, B>> + 'a + Clone {
+        StyleRunIter {
+            line: self.clone(),
+            item_index: 0,
+            cluster: 0,
+        }
+    }
+
+    /// Rito: whether the line holds an inline box.
+    pub fn has_inline_box(&self) -> bool {
+        self.layout.data.line_items[self.data.item_range.clone()]
+            .iter()
+            .any(|item| item.kind == LayoutItemKind::InlineBox)
+    }
+
     /// Returns an iterator over the glyph runs for the line.
     pub fn items(&self) -> impl Iterator<Item = PositionedLayoutItem<'a, B>> + 'a + Clone {
         GlyphRunIter {
@@ -168,6 +189,66 @@ impl<'a, B: Brush> LineItem<'a, B> {
         match self {
             LineItem::Run(run) => Some(run),
             _ => None,
+        }
+    }
+}
+
+/// Rito: a glyph run of a line, by its run and style, or an inline box,
+/// neither positioned.
+#[derive(Clone)]
+pub enum LineStyleRun<'a, B: Brush> {
+    Glyphs {
+        run: Run<'a, B>,
+        style: &'a Style<B>,
+    },
+    InlineBox(&'a InlineBox),
+}
+
+#[derive(Clone)]
+struct StyleRunIter<'a, B: Brush> {
+    line: Line<'a, B>,
+    item_index: usize,
+    /// The next cluster of the current run, in visual order.
+    cluster: usize,
+}
+
+impl<'a, B: Brush> Iterator for StyleRunIter<'a, B> {
+    type Item = LineStyleRun<'a, B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.line.item(self.item_index)? {
+                LineItem::InlineBox(inline_box) => {
+                    self.item_index += 1;
+                    self.cluster = 0;
+                    return Some(LineStyleRun::InlineBox(inline_box));
+                }
+                LineItem::Run(run) => {
+                    let range = run.cluster_range();
+                    let len = range.len();
+                    let rtl = run.is_rtl();
+                    let clusters = &run.layout.data.clusters[range];
+                    let at = |visual: usize| &clusters[if rtl { len - 1 - visual } else { visual }];
+                    while self.cluster < len && at(self.cluster).glyph_len == 0 {
+                        self.cluster += 1;
+                    }
+                    if self.cluster < len {
+                        let style_index = at(self.cluster).style_index;
+                        self.cluster += 1;
+                        while self.cluster < len {
+                            let cluster = at(self.cluster);
+                            if cluster.glyph_len != 0 && cluster.style_index != style_index {
+                                break;
+                            }
+                            self.cluster += 1;
+                        }
+                        let style = run.layout.data.styles.get(usize::from(style_index))?;
+                        return Some(LineStyleRun::Glyphs { run, style });
+                    }
+                    self.item_index += 1;
+                    self.cluster = 0;
+                }
+            }
         }
     }
 }

@@ -164,19 +164,9 @@ pub(crate) fn rewind_break_count(
     }
     // Only a line crossing an element boundary rewinds; a single-item
     // line extends instead (see `line_end_trim_candidate`).
-    let mut line_item: Option<u32> = None;
-    let mut crosses = false;
-    for item in line.items() {
-        let brush = match item {
-            PositionedLayoutItem::GlyphRun(run) => u32::from_le_bytes(run.style().brush),
-            PositionedLayoutItem::InlineBox(inline_box) => u32::MAX - inline_box.id as u32,
-        };
-        if *line_item.get_or_insert(brush) != brush {
-            crosses = true;
-            break;
-        }
-    }
-    if !crosses {
+    let mut items = line_item_keys(&line);
+    let first = items.next();
+    if !items.any(|item| Some(item) != first) {
         return None;
     }
     let metrics = line.metrics();
@@ -268,18 +258,14 @@ pub(crate) fn line_end_trim_candidate(
     // <span>① kills it at every size, alignment and vertical-align while
     // a font-fallback split inside one element does not; flip widths
     // 560.35 span vs 541.41 without). The line must be one inline item.
-    let mut line_item: Option<u32> = None;
-    for item in line.items() {
-        match item {
-            PositionedLayoutItem::GlyphRun(run) => {
-                let brush = u32::from_le_bytes(run.style().brush);
-                if *line_item.get_or_insert(brush) != brush {
-                    return None;
-                }
-            }
-            // An atomic inline is an element boundary by definition.
-            PositionedLayoutItem::InlineBox(_) => return None,
-        }
+    // An atomic inline is an element boundary by definition.
+    if line.has_inline_box() {
+        return None;
+    }
+    let mut items = line_item_keys(&line);
+    let first = items.next();
+    if items.any(|item| Some(item) != first) {
+        return None;
     }
     let metrics = line.metrics();
     // Hung trailing whitespace is not measured against the available
