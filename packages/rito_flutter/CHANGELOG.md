@@ -9,7 +9,8 @@ the frame that asks for a layout can draw it, and no bytes are copied into
 transfer buffers on the way. The reader controller lays the whole book out
 four pages at a time, each step after the isolate's other work, instead of
 512 pages a step. Opening a book and the first search hold the isolate
-while they run. `RitoNativeWorkerTerminatedException` is deprecated:
+while they run. A host that asks for a relayout before a frame builds
+(from `didChangeMetrics`) has the new page drawn in that frame. `RitoNativeWorkerTerminatedException` is deprecated:
 nothing raises it.
 
 ### A range between two carets comes back with them

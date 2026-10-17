@@ -354,6 +354,12 @@ Omit the override for light mode — the authored page paints unmodified.
   book and the first search hold the isolate while they run; the whole
   book behind the page shown is laid out a few pages at a time between
   frames. `RitoIsolateGateway` is its deprecated former name.
+- A relayout completes within the microtasks of the task that asks for
+  it. To draw a new size in the frame that shows it, ask before that
+  frame builds — from `WidgetsBindingObserver.didChangeMetrics` or a
+  transient frame callback — not from `build` or a `LayoutBuilder`,
+  which run inside the frame: the page laid out there shows a frame
+  later. `test/relayout_in_frame_test.dart` holds this with real frames.
 - Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.41.7,
   pinned Rust toolchain). Tests and diagnostics may bypass with
   `RitoNativeGateway(diagnosticLibrary: ...)`.
