@@ -27,7 +27,13 @@ export type ReaderProxiesSlice = Pick<
 >;
 export type LayoutActionsSlice = Pick<
   ReaderController,
-  'resize' | 'setSpreadMode' | 'setTheme' | 'setTypography' | 'setRenderScale' | 'renderScale'
+  | 'resize'
+  | 'setSpreadMode'
+  | 'setTheme'
+  | 'repaintPages'
+  | 'setTypography'
+  | 'setRenderScale'
+  | 'renderScale'
 >;
 export type FontActionsSlice = Pick<
   ReaderController,

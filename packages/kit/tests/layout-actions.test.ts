@@ -212,6 +212,17 @@ describe('buildLayoutActions', () => {
     expect(spies.scheduleComposite).toHaveBeenCalledOnce();
   });
 
+  it('paints every page again on request, without touching the layout', () => {
+    const { internals, runtime, emitter, spies } = createMocks();
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
+
+    actions.repaintPages();
+
+    expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
+    expect(spies.scheduleComposite).toHaveBeenCalledOnce();
+    expect(spies.setTheme).not.toHaveBeenCalled();
+  });
+
   it('refreshes layout state when typography changes commit synchronously', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks();
     const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());

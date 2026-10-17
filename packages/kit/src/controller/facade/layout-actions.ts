@@ -41,6 +41,10 @@ export function buildLayoutActions(
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();
     },
+    repaintPages(): void {
+      runtime.pool.invalidateAllContent();
+      runtime.frameDriver.scheduleComposite();
+    },
     setTypography(options): boolean {
       const anchor = currentPosition(internals);
       const changed = internals.reader.setTypography(options);

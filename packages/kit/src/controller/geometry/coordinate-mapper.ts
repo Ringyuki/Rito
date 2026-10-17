@@ -70,6 +70,8 @@ export interface CoordinateMapper {
   spreadContentToPage(x: number, y: number): { pageIndex: number; x: number; y: number } | null;
   /** Whether a page is present in this mapper's spread. */
   isPageVisible(pageIndex: number): boolean;
+  /** The whole page, margins included, in viewport-logical space; undefined off this spread. */
+  pageRect(pageIndex: number): Rect | undefined;
 
   // ── Render / UI conversion chain ─────────────────────────────────
   /** page-content rect → spread-content rect. Throws when the page is not in this spread. */
@@ -128,12 +130,23 @@ function buildMapperObject(
     },
     spreadContentToPage: (x, y) => resolveSpreadPage(pages, x, y),
     isPageVisible: (pageIndex) => pageMap.has(pageIndex),
+    pageRect: (pageIndex) => wholePageRect(g, pageMap.get(pageIndex)),
     pageContentToSpread: (pageIndex, rect) => pageContentRectToSpread(pageMap, pageIndex, rect),
     spreadContentRectToViewport: (rect) => spreadContentRectToViewport(g, rect),
     pageContentToViewport: (pageIndex, rect) => toViewport(pageMap, pageIndex, rect),
     viewportToDisplay: (rect) => scaleRect(rect, renderScale),
     pageContentToScreen: (pageIndex, rect, canvasRect) =>
       toScreen(pageMap, pageIndex, rect, canvasRect, renderScale),
+  };
+}
+
+function wholePageRect(g: LayoutGeometry, page: PageGeometry | undefined): Rect | undefined {
+  if (!page) return undefined;
+  return {
+    x: page.contentOriginX - g.marginLeft,
+    y: page.contentOriginY - g.marginTop,
+    width: g.pageWidth,
+    height: g.pageHeight,
   };
 }
 

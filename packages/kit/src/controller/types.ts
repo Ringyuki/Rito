@@ -21,6 +21,7 @@ import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 import type { ReaderControllerEvents } from './events';
+import type { PagePainter } from './page-paint';
 
 export type { ReaderControllerEvents };
 
@@ -69,6 +70,8 @@ export interface ControllerOptions {
   readonly positionStorage?: PositionStorageAdapter | undefined;
   /** Accessibility mirror configuration (opt-in). */
   readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
+  /** Draws over each page as part of it (a page number, say): it moves with the page in turns. */
+  readonly paintPage?: PagePainter | undefined;
 }
 
 /** Input for creating an annotation from the current selection. */
@@ -110,6 +113,8 @@ export interface ReaderController {
   resize(width: number, height: number, margin?: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setTheme(options: ReaderThemeOptions): void;
+  /** Paints every page again, `paintPage` included, for when what it draws has changed. */
+  repaintPages(): void;
   /**
    * Update typography overrides. For each value field:
    * `undefined` leaves it untouched, `null` clears the override (falls back to the

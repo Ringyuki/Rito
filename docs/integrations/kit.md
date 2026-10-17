@@ -25,6 +25,7 @@ Core exports:
 - `ControllerOptions`
 - `InteractionMode`
 - `AddAnnotationInput`
+- `PagePainter`, `PagePaint`
 
 Supporting exports:
 
@@ -214,6 +215,45 @@ the same outcomes; one table of scenarios holds both test suites to them. In bet
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.
+
+## Drawing On Pages
+
+`paintPage` in `ControllerOptions` draws over each page as part of it: a page
+number, a running head. The controller calls it whenever it paints a page, right
+after the engine, on the page's own picture, so what it draws moves with the page
+in every turn, a paper turn's leaf included, and lies under highlights and the
+selection. Its `context` is clipped to the page, with its origin at the page's
+top-left corner, in the layout's CSS pixels (the device pixel ratio and
+`renderScale` already applied), and is restored afterwards. `page` gives
+`pageIndex` in the committed layout, `side`, `width`, `height` and `margins`, and
+`bookPageIndex` and `bookPageCount`: the page's number in the whole book and the
+book's page count. Both are `null` while only the chapter being read is laid out,
+when page indexes count from that chapter; hide page numbering then. The book's
+layout paints every page again with both.
+
+```ts
+const controller = createController(reader, canvas, {
+  paintPage(context, page) {
+    if (page.bookPageIndex === null) return;
+    context.font = '12px serif';
+    context.textAlign = 'center';
+    context.fillText(
+      `${page.bookPageIndex + 1} / ${page.bookPageCount}`,
+      page.width / 2,
+      page.height - page.margins.bottom / 2,
+    );
+  },
+});
+```
+
+The pages on either side of the one on screen are painted ahead of a turn, so a
+painter draws from `page`, not from where the reader is. When what it draws changes
+on its own (the host's colours, a setting), `controller.repaintPages()` paints
+every page again. A painter that throws leaves the page as the engine painted it
+and is reported on the `error` event (source `'page-painter'`); it never holds a
+page or a turn back. In a paper turn a lifted leaf is seen nearer and larger, so
+what is drawn at a page's very edge, such as a number low in the bottom margin, can
+pass the canvas's edge while the leaf is up.
 
 ## Responsibilities
 
