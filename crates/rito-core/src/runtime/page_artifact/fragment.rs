@@ -19,7 +19,7 @@ use super::{
     PageArtifactTextRangeRect, PageArtifactTextRunOffset,
 };
 
-use crate::fragment_bridge::FlowItemSource;
+use crate::fragment_bridge::{FlowItemSource, SourceSegment};
 
 /// One text run's geometry and text, pre-resolved from the fragment tree.
 #[derive(Debug, Clone)]
@@ -524,9 +524,7 @@ impl ArtifactBuilder<'_> {
                             let source = owner.and_then(item_source).and_then(|item| {
                                 let path = item.source_path.as_deref()?.to_vec();
                                 let prefix = prefix?;
-                                let segments = item
-                                    .segments
-                                    .iter()
+                                let segments = run_segments(&item.segments, prefix, run_len)
                                     .filter_map(|segment| {
                                         let lo = segment.item_start.max(prefix);
                                         let hi = (segment.item_start + segment.len)
@@ -627,6 +625,22 @@ impl ArtifactBuilder<'_> {
     }
 }
 
+/// The segments of an item's text that can overlap the run at `prefix`,
+/// `run_len` long, in order. They follow the item's text without
+/// overlapping, so those ending before the run are skipped by binary
+/// search and the walk stops at the first starting after it: an item of a
+/// long paragraph holds a segment per collapsed space of its source.
+fn run_segments(
+    segments: &[SourceSegment],
+    prefix: u32,
+    run_len: u32,
+) -> impl Iterator<Item = &SourceSegment> {
+    let first = segments.partition_point(|segment| segment.item_start + segment.len <= prefix);
+    segments[first..]
+        .iter()
+        .take_while(move |segment| segment.item_start < prefix + run_len)
+}
+
 /// A run's source start: the source offset its first stretch maps to, the
 /// offset a [`RunSourceMap`] of the run gives for its first character.
 fn source_start(
@@ -636,7 +650,7 @@ fn source_start(
     run_len: u32,
 ) -> Option<PageArtifactSourceRunStart> {
     let path = item.source_path.as_ref()?;
-    let text_offset = item.segments.iter().find_map(|segment| {
+    let text_offset = run_segments(&item.segments, prefix, run_len).find_map(|segment| {
         let lo = segment.item_start.max(prefix);
         let hi = (segment.item_start + segment.len).min(prefix + run_len);
         (hi > lo).then(|| segment.source_start + (lo - segment.item_start))
