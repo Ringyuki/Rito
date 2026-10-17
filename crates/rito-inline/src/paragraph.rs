@@ -7,7 +7,8 @@ use crate::*;
 impl ParleyInlineContext {
     /// The paragraph at `node` built for the line loop in `space` with the
     /// trims and spreads it has decided so far: kept from an earlier build
-    /// that read the same, or built and kept.
+    /// that read the same, with its images and inline blocks sized again
+    /// when they were sized for another space, or built and kept.
     pub(crate) fn shaped_paragraph(
         &self,
         tree: &FormattingTree,
@@ -22,8 +23,21 @@ impl ParleyInlineContext {
             space.containing_block_size,
         );
         let mut key = ShapeKey::new(tree.fingerprint(), node.0, edits);
-        if let Some(kept) = self.shaped.borrow_mut().get(&mut key, &build_space) {
-            return Ok(kept);
+        // Not borrowed while atoms are sized: an inline block lays out
+        // its own paragraphs through this cache.
+        let kept = self.shaped.borrow_mut().get(&mut key, &build_space);
+        if let Some(KeptParagraph {
+            mut paragraph,
+            atoms_sized_elsewhere,
+        }) = kept
+        {
+            if atoms_sized_elsewhere {
+                self.resize_atoms(tree, node, &mut paragraph, &build_space, cancel)?;
+                self.shaped
+                    .borrow_mut()
+                    .insert(key, &build_space, &paragraph);
+            }
+            return Ok(paragraph);
         }
         let built = self.build_layout(
             tree,
@@ -125,111 +139,26 @@ impl ParleyInlineContext {
                     }
                     runs.push((start..text.len(), style, item_index));
                 }
-                InlineItem::Image {
-                    intrinsic_width,
-                    intrinsic_height,
-                    layout_style,
-                    viewport,
-                    ..
-                } => {
-                    let layout_style = styles
-                        .layout
-                        .style(*layout_style)
-                        .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-                    let (width, height) = image_display_size(
-                        *intrinsic_width,
-                        *intrinsic_height,
-                        layout_style,
-                        space.inline_size(),
-                        space.block_size(),
-                        space.containing_block_size(),
-                        percentage_images,
-                        *viewport,
-                    )?;
-                    // A vertical-rl flow's replaced atom advances by its
-                    // PHYSICAL height along the (vertical) inline axis
-                    // and takes a column as wide as its physical width
-                    // (measured on a 318x2048 chapter plate: the column
-                    // is 318 wide, the image runs the page's length and
-                    // clips); the swapped box maps back to the physical
-                    // raster in the vertical paint walk.
-                    let (width, height) = if tree
-                        .strut_style(node)
-                        .and_then(|id| styles.inline.style(id).ok())
-                        .is_some_and(|strut| {
-                            strut.bidi.writing_mode
-                                == rito_style_contract::WritingMode::VerticalRightToLeft
-                        }) {
-                        (height, width)
-                    } else {
-                        (width, height)
+                InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
+                    let Some(atom) =
+                        self.size_atom(tree, node, item, space, percentage_images, cancel)?
+                    else {
+                        continue;
                     };
-                    // The image element's own flank borders (absorbed as
-                    // padding by the bridge) widen the atom's advance; the
-                    // raster paints inside them (measured on the b60
-                    // cover's `border: none solid` — dropping the 1px
-                    // flanks shifted the whole plate against Blink).
-                    let edge = |side: rito_style_contract::NonNegativeLengthPercentage| match side
-                        .value()
-                    {
-                        LengthPercentage::Length(px) => f64::from(px.get()).max(0.0),
-                        _ => 0.0,
-                    };
-                    let inset_left = edge(layout_style.padding.left);
-                    let inset_right = edge(layout_style.padding.right);
-                    if inset_left > 0.0 || inset_right > 0.0 {
-                        image_edge_insets.insert(item_index as u64, (inset_left, inset_right));
+                    if let Some(insets) = atom.edge_insets {
+                        image_edge_insets.insert(item_index as u64, insets);
+                    }
+                    if let Some((block_node, baseline, root_box)) = atom.block {
+                        inline_block_baselines.insert(block_node, baseline);
+                        inline_block_boxes.insert(item_index as u64, (baseline, root_box));
                     }
                     image_boxes.push(InlineBox {
                         id: item_index as u64,
                         kind: InlineBoxKind::InFlow,
                         index: text.len(),
-                        width: width + (inset_left + inset_right) as f32,
-                        height,
+                        width: atom.width,
+                        height: atom.height,
                     });
-                }
-                InlineItem::InlineBlock { node, .. } => {
-                    // The atomic inline is its own mini paragraph, laid
-                    // out recursively through the full pipeline at CSS
-                    // 2.1 §10.3.5 shrink-to-fit width against the host.
-                    let sizes = self.intrinsic_inline_sizes(tree, *node)?;
-                    let available = space.inline_size().unwrap_or(sizes.max_content);
-                    let width = sizes.max_content.min(sizes.min_content.max(available));
-                    let outcome = FormattingContext::layout(
-                        self,
-                        tree,
-                        *node,
-                        &ConstraintSpace::continuous(width),
-                        None,
-                        cancel,
-                    )?;
-                    let rito_fragment::Fragment::Box(root_box) = outcome.fragments.root else {
-                        return Err(LayoutError::Invalid(
-                            "inline-block layout must produce a box fragment".to_owned(),
-                        ));
-                    };
-                    // The atom's baseline is its LAST line's baseline
-                    // (CSS §10.8.1); a line-less box uses its bottom.
-                    let baseline = root_box
-                        .children
-                        .iter()
-                        .rev()
-                        .find_map(|child| match child {
-                            rito_fragment::Fragment::Line(line) => {
-                                Some(line.rect.y + line.baseline)
-                            }
-                            _ => None,
-                        })
-                        .unwrap_or(root_box.rect.height);
-                    image_boxes.push(InlineBox {
-                        id: item_index as u64,
-                        kind: InlineBoxKind::InFlow,
-                        index: text.len(),
-                        width: root_box.rect.width as f32,
-                        height: root_box.rect.height as f32,
-                    });
-                    inline_block_baselines.insert(node.0, baseline);
-                    inline_block_boxes.insert(item_index as u64, (baseline, root_box));
                 }
                 InlineItem::EmptyBox {
                     style,
@@ -623,7 +552,7 @@ impl ParleyInlineContext {
                 rito_style_contract::LengthPercentageOrAuto::Value(inner) => match inner {
                     LengthPercentage::Length(px) => px.get(),
                     LengthPercentage::Percentage(pct) => space
-                        .inline_size()
+                        .margin_basis()
                         .map_or(0.0, |basis| pct.ratio() * basis as f32),
                     _ => 0.0,
                 },

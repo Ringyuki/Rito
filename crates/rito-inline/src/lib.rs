@@ -11,10 +11,12 @@
 //!
 //! The context is one type spread over the modules that own its laws:
 //! `context` (construction), `fonts` (the face catalog and family
-//! resolution), `line_metrics` (normal-line
-//! geometry from font tables), `strut` (line heights and measurement), `paragraph` (building a paragraph's
-//! Parley layout), `layout` (the provider entry points and the line
-//! loop), and the free laws the loop applies — `breaking`, `justify`,
+//! resolution), `line_metrics` (normal-line geometry from font tables),
+//! `strut` (line heights and measurement), `paragraph` (building a
+//! paragraph's Parley layout), `atoms` (sizing its images and inline
+//! blocks), `shaped` (the builds kept across layouts), `layout` (the
+//! provider entry points and the line loop), and the free laws the loop
+//! applies — `breaking`, `justify`,
 //! `punctuation`, `marker`, `shaping`, `ruby`, `image`. Every module sees
 //! the whole crate through the root's re-exports, as the single file they
 //! were carved from did.
@@ -36,6 +38,7 @@ use rito_style_contract::{
     MaximumSize, PreferredSize, TextAlign,
 };
 
+mod atoms;
 mod breaking;
 mod clusters;
 mod context;
@@ -68,7 +71,7 @@ pub use paragraph::plain_paragraph_style;
 pub(crate) use paragraph::*;
 pub(crate) use punctuation::*;
 pub(crate) use ruby::*;
-pub(crate) use shaped::{BuildSpace, ParagraphEdits, ShapeKey, ShapedParagraphs};
+pub(crate) use shaped::{BuildSpace, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs};
 pub(crate) use shaping::*;
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;

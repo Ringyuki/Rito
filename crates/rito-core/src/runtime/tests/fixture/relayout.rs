@@ -12,7 +12,9 @@ use super::{add_file, minimal_png};
 ///   a floated image at the start of a paragraph whose sentence recurs
 ///   later with no float beside it, an image wider than any column, a
 ///   half-width image, an inline-block and a span with percentage
-///   margins (both sized by the line's width), and a list.
+///   margins (both sized by the line's width), an inline-block of text
+///   long enough to wrap at any width beside nothing else sized by it,
+///   and a list.
 /// - `cjk.xhtml`: Chinese paragraphs dense with punctuation the line ends
 ///   trim and pairs compress, and ruby.
 /// - `viewport.xhtml`: a `vw` font size and paragraphs styled by
@@ -108,6 +110,9 @@ fn latin_chapter() -> String {
     body.push_str("<p><img class=\"half\" src=\"Images/plate.png\" alt=\"\"/></p>\n");
     body.push_str(&format!(
         "<p>An <span class=\"ib\">inline block of text</span> rides the line and a <span class=\"pm\">span with percentage margins</span> widens by the line's width. {filler}</p>\n"
+    ));
+    body.push_str(&format!(
+        "<p>{RECURRING} <span class=\"ib\">{filler} {filler}</span></p>\n"
     ));
     body.push_str("<ul><li>First item of a list</li><li>Second item of a list</li></ul>\n");
     for index in 10..16 {
