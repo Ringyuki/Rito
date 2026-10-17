@@ -43,17 +43,16 @@ impl RuntimeDocument {
                 .prepared
                 .as_ref()
                 .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
-            let chapter_style_tables = crate::epub::project_prepared_document_styles(
-                prepared,
+            let chapter_style_tables = document.chapter_styles.tables(
+                &prepared.stylesheet_ledger,
+                &prepared.chapters,
                 layout_config,
-                0,
-                prepared.chapters.len(),
             )?;
             let required_font_face_catalog = document.required_font_face_catalog();
             let layout_key = layout_key(layout_config, &document.pinned_font_policy)?;
             let interactions = runtime_revision_interactions(prepared, true);
             (
-                chapter_style_table_map(chapter_style_tables),
+                chapter_style_tables.into_iter().collect(),
                 required_font_face_catalog,
                 interactions,
                 layout_key,
@@ -229,22 +228,4 @@ fn runtime_revision_interactions_with_footnotes(
             .map(|chapter| chapter.source.idref.clone())
             .collect(),
     }
-}
-
-fn chapter_style_table_map(
-    tables: Vec<crate::epub::ChapterStyleTable>,
-) -> std::collections::BTreeMap<String, Rc<super::frame::RuntimeChapterStyleTables>> {
-    tables
-        .into_iter()
-        .map(|chapter| {
-            (
-                chapter.idref,
-                Rc::new(super::frame::RuntimeChapterStyleTables {
-                    layout: chapter.layout,
-                    inline: chapter.inline,
-                    generated: chapter.generated,
-                }),
-            )
-        })
-        .collect()
 }

@@ -7,6 +7,7 @@ use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 mod access;
 mod chapter_engine_session;
 mod chapter_local;
+mod chapter_styles;
 mod chapter_text;
 mod chapter_tree_report;
 mod cleanup;
@@ -92,6 +93,9 @@ pub struct RuntimeDocument {
     page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
+    /// Each chapter's style tables as last resolved, reused by every
+    /// layout they hold under.
+    chapter_styles: chapter_styles::ChapterStyleCache,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
     fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
@@ -174,6 +178,7 @@ impl RuntimeDocument {
             page_target_context: OnceCell::new(),
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
+            chapter_styles: chapter_styles::ChapterStyleCache::default(),
             font_face_sources: OnceCell::new(),
             fragment_engine: OnceCell::new(),
             pinned_font_policy,

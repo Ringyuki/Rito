@@ -596,15 +596,17 @@ impl RuntimeDocument {
         interactions.pending_footnote_keys =
             crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
         interactions.footnote_index_complete = footnote_index_complete;
-        let chapter = crate::epub::prepare_runtime_layout_chapter(&prepared, config)
+        let (idref, style_tables) = self
+            .chapter_styles
+            .tables(
+                &prepared.stylesheet_ledger,
+                &prepared.chapters[..prepared.chapters.len().min(1)],
+                config,
+            )
             .map_err(|error| format!("chapter style resolution: {}", error.message()))?
+            .into_iter()
+            .next()
             .ok_or_else(|| "prepared runtime chapter is unavailable".to_owned())?;
-        let idref = chapter.idref;
-        let style_tables = Rc::new(RuntimeChapterStyleTables {
-            layout: chapter.layout_style_table,
-            inline: chapter.inline_style_table,
-            generated: chapter.generated_boxes,
-        });
         let prepared = Rc::new(prepared);
         let build = self.fragment_table_build_inputs(Rc::clone(&prepared), config)?;
         let image_dimensions = self

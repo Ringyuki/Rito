@@ -4,7 +4,7 @@
 //! the engine keeps between layouts is a cache of work already done, never
 //! an input: a fresh document has none of it.
 
-use std::fmt::Write as _;
+use std::{fmt::Write as _, rc::Rc};
 
 use crate::layout::{
     create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
@@ -291,4 +291,75 @@ fn policy() -> &'static RuntimePinnedFontPolicyInput {
             ],
         }
     })
+}
+
+#[test]
+fn a_chapter_is_styled_once_for_every_layout_its_styles_hold_under() {
+    let publication = relayout_fixture_epub();
+    let config = |name: &str| {
+        steps()
+            .into_iter()
+            .find(|(step, _)| *step == name)
+            .map(|(_, config)| config)
+            .expect("the step exists")
+    };
+    let mut document = open(&publication);
+    let mut styled = |config: &LayoutConfig, chapter: usize| {
+        let created = document
+            .create_chapter_local_revision(RuntimeChapterLocalRevisionRequest {
+                layout_config: config.clone(),
+                target_chapter_index: chapter,
+                target_locator: locator(CHAPTERS[chapter]),
+            })
+            .expect("the chapter lays out");
+        let revision = &created.revision;
+        let tables = document
+            .chapter_local_revisions
+            .get(&revision.revision_id)
+            .and_then(|kept| {
+                kept.chapter_style_tables
+                    .get(CHAPTERS[chapter].trim_end_matches(".xhtml"))
+            })
+            .cloned()
+            .expect("the revision keeps its chapter's tables");
+        document
+            .release_chapter_local_revision(&RuntimeChapterLocalRevisionHandle {
+                revision_id: revision.revision_id.clone(),
+                revision_version: revision.revision_version,
+                coordinate: revision.coordinate.clone(),
+            })
+            .expect("the chapter releases");
+        tables
+    };
+
+    // Content boxes 372 and 352 px wide: every media query answers alike.
+    let latin_420 = styled(&config("420"), 0);
+    let latin_400 = styled(&config("400"), 0);
+    assert!(Rc::ptr_eq(&latin_420, &latin_400), "narrower, same styles");
+    // 332 px: `(min-width: 340px)` stops matching.
+    let latin_380 = styled(&config("380"), 0);
+    assert!(!Rc::ptr_eq(&latin_400, &latin_380), "a media query flipped");
+    // Larger type is another cascade.
+    let latin_larger = styled(&config("larger type"), 0);
+    assert!(!Rc::ptr_eq(&latin_380, &latin_larger), "larger type");
+    // A length in viewport units reads the width itself.
+    let viewport_420 = styled(&config("420"), 2);
+    let viewport_400 = styled(&config("400"), 2);
+    assert!(!Rc::ptr_eq(&viewport_420, &viewport_400), "vw");
+
+    // The whole book takes the tables the chapter already has.
+    let latin_again = styled(&config("400"), 0);
+    let book = document
+        .create_revision(&config("400"))
+        .expect("the book lays out");
+    let book_latin = document
+        .revisions
+        .get(&book.revision_id)
+        .and_then(|kept| kept.chapter_style_tables.get("latin"))
+        .cloned()
+        .expect("the book keeps the chapter's tables");
+    assert!(
+        Rc::ptr_eq(&latin_again, &book_latin),
+        "book and chapter share"
+    );
 }

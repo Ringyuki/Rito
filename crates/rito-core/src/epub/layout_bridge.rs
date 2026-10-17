@@ -1,95 +1,58 @@
-use std::rc::Rc;
-
 use crate::{
     layout::LayoutConfig,
     style::{
         resolve_prepared_chapter_style, select_prepared_chapter_sources, ChapterStyleOptions,
-        PreparedStyleChapterInput, StyleBackendError,
+        ChapterStyleViewportUse, CssViewport, PreparedStyleChapterInput, StyleBackendError,
     },
 };
 
-mod runtime;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use runtime::project_prepared_document_styles;
+use super::{EpubError, EpubResult, ParsedLoadedChapterSource};
 
-use super::{EpubError, EpubResult, ParsedLoadedChapterSource, PreparedLoadedDocument};
-
-/// One chapter's typed style tables, as the fragment bridge consumes them.
-pub(crate) struct PreparedRuntimeLayoutChapter {
-    pub(crate) idref: String,
-    pub(crate) layout_style_table: rito_style_contract::LayoutStyleTable,
-    pub(crate) inline_style_table: rito_style_contract::InlineStyleTable,
-    pub(crate) generated_boxes: rito_style_contract::GeneratedBoxTable,
-}
-
-pub(crate) fn prepare_runtime_layout_chapter(
-    prepared: &PreparedLoadedDocument,
-    layout_config: &LayoutConfig,
-) -> EpubResult<Option<PreparedRuntimeLayoutChapter>> {
-    let tables = chapter_style_tables(
-        &prepared.stylesheet_ledger,
-        &prepared.chapters,
-        layout_config,
-    )?;
-    Ok(tables
-        .into_iter()
-        .next()
-        .map(|chapter| PreparedRuntimeLayoutChapter {
-            idref: chapter.idref,
-            layout_style_table: chapter.layout,
-            inline_style_table: chapter.inline,
-            generated_boxes: chapter.generated,
-        }))
-}
-
-/// Cascades every chapter in the window and keeps the typed style tables:
-/// the fragment engine builds its formatting tree from these and the
-/// chapter's source arena.
-fn chapter_style_tables(
-    stylesheet_ledger: &super::StylesheetSourceLedger,
-    chapters: &[Rc<ParsedLoadedChapterSource>],
-    layout_config: &LayoutConfig,
-) -> EpubResult<Vec<ChapterStyleTable>> {
-    // The CSS viewport (vh/vw, media queries) is ONE PAGE's content box,
-    // not the reader's spread canvas: the paginated-reader baseline
-    // (epub.js columns, and the pixel oracle's multicol truth) sizes the
-    // html element to the column, so `height: 80vh` on a cover means 80%
-    // of the page content height — measured: 80vh resolved against the
-    // 950px canvas drew the cover 760px tall where the browser draws 680.
-    let viewport = Some(crate::style::CssViewport::new(
+/// The CSS viewport (vh/vw, media queries) a chapter is styled under: ONE
+/// PAGE's content box, not the reader's spread canvas. The paginated
+/// reader baseline (epub.js columns, and the pixel oracle's multicol
+/// truth) sizes the html element to the column, so `height: 80vh` on a
+/// cover means 80% of the page content height — measured: 80vh resolved
+/// against the 950px canvas drew the cover 760px tall where the browser
+/// draws 680.
+pub(crate) fn chapter_style_viewport(layout_config: &LayoutConfig) -> CssViewport {
+    CssViewport::new(
         (layout_config.page_width - layout_config.margin_left - layout_config.margin_right)
             .max(1.0),
         (layout_config.page_height - layout_config.margin_top - layout_config.margin_bottom)
             .max(1.0),
-    ));
+    )
+}
 
-    chapters
-        .iter()
-        .map(|chapter| -> EpubResult<ChapterStyleTable> {
-            if is_recovered_empty_chapter(chapter) {
-                return Ok(ChapterStyleTable {
-                    idref: chapter.source.idref.clone(),
-                    layout: rito_style_contract::LayoutStyleTable::new(0),
-                    inline: rito_style_contract::InlineStyleTable::new(0),
-                    generated: rito_style_contract::GeneratedBoxTable::new(),
-                });
-            }
-            let resolved = resolve_prepared_chapter_style(
-                style_input(stylesheet_ledger, chapter),
-                viewport,
-                chapter_style_options(layout_config),
-            )
-            .map_err(|error| style_failure(chapter, error))?;
-            Ok(ChapterStyleTable {
-                idref: chapter.source.idref.clone(),
-                layout: resolved.layout_style_table,
-                inline: resolved.inline_style_table,
-                generated: resolved.generated_boxes,
-            })
-        })
-        .collect()
+/// Cascades one chapter under `layout_config`.
+pub(crate) fn chapter_style_table(
+    stylesheet_ledger: &super::StylesheetSourceLedger,
+    chapter: &ParsedLoadedChapterSource,
+    layout_config: &LayoutConfig,
+) -> EpubResult<ChapterStyleTable> {
+    if is_recovered_empty_chapter(chapter) {
+        return Ok(ChapterStyleTable {
+            layout: rito_style_contract::LayoutStyleTable::new(0),
+            inline: rito_style_contract::InlineStyleTable::new(0),
+            generated: rito_style_contract::GeneratedBoxTable::new(),
+            viewport_use: None,
+        });
+    }
+    let resolved = resolve_prepared_chapter_style(
+        style_input(stylesheet_ledger, chapter),
+        Some(chapter_style_viewport(layout_config)),
+        chapter_style_options(layout_config),
+    )
+    .map_err(|error| style_failure(chapter, error))?;
+    Ok(ChapterStyleTable {
+        layout: resolved.layout_style_table,
+        inline: resolved.inline_style_table,
+        generated: resolved.generated_boxes,
+        viewport_use: Some(resolved.viewport_use),
+    })
 }
 
 /// Fails as styling `chapter` would on its sources alone, before the
@@ -129,10 +92,12 @@ fn style_failure(chapter: &ParsedLoadedChapterSource, error: StyleBackendError) 
 /// One chapter's typed style tables: interned styles the fragment
 /// pipeline reads directly.
 pub(crate) struct ChapterStyleTable {
-    pub(crate) idref: String,
     pub(crate) layout: rito_style_contract::LayoutStyleTable,
     pub(crate) inline: rito_style_contract::InlineStyleTable,
     pub(crate) generated: rito_style_contract::GeneratedBoxTable,
+    /// What the cascade read of the viewport; `None` for a chapter that
+    /// was never cascaded (an unparseable one, styled empty).
+    pub(crate) viewport_use: Option<ChapterStyleViewportUse>,
 }
 
 /// Formal XHTML parse failures are retained as warning-only empty chapters.
@@ -144,7 +109,7 @@ fn is_recovered_empty_chapter(chapter: &ParsedLoadedChapterSource) -> bool {
     chapter.source_arena.is_none() && chapter.parsed.nodes.is_empty()
 }
 
-fn chapter_style_options(layout_config: &LayoutConfig) -> ChapterStyleOptions<'_> {
+pub(crate) fn chapter_style_options(layout_config: &LayoutConfig) -> ChapterStyleOptions<'_> {
     ChapterStyleOptions {
         root_font_size: layout_config.root_font_size,
         line_height_override: layout_config.line_height_override,

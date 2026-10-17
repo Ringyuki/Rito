@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use super::prepare_runtime_layout_chapter;
+use super::chapter_style_table;
 use crate::{
     epub::{
         prepare_loaded_document, LoadedChapter, LoadedEpubDocument, LoadedTextResource,
@@ -18,11 +18,14 @@ fn unrepresentable_css_does_not_refuse_the_chapter() {
     document.stylesheets[0].text = "p { color: red; border-image: none; }".to_owned();
     let prepared = prepare_loaded_document(&document);
 
-    let chapter = prepare_runtime_layout_chapter(&prepared, &layout())
-        .expect("unrepresentable CSS must not refuse the chapter")
-        .expect("the chapter resolves");
+    let chapter = chapter_style_table(
+        &prepared.stylesheet_ledger,
+        &prepared.chapters[0],
+        &layout(),
+    )
+    .expect("unrepresentable CSS must not refuse the chapter");
 
-    assert_eq!(chapter.idref, "chapter-1");
+    assert!(!chapter.inline.styles().is_empty());
 }
 
 #[test]
@@ -39,11 +42,10 @@ fn undeclared_entity_chapter_renders_literally() {
     assert!(!chapter.parsed.nodes.is_empty());
     assert!(chapter.parsed.warnings.is_empty());
 
-    let resolved = prepare_runtime_layout_chapter(&prepared, &layout())
-        .expect("repaired chapter resolves")
-        .expect("the chapter resolves");
+    let resolved = chapter_style_table(&prepared.stylesheet_ledger, chapter, &layout())
+        .expect("repaired chapter resolves");
 
-    assert_eq!(resolved.idref, "chapter-1");
+    assert!(!resolved.inline.styles().is_empty());
 }
 
 #[test]
@@ -53,7 +55,11 @@ fn non_empty_chapter_without_source_arena_keeps_typed_error() {
     assert!(!prepared.chapters[0].parsed.nodes.is_empty());
     Rc::make_mut(&mut prepared.chapters[0]).source_arena = None;
 
-    let error = match prepare_runtime_layout_chapter(&prepared, &layout()) {
+    let error = match chapter_style_table(
+        &prepared.stylesheet_ledger,
+        &prepared.chapters[0],
+        &layout(),
+    ) {
         Ok(_) => panic!("non-empty topology without its source arena must fail"),
         Err(error) => error,
     };
