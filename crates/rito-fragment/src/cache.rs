@@ -434,13 +434,19 @@ mod tests {
             let outcome = cache
                 .layout(&provider, &tree, tree.root(), space, None, &cancel)
                 .expect("lays out");
-            assert!(!outcome.from_cache, "{space:?} replayed another space's outcome");
+            assert!(
+                !outcome.from_cache,
+                "{space:?} replayed another space's outcome"
+            );
         }
         for space in &spaces {
             let outcome = cache
                 .layout(&provider, &tree, tree.root(), space, None, &cancel)
                 .expect("lays out again");
-            assert!(outcome.from_cache, "{space:?} did not replay its own outcome");
+            assert!(
+                outcome.from_cache,
+                "{space:?} did not replay its own outcome"
+            );
         }
         assert_eq!(provider.calls.get(), spaces.len());
     }
