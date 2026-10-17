@@ -13,6 +13,11 @@ type ImageFallbackPrimitive = Extract<RitoReaderPrimitive, { readonly kind: 'ima
 // A shadow's exclusion clip is the whole plane less the excluded shape;
 // this reach stands in for the plane on any page a reader can lay out.
 const CLIP_REACH = 1 << 20;
+// How far a shadow's shape is moved off the canvas so only its shadow
+// lands: past any canvas a page paints, yet small enough that a float32
+// coordinate there still resolves 1/256 of a pixel.
+const SHADOW_SHIFT = 1 << 15;
+const OPAQUE_SHAPE = '#000000';
 
 /** The stateless blits of the primitive renderer: each one puts a
  * device-resolved primitive on the canvas exactly as the engine
@@ -69,7 +74,12 @@ export function strokePath(ctx: CanvasRenderingContext2D, primitive: StrokePrimi
 }
 
 /** Canvas blurs with `shadowBlur` = twice the Gaussian sigma; the offset
- * is in device pixels like everything else, so it is not scaled. */
+ * is in device pixels like everything else, so it is not scaled. Only the
+ * shadow paints, as in the browser's own box shadow: the shape itself is
+ * filled `SHADOW_SHIFT` device pixels off the canvas and the shadow offset,
+ * which the transform does not touch, carries its blurred copy back. The
+ * fill is opaque because a canvas shadow multiplies the fill's alpha into
+ * the shadow colour's: a translucent shadow takes its alpha once. */
 export function drawShadow(ctx: CanvasRenderingContext2D, primitive: ShadowPrimitive): void {
   ctx.save();
   try {
@@ -79,12 +89,15 @@ export function drawShadow(ctx: CanvasRenderingContext2D, primitive: ShadowPrimi
       tracePath(ctx, primitive.clipOut);
       ctx.clip('evenodd');
     }
+    const { a, b } = ctx.getTransform();
+    const shift = SHADOW_SHIFT / (Math.hypot(a, b) || 1);
     const color = toCanvasColor(primitive.color);
     ctx.shadowColor = color;
     ctx.shadowBlur = primitive.sigma * 2;
-    ctx.shadowOffsetX = primitive.offset.x;
-    ctx.shadowOffsetY = primitive.offset.y;
-    ctx.fillStyle = color;
+    ctx.shadowOffsetX = primitive.offset.x + shift * a;
+    ctx.shadowOffsetY = primitive.offset.y + shift * b;
+    ctx.fillStyle = OPAQUE_SHAPE;
+    ctx.translate(-shift, 0);
     ctx.beginPath();
     tracePath(ctx, primitive.shape);
     ctx.fill();

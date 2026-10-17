@@ -1,4 +1,4 @@
-import type { ResolvedAnnotation, ResolvedAnnotationSegment } from '../../interaction/index';
+import type { Rect, ResolvedAnnotation, ResolvedAnnotationSegment } from '../../interaction/index';
 import type { WiringDeps } from '../core/wiring-deps';
 
 export interface AnnotationHit {
@@ -6,15 +6,13 @@ export interface AnnotationHit {
   readonly segment: ResolvedAnnotationSegment;
 }
 
-export function checkAnnotationClick(pos: { x: number; y: number }, deps: WiringDeps): void {
-  const hit = findAnnotationHitAtPos(pos, deps);
-  if (!hit) return;
-  const center = getAnnotationScreenCenter(hit.annotation, deps.canvas, deps, hit.segment);
-  deps.emitter.emit('annotationClick', {
-    annotation: hit.annotation,
-    x: center.x,
-    y: center.y,
-  });
+/** Where a hit annotation sits on screen, in the coordinates of the live canvas rect. */
+export interface AnnotationScreenPlacement {
+  /** Top centre of {@link screenBounds}. */
+  readonly x: number;
+  readonly y: number;
+  /** Bounding box of the annotation's rects on the hit page. */
+  readonly screenBounds: Rect;
 }
 
 /**
@@ -64,39 +62,37 @@ export function findAnnotationHitAtPos(
 }
 
 /**
- * Get the center-top of a resolved annotation in screen coordinates.
- * All offset math delegated to the mapper.
+ * Projects the hit segment's bounding box to the screen. Only the hit page
+ * counts: an annotation running onto the facing page is placed where it
+ * was touched. All offset math is delegated to the mapper.
  */
-export function getAnnotationScreenCenter(
-  ann: ResolvedAnnotation,
+export function getAnnotationScreenPlacement(
+  hit: AnnotationHit,
   canvas: HTMLCanvasElement,
   deps: WiringDeps,
-  hitSegment?: ResolvedAnnotationSegment,
-): { x: number; y: number } {
-  const { coordState } = deps;
-  const { mapper } = coordState;
-  if (!mapper) return { x: 0, y: 0 };
+): AnnotationScreenPlacement {
+  const { mapper } = deps.coordState;
+  const bounds = boundingBox(hit.segment.rects);
+  if (!mapper || !bounds) return { x: 0, y: 0, screenBounds: { x: 0, y: 0, width: 0, height: 0 } };
+  const screenBounds = mapper.pageContentToScreen(
+    hit.segment.pageIndex,
+    bounds,
+    canvas.getBoundingClientRect(),
+  );
+  return { x: screenBounds.x + screenBounds.width / 2, y: screenBounds.y, screenBounds };
+}
 
-  if (ann.segments.length === 0) return { x: 0, y: 0 };
-
+function boundingBox(rects: readonly Rect[]): Rect | undefined {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
-  const segments = hitSegment ? [hitSegment] : ann.segments.slice(0, 1);
-  const firstPageIndex = segments[0]?.pageIndex ?? 0;
-
-  for (const seg of segments) {
-    for (const r of seg.rects) {
-      if (r.x < minX) minX = r.x;
-      if (r.y < minY) minY = r.y;
-      if (r.x + r.width > maxX) maxX = r.x + r.width;
-    }
+  let maxY = -Infinity;
+  for (const r of rects) {
+    minX = Math.min(minX, r.x);
+    minY = Math.min(minY, r.y);
+    maxX = Math.max(maxX, r.x + r.width);
+    maxY = Math.max(maxY, r.y + r.height);
   }
-
-  if (minX === Infinity) return { x: 0, y: 0 };
-
-  const centerRect = { x: (minX + maxX) / 2, y: minY, width: 0, height: 0 };
-  const canvasRect = canvas.getBoundingClientRect();
-  const screen = mapper.pageContentToScreen(firstPageIndex, centerRect, canvasRect);
-  return { x: screen.x, y: screen.y };
+  if (minX === Infinity) return undefined;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }

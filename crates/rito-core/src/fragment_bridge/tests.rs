@@ -4,7 +4,9 @@
 //! `tests/` build trees from it and assert on their shape, paint and layout.
 
 mod boxes;
+mod floated_images;
 mod flow;
+mod generated;
 mod inline;
 mod pagination;
 mod sizing;
@@ -45,6 +47,7 @@ struct ResolvedChapter {
     body_index: usize,
     layout: LayoutStyleTable,
     inline: InlineStyleTable,
+    generated: rito_style_contract::GeneratedBoxTable,
 }
 
 fn no_images() -> BTreeMap<String, (u32, u32)> {
@@ -118,6 +121,7 @@ fn resolved_chapter_with(xhtml: &str, css: &str) -> ResolvedChapter {
             .index(),
         layout: resolved.layout_style_table,
         inline: resolved.inline_style_table,
+        generated: resolved.generated_boxes,
     }
 }
 

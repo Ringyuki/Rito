@@ -18,7 +18,7 @@ use style::{
     data::ElementDataRef,
     invalidation::element::restyle_hints::RestyleHint,
     properties::{parse_style_attribute, ComputedValues},
-    selector_parser::AttrValue,
+    selector_parser::{AttrValue, PseudoElement},
     servo_arc::Arc,
     shared_lock::{Locked, SharedRwLock},
     stylesheets::{CssRuleType, UrlExtraData},
@@ -390,7 +390,15 @@ impl<'a> DomNode<'a> {
         data.styles.get_primary().cloned()
     }
 
-    fn attribute(self, namespace: &str, local_name: &str) -> Option<&'a str> {
+    /// The computed style of the element's `::before` or `::after`, when the
+    /// cascade generates one (its `display` is not `none` and its `content`
+    /// is effective).
+    pub(crate) fn pseudo_styles(self, pseudo: &PseudoElement) -> Option<Arc<ComputedValues>> {
+        let data: ElementDataRef<'_> = self.slot()?.borrow()?;
+        data.styles.pseudos.get(pseudo).cloned()
+    }
+
+    pub(crate) fn attribute(self, namespace: &str, local_name: &str) -> Option<&'a str> {
         find_attribute(&self.metadata()?.attributes, namespace, local_name)
     }
 

@@ -37,6 +37,10 @@ use crate::fragment_bridge::FlowItemSource;
 #[derive(Debug, Clone)]
 pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) block_index: usize,
+    /// The paragraph the run belongs to (its block-level inline flow).
+    /// Paragraphs nested in one top-level block share its `block_index`;
+    /// this tells them apart. An inline-block's text keeps its host's.
+    pub(in crate::runtime) paragraph: u32,
     pub(in crate::runtime) line_index: usize,
     pub(in crate::runtime) run_index: usize,
     /// UTF-16 offset range in the page text.
@@ -223,6 +227,7 @@ impl FragmentPageArtifact {
             semantics: Vec::new(),
             hard_breaks: Vec::new(),
             flow_last_text_end: std::collections::HashMap::new(),
+            host_paragraph: None,
         };
         let Fragment::Box(page_root) = root else {
             return Self::empty(page_index, width, height);
@@ -285,6 +290,8 @@ struct ArtifactBuilder<'a> {
     /// Per flow: the byte end of the previous line's last text fragment
     /// in that flow's concatenated text, for hard-break detection.
     flow_last_text_end: std::collections::HashMap<u32, usize>,
+    /// The paragraph of the line an inline-block being collected rides.
+    host_paragraph: Option<u32>,
 }
 
 impl ArtifactBuilder<'_> {
@@ -352,6 +359,7 @@ impl ArtifactBuilder<'_> {
                 };
                 let line_x = origin_x + line.rect.x;
                 let line_y = origin_y + line.rect.y;
+                let paragraph = self.host_paragraph.unwrap_or(line.source.0);
                 let has_line_text = line
                     .children
                     .iter()
@@ -435,6 +443,7 @@ impl ArtifactBuilder<'_> {
                             });
                             self.runs.push(FragmentRunRecord {
                                 block_index,
+                                paragraph,
                                 line_index: *line_index,
                                 run_index,
                                 start: self.offset,
@@ -473,8 +482,11 @@ impl ArtifactBuilder<'_> {
                         Fragment::Box(_) => {
                             // An inline-block atom riding the line: its
                             // mini paragraph serializes like any nested
-                            // box, in the line's coordinates.
+                            // box, in the line's coordinates, as part of
+                            // the line's paragraph.
+                            let host = self.host_paragraph.replace(paragraph);
                             self.collect(child, block_index, line_index, line_x, line_y);
+                            self.host_paragraph = host;
                         }
                         _ => {}
                     }

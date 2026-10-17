@@ -6,6 +6,8 @@ import type { Internals } from '../src/controller/core/internals';
 import { buildLayoutActions, commitLayoutChange } from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
 import { transitionLifecycle } from '../src/controller/core/transition-lifecycle';
+import { createDisposableCollection } from '../src/utils/disposable';
+import { RESIZE_SETTLE_MS } from '../src/controller/facade/resize-settle';
 
 function createMocks(options?: {
   readonly setTypographyChanged?: boolean;
@@ -21,6 +23,8 @@ function createMocks(options?: {
   const setTheme = vi.fn();
   const notifyActiveSpread = vi.fn();
   const updateLayout = vi.fn(() => false);
+  const releaseBook = vi.fn();
+  const holdBookLayout = vi.fn(() => releaseBook);
   const spreads = Array.from({ length: options?.totalSpreads ?? 3 }, (_, index) => ({ index }));
   const reader = {
     totalSpreads: spreads.length,
@@ -35,6 +39,7 @@ function createMocks(options?: {
     setTheme,
     notifyActiveSpread,
     updateLayout,
+    holdBookLayout,
     ...(options?.nativeAnnotationGeometry
       ? {
           interactions: {
@@ -138,6 +143,8 @@ function createMocks(options?: {
     runtime,
     emitter,
     spies: {
+      holdBookLayout,
+      releaseBook,
       setSize,
       resize,
       invalidateAllContent,
@@ -164,9 +171,39 @@ function createMocks(options?: {
 }
 
 describe('buildLayoutActions', () => {
+  it('holds the whole-book layout while sizes keep coming', () => {
+    vi.useFakeTimers();
+    try {
+      const { internals, runtime, emitter, spies } = createMocks();
+      const disposables = createDisposableCollection();
+      const actions = buildLayoutActions(internals, emitter, runtime, disposables);
+
+      actions.resize(700, 600);
+      vi.advanceTimersByTime(RESIZE_SETTLE_MS - 50);
+      actions.resize(710, 600);
+      vi.advanceTimersByTime(RESIZE_SETTLE_MS - 50);
+      // One hold for the run of sizes, still standing: the last size is new.
+      expect(spies.holdBookLayout).toHaveBeenCalledOnce();
+      expect(spies.releaseBook).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(50);
+      expect(spies.releaseBook).toHaveBeenCalledOnce();
+
+      // A size after the settle holds again; disposing lets it go at once.
+      actions.resize(720, 600);
+      expect(spies.holdBookLayout).toHaveBeenCalledTimes(2);
+      disposables.disposeAll();
+      expect(spies.releaseBook).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(RESIZE_SETTLE_MS);
+      expect(spies.releaseBook).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('forwards cleared theme overrides and invalidates rendered content', () => {
     const { internals, runtime, emitter, spies } = createMocks();
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     actions.setTheme({ backgroundColor: null, foregroundColor: null });
 
@@ -175,9 +212,20 @@ describe('buildLayoutActions', () => {
     expect(spies.scheduleComposite).toHaveBeenCalledOnce();
   });
 
+  it('paints every page again on request, without touching the layout', () => {
+    const { internals, runtime, emitter, spies } = createMocks();
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
+
+    actions.repaintPages();
+
+    expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
+    expect(spies.scheduleComposite).toHaveBeenCalledOnce();
+    expect(spies.setTheme).not.toHaveBeenCalled();
+  });
+
   it('refreshes layout state when typography changes commit synchronously', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks();
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     expect(actions.setTypography({ fontSize: 18, lineHeight: 1.6 })).toBe(true);
 
@@ -202,7 +250,9 @@ describe('buildLayoutActions', () => {
     transitionLifecycle(emitter).begin('forward');
     spies.emit.mockClear();
 
-    buildLayoutActions(internals, emitter, runtime).setTypography({ fontSize: 18 });
+    buildLayoutActions(internals, emitter, runtime, createDisposableCollection()).setTypography({
+      fontSize: 18,
+    });
 
     expect(spies.reset).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('transitionEnd', {
@@ -213,7 +263,12 @@ describe('buildLayoutActions', () => {
 
   it('invalidates native annotation geometry before compositing a replacement revision', () => {
     const fixture = createMocks({ nativeAnnotationGeometry: true });
-    const actions = buildLayoutActions(fixture.internals, fixture.emitter, fixture.runtime);
+    const actions = buildLayoutActions(
+      fixture.internals,
+      fixture.emitter,
+      fixture.runtime,
+      createDisposableCollection(),
+    );
 
     actions.setTypography({ fontSize: 18 });
 
@@ -236,7 +291,7 @@ describe('buildLayoutActions', () => {
     const { internals, runtime, emitter, spies } = createMocks({
       setTypographyChanged: false,
     });
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     expect(actions.setTypography({ fontFamily: 'serif' })).toBe(false);
 
@@ -252,7 +307,7 @@ describe('buildLayoutActions', () => {
       currentSpread: 3,
       totalSpreads: 1,
     });
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     expect(actions.setTypography({ fontSize: 20 })).toBe(true);
 
@@ -275,7 +330,7 @@ describe('buildLayoutActions', () => {
       locator: { spineIdref: 'chapter', chapterProgress: 0.5 },
     };
     spies.getCurrent.mockReturnValue(anchor);
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     expect(actions.setTypography({ fontSize: 20 })).toBe(true);
 
@@ -445,7 +500,9 @@ describe('buildLayoutActions', () => {
     });
     spies.getPreservableCurrent.mockReturnValue(null);
 
-    buildLayoutActions(internals, emitter, runtime).setTypography({ fontSize: 20 });
+    buildLayoutActions(internals, emitter, runtime, createDisposableCollection()).setTypography({
+      fontSize: 20,
+    });
 
     expect(spies.prepareLayoutCommit).toHaveBeenCalledWith(null, 1);
     expect(spies.resolve).not.toHaveBeenCalled();
@@ -454,7 +511,7 @@ describe('buildLayoutActions', () => {
 
   it('refreshes immediately when spread mode commits synchronously', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks();
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     actions.setSpreadMode('double');
 
@@ -467,7 +524,7 @@ describe('buildLayoutActions', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks({
       setSpreadModeChanged: false,
     });
-    const actions = buildLayoutActions(internals, emitter, runtime);
+    const actions = buildLayoutActions(internals, emitter, runtime, createDisposableCollection());
 
     actions.setSpreadMode('double');
 

@@ -46,7 +46,9 @@ function createCanvas(listeners: Map<string, Set<EventListener>>): HTMLCanvasEle
     removeEventListener(type: string, listener: EventListener) {
       listeners.get(type)?.delete(listener);
     },
+    getAttribute: () => null,
     setAttribute: vi.fn(),
+    removeAttribute: vi.fn(),
     getBoundingClientRect: () => ({ left: 0, top: 0 }),
   } as unknown as HTMLCanvasElement;
 }

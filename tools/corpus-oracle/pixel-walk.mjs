@@ -510,6 +510,9 @@ console.log(`engine pages captured: ${enginePages.size}`);
 
 // ---- Truth side: per chapter, multicol columns of the content box -------
 const truthColumns = new Map(); // idref -> PNG[] (one per column)
+// idref -> how many columns Chromium lays the chapter out in (horizontal
+// chapters only; vertical stripes are cut from ink, not laid out).
+const truthColumnCount = new Map();
 // PAGE JavaScript stays OFF: the engine (like EPUB readers generally)
 // never executes book scripts, but a file:// chapter runs them — a
 // publisher's notereplace.js swapped the footnote-marker image for a
@@ -990,6 +993,9 @@ img { object-fit: contain; }`;
       truthColumns.set(chapter.href, columns);
       continue;
     }
+    // n columns span n*contentW + (n-1)*3000; a line overflowing its
+    // column by less than one step does not add one.
+    truthColumnCount.set(chapter.href, Math.floor((docWidth + 3000) / (contentW + 3000) + 0.001));
     for (let k = 0; k <= expected + 1; k += 1) {
       // The gap must exceed any single line's horizontal overflow: an
       // unbreakable run (61 fullwidth stars) is ~430px wider than the
@@ -1043,11 +1049,15 @@ const results = [];
 for (const chapter of plan.chapters) {
   const columns = truthColumns.get(chapter.href) ?? [];
   const enginePageCount = chapter.endPage - chapter.startPage + 1;
-  // A column that still has ink past the engine's page count is drift.
-  // Count columns THROUGH the last inked one: interior blank columns come
-  // from forced page breaks both sides honor (verified aligned blank pairs,
-  // b20), so skipping them fabricates negative drift. Only trailing blanks
-  // are trimmed.
+  // Drift compares the engine's page count with the number of columns
+  // Chromium lays the chapter out in, blank columns included: a blank
+  // page both sides make (a trailing empty line, a forced break) is not
+  // drift, and a blank page only the engine makes is. Counting columns
+  // through the last inked one instead trimmed every trailing blank
+  // column, so each matching trailing blank page read as -1 and an
+  // engine-only blank page hid among them. Vertical stripes are cut from
+  // ink, so they keep the ink count: columns through the last inked one
+  // (interior blanks kept, b20's forced-break pairs).
   const g = columns[0]
     ? [columns[0].data[0], columns[0].data[1], columns[0].data[2]]
     : [255, 255, 255];
@@ -1055,6 +1065,7 @@ for (const chapter of plan.chapters) {
   columns.forEach((c, i) => {
     if (inked(c, g) > 0) truthUsed = i + 1;
   });
+  const truthCount = truthColumnCount.get(chapter.href) ?? truthUsed;
   for (let k = 0; k < enginePageCount; k += 1) {
     const pageIndex = chapter.startPage + k;
     if (pageIndex > MAX_PAGES) break;
@@ -1104,7 +1115,7 @@ for (const chapter of plan.chapters) {
       pageIndex,
       diff,
       beyondFloor,
-      drift: truthUsed - enginePageCount,
+      drift: truthCount - enginePageCount,
       engine,
       truthPage,
     });
@@ -1122,7 +1133,7 @@ const lines = [
   `book: ${path.basename(bookPath)}`,
   `gold standard: 0 diff pixels; page ${pageW}x${pageH}, content ${contentW}x${contentH}, device scale ${DSF} (${pageWd}x${pageHd} device px)`,
   '',
-  '## Chapter pagination drift (truth columns with ink − engine pages)',
+  '## Chapter pagination drift (truth columns − engine pages; vertical: columns through the last inked)',
   '',
 ];
 const seen = new Set();

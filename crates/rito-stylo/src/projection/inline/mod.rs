@@ -177,6 +177,12 @@ impl InlineStyleProjection {
         &self.table
     }
 
+    /// The table, for interning the styles of generated boxes beside the
+    /// elements'.
+    pub(crate) fn table_mut(&mut self) -> &mut InlineStyleTable {
+        &mut self.table
+    }
+
     /// Consumes the projection, keeping only the interned table.
     ///
     /// Dispositions exist to explain rejection; a chapter that materialized
@@ -295,6 +301,23 @@ fn project_element(
     style.font.line_height_is_declared = specified::declares_line_height(&styles, lock);
     let style_id = table.intern_for_node(node_id.index(), style)?;
     Ok(InlineStyleDisposition::ContractProjected { node_id, style_id })
+}
+
+/// Projects a box generated for `element` (its `::before` or `::after`)
+/// the way `project_element` projects the element: the generated box
+/// shares its element's language and declares its own line-height when
+/// its rules do. The error names the field that cannot be projected.
+pub(crate) fn generated_inline_style(
+    element: DomNode<'_>,
+    styles: &ComputedValues,
+    lock: &style::shared_lock::SharedRwLock,
+) -> Result<InlineFormattingStyle, String> {
+    let mut payload_caches = cache::ProjectionPayloadCaches::default();
+    let mut style = inline_style(styles, &mut payload_caches)
+        .map_err(|failure| format!("{:?} ({:?})", failure.field, failure.reason))?;
+    style.text_flow.language = text::inherited_language(element);
+    style.font.line_height_is_declared = specified::declares_line_height(styles, lock);
+    Ok(style)
 }
 
 fn cached_base_style(

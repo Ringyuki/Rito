@@ -133,7 +133,10 @@ pub(super) fn fold_through_collapsing_margins(
         ) -> bool {
             layout
                 .style(nodes[id.0 as usize].style)
-                .map(|child| child.float == Float::None)
+                .map(|child| {
+                    child.float == Float::None
+                        && child.position != rito_style_contract::Position::Absolute
+                })
                 .unwrap_or(false)
         }
         // At the ROOT container only: a float before the first in-flow
@@ -173,9 +176,15 @@ pub(super) fn fold_through_collapsing_margins(
                 zero_padding: &impl Fn(NonNegativeLengthPercentage) -> bool,
             ) -> bool {
                 let node = &nodes[id.0 as usize];
-                if !matches!(node.content, FormattingNodeContent::BlockContainer)
-                    || !node.children.is_empty()
-                {
+                // Absolutely positioned children are out of flow: a block
+                // holding only those is still empty.
+                let holds_in_flow = node.children.iter().any(|child| {
+                    layout
+                        .style(nodes[child.0 as usize].style)
+                        .map(|style| style.position != rito_style_contract::Position::Absolute)
+                        .unwrap_or(true)
+                });
+                if !matches!(node.content, FormattingNodeContent::BlockContainer) || holds_in_flow {
                     return false;
                 }
                 layout

@@ -13,6 +13,8 @@ export {
   type ControllerOptions,
   type ContentHitKind,
   type InteractionMode,
+  type PagePaint,
+  type PagePainter,
   type AddAnnotationInput,
   type ReaderClientPoint,
   type SelectionClientPoint,

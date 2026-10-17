@@ -11,9 +11,10 @@ use super::super::commands::contract::{
 use super::{
     border::{band_thickness, stroke_edge, stroke_outline, Edge, BLACK},
     path::{
-        corner_rounded_rect, inner_elliptical_rect, overlap_scale, polygon, rounded_rect, triangle,
+        constrain_corners, corner_rounded_rect, elliptical_rounded_rect, inner_elliptical_rect,
+        overlap_scale, polygon, rounded_rect, triangle,
     },
-    DevicePath, DevicePoint, DeviceRect, FillRule, Ground, ImageSize, Primitive, TilePlan,
+    DevicePath, DevicePoint, DeviceRect, FillRule, Ground, ImageSize, PathOp, Primitive, TilePlan,
 };
 
 /// The most tiles one background paints: a pattern denser than this is a
@@ -29,8 +30,13 @@ pub(super) fn lower_block(
     out: &mut Vec<Primitive>,
 ) {
     let radius = Radius::resolve(paint.radius, rect);
+    let opaque_background = paint
+        .background
+        .as_ref()
+        .and_then(|background| background.color)
+        .is_some_and(|color| color.alpha >= 1.0);
     for shadow in paint.box_shadows.iter().rev() {
-        lower_shadow(rect, radius, shadow, out);
+        lower_shadow(rect, radius, opaque_background, shadow, out);
     }
     if let Some(background) = &paint.background {
         if let Some(color) = background.color {
@@ -81,9 +87,10 @@ pub(super) fn lower_inline_box(
     }
 }
 
-/// A block's corner radii. Per-corner radii shape only the background
-/// fill and the image clip; shadows and borders see a uniform zero,
-/// exactly as the browser resolves them.
+/// A block's corner radii. Per-corner radii shape the background fill,
+/// the image clip and the box shadow; borders on a box whose corners
+/// differ are still drawn with square corners (the rounded border ring
+/// takes one radius), which the browser does not do.
 #[derive(Debug, Clone, Copy)]
 struct Radius {
     rx: f64,
@@ -152,41 +159,111 @@ impl Radius {
             None => rounded_rect(rect, self.rx, self.ry),
         }
     }
+
+    fn is_rounded(self) -> bool {
+        self.corners.is_some() || self.rx > 0.0 || self.ry > 0.0
+    }
+
+    /// Each corner's (x, y) radii in CSS order, constrained to `rect`.
+    fn corner_radii(self, rect: DeviceRect) -> [(f64, f64); 4] {
+        constrain_corners(
+            rect,
+            match self.corners {
+                Some(corners) => corners.map(|radius| (radius, radius)),
+                None => [(self.rx, self.ry); 4],
+            },
+        )
+    }
 }
 
-/// An outer box shadow: the spread-expanded box blurred at its offset, the
-/// box interior excluded. Painted back to front; inset shadows are not
-/// painted.
+/// An outer box shadow as Blink paints it (`PaintNormalBoxShadow`): the
+/// box on whole pixels with its corner radii, outset by the spread, blurred
+/// at its offset. A box with no radius keeps square corners at any spread;
+/// a rounded one outsets each corner with the CSS Backgrounds corner
+/// correction, under which a square corner stays square and a radius
+/// smaller than the spread grows by less than it. The box's own outline is
+/// cut out of the shadow, one pixel inside when the background is opaque,
+/// which closes the subpixel seam a cut on the edge leaves under the fill.
+/// Painted back to front; inset shadows are not painted.
 fn lower_shadow(
     rect: DeviceRect,
     radius: Radius,
+    opaque_background: bool,
     shadow: &ReaderBoxShadow,
     out: &mut Vec<Primitive>,
 ) {
     if shadow.inset {
         return;
     }
+    let border = rect.snapped();
     let spread = shadow.spread;
-    let expanded = DeviceRect::new(
-        rect.x - spread,
-        rect.y - spread,
-        rect.width + 2.0 * spread,
-        rect.height + 2.0 * spread,
-    );
-    if expanded.is_empty() {
+    let shape_rect = border.deflate(-spread);
+    if shape_rect.is_empty() {
         return;
     }
+    let rounded = radius.is_rounded();
+    let corners = radius.corner_radii(border);
+    let shape = if rounded {
+        elliptical_rounded_rect(
+            shape_rect,
+            corners.map(|corner| outset_corner(corner, spread, border)),
+        )
+    } else {
+        DevicePath {
+            ops: vec![PathOp::Rect(shape_rect)],
+        }
+    };
+    let cut = if opaque_background { 1.0 } else { 0.0 };
+    let cut_rect = border.deflate(cut);
+    let clip_out = (!cut_rect.is_empty()).then(|| {
+        if rounded {
+            elliptical_rounded_rect(cut_rect, corners.map(|(rx, ry)| shrink_corner(rx, ry, cut)))
+        } else {
+            DevicePath {
+                ops: vec![PathOp::Rect(cut_rect)],
+            }
+        }
+    });
     out.push(Primitive::Shadow {
-        shape: rounded_rect(
-            expanded,
-            (radius.rx + spread).max(0.0),
-            (radius.ry + spread).max(0.0),
-        ),
+        shape,
         sigma: shadow.blur / 2.0,
         offset: DevicePoint::new(shadow.offset_x, shadow.offset_y),
         color: shadow.color,
-        clip_out: Some(rounded_rect(rect, radius.rx, radius.ry)),
+        clip_out,
     });
+}
+
+/// One corner's radii outset by `spread`, given the box it rounds (Blink's
+/// `OutsetWithCornerCorrection`, after CSS Backgrounds' adjusted radius):
+/// a square corner stays square; a radius larger than the spread, or a
+/// corner covering more than half its box, grows by the spread; a smaller
+/// one grows by `spread * (1 - (1 - r/spread)^3 * (1 - coverage^3))`.
+fn outset_corner((rx, ry): (f64, f64), spread: f64, edge: DeviceRect) -> (f64, f64) {
+    if (rx <= 0.0 && ry <= 0.0) || spread == 0.0 || edge.is_empty() {
+        return (rx, ry);
+    }
+    let coverage = 2.0 * (rx / edge.width).min(ry / edge.height);
+    let adjust = |radius: f64| {
+        if radius > spread || coverage > 1.0 {
+            radius + spread
+        } else {
+            radius + spread * (1.0 - (1.0 - radius / spread).powi(3) * (1.0 - coverage.powi(3)))
+        }
+    };
+    (adjust(rx), adjust(ry))
+}
+
+/// A corner's radii on a box shrunk by `inset`: each nonzero radius
+/// shrinks with it.
+fn shrink_corner(rx: f64, ry: f64, inset: f64) -> (f64, f64) {
+    let shrink = |radius: f64| {
+        if radius > 0.0 {
+            (radius - inset).max(0.0)
+        } else {
+            0.0
+        }
+    };
+    (shrink(rx), shrink(ry))
 }
 
 /// A background rasters on whole pixels, each edge rounding independently,

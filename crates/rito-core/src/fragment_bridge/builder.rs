@@ -11,11 +11,12 @@
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId, InlineItem};
 use rito_style_contract::{
-    JustifyContent, LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId, LengthPercentage,
-    NonNegativeLengthPercentage, StyleId,
+    GeneratedBox, JustifyContent, LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId,
+    LengthPercentage, NonNegativeLengthPercentage, PseudoElementKind, StyleId,
 };
 
 use capability::box_decoration_violation;
+use generated::Generated;
 
 use super::box_paint::block_box_paint;
 use super::styles::list_marker_text;
@@ -25,6 +26,8 @@ use crate::render::contract::ReaderColor;
 use crate::xhtml::{DocumentNode, ElementNode};
 
 mod capability;
+mod floated;
+mod generated;
 mod inline;
 mod replaced;
 mod table;
@@ -32,7 +35,7 @@ mod table;
 impl TreeBuilder<'_> {
     /// Records one approximation the tree build applied instead of
     /// failing the chapter. Deduplicated: one entry per distinct reason.
-    fn degrade(&mut self, reason: String) {
+    pub(super) fn degrade(&mut self, reason: String) {
         if !self.degradations.contains(&reason) {
             self.degradations.push(reason);
         }
@@ -91,6 +94,39 @@ impl TreeBuilder<'_> {
         children: &[DocumentNode],
         container_inline_style: StyleId,
     ) -> EpubResult<Vec<FormattingNodeId>> {
+        self.build_children_between(children, container_inline_style, None, None)
+    }
+
+    /// [`Self::build_children`] for the element at `source_index`, with the
+    /// boxes the cascade generated for it: an inline one opens its first
+    /// inline run or closes its last (a run of its own where a block child
+    /// stands at that end), a box of its own is its first or last child.
+    pub(super) fn build_children_with_generated(
+        &mut self,
+        source_index: usize,
+        children: &[DocumentNode],
+        container_inline_style: StyleId,
+    ) -> EpubResult<Vec<FormattingNodeId>> {
+        let before = self.generated(source_index, PseudoElementKind::Before)?;
+        let after = self.generated(source_index, PseudoElementKind::After)?;
+        let (lead, before_node) = split_generated(before, source_index);
+        let (trail, after_node) = split_generated(after, source_index);
+        let mut built =
+            self.build_children_between(children, container_inline_style, lead, trail)?;
+        if let Some(node) = before_node {
+            built.insert(0, node);
+        }
+        built.extend(after_node);
+        Ok(built)
+    }
+
+    fn build_children_between(
+        &mut self,
+        children: &[DocumentNode],
+        container_inline_style: StyleId,
+        mut lead: Option<(usize, GeneratedBox)>,
+        trail: Option<(usize, GeneratedBox)>,
+    ) -> EpubResult<Vec<FormattingNodeId>> {
         let mut built = Vec::new();
         let mut pending_inline: Vec<&DocumentNode> = Vec::new();
         let mut index = 0;
@@ -98,7 +134,13 @@ impl TreeBuilder<'_> {
             let child = &children[index];
             match child {
                 DocumentNode::Block(element) => {
-                    self.flush_inline_run(&mut pending_inline, container_inline_style, &mut built)?;
+                    self.flush_inline_run(
+                        &mut pending_inline,
+                        container_inline_style,
+                        &mut built,
+                        lead.take(),
+                        None,
+                    )?;
                     if let Some((consumed, id)) = self.rebuild_block_anchor(&children[index..])? {
                         if let Some(id) = id {
                             built.push(id);
@@ -114,7 +156,13 @@ impl TreeBuilder<'_> {
             }
             index += 1;
         }
-        self.flush_inline_run(&mut pending_inline, container_inline_style, &mut built)?;
+        self.flush_inline_run(
+            &mut pending_inline,
+            container_inline_style,
+            &mut built,
+            lead,
+            trail,
+        )?;
         Ok(built)
     }
 
@@ -197,22 +245,35 @@ impl TreeBuilder<'_> {
     }
 
     /// Wraps a pending run of inline-level siblings in an anonymous inline
-    /// flow, dropping it when white-space collapsing leaves nothing.
+    /// flow, dropping it when white-space collapsing leaves nothing. `lead`
+    /// and `trail` are generated inline boxes (with their element's source
+    /// index) that open and close the run.
     fn flush_inline_run(
         &mut self,
         pending: &mut Vec<&DocumentNode>,
         container_inline_style: StyleId,
         built: &mut Vec<FormattingNodeId>,
+        lead: Option<(usize, GeneratedBox)>,
+        trail: Option<(usize, GeneratedBox)>,
     ) -> EpubResult<()> {
-        if pending.is_empty() {
+        if pending.is_empty() && lead.is_none() && trail.is_none() {
             return Ok(());
         }
         let run = std::mem::take(pending);
         let container_inline_style = self.container_text_style(container_inline_style)?;
-        let mut collector = self.inline_collector();
+        let mut collector = self.block_inline_collector();
+        if let Some((source_index, generated)) = &lead {
+            self.collect_generated(generated, 0.0, *source_index, &mut collector)?;
+        }
         for node in run {
             self.collect_inline(node, container_inline_style, 0.0, &mut collector)?;
         }
+        if let Some((source_index, generated)) = &trail {
+            self.collect_generated(generated, 0.0, *source_index, &mut collector)?;
+        }
+        // Floats that open the run come first: they sit at the top of
+        // the anonymous box, where its first line starts.
+        built.extend(collector.take_leading_floats());
         let (items, sources) = collector.finish();
         if !inline_items_have_substance(&items) {
             return Ok(());
@@ -239,6 +300,15 @@ impl TreeBuilder<'_> {
         InlineCollector {
             current_link: self.block_link.clone(),
             ..InlineCollector::default()
+        }
+    }
+
+    /// A collector for the inline content of a block container, which can
+    /// take the float boxes of floated images that open the content.
+    fn block_inline_collector(&self) -> InlineCollector {
+        InlineCollector {
+            leading_floats: Some(Vec::new()),
+            ..self.inline_collector()
         }
     }
 
@@ -320,7 +390,11 @@ impl TreeBuilder<'_> {
             .any(|child| matches!(child, DocumentNode::Block(_)));
         let id = if has_block_children {
             let container_inline_style = self.inline_style_id(source_index, &element.tag);
-            let children = self.build_children(&element.children, container_inline_style)?;
+            let children = self.build_children_with_generated(
+                source_index,
+                &element.children,
+                container_inline_style,
+            )?;
             self.push_node(
                 FormattingNode {
                     style,
@@ -336,32 +410,75 @@ impl TreeBuilder<'_> {
             let inline_style = self.inline_style_id(source_index, &element.tag);
             let inline_style = self.container_text_style(inline_style)?;
             let inline_style = self.flex_centered_text_style(source_index, inline_style)?;
-            let mut collector = self.inline_collector();
+            let before = self.generated(source_index, PseudoElementKind::Before)?;
+            let after = self.generated(source_index, PseudoElementKind::After)?;
+            let (lead, before_node) = split_generated(before, source_index);
+            let (trail, after_node) = split_generated(after, source_index);
+            let mut collector = self.block_inline_collector();
+            if let Some((_, generated)) = &lead {
+                self.collect_generated(generated, 0.0, source_index, &mut collector)?;
+            }
             for child in &element.children {
                 self.collect_inline(child, inline_style, 0.0, &mut collector)?;
             }
+            if let Some((_, generated)) = &trail {
+                self.collect_generated(generated, 0.0, source_index, &mut collector)?;
+            }
+            let floats = collector.take_leading_floats();
             let (items, sources) = collector.finish();
-            let (content, sources) = if !inline_items_have_substance(&items) {
-                (FormattingNodeContent::BlockContainer, None)
+            if !floats.is_empty() || before_node.is_some() || after_node.is_some() {
+                // Floats opening the content, or generated boxes of their
+                // own, make the block a container: those boxes in order,
+                // then its lines as an anonymous flow that keeps the
+                // block's own text style (the first line is still the
+                // block's, indent included).
+                let mut children: Vec<FormattingNodeId> =
+                    before_node.into_iter().chain(floats).collect();
+                if inline_items_have_substance(&items) {
+                    let flow = self.push_node(
+                        FormattingNode {
+                            style: self.anonymous_style,
+                            content: FormattingNodeContent::InlineFlow { items },
+                            children: Vec::new(),
+                        },
+                        None,
+                    );
+                    self.strut_styles.insert(flow.0, inline_style);
+                    self.flow_item_sources.insert(flow.0, sources);
+                    children.push(flow);
+                }
+                children.extend(after_node);
+                self.push_node(
+                    FormattingNode {
+                        style,
+                        content: FormattingNodeContent::BlockContainer,
+                        children,
+                    },
+                    Some(source_index),
+                )
             } else {
-                (FormattingNodeContent::InlineFlow { items }, Some(sources))
-            };
-            let is_flow = sources.is_some();
-            let id = self.push_node(
-                FormattingNode {
-                    style,
-                    content,
-                    children: Vec::new(),
-                },
-                Some(source_index),
-            );
-            if is_flow {
-                self.strut_styles.insert(id.0, inline_style);
+                let (content, sources) = if !inline_items_have_substance(&items) {
+                    (FormattingNodeContent::BlockContainer, None)
+                } else {
+                    (FormattingNodeContent::InlineFlow { items }, Some(sources))
+                };
+                let is_flow = sources.is_some();
+                let id = self.push_node(
+                    FormattingNode {
+                        style,
+                        content,
+                        children: Vec::new(),
+                    },
+                    Some(source_index),
+                );
+                if is_flow {
+                    self.strut_styles.insert(id.0, inline_style);
+                }
+                if let Some(sources) = sources {
+                    self.flow_item_sources.insert(id.0, sources);
+                }
+                id
             }
-            if let Some(sources) = sources {
-                self.flow_item_sources.insert(id.0, sources);
-            }
-            id
         };
         if let Some(saved) = saved_block_link {
             self.block_link = saved;
@@ -712,6 +829,16 @@ impl TreeBuilder<'_> {
         what: &str,
     ) -> EpubResult<Option<(NodePaint, [f64; 4])>> {
         let style = self.inline_style_id(source_index, what);
+        self.block_box_paint_plan_for(style, what)
+    }
+
+    /// [`Self::block_box_paint_plan`] for a box whose inline style is
+    /// `style` (a generated box has no source node).
+    fn block_box_paint_plan_for(
+        &mut self,
+        style: StyleId,
+        what: &str,
+    ) -> EpubResult<Option<(NodePaint, [f64; 4])>> {
         let verdict = match self.checked_box_paints.get(&style.raw()) {
             Some(cached) => cached.clone(),
             None => {
@@ -766,4 +893,17 @@ fn inline_items_have_substance(items: &[InlineItem]) -> bool {
     items
         .iter()
         .any(|item| !matches!(item, InlineItem::EmptyBox { .. }))
+}
+
+/// A generated box as the text that opens or closes an inline run (with
+/// its element's source index), or as a node of its own.
+fn split_generated(
+    generated: Option<Generated>,
+    source_index: usize,
+) -> (Option<(usize, GeneratedBox)>, Option<FormattingNodeId>) {
+    match generated {
+        Some(Generated::Inline(generated)) => (Some((source_index, generated)), None),
+        Some(Generated::Node(node)) => (None, Some(node)),
+        None => (None, None),
+    }
 }

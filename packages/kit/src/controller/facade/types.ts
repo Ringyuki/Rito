@@ -27,7 +27,13 @@ export type ReaderProxiesSlice = Pick<
 >;
 export type LayoutActionsSlice = Pick<
   ReaderController,
-  'resize' | 'setSpreadMode' | 'setTheme' | 'setTypography' | 'setRenderScale' | 'renderScale'
+  | 'resize'
+  | 'setSpreadMode'
+  | 'setTheme'
+  | 'repaintPages'
+  | 'setTypography'
+  | 'setRenderScale'
+  | 'renderScale'
 >;
 export type FontActionsSlice = Pick<
   ReaderController,
@@ -55,7 +61,7 @@ export type SelectionAccessorsSlice = Pick<
 export type ContentHitSlice = Pick<ReaderController, 'hitTestContent'>;
 export type AnnotationActionsSlice = Pick<
   ReaderController,
-  'addAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'
+  'addAnnotation' | 'insertAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'
 >;
 export type PositionActionsSlice = Pick<
   ReaderController,

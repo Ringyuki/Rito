@@ -927,8 +927,12 @@ fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
         panic!("{:?}", primitives[1]);
     };
     assert_eq!((*sigma, *offset), (2.0, DevicePoint::new(2.0, 3.0)));
-    // A spread of 1 rounds the expanded box by 1; the box interior is cut out.
-    assert_eq!(shape.ops[0], PathOp::MoveTo(DevicePoint::new(10.0, 9.0)));
+    // A square box keeps square corners at any spread (Blink outsets the
+    // plain rect); the box interior is cut out.
+    assert_eq!(
+        shape.ops,
+        vec![PathOp::Rect(DeviceRect::new(9.0, 9.0, 52.0, 42.0))]
+    );
     assert_eq!(
         clip_out.as_ref().map(|path| path.ops.clone()),
         Some(vec![PathOp::Rect(DeviceRect::new(10.0, 10.0, 50.0, 40.0))])
@@ -964,7 +968,126 @@ fn box_shadows_blur_the_spread_box_outside_the_box_back_to_front() {
         panic!("{scaled:?}");
     };
     assert_eq!((*sigma, *offset), (4.0, DevicePoint::new(4.0, 6.0)));
-    assert_eq!(shape.ops[0], PathOp::MoveTo(DevicePoint::new(20.0, 18.0)));
+    assert_eq!(
+        shape.ops,
+        vec![PathOp::Rect(DeviceRect::new(18.0, 18.0, 104.0, 84.0))]
+    );
+}
+
+#[test]
+fn a_rounded_box_shadow_takes_each_corner_and_cuts_inside_an_opaque_fill() {
+    // The speech bubble: corners 0/8/8/8, an opaque fill, a 5px offset
+    // shadow. Blink's shadow is the box with those corners; the cut-out is
+    // the box one pixel inside (its nonzero radii one smaller).
+    let shadow = |spread| ReaderBoxShadow {
+        offset_x: 5.0,
+        offset_y: 5.0,
+        blur: 5.0,
+        spread,
+        color: TRANSLUCENT,
+        inset: false,
+    };
+    let bubble = |spread| {
+        lowered(
+            vec![block(
+                rect(10.0, 10.0, 300.0, 40.0),
+                ReaderBlockPaint {
+                    radius: Some(ReaderBlockRadius::Corners([0.0, 8.0, 8.0, 8.0])),
+                    box_shadows: vec![shadow(spread)],
+                    ..block_paint(Some(INK), None)
+                },
+                None,
+            )],
+            1.0,
+        )
+    };
+    let primitives = bubble(0.0);
+    let Primitive::Shadow {
+        shape, clip_out, ..
+    } = &primitives[0]
+    else {
+        panic!("{primitives:?}");
+    };
+    // The square top-left corner starts the outline at the box corner; the
+    // top-right one is an 8px arc.
+    assert_eq!(shape.ops[0], PathOp::MoveTo(DevicePoint::new(10.0, 10.0)));
+    assert_eq!(
+        shape.ops[2],
+        PathOp::Arc {
+            center: DevicePoint::new(302.0, 18.0),
+            rx: 8.0,
+            ry: 8.0,
+            start: -FRAC_PI_2,
+            sweep: FRAC_PI_2,
+        }
+    );
+    let clip = clip_out.as_ref().expect("the box is cut out");
+    assert_eq!(clip.ops[0], PathOp::MoveTo(DevicePoint::new(11.0, 11.0)));
+    assert_eq!(
+        clip.ops[2],
+        PathOp::Arc {
+            center: DevicePoint::new(302.0, 18.0),
+            rx: 7.0,
+            ry: 7.0,
+            start: -FRAC_PI_2,
+            sweep: FRAC_PI_2,
+        }
+    );
+
+    // A 3px spread: the square corner stays square at the outset box, the
+    // 8px corners (larger than the spread) grow to 11.
+    let primitives = bubble(3.0);
+    let Primitive::Shadow { shape, .. } = &primitives[0] else {
+        panic!("{primitives:?}");
+    };
+    assert_eq!(shape.ops[0], PathOp::MoveTo(DevicePoint::new(7.0, 7.0)));
+    assert_eq!(
+        shape.ops[2],
+        PathOp::Arc {
+            center: DevicePoint::new(302.0, 18.0),
+            rx: 11.0,
+            ry: 11.0,
+            start: -FRAC_PI_2,
+            sweep: FRAC_PI_2,
+        }
+    );
+}
+
+#[test]
+fn a_radius_smaller_than_the_spread_grows_by_the_corner_correction() {
+    // A 2px radius on a 300x40 box with a 3px spread: coverage is
+    // 2 * min(2/300, 2/40) = 1/75, so the radius grows by
+    // 3 * (1 - (1 - 2/3)^3 * (1 - (1/75)^3)), not by the whole spread.
+    let primitives = lowered(
+        vec![block(
+            rect(10.0, 10.0, 300.0, 40.0),
+            ReaderBlockPaint {
+                radius: Some(ReaderBlockRadius::Px(2.0)),
+                box_shadows: vec![ReaderBoxShadow {
+                    offset_x: 5.0,
+                    offset_y: 5.0,
+                    blur: 5.0,
+                    spread: 3.0,
+                    color: TRANSLUCENT,
+                    inset: false,
+                }],
+                ..block_paint(Some(INK), None)
+            },
+            None,
+        )],
+        1.0,
+    );
+    let Primitive::Shadow { shape, .. } = &primitives[0] else {
+        panic!("{primitives:?}");
+    };
+    let grown = 2.0 + 3.0 * (1.0 - (1.0_f64 / 3.0).powi(3) * (1.0 - (1.0_f64 / 75.0).powi(3)));
+    let PathOp::Arc { rx, ry, .. } = shape.ops[2] else {
+        panic!("{:?}", shape.ops);
+    };
+    assert!(
+        (rx - grown).abs() < 1e-9 && (ry - grown).abs() < 1e-9,
+        "{rx} {ry} vs {grown}"
+    );
 }
 
 #[test]

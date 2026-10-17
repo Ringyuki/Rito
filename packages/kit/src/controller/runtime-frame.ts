@@ -8,6 +8,7 @@ import { publishSpreadChange } from './core/spread-change';
 import { syncCanvasSize, type Internals } from './facade';
 import type { Emitter, RuntimeComponents } from './facade/types';
 import { createCoordinateMapper } from './geometry/coordinate-mapper';
+import { paintPagesOver } from './page-paint';
 import { mergeOverlayLayers } from './overlay/merger';
 import { buildOverlayData } from './overlay/projection';
 import type { PrerenderScheduler } from './prerender';
@@ -26,21 +27,7 @@ export function createRuntimeFrameParts(
   transitionDriver: TransitionDriver,
   emitter: Emitter,
 ): RuntimeFrameParts {
-  const contentRenderer: ContentRenderer = (spreadIndex, context) => {
-    // Last-resort paint boundary: an exception here would leave the
-    // spread permanently unpainted and wedge navigation into it, which
-    // is the worst possible failure mode for a reader. Whatever the
-    // canvas holds is shown, and the fault is reported loudly instead.
-    try {
-      return reader.renderSpreadTo(spreadIndex, context);
-    } catch (error) {
-      console.error(
-        `[rito] spread ${String(spreadIndex)} paint failed; showing degraded content`,
-        error,
-      );
-      return true;
-    }
-  };
+  const contentRenderer = createContentRenderer(reader, internals, emitter);
   const frameDriver = createFrameDriver({
     surface,
     pool,
@@ -53,6 +40,37 @@ export function createRuntimeFrameParts(
     },
   });
   return { contentRenderer, frameDriver };
+}
+
+export function createContentRenderer(
+  reader: Reader,
+  internals: Internals,
+  emitter: Emitter,
+): ContentRenderer {
+  return (spreadIndex, context) => {
+    // Last-resort paint boundary: an exception here would leave the
+    // spread permanently unpainted and wedge navigation into it, which
+    // is the worst possible failure mode for a reader. Whatever the
+    // canvas holds is shown, and the fault is reported loudly instead.
+    let painted: boolean;
+    try {
+      painted = reader.renderSpreadTo(spreadIndex, context);
+    } catch (error) {
+      console.error(
+        `[rito] spread ${String(spreadIndex)} paint failed; showing degraded content`,
+        error,
+      );
+      return true;
+    }
+    // The host draws over the engine's page, into the same picture.
+    const painter = internals.options.paintPage;
+    if (painted && painter) {
+      paintPagesOver(painter, spreadIndex, context, reader, internals.renderScale, (error) => {
+        reportPainterError(emitter, error);
+      });
+    }
+    return painted;
+  };
 }
 
 export function startInitialControllerFrame(
@@ -156,6 +174,17 @@ function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProv
       data.annotationLayers,
     );
   };
+}
+
+function reportPainterError(emitter: Emitter, error: unknown): void {
+  try {
+    emitter.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      source: 'page-painter',
+    });
+  } catch {
+    // A throwing error listener must not hold the page back either.
+  }
 }
 
 function restoreCanceledTransition(

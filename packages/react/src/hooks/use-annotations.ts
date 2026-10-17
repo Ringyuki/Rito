@@ -23,6 +23,8 @@ export interface AnnotationsState {
 export function useAnnotations(controller: ReaderController | null): AnnotationsState & {
   /** Reads the selection at call time; resolves once the engine has built the target. */
   add: (input: AddAnnotationInput) => Promise<AnnotationRecord | undefined>;
+  /** Stores a whole record as given, as when undoing a removal or an edit. */
+  insert: (record: AnnotationRecord) => boolean;
   remove: (id: string) => boolean;
   update: (id: string, patch: AnnotationRecordPatch) => boolean;
   clearClicked: () => void;
@@ -48,6 +50,10 @@ export function useAnnotations(controller: ReaderController | null): Annotations
       controller ? controller.addAnnotation(input) : Promise.resolve(undefined),
     [controller],
   );
+  const insert = useCallback(
+    (record: AnnotationRecord) => controller?.insertAnnotation(record) ?? false,
+    [controller],
+  );
   const remove = useCallback(
     (id: string) => controller?.removeAnnotation(id) ?? false,
     [controller],
@@ -60,5 +66,5 @@ export function useAnnotations(controller: ReaderController | null): Annotations
     setClickedAnnotation(null);
   }, []);
 
-  return { annotations, clickedAnnotation, hover, add, remove, update, clearClicked };
+  return { annotations, clickedAnnotation, hover, add, insert, remove, update, clearClicked };
 }

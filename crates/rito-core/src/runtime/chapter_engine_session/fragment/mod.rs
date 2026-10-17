@@ -667,7 +667,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             (anchor, focus)
         };
         let mut selected_text = String::new();
-        let mut previous_block: Option<(usize, usize)> = None;
+        let mut previous_block: Option<(usize, usize, u32)> = None;
         let mut previous_end: Option<usize> = None;
         let mut previous_source_path: Option<Vec<usize>> = None;
         let mut rects = Vec::new();
@@ -700,9 +700,14 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 // break when both sides are sibling text nodes of the
                 // same source element (a <br/> split), a blank line
                 // between distinct source elements (paragraphs) — the
-                // separators a browser selection copies.
+                // separators a browser selection copies. Paragraphs
+                // nested in one top-level block (a chapter wrapped in a
+                // <div>) share its block index, so the paragraph counts
+                // too: run together, two paragraphs read as one segment
+                // with no room for the source whitespace between them.
+                let block = (page_index, run.block_index, run.paragraph);
                 if let Some(previous) = previous_block {
-                    if previous != (page_index, run.block_index) {
+                    if previous != block {
                         let sibling = previous_source_path
                             .as_deref()
                             .zip(run.source.as_ref().map(|source| source.path.as_slice()))
@@ -725,7 +730,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
                         }
                     }
                 }
-                previous_block = Some((page_index, run.block_index));
+                previous_block = Some(block);
                 previous_end = Some(clip_end);
                 if let Some(source) = run.source.as_ref() {
                     previous_source_path = Some(source.path.clone());

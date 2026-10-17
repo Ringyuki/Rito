@@ -37,6 +37,8 @@ pub(crate) struct PreparedStyleChapterInput<'a> {
 pub(crate) struct ResolvedPreparedChapterStyle {
     pub(crate) layout_style_table: rito_style_contract::LayoutStyleTable,
     pub(crate) inline_style_table: rito_style_contract::InlineStyleTable,
+    /// The `::before` and `::after` boxes, their styles in the two tables.
+    pub(crate) generated_boxes: rito_style_contract::GeneratedBoxTable,
 }
 
 /// A typed failure from the Stylo pipeline, retaining the original
@@ -144,10 +146,11 @@ fn try_resolve_with_stylo(
     let projection = document
         .resolve_production_slice()
         .map_err(StyleBackendError::CascadeOrProjection)?;
-    let (inline, layout) = projection.into_parts();
+    let (inline, layout, generated) = projection.into_tables();
     Ok(ResolvedPreparedChapterStyle {
-        layout_style_table: layout.into_table(),
-        inline_style_table: inline.into_table(),
+        layout_style_table: layout,
+        inline_style_table: inline,
+        generated_boxes: generated,
     })
 }
 

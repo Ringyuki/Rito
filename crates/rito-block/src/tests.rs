@@ -15,6 +15,7 @@ mod floats;
 mod margins;
 mod pagination;
 mod tables;
+mod zero_height_boxes;
 
 fn margin_px(value: f64) -> LengthPercentageOrAuto {
     LengthPercentageOrAuto::Value(LengthPercentage::Length(
@@ -152,6 +153,7 @@ impl FormattingContext for FixedLineInline {
             },
             continuation: None,
             escaped_floats: Vec::new(),
+            positioned: Vec::new(),
         })
     }
 

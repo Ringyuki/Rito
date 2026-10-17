@@ -19,7 +19,9 @@ use rito_fragment::{
     FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
     InlineItem,
 };
-use rito_style_contract::{InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId};
+use rito_style_contract::{
+    GeneratedBoxTable, InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId,
+};
 
 use std::collections::BTreeMap;
 
@@ -271,6 +273,27 @@ pub fn build_chapter_formatting_tree(
     inline: &InlineStyleTable,
     image_dimensions: &BTreeMap<String, (u32, u32)>,
 ) -> EpubResult<ChapterFormattingTree> {
+    build_chapter_formatting_tree_with_generated(
+        nodes,
+        body_source_node_index,
+        layout,
+        inline,
+        &GeneratedBoxTable::new(),
+        image_dimensions,
+    )
+}
+
+/// [`build_chapter_formatting_tree`] with the boxes the cascade generated
+/// for `::before` and `::after`, whose styles live in `layout` and
+/// `inline`.
+pub fn build_chapter_formatting_tree_with_generated(
+    nodes: &[DocumentNode],
+    body_source_node_index: usize,
+    layout: &LayoutStyleTable,
+    inline: &InlineStyleTable,
+    generated: &GeneratedBoxTable,
+    image_dimensions: &BTreeMap<String, (u32, u32)>,
+) -> EpubResult<ChapterFormattingTree> {
     let mut layout = layout.clone();
     let anonymous_style = layout
         .intern(anonymous_block_style())
@@ -282,6 +305,7 @@ pub fn build_chapter_formatting_tree(
     let mut builder = TreeBuilder {
         layout: &mut layout,
         inline: &mut inline,
+        generated,
         image_dimensions,
         anonymous_style,
         fallback_inline_style,
@@ -306,7 +330,11 @@ pub fn build_chapter_formatting_tree(
     let body_style = builder.layout_style_id(body_source_node_index, "chapter body");
     let page_background = builder.chapter_body_background(body_source_node_index)?;
     let body_inline_style = builder.inline_style_id(body_source_node_index, "chapter body");
-    let children = builder.build_children(nodes, body_inline_style)?;
+    for (_, _, reason) in generated.rejections() {
+        builder.degrade(format!("generated box left out: {reason}"));
+    }
+    let children =
+        builder.build_children_with_generated(body_source_node_index, nodes, body_inline_style)?;
     let root = builder.push_node(
         FormattingNode {
             style: body_style,
@@ -381,6 +409,7 @@ pub fn build_chapter_formatting_tree(
 struct TreeBuilder<'a> {
     layout: &'a mut LayoutStyleTable,
     inline: &'a mut InlineStyleTable,
+    generated: &'a GeneratedBoxTable,
     image_dimensions: &'a BTreeMap<String, (u32, u32)>,
     anonymous_style: LayoutStyleId,
     /// The style a node falls back to when the projection retained no
@@ -437,6 +466,10 @@ struct InlineCollector {
     /// extend a styled span's inline box.
     pending_space_style: Option<StyleId>,
     has_content: bool,
+    /// Float boxes built from floated images met before any content, when
+    /// the collector fills a block container that can hold them (`None`
+    /// where it cannot: an inline-block's or a ruby's content).
+    leading_floats: Option<Vec<FormattingNodeId>>,
 }
 
 /// A contentless chapter tree, for sources the parser found no body in:

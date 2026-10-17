@@ -10,7 +10,7 @@ import type { CanvasRenderingTarget } from '../primitive-renderer';
 import { openBrowserReaderSession, type BrowserReaderSession } from '../reader-session';
 import { createBrowserReaderSessionCanvasPresenter } from '../reader-session-canvas';
 import { adoptSessionReaderFirstFrame, readSessionReaderLayout } from './artifacts';
-import { stepSessionReaderBook } from './background';
+import { holdSessionReaderBook, stepSessionReaderBook } from './background';
 import { commitSessionReaderLayout } from './commit';
 import { installSessionReaderDiagnostics } from './diagnostics';
 import { scheduleSessionReaderRelayout } from './foreground';
@@ -24,7 +24,11 @@ import { createSessionReaderQueue, wakeSessionReaderQueue } from './queue';
 import { rejectSessionReaderFont } from './rejected-fonts';
 import { sessionReaderRenderingMethods } from './render';
 import { sessionReaderResourceMethods } from './resources';
-import type { SessionReaderState, SessionReaderTypography } from './state';
+import {
+  sessionReaderListenerMethods,
+  type SessionReaderState,
+  type SessionReaderTypography,
+} from './state';
 
 type PinnedFontPolicy = NonNullable<ReaderOptions['pinnedFontPolicy']>;
 
@@ -148,6 +152,7 @@ function idleState(): Partial<SessionReaderState> {
     activeSpreadIndex: 0,
     layoutGeneration: 0,
     relayoutToken: 0,
+    bookHolds: 0,
     queue: createSessionReaderQueue(),
     showQueued: false,
     relayoutForced: false,
@@ -168,9 +173,10 @@ function buildReader(state: SessionReaderState): Reader {
     ...sessionReaderRenderingMethods(state),
     ...sessionReaderNavigationMethods(state),
     ...layoutMethods(state),
-    ...listenerMethods(state),
+    ...sessionReaderListenerMethods(state),
     ...sessionReaderResourceMethods(state),
     getLayoutGeometry: () => state.config,
+    holdBookLayout: () => holdSessionReaderBook(state),
     dispose() {
       if (state.disposed) return Promise.resolve();
       state.disposed = true;
@@ -245,25 +251,6 @@ function layoutMethods(
       if (next.fontFamilyForce !== undefined) typography.fontFamilyForce = next.fontFamilyForce;
       scheduleSessionReaderRelayout(state);
       return false;
-    },
-  };
-}
-
-function listenerMethods(
-  state: SessionReaderState,
-): Pick<Reader, 'onSpreadRendered' | 'onSpreadContentInvalidated' | 'onLayoutCommitted'> {
-  return {
-    onSpreadRendered(listener) {
-      state.spreadRenderedListeners.add(listener);
-      return () => state.spreadRenderedListeners.delete(listener);
-    },
-    onSpreadContentInvalidated(listener) {
-      state.spreadContentInvalidatedListeners.add(listener);
-      return () => state.spreadContentInvalidatedListeners.delete(listener);
-    },
-    onLayoutCommitted(listener) {
-      state.layoutCommittedListeners.add(listener);
-      return () => state.layoutCommittedListeners.delete(listener);
     },
   };
 }

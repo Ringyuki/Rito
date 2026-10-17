@@ -9,8 +9,16 @@ reason or fails the chapter closed; nothing is silently misplaced.
 - no flexbox
 - no grid
 - no multicolumn layout
-- no `position: fixed`, `position: sticky` or `position: absolute`;
-  `position: relative` is accepted only with `auto` insets
+- no `position: fixed` or `position: sticky`; `position: relative` is
+  accepted only with `auto` insets
+- `position: absolute` places a block-level box (a `::before` or `::after`
+  included) against the border box of its nearest positioned ancestor,
+  so a containing block with borders places it off by their widths; an
+  absolutely positioned inline element stays in its line
+- `::before` and `::after` show their strings and `attr()` values;
+  `counter()`, quotes and images in `content` show nothing
+- a floated image is a float only when it opens its block's content; one
+  that follows text on its line stays an inline image
 - no `min-height` or `max-height` on blocks yet
 - `transform` supports `rotate()` only, on block boxes
 - forced page breaks (`break-before: page` and friends) are projected as
@@ -18,6 +26,8 @@ reason or fails the chapter closed; nothing is silently misplaced.
 - `text-transform` and `text-justify` values other than the defaults are
   degraded
 - inset box shadows are not painted
+- a border whose corners are rounded differently is drawn with square
+  corners (its background and shadow take each corner's radius)
 - `@font-face` sources in WOFF or WOFF2 are not decoded: text set in such
   a face falls to the next face its family list resolves to
 

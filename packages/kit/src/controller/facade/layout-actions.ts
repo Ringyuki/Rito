@@ -9,6 +9,8 @@ import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
 import { invalidateNativeSearchLayout } from '../search-resolution';
 import { reportUnresolvedFontFamilies } from './font-actions';
 import { abortTransition } from '../core/transition-lifecycle';
+import { createResizeSettle, endResizeSettle, holdBookWhileResizing } from './resize-settle';
+import type { Disposables } from './types';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -16,9 +18,15 @@ export function buildLayoutActions(
   internals: Internals,
   emitter: Emitter,
   runtime: RuntimeComponents,
+  disposables: Disposables,
 ): LayoutActionsSlice {
+  const settle = createResizeSettle();
+  disposables.add(() => {
+    endResizeSettle(settle);
+  });
   return {
     resize(width, height, margin): void {
+      holdBookWhileResizing(settle, internals.reader);
       const anchor = currentPosition(internals);
       const changed = internals.reader.updateLayout(width, height, undefined, margin);
       refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
@@ -30,6 +38,10 @@ export function buildLayoutActions(
     },
     setTheme(options: ReaderThemeOptions): void {
       internals.reader.setTheme(options);
+      runtime.pool.invalidateAllContent();
+      runtime.frameDriver.scheduleComposite();
+    },
+    repaintPages(): void {
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();
     },

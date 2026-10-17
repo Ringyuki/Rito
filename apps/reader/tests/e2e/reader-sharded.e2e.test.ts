@@ -40,6 +40,8 @@ interface PackedBook {
 /** What the intercepted shard route does with each request. */
 class ShardNetwork {
   mode: 'hold' | 'serve' | 'fail' = 'serve';
+  /** How long a served shard takes to arrive. */
+  latencyMs = 0;
   readonly requested: number[] = [];
   readonly served: number[] = [];
   private held: (() => Promise<void>)[] = [];
@@ -75,6 +77,9 @@ class ShardNetwork {
     if (this.mode === 'fail') {
       await route.fulfill({ status: 503, body: 'shard server down' });
       return;
+    }
+    if (this.latencyMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.latencyMs));
     }
     const shard = this.book.shards.get(id);
     if (!shard) {
@@ -191,6 +196,31 @@ test.describe('reader with a sharded publication', () => {
     }
   });
 
+  test('the page shown at open draws its image when the shard arrives after the whole book is laid out', async ({
+    browser,
+  }) => {
+    // The first page reads its image while only its chapter is laid out;
+    // the whole-book layout replaces that page before the slow shard
+    // arrives, and the page now shown must still get its image.
+    const { context, sharded, archive } = await openPair(browser, 'serve', 1_000);
+    try {
+      const expected = await spreadChecksum(archive, 0);
+      expect(await currentSpread(sharded)).toBe(0);
+      await expect
+        .poll(() => readerCanvasChecksum(sharded), {
+          timeout: 30_000,
+          message: 'the first page draws its image',
+        })
+        .toBe(expected);
+      const failures = await sharded.evaluate(
+        () => (globalThis as { __ritoImageFailures?: unknown[] }).__ritoImageFailures ?? [],
+      );
+      expect(failures).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('a layout change while shards are on their way still lands on the archive pages', async ({
     browser,
   }) => {
@@ -223,6 +253,7 @@ const trace = (m: string): void => {
 async function openPair(
   browser: Browser,
   networkMode: 'hold' | 'serve',
+  latencyMs = 0,
 ): Promise<{
   readonly context: BrowserContext;
   readonly sharded: Page;
@@ -232,6 +263,7 @@ async function openPair(
   const context = await browser.newContext({ viewport: VIEWPORT });
   const network = new ShardNetwork(book);
   network.mode = networkMode;
+  network.latencyMs = latencyMs;
   const archive = await freshReader(context);
   await archive.evaluate(async (archiveBase64) => {
     const bytes = Uint8Array.from(atob(archiveBase64), (char) => char.charCodeAt(0));

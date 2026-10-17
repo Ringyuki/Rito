@@ -1,3 +1,70 @@
+## 0.7.0 - 2026-10-17
+
+### Ranges across paragraphs inside one wrapper resolve
+
+A source range spanning paragraphs that a chapter wraps in one element
+(a `<div>` around the text) resolved as unavailable: the paragraphs
+shared their wrapper's block, so their text ran together and no longer
+matched the source. Each paragraph now counts as its own, so such a
+highlight gets its rects, and a selection across paragraphs copies with
+the blank line between them.
+
+### A relayout no longer waits behind the whole-book pagination
+
+`RitoReaderController` started paginating the whole book again right
+after every `relayout`, and a pagination step holds the session for as
+long as the book takes, so a relayout requested meanwhile (the next size
+of a window being resized) waited for it. Pagination now waits until no
+relayout has been asked for `RitoReaderController.layoutSettle` (300 ms).
+
+### A page lays out only the characters no page has painted yet
+
+The page painter lays each character of a run out as its own paragraph
+and meant to keep them across paints, but kept them on a target it made
+anew for every paint: every page, and a page painted again (a turn
+settling, a neighbour's texture), laid out every distinct character it
+showed. One cache now serves every page and session, keyed by the
+character, its font family stack, size, weight and slope and its ink; it
+keeps at most 2048 (some twelve megabytes), dropping the least recently
+used first. Measured under
+flutter_tester on 450-character pages of a CJK book: a new page from
+about 10 ms to 2 ms, a page painted again from 10 ms to under 1 ms.
+
+### Box shadows paint as Chromium paints them
+
+A box whose corners are rounded differently cast a square-cornered shadow
+that showed past its rounded corners; the shadow now takes each corner's
+radius. A spread shadow on a square box stays square, a corner smaller
+than the spread grows by the CSS corner correction, and the shadow is cut
+out along the box's rounded outline, one pixel inside an opaque
+background, so no thin grey line shows along its edges. Only the blurred
+shadow paints: the shape it is cast from was also drawn, unblurred, as a
+hard ring around any box with a spread.
+
+### Floated images, `::before` and `::after`, and `position: absolute`
+
+The engine lays out three more pieces of CSS that chat-style pages
+(avatars beside speech bubbles with pointed tails) are built from. A
+floated image that opens its block's content floats, with the following
+lines and floats beside it; it used to stay an inline image on a line of
+its own. `::before` and `::after` are generated, as text, a block, a
+float or an absolutely positioned box by their `display`, `float` and
+`position`, showing their strings and `attr()` values (`counter()`,
+quotes and images show nothing). `position: absolute` takes a
+block-level box out of the flow and places it against its nearest
+positioned ancestor by its insets.
+
+### No blank page before an illustration that follows an empty element
+
+An illustration sized to the page left a blank page before it when it
+followed an element with no height, such as a `<div>` holding only an
+anchor: the empty element took no space but counted as content, so the
+illustration's line, a few pixels taller than the page, broke to the
+next page instead of overflowing on this one as it does in a browser. An
+element with no height now leaves the page empty, as in Chromium; its
+margins still take space, and a forced break after it still starts a new
+page.
+
 ## 0.6.0 - 2026-10-16
 
 ### Page turns tell an effect which page is which, as on the web

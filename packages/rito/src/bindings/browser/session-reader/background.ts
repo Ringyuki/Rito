@@ -1,5 +1,6 @@
 import { advanceSessionReaderBook } from './artifacts';
 import { commitSessionReaderLayout } from './commit';
+import { wakeSessionReaderQueue } from './queue';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
 /** Steps in a row that may bring no page for one layout before the book is reported stuck. */
@@ -13,12 +14,15 @@ const BOOK_IDLE_STEPS = 64;
  *
  * It is what the reader's queue does when nothing waits. The step that
  * paginates the book occupies the session for as long as that takes, so it
- * starts only once what the reader was asked for is done and the spreads a
- * turn would show are loaded; a turn made while it runs is painted from
- * those and followed by the session afterwards.
+ * starts only once what the reader was asked for is done, no host holds it
+ * back, and the spreads a turn would show are loaded; a turn made while it
+ * runs is painted from those and followed by the session afterwards.
  */
 export async function stepSessionReaderBook(state: SessionReaderState): Promise<boolean> {
   if (state.disposed || state.view.scope === 'book' || state.bookStalled) return false;
+  // The host holds it back (the sizes of a window being resized keep
+  // coming); releasing the last hold wakes the queue.
+  if (state.bookHolds > 0) return false;
   const shown = state.visible.spreadIndex;
   // The session did not follow the host to its spread (that failed, and
   // was reported): the book would be brought for a page the reader left.
@@ -42,4 +46,16 @@ export async function stepSessionReaderBook(state: SessionReaderState): Promise<
     state.bookStalled = true;
   }
   return false;
+}
+
+/** A host's hold on the whole-book run; the run waits until every hold is released. */
+export function holdSessionReaderBook(state: SessionReaderState): () => void {
+  state.bookHolds += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    state.bookHolds -= 1;
+    if (state.bookHolds === 0 && !state.disposed) wakeSessionReaderQueue(state);
+  };
 }

@@ -331,6 +331,14 @@ export interface Reader {
     spreadMode?: 'single' | 'double',
     margin?: number,
   ): boolean;
+  /**
+   * Holds the whole-book layout back until the returned function is
+   * called; holds nest. A step of it occupies the session for as long as
+   * the book takes, so a host about to ask for layouts in quick succession
+   * (the sizes of a window being resized) holds it and has each one laid
+   * out at once.
+   */
+  holdBookLayout?(): () => void;
   setTheme(options: ReaderThemeOptions): void;
   findPage(entry: TocEntry): number | undefined;
   findSpread(pageIndex: number): number | undefined;

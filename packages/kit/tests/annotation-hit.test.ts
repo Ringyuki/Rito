@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findAnnotationHitAtPos,
-  getAnnotationScreenCenter,
+  getAnnotationScreenPlacement,
 } from '../src/controller/wiring/annotation';
 import { createCoordinatorState } from '../src/controller/core/coordinator-state';
 import type { WiringDeps } from '../src/controller/core/wiring-deps';
@@ -15,12 +15,10 @@ describe('annotation hit projection', () => {
     state.resolvedAnnotations = [annotation];
     state.mapper = {
       spreadContentToPage: () => ({ pageIndex: 1, x: 15, y: 25 }),
-      pageContentToScreen: (pageIndex: number, rect: { x: number; y: number }) => ({
-        x: pageIndex * 1_000 + rect.x,
-        y: rect.y,
-        width: 0,
-        height: 0,
-      }),
+      pageContentToScreen: (
+        pageIndex: number,
+        rect: { x: number; y: number; width: number; height: number },
+      ) => ({ ...rect, x: pageIndex * 1_000 + rect.x }),
     } as never;
     const deps = {
       coordState: state,
@@ -31,13 +29,12 @@ describe('annotation hit projection', () => {
     expect(hit?.segment.pageIndex).toBe(1);
     expect(
       hit &&
-        getAnnotationScreenCenter(
-          hit.annotation,
+        getAnnotationScreenPlacement(
+          hit,
           { getBoundingClientRect: () => ({}) } as HTMLCanvasElement,
           deps,
-          hit.segment,
         ),
-    ).toEqual({ x: 1_015, y: 20 });
+    ).toEqual({ x: 1_015, y: 20, screenBounds: { x: 1_010, y: 20, width: 10, height: 10 } });
   });
 
   it('does not fall back to installed geometry while native interactions are disabled', () => {

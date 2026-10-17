@@ -63,6 +63,14 @@ final class RitoReaderController extends ChangeNotifier {
   /// Top-level nodes laid out per background pagination quantum.
   final int paginationQuantum;
 
+  /// How long the layout must go unchanged after a [relayout] before the
+  /// rest of the book is paginated behind it. A pagination step holds the
+  /// session for as long as the book takes (measured on the web reader:
+  /// 240 ms for a 400-page novel, 1.3 s for an 800-page one), and one
+  /// started between two sizes of a window being resized held every
+  /// relayout after it; laid out alone, each size reached the screen.
+  static const Duration layoutSettle = Duration(milliseconds: 300);
+
   RitoLayoutRequest _layout;
   RitoPreparedArtifact _page;
   int _revision = 0;
@@ -73,6 +81,7 @@ final class RitoReaderController extends ChangeNotifier {
   int _paginationHolds = 0;
   bool _paginationComplete = false;
   bool _paginationScheduled = false;
+  Timer? _layoutSettling;
   bool _disposed = false;
 
   /// The page on screen. It stays live until the controller replaces it.
@@ -149,6 +158,11 @@ final class RitoReaderController extends ChangeNotifier {
   /// was on. Null when a later [jumpTo] or [relayout] superseded it.
   Future<RitoPreparedArtifact?> relayout(RitoLayoutRequest layout) {
     _layout = layout;
+    _layoutSettling?.cancel();
+    _layoutSettling = Timer(layoutSettle, () {
+      _layoutSettling = null;
+      _schedulePagination();
+    });
     return _seek(() => _page.artifact.locator, RitoPageChange.relayout);
   }
 
@@ -230,19 +244,30 @@ final class RitoReaderController extends ChangeNotifier {
     if (_paginationScheduled ||
         _paginationComplete ||
         _paginationHolds > 0 ||
+        _layoutSettling != null ||
         _disposed) {
       return;
     }
     _paginationScheduled = true;
     scheduleMicrotask(() {
       _paginationScheduled = false;
-      if (_paginationHolds > 0 || _paginationComplete || _disposed) return;
+      if (_paginationHolds > 0 ||
+          _paginationComplete ||
+          _layoutSettling != null ||
+          _disposed) {
+        return;
+      }
       unawaited(_enqueue(_paginateOnce).then((_) => _schedulePagination()));
     });
   }
 
   Future<void> _paginateOnce() async {
-    if (_paginationHolds > 0 || _paginationComplete || _disposed) return;
+    if (_paginationHolds > 0 ||
+        _paginationComplete ||
+        _layoutSettling != null ||
+        _disposed) {
+      return;
+    }
     try {
       final step = await _source.paginate(_page, paginationQuantum);
       final adopted = step.adopted;
@@ -277,6 +302,7 @@ final class RitoReaderController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _layoutSettling?.cancel();
     _releaseNeighbours();
     super.dispose();
   }

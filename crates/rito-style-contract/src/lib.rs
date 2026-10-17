@@ -29,6 +29,7 @@ pub const RESOLVED_URL_BYTE_LIMIT: usize = 64 * 1024;
 mod color;
 mod font;
 mod fragment;
+mod generated;
 mod inline;
 mod layout;
 mod length;
@@ -47,6 +48,7 @@ pub use fragment::{
     AlignmentBaseline, BaselineShift, BaselineSource, BorderRadii, CornerRadius,
     InlineFragmentStyle, PhysicalSides,
 };
+pub use generated::{GeneratedBox, GeneratedBoxTable, GeneratedContentItem, PseudoElementKind};
 pub use inline::{FontStyle, InlineBidi, InlineFormattingStyle};
 pub use layout::{
     AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,

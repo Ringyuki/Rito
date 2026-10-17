@@ -25,6 +25,7 @@ Core exports:
 - `ControllerOptions`
 - `InteractionMode`
 - `AddAnnotationInput`
+- `PagePainter`, `PagePaint`
 
 Supporting exports:
 
@@ -215,6 +216,45 @@ frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows th
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.
 
+## Drawing On Pages
+
+`paintPage` in `ControllerOptions` draws over each page as part of it: a page
+number, a running head. The controller calls it whenever it paints a page, right
+after the engine, on the page's own picture, so what it draws moves with the page
+in every turn, a paper turn's leaf included, and lies under highlights and the
+selection. Its `context` is clipped to the page, with its origin at the page's
+top-left corner, in the layout's CSS pixels (the device pixel ratio and
+`renderScale` already applied), and is restored afterwards. `page` gives
+`pageIndex` in the committed layout, `side`, `width`, `height` and `margins`, and
+`bookPageIndex` and `bookPageCount`: the page's number in the whole book and the
+book's page count. Both are `null` while only the chapter being read is laid out,
+when page indexes count from that chapter; hide page numbering then. The book's
+layout paints every page again with both.
+
+```ts
+const controller = createController(reader, canvas, {
+  paintPage(context, page) {
+    if (page.bookPageIndex === null) return;
+    context.font = '12px serif';
+    context.textAlign = 'center';
+    context.fillText(
+      `${page.bookPageIndex + 1} / ${page.bookPageCount}`,
+      page.width / 2,
+      page.height - page.margins.bottom / 2,
+    );
+  },
+});
+```
+
+The pages on either side of the one on screen are painted ahead of a turn, so a
+painter draws from `page`, not from where the reader is. When what it draws changes
+on its own (the host's colours, a setting), `controller.repaintPages()` paints
+every page again. A painter that throws leaves the page as the engine painted it
+and is reported on the `error` event (source `'page-painter'`); it never holds a
+page or a turn back. In a paper turn a lifted leaf is seen nearer and larger, so
+what is drawn at a page's very edge, such as a number low in the bottom margin, can
+pass the canvas's edge while the leaf is up.
+
 ## Responsibilities
 
 `@ritojs/kit` adds the app-facing interaction layer on top of core rendering:
@@ -286,7 +326,12 @@ source range; a failed build is reported on the `error` event (source
 `'annotation-target'`) and resolves `undefined`. The target is versioned JSON —
 `{ version: 1, href, sourceRange, quote: { exact, prefix, suffix }, position: { start,
 end, chapterLength } }`, offsets in UTF-16 units over the chapter's raw parsed text —
-and is persisted as the engine wrote it.
+and is persisted as the engine wrote it. `insertAnnotation(record)` stores a whole
+record as given (its id, colour, note and timestamps), to undo a removal or an edit:
+it replaces the stored record with that id where it stands, and otherwise goes in
+creation order, which is the order annotations are painted in, so a removed record
+put back lies under and over the same neighbours. It is persisted like any change and
+returns `false` once the controller is disposed.
 
 Re-projection is two engine reads. `interactions.resolveAnnotationTarget` finds the
 stored target in the chapter as it is now, trying the source range (checked against
@@ -303,7 +348,16 @@ index and page-content `rects`.
 Clicks: links, footnotes, and images are the reader's page targets
 (`interactions.getPageTargets`), hit-tested in reverse paint order after annotations.
 A click whose targets were read from a layout that is no longer committed is dropped
-rather than tested against stale geometry.
+rather than tested against stale geometry. `annotationClick` carries `screenBounds`, the
+box around the annotation's rectangles on the clicked page, in the screen coordinates
+of `imageClick.screenBounds`; its `x`, `y` is that box's top centre. A popover can sit
+above or below the box without covering the highlight.
+
+Focus: the controller makes the Canvas focusable (`tabindex="0"`) so it receives keys,
+and sets its inline `outline-style` to `none`, since the browser's focus ring would
+outline the whole reading surface after a key press. Disposal gives the Canvas back the
+`tabindex` and `outline-style` it had. A host that wants a ring sets the Canvas's
+inline `outline` after `createController`.
 
 Search: results come from `reader.search()`; highlight rectangles for the visible spread
 are resolved from each result's source range through `interactions.resolveExactSourceRange`.

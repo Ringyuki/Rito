@@ -354,6 +354,37 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('holds the whole book back while the host holds it', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+    const advances = (): number => fake.calls.filter((call) => call === 'advance').length;
+    const before = advances();
+
+    // A window being resized: a new size every frame, the host holding the
+    // whole book, which would occupy the session for as long as it takes.
+    // Each size reaches the screen laid out with its chapter.
+    const release = reader.holdBookLayout?.();
+    const second = reader.holdBookLayout?.();
+    for (let frame = 0; frame < 10; frame += 1) {
+      reader.resize(420 + frame * 10, 600);
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    await settle();
+    expect(commits.length).toBeGreaterThanOrEqual(8);
+    expect(commits.every((commit) => commit.scope === 'chapter')).toBe(true);
+    expect(advances()).toBe(before);
+
+    // Holds nest: the book waits for the last one.
+    second?.();
+    await settle();
+    expect(advances()).toBe(before);
+    release?.();
+    await bookScope(reader);
+    expect(reader.getLayoutGeometry().pageWidth).toBe(510);
+    await reader.dispose();
+  });
+
   it('does nothing for a layout request that changes nothing', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);
@@ -411,7 +442,10 @@ describe('Reader on a session', () => {
     };
 
     reader.setTypography({ fontSize: 32 });
-    await bookScope(reader);
+    // The chapter commits first; the book follows once the layout settles.
+    await vi.waitFor(() => {
+      expect(commits).toHaveLength(2);
+    });
     await settle();
 
     // The chapter's first spread sits behind the cover's two pages; the

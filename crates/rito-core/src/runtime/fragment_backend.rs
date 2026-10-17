@@ -590,6 +590,7 @@ impl RuntimeDocument {
         let style_tables = Rc::new(RuntimeChapterStyleTables {
             layout: chapter.layout_style_table,
             inline: chapter.inline_style_table,
+            generated: chapter.generated_boxes,
         });
         let prepared = Rc::new(prepared);
         let build = self.fragment_table_build_inputs(Rc::clone(&prepared), config)?;
@@ -792,6 +793,7 @@ mod tests {
             style_tables: Rc::new(RuntimeChapterStyleTables {
                 layout: rito_style_contract::LayoutStyleTable::new(0),
                 inline: rito_style_contract::InlineStyleTable::new(0),
+                generated: rito_style_contract::GeneratedBoxTable::new(),
             }),
             image_dimensions: BTreeMap::new(),
         }

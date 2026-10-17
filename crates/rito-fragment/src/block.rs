@@ -106,12 +106,14 @@ impl FormattingContext for StubBlockContext {
                     pending_floats: Vec::new(),
                 }),
                 escaped_floats: Vec::new(),
+                positioned: Vec::new(),
             });
         }
         Ok(LayoutOutcome {
             fragments: sealed(root, space.inline_size, y, fragments),
             continuation: None,
             escaped_floats: Vec::new(),
+            positioned: Vec::new(),
         })
     }
 
@@ -208,6 +210,7 @@ fn outcome_with_break(
         fragments: sealed(root, inline_size, used_block_size, fragments),
         continuation: Some(token),
         escaped_floats: Vec::new(),
+        positioned: Vec::new(),
     }
 }
 

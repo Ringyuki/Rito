@@ -27,15 +27,22 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // through (queue.ts) and the one module that owns artifacts (artifacts.ts).
 // They took the place of three concurrent chains, whose interleavings left
 // a reader that ignored every later setting.
+// +25 lines (2026-10-17): the host's hold on the whole-book run, which kit
+// takes while a window is resized so each size is laid out at once (the
+// run occupies the session for as long as the book takes), and the
+// listener registrations moved beside the state they register into, which
+// kept reader.ts within the file limit.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2650;
+const SESSION_READER_LINE_BUDGET = 2674;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
 // from, and the reader's four font methods.
 // +9 lines (2026-10-09): `layoutScope` tells a chapter-first commit from
 // the whole book's.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 782;
+// +5 lines (2026-10-17): `holdBookLayout`, a host's hold on the whole-book
+// layout.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 787;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

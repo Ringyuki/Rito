@@ -51,6 +51,40 @@ pub(super) fn corner_rounded_rect(rect: DeviceRect, corners: [f64; 4]) -> Device
     )
 }
 
+/// Elliptical corner radii (x, y) in CSS order shrunk by one factor so no
+/// two corners on a side of `rect` overlap (CSS Backgrounds §5.5); a corner
+/// left with a zero axis is square.
+pub(super) fn constrain_corners(rect: DeviceRect, corners: [(f64, f64); 4]) -> [(f64, f64); 4] {
+    let corners = corners.map(|(rx, ry)| (rx.max(0.0), ry.max(0.0)));
+    let [tl, tr, br, bl] = corners;
+    let fit = |extent: f64, sum: f64| if sum > 0.0 { extent / sum } else { 1.0 };
+    let factor = fit(rect.width, tl.0 + tr.0)
+        .min(fit(rect.width, bl.0 + br.0))
+        .min(fit(rect.height, tl.1 + bl.1))
+        .min(fit(rect.height, tr.1 + br.1))
+        .min(1.0);
+    corners.map(|(rx, ry)| {
+        if rx * factor > 0.0 && ry * factor > 0.0 {
+            (rx * factor, ry * factor)
+        } else {
+            (0.0, 0.0)
+        }
+    })
+}
+
+/// The clockwise outline of `rect` with elliptical corner radii in CSS
+/// order, constrained by [`constrain_corners`]; the plain rectangle when
+/// every corner is square.
+pub(super) fn elliptical_rounded_rect(rect: DeviceRect, corners: [(f64, f64); 4]) -> DevicePath {
+    let corners = constrain_corners(rect, corners);
+    if corners.iter().all(|(rx, _)| *rx <= 0.0) {
+        return DevicePath {
+            ops: vec![PathOp::Rect(rect)],
+        };
+    }
+    corner_outline(rect, corners)
+}
+
 /// The padding-box outline of an unequal-width rounded border: each corner
 /// is an elliptical arc whose x radius insets by that corner's vertical edge
 /// and whose y radius insets by its horizontal edge, each axis capped at

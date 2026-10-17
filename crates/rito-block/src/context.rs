@@ -135,6 +135,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     },
                     continuation: None,
                     escaped_floats: Vec::new(),
+                    positioned: Vec::new(),
                 })
             }
             FormattingNodeContent::TableRow | FormattingNodeContent::TableCell { .. } => Err(

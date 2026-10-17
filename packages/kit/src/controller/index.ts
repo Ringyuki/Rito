@@ -30,6 +30,7 @@ export type {
   SelectionHandleEdge,
   SelectionHandleState,
 } from './types';
+export type { PagePaint, PagePainter } from './page-paint';
 
 export function createController(
   reader: Reader,

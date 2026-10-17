@@ -167,9 +167,11 @@ impl StyleDocument {
             &self.animations,
             &mut self.snapshots,
         );
-        let inline = projection::project_inline(&self.dom)?;
-        let layout = projection::project_layout(&self.dom)?;
-        Ok(ProductionStyleProjection::new(inline, layout))
+        let mut inline = projection::project_inline(&self.dom)?;
+        let mut layout = projection::project_layout(&self.dom)?;
+        let generated =
+            projection::project_generated(&self.dom, inline.table_mut(), layout.table_mut());
+        Ok(ProductionStyleProjection::new(inline, layout, generated))
     }
 }
 
@@ -483,5 +485,68 @@ mod tests {
             r#"@namespace epub "http://www.idpf.org/2007/ops"; [epub|type="note"]:lang(ja) { font-size: 31px }"#,
         );
         assert_eq!(inline.font.size.get(), 31.0);
+    }
+
+    #[test]
+    fn generates_before_and_after_boxes_with_their_styles_and_content() {
+        use rito_style_contract::{GeneratedContentItem, Position, PseudoElementKind};
+        let source = source(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="a" class="tail">x</p><p id="b" title="T">y</p><p id="c">z</p></body></html>"#,
+        );
+        let mut document = StyleDocument::from_source_with_root_font_size(
+            Arc::clone(&source),
+            URL,
+            Viewport::default(),
+            16.0,
+            &[StylesheetInput::author(
+                ".tail { position: relative } \
+                 .tail::before { content: \"\"; position: absolute; right: 100%; top: 0; \
+                   border-right: 0.8em solid green; border-bottom: 1em solid transparent } \
+                 #b::after { content: \"<\" attr(title) \">\" } \
+                 #c::before { content: counter(n) } #c::after { content: \"q\"; display: none }",
+                URL,
+            )],
+        )
+        .unwrap();
+        let (inline, layout, generated) =
+            document.resolve_production_slice().unwrap().into_tables();
+        let index = |id: &str| source.find_element_by_id(id).unwrap().index();
+
+        let tail = generated
+            .get(index("a"), PseudoElementKind::Before)
+            .unwrap();
+        assert_eq!(
+            tail.content,
+            vec![GeneratedContentItem::Text(String::new())]
+        );
+        assert_eq!(
+            layout.style(tail.layout).unwrap().position,
+            Position::Absolute
+        );
+        let right = inline.style(tail.inline).unwrap().fragment.border.right;
+        // 0.8em at 16px: border widths compute to whole device pixels.
+        assert_eq!(right.resolved_width.get(), 12.0);
+        assert!(generated
+            .get(index("a"), PseudoElementKind::After)
+            .is_none());
+
+        let quoted = generated.get(index("b"), PseudoElementKind::After).unwrap();
+        assert_eq!(
+            quoted.content,
+            ["<", "T", ">"]
+                .map(|text| GeneratedContentItem::Text(text.to_owned()))
+                .to_vec()
+        );
+        let counter = generated
+            .get(index("c"), PseudoElementKind::Before)
+            .unwrap();
+        assert_eq!(
+            counter.content,
+            vec![GeneratedContentItem::Unsupported("counter()")]
+        );
+        // `display: none` generates nothing.
+        assert!(generated
+            .get(index("c"), PseudoElementKind::After)
+            .is_none());
     }
 }

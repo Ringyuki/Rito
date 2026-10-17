@@ -5,7 +5,8 @@
  */
 
 import type { AnnotationRecord, AnnotationDraft, AnnotationRecordPatch } from './model';
-import { applyStoreMutations, type StoreMutation } from './store-mutations';
+import { createIdPrefix } from './store-ids';
+import { applyStoreMutations, placeRecord, type StoreMutation } from './store-mutations';
 
 /** Storage adapter for the new AnnotationRecord format. */
 export interface RecordStorageAdapter {
@@ -16,6 +17,8 @@ export interface RecordStorageAdapter {
 export interface AnnotationStore {
   init(adapter?: RecordStorageAdapter): Promise<void>;
   add(draft: AnnotationDraft): AnnotationRecord;
+  /** Stores a whole record as given; false once disposed. */
+  insert(record: AnnotationRecord): boolean;
   remove(id: string): boolean;
   update(id: string, patch: AnnotationRecordPatch): boolean;
   getAll(): readonly AnnotationRecord[];
@@ -57,8 +60,6 @@ type CapturedPersistence =
   | Promise<PersistenceSnapshot | undefined>
   | undefined;
 
-let fallbackStoreSequence = 0;
-
 export function createAnnotationStore(): AnnotationStore {
   const state: StoreState = {
     disposed: false,
@@ -75,6 +76,7 @@ export function createAnnotationStore(): AnnotationStore {
   return {
     init: (adapter) => initFromAdapter(state, adapter),
     add: (draft) => addRecord(state, draft),
+    insert: (record) => insertRecord(state, record),
     remove: (id) => removeRecord(state, id),
     update: (id, patch) => updateRecord(state, id, patch),
     getAll: () => (state.disposed ? [] : [...state.records]),
@@ -208,6 +210,15 @@ function addRecord(state: StoreState, draft: AnnotationDraft): AnnotationRecord 
   return record;
 }
 
+function insertRecord(state: StoreState, record: AnnotationRecord): boolean {
+  if (state.disposed) return false;
+  const stored = { ...record };
+  placeRecord(state.records, stored);
+  state.initialization?.mutations.push({ type: 'insert', record: stored });
+  notify(state);
+  return true;
+}
+
 function removeRecord(state: StoreState, id: string): boolean {
   if (state.disposed) return false;
   const idx = state.records.findIndex((r) => r.id === id);
@@ -262,16 +273,6 @@ function isCurrentInitialization(
     state.initialization === pending &&
     state.adapter === adapter
   );
-}
-
-function createIdPrefix(): string {
-  const runtime = globalThis as unknown as {
-    readonly crypto?: { readonly randomUUID?: () => string };
-  };
-  const uuid = runtime.crypto?.randomUUID?.();
-  if (uuid !== undefined && uuid.length > 0) return `annotation-${uuid}`;
-  fallbackStoreSequence += 1;
-  return `annotation-${Date.now().toString(36)}-${fallbackStoreSequence.toString(36)}`;
 }
 
 function createPendingInitialization(

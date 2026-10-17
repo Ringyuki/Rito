@@ -265,7 +265,13 @@ describe('browser primitive renderer', () => {
     );
     expect(mock.getCalls('clip').map((call) => call.args)).toEqual([['evenodd']]);
     expect(mock.getPropertySets('shadowBlur').map((set) => set.value)).toEqual([3]);
-    expect(mock.getPropertySets('shadowOffsetX').map((set) => set.value)).toEqual([1]);
+    // Only the shadow paints: the shape is filled far left of the canvas
+    // and the shadow offset carries its copy back to the primitive's.
+    const [shift] = mock.getCalls('translate').map((call) => call.args) as [[number, number]];
+    expect(shift[0]).toBeLessThan(-10_000);
+    expect(shift[1]).toBe(0);
+    const offsetX = mock.getPropertySets('shadowOffsetX').map((set) => set.value as number);
+    expect(offsetX.map((value) => value + shift[0])).toEqual([1]);
     expect(mock.getPropertySets('shadowOffsetY').map((set) => set.value)).toEqual([2]);
     expect(mock.getCalls('fill')).toHaveLength(1);
   });

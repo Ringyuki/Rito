@@ -25,6 +25,7 @@ pub use cache::{CachedLayout, FragmentCache};
 pub use constraint_space::{ConstraintSpace, FloatBand};
 pub use context::{
     CancelFlag, EscapedFloat, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
+    PendingPositioned,
 };
 pub use formatting_tree::{
     allocate_ruby_annotation, allocate_ruby_annotation_range, distribute_ruby_annotation,

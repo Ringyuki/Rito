@@ -1,4 +1,4 @@
-import type { LayoutConfig, ReaderOptions, Spread } from '../../../reader';
+import type { LayoutConfig, Reader, ReaderOptions, Spread } from '../../../reader';
 import type { BrowserHostLogger } from '../host-runtime';
 import type { ReaderEventLog } from '../reader-event-log';
 import type { CanvasRenderingTarget } from '../primitive-renderer';
@@ -82,6 +82,8 @@ export interface SessionReaderState {
   layoutGeneration: number;
   /** Counts layout requests; only the latest commits. */
   relayoutToken: number;
+  /** Holds on the whole-book layout the host has not released; it waits while any stands. */
+  bookHolds: number;
   readonly queue: SessionReaderQueue;
   showQueued: boolean;
   relayoutForced: boolean;
@@ -112,4 +114,24 @@ export function notifySessionReaderSpreadInvalidated(
 ): void {
   if (state.disposed) return;
   for (const listener of state.spreadContentInvalidatedListeners) listener(spreadIndex);
+}
+
+/** The reader's listener registrations: each returns its removal. */
+export function sessionReaderListenerMethods(
+  state: SessionReaderState,
+): Pick<Reader, 'onSpreadRendered' | 'onSpreadContentInvalidated' | 'onLayoutCommitted'> {
+  return {
+    onSpreadRendered(listener) {
+      state.spreadRenderedListeners.add(listener);
+      return () => state.spreadRenderedListeners.delete(listener);
+    },
+    onSpreadContentInvalidated(listener) {
+      state.spreadContentInvalidatedListeners.add(listener);
+      return () => state.spreadContentInvalidatedListeners.delete(listener);
+    },
+    onLayoutCommitted(listener) {
+      state.layoutCommittedListeners.add(listener);
+      return () => state.layoutCommittedListeners.delete(listener);
+    },
+  };
 }
