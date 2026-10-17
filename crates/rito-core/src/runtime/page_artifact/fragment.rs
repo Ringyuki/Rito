@@ -203,6 +203,11 @@ impl FragmentPageArtifact {
         &self.text
     }
 
+    /// The page's text and text runs, given up whole.
+    pub(in crate::runtime) fn into_text_and_runs(self) -> (String, Vec<FragmentRunRecord>) {
+        (self.text, self.runs)
+    }
+
     /// Builds the artifact from one page's root fragment. `origin_x` and
     /// `origin_y` translate fragment coordinates into page coordinates
     /// (the page's content origin, exactly as the paint producer does).
