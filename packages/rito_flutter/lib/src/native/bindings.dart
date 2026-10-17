@@ -400,7 +400,7 @@ external int _ritoDispose(int sessionId, Pointer<_RitoOwnedBuffer> errorOut);
 external void _ritoBufferFree(Pointer<_RitoOwnedBuffer> buffer);
 
 /// Blocking C ABI binding. Applications should normally use
-/// `RitoIsolateGateway`, which constructs this binding on a worker isolate.
+/// `RitoNativeGateway`, which drives a session's protocol over it.
 final class RitoNativeBindings {
   RitoNativeBindings({
     this.artifactDecoder = const RitoArtifactDecoder(),

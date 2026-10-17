@@ -8,9 +8,11 @@ components, and discriminants remain typed through the renderer; production
 code contains no generic wire-value tree or CSS color-string parser.
 
 The adapter is not a WebView and performs no network or filesystem I/O. EPUB
-parsing, CSS, layout, seek, turn, and reflow run through `RitoIsolateGateway`;
-the UI isolate registers owned artifact fonts and replays an already-published
-artifact. Images are decoded by the package when the session is opened with a
+parsing, CSS, layout, seek, turn, and reflow run through `RitoNativeGateway`
+on the calling isolate, so the frame that asks for a layout can draw it; the
+UI isolate registers owned artifact fonts and replays an already-published
+artifact. The whole book behind the page shown is laid out a few pages at a
+time between frames. Images are decoded by the package when the session is opened with a
 `RitoArtifactImageCache`, each landing after its page is shown; without one the
 application decodes them and supplies them through `RitoImageResolver`.
 
@@ -33,7 +35,7 @@ Assets hook, so consuming applications do not need a Rito repository checkout.
 ## Basic usage
 
 ```dart
-final gateway = RitoIsolateGateway();
+final gateway = RitoNativeGateway();
 final session = await RitoReaderSession.open(
   gateway: gateway,
   publicationBytes: epubBytes,
@@ -105,8 +107,7 @@ can finish.
 
 `turn` lands on the neighbour with a pure visible-artifact swap when `peek`
 already published it from the page being turned from. Otherwise it emits the
-fixed 48-byte `RITONAV1` request and calls `rito_request_adjacent` on the
-persistent worker isolate. Either way it does not call `requestArtifact` or
+fixed 48-byte `RITONAV1` request and calls `rito_request_adjacent`. Either way it does not call `requestArtifact` or
 repeat locator seek/layout. `requestArtifact` remains an explicit API for seek
 or reflow requests. Image hrefs are passed to
 `RitoImageResolver` exactly as declared by the artifact, including relative
@@ -124,8 +125,8 @@ or downloads a toolchain itself.
 `RitoNativeBindings` is the blocking low-level ABI projection and is exposed
 from `package:rito_flutter/rito_flutter_native.dart` for custom embedders. It
 copies every native output before calling `rito_buffer_free`; applications
-should normally use the isolate gateway. Tests and embedder diagnostics may opt
-out of Native Assets with `RitoIsolateGateway(diagnosticLibrary: ...)` or
+should normally use `RitoNativeGateway`. Tests and embedder diagnostics may opt
+out of Native Assets with `RitoNativeGateway(diagnosticLibrary: ...)` or
 `RitoNativeBindings.fromDynamicLibrary(...)`.
 
 For an app, `RitoReaderController` owns the visible page (turns, jumps,

@@ -190,7 +190,7 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9003;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -265,7 +265,7 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9004;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -355,7 +355,7 @@ void main() {
         '../rito/tests/fixtures/books/book-01.epub',
       ).readAsBytesSync();
       const sessionId = 9005;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -442,7 +442,7 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9006;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -514,7 +514,7 @@ void main() {
       '../rito/tests/fixtures/books/book-01.epub',
     ).readAsBytesSync();
     const sessionId = 9007;
-    final gateway = RitoIsolateGateway();
+    final gateway = RitoNativeGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
       publicationBytes: publication,
@@ -610,7 +610,7 @@ void main() {
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
     const sessionId = 9008;
-    final gateway = RitoIsolateGateway();
+    final gateway = RitoNativeGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
       publicationBytes: publication,

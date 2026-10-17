@@ -143,7 +143,7 @@ shards already supplied stay supplied.
 
 ```dart
 final session = await RitoReaderSession.openShards(
-  gateway: RitoIsolateGateway(),
+  gateway: RitoNativeGateway(),
   skeletonBytes: skeleton,
   skeletonKey: skeletonKey,
   loadShards: (ids) => fetchShards(ids), // List<RitoPublicationShard>

@@ -102,7 +102,7 @@ final class _ShardPrefetchLane {
 /// a loader that keeps returning shards the engine still reports missing.
 const int _maxShardRounds = 16;
 
-extension _ShardSupply on RitoIsolateGateway {
+extension _ShardSupply on RitoNativeGateway {
   bool _awaitsShards(int sessionId, Object error) {
     return error is RitoNativeException &&
         error.status == ritoNativeStatusResourcePending &&
@@ -140,7 +140,7 @@ extension _ShardSupply on RitoIsolateGateway {
     final supplied = await worker.invoke<int>(
       _SupplyShardOperation(
         sessionId: sessionId,
-        shardBytes: RitoOwnedByteTransfer.take(Uint8List.fromList(shard.bytes)),
+        shardBytes: Uint8List.fromList(shard.bytes),
         key: shard.key,
       ),
     );

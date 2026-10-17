@@ -46,7 +46,7 @@ void main() {
       const sessionId = 9301;
       final tinos = _face('Tinos-Regular.ttf', RitoPinnedFontGenericRole.serif);
       final session = await RitoReaderSession.open(
-        gateway: RitoIsolateGateway(),
+        gateway: RitoNativeGateway(),
         publicationBytes: File(
           '../rito/tests/fixtures/books/book-10.epub',
         ).readAsBytesSync(),

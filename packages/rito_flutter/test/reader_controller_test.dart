@@ -77,6 +77,22 @@ void main() {
     expect(source.seeks, <String>['b.xhtml']);
   });
 
+  test('each pagination step waits for the isolate\'s next task', () async {
+    final source = FakePageSource(paginationSteps: 3);
+    final reader = RitoReaderController.withSource(source, layout: fakeLayout);
+    addTearDown(reader.dispose);
+    // The engine answers within the task that asks, so microtasks alone
+    // would run the whole book before the next frame: they run no step.
+    for (var turn = 0; turn < 20; turn += 1) {
+      await Future<void>.microtask(() {});
+    }
+    expect(source.paginations, 0);
+    await Future<void>.delayed(Duration.zero);
+    expect(source.paginations, 1);
+    await pumpEventQueue();
+    expect(source.paginations, 3);
+  });
+
   test('pagination adopts the renumbered page and pauses while held', () async {
     final source = FakePageSource(paginationSteps: 2);
     final reader = RitoReaderController.withSource(source, layout: fakeLayout);

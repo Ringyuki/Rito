@@ -1,353 +1,44 @@
 part of 'gateway.dart';
 
-final class _RitoWorkerClient {
-  _RitoWorkerClient(this._commands, this._isolate, this._signals);
+/// The native engine, called on the isolate that holds the gateway. Every
+/// operation runs to completion before it returns, so an answer is ready
+/// within the task that asked for it and a host can lay a page out and
+/// draw it in the same frame. The engine's work holds the isolate for as
+/// long as it takes, which is why the work a session does on its own (the
+/// whole book behind the page shown) comes in small steps.
+final class _RitoEngineClient {
+  _RitoEngineClient(this._bindings);
 
-  static Future<_RitoWorkerClient> start(
+  factory _RitoEngineClient.start(
     RitoDynamicLibrarySource? diagnosticLibrary,
-  ) async {
-    final ready = ReceivePort();
-    final signals = _WorkerSignals();
-    Isolate? isolate;
-    try {
-      isolate = await Isolate.spawn(
-        _workerMain,
-        _WorkerBootstrap(diagnosticLibrary, ready.sendPort),
-        debugName: 'rito-flutter-native',
-        onError: signals.errorSendPort,
-        onExit: signals.exitSendPort,
-      );
-      final readyMessage = await signals.latch.race<Object?>(
-        ready.first,
-        action: 'initialization',
-      );
-      if (readyMessage case _WorkerResult(:final error?, :final stackTrace?)) {
-        Error.throwWithStackTrace(error, stackTrace);
-      }
-      if (readyMessage is! SendPort) {
-        throw StateError(
-          'Rito native worker returned an invalid ready signal.',
-        );
-      }
-      return _RitoWorkerClient(readyMessage, isolate, signals);
-    } on Object {
-      isolate?.kill(priority: Isolate.immediate);
-      await signals.dispose();
-      rethrow;
-    } finally {
-      ready.close();
-    }
-  }
-
-  final SendPort _commands;
-  final Isolate _isolate;
-  final _WorkerSignals _signals;
-  final RitoWorkerCloseGate _closeGate = RitoWorkerCloseGate();
-  int _inFlight = 0;
-  Completer<void>? _idle;
-
-  /// Completes once no operation is in flight.
-  Future<void> whenIdle() {
-    if (_inFlight == 0) {
-      return Future<void>.value();
-    }
-    return (_idle ??= Completer<void>()).future;
-  }
-
-  Future<T> invoke<T>(_WorkerOperation operation) async {
-    final result = await _invoke(operation);
-    return result.value as T;
-  }
-
-  Future<Uint8List> invokeWire(_WorkerOperation operation) async {
-    final result = await _invoke(operation);
-    final transfer = result.value! as TransferableTypedData;
-    return RitoOwnedByteTransfer.materialize(transfer);
-  }
-
-  Future<_WorkerResult> _invoke(_WorkerOperation operation) async {
-    if (_closeGate.operationsClosed) {
-      throw StateError('Rito native worker is closed.');
-    }
-    final reply = ReceivePort();
-    late final Object? message;
-    _inFlight += 1;
-    try {
-      _commands.send(_WorkerEnvelope(operation, reply.sendPort));
-      message = await _signals.latch.race<Object?>(
-        reply.first,
-        action: 'native operation',
-      );
-    } finally {
-      reply.close();
-      _inFlight -= 1;
-      if (_inFlight == 0) {
-        _idle?.complete();
-        _idle = null;
-      }
-    }
-    if (message is! _WorkerResult) {
-      throw StateError('Rito native worker returned an invalid reply.');
-    }
-    final result = message;
-    if (result.error != null) {
-      Error.throwWithStackTrace(
-        result.error!,
-        result.stackTrace ?? StackTrace.current,
-      );
-    }
-    return result;
-  }
-
-  Future<void> close() {
-    return _closeGate.run(_closeAttempt);
-  }
-
-  Future<void> _closeAttempt() async {
-    final reply = ReceivePort();
-    _signals.latch.beginClose();
-    late final Object? message;
-    try {
-      _commands.send(_WorkerEnvelope(const _CloseOperation(), reply.sendPort));
-      message = await _signals.latch.race<Object?>(
-        reply.first,
-        action: 'close acknowledgement',
-      );
-    } on RitoNativeWorkerTerminatedException {
-      await _reclaimTransport();
-      rethrow;
-    } finally {
-      reply.close();
-    }
-    if (message is! _WorkerResult) {
-      throw StateError('Rito native worker returned an invalid close reply.');
-    }
-    final result = message;
-    if (result.error != null) {
-      Error.throwWithStackTrace(
-        result.error!,
-        result.stackTrace ?? StackTrace.current,
-      );
-    }
-
-    _commands.send(const _WorkerStop());
-    try {
-      await _signals.latch.waitForExit();
-    } finally {
-      await _reclaimTransport();
-    }
-  }
-
-  Future<void> _reclaimTransport() async {
-    _isolate.kill(priority: Isolate.immediate);
-    await _signals.dispose();
-  }
-}
-
-final class _WorkerSignals {
-  _WorkerSignals() {
-    _arbiter = RitoWorkerSignalArbiter(latch: latch, onSettled: _stopListening);
-    _exitSubscription = _exit.cast<Object?>().listen((_) {
-      _arbiter.reportExit();
-    });
-    _errorSubscription = _errors.cast<Object?>().listen((message) {
-      _arbiter.reportError(message);
-    });
-  }
-
-  final ReceivePort _exit = ReceivePort();
-  final ReceivePort _errors = ReceivePort();
-  final RitoWorkerFailureLatch latch = RitoWorkerFailureLatch();
-  late final RitoWorkerSignalArbiter _arbiter;
-  late final StreamSubscription<Object?> _exitSubscription;
-  late final StreamSubscription<Object?> _errorSubscription;
-  Future<void>? _disposeFuture;
-  bool _listening = true;
-
-  SendPort get exitSendPort => _exit.sendPort;
-  SendPort get errorSendPort => _errors.sendPort;
-
-  Future<void> dispose() {
-    final existing = _disposeFuture;
-    if (existing != null) {
-      return existing;
-    }
-    _arbiter.dispose();
-    _stopListening();
-    final future = Future.wait<void>(<Future<void>>[
-      _exitSubscription.cancel(),
-      _errorSubscription.cancel(),
-    ]);
-    _disposeFuture = future;
-    return future;
-  }
-
-  void _stopListening() {
-    if (!_listening) {
-      return;
-    }
-    _listening = false;
-    _exit.close();
-    _errors.close();
-  }
-}
-
-void _workerMain(_WorkerBootstrap bootstrap) {
-  final commands = ReceivePort();
-  final liveSessions = <int>{};
-  late final RitoNativeWireBindings bindings;
-  try {
-    bindings = switch (bootstrap.diagnosticLibrary) {
-      null => RitoNativeWireBindings(),
-      final library => RitoNativeWireBindings.fromDynamicLibrary(
-        library.open(),
-      ),
-    };
-  } on Object catch (error, stackTrace) {
-    bootstrap.ready.send(_WorkerResult(error: error, stackTrace: stackTrace));
-    commands.close();
-    return;
-  }
-  bootstrap.ready.send(commands.sendPort);
-  commands.listen((Object? message) {
-    if (message is _WorkerStop) {
-      commands.close();
-      return;
-    }
-    final envelope = message! as _WorkerEnvelope;
-    try {
-      final value = _perform(bindings, envelope.operation, liveSessions);
-      envelope.reply.send(
-        _WorkerResult(
-          value: _prepareReply(
-            bindings,
-            envelope.operation,
-            value,
-            liveSessions,
-          ),
-        ),
-      );
-    } on Object catch (error, stackTrace) {
-      envelope.reply.send(_WorkerResult(error: error, stackTrace: stackTrace));
-    }
+  ) => _RitoEngineClient(switch (diagnosticLibrary) {
+    null => RitoNativeWireBindings(),
+    final library => RitoNativeWireBindings.fromDynamicLibrary(library.open()),
   });
-}
 
-Object? _prepareReply(
-  RitoNativeWireBindings bindings,
-  _WorkerOperation operation,
-  Object? value,
-  Set<int> liveSessions,
-) {
-  if (value is! Uint8List) {
-    return value;
-  }
-  try {
-    return RitoOwnedByteTransfer.take(value);
-  } on Object {
-    _discardUnsentWire(bindings, operation, value, liveSessions);
-    rethrow;
-  }
-}
+  final RitoNativeWireBindings _bindings;
+  final Set<int> _liveSessions = <int>{};
+  bool _closed = false;
 
-void _discardUnsentWire(
-  RitoNativeWireBindings bindings,
-  _WorkerOperation operation,
-  Uint8List wireBytes,
-  Set<int> liveSessions,
-) {
-  try {
-    switch (operation) {
-      case _OpenOperation():
-        bindings.dispose(sessionId: operation.sessionId);
-        liveSessions.remove(operation.sessionId);
-        break;
-      case _OpenShardsOperation():
-        bindings.dispose(sessionId: operation.sessionId);
-        liveSessions.remove(operation.sessionId);
-        break;
-      case _SupplyShardOperation():
-        break;
-      case _ContentShardsNearOperation():
-        break;
-      case _RequestArtifactOperation():
-        final artifactId = _wireArtifactId(wireBytes);
-        if (artifactId != null) {
-          bindings.releaseArtifact(
-            sessionId: operation.sessionId,
-            artifactId: artifactId,
-          );
-        }
-        break;
-      case _RequestAdjacentOperation():
-        final artifactId = _wireArtifactId(wireBytes);
-        if (artifactId != null) {
-          bindings.releaseArtifact(
-            sessionId: operation.sessionId,
-            artifactId: artifactId,
-          );
-        }
-        break;
-      case _PeekAdjacentOperation():
-        final artifactId = _wireArtifactId(wireBytes);
-        if (artifactId != null) {
-          bindings.releaseArtifact(
-            sessionId: operation.sessionId,
-            artifactId: artifactId,
-          );
-        }
-        break;
-      case _PeekSpreadOperation():
-        final artifactId = _wireArtifactId(wireBytes);
-        if (artifactId != null) {
-          bindings.releaseArtifact(
-            sessionId: operation.sessionId,
-            artifactId: artifactId,
-          );
-        }
-        break;
-      case _AdvanceBackgroundOperation():
-        // The reply either carries a host-owned candidate or confirms a
-        // visibility mutation. If transfer fails, only session disposal can
-        // re-establish an ownership state the host can prove.
-        bindings.dispose(sessionId: operation.sessionId);
-        liveSessions.remove(operation.sessionId);
-        break;
-      case _AdoptForegroundOperation():
-        bindings.dispose(sessionId: operation.sessionId);
-        liveSessions.remove(operation.sessionId);
-        break;
-      case _CommitPeekedOperation():
-        // The commit may already have swapped visibility; a lost ack
-        // leaves ownership unprovable, so only disposal recovers.
-        bindings.dispose(sessionId: operation.sessionId);
-        liveSessions.remove(operation.sessionId);
-        break;
-      case _AdoptBackgroundOperation():
-        bindings.dispose(sessionId: operation.sessionId);
-        liveSessions.remove(operation.sessionId);
-        break;
-      case _FontCatalogOperation():
-      case _UnresolvedFontFamiliesOperation():
-      case _AddHostFontFacesOperation():
-      case _RemoveHostFontFacesOperation():
-      case _MarkFontFamiliesUnavailableOperation():
-      case _ReadPublicationOperation():
-      case _ReadResourceOperation():
-      case _SearchOperation():
-      case _TextRangeGeometryOperation():
-      case _ExactSourceRangeOperation():
-      case _TextInteractionOperation():
-      case _AnnotationOperation():
-      case _NavigationOperation():
-      case _ReadFootnoteOperation():
-      case _ReleaseArtifactOperation():
-      case _DisposeOperation():
-      case _CloseOperation():
-        break;
-    }
-  } on Object {
-    // Preserve the ownership-transfer failure as the primary diagnostic.
+  /// Completes at once: no operation outlives the call that made it.
+  Future<void> whenIdle() => Future<void>.value();
+
+  Future<T> invoke<T>(_WorkerOperation operation) =>
+      Future<T>.sync(() => _run(operation) as T);
+
+  Future<Uint8List> invokeWire(_WorkerOperation operation) =>
+      Future<Uint8List>.sync(() => _run(operation)! as Uint8List);
+
+  /// Disposes every session still open; later operations fail.
+  Future<void> close() => Future<void>.sync(() {
+    if (_closed) return;
+    _closed = true;
+    _perform(_bindings, const _CloseOperation(), _liveSessions);
+  });
+
+  Object? _run(_WorkerOperation operation) {
+    if (_closed) throw StateError('Rito native engine is closed.');
+    return _perform(_bindings, operation, _liveSessions);
   }
 }
 
@@ -355,18 +46,6 @@ void _discardUnsentWire(
 Object? _done(void Function() operation) {
   operation();
   return null;
-}
-
-int? _wireArtifactId(Uint8List wireBytes) {
-  if (wireBytes.length < 64) {
-    return null;
-  }
-  final value = ByteData.sublistView(
-    wireBytes,
-    56,
-    64,
-  ).getUint64(0, Endian.little);
-  return value > 0 && value <= 0x7fffffffffffffff ? value : null;
 }
 
 Object? _perform(
@@ -379,7 +58,7 @@ Object? _perform(
     _OpenShardsOperation() => _openShards(bindings, operation, liveSessions),
     _SupplyShardOperation() => bindings.supplyShard(
       sessionId: operation.sessionId,
-      shardBytes: RitoOwnedByteTransfer.materialize(operation.shardBytes),
+      shardBytes: operation.shardBytes,
       key: operation.key,
     ),
     _ContentShardsNearOperation() => bindings.contentShardsNear(
@@ -497,9 +176,7 @@ Uint8List _open(
   // A failed open registers no native session, so only success is tracked.
   final faces = operation.pinnedFontFaces;
   final wireBytes = bindings.openEncoded(
-    publicationBytes: RitoOwnedByteTransfer.materialize(
-      operation.publicationBytes,
-    ),
+    publicationBytes: operation.publicationBytes,
     requestBytes: operation.requestBytes,
     pinnedFontPolicy: faces == null
         ? null
@@ -507,7 +184,7 @@ Uint8List _open(
             faces: <RitoPinnedFontFace>[
               for (final face in faces)
                 RitoPinnedFontFace(
-                  bytes: RitoOwnedByteTransfer.materialize(face.bytes),
+                  bytes: face.bytes,
                   sha256Hex: face.sha256Hex,
                   genericRole: face.genericRole,
                   language: face.language,
@@ -526,7 +203,7 @@ Uint8List _openShards(
 ) {
   // A failed open registers no native session, so only success is tracked.
   final wireBytes = bindings.openShardsEncoded(
-    skeletonBytes: RitoOwnedByteTransfer.materialize(operation.skeletonBytes),
+    skeletonBytes: operation.skeletonBytes,
     skeletonKey: operation.skeletonKey,
     requestBytes: operation.requestBytes,
     pinnedFontPolicy: _pinnedPolicy(operation.pinnedFontFaces),
@@ -540,7 +217,7 @@ RitoPinnedFontPolicy _pinnedPolicy(List<_PinnedFontFaceTransfer> faces) {
     faces: <RitoPinnedFontFace>[
       for (final face in faces)
         RitoPinnedFontFace(
-          bytes: RitoOwnedByteTransfer.materialize(face.bytes),
+          bytes: face.bytes,
           sha256Hex: face.sha256Hex,
           genericRole: face.genericRole,
           language: face.language,
@@ -588,32 +265,6 @@ Object? _disposeAll(RitoNativeWireBindings bindings, Set<int> liveSessions) {
   return null;
 }
 
-final class _WorkerBootstrap {
-  const _WorkerBootstrap(this.diagnosticLibrary, this.ready);
-
-  final RitoDynamicLibrarySource? diagnosticLibrary;
-  final SendPort ready;
-}
-
-final class _WorkerEnvelope {
-  const _WorkerEnvelope(this.operation, this.reply);
-
-  final _WorkerOperation operation;
-  final SendPort reply;
-}
-
-final class _WorkerStop {
-  const _WorkerStop();
-}
-
-final class _WorkerResult {
-  const _WorkerResult({this.value, this.error, this.stackTrace});
-
-  final Object? value;
-  final Object? error;
-  final StackTrace? stackTrace;
-}
-
 sealed class _WorkerOperation {
   const _WorkerOperation();
 }
@@ -627,13 +278,12 @@ final class _OpenOperation extends _WorkerOperation {
   });
 
   final int sessionId;
-  final TransferableTypedData publicationBytes;
+  final Uint8List publicationBytes;
   final Uint8List requestBytes;
   final List<_PinnedFontFaceTransfer>? pinnedFontFaces;
 }
 
-/// One pinned face crossing the worker isolate boundary: bytes ride a
-/// [TransferableTypedData] so large faces move without copying.
+/// One pinned face handed to the engine's open.
 final class _PinnedFontFaceTransfer {
   const _PinnedFontFaceTransfer({
     required this.bytes,
@@ -642,7 +292,7 @@ final class _PinnedFontFaceTransfer {
     required this.language,
   });
 
-  final TransferableTypedData bytes;
+  final Uint8List bytes;
   final String sha256Hex;
   final RitoPinnedFontGenericRole genericRole;
   final String? language;
@@ -658,7 +308,7 @@ final class _OpenShardsOperation extends _WorkerOperation {
   });
 
   final int sessionId;
-  final TransferableTypedData skeletonBytes;
+  final Uint8List skeletonBytes;
   final Uint8List? skeletonKey;
   final Uint8List requestBytes;
   final List<_PinnedFontFaceTransfer> pinnedFontFaces;
@@ -672,7 +322,7 @@ final class _SupplyShardOperation extends _WorkerOperation {
   });
 
   final int sessionId;
-  final TransferableTypedData shardBytes;
+  final Uint8List shardBytes;
   final Uint8List? key;
 }
 

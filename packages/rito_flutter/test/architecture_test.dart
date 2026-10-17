@@ -16,39 +16,38 @@ void main() {
     }
   });
 
-  test('widgets only replay artifacts and native work is isolated', () {
+  test('widgets only replay artifacts and native work runs in the gateway', () {
     final render = _sourceUnder('lib/src/render');
     expect(render, isNot(contains('RitoNativeBindings')));
     expect(render, isNot(contains('requestArtifact')));
     expect(render, isNot(contains('RitoRequestEncoder')));
 
+    // The engine answers on the calling isolate, so the frame that asks
+    // for a layout can draw it: no isolate of its own.
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
     expect(gateway, contains("part 'worker.dart'"));
     final worker = File('lib/src/native/worker.dart').readAsStringSync();
-    expect(worker, contains('Isolate.spawn'));
+    expect(worker, contains('final class _RitoEngineClient'));
+    expect(worker, contains('_perform(_bindings, operation, _liveSessions)'));
+    expect(_sourceUnder('lib'), isNot(contains('Isolate.spawn')));
   });
 
-  test(
-    'exact open and seek are one native call each and never UI-synchronous',
-    () {
-      final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
-      final shards = File(
-        'lib/src/native/shard_supply.dart',
-      ).readAsStringSync();
-      final worker = File('lib/src/native/worker.dart').readAsStringSync();
+  test('exact open and seek are one native call each', () {
+    final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
+    final shards = File('lib/src/native/shard_supply.dart').readAsStringSync();
+    final worker = File('lib/src/native/worker.dart').readAsStringSync();
 
-      expect(gateway, contains('RitoResumableExactSeekGateway'));
-      // open, openShards and seek each send their request once.
-      expect(
-        'request.withRequestId(intent.requestId)'.allMatches(gateway),
-        hasLength(3),
-      );
-      expect(shards, isNot(contains('withRequestId')));
-      expect(gateway, contains('return await _requestArtifactNative('));
-      expect(worker, contains('liveSessions.add(operation.sessionId)'));
-      expect(worker, isNot(contains('Future<void>.delayed')));
-    },
-  );
+    expect(gateway, contains('RitoResumableExactSeekGateway'));
+    // open, openShards and seek each send their request once.
+    expect(
+      'request.withRequestId(intent.requestId)'.allMatches(gateway),
+      hasLength(3),
+    );
+    expect(shards, isNot(contains('withRequestId')));
+    expect(gateway, contains('return await _requestArtifactNative('));
+    expect(worker, contains('liveSessions.add(operation.sessionId)'));
+    expect(worker, isNot(contains('Future<void>.delayed')));
+  });
 
   test('adjacent turns retain only typed bounded one-quantum work', () {
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
@@ -94,28 +93,21 @@ void main() {
     expect(gateway, contains('error.status != ritoNativeStatusEngineError'));
   });
 
-  test('large native bytes cross isolates through transferable transport', () {
+  test('large native bytes reach the engine without a transfer copy', () {
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
     final worker = File('lib/src/native/worker.dart').readAsStringSync();
-    final transfer = File(
-      'lib/src/native/owned_byte_transfer.dart',
-    ).readAsStringSync();
     final nativeEntry = File('lib/rito_flutter_native.dart').readAsStringSync();
 
-    expect(gateway, contains('RitoOwnedByteTransfer.take(publicationBytes)'));
+    expect(gateway, contains('publicationBytes: publicationBytes'));
     expect(gateway, contains('await worker.invokeWire('));
     expect(gateway, contains('_artifactDecoder.decode(wireBytes)'));
     expect(gateway, contains('decode: _resourceDecoder.decode'));
     expect(gateway, contains('_decodeSessionWire<RitoResource>'));
     expect(gateway, contains('resource.href == href'));
     expect(gateway, contains('_rejectMalformedArtifact('));
-    expect(worker, contains('final TransferableTypedData publicationBytes;'));
+    expect(worker, contains('final Uint8List publicationBytes;'));
     expect(worker, contains('RitoNativeWireBindings'));
-    expect(worker, contains('if (value is! Uint8List)'));
-    expect(worker, contains('RitoOwnedByteTransfer.take(value)'));
-    expect(transfer, contains('TransferableTypedData.fromList'));
-    expect(transfer, contains('transfer.materialize().asUint8List()'));
-    expect(worker, isNot(contains('final Uint8List publicationBytes;')));
+    expect(_sourceUnder('lib'), isNot(contains('TransferableTypedData')));
     expect(nativeEntry, isNot(contains('RitoNativeWireBindings')));
   });
 
@@ -131,7 +123,7 @@ void main() {
     expect(binding, contains('RitoNativeBindings.fromDynamicLibrary'));
 
     final gateway = File('lib/src/native/gateway.dart').readAsStringSync();
-    expect(gateway, contains('RitoIsolateGateway({this.diagnosticLibrary})'));
+    expect(gateway, contains('RitoNativeGateway({this.diagnosticLibrary})'));
 
     // The hook entrypoint lives in hook/, its implementation in
     // lib/src/hook/ (pub.dev only accepts hook/build.dart while the hook

@@ -12,14 +12,14 @@ with a Canvas pen that is pixel-calibrated against the browser pen
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `package:rito_flutter/rito_flutter.dart`          | Everything a host app needs: gateway, session, page surface, font/image caches, request models.                                        |
 | `package:rito_flutter/rito_flutter_protocol.dart` | Typed decoders and models for every wire contract (`RITOART1`, `RITODL1`, `RITONAV1`, …). Only needed for tooling or custom pipelines. |
-| `package:rito_flutter/rito_flutter_native.dart`   | `RitoNativeBindings`, the blocking low-level ABI projection for custom embedders. Normal apps use the isolate gateway instead.         |
+| `package:rito_flutter/rito_flutter_native.dart`   | `RitoNativeBindings`, the blocking low-level ABI projection for custom embedders. Normal apps use `RitoNativeGateway` instead.         |
 
 ## Quick start
 
 ```dart
 import 'package:rito_flutter/rito_flutter.dart';
 
-final gateway = RitoIsolateGateway();
+final gateway = RitoNativeGateway();
 final session = await RitoReaderSession.open(
   gateway: gateway,
   publicationBytes: epubBytes,
@@ -348,13 +348,15 @@ Omit the override for light mode — the authored page paints unmodified.
 
 ## Threading and native assets
 
-- `RitoIsolateGateway` runs all native work (parse, layout, seek,
-  turn) on a persistent worker isolate; every public future completes
-  on the calling isolate. The UI isolate only registers fonts and
-  replays display lists.
+- `RitoNativeGateway` runs all native work (parse, layout, seek,
+  turn) on the calling isolate: each call into the engine answers before
+  it returns, so the frame that asks for a layout can draw it. Opening a
+  book and the first search hold the isolate while they run; the whole
+  book behind the page shown is laid out a few pages at a time between
+  frames. `RitoIsolateGateway` is its deprecated former name.
 - Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.41.7,
   pinned Rust toolchain). Tests and diagnostics may bypass with
-  `RitoIsolateGateway(diagnosticLibrary: ...)`.
+  `RitoNativeGateway(diagnosticLibrary: ...)`.
 
 ## Fidelity contract
 

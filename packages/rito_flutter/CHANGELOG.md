@@ -1,5 +1,17 @@
 ## Unreleased
 
+### The engine runs on the calling isolate
+
+`RitoNativeGateway` (formerly `RitoIsolateGateway`, still available as a
+deprecated alias) calls the engine on the isolate that holds it instead of
+a worker isolate: an answer is ready within the task that asked for it, so
+the frame that asks for a layout can draw it, and no bytes are copied into
+transfer buffers on the way. The reader controller lays the whole book out
+four pages at a time, each step after the isolate's other work, instead of
+512 pages a step. Opening a book and the first search hold the isolate
+while they run. `RitoNativeWorkerTerminatedException` is deprecated:
+nothing raises it.
+
 ### A range between two carets comes back with them
 
 A text interaction that resolves the range between two caret addresses
