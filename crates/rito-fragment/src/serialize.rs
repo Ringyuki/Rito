@@ -127,7 +127,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                 }
             }
             out.extend_from_slice(&(fragment.clusters.len() as u32).to_le_bytes());
-            for cluster in &fragment.clusters {
+            for cluster in fragment.clusters.iter() {
                 out.extend_from_slice(&cluster.byte.to_le_bytes());
                 out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
                 out.extend_from_slice(&cluster.face.0.to_le_bytes());
@@ -245,7 +245,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 font_grid,
                 ruby_center_shift_px,
                 ruby_overhang_right_px,
-                clusters,
+                clusters: clusters.into(),
                 cluster_grid,
             }))
         }
@@ -496,7 +496,7 @@ mod tests {
                             text_end: 42,
                             box_snap: None,
                             font_grid: None,
-                            clusters: Vec::new(),
+                            clusters: Vec::new().into(),
                             cluster_grid: false,
                             ruby_center_shift_px: 0.0,
                             justify_px: 0.25,

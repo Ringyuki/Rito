@@ -122,8 +122,10 @@ pub struct TextFragment {
     pub ruby_overhang_right_px: f64,
     /// Where each cluster paints, in text order: the origin offsets the
     /// browser's pen steps to from the run's start. Spacing and
-    /// justification shares are already in them.
-    pub clusters: Vec<ClusterPosition>,
+    /// justification shares are already in them. Shared by every copy of
+    /// the fragment: a laid-out paragraph is kept and copied whole, a copy
+    /// per word would be most of the copying.
+    pub clusters: std::rc::Rc<[ClusterPosition]>,
     /// Whether the painter floors each cluster's absolute origin onto the
     /// 1/64 CSS-pixel grid: the browser does so for an all-CJK run at a
     /// fractional font size, and accumulates in float everywhere else.

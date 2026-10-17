@@ -20,7 +20,7 @@ use crate::*;
 /// The cluster origins of one piece of a laid-out paragraph, relative to
 /// the piece's start, and where the pen rests after the last of them.
 pub(crate) struct PieceClusters {
-    pub positions: Vec<ClusterPosition>,
+    pub positions: std::rc::Rc<[ClusterPosition]>,
     /// Whether the painter floors the absolute positions onto the 1/64
     /// grid.
     pub grid: bool,
@@ -124,29 +124,28 @@ pub(crate) fn piece_clusters(
         && (font_size * 64.0).fract() != 0.0
         && !text.is_empty()
         && text.chars().all(is_cjk_cluster_char);
-    let mut positions = Vec::with_capacity(piece.len());
-    let advance = if grid {
+    // Collected straight into the shared slice: one allocation, the
+    // length known from the piece.
+    let (positions, advance) = if grid {
         let mut cumulative = 0.0_f64;
-        for (byte, step, trim, face) in steps {
-            positions.push(ClusterPosition {
-                byte,
-                x: cumulative - trim,
-                face,
-            });
-            cumulative += step;
-        }
-        cumulative
+        let positions = steps
+            .map(|(byte, step, trim, face)| {
+                let x = cumulative - trim;
+                cumulative += step;
+                ClusterPosition { byte, x, face }
+            })
+            .collect();
+        (positions, cumulative)
     } else {
         let mut pen = 0.0_f32;
-        for (byte, step, trim, face) in steps {
-            positions.push(ClusterPosition {
-                byte,
-                x: f64::from(pen) - trim,
-                face,
-            });
-            pen += step as f32;
-        }
-        f64::from(pen)
+        let positions = steps
+            .map(|(byte, step, trim, face)| {
+                let x = f64::from(pen) - trim;
+                pen += step as f32;
+                ClusterPosition { byte, x, face }
+            })
+            .collect();
+        (positions, f64::from(pen))
     };
     PieceClusters {
         positions,
@@ -390,7 +389,7 @@ impl ParleyInlineContext {
         );
         MeasuredRun {
             advance: piece.advance,
-            clusters: piece.positions,
+            clusters: piece.positions.to_vec(),
             grid: piece.grid,
         }
     }

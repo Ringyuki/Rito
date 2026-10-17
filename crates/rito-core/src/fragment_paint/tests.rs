@@ -107,7 +107,7 @@ fn text_run(x: f64, width: f64, start: u32, end: u32) -> Fragment {
         opener_trim_px: 0.0,
         ruby_overhang_px: 0.0,
         ruby_overhang_right_px: 0.0,
-        clusters: Vec::new(),
+        clusters: Vec::new().into(),
         cluster_grid: false,
     })
 }
