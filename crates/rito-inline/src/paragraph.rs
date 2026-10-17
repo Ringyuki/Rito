@@ -808,6 +808,7 @@ impl ParleyInlineContext {
             ruby_spread_overhangs_right,
             ruby_annotation_widths,
             ruby_center_shifts,
+            cluster_steps: std::rc::Rc::default(),
         })
     }
 }
@@ -878,6 +879,10 @@ impl<'a> SpacingBuilder<'a> {
 /// assembly needs.
 #[derive(Clone)]
 pub(crate) struct ParagraphLayout {
+    /// Every cluster's width-independent step, read after the first line
+    /// breaking and shared by every copy of this build (see
+    /// [`ClusterSteps`]).
+    pub(crate) cluster_steps: std::rc::Rc<std::cell::OnceCell<ClusterSteps>>,
     pub(crate) layout: parley::Layout<[u8; 4]>,
     pub(crate) text: String,
     pub(crate) alignment: parley::Alignment,

@@ -171,6 +171,7 @@ impl FormattingContext for ParleyInlineContext {
             image_edge_insets,
             empty_box_struts,
             spacing_edits,
+            cluster_steps,
         ) = {
             let mut split_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
             let mut split_spread_rounds = 0u32;
@@ -198,6 +199,7 @@ impl FormattingContext for ParleyInlineContext {
                     inline_block_baselines,
                     image_edge_insets,
                     empty_box_struts,
+                    cluster_steps,
                 } = self.shaped_paragraph(
                     tree,
                     root,
@@ -630,12 +632,17 @@ impl FormattingContext for ParleyInlineContext {
                             image_edge_insets,
                             empty_box_struts,
                             spacing_edits,
+                            cluster_steps,
                         );
                     }
                 }
             }
         };
         let mut layout = layout;
+        // Read after the line breaking above (a cluster is found through
+        // its line) and kept with the shaped paragraph for later layouts.
+        let cluster_steps =
+            cluster_steps.get_or_init(|| ClusterSteps::of(&self.catalog, &layout, &spacing_edits));
         // Always align, `Start` included: alignment is where Parley applies
         // the first-line indent's start-edge offset, so skipping it for the
         // default alignment would leave indented lines flush.
@@ -1244,7 +1251,6 @@ impl FormattingContext for ParleyInlineContext {
                                 matches!(resolved.text_flow.word_spacing, LengthPercentage::Length(px) if px.get() != 0.0)
                             });
                         let spacing_edits = &spacing_edits;
-                        let layout_ref = &layout;
                         let flow_text_ref: &str = &flow_text;
                         let mut emit = |range: std::ops::Range<usize>,
                                         x: f64,
@@ -1255,11 +1261,9 @@ impl FormattingContext for ParleyInlineContext {
                                 .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
                             let piece = piece_clusters(
-                                &self.catalog,
-                                layout_ref,
+                                cluster_steps,
                                 flow_text_ref,
                                 range.clone(),
-                                spacing_edits,
                                 justify_px,
                                 opener_halt_trims,
                                 run_word_spacing,

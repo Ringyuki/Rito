@@ -29,6 +29,71 @@ pub(crate) struct PieceClusters {
     pub advance: f64,
 }
 
+/// Every cluster of a laid-out paragraph in logical (text) order, with the
+/// part of its advance no layout width changes: its 16.16 pen step with
+/// the letter and word spacing folded into it, its face and its size.
+/// Read once after the paragraph's first line breaking — finding a
+/// cluster by byte walks its line — and kept with the shaped paragraph,
+/// so a line's pieces read slices of it instead of walking the layout
+/// from each piece's start.
+#[derive(Debug, Default)]
+pub(crate) struct ClusterSteps {
+    steps: Vec<ClusterStep>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ClusterStep {
+    start: u32,
+    end: u32,
+    step: f64,
+    face: FontFaceId,
+    font_size: f64,
+}
+
+impl ClusterSteps {
+    pub(crate) fn of(
+        catalog: &FontCatalog,
+        layout: &parley::Layout<[u8; 4]>,
+        spacing_edits: &SpacingEdits,
+    ) -> Self {
+        let mut steps = Vec::new();
+        let mut cluster = parley::layout::Cluster::from_byte_index(layout, 0);
+        while let Some(current) = cluster {
+            let text_range = current.text_range();
+            steps.push(ClusterStep {
+                start: text_range.start as u32,
+                end: text_range.end as u32,
+                step: hb_fixed_cluster_advance(
+                    catalog,
+                    &current,
+                    folded_spacing(spacing_edits, &current),
+                ),
+                face: catalog.face_id(current.run().font()),
+                font_size: f64::from(current.run().font_size()),
+            });
+            cluster = current.next_logical();
+        }
+        Self { steps }
+    }
+
+    /// The clusters from the one holding byte `start` up to the first that
+    /// starts at or after `end`.
+    fn piece(&self, range: &std::ops::Range<usize>) -> &[ClusterStep] {
+        let first = self
+            .steps
+            .partition_point(|step| (step.end as usize) <= range.start);
+        let Some(head) = self.steps.get(first) else {
+            return &[];
+        };
+        if (head.start as usize) > range.start {
+            return &[];
+        }
+        let last =
+            first + self.steps[first..].partition_point(|step| (step.start as usize) < range.end);
+        &self.steps[first..last]
+    }
+}
+
 /// The cluster origins of the piece `range` of a laid-out paragraph.
 /// `halt_trims` are the openers shaped with the `halt` half-width
 /// variant: the painter draws the untrimmed glyph, whose outline sits one
@@ -37,47 +102,29 @@ pub(crate) struct PieceClusters {
 /// stepped by.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn piece_clusters(
-    catalog: &FontCatalog,
-    layout: &parley::Layout<[u8; 4]>,
+    clusters: &ClusterSteps,
     flow_text: &str,
     range: std::ops::Range<usize>,
-    spacing_edits: &SpacingEdits,
     justify_px: f64,
     halt_trims: &[(std::ops::Range<usize>, f64)],
     word_spacing: bool,
 ) -> PieceClusters {
-    let mut steps: Vec<(u32, f64, f64, FontFaceId)> = Vec::new();
-    let mut font_size = 0.0_f64;
-    let mut cluster = parley::layout::Cluster::from_byte_index(layout, range.start);
-    while let Some(current) = cluster {
-        let text_range = current.text_range();
-        if text_range.start >= range.end {
-            break;
-        }
-        if steps.is_empty() {
-            font_size = f64::from(current.run().font_size());
-        }
-        let step =
-            hb_fixed_cluster_advance(catalog, &current, folded_spacing(spacing_edits, &current))
-                + justify_px;
+    let piece = clusters.piece(&range);
+    let font_size = piece.first().map_or(0.0, |first| first.font_size);
+    let steps = piece.iter().map(|cluster| {
+        let text_range = cluster.start as usize..cluster.end as usize;
         let trim = halt_trims
             .iter()
             .find(|(trimmed, _)| *trimmed == text_range)
             .map_or(0.0, |(_, half)| *half);
-        steps.push((
-            text_range.start as u32,
-            step,
-            trim,
-            catalog.face_id(current.run().font()),
-        ));
-        cluster = current.next_logical();
-    }
+        (cluster.start, cluster.step + justify_px, trim, cluster.face)
+    });
     let text = flow_text.get(range).unwrap_or_default();
     let grid = !word_spacing
         && (font_size * 64.0).fract() != 0.0
         && !text.is_empty()
         && text.chars().all(is_cjk_cluster_char);
-    let mut positions = Vec::with_capacity(steps.len());
+    let mut positions = Vec::with_capacity(piece.len());
     let advance = if grid {
         let mut cumulative = 0.0_f64;
         for (byte, step, trim, face) in steps {
@@ -334,11 +381,9 @@ impl ParleyInlineContext {
                 LengthPercentage::Length(px) if px.get() != 0.0
             );
         let piece = piece_clusters(
-            &self.catalog,
-            &layout,
+            &ClusterSteps::of(&self.catalog, &layout, &spacing_edits),
             text,
             0..text.len(),
-            &spacing_edits,
             0.0,
             &[],
             word_spacing,
