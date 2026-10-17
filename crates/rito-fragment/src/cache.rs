@@ -10,18 +10,20 @@
 //! A tree that carries its style tables folds them into the fingerprint, so
 //! a style change misses too. The constraint space joins the key whole.
 //!
-//! Memory is bounded by a byte budget measured over the canonical serialized
-//! size of each outcome — the same encoding the artifacts cross boundaries
-//! with, so accounting is deterministic across platforms. Least-recently-used
-//! entries are evicted first.
+//! Memory is bounded by a byte budget charged a fixed size per fragment of
+//! each outcome: deterministic across platforms, and counted by walking the
+//! fragments rather than encoding them. Least-recently-used entries are
+//! evicted first.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
+
+use rustc_hash::FxHashMap;
 
 use crate::break_token::BreakToken;
 use crate::constraint_space::{ConstraintSpace, FloatBand};
 use crate::context::{CancelFlag, FormattingContext, LayoutError, LayoutOutcome};
 use crate::formatting_tree::FormattingTree;
-use crate::serialize::encode_layout_outcome;
+use crate::fragment::Fragment;
 
 /// One cache lookup-or-compute result.
 #[derive(Clone, Debug, PartialEq)]
@@ -108,7 +110,7 @@ pub struct FragmentCache {
     budget_bytes: usize,
     used_bytes: usize,
     clock: u64,
-    entries: HashMap<CacheKey, CacheEntry>,
+    entries: FxHashMap<CacheKey, CacheEntry>,
     /// Every entry by its last-use stamp, oldest first: eviction takes the
     /// first one instead of scanning the entries, which made a full cache
     /// cost a pass over every entry per insert.
@@ -123,7 +125,7 @@ impl FragmentCache {
             budget_bytes,
             used_bytes: 0,
             clock: 0,
-            entries: HashMap::new(),
+            entries: FxHashMap::default(),
             recency: BTreeMap::new(),
         }
     }
@@ -154,7 +156,7 @@ impl FragmentCache {
             });
         }
         let outcome = provider.layout(tree, node, space, token, cancel)?;
-        let bytes = encode_layout_outcome(&outcome).len();
+        let bytes = footprint(&outcome);
         if bytes <= self.budget_bytes {
             self.evict_until_fits(bytes);
             self.used_bytes += bytes;
@@ -233,6 +235,20 @@ impl FragmentCache {
             }
         }
     }
+}
+
+/// What an outcome is charged against the budget: a fixed size per
+/// fragment, the unit layout output is made of.
+fn footprint(outcome: &LayoutOutcome) -> usize {
+    const FRAGMENT_BYTES: usize = 96;
+    fn fragments(fragment: &Fragment) -> usize {
+        1 + match fragment {
+            Fragment::Box(fragment) => fragment.children.iter().map(fragments).sum(),
+            Fragment::Line(fragment) => fragment.children.iter().map(fragments).sum(),
+            Fragment::Text(_) | Fragment::Image(_) => 0,
+        }
+    }
+    FRAGMENT_BYTES * fragments(&outcome.fragments.root)
 }
 
 fn cache_key(
