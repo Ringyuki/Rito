@@ -117,8 +117,12 @@ u32      cluster count, then per cluster u32 UTF-8 byte offset, f64 x, f64 y
 A run carries glyph paint only. Its inline box (background band,
 padding, border edges) and its decoration line arrive as fill and stroke
 primitives around it, and letter spacing, word spacing and justification
-are already in the cluster origins: a host draws each cluster at its
-origin with its own spacing off and never places a glyph itself. A
+are already in the cluster origins: a host draws the text from each
+origin up to the next as one string at that origin, with its own spacing
+off, and never places a glyph itself. A cluster that the one before it
+reaches by its bare glyph advance (no spacing, justification or kerning
+added, the same face, left to right) has no origin of its own: any pen
+stepping through the string puts it where layout did. A
 cluster's y is the alphabetic baseline for a text run and for a ruby
 annotation alike. Vertical columns arrive as runs of upright glyphs
 stepped down the column, each rotated mark as its own run under a

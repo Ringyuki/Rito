@@ -93,8 +93,9 @@ by `resolveExactSourceRange`, including across soft-wrapped lines.
 - `rito_flutter` paints through Flutter's own rasterizer; the differences
   against the browser pen measured under Skia are rasterizer-level and
   itemized in `tools/paint-parity/EXEMPTIONS.md`
-- the Flutter pen draws each text cluster left to right through Flutter's
-  own shaper and cannot promise browser-identical complex-script shaping
+- the Flutter pen draws the text from each cluster origin to the next
+  left to right through Flutter's own shaper and cannot promise
+  browser-identical complex-script shaping
 
 ## Format Scope
 

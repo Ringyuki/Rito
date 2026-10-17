@@ -174,8 +174,8 @@ final skipped = await session.unresolvedFontFamilies('"LXGW WenKai", serif');
 ## Paint parity
 
 The engine resolves every page into device-pixel primitives — fills,
-strokes, clips, shadows, image draws, and text runs with the origin of
-every cluster — and the Canvas pen only blits them: border bands and
+strokes, clips, shadows, image draws, and text runs with their cluster
+origins — and the Canvas pen only blits them: border bands and
 dash cadences, radii, box shadows, background sizing and tiling, inline
 boxes and decoration lines are all decided in the engine, not here. The
 browser pen blits the same bytes, and the two are held together by the
@@ -192,9 +192,9 @@ embolden a face the book already ships as its bold.
 
 ## Known renderer semantics still to close
 
-- A text run carries its string and the origin of every cluster, not
-  glyph ids or a bidi direction. The pen draws each cluster at its origin
-  as a left-to-right string through Flutter's own shaper, so
+- A text run carries its string and its cluster origins, not glyph ids
+  or a bidi direction. The pen draws the text from each origin up to the
+  next as a left-to-right string through Flutter's own shaper, so
   right-to-left and complex-script text is not guaranteed to match the
   browser.
 - The engine shapes with TTF/OTF bytes and does not decode WOFF or

@@ -326,6 +326,8 @@ pub(super) fn append_text_run_command(
                 byte: cluster.byte - range.start as u32,
                 x: cluster.x - first_x,
                 face: cluster.face,
+                // Distribution moves every annotation cluster on its own.
+                joins: false,
             })
             .collect();
         let slice_end = measured
@@ -376,8 +378,15 @@ pub(super) fn append_text_run_command(
     // accumulates.
     let cluster_origin_x = line_x + run.rect.x + run.ruby_center_shift_px;
     let run_origin_x = cluster_origin_x - run.opener_trim_px;
-    let clusters = run
+    // A cluster the pen reaches from the one before it, drawn in the same
+    // string, needs no origin of its own: the pen draws from each origin
+    // up to the next.
+    let drawn: Vec<&rito_fragment::ClusterPosition> = run
         .clusters
+        .iter()
+        .filter(|cluster| !cluster.joins)
+        .collect();
+    let clusters = drawn
         .iter()
         .map(|cluster| {
             (
@@ -415,7 +424,7 @@ pub(super) fn append_text_run_command(
     // A ruby spread base fused across a fallback face paints once per
     // face; the inline box opens on the first piece and closes on the
     // last, every piece keeping the run's box extent and decoration.
-    let run_faces: Vec<_> = run.clusters.iter().map(|cluster| cluster.face).collect();
+    let run_faces: Vec<_> = drawn.iter().map(|cluster| cluster.face).collect();
     let decoration_shift = css_baseline - baseline;
     for piece in split_by_face(command, &run_faces, |face, first, last| {
         if first && last {

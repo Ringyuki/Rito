@@ -137,6 +137,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                 out.extend_from_slice(&cluster.byte.to_le_bytes());
                 out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
                 out.extend_from_slice(&cluster.face.0.to_le_bytes());
+                out.push(u8::from(cluster.joins));
             }
             out.push(u8::from(fragment.cluster_grid));
         }
@@ -237,6 +238,11 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                     byte: reader.u32()?,
                     x: reader.f64()?,
                     face: crate::FontFaceId(reader.u32()?),
+                    joins: match reader.u8()? {
+                        0 => false,
+                        1 => true,
+                        tag => return Err(format!("unknown cluster joins tag {tag}")),
+                    },
                 });
             }
             let cluster_grid = match reader.u8()? {

@@ -326,8 +326,12 @@ pub(super) fn append_fragment_display_commands_inner(
                     // layout grid, and every cluster paints where the
                     // engine measured it from the box's start.
                     let left = origin_x + fragment.rect.x - run.advance;
-                    let clusters = run
+                    let drawn: Vec<_> = run
                         .clusters
+                        .iter()
+                        .filter(|cluster| !cluster.joins)
+                        .collect();
+                    let clusters = drawn
                         .iter()
                         .map(|cluster| {
                             (
@@ -352,8 +356,7 @@ pub(super) fn append_fragment_display_commands_inner(
                         source_text_offset: None,
                         clusters,
                     };
-                    let marker_faces: Vec<_> =
-                        run.clusters.iter().map(|cluster| cluster.face).collect();
+                    let marker_faces: Vec<_> = drawn.iter().map(|cluster| cluster.face).collect();
                     for piece in
                         split_by_face(command, &marker_faces, |face, _, _| paint_for(face))?
                     {

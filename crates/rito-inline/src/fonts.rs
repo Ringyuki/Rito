@@ -127,7 +127,13 @@ pub(crate) struct FontCatalog {
     /// Units per em per (blob id, face index): a face's `head` table, read
     /// once instead of for every cluster whose advance is snapped.
     units_per_em: RefCell<FxHashMap<(u64, u32), Option<i64>>>,
+    /// The advance every glyph of a face declares in its `hmtx` table, in
+    /// font units, per (blob id, face index); read once per face.
+    declared_advances: RefCell<FxHashMap<(u64, u32), Option<DeclaredAdvances>>>,
 }
+
+/// A face's `hmtx` advances in font units, indexed by glyph id.
+type DeclaredAdvances = std::rc::Rc<[u16]>;
 
 impl FontCatalog {
     /// Registers one host face, grouped into the family its name table
@@ -299,6 +305,37 @@ impl FontCatalog {
             .map(|head| i64::from(head.units_per_em()));
         self.units_per_em.borrow_mut().insert(key, units);
         units
+    }
+
+    /// The advance `glyph` of `font` declares in font units, before
+    /// shaping adjusts it: its `hmtx` entry, or the last entry for the
+    /// glyphs past the table's metrics, which share it.
+    pub(crate) fn declared_advance(&self, font: &parley::FontData, glyph: u32) -> Option<u16> {
+        use skrifa::raw::TableProvider as _;
+        let key = (font.data.id(), font.index);
+        let cached = self.declared_advances.borrow().get(&key).cloned();
+        let advances = match cached {
+            Some(advances) => advances,
+            None => {
+                let advances = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+                    .ok()
+                    .and_then(|face| face.hmtx().ok())
+                    .map(|hmtx| {
+                        hmtx.h_metrics()
+                            .iter()
+                            .map(|metric| metric.advance())
+                            .collect::<std::rc::Rc<[u16]>>()
+                    });
+                self.declared_advances
+                    .borrow_mut()
+                    .insert(key, advances.clone());
+                advances
+            }
+        }?;
+        advances
+            .get(glyph as usize)
+            .or_else(|| advances.last())
+            .copied()
     }
 
     fn resolve_uncached(

@@ -92,7 +92,8 @@ counts are identical at every ratio.
 
 `fragment_paint.rs` walks a page's fragment tree and emits typed
 `DisplayCommand`s (`render/commands.rs`): page and block paint, text and
-ruby runs with the origin of every glyph cluster, images, rules, clips
+ruby runs with the origin of every glyph cluster a pen cannot reach from
+the one before it by its bare advance, images, rules, clips
 and transforms. Coordinates are stored at display precision (six
 decimals, exact for every 1/64 position). A text run's baseline is the
 one place the ratio enters here: it rounds on the device grid the way

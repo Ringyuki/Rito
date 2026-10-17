@@ -176,6 +176,12 @@ pub struct ClusterPosition {
     pub x: f64,
     /// The face the cluster's glyphs come from.
     pub face: FontFaceId,
+    /// Whether a pen drawing from the previous cluster's origin, in one
+    /// string, puts this cluster where layout did: the previous cluster
+    /// stepped by its bare glyph advance alone (no spacing, justification
+    /// or kerning added, no glyph offset) in the same face, under the
+    /// float law. Such a cluster needs no origin of its own.
+    pub joins: bool,
 }
 
 /// One laid-out atomic inline (an image) inside a line.

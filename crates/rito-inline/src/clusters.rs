@@ -48,6 +48,9 @@ struct ClusterStep {
     step: f64,
     face: FontFaceId,
     font_size: f64,
+    /// Whether the step is the cluster's bare glyph advance: no spacing
+    /// folded in, no kerning, no glyph offset, left to right.
+    bare: bool,
 }
 
 impl ClusterSteps {
@@ -60,16 +63,14 @@ impl ClusterSteps {
         let mut cluster = parley::layout::Cluster::from_byte_index(layout, 0);
         while let Some(current) = cluster {
             let text_range = current.text_range();
+            let folded = folded_spacing(spacing_edits, &current);
             steps.push(ClusterStep {
                 start: text_range.start as u32,
                 end: text_range.end as u32,
-                step: hb_fixed_cluster_advance(
-                    catalog,
-                    &current,
-                    folded_spacing(spacing_edits, &current),
-                ),
+                step: hb_fixed_cluster_advance(catalog, &current, folded),
                 face: catalog.face_id(current.run().font()),
                 font_size: f64::from(current.run().font_size()),
+                bare: folded == 0.0 && is_bare(catalog, &current),
             });
             cluster = current.next_logical();
         }
@@ -92,6 +93,36 @@ impl ClusterSteps {
             first + self.steps[first..].partition_point(|step| (step.start as usize) < range.end);
         &self.steps[first..last]
     }
+}
+
+/// Whether `cluster` advances by its glyphs' declared advances alone:
+/// shaping kerned none of them and offset none, and it runs left to right
+/// in a face at its default instance. Any shaper stepping through such a
+/// cluster lands its successor at the same place.
+fn is_bare<B: parley::style::Brush>(
+    catalog: &FontCatalog,
+    cluster: &parley::layout::Cluster<'_, B>,
+) -> bool {
+    let run = cluster.run();
+    if run.is_rtl() || run.normalized_coords().iter().any(|coord| *coord != 0) {
+        return false;
+    }
+    let size = f64::from(run.font_size());
+    let Some(upem) = catalog.units_per_em(run.font()).filter(|upem| *upem > 0) else {
+        return false;
+    };
+    let mut declared = 0_i64;
+    for glyph in cluster.glyphs() {
+        if glyph.x != 0.0 || glyph.y != 0.0 {
+            return false;
+        }
+        let Some(advance) = catalog.declared_advance(run.font(), glyph.id) else {
+            return false;
+        };
+        declared += i64::from(advance);
+    }
+    let shaped = f64::from(cluster.advance()) * upem as f64 / size;
+    size > 0.0 && shaped.round() as i64 == declared
 }
 
 /// The cluster origins of the piece `range` of a laid-out paragraph.
@@ -117,7 +148,13 @@ pub(crate) fn piece_clusters(
             .iter()
             .find(|(trimmed, _)| *trimmed == text_range)
             .map_or(0.0, |(_, half)| *half);
-        (cluster.start, cluster.step + justify_px, trim, cluster.face)
+        (
+            cluster.start,
+            cluster.step + justify_px,
+            trim,
+            cluster.face,
+            cluster.bare && justify_px == 0.0,
+        )
     });
     let text = flow_text.get(range).unwrap_or_default();
     let grid = !word_spacing
@@ -127,22 +164,41 @@ pub(crate) fn piece_clusters(
     // Collected straight into the shared slice: one allocation, the
     // length known from the piece.
     let (positions, advance) = if grid {
+        // Every origin is floored onto the grid on its own: none joins.
         let mut cumulative = 0.0_f64;
         let positions = steps
-            .map(|(byte, step, trim, face)| {
+            .map(|(byte, step, trim, face, _)| {
                 let x = cumulative - trim;
                 cumulative += step;
-                ClusterPosition { byte, x, face }
+                ClusterPosition {
+                    byte,
+                    x,
+                    face,
+                    joins: false,
+                }
             })
             .collect();
         (positions, cumulative)
     } else {
         let mut pen = 0.0_f32;
+        // The previous cluster: whether it stepped by its bare advance
+        // from an untrimmed origin, and its face.
+        let mut previous: Option<(bool, FontFaceId)> = None;
         let positions = steps
-            .map(|(byte, step, trim, face)| {
+            .map(|(byte, step, trim, face, bare)| {
                 let x = f64::from(pen) - trim;
                 pen += step as f32;
-                ClusterPosition { byte, x, face }
+                let joins = trim == 0.0
+                    && previous.is_some_and(|(stepped_bare, previous_face)| {
+                        stepped_bare && previous_face == face
+                    });
+                previous = Some((bare && trim == 0.0, face));
+                ClusterPosition {
+                    byte,
+                    x,
+                    face,
+                    joins,
+                }
             })
             .collect();
         (positions, f64::from(pen))

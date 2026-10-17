@@ -805,6 +805,7 @@ mod tests {
             byte,
             x,
             face: crate::FontFaceId::default(),
+            joins: false,
         };
         let close = |actual: &[f64], expected: &[f64]| {
             assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");

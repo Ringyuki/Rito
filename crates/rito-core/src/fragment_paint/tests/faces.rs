@@ -34,6 +34,7 @@ fn run_with_faces(width: f64, clusters: &[(u32, f64, u32)]) -> Fragment {
                 byte: *byte,
                 x: *x,
                 face: FontFaceId(*face),
+                joins: false,
             })
             .collect();
     }

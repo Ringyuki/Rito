@@ -160,12 +160,15 @@ grid rasters different ink from the browser's). A run carries only glyph
 paint — font, colour, text shadows: its inline box (background band,
 padding, border edges) and its decoration line arrive as fill and stroke
 primitives around it, and its letter and word spacing are already in its
-cluster origins. Every run carries the origin of every
-cluster (UTF-8 byte offset into its text, absolute CSS x and y — its
-alphabetic baseline, for a text run and an annotation alike) with
-spacing, justification and the browser's fixed-point advances already
-applied: a host draws each cluster at its origin with its own spacing
-off and never places a glyph itself. An outside list marker is such a
+cluster origins. Every run carries cluster origins (UTF-8 byte offset
+into its text, absolute CSS x and y — its alphabetic baseline, for a
+text run and an annotation alike) with spacing, justification and the
+browser's fixed-point advances already applied: a host draws the text
+from each origin up to the next as one string at that origin, with its
+own spacing off, and never places a glyph itself. A cluster the one
+before it reaches by its bare glyph advance (no spacing, justification
+or kerning added, the same face, left to right) has no origin of its
+own. An outside list marker is such a
 run: the engine shapes the marker string, sizes its box on the layout
 grid and sends the box's left edge and cluster origins. A ruby
 annotation arrives the same way: the engine distributes it over its base

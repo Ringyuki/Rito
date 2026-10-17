@@ -70,13 +70,14 @@ rastered by two engines.
   because the synthetic-bold outset follows the CSS font size, not the
   device size.
 - Cluster placement: every run arrives with the origin (x, y) of every
-  cluster — the engine's fixed-point advances with spacing and justify
+  cluster a pen cannot reach from the one before it by its bare glyph
+  advance — the engine's fixed-point advances with spacing and justify
   shares folded in along a line, one step per glyph down a column, an
   outside marker's box sized and a ruby annotation distributed by the
   engine, a column's rotated marks as their own runs under a quarter-turn
   transform — and both pens draw each cluster at its origin with their
-  own spacing off: the browser pen one `fillText` per cluster, the
-  Flutter pen one cached `ui.Paragraph` per (cluster, style). A fixture
+  own spacing off: the browser pen one `fillText` per origin, the
+  Flutter pen one cached `ui.Paragraph` per (origin's text, style). A fixture
   run written without origins is shaped by the engine on the way in
   (`lower/tests/parity.rs`, the pinned faces both harnesses load), so neither
   pen holds a spacing or placement law: a run that still arrives without

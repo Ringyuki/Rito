@@ -190,9 +190,12 @@ fn shape_fixture_clusters(
     }
     let run = shaper.measure_run(&style, text);
     let baseline = ((y + 0.8 * f64::from(size)) * ratio).round() / ratio;
+    // The origins a painted run carries: none for a cluster the one
+    // before it reaches by its bare advance.
     Some(
         run.clusters
             .iter()
+            .filter(|cluster| !cluster.joins)
             .map(|cluster| {
                 let origin = x + cluster.x;
                 let origin = if run.grid {

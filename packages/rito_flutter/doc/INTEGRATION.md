@@ -361,7 +361,7 @@ Omit the override for light mode — the authored page paints unmodified.
 The engine resolves every page into device-pixel primitives, and the
 Flutter pen blits the same bytes the browser pen does: border bands and
 dash cadences, radii, box shadows, background sizing and tiling, inline
-boxes, decoration lines and the origin of every text cluster are
+boxes, decoration lines and the cluster origins of every text run are
 decided in the engine, not in either pen. The two pens are held
 together by a pixel-diff instrument (`tools/paint-parity/run.mjs` at
 the repo root) that fails when a fixture exceeds its budget. What the
@@ -375,9 +375,9 @@ report is a regression.
 
 Known open semantics:
 
-- A text run carries its string and the origin of every cluster, not
-  glyph ids or a bidi direction; the pen draws each cluster at its
-  origin as a left-to-right string through Flutter's own shaper, so
+- A text run carries its string and its cluster origins, not glyph ids
+  or a bidi direction; the pen draws the text from each origin up to
+  the next as a left-to-right string through Flutter's own shaper, so
   right-to-left and complex-script text is not guaranteed to match the
   browser.
 - Inset box shadows are not painted: the engine does not lower them.

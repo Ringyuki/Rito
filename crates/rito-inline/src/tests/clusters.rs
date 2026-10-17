@@ -392,3 +392,48 @@ fn a_ruby_annotation_measures_its_line_offset_over_the_base() {
     assert_eq!(own.over_offset, 16.0);
     assert_eq!(own.em_ascent, 7.046875);
 }
+
+/// A cluster the pen reaches from the one before it by that cluster's
+/// bare glyph advance joins it and needs no origin of its own: in an
+/// unkerned, unspaced string every cluster after the first joins, while a
+/// kern pair, letter spacing and word spacing each leave the cluster after
+/// them with its own origin.
+#[test]
+fn clusters_reached_by_a_bare_advance_join_the_one_before() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    let joins = |run: &MeasuredRun| run.clusters.iter().map(|c| c.joins).collect::<Vec<_>>();
+    // Digits, the period and the space carry no kern pair in Tinos.
+    assert_eq!(
+        joins(&context.measure_run(&style, "12. ")),
+        vec![false, true, true, true]
+    );
+    // Tinos kerns "To": the o sits closer than the T's own advance.
+    let kerned = context.measure_run(&style, "To");
+    assert!(
+        kerned.clusters[1].x < context.measure_run(&style, "T").advance,
+        "{:?}",
+        kerned.clusters
+    );
+    assert_eq!(joins(&kerned), vec![false, false]);
+    let mut spaced = style.clone();
+    spaced.text_flow.letter_spacing =
+        LengthPercentage::Length(CssPx::new(2.0).expect("finite spacing"));
+    assert_eq!(
+        joins(&context.measure_run(&spaced, "12")),
+        vec![false, false]
+    );
+    let mut worded = style.clone();
+    worded.text_flow.word_spacing =
+        LengthPercentage::Length(CssPx::new(2.13).expect("finite spacing"));
+    assert_eq!(
+        joins(&context.measure_run(&worded, "1 2")),
+        vec![false, true, false],
+        "the space joins its word; the word after the spaced space does not"
+    );
+}
