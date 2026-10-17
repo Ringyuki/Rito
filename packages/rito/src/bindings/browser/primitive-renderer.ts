@@ -64,6 +64,12 @@ interface RenderState extends DeclaredGrounds {
   /** Device pixels per CSS pixel the list was resolved at. */
   readonly ratio: number;
   saveDepth: number;
+  /**
+   * The save depth of the state consecutive text runs share, 0 when none
+   * is open: one save and one scale for a stretch of runs, so a run whose
+   * font and ink match the run before it sets nothing the canvas parses.
+   */
+  textDepth: number;
 }
 
 /**
@@ -106,6 +112,7 @@ export function renderReaderPrimitivesToCanvas(
       // escaping the paint path would leave the spread permanently "not
       // ready" and wedge paging into it. The fault is recorded loudly
       // instead; the canvas keeps everything else.
+      if (primitive.kind !== 'text' && primitive.kind !== 'ruby') endTextRuns(ctx, state);
       const entryDepth = state.saveDepth;
       try {
         renderPrimitive(ctx, primitive, state);
@@ -117,6 +124,7 @@ export function renderReaderPrimitivesToCanvas(
           ctx.restore();
           state.saveDepth -= 1;
         }
+        if (state.textDepth > state.saveDepth) state.textDepth = 0;
       }
       rendered += 1;
     }
@@ -185,6 +193,7 @@ function createRenderState(options: PrimitiveRenderOptions, ratio: number): Rend
       foreground: options.foregroundColor ?? DEFAULT_INK,
     },
     ratio,
+    textDepth: 0,
     saveDepth: 0,
     blockGrounds: [],
     bookOwnedPageGround: undefined,
@@ -310,26 +319,15 @@ function renderText(
   primitive: TextPrimitive,
   state: RenderState,
 ): void {
-  ctx.save();
-  try {
+  if (state.textDepth === 0) {
+    ctx.save();
+    state.saveDepth += 1;
+    state.textDepth = state.saveDepth;
     if (state.ratio !== 1) ctx.scale(state.ratio, state.ratio);
-    if (primitive.kind === 'text') {
-      const command = convertReaderText(primitive);
-      drawCanvasTextFragment(
-        ctx,
-        {
-          text: command.text,
-          rect: command.rect,
-          paint: command.paint,
-          ...(command.clusters === undefined ? {} : { clusters: command.clusters }),
-        },
-        state.colorOverride,
-        declaredGroundFor(deviceRect(command.rect, state.ratio), state),
-      );
-      return;
-    }
-    const command = convertReaderRuby(primitive);
-    drawCanvasRubyFragment(
+  }
+  if (primitive.kind === 'text') {
+    const command = convertReaderText(primitive);
+    drawCanvasTextFragment(
       ctx,
       {
         text: command.text,
@@ -340,9 +338,30 @@ function renderText(
       state.colorOverride,
       declaredGroundFor(deviceRect(command.rect, state.ratio), state),
     );
-  } finally {
-    ctx.restore();
+    return;
   }
+  const command = convertReaderRuby(primitive);
+  drawCanvasRubyFragment(
+    ctx,
+    {
+      text: command.text,
+      rect: command.rect,
+      paint: command.paint,
+      ...(command.clusters === undefined ? {} : { clusters: command.clusters }),
+    },
+    state.colorOverride,
+    declaredGroundFor(deviceRect(command.rect, state.ratio), state),
+  );
+}
+
+/** Ends the state a stretch of text runs shared, before any other primitive. */
+function endTextRuns(ctx: CanvasRenderingContext2D, state: RenderState): void {
+  if (state.textDepth === 0) return;
+  while (state.saveDepth >= state.textDepth) {
+    ctx.restore();
+    state.saveDepth -= 1;
+  }
+  state.textDepth = 0;
 }
 
 function deviceRect(rect: DeviceRect, ratio: number): DeviceRect {

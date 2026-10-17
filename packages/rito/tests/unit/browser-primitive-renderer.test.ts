@@ -248,6 +248,66 @@ describe('browser primitive renderer', () => {
     expect(mock.getCalls('save')).toHaveLength(mock.getCalls('restore').length);
   });
 
+  it('draws consecutive text runs under one saved state and one scale', () => {
+    // Each run sets all the state it draws with; sharing one save across a
+    // stretch of runs lets a run whose font and ink match the run before
+    // it set nothing the canvas has to parse again.
+    const run = (text: string, x: number): RitoReaderPrimitive => ({
+      kind: 'text',
+      clusters: [],
+      text,
+      rect: { x, y: 10, width: 30, height: 20 },
+      paint: {
+        font: { family: 'serif', sizePx: 16, weight: 400, style: 'normal' },
+        color: INK,
+        textShadows: [],
+      },
+    });
+    const mock = createMockCanvasContext();
+    renderReaderPrimitivesToCanvas(
+      list(
+        [
+          run('one', 0),
+          run('two', 40),
+          {
+            kind: 'fill-rect',
+            rect: { x: 0, y: 40, width: 9, height: 1 },
+            color: INK,
+            ground: 'none',
+          },
+          run('three', 80),
+        ],
+        2,
+      ),
+      mock.ctx,
+    );
+    expect(mock.getCalls('fillText').map((call) => call.args[0])).toEqual(['one', 'two', 'three']);
+    // The outer save, one for the first two runs, one for the last.
+    expect(mock.getCalls('save')).toHaveLength(3);
+    expect(mock.getCalls('scale').map((call) => call.args)).toEqual([
+      [2, 2],
+      [2, 2],
+    ]);
+    // The rule between the runs is drawn outside their scale.
+    const order = mock.records
+      .flatMap((record) => ('method' in record ? [record.method] : []))
+      .filter((method) => ['save', 'restore', 'scale', 'fillRect', 'fillText'].includes(method));
+    expect(order).toEqual([
+      'save',
+      'save',
+      'scale',
+      'fillText',
+      'fillText',
+      'restore',
+      'fillRect',
+      'save',
+      'scale',
+      'fillText',
+      'restore',
+      'restore',
+    ]);
+  });
+
   it('blurs a shadow at twice its sigma inside its exclusion clip', () => {
     const mock = createMockCanvasContext();
     renderReaderPrimitivesToCanvas(
