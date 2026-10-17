@@ -54,6 +54,7 @@ impl ParleyInlineContext {
             line_metrics: RefCell::default(),
             run_samples: RefCell::default(),
             halt_feature_cache: RefCell::default(),
+            shaped: RefCell::default(),
         })
     }
 
@@ -102,6 +103,7 @@ impl ParleyInlineContext {
         // A new face can change what a family list resolves to.
         self.line_metrics.get_mut().clear();
         self.run_samples.get_mut().clear();
+        self.shaped.get_mut().clear();
         Ok(())
     }
 }

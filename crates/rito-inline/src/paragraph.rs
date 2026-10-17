@@ -5,14 +5,46 @@
 use crate::*;
 
 impl ParleyInlineContext {
+    /// The paragraph at `node` built for the line loop in `space` with the
+    /// trims and spreads it has decided so far: kept from an earlier build
+    /// that read the same, or built and kept.
+    pub(crate) fn shaped_paragraph(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+        space: &ConstraintSpace,
+        edits: ParagraphEdits<'_>,
+        cancel: &CancelFlag,
+    ) -> Result<ParagraphLayout, LayoutError> {
+        let build_space = BuildSpace::new(
+            Some(space.inline_size),
+            space.fragmentainer_size,
+            space.containing_block_size,
+        );
+        let mut key = ShapeKey::new(tree.fingerprint(), node.0, edits);
+        if let Some(kept) = self.shaped.borrow_mut().get(&mut key, &build_space) {
+            return Ok(kept);
+        }
+        let built = self.build_layout(
+            tree,
+            node,
+            &build_space,
+            PercentageImageSizing::Intrinsic,
+            edits.end_trims,
+            edits.suppressed_pair_trims,
+            edits.split_spreads,
+            cancel,
+        )?;
+        self.shaped.borrow_mut().insert(key, &build_space, &built);
+        Ok(built)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn build_layout(
         &self,
         tree: &FormattingTree,
         node: FormattingNodeId,
-        available_inline_size: Option<f64>,
-        available_block_size: Option<f64>,
-        containing_block_size: Option<f64>,
+        space: &BuildSpace,
         percentage_images: PercentageImageSizing,
         end_trims: &[usize],
         suppressed_pair_trims: &[usize],
@@ -108,9 +140,9 @@ impl ParleyInlineContext {
                         *intrinsic_width,
                         *intrinsic_height,
                         layout_style,
-                        available_inline_size,
-                        available_block_size,
-                        containing_block_size,
+                        space.inline_size(),
+                        space.block_size(),
+                        space.containing_block_size(),
                         percentage_images,
                         *viewport,
                     )?;
@@ -161,7 +193,7 @@ impl ParleyInlineContext {
                     // out recursively through the full pipeline at CSS
                     // 2.1 §10.3.5 shrink-to-fit width against the host.
                     let sizes = self.intrinsic_inline_sizes(tree, *node)?;
-                    let available = available_inline_size.unwrap_or(sizes.max_content);
+                    let available = space.inline_size().unwrap_or(sizes.max_content);
                     let width = sizes.max_content.min(sizes.min_content.max(available));
                     let outcome = FormattingContext::layout(
                         self,
@@ -590,9 +622,9 @@ impl ParleyInlineContext {
                 rito_style_contract::LengthPercentageOrAuto::Auto => 0.0_f32,
                 rito_style_contract::LengthPercentageOrAuto::Value(inner) => match inner {
                     LengthPercentage::Length(px) => px.get(),
-                    LengthPercentage::Percentage(pct) => {
-                        available_inline_size.map_or(0.0, |basis| pct.ratio() * basis as f32)
-                    }
+                    LengthPercentage::Percentage(pct) => space
+                        .inline_size()
+                        .map_or(0.0, |basis| pct.ratio() * basis as f32),
                     _ => 0.0,
                 },
             };
@@ -844,6 +876,7 @@ impl<'a> SpacingBuilder<'a> {
 
 /// One paragraph's built Parley layout plus the metadata the fragment
 /// assembly needs.
+#[derive(Clone)]
 pub(crate) struct ParagraphLayout {
     pub(crate) layout: parley::Layout<[u8; 4]>,
     pub(crate) text: String,

@@ -48,6 +48,7 @@ mod marker;
 mod paragraph;
 mod punctuation;
 mod ruby;
+mod shaped;
 mod shaping;
 mod strut;
 #[cfg(test)]
@@ -66,6 +67,7 @@ pub use paragraph::plain_paragraph_style;
 pub(crate) use paragraph::*;
 pub(crate) use punctuation::*;
 pub(crate) use ruby::*;
+pub(crate) use shaped::{BuildSpace, ParagraphEdits, ShapeKey, ShapedParagraphs};
 pub(crate) use shaping::*;
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
@@ -93,4 +95,7 @@ pub struct ParleyInlineContext {
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
     pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32), bool>>,
+    /// Paragraphs as built and not yet broken into lines, reused by every
+    /// layout that reads them the same (see [`ShapedParagraphs`]).
+    pub(crate) shaped: RefCell<ShapedParagraphs>,
 }

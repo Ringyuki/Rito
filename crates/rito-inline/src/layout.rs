@@ -198,16 +198,15 @@ impl FormattingContext for ParleyInlineContext {
                     inline_block_baselines,
                     image_edge_insets,
                     empty_box_struts,
-                } = self.build_layout(
+                } = self.shaped_paragraph(
                     tree,
                     root,
-                    Some(space.inline_size),
-                    space.fragmentainer_size,
-                    space.containing_block_size,
-                    PercentageImageSizing::Intrinsic,
-                    &end_trims,
-                    &suppressed_pair_trims,
-                    &split_spread_edits,
+                    space,
+                    ParagraphEdits {
+                        end_trims: &end_trims,
+                        suppressed_pair_trims: &suppressed_pair_trims,
+                        split_spreads: &split_spread_edits,
+                    },
                     cancel,
                 )?;
                 break_lines(&mut layout, &forced_line_breaks);
@@ -2833,9 +2832,7 @@ impl FormattingContext for ParleyInlineContext {
         let shrunk = self.build_layout(
             tree,
             node,
-            None,
-            None,
-            None,
+            &BuildSpace::new(None, None, None),
             PercentageImageSizing::Shrunk,
             &[],
             &[],
@@ -2845,9 +2842,7 @@ impl FormattingContext for ParleyInlineContext {
         let intrinsic = self.build_layout(
             tree,
             node,
-            None,
-            None,
-            None,
+            &BuildSpace::new(None, None, None),
             PercentageImageSizing::Intrinsic,
             &[],
             &[],
