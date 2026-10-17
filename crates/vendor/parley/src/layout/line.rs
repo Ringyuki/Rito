@@ -98,7 +98,7 @@ impl<'a, B: Brush> Line<'a, B> {
         GlyphRunIter {
             line: self.clone(),
             item_index: 0,
-            glyph_start: 0,
+            cursor: GlyphCursor::default(),
             offset: 0.,
         }
     }
@@ -189,7 +189,9 @@ pub struct PositionedInlineBox {
 pub struct GlyphRun<'a, B: Brush> {
     run: Run<'a, B>,
     style: &'a Style<B>,
-    glyph_start: usize,
+    /// Where the glyph run starts among the run's clusters: its glyphs are
+    /// read from there instead of counted off from the run's start.
+    start: GlyphCursor,
     glyph_count: usize,
     offset: f32,
     baseline: f32,
@@ -224,11 +226,12 @@ impl<'a, B: Brush> GlyphRun<'a, B> {
 
     /// Returns an iterator over the glyphs in the run.
     pub fn glyphs(&'a self) -> impl Iterator<Item = Glyph> + 'a + Clone {
-        self.run
-            .visual_clusters()
-            .flat_map(|cluster| cluster.glyphs())
-            .skip(self.glyph_start)
-            .take(self.glyph_count)
+        VisualGlyphs {
+            run: self.run.clone(),
+            cursor: self.start,
+        }
+        .map(|(glyph, _)| glyph)
+        .take(self.glyph_count)
     }
 
     /// Returns an iterator over the fully positioned glyphs in the run.
@@ -248,8 +251,54 @@ impl<'a, B: Brush> GlyphRun<'a, B> {
 struct GlyphRunIter<'a, B: Brush> {
     line: Line<'a, B>,
     item_index: usize,
-    glyph_start: usize,
+    /// Where the next glyph run starts in the current run: each resumes
+    /// here, where counting its glyphs off from the run's start made a run
+    /// that changes style often quadratic in its length.
+    cursor: GlyphCursor,
     offset: f32,
+}
+
+/// A place among a run's glyphs in visual order: the visual cluster, and
+/// the glyph within it.
+#[derive(Clone, Copy, Default)]
+struct GlyphCursor {
+    cluster: usize,
+    glyph: usize,
+}
+
+/// A run's glyphs in visual order from a cursor, each with the cursor just
+/// past it.
+#[derive(Clone)]
+struct VisualGlyphs<'a, B: Brush> {
+    run: Run<'a, B>,
+    cursor: GlyphCursor,
+}
+
+impl<B: Brush> Iterator for VisualGlyphs<'_, B> {
+    type Item = (Glyph, GlyphCursor);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let len = self.run.len();
+        loop {
+            if self.cursor.cluster >= len {
+                return None;
+            }
+            let logical = if self.run.is_rtl() {
+                len - 1 - self.cursor.cluster
+            } else {
+                self.cursor.cluster
+            };
+            let cluster = self.run.get(logical)?;
+            if let Some(glyph) = cluster.glyphs().nth(self.cursor.glyph) {
+                self.cursor.glyph += 1;
+                return Some((glyph, self.cursor));
+            }
+            self.cursor = GlyphCursor {
+                cluster: self.cursor.cluster + 1,
+                glyph: 0,
+            };
+        }
+    }
 }
 
 impl<'a, B: Brush> Iterator for GlyphRunIter<'a, B> {
@@ -265,7 +314,7 @@ impl<'a, B: Brush> Iterator for GlyphRunIter<'a, B> {
                         + self.line.data.metrics.offset;
 
                     self.item_index += 1;
-                    self.glyph_start = 0;
+                    self.cursor = GlyphCursor::default();
                     if inline_box.kind == InlineBoxKind::InFlow {
                         self.offset += inline_box.width;
                     }
@@ -279,28 +328,34 @@ impl<'a, B: Brush> Iterator for GlyphRunIter<'a, B> {
                     }));
                 }
                 LineItem::Run(run) => {
-                    let mut iter = run
-                        .visual_clusters()
-                        .flat_map(|c| c.glyphs())
-                        .skip(self.glyph_start);
+                    let start = self.cursor;
+                    let mut iter = VisualGlyphs {
+                        run: run.clone(),
+                        cursor: start,
+                    };
 
-                    if let Some(first) = iter.next() {
+                    if let Some((first, mut after)) = iter.next() {
                         let mut advance = first.advance;
                         let style_index = first.style_index();
                         let mut glyph_count = 1;
-                        for glyph in iter.take_while(|g| g.style_index() == style_index) {
+                        // The first glyph of another style starts the next
+                        // glyph run: it is not consumed.
+                        for (glyph, cursor) in iter {
+                            if glyph.style_index() != style_index {
+                                break;
+                            }
                             glyph_count += 1;
                             advance += glyph.advance;
+                            after = cursor;
                         }
                         let style = run.layout.data.styles.get(style_index)?;
-                        let glyph_start = self.glyph_start;
-                        self.glyph_start += glyph_count;
+                        self.cursor = after;
                         let offset = self.offset;
                         self.offset += advance;
                         return Some(PositionedLayoutItem::GlyphRun(GlyphRun {
                             run,
                             style,
-                            glyph_start,
+                            start,
                             glyph_count,
                             offset: offset
                                 + self.line.data.metrics.inline_min_coord
@@ -310,7 +365,7 @@ impl<'a, B: Brush> Iterator for GlyphRunIter<'a, B> {
                         }));
                     }
                     self.item_index += 1;
-                    self.glyph_start = 0;
+                    self.cursor = GlyphCursor::default();
                 }
             }
         }
