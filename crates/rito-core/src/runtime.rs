@@ -375,20 +375,20 @@ impl RuntimeDocument {
         page_targets(&self.document, context, revision_id, revision, page_index)
     }
 
-    /// The targets of one page of a revision this document holds, from
+    /// The targets of one page of a revision this document holds, through
     /// the classifier `get_page_targets` runs: every host surface agrees on
     /// what a target is, where a link leads and under which key a footnote
     /// is held.
-    pub(in crate::runtime) fn page_targets_of(
+    pub(in crate::runtime) fn classify_page_targets(
         &self,
         revision: &RuntimeRevision,
         page_index: usize,
-        targets: Vec<page_artifact::PageArtifactTarget>,
-    ) -> Vec<RuntimePageTarget> {
+        targets: &[page_artifact::PageArtifactTarget],
+    ) -> Vec<page_target::PageTargetClass> {
         let context = self
             .page_target_context
             .get_or_init(|| page_target::RuntimePageTargetContext::new(&self.document));
-        page_target::runtime_page_targets(&self.document, context, revision, page_index, targets)
+        page_target::classify_page_targets(&self.document, context, revision, page_index, targets)
     }
 
     pub fn get_footnote(&mut self, revision_id: &str, key: &str) -> EpubResult<RuntimeFootnote> {

@@ -908,7 +908,6 @@ fn a_page_exposes_its_text_and_where_each_run_sits_in_it() {
 
     assert!(positions.text.contains("Hello runtime"));
     assert_eq!(positions.text_length, positions.text.encode_utf16().count());
-    assert!(!positions.text_hash.is_empty());
     assert!(positions
         .offsets
         .iter()

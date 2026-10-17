@@ -9,9 +9,10 @@ use crate::{
             PageArtifact, PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
             PageArtifactSemanticRole, PageArtifactTarget,
         },
-        RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTarget,
-        RuntimePageTargetKind, RuntimeRevision, RuntimeRevisionHandle, RuntimeSourceLocator,
-        RuntimeSourceLocatorMatchedBy, RuntimeSourcePoint,
+        page_target::PageTargetClass,
+        RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTargetKind, RuntimeRevision,
+        RuntimeRevisionHandle, RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy,
+        RuntimeSourcePoint,
     },
 };
 
@@ -266,7 +267,7 @@ pub(super) fn published_spread_target(
         })
         .or_else(|| {
             engine.page(local_page_index).and_then(|page| {
-                page.targets().entries.into_iter().find_map(|entry| {
+                page.targets().into_iter().find_map(|entry| {
                     Some(RuntimeSourcePoint {
                         node_path: entry.source_path?,
                         text_offset: entry.source_text_offset.unwrap_or(0),
@@ -330,8 +331,8 @@ fn reader_page(
     // Each hit is the target the runtime's own page targets hold: one
     // classifier decides what it is, where its link leads and under which
     // key its footnote is held, for every host.
-    let targets = page.targets().entries;
-    let resolved = document.page_targets_of(revision, page_index, targets.clone());
+    let targets = page.targets();
+    let classes = document.classify_page_targets(revision, page_index, &targets);
     let text = page.text_positions();
     Ok(ReaderPage {
         page_index: u32_from_usize(page_index, "page index")?,
@@ -339,8 +340,8 @@ fn reader_page(
         height: metadata.height,
         hits: targets
             .into_iter()
-            .zip(resolved)
-            .map(|(target, resolved)| reader_hit(page_index, target, resolved, origin))
+            .zip(classes)
+            .map(|(target, class)| reader_hit(page_index, target, class, origin))
             .collect::<Result<Vec<_>, ReaderError>>()?,
         semantics: page
             .semantic_nodes()
@@ -368,10 +369,10 @@ fn reader_page(
 fn reader_hit(
     page_index: usize,
     target: PageArtifactTarget,
-    resolved: RuntimePageTarget,
+    class: PageTargetClass,
     origin: (f64, f64),
 ) -> Result<ReaderHitEntry, ReaderError> {
-    let source_point = resolved
+    let source_point = class
         .source_locator
         .and_then(|locator| locator.source_point)
         .map(super::convert::reader_source_point)
@@ -379,7 +380,7 @@ fn reader_hit(
     Ok(ReaderHitEntry {
         page_index: u32_from_usize(page_index, "hit page index")?,
         bounds: reader_rect_at(target.bounds, origin),
-        kind: match resolved.kind {
+        kind: match class.kind {
             RuntimePageTargetKind::Text => ReaderHitKind::Text,
             RuntimePageTargetKind::Link => ReaderHitKind::Link,
             RuntimePageTargetKind::Image => ReaderHitKind::Image,
@@ -387,13 +388,13 @@ fn reader_hit(
             RuntimePageTargetKind::FootnotePending => ReaderHitKind::FootnotePending,
         },
         text: target.text,
-        href: resolved.href,
+        href: class.href,
         source_point,
-        target_locator: resolved.target_locator.map(reader_locator).transpose()?,
-        destination_label: resolved.destination_label,
-        image_src: resolved.image_src,
-        image_alt: resolved.image_alt,
-        footnote_key: resolved.footnote_key,
+        target_locator: class.target_locator.map(reader_locator).transpose()?,
+        destination_label: class.destination_label,
+        image_src: target.image_src,
+        image_alt: target.image_alt,
+        footnote_key: class.footnote_key,
     })
 }
 

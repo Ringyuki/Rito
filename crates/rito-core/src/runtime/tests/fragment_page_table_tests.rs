@@ -135,7 +135,6 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
     let page = session.page(0).expect("page 0 resolves");
     let targets = page.targets();
     let link: Vec<_> = targets
-        .entries
         .iter()
         .filter(|entry| entry.href.as_deref() == Some("https://example.com/next"))
         .collect();
@@ -146,7 +145,6 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         "link targets carry the linked text, got {link_text:?}"
     );
     let plain = targets
-        .entries
         .iter()
         .any(|entry| entry.href.is_none() && !entry.text.is_empty());
     assert!(plain, "text outside the link carries no destination");

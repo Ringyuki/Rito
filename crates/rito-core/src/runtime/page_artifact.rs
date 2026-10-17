@@ -57,19 +57,12 @@ pub(super) struct PageArtifactTarget {
     pub(super) run_index: usize,
     pub(super) bounds: PageArtifactRect,
     pub(super) text: String,
-    pub(super) text_hash: String,
     pub(super) text_length: usize,
     pub(super) href: Option<String>,
     pub(super) source_path: Option<Vec<usize>>,
     pub(super) source_text_offset: Option<usize>,
     pub(super) image_src: Option<String>,
     pub(super) image_alt: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct PageArtifactTargets {
-    pub(super) entries: Vec<PageArtifactTarget>,
-    pub(super) text_hash: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,7 +78,6 @@ pub(super) struct PageArtifactTextRunOffset {
 pub(super) struct PageArtifactTextPositions {
     pub(super) text: String,
     pub(super) text_length: usize,
-    pub(super) text_hash: String,
     pub(super) offsets: Vec<PageArtifactTextRunOffset>,
 }
 
@@ -171,7 +163,8 @@ pub(super) trait PageArtifact {
 
     fn semantic_nodes(&self) -> Vec<PageArtifactSemanticNode>;
 
-    fn targets(&self) -> PageArtifactTargets;
+    /// The page's text runs in flow order, then its links and images.
+    fn targets(&self) -> Vec<PageArtifactTarget>;
 
     fn text_positions(&self) -> PageArtifactTextPositions;
 

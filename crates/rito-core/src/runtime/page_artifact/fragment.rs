@@ -9,24 +9,12 @@
 //! UTF-16, and (block, line, run) indexes address the page's own structure.
 
 use rito_fragment::{FormattingNodeContent, Fragment, InlineItem};
-use sha2::{Digest, Sha256};
 
 use crate::fragment_bridge::ChapterFormattingTree;
 
-/// Page-text hash in the shared artifact format: the first eight bytes of
-/// the SHA-256 digest, lowercase hex (the same shape the retained backend
-/// produces, so cross-backend consistency checks compare like for like).
-fn hash_page_text(text: &str) -> String {
-    Sha256::digest(text.as_bytes())
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
 use super::{
     PageArtifact, PageArtifactMetadata, PageArtifactRect, PageArtifactSemanticNode,
-    PageArtifactSemanticRole, PageArtifactSourceRunStart, PageArtifactTarget, PageArtifactTargets,
+    PageArtifactSemanticRole, PageArtifactSourceRunStart, PageArtifactTarget,
     PageArtifactTextPosition, PageArtifactTextPositions, PageArtifactTextRangeGeometry,
     PageArtifactTextRangeRect, PageArtifactTextRunOffset,
 };
@@ -687,15 +675,11 @@ impl PageArtifact for FragmentPageArtifact {
             .collect()
     }
 
-    fn targets(&self) -> PageArtifactTargets {
-        // Entry order and hashing mirror the retained backend: text runs
-        // in flow order (their concatenation is the hash input), then
-        // page images.
-        let mut text = String::new();
+    fn targets(&self) -> Vec<PageArtifactTarget> {
         let mut entries = Vec::new();
+        let mut slicer = PageTextSlicer::new(&self.text);
         for run in &self.runs {
-            let run_text = page_text_slice(&self.text, run.start, run.end);
-            text.push_str(&run_text);
+            let run_text = slicer.slice(run.start, run.end);
             entries.push(PageArtifactTarget {
                 block_index: run.block_index,
                 line_index: run.line_index,
@@ -706,7 +690,6 @@ impl PageArtifact for FragmentPageArtifact {
                     width: run.width,
                     height: run.height,
                 },
-                text_hash: hash_page_text(&run_text),
                 text_length: run.end - run.start,
                 text: run_text,
                 href: run.href.clone(),
@@ -728,7 +711,6 @@ impl PageArtifact for FragmentPageArtifact {
                     height: link.height,
                 },
                 text: String::new(),
-                text_hash: hash_page_text(""),
                 text_length: 0,
                 href: Some(link.href.clone()),
                 source_path: None,
@@ -749,7 +731,6 @@ impl PageArtifact for FragmentPageArtifact {
                     height: image.height,
                 },
                 text: String::new(),
-                text_hash: hash_page_text(""),
                 text_length: 0,
                 href: image.href.clone(),
                 source_path: None,
@@ -758,19 +739,13 @@ impl PageArtifact for FragmentPageArtifact {
                 image_alt: image.alt.clone(),
             });
         }
-        PageArtifactTargets {
-            entries,
-            text_hash: hash_page_text(&text),
-        }
+        entries
     }
 
     fn text_positions(&self) -> PageArtifactTextPositions {
         PageArtifactTextPositions {
             text: self.text.clone(),
             text_length: self.text_length,
-            // Hashed when asked for: every page of a chapter is built, few
-            // are queried for their text.
-            text_hash: hash_page_text(&self.text),
             offsets: self
                 .runs
                 .iter()
@@ -852,6 +827,48 @@ fn position_key(position: &PageArtifactTextPosition) -> (usize, usize, usize, us
         position.run_index,
         position.char_index,
     )
+}
+
+/// Slices the page text by UTF-16 offsets, counting on from where the
+/// previous slice ended: a page's runs ask for their text in page order.
+struct PageTextSlicer<'a> {
+    text: &'a str,
+    /// The cursor's byte and its UTF-16 offset, at a character boundary.
+    byte: usize,
+    unit: usize,
+}
+
+impl<'a> PageTextSlicer<'a> {
+    fn new(text: &'a str) -> Self {
+        Self {
+            text,
+            byte: 0,
+            unit: 0,
+        }
+    }
+
+    fn slice(&mut self, start: usize, end: usize) -> String {
+        if start < self.unit {
+            self.byte = 0;
+            self.unit = 0;
+        }
+        match self.advance(start).zip(self.advance(end.max(start))) {
+            Some((from, to)) => self.text[from..to].to_owned(),
+            // An offset inside a character or past the text.
+            None => page_text_slice(self.text, start, end),
+        }
+    }
+
+    /// Moves the cursor to UTF-16 offset `unit`, giving its byte when a
+    /// character starts there.
+    fn advance(&mut self, unit: usize) -> Option<usize> {
+        while self.unit < unit {
+            let next = self.text[self.byte..].chars().next()?;
+            self.unit += next.len_utf16();
+            self.byte += next.len_utf8();
+        }
+        (self.unit == unit).then_some(self.byte)
+    }
 }
 
 /// UTF-16 offset range back to a string slice of the page text.
@@ -1088,5 +1105,28 @@ mod tests {
         assert_eq!(partial.rects.len(), 1);
         assert!(partial.rects[0].x > geometry.rects[0].x);
         assert!(partial.rects[0].width < geometry.rects[0].width);
+    }
+
+    #[test]
+    fn runs_slice_the_page_text_the_way_its_utf16_offsets_read_it() {
+        // A surrogate pair, a two-byte and a three-byte character.
+        let text = "a\u{1F600}b\u{e9}\n\u{6f22}c";
+        let length = text.encode_utf16().count();
+        let mut slicer = PageTextSlicer::new(text);
+        let mut ranges = Vec::new();
+        for start in 0..=length + 1 {
+            for end in start..=length + 1 {
+                ranges.push((start, end));
+            }
+        }
+        // In page order, then backwards, as a page's runs never ask.
+        let backwards = ranges.iter().rev().copied().collect::<Vec<_>>();
+        for (start, end) in ranges.into_iter().chain(backwards) {
+            assert_eq!(
+                slicer.slice(start, end),
+                page_text_slice(text, start, end),
+                "{start}..{end}"
+            );
+        }
     }
 }
