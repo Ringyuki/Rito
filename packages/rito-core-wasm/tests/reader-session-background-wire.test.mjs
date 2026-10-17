@@ -15,7 +15,7 @@ test('background request and handoff keep all u64 identities as bigint', () => {
   const request = encodeRitoReaderBackgroundRequest({
     sessionId: HIGH_ID,
     expectedVisibleArtifactId: HIGH_ID - 1n,
-    maxTopLevelNodesPerQuantum: 0xffff_ffff,
+    maxPagesPerQuantum: 0xffff_ffff,
   });
   assert.equal(request.byteLength, 40);
   const requestReader = messageReader(request, 'RITOBGQ1');
@@ -86,7 +86,7 @@ test('background request rejects zero quantum before it crosses the worker bound
       encodeRitoReaderBackgroundRequest({
         sessionId: 1n,
         expectedVisibleArtifactId: 2n,
-        maxTopLevelNodesPerQuantum: 0,
+        maxPagesPerQuantum: 0,
       }),
     /must be non-zero/,
   );

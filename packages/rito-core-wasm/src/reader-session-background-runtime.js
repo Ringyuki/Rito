@@ -14,10 +14,10 @@ export function encodeRitoReaderBackgroundRequest(request) {
   const writer = ReaderWireWriter.message('RITOBGQ1');
   writer.externalId(request.sessionId, 'session id');
   writer.externalId(request.expectedVisibleArtifactId, 'expected visible artifact id');
-  if (request.maxTopLevelNodesPerQuantum === 0) {
-    throw new RangeError('max top-level nodes per quantum must be non-zero');
+  if (request.maxPagesPerQuantum === 0) {
+    throw new RangeError('max pages per quantum must be non-zero');
   }
-  writer.u32(request.maxTopLevelNodesPerQuantum, 'max top-level nodes per quantum');
+  writer.u32(request.maxPagesPerQuantum, 'max pages per quantum');
   const bytes = writer.finish();
   if (bytes.byteLength !== 40) throw new Error('RITOBGQ1 must be exactly 40 bytes');
   return bytes;

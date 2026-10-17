@@ -172,7 +172,7 @@ fn drive_background(session: &mut ReaderSession, visible_artifact_id: u64) -> Re
             .advance_background_once(ReaderBackgroundRequest {
                 session_id: session.session_id(),
                 expected_visible_artifact_id: visible_artifact_id,
-                max_top_level_nodes_per_quantum: 64,
+                max_pages_per_quantum: 64,
             })
             .expect("background never waits on a shard");
         if let Some(artifact) = advance.artifact {

@@ -4,12 +4,12 @@ final class RitoBackgroundRequest {
   const RitoBackgroundRequest({
     required this.sessionId,
     required this.expectedVisibleArtifactId,
-    required this.maxTopLevelNodesPerQuantum,
+    required this.maxPagesPerQuantum,
   });
 
   final int sessionId;
   final int expectedVisibleArtifactId;
-  final int maxTopLevelNodesPerQuantum;
+  final int maxPagesPerQuantum;
 }
 
 enum RitoBackgroundState {

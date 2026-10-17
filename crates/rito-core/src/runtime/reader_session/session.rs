@@ -84,6 +84,15 @@ struct ReaderRevisionOwner {
     artifact_ref_count: u32,
 }
 
+/// A publication revision being laid out a quantum of pages at a time,
+/// for the layout and the faces it began under.
+#[derive(Debug)]
+struct PendingPublication {
+    layout: LayoutConfig,
+    fonts: u64,
+    build: Box<crate::runtime::revision::RevisionBuild>,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ReaderPendingAdjacent {
     from_artifact_id: u64,
@@ -124,6 +133,8 @@ pub struct ReaderSession {
     revisions: BTreeMap<u64, ReaderRevisionOwner>,
     publication_revisions: BTreeMap<u64, ReaderPublicationRevisionOwner>,
     active_publication_revision_id: Option<u64>,
+    /// The publication revision being laid out, until it is registered.
+    pending_publication: Option<PendingPublication>,
     artifacts: BTreeMap<u64, ReaderArtifactOwner>,
     released_artifacts: BTreeSet<u64>,
     // Read-only adjacent artifacts produced by `peek_adjacent`. Only these

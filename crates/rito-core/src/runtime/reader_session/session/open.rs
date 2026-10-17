@@ -94,6 +94,7 @@ impl ReaderSession {
             revisions: BTreeMap::new(),
             publication_revisions: BTreeMap::new(),
             active_publication_revision_id: None,
+            pending_publication: None,
             artifacts: BTreeMap::new(),
             released_artifacts: BTreeSet::new(),
             peeked_artifacts: BTreeSet::new(),

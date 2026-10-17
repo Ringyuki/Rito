@@ -191,7 +191,7 @@ test('worker makes an initial candidate visible only after foreground adoption',
     protocol: 'rito-reader-session',
     id: 2,
     kind: 'advance-background-once',
-    request: { sessionId: 7n, expectedVisibleArtifactId: 41n, maxTopLevelNodesPerQuantum: 1 },
+    request: { sessionId: 7n, expectedVisibleArtifactId: 41n, maxPagesPerQuantum: 1 },
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'stale-request');
@@ -214,7 +214,7 @@ test('worker makes an initial candidate visible only after foreground adoption',
     protocol: 'rito-reader-session',
     id: 4,
     kind: 'advance-background-once',
-    request: { sessionId: 7n, expectedVisibleArtifactId: 41n, maxTopLevelNodesPerQuantum: 1 },
+    request: { sessionId: 7n, expectedVisibleArtifactId: 41n, maxPagesPerQuantum: 1 },
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.payload.kind, 'background-advance');
@@ -226,7 +226,7 @@ test('worker makes an initial candidate visible only after foreground adoption',
     protocol: 'rito-reader-session',
     id: 6,
     kind: 'advance-background-once',
-    request: { sessionId: 7n, expectedVisibleArtifactId: 41n, maxTopLevelNodesPerQuantum: 1 },
+    request: { sessionId: 7n, expectedVisibleArtifactId: 41n, maxPagesPerQuantum: 1 },
   });
   await settle();
   assert.equal(scope.responses.at(-1).message.error.code, 'stale-request');
@@ -1231,7 +1231,7 @@ test('worker tracks candidate capacity and defers stale background eligibility t
     request: {
       sessionId: 17n,
       expectedVisibleArtifactId: 1n,
-      maxTopLevelNodesPerQuantum: 8,
+      maxPagesPerQuantum: 8,
     },
   });
   await settle();
@@ -1395,7 +1395,7 @@ test('worker fail-closes when background advance or committed handoff wire is un
       request: {
         sessionId: 52n,
         expectedVisibleArtifactId: 1n,
-        maxTopLevelNodesPerQuantum: 1,
+        maxPagesPerQuantum: 1,
       },
     });
     await settle();

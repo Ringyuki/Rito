@@ -416,7 +416,9 @@ fn each_background_transport_call_matches_exactly_one_core_quantum() {
     let mut indexing_calls = 0_usize;
     let mut post_index_calls = 0_usize;
     while post_index_calls < 4 {
-        let request_wire = background_wire(SESSION_ID, direct_first.artifact_id, 1);
+        // A page budget the book fits in: the publication lays out in the
+        // call that starts it.
+        let request_wire = background_wire(SESSION_ID, direct_first.artifact_id, u32::MAX);
         let direct_step = direct
             .advance_background_once(
                 decode_reader_background_request(&request_wire)
@@ -450,13 +452,13 @@ fn each_background_transport_call_matches_exactly_one_core_quantum() {
                     if post_index_calls == 0 {
                         ReaderBackgroundState::Started
                     } else {
-                        // One-pass: the book is already paginated; later
-                        // calls report the unadopted candidate.
+                        // The book is already paginated; later calls
+                        // report the unadopted candidate.
                         ReaderBackgroundState::CandidatePending
                     }
                 );
-                // One-pass background pagination publishes the whole book
-                // at Started and carries the first candidate with it.
+                // The starting call lays the whole book out and carries
+                // the first candidate with it.
                 if post_index_calls == 0 {
                     assert!(
                         projected_step.artifact.is_some(),
@@ -833,7 +835,7 @@ fn background_wires_preserve_bigint_sized_identities_without_a_number_hop() {
         decode_reader_background_request(&request_wire).expect("background request decodes");
     assert_eq!(request.session_id, high_id);
     assert_eq!(request.expected_visible_artifact_id, high_id + 1);
-    assert_eq!(request.max_top_level_nodes_per_quantum, 7);
+    assert_eq!(request.max_pages_per_quantum, 7);
     assert_eq!(&request_wire[..8], b"RITOBGQ1");
 
     let handoff_wire = handoff_wire(high_id, high_id + 1, high_id + 2);
@@ -936,12 +938,12 @@ pub(super) fn adjacent_wire(
 fn background_wire(
     session_id: u64,
     expected_visible_artifact_id: u64,
-    max_top_level_nodes_per_quantum: u32,
+    max_pages_per_quantum: u32,
 ) -> Vec<u8> {
     encode_reader_background_request(&ReaderBackgroundRequest {
         session_id,
         expected_visible_artifact_id,
-        max_top_level_nodes_per_quantum,
+        max_pages_per_quantum,
     })
     .expect("background request encodes")
 }
@@ -1018,14 +1020,14 @@ fn adopt_wasm_foreground(
 fn advance_projection_to_candidate(
     session: &mut ReaderSessionProjection,
     visible_artifact_id: u64,
-    max_top_level_nodes_per_quantum: u32,
+    max_pages_per_quantum: u32,
 ) -> ReaderBackgroundAdvance {
     for _ in 0..256 {
         let wire = session
             .advance_background_once(&background_wire(
                 SESSION_ID,
                 visible_artifact_id,
-                max_top_level_nodes_per_quantum,
+                max_pages_per_quantum,
             ))
             .expect("background step succeeds");
         let step = decode_reader_background_advance(&wire).expect("background result decodes");

@@ -546,7 +546,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     return resource;
   };
 
-  const advanceBackgroundOnce = async (expectedVisibleArtifactId, maxTopLevelNodesPerQuantum) => {
+  const advanceBackgroundOnce = async (expectedVisibleArtifactId, maxPagesPerQuantum) => {
     requireOpen();
     requireVisibleArtifact(expectedVisibleArtifactId);
     requireBackgroundIdle();
@@ -554,7 +554,7 @@ export function createRitoCoreWasmReaderSessionWorkerClient(worker, options = {}
     const request = {
       sessionId,
       expectedVisibleArtifactId,
-      maxTopLevelNodesPerQuantum,
+      maxPagesPerQuantum,
     };
     try {
       const payload = await sendWithShards('advance-background-once', { request });

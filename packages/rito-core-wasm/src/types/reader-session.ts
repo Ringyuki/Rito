@@ -129,7 +129,7 @@ export interface RitoReaderForegroundHandoffAck {
 export interface RitoReaderBackgroundRequest {
   readonly sessionId: bigint;
   readonly expectedVisibleArtifactId: bigint;
-  readonly maxTopLevelNodesPerQuantum: number;
+  readonly maxPagesPerQuantum: number;
 }
 
 export type RitoReaderBackgroundState =

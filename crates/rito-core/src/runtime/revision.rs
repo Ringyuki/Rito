@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     cleanup::PendingRuntimeRevisionCleanup,
+    fragment_backend::FragmentTableBuild,
     frame::{
         revision_summary, RuntimeRevision, RuntimeRevisionCoordinateSpace,
         RuntimeRevisionInteractions,
@@ -18,6 +19,37 @@ use super::{
     metadata::layout_key,
     RuntimeDocument, RuntimeRevisionSummary,
 };
+
+/// A whole-book revision being laid out a few pages at a time
+/// ([`RuntimeDocument::advance_revision`]): its styles and the page table
+/// paginated so far.
+pub(in crate::runtime) struct RevisionBuild {
+    revision_id: String,
+    layout_config: LayoutConfig,
+    layout_key: String,
+    chapter_style_tables: BTreeMap<String, Rc<super::frame::RuntimeChapterStyleTables>>,
+    required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
+    interactions: RuntimeRevisionInteractions,
+    table: FragmentTableBuild,
+}
+
+impl std::fmt::Debug for RevisionBuild {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("RevisionBuild")
+            .field("revision_id", &self.revision_id)
+            .field("pages", &self.table.pages())
+            .finish_non_exhaustive()
+    }
+}
+
+/// Where laying a whole-book revision out stands after a step.
+pub(in crate::runtime) enum RevisionProgress {
+    /// Pages remain; the build resumes where the step stopped.
+    Pending(Box<RevisionBuild>),
+    /// The book is laid out and the revision inserted.
+    Done(RuntimeRevisionSummary),
+}
 
 impl RuntimeDocument {
     /// Style projection runs, the fragment engine paginates every
@@ -28,6 +60,22 @@ impl RuntimeDocument {
         &mut self,
         layout_config: &LayoutConfig,
     ) -> EpubResult<RuntimeRevisionSummary> {
+        let build = self.begin_revision(layout_config)?;
+        match self.advance_revision(build, usize::MAX)? {
+            RevisionProgress::Done(summary) => Ok(summary),
+            RevisionProgress::Pending(_) => {
+                unreachable!("a step without a page limit ends the book")
+            }
+        }
+    }
+
+    /// Begins laying a whole-book revision out: style projection runs for
+    /// every chapter, and [`Self::advance_revision`] paginates them a few
+    /// pages at a time.
+    pub(in crate::runtime) fn begin_revision(
+        &mut self,
+        layout_config: &LayoutConfig,
+    ) -> EpubResult<RevisionBuild> {
         let layout_config = layout_config.clone();
         let revision_id = self.create_revision_id();
         let (chapter_style_tables, required_font_face_catalog, interactions, layout_key) = {
@@ -58,9 +106,44 @@ impl RuntimeDocument {
                 layout_key,
             )
         };
-        let fragment_layout = self
-            .build_fragment_page_table(&layout_config, &chapter_style_tables)
+        let table = self
+            .begin_fragment_page_table(&layout_config)
             .map_err(|reason| EpubError::new(format!("fragment pagination failed: {reason}")))?;
+        Ok(RevisionBuild {
+            revision_id,
+            layout_config,
+            layout_key,
+            chapter_style_tables,
+            required_font_face_catalog,
+            interactions,
+            table,
+        })
+    }
+
+    /// Paginates up to `pages` more pages of a whole-book revision, and
+    /// inserts it once the book is laid out. A chapter that fails to build
+    /// or paginate fails the step and leaves no revision behind.
+    pub(in crate::runtime) fn advance_revision(
+        &mut self,
+        mut build: RevisionBuild,
+        pages: usize,
+    ) -> EpubResult<RevisionProgress> {
+        let done = self
+            .advance_fragment_page_table(&mut build.table, &build.chapter_style_tables, pages)
+            .map_err(|reason| EpubError::new(format!("fragment pagination failed: {reason}")))?;
+        if !done {
+            return Ok(RevisionProgress::Pending(Box::new(build)));
+        }
+        let RevisionBuild {
+            revision_id,
+            layout_config,
+            layout_key,
+            chapter_style_tables,
+            required_font_face_catalog,
+            interactions,
+            table,
+        } = build;
+        let fragment_layout = table.finish();
         if fragment_layout.page_count() == 0 {
             return Err(EpubError::new(
                 "fragment pagination failed: the publication paginated to no pages",
@@ -76,7 +159,7 @@ impl RuntimeDocument {
         );
         let summary = revision_summary(&revision_id, &layout_key, &revision);
         self.insert_new_revision(revision_id, revision);
-        Ok(summary)
+        Ok(RevisionProgress::Done(summary))
     }
 
     pub(super) fn create_revision_id(&mut self) -> String {

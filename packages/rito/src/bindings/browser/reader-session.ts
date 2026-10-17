@@ -117,7 +117,7 @@ export interface BrowserReaderSession {
   /** Executes one cooperative publication quantum and never schedules another by itself. */
   advanceBackgroundOnce(
     expectedVisibleArtifactId: bigint,
-    maxTopLevelNodesPerQuantum: number,
+    maxPagesPerQuantum: number,
   ): Promise<BrowserReaderBackgroundAdvance>;
   /** Keeps the replaced artifact live for the host's animation lifecycle. */
   adoptBackgroundCandidate(

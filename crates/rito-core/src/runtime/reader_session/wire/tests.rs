@@ -623,7 +623,7 @@ fn background_request_fixture() -> ReaderBackgroundRequest {
     ReaderBackgroundRequest {
         session_id: (1u64 << 54) + 1,
         expected_visible_artifact_id: (1u64 << 57) + 4,
-        max_top_level_nodes_per_quantum: u32::MAX,
+        max_pages_per_quantum: u32::MAX,
     }
 }
 

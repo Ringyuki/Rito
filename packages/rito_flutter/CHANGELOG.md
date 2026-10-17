@@ -28,6 +28,12 @@ table with `complete`. `RitoReaderSession.revisionLayout` takes `whole`
 holds the pages laid out so far, which `RitoRevisionLayout.complete`
 reports. Locating a position no longer lays out the rest of its chapter.
 
+`RitoReaderSession.advanceBackground` takes `maxPagesPerQuantum` (was
+`maxTopLevelNodesPerQuantum`, which no layout read): a step lays the
+publication out by at most that many pages, and its candidate comes with
+the step that lays the last page out. `RitoReaderController.paginationQuantum`
+counts pages too; its default of 512 lays most books out in one step.
+
 ## 0.7.0 - 2026-10-17
 
 ### Ranges across paragraphs inside one wrapper resolve

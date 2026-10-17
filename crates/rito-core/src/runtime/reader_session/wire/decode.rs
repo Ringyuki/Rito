@@ -120,7 +120,7 @@ pub(super) fn background_request(bytes: &[u8]) -> Result<ReaderBackgroundRequest
     let request = ReaderBackgroundRequest {
         session_id: external_id(reader.u64()?, "sessionId")?,
         expected_visible_artifact_id: external_id(reader.u64()?, "expectedVisibleArtifactId")?,
-        max_top_level_nodes_per_quantum: reader.u32()?,
+        max_pages_per_quantum: reader.u32()?,
     };
     reader.finish("background request wire message")?;
     Ok(request)

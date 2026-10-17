@@ -85,7 +85,7 @@ void main() {
       const RitoBackgroundRequest(
         sessionId: 91,
         expectedVisibleArtifactId: 7001,
-        maxTopLevelNodesPerQuantum: 64,
+        maxPagesPerQuantum: 64,
       ),
     );
     expect(request, orderedEquals(backgroundRequestFixture()));
@@ -275,7 +275,7 @@ void main() {
         const RitoBackgroundRequest(
           sessionId: 0,
           expectedVisibleArtifactId: 1,
-          maxTopLevelNodesPerQuantum: 1,
+          maxPagesPerQuantum: 1,
         ),
       ),
       throwsA(isA<FormatException>()),
@@ -285,7 +285,7 @@ void main() {
         const RitoBackgroundRequest(
           sessionId: 1,
           expectedVisibleArtifactId: 2,
-          maxTopLevelNodesPerQuantum: 0x100000000,
+          maxPagesPerQuantum: 0x100000000,
         ),
       ),
       throwsA(isA<FormatException>()),

@@ -1581,7 +1581,7 @@ mod tests {
             request: ReaderBackgroundRequest {
                 session_id: 1,
                 expected_visible_artifact_id,
-                max_top_level_nodes_per_quantum: 1,
+                max_pages_per_quantum: 1,
             },
             reply,
         })

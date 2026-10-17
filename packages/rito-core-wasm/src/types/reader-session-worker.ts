@@ -119,7 +119,7 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
   /** Runs exactly one host-scheduled publication quantum; never loops automatically. */
   advanceBackgroundOnce(
     expectedVisibleArtifactId: bigint,
-    maxTopLevelNodesPerQuantum: number,
+    maxPagesPerQuantum: number,
   ): Promise<RitoReaderBackgroundAdvance>;
   /** Atomically adopts a pending candidate without releasing the replaced artifact. */
   adoptBackgroundCandidate(

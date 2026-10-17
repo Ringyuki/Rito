@@ -151,7 +151,7 @@ test('worker peek leaves the foreground alone and commit swaps the visible artif
   assert.equal(peeked.payload.kind, 'artifact');
   assert.equal(peeked.payload.identity.artifactId, 42n);
 
-  const background = { sessionId: 7n, maxTopLevelNodesPerQuantum: 1 };
+  const background = { sessionId: 7n, maxPagesPerQuantum: 1 };
   const stale = await send(4, 'advance-background-once', {
     request: { ...background, expectedVisibleArtifactId: 42n },
   });

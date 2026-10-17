@@ -182,7 +182,7 @@ void main() {
         throwsA(same(invalidation)),
       );
       await expectLater(
-        exactSession.advanceBackground(maxTopLevelNodesPerQuantum: 8),
+        exactSession.advanceBackground(maxPagesPerQuantum: 8),
         throwsA(same(invalidation)),
       );
       expect(exactGateway.disposals, 1);
@@ -256,7 +256,7 @@ void main() {
         fontCache: _fontCache(),
       );
       await expectLater(
-        advanceSession.advanceBackground(maxTopLevelNodesPerQuantum: 8),
+        advanceSession.advanceBackground(maxPagesPerQuantum: 8),
         throwsA(same(invalidation)),
       );
       expect(advanceGateway.disposals, 1);
@@ -272,7 +272,7 @@ void main() {
         fontCache: _fontCache(),
       );
       final prepared = await adoptSession.advanceBackground(
-        maxTopLevelNodesPerQuantum: 8,
+        maxPagesPerQuantum: 8,
       );
       await expectLater(
         adoptSession.adoptBackground(prepared),
@@ -367,9 +367,7 @@ void main() {
       );
 
       final publication = await session.readPublication();
-      final advance = await session.advanceBackground(
-        maxTopLevelNodesPerQuantum: 8,
-      );
+      final advance = await session.advanceBackground(maxPagesPerQuantum: 8);
       expect(publication.metadata.title, 'Fixture');
       expect(advance.artifact?.artifactId, 7003);
       expect(session.visibleArtifactId, 7001);
@@ -707,7 +705,7 @@ void main() {
         direction: RitoAdjacentDirection.next,
       );
       await expectLater(
-        session.advanceBackground(maxTopLevelNodesPerQuantum: 8),
+        session.advanceBackground(maxPagesPerQuantum: 8),
         throwsA(isA<StateError>()),
       );
       expect(gateway.backgroundRequests, isEmpty);

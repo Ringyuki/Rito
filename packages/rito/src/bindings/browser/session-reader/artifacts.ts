@@ -16,7 +16,7 @@ import {
 // giving back: whatever is not adopted or installed is released before the
 // function returns or throws.
 
-/** The engine paginates the whole book in one step whatever the budget says. */
+/** The most pages a step of the whole-book layout lays out; the worker runs it apart from the page. */
 const BOOK_QUANTUM = 512;
 
 /** A layout ready to commit: the page it shows, prepared, and its revision's page table. */

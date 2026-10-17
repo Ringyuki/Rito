@@ -86,9 +86,7 @@ final class RitoSessionPageSource implements RitoPageSource {
     RitoPreparedArtifact visible,
     int quantum,
   ) async {
-    final step = await session.advanceBackground(
-      maxTopLevelNodesPerQuantum: quantum,
-    );
+    final step = await session.advanceBackground(maxPagesPerQuantum: quantum);
     final complete = step.advance.state == RitoBackgroundState.complete;
     final candidate = step.artifact;
     if (candidate == null) return (complete: complete, adopted: null);

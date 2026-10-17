@@ -8,6 +8,9 @@ use crate::runtime::tests::fixture::{
 use super::session::READER_LIVE_ARTIFACT_CAP;
 use super::*;
 
+/// A page budget no fixture reaches: the publication lays out in one step.
+const WHOLE_BOOK: u32 = u32::MAX;
+
 #[test]
 fn the_first_artifact_completes_the_footnote_index_without_parsing_other_chapters() {
     // Chapter-local pagination filters footnote asides with the WHOLE
@@ -26,16 +29,54 @@ fn the_first_artifact_completes_the_footnote_index_without_parsing_other_chapter
     adopt_initial(&mut session, 210, visible.artifact_id);
 
     let started = session
-        .advance_background_once(background_request(210, visible.artifact_id, 1))
+        .advance_background_once(background_request(210, visible.artifact_id, WHOLE_BOOK))
         .expect("publication layout starts on the completed index");
     assert_eq!(started.state, ReaderBackgroundState::Started);
 }
 
 #[test]
+fn a_background_step_lays_out_the_pages_its_budget_allows() {
+    // One page per step: the starting call lays the first page out and
+    // each call after it one more, and the candidate comes with the call
+    // that lays the last page out.
+    let mut session = super::tests::open_test_session(209, source_locator_fixture_epub())
+        .expect("reader session opens");
+    let visible = session
+        .request_artifact(artifact_request(209, 1, "chapter.xhtml#point-47"))
+        .expect("tail intent resolves locally");
+    adopt_initial(&mut session, 209, visible.artifact_id);
+    let started = advance_past_indexing(&mut session, 209, visible.artifact_id, 1);
+    assert_eq!(started.state, ReaderBackgroundState::Started);
+    assert!(
+        started.artifact.is_none(),
+        "one page does not lay the book out"
+    );
+    assert_eq!(session.publication_revision_count(), 0);
+    let mut steps = 1usize;
+    let candidate = loop {
+        let step = session
+            .advance_background_once(background_request(209, visible.artifact_id, 1))
+            .expect("the next page lays out");
+        steps += 1;
+        assert_eq!(step.state, ReaderBackgroundState::Advanced);
+        if let Some(candidate) = step.artifact {
+            break candidate;
+        }
+        assert!(steps < 10_000, "the book never finished laying out");
+    };
+    let pages = candidate
+        .book_page_count
+        .expect("the candidate carries the book's page count");
+    assert_eq!(steps, pages as usize, "each step laid exactly one page out");
+    assert_eq!(session.publication_revision_count(), 1);
+    release_all(&mut session, [visible.artifact_id, candidate.artifact_id]);
+}
+
+#[test]
 fn background_start_paginates_the_whole_book_in_one_pass() {
-    // The fragment engine paginates the publication whole: the starting
-    // background call already carries the handoff candidate, and the
-    // next call parks on it instead of advancing further versions.
+    // With a budget the book fits in, the starting background call
+    // already carries the handoff candidate, and the next call parks on
+    // it instead of advancing further versions.
     let mut session = super::tests::open_test_session(201, source_locator_fixture_epub())
         .expect("reader session opens");
     let visible = session
@@ -43,7 +84,7 @@ fn background_start_paginates_the_whole_book_in_one_pass() {
         .expect("tail intent resolves locally");
     adopt_initial(&mut session, 201, visible.artifact_id);
 
-    let started = advance_past_indexing(&mut session, 201, visible.artifact_id, 1);
+    let started = advance_past_indexing(&mut session, 201, visible.artifact_id, WHOLE_BOOK);
     assert_eq!(started.state, ReaderBackgroundState::Started);
     let candidate = started
         .artifact
@@ -53,7 +94,7 @@ fn background_start_paginates_the_whole_book_in_one_pass() {
     let version = publication_version(&session);
 
     let parked = session
-        .advance_background_once(background_request(201, visible.artifact_id, 1))
+        .advance_background_once(background_request(201, visible.artifact_id, WHOLE_BOOK))
         .expect("a further background call parks on the candidate");
     assert_eq!(parked.state, ReaderBackgroundState::CandidatePending);
     assert!(parked.artifact.is_none());
@@ -92,7 +133,7 @@ fn newer_seek_makes_old_background_guards_stale_without_mutating_refs_or_intent(
     let live_before_foreground_adoption = session.live_artifact_count();
     let version_before_foreground_adoption = publication_version(&session);
     let blocked_advance = session
-        .advance_background_once(background_request(202, old_visible.artifact_id, 1))
+        .advance_background_once(background_request(202, old_visible.artifact_id, WHOLE_BOOK))
         .expect_err("background advancement yields to a pending foreground candidate");
     assert_eq!(blocked_advance.kind, ReaderErrorKind::StaleRequest);
     let blocked_handoff = session
@@ -126,7 +167,7 @@ fn newer_seek_makes_old_background_guards_stale_without_mutating_refs_or_intent(
     let version_before = publication_version(&session);
 
     let stale_background = session
-        .advance_background_once(background_request(202, old_visible.artifact_id, 1))
+        .advance_background_once(background_request(202, old_visible.artifact_id, WHOLE_BOOK))
         .expect_err("old visible guard is stale");
     assert_eq!(stale_background.kind, ReaderErrorKind::StaleRequest);
     let stale_handoff = session
@@ -142,7 +183,7 @@ fn newer_seek_makes_old_background_guards_stale_without_mutating_refs_or_intent(
     assert_eq!(publication_version(&session), version_before);
 
     let current_step = session
-        .advance_background_once(background_request(202, current.artifact_id, 1))
+        .advance_background_once(background_request(202, current.artifact_id, WHOLE_BOOK))
         .expect("current intent remains usable");
     assert_eq!(current_step.intent_request_id, 2);
     assert_eq!(current_step.replaces_artifact_id, current.artifact_id);
@@ -250,7 +291,7 @@ fn releasing_current_visible_fails_closed_without_orphaning_background_candidate
     assert!(!session.has_visible_intent());
     assert_eq!(session.visible_artifact_id(), None);
     let background = session
-        .advance_background_once(background_request(208, visible.artifact_id, 1))
+        .advance_background_once(background_request(208, visible.artifact_id, WHOLE_BOOK))
         .expect_err("released visible intent cannot schedule background work");
     assert_eq!(background.kind, ReaderErrorKind::InvalidRequest);
     let handoff = session
@@ -308,7 +349,7 @@ fn adopted_publication_keeps_advancing_and_owns_adjacent_resources_and_disposal(
     // The publication paginated whole at start; a post-adoption call
     // reports completion with nothing further to offer.
     let step = session
-        .advance_background_once(background_request(204, candidate.artifact_id, 1))
+        .advance_background_once(background_request(204, candidate.artifact_id, WHOLE_BOOK))
         .expect("post-adoption background call resolves");
     assert_eq!(step.state, ReaderBackgroundState::Complete);
     assert!(candidate.book_page_count.is_some());
@@ -349,7 +390,7 @@ fn foreground_adjacent_replaces_intent_and_stales_old_background_request() {
         .request_artifact(artifact_request(205, 1, "chapter.xhtml#point-0"))
         .expect("first local artifact resolves");
     adopt_initial(&mut session, 205, first.artifact_id);
-    let old_step = advance_past_indexing(&mut session, 205, first.artifact_id, 1);
+    let old_step = advance_past_indexing(&mut session, 205, first.artifact_id, WHOLE_BOOK);
     let old_candidates = old_step
         .artifact
         .as_ref()
@@ -369,7 +410,7 @@ fn foreground_adjacent_replaces_intent_and_stales_old_background_request() {
     let live_before_blocked_background = session.live_artifact_count();
     let version_before_blocked_background = publication_version(&session);
     let before_adoption_error = session
-        .advance_background_once(background_request(205, first.artifact_id, 1))
+        .advance_background_once(background_request(205, first.artifact_id, WHOLE_BOOK))
         .expect_err("background work must yield to the pending foreground candidate");
     assert_eq!(before_adoption_error.kind, ReaderErrorKind::StaleRequest);
     assert_eq!(
@@ -384,14 +425,14 @@ fn foreground_adjacent_replaces_intent_and_stales_old_background_request() {
     let live_before_stale = session.live_artifact_count();
     let version_before_stale = publication_version(&session);
     let stale = session
-        .advance_background_once(background_request(205, first.artifact_id, 1))
+        .advance_background_once(background_request(205, first.artifact_id, WHOLE_BOOK))
         .expect_err("old foreground artifact no longer guards background work");
     assert_eq!(stale.kind, ReaderErrorKind::StaleRequest);
     assert_eq!(session.live_artifact_count(), live_before_stale);
     assert_eq!(publication_version(&session), version_before_stale);
 
     let current_step = session
-        .advance_background_once(background_request(205, next.artifact_id, 1))
+        .advance_background_once(background_request(205, next.artifact_id, WHOLE_BOOK))
         .expect("adjacent artifact owns the current intent");
     assert_eq!(current_step.intent_request_id, 2);
     assert_eq!(current_step.replaces_artifact_id, next.artifact_id);
@@ -442,7 +483,11 @@ fn same_layout_seek_reuses_existing_publication_without_another_quantum() {
     );
     let version_before = publication_version(&session);
     let reused = session
-        .advance_background_once(background_request(206, second_local.artifact_id, 1))
+        .advance_background_once(background_request(
+            206,
+            second_local.artifact_id,
+            WHOLE_BOOK,
+        ))
         .expect("covered locator reuses the existing publication");
     assert_eq!(reused.state, ReaderBackgroundState::Reused);
     assert_eq!(reused.intent_request_id, 2);
@@ -492,7 +537,7 @@ fn live_artifact_cap_requires_and_then_consumes_one_candidate_reserve() {
         .advance_background_once(background_request(
             207,
             locals.last().expect("latest local").artifact_id,
-            64,
+            WHOLE_BOOK,
         ))
         .expect_err("background candidate cannot exceed the live cap");
     assert_eq!(no_reserve.kind, ReaderErrorKind::InvalidRequest);
@@ -511,7 +556,7 @@ fn live_artifact_cap_requires_and_then_consumes_one_candidate_reserve() {
     assert_eq!(session.publication_revision_count(), 1);
 
     let pending = session
-        .advance_background_once(background_request(207, latest.artifact_id, 64))
+        .advance_background_once(background_request(207, latest.artifact_id, WHOLE_BOOK))
         .expect("pending candidate does not allocate a duplicate");
     assert_eq!(pending.state, ReaderBackgroundState::CandidatePending);
     assert!(pending.artifact.is_none());
@@ -602,12 +647,12 @@ fn adjacent_request(
 fn background_request(
     session_id: u64,
     expected_visible_artifact_id: u64,
-    max_top_level_nodes_per_quantum: u32,
+    max_pages_per_quantum: u32,
 ) -> ReaderBackgroundRequest {
     ReaderBackgroundRequest {
         session_id,
         expected_visible_artifact_id,
-        max_top_level_nodes_per_quantum,
+        max_pages_per_quantum,
     }
 }
 
@@ -644,14 +689,14 @@ fn advance_to_candidate(
     session: &mut ReaderSession,
     session_id: u64,
     visible_artifact_id: u64,
-    max_top_level_nodes_per_quantum: u32,
+    max_pages_per_quantum: u32,
 ) -> ReaderBackgroundAdvance {
     for _ in 0..256 {
         let step = session
             .advance_background_once(background_request(
                 session_id,
                 visible_artifact_id,
-                max_top_level_nodes_per_quantum,
+                max_pages_per_quantum,
             ))
             .expect("background step succeeds");
         if step.artifact.is_some() {
@@ -670,14 +715,14 @@ fn advance_past_indexing(
     session: &mut ReaderSession,
     session_id: u64,
     visible_artifact_id: u64,
-    max_top_level_nodes_per_quantum: u32,
+    max_pages_per_quantum: u32,
 ) -> ReaderBackgroundAdvance {
     for _ in 0..256 {
         let step = session
             .advance_background_once(background_request(
                 session_id,
                 visible_artifact_id,
-                max_top_level_nodes_per_quantum,
+                max_pages_per_quantum,
             ))
             .expect("background index/layout step succeeds");
         if step.state != ReaderBackgroundState::Indexing {
@@ -740,7 +785,7 @@ fn publication_turns_cross_image_only_plates_in_both_directions() {
     // Finish publication layout so every spread is published.
     for _ in 0..256 {
         let step = session
-            .advance_background_once(background_request(220, candidate.artifact_id, 64))
+            .advance_background_once(background_request(220, candidate.artifact_id, WHOLE_BOOK))
             .expect("background completes");
         if step.state == ReaderBackgroundState::Complete {
             break;
@@ -898,7 +943,7 @@ fn publication_artifacts_number_pages_book_wide() {
         .expect("publication candidate adopts");
     for _ in 0..256 {
         let step = session
-            .advance_background_once(background_request(222, candidate.artifact_id, 64))
+            .advance_background_once(background_request(222, candidate.artifact_id, WHOLE_BOOK))
             .expect("background advances");
         if step.state == ReaderBackgroundState::Complete {
             break;
@@ -972,7 +1017,7 @@ fn every_publication_candidate_locator_describes_the_page_it_draws() {
     let mut handoffs = 0;
     for _ in 0..512 {
         let step = session
-            .advance_background_once(background_request(224, adopted.artifact_id, 8))
+            .advance_background_once(background_request(224, adopted.artifact_id, WHOLE_BOOK))
             .expect("background advances");
         let Some(candidate) = step.artifact else {
             if step.state == ReaderBackgroundState::Complete {
@@ -1046,7 +1091,7 @@ fn no_handoff_ever_moves_the_reader() {
         let mut handoffs = 0;
         for _ in 0..4096 {
             let step = session
-                .advance_background_once(background_request(226, current.artifact_id, 8))
+                .advance_background_once(background_request(226, current.artifact_id, WHOLE_BOOK))
                 .expect("background advances");
             if let Some(candidate) = step.artifact {
                 handoffs += 1;
@@ -1098,7 +1143,7 @@ fn a_mid_book_candidate_paints_the_same_page_as_the_visible_chapter_local_artifa
         .request_artifact(artifact_request(298, 1, "chapter-1.xhtml"))
         .expect("mid chapter resolves");
     adopt_initial(&mut session, 298, visible.artifact_id);
-    let step = advance_past_indexing(&mut session, 298, visible.artifact_id, 64);
+    let step = advance_past_indexing(&mut session, 298, visible.artifact_id, WHOLE_BOOK);
     let candidate = step.artifact.expect("candidate exists");
     assert!(
         !step.moves_visible_content,

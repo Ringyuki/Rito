@@ -191,7 +191,7 @@ impl Book {
                 .advance_background_once(ReaderBackgroundRequest {
                     session_id: SESSION,
                     expected_visible_artifact_id: self.visible,
-                    max_top_level_nodes_per_quantum: 512,
+                    max_pages_per_quantum: 512,
                 })
                 .map_err(|e| format!("{step} advance: {e:?}"))?;
             if let Some(artifact) = advance.artifact {

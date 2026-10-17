@@ -767,6 +767,43 @@ fn materialized_chapter(
     }
 }
 
+/// A whole-book page table being paginated a few pages at a time: the
+/// chapters paginated so far, with their anchors and run starts, and the
+/// chapter under way.
+pub(super) struct FragmentTableBuild {
+    build: FragmentTableBuildInputs,
+    /// The chapters not begun yet, in spine order.
+    idrefs: std::collections::VecDeque<String>,
+    chapters: Vec<FragmentBackendChapter>,
+    anchors: BTreeMap<String, usize>,
+    run_starts: Vec<PageArtifactSourceRunStart>,
+    /// The pages paginated so far.
+    pages: usize,
+    current: Option<TableChapter>,
+}
+
+/// The chapter a whole-book page table is paginating.
+struct TableChapter {
+    record: FragmentBackendChapter,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
+    paginator: ChapterPaginator,
+}
+
+impl FragmentTableBuild {
+    /// The pages paginated so far.
+    pub(super) fn pages(&self) -> usize {
+        self.pages
+    }
+
+    /// The page table, once every chapter is paginated.
+    pub(super) fn finish(self) -> FragmentBuiltLayout {
+        let mut layout = FragmentBuiltLayout::new(self.chapters, Some(self.build));
+        layout.anchors = self.anchors;
+        layout.run_starts = Some(self.run_starts);
+        layout
+    }
+}
+
 /// One chapter paginated for a chapter-local revision, with the style
 /// tables and interaction state the revision retains beside its pages.
 pub(super) struct ChapterLocalFragmentBuild {
@@ -777,86 +814,139 @@ pub(super) struct ChapterLocalFragmentBuild {
 }
 
 impl RuntimeDocument {
-    /// Paginates every chapter of the prepared publication under
-    /// `layout_config`, laying each out from its typed style tables.
+    /// Begins a whole-book page table: every chapter of the prepared
+    /// publication paginated under `layout_config` from its typed style
+    /// tables, a few pages at a time ([`Self::advance_fragment_page_table`]).
     /// Page indexes are book-wide. Any chapter that fails to build or
-    /// paginate fails the whole table, so a revision never holds a
-    /// partial one.
-    ///
-    /// The chapters paginate without their text: each chapter's pages are
-    /// dropped as soon as its record, anchors and run starts are taken, so
-    /// the pass peaks at one chapter's contents rather than the book's, and
-    /// the search records are taken when the book is first searched.
-    pub(super) fn build_fragment_page_table(
+    /// paginate fails the whole table, so a revision never holds a partial
+    /// one.
+    pub(super) fn begin_fragment_page_table(
         &self,
         layout_config: &LayoutConfig,
-        chapter_style_tables: &BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
-    ) -> Result<FragmentBuiltLayout, String> {
+    ) -> Result<FragmentTableBuild, String> {
         let prepared = self
             .prepared
             .clone()
             .ok_or_else(|| "document is not prepared".to_owned())?;
         let build = self.fragment_table_build_inputs(prepared, layout_config)?;
-        let mut chapters = Vec::with_capacity(build.prepared.chapters.len());
-        let mut anchors = BTreeMap::new();
-        let mut run_starts = Vec::new();
-        let mut page_index = 0;
-        let idrefs: Vec<String> = build
+        let idrefs = build
             .prepared
             .chapters
             .iter()
             .map(|chapter| chapter.source.idref.clone())
             .collect();
-        for idref in idrefs {
-            let style_tables = chapter_style_tables.get(&idref).ok_or_else(|| {
-                format!("chapter {idref}: revision retains no style tables for chapter {idref}")
-            })?;
-            let image_dimensions = self
-                .chapter_image_dimensions(&build.prepared, &idref, FILTER_FOOTNOTES)
-                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            let built = build
-                .engine
-                .chapter_tree(&build.prepared, style_tables, &idref, &image_dimensions)
-                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            let paginated = paginate_built_chapter(
-                &build.engine,
-                Rc::clone(&build.faces),
-                built,
-                layout_config,
-                &idref,
-                false,
-            )?;
-            for (offset, root) in paginated.pages.iter().map(|page| &page.root).enumerate() {
-                collect_page_anchors(
-                    root,
-                    &paginated.paint.built.node_anchors,
-                    page_index + offset,
-                    &mut anchors,
-                );
-                run_starts.extend(FragmentPageArtifact::source_run_starts(
-                    page_index + offset,
-                    root,
-                    &paginated.paint.built,
-                ));
+        Ok(FragmentTableBuild {
+            build,
+            idrefs,
+            chapters: Vec::new(),
+            anchors: BTreeMap::new(),
+            run_starts: Vec::new(),
+            pages: 0,
+            current: None,
+        })
+    }
+
+    /// Paginates up to `pages` more pages of a whole-book page table, and
+    /// says whether every chapter is paginated. The chapters paginate
+    /// without their text: each page is dropped as soon as its anchors and
+    /// run starts are taken, so the table holds no chapter's contents, and
+    /// the search records are taken when the book is first searched.
+    pub(super) fn advance_fragment_page_table(
+        &self,
+        table: &mut FragmentTableBuild,
+        chapter_style_tables: &BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
+        pages: usize,
+    ) -> Result<bool, String> {
+        let mut left = pages;
+        loop {
+            if table.current.is_none() {
+                let Some(idref) = table.idrefs.pop_front() else {
+                    return Ok(true);
+                };
+                table.current =
+                    Some(self.begin_table_chapter(&table.build, chapter_style_tables, idref)?);
             }
-            page_index += paginated.pages.len();
-            chapters.push(FragmentBackendChapter {
+            if left == 0 {
+                return Ok(false);
+            }
+            let chapter = table.current.as_mut().expect("a chapter is under way");
+            let page = chapter
+                .paginator
+                .next_page(
+                    &table.build.engine.engine,
+                    &chapter.built.tree,
+                    &CancelFlag::new(),
+                )
+                .map_err(|error| {
+                    format!(
+                        "chapter {} pagination: {}",
+                        chapter.record.idref,
+                        error.message()
+                    )
+                })?;
+            if let Some(page) = page {
+                collect_page_anchors(
+                    &page.root,
+                    &chapter.built.node_anchors,
+                    table.pages,
+                    &mut table.anchors,
+                );
+                table
+                    .run_starts
+                    .extend(FragmentPageArtifact::source_run_starts(
+                        table.pages,
+                        &page.root,
+                        &chapter.built,
+                    ));
+                table.pages += 1;
+                chapter.record.page_count += 1;
+                left -= 1;
+            }
+            if chapter.paginator.is_done() {
+                if let Some(done) = table.current.take() {
+                    table.chapters.push(done.record);
+                }
+            }
+        }
+    }
+
+    /// Bridges a chapter of a whole-book page table to paginate it.
+    fn begin_table_chapter(
+        &self,
+        build: &FragmentTableBuildInputs,
+        chapter_style_tables: &BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
+        idref: String,
+    ) -> Result<TableChapter, String> {
+        let style_tables = chapter_style_tables.get(&idref).ok_or_else(|| {
+            format!("chapter {idref}: revision retains no style tables for chapter {idref}")
+        })?;
+        let image_dimensions = self
+            .chapter_image_dimensions(&build.prepared, &idref, FILTER_FOOTNOTES)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        let built = build
+            .engine
+            .chapter_tree(&build.prepared, style_tables, &idref, &image_dimensions)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        let config = &build.config;
+        let content_width = config.page_width - config.margin_left - config.margin_right;
+        let content_height = config.page_height - config.margin_top - config.margin_bottom;
+        if content_width <= 0.0 || content_height <= 0.0 {
+            return Err("page content box is empty".to_owned());
+        }
+        let paginator = ChapterPaginator::new(&built.tree, content_width, content_height, false);
+        Ok(TableChapter {
+            record: FragmentBackendChapter {
                 idref,
-                page_count: paginated.pages.len(),
-                block_count: paginated.block_count,
-                page_background: paginated.paint.built.page_background,
-                page_background_image: paginated.paint.built.page_background_image.clone(),
+                page_count: 0,
+                block_count: built.tree.node(built.tree.root()).children.len(),
+                page_background: built.page_background,
+                page_background_image: built.page_background_image.clone(),
                 style_tables: Rc::clone(style_tables),
                 image_dimensions,
-            });
-            // The chapter's fragment trees and bridged tree die here; the
-            // table rebuilds them for the pages a host actually reads.
-            drop(paginated);
-        }
-        let mut layout = FragmentBuiltLayout::new(chapters, Some(build));
-        layout.anchors = anchors;
-        layout.run_starts = Some(run_starts);
-        Ok(layout)
+            },
+            built,
+            paginator,
+        })
     }
 
     /// Paginates ONE chapter for a chapter-local revision: parse and

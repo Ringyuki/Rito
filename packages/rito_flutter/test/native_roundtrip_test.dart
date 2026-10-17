@@ -298,7 +298,7 @@ void main() {
         RitoPreparedArtifact? candidate;
         for (var quantum = 0; quantum < 512 && candidate == null; quantum++) {
           final advance = await session.advanceBackground(
-            maxTopLevelNodesPerQuantum: 32,
+            maxPagesPerQuantum: 32,
           );
           candidate = advance.artifact;
           if (candidate != null) {
@@ -474,7 +474,7 @@ void main() {
         int? total;
         for (var quantum = 0; quantum < 4096; quantum++) {
           final advance = await session.advanceBackground(
-            maxTopLevelNodesPerQuantum: 64,
+            maxPagesPerQuantum: 64,
           );
           final candidate = advance.artifact;
           if (candidate != null) {

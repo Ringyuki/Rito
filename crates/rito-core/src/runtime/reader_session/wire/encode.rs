@@ -109,7 +109,7 @@ pub(super) fn background_request(value: &ReaderBackgroundRequest) -> Result<Vec<
     let mut writer = Writer::message(READER_BACKGROUND_REQUEST_WIRE_MAGIC, READER_WIRE_VERSION);
     writer.u64(value.session_id);
     writer.u64(value.expected_visible_artifact_id);
-    writer.u32(value.max_top_level_nodes_per_quantum);
+    writer.u32(value.max_pages_per_quantum);
     writer.finish_message()
 }
 

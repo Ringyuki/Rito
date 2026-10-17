@@ -97,7 +97,7 @@ fn foreground_candidate_is_invisible_until_explicit_cas_adoption() {
     let background = encode_reader_background_request(&ReaderBackgroundRequest {
         session_id,
         expected_visible_artifact_id: candidate.artifact_id,
-        max_top_level_nodes_per_quantum: 1,
+        max_pages_per_quantum: 1,
     })
     .expect("background request encodes");
     assert_eq!(
@@ -497,7 +497,7 @@ fn background_candidate_and_handoff_are_owned_actor_round_trips() {
     let request = encode_reader_background_request(&ReaderBackgroundRequest {
         session_id,
         expected_visible_artifact_id: visible.artifact_id,
-        max_top_level_nodes_per_quantum: 64,
+        max_pages_per_quantum: 64,
     })
     .expect("background request encodes");
     let mut candidate = None;
@@ -573,7 +573,7 @@ fn malformed_fixed_handoff_and_background_messages_fail_before_registry_lookup()
     let request = encode_reader_background_request(&ReaderBackgroundRequest {
         session_id,
         expected_visible_artifact_id: 1,
-        max_top_level_nodes_per_quantum: 1,
+        max_pages_per_quantum: 1,
     })
     .expect("background request encodes");
     assert_eq!(

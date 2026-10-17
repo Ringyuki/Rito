@@ -271,7 +271,7 @@ fn foreground_result_is_not_visible_until_initial_cas_adoption() {
         .advance_background_once(ReaderBackgroundRequest {
             session_id: 42,
             expected_visible_artifact_id: candidate.artifact_id,
-            max_top_level_nodes_per_quantum: 1,
+            max_pages_per_quantum: 1,
         })
         .expect_err("background work cannot observe an unadopted candidate");
     assert_eq!(background.kind, ReaderErrorKind::InvalidRequest);

@@ -297,22 +297,23 @@ final class RitoReaderSession {
     return publication;
   }
 
-  /// Runs one host-scheduled publication-layout quantum.
+  /// Runs one host-scheduled publication-layout quantum: the publication
+  /// is laid out by up to [maxPagesPerQuantum] more pages, and a candidate
+  /// comes once it is laid out.
   ///
   /// Any returned artifact has completed font preparation and the configured
   /// resource-preparer hook. It is owned by this session, but remains invisible
   /// until [adoptBackground] succeeds. Call [releaseArtifact] if the candidate
   /// is no longer wanted.
   Future<RitoPreparedBackgroundAdvance> advanceBackground({
-    required int maxTopLevelNodesPerQuantum,
+    required int maxPagesPerQuantum,
   }) async {
     _requireOpen();
     _requireForegroundIdle('Background work');
-    if (maxTopLevelNodesPerQuantum <= 0 ||
-        maxTopLevelNodesPerQuantum > 0xffffffff) {
+    if (maxPagesPerQuantum <= 0 || maxPagesPerQuantum > 0xffffffff) {
       throw ArgumentError.value(
-        maxTopLevelNodesPerQuantum,
-        'maxTopLevelNodesPerQuantum',
+        maxPagesPerQuantum,
+        'maxPagesPerQuantum',
         'must be in 1..=0xffffffff',
       );
     }
@@ -323,7 +324,7 @@ final class RitoReaderSession {
         request: RitoBackgroundRequest(
           sessionId: sessionId,
           expectedVisibleArtifactId: expectedVisible,
-          maxTopLevelNodesPerQuantum: maxTopLevelNodesPerQuantum,
+          maxPagesPerQuantum: maxPagesPerQuantum,
         ),
       );
     } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {

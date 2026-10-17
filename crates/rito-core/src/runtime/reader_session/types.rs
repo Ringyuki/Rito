@@ -235,7 +235,10 @@ pub struct ReaderForegroundHandoffAck {
 pub struct ReaderBackgroundRequest {
     pub session_id: u64,
     pub expected_visible_artifact_id: u64,
-    pub max_top_level_nodes_per_quantum: u32,
+    /// The most pages a step lays the publication out by: a host on a
+    /// thread that also paints asks for few, one in the background for
+    /// many.
+    pub max_pages_per_quantum: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -243,9 +246,10 @@ pub enum ReaderBackgroundState {
     /// This call consumed one bounded publication footnote-index quantum.
     /// No publication layout work ran in the same call.
     Indexing,
-    /// This call created the publication revision and ran its first quantum.
+    /// This call began laying the publication revision out and ran its
+    /// first quantum.
     Started,
-    /// This call consumed exactly one continuation quantum.
+    /// This call laid one more quantum of the publication revision out.
     Advanced,
     /// The visible locator was already covered; no layout quantum was needed.
     Reused,

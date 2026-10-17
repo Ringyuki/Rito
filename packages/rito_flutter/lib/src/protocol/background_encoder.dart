@@ -16,10 +16,7 @@ final class RitoBackgroundEncoder {
       request.expectedVisibleArtifactId,
       'expected visible artifact id',
     );
-    writer.uint32(
-      request.maxTopLevelNodesPerQuantum,
-      'max top-level nodes per quantum',
-    );
+    writer.uint32(request.maxPagesPerQuantum, 'max pages per quantum');
     return writer.finish(magic: 'RITOBGQ1', expectedBytes: requestWireBytes);
   }
 

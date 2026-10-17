@@ -5,13 +5,13 @@ import 'wire_writer.dart';
 Uint8List backgroundRequestFixture({
   int sessionId = 91,
   int expectedVisibleArtifactId = 7001,
-  int maxTopLevelNodesPerQuantum = 64,
+  int maxPagesPerQuantum = 64,
 }) {
   final writer = TestWireWriter.message('RITOBGQ1');
   writer
     ..uint64(sessionId)
     ..uint64(expectedVisibleArtifactId)
-    ..uint32(maxTopLevelNodesPerQuantum);
+    ..uint32(maxPagesPerQuantum);
   return writer.finishMessage();
 }
 

@@ -60,7 +60,7 @@ final class RitoReaderController extends ChangeNotifier {
 
   final RitoPageSource _source;
 
-  /// Top-level nodes laid out per background pagination quantum.
+  /// The most pages a background pagination quantum lays out.
   final int paginationQuantum;
 
   /// How long the layout must go unchanged after a [relayout] before the
