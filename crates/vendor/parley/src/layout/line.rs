@@ -277,19 +277,38 @@ struct VisualGlyphs<'a, B: Brush> {
 impl<B: Brush> Iterator for VisualGlyphs<'_, B> {
     type Item = (Glyph, GlyphCursor);
 
+    /// Reads the run's cluster and glyph arrays in place: the glyphs a
+    /// cluster's `glyphs()` yields, without building a cluster per glyph.
     fn next(&mut self) -> Option<Self::Item> {
-        let len = self.run.len();
+        let range = self.run.cluster_range();
+        let len = range.len();
+        let rtl = self.run.is_rtl();
+        let data = &self.run.layout.data;
         loop {
             if self.cursor.cluster >= len {
                 return None;
             }
-            let logical = if self.run.is_rtl() {
+            let logical = if rtl {
                 len - 1 - self.cursor.cluster
             } else {
                 self.cursor.cluster
             };
-            let cluster = self.run.get(logical)?;
-            if let Some(glyph) = cluster.glyphs().nth(self.cursor.glyph) {
+            let cluster = data.clusters.get(range.start + logical)?;
+            let glyph = if cluster.glyph_len == 0xFF {
+                (self.cursor.glyph == 0).then_some(Glyph {
+                    id: cluster.glyph_offset,
+                    style_index: cluster.style_index,
+                    x: 0.,
+                    y: 0.,
+                    advance: cluster.advance,
+                })
+            } else if self.cursor.glyph < cluster.glyph_len as usize {
+                let start = self.run.data.glyph_start + cluster.glyph_offset as usize;
+                data.glyphs.get(start + self.cursor.glyph).copied()
+            } else {
+                None
+            };
+            if let Some(glyph) = glyph {
                 self.cursor.glyph += 1;
                 return Some((glyph, self.cursor));
             }
