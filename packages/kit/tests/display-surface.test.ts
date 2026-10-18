@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDisplaySurface, WebGlUnavailableError } from '../src/painter/display-surface';
+import {
+  canDrawWithWebGl2,
+  createDisplaySurface,
+  WebGlUnavailableError,
+} from '../src/painter/display-surface';
 import { createFakeGl } from './helpers/fake-gl';
 
 function createMockCanvas(available = true) {
@@ -105,6 +109,18 @@ describe('DisplaySurface', () => {
   it('says so where the browser gives no WebGL2', () => {
     const { canvas } = createMockCanvas(false);
     expect(() => createDisplaySurface(canvas)).toThrow(WebGlUnavailableError);
+  });
+
+  it('tells a host ahead of time whether it can draw, letting the probe go', () => {
+    const loseContext = vi.fn();
+    const probe = { getExtension: () => ({ loseContext }) };
+    const createElement = vi.spyOn(document, 'createElement');
+    createElement.mockReturnValueOnce({ getContext: () => probe } as unknown as HTMLElement);
+    expect(canDrawWithWebGl2()).toBe(true);
+    expect(loseContext).toHaveBeenCalledOnce();
+    createElement.mockReturnValueOnce({ getContext: () => null } as unknown as HTMLElement);
+    expect(canDrawWithWebGl2()).toBe(false);
+    createElement.mockRestore();
   });
 
   it('setSize sets backing store and CSS dimensions', () => {

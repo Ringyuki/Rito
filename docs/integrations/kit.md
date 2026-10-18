@@ -82,7 +82,10 @@ composited into that one canvas; pointer and touch listeners sit on the canvas f
 The controller draws with WebGL2 on that canvas: the pages it keeps painted are
 textures in the canvas's context, painted by `reader.renderSpreadTo` into their
 framebuffers, and every frame is drawn on the GPU. Where the browser gives no
-WebGL2, `createController` throws `WebGlUnavailableError`. The canvas keeps its
+WebGL2 — hardware acceleration turned off, a GPU it blocks — `createController`
+throws `WebGlUnavailableError`; `canDrawWithWebGl2()` answers ahead of time, so a
+host can say so before it opens a book (`useRitoReader` does: its `error` says it
+without opening the book). The canvas keeps its
 drawing buffer, so a host can read the display back at any time (`drawImage`,
 `toBlob`). A context the browser takes away is asked back; when it returns,
 every page is painted again and the effect prepared again.

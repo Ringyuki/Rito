@@ -34,7 +34,7 @@ export type {
 export { parseReadingPosition } from './interaction/index';
 
 export type { OverlayLayer, Rect } from './painter/types';
-export { WebGlUnavailableError } from './painter/display-surface';
+export { canDrawWithWebGl2, WebGlUnavailableError } from './painter/display-surface';
 export type { TransitionDriverOptions } from './driver/types';
 export {
   springPresets,

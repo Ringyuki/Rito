@@ -17,6 +17,8 @@ vi.mock('@ritojs/core', () => ({ createReader: mocks.createReader }));
 vi.mock('@ritojs/kit', () => ({
   createController: mocks.createController,
   parseReadingPosition: mocks.parseReadingPosition,
+  canDrawWithWebGl2: () => true,
+  WebGlUnavailableError: Error,
 }));
 
 type HookValue = ReturnType<typeof useRitoReader>;

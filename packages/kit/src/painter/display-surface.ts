@@ -42,16 +42,33 @@ export interface DisplaySurface {
   dispose(): void;
 }
 
+const DISPLAY_CONTEXT: WebGLContextAttributes = {
+  alpha: true,
+  premultipliedAlpha: true,
+  antialias: false,
+  depth: false,
+  stencil: false,
+  // A host may read the display back (a screenshot, a thumbnail) at any time.
+  preserveDrawingBuffer: true,
+};
+
+/**
+ * Whether this browser, on this machine, gives the WebGL2 context the
+ * controller draws with. It does not where the browser has no GPU it will
+ * use — hardware acceleration turned off, a GPU it blocks — so a host can
+ * ask before it opens a book and say so instead.
+ */
+export function canDrawWithWebGl2(): boolean {
+  if (typeof document === 'undefined') return false;
+  const gl = document.createElement('canvas').getContext('webgl2', DISPLAY_CONTEXT);
+  if (!gl) return false;
+  // Browsers keep few contexts alive at once: this one is let go at once.
+  gl.getExtension('WEBGL_lose_context')?.loseContext();
+  return true;
+}
+
 export function createDisplaySurface(canvas: HTMLCanvasElement): DisplaySurface {
-  const gl = canvas.getContext('webgl2', {
-    alpha: true,
-    premultipliedAlpha: true,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    // A host may read the display back (a screenshot, a thumbnail) at any time.
-    preserveDrawingBuffer: true,
-  });
+  const gl = canvas.getContext('webgl2', DISPLAY_CONTEXT);
   if (!gl) throw new WebGlUnavailableError();
   const compositor = createCompositor(gl);
   const restoration = listenForRestoration(canvas, compositor);
