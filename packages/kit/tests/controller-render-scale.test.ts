@@ -98,10 +98,13 @@ describe('createController', () => {
 
     expect(controller.renderScale).toBe(1.2);
     expect(getCanvasSize).toHaveBeenCalledWith(1.2);
-    expect(canvas.style.width).toBe('480px');
-    expect(canvas.style.height).toBe('360px');
-    expect(canvas.width).toBe(960);
-    expect(canvas.height).toBe(720);
+    // Shown at 480 × 360 CSS pixels, from a drawing buffer that holds
+    // 960 × 720 device pixels.
+    const zoom = Number(canvas.style.zoom);
+    expect(Number.parseFloat(canvas.style.width) * zoom).toBe(480);
+    expect(Number.parseFloat(canvas.style.height) * zoom).toBe(360);
+    expect(canvas.width).toBeGreaterThanOrEqual(960);
+    expect(canvas.height).toBeGreaterThanOrEqual(720);
 
     controller.setRenderScale(1.4);
     expect(controller.renderScale).toBe(1.4);

@@ -112,20 +112,25 @@ export async function readerCanvasChecksum(page: Page): Promise<string> {
         )
         .sort((left, right) => right.width * right.height - left.width * left.height)[0];
       if (!canvas) throw new Error('Reader canvas is unavailable');
-      // The reader draws with WebGL: its pixels are read through a 2D copy.
+      // The reader shows the bottom-left region of its drawing buffer, one
+      // pixel per device pixel.
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.min(canvas.width, Math.round(rect.width * devicePixelRatio));
+      const height = Math.min(canvas.height, Math.round(rect.height * devicePixelRatio));
+      // It draws with WebGL: its pixels are read through a 2D copy.
       const copy = document.createElement('canvas');
-      copy.width = canvas.width;
-      copy.height = canvas.height;
+      copy.width = width;
+      copy.height = height;
       const context = copy.getContext('2d', { willReadFrequently: true });
       if (!context) throw new Error('Reader canvas context is unavailable');
-      context.drawImage(canvas, 0, 0);
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      context.drawImage(canvas, 0, canvas.height - height, width, height, 0, 0, width, height);
+      const pixels = context.getImageData(0, 0, width, height).data;
       let hash = 2_166_136_261;
       for (let index = 0; index < pixels.length; index += 1) {
         hash ^= pixels[index] ?? 0;
         hash = Math.imul(hash, 16_777_619);
       }
-      return `${String(canvas.width)}x${String(canvas.height)}:${String(hash >>> 0)}`;
+      return `${String(width)}x${String(height)}:${String(hash >>> 0)}`;
     });
 }
 
@@ -146,13 +151,28 @@ export async function readReaderCanvasSample(page: Page): Promise<ReaderCanvasSa
         )
         .sort((left, right) => right.width * right.height - left.width * left.height)[0];
       if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
+      // The reader shows the bottom-left region of its drawing buffer, one
+      // pixel per device pixel.
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.min(canvas.width, Math.round(rect.width * devicePixelRatio));
+      const height = Math.min(canvas.height, Math.round(rect.height * devicePixelRatio));
       const sampleSize = 64;
       const sample = document.createElement('canvas');
       sample.width = sampleSize;
       sample.height = sampleSize;
       const context = sample.getContext('2d');
       if (!context) throw new Error('Reader canvas context is unavailable');
-      context.drawImage(canvas, 0, 0, sampleSize, sampleSize);
+      context.drawImage(
+        canvas,
+        0,
+        canvas.height - height,
+        width,
+        height,
+        0,
+        0,
+        sampleSize,
+        sampleSize,
+      );
       const pixels = context.getImageData(0, 0, sampleSize, sampleSize).data;
       let hash = 2_166_136_261;
       let nonBlank = false;
@@ -174,7 +194,7 @@ export async function readReaderCanvasSample(page: Page): Promise<ReaderCanvasSa
         }
       }
       return {
-        checksum: `${String(canvas.width)}x${String(canvas.height)}:${String(hash >>> 0)}`,
+        checksum: `${String(width)}x${String(height)}:${String(hash >>> 0)}`,
         nonBlank,
         activeChapterHref:
           canvas

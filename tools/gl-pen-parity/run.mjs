@@ -105,8 +105,15 @@ async function paintedForDisplay(index) {
   const flat = new OffscreenCanvas(width, height);
   if (!reader.renderSpreadTo(index, flat.getContext('2d'))) return undefined;
   const display = document.querySelector('[data-testid=reader-shell] canvas');
-  if (display.width !== width || display.height !== height) return undefined;
+  // The display shows the bottom-left region of its drawing buffer, as
+  // large as its box at the ratio.
   const box = display.getBoundingClientRect();
+  const shown = [
+    Math.round(box.width * devicePixelRatio),
+    Math.round(box.height * devicePixelRatio),
+  ];
+  if (shown[0] !== width || shown[1] !== height) return undefined;
+  if (display.width < width || display.height < height) return undefined;
   const bytes = new Uint8Array(await (await flat.convertToBlob()).arrayBuffer());
   let binary = '';
   for (let at = 0; at < bytes.length; at += 0x8000) {

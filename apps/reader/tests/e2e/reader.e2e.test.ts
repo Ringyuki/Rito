@@ -295,24 +295,47 @@ async function accessibilityMirrorContentCount(page: Page): Promise<number> {
 }
 
 async function hasNonBlankCanvas(page: Page): Promise<boolean> {
-  return page.locator('canvas').evaluateAll((canvases) =>
-    canvases.some((canvas) => {
+  return page.locator('canvas').evaluateAll((canvases) => {
+    // A canvas shows its drawing buffer, or — the reader's, cropped with
+    // object-fit: none — the bottom-left region its box covers at the
+    // device ratio.
+    const shownRegion = (canvas: HTMLCanvasElement) => {
+      if (getComputedStyle(canvas).objectFit !== 'none') {
+        return { x: 0, y: 0, width: canvas.width, height: canvas.height };
+      }
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.min(canvas.width, Math.round(rect.width * devicePixelRatio));
+      const height = Math.min(canvas.height, Math.round(rect.height * devicePixelRatio));
+      return { x: 0, y: canvas.height - height, width, height };
+    };
+    return canvases.some((canvas) => {
       if (!(canvas instanceof HTMLCanvasElement)) return false;
       if (canvas.width === 0 || canvas.height === 0) return false;
 
       // The reader draws with WebGL: its pixels are read through a 2D copy.
+      const shown = shownRegion(canvas);
       const copy = document.createElement('canvas');
-      copy.width = canvas.width;
-      copy.height = canvas.height;
+      copy.width = shown.width;
+      copy.height = shown.height;
       const context = copy.getContext('2d', { willReadFrequently: true });
       if (!context) return false;
-      context.drawImage(canvas, 0, 0);
+      context.drawImage(
+        canvas,
+        shown.x,
+        shown.y,
+        shown.width,
+        shown.height,
+        0,
+        0,
+        shown.width,
+        shown.height,
+      );
 
-      const sampleStepX = Math.max(1, Math.floor(canvas.width / 40));
-      const sampleStepY = Math.max(1, Math.floor(canvas.height / 40));
+      const sampleStepX = Math.max(1, Math.floor(shown.width / 40));
+      const sampleStepY = Math.max(1, Math.floor(shown.height / 40));
 
-      for (let y = 0; y < canvas.height; y += sampleStepY) {
-        for (let x = 0; x < canvas.width; x += sampleStepX) {
+      for (let y = 0; y < shown.height; y += sampleStepY) {
+        for (let x = 0; x < shown.width; x += sampleStepX) {
           const pixel = context.getImageData(x, y, 1, 1).data;
           const alpha = pixel[3] ?? 0;
           if (alpha === 0) continue;
@@ -327,6 +350,6 @@ async function hasNonBlankCanvas(page: Page): Promise<boolean> {
       }
 
       return false;
-    }),
-  );
+    });
+  });
 }

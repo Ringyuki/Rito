@@ -19,11 +19,19 @@ export interface DisplaySurface {
   /** The canvas's WebGL2 context; the page buffers live in it too. */
   readonly gl: WebGL2RenderingContext;
   readonly compositor: GlCompositor;
-  /** Current backing-store width in device pixels. */
+  /** Width of the region shown, in device pixels. */
   readonly width: number;
-  /** Current backing-store height in device pixels. */
+  /** Height of the region shown, in device pixels. */
   readonly height: number;
-  /** Sync canvas backing store and CSS size. Backing = CSS × DPR. */
+  /**
+   * Shows `cssWidth` × `cssHeight` CSS pixels, one drawing-buffer pixel per
+   * device pixel at `dpr`: the bottom-left corner of the drawing buffer,
+   * where the framebuffer's origin is, so whatever draws to it draws to
+   * that region as it always has. The drawing buffer only ever grows, and
+   * starts at the screen's size: assigning a canvas's size reallocates the
+   * buffer and makes the page wait for the GPU, which a window dragged
+   * through a new size every frame paid on every frame.
+   */
   setSize(cssWidth: number, cssHeight: number, dpr: number): void;
   /** Binds the canvas's own framebuffer and clears it. */
   clear(): void;
@@ -73,6 +81,10 @@ export function createDisplaySurface(canvas: HTMLCanvasElement): DisplaySurface 
   const compositor = createCompositor(gl);
   const restoration = listenForRestoration(canvas, compositor);
   const presentation = presentOnScreen(canvas);
+  // The canvas shows the bottom-left region of its drawing buffer as it
+  // is (see `setSize`).
+  canvas.style.objectFit = 'none';
+  canvas.style.objectPosition = 'left bottom';
   let w = canvas.width;
   let h = canvas.height;
 
@@ -95,12 +107,13 @@ export function createDisplaySurface(canvas: HTMLCanvasElement): DisplaySurface 
     setSize(cssWidth: number, cssHeight: number, dpr: number): void {
       w = Math.round(cssWidth * dpr);
       h = Math.round(cssHeight * dpr);
-      // Each assignment reallocates the drawing buffer, whatever the value:
-      // a window dragged wider keeps its height and pays for one.
-      if (canvas.width !== w) canvas.width = w;
-      if (canvas.height !== h) canvas.height = h;
-      canvas.style.width = `${String(cssWidth)}px`;
-      canvas.style.height = `${String(cssHeight)}px`;
+      growDrawingBuffer(canvas, w, h, dpr);
+      // Zoomed out by the ratio, the canvas shows its drawing buffer at
+      // one pixel per device pixel; its box, the given CSS size, crops it
+      // to the bottom-left region.
+      canvas.style.zoom = String(1 / dpr);
+      canvas.style.width = `${String(cssWidth * dpr)}px`;
+      canvas.style.height = `${String(cssHeight * dpr)}px`;
       presentation.paintedAt(dpr);
     },
     clear(): void {
@@ -108,6 +121,26 @@ export function createDisplaySurface(canvas: HTMLCanvasElement): DisplaySurface 
       compositor.clear();
     },
   };
+}
+
+/**
+ * Grows the drawing buffer to hold `width` × `height` device pixels and,
+ * the first time, the whole screen at `dpr`: a window is never larger
+ * than its screen, so dragging one through any size reallocates nothing.
+ * Each assignment reallocates whatever the value, so only a growing side
+ * is assigned.
+ */
+function growDrawingBuffer(
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  dpr: number,
+): void {
+  const screenSize = globalThis.screen as Screen | undefined;
+  const targetWidth = Math.max(width, Math.ceil((screenSize?.width ?? 0) * dpr));
+  const targetHeight = Math.max(height, Math.ceil((screenSize?.height ?? 0) * dpr));
+  if (canvas.width < targetWidth) canvas.width = targetWidth;
+  if (canvas.height < targetHeight) canvas.height = targetHeight;
 }
 
 /**

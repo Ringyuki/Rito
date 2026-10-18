@@ -13,7 +13,14 @@ function createMockCanvas(available = true) {
   const canvas = {
     width: 0,
     height: 0,
-    style: { width: '', height: '', imageRendering: '' },
+    style: {
+      width: '',
+      height: '',
+      imageRendering: '',
+      zoom: '',
+      objectFit: '',
+      objectPosition: '',
+    },
     getContext,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
@@ -123,18 +130,59 @@ describe('DisplaySurface', () => {
     createElement.mockRestore();
   });
 
-  it('setSize sets backing store and CSS dimensions', () => {
-    const { canvas } = createMockCanvas();
-    const surface = createDisplaySurface(canvas);
+  describe('shows its size at one drawing-buffer pixel per device pixel', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
 
-    surface.setSize(800, 600, 2);
+    it('from a drawing buffer as large as the screen, cropped to the bottom-left', () => {
+      vi.stubGlobal('screen', { width: 1440, height: 900 });
+      const { canvas } = createMockCanvas();
+      const surface = createDisplaySurface(canvas);
 
-    expect(canvas.width).toBe(1600);
-    expect(canvas.height).toBe(1200);
-    expect(canvas.style.width).toBe('800px');
-    expect(canvas.style.height).toBe('600px');
-    expect(surface.width).toBe(1600);
-    expect(surface.height).toBe(1200);
+      surface.setSize(800, 600, 2);
+
+      expect([canvas.width, canvas.height]).toEqual([2880, 1800]);
+      expect([surface.width, surface.height]).toEqual([1600, 1200]);
+      // Zoomed out by the ratio, a 1600 × 1200 box is 800 × 600 CSS pixels.
+      expect(canvas.style).toMatchObject({
+        zoom: '0.5',
+        width: '1600px',
+        height: '1200px',
+        objectFit: 'none',
+        objectPosition: 'left bottom',
+      });
+    });
+
+    it('never reallocating to shrink, growing only a side that does not fit', () => {
+      vi.stubGlobal('screen', { width: 1000, height: 700 });
+      const { canvas } = createMockCanvas();
+      const surface = createDisplaySurface(canvas);
+      const sizes: string[] = [];
+      let width = 0;
+      let height = 0;
+      Object.defineProperty(canvas, 'width', {
+        get: () => width,
+        set: (value: number) => {
+          width = value;
+          sizes.push(`width ${String(value)}`);
+        },
+      });
+      Object.defineProperty(canvas, 'height', {
+        get: () => height,
+        set: (value: number) => {
+          height = value;
+          sizes.push(`height ${String(value)}`);
+        },
+      });
+
+      surface.setSize(900, 600, 1);
+      surface.setSize(500, 400, 1);
+      surface.setSize(1200, 650, 1);
+
+      expect(sizes).toEqual(['width 1000', 'height 700', 'width 1200']);
+      expect([surface.width, surface.height]).toEqual([1200, 650]);
+    });
   });
 
   it('clear binds the canvas over its whole backing store and clears it', () => {

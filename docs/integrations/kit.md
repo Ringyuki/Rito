@@ -85,10 +85,16 @@ framebuffers, and every frame is drawn on the GPU. Where the browser gives no
 WebGL2 — hardware acceleration turned off, a GPU it blocks — `createController`
 throws `WebGlUnavailableError`; `canDrawWithWebGl2()` answers ahead of time, so a
 host can say so before it opens a book (`useRitoReader` does: its `error` says it
-without opening the book). The canvas keeps its
-drawing buffer, so a host can read the display back at any time (`drawImage`,
-`toBlob`). A context the browser takes away is asked back; when it returns,
-every page is painted again and the effect prepared again.
+without opening the book). The canvas's drawing buffer is as large as the
+screen and only ever grows: a window resized through a new size every frame
+would otherwise reallocate it, and wait for the GPU, on every frame. The
+canvas shows the buffer's bottom-left corner, as large as the canvas's box at
+the screen's ratio, one buffer pixel per device pixel (the controller sets the
+canvas's `zoom`, `object-fit` and `object-position` for it); its box keeps the
+size the controller gives it. The canvas keeps its drawing buffer, so a host
+can read the display back at any time — that corner of it (`drawImage`). A
+context the browser takes away is asked back; when it returns, every page is
+painted again and the effect prepared again.
 
 The controller keeps the book laid out at the screen's pixel ratio: when the page
 zooms or the window goes to another screen, the reader lays the book out again at

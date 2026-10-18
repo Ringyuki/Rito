@@ -135,8 +135,22 @@ export async function startReaderVisualTransitionSampler(page: Page): Promise<vo
             continue;
           }
           context.globalAlpha = opacity;
+          // A canvas shows its drawing buffer, or — the reader's, cropped
+          // with object-fit: none — the bottom-left region its box covers
+          // at the device ratio.
+          const cropped = getComputedStyle(canvas).objectFit === 'none';
+          const sourceWidth = cropped
+            ? Math.min(canvas.width, Math.round(rect.width * devicePixelRatio))
+            : canvas.width;
+          const sourceHeight = cropped
+            ? Math.min(canvas.height, Math.round(rect.height * devicePixelRatio))
+            : canvas.height;
           context.drawImage(
             canvas,
+            0,
+            canvas.height - sourceHeight,
+            sourceWidth,
+            sourceHeight,
             (rect.left - shellRect.left) * scaleX,
             (rect.top - shellRect.top) * scaleY,
             rect.width * scaleX,

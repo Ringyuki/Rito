@@ -50,8 +50,14 @@ const result = await page.evaluate(async (DRAG_MS) => {
   const canvas = [...document.querySelectorAll('canvas')].sort(
     (a, b) => b.width * b.height - a.width * a.height,
   )[0];
-  const dpr = canvas.width / canvas.clientWidth;
-  const base = Math.round(canvas.width / dpr);
+  // The width the canvas shows, in CSS pixels, read without a layout: a
+  // canvas zoomed out by the ratio shows part of a larger drawing buffer;
+  // one that is not shows all of it.
+  const shownWidth = () =>
+    canvas.style.zoom
+      ? Math.round(parseFloat(canvas.style.width) * parseFloat(canvas.style.zoom))
+      : Math.round(canvas.width / devicePixelRatio);
+  const base = shownWidth();
   // A pixel changed every frame: Chromium paces frames that change nothing
   // at 60 Hz whatever its flags.
   const tick = document.createElement('div');
@@ -62,7 +68,7 @@ const result = await page.evaluate(async (DRAG_MS) => {
   const shown = [];
   let asks = 0;
   let lastAsked;
-  let lastShown = canvas.width / dpr;
+  let lastShown = shownWidth();
   const started = performance.now();
   await new Promise((done) => {
     let previous;
@@ -70,7 +76,7 @@ const result = await page.evaluate(async (DRAG_MS) => {
       if (previous !== undefined) frames.push(now - previous);
       previous = now;
       tick.style.background = frames.length % 2 ? '#fff' : '#fefefe';
-      const width = canvas.width / dpr;
+      const width = shownWidth();
       if (width !== lastShown) {
         shown.push({ width, at: now, asked: askedAt.get(width) });
         lastShown = width;
