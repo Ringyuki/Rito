@@ -14,7 +14,12 @@ import {
   convertReaderText,
   toCanvasColor,
 } from './reader-session-canvas-converter';
-import { isBookOwnedPageGround } from './theme/text-color';
+import {
+  createDeclaredGrounds,
+  declareFillGround,
+  declaredGroundFor,
+  type DeclaredGrounds,
+} from './theme/declared-grounds';
 
 type Primitive = CoreReaderPrimitive;
 type FillPrimitive = Extract<Primitive, { readonly kind: 'fill-rect' | 'fill-path' }>;
@@ -45,14 +50,6 @@ interface DeviceRect {
   readonly y: number;
   readonly width: number;
   readonly height: number;
-}
-
-/** The declared grounds a replay accumulates for the theme override:
- * opaque block backgrounds so far, and the page ground R1 kept for the
- * book. Reset by every page ground. */
-interface DeclaredGrounds {
-  readonly blockGrounds: { readonly rect: DeviceRect; readonly color: string }[];
-  bookOwnedPageGround: string | undefined;
 }
 
 interface RenderState extends DeclaredGrounds {
@@ -195,8 +192,7 @@ function createRenderState(options: PrimitiveRenderOptions, ratio: number): Rend
     ratio,
     textDepth: 0,
     saveDepth: 0,
-    blockGrounds: [],
-    bookOwnedPageGround: undefined,
+    ...createDeclaredGrounds(),
     ...(colorOverride ? { colorOverride } : {}),
   };
 }
@@ -234,12 +230,12 @@ function renderPrimitive(
       return;
     case 'fill-rect': {
       const { rect } = primitive;
-      ctx.fillStyle = declareGround(primitive, state);
+      ctx.fillStyle = fillColor(primitive, state);
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
       return;
     }
     case 'fill-path':
-      ctx.fillStyle = declareGround(primitive, state);
+      ctx.fillStyle = fillColor(primitive, state);
       ctx.beginPath();
       tracePath(ctx, primitive.path);
       ctx.fill(primitive.rule);
@@ -267,48 +263,8 @@ function renderPrimitive(
   }
 }
 
-/** The colour a fill paints, after its declared ground is taken in. A
- * fill declaring the page ground resets the declared grounds and takes
- * the theme's R1 decision: a designed ground (opaque, darker than the
- * white-paper limit) stays the book's and marks the page book-owned; a
- * near-white ground is the typesetter's paper default and the theme
- * paints its own. A fill declaring a block ground records the unsnapped
- * box it covers for the ink typeset over it (the engine only declares
- * opaque ones). */
-function declareGround(primitive: FillPrimitive, state: RenderState): string {
-  const color = toCanvasColor(primitive.color);
-  if (primitive.ground === 'page') {
-    state.blockGrounds.length = 0;
-    state.bookOwnedPageGround = undefined;
-    if (state.colorOverride) {
-      if (isBookOwnedPageGround(color)) state.bookOwnedPageGround = color;
-      else return state.colorOverride.backgroundColor;
-    }
-  } else if (primitive.ground === 'block' && primitive.groundRect !== undefined) {
-    state.blockGrounds.push({ rect: primitive.groundRect, color });
-  }
-  return color;
-}
-
-/** The ground a run's ink was typeset against, when the book expressed
- * one (R2): the nearest opaque fill containing the run's rect — the run's
- * own inline band lowers to such a fill just before the run — else the
- * page ground R1 kept for the book. Undefined means the theme supplies
- * the ground. */
-function declaredGroundFor(rect: DeviceRect, state: DeclaredGrounds): string | undefined {
-  for (let index = state.blockGrounds.length - 1; index >= 0; index -= 1) {
-    const ground = state.blockGrounds[index];
-    if (
-      ground !== undefined &&
-      rect.x >= ground.rect.x &&
-      rect.y >= ground.rect.y &&
-      rect.x + rect.width <= ground.rect.x + ground.rect.width &&
-      rect.y + rect.height <= ground.rect.y + ground.rect.height
-    ) {
-      return ground.color;
-    }
-  }
-  return state.bookOwnedPageGround;
+function fillColor(primitive: FillPrimitive, state: RenderState): string {
+  return declareFillGround(state, primitive, toCanvasColor(primitive.color), state.colorOverride);
 }
 
 /** Text runs are in CSS pixels and paint under the list's ratio; the

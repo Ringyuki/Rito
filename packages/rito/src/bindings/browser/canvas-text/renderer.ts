@@ -3,7 +3,7 @@ import type { RitoReaderClusters } from '@ritojs/core-wasm/decoder';
 import { buildFontString } from './font-string';
 import { drawTextShadows } from './text-shadow';
 import type { CanvasRubyFragment, CanvasTextColorOverride, CanvasTextFragment } from './types';
-import { resolveTextColor } from '../theme/text-color';
+import { themedInk } from '../theme/declared-grounds';
 
 export function drawCanvasTextFragment(
   ctx: CanvasRenderingContext2D,
@@ -13,7 +13,7 @@ export function drawCanvasTextFragment(
 ): void {
   const { paint } = fragment;
   ctx.font = buildFontString(paint.font);
-  const color = effectiveTextColor(paint.color, colorOverride, declaredGround);
+  const color = themedInk(paint.color, colorOverride, declaredGround);
   ctx.fillStyle = color;
   ctx.textBaseline = 'alphabetic';
   // Every spacing is already in the cluster origins the engine sent.
@@ -58,7 +58,7 @@ export function drawCanvasRubyFragment(
   declaredGround?: string,
 ): void {
   const { paint } = ruby;
-  const color = effectiveTextColor(paint.color, colorOverride, declaredGround);
+  const color = themedInk(paint.color, colorOverride, declaredGround);
   ctx.save();
   try {
     ctx.font = buildFontString(paint.font);
@@ -122,21 +122,4 @@ function clusterPieces(
     });
   }
   return pieces;
-}
-
-function effectiveTextColor(
-  originalColor: string,
-  colorOverride: CanvasTextColorOverride | undefined,
-  declaredGround: string | undefined,
-): string {
-  // R2: ink is only re-resolved when its ground is theme-supplied. A
-  // declared ground (inline band, block fill, book-owned page) means
-  // the foreground/background pair was the typesetter's choice — any
-  // one-sided substitution would break it.
-  if (!colorOverride || declaredGround !== undefined) return originalColor;
-  return resolveTextColor(
-    originalColor,
-    colorOverride.backgroundColor,
-    colorOverride.foregroundColor,
-  );
 }
