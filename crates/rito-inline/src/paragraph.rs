@@ -903,7 +903,7 @@ pub(crate) struct ParagraphLayout {
 }
 
 /// Key of one line-metric entry: (family key, size bits, line shape).
-pub(crate) type LineMetricKey = (String, u64, LineProbe);
+pub(crate) type LineMetricKey = (u32, u64, LineProbe);
 
 /// The browser shapes at the computed font size truncated toward zero
 /// onto the 1/100 px grid, and the product is an F32 MULTIPLY — the

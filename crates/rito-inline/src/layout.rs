@@ -570,8 +570,16 @@ impl FormattingContext for ParleyInlineContext {
                             .then_some((right_byte, left_byte))
                     })
                     .collect();
+                // Both the line-end trim and the rewind need an eligible
+                // closer to overflow; a paragraph without one cannot take
+                // either at any width, so neither scan runs.
+                let scanned_lines = if text.chars().any(line_end_trim_eligible) {
+                    layout.len().saturating_sub(1)
+                } else {
+                    0
+                };
                 let mut line_top = 0.0_f64;
-                let candidate = (0..layout.len().saturating_sub(1)).find_map(|index| {
+                let candidate = (0..scanned_lines).find_map(|index| {
                     // The text-indent margin narrows the first line's
                     // available advance exactly as it narrowed Parley's fit.
                     let indent = if index == 0 { first_line_indent } else { 0.0 };
@@ -618,7 +626,7 @@ impl FormattingContext for ParleyInlineContext {
                         // indices stable.
                         let mut line_top = 0.0_f64;
                         let mut rewound = false;
-                        for index in 0..layout.len().saturating_sub(1) {
+                        for index in 0..scanned_lines {
                             let indent = if index == 0 { first_line_indent } else { 0.0 };
                             let max_advance =
                                 f64::from(line_max_advance(line_top) - indent) + LINE_FIT_EPSILON;
@@ -796,6 +804,30 @@ impl FormattingContext for ParleyInlineContext {
         // Whether the last line laid out holds any item: a trailing empty
         // line is dropped below.
         let mut last_line_has_items = true;
+        // The strut — the paragraph's own style, else its first item's that
+        // declares a line height — and what it gives every line alike: the
+        // envelope a `normal` line keeps, and whether the flow is vertical.
+        let strut_style_id = tree.strut_style(root).or_else(|| {
+            item_line_heights
+                .iter()
+                .flatten()
+                .next()
+                .map(|item| item.style)
+        });
+        let strut_envelope: Option<(f64, f64)> = strut_style_id
+            .and_then(|id| style_tables.and_then(|tables| tables.inline.style(id).ok()))
+            .filter(|resolved| matches!(resolved.font.line_height, LineHeight::Normal))
+            .and_then(|resolved| self.normal_line(resolved, &LineProbe::Strut))
+            .map(|metric| (metric.ascent(), metric.descent()));
+        let vertical_flow = tree
+            .styles()
+            .and_then(|tables| {
+                let strut = tree.strut_style(root)?;
+                tables.inline.style(strut).ok()
+            })
+            .is_some_and(|strut| {
+                strut.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
+            });
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
@@ -2046,13 +2078,7 @@ impl FormattingContext for ParleyInlineContext {
                 // alike).
                 let mut entries: Vec<(&InlineFormattingStyle, LineProbe, f64, bool)> = Vec::new();
                 let mut strut_resolved: Option<&InlineFormattingStyle> = None;
-                match tree.strut_style(root).or_else(|| {
-                    item_line_heights
-                        .iter()
-                        .flatten()
-                        .next()
-                        .map(|item| item.style)
-                }) {
+                match strut_style_id {
                     Some(strut_style_id) => match style_tables
                         .and_then(|tables| tables.inline.style(strut_style_id).ok())
                     {
@@ -2224,7 +2250,7 @@ impl FormattingContext for ParleyInlineContext {
                         if line_debug {
                             debug_misses.push(format!(
                                 "entry metric {}@{} {probe:?}",
-                                self.family_key(resolved),
+                                self.catalog.resolve(resolved).key,
                                 resolved.font.size.get(),
                             ));
                         }
@@ -2313,7 +2339,7 @@ impl FormattingContext for ParleyInlineContext {
                             if line_debug {
                                 debug_misses.push(format!(
                                     "atom metric {}@{}",
-                                    self.family_key(resolved),
+                                    self.catalog.resolve(resolved).key,
                                     resolved.font.size.get()
                                 ));
                             }
@@ -2404,19 +2430,6 @@ impl FormattingContext for ParleyInlineContext {
             // DECLARED line-height keeps the centering model — the
             // browser sizes and places fixed lines from the strut box
             // (committed rule) — so the envelope only covers `normal`.
-            let strut_envelope: Option<(f64, f64)> = tree
-                .strut_style(root)
-                .or_else(|| {
-                    item_line_heights
-                        .iter()
-                        .flatten()
-                        .next()
-                        .map(|item| item.style)
-                })
-                .and_then(|id| style_tables.and_then(|tables| tables.inline.style(id).ok()))
-                .filter(|resolved| matches!(resolved.font.line_height, LineHeight::Normal))
-                .and_then(|resolved| self.normal_line(resolved, &LineProbe::Strut))
-                .map(|metric| (metric.ascent(), metric.descent()));
             let base_height = if let Some((above, below)) = contributions {
                 above + below
             } else if has_inline_box {
@@ -2516,15 +2529,6 @@ impl FormattingContext for ParleyInlineContext {
             // ratios x 3 annotation lengths: growth = rt size minus the
             // half-leading, floored at zero, independent of annotation
             // length, the whole growth landing on the line's right).
-            let vertical_flow = tree
-                .styles()
-                .and_then(|tables| {
-                    let strut = tree.strut_style(root)?;
-                    tables.inline.style(strut).ok()
-                })
-                .is_some_and(|strut| {
-                    strut.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
-                });
             let ruby_growth = if vertical_flow {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {

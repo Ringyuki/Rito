@@ -102,6 +102,9 @@ pub(crate) struct ResolvedStack {
     pub locale: Option<Language>,
     /// Cache key: equal keys shape identically.
     pub key: String,
+    /// The key as a number, the same for every stack with this key: what
+    /// caches read per line key on, without hashing the string.
+    pub key_id: u32,
 }
 
 /// Resolved stacks per (family list, content language), compared by value:
@@ -123,6 +126,8 @@ pub(crate) struct FontCatalog {
     aliases: Vec<String>,
     face_ids: FxHashMap<(u64, u32), FontFaceId>,
     stacks: StackCache,
+    /// The number each distinct stack key was given, in order of first use.
+    key_ids: RefCell<FxHashMap<String, u32>>,
     unknown: RefCell<BTreeSet<String>>,
     /// Units per em per (blob id, face index): a face's `head` table, read
     /// once instead of for every cluster whose advance is snapped.
@@ -372,11 +377,17 @@ impl FontCatalog {
             .join(", ");
         let locale = language.and_then(|tag| tag.parse::<Language>().ok());
         let key = format!("{source}|{}", language.unwrap_or_default());
+        let key_id = {
+            let mut ids = self.key_ids.borrow_mut();
+            let next = u32::try_from(ids.len()).unwrap_or(u32::MAX);
+            *ids.entry(key.clone()).or_insert(next)
+        };
         ResolvedStack {
             families,
             source,
             locale,
             key,
+            key_id,
         }
     }
 

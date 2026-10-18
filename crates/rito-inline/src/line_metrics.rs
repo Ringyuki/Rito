@@ -492,7 +492,7 @@ fn layout_unit_floor(value: f64) -> f64 {
 impl ParleyInlineContext {
     /// A cache key for the style's resolved family list: equal keys shape
     /// identically.
-    pub(crate) fn family_key(&self, style: &InlineFormattingStyle) -> String {
-        self.catalog.resolve(style).key.clone()
+    pub(crate) fn family_key(&self, style: &InlineFormattingStyle) -> u32 {
+        self.catalog.resolve(style).key_id
     }
 }

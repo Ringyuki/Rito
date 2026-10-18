@@ -120,7 +120,7 @@ impl<B: Brush> Layout<B> {
     }
 
     pub fn inline_boxes_mut(&mut self) -> &mut [InlineBox] {
-        &mut self.data.inline_boxes
+        super::data::owned(&mut self.data.inline_boxes)
     }
 
     /// Returns an iterator over the lines in the layout.
