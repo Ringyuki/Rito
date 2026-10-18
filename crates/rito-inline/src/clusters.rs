@@ -17,10 +17,10 @@ use rito_style_contract::{InlineFormattingStyle, LengthPercentage};
 
 use crate::*;
 
-/// The cluster origins of one piece of a laid-out paragraph, relative to
-/// the piece's start, and where the pen rests after the last of them.
+/// What writing one piece of a laid-out paragraph's cluster origins
+/// (relative to the piece's start) found: whether they sit on the grid, and
+/// where the pen rests after the last of them.
 pub(crate) struct PieceClusters {
-    pub positions: std::rc::Rc<[ClusterPosition]>,
     /// Whether the painter floors the absolute positions onto the 1/64
     /// grid.
     pub grid: bool,
@@ -125,7 +125,8 @@ fn is_bare<B: parley::style::Brush>(
     size > 0.0 && shaped.round() as i64 == declared
 }
 
-/// The cluster origins of the piece `range` of a laid-out paragraph.
+/// The cluster origins of the piece `range` of a laid-out paragraph,
+/// appended to `out`.
 /// `halt_trims` are the openers shaped with the `halt` half-width
 /// variant: the painter draws the untrimmed glyph, whose outline sits one
 /// blank half further right, so such a cluster's origin moves left by its
@@ -139,6 +140,7 @@ pub(crate) fn piece_clusters(
     justify_px: f64,
     halt_trims: &[(std::ops::Range<usize>, f64)],
     word_spacing: bool,
+    out: &mut Vec<ClusterPosition>,
 ) -> PieceClusters {
     let piece = clusters.piece(&range);
     let font_size = piece.first().map_or(0.0, |first| first.font_size);
@@ -161,53 +163,44 @@ pub(crate) fn piece_clusters(
         && (font_size * 64.0).fract() != 0.0
         && !text.is_empty()
         && text.chars().all(is_cjk_cluster_char);
-    // Collected straight into the shared slice: one allocation, the
-    // length known from the piece.
-    let (positions, advance) = if grid {
+    out.reserve(piece.len());
+    let advance = if grid {
         // Every origin is floored onto the grid on its own: none joins.
         let mut cumulative = 0.0_f64;
-        let positions = steps
-            .map(|(byte, step, trim, face, _)| {
-                let x = cumulative - trim;
-                cumulative += step;
-                ClusterPosition {
-                    byte,
-                    x,
-                    face,
-                    joins: false,
-                }
-            })
-            .collect();
-        (positions, cumulative)
+        out.extend(steps.map(|(byte, step, trim, face, _)| {
+            let x = cumulative - trim;
+            cumulative += step;
+            ClusterPosition {
+                byte,
+                x,
+                face,
+                joins: false,
+            }
+        }));
+        cumulative
     } else {
         let mut pen = 0.0_f32;
         // The previous cluster: whether it stepped by its bare advance
         // from an untrimmed origin, and its face.
         let mut previous: Option<(bool, FontFaceId)> = None;
-        let positions = steps
-            .map(|(byte, step, trim, face, bare)| {
-                let x = f64::from(pen) - trim;
-                pen += step as f32;
-                let joins = trim == 0.0
-                    && previous.is_some_and(|(stepped_bare, previous_face)| {
-                        stepped_bare && previous_face == face
-                    });
-                previous = Some((bare && trim == 0.0, face));
-                ClusterPosition {
-                    byte,
-                    x,
-                    face,
-                    joins,
-                }
-            })
-            .collect();
-        (positions, f64::from(pen))
+        out.extend(steps.map(|(byte, step, trim, face, bare)| {
+            let x = f64::from(pen) - trim;
+            pen += step as f32;
+            let joins = trim == 0.0
+                && previous.is_some_and(|(stepped_bare, previous_face)| {
+                    stepped_bare && previous_face == face
+                });
+            previous = Some((bare && trim == 0.0, face));
+            ClusterPosition {
+                byte,
+                x,
+                face,
+                joins,
+            }
+        }));
+        f64::from(pen)
     };
-    PieceClusters {
-        positions,
-        grid,
-        advance,
-    }
+    PieceClusters { grid, advance }
 }
 
 /// The spacing layout folded into `cluster`'s advance: the letter
@@ -435,6 +428,7 @@ impl ParleyInlineContext {
                 style.text_flow.word_spacing,
                 LengthPercentage::Length(px) if px.get() != 0.0
             );
+        let mut clusters = Vec::new();
         let piece = piece_clusters(
             &ClusterSteps::of(&self.catalog, &layout, &spacing_edits),
             text,
@@ -442,10 +436,11 @@ impl ParleyInlineContext {
             0.0,
             &[],
             word_spacing,
+            &mut clusters,
         );
         MeasuredRun {
             advance: piece.advance,
-            clusters: piece.positions.to_vec(),
+            clusters,
             grid: piece.grid,
         }
     }

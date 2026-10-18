@@ -420,17 +420,20 @@ pub(super) fn append_text_run_command(
     // accumulates.
     let cluster_origin_x = line_x + run.rect.x + run.ruby_center_shift_px;
     let run_origin_x = cluster_origin_x - run.opener_trim_px;
-    // Every cluster keeps its origin; one the pen reaches from the one
-    // before it says so, so a pen drawing strings draws it in the same
-    // string and a pen drawing clusters still has its origin.
+    // Every cluster keeps its origin, at its offset from its segment's;
+    // one the pen reaches from the one before it says so, so a pen drawing
+    // strings draws it in the same string and a pen drawing clusters still
+    // has its origin. A segment's first cluster starts a string.
     let clusters = run
-        .clusters
-        .iter()
-        .map(|cluster| TextCluster {
-            byte: cluster.byte - run.text_start,
-            x: cluster_x(cluster_origin_x + cluster.x, run.cluster_grid),
-            y: baseline,
-            joins: cluster.joins,
+        .segment_clusters()
+        .flat_map(|(segment_x, clusters)| {
+            let origin_x = line_x + segment_x + run.ruby_center_shift_px;
+            clusters.iter().map(move |cluster| TextCluster {
+                byte: cluster.byte - run.text_start,
+                x: cluster_x(origin_x + cluster.x, run.cluster_grid),
+                y: baseline,
+                joins: cluster.joins,
+            })
         })
         .collect();
     let command = DisplayTextCommand {

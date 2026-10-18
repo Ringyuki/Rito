@@ -34,7 +34,7 @@ pub use formatting_tree::{
 };
 pub use fragment::{
     BoxFragment, BoxSnap, ClusterPosition, FontFaceId, Fragment, FragmentRect, FragmentTree,
-    ImageFragment, LineFragment, MarkerFragment, TextFragment,
+    ImageFragment, LineFragment, MarkerFragment, TextFragment, TextSegment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
 

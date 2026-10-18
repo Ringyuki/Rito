@@ -1,8 +1,8 @@
 use super::*;
 
-/// Every text fragment carries the origin of each of its clusters: the
-/// first at the fragment's start, the rest stepping by the browser's
-/// fixed-point advances, one origin per cluster of the fragment's text.
+/// Every text fragment carries the origin of each of its clusters, one per
+/// cluster of its text: each segment's first at the segment's origin, the
+/// rest stepping by the browser's fixed-point advances.
 #[test]
 fn text_fragments_carry_one_origin_per_cluster_stepping_forward() {
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
@@ -25,20 +25,26 @@ fn text_fragments_carry_one_origin_per_cluster_stepping_forward() {
             "one origin per character of {piece:?}"
         );
         assert_eq!(run.clusters[0].byte, run.text_start);
-        assert_eq!(
-            run.clusters[0].x, 0.0,
-            "the first cluster sits at the run start"
-        );
-        for pair in run.clusters.windows(2) {
-            assert!(
-                pair[1].x > pair[0].x && pair[1].byte > pair[0].byte,
-                "origins step forward in {piece:?}: {:?}",
-                run.clusters
+        let mut previous: Option<f64> = None;
+        for (x, clusters) in run.segment_clusters() {
+            assert_eq!(
+                clusters[0].x, 0.0,
+                "the first cluster sits at the segment's origin"
             );
+            for pair in clusters.windows(2) {
+                assert!(
+                    pair[1].x > pair[0].x && pair[1].byte > pair[0].byte,
+                    "origins step forward in {piece:?}: {clusters:?}"
+                );
+            }
+            for cluster in clusters {
+                let origin = x + cluster.x;
+                assert!(previous.is_none_or(|previous| origin > previous));
+                previous = Some(origin);
+            }
         }
-        let last = run.clusters.last().expect("a cluster");
         assert!(
-            last.x < run.rect.width,
+            previous.is_some_and(|last| last < run.rect.x + run.rect.width),
             "the last origin lies inside the run's advance"
         );
         assert!(!run.cluster_grid, "a Latin run accumulates in float");
@@ -107,7 +113,9 @@ fn an_all_cjk_run_at_a_fractional_size_takes_the_grid_law() {
         let mut origins: Vec<f64> = Vec::new();
         for run in runs {
             assert_eq!(run.cluster_grid, grid, "size {size}");
-            origins.extend(run.clusters.iter().map(|cluster| run.rect.x + cluster.x));
+            for (x, clusters) in run.segment_clusters() {
+                origins.extend(clusters.iter().map(|cluster| x + cluster.x));
+            }
         }
         assert_eq!(origins.len(), 5, "size {size}: {origins:?}");
         for pair in origins.windows(2) {
@@ -117,6 +125,29 @@ fn an_all_cjk_run_at_a_fractional_size_takes_the_grid_law() {
             );
         }
     }
+}
+
+/// An item that paints more than its glyphs — here an underline — keeps a
+/// fragment per piece: the painter lowers its line from each fragment, in
+/// each fragment's order.
+#[test]
+fn an_underlined_item_keeps_a_fragment_per_piece() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let mut style = tinos_style(0.0);
+    style.paint.text_decoration.lines = TextDecorationLines::new(true, false, false, false);
+    let (tree, _) = styled_paragraph_tree("Hello quiet world", style);
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(600.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let runs = text_runs(&outcome);
+    assert_eq!(runs.len(), 3, "a fragment per word");
+    assert!(runs.iter().all(|run| run.segments.is_none()));
 }
 
 fn text_runs(outcome: &LayoutOutcome) -> Vec<&TextFragment> {
@@ -436,4 +467,39 @@ fn clusters_reached_by_a_bare_advance_join_the_one_before() {
         vec![false, true, false],
         "the space joins its word; the word after the spaced space does not"
     );
+}
+
+/// A line's text in one inline item is one fragment, as the browser keeps
+/// one text item per inline item on a line: the pieces it was placed in
+/// are its segments, each placed from its own origin and starting a string
+/// a pen draws.
+#[test]
+fn a_lines_text_in_one_item_is_one_fragment_of_segments() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let (tree, text) = paragraph_tree("Hello quiet world", 0.0);
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(600.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let runs = text_runs(&outcome);
+    assert_eq!(runs.len(), 1, "one fragment for the line's one item");
+    let run = runs[0];
+    assert_eq!(&text[run.text_start as usize..run.text_end as usize], text);
+    let segments: Vec<_> = run.segment_clusters().collect();
+    assert_eq!(segments.len(), 3, "a segment per word, as the pieces were");
+    let mut previous_x = f64::NEG_INFINITY;
+    for (x, clusters) in segments {
+        assert!(x > previous_x, "segments step forward");
+        previous_x = x;
+        assert_eq!(
+            clusters[0].x, 0.0,
+            "a segment's first cluster sits at its origin"
+        );
+        assert!(!clusters[0].joins, "a segment starts a string");
+    }
 }

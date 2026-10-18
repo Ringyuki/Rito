@@ -1,5 +1,15 @@
 ## Unreleased
 
+### A line holds a text run per inline item
+
+A line's text in one inline item is one text paint command and one text
+page target, as the browser keeps one text fragment per inline item on a
+line: the words, justification points and re-anchored ideographs it was
+placed in stay inside it as the origins its clusters step from, so every
+pixel is the same. A caret, a selection edge or a hit inside a run lands on
+the cluster edges the run is drawn with instead of a proportional share of
+its width, and a double tap selects the word the browser selects.
+
 ### A run's clusters are views of one table
 
 `RitoTextPaintCommand.clusters` is a `RitoClusters`: the run's cluster

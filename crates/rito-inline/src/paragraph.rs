@@ -1104,6 +1104,13 @@ pub fn plain_paragraph_style(
         ColorNoneFlags::new(false, false, false, false),
     )
     .expect("black is finite");
+    let transparent = AbsoluteColor::new(
+        AbsoluteColorSpace::Srgb,
+        [0.0, 0.0, 0.0],
+        0.0,
+        ColorNoneFlags::new(false, false, false, false),
+    )
+    .expect("transparent is finite");
     let border = BorderEdge {
         resolved_width: NonNegativeCssPx::new(0.0).expect("zero width"),
         style: BorderStyle::None,
@@ -1184,7 +1191,7 @@ pub fn plain_paragraph_style(
         paint: InlinePaintStyle {
             foreground: black,
             opacity: UnitInterval::new(1.0).expect("opacity is bounded"),
-            background: black.into(),
+            background: transparent.into(),
             background_image: None,
             transform: TransformList::none(),
             text_decoration: TextDecoration {

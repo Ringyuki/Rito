@@ -5,19 +5,19 @@
 //! source-range resolution, pointer-driven text interaction (caret from
 //! point, range selection, word/paragraph expansion) and keyboard
 //! selection movement (`movement`) are served from the fragment page
-//! artifacts. Character positions inside a run interpolate linearly by
-//! UTF-16 offset: the page artifacts do not carry the per-cluster origins
-//! the paint list does.
+//! artifacts. A position inside a run lands on the cluster edges the run
+//! was drawn with (`FragmentRunRecord::x_at` and `offset_at`).
 
 mod movement;
+mod word;
 
 use std::{collections::BTreeMap, ops::Range, rc::Rc};
 
 use movement::{move_focus, Moved, MovementRequest, ScopePages, StreamPosition};
+use word::{word_around, NextPage};
 
 use crate::interaction::{
-    plain_word_bounds, TextCaretAddress, TextCaretAffinity, TextCaretGeometry,
-    TextInteractionUnavailableReason,
+    TextCaretAddress, TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,
 };
 
 use super::super::page_artifact::{
@@ -730,18 +730,17 @@ impl<'a> FragmentChapterEngineSession<'a> {
                     )
                     .map(|unit| unit.unwrap_or(char::REPLACEMENT_CHARACTER)),
                 );
-                let length = (run.end - run.start).max(1) as f64;
-                let from = (clip_start - run.start) as f64 / length;
-                let to = (clip_end - run.start) as f64 / length;
+                let left = run.x_at(clip_start - run.start);
+                let right = run.x_at(clip_end - run.start);
                 // A native selection rect spans the run's FONT box, the
                 // way a Chromium Range rect does; the line box is the
                 // fallback for hosts that inject no grid metric.
                 let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
                 rects.push(PageArtifactExactTextRangeRect {
                     page_index,
-                    x: run.x + run.width * from,
+                    x: left,
                     y: rect_y,
-                    width: run.width * (to - from),
+                    width: right - left,
                     height: rect_height,
                     block_index: run.block_index,
                     line_index: run.line_index,
@@ -821,14 +820,20 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let artifact = self.artifact(anchor.page_index)?;
         let anchor_hit = position_of(&artifact, &anchor)?;
         let focus_hit = position_of(&artifact, &focus)?;
+        let following = self.artifact(anchor.page_index + 1);
+        let next = NextPage {
+            exists: following.is_some(),
+            first_paragraph: following
+                .as_ref()
+                .and_then(|page| page.interaction_runs().first().map(|run| run.paragraph)),
+        };
         // Each endpoint expands to ITS OWN word: a word-granularity drag
         // spans from the anchor word's outer edge to the focus word's
         // outer edge (a single word interval never contains a multi-word
         // drag). Document order flips with the drag direction so the
         // anchor word stays fully selected either way.
-        let text = artifact.page_text();
-        let anchor_word = plain_word_bounds(text, anchor_hit as u32, anchor_hit as u32, language)?;
-        let focus_word = plain_word_bounds(text, focus_hit as u32, focus_hit as u32, language)?;
+        let anchor_word = word_around(&artifact, anchor_hit, next, language);
+        let focus_word = word_around(&artifact, focus_hit, next, language);
         let (start, end) = if focus_hit >= anchor_hit {
             (anchor_word.0, focus_word.1)
         } else {
@@ -912,13 +917,7 @@ fn caret_from_point(
         }
     }
     let (_, run) = best?;
-    let length = run.end - run.start;
-    let char_index = if length == 0 || run.width <= 0.0 {
-        0
-    } else {
-        (((x - run.x) / run.width * length as f64).round().max(0.0) as usize).min(length)
-    };
-    Some(caret_record(page_index, run, char_index))
+    Some(caret_record(page_index, run, run.offset_at(x)))
 }
 
 fn caret_record(
@@ -926,12 +925,6 @@ fn caret_record(
     run: &FragmentRunRecord,
     char_index: usize,
 ) -> PageArtifactTextCaret {
-    let length = run.end - run.start;
-    let ratio = if length == 0 {
-        0.0
-    } else {
-        char_index as f64 / length as f64
-    };
     PageArtifactTextCaret {
         address: TextCaretAddress {
             page_index,
@@ -942,7 +935,7 @@ fn caret_record(
             affinity: TextCaretAffinity::Downstream,
         },
         geometry: TextCaretGeometry {
-            x: run.x + run.width * ratio,
+            x: run.x_at(char_index),
             // The caret spans the run's font box like a selection rect;
             // hit-testing above stays on the full line band.
             y: run.font_box.map_or(run.y, |(top, _)| top),

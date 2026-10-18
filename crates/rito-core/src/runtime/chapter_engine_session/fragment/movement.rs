@@ -4,8 +4,8 @@
 //! stream: page texts concatenated in page order, each page's lines
 //! separated by the newline the artifact already records. Character
 //! positions are UTF-16 page-text offsets; geometry (line up/down, page
-//! jumps) resolves through the runs' rectangles with linear character
-//! interpolation, exactly like the pointer resolvers.
+//! jumps) resolves through the runs' cluster edges, exactly like the
+//! pointer resolvers.
 
 use std::{
     cell::{Cell, RefCell},
@@ -572,9 +572,7 @@ fn snap_scope_edge(pages: &ScopePages<'_>, edge: TextSelectionBoundary) -> Moved
 
 fn caret_x(page: &ScopePage, offset: usize) -> Option<f64> {
     let run = run_at(page, offset)?;
-    let length = (run.end - run.start).max(1) as f64;
-    let ratio = (offset.clamp(run.start, run.end) - run.start) as f64 / length;
-    Some(run.x + run.width * ratio)
+    Some(run.x_at(offset.clamp(run.start, run.end) - run.start))
 }
 
 fn caret_y(page: &ScopePage, offset: usize) -> Option<f64> {
@@ -621,12 +619,7 @@ fn offset_at_x(page: &ScopePage, line_index: usize, x: f64) -> usize {
         }
         let length = run.end - run.start;
         for char_index in 0..=length {
-            let ratio = if length == 0 {
-                0.0
-            } else {
-                char_index as f64 / length as f64
-            };
-            let edge_x = run.x + run.width * ratio;
+            let edge_x = run.x_at(char_index);
             let distance = (edge_x - x).abs();
             if distance < best.0 {
                 best = (distance, run.start + char_index);

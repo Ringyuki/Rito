@@ -834,6 +834,8 @@ impl FormattingContext for ParleyInlineContext {
             .is_some_and(|strut| {
                 strut.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
             });
+        // The clusters a text fragment holds until its line hands them over.
+        let no_clusters: std::rc::Rc<[rito_fragment::ClusterPosition]> = std::rc::Rc::from([]);
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
@@ -1165,6 +1167,7 @@ impl FormattingContext for ParleyInlineContext {
             // shifted content rises above the strut before positions are
             // finalized (a browser's line box contains its risen content).
             let mut children: Vec<(Fragment, f64)> = Vec::new();
+            let mut line_pieces = LineRuns::default();
             let mut max_rise = 0.0_f64;
             // Ordinal per flow position for atoms sharing a byte (two
             // adjacent images), so each looks up its own share count.
@@ -1313,6 +1316,14 @@ impl FormattingContext for ParleyInlineContext {
                             .copied()
                             .unwrap_or(ruby_overhang);
                         let opener_halt_trims = &opener_halt_trims;
+                        // An item lowered with more than its glyphs keeps a
+                        // fragment per piece (see `paints_alone`).
+                        let run_paints_alone = style_tables
+                            .and_then(|tables| {
+                                let entry = item_line_heights.get(item_index)?.as_ref()?;
+                                tables.inline.style(entry.style).ok()
+                            })
+                            .is_none_or(paints_alone);
                         // The painter keeps word spacing as its own step
                         // after each space, so a spaced run never takes
                         // the grid law (measured only on unspaced runs).
@@ -1344,16 +1355,20 @@ impl FormattingContext for ParleyInlineContext {
                                 .iter()
                                 .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
-                            let piece = piece_clusters(
-                                cluster_steps,
-                                flow_text_ref,
-                                range.clone(),
-                                justify_px,
-                                opener_halt_trims,
-                                run_word_spacing,
-                            );
-                            children.push((
-                                Fragment::Text(TextFragment {
+                            let ruby_center_shift_px =
+                                ruby_center_shifts.get(&item_index).copied().unwrap_or(0.0);
+                            // A ruby base or a trimmed opener paints from
+                            // fields of its own, and a vertical column steps
+                            // each piece by its own spacing: those stay apart.
+                            let joinable = !vertical_flow
+                                && !run_paints_alone
+                                && opener_trim_px == 0.0
+                                && ruby_gap == 0.0
+                                && ruby_overhang == 0.0
+                                && ruby_overhang_right == 0.0
+                                && ruby_center_shift_px == 0.0;
+                            let piece = Piece {
+                                fragment: TextFragment {
                                     source: root,
                                     rect: FragmentRect {
                                         x,
@@ -1370,15 +1385,27 @@ impl FormattingContext for ParleyInlineContext {
                                     opener_trim_px,
                                     box_snap: run_box_snap,
                                     font_grid: run_font_grid,
-                                    ruby_center_shift_px: ruby_center_shifts
-                                        .get(&item_index)
-                                        .copied()
-                                        .unwrap_or(0.0),
-                                    clusters: piece.positions,
-                                    cluster_grid: piece.grid,
-                                }),
+                                    ruby_center_shift_px,
+                                    clusters: std::rc::Rc::clone(&no_clusters),
+                                    cluster_grid: false,
+                                    segments: None,
+                                },
                                 shift,
-                            ));
+                                item: item_index,
+                                joinable,
+                            };
+                            line_pieces.push(&mut children, piece, |out| {
+                                piece_clusters(
+                                    cluster_steps,
+                                    flow_text_ref,
+                                    range.clone(),
+                                    justify_px,
+                                    opener_halt_trims,
+                                    run_word_spacing,
+                                    out,
+                                )
+                                .grid
+                            });
                         };
                         // The advance a box gap parked on this run's last
                         // cluster: shed it so the rect stays ink-sized.
@@ -2748,6 +2775,8 @@ impl FormattingContext for ParleyInlineContext {
                      misses={debug_misses:?}"
                 );
             }
+            // The line's last text fragment takes its clusters.
+            line_pieces.close(&mut children);
             // A spread base's per-range letter spacing splits its glyph
             // run at the last cluster (the one cluster without a gap).
             // Painted apart, each piece would repeat the annotation over

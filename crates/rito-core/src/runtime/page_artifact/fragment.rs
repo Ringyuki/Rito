@@ -8,7 +8,7 @@
 //! runs concatenated with a newline between text-bearing lines, offsets are
 //! UTF-16, and (block, line, run) indexes address the page's own structure.
 
-use rito_fragment::{FormattingNodeContent, Fragment, InlineItem, LineFragment};
+use rito_fragment::{FormattingNodeContent, Fragment, InlineItem, LineFragment, TextFragment};
 
 use crate::fragment_bridge::ChapterFormattingTree;
 
@@ -49,6 +49,114 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) href: Option<String>,
     /// Source-locator mapping for the run, when its item has one.
     pub(in crate::runtime) source: Option<RunSourceMap>,
+    /// Where each of the run's clusters starts, left to right; empty when
+    /// they do not run left to right.
+    pub(in crate::runtime) edges: std::rc::Rc<[RunEdge]>,
+}
+
+/// Where a cluster of a run starts: its UTF-16 offset in the run's text and
+/// its page x.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(in crate::runtime) struct RunEdge {
+    pub(in crate::runtime) offset: u32,
+    pub(in crate::runtime) x: f64,
+}
+
+impl FragmentRunRecord {
+    /// The page x of the boundary before UTF-16 offset `offset` of the run
+    /// (clamped to its length): a cluster's own x where one starts there,
+    /// in proportion between a cluster's edges inside one — the way the
+    /// browser places a caret inside a ligature — and in proportion across
+    /// the run where its clusters do not run left to right.
+    pub(in crate::runtime) fn x_at(&self, offset: usize) -> f64 {
+        let length = self.end - self.start;
+        let offset = offset.min(length);
+        if self.edges.is_empty() {
+            return if length == 0 {
+                self.x
+            } else {
+                self.x + self.width * offset as f64 / length as f64
+            };
+        }
+        let next = self
+            .edges
+            .partition_point(|edge| edge.offset as usize <= offset);
+        let (from, to) = self.cluster_bounds(next.max(1));
+        if to.0 == from.0 {
+            return from.1;
+        }
+        from.1 + (to.1 - from.1) * (offset - from.0) as f64 / (to.0 - from.0) as f64
+    }
+
+    /// The UTF-16 offset of the boundary of the run nearest page x `x`.
+    pub(in crate::runtime) fn offset_at(&self, x: f64) -> usize {
+        let length = self.end - self.start;
+        if length == 0 || self.width <= 0.0 {
+            return 0;
+        }
+        if self.edges.is_empty() {
+            return (((x - self.x) / self.width * length as f64).round().max(0.0) as usize)
+                .min(length);
+        }
+        let next = self.edges.partition_point(|edge| edge.x <= x);
+        let (from, to) = self.cluster_bounds(next.max(1));
+        let span = to.1 - from.1;
+        let units = to.0 - from.0;
+        let within = if span <= 0.0 {
+            0
+        } else {
+            (((x - from.1) / span * units as f64).round().max(0.0) as usize).min(units)
+        };
+        from.0 + within
+    }
+
+    /// The (offset, x) the cluster before `next` starts at and the one the
+    /// next starts at, or the run's end.
+    fn cluster_bounds(&self, next: usize) -> ((usize, f64), (usize, f64)) {
+        let edge = self.edges[next - 1];
+        let to = self
+            .edges
+            .get(next)
+            .map_or((self.end - self.start, self.x + self.width), |edge| {
+                (edge.offset as usize, edge.x)
+            });
+        ((edge.offset as usize, edge.x), to)
+    }
+}
+
+/// Where each of `run`'s clusters starts, in page x from `line_x`, or none
+/// when they do not run left to right from the run's start.
+fn run_edges(run: &TextFragment, run_text: &str, line_x: f64) -> std::rc::Rc<[RunEdge]> {
+    let mut edges = Vec::with_capacity(run.clusters.len());
+    let mut byte = 0usize;
+    let mut units = 0u32;
+    for (segment_x, clusters) in run.segment_clusters() {
+        let origin_x = line_x + segment_x + run.ruby_center_shift_px;
+        for cluster in clusters {
+            let at = (cluster.byte - run.text_start) as usize;
+            while byte < at {
+                let Some(character) = run_text.get(byte..).and_then(|rest| rest.chars().next())
+                else {
+                    break;
+                };
+                units += character.len_utf16() as u32;
+                byte += character.len_utf8();
+            }
+            edges.push(RunEdge {
+                offset: units,
+                x: origin_x + cluster.x,
+            });
+        }
+    }
+    let ordered = edges.first().is_some_and(|edge| edge.offset == 0)
+        && edges
+            .windows(2)
+            .all(|pair| pair[1].offset > pair[0].offset && pair[1].x >= pair[0].x);
+    if ordered {
+        edges.into()
+    } else {
+        std::rc::Rc::from([])
+    }
 }
 
 /// A run's piecewise-linear mapping back to its source node's text.
@@ -550,6 +658,7 @@ impl ArtifactBuilder<'_> {
                                 font_box,
                                 href,
                                 source,
+                                edges: run_edges(run, run_text, line_x),
                             });
                             self.text.push_str(run_text);
                             self.offset += length;
@@ -873,22 +982,17 @@ impl PageArtifact for FragmentPageArtifact {
             if to_char <= from_char {
                 continue;
             }
-            // Character-interior endpoints interpolate linearly across the
-            // run's advance until per-cluster metrics are retained; exact
-            // for the run-aligned endpoints selection snapping produces.
-            let per_char = if run_chars > 0 {
-                run.width / run_chars as f64
-            } else {
-                0.0
-            };
+            // Endpoints land on the clusters' own edges (see `x_at`).
+            let left = run.x_at(from_char);
+            let right = run.x_at(to_char);
             // Chromium's native selection rect spans the FONT box, not
             // the line box; the line box is the documented fallback for
             // hosts that inject no grid metrics.
             let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
             rects.push(PageArtifactTextRangeRect {
-                x: run.x + per_char * from_char as f64,
+                x: left,
                 y: rect_y,
-                width: per_char * (to_char - from_char) as f64,
+                width: right - left,
                 height: rect_height,
                 block_index: run.block_index,
                 line_index: run.line_index,
@@ -1166,7 +1270,7 @@ mod tests {
             assert!(rect.width > 0.0);
             assert!(rect.height > 0.0);
         }
-        // A mid-run selection interpolates inside the run's advance.
+        // A mid-run selection lands inside the run's advance.
         let first = &positions.offsets[0];
         let chars = first.end - first.start;
         let partial = artifact.text_range_geometry(
@@ -1186,6 +1290,49 @@ mod tests {
         assert_eq!(partial.rects.len(), 1);
         assert!(partial.rects[0].x > geometry.rects[0].x);
         assert!(partial.rects[0].width < geometry.rects[0].width);
+    }
+
+    /// A run's boundaries are its clusters' own origins, segment by
+    /// segment: each cluster's offset maps to its x and back, and an x
+    /// inside a cluster lands on its nearer edge.
+    #[test]
+    fn a_runs_boundaries_are_its_clusters_origins() {
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let engine = BlockFormattingContext::new(context);
+        let built = chapter("Hello quiet world");
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("chapter lays out");
+        let artifact = FragmentPageArtifact::build(
+            0,
+            600.0,
+            300.0,
+            &outcome.fragments.root,
+            &built,
+            24.0,
+            32.0,
+        );
+        assert_eq!(artifact.runs.len(), 1, "the line's one item is one run");
+        let run = &artifact.runs[0];
+        let length = run.end - run.start;
+        assert_eq!(run.edges.len(), length, "a cluster per character");
+        assert_eq!(run.edges[0].x, run.x);
+        for pair in run.edges.windows(2) {
+            let (edge, next) = (pair[0], pair[1]);
+            assert_eq!(run.x_at(edge.offset as usize), edge.x);
+            assert_eq!(run.offset_at(edge.x), edge.offset as usize);
+            let quarter = (next.x - edge.x) / 4.0;
+            assert_eq!(run.offset_at(edge.x + quarter), edge.offset as usize);
+            assert_eq!(run.offset_at(next.x - quarter), next.offset as usize);
+        }
+        assert_eq!(run.x_at(length), run.x + run.width);
+        assert_eq!(run.offset_at(run.x + run.width + 10.0), length);
     }
 
     #[test]

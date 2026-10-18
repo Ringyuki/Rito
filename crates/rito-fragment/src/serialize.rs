@@ -140,6 +140,17 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                 out.push(u8::from(cluster.joins));
             }
             out.push(u8::from(fragment.cluster_grid));
+            match &fragment.segments {
+                None => out.push(0),
+                Some(segments) => {
+                    out.push(1);
+                    out.extend_from_slice(&(segments.len() as u32).to_le_bytes());
+                    for segment in segments.iter() {
+                        out.extend_from_slice(&segment.cluster.to_le_bytes());
+                        out.extend_from_slice(&segment.x.to_bits().to_le_bytes());
+                    }
+                }
+            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -250,6 +261,21 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 1 => true,
                 tag => return Err(format!("unknown text cluster-grid tag {tag}")),
             };
+            let segments = match reader.u8()? {
+                0 => None,
+                1 => {
+                    let count = reader.u32()? as usize;
+                    let mut segments = Vec::with_capacity(count.min(4096));
+                    for _ in 0..count {
+                        segments.push(crate::TextSegment {
+                            cluster: reader.u32()?,
+                            x: reader.f64()?,
+                        });
+                    }
+                    Some(segments.into())
+                }
+                tag => return Err(format!("unknown text segments tag {tag}")),
+            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -265,6 +291,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 ruby_overhang_right_px,
                 clusters: clusters.into(),
                 cluster_grid,
+                segments,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -518,6 +545,16 @@ mod tests {
                             font_grid: None,
                             clusters: Vec::new().into(),
                             cluster_grid: false,
+                            segments: Some(
+                                vec![
+                                    crate::TextSegment { cluster: 0, x: 0.0 },
+                                    crate::TextSegment {
+                                        cluster: 0,
+                                        x: 90.5,
+                                    },
+                                ]
+                                .into(),
+                            ),
                             ruby_center_shift_px: 0.0,
                             justify_px: 0.25,
                             ruby_gap_px: 1.5,

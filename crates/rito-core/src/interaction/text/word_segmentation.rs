@@ -11,25 +11,33 @@ pub(crate) fn plain_word_boundaries(text: &str, language: Option<&str>) -> Vec<u
     word_boundaries(&utf16, language)
 }
 
-/// Word bounds around a UTF-16 hit range in plain text, for resolvers
-/// that address text by page-artifact offsets.
-pub(crate) fn plain_word_bounds(
+/// Which of the two segments meeting at a word boundary a caret there
+/// takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum WordSide {
+    /// The segment ending at the caret.
+    Before,
+    /// The segment starting at the caret.
+    After,
+}
+
+/// The word-segmentation segment around UTF-16 offset `caret` of plain
+/// text: the one it sits inside, or on a boundary the one on `side` (none
+/// past either end of the text).
+pub(crate) fn plain_word_around(
     text: &str,
-    hit_start: u32,
-    hit_end: u32,
+    caret: u32,
+    side: WordSide,
     language: Option<&str>,
 ) -> Option<(u32, u32)> {
     let utf16 = text.encode_utf16().collect::<Vec<_>>();
-    let boundaries = word_boundaries(&utf16, language);
-    let mut boundaries = boundaries.into_iter();
-    let mut start = boundaries.next()?;
-    for end in boundaries {
-        if start <= hit_start && hit_end <= end && start < end {
-            return Some((start, end));
-        }
-        start = end;
-    }
-    None
+    word_boundaries(&utf16, language)
+        .windows(2)
+        .map(|pair| (pair[0], pair[1]))
+        .find(|&(start, end)| match side {
+            WordSide::Before => start < caret && caret <= end,
+            WordSide::After => start <= caret && caret < end,
+        })
 }
 
 fn word_boundaries(utf16: &[u16], language: Option<&str>) -> Vec<u32> {
@@ -59,16 +67,29 @@ fn collect_boundaries(boundaries: impl Iterator<Item = usize>) -> Vec<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::{plain_word_boundaries, plain_word_bounds};
+    use super::{plain_word_around, plain_word_boundaries, WordSide};
 
     #[test]
-    fn plain_word_bounds_find_the_word_around_a_hit() {
+    fn a_caret_takes_the_word_it_sits_in_or_the_one_on_its_side() {
+        for side in [WordSide::Before, WordSide::After] {
+            assert_eq!(
+                plain_word_around("hello world", 8, side, Some("en")),
+                Some((6, 11))
+            );
+        }
         assert_eq!(
-            plain_word_bounds("hello world", 7, 7, Some("en")),
+            plain_word_around("hello world", 6, WordSide::After, None),
             Some((6, 11))
         );
-        assert_eq!(plain_word_bounds("hello world", 0, 5, None), Some((0, 5)));
-        assert_eq!(plain_word_bounds("", 0, 0, None), None);
+        assert_eq!(
+            plain_word_around("hello world", 6, WordSide::Before, None),
+            Some((5, 6))
+        );
+        assert_eq!(
+            plain_word_around("hello world", 11, WordSide::After, None),
+            None
+        );
+        assert_eq!(plain_word_around("", 0, WordSide::After, None), None);
     }
 
     #[test]

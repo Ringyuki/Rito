@@ -12,6 +12,7 @@ pub(crate) mod revisions;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;
+mod word_selection_tests;
 
 use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_stylesheet,

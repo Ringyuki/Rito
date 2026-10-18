@@ -99,6 +99,15 @@ decimals, exact for every 1/64 position). A text run's baseline is the
 one place the ratio enters here: it rounds on the device grid the way
 the browser's two-stage raster does.
 
+A text run is a line's text in one inline item, as the browser keeps one
+text fragment per inline item on a line: the stretches layout placed it
+in (words, justification points, re-anchored ideographs) stay inside it
+as the origins its clusters step from. An item that paints more than its
+glyphs — a band, a box edge, a decoration line, a shadow — keeps a run
+per stretch. The page records carry the same runs, and a caret, a
+selection edge or a hit inside a run lands on the cluster edges the run
+is drawn with.
+
 ## Lowering
 
 `render/lower` resolves each command to device primitives: box edges and

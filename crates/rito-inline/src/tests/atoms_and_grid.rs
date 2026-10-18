@@ -282,13 +282,14 @@ fn letter_spacing_stays_outside_the_fixed_point_round_trip() {
     let Fragment::Line(line) = &root.children[0] else {
         panic!("first child is a line");
     };
-    let mut runs = line.children.iter().filter_map(|child| match child {
+    let pieces = placed(line.children.iter().filter_map(|child| match child {
         Fragment::Text(run) => Some(run),
         _ => None,
-    });
-    let first = runs.next().expect("the line has text runs");
-    let second = runs.next().expect("the spaced advance splits the run");
-    let step = second.rect.x - first.rect.x;
+    }));
+    let mut pieces = pieces.iter();
+    let first = pieces.next().expect("the line has text runs");
+    let second = pieces.next().expect("the spaced advance splits the run");
+    let step = second.x - first.x;
     assert!(
         (step - 17.333_333_4).abs() < 1e-5,
         "the spaced step keeps the raw spacing outside the grid: {step}"
@@ -362,21 +363,22 @@ fn grid_pen_splits_ride_the_fixed_point_shaper_scale() {
         panic!("first child is a line");
     };
     let advance = 1_258_291.0_f64 / 65_536.0;
-    let mut runs = line.children.iter().filter_map(|child| match child {
+    let pieces = placed(line.children.iter().filter_map(|child| match child {
         Fragment::Text(run) => Some(run),
         _ => None,
-    });
-    let first = runs.next().expect("the line has text runs");
+    }));
+    let mut pieces = pieces.iter();
+    let first = pieces.next().expect("the line has text runs");
     assert!(
-        first.rect.x.abs() < 1e-6,
+        first.x.abs() < 1e-6,
         "the run anchors at the line start: {}",
-        first.rect.x
+        first.x
     );
-    let second = runs.next().expect("the off-grid advance splits the run");
+    let second = pieces.next().expect("the off-grid advance splits the run");
     assert!(
-        (second.rect.x - advance).abs() < 1e-5 && second.rect.x < 19.2,
+        (second.x - advance).abs() < 1e-5 && second.x < 19.2,
         "the second glyph starts one fixed-point advance in: {} vs {advance}",
-        second.rect.x
+        second.x
     );
 }
 

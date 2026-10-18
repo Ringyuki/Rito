@@ -136,6 +136,64 @@ pub struct TextFragment {
     /// 1/64 CSS-pixel grid: the browser does so for an all-CJK run at a
     /// fractional font size, and accumulates in float everywhere else.
     pub cluster_grid: bool,
+    /// Where the run's clusters are placed from, when not all from the
+    /// rect's left edge: each segment's clusters sit at offsets from the
+    /// segment's own origin, and its first cluster starts a string a pen
+    /// draws. A line's text in one inline item is one fragment, as in the
+    /// browser; the anchors it was laid out from stay with it. `None`: one
+    /// segment, from `rect.x`.
+    pub segments: Option<std::rc::Rc<[TextSegment]>>,
+}
+
+/// A stretch of a text fragment's clusters placed from one origin.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextSegment {
+    /// Index of the segment's first cluster in the fragment's clusters.
+    pub cluster: u32,
+    /// The segment's origin, in the parent line's coordinates like the
+    /// fragment's rect.
+    pub x: f64,
+}
+
+impl TextFragment {
+    /// Each segment's clusters and the origin they are placed from, in
+    /// order: the fragment's rect edge for a fragment of one segment.
+    pub fn segment_clusters(&self) -> SegmentClusters<'_> {
+        SegmentClusters {
+            fragment: self,
+            index: 0,
+        }
+    }
+}
+
+/// The iterator [`TextFragment::segment_clusters`] answers.
+pub struct SegmentClusters<'a> {
+    fragment: &'a TextFragment,
+    index: usize,
+}
+
+impl<'a> Iterator for SegmentClusters<'a> {
+    type Item = (f64, &'a [ClusterPosition]);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let fragment = self.fragment;
+        let count = fragment.clusters.len();
+        let Some(segments) = &fragment.segments else {
+            if self.index > 0 {
+                return None;
+            }
+            self.index = 1;
+            return Some((fragment.rect.x, &fragment.clusters[..]));
+        };
+        let segment = segments.get(self.index)?;
+        let end = segments
+            .get(self.index + 1)
+            .map_or(count, |next| next.cluster as usize)
+            .min(count);
+        let start = (segment.cluster as usize).min(end);
+        self.index += 1;
+        Some((segment.x, &fragment.clusters[start..end]))
+    }
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.
