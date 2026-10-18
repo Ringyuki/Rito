@@ -1,13 +1,14 @@
 import type { GlyphFamily, GlyphTable } from './atlas';
 import type { QuadBatch } from './batch';
 import type { GlPenDevice } from './device';
-import { deviceQuarters, deviceRow } from './glyph-position';
+import { deviceRow, glyphQuarters } from './glyph-position';
 
 interface RunPlacement {
   readonly text: string;
   readonly clusters: {
     readonly bytes: Uint32Array;
     readonly origins: Float32Array;
+    readonly joins: Uint8Array;
   };
 }
 
@@ -16,12 +17,15 @@ interface Translation {
   readonly ty: number;
 }
 
+const f32 = Math.fround;
+
 /**
  * Puts every inked cluster of a run on the GPU at the device position the
- * canvas would draw it at: its float32 origin under the ratio and the
- * translation in force, on the nearest quarter pixel, its baseline on the
- * nearest row. A cluster the run joins to the one before it is still drawn
- * at its own origin, which is where the string would put it.
+ * canvas pen draws it at: its float32 origin under the ratio and the
+ * translation in force, on the quarter pixel the canvas rounds it to, its
+ * baseline on the row. The canvas pen draws a cluster that joins the one
+ * before it in the same string: it sits the advances the canvas has added
+ * since that string's origin, in float as the canvas adds them, into it.
  */
 export function drawRunGlyphs(
   device: GlPenDevice,
@@ -30,12 +34,17 @@ export function drawRunGlyphs(
   table: GlyphTable,
   at: Translation,
 ): void {
-  const { bytes, origins } = run.clusters;
+  const { bytes, origins, joins } = run.clusters;
   const text = run.text;
   const count = bytes.length;
   let current = table;
   let unit = 0;
   let byte = 0;
+  // The string the clusters joined so far are drawn in: its origin and how
+  // far its pen has gone.
+  let stringOrigin = 0;
+  let stringPen = 0;
+  let advance = 0;
   for (let index = 0; index < count; index += 1) {
     const start = bytes[index] ?? 0;
     while (byte < start) {
@@ -43,32 +52,55 @@ export function drawRunGlyphs(
       unit += unitLength(text.charCodeAt(unit));
     }
     const code = text.charCodeAt(unit);
-    if (code === 0x20) continue;
     const next = index + 1 < count ? (bytes[index + 1] ?? 0) : undefined;
     const family = familyOf(current, text, unit, start, next, code);
-    const quarters = deviceQuarters(origins[index * 2] ?? 0, current.ratio, at.tx);
-    const whole = Math.floor(quarters / 4);
-    const phase = quarters - whole * 4;
-    let cell = family.cells[phase] ?? device.atlas.cell(current, family, phase);
-    if (cell === undefined) {
-      current = emptiedAtlas(device, batch, current);
-      cell = device.atlas.cell(current, familyOf(current, text, unit, start, next, code), phase);
-      if (cell === undefined)
-        throw new Error(`A glyph of "${family.text}" is larger than the atlas`);
+    if (joins[index] === 1) {
+      stringPen = f32(stringPen + advance);
+    } else {
+      stringOrigin = f32(origins[index * 2] ?? 0);
+      stringPen = 0;
     }
-    if (cell.width === 0) continue;
-    const row = deviceRow(origins[index * 2 + 1] ?? 0, current.ratio, at.ty);
-    batch.push(
-      'glyph',
-      whole - cell.originX,
-      row - cell.originY,
-      cell.width,
-      cell.height,
-      cell.u,
-      cell.v,
-      current,
-    );
+    advance = device.atlas.reach(current, family).advance;
+    if (code === 0x20) continue;
+    const quarters = glyphQuarters(stringOrigin, stringPen, current.ratio, at.tx);
+    const y = origins[index * 2 + 1] ?? 0;
+    if (placeCluster(device, batch, current, family, quarters, y, at)) continue;
+    // The atlas is full: draw what uses it, empty it, carry on.
+    current = emptiedAtlas(device, batch, current);
+    const again = familyOf(current, text, unit, start, next, code);
+    if (!placeCluster(device, batch, current, again, quarters, y, at)) {
+      throw new Error(`A glyph of "${family.text}" is larger than the atlas`);
+    }
   }
+}
+
+/** Puts one cluster at `quarters` device quarter pixels and CSS baseline `y`; false when the atlas has no room for its cell. */
+function placeCluster(
+  device: GlPenDevice,
+  batch: QuadBatch,
+  table: GlyphTable,
+  family: GlyphFamily,
+  quarters: number,
+  y: number,
+  at: Translation,
+): boolean {
+  const whole = Math.floor(quarters / 4);
+  const phase = quarters - whole * 4;
+  const cell = family.cells[phase] ?? device.atlas.cell(table, family, phase);
+  if (cell === undefined) return false;
+  if (cell.width === 0) return true;
+  const row = deviceRow(y, table.ratio, at.ty);
+  batch.push(
+    'glyph',
+    whole - cell.originX,
+    row - cell.originY,
+    cell.width,
+    cell.height,
+    cell.u,
+    cell.v,
+    table,
+  );
+  return true;
 }
 
 /** Draws what uses the full atlas, empties it and answers the table to carry on in. */

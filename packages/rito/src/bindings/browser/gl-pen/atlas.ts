@@ -13,13 +13,21 @@ export interface GlyphCell {
 /** A cell with no ink (a space): nothing is drawn for it. */
 export const EMPTY_CELL: GlyphCell = { u: 0, v: 0, width: 0, height: 0, originX: 0, originY: 0 };
 
-/** One cluster's cells, one per quarter-pixel phase, and how far its ink reaches from its origin. */
+/** How far a cluster's ink reaches from its origin, in device pixels, and its advance in CSS pixels. */
+export interface GlyphReach {
+  readonly left: number;
+  readonly right: number;
+  readonly up: number;
+  readonly down: number;
+  /** How far the canvas moves its pen past the cluster in a string, as it measures it. */
+  readonly advance: number;
+}
+
+/** One cluster's cells, one per quarter-pixel phase, and how far it reaches. */
 export interface GlyphFamily {
   readonly text: string;
   readonly cells: (GlyphCell | undefined)[];
-  reach:
-    | { readonly left: number; readonly right: number; readonly up: number; readonly down: number }
-    | undefined;
+  reach: GlyphReach | undefined;
 }
 
 /** The families of one font in one ink at one ratio, and the ink's channels. */
@@ -80,6 +88,8 @@ export class GlyphAtlas {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     const measure = new OffscreenCanvas(1, 1).getContext('2d');
     if (!measure) throw new Error('The GPU pen could not measure glyphs');
+    measure.letterSpacing = '0px';
+    measure.wordSpacing = '0px';
     this.measure = measure;
   }
 
@@ -106,7 +116,7 @@ export class GlyphAtlas {
 
   /** The cell of `family` at `phase` quarters, rasterized now if new; undefined when the atlas is full. */
   cell(table: GlyphTable, family: GlyphFamily, phase: number): GlyphCell | undefined {
-    const reach = (family.reach ??= this.reachOf(table, family.text));
+    const reach = this.reach(table, family);
     const width = reach.left + reach.right;
     const height = reach.up + reach.down;
     if (width <= 2 * PAD + 1 || height <= 2 * PAD + 1) return (family.cells[phase] = EMPTY_CELL);
@@ -124,6 +134,11 @@ export class GlyphAtlas {
     band.x += width;
     family.cells[phase] = cell;
     return cell;
+  }
+
+  /** How far a cluster reaches, measured by the canvas the first time it is asked for. */
+  reach(table: GlyphTable, family: GlyphFamily): GlyphReach {
+    return (family.reach ??= this.reachOf(table, family.text));
   }
 
   /** Whether a table's cells are still in the atlas. */
@@ -144,7 +159,7 @@ export class GlyphAtlas {
     this.nextRow = 0;
   }
 
-  private reachOf(table: GlyphTable, text: string): NonNullable<GlyphFamily['reach']> {
+  private reachOf(table: GlyphTable, text: string): GlyphReach {
     if (this.measureFont !== table.font) {
       this.measure.font = table.font;
       this.measureFont = table.font;
@@ -156,6 +171,7 @@ export class GlyphAtlas {
       right: device(box.actualBoundingBoxRight) + PAD + 1,
       up: device(box.actualBoundingBoxAscent) + PAD,
       down: device(box.actualBoundingBoxDescent) + PAD + 1,
+      advance: box.width,
     };
   }
 

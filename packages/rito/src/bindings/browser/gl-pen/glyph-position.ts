@@ -1,18 +1,30 @@
 const f32 = Math.fround;
 
 /**
- * Where the canvas puts a glyph whose origin is at CSS `x` under
- * `scale(ratio)` after a device `translate(tx)`: the device x in float32
- * arithmetic, as the canvas maps it, on the nearest quarter pixel, a tie
- * going up. Answers whole quarter pixels.
+ * Where the canvas puts a glyph `offset` CSS px into a string it draws at
+ * CSS `origin` under `scale(ratio)` after a device `translate(tx)`. In
+ * float32, as the canvas computes it: the string's origin goes into the
+ * matrix first (`origin × ratio + tx`), the glyph's offset is mapped and
+ * added after; the device x is then rounded to a quarter pixel the way the
+ * canvas rounds it — an eighth added in float32, then floored, so a tie
+ * goes up and a sum the float rounds up across a quarter goes up too.
+ * Answers whole quarter pixels.
  */
-export function deviceQuarters(x: number, ratio: number, tx: number): number {
-  return Math.floor(f32(f32(f32(x) * f32(ratio)) + tx) * 4 + 0.5);
+export function glyphQuarters(origin: number, offset: number, ratio: number, tx: number): number {
+  const scale = f32(ratio);
+  const start = f32(f32(f32(origin) * scale) + tx);
+  const device = offset === 0 ? start : f32(f32(f32(offset) * scale) + start);
+  return Math.floor(f32(device + 0.125) * 4);
 }
 
-/** The device row the canvas puts a horizontal baseline at CSS `y` on. */
+/** `glyphQuarters` of a glyph drawn on its own at CSS `x`. */
+export function deviceQuarters(x: number, ratio: number, tx: number): number {
+  return glyphQuarters(x, 0, ratio, tx);
+}
+
+/** The device row the canvas puts a horizontal baseline at CSS `y` on: a half added in float32, then floored. */
 export function deviceRow(y: number, ratio: number, ty: number): number {
-  return Math.floor(f32(f32(f32(y) * f32(ratio)) + ty) + 0.5);
+  return Math.floor(f32(f32(f32(f32(y) * f32(ratio)) + ty) + 0.5));
 }
 
 /**
