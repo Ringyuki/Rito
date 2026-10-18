@@ -4,7 +4,7 @@
 // The page is the demo reader (pnpm dev:reader).
 //
 // BOOK=<path to an .epub> node rito.mjs
-// Optional: URL (http://localhost:5173/), DRAG_MS (2000).
+// Optional: URL (http://localhost:5173/), DRAG_MS (2000), DPR (1).
 import { readFileSync } from 'node:fs';
 import { describe, launchUnthrottled, stats } from './shared.mjs';
 
@@ -14,7 +14,10 @@ const URL_ = process.env.URL ?? 'http://localhost:5173/';
 const DRAG_MS = Number(process.env.DRAG_MS ?? 2000);
 
 const browser = await launchUnthrottled();
-const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+const page = await browser.newPage({
+  viewport: { width: 1200, height: 900 },
+  deviceScaleFactor: Number(process.env.DPR ?? 1),
+});
 await page.goto(URL_);
 await page.evaluate(() => localStorage.clear());
 await page.reload();
