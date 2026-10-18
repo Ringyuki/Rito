@@ -26,7 +26,7 @@ use std::collections::VecDeque;
 use rustc_hash::FxHashMap;
 
 use crate::break_token::BreakToken;
-use crate::constraint_space::{ConstraintSpace, FloatBand};
+use crate::constraint_space::{ConstraintSpace, FloatBand, LineText};
 use crate::context::{CancelFlag, FormattingContext, LayoutError, LayoutOutcome};
 use crate::formatting_tree::FormattingTree;
 use crate::fragment::Fragment;
@@ -59,7 +59,15 @@ struct SpaceKey {
     /// Left inset, right inset and bottom of the float band.
     float_band: Option<[u64; 3]>,
     containing_block_size: Option<u64>,
-    line_text: bool,
+    line_text: LineTextKey,
+}
+
+/// [`LineText`] by the bit patterns of its window.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum LineTextKey {
+    Omitted,
+    All,
+    Within([u64; 2]),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -189,7 +197,7 @@ impl FragmentCache {
         self.clock += 1;
         let held = if self.entries.contains_key(&key) {
             Some(key.clone())
-        } else if space.line_text {
+        } else if space.line_text != LineText::Omitted {
             None
         } else {
             self.widths
@@ -375,7 +383,13 @@ fn space_key(space: &ConstraintSpace) -> SpaceKey {
              }| [left_inset, right_inset, bottom].map(f64::to_bits),
         ),
         containing_block_size: containing_block_size.map(f64::to_bits),
-        line_text,
+        line_text: match line_text {
+            LineText::Omitted => LineTextKey::Omitted,
+            LineText::All => LineTextKey::All,
+            LineText::Within { top, bottom } => {
+                LineTextKey::Within([top, bottom].map(f64::to_bits))
+            }
+        },
     }
 }
 

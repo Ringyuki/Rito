@@ -768,7 +768,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         space.fragmentainer_size,
                         definite_content_height,
                         band,
-                        space.line_text,
+                        // Only the lines this fragmentainer can place
+                        // carry their text: `place_lines` stacks them from
+                        // where earlier fragmentainers stopped, within the
+                        // space left for lines. A pixel of slack either
+                        // side can only add a line.
+                        match space.line_text {
+                            LineText::Omitted => LineText::Omitted,
+                            _ if available_for_lines.is_finite() => LineText::Within {
+                                top: consumed - 1.0,
+                                bottom: consumed + available_for_lines + 1.0,
+                            },
+                            all => all,
+                        },
                         cancel,
                         |lines| {
                             let squeezed = page_is_empty
@@ -1528,7 +1540,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         page_block_size: Option<f64>,
         containing_block_size: Option<f64>,
         float_band: Option<rito_fragment::FloatBand>,
-        line_text: bool,
+        line_text: LineText,
         cancel: &CancelFlag,
         read: impl FnOnce(&[Fragment]) -> R,
     ) -> Result<R, LayoutError> {

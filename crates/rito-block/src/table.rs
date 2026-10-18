@@ -201,7 +201,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     containing_block_size: None,
                     // Cells keep their text: a table's cells are laid out
                     // whole however the page around them is.
-                    line_text: true,
+                    line_text: LineText::All,
                 },
                 inner_token.as_ref(),
                 cancel,

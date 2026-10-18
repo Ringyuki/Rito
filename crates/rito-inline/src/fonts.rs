@@ -135,6 +135,9 @@ pub(crate) struct FontCatalog {
     /// The advance every glyph of a face declares in its `hmtx` table, in
     /// font units, per (blob id, face index); read once per face.
     declared_advances: RefCell<FxHashMap<(u64, u32), Option<DeclaredAdvances>>>,
+    /// Whether a face declares the OpenType `halt` feature, per (blob id,
+    /// face index); its feature lists are read once per face.
+    halt: RefCell<FxHashMap<(u64, u32), bool>>,
 }
 
 /// A face's `hmtx` advances in font units, indexed by glyph id.
@@ -310,6 +313,18 @@ impl FontCatalog {
             .map(|head| i64::from(head.units_per_em()));
         self.units_per_em.borrow_mut().insert(key, units);
         units
+    }
+
+    /// Whether `font` declares the OpenType `halt` feature in GSUB or GPOS.
+    pub(crate) fn has_halt(&self, font: &parley::FontData) -> bool {
+        let key = (font.data.id(), font.index);
+        if let Some(halt) = self.halt.borrow().get(&key) {
+            return *halt;
+        }
+        let halt = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+            .is_ok_and(|face| crate::punctuation::font_ref_has_halt(&face));
+        self.halt.borrow_mut().insert(key, halt);
+        halt
     }
 
     /// The advance `glyph` of `font` declares in font units, before

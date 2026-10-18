@@ -144,6 +144,9 @@ pub(crate) struct RunData {
     pub(crate) letter_spacing: f32,
     /// Total advance of the run.
     pub(crate) advance: f32,
+    /// Rito: the run's entries in [`LayoutData::style_breaks`], set once
+    /// the layout is built.
+    pub(crate) style_breaks: Range<usize>,
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
@@ -295,6 +298,11 @@ pub(crate) struct LayoutData<B: Brush> {
     pub(crate) items: Arc<Vec<LayoutItem>>,
     pub(crate) clusters: Arc<Vec<ClusterData>>,
     pub(crate) glyphs: Arc<Vec<Glyph>>,
+    /// Rito: every cluster holding a glyph whose style differs from the
+    /// previous such cluster of its run, by index in `clusters`, run by run
+    /// in logical order: where a line splits a run by style (see
+    /// `Line::style_runs`), found without reading the clusters between.
+    pub(crate) style_breaks: Arc<Vec<u32>>,
 
     // Output of line breaking
     /// The lines in the
@@ -341,6 +349,7 @@ impl<B: Brush> Default for LayoutData<B> {
             items: Arc::default(),
             clusters: Arc::default(),
             glyphs: Arc::default(),
+            style_breaks: Arc::default(),
             lines: Vec::new(),
             line_items: Vec::new(),
             #[cfg(feature = "accesskit")]
@@ -370,6 +379,7 @@ impl<B: Brush> LayoutData<B> {
         vacate(&mut self.items);
         vacate(&mut self.clusters);
         vacate(&mut self.glyphs);
+        vacate(&mut self.style_breaks);
         self.lines.clear();
         self.line_items.clear();
     }
@@ -480,6 +490,7 @@ impl<B: Brush> LayoutData<B> {
             word_spacing,
             letter_spacing,
             advance: 0.,
+            style_breaks: 0..0,
         };
 
         // `HarfRust` returns glyphs in visual order, so we need to process them as such while
@@ -532,6 +543,22 @@ impl<B: Brush> LayoutData<B> {
     }
 
     pub(crate) fn finish(&mut self) {
+        let breaks = owned(&mut self.style_breaks);
+        for run in owned(&mut self.runs).iter_mut() {
+            let start = breaks.len();
+            let mut previous = None;
+            for index in run.cluster_range.clone() {
+                let cluster = &self.clusters[index];
+                if cluster.glyph_len == 0 {
+                    continue;
+                }
+                if previous.is_some_and(|style| style != cluster.style_index) {
+                    breaks.push(index as u32);
+                }
+                previous = Some(cluster.style_index);
+            }
+            run.style_breaks = start..breaks.len();
+        }
         for run in self.runs.iter() {
             let word = run.word_spacing;
             let letter = run.letter_spacing;

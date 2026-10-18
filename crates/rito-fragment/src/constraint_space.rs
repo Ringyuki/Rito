@@ -28,13 +28,38 @@ pub struct ConstraintSpace {
     /// as auto. Distinct from `fragmentainer_size`, which is the page
     /// clamp, not a containing block.
     pub containing_block_size: Option<f64>,
-    /// Whether line boxes carry their text fragments. Without them a
-    /// layout breaks, sizes and stacks every line, and breaks every
-    /// fragmentainer, exactly as with them, but places nothing along a
-    /// line (inline positions are not meaningful): pagination reads no
-    /// text, and a page laid out again from its break token with them is
-    /// the page.
-    pub line_text: bool,
+    /// Which line boxes carry their text fragments.
+    pub line_text: LineText,
+}
+
+/// Which line boxes of a layout carry their text fragments. Without them a
+/// layout breaks, sizes and stacks every line, and breaks every
+/// fragmentainer, exactly as with them, but places nothing along a line
+/// (inline positions are not meaningful): pagination reads no text, and a
+/// page laid out again from its break token with them is the page.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LineText {
+    /// No line carries its text.
+    Omitted,
+    /// Every line does.
+    All,
+    /// The lines whose box starts within this block range of the inline
+    /// flow, in its own coordinates and ends included, do: the lines a
+    /// block container slicing the flow can place in one fragmentainer.
+    /// The others are laid out as under [`LineText::Omitted`].
+    Within { top: f64, bottom: f64 },
+}
+
+impl LineText {
+    /// Whether a line whose box starts `top` into the flow carries its
+    /// text.
+    pub fn at(self, top: f64) -> bool {
+        match self {
+            Self::Omitted => false,
+            Self::All => true,
+            Self::Within { top: start, bottom } => start <= top && top <= bottom,
+        }
+    }
 }
 
 /// One band of float exclusion at the top of a layout's block axis.
@@ -57,7 +82,7 @@ impl ConstraintSpace {
             fragmentainer_size: None,
             float_band: None,
             containing_block_size: None,
-            line_text: true,
+            line_text: LineText::All,
         }
     }
 
@@ -69,7 +94,7 @@ impl ConstraintSpace {
             fragmentainer_size: Some(fragmentainer_size),
             float_band: None,
             containing_block_size: None,
-            line_text: true,
+            line_text: LineText::All,
         }
     }
 }

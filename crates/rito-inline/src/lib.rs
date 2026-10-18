@@ -31,7 +31,7 @@ use parley::{
 use rito_fragment::{
     BoxFragment, CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent,
     FormattingNodeId, FormattingTree, Fragment, FragmentRect, FragmentTree, InlineItem,
-    IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, TextFragment,
+    IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, LineText, TextFragment,
 };
 use rito_style_contract::{
     FontSlant, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage, LineHeight,

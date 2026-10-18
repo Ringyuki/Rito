@@ -9,7 +9,7 @@
 //! independent of which inline provider backs it.
 
 use rito_fragment::{
-    BreakToken, CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment,
+    BreakToken, CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment, LineText,
 };
 
 use crate::epub::{EpubError, EpubResult};
@@ -107,7 +107,14 @@ fn page_space(
     } else {
         ConstraintSpace::fragmented(content_width, content_height)
     };
-    ConstraintSpace { line_text, ..space }
+    ConstraintSpace {
+        line_text: if line_text {
+            LineText::All
+        } else {
+            LineText::Omitted
+        },
+        ..space
+    }
 }
 
 /// Lays `tree` out page by page into `content_width` × `content_height`

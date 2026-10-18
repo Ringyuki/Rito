@@ -263,12 +263,11 @@ pub(crate) fn resolved_font_halt(
 /// declares it. A latin face's curly quote must NOT extend the line
 /// (measured: a Tinos closing quote got the half-width extension and
 /// pulled `men.` plus the quote onto a line the browser broke earlier).
-pub(crate) fn cluster_font_has_halt(cluster: &parley::layout::Cluster<'_, [u8; 4]>) -> bool {
-    let run = cluster.run();
-    let font = run.font();
-    skrifa::FontRef::from_index(font.data.as_ref(), font.index)
-        .map(|font_ref| font_ref_has_halt(&font_ref))
-        .unwrap_or(false)
+pub(crate) fn cluster_font_has_halt(
+    catalog: &FontCatalog,
+    cluster: &parley::layout::Cluster<'_, [u8; 4]>,
+) -> bool {
+    catalog.has_halt(cluster.run().font())
 }
 
 /// Whether the face declares the OpenType `halt` feature in GSUB or GPOS.

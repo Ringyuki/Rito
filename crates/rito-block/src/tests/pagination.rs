@@ -1058,7 +1058,7 @@ fn leading_padding_breaks_alone_when_it_squeezes_a_full_page_line() {
         fragmentainer_size: Some(10.0),
         float_band: None,
         containing_block_size: None,
-        line_text: true,
+        line_text: LineText::All,
     };
     let first = context
         .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
@@ -1159,7 +1159,7 @@ fn leading_padding_breaks_even_when_the_line_overflows_a_whole_page() {
         fragmentainer_size: Some(8.0),
         float_band: None,
         containing_block_size: None,
-        line_text: true,
+        line_text: LineText::All,
     };
     let first = context
         .layout(&tree, tree.root(), &space, None, &CancelFlag::new())
@@ -1267,7 +1267,7 @@ fn deferred_trailing_padding_opens_the_next_page_and_preserves_the_sibling_margi
         fragmentainer_size: Some(9.0),
         float_band: None,
         containing_block_size: None,
-        line_text: true,
+        line_text: LineText::All,
     };
     let first = context
         .layout(&tree, tree.root(), &space, None, &CancelFlag::new())

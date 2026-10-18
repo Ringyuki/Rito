@@ -227,6 +227,30 @@ impl<'a, B: Brush> Iterator for StyleRunIter<'a, B> {
                     let range = run.cluster_range();
                     let len = range.len();
                     let rtl = run.is_rtl();
+                    if !rtl {
+                        // From the next cluster holding a glyph to the
+                        // run's next style break, or the line's end.
+                        let clusters = &run.layout.data.clusters;
+                        let mut at = range.start + self.cluster;
+                        while at < range.end && clusters[at].glyph_len == 0 {
+                            at += 1;
+                        }
+                        if at < range.end {
+                            let breaks =
+                                &run.layout.data.style_breaks[run.data.style_breaks.clone()];
+                            let next = breaks.partition_point(|index| *index as usize <= at);
+                            let end = breaks
+                                .get(next)
+                                .map_or(range.end, |index| range.end.min(*index as usize));
+                            self.cluster = end - range.start;
+                            let style_index = clusters[at].style_index;
+                            let style = run.layout.data.styles.get(usize::from(style_index))?;
+                            return Some(LineStyleRun::Glyphs { run, style });
+                        }
+                        self.item_index += 1;
+                        self.cluster = 0;
+                        continue;
+                    }
                     let clusters = &run.layout.data.clusters[range];
                     let at = |visual: usize| &clusters[if rtl { len - 1 - visual } else { visual }];
                     while self.cluster < len && at(self.cluster).glyph_len == 0 {

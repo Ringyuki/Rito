@@ -24,10 +24,11 @@ impl FormattingContext for ParleyInlineContext {
             ));
         }
         let root = node;
-        // Without line text (pagination) every line is still placed and
-        // sized: only the text fragments, and the justification that
-        // positions them, are left out.
-        let line_text = space.line_text;
+        // A line without its text (pagination, or outside the lines a
+        // fragmentainer places) is still placed and sized: only the text
+        // fragments, and the justification that positions them, are left
+        // out.
+        let text_lines = space.line_text;
         // Float exclusion: lines inside the band are broken at the reduced
         // width and shifted past the left inset; the flow returns to the
         // full inline size below the band. CSS shortens line boxes around
@@ -206,6 +207,7 @@ impl FormattingContext for ParleyInlineContext {
                     image_edge_insets,
                     empty_box_struts,
                     cluster_steps,
+                    line_end_trims,
                     reads_space,
                 } = self.shaped_paragraph(
                     tree,
@@ -571,9 +573,11 @@ impl FormattingContext for ParleyInlineContext {
                     })
                     .collect();
                 // Both the line-end trim and the rewind need an eligible
-                // closer to overflow; a paragraph without one cannot take
-                // either at any width, so neither scan runs.
-                let scanned_lines = if text.chars().any(line_end_trim_eligible) {
+                // closer in a `halt` face to overflow; a paragraph without
+                // one cannot take either at any width, so neither scan runs.
+                let scanned_lines = if *line_end_trims
+                    .get_or_init(|| line_end_trims_possible(&self.catalog, &layout, &text))
+                {
                     layout.len().saturating_sub(1)
                 } else {
                     0
@@ -599,6 +603,7 @@ impl FormattingContext for ParleyInlineContext {
                         return None;
                     }
                     line_end_trim_candidate(
+                        &self.catalog,
                         &layout,
                         &text,
                         index,
@@ -637,6 +642,7 @@ impl FormattingContext for ParleyInlineContext {
                                 continue;
                             }
                             let Some(count) = rewind_break_count(
+                                &self.catalog,
                                 &layout,
                                 &text,
                                 index,
@@ -831,6 +837,7 @@ impl FormattingContext for ParleyInlineContext {
         for line in layout.lines() {
             let metrics = line.metrics();
             let line_top = running_top;
+            let line_text = text_lines.at(line_top);
             let has_inline_box = line.has_inline_box();
             // Env-gated line forensics for the native probe binary (wasm
             // has no env; the flag simply never sets there).
@@ -2866,7 +2873,9 @@ impl FormattingContext for ParleyInlineContext {
             // Without line text the lines are all the outcome holds: they
             // break and stack alike at every size the decisions answered
             // alike at.
-            inline_size_range: (!line_text).then(|| bounds.range()).flatten(),
+            inline_size_range: (text_lines == LineText::Omitted)
+                .then(|| bounds.range())
+                .flatten(),
         })
     }
 

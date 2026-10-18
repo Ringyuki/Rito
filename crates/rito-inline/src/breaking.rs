@@ -150,6 +150,7 @@ pub(crate) const LINE_END_TRIM_SCAN: usize = 64;
 /// only the leading `①` span while greedy would split the text item.
 /// Returns the cluster count the line must be forced to hold.
 pub(crate) fn rewind_break_count(
+    catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
     line_index: usize,
@@ -188,7 +189,7 @@ pub(crate) fn rewind_break_count(
             cluster = cluster.next_logical()?;
             continue;
         }
-        if !cluster_font_has_halt(&cluster) {
+        if !cluster_font_has_halt(catalog, &cluster) {
             return None;
         }
         if !line_end_trim_eligible(character) {
@@ -237,7 +238,9 @@ pub(crate) fn rewind_break_count(
 /// caller re-lays the paragraph with the trim applied and keeps it only
 /// if the line then breaks exactly after the trimmed closer, so parley's
 /// own fitting (and its break rules) remain the authority.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn line_end_trim_candidate(
+    catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
     line_index: usize,
@@ -306,7 +309,7 @@ pub(crate) fn line_end_trim_candidate(
         if !line_end_trim_eligible(character) {
             return None;
         }
-        if !cluster_font_has_halt(&cluster) {
+        if !cluster_font_has_halt(catalog, &cluster) {
             return None;
         }
         if decided(byte) {
@@ -319,6 +322,23 @@ pub(crate) fn line_end_trim_candidate(
         return Some((byte, unsuppress));
     }
     None
+}
+
+/// Whether a line of the paragraph could take a line-end trim, or the
+/// rewind it is rejected into, at any width: both need an eligible closer
+/// (see [`line_end_trim_eligible`]) shaped in a face with `halt`, and
+/// shaping puts a character in the same face at every width.
+pub(crate) fn line_end_trims_possible(
+    catalog: &FontCatalog,
+    layout: &parley::Layout<[u8; 4]>,
+    text: &str,
+) -> bool {
+    text.char_indices()
+        .filter(|(_, character)| line_end_trim_eligible(*character))
+        .any(|(byte, _)| {
+            parley::layout::Cluster::from_byte_index(layout, byte)
+                .is_some_and(|cluster| cluster_font_has_halt(catalog, &cluster))
+        })
 }
 
 /// Whether a fullwidth closing glyph is eligible for the conditional
