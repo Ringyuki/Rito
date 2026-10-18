@@ -15,7 +15,9 @@ use crate::render::contract::{
     ReaderBorderEdgePaint, ReaderBorderStyle, ReaderColor, ReaderHorizontalRulePaint, ReaderLength,
     ReaderPoint, ReaderSize, ReaderTransform,
 };
-use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint};
+use crate::render::{
+    display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
+};
 
 use super::family::{face_family, split_by_face};
 use super::line::append_line_commands;
@@ -326,19 +328,14 @@ pub(super) fn append_fragment_display_commands_inner(
                     // layout grid, and every cluster paints where the
                     // engine measured it from the box's start.
                     let left = origin_x + fragment.rect.x - run.advance;
-                    let drawn: Vec<_> = run
+                    let clusters = run
                         .clusters
                         .iter()
-                        .filter(|cluster| !cluster.joins)
-                        .collect();
-                    let clusters = drawn
-                        .iter()
-                        .map(|cluster| {
-                            (
-                                cluster.byte,
-                                cluster_x(left + cluster.x, run.grid),
-                                baseline,
-                            )
+                        .map(|cluster| TextCluster {
+                            byte: cluster.byte,
+                            x: cluster_x(left + cluster.x, run.grid),
+                            y: baseline,
+                            joins: cluster.joins,
                         })
                         .collect();
                     let command = DisplayTextCommand {
@@ -356,7 +353,8 @@ pub(super) fn append_fragment_display_commands_inner(
                         source_text_offset: None,
                         clusters,
                     };
-                    let marker_faces: Vec<_> = drawn.iter().map(|cluster| cluster.face).collect();
+                    let marker_faces: Vec<_> =
+                        run.clusters.iter().map(|cluster| cluster.face).collect();
                     for piece in
                         split_by_face(command, &marker_faces, |face, _, _| paint_for(face))?
                     {

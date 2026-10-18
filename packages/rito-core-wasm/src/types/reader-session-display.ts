@@ -68,17 +68,21 @@ export interface RitoReaderTextRun {
   readonly href?: string | undefined;
   readonly sourceText?: string | undefined;
   readonly sourceTextOffset?: bigint | undefined;
-  /** The origin of every cluster in text order; empty only for a run the
-   * renderer still places itself. */
-  readonly clusters: readonly RitoReaderCluster[];
+  /** Every cluster in text order; empty only for a run the renderer
+   * still places itself. */
+  readonly clusters: RitoReaderClusters;
 }
 
-/** Where one cluster of a run paints: the origin of the cluster starting
- * at `byte` of the run's UTF-8 text, in CSS pixels — `y` is the
- * alphabetic baseline of a text run, the em-box top of an annotation;
- * spacing, justification and ruby distribution are already applied. */
-export interface RitoReaderCluster {
-  readonly byte: number;
-  readonly x: number;
-  readonly y: number;
+/** Where every cluster of a run paints, packed in text order. Cluster `i`
+ * starts at byte `bytes[i]` of the run's UTF-8 text and paints with its
+ * origin at (`origins[2i]`, `origins[2i + 1]`) in CSS pixels — the
+ * alphabetic baseline, of a text run and an annotation alike — at
+ * float32, the precision a canvas takes it at; spacing, justification and
+ * ruby distribution are already applied. `joins[i]` is 1 where a pen
+ * drawing one string from the previous cluster's origin puts cluster `i`
+ * at its own origin. */
+export interface RitoReaderClusters {
+  readonly bytes: Uint32Array;
+  readonly origins: Float32Array;
+  readonly joins: Uint8Array;
 }

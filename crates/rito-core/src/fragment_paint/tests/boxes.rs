@@ -150,7 +150,11 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
     assert_eq!(marker.rect.width, 16.0);
     // The item's painted baseline: line top 26 plus baseline 13.
     assert_eq!(
-        marker.clusters,
+        marker
+            .clusters
+            .iter()
+            .map(|cluster| cluster.origin())
+            .collect::<Vec<_>>(),
         vec![(0, -6.0, 39.0), (1, 2.0, 39.0), (2, 6.0, 39.0)]
     );
     assert!(

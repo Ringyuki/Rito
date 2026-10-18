@@ -94,7 +94,7 @@ fn a_run_drawn_from_two_faces_paints_once_per_face() {
         second
             .clusters
             .iter()
-            .map(|cluster| cluster.0)
+            .map(|cluster| cluster.byte)
             .collect::<Vec<_>>(),
         vec![0, 1]
     );

@@ -4,7 +4,7 @@ use crate::render::{
         ImageFallbackState, ImageSize, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
     },
     test_support::css_color,
-    DisplayCommand, DisplayTextCommand, RunPaint,
+    DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
 };
 
 use super::{
@@ -80,12 +80,12 @@ fn fixed_primitive_wire_does_not_drift() {
     })
     .expect("encode fixed primitive");
 
-    // Magic, format 2, ratio 2.0 as a little-endian f64, one primitive,
+    // Magic, format 3, ratio 2.0 as a little-endian f64, one primitive,
     // the push-state opcode.
     assert_eq!(
         encoded.bytes,
         [
-            b'R', b'I', b'T', b'O', b'D', b'L', b'1', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 1, 0,
+            b'R', b'I', b'T', b'O', b'D', b'L', b'1', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 1, 0,
             0, 0, 1, 0,
         ]
     );
@@ -135,6 +135,12 @@ fn validator_rejects_the_semantic_format_and_trailing_bytes() {
         validate(&format_one),
         Err(DecodeError::UnsupportedVersion(1))
     );
+    // Format 2 carried only the clusters a pen starts a string at.
+    format_one[7..11].copy_from_slice(&2u32.to_le_bytes());
+    assert_eq!(
+        validate(&format_one),
+        Err(DecodeError::UnsupportedVersion(2))
+    );
 
     let mut trailing = encode_reader_primitive_list(&all_primitive_shapes())
         .expect("encode")
@@ -177,10 +183,36 @@ fn every_color_space_tag_is_valid_and_tag_16_is_rejected() {
 }
 
 #[test]
-fn lowered_display_commands_encode_as_format_2() {
+fn validator_rejects_a_cluster_flag_other_than_joins() {
+    let lowered = lower(&representative_commands(), 1.0, &fixture_image_size).expect("lower");
+    let run = lowered
+        .commands
+        .into_iter()
+        .find(|primitive| matches!(primitive, Primitive::Text(_)))
+        .expect("representative text lowers to a text run");
+    let Primitive::Text(text) = &run else {
+        unreachable!()
+    };
+    assert!(text.clusters.iter().any(|cluster| cluster.joins));
+    let mut bytes = encode_reader_primitive_list(&PrimitiveList {
+        ratio: 1.0,
+        commands: vec![run.clone()],
+    })
+    .expect("encode")
+    .bytes;
+    assert_eq!(validate(&bytes), Ok(1));
+    // The run ends with its cluster table; the last cluster's flag is the
+    // final byte.
+    let last = bytes.len() - 1;
+    bytes[last] = 2;
+    assert_eq!(validate(&bytes), Err(DecodeError::InvalidOption(2)));
+}
+
+#[test]
+fn lowered_display_commands_encode_as_format_3() {
     let lowered = lower(&representative_commands(), 2.0, &fixture_image_size).expect("lower");
     let encoded = encode_reader_primitive_list(&lowered).expect("encode");
-    assert_eq!(encoded.format_version, 2);
+    assert_eq!(encoded.format_version, 3);
     assert_eq!(validate(&encoded.bytes), Ok(encoded.command_count));
     assert_eq!(
         encoded.image_hrefs,
@@ -362,10 +394,13 @@ fn representative_commands() -> Vec<DisplayCommand> {
             source_text: Some("source".to_owned()),
             source_text_offset: Some(9),
             clusters: vec![
-                (0, 0.0, 12.5),
-                (1, 8.5, 12.5),
-                (2, 12.25, 12.5),
-                (3, 16.0, 12.5),
+                TextCluster::at(0, 0.0, 12.5),
+                TextCluster {
+                    joins: true,
+                    ..TextCluster::at(1, 8.5, 12.5)
+                },
+                TextCluster::at(2, 12.25, 12.5),
+                TextCluster::at(3, 16.0, 12.5),
             ],
         }),
         DisplayCommand::paint_image(

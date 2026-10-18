@@ -1,7 +1,7 @@
 import type { RitoReaderColor, RitoReaderRect, RitoReaderTextRun } from './reader-session-display';
 
 /**
- * `RITODL1` format version 2: the device-resolved primitive list. Every
+ * `RITODL1` format version 3: the device-resolved primitive list. Every
  * coordinate is a device pixel on the grid the host rasterizes, and every
  * rule about where ink lands has been applied by the engine. Text runs
  * stay in CSS pixels and are drawn under `scale(ratio)`: glyph
@@ -10,7 +10,7 @@ import type { RitoReaderColor, RitoReaderRect, RitoReaderTextRun } from './reade
  * glyph placement is still the renderer's.
  */
 export interface RitoReaderPrimitiveList {
-  readonly formatVersion: 2;
+  readonly formatVersion: 3;
   /** Device pixels per CSS pixel the list was resolved at. */
   readonly ratio: number;
   readonly commandCount: number;

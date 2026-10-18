@@ -15,7 +15,7 @@ use crate::render::contract::{
     ReaderBlockPaint, ReaderBorderStyle, ReaderPoint, ReaderRect, ReaderTransform,
 };
 use crate::render::test_support::css_color;
-use crate::render::{display_number, display_rect, DisplayTextCommand};
+use crate::render::{display_number, display_rect, DisplayTextCommand, TextCluster};
 
 use rito_fragment::{
     BoxFragment, FormattingNode, FormattingNodeId, FormattingTreeStyles, FragmentRect,

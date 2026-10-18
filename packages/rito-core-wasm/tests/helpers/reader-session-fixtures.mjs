@@ -4,6 +4,7 @@ import {
   READER_PROTOCOL_VERSION,
   ReaderWireWriter,
 } from '../../src/reader-session-wire-base-runtime.js';
+import { READER_V1_PRIMITIVE_LIST_FORMAT_VERSION } from '../../src/reader-session-primitive-decoder-runtime.js';
 
 // Shared reader-session test scaffolding: hand-built wires for the
 // pagination messages and in-process stand-ins for the worker transport.
@@ -48,7 +49,7 @@ export function artifactWire(sessionId, requestId, artifactId, href, options = {
   writer.u32(0, 'text profile');
   writer.record((record) => {
     const display = displayWire(0);
-    record.u32(2, 'display version');
+    record.u32(READER_V1_PRIMITIVE_LIST_FORMAT_VERSION, 'display version');
     record.u32(options.displayCommandCount ?? 0, 'display commands');
     record.u64(BigInt(display.byteLength), 'display bytes length');
     record.raw(display);
@@ -62,7 +63,7 @@ export function artifactWire(sessionId, requestId, artifactId, href, options = {
 export function displayWire(count, write = () => undefined) {
   const writer = new ReaderWireWriter();
   writer.raw(new TextEncoder().encode('RITODL1'));
-  writer.u32(2, 'display version');
+  writer.u32(READER_V1_PRIMITIVE_LIST_FORMAT_VERSION, 'display version');
   writer.f64(1, 'display ratio');
   writer.count(count, 'display commands');
   write(writer);

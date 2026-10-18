@@ -13,7 +13,9 @@ use std::collections::BTreeMap;
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::FlowItemSource;
 use crate::render::contract::{ReaderPoint, ReaderRect, ReaderSize, ReaderTransform};
-use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint};
+use crate::render::{
+    display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
+};
 
 use super::family::{face_family, face_pieces};
 use super::run_style::run_paint;
@@ -42,7 +44,7 @@ fn append_vertical_run_commands(
     href: Option<String>,
 ) {
     let step = font_size + paint.letter_spacing_px.unwrap_or(0.0);
-    let run = |text: String, rect: ReaderRect, clusters: Vec<(u32, f64, f64)>| {
+    let run = |text: String, rect: ReaderRect, clusters: Vec<TextCluster>| {
         DisplayCommand::PaintText(DisplayTextCommand {
             text,
             rect,
@@ -54,12 +56,12 @@ fn append_vertical_run_commands(
             clusters,
         })
     };
-    let mut segment: Vec<(u32, f64, f64)> = Vec::new();
+    let mut segment: Vec<TextCluster> = Vec::new();
     let mut segment_start = 0usize;
     let mut segment_end = 0usize;
     let mut segment_top = top;
     let flush = |commands: &mut Vec<DisplayCommand>,
-                 segment: &mut Vec<(u32, f64, f64)>,
+                 segment: &mut Vec<TextCluster>,
                  start: usize,
                  end: usize,
                  segment_top: f64| {
@@ -97,7 +99,7 @@ fn append_vertical_run_commands(
             commands.push(run(
                 glyph.to_string(),
                 display_rect(glyph_x, glyph_top, font_size, font_size),
-                vec![(0, glyph_x, pen_y)],
+                vec![TextCluster::at(0, glyph_x, pen_y)],
             ));
             commands.push(DisplayCommand::PopState);
             segment_start = byte + glyph.len_utf8();
@@ -113,7 +115,11 @@ fn append_vertical_run_commands(
         } else {
             (glyph_x, pen_y)
         };
-        segment.push(((byte - segment_start) as u32, origin.0, origin.1));
+        segment.push(TextCluster::at(
+            (byte - segment_start) as u32,
+            origin.0,
+            origin.1,
+        ));
         segment_end = byte + glyph.len_utf8();
     }
     flush(
@@ -338,7 +344,7 @@ pub(super) fn append_vertical_line_commands(
                         .char_indices()
                         .enumerate()
                         .map(|(index, (byte, _))| {
-                            (
+                            TextCluster::at(
                                 byte as u32,
                                 annotation_x,
                                 span_top

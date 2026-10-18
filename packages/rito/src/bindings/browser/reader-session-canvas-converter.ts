@@ -11,7 +11,7 @@ type CoreText = Extract<CoreFrameCommand, { readonly kind: 'paintText' }>;
 type CoreRuby = Extract<CoreFrameCommand, { readonly kind: 'paintRuby' }>;
 type CoreRunPaint = CoreText['paint'];
 
-/** The text and ruby bodies the format-2 primitives carry; either converts
+/** The text and ruby bodies the primitives carry; either converts
  * to the text painter's shape. */
 export type ReaderTextBody = Pick<
   RitoReaderTextRun,
@@ -28,7 +28,7 @@ export function convertReaderText(command: ReaderTextBody): CoreText {
     ...(command.lineHeightPx === undefined ? {} : { lineHeightPx: command.lineHeightPx }),
     ...(command.href === undefined ? {} : { href: command.href }),
     ...(command.sourceText === undefined ? {} : { sourceText: command.sourceText }),
-    ...(command.clusters.length > 0 ? { clusters: command.clusters } : {}),
+    ...(command.clusters.bytes.length > 0 ? { clusters: command.clusters } : {}),
   };
 }
 
@@ -38,7 +38,7 @@ export function convertReaderRuby(command: ReaderRubyBody): CoreRuby {
     text: command.text,
     rect: command.rect,
     paint: convertRunPaint(command.paint),
-    ...(command.clusters.length > 0 ? { clusters: command.clusters } : {}),
+    ...(command.clusters.bytes.length > 0 ? { clusters: command.clusters } : {}),
   };
 }
 

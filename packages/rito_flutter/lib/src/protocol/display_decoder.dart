@@ -49,8 +49,9 @@ RitoTextPaintCommand _readTextRun(
     clusters.add(
       RitoClusterPosition(
         byte: reader.uint32('cluster byte'),
-        x: reader.float64('cluster x'),
-        y: reader.float64('cluster y'),
+        x: reader.float32('cluster x'),
+        y: reader.float32('cluster y'),
+        joins: reader.boolean('cluster joins'),
       ),
     );
   }

@@ -1,26 +1,28 @@
 import 'display_geometry.dart';
 import 'display_paint.dart';
 
-/// The text run body the `RITODL1` text and ruby primitives carry: every
-/// length is in CSS pixels, painted under the list's ratio.
 /// Where one cluster of a run paints: the origin of the cluster starting
-/// at [byte] of the run's text, in CSS pixels, spacing and justification
-/// already applied.
-/// Where one cluster of a run paints: the origin of the cluster starting
-/// at [byte] of the run's UTF-8 text — [y] is the alphabetic baseline,
-/// for a text run and an annotation alike.
+/// at [byte] of the run's UTF-8 text, in CSS pixels at float32 (the
+/// precision a canvas takes it at) with spacing and justification already
+/// applied — [y] is the alphabetic baseline, for a text run and an
+/// annotation alike — and whether a pen drawing one string from the
+/// previous cluster's origin puts this cluster there ([joins]).
 final class RitoClusterPosition {
   const RitoClusterPosition({
     required this.byte,
     required this.x,
     required this.y,
+    this.joins = false,
   });
 
   final int byte;
   final double x;
   final double y;
+  final bool joins;
 }
 
+/// The text run body the `RITODL1` text and ruby primitives carry: every
+/// length is in CSS pixels, painted under the list's ratio.
 sealed class RitoTextPaintCommand {
   const RitoTextPaintCommand({
     required this.text,

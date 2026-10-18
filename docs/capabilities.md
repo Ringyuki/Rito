@@ -68,11 +68,11 @@ projected into typed tables the layout crates read:
 
 - every page lowered in the engine to device-pixel primitives: fills,
   paths, strokes with dash cadences, shadows, images with tiling, text
-  and ruby runs carrying the origin of every glyph cluster a pen cannot
-  reach from the one before it
+  and ruby runs carrying the origin of every glyph cluster, flagged where
+  a pen reaches it from the one before
 - box edges and border widths snapped to whole CSS pixels, glyph
   baselines snapped on the device grid, the way the browser rasters
-- `RITODL1` format 2 as the only wire; hosts blit and never interpret
+- `RITODL1` format 3 as the only wire; hosts blit and never interpret
 - theme background and foreground overrides without re-pagination
 - pinned fonts shared by layout and paint on every host
 

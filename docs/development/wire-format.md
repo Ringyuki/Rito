@@ -1,4 +1,4 @@
-# Wire Format: `RITODL1` format 2
+# Wire Format: `RITODL1` format 3
 
 A frame reaches a host as one `RITODL1` byte buffer: the page's display
 list lowered to device pixels at the host's render ratio. The host
@@ -111,7 +111,7 @@ optional f64     line height
 optional string  link target (href)
 optional string  source text
 optional u64     source text offset
-u32      cluster count, then per cluster u32 UTF-8 byte offset, f64 x, f64 y
+u32      cluster count, then per cluster u32 UTF-8 byte offset, f32 x, f32 y, u8 joins (0 or 1)
 ```
 
 A run carries glyph paint only. Its inline box (background band,
@@ -119,10 +119,13 @@ padding, border edges) and its decoration line arrive as fill and stroke
 primitives around it, and letter spacing, word spacing and justification
 are already in the cluster origins: a host draws the text from each
 origin up to the next as one string at that origin, with its own spacing
-off, and never places a glyph itself. A cluster that the one before it
-reaches by its bare glyph advance (no spacing, justification or kerning
-added, the same face, left to right) has no origin of its own: any pen
-stepping through the string puts it where layout did. A
+off, and never places a glyph itself. Every cluster carries its origin;
+one that the cluster before it reaches by its bare glyph advance (no
+spacing, justification or kerning added, the same face, left to right)
+is flagged `joins`: a pen drawing strings draws it inside the string
+started before it, where any pen stepping through the string puts it,
+and a pen placing clusters one at a time draws it at its origin. Origins
+travel as float32, the precision a canvas takes them at. A
 cluster's y is the alphabetic baseline for a text run and for a ruby
 annotation alike. Vertical columns arrive as runs of upright glyphs
 stepped down the column, each rotated mark as its own run under a

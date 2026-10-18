@@ -9,6 +9,7 @@ import type {
   CanvasTextColorOverride,
   CanvasTextFragment,
 } from '../../src/bindings/browser/canvas-text/types';
+import { clusterTable } from '../helpers/cluster-table';
 import { createMockCanvasContext, type MockCanvasContext } from '../helpers/mock-canvas-context';
 
 type TextPaint = CanvasTextFragment['paint'];
@@ -18,13 +19,18 @@ const BASE_PAINT = {
   color: '#223344',
   font: { style: 'normal', weight: 400, sizePx: 16, family: 'serif' },
 } as const satisfies TextPaint;
-// The engine's origins for 'Canvas text' in a 16px run at (10, 20): the
-// word, the space and the word, each on the em-box baseline 20 + 0.8·16.
-const CLUSTERS = [
-  { byte: 0, x: 10, y: 32.8 },
-  { byte: 6, x: 60, y: 32.8 },
-  { byte: 7, x: 64, y: 32.8 },
-] as const;
+// The engine's origins for 'Canvas text' in a 16px run at (10, 20), on
+// the em-box baseline 20 + 0.8·16 at float32 as the wire carries it: the
+// letters after each word's first join it, the space and each word's
+// first letter start a string of their own.
+const BASELINE = Math.fround(32.8);
+const CLUSTERS = clusterTable([
+  [0, 10, BASELINE],
+  ...[1, 2, 3, 4, 5].map((byte) => [byte, 10 + byte * 8, BASELINE, true] as const),
+  [6, 60, BASELINE],
+  [7, 64, BASELINE],
+  ...[8, 9, 10].map((byte) => [byte, 64 + (byte - 7) * 6, BASELINE, true] as const),
+]);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -75,9 +81,9 @@ describe('production Canvas text renderer', () => {
   it('draws every cluster at the origin the engine placed it at', () => {
     const result = drawText(textFragment());
     expect(result.getCalls('fillText').map((call) => call.args)).toEqual([
-      ['Canvas', 10, 32.8],
-      [' ', 60, 32.8],
-      ['text', 64, 32.8],
+      ['Canvas', 10, BASELINE],
+      [' ', 60, BASELINE],
+      ['text', 64, BASELINE],
     ]);
     expect(result.getCalls('measureText')).toHaveLength(0);
   });
@@ -118,10 +124,10 @@ describe('production Canvas text renderer', () => {
         },
         'かな',
       ),
-      clusters: [
-        { byte: 0, x: 19.5, y: 20 },
-        { byte: 3, x: 38.5, y: 20 },
-      ],
+      clusters: clusterTable([
+        [0, 19.5, 20],
+        [3, 38.5, 20],
+      ]),
     };
     const result = drawRuby(ruby, COLOR_OVERRIDE);
     // The engine distributed the annotation (here the space-around

@@ -146,7 +146,7 @@ commit as any engine-side encoding change. When you bump your pinned
 commit, diff that directory (and `render/commands/reader_wire/` on
 the Rust side) against your bridge.
 
-`RITODL1` is written at format version 2 only: the device-resolved
+`RITODL1` is written at format version 3 only: the device-resolved
 primitive list the engine lowers every frame to (the byte layout is in
 [Wire Format](../development/wire-format.md)). The header carries the
 render ratio (u32 format version, f64 ratio, u32 primitive count), every
@@ -167,8 +167,8 @@ browser's fixed-point advances already applied: a host draws the text
 from each origin up to the next as one string at that origin, with its
 own spacing off, and never places a glyph itself. A cluster the one
 before it reaches by its bare glyph advance (no spacing, justification
-or kerning added, the same face, left to right) has no origin of its
-own. An outside list marker is such a
+or kerning added, the same face, left to right) is flagged `joins` and
+drawn inside the string started before it. An outside list marker is such a
 run: the engine shapes the marker string, sizes its box on the layout
 grid and sends the box's left edge and cluster origins. A ruby
 annotation arrives the same way: the engine distributes it over its base

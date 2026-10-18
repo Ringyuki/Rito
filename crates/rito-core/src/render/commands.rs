@@ -72,11 +72,39 @@ pub(crate) struct DisplayTextCommand {
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    /// Where each cluster of the text paints, in text order: byte offset
-    /// into `text` and the absolute CSS origin the pen draws it at — its
-    /// alphabetic baseline, for a text run and an annotation alike.
-    /// Empty only for a run the renderer still places itself.
-    pub clusters: Vec<(u32, f64, f64)>,
+    /// Every cluster of the text, in text order. Empty only for a run the
+    /// renderer still places itself.
+    pub clusters: Vec<TextCluster>,
+}
+
+/// Where one cluster of a painted run sits: its byte offset into the run's
+/// text and the absolute CSS origin a pen draws it at — its alphabetic
+/// baseline, for a text run and an annotation alike — and whether a pen
+/// drawing from the previous cluster's origin, in one string, reaches it
+/// (see `rito_fragment::ClusterPosition::joins`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct TextCluster {
+    pub byte: u32,
+    pub x: f64,
+    pub y: f64,
+    pub joins: bool,
+}
+
+impl TextCluster {
+    /// A cluster a pen places on its own.
+    pub(crate) const fn at(byte: u32, x: f64, y: f64) -> Self {
+        Self {
+            byte,
+            x,
+            y,
+            joins: false,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) const fn origin(self) -> (u32, f64, f64) {
+        (self.byte, self.x, self.y)
+    }
 }
 
 impl DisplayCommand {

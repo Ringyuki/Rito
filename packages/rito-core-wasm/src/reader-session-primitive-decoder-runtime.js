@@ -10,12 +10,12 @@ import {
 import { readRitoDisplayColor } from './reader-session-display-paint-runtime.js';
 
 /**
- * `RITODL1` format version 2, mirroring `READER_PRIMITIVE_LIST_FORMAT_VERSION`
+ * `RITODL1` format version 3, mirroring `READER_PRIMITIVE_LIST_FORMAT_VERSION`
  * in crates/rito-core/src/render/commands/reader_wire.rs: the
  * device-resolved primitive list. Every coordinate is a device pixel and
  * every raster rule has been applied by the engine; a renderer blits.
  */
-export const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION = 2;
+export const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION = 3;
 
 export function decodeRitoReaderPrimitiveList(value) {
   const bytes = readerWireBytes(value, 'RITODL1');

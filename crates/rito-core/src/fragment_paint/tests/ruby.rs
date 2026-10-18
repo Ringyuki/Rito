@@ -72,16 +72,20 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
     // space-around over the 32px base: 8px of slack, two
     // opportunities — an inset of slack/3 on the layout grid, half at
     // each edge, the rest in the two gaps.
-    let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x, _)| *x).collect();
+    let origins: Vec<f64> = annotation
+        .clusters
+        .iter()
+        .map(|cluster| cluster.x)
+        .collect();
     assert!(
-        annotation.clusters.iter().all(|(_, _, y)| *y == 23.0),
+        annotation.clusters.iter().all(|cluster| cluster.y == 23.0),
         "every origin sits on the annotation's baseline, 16px over the base's (39)"
     );
     assert_eq!(
         annotation
             .clusters
             .iter()
-            .map(|(byte, _, _)| *byte)
+            .map(|cluster| cluster.byte)
             .collect::<Vec<_>>(),
         vec![0, 3, 6]
     );
@@ -172,7 +176,11 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
     // of half the slack, a quarter at each edge, the other half in
     // the gap. The raw 31.99 would have truncated the inset to
     // 7.984375 and the edge to 3.984375.
-    let origins: Vec<f64> = annotation.clusters.iter().map(|(_, x, _)| *x).collect();
+    let origins: Vec<f64> = annotation
+        .clusters
+        .iter()
+        .map(|cluster| cluster.x)
+        .collect();
     assert_eq!(origins, vec![18.0, 34.0]);
     assert_eq!(annotation.rect, display_rect(14.0, 16.6, 32.0, 8.0));
 }
@@ -252,5 +260,5 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
     assert_eq!(annotations[0].rect, display_rect(14.0, 16.6, 32.0, 8.0));
     let inset = (8.0_f64 / 3.0 * 64.0).trunc() / 64.0;
     let edge = (inset / 2.0 * 64.0).trunc() / 64.0;
-    assert!((annotations[0].clusters[0].1 - (14.0 + edge)).abs() < 1e-9);
+    assert!((annotations[0].clusters[0].x - (14.0 + edge)).abs() < 1e-9);
 }

@@ -200,9 +200,10 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     }
   }
 
-  /// The run's text cut at its cluster origins: cluster boundaries are
-  /// UTF-8 byte offsets, so the cut walks the runes counting their UTF-8
-  /// lengths.
+  /// The run's text cut at every cluster that does not join the one
+  /// before it, each piece drawn from that cluster's origin: cluster
+  /// boundaries are UTF-8 byte offsets, so the cut walks the runes
+  /// counting their UTF-8 lengths.
   static List<({String text, double x, double y})> _clusterPieces(
     String text,
     List<RitoClusterPosition> clusters,
@@ -224,9 +225,16 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     starts[byte] = index;
     final pieces = <({String text, double x, double y})>[];
     for (var at = 0; at < clusters.length; at += 1) {
+      if (clusters[at].joins) {
+        continue;
+      }
+      var next = at + 1;
+      while (next < clusters.length && clusters[next].joins) {
+        next += 1;
+      }
       final start = starts[clusters[at].byte];
-      final end = at + 1 < clusters.length
-          ? starts[clusters[at + 1].byte]
+      final end = next < clusters.length
+          ? starts[clusters[next].byte]
           : text.length;
       if (start == null || end == null || end <= start) {
         continue;

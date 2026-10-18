@@ -14,6 +14,7 @@ import type {
   BrowserReaderResource,
   BrowserReaderSession,
 } from '../../src/bindings/browser/reader-session';
+import { NO_CLUSTERS } from '../helpers/cluster-table';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 type Primitives = BrowserReaderArtifact['displayList']['displayList']['commands'];
@@ -597,7 +598,7 @@ function readerArtifact(): BrowserReaderArtifact {
     },
     {
       kind: 'text',
-      clusters: [],
+      clusters: NO_CLUSTERS,
       text: 'target',
       rect: { x: 40, y: 60, width: 160, height: 48 },
       paint: {
@@ -646,10 +647,10 @@ function readerArtifact(): BrowserReaderArtifact {
 
 function displayList(commands: Primitives, ratio: number): BrowserReaderArtifact['displayList'] {
   return {
-    formatVersion: 2,
+    formatVersion: 3,
     commandCount: commands.length,
     wireBytes: new Uint8Array(),
-    displayList: { formatVersion: 2, ratio, commandCount: commands.length, commands },
+    displayList: { formatVersion: 3, ratio, commandCount: commands.length, commands },
   };
 }
 

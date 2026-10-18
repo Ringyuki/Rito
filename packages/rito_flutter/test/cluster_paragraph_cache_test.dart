@@ -61,6 +61,15 @@ void main() {
     expect(shared.builds - before, 4, reason: 'only d is new');
   });
 
+  test('clusters that join the one before them paint in its string', () {
+    final shared = RitoClusterParagraphCache.shared;
+    final before = shared.builds;
+    _paint(
+      _page('RitoParagraphCacheTestJoinFace', 'xyz', joined: true),
+    ).dispose();
+    expect(shared.builds - before, 1, reason: 'one string, xyz');
+  });
+
   test('a page in a theme paints the theme ink after the same characters '
       'were painted in the book ink', () async {
     const theme = RitoCanvasColorOverride(
@@ -92,8 +101,9 @@ void main() {
 const ui.Rect _bounds = ui.Rect.fromLTWH(0, 0, 80, 40);
 final ui.Paint _ground = ui.Paint()..color = const ui.Color(0xff808080);
 
-/// One run of [text] in [family], a cluster per character 12 px apart.
-RitoPreparedArtifact _page(String family, String text) {
+/// One run of [text] in [family], a cluster per character 12 px apart;
+/// with [joined], every cluster after the first joins the one before it.
+RitoPreparedArtifact _page(String family, String text, {bool joined = false}) {
   return RitoPreparedArtifact.forTest(
     imageArtifact(
       artifactId: 7100,
@@ -132,7 +142,12 @@ RitoPreparedArtifact _page(String family, String text) {
             ),
             clusters: <RitoClusterPosition>[
               for (var index = 0; index < text.length; index += 1)
-                RitoClusterPosition(byte: index, x: 4 + 12.0 * index, y: 26),
+                RitoClusterPosition(
+                  byte: index,
+                  x: 4 + 12.0 * index,
+                  y: 26,
+                  joins: joined && index > 0,
+                ),
             ],
           ),
         ),

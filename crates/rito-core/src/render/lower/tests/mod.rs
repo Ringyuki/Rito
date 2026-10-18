@@ -1602,7 +1602,7 @@ fn json_form_mirrors_the_decoded_wire_shape() {
     assert_eq!(
         primitive_list_value(&list),
         json!({
-            "formatVersion": 2,
+            "formatVersion": 3,
             "ratio": 1.0,
             "commandCount": 3,
             "commands": [
@@ -1770,7 +1770,12 @@ fn text_run() -> ReaderTextRun {
         clusters: text
             .clusters
             .iter()
-            .map(|&(byte, x, y)| ReaderCluster { byte, x, y })
+            .map(|cluster| ReaderCluster {
+                byte: cluster.byte,
+                x: cluster.x,
+                y: cluster.y,
+                joins: cluster.joins,
+            })
             .collect(),
     }
 }

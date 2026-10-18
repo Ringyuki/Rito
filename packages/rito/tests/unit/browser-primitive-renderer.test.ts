@@ -6,6 +6,7 @@ import type {
 } from '@ritojs/core-wasm';
 
 import { renderReaderPrimitivesToCanvas } from '../../src/bindings/browser/primitive-renderer';
+import { NO_CLUSTERS } from '../helpers/cluster-table';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 function srgb(r: number, g: number, b: number, alpha = 1): RitoReaderColor {
@@ -24,7 +25,7 @@ const PAPER = srgb(1, 1, 1);
 const SLATE = srgb(0.1, 0.1, 0.1);
 
 function list(commands: readonly RitoReaderPrimitive[], ratio = 1): RitoReaderPrimitiveList {
-  return { formatVersion: 2, ratio, commandCount: commands.length, commands };
+  return { formatVersion: 3, ratio, commandCount: commands.length, commands };
 }
 
 describe('browser primitive renderer', () => {
@@ -179,7 +180,7 @@ describe('browser primitive renderer', () => {
         },
         {
           kind: 'text',
-          clusters: [],
+          clusters: NO_CLUSTERS,
           text: 'run',
           rect: { x: 10, y: 10, width: 30, height: 20 },
           paint: {
@@ -219,7 +220,7 @@ describe('browser primitive renderer', () => {
           },
           {
             kind: 'text',
-            clusters: [],
+            clusters: NO_CLUSTERS,
             text: 'run',
             rect: { x: 10, y: 10, width: 30, height: 20 },
             paint: {
@@ -254,7 +255,7 @@ describe('browser primitive renderer', () => {
     // it set nothing the canvas has to parse again.
     const run = (text: string, x: number): RitoReaderPrimitive => ({
       kind: 'text',
-      clusters: [],
+      clusters: NO_CLUSTERS,
       text,
       rect: { x, y: 10, width: 30, height: 20 },
       paint: {
@@ -348,7 +349,7 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'ruby',
-              clusters: [],
+              clusters: NO_CLUSTERS,
               text: 'boom',
               rect: { x: 0, y: 0, width: 20, height: 10 },
               paint: {
@@ -443,7 +444,7 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'text',
-              clusters: [],
+              clusters: NO_CLUSTERS,
               text: 'boom',
               rect: { x: 0, y: 0, width: 10, height: 10 },
               paint: {

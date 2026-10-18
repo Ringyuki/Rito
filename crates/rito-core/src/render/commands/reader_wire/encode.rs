@@ -8,8 +8,8 @@ pub(super) use lowered::encode_primitive_list;
 use paint::write_run_paint;
 pub(super) use primitives::checked_length;
 use primitives::{
-    write_finite_f64, write_length, write_optional, write_optional_string, write_rect,
-    write_string, write_u32, write_u64,
+    write_finite_f32, write_finite_f64, write_length, write_optional, write_optional_string,
+    write_rect, write_string, write_u32, write_u64,
 };
 
 /// A text run's body, shared by the text and ruby primitives.
@@ -33,11 +33,15 @@ fn write_text(
             Ok(())
         },
     )?;
+    // Every cluster, the joined ones included: a pen that blits clusters
+    // places each, a pen that draws strings starts one at each cluster
+    // that does not join.
     write_length(output, input.clusters.len(), "cluster")?;
     for cluster in &input.clusters {
         write_u32(output, cluster.byte);
-        write_finite_f64(output, cluster.x)?;
-        write_finite_f64(output, cluster.y)?;
+        write_finite_f32(output, cluster.x as f32)?;
+        write_finite_f32(output, cluster.y as f32)?;
+        output.push(u8::from(cluster.joins));
     }
     Ok(())
 }

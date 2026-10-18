@@ -180,7 +180,8 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
             _ => None,
         })
         .collect();
-    let origins = |actual: &[(u32, f64, f64)], expected: &[(u32, f64, f64)]| {
+    let origins = |actual: &[TextCluster], expected: &[(u32, f64, f64)]| {
+        let actual: Vec<_> = actual.iter().map(|cluster| cluster.origin()).collect();
         assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");
         for (a, e) in actual.iter().zip(expected) {
             assert!(
@@ -244,7 +245,11 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
     // Three 8px kana down the 32px base span: 8px free, one share
     // (8/3) per glyph, half a share at each edge, every glyph's
     // baseline its em-box ascent below its top.
-    let ys: Vec<f64> = annotation.clusters.iter().map(|(_, _, y)| *y).collect();
+    let ys: Vec<f64> = annotation
+        .clusters
+        .iter()
+        .map(|cluster| cluster.y)
+        .collect();
     for (y, expected) in ys.iter().zip([
         148.0 + 4.0 / 3.0 + 6.09375,
         160.0 + 6.09375,
@@ -252,5 +257,5 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
     ]) {
         assert!((y - expected).abs() < 1e-9, "{ys:?}");
     }
-    assert!(annotation.clusters.iter().all(|(_, x, _)| *x == 212.0));
+    assert!(annotation.clusters.iter().all(|cluster| cluster.x == 212.0));
 }

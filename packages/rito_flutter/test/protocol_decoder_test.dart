@@ -44,7 +44,7 @@ void main() {
     expect(artifact.fonts.single.shapeFingerprint, 'shape-v1');
     expect(artifact.navigation.previous, RitoAdjacentAvailability.available);
     expect(artifact.navigation.next, RitoAdjacentAvailability.chapterBoundary);
-    expect(artifact.displayList.formatVersion, 2);
+    expect(artifact.displayList.formatVersion, 3);
     final list = artifact.displayList.displayList;
     expect(list.ratio, 1);
     expect(list.commandCount, 13);
@@ -165,6 +165,7 @@ void main() {
     invalidUtf8[_indexOf(invalidUtf8, testRelativeImageHref.codeUnits)] = 0xff;
     final malformed = <Uint8List>[
       primitiveFixture(version: 1),
+      primitiveFixture(version: 2),
       primitiveFixture(ratio: 0),
       invalidUtf8,
       primitiveFixture(unknownOpcode: 65535),

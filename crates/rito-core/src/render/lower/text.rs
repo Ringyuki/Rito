@@ -173,7 +173,12 @@ fn text_run(text: &DisplayTextCommand) -> ReaderTextRun {
         clusters: text
             .clusters
             .iter()
-            .map(|&(byte, x, y)| ReaderCluster { byte, x, y })
+            .map(|cluster| ReaderCluster {
+                byte: cluster.byte,
+                x: cluster.x,
+                y: cluster.y,
+                joins: cluster.joins,
+            })
             .collect(),
     }
 }

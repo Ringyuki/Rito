@@ -13,7 +13,7 @@ const READER_DISPLAY_LIST_MAGIC: &[u8; 7] = b"RITODL1";
 /// Format 2 is the device-resolved primitive list. Format 1 carried the
 /// semantic commands and is no longer written: hosts blit, they do not
 /// interpret.
-pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 2;
+pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ReaderEncodedDisplayList {

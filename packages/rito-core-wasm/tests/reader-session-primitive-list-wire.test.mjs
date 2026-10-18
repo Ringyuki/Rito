@@ -130,26 +130,43 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
   assert.equal(text.href, '#note');
   assert.equal(text.sourceText, 'source');
   assert.equal(text.sourceTextOffset, 9n);
-  assert.deepEqual(text.clusters, [
-    { byte: 0, x: 0, y: 12.5 },
-    { byte: 1, x: 8.5, y: 12.5 },
-    { byte: 2, x: 12.25, y: 12.5 },
-    { byte: 3, x: 16, y: 12.5 },
-  ]);
+  assert.deepEqual(text.clusters, {
+    bytes: Uint32Array.of(0, 1, 2, 3),
+    origins: Float32Array.of(0, 12.5, 8.5, 12.5, 12.25, 12.5, 16, 12.5),
+    joins: Uint8Array.of(0, 1, 0, 0),
+  });
 });
 
-test('the primitive decoder rejects format 1, truncation and trailing bytes', () => {
+test('the primitive decoder rejects earlier formats, truncation and trailing bytes', () => {
   const primitives = primitiveListFixture();
-  const formatOne = Uint8Array.from(primitives);
-  new DataView(formatOne.buffer).setUint32(7, 1, true);
-  assert.throws(
-    () => decodeRitoReaderPrimitiveList(formatOne),
-    /unsupported primitive list version: 1/,
-  );
+  const earlier = Uint8Array.from(primitives);
+  for (const version of [1, 2]) {
+    new DataView(earlier.buffer).setUint32(7, version, true);
+    assert.throws(
+      () => decodeRitoReaderPrimitiveList(earlier),
+      new RegExp(`unsupported primitive list version: ${String(version)}`),
+    );
+  }
   for (const end of [0, 7, 11, 19, 23, 25, primitives.length - 1]) {
     assert.throws(() => decodeRitoReaderPrimitiveList(primitives.subarray(0, end)));
   }
   const trailing = new Uint8Array(primitives.length + 1);
   trailing.set(primitives);
   assert.throws(() => decodeRitoReaderPrimitiveList(trailing), /trailing bytes/);
+});
+
+test('the primitive decoder rejects a cluster flag other than joins', () => {
+  const primitives = primitiveListFixture();
+  // The fixture's second cluster: byte 1 at (8.5, 12.5), joining the first.
+  const record = new Uint8Array(13);
+  const view = new DataView(record.buffer);
+  view.setUint32(0, 1, true);
+  view.setFloat32(4, 8.5, true);
+  view.setFloat32(8, 12.5, true);
+  record[12] = 1;
+  const at = Buffer.from(primitives).indexOf(record);
+  assert.ok(at > 0, 'the fixture carries the joined cluster');
+  const corrupt = Uint8Array.from(primitives);
+  corrupt[at + 12] = 2;
+  assert.throws(() => decodeRitoReaderPrimitiveList(corrupt), /cluster joins boolean tag: 2/);
 });

@@ -1,3 +1,5 @@
+import type { RitoReaderClusters } from './reader-session-display';
+
 export type RitoCoreWasmFrameCommand =
   | RitoCoreWasmPushStateCommand
   | RitoCoreWasmPopStateCommand
@@ -63,18 +65,18 @@ export interface RitoCoreWasmPaintTextCommand extends RitoCoreWasmTextPaintComma
   readonly href?: string;
   readonly sourceText?: string;
   readonly sourceTextOffset?: number;
-  /** The origin of every cluster (byte offset into the UTF-8 text, CSS
-   * x and alphabetic-baseline y) in text order; the pen draws each
-   * cluster there. Absent only for a run the pen still places itself. */
-  readonly clusters?: readonly { readonly byte: number; readonly x: number; readonly y: number }[];
+  /** Every cluster's origin (alphabetic baseline) in text order; the pen
+   * draws each cluster there. Absent only for a run the pen still places
+   * itself. */
+  readonly clusters?: RitoReaderClusters;
 }
 
 export interface RitoCoreWasmPaintRubyCommand extends RitoCoreWasmTextPaintCommand {
   readonly kind: 'paintRuby';
-  /** The origin of every cluster (byte offset into the UTF-8 text, CSS x
-   * and em-box-top y) the engine distributed over the base by the
-   * computed ruby-align; the pen draws each cluster there. */
-  readonly clusters?: readonly { readonly byte: number; readonly x: number; readonly y: number }[];
+  /** Every cluster's origin (alphabetic baseline) the engine distributed
+   * over the base by the computed ruby-align; the pen draws each cluster
+   * there. */
+  readonly clusters?: RitoReaderClusters;
 }
 
 export interface RitoCoreWasmTextPaintCommand {

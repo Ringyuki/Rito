@@ -1,13 +1,13 @@
 part of 'display_decoder.dart';
 
-/// Strict little-endian decoder for `RITODL1` format version 2, the
+/// Strict little-endian decoder for `RITODL1` format version 3, the
 /// device-resolved primitive list the engine paints every frame as.
 final class RitoPrimitiveListDecoder {
   const RitoPrimitiveListDecoder();
 
   /// Mirrors `READER_PRIMITIVE_LIST_FORMAT_VERSION` in
   /// crates/rito-core/src/render/commands/reader_wire.rs.
-  static const int formatVersion = 2;
+  static const int formatVersion = 3;
   static final List<int> _magic = ascii.encode('RITODL1');
 
   RitoPrimitiveList decode(Uint8List bytes) {

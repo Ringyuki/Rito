@@ -14,7 +14,7 @@ use super::super::{
         ReaderRunBorderEdge, ReaderRunDecoration, ReaderRunDecorationKind, ReaderRunPaint,
         ReaderSize, ReaderSpacing, ReaderTextShadow, ReaderTransform,
     },
-    DisplayCommand, DisplayTextCommand,
+    DisplayCommand, DisplayTextCommand, TextCluster,
 };
 use super::color::parse_color;
 use crate::render::RunPaint;
@@ -116,19 +116,28 @@ fn parse_text(object: &Map<String, Value>) -> Result<DisplayTextCommand, Fixture
                 .ok_or(FixtureError::InvalidField("text.clusters"))?
                 .iter()
                 .map(|cluster| {
+                    // `[byte, x, y]`, with `true` after a cluster that
+                    // joins the one before it.
                     let entries = cluster
                         .as_array()
-                        .filter(|entries| entries.len() == 3)
+                        .filter(|entries| matches!(entries.len(), 3 | 4))
                         .ok_or(FixtureError::InvalidField("text.clusters"))?;
                     let byte = entries[0]
                         .as_u64()
                         .and_then(|byte| u32::try_from(byte).ok())
                         .ok_or(FixtureError::InvalidField("text.clusters.byte"))?;
-                    Ok((
+                    let joins = match entries.get(3) {
+                        None => false,
+                        Some(joins) => joins
+                            .as_bool()
+                            .ok_or(FixtureError::InvalidField("text.clusters.joins"))?,
+                    };
+                    Ok(TextCluster {
                         byte,
-                        finite_number(&entries[1], "text.clusters.x")?,
-                        finite_number(&entries[2], "text.clusters.y")?,
-                    ))
+                        x: finite_number(&entries[1], "text.clusters.x")?,
+                        y: finite_number(&entries[2], "text.clusters.y")?,
+                        joins,
+                    })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         },

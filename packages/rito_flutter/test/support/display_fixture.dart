@@ -1,15 +1,18 @@
 import 'dart:typed_data';
 
+import 'package:rito_flutter/rito_flutter_protocol.dart'
+    show RitoPrimitiveListDecoder;
+
 import 'wire_writer.dart';
 
 const String testRelativeImageHref = '../Images/cover.png';
 
-/// A hand-written `RITODL1` format-2 primitive list: one of every
+/// A hand-written `RITODL1` primitive list in the current format: one of every
 /// primitive, every optional field present, with the typed enum tags the
 /// decoder tests vary. Thirteen primitives, opcodes 1 through 13 in order.
 Uint8List primitiveFixture({
   int? unknownOpcode,
-  int version = 2,
+  int version = RitoPrimitiveListDecoder.formatVersion,
   double ratio = 1,
   int transformTag = 1,
   int pathOpTag = 1,
@@ -182,16 +185,19 @@ void _text(
   writer.option(() => writer.string('#note'));
   writer.option(() => writer.string('source $text'));
   writer.option(() => writer.uint64(9));
-  // Cluster origins: two for the text run, none for the annotation.
+  // Clusters: two for the text run, the second joining the first; none
+  // for the annotation.
   if (opcode == 12) {
     writer
       ..uint32(2)
       ..uint32(0)
-      ..float64(0)
-      ..float64(12.5)
+      ..float32(0)
+      ..float32(12.5)
+      ..uint8(0)
       ..uint32(2)
-      ..float64(8.5)
-      ..float64(12.5);
+      ..float32(8.5)
+      ..float32(12.5)
+      ..uint8(1);
   } else {
     writer.uint32(0);
   }

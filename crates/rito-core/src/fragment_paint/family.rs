@@ -12,7 +12,7 @@ use rito_style_contract::{AbsoluteColor, InlineFormattingStyle};
 
 use crate::epub::{EpubError, EpubResult};
 use crate::render::contract::ReaderColor;
-use crate::render::{display_rect, DisplayTextCommand, RunPaint};
+use crate::render::{display_rect, DisplayTextCommand, RunPaint, TextCluster};
 use crate::style::{paint_color, serialize_font_families};
 
 /// The family a piece drawn from `face` paints with: the face's alias, or
@@ -74,14 +74,14 @@ pub(super) fn split_by_face(
         let next = pieces
             .get(index + 1)
             .and_then(|(next, _)| command.clusters.get(next.start));
-        let byte_start = command.clusters[range.start].0;
-        let byte_end = next.map_or(command.text.len() as u32, |cluster| cluster.0);
+        let byte_start = command.clusters[range.start].byte;
+        let byte_end = next.map_or(command.text.len() as u32, |cluster| cluster.byte);
         let left = if first {
             rect.x
         } else {
-            command.clusters[range.start].1
+            command.clusters[range.start].x
         };
-        let right = next.map_or(rect.x + rect.width, |cluster| cluster.1);
+        let right = next.map_or(rect.x + rect.width, |cluster| cluster.x);
         split.push(DisplayTextCommand {
             text: command
                 .text
@@ -96,7 +96,10 @@ pub(super) fn split_by_face(
             source_text_offset: None,
             clusters: command.clusters[range.clone()]
                 .iter()
-                .map(|(byte, x, y)| (byte - byte_start, *x, *y))
+                .map(|cluster| TextCluster {
+                    byte: cluster.byte - byte_start,
+                    ..*cluster
+                })
                 .collect(),
         });
     }

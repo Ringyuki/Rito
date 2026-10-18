@@ -12,7 +12,9 @@ use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::FlowItemSource;
-use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand};
+use crate::render::{
+    display_number, display_rect, DisplayCommand, DisplayTextCommand, TextCluster,
+};
 
 use super::family::{face_family, split_by_face};
 use super::run_style::run_paint;
@@ -348,7 +350,7 @@ pub(super) fn append_text_run_command(
         let clusters = natural
             .iter()
             .zip(origins)
-            .map(|(cluster, x)| (cluster.byte, x, annotation_baseline))
+            .map(|(cluster, x)| TextCluster::at(cluster.byte, x, annotation_baseline))
             .collect();
         let annotation_paint = paint.for_ruby(annotation_size);
         let annotation_faces: Vec<_> = natural.iter().map(|cluster| cluster.face).collect();
@@ -378,22 +380,17 @@ pub(super) fn append_text_run_command(
     // accumulates.
     let cluster_origin_x = line_x + run.rect.x + run.ruby_center_shift_px;
     let run_origin_x = cluster_origin_x - run.opener_trim_px;
-    // A cluster the pen reaches from the one before it, drawn in the same
-    // string, needs no origin of its own: the pen draws from each origin
-    // up to the next.
-    let drawn: Vec<&rito_fragment::ClusterPosition> = run
+    // Every cluster keeps its origin; one the pen reaches from the one
+    // before it says so, so a pen drawing strings draws it in the same
+    // string and a pen drawing clusters still has its origin.
+    let clusters = run
         .clusters
         .iter()
-        .filter(|cluster| !cluster.joins)
-        .collect();
-    let clusters = drawn
-        .iter()
-        .map(|cluster| {
-            (
-                cluster.byte - run.text_start,
-                cluster_x(cluster_origin_x + cluster.x, run.cluster_grid),
-                baseline,
-            )
+        .map(|cluster| TextCluster {
+            byte: cluster.byte - run.text_start,
+            x: cluster_x(cluster_origin_x + cluster.x, run.cluster_grid),
+            y: baseline,
+            joins: cluster.joins,
         })
         .collect();
     let command = DisplayTextCommand {
@@ -424,7 +421,7 @@ pub(super) fn append_text_run_command(
     // A ruby spread base fused across a fallback face paints once per
     // face; the inline box opens on the first piece and closes on the
     // last, every piece keeping the run's box extent and decoration.
-    let run_faces: Vec<_> = drawn.iter().map(|cluster| cluster.face).collect();
+    let run_faces: Vec<_> = run.clusters.iter().map(|cluster| cluster.face).collect();
     let decoration_shift = css_baseline - baseline;
     for piece in split_by_face(command, &run_faces, |face, first, last| {
         if first && last {

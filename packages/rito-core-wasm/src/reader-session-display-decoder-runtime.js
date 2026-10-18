@@ -14,19 +14,22 @@ export function readRitoDisplayTextCommand(reader) {
   };
 }
 
-/** The origin of every cluster in text order: byte offset into the run's
- * text and the absolute CSS point the pen draws it at: the alphabetic
- * baseline, for a text run and an annotation alike. */
+/** Every cluster in text order, packed: its byte offset into the run's
+ * text, the absolute CSS point the pen draws it at (the alphabetic
+ * baseline, for a text run and an annotation alike) and whether the pen
+ * reaches it from the cluster before. */
 function readClusters(reader) {
   const count = reader.count('cluster count');
-  const clusters = [];
+  const bytes = new Uint32Array(count);
+  const origins = new Float32Array(count * 2);
+  const joins = new Uint8Array(count);
   for (let index = 0; index < count; index += 1) {
-    const byte = reader.u32('cluster byte');
-    const x = reader.f64('cluster x');
-    const y = reader.f64('cluster y');
-    clusters.push({ byte, x, y });
+    bytes[index] = reader.u32('cluster byte');
+    origins[index * 2] = reader.f32('cluster x');
+    origins[index * 2 + 1] = reader.f32('cluster y');
+    joins[index] = reader.bool('cluster joins') ? 1 : 0;
   }
-  return clusters;
+  return { bytes, origins, joins };
 }
 
 export function readRitoDisplayRect(reader, field) {

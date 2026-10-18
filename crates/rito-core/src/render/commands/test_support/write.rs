@@ -148,8 +148,16 @@ fn insert_text_fields(fields: &mut Map<String, Value>, text: &DisplayTextCommand
             Value::Array(
                 text.clusters
                     .iter()
-                    .map(|(byte, x, y)| {
-                        Value::Array(vec![Value::from(*byte), number(*x), number(*y)])
+                    .map(|cluster| {
+                        let mut entries = vec![
+                            Value::from(cluster.byte),
+                            number(cluster.x),
+                            number(cluster.y),
+                        ];
+                        if cluster.joins {
+                            entries.push(Value::Bool(true));
+                        }
+                        Value::Array(entries)
                     })
                     .collect(),
             ),

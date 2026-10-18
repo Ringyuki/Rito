@@ -156,7 +156,15 @@ impl Decoder<'_> {
         let cluster_count = self.read_u32()?;
         for _ in 0..cluster_count {
             self.read_u32()?;
-            self.read_f64s(2)?;
+            for _ in 0..2 {
+                if !f32::from_le_bytes(self.read_exact::<4>()?).is_finite() {
+                    return Err(DecodeError::NonFiniteNumber);
+                }
+            }
+            let joins = self.read_u8()?;
+            if joins > 1 {
+                return Err(DecodeError::InvalidOption(joins));
+            }
         }
         Ok(())
     }

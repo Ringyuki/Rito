@@ -20,12 +20,15 @@ answers with both carets, geometry and source point included, as a range
 resolved from points does: a host that kept only the addresses of a
 selection holds its ends as resolved.
 
-### A text run carries fewer cluster origins
+### Clusters a pen reaches from the one before join its string
 
-A run carries an origin only for the clusters a pen cannot reach from the
-one before it by that cluster's bare glyph advance: the pen draws the text
-from each origin up to the next as one string, so a page of Latin text
-lays out a few hundred paragraphs instead of one per character.
+`RitoClusterPosition.joins` marks a cluster the one before it reaches by
+its bare glyph advance, and the pen draws it inside the string started
+before it: the text from each cluster that does not join up to the next
+one is one paragraph, so a page of Latin text lays out a few hundred
+paragraphs instead of one per character. Cluster origins arrive at
+float32, the precision the canvas takes them at; the display list is
+`RITODL1` format 3.
 
 ### Decoding an artifact allocates no view per number
 

@@ -29,7 +29,7 @@ Display commands (CSS pixels)
 Primitives (device pixels)
   │  crates/rito-core/src/render/lower
   ▼
-RITODL1 format 2
+RITODL1 format 3
   │  crates/rito-core/src/render/commands/reader_wire
   ▼
 Hosts blit: web Canvas pen, Flutter pen
@@ -92,8 +92,8 @@ counts are identical at every ratio.
 
 `fragment_paint.rs` walks a page's fragment tree and emits typed
 `DisplayCommand`s (`render/commands.rs`): page and block paint, text and
-ruby runs with the origin of every glyph cluster a pen cannot reach from
-the one before it by its bare advance, images, rules, clips
+ruby runs with the origin of every glyph cluster, flagged where a pen
+reaches it from the one before by its bare advance, images, rules, clips
 and transforms. Coordinates are stored at display precision (six
 decimals, exact for every 1/64 position). A text run's baseline is the
 one place the ratio enters here: it rounds on the device grid the way
@@ -111,7 +111,7 @@ rasterization follows the CSS font size.
 
 ## Wire and pens
 
-The primitive list is encoded as `RITODL1` format 2 (see
+The primitive list is encoded as `RITODL1` format 3 (see
 [Wire Format](./wire-format.md)). The web pen
 (`packages/rito/src/bindings/browser/primitive-renderer.ts`) and the
 Flutter pen (`packages/rito_flutter/lib/src/render/primitive_replayer.dart`)

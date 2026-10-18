@@ -162,9 +162,9 @@ export interface RitoReaderBackgroundHandoffAck {
 }
 
 /** The artifact's paint: its display commands lowered to the host's
- * device grid, carried as the `RITODL1` format-2 primitive list. */
+ * device grid, carried as the `RITODL1` format-3 primitive list. */
 export interface RitoReaderDisplayListPayload {
-  readonly formatVersion: 2;
+  readonly formatVersion: 3;
   readonly commandCount: number;
   readonly wireBytes: Uint8Array;
   readonly displayList: RitoReaderPrimitiveList;

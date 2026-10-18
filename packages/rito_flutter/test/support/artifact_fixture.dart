@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:rito_flutter/rito_flutter_native.dart' show RitoArtifactDecoder;
+import 'package:rito_flutter/rito_flutter_protocol.dart'
+    show RitoPrimitiveListDecoder;
 
 import 'display_fixture.dart';
 import 'wire_writer.dart';
@@ -46,7 +48,7 @@ Uint8List artifactFixture({
     ..uint32(0);
   writer.record((record) {
     record
-      ..uint32(2)
+      ..uint32(RitoPrimitiveListDecoder.formatVersion)
       ..uint32(13)
       ..blob(display);
   });

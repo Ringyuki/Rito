@@ -40,11 +40,11 @@ void main() {
     expect(text.href, '#note');
     expect(text.sourceText, 'source');
     expect(text.sourceTextOffset, 9);
-    expect(text.clusters.map((c) => (c.byte, c.x, c.y)), [
-      (0, 0.0, 12.5),
-      (1, 8.5, 12.5),
-      (2, 12.25, 12.5),
-      (3, 16.0, 12.5),
+    expect(text.clusters.map((c) => (c.byte, c.x, c.y, c.joins)), [
+      (0, 0.0, 12.5, false),
+      (1, 8.5, 12.5, true),
+      (2, 12.25, 12.5, false),
+      (3, 16.0, 12.5, false),
     ]);
   });
 
