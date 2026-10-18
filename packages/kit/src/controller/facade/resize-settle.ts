@@ -1,4 +1,5 @@
 import type { Reader } from '@ritojs/core';
+import type { CoordinatorState } from '../core/coordinator-state';
 import type { PrerenderScheduler } from '../prerender';
 
 /**
@@ -21,17 +22,18 @@ export function createResizeSettle(): ResizeSettle {
 }
 
 /**
- * Holds the whole-book layout and the prerendering of the spreads beside
- * the one shown back until no size has come for {@link RESIZE_SETTLE_MS}:
- * a neighbour painted for one size is replaced by the next, and the paint
- * holds that size back.
+ * Holds the whole-book layout, the prerendering of the spreads beside the
+ * one shown and the reading of its interaction targets back until no size
+ * has come for {@link RESIZE_SETTLE_MS}: what is made for one size is
+ * replaced by the next, and making it holds that size back.
  */
 export function holdWhileResizing(
   settle: ResizeSettle,
   reader: Reader,
   prerender: PrerenderScheduler,
+  coordState: CoordinatorState,
 ): void {
-  settle.release ??= holdFor(reader, prerender);
+  settle.release ??= holdFor(reader, prerender, coordState);
   clearTimeout(settle.timer);
   settle.timer = setTimeout(() => {
     settle.timer = undefined;
@@ -39,12 +41,20 @@ export function holdWhileResizing(
   }, RESIZE_SETTLE_MS);
 }
 
-function holdFor(reader: Reader, prerender: PrerenderScheduler): () => void {
+function holdFor(
+  reader: Reader,
+  prerender: PrerenderScheduler,
+  coordState: CoordinatorState,
+): () => void {
   const releaseBook = reader.holdBookLayout?.();
   prerender.pause();
+  const targets = coordState.nativeTargetHold;
+  targets.held = true;
   return () => {
     releaseBook?.();
     prerender.resume();
+    targets.held = false;
+    targets.reload?.();
   };
 }
 

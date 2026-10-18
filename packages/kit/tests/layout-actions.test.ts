@@ -80,6 +80,7 @@ function createMocks(options?: {
   );
   const invalidateSelection = vi.fn();
   const coordState = {
+    nativeTargetHold: { held: false, reload: null as (() => void) | null },
     contentInteractionGeneration: 6,
     selectionProjectionTransfer: null,
     positionUpdateMode: { kind: 'capture' },
@@ -179,10 +180,12 @@ function createMocks(options?: {
 }
 
 describe('buildLayoutActions', () => {
-  it('holds the whole-book layout and the neighbouring spreads while sizes keep coming', () => {
+  it('holds the whole-book layout, the neighbouring spreads and the interaction targets while sizes keep coming', () => {
     vi.useFakeTimers();
     try {
       const { internals, runtime, emitter, spies } = createMocks();
+      const reloadTargets = vi.fn();
+      internals.coordState.nativeTargetHold.reload = reloadTargets;
       const disposables = createDisposableCollection();
       const actions = buildLayoutActions(internals, emitter, runtime, disposables);
 
@@ -196,10 +199,16 @@ describe('buildLayoutActions', () => {
       // A neighbour painted for one size is replaced by the next.
       expect(spies.pausePrerender).toHaveBeenCalledOnce();
       expect(spies.resumePrerender).not.toHaveBeenCalled();
+      // Targets read for one size are thrown away by the next.
+      expect(internals.coordState.nativeTargetHold.held).toBe(true);
+      expect(reloadTargets).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(50);
       expect(spies.releaseBook).toHaveBeenCalledOnce();
       expect(spies.resumePrerender).toHaveBeenCalledOnce();
+      // The size stands: the spread shown has its targets read.
+      expect(internals.coordState.nativeTargetHold.held).toBe(false);
+      expect(reloadTargets).toHaveBeenCalledOnce();
 
       // A size after the settle holds again; disposing lets it go at once.
       actions.resize(720, 600);

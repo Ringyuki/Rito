@@ -27,7 +27,7 @@ export function buildLayoutActions(
   });
   return {
     resize(width, height, margin): void {
-      holdWhileResizing(settle, internals.reader, runtime.prerenderScheduler);
+      holdWhileResizing(settle, internals.reader, runtime.prerenderScheduler, internals.coordState);
       const anchor = currentPosition(internals);
       const changed = internals.reader.updateLayout(width, height, undefined, margin);
       refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);

@@ -225,6 +225,66 @@ describe('native target spread lifecycle', () => {
     expect(state.nativeInteractionsAlive).toBe(false);
   });
 
+  it('clears the targets of every spread a resize shows and reads the last once it settles', async () => {
+    let rendered: ((index: number, value: Spread) => void) | undefined;
+    const getPageTargets = vi.fn((pageIndex: number) =>
+      Promise.resolve({ pageIndex, spreadIndex: 0, targets: [] }),
+    );
+    const reader = {
+      interactions: {
+        enabled: true,
+        getPageTargets,
+        getFootnote: vi.fn(),
+        resolveLocator: vi.fn(),
+      },
+      spreads: [spread],
+      getLayoutGeometry: () =>
+        createLayoutConfig({ width: 300, height: 400, margin: 20, spread: 'single' }),
+      onSpreadRendered(callback: typeof rendered) {
+        rendered = callback;
+        return () => {
+          rendered = undefined;
+        };
+      },
+    } as unknown as Reader;
+    const state = createCoordinatorState();
+    state.nativeTargetsByPage.set(0, []);
+    const deps = {
+      reader,
+      coordState: state,
+      canvas: { style: { cursor: '' } },
+      engines: {
+        selection: { setSpread: vi.fn(), invalidate: vi.fn() },
+        search: {},
+        position: null,
+      },
+      emitter: createEmitter<ReaderControllerEvents>(),
+      frameDriver: { markOverlayDirty: vi.fn(), markContentDirty: vi.fn() },
+      getCurrentSpread: () => 0,
+      getRenderScale: () => 1,
+      notifyNavigationContentReady: vi.fn(),
+    } as unknown as WiringDeps;
+    const disposables = createDisposableCollection();
+    wireSpreadRendered(deps, disposables);
+
+    state.nativeTargetHold.held = true;
+    rendered?.(0, spread);
+    rendered?.(0, spread);
+    await Promise.resolve();
+    expect(state.nativeTargetsByPage.size).toBe(0);
+    expect(getPageTargets).not.toHaveBeenCalled();
+
+    state.nativeTargetHold.held = false;
+    state.nativeTargetHold.reload?.();
+    await vi.waitFor(() => {
+      expect(state.nativeTargetsByPage.has(0)).toBe(true);
+    });
+    expect(getPageTargets).toHaveBeenCalledOnce();
+
+    disposables.disposeAll();
+    expect(state.nativeTargetHold.reload).toBeNull();
+  });
+
   it('paints a neighbouring spread into its buffer once its content arrives', () => {
     let invalidated: ((index: number) => void) | undefined;
     const reader = {
