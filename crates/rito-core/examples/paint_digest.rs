@@ -11,6 +11,15 @@
 //! over what the spread paints (display list bytes, pages, resources,
 //! fonts, book page numbers). Engine work that must not change what is
 //! painted keeps the file byte-identical.
+//!
+//! `PAINT_DIGEST_RUNS=canonical` digests what a spread paints however its
+//! text is cut into runs (see `canonical`), without the pages' run
+//! records: work that only changes where text runs are cut keeps it
+//! byte-identical. `PAINT_DIGEST_DUMP=<existing dir>` writes each spread's
+//! canonical list there as text, to read where two engines part.
+
+#[path = "paint_digest/canonical.rs"]
+mod canonical;
 
 use std::{env, fmt::Write as _, fs, process};
 
@@ -287,6 +296,31 @@ fn digest_book(path: &str, policy: RuntimePinnedFontPolicyInput) -> Result<Vec<S
 
 fn row(step: &str, scope: &str, spread_index: u32, artifact: &ReaderArtifact) -> String {
     let mut hasher = Sha256::new();
+    if let Some(dump) = env::var_os("PAINT_DIGEST_DUMP") {
+        let dump = std::path::PathBuf::from(dump);
+        let file = dump.join(format!("{step}-{scope}-{spread_index}.txt"));
+        if !file.exists() && dump.is_dir() {
+            let lines = canonical::describe(&artifact.display_list.bytes)
+                .unwrap_or_else(|error| format!("unreadable: {error}"));
+            let _ = fs::write(file, lines);
+        }
+    }
+    if env::var_os("PAINT_DIGEST_RUNS").is_some_and(|mode| mode == "canonical") {
+        match canonical::canonical(&artifact.display_list.bytes) {
+            Ok(bytes) => hasher.update(bytes),
+            Err(error) => hasher.update(format!("unreadable: {error}")),
+        }
+        hasher.update(format!(
+            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            artifact.resources,
+            artifact.fonts,
+            artifact.local_page_indexes,
+            artifact.book_page_index,
+            artifact.book_page_count,
+            artifact.navigation,
+        ));
+        return format!("{step}\t{scope}\t{spread_index}\t{:x}", hasher.finalize());
+    }
     hasher.update(&artifact.display_list.bytes);
     hasher.update(format!(
         "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
