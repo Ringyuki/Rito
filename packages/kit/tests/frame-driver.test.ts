@@ -1,5 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPageBufferPool } from '../src/painter/buffer-pool';
+import { createDisplaySurface } from '../src/painter/display-surface';
+import { createFakeGl } from './helpers/fake-gl';
 import { createFrameDriver } from '../src/driver/frame-driver';
 import { createTransitionDriver } from '../src/driver/transition-driver';
 
@@ -54,29 +56,30 @@ function flushRaf(time = 16): void {
   for (const cb of cbs) cb(time);
 }
 
-function createMockSurface() {
-  const drawImage = vi.fn();
-  const ctx = {
-    clearRect: vi.fn(),
-    drawImage,
-  };
-  return {
-    canvas: {} as HTMLCanvasElement,
-    ctx: ctx as unknown as CanvasRenderingContext2D,
-    width: 800,
-    height: 600,
-    drawImage,
-    setSize: vi.fn(),
-    clear() {
-      ctx.clearRect(0, 0, 800, 600);
-    },
-  };
+/** A display on a fake WebGL2 context: what it shows is the textures drawn to its own framebuffer. */
+function createGlSurface() {
+  const fake = createFakeGl();
+  const canvas = {
+    width: 0,
+    height: 0,
+    style: { width: '', height: '' },
+    getContext: () => fake.gl,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  } as unknown as HTMLCanvasElement;
+  const surface = createDisplaySurface(canvas);
+  surface.setSize(800, 600, 1);
+  const clear = vi.spyOn(surface, 'clear');
+  const displayed = (): unknown[] =>
+    fake.draws.filter((draw) => draw.framebuffer === null).map((draw) => draw.texture);
+  return { surface, clear, displayed };
 }
 
 describe('FrameDriver', () => {
   it('scheduleComposite is idempotent', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     const td = createTransitionDriver();
 
@@ -99,8 +102,9 @@ describe('FrameDriver', () => {
   });
 
   it('compositeNow renders immediately and cancels a pending scheduled frame', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     const td = createTransitionDriver();
@@ -122,15 +126,15 @@ describe('FrameDriver', () => {
 
     expect(rafCallbacks.length).toBe(0);
     expect(renderer).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).toHaveBeenCalled();
+    expect(view.displayed().length).toBeGreaterThan(0);
 
     driver.dispose();
   });
 
   it('compositeNow does not clear the surface when content is not ready', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     const td = createTransitionDriver();
@@ -146,17 +150,16 @@ describe('FrameDriver', () => {
 
     driver.compositeNow();
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.clearRect).not.toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).not.toHaveBeenCalled();
+    expect(view.clear).not.toHaveBeenCalled();
+    expect(view.displayed()).toEqual([]);
 
     driver.dispose();
   });
 
   it('composites content on frame when idle', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     const td = createTransitionDriver();
@@ -179,8 +182,7 @@ describe('FrameDriver', () => {
     expect(renderer.mock.calls[0]?.[0]).toBe(0); // spreadIndex
 
     // Should have drawn to surface
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).toHaveBeenCalled();
+    expect(view.displayed().length).toBeGreaterThan(0);
 
     // Idle → no more rAF scheduled
     expect(rafCallbacks.length).toBe(0);
@@ -189,8 +191,9 @@ describe('FrameDriver', () => {
   });
 
   it('does not clear the surface when the current content slot is not ready', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     const td = createTransitionDriver();
@@ -210,17 +213,16 @@ describe('FrameDriver', () => {
 
     expect(renderer).toHaveBeenCalledTimes(1);
     expect(pool.curr.contentDirty).toBe(true);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.clearRect).not.toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).not.toHaveBeenCalled();
+    expect(view.clear).not.toHaveBeenCalled();
+    expect(view.displayed()).toEqual([]);
 
     driver.dispose();
   });
 
   it('continues rAF during animation', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     pool.assignSlot('next', 1);
@@ -247,8 +249,9 @@ describe('FrameDriver', () => {
   });
 
   it('draws the page a cut turn was leaving until the next turn has crossed its own start', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('prev', 0);
     pool.assignSlot('curr', 1);
@@ -276,18 +279,18 @@ describe('FrameDriver', () => {
     td.goToTarget('forward', 2, 3);
     driver.compositeNow();
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const drawn = vi.mocked(surface.ctx.drawImage).mock.calls.map((call) => call[0]);
+    const drawn = view.displayed();
     // Spread 2 still arriving, spread 1 still leaving; nothing of spread 3 yet.
-    expect(drawn).toEqual([pool.curr.content, pool.prev.content]);
+    expect(drawn).toEqual([pool.curr.content.texture, pool.prev.content.texture]);
     expect(pool.getSlotFor(1)).toBe('prev');
 
     driver.dispose();
   });
 
   it('draws the page a cut turn back was leaving, on the other side', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('prev', 1);
     pool.assignSlot('curr', 2);
@@ -314,17 +317,17 @@ describe('FrameDriver', () => {
     td.goToTarget('backward', 1, 0);
     driver.compositeNow();
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const drawn = vi.mocked(surface.ctx.drawImage).mock.calls.map((call) => call[0]);
-    expect(drawn).toEqual([pool.curr.content, pool.next.content]);
+    const drawn = view.displayed();
+    expect(drawn).toEqual([pool.curr.content.texture, pool.next.content.texture]);
     expect(pool.getSlotFor(2)).toBe('next');
 
     driver.dispose();
   });
 
   it('markOverlayDirty triggers recomposite', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 3);
     const td = createTransitionDriver();
@@ -353,8 +356,9 @@ describe('FrameDriver', () => {
   });
 
   it('renders dirty offscreen content without compositing it to the surface', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     pool.assignSlot('next', 1);
@@ -374,15 +378,15 @@ describe('FrameDriver', () => {
 
     expect(renderer).toHaveBeenCalledWith(1, expect.any(Object));
     expect(pool.next.contentDirty).toBe(false);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).not.toHaveBeenCalled();
+    expect(view.displayed()).toEqual([]);
 
     driver.dispose();
   });
 
   it('composites current dirty content immediately without waiting for rAF', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     const td = createTransitionDriver();
@@ -402,15 +406,15 @@ describe('FrameDriver', () => {
     expect(renderer).toHaveBeenCalledWith(0, expect.any(Object));
     expect(pool.curr.contentDirty).toBe(false);
     expect(rafCallbacks.length).toBe(0);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).toHaveBeenCalled();
+    expect(view.displayed().length).toBeGreaterThan(0);
 
     driver.dispose();
   });
 
   it('preserves the scheduled animation frame when current content refreshes mid-transition', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     pool.assignSlot('next', 1);
@@ -436,21 +440,20 @@ describe('FrameDriver', () => {
     expect(renderer).toHaveBeenCalledWith(0, expect.any(Object));
     expect(pool.curr.contentDirty).toBe(false);
     expect(rafCallbacks.length).toBe(1);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).not.toHaveBeenCalled();
+    expect(view.displayed()).toEqual([]);
 
     flushRaf();
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).toHaveBeenCalled();
+    expect(view.displayed().length).toBeGreaterThan(0);
     expect(rafCallbacks.length).toBe(1);
 
     driver.dispose();
   });
 
   it('dispose cancels pending rAF', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     const td = createTransitionDriver();
 
@@ -468,13 +471,13 @@ describe('FrameDriver', () => {
 
     // Flush should be safe but no-op
     flushRaf();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(surface.ctx.drawImage).not.toHaveBeenCalled();
+    expect(view.displayed()).toEqual([]);
   });
 
   it('hands a painted effect the finger, the phase, the spine and each page as last painted', () => {
-    const surface = createMockSurface();
-    const pool = createPageBufferPool();
+    const view = createGlSurface();
+    const { surface } = view;
+    const pool = createPageBufferPool(surface.compositor);
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
     pool.assignSlot('next', 1);

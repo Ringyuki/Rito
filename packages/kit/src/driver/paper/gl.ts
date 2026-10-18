@@ -1,9 +1,7 @@
 import type { TransitionPage } from '../effects';
 
-/** A WebGL context of either generation; the paper turn uses what both have. */
-export type Gl = WebGLRenderingContext | WebGL2RenderingContext;
-
-export type PaperCanvas = OffscreenCanvas | HTMLCanvasElement;
+/** The display's WebGL2 context, which the paper turn draws with. */
+export type Gl = WebGL2RenderingContext;
 
 /** A compiled program with the locations of everything it names. */
 export interface Program {
@@ -18,54 +16,6 @@ export interface RenderTarget {
   readonly framebuffer: WebGLFramebuffer;
   readonly width: number;
   readonly height: number;
-}
-
-/**
- * A canvas with a WebGL context, or null where there is none to be had.
- * `multisampled` asks for every pixel to be drawn at several points, which
- * smooths the edge of whatever is drawn at the cost of clearing and
- * resolving all of them each frame.
- */
-export function createGlCanvas(multisampled: boolean): { canvas: PaperCanvas; gl: Gl } | null {
-  const canvas = blankCanvas(1, 1);
-  if (!canvas) return null;
-  const options = { alpha: true, antialias: multisampled, depth: true, premultipliedAlpha: true };
-  for (const kind of ['webgl2', 'webgl'] as const) {
-    const gl = contextOf(canvas, kind, options);
-    if (gl) return { canvas, gl };
-  }
-  return null;
-}
-
-function contextOf(canvas: PaperCanvas, kind: string, options: object): Gl | null {
-  try {
-    const context: unknown = canvas.getContext(kind as 'webgl', options);
-    return isGl(context) ? context : null;
-  } catch {
-    return null;
-  }
-}
-
-export function blankCanvas(width: number, height: number): PaperCanvas | null {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
-  if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
-
-function isGl(context: unknown): context is Gl {
-  return (
-    typeof context === 'object' &&
-    context !== null &&
-    typeof (context as Partial<Gl>).createShader === 'function' &&
-    typeof (context as Partial<Gl>).drawElements === 'function'
-  );
-}
-
-export function isSecondGeneration(gl: Gl): gl is WebGL2RenderingContext {
-  return typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext;
 }
 
 /** A program handed to the GPU to compile and link, its outcome not yet asked for. */
@@ -183,37 +133,35 @@ export interface PageTextures {
   release(snapshot: PageSnapshot): void;
 }
 
+/** Snapshots nothing shows are kept for the turn that may want them next: this many. */
+const KEPT_PAGES = 3;
+
 interface Kept extends PageSnapshot {
-  readonly content: object;
+  readonly source: WebGLTexture;
   readonly version: number;
   held: number;
   used: number;
 }
 
-/** Snapshots nothing shows are kept for the turn that may want them next: this many. */
-const KEPT_PAGES = 3;
-
 export function createPageTextures(gl: Gl): PageTextures {
-  /** The snapshot of each page as last painted. */
-  const latest = new Map<object, Kept>();
-  const limit = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
-  let scratch: PaperCanvas | null = null;
+  /** The snapshot of each page as last painted, by the texture the page is shown in. */
+  const latest = new Map<WebGLTexture, Kept>();
+  const reading = gl.createFramebuffer();
+  const drawing = gl.createFramebuffer();
   let uses = 0;
   const made = (page: TransitionPage, texture: WebGLTexture): Kept => {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    scratch ??= blankCanvas(1, 1);
-    upload(gl, flattened(page, limit, scratch));
-    return { texture, content: page.content, version: page.version, held: 0, used: 0 };
+    copyTurned(gl, page, texture, reading, drawing);
+    return { texture, source: page.texture, version: page.version, held: 0, used: 0 };
   };
   return {
     take(page): PageSnapshot {
       uses += 1;
-      let kept = latest.get(page.content);
+      let kept = latest.get(page.texture);
       if (kept?.version !== page.version) {
         // Nothing shows the older painting: its texture takes the new one.
         const texture = kept && kept.held === 0 ? kept.texture : gl.createTexture();
         kept = made(page, texture);
-        latest.set(page.content, kept);
+        latest.set(page.texture, kept);
       }
       kept.held += 1;
       kept.used = uses;
@@ -224,56 +172,58 @@ export function createPageTextures(gl: Gl): PageTextures {
       kept.held = Math.max(0, kept.held - 1);
       if (kept.held > 0) return;
       // A painting the page has since replaced is of no further use.
-      if (latest.get(kept.content) !== kept) gl.deleteTexture(kept.texture);
+      if (latest.get(kept.source) !== kept) gl.deleteTexture(kept.texture);
       else dropUnshown(gl, latest);
     },
   };
 }
 
 /** Forgets the snapshots nothing shows, oldest first, beyond those kept for the next turn. */
-function dropUnshown(gl: Gl, latest: Map<object, Kept>): void {
+function dropUnshown(gl: Gl, latest: Map<WebGLTexture, Kept>): void {
   const unshown = [...latest.values()].filter((kept) => kept.held === 0);
   unshown.sort((a, b) => a.used - b.used);
   for (const kept of unshown.slice(0, Math.max(0, unshown.length - KEPT_PAGES))) {
     gl.deleteTexture(kept.texture);
-    latest.delete(kept.content);
+    latest.delete(kept.source);
   }
 }
 
-/** The page with its overlay over it, no larger than a texture may be. */
-function flattened(
+/**
+ * Copies a page into `texture` turned over, its first row the page's top
+ * as an image's is, which is how the sheets sample it; then the smaller
+ * copies a tilted sheet is drawn from.
+ */
+function copyTurned(
+  gl: Gl,
   page: TransitionPage,
-  limit: number,
-  scratch: PaperCanvas | null,
-): TexImageSource {
-  const { width, height } = sizeOf(page.content);
-  const scale = Math.min(1, limit / Math.max(width, height, 1));
-  if (!page.overlay && scale === 1) return page.content as TexImageSource;
-  const context = scratch?.getContext('2d') as CanvasRenderingContext2D | null;
-  if (!scratch || !context) return page.content as TexImageSource;
-  scratch.width = Math.max(1, Math.round(width * scale));
-  scratch.height = Math.max(1, Math.round(height * scale));
-  context.drawImage(page.content, 0, 0, scratch.width, scratch.height);
-  if (page.overlay) context.drawImage(page.overlay, 0, 0, scratch.width, scratch.height);
-  return scratch;
-}
-
-function upload(gl: Gl, source: TexImageSource): void {
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  texture: WebGLTexture,
+  reading: WebGLFramebuffer,
+  drawing: WebGLFramebuffer,
+): void {
+  const { width, height } = page;
+  const wasReading = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  const wasDrawing = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, reading);
+  gl.framebufferTexture2D(
+    gl.READ_FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    page.texture,
+    0,
+  );
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, drawing);
+  gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+  gl.blitFramebuffer(0, 0, width, height, 0, height, width, 0, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, wasReading);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, wasDrawing);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
   clampAndSmooth(gl);
   // A tilted sheet shrinks its page unevenly; smaller copies keep its print from shimmering.
-  if (!isSecondGeneration(gl)) return;
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   const anisotropy = gl.getExtension('EXT_texture_filter_anisotropic');
   if (anisotropy) gl.texParameterf(gl.TEXTURE_2D, anisotropy.TEXTURE_MAX_ANISOTROPY_EXT, 8);
-}
-
-function sizeOf(source: CanvasImageSource): { width: number; height: number } {
-  const sized = source as { width?: unknown; height?: unknown };
-  return {
-    width: typeof sized.width === 'number' ? sized.width : 1,
-    height: typeof sized.height === 'number' ? sized.height : 1,
-  };
 }

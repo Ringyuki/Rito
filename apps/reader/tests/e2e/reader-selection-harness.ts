@@ -251,8 +251,13 @@ export async function readSelectionHighlightBands(
   return readerSurface(page).evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Reader Canvas is unavailable');
     const canvas = element;
-    const context = canvas.getContext('2d');
+    // The reader draws with WebGL: its pixels are read through a 2D copy.
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    const context = copy.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Reader Canvas context is unavailable');
+    context.drawImage(canvas, 0, 0);
     const bounds = canvas.getBoundingClientRect();
     const renderScale = Number(
       canvas.closest('[data-render-scale]')?.getAttribute('data-render-scale'),
@@ -345,8 +350,13 @@ export async function readCanvasTextBands(page: Page): Promise<readonly CanvasTe
   return readerSurface(page).evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Reader Canvas is unavailable');
     const canvas = element;
-    const context = canvas.getContext('2d');
+    // The reader draws with WebGL: its pixels are read through a 2D copy.
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    const context = copy.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Reader Canvas context is unavailable');
+    context.drawImage(canvas, 0, 0);
     const bounds = canvas.getBoundingClientRect();
     const renderScale = Number(
       canvas.closest('[data-render-scale]')?.getAttribute('data-render-scale'),

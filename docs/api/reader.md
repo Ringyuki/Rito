@@ -109,6 +109,7 @@ loads a new Reader.
 | `renderSpread(index, scale?)`                       | Render a spread to the bound canvas              |
 | `renderSpreadTo(index, target)`                     | Render to a Canvas 2D or a `ReaderGlTarget`      |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
+| `setDevicePixelRatio(ratio)`                        | Re-paginate at a new device pixel ratio          |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
 | `updateLayout(width, height, spreadMode?, margin?)` | Update viewport and spread settings in one pass  |
 | `getCanvasSize(scale?)`                             | Return CSS canvas size for the current layout    |
@@ -123,6 +124,13 @@ and bound textures; set your own before drawing with it again.
 `createReader` takes the canvas's 2D context only when `renderSpread`
 first paints into it, so a host painting through `renderSpreadTo` can
 use the canvas for WebGL.
+
+A page is laid out and painted at a device pixel ratio, as the browser
+lays out its own page at one: call `setDevicePixelRatio` when the
+window's changes (the page zoomed, the window went to another screen) so
+the pages keep one pixel per device pixel. `dpr` takes the new ratio when
+that layout commits, so a host sizes its canvas from `dpr` as it does
+after a resize. `@ritojs/kit` does this itself.
 
 ### Theme / typography
 
@@ -206,13 +214,13 @@ faces do not cover. Variable fonts are rejected.
 | `layoutScope`          | What the committed layout covers: `'chapter'` or `'book'`                              |
 | `totalSpreads`         | Number of spreads in the committed layout                                              |
 | `pageCount`            | Number of pages in the committed layout                                                |
-| `dpr`                  | Device pixel ratio used by rendering                                                   |
+| `dpr`                  | Device pixel ratio the committed layout is painted at                                  |
 | `getImageBlobUrl(src)` | Create or asynchronously resolve an EPUB image URL                                     |
 | `interactions`         | Optional revision-safe semantic interaction provider                                   |
 
 A layout is committed twice. When a book opens, and again after every change
-that re-paginates (`resize`, `setSpreadMode`, `updateLayout`, `setTypography`,
-`addFontFaces`, `removeFontFaces`), the reader lays out the chapter being read
+that re-paginates (`resize`, `setDevicePixelRatio`, `setSpreadMode`, `updateLayout`,
+`setTypography`, `addFontFaces`, `removeFontFaces`), the reader lays out the chapter being read
 alone and commits it with `layoutScope: 'chapter'`: the page is on screen after
 one chapter's work, and `pageCount`, `totalSpreads`, `spreads`, `chapterMap` and
 every page index describe that chapter, counted from its first page. The whole

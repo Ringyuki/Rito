@@ -11,6 +11,8 @@ export interface TransitionDriverState {
   spine: number;
   /** The system asks for reduced motion (set by the host environment). */
   reducedMotion: boolean;
+  /** The display's context an effect is prepared with; null where nothing is displayed. */
+  readonly gl: WebGL2RenderingContext | null;
   velocitySamples: VelocitySample[];
   readonly settledListeners: Set<(event: SettledEvent) => void>;
   readonly restListeners: Set<() => void>;
@@ -24,7 +26,7 @@ export function activeEffect(state: TransitionDriverState): TransitionEffect {
 
 /** Tells the configured effect it has been set, for whatever it does ahead of its first turn. */
 export function prepareEffect(state: TransitionDriverState): void {
-  resolveTransitionEffect(state.opts.effect).prepare?.();
+  if (state.gl) resolveTransitionEffect(state.opts.effect).prepare?.(state.gl);
 }
 
 /** How turns move now: the options' physics, else the ones the effect brings. */

@@ -1,8 +1,8 @@
 import type { TransitionPage } from '../effects';
 import type { Curl } from './curl';
 import { drawSheet, liesOnThePages, outline, uploadSheets, type SheetPart } from './draw-sheet';
-import type { PageSnapshot } from './gl';
-import { finishGpu, gpuDone, startGpu, type Gpu, type StartedGpu } from './gpu';
+import type { Gl, PageSnapshot } from './gl';
+import { finishGpu, frameBuffersFor, gpuDone, startGpu, type Gpu, type StartedGpu } from './gpu';
 import type { SheetGrid } from './mesh';
 
 /**
@@ -43,20 +43,26 @@ export interface PaperFrame {
 }
 
 export interface PaperRenderer {
-  /** Counts the GPU contexts made: a snapshot is good for the one it was taken in. */
+  /** Counts the times the GPU was set up: a snapshot is good for the setup it was taken in. */
   readonly epoch: number;
   /**
    * Whether frames can be drawn: `waiting` while the GPU is still compiling
-   * what it was handed, `none` where there is no GPU to be had.
+   * what it was handed or its context is lost, `none` where it cannot draw.
    */
   readonly standing: 'ready' | 'waiting' | 'none';
-  /** Hands the GPU its programs ahead of the first frame, without waiting for them. */
-  prepare(): void;
+  /**
+   * Hands the display's context the programs ahead of the first frame,
+   * without waiting for them; again after the context was lost.
+   */
+  prepare(gl: Gl): void;
   /** The page as last painted, held until released. Null where the GPU is not to be had. */
   snapshot(page: TransitionPage): PageSnapshot | null;
   release(snapshot: PageSnapshot): void;
-  /** Draws the sheets and the shadows they cast, at the frame's size. Null without a GPU. */
-  draw(frame: PaperFrame): CanvasImageSource | null;
+  /**
+   * Draws the sheets and the shadows they cast over the framebuffer bound,
+   * at the frame's size. False without a GPU.
+   */
+  draw(frame: PaperFrame): boolean;
 }
 
 /** The eye's height above the spread, in spreads. Lower exaggerates what rises. */
@@ -67,22 +73,28 @@ export function eyeHeight(width: number, height: number): number {
 }
 
 /** `make` is how the GPU is set to work; a test brings its own. */
-export function createPaperRenderer(make: () => StartedGpu | null = startGpu): PaperRenderer {
+export function createPaperRenderer(make: (gl: Gl) => StartedGpu | null = startGpu): PaperRenderer {
+  let context: Gl | null = null;
   let gpu: Gpu | null | undefined;
   let started: StartedGpu | null = null;
-  let losses = 0;
   let epoch = 0;
-  const prepare = (): void => {
-    if (gpu !== undefined || started) return;
-    started = make();
+  const forget = (): void => {
+    gpu = undefined;
+    started = null;
+  };
+  const prepare = (gl?: Gl): void => {
+    if (gl && gl !== context) {
+      context = gl;
+      forget();
+      // What a lost context held is gone with it; the next frame sets it up again.
+      gl.canvas.addEventListener('webglcontextlost', forget);
+    }
+    if (!context || context.isContextLost() || gpu !== undefined || started) return;
+    started = make(context);
     if (!started) gpu = null;
   };
   const standing = (): 'ready' | 'waiting' | 'none' => {
-    if (gpu?.gl.isContextLost()) {
-      // A lost context is asked for again twice, then given up on.
-      losses += 1;
-      gpu = losses > 2 ? null : undefined;
-    }
+    if (context?.isContextLost()) return 'waiting';
     prepare();
     if (started) {
       if (!gpuDone(started)) return 'waiting';
@@ -104,10 +116,10 @@ export function createPaperRenderer(make: () => StartedGpu | null = startGpu): P
     release(snapshot): void {
       if (gpu && !gpu.gl.isContextLost()) gpu.textures.release(snapshot);
     },
-    draw(frame): CanvasImageSource | null {
-      if (!gpu || gpu.gl.isContextLost()) return null;
+    draw(frame): boolean {
+      if (!gpu || gpu.gl.isContextLost()) return false;
       drawFrame(gpu, frame);
-      return gpu.canvas;
+      return true;
     },
   };
 }
@@ -118,18 +130,18 @@ export function createPaperRenderer(make: () => StartedGpu | null = startGpu): P
  * laid over them, and that paper is drawn last.
  */
 function drawFrame(gpu: Gpu, frame: PaperFrame): void {
-  const { gl, canvas } = gpu;
+  const { gl } = gpu;
   const width = Math.max(1, Math.round(frame.width));
   const height = Math.max(1, Math.round(frame.height));
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
+  const drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  // The sheets set their attributes on the context's own vertex array.
+  gl.bindVertexArray(null);
   const mesh = uploadSheets(gpu, frame);
   const eye = eyeHeight(width, height);
   const standing = frame.sheets.map((sheet) => !liesOnThePages(sheet));
+  const buffers = frameBuffersFor(gpu, width, height);
 
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffers.framebuffer);
   gl.viewport(0, 0, width, height);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -155,6 +167,12 @@ function drawFrame(gpu: Gpu, frame: PaperFrame): void {
     if (standing[index]) drawn(index, sheet.curl ? 'lifted' : 'whole');
   });
   gl.disable(gl.BLEND);
+  gl.disable(gl.DEPTH_TEST);
+  // The frame is copied over what is drawn to, its samples resolved.
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, buffers.framebuffer);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, drawingTo);
+  gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, drawingTo);
 }
 
 /** Lays over the pages the darkness every sheet standing off them leaves there. */

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Internals } from '../src/controller/facade';
 import { paintPagesOver, type PagePaint, type PagePainter } from '../src/controller/page-paint';
 import { createContentRenderer } from '../src/controller/runtime-frame';
+import type { PageTarget } from '../src/painter/buffer-pool';
 import type { ReaderControllerEvents } from '../src/controller/types';
 import { createEmitter } from '../src/utils/event-emitter';
 
@@ -62,10 +63,11 @@ describe('page painter', () => {
       createEmitter<ReaderControllerEvents>(),
     );
 
-    expect(renderer(0, context)).toBe(true);
+    const page = pageOver(context);
+    expect(renderer(0, page)).toBe(true);
     expect(drawn).toHaveLength(2);
     painted.value = false;
-    expect(renderer(0, context)).toBe(false);
+    expect(renderer(0, page)).toBe(false);
     expect(drawn).toHaveLength(2);
   });
 
@@ -85,7 +87,7 @@ describe('page painter', () => {
       emitter,
     );
 
-    expect(renderer(0, context)).toBe(true);
+    expect(renderer(0, pageOver(context))).toBe(true);
     expect(errors).toEqual([
       { message: 'host painter failed', source: 'page-painter' },
       { message: 'host painter failed', source: 'page-painter' },
@@ -138,6 +140,14 @@ function reader(layoutScope: 'chapter' | 'book') {
 
 function internals(paintPage: PagePainter): Internals {
   return { options: { paintPage }, renderScale: 1 } as unknown as Internals;
+}
+
+/** A page target whose host layer is `context`. */
+function pageOver(context: OffscreenCanvasRenderingContext2D): PageTarget {
+  return {
+    target: { gl: {} as WebGL2RenderingContext, framebuffer: null, width: 1, height: 1 },
+    hostLayer: () => context,
+  };
 }
 
 /** A context that remembers the transform and clip in force when the painter runs. */

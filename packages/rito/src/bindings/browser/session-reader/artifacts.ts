@@ -52,16 +52,17 @@ export async function adoptSessionReaderFirstFrame(
 }
 
 /**
- * Lays the chapter out again under `config` at the page shown and has the
- * session show the result: request, prepare, adopt.
+ * Lays the chapter out again under `config`, painted at `ratio`, at the
+ * page shown and has the session show the result: request, prepare, adopt.
  */
 export async function requestSessionReaderLayout(
   state: SessionReaderState,
   config: LayoutConfig,
+  ratio: number,
 ): Promise<SessionReaderLayoutCandidate> {
   const visible = state.visible.artifact;
   const artifact = await state.session.requestArtifact({
-    layout: sessionReaderSessionLayout(config, state.dpr),
+    layout: sessionReaderSessionLayout(config, ratio),
     locator: visible.locator,
     textProfile: visible.textProfile,
   });

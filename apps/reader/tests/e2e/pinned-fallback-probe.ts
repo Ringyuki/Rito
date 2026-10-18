@@ -34,6 +34,7 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
     installCanvasPaintProbe(probe);
     installOffscreenCanvasPaintProbe(probe);
     installCanvasCompositeProbe(probe);
+    installWebGlUploadProbe(probe);
 
     function installCanvasPaintProbe(state: typeof probe): void {
       const originalFillText: unknown = Object.getOwnPropertyDescriptor(
@@ -108,6 +109,35 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
         }
         Reflect.apply(originalDrawImage, this, args);
       } as typeof CanvasRenderingContext2D.prototype.drawImage;
+    }
+
+    // The reader draws with WebGL: a canvas uploaded into the reader's
+    // context (glyph cells, a page painted on a canvas) reaches the screen.
+    function installWebGlUploadProbe(state: typeof probe): void {
+      if (typeof WebGL2RenderingContext === 'undefined') return;
+      for (const name of ['texImage2D', 'texSubImage2D'] as const) {
+        const original: unknown = Object.getOwnPropertyDescriptor(
+          WebGL2RenderingContext.prototype,
+          name,
+        )?.value;
+        if (typeof original !== 'function') continue;
+        Object.defineProperty(WebGL2RenderingContext.prototype, name, {
+          configurable: true,
+          writable: true,
+          value: function (this: WebGL2RenderingContext, ...args: unknown[]): void {
+            const source = args.at(-1);
+            if (
+              typeof OffscreenCanvas !== 'undefined' &&
+              source instanceof OffscreenCanvas &&
+              this.canvas instanceof HTMLCanvasElement &&
+              isTargetCanvas(state, this.canvas)
+            ) {
+              state.targetPaintCanvases.add(source);
+            }
+            Reflect.apply(original, this, args);
+          },
+        });
+      }
     }
 
     function isTargetCanvas(

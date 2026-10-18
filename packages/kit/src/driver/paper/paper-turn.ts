@@ -106,8 +106,8 @@ export function paperTurnWith(
       paint(state, scene, frame);
     },
     // The shaders are compiled while the book is opened, not in the first frame of the first turn.
-    prepare(): void {
-      state.renderer.prepare();
+    prepare(gl): void {
+      state.renderer.prepare(gl);
     },
     physics: createPaperPhysics(aloft, {
       painted: () => state.painted,
@@ -120,6 +120,7 @@ export function paperTurnWith(
 
 function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame): void {
   state.painted += 1;
+  state.renderer.prepare(scene.gl);
   const read = leafTurn(scene, frame);
   // One page a spread has no leaf to bring back before the first page.
   if (!read) {
@@ -153,7 +154,7 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
   layOut(state.book, grid.columns, grid.rows);
   hold(state, led, read);
 
-  const image = state.renderer.draw({
+  const drawn = state.renderer.draw({
     width: scene.width,
     height: scene.height,
     spine: scene.spine,
@@ -161,12 +162,10 @@ function paint(state: PaperTurn, scene: TransitionScene, frame: TransitionFrame)
     sheets: state.sheets(state.book, shape, grid.columns, grid.rows),
     paper: state.paper,
   });
-  if (!image) {
+  if (!drawn) {
     forget(state);
     paintPlain(scene, frame);
-    return;
   }
-  scene.context.drawImage(image, 0, 0, scene.width, scene.height);
 }
 
 /**
@@ -233,7 +232,7 @@ function leafOf(
   read: LeafTurn,
   shape: LeafShape,
 ): Leaf {
-  const printed = read.front?.content ?? null;
+  const printed = read.front?.texture ?? null;
   let led = state.book.find((leaf) => leaf.spread === read.spread);
   // The same place in another book: what is remembered of it is of something else.
   if (led && led.printed !== printed) {
@@ -263,7 +262,7 @@ function newLeaf(
   const grid = gridFor(shape.spine);
   return {
     spread: read.spread,
-    printed: read.front?.content ?? null,
+    printed: read.front?.texture ?? null,
     shape,
     curled: shape.spine === 0 ? curledFlat() : null,
     grab: grabOf(frame.touch, scene),

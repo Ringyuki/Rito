@@ -93,6 +93,7 @@ reader.dispose();
 - [Documentation Index](./docs/README.md)
 - [Getting Started](./docs/getting-started.md)
 - [Reader API](./docs/api/reader.md)
+- [Migrating to 4.0](./docs/migration/v4.md)
 - [Migrating to 3.0](./docs/migration/v3.md)
 - [Migrating to 2.0](./docs/migration/v2.md)
 - [Capabilities](./docs/capabilities.md)

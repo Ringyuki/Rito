@@ -2,7 +2,9 @@ import type { Reader } from '@ritojs/core';
 import { createTransitionDriver, type TransitionDriver } from '../driver/transition-driver';
 import type { ContentRenderer } from '../painter/buffer-pool';
 import { createPageBufferPool } from '../painter/buffer-pool';
-import { createDisplaySurface } from '../painter/display-surface';
+import { createDisplaySurface, type DisplaySurface } from '../painter/display-surface';
+import type { GlCompositor } from '../painter/gl/compositor';
+import { screenRatio } from '../painter/screen';
 import type { createDisposableCollection } from '../utils/disposable';
 import { runDisposers } from '../utils/disposable';
 import type { createEmitter } from '../utils/event-emitter';
@@ -68,9 +70,15 @@ function createOwnedRuntimeParts(
   construction: ConstructionOwner,
 ) {
   const surface = createDisplaySurface(canvas);
-  const pool = createOwnedPool(construction);
+  disposables.add(
+    construction.own(() => {
+      surface.dispose();
+    }),
+  );
+  disposables.add(construction.own(followScreenRatio(reader, surface)));
+  const pool = createOwnedPool(construction, surface.compositor);
   const prerenderScheduler = createOwnedPrerenderScheduler(construction);
-  const transitionDriver = createTransitionDriver(options.transition);
+  const transitionDriver = createTransitionDriver(options.transition, surface.gl);
   disposables.add(construction.own(followReducedMotion(transitionDriver)));
   const internals = createControllerInternals(reader, options);
   const disposeControllerEngines = construction.own(() => {
@@ -88,6 +96,9 @@ function createOwnedRuntimeParts(
   construction.own(() => {
     frameDriver.dispose();
   });
+  disposables.add(
+    construction.own(repaintWhenRestored(surface, pool, transitionDriver, frameDriver)),
+  );
   return {
     internals,
     surface,
@@ -130,8 +141,40 @@ function followReducedMotion(td: TransitionDriver): () => void {
   };
 }
 
-function createOwnedPool(construction: ConstructionOwner): PageBufferPoolInstance {
-  const pool = createPageBufferPool();
+/**
+ * Keeps the reader laid out at the screen's pixel ratio, so the pages hold
+ * one pixel per device pixel they are shown on, as the browser rasterizes
+ * its own page again when it is zoomed. Returns the unsubscribe.
+ */
+function followScreenRatio(reader: Reader, surface: DisplaySurface): () => void {
+  if (reader.dpr !== screenRatio()) reader.setDevicePixelRatio(screenRatio());
+  return surface.onPixelRatioChange((ratio) => {
+    reader.setDevicePixelRatio(ratio);
+  });
+}
+
+/**
+ * A display whose context was lost and given back holds nothing: every
+ * page is painted again and the effect prepared again. Returns the unsubscribe.
+ */
+function repaintWhenRestored(
+  surface: DisplaySurface,
+  pool: PageBufferPoolInstance,
+  transitionDriver: TransitionDriver,
+  frameDriver: { compositeNow(): void },
+): () => void {
+  return surface.onRestored(() => {
+    pool.restore();
+    transitionDriver.prepareEffect();
+    frameDriver.compositeNow();
+  });
+}
+
+function createOwnedPool(
+  construction: ConstructionOwner,
+  compositor: GlCompositor,
+): PageBufferPoolInstance {
+  const pool = createPageBufferPool(compositor);
   construction.own(() => {
     pool.dispose();
   });

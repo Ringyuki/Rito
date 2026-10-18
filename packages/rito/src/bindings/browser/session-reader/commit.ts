@@ -35,6 +35,7 @@ export async function commitSessionReaderLayout(
   const last = state.view.spreads.length - 1;
   state.activeSpreadIndex = Math.min(Math.max(frame.spreadIndex + turned, 0), last);
   state.config = config;
+  state.dpr = frame.prepared.ratio;
   state.bookIdleSteps = 0;
   state.bookStalled = false;
   state.log.note('commit', {

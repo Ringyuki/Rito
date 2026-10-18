@@ -66,7 +66,8 @@ export interface SessionReaderState {
   readonly typography: SessionReaderTypography;
   /** Geometry of the committed layout. */
   config: LayoutConfig;
-  readonly dpr: number;
+  /** Device pixels per CSS pixel the committed layout is painted at. */
+  dpr: number;
   bgColor: string;
   fgColor: string | undefined;
   /** The committed page table. */

@@ -57,11 +57,17 @@ vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
     options: { hostFont?: (font: unknown) => Promise<unknown> | undefined } = {},
   ) => ({
     // Like the presenter it stands in for, it waits for the faces the page registers itself.
-    prepare: async (artifact: { localSpreadIndex: number; fonts: readonly unknown[] }) => {
+    prepare: async (artifact: {
+      artifactId: bigint;
+      localSpreadIndex: number;
+      fonts: readonly unknown[];
+    }) => {
       for (const font of artifact.fonts) await options.hostFont?.(font);
+      // Painted at the ratio its layout was asked at.
+      const owned = (harness.fake as FakeReaderSession | undefined)?.live.get(artifact.artifactId);
       return {
         artifact,
-        ratio: 2,
+        ratio: owned?.revision.layout.renderRatio ?? 2,
         disposed: false,
         onImagesChanged: () => () => undefined,
         imagesSettled: Promise.resolve(),
@@ -330,6 +336,37 @@ describe('Reader on a session', () => {
       [...fake.live.values()].every((owned) => owned.revision.layout.rootFontSize === 32),
     ).toBe(true);
     expect(fake.maxLive).toBeLessThanOrEqual(LIVE_ARTIFACT_CAP);
+    await reader.dispose();
+  });
+
+  it('lays the book out again at a new device ratio, taking it as the layout commits', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+
+    reader.setDevicePixelRatio(3);
+    // The pages shown were painted at 2 until the new layout replaces them.
+    expect(reader.dpr).toBe(2);
+    await vi.waitFor(() => {
+      expect(reader.layoutScope).toBe('book');
+      expect(commits.length).toBeGreaterThan(1);
+    });
+    expect(fake.requests.at(-1)?.layout).toMatchObject({
+      viewportWidth: 400,
+      viewportHeight: 600,
+      renderRatio: 3,
+    });
+    expect(reader.dpr).toBe(3);
+    expect(reader.getCanvasSize()).toEqual({ width: 400, height: 600 });
+
+    // The ratio it is at already lays nothing out.
+    const requests = fake.requests.length;
+    reader.setDevicePixelRatio(3);
+    await settle();
+    expect(fake.requests).toHaveLength(requests);
+    expect(() => {
+      reader.setDevicePixelRatio(0);
+    }).toThrow(RangeError);
     await reader.dispose();
   });
 

@@ -334,6 +334,12 @@ export interface Reader {
   ): boolean;
   notifyActiveSpread(index: number): void;
   resize(width: number, height: number): void;
+  /**
+   * Lays the book out again at `ratio` device pixels per CSS pixel (the
+   * page zoomed, or the window went to another screen), as `resize` does;
+   * `dpr` takes the new ratio when that layout commits.
+   */
+  setDevicePixelRatio(ratio: number): void;
   setSpreadMode(mode: 'single' | 'double'): boolean;
   updateLayout(
     width: number,

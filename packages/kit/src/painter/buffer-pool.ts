@@ -1,3 +1,4 @@
+import type { ReaderGlTarget } from '@ritojs/core';
 import {
   createPageBufferPoolState,
   disposePageBufferPoolState,
@@ -5,18 +6,33 @@ import {
   type PageBufferPoolState,
 } from './buffer-pool-state';
 import { createInvalidationMethods } from './buffer-pool-invalidation';
-import { paintOverlayInto } from './overlay-painter';
-import { rasterNow } from './raster';
+import {
+  clearOverlay,
+  ensureOverlay,
+  hostLayer,
+  layHost,
+  pageTexture,
+  type PageTexture,
+} from './buffer-pool-layers';
+import type { GlCompositor, QuadRect } from './gl/compositor';
+import { createPageTarget } from './gl/targets';
 import type { OverlayLayer, PageBufferSlot, SlotPosition } from './types';
 
 /** Provider function that produces overlay layers for a given spread index. */
 export type OverlayProvider = (spreadIndex: number) => readonly OverlayLayer[];
 
-/** Callback matching `reader.renderSpreadTo(index, context)`. */
-export type ContentRenderer = (
-  spreadIndex: number,
-  ctx: OffscreenCanvasRenderingContext2D,
-) => boolean;
+/** Where a content renderer paints a spread. */
+export interface PageTarget {
+  /** The framebuffer `reader.renderSpreadTo` paints the spread into. */
+  readonly target: ReaderGlTarget;
+  /** A cleared canvas over the page for a host's painter: what is drawn on it lands on the page. */
+  hostLayer(): OffscreenCanvasRenderingContext2D;
+}
+
+/** Paints a spread into a page target; false while it cannot yet. */
+export type ContentRenderer = (spreadIndex: number, page: PageTarget) => boolean;
+
+export type { PageTexture } from './buffer-pool-layers';
 
 /** Three-slot ring buffer: the spread on screen and the one a turn leads to on either side. */
 export interface PageBufferPool {
@@ -29,6 +45,14 @@ export interface PageBufferPool {
   ensureContent(position: SlotPosition, renderer: ContentRenderer): boolean;
 
   ensureOverlay(position: SlotPosition, provider: OverlayProvider, backingRatio: number): void;
+  /** Draws a slot's page, its overlay over it, over `rect` of what is bound. */
+  drawSlot(position: SlotPosition, rect: QuadRect, opacity?: number): void;
+  /**
+   * A slot's page as one texture, its overlay over it: the same texture
+   * from version to version until the buffers are resized. It binds a
+   * framebuffer of its own to make it.
+   */
+  pageTexture(position: SlotPosition): PageTexture;
   rotateForward(): void;
   rotateBackward(): void;
   jump(spreadIndex: number): void;
@@ -37,16 +61,18 @@ export interface PageBufferPool {
   invalidateOverlayForSpread(spreadIndex: number): void;
   invalidateAllOverlays(): void;
   getSlotFor(spreadIndex: number): SlotPosition | null;
+  /** Makes every buffer again, empty, in a context restored after it was lost. */
+  restore(): void;
   dispose(): void;
 }
 
-export function createPageBufferPool(): PageBufferPool {
-  const state = createPageBufferPoolState();
+export function createPageBufferPool(compositor: GlCompositor): PageBufferPool {
+  const state = createPageBufferPoolState(compositor.gl);
   try {
     const pool = createSlotAccessors(state) as PageBufferPool;
     Object.assign(
       pool,
-      createRenderMethods(state),
+      createRenderMethods(state, compositor),
       createRotationMethods(state),
       createInvalidationMethods(state, { getSlot }),
     );
@@ -93,16 +119,25 @@ function createSlotAccessors(
 
 function createRenderMethods(
   state: PageBufferPoolState,
-): Pick<PageBufferPool, 'resize' | 'assignSlot' | 'ensureContent' | 'ensureOverlay'> {
+  compositor: GlCompositor,
+): Pick<
+  PageBufferPool,
+  | 'resize'
+  | 'assignSlot'
+  | 'ensureContent'
+  | 'ensureOverlay'
+  | 'drawSlot'
+  | 'pageTexture'
+  | 'restore'
+> {
   return {
+    restore(): void {
+      if (state.disposed) return;
+      restoreSlots(state);
+    },
     resize(cssWidth, cssHeight, dpr): void {
       if (state.disposed) return;
-      const width = Math.round(cssWidth * dpr);
-      const height = Math.round(cssHeight * dpr);
-      if (state.width === width && state.height === height) return;
-      state.width = width;
-      state.height = height;
-      for (const slot of state.slots) resizeBufferSlot(slot, width, height);
+      resizeSlots(state, Math.round(cssWidth * dpr), Math.round(cssHeight * dpr));
     },
     assignSlot(position, spreadIndex): void {
       if (state.disposed) return;
@@ -110,13 +145,53 @@ function createRenderMethods(
     },
     ensureContent(position, renderer): boolean {
       if (state.disposed) return false;
-      return ensureContent(state, position, renderer);
+      return ensureContent(state, compositor, position, renderer);
     },
     ensureOverlay(position, provider, backingRatio): void {
       if (state.disposed) return;
-      ensureOverlay(state, position, provider, backingRatio);
+      ensureOverlay(state, getSlot(state, position), provider, backingRatio);
+    },
+    drawSlot(position, rect, opacity = 1): void {
+      drawSlot(compositor, getSlot(state, position), rect, opacity);
+    },
+    pageTexture(position): PageTexture {
+      return pageTexture(state, compositor, getSlot(state, position));
     },
   };
+}
+
+function resizeSlots(state: PageBufferPoolState, width: number, height: number): void {
+  if (state.width === width && state.height === height) return;
+  state.width = width;
+  state.height = height;
+  for (const slot of state.slots) resizeBufferSlot(state.gl, slot, width, height);
+}
+
+function drawSlot(
+  compositor: GlCompositor,
+  slot: PageBufferSlot,
+  rect: QuadRect,
+  opacity: number,
+): void {
+  compositor.drawTexture(slot.content.texture, rect, opacity);
+  if (slot.overlay && slot.overlayShown) {
+    compositor.drawTexture(slot.overlay.texture, rect, opacity);
+  }
+}
+
+/** What a lost context held is gone: every slot gets new, empty buffers and is painted again. */
+function restoreSlots(state: PageBufferPoolState): void {
+  state.host = null;
+  for (const slot of state.slots) {
+    slot.content = createPageTarget(state.gl, state.width, state.height);
+    slot.overlay = null;
+    slot.composed = null;
+    slot.composedAt = -1;
+    slot.overlayShown = false;
+    slot.contentDirty = true;
+    slot.overlayDirty = true;
+    slot.paints += 1;
+  }
 }
 
 function assignSlot(state: PageBufferPoolState, position: SlotPosition, spreadIndex: number): void {
@@ -129,55 +204,31 @@ function assignSlot(state: PageBufferPoolState, position: SlotPosition, spreadIn
 
 function ensureContent(
   state: PageBufferPoolState,
+  compositor: GlCompositor,
   position: SlotPosition,
   renderer: ContentRenderer,
 ): boolean {
   const slot = getSlot(state, position);
   if (slot.spreadIndex === null) return false;
   if (!slot.contentDirty) return true;
-  const context = slot.content.getContext('2d');
-  if (!context) return false;
-  if (!renderer(slot.spreadIndex, context)) return false;
-  // A buffer counts as painted once its pixels exist, so a turn onto a
-  // spread painted ahead of it has only two buffers to composite.
-  state.rasterScratch ??= new OffscreenCanvas(1, 1);
-  rasterNow(slot.content, state.rasterScratch);
+  const { content } = slot;
+  const drawnOver = { host: null as OffscreenCanvasRenderingContext2D | null };
+  const page: PageTarget = {
+    target: {
+      gl: state.gl,
+      framebuffer: content.framebuffer,
+      width: content.width,
+      height: content.height,
+    },
+    hostLayer: () => (drawnOver.host ??= hostLayer(state, content.width, content.height)),
+  };
+  if (!renderer(slot.spreadIndex, page)) return false;
+  // What the host drew lands on the page, under the overlay.
+  if (drawnOver.host) layHost(state, compositor, slot);
   slot.contentDirty = false;
+  slot.composedAt = -1;
   slot.paints += 1;
   return true;
-}
-
-function ensureOverlay(
-  state: PageBufferPoolState,
-  position: SlotPosition,
-  provider: OverlayProvider,
-  backingRatio: number,
-): void {
-  const slot = getSlot(state, position);
-  if (!slot.overlayDirty || slot.spreadIndex === null) return;
-  const layers = provider(slot.spreadIndex);
-  if (layers.length === 0) {
-    clearOverlay(slot);
-    slot.overlayDirty = false;
-    return;
-  }
-  if (!slot.overlay) {
-    slot.overlay = new OffscreenCanvas(slot.content.width, slot.content.height);
-  }
-  const context = slot.overlay.getContext('2d');
-  if (!context) return;
-  paintOverlayInto(context, layers, backingRatio);
-  slot.overlayDirty = false;
-  slot.paints += 1;
-}
-
-function clearOverlay(slot: PageBufferSlot): void {
-  if (!slot.overlay) return;
-  const context = slot.overlay.getContext('2d');
-  if (context) {
-    context.clearRect(0, 0, slot.overlay.width, slot.overlay.height);
-    slot.paints += 1;
-  }
 }
 
 function createRotationMethods(

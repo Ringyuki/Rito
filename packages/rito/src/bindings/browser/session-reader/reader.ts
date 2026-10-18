@@ -13,7 +13,11 @@ import { adoptSessionReaderFirstFrame, readSessionReaderLayout } from './artifac
 import { holdSessionReaderBook, stepSessionReaderBook } from './background';
 import { commitSessionReaderLayout } from './commit';
 import { installSessionReaderDiagnostics } from './diagnostics';
-import { scheduleSessionReaderRelayout } from './foreground';
+import {
+  scheduleSessionReaderRelayout,
+  sessionReaderAppearanceMethods,
+  sessionReaderGeometryMethods,
+} from './foreground';
 import { SessionReaderHostFonts } from './host-fonts';
 import { createSessionReaderInteractions } from './interactions';
 import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-options';
@@ -192,7 +196,8 @@ function buildReader(state: SessionReaderState): Reader {
     interactions: createSessionReaderInteractions(state),
     ...sessionReaderRenderingMethods(state),
     ...sessionReaderNavigationMethods(state),
-    ...layoutMethods(state),
+    ...sessionReaderGeometryMethods(state),
+    ...sessionReaderAppearanceMethods(state),
     ...sessionReaderListenerMethods(state),
     ...sessionReaderResourceMethods(state),
     getLayoutGeometry: () => state.config,
@@ -225,54 +230,6 @@ function buildReader(state: SessionReaderState): Reader {
     layoutScope: { enumerable: true, get: () => state.view.scope },
   });
   return reader as unknown as Reader;
-}
-
-function layoutMethods(
-  state: SessionReaderState,
-): Pick<Reader, 'resize' | 'setSpreadMode' | 'updateLayout' | 'setTheme' | 'setTypography'> {
-  return {
-    resize(width, height) {
-      state.options = { ...state.options, width, height };
-      scheduleSessionReaderRelayout(state);
-    },
-    setSpreadMode(mode) {
-      state.options = { ...state.options, spread: mode };
-      scheduleSessionReaderRelayout(state);
-      return false;
-    },
-    updateLayout(width, height, spreadMode, margin) {
-      state.options = {
-        ...state.options,
-        width,
-        height,
-        ...(spreadMode === undefined ? {} : { spread: spreadMode }),
-        ...(margin === undefined ? {} : { margin }),
-      };
-      scheduleSessionReaderRelayout(state);
-      return false;
-    },
-    setTheme(theme) {
-      const { bgColor, fgColor } = state;
-      if (theme.backgroundColor !== undefined) state.bgColor = theme.backgroundColor ?? '#ffffff';
-      if (theme.foregroundColor !== undefined) state.fgColor = theme.foregroundColor ?? undefined;
-      if (state.bgColor === bgColor && state.fgColor === fgColor) return;
-      // Colours are read at paint time, so every loaded spread stays valid
-      // but nothing repaints on its own: the invalidation is the cue.
-      for (const listener of state.spreadContentInvalidatedListeners) {
-        listener(state.activeSpreadIndex);
-      }
-    },
-    setTypography(next) {
-      const { typography } = state;
-      if (next.fontSize !== undefined) typography.fontSize = next.fontSize ?? undefined;
-      if (next.lineHeight !== undefined) typography.lineHeight = next.lineHeight ?? undefined;
-      if (next.lineHeightForce !== undefined) typography.lineHeightForce = next.lineHeightForce;
-      if (next.fontFamily !== undefined) typography.fontFamily = next.fontFamily ?? undefined;
-      if (next.fontFamilyForce !== undefined) typography.fontFamilyForce = next.fontFamilyForce;
-      scheduleSessionReaderRelayout(state);
-      return false;
-    },
-  };
 }
 
 function initialTypography(options: ReaderOptions): SessionReaderTypography {

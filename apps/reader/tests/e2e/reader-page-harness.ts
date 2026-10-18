@@ -112,8 +112,13 @@ export async function readerCanvasChecksum(page: Page): Promise<string> {
         )
         .sort((left, right) => right.width * right.height - left.width * left.height)[0];
       if (!canvas) throw new Error('Reader canvas is unavailable');
-      const context = canvas.getContext('2d');
+      // The reader draws with WebGL: its pixels are read through a 2D copy.
+      const copy = document.createElement('canvas');
+      copy.width = canvas.width;
+      copy.height = canvas.height;
+      const context = copy.getContext('2d', { willReadFrequently: true });
       if (!context) throw new Error('Reader canvas context is unavailable');
+      context.drawImage(canvas, 0, 0);
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
       let hash = 2_166_136_261;
       for (let index = 0; index < pixels.length; index += 1) {

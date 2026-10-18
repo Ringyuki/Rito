@@ -79,6 +79,23 @@ and with `a11y` enabled the accessibility mirror with it. Turns and overlays are
 composited into that one canvas; pointer and touch listeners sit on the canvas from
 `createController` on, and keyboard shortcuts listen on the document element.
 
+The controller draws with WebGL2 on that canvas: the pages it keeps painted are
+textures in the canvas's context, painted by `reader.renderSpreadTo` into their
+framebuffers, and every frame is drawn on the GPU. Where the browser gives no
+WebGL2, `createController` throws `WebGlUnavailableError`. The canvas keeps its
+drawing buffer, so a host can read the display back at any time (`drawImage`,
+`toBlob`). A context the browser takes away is asked back; when it returns,
+every page is painted again and the effect prepared again.
+
+The controller keeps the book laid out at the screen's pixel ratio: when the page
+zooms or the window goes to another screen, the reader lays the book out again at
+the new ratio, as the browser does its own page, so the canvas holds one pixel per
+device pixel it is shown on. While it does, the controller sets
+`image-rendering: pixelated` on the canvas so the browser shows those pixels as
+they are instead of filtering them; while the canvas is stretched — a pinch
+magnifying the page, or the moment between a zoom and the pages painted at the
+new ratio — it sets `auto` and the browser smooths it, as it smooths the page.
+
 ## Page Turns
 
 A turn is physics plus an effect. The physics say how it moves — the drag, the
@@ -97,10 +114,15 @@ damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
     the sheet onto the page beneath it: it reaches 24 CSS px and fades as the sheet
     leaves the frame, so it is gone when the sheet is;
   - painted — `paint(scene, frame)` draws the frame itself, for looks that bend or
-    cut the pages such as a curl. `scene.context` is the cleared display canvas,
-    `scene.page(slot)` gives a page's bitmap and overlay (`{ spread, content, overlay,
-pixelRatio }`, or `null` while it is not painted yet) and
-    `scene.drawPage(slot, x, opacity?)` draws one whole.
+    cut the pages such as a curl. `scene.gl` is the display's WebGL2 context, its
+    own framebuffer bound and cleared, and the effect draws the frame into it.
+    `scene.page(slot)` gives a page as one texture of that context with its
+    overlay over it (`{ spread, texture, width, height, pixelRatio, version }`,
+    premultiplied, its last row the top of the page as in any framebuffer; `null`
+    while it is not painted yet) and `scene.drawPage(slot, x, opacity?)` draws one
+    whole. Either may paint the page first, which changes the context's program,
+    vertex array, textures and blending; the display's framebuffer is bound again
+    after.
 
   A frame's `dx` and `width`, like the scene's `width` and `height`, are in the
   display canvas's own pixels; `scene.cssPixel` is the length of a CSS pixel in
@@ -110,12 +132,14 @@ pixelRatio }`, or `null` while it is not painted yet) and
   (`touch.origin` and `touch.position`, `null` for a turn no finger has held;
   `touch.farthest` is where the finger was when it had carried the turn farthest
   the way the turn goes, so a finger short of it has come back).
-  An effect of either kind may have a `prepare()`: it is called when the effect is
-  set, before any turn, for work that would otherwise hold up the first frame of
-  the first turn, and may be called more than once.
+  An effect of either kind may have a `prepare(gl)`: it is called with the
+  display's context when the effect is set, before any turn, for work that would
+  otherwise hold up the first frame of the first turn such as compiling programs;
+  it may be called more than once, and again after the context was lost and
+  given back.
   `scene.spine` is where the pages are bound — the left edge when a spread is one
   page, the middle when it is two — and a page's `version` changes whenever its
-  bitmap or overlay is painted again, so an effect can keep a texture of it. A
+  texture or overlay is painted again, so an effect can keep a copy of it. A
   page's `spread` is which spread of the book it is: what tells it from every
   other from one turn to the next.
 
@@ -191,9 +215,10 @@ passes through another; and a finger that takes a leaf in the air holds it by th
 point it touched, a curled page where it is. A leaf lying flat is exactly the page's own colours. The effect
 hands the GPU its shaders when it is set and does not wait for them: a turn begun
 before they are compiled is drawn as the built-in `cover` to its end, so no turn is
-held up, and so is every turn where WebGL is not to be had. At two device pixels or
-more to a CSS pixel the canvas is not multisampled and a leaf's edge is softened
-where it is drawn instead. It keeps the leaves in the air, so make one per
+held up, and so is every turn where its shaders cannot run. It draws in the
+display's own context, taking the pages from their textures, into a frame of its
+own that is multisampled below two device pixels to a CSS pixel; at two or more a
+leaf's edge is softened where it is drawn instead. It keeps the leaves in the air, so make one per
 controller:
 
 ```ts

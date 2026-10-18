@@ -1,5 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createPageBufferPool } from '../src/painter/buffer-pool';
+import { createPageBufferPool, type PageTarget } from '../src/painter/buffer-pool';
+import { createCompositor } from '../src/painter/gl/compositor';
+import { createFakeGl, type FakeGl } from './helpers/fake-gl';
 
 // Polyfill OffscreenCanvas for Node/happy-dom test environment
 beforeAll(() => {
@@ -20,6 +22,7 @@ beforeAll(() => {
           save: vi.fn(),
           restore: vi.fn(),
           scale: vi.fn(),
+          setTransform: vi.fn(),
           canvas: this,
         };
       }
@@ -31,47 +34,41 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function poolOn(fake: FakeGl = createFakeGl()) {
+  return createPageBufferPool(createCompositor(fake.gl));
+}
+
 describe('PageBufferPool', () => {
   it('starts with three empty slots', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     expect(pool.prev.spreadIndex).toBeNull();
     expect(pool.curr.spreadIndex).toBeNull();
     expect(pool.next.spreadIndex).toBeNull();
   });
 
-  it('releases earlier slots when a later backing-store allocation fails', () => {
-    const sentinel = new Error('backing-store allocation failed');
-    const allocated: Array<{ width: number; height: number }> = [];
-    let allocationCount = 0;
-    vi.stubGlobal(
-      'OffscreenCanvas',
-      class ThrowingOffscreenCanvas {
-        width: number;
-        height: number;
-
-        constructor(width: number, height: number) {
-          allocationCount += 1;
-          if (allocationCount === 3) throw sentinel;
-          this.width = width;
-          this.height = height;
-          allocated.push(this);
+  it('releases earlier slots when a later buffer cannot be made', () => {
+    const sentinel = new Error('texture allocation failed');
+    const fake = createFakeGl();
+    let made = 0;
+    const gl = new Proxy(fake.gl, {
+      get(target, property): unknown {
+        if (property === 'createTexture') {
+          return () => {
+            made += 1;
+            if (made === 3) throw sentinel;
+            return target.createTexture();
+          };
         }
-
-        getContext(): null {
-          return null;
-        }
+        return Reflect.get(target, property) as unknown;
       },
-    );
-
-    expect(() => {
-      createPageBufferPool();
-    }).toThrow(sentinel);
-    expect(allocated).toHaveLength(2);
-    expect(allocated.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
+    });
+    expect(() => createPageBufferPool(createCompositor(gl))).toThrow(sentinel);
+    expect(fake.named('deleteTexture')).toHaveLength(2);
+    expect(fake.named('deleteFramebuffer')).toHaveLength(2);
   });
 
   it('assignSlot sets spreadIndex and marks dirty', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.assignSlot('curr', 0);
     expect(pool.curr.spreadIndex).toBe(0);
     expect(pool.curr.contentDirty).toBe(true);
@@ -79,7 +76,7 @@ describe('PageBufferPool', () => {
   });
 
   it('ensureContent calls renderer once then clears dirty', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 5);
 
@@ -95,50 +92,83 @@ describe('PageBufferPool', () => {
     expect(renderer).toHaveBeenCalledTimes(1);
   });
 
-  it('rasters a buffer when it is painted, not when a turn first composites it', () => {
-    // A canvas rasters what was drawn into it the first time it is read as
-    // an image: the pool reads each painted buffer once, into one pixel.
-    const reads: Array<{ source: unknown; width: number; height: number }> = [];
-    vi.stubGlobal(
-      'OffscreenCanvas',
-      class RecordingOffscreenCanvas {
-        constructor(
-          public width: number,
-          public height: number,
-        ) {}
-
-        getContext() {
-          return {
-            clearRect: vi.fn(),
-            drawImage: (source: unknown, _x: number, _y: number, width: number, height: number) => {
-              reads.push({ source, width, height });
-            },
-            canvas: this,
-          };
-        }
-      },
-    );
-    const pool = createPageBufferPool();
+  it("paints a spread into the slot's own framebuffer at the slot's size", () => {
+    const pool = poolOn();
     pool.resize(800, 600, 2);
     pool.assignSlot('next', 6);
-
-    expect(pool.ensureContent('next', () => false)).toBe(false);
-    expect(reads).toEqual([]);
-
+    const pages: PageTarget[] = [];
+    expect(
+      pool.ensureContent('next', (_index, page) => {
+        pages.push(page);
+        return true;
+      }),
+    ).toBe(true);
+    expect(pages[0]?.target).toMatchObject({
+      framebuffer: pool.next.content.framebuffer,
+      width: 1600,
+      height: 1200,
+    });
+    // Painted: asking again paints nothing.
     expect(pool.ensureContent('next', () => true)).toBe(true);
-    expect(reads).toEqual([{ source: pool.next.content, width: 1, height: 1 }]);
+    expect(pages).toHaveLength(1);
+  });
 
-    // Painted and rastered: asking again does neither.
-    expect(pool.ensureContent('next', () => true)).toBe(true);
-    expect(reads).toHaveLength(1);
+  it('lays what a host draws over the page into the page itself', () => {
+    const fake = createFakeGl();
+    const pool = poolOn(fake);
+    pool.resize(100, 50, 1);
+    pool.assignSlot('curr', 2);
+    expect(pool.ensureContent('curr', () => true)).toBe(true);
+    expect(fake.named('texImage2D').some((args) => args.length === 6)).toBe(false);
+    const drawn = fake.draws.length;
 
-    pool.invalidateContentForSpread(6);
-    expect(pool.ensureContent('next', () => true)).toBe(true);
-    expect(reads).toHaveLength(2);
+    pool.invalidateContentForSpread(2);
+    expect(
+      pool.ensureContent('curr', (_index, page) => {
+        page.hostLayer();
+        return true;
+      }),
+    ).toBe(true);
+    // The host's canvas is uploaded and drawn into the page's framebuffer.
+    expect(fake.named('texImage2D').some((args) => args.length === 6)).toBe(true);
+    expect(fake.draws.slice(drawn).map((draw) => draw.framebuffer)).toEqual([
+      pool.curr.content.framebuffer,
+    ]);
+  });
+
+  it('draws a page, then its overlay, and keeps one texture of both for a turn', () => {
+    const fake = createFakeGl();
+    const pool = poolOn(fake);
+    pool.resize(100, 50, 1);
+    pool.assignSlot('curr', 2);
+    pool.ensureContent('curr', () => true);
+    pool.ensureOverlay(
+      'curr',
+      () => [
+        { id: 'sel', rects: [{ x: 0, y: 0, width: 10, height: 10 }], color: 'blue', zIndex: 0 },
+      ],
+      1,
+    );
+    const before = fake.draws.length;
+    pool.drawSlot('curr', { x: 0, y: 0, width: 100, height: 50 });
+    expect(fake.draws.slice(before).map((draw) => draw.texture)).toEqual([
+      pool.curr.content.texture,
+      pool.curr.overlay?.texture,
+    ]);
+
+    const first = pool.pageTexture('curr');
+    const composed = fake.draws.length;
+    expect(pool.pageTexture('curr')).toBe(first);
+    expect(fake.draws.length).toBe(composed);
+    // Painted again, the same texture holds the new painting.
+    pool.invalidateContentForSpread(2);
+    pool.ensureContent('curr', () => true);
+    expect(pool.pageTexture('curr').texture).toBe(first.texture);
+    expect(fake.draws.length).toBeGreaterThan(composed);
   });
 
   it('keeps content dirty when renderer defers painting', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 5);
 
@@ -152,14 +182,14 @@ describe('PageBufferPool', () => {
   });
 
   it('ensureContent skips empty slots', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     const renderer = vi.fn(() => true);
     pool.ensureContent('curr', renderer);
     expect(renderer).not.toHaveBeenCalled();
   });
 
   it('ensureOverlay allocates lazily and paints layers', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
 
@@ -172,12 +202,13 @@ describe('PageBufferPool', () => {
     pool.ensureOverlay('curr', provider, 1);
 
     expect(pool.curr.overlay).not.toBeNull();
+    expect(pool.curr.overlayShown).toBe(true);
     expect(pool.curr.overlayDirty).toBe(false);
     expect(provider).toHaveBeenCalledWith(0);
   });
 
   it('ensureOverlay skips allocation when provider returns empty layers', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 0);
 
@@ -189,7 +220,7 @@ describe('PageBufferPool', () => {
   });
 
   it('rotateForward shifts slots correctly', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(100, 100, 1);
     pool.assignSlot('prev', 0);
     pool.assignSlot('curr', 1);
@@ -205,7 +236,7 @@ describe('PageBufferPool', () => {
   });
 
   it('rotateBackward shifts slots correctly', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(100, 100, 1);
     pool.assignSlot('prev', 0);
     pool.assignSlot('curr', 1);
@@ -221,7 +252,7 @@ describe('PageBufferPool', () => {
   });
 
   it('jump clears all slots and assigns curr', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(100, 100, 1);
     pool.assignSlot('prev', 0);
     pool.assignSlot('curr', 1);
@@ -236,7 +267,7 @@ describe('PageBufferPool', () => {
   });
 
   it('resize resizes all slot canvases and marks dirty', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 2);
 
     expect(pool.curr.content.width).toBe(1600);
@@ -245,7 +276,7 @@ describe('PageBufferPool', () => {
   });
 
   it('resize is a no-op when backing dimensions are unchanged', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 1);
 
@@ -261,7 +292,7 @@ describe('PageBufferPool', () => {
   });
 
   it('invalidateAllContent marks all slots dirty', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(100, 100, 1);
     pool.assignSlot('curr', 0);
 
@@ -276,7 +307,7 @@ describe('PageBufferPool', () => {
   });
 
   it('invalidateOverlayForSpread only affects matching slot', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(100, 100, 1);
     pool.assignSlot('prev', 0);
     pool.assignSlot('curr', 1);
@@ -297,7 +328,7 @@ describe('PageBufferPool', () => {
   });
 
   it('getSlotFor finds the right position', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.assignSlot('prev', 5);
     pool.assignSlot('curr', 6);
     pool.assignSlot('next', 7);
@@ -309,7 +340,7 @@ describe('PageBufferPool', () => {
   });
 
   it('double rotateForward produces correct state', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(100, 100, 1);
     pool.assignSlot('prev', 0);
     pool.assignSlot('curr', 1);
@@ -324,8 +355,9 @@ describe('PageBufferPool', () => {
     expect(pool.next.spreadIndex).toBeNull();
   });
 
-  it('dispose releases content and overlay backing stores', () => {
-    const pool = createPageBufferPool();
+  it('dispose releases content and overlay textures', () => {
+    const fake = createFakeGl();
+    const pool = poolOn(fake);
     pool.resize(800, 600, 2);
     pool.assignSlot('curr', 0);
     pool.ensureOverlay(
@@ -340,17 +372,17 @@ describe('PageBufferPool', () => {
 
     for (const slot of [pool.prev, pool.curr, pool.next]) {
       expect(slot.spreadIndex).toBeNull();
-      expect(slot.content.width).toBe(0);
-      expect(slot.content.height).toBe(0);
       expect(slot.overlay).toBeNull();
     }
+    // Three pages and one overlay.
+    expect(fake.named('deleteTexture')).toHaveLength(4);
     expect(() => {
       pool.dispose();
     }).not.toThrow();
   });
 
   it('remains terminal when stale work reaches it after disposal', () => {
-    const pool = createPageBufferPool();
+    const pool = poolOn();
     pool.resize(800, 600, 2);
     pool.assignSlot('curr', 4);
     pool.dispose();
@@ -374,9 +406,20 @@ describe('PageBufferPool', () => {
     expect(pool.getSlotFor(4)).toBeNull();
     for (const slot of [pool.prev, pool.curr, pool.next]) {
       expect(slot.spreadIndex).toBeNull();
-      expect(slot.content.width).toBe(0);
-      expect(slot.content.height).toBe(0);
       expect(slot.overlay).toBeNull();
     }
+  });
+
+  it('makes every buffer again, empty, after the context was lost', () => {
+    const pool = poolOn();
+    pool.resize(100, 50, 1);
+    pool.assignSlot('curr', 3);
+    pool.ensureContent('curr', () => true);
+    const before = pool.curr.content;
+    pool.restore();
+    expect(pool.curr.content).not.toBe(before);
+    expect(pool.curr.content).toMatchObject({ width: 100, height: 50 });
+    expect(pool.curr.contentDirty).toBe(true);
+    expect(pool.curr.spreadIndex).toBe(3);
   });
 });

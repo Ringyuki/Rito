@@ -3,6 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
 import { requireRenderScale } from '../src/controller/facade/layout-actions';
 import { readerInteractions } from './helpers/native-selection';
+import { createFakeGl } from './helpers/fake-gl';
 
 beforeAll(() => {
   if (typeof globalThis['OffscreenCanvas'] === 'undefined') {
@@ -47,12 +48,10 @@ describe('createController', () => {
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
 
     const canvas = document.createElement('canvas');
-    const clearRect = vi.fn();
-    const drawImage = vi.fn();
-    canvas.getContext = vi.fn(() => ({
-      clearRect,
-      drawImage,
-    })) as unknown as typeof canvas.getContext;
+    const gl = createFakeGl(canvas).gl;
+    canvas.getContext = vi.fn((kind: string) =>
+      kind === 'webgl2' ? gl : null,
+    ) as unknown as typeof canvas.getContext;
 
     const getCanvasSize = vi.fn((scale = 1) => ({
       width: Math.round(400 * scale),
@@ -73,6 +72,7 @@ describe('createController', () => {
       renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread: vi.fn(),
       resize: vi.fn(),
+      setDevicePixelRatio: vi.fn(),
       setSpreadMode: vi.fn(),
       updateLayout: vi.fn(() => false),
       setTheme: vi.fn(),
@@ -115,10 +115,10 @@ describe('createController', () => {
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
 
     const canvas = document.createElement('canvas');
-    canvas.getContext = vi.fn(() => ({
-      clearRect: vi.fn(),
-      drawImage: vi.fn(),
-    })) as unknown as typeof canvas.getContext;
+    const gl = createFakeGl(canvas).gl;
+    canvas.getContext = vi.fn((kind: string) =>
+      kind === 'webgl2' ? gl : null,
+    ) as unknown as typeof canvas.getContext;
 
     const spreads = [
       { index: 0, pageIndexes: [0], leftPageIndex: 0 },
@@ -181,10 +181,10 @@ describe('createController', () => {
     const cancelAnimationFrame = vi.fn();
     vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
     const canvas = document.createElement('canvas');
-    canvas.getContext = vi.fn(() => ({
-      clearRect: vi.fn(),
-      drawImage: vi.fn(),
-    })) as unknown as typeof canvas.getContext;
+    const gl = createFakeGl(canvas).gl;
+    canvas.getContext = vi.fn((kind: string) =>
+      kind === 'webgl2' ? gl : null,
+    ) as unknown as typeof canvas.getContext;
     const unsubscribe = vi.fn();
     const sentinel = new Error('initial spread listener failed');
     const reader = {

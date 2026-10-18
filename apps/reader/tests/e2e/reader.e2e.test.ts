@@ -300,8 +300,13 @@ async function hasNonBlankCanvas(page: Page): Promise<boolean> {
       if (!(canvas instanceof HTMLCanvasElement)) return false;
       if (canvas.width === 0 || canvas.height === 0) return false;
 
-      const context = canvas.getContext('2d');
+      // The reader draws with WebGL: its pixels are read through a 2D copy.
+      const copy = document.createElement('canvas');
+      copy.width = canvas.width;
+      copy.height = canvas.height;
+      const context = copy.getContext('2d', { willReadFrequently: true });
       if (!context) return false;
+      context.drawImage(canvas, 0, 0);
 
       const sampleStepX = Math.max(1, Math.floor(canvas.width / 40));
       const sampleStepY = Math.max(1, Math.floor(canvas.height / 40));

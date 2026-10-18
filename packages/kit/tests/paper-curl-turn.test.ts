@@ -3,6 +3,7 @@ import type { TransitionFrame, TransitionPage, TransitionScene } from '../src/dr
 import type { TransitionSettle } from '../src/driver/physics';
 import { paperTurnWith } from '../src/driver/paper/paper-turn';
 import type { PaperRenderer } from '../src/driver/paper/renderer';
+import { createFakeGl } from './helpers/fake-gl';
 
 /**
  * The paper turn with one page a spread, drawn by a GPU that only says how
@@ -19,23 +20,24 @@ function staged(density = 1) {
     draw: (frame) => {
       // The page first lifted comes first in the book: the one the finger took.
       places.push(frame.sheets.find((sheet) => !sheet.still)?.shown ?? Number.NaN);
-      return {} as CanvasImageSource;
+      return true;
     },
   };
   const clock = { now: 1000 };
   const effect = paperTurnWith(renderer, { now: () => clock.now });
-  // A page is told from another by its bitmap: each spread keeps the one it has.
+  // A page is told from another by its texture: each spread keeps the one it has.
   const pages = [3, 4, 5].map(
     (spread): TransitionPage => ({
       spread,
-      content: { spread } as unknown as CanvasImageSource,
-      overlay: null,
+      texture: { spread } as unknown as WebGLTexture,
+      width: 400 * density,
+      height: 600 * density,
       pixelRatio: 1,
       version: 0,
     }),
   );
   const scene: TransitionScene = {
-    context: { drawImage: () => undefined } as unknown as CanvasRenderingContext2D,
+    gl: createFakeGl().gl,
     width: 400 * density,
     height: 600 * density,
     cssPixel: density,
@@ -87,7 +89,7 @@ function staged(density = 1) {
    */
   const leftAlone = (): number => {
     pages.shift();
-    pages.push({ ...(pages[1] as TransitionPage), spread: 6, content: {} as CanvasImageSource });
+    pages.push({ ...(pages[1] as TransitionPage), spread: 6, texture: {} as WebGLTexture });
     const key = { ...frame('landing', 0, 0), touch: null };
     let last = places.at(-1) ?? 0;
     for (let count = 1; count <= 60; count += 1) {

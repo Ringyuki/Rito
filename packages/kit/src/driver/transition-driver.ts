@@ -95,6 +95,9 @@ export interface TransitionDriver {
   /** Update spring/swipe parameters at runtime. */
   configure(update: Partial<TransitionDriverOptions>): void;
 
+  /** Prepares the effect again, as when it is set: after the display's context was restored. */
+  prepareEffect(): void;
+
   /** Force back to idle without triggering onSettled. */
   reset(): void;
 
@@ -105,14 +108,17 @@ export interface TransitionDriver {
   onRest(cb: () => void): () => void;
 }
 
+/** `gl` is the display's context, which a painted effect is prepared with. */
 export function createTransitionDriver(
   options?: Partial<TransitionDriverOptions>,
+  gl: WebGL2RenderingContext | null = null,
 ): TransitionDriver {
   const state: TransitionDriverState = {
     opts: { ...DEFAULT_TRANSITION_OPTIONS, ...options },
     mode: { kind: 'idle' },
     viewportWidth: 0,
     reducedMotion: false,
+    gl,
     spine: 0,
     velocitySamples: [],
     settledListeners: new Set<(event: SettledEvent) => void>(),
@@ -232,11 +238,14 @@ function createAnimationActions(
 
 function createConfigurationActions(
   state: TransitionDriverState,
-): Pick<TransitionDriver, 'configure' | 'reset' | 'onSettled' | 'onRest'> {
+): Pick<TransitionDriver, 'configure' | 'prepareEffect' | 'reset' | 'onSettled' | 'onRest'> {
   return {
     configure(update): void {
       state.opts = { ...state.opts, ...update };
       if (update.effect !== undefined) prepareEffect(state);
+    },
+    prepareEffect(): void {
+      prepareEffect(state);
     },
     reset(): void {
       state.mode = { kind: 'idle' };

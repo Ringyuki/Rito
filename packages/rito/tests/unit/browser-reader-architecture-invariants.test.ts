@@ -43,8 +43,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // that lays pages out counts as progress however many the book takes.
 // +58 lines (2026-10-18): a source range resolved as a selection, carets
 // included, so a selection made in one layout is shown again in the next.
+// +16 lines (2026-10-18): `setDevicePixelRatio`, the book laid out at the
+// screen's new pixel ratio and taken as it commits.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2808;
+const SESSION_READER_LINE_BUDGET = 2824;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -57,7 +59,9 @@ const SESSION_READER_LINE_BUDGET = 2808;
 // resolved as a selection with its carets.
 // +5 lines (2026-10-18): `ReaderGlTarget`, a WebGL2 framebuffer
 // `renderSpreadTo` paints into.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 800;
+// +6 lines (2026-10-18): `setDevicePixelRatio`, a layout at the screen's
+// new pixel ratio.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 806;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

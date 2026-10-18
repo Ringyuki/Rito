@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderLocatorResolution } from '@ritojs/core';
 import { createController } from '../src/controller';
 import { readerInteractions } from './helpers/native-selection';
+import { createFakeGl, type FakeGl } from './helpers/fake-gl';
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -75,13 +76,12 @@ describe('controller initial spread', () => {
     const resolution = deferred<ReaderLocatorResolution | undefined>();
     const persisted = deferred<undefined>();
     const save = vi.fn(() => persisted.promise);
-    const displayDraw = vi.fn();
     const fixture = createReaderFixture(0);
     Object.assign(fixture.reader, {
       manifestHrefMap: new Map([['chapter', 'Text/chapter.xhtml']]),
       navigateToLocator: vi.fn(() => resolution.promise),
     });
-    const controller = createController(fixture.reader, createCanvas(displayDraw), {
+    const controller = createController(fixture.reader, createCanvas(), {
       positionStorage: {
         load: vi.fn(() => Promise.resolve(null)),
         save,
@@ -115,7 +115,7 @@ describe('controller initial spread', () => {
     frame.run();
 
     expect(controller.currentSpread).toBe(2);
-    expect(displayDraw).toHaveBeenCalledOnce();
+    expect(displayDraws()).toBe(1);
     expect(fixture.renderSpreadTo).toHaveBeenCalledOnce();
     expect(fixture.renderSpreadTo).toHaveBeenCalledWith(2, expect.anything());
 
@@ -187,13 +187,22 @@ function stubCancellableFrameScheduling(): { readonly run: () => void } {
   };
 }
 
-function createCanvas(drawImage = vi.fn()): HTMLCanvasElement {
+/** The fake WebGL2 context of the last canvas made. */
+let lastGl: FakeGl | undefined;
+
+function createCanvas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.getContext = vi.fn(() => ({
-    clearRect: vi.fn(),
-    drawImage,
-  })) as unknown as typeof canvas.getContext;
+  const fake = createFakeGl(canvas);
+  lastGl = fake;
+  canvas.getContext = vi.fn((kind: string) =>
+    kind === 'webgl2' ? fake.gl : null,
+  ) as unknown as typeof canvas.getContext;
   return canvas;
+}
+
+/** How many times a page was drawn onto the display. */
+function displayDraws(): number {
+  return lastGl?.draws.filter((draw) => draw.framebuffer === null).length ?? 0;
 }
 
 function createReaderFixture(activeSpreadIndex: number | 'missing'): {

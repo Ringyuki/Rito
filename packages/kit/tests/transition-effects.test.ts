@@ -4,9 +4,13 @@ import {
   transitionEffects,
   type PaintedTransitionEffect,
   type TransitionFrame,
-  type TransitionPage,
 } from '../src/driver/effects';
 import { createTransitionScene, paintTransition } from '../src/driver/transition-scene';
+import type { PageBufferPool } from '../src/painter/buffer-pool';
+import type { DisplaySurface } from '../src/painter/display-surface';
+import type { QuadRect } from '../src/painter/gl/compositor';
+import type { SlotPosition } from '../src/painter/types';
+import { createFakeGl } from './helpers/fake-gl';
 import { createTransitionDriver } from '../src/driver/transition-driver';
 
 const W = 400;
@@ -123,67 +127,70 @@ describe('transition effects', () => {
 });
 
 describe('transition scene', () => {
-  function fakeContext() {
+  /**
+   * A display and pool that say what is drawn: each page as
+   * `slot@x*opacity`, each shadow as where its edge is, how far it reaches
+   * and how dark it is at the edge.
+   */
+  function fakeSource(painted: (slot: SlotPosition) => boolean = () => true, cssPixel = 1) {
     const calls: string[] = [];
-    const context = {
-      globalAlpha: 1,
-      fillStyle: '',
-      drawImage(image: { id: string }, x: number) {
-        calls.push(`${image.id}@${String(x)}*${String(this.globalAlpha)}`);
+    const shadows: { edge: number; reach: number; alpha: number }[] = [];
+    const surface = {
+      gl: createFakeGl().gl,
+      width: W * cssPixel,
+      height: 300,
+      compositor: {
+        bind: () => undefined,
+        clear: () => undefined,
+        drawTexture: () => undefined,
+        drawRamp(rect: QuadRect, from: number, to: number) {
+          calls.push('shadow');
+          // The ramp is darkest at the sheet's edge.
+          const edge = from > to ? rect.x : rect.x + rect.width;
+          shadows.push({ edge, reach: rect.width, alpha: Math.max(from, to) });
+        },
       },
-      createLinearGradient: () => ({ addColorStop: () => undefined }),
-      fillRect: () => calls.push('shadow'),
-    };
-    return { context: context as unknown as CanvasRenderingContext2D, calls };
+    } as unknown as DisplaySurface;
+    const slot = { spreadIndex: 0, paints: 0 };
+    const pool = {
+      prev: slot,
+      curr: slot,
+      next: slot,
+      drawSlot(position: SlotPosition, rect: QuadRect, opacity = 1) {
+        calls.push(`${position}@${String(rect.x)}*${String(opacity)}`);
+      },
+      pageTexture: (position: SlotPosition) => ({
+        texture: { id: position },
+        width: W * cssPixel * 2,
+        height: 600,
+      }),
+    } as unknown as PageBufferPool;
+    return { source: { surface, pool, ready: painted }, surface, calls, shadows };
   }
-  const page = (id: string): TransitionPage => ({
-    spread: 0,
-    content: { id } as unknown as CanvasImageSource,
-    overlay: null,
-    pixelRatio: 2,
-    version: 0,
-  });
 
   it('draws a layered effect through the scene, skipping pages not painted yet', () => {
-    const { context, calls } = fakeContext();
-    const scene = createTransitionScene(context, W, 300, (slot) =>
-      slot === 'next' ? null : page(slot),
-    );
-    paintTransition(scene, transitionEffects.fade, frameAt(-200, 'next'));
-    paintTransition(scene, transitionEffects.cover, frameAt(100, 'prev'));
+    const { source, surface, calls } = fakeSource((slot) => slot !== 'next');
+    const scene = createTransitionScene(source, W, 300);
+    paintTransition(scene, transitionEffects.fade, frameAt(-200, 'next'), surface);
+    paintTransition(scene, transitionEffects.cover, frameAt(100, 'prev'), surface);
     expect(calls).toEqual(['curr@0*1', 'prev@0*1', 'shadow', 'curr@100*1']);
   });
 
   it('a sheet leaving the frame takes its shadow with it', () => {
-    // The shadow a cover frame at `dx` paints: where its edge is, how far
-    // it reaches and how dark it is at the edge.
+    // The shadow a cover frame at `dx` paints.
     const shadow = (dx: number, incoming: 'next' | 'prev', cssPixel = 1) => {
-      const shadows: { edge: number; reach: number; alpha: number }[] = [];
-      let stops: string[] = [];
-      const context = {
-        globalAlpha: 1,
-        fillStyle: '',
-        drawImage: () => undefined,
-        createLinearGradient: (edge: number, _y: number, to: number) => {
-          stops = [];
-          shadows.push({ edge, reach: Math.abs(to - edge), alpha: 0 });
-          return { addColorStop: (_at: number, color: string) => stops.push(color) };
-        },
-        fillRect: () => {
-          const alpha = /, ([\d.]+)\)$/.exec(stops[0] ?? '');
-          const last = shadows.at(-1);
-          if (last) last.alpha = Number(alpha?.[1]);
-        },
-      } as unknown as CanvasRenderingContext2D;
-      const scene = createTransitionScene(context, W * cssPixel, 300, page, cssPixel);
+      const { source, surface, shadows } = fakeSource(() => true, cssPixel);
+      const scene = createTransitionScene(source, W * cssPixel, 300, cssPixel);
       const frame = { ...frameAt(dx * cssPixel, incoming), width: W * cssPixel };
-      paintTransition(scene, transitionEffects.cover, frame);
+      paintTransition(scene, transitionEffects.cover, frame, surface);
       return shadows[0] ?? null;
     };
 
+    // The shadow is black at 0.18, an alpha a colour keeps as a byte.
+    const full = Math.round(0.18 * 255) / 255;
     // Turning back, this page slides off to the right over the one before.
-    expect(shadow(150, 'prev')).toEqual({ edge: 150, reach: 24, alpha: 0.18 });
-    expect(shadow(W - 24, 'prev')?.alpha).toBe(0.18);
+    expect(shadow(150, 'prev')).toEqual({ edge: 150, reach: 24, alpha: full });
+    expect(shadow(W - 24, 'prev')?.alpha).toBe(full);
     expect(shadow(W - 12, 'prev')?.alpha).toBeCloseTo(0.09);
     expect(shadow(W - 6, 'prev')?.alpha).toBeCloseTo(0.045);
     expect(shadow(W, 'prev')).toBeNull();
@@ -191,23 +198,24 @@ describe('transition scene', () => {
     // and its shadow leaves the frame ahead of it as it arrives.
     expect(shadow(0, 'next')).toBeNull();
     expect(shadow(-12, 'next')?.alpha).toBeCloseTo(0.09);
-    expect(shadow(-W, 'next')).toEqual({ edge: 0, reach: 24, alpha: 0.18 });
+    expect(shadow(-W, 'next')).toEqual({ edge: 0, reach: 24, alpha: full });
     // The reach is a length on the page, whatever the display's density.
-    expect(shadow(150, 'prev', 3)).toEqual({ edge: 450, reach: 72, alpha: 0.18 });
+    expect(shadow(150, 'prev', 3)).toEqual({ edge: 450, reach: 72, alpha: full });
     expect(shadow(W - 12, 'prev', 3)?.alpha).toBeCloseTo(0.09);
   });
 
   it('hands a painted effect the scene, its pages and the frame', () => {
-    const { context, calls } = fakeContext();
+    const { source, surface, calls } = fakeSource();
     const seen: string[] = [];
     const curl: PaintedTransitionEffect = {
       paint(scene, frame) {
         seen.push(`${String(scene.page('curr')?.pixelRatio)}:${String(frame.dx)}`);
+        expect(scene.gl).toBe(surface.gl);
         scene.drawPage('next', frame.width + frame.dx, 0.5);
       },
     };
-    const scene = createTransitionScene(context, W, 300, page);
-    paintTransition(scene, curl, frameAt(-100, 'next'));
+    const scene = createTransitionScene(source, W, 300);
+    paintTransition(scene, curl, frameAt(-100, 'next'), surface);
     expect(seen).toEqual(['2:-100']);
     expect(calls).toEqual(['next@300*0.5']);
   });
