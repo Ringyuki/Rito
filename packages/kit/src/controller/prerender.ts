@@ -10,6 +10,8 @@ export interface PrerenderJob {
   readonly contentRenderer: ContentRenderer;
   /** Warm the newly exposed navigation direction before the opposite side. */
   readonly eagerPosition?: 'next' | 'prev';
+  /** Called once both neighbours are painted. */
+  readonly painted?: () => void;
 }
 
 interface PrerenderSchedulerState {
@@ -93,8 +95,12 @@ function runPrerender(state: PrerenderSchedulerState, generation: number): void 
     return;
   }
   state.step += 1;
-  if (state.step < 2) scheduleNext(state);
-  else state.job = null;
+  if (state.step < 2) {
+    scheduleNext(state);
+    return;
+  }
+  state.job = null;
+  job.painted?.();
 }
 
 function warmAdjacentSpread(

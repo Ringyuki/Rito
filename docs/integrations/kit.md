@@ -136,7 +136,10 @@ damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
   display's context when the effect is set, before any turn, for work that would
   otherwise hold up the first frame of the first turn such as compiling programs;
   it may be called more than once, and again after the context was lost and
-  given back.
+  given back. A painted effect may also have a `warm(scene)`: it is called once
+  the pages beside the one shown are painted and no turn is under way, for work
+  on those pages that a turn would otherwise do in its first frame — the paper
+  turn copies them into its own textures then.
   `scene.spine` is where the pages are bound — the left edge when a spread is one
   page, the middle when it is two — and a page's `version` changes whenever its
   texture or overlay is painted again, so an effect can keep a copy of it. A

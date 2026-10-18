@@ -109,6 +109,14 @@ export function paperTurnWith(
     prepare(gl): void {
       state.renderer.prepare(gl);
     },
+    // The pages a turn may take are copied now, not in its first frame.
+    warm(scene): void {
+      for (const slot of ['curr', 'next', 'prev'] as const) {
+        const page = scene.page(slot);
+        const snapshot = page && state.renderer.snapshot(page);
+        if (snapshot) state.renderer.release(snapshot);
+      }
+    },
     physics: createPaperPhysics(aloft, {
       painted: () => state.painted,
       // A page curled over is where its turn takes it before the turn has slowed to a stop.

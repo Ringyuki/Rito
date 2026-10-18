@@ -81,6 +81,44 @@ describe('a paper turn readied ahead of its first frame', () => {
   });
 });
 
+describe('a paper turn warmed between turns', () => {
+  it('copies the pages a turn may take before the turn, and holds none of them', () => {
+    const taken: number[] = [];
+    const released: number[] = [];
+    const renderer: PaperRenderer = {
+      epoch: 1,
+      standing: 'ready',
+      prepare: vi.fn(),
+      snapshot: (page) => {
+        taken.push(page.spread);
+        return { spread: page.spread } as unknown as ReturnType<PaperRenderer['snapshot']>;
+      },
+      release: (snapshot) => {
+        released.push((snapshot as unknown as { spread: number }).spread);
+      },
+      draw: () => true,
+    };
+    const effect = paperTurnWith(renderer);
+    const pages: Record<string, number | undefined> = { curr: 4, next: 5, prev: undefined };
+    const scene = {
+      page: (slot: string) =>
+        pages[slot] === undefined
+          ? null
+          : ({
+              spread: pages[slot],
+              texture: {},
+              width: 400,
+              height: 600,
+              pixelRatio: 1,
+              version: 0,
+            } as TransitionPage),
+    } as unknown as TransitionScene;
+    effect.warm?.(scene);
+    expect(taken).toEqual([4, 5]);
+    expect(released).toEqual([4, 5]);
+  });
+});
+
 describe('a paper turn begun before the GPU is ready', () => {
   function staged() {
     let standing: PaperRenderer['standing'] = 'waiting';

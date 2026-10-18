@@ -3,7 +3,7 @@ import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painte
 import type { SlotPosition } from '../painter/types';
 import type { TransitionDriver } from './transition-driver';
 import type { DrawInstruction } from './types';
-import type { TransitionFrame } from './effects';
+import type { TransitionFrame, TransitionScene } from './effects';
 import { createTransitionScene, paintTransition, scaledTouch } from './transition-scene';
 
 export interface FrameDriverDeps {
@@ -34,6 +34,12 @@ export interface FrameDriver {
   compositeNow(): void;
   /** Hold the not-yet-painted first composite until the returned release is called. */
   holdFirstComposite(): (() => void) | null;
+  /**
+   * Has a painted effect do the work on the pages beside the one shown
+   * that a turn would otherwise do in its first frame; nothing while a turn
+   * is drawn.
+   */
+  warmTransition(): void;
   /** Mark a spread's overlay as needing re-render. */
   markOverlayDirty(spreadIndex: number): void;
   /** Mark a spread's content and overlay as needing re-render. */
@@ -115,6 +121,11 @@ function createFrameDriverApi(
 
     holdFirstComposite(): (() => void) | null {
       return holdFirstComposite(driver, state);
+    },
+
+    warmTransition(): void {
+      if (state.disposed) return;
+      warmTransition(deps);
     },
 
     markOverlayDirty(spreadIndex): void {
@@ -257,6 +268,14 @@ function drawTurningFrame(
     velocity: instruction.velocity * scale,
     touch: instruction.touch && scaledTouch(instruction.touch, scale),
   };
+  deps.surface.clear();
+  paintTransition(sceneOf(deps, width, height), deps.transitionDriver.effect, frame, deps.surface);
+  deps.onTurnFrame?.(frame);
+}
+
+/** A turn's scene over the display, each page painted the first time it is asked for. */
+function sceneOf(deps: FrameDriverDeps, width: number, height: number): TransitionScene {
+  const scale = width / (deps.transitionDriver.viewportWidth || width);
   const ready = new Map<SlotPosition, boolean>();
   const source = {
     surface: deps.surface,
@@ -270,12 +289,11 @@ function drawTurningFrame(
       return known;
     },
   };
-  deps.surface.clear();
-  paintTransition(
-    createTransitionScene(source, width, height, scale, deps.transitionDriver.spine * scale),
-    deps.transitionDriver.effect,
-    frame,
-    deps.surface,
-  );
-  deps.onTurnFrame?.(frame);
+  return createTransitionScene(source, width, height, scale, deps.transitionDriver.spine * scale);
+}
+
+function warmTransition(deps: FrameDriverDeps): void {
+  const effect = deps.transitionDriver.effect;
+  if (deps.transitionDriver.isAnimating || !('paint' in effect) || !effect.warm) return;
+  effect.warm(sceneOf(deps, deps.surface.width, deps.surface.height));
 }

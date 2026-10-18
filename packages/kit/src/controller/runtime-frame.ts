@@ -105,6 +105,9 @@ export function scheduleControllerPrerender(
     reader: internals.reader,
     pool: runtime.pool,
     contentRenderer,
+    painted: () => {
+      runtime.frameDriver.warmTransition();
+    },
   });
 }
 
@@ -126,6 +129,9 @@ export function wireSettledEvents(
       pool,
       contentRenderer,
       ...(eagerPosition ? { eagerPosition } : {}),
+      painted: () => {
+        frameDriver.warmTransition();
+      },
     });
   };
   // A turn cut into was settled while its picture still moved, when the

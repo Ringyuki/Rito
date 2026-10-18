@@ -529,4 +529,39 @@ describe('FrameDriver', () => {
     expect(seen[1]?.version).toBeGreaterThan(seen[0]?.version ?? Infinity);
     driver.dispose();
   });
+
+  it('has a painted effect warm the pages beside the one shown, never while a turn is drawn', () => {
+    const view = createGlSurface();
+    const pool = createPageBufferPool(view.surface.compositor);
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 0);
+    pool.assignSlot('next', 1);
+    const warmed: (number | undefined)[][] = [];
+    const td = createTransitionDriver({
+      effect: {
+        paint: vi.fn(),
+        warm(scene) {
+          warmed.push((['curr', 'next', 'prev'] as const).map((slot) => scene.page(slot)?.spread));
+        },
+      },
+    });
+    td.viewportWidth = 800;
+    const driver = createFrameDriver({
+      surface: view.surface,
+      pool,
+      transitionDriver: td,
+      contentRenderer: vi.fn(() => true),
+      overlayProvider: () => [],
+      getBackingRatio: () => 1,
+    });
+
+    driver.warmTransition();
+    // The pages it may turn to are there; the one before is not assigned.
+    expect(warmed).toEqual([[0, 1, undefined]]);
+
+    td.goToTarget('forward', 0, 1);
+    driver.warmTransition();
+    expect(warmed).toHaveLength(1);
+    driver.dispose();
+  });
 });

@@ -139,6 +139,13 @@ export interface PaintedTransitionEffect {
    * lost its context.
    */
   prepare?(gl: WebGL2RenderingContext): void;
+  /**
+   * Called when the pages beside the one shown have been painted and no
+   * turn is under way: the place for work on those pages that a turn would
+   * otherwise do in its first frame, such as copying them into textures of
+   * the effect's own. Asking the scene for a page makes its texture.
+   */
+  warm?(scene: TransitionScene): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
   /** The physics the effect is made for; `physics` in the options outranks them. */
