@@ -45,8 +45,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // included, so a selection made in one layout is shown again in the next.
 // +16 lines (2026-10-18): `setDevicePixelRatio`, the book laid out at the
 // screen's new pixel ratio and taken as it commits.
+// +19 lines (2026-10-18): the geometry a reader publishes is where the
+// engine laid its pages out, a spread's pages on the device grid.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2824;
+const SESSION_READER_LINE_BUDGET = 2843;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built

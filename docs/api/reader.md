@@ -33,7 +33,7 @@ other native hosts bridge the C ABI (see
 | `height`           | `number`                 | required                         | Viewport height in logical pixels      |
 | `margin`           | `number`                 | `40`                             | Page margin                            |
 | `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
-| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
+| `spreadGap`        | `number`                 | `20`                             | Least gap between pages in double mode |
 | `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
 | `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
 | `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
@@ -236,7 +236,11 @@ new size each time a layout ends.
 
 A spread carries page indexes only; page geometry comes from
 `getLayoutGeometry()` and page content from the rendered frame and
-`interactions`. Page and spread indexes are projections of the committed layout
+`interactions`. In double mode the two pages sit on the device grid, as a
+browser places a frame: each is a whole number of device pixels wide, so where
+the viewport less `spreadGap` does not halve into whole device pixels the pages
+are a little narrower and the gap takes what is left — read `pageWidth` and
+`spreadGap` from `getLayoutGeometry()`. Page and spread indexes are projections of the committed layout
 and change on every commit — persist a `ReaderLocator`, not an index.
 `@ritojs/kit` hides the chapter commit: its page numbers, progress and
 navigation are book-wide, and a target outside the chapter is carried over to

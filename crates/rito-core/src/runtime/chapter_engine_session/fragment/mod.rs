@@ -138,11 +138,14 @@ impl<'a> FragmentChapterEngineSession<'a> {
             // two sheets with a slit between them. Content stays clipped
             // to the page box below.
             let (wash_x, wash_width) = if dual {
-                let half_gap = config.spread_gap / 2.0;
+                // The two washes meet in the middle of the gap, on a device
+                // pixel, as the pages sit on the device grid.
+                let left_half = ((config.spread_gap * ratio / 2.0) + 1e-6).floor() / ratio;
+                let right_half = config.spread_gap - left_half;
                 if slot == 0 {
-                    (0.0, metadata.width + half_gap)
+                    (0.0, metadata.width + left_half)
                 } else {
-                    (-half_gap, metadata.width + half_gap)
+                    (-right_half, metadata.width + right_half)
                 }
             } else {
                 (0.0, metadata.width)

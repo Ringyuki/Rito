@@ -1233,6 +1233,7 @@ fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     });
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -1345,6 +1346,7 @@ fn finding_the_page_of_a_source_point_rebuilds_no_chapter() {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     });
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -1406,6 +1408,7 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     });
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);

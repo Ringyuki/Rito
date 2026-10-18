@@ -5,6 +5,7 @@ import {
   type SessionReaderLayoutCandidate,
 } from './artifacts';
 import { warmSessionReaderNeighbours } from './frames';
+import { sessionReaderLaidOutGeometry } from './layout-options';
 import { createSessionReaderLayoutView } from './layout-view';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
@@ -35,6 +36,7 @@ export async function commitSessionReaderLayout(
   const last = state.view.spreads.length - 1;
   state.activeSpreadIndex = Math.min(Math.max(frame.spreadIndex + turned, 0), last);
   state.config = config;
+  state.geometry = sessionReaderLaidOutGeometry(config, frame.artifact);
   state.dpr = frame.prepared.ratio;
   state.bookIdleSteps = 0;
   state.bookStalled = false;

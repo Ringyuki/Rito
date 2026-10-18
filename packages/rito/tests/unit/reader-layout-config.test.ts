@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig } from '../../src';
+import { createLayoutConfig } from '../../src/reader';
 
 describe('reader createLayoutConfig', () => {
   it('creates the root reader layout contract without using the reference core entry', () => {

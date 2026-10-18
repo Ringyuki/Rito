@@ -1,10 +1,9 @@
-export { createLayoutConfig, createReader, preloadReaderRuntime } from './reader';
+export { createReader, preloadReaderRuntime } from './reader';
 export type {
   ChapterRange,
   FootnoteEntry,
   FootnoteKind,
   LayoutConfig,
-  LayoutConfigInput,
   LogLevel,
   PackageMetadata,
   Reader,

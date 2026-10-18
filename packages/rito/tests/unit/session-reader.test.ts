@@ -339,6 +339,25 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('publishes the page geometry the engine laid the spread out in', async () => {
+    const { reader, fake, commits } = await open({ width: 1201, height: 600, spread: 'double' });
+    await bookScope(reader);
+    commits.length = 0;
+    // The engine puts the pages on the device grid: at an odd width a page
+    // is narrower than an even split, and the gap takes the pixel over.
+    fake.pageWidth = 590;
+    reader.resize(1201, 601);
+    await vi.waitFor(() => {
+      expect(commits.length).toBeGreaterThan(0);
+    });
+    expect(reader.getLayoutGeometry()).toMatchObject({
+      viewportWidth: 1201,
+      pageWidth: 590,
+      spreadGap: 21,
+    });
+    await reader.dispose();
+  });
+
   it('lays the book out again at a new device ratio, taking it as the layout commits', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);

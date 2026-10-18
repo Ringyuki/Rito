@@ -42,8 +42,8 @@ reader.renderSpread(0);
 
 ## Package Scope
 
-- the root entry only: `createReader()`, `preloadReaderRuntime()`,
-  `createLayoutConfig()`, the `Reader` facade and its types
+- the root entry only: `createReader()`, `preloadReaderRuntime()`, the
+  `Reader` facade and its types
 - browser binding internals for WASM loading, the engine's session, resource
   transfer, font registration, image decoding and Canvas blitting
 

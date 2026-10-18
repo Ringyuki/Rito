@@ -31,7 +31,7 @@ export function captureSessionReaderLayout(state: SessionReaderState): SessionRe
   return {
     generation: state.layoutGeneration,
     view: state.view,
-    config: state.config,
+    config: state.geometry,
     artifactId: state.visible.artifact.artifactId,
   };
 }

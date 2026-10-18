@@ -64,8 +64,10 @@ export interface SessionReaderState {
   /** The layout options as last requested; a layout in flight may not have committed them. */
   options: ReaderOptions;
   readonly typography: SessionReaderTypography;
-  /** Geometry of the committed layout. */
+  /** The layout options of the committed layout, as they were asked for. */
   config: LayoutConfig;
+  /** The committed layout's geometry, its pages where the engine laid them out. */
+  geometry: LayoutConfig;
   /** Device pixels per CSS pixel the committed layout is painted at. */
   dpr: number;
   bgColor: string;

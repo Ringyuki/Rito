@@ -5,6 +5,9 @@
 //
 //   DPR=1,2 SAMPLES=16 node tools/gl-pen-parity/run.mjs <epub>...
 //
+// WIDTH sets the viewport's width (1200): an odd one at a ratio of 1 puts
+// the pages of a spread on either side of an odd gap.
+//
 // DISPLAY=1 compares what the screen shows instead: the controller goes to
 // each spread, and the display canvas as the browser composites it,
 // captured in device pixels, is held to the canvas pen's painting of the
@@ -171,7 +174,7 @@ try {
     for (const book of books) {
       const name = book.split('/').pop();
       const page = await browser.newPage({
-        viewport: { width: 1200, height: 900 },
+        viewport: { width: Number(process.env.WIDTH ?? 1200), height: 900 },
         deviceScaleFactor: ratio,
       });
       page.on('pageerror', (error) => console.log(`[${name}] ${error.message}`));

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createLayoutConfig } from '@ritojs/core';
+import { createLayoutConfig } from './helpers/layout-config';
 import type { Reader, ReaderInteractions, ReaderPageTargets, Spread } from '@ritojs/core';
 import { createCoordinatorState } from '../src/controller/core';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';

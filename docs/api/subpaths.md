@@ -3,7 +3,7 @@
 `@ritojs/core` exposes the root entry and `./package.json` only.
 
 ```ts
-import { createReader, createLayoutConfig, preloadReaderRuntime } from '@ritojs/core';
+import { createReader, preloadReaderRuntime } from '@ritojs/core';
 ```
 
 `createReader()` is the browser's one host of the reader session: the

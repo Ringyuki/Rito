@@ -87,6 +87,8 @@ export class FakeReaderSession {
   backgroundGate: Promise<void> | undefined;
   /** How long a requested chapter takes to lay out; every call made after it waits too. */
   layoutMs = 0;
+  /** The width the engine lays a page out at, when it is not the viewport's. */
+  pageWidth: number | undefined;
   /** Artifact calls the reader made while another was unanswered. */
   readonly violations: string[] = [];
   private readonly unanswered: string[] = [];
@@ -530,7 +532,7 @@ export class FakeReaderSession {
       pages: [
         {
           pageIndex: page,
-          width: revision.layout.viewportWidth,
+          width: this.pageWidth ?? revision.layout.viewportWidth,
           height: revision.layout.viewportHeight,
           hits: [],
           semantics: [],

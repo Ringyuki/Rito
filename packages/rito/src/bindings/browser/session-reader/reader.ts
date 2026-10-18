@@ -149,6 +149,7 @@ async function openState(
     options,
     typography,
     config: sessionReaderLayoutConfig(options, typography),
+    geometry: sessionReaderLayoutConfig(options, typography),
     dpr,
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
@@ -200,7 +201,7 @@ function buildReader(state: SessionReaderState): Reader {
     ...sessionReaderAppearanceMethods(state),
     ...sessionReaderListenerMethods(state),
     ...sessionReaderResourceMethods(state),
-    getLayoutGeometry: () => state.config,
+    getLayoutGeometry: () => state.geometry,
     holdBookLayout: () => holdSessionReaderBook(state),
     dispose() {
       if (state.disposed) return Promise.resolve();
