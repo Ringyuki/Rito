@@ -13,7 +13,7 @@ mod types;
 mod wire;
 
 pub use interaction_types::*;
-pub use session::ReaderSession;
+pub use session::{ReaderSession, READER_FRAME_QUANTUM_PAGES, READER_RELAYOUT_SETTLE_MS};
 pub use types::*;
 pub use wire::{
     decode_reader_adjacent_request, decode_reader_annotation_request,

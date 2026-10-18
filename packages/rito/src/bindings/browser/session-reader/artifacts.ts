@@ -17,10 +17,10 @@ import {
 // function returns or throws.
 
 /**
- * The most pages a step of the whole-book layout lays out. The engine runs
- * on the page's own thread, so a step is what stands between two paints.
+ * The most pages a step of the whole-book layout lays out, the engine's
+ * `READER_FRAME_QUANTUM_PAGES`: a step is what stands between two paints.
  */
-const BOOK_QUANTUM = 4;
+export const BOOK_QUANTUM = 4;
 
 /** A layout ready to commit: the page it shows, prepared, and its revision's page table. */
 export interface SessionReaderLayoutCandidate {

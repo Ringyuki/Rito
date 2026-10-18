@@ -57,6 +57,18 @@ use project::owner_from_created;
 // candidate, with one slot of slack.
 pub const READER_LIVE_ARTIFACT_CAP: u32 = 6;
 
+/// The most pages a host asks one background step to lay out when the
+/// engine shares a thread with the frames it draws: a step is what stands
+/// between two frames, so it is a few pages, not the book. Both hosts ask
+/// with this budget and give the thread back between steps.
+pub const READER_FRAME_QUANTUM_PAGES: u32 = 4;
+
+/// How long a host lets the layout go unchanged after a relayout before
+/// the rest of the book is laid out behind it: pages laid out behind a
+/// size the next one replaces are thrown away, so while a window is being
+/// resized the book waits.
+pub const READER_RELAYOUT_SETTLE_MS: u32 = 300;
+
 #[derive(Debug, Clone)]
 struct ReaderArtifactOwner {
     request_id: u64,

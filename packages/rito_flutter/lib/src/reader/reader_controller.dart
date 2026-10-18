@@ -64,13 +64,14 @@ final class RitoReaderController extends ChangeNotifier {
   final int paginationQuantum;
 
   /// The engine runs on the isolate that paints, so a quantum is what
-  /// stands between two frames: a few pages.
+  /// stands between two frames: a few pages, the engine's
+  /// `READER_FRAME_QUANTUM_PAGES`.
   static const int defaultPaginationQuantum = 4;
 
   /// How long the layout must go unchanged after a [relayout] before the
   /// rest of the book is paginated behind it: pages laid out behind a size
   /// the next one replaces are thrown away, so while a window is being
-  /// resized the book waits.
+  /// resized the book waits: the engine's `READER_RELAYOUT_SETTLE_MS`.
   static const Duration layoutSettle = Duration(milliseconds: 300);
 
   RitoLayoutRequest _layout;

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rito_flutter/rito_flutter.dart' show RitoReaderController;
 import 'package:rito_flutter/rito_flutter_native.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
@@ -26,6 +27,31 @@ RitoPinnedFontPolicy _testPinnedPolicy() {
 
 void main() {
   final repoRoot = _findRepoRoot();
+
+  test(
+    'the controller paces the book with the engine\'s frame quantum and settle',
+    () {
+      final source = File(
+        '$repoRoot/crates/rito-core/src/runtime/reader_session/session.rs',
+      ).readAsStringSync();
+      int declared(String name) {
+        final match = RegExp(
+          'pub const $name: u32 = (\\d+);',
+        ).firstMatch(source);
+        expect(match, isNotNull, reason: '$name must be findable');
+        return int.parse(match!.group(1)!);
+      }
+
+      expect(
+        RitoReaderController.defaultPaginationQuantum,
+        declared('READER_FRAME_QUANTUM_PAGES'),
+      );
+      expect(
+        RitoReaderController.layoutSettle.inMilliseconds,
+        declared('READER_RELAYOUT_SETTLE_MS'),
+      );
+    },
+  );
 
   int rustProtocolVersion() {
     final source = File(

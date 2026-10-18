@@ -3,12 +3,10 @@ import type { PrerenderScheduler } from '../prerender';
 
 /**
  * How long a size must stand before the reader lays the whole book out
- * again behind the page. A step of that holds the reader's session for as
- * long as the book takes (measured: 240 ms for a 400-page novel, 1.3 s for
- * an 800-page one), and one started between two sizes of a window being
- * resized held every size after it: the reader showed 8 layouts a second
- * where the window sent 57, and 1.5 where it sent 52. A drag's sizes came
- * at most 50 ms apart; laid out alone, each reached the screen.
+ * again behind the page: the engine's `READER_RELAYOUT_SETTLE_MS`. Pages
+ * laid out behind a size the next one replaces are thrown away, so while
+ * a window is being resized the book waits; a drag's sizes come at most
+ * 50 ms apart.
  */
 export const RESIZE_SETTLE_MS = 300;
 
