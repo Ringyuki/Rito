@@ -40,12 +40,13 @@ void main() {
     expect(text.href, '#note');
     expect(text.sourceText, 'source');
     expect(text.sourceTextOffset, 9);
-    expect(text.clusters.map((c) => (c.byte, c.x, c.y, c.joins)), [
-      (0, 0.0, 12.5, false),
-      (1, 8.5, 12.5, true),
-      (2, 12.25, 12.5, false),
-      (3, 16.0, 12.5, false),
-    ]);
+    expect(text.clusters.bytes, [0, 1, 2, 3]);
+    expect(text.clusters.origins, [0, 12.5, 8.5, 12.5, 12.25, 12.5, 16, 12.5]);
+    expect(text.clusters.joins, [0, 1, 0, 0]);
+    // The ruby run shares the text run's paint and cluster table.
+    final ruby = (list.commands[12] as RitoPrimitiveRuby).command;
+    expect(identical(ruby.paint, text.paint), isTrue);
+    expect(ruby.clusters.origins.buffer, text.clusters.origins.buffer);
   });
 
   test('decodes every primitive the Rust encoder writes', () {

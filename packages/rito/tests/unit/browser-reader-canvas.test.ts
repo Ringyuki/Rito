@@ -646,10 +646,10 @@ function readerArtifact(): BrowserReaderArtifact {
 
 function displayList(commands: Primitives, ratio: number): BrowserReaderArtifact['displayList'] {
   return {
-    formatVersion: 3,
+    formatVersion: 4,
     commandCount: commands.length,
     wireBytes: new Uint8Array(),
-    displayList: { formatVersion: 3, ratio, commandCount: commands.length, commands },
+    displayList: { formatVersion: 4, ratio, commandCount: commands.length, commands },
   };
 }
 

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
@@ -140,15 +141,21 @@ RitoPreparedArtifact _page(String family, String text, {bool joined = false}) {
               ),
               textShadows: const <RitoTextShadow>[],
             ),
-            clusters: <RitoClusterPosition>[
-              for (var index = 0; index < text.length; index += 1)
-                RitoClusterPosition(
-                  byte: index,
-                  x: 4 + 12.0 * index,
-                  y: 26,
-                  joins: joined && index > 0,
-                ),
-            ],
+            clusters: RitoClusters(
+              bytes: Uint32List.fromList(<int>[
+                for (var index = 0; index < text.length; index += 1) index,
+              ]),
+              origins: Float32List.fromList(<double>[
+                for (var index = 0; index < text.length; index += 1) ...[
+                  4 + 12.0 * index,
+                  26,
+                ],
+              ]),
+              joins: Uint8List.fromList(<int>[
+                for (var index = 0; index < text.length; index += 1)
+                  joined && index > 0 ? 1 : 0,
+              ]),
+            ),
           ),
         ),
       ],

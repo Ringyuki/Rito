@@ -1,13 +1,15 @@
 part of 'display_decoder.dart';
 
-/// Strict little-endian decoder for `RITODL1` format version 3, the
-/// device-resolved primitive list the engine paints every frame as.
+/// Strict little-endian decoder for `RITODL1` format version 4, the
+/// device-resolved primitive list the engine paints every frame as. Its
+/// text runs index into tables after the primitives: their clusters are
+/// read in place, their text and paints decoded once.
 final class RitoPrimitiveListDecoder {
   const RitoPrimitiveListDecoder();
 
   /// Mirrors `READER_PRIMITIVE_LIST_FORMAT_VERSION` in
   /// crates/rito-core/src/render/commands/reader_wire.rs.
-  static const int formatVersion = 3;
+  static const int formatVersion = 4;
   static final List<int> _magic = ascii.encode('RITODL1');
 
   RitoPrimitiveList decode(Uint8List bytes) {
@@ -26,8 +28,17 @@ final class RitoPrimitiveListDecoder {
     }
     final count = reader.count('primitive count');
     final commands = <RitoPrimitive>[];
+    final runs = <(int, _RitoTextReference)>[];
     for (var index = 0; index < count; index += 1) {
-      commands.add(_primitive(reader));
+      commands.add(_primitive(reader, runs, index));
+    }
+    final tables = _readTextTables(reader);
+    for (final (index, run) in runs) {
+      final resolved = _resolveTextRun(reader, run, tables);
+      commands[index] = switch (resolved) {
+        RitoPaintText() => RitoPrimitiveText(resolved),
+        RitoPaintRuby() => RitoPrimitiveRuby(resolved),
+      };
     }
     reader.finish('primitive list');
     return RitoPrimitiveList(
@@ -37,7 +48,13 @@ final class RitoPrimitiveListDecoder {
     );
   }
 
-  RitoPrimitive _primitive(RitoBinaryReader reader) {
+  /// The primitive at [index]; a text or ruby run joins [runs] and stands
+  /// as a placeholder until the tables resolve it.
+  RitoPrimitive _primitive(
+    RitoBinaryReader reader,
+    List<(int, _RitoTextReference)> runs,
+    int index,
+  ) {
     final opcode = reader.uint16('primitive opcode');
     return switch (opcode) {
       1 => const RitoPrimitivePushState(),
@@ -83,15 +100,23 @@ final class RitoPrimitiveListDecoder {
         ),
         tiles: reader.option('image tiles', () => _tiles(reader)),
       ),
-      12 => RitoPrimitiveText(
-        _readTextRun(reader, ruby: false) as RitoPaintText,
-      ),
-      13 => RitoPrimitiveRuby(
-        _readTextRun(reader, ruby: true) as RitoPaintRuby,
+      12 || 13 => _textPlaceholder(
+        runs,
+        index,
+        _readTextReference(reader, ruby: opcode == 13),
       ),
       14 => _imageFallback(reader),
       _ => reader.fail('unknown primitive opcode: $opcode'),
     };
+  }
+
+  RitoPrimitive _textPlaceholder(
+    List<(int, _RitoTextReference)> runs,
+    int index,
+    _RitoTextReference run,
+  ) {
+    runs.add((index, run));
+    return const RitoPrimitivePushState();
   }
 
   RitoPrimitiveImageFallback _imageFallback(RitoBinaryReader reader) {

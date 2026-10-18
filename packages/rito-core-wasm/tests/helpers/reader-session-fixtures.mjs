@@ -67,6 +67,12 @@ export function displayWire(count, write = () => undefined) {
   writer.f64(1, 'display ratio');
   writer.count(count, 'display commands');
   write(writer);
+  // Empty text tables: no clusters (padded to a four-byte boundary), no
+  // text, no paints.
+  writer.u32(0, 'cluster table count');
+  while (writer.bytes.length % 4 !== 0) writer.u8(0, 'cluster table padding');
+  writer.u32(0, 'text table length');
+  writer.u32(0, 'paint count');
   return Uint8Array.from(writer.bytes);
 }
 

@@ -1,5 +1,5 @@
 import {
-  copyRitoReaderWireBytes,
+  ownRitoReaderWireBytes,
   decodeRitoReaderArtifactIdentity,
 } from './reader-session-artifact-decoder-runtime.js';
 import {
@@ -101,12 +101,12 @@ export function handleRitoReaderSessionQuery(state, message, guards) {
 }
 
 function wireResponse(kind, raw) {
-  const wire = copyRitoReaderWireBytes(raw).buffer;
+  const wire = ownRitoReaderWireBytes(raw).buffer;
   return { payload: { kind, wire }, transfer: [wire] };
 }
 
 function peekedArtifactResponse(state, guards, request, raw) {
-  const wireBytes = copyRitoReaderWireBytes(raw);
+  const wireBytes = ownRitoReaderWireBytes(raw);
   const identity = decodeRitoReaderArtifactIdentity(wireBytes);
   if (identity.sessionId !== state.sessionId || identity.requestId !== request.requestId) {
     try {
@@ -129,7 +129,7 @@ function committedPeekResponse(state, guards, request, raw) {
   let wireBytes;
   let ack;
   try {
-    wireBytes = copyRitoReaderWireBytes(raw);
+    wireBytes = ownRitoReaderWireBytes(raw);
     ack = decodeRitoReaderForegroundHandoffAck(wireBytes);
   } catch {
     guards.disposeTerminalSession(state);

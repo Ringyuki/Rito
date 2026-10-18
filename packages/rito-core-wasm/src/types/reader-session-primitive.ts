@@ -1,16 +1,17 @@
 import type { RitoReaderColor, RitoReaderRect, RitoReaderTextRun } from './reader-session-display';
 
 /**
- * `RITODL1` format version 3: the device-resolved primitive list. Every
+ * `RITODL1` format version 4: the device-resolved primitive list. Every
  * coordinate is a device pixel on the grid the host rasterizes, and every
  * rule about where ink lands has been applied by the engine. Text runs
  * stay in CSS pixels and are drawn under `scale(ratio)`: glyph
  * rasterization follows the CSS font size (synthetic bold widens with
- * it), so the device size on the device grid rasters different ink. Their
- * glyph placement is still the renderer's.
+ * it), so the device size on the device grid rasters different ink. Runs
+ * share their paint objects, and their clusters are views of one table
+ * over the message: read them, never write them.
  */
 export interface RitoReaderPrimitiveList {
-  readonly formatVersion: 3;
+  readonly formatVersion: 4;
   /** Device pixels per CSS pixel the list was resolved at. */
   readonly ratio: number;
   readonly commandCount: number;

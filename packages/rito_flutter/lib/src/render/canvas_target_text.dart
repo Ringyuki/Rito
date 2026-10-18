@@ -206,7 +206,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
   /// counting their UTF-8 lengths.
   static List<({String text, double x, double y})> _clusterPieces(
     String text,
-    List<RitoClusterPosition> clusters,
+    RitoClusters clusters,
   ) {
     final starts = <int, int>{};
     var byte = 0;
@@ -224,25 +224,26 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     }
     starts[byte] = index;
     final pieces = <({String text, double x, double y})>[];
-    for (var at = 0; at < clusters.length; at += 1) {
-      if (clusters[at].joins) {
+    final bytes = clusters.bytes;
+    final origins = clusters.origins;
+    final joins = clusters.joins;
+    for (var at = 0; at < bytes.length; at += 1) {
+      if (joins[at] == 1) {
         continue;
       }
       var next = at + 1;
-      while (next < clusters.length && clusters[next].joins) {
+      while (next < bytes.length && joins[next] == 1) {
         next += 1;
       }
-      final start = starts[clusters[at].byte];
-      final end = next < clusters.length
-          ? starts[clusters[next].byte]
-          : text.length;
+      final start = starts[bytes[at]];
+      final end = next < bytes.length ? starts[bytes[next]] : text.length;
       if (start == null || end == null || end <= start) {
         continue;
       }
       pieces.add((
         text: text.substring(start, end),
-        x: clusters[at].x,
-        y: clusters[at].y,
+        x: origins[at * 2],
+        y: origins[at * 2 + 1],
       ));
     }
     return pieces;

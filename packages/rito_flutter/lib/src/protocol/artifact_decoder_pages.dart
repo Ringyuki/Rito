@@ -5,7 +5,8 @@ extension _ArtifactPages on RitoArtifactDecoder {
     final record = reader.record('display list');
     final version = record.uint32('display list format version');
     final commandCount = record.uint32('display list command count');
-    final bytes = record.blob('display list bytes');
+    // Read where the artifact holds it.
+    final bytes = record.blobView('display list bytes');
     record.finish('display list');
     final decoded = displayListDecoder.decode(bytes);
     if (version != decoded.formatVersion ||

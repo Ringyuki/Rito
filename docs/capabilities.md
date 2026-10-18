@@ -72,7 +72,7 @@ projected into typed tables the layout crates read:
   a pen reaches it from the one before
 - box edges and border widths snapped to whole CSS pixels, glyph
   baselines snapped on the device grid, the way the browser rasters
-- `RITODL1` format 3 as the only wire; hosts blit and never interpret
+- `RITODL1` format 4 as the only wire; hosts blit and never interpret
 - theme background and foreground overrides without re-pagination
 - pinned fonts shared by layout and paint on every host
 

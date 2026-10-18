@@ -1,4 +1,4 @@
-# Wire Format: `RITODL1` format 3
+# Wire Format: `RITODL1` format 4
 
 A frame reaches a host as one `RITODL1` byte buffer: the page's display
 list lowered to device pixels at the host's render ratio. The host
@@ -43,14 +43,16 @@ component 0, 1, 2 and alpha in bits 0..3.
 
 ```text
 "RITODL1"        7 bytes magic
-u32              format version, always 2
+u32              format version, always 4
 f64              render ratio: device pixels per CSS pixel
 u32              primitive count
 primitives...
+text tables
 ```
 
-Format 1 carried semantic commands and is no longer written; a decoder
-rejects it by the version field.
+Format 1 carried semantic commands; formats 2 and 3 carried each text
+run's text, paint and clusters inside the run. None is written any more,
+and a decoder rejects them by the version field.
 
 ## Primitives
 
@@ -98,20 +100,18 @@ device pixels: a host draws the run under `scale(ratio)` because glyph
 rasterization follows the CSS font size.
 
 ```text
-string   text
+u32      text: byte start in the text table
+u32      text: byte length
+u32      text: start in the text table, in UTF-16 code units
+u32      text: length in UTF-16 code units
 rect     rect (CSS pixels)
-         run paint:
-string     font family list, CSS syntax
-f64        font size (CSS px)
-f64        font weight
-u8         font style tag: 1 normal, 2 italic
-colour     colour
-u32        text shadow count, then per shadow f64 offset x, f64 offset y, f64 blur, colour
+u32      run paint: index in the paint table
 optional f64     line height
 optional string  link target (href)
 optional string  source text
 optional u64     source text offset
-u32      cluster count, then per cluster u32 UTF-8 byte offset, f32 x, f32 y, u8 joins (0 or 1)
+u32      clusters: index of the first in the cluster table
+u32      clusters: count
 ```
 
 A run carries glyph paint only. Its inline box (background band,
@@ -131,10 +131,38 @@ annotation alike. Vertical columns arrive as runs of upright glyphs
 stepped down the column, each rotated mark as its own run under a
 quarter-turn transform primitive.
 
+## Text tables
+
+The runs' text, paint and clusters follow the last primitive, so a host
+reads the cluster table in place as typed arrays and decodes the text and
+each paint once however many runs share them.
+
+```text
+u32      cluster count
+         zero bytes up to the next offset from the buffer's start that is a multiple of 4
+u32 × n  every cluster's UTF-8 byte offset into its run's text
+f32 × 2n every cluster's origin, x then y (CSS pixels)
+u8 × n   every cluster's joins flag (0 or 1)
+string   text table: every run's text, UTF-8
+u32      paint count, then per paint:
+string     font family list, CSS syntax
+f64        font size (CSS px)
+f64        font weight
+u8         font style tag: 1 normal, 2 italic
+colour     colour
+u32        text shadow count, then per shadow f64 offset x, f64 offset y, f64 blur, colour
+```
+
+A run gives its text both as bytes (for a UTF-8 reader) and as UTF-16
+code units (for a host that decodes the table once into a UTF-16 string
+and slices it). Runs that paint alike share one paint. The buffer is
+aligned so the cluster table is on a four-byte boundary from its start; a
+host holding the buffer elsewhere copies the table out once.
+
 ## Frame metadata
 
 The buffer travels inside `RITOART1`'s display-list record: a u32 format
-version, a u32 primitive count, the 32-byte SHA-256 of the buffer, and
-the buffer itself behind a u64 length. Beside it the artifact lists the
+version, a u32 primitive count, and the buffer itself behind a u64
+length. Beside it the artifact lists the
 resources the page reads (its image hrefs, then its font hrefs) and the
 font faces it paints with.

@@ -10,10 +10,10 @@ mod encode;
 mod tests;
 
 const READER_DISPLAY_LIST_MAGIC: &[u8; 7] = b"RITODL1";
-/// Format 2 is the device-resolved primitive list. Format 1 carried the
-/// semantic commands and is no longer written: hosts blit, they do not
-/// interpret.
-pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 3;
+/// Format 4 is the device-resolved primitive list whose text runs index
+/// into tables after the primitives. Format 1 carried the semantic
+/// commands and is no longer written: hosts blit, they do not interpret.
+pub(crate) const READER_PRIMITIVE_LIST_FORMAT_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ReaderEncodedDisplayList {
@@ -41,7 +41,7 @@ impl fmt::Display for ReaderDisplayListWireError {
 
 impl Error for ReaderDisplayListWireError {}
 
-/// Encodes a lowered primitive list as `RITODL1` format version 2.
+/// Encodes a lowered primitive list as `RITODL1` format version 4.
 pub(crate) fn encode_reader_primitive_list(
     list: &PrimitiveList,
 ) -> Result<ReaderEncodedDisplayList, ReaderDisplayListWireError> {

@@ -111,10 +111,10 @@ function imageArtifact(artifactId: bigint): BrowserReaderArtifact {
     navigation: { previous: 'available', next: 'available' },
     textProfile: 'platform-string-runs',
     displayList: {
-      formatVersion: 3,
+      formatVersion: 4,
       commandCount: commands.length,
       wireBytes: new Uint8Array(),
-      displayList: { formatVersion: 3, ratio: 1, commandCount: commands.length, commands },
+      displayList: { formatVersion: 4, ratio: 1, commandCount: commands.length, commands },
     },
     resources: [{ kind: 'image', href: HREF }],
     fonts: [],

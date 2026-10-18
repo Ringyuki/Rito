@@ -1,5 +1,15 @@
 ## Unreleased
 
+### A run's clusters are views of one table
+
+`RitoTextPaintCommand.clusters` is a `RitoClusters`: the run's cluster
+bytes, origins (x and y interleaved) and joins flags as `Uint32List`,
+`Float32List` and `Uint8List` views of a table every run of the display
+list shares, read where the message holds it. `RitoClusterPosition` is
+gone; read cluster `i` as `bytes[i]`, `origins[2 * i]`, `origins[2 * i + 1]`
+and `joins[i] == 1`. Runs that paint alike share one `RitoRunPaint`. The
+text paint commands' constructors are no longer `const`.
+
 ### The engine runs on the calling isolate
 
 `RitoNativeGateway` (formerly `RitoIsolateGateway`, still available as a

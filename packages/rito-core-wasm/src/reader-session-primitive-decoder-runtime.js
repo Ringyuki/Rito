@@ -5,17 +5,21 @@ import {
 } from './reader-session-wire-base-runtime.js';
 import {
   readRitoDisplayRect,
-  readRitoDisplayTextCommand,
+  readRitoDisplayTextReference,
+  readRitoDisplayTextTables,
+  resolveRitoDisplayTextRun,
 } from './reader-session-display-decoder-runtime.js';
 import { readRitoDisplayColor } from './reader-session-display-paint-runtime.js';
 
 /**
- * `RITODL1` format version 3, mirroring `READER_PRIMITIVE_LIST_FORMAT_VERSION`
+ * `RITODL1` format version 4, mirroring `READER_PRIMITIVE_LIST_FORMAT_VERSION`
  * in crates/rito-core/src/render/commands/reader_wire.rs: the
  * device-resolved primitive list. Every coordinate is a device pixel and
- * every raster rule has been applied by the engine; a renderer blits.
+ * every raster rule has been applied by the engine; a renderer blits. The
+ * text runs index into tables after the primitives: their clusters are
+ * read in place, their text and paints decoded once.
  */
-export const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION = 3;
+export const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION = 4;
 
 export function decodeRitoReaderPrimitiveList(value) {
   const bytes = readerWireBytes(value, 'RITODL1');
@@ -27,12 +31,21 @@ export function decodeRitoReaderPrimitiveList(value) {
   const ratio = reader.f64('primitive list ratio');
   if (ratio <= 0) reader.fail('primitive list ratio must be positive');
   const commandCount = reader.count('primitive count');
-  const commands = Array.from({ length: commandCount }, () => readPrimitive(reader));
+  const runs = [];
+  const commands = Array.from({ length: commandCount }, (_, index) =>
+    readPrimitive(reader, runs, index),
+  );
+  const tables = readRitoDisplayTextTables(reader);
+  for (const index of runs) {
+    commands[index] = resolveRitoDisplayTextRun(reader, commands[index], tables);
+  }
   reader.finish('primitive list');
   return { formatVersion, ratio, commandCount, commands };
 }
 
-function readPrimitive(reader) {
+/** The primitive at `index`; a text or ruby run's index joins `runs`, to be
+ * resolved against the tables once they are read. */
+function readPrimitive(reader, runs, index) {
   const opcode = reader.u16('primitive opcode');
   switch (opcode) {
     case 1:
@@ -94,9 +107,9 @@ function readPrimitive(reader) {
         tiles: reader.option('image tiles', () => readTilePlan(reader)),
       };
     case 12:
-      return { kind: 'text', ...readRitoDisplayTextCommand(reader) };
     case 13:
-      return { kind: 'ruby', ...readRitoDisplayTextCommand(reader) };
+      runs.push(index);
+      return readRitoDisplayTextReference(reader, opcode === 12 ? 'text' : 'ruby');
     case 14:
       return {
         kind: 'image-fallback',

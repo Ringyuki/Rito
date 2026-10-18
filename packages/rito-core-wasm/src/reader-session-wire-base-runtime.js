@@ -67,9 +67,14 @@ export class ReaderWireReader {
   }
 
   blob(field, maxBytes = MAX_WIRE_BYTES) {
+    return this.view(field, maxBytes).slice();
+  }
+
+  /** A length-prefixed byte run, as a view of the message. */
+  view(field, maxBytes = MAX_WIRE_BYTES) {
     const length = this.length64(`${field} length`);
     if (length > maxBytes) this.fail(`${field} exceeds its operation byte limit`);
-    return this.take(length, field).slice();
+    return this.take(length, field);
   }
 
   option(field, read) {

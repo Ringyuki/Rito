@@ -141,7 +141,8 @@ function readDisplayList(reader) {
   const record = reader.record('display list');
   const formatVersion = record.u32('display list format version');
   const commandCount = record.u32('display list command count');
-  const wireBytes = record.blob('display list bytes');
+  // Read where the artifact holds it.
+  const wireBytes = record.view('display list bytes');
   record.finish('display list');
   const displayList = decodeRitoReaderPrimitiveList(wireBytes);
   if (displayList.formatVersion !== formatVersion || displayList.commandCount !== commandCount) {
@@ -272,6 +273,11 @@ export function readTaggedU32(reader, field, values) {
   return value;
 }
 
-export function copyRitoReaderWireBytes(value) {
-  return new Uint8Array(readerWireBytes(value, 'reader wire bytes'));
+/** The message in a buffer of its own, which can be transferred: as handed
+ * over when it already owns its whole buffer (wasm-bindgen copies every
+ * result out of the module's memory), copied otherwise. */
+export function ownRitoReaderWireBytes(value) {
+  const bytes = readerWireBytes(value, 'reader wire bytes');
+  const owned = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength;
+  return owned ? bytes : new Uint8Array(bytes);
 }

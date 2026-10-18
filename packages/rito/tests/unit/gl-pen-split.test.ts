@@ -23,7 +23,7 @@ const INK = srgb(0, 0, 0);
 const PAPER = srgb(1, 1, 1);
 
 function list(commands: readonly RitoReaderPrimitive[]): RitoReaderPrimitiveList {
-  return { formatVersion: 3, ratio: 1, commandCount: commands.length, commands };
+  return { formatVersion: 4, ratio: 1, commandCount: commands.length, commands };
 }
 
 function run(text = 'Ab', overrides: Partial<{ color: RitoReaderColor; shadow: boolean }> = {}) {

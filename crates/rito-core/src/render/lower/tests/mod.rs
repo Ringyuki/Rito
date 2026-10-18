@@ -1602,7 +1602,7 @@ fn json_form_mirrors_the_decoded_wire_shape() {
     assert_eq!(
         primitive_list_value(&list),
         json!({
-            "formatVersion": 3,
+            "formatVersion": 4,
             "ratio": 1.0,
             "commandCount": 3,
             "commands": [

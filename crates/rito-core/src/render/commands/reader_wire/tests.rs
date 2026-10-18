@@ -18,7 +18,7 @@ use super::{
         ReaderRunDecorationKind, ReaderRunPaint, ReaderSize, ReaderSpacing, ReaderTextShadow,
         ReaderTransform,
     },
-    decode::{validate, DecodeError},
+    decode::{joins_offset, validate, DecodeError},
     encode::checked_length,
     encode_reader_primitive_list, ReaderDisplayListWireError, READER_PRIMITIVE_LIST_FORMAT_VERSION,
 };
@@ -80,13 +80,14 @@ fn fixed_primitive_wire_does_not_drift() {
     })
     .expect("encode fixed primitive");
 
-    // Magic, format 3, ratio 2.0 as a little-endian f64, one primitive,
-    // the push-state opcode.
+    // Magic, format 4, ratio 2.0 as a little-endian f64, one primitive,
+    // the push-state opcode, then the empty tables: no clusters (padded to
+    // a four-byte boundary), no text, no paints.
     assert_eq!(
         encoded.bytes,
         [
-            b'R', b'I', b'T', b'O', b'D', b'L', b'1', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 1, 0,
-            0, 0, 1, 0,
+            b'R', b'I', b'T', b'O', b'D', b'L', b'1', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 1, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]
     );
 }
@@ -140,6 +141,12 @@ fn validator_rejects_the_semantic_format_and_trailing_bytes() {
     assert_eq!(
         validate(&format_one),
         Err(DecodeError::UnsupportedVersion(2))
+    );
+    // Format 3 carried each run's text, paint and clusters with the run.
+    format_one[7..11].copy_from_slice(&3u32.to_le_bytes());
+    assert_eq!(
+        validate(&format_one),
+        Err(DecodeError::UnsupportedVersion(3))
     );
 
     let mut trailing = encode_reader_primitive_list(&all_primitive_shapes())
@@ -201,18 +208,60 @@ fn validator_rejects_a_cluster_flag_other_than_joins() {
     .expect("encode")
     .bytes;
     assert_eq!(validate(&bytes), Ok(1));
-    // The run ends with its cluster table; the last cluster's flag is the
-    // final byte.
-    let last = bytes.len() - 1;
-    bytes[last] = 2;
+    let joins = joins_offset(&bytes).expect("valid list");
+    bytes[joins] = 2;
     assert_eq!(validate(&bytes), Err(DecodeError::InvalidOption(2)));
 }
 
 #[test]
-fn lowered_display_commands_encode_as_format_3() {
+fn runs_share_one_paint_and_index_into_the_tables() {
+    let lowered = lower(&representative_commands(), 1.0, &fixture_image_size).expect("lower");
+    let run = lowered
+        .commands
+        .into_iter()
+        .find(|primitive| matches!(primitive, Primitive::Text(_)))
+        .expect("representative text lowers to a text run");
+    let Primitive::Text(text) = &run else {
+        unreachable!()
+    };
+    let clusters = text.clusters.len();
+    let one = encode_reader_primitive_list(&PrimitiveList {
+        ratio: 1.0,
+        commands: vec![run.clone()],
+    })
+    .expect("encode")
+    .bytes;
+    let two = encode_reader_primitive_list(&PrimitiveList {
+        ratio: 1.0,
+        commands: vec![run.clone(), run],
+    })
+    .expect("encode")
+    .bytes;
+    assert_eq!(validate(&two), Ok(2));
+    // The paint count is the u32 right after the text table; the second
+    // run adds its clusters and text but no paint.
+    let paint_count = |bytes: &[u8], runs: usize| {
+        let text_at = joins_offset(bytes).expect("valid list") + runs * clusters;
+        let text = u32::from_le_bytes(bytes[text_at..text_at + 4].try_into().unwrap()) as usize;
+        let at = text_at + 4 + text;
+        u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap())
+    };
+    assert_eq!(paint_count(&one, 1), 1);
+    assert_eq!(paint_count(&two, 2), 1);
+
+    // A run naming a paint past the table is refused. The run's paint
+    // index follows its four text range numbers and its rect.
+    let mut outside = one.clone();
+    let paint = 23 + 2 + 16 + 32;
+    outside[paint..paint + 4].copy_from_slice(&1u32.to_le_bytes());
+    assert_eq!(validate(&outside), Err(DecodeError::InvalidReference));
+}
+
+#[test]
+fn lowered_display_commands_encode_as_format_4() {
     let lowered = lower(&representative_commands(), 2.0, &fixture_image_size).expect("lower");
     let encoded = encode_reader_primitive_list(&lowered).expect("encode");
-    assert_eq!(encoded.format_version, 3);
+    assert_eq!(encoded.format_version, 4);
     assert_eq!(validate(&encoded.bytes), Ok(encoded.command_count));
     assert_eq!(
         encoded.image_hrefs,

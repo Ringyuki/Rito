@@ -12,7 +12,7 @@ user-facing API documentation; public usage docs live in the parent
   the invariants the guards enforce
 - [Engine Pipeline](./engine-pipeline.md) — a chapter from the archive to
   the bytes a host blits, stage by stage
-- [Wire Format](./wire-format.md) — `RITODL1` format 3
+- [Wire Format](./wire-format.md) — `RITODL1` format 4
 
 ## Operations
 

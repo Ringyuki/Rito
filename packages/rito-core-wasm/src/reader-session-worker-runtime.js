@@ -1,5 +1,5 @@
 import {
-  copyRitoReaderWireBytes,
+  ownRitoReaderWireBytes,
   decodeRitoReaderArtifactIdentity,
 } from './reader-session-artifact-decoder-runtime.js';
 import { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';
@@ -105,7 +105,7 @@ async function handleMessage(state, deps, message) {
           'Reader publication identity does not match its session',
         );
       }
-      const wireBytes = copyRitoReaderWireBytes(raw);
+      const wireBytes = ownRitoReaderWireBytes(raw);
       const wire = wireBytes.buffer;
       return { payload: { kind: 'publication', wire }, transfer: [wire] };
     }
@@ -462,7 +462,7 @@ function disposeTerminalSession(state) {
 // a malformed request, and the session fails closed.
 function decodeMutationResult(raw, decode, description) {
   try {
-    const wireBytes = copyRitoReaderWireBytes(raw);
+    const wireBytes = ownRitoReaderWireBytes(raw);
     return [wireBytes, decode(wireBytes)];
   } catch {
     throw readerWorkerError(
@@ -698,7 +698,7 @@ function resourceKindTag(kind) {
 }
 
 function standaloneBuffer(value) {
-  return copyRitoReaderWireBytes(value).buffer;
+  return ownRitoReaderWireBytes(value).buffer;
 }
 
 function isRequest(value) {

@@ -25,7 +25,7 @@ const PAPER = srgb(1, 1, 1);
 const SLATE = srgb(0.1, 0.1, 0.1);
 
 function list(commands: readonly RitoReaderPrimitive[], ratio = 1): RitoReaderPrimitiveList {
-  return { formatVersion: 3, ratio, commandCount: commands.length, commands };
+  return { formatVersion: 4, ratio, commandCount: commands.length, commands };
 }
 
 describe('browser primitive renderer', () => {
