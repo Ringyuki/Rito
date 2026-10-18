@@ -120,6 +120,17 @@ function overrideOf(options: PrimitiveRenderOptions): CanvasTextColorOverride | 
     : undefined;
 }
 
+const batches = new WeakMap<GlPenDevice, QuadBatch>();
+
+function batchOf(device: GlPenDevice): QuadBatch {
+  let batch = batches.get(device);
+  if (batch === undefined) {
+    batch = new QuadBatch(device);
+    batches.set(device, batch);
+  }
+  return batch;
+}
+
 /** Draws a list on the GPU, keeping the translation, the clip and the grounds the theme reads ink against. */
 function paintOnGpu(
   device: GlPenDevice,
@@ -131,7 +142,7 @@ function paintOnGpu(
   const override = overrideOf(options);
   const walk: Walk = {
     device,
-    batch: new QuadBatch(device, target.width, target.height),
+    batch: batchOf(device).begin(target.width, target.height),
     grounds,
     override,
     inks: new RunInks(device.atlas, list.ratio, override, grounds),

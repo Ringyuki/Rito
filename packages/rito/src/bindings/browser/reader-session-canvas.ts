@@ -237,6 +237,8 @@ class PreparedCanvasArtifact implements BrowserReaderPreparedCanvasArtifact {
  * spelling for. */
 function validateReaderPrimitives(list: CoreReaderPrimitiveList): void {
   let stateDepth = 0;
+  // Runs share their paint: each distinct one is checked once.
+  const paints = new Set<object>();
   for (const primitive of list.commands) {
     if (primitive.kind === 'push-state') stateDepth += 1;
     if (primitive.kind === 'pop-state') {
@@ -245,8 +247,11 @@ function validateReaderPrimitives(list: CoreReaderPrimitiveList): void {
       }
       stateDepth -= 1;
     }
+    if (primitive.kind !== 'text' && primitive.kind !== 'ruby') continue;
+    if (paints.has(primitive.paint)) continue;
+    paints.add(primitive.paint);
     if (primitive.kind === 'text') convertReaderText(primitive);
-    if (primitive.kind === 'ruby') convertReaderRuby(primitive);
+    else convertReaderRuby(primitive);
   }
   if (stateDepth !== 0) {
     throw new BrowserReaderCanvasUnsupportedError('display-state:unclosed-push');

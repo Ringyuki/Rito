@@ -12,19 +12,28 @@ interface Scissor {
 /**
  * Quads gathered in paint order and drawn with one instanced call per run
  * of the same kind: a quad of another kind, or a change of clip, draws
- * what came before it first.
+ * what came before it first. One batch serves every paint of a device,
+ * its buffer kept at the largest page it has held.
  */
 export class QuadBatch {
   private data = new Float32Array(INSTANCE_FLOATS * 1024);
   private count = 0;
   private kind: QuadKind = 'solid';
   private scissor: Scissor | null = null;
+  private width = 0;
+  private height = 0;
 
-  constructor(
-    private readonly device: GlPenDevice,
-    private readonly width: number,
-    private readonly height: number,
-  ) {}
+  constructor(private readonly device: GlPenDevice) {}
+
+  /** Starts a paint into a target of `width` × `height` device pixels. */
+  begin(width: number, height: number): this {
+    this.width = width;
+    this.height = height;
+    this.count = 0;
+    this.kind = 'solid';
+    this.scissor = null;
+    return this;
+  }
 
   push(
     kind: QuadKind,
