@@ -78,8 +78,10 @@ export function createDisplaySurface(canvas: HTMLCanvasElement): DisplaySurface 
     setSize(cssWidth: number, cssHeight: number, dpr: number): void {
       w = Math.round(cssWidth * dpr);
       h = Math.round(cssHeight * dpr);
-      canvas.width = w;
-      canvas.height = h;
+      // Each assignment reallocates the drawing buffer, whatever the value:
+      // a window dragged wider keeps its height and pays for one.
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
       canvas.style.width = `${String(cssWidth)}px`;
       canvas.style.height = `${String(cssHeight)}px`;
       presentation.paintedAt(dpr);
