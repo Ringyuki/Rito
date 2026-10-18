@@ -46,14 +46,14 @@ fn append_vertical_run_commands(
     let step = font_size + paint.letter_spacing_px.unwrap_or(0.0);
     let run = |text: String, rect: ReaderRect, clusters: Vec<TextCluster>| {
         DisplayCommand::PaintText(DisplayTextCommand {
-            text,
+            text: text.into(),
             rect,
             paint: paint.clone(),
             line_height_px: None,
             href: href.clone(),
             source_text: None,
             source_text_offset: None,
-            clusters,
+            clusters: clusters.into(),
         })
     };
     let mut segment: Vec<TextCluster> = Vec::new();
@@ -145,7 +145,7 @@ pub(super) fn append_vertical_line_commands(
     box_block: f64,
     frame_right: f64,
     frame_top: f64,
-    faces: Option<&[String]>,
+    faces: Option<&[std::sync::Arc<str>]>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
 ) -> EpubResult<()> {
@@ -355,7 +355,7 @@ pub(super) fn append_vertical_line_commands(
                         })
                         .collect();
                     commands.push(DisplayCommand::PaintRuby(DisplayTextCommand {
-                        text: allocated,
+                        text: allocated.into(),
                         rect: display_rect(annotation_x, span_top, annotation_size, span),
                         paint: ruby_paint,
                         line_height_px: None,

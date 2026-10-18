@@ -62,7 +62,7 @@ pub(super) fn append_image_command(
                 image.rect.width + widths[3] + widths[1],
                 image.rect.height + widths[0] + widths[2],
             ),
-            paint: paint.clone(),
+            paint: Box::new(paint.clone()),
             border_box: *border_box,
         });
     }

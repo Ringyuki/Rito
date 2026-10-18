@@ -1156,7 +1156,7 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
             .frame(0, ratio)
             .expect("frame paints")
             .expect("spread 0 exists");
-        frame
+        let y = frame
             .commands
             .iter()
             .rev()
@@ -1164,7 +1164,8 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
                 crate::render::DisplayCommand::PaintText(input) => Some(input.rect.y),
                 _ => None,
             })
-            .expect("a text command")
+            .expect("a text command");
+        y
     };
     let at_one = first_text_y(1.0);
     let at_two = first_text_y(2.0);
@@ -1188,12 +1189,14 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
             .frame(0, 1.0)
             .expect("frame paints")
             .expect("spread")
-            .commands,
+            .commands
+            .to_vec(),
         session
             .frame(0, 1.0)
             .expect("frame paints")
             .expect("spread")
-            .commands,
+            .commands
+            .to_vec(),
         "a repainted ratio is served from the page's paint cache"
     );
     assert_eq!(

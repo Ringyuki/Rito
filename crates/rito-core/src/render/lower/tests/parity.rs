@@ -227,7 +227,7 @@ fn parse_command(
     if let DisplayCommand::PaintText(text) | DisplayCommand::PaintRuby(text) = &mut command {
         if text.clusters.is_empty() {
             let kind = value.get("kind")?.as_str()?;
-            text.clusters = shape_fixture_clusters(shaper, ratio, kind, value)?;
+            text.clusters = shape_fixture_clusters(shaper, ratio, kind, value)?.into();
         }
     }
     Some(command)

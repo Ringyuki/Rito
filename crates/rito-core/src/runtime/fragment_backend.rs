@@ -90,7 +90,7 @@ struct FragmentTableBuildInputs {
     prepared: Rc<crate::epub::PreparedLoadedDocument>,
     engine: Rc<RuntimeFragmentEngine>,
     /// The paint alias of every face the engine shapes with.
-    faces: Rc<[String]>,
+    faces: Rc<[std::sync::Arc<str>]>,
     config: LayoutConfig,
 }
 
@@ -279,7 +279,7 @@ struct FragmentBackendPage {
 struct ChapterPaintSource {
     built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     /// The paint alias of every face the engine shapes with.
-    faces: Rc<[String]>,
+    faces: Rc<[std::sync::Arc<str>]>,
     vertical: bool,
     content_width: f64,
     content_height: f64,
@@ -1091,7 +1091,13 @@ impl RuntimeDocument {
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
         Ok(FragmentTableBuildInputs {
             prepared,
-            faces: engine.engine.inline().face_aliases().into(),
+            faces: engine
+                .engine
+                .inline()
+                .face_aliases()
+                .iter()
+                .map(|alias| std::sync::Arc::from(alias.as_str()))
+                .collect(),
             engine,
             config: config.clone(),
         })
@@ -1115,7 +1121,7 @@ struct PaginatedChapter {
 /// out into page roots under the given layout config.
 fn paginate_built_chapter(
     engine: &RuntimeFragmentEngine,
-    faces: Rc<[String]>,
+    faces: Rc<[std::sync::Arc<str>]>,
     built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     config: &LayoutConfig,
     idref: &str,
@@ -1131,7 +1137,7 @@ fn paginate_built_chapter(
 /// it — and keeping where the rest resumes.
 fn paginate_built_chapter_until(
     engine: &RuntimeFragmentEngine,
-    faces: Rc<[String]>,
+    faces: Rc<[std::sync::Arc<str>]>,
     built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     config: &LayoutConfig,
     idref: &str,

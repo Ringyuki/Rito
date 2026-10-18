@@ -1576,7 +1576,7 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
                 continue;
             };
             painted
-                .entry(input.text.clone())
+                .entry(input.text.to_string())
                 .or_default()
                 .push((input.rect.x, input.rect.y));
         }

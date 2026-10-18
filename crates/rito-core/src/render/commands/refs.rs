@@ -10,8 +10,8 @@ pub(crate) struct DisplayListResourceRefs {
     pub images: Vec<String>,
 }
 
-pub(crate) fn summarize_display_list_resource_refs(
-    commands: &[DisplayCommand],
+pub(crate) fn summarize_display_list_resource_refs<'a>(
+    commands: impl IntoIterator<Item = &'a DisplayCommand>,
 ) -> DisplayListResourceRefs {
     let mut image_refs = Vec::new();
     for command in commands {

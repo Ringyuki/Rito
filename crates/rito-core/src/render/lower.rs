@@ -82,15 +82,16 @@ impl Error for LowerError {}
 /// it cannot size is not painted, exactly as a renderer skips a bitmap it
 /// never decoded). A non-finite value in a command reaches the encoder,
 /// which refuses the primitive carrying it.
-pub(crate) fn lower(
-    display_list: &[DisplayCommand],
+pub(crate) fn lower<'a>(
+    display_list: impl IntoIterator<Item = &'a DisplayCommand>,
     ratio: f64,
     images: &dyn Fn(&str) -> Option<ImageSize>,
 ) -> Result<PrimitiveList, LowerError> {
     if !ratio.is_finite() || ratio <= 0.0 {
         return Err(LowerError::InvalidRatio);
     }
-    let mut commands = Vec::with_capacity(display_list.len());
+    let display_list = display_list.into_iter();
+    let mut commands = Vec::with_capacity(display_list.size_hint().0);
     for command in display_list {
         lower_command(command, images, &mut commands);
     }

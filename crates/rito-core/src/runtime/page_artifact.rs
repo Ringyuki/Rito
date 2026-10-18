@@ -9,6 +9,8 @@ mod interaction;
 
 pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord};
 
+use std::sync::Arc;
+
 use crate::render::DisplayCommand;
 
 pub(super) use interaction::*;
@@ -18,7 +20,62 @@ pub(super) use interaction::*;
 #[derive(Debug)]
 pub(super) struct PageArtifactFrame {
     pub(super) page_indexes: Vec<usize>,
-    pub(super) commands: Vec<DisplayCommand>,
+    pub(super) commands: FrameCommands,
+}
+
+/// A spread's display commands, in paint order: the frame's own around
+/// each page's, which the page keeps and the frame shares rather than
+/// copies.
+#[derive(Debug, Default)]
+pub(super) struct FrameCommands {
+    parts: Vec<FramePart>,
+}
+
+#[derive(Debug)]
+enum FramePart {
+    Own(Vec<DisplayCommand>),
+    Page(Arc<Vec<DisplayCommand>>),
+}
+
+impl FrameCommands {
+    pub(super) fn push(&mut self, command: DisplayCommand) {
+        match self.parts.last_mut() {
+            Some(FramePart::Own(commands)) => commands.push(command),
+            _ => self.parts.push(FramePart::Own(vec![command])),
+        }
+    }
+
+    /// Paints a page's commands here.
+    pub(super) fn push_page(&mut self, commands: Arc<Vec<DisplayCommand>>) {
+        self.parts.push(FramePart::Page(commands));
+    }
+
+    pub(super) fn iter(&self) -> impl DoubleEndedIterator<Item = &DisplayCommand> + '_ {
+        self.parts.iter().flat_map(|part| match part {
+            FramePart::Own(commands) => commands.iter(),
+            FramePart::Page(commands) => commands.iter(),
+        })
+    }
+
+    #[cfg(test)]
+    pub(super) fn is_empty(&self) -> bool {
+        self.iter().next().is_none()
+    }
+
+    /// The commands as one list.
+    #[cfg(test)]
+    pub(super) fn to_vec(&self) -> Vec<DisplayCommand> {
+        self.iter().cloned().collect()
+    }
+}
+
+impl<'a> IntoIterator for &'a FrameCommands {
+    type Item = &'a DisplayCommand;
+    type IntoIter = Box<dyn Iterator<Item = &'a DisplayCommand> + 'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(self.iter())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

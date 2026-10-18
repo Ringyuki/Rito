@@ -4,6 +4,7 @@ pub const OWNS: &str = "Platform-neutral display-list and paint command generati
 mod commands;
 mod lower;
 mod run_paint;
+mod shared_text;
 
 #[cfg(test)]
 pub(crate) use commands::test_support;
@@ -15,3 +16,4 @@ pub(crate) use commands::{
 };
 pub(crate) use lower::{lower, ImageSize};
 pub(crate) use run_paint::RunPaint;
+pub(crate) use shared_text::SharedText;

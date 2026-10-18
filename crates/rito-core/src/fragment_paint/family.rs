@@ -20,9 +20,9 @@ use crate::style::{paint_color, serialize_font_families};
 /// computed family list as-is.
 pub(super) fn face_family(
     style: &InlineFormattingStyle,
-    faces: Option<&[String]>,
+    faces: Option<&[std::sync::Arc<str>]>,
     face: FontFaceId,
-) -> EpubResult<String> {
+) -> EpubResult<std::sync::Arc<str>> {
     match faces {
         Some(aliases) => aliases.get(face.0 as usize).cloned().ok_or_else(|| {
             EpubError::new(format!(
@@ -31,6 +31,7 @@ pub(super) fn face_family(
             ))
         }),
         None => serialize_font_families(&style.font)
+            .map(std::sync::Arc::from)
             .map_err(|error| not_paintable(&format!("font family list: {error:?}"))),
     }
 }
@@ -83,11 +84,7 @@ pub(super) fn split_by_face(
         };
         let right = next.map_or(rect.x + rect.width, |cluster| cluster.x);
         split.push(DisplayTextCommand {
-            text: command
-                .text
-                .get(byte_start as usize..byte_end as usize)
-                .unwrap_or_default()
-                .to_owned(),
+            text: command.text.sub(byte_start as usize..byte_end as usize),
             rect: display_rect(left, rect.y, right - left, rect.height),
             paint: paint(*face, first, last)?,
             line_height_px: command.line_height_px,

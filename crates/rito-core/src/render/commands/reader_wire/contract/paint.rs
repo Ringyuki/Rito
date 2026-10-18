@@ -272,7 +272,7 @@ pub(crate) struct ReaderPagePaint {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReaderFontPaint {
-    pub family: String,
+    pub family: std::sync::Arc<str>,
     pub size_px: f64,
     pub weight: f64,
     pub style: ReaderFontStyle,
@@ -344,7 +344,7 @@ impl Default for ReaderRunPaint {
     fn default() -> Self {
         Self {
             font: ReaderFontPaint {
-                family: "serif".to_owned(),
+                family: "serif".into(),
                 size_px: 16.0,
                 weight: 400.0,
                 style: ReaderFontStyle::Normal,

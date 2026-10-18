@@ -126,7 +126,7 @@ pub(super) fn append_fragment_display_commands_inner(
                                     fragment.rect.width,
                                     fragment.rect.height,
                                 ),
-                                paint: ReaderBlockPaint {
+                                paint: Box::new(ReaderBlockPaint {
                                     border: Some(ReaderBlockBorder {
                                         top: edge(dark),
                                         right: edge(light),
@@ -134,7 +134,7 @@ pub(super) fn append_fragment_display_commands_inner(
                                         left: edge(dark),
                                     }),
                                     ..ReaderBlockPaint::default()
-                                },
+                                }),
                                 border_box: Some(ReaderBorderBox {
                                     top_width: width,
                                     right_width: width,
@@ -200,7 +200,7 @@ pub(super) fn append_fragment_display_commands_inner(
                                     fragment.rect.width,
                                     fragment.rect.height,
                                 ),
-                                paint: paint.clone(),
+                                paint: Box::new(paint.clone()),
                                 border_box: *border_box,
                             });
                             // Ridge/groove inner halves: the border entry
@@ -252,13 +252,13 @@ pub(super) fn append_fragment_display_commands_inner(
                                 if strip.2 > 0.0 && strip.3 > 0.0 {
                                     commands.push(DisplayCommand::PaintBlock {
                                         rect: display_rect(strip.0, strip.1, strip.2, strip.3),
-                                        paint: ReaderBlockPaint {
+                                        paint: Box::new(ReaderBlockPaint {
                                             background: Some(ReaderBackgroundPaint {
                                                 color: Some(*inner_color),
                                                 ..ReaderBackgroundPaint::default()
                                             }),
                                             ..ReaderBlockPaint::default()
-                                        },
+                                        }),
                                         border_box: None,
                                     });
                                 }
@@ -339,7 +339,7 @@ pub(super) fn append_fragment_display_commands_inner(
                         })
                         .collect();
                     let command = DisplayTextCommand {
-                        text: marker.painted_text(),
+                        text: marker.painted_text().into(),
                         rect: display_rect(
                             left,
                             baseline - CANVAS_TOP_ASCENT_RATIO * font_size,

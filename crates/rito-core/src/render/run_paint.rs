@@ -88,7 +88,7 @@ impl RunPaint {
     }
 
     /// The same paint drawn with another family.
-    pub(crate) fn with_family(&self, family: String) -> Self {
+    pub(crate) fn with_family(&self, family: std::sync::Arc<str>) -> Self {
         if self.data.font.family == family {
             return self.clone();
         }

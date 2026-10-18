@@ -21,8 +21,8 @@
 
 use super::super::commands::{
     contract::{
-        ReaderCluster, ReaderRect, ReaderRunBorderEdge, ReaderRunDecoration, ReaderSpacing,
-        ReaderTextRun, ReaderTextRunPaint,
+        ReaderRect, ReaderRunBorderEdge, ReaderRunDecoration, ReaderSpacing, ReaderTextRun,
+        ReaderTextRunPaint,
     },
     DisplayTextCommand,
 };
@@ -170,15 +170,6 @@ fn text_run(text: &DisplayTextCommand) -> ReaderTextRun {
         href: text.href.clone(),
         source_text: text.source_text.clone(),
         source_text_offset: text.source_text_offset,
-        clusters: text
-            .clusters
-            .iter()
-            .map(|cluster| ReaderCluster {
-                byte: cluster.byte,
-                x: cluster.x,
-                y: cluster.y,
-                joins: cluster.joins,
-            })
-            .collect(),
+        clusters: std::sync::Arc::clone(&text.clusters),
     }
 }

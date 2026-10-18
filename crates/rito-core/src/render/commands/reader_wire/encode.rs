@@ -37,7 +37,7 @@ fn write_text(
     // places each, a pen that draws strings starts one at each cluster
     // that does not join.
     write_length(output, input.clusters.len(), "cluster")?;
-    for cluster in &input.clusters {
+    for cluster in input.clusters.iter() {
         write_u32(output, cluster.byte);
         write_finite_f32(output, cluster.x as f32)?;
         write_finite_f32(output, cluster.y as f32)?;

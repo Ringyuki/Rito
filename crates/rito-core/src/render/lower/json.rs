@@ -261,7 +261,7 @@ fn insert_ground(object: &mut Map<String, Value>, ground: Ground) {
 fn text(kind: &str, command: &ReaderTextRun) -> Value {
     let mut object = object([
         ("kind", json!(kind)),
-        ("text", json!(command.text)),
+        ("text", json!(&*command.text)),
         ("rect", reader_rect(&command.rect)),
         ("paint", run_paint(&command.paint)),
     ]);
@@ -298,7 +298,7 @@ fn run_paint(paint: &ReaderTextRunPaint) -> Value {
         (
             "font",
             json!({
-                "family": paint.font.family,
+                "family": &*paint.font.family,
                 "sizePx": number(paint.font.size_px),
                 "weight": number(paint.font.weight),
                 "style": paint.font.style.tag_name(),

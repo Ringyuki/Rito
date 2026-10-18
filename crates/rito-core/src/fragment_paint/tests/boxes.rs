@@ -142,7 +142,7 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
     assert_eq!(texts.len(), 2, "the marker and the item's text");
     let marker = texts[0];
     assert_eq!(
-        marker.text, "3. ",
+        &*marker.text, "3. ",
         "the marker paints before the item, with its trailing space"
     );
     // The item box starts at x = 10: the 16px marker box ends there.

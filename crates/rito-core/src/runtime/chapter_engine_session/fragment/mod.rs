@@ -34,8 +34,8 @@ use super::super::{
     fragment_backend::FragmentBuiltLayout,
     fragment_frame::paint_rect_command,
     page_artifact::{
-        FragmentPageArtifact, FragmentRunRecord, PageArtifact, PageArtifactChapterRange,
-        PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange,
+        FragmentPageArtifact, FragmentRunRecord, FrameCommands, PageArtifact,
+        PageArtifactChapterRange, PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange,
         PageArtifactExactTextRangeRect, PageArtifactExactTextRangeResolution, PageArtifactFrame,
         PageArtifactRevisionMetadata, PageArtifactSourcePoint, PageArtifactSourceRunStart,
         PageArtifactSpread, PageArtifactTextCaret, PageArtifactTextCaretQuery,
@@ -112,7 +112,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         // around its content commands. The page wash is the chapter
         // body's background when it declares one; block-level paint
         // beyond that is excluded by the representability gate.
-        let mut commands = Vec::new();
+        let mut commands = FrameCommands::default();
         commands.push(paint_rect_command(
             0.0,
             0.0,
@@ -170,10 +170,10 @@ impl<'a> FragmentChapterEngineSession<'a> {
                         metadata.width - config.margin_left - config.margin_right,
                         metadata.height - config.margin_top - config.margin_bottom,
                     ),
-                    paint: ReaderBlockPaint {
+                    paint: Box::new(ReaderBlockPaint {
                         background: Some(paint.clone()),
                         ..ReaderBlockPaint::default()
-                    },
+                    }),
                     border_box: None,
                 });
             }
@@ -198,7 +198,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 ),
                 radius: None,
             });
-            commands.extend(page.commands_for(ratio)?.iter().cloned());
+            commands.push_page(page.commands_for(ratio)?);
             commands.push(DisplayCommand::PopState);
             commands.push(DisplayCommand::PopState);
         }

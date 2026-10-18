@@ -50,7 +50,7 @@ fn painted_runs(document: &mut RuntimeDocument) -> Vec<(String, String)> {
         .iter()
         .filter_map(|command| match command {
             crate::render::DisplayCommand::PaintText(input) => {
-                Some((input.text.clone(), input.paint.font.family.clone()))
+                Some((input.text.to_string(), input.paint.font.family.to_string()))
             }
             _ => None,
         })

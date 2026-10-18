@@ -24,7 +24,7 @@ use super::CANVAS_TOP_ASCENT_RATIO;
 /// partial opacity) drop while the ink itself always paints.
 pub(super) fn run_paint(
     style: &InlineFormattingStyle,
-    family: String,
+    family: std::sync::Arc<str>,
     justify_px: f64,
     box_start: bool,
     box_end: bool,

@@ -38,12 +38,12 @@ pub(crate) struct ReaderCluster {
 /// line have lowered to primitives around it.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReaderTextRun {
-    pub text: String,
+    pub text: crate::render::SharedText,
     pub rect: ReaderRect,
     pub paint: ReaderTextRunPaint,
     pub line_height_px: Option<f64>,
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    pub clusters: Vec<ReaderCluster>,
+    pub clusters: std::sync::Arc<[ReaderCluster]>,
 }

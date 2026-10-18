@@ -1,4 +1,6 @@
-use super::RunPaint;
+use std::sync::Arc;
+
+use super::{RunPaint, SharedText};
 
 mod reader_wire;
 mod refs;
@@ -44,7 +46,9 @@ pub(crate) enum DisplayCommand {
     },
     PaintBlock {
         rect: ReaderRect,
-        paint: ReaderBlockPaint,
+        /// Boxed: a block's paint is the largest field a command holds,
+        /// and most commands are text runs.
+        paint: Box<ReaderBlockPaint>,
         border_box: Option<ReaderBorderBox>,
     },
     PaintText(DisplayTextCommand),
@@ -65,7 +69,7 @@ pub(crate) enum DisplayCommand {
 /// A painted text run or ruby annotation.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DisplayTextCommand {
-    pub text: String,
+    pub text: SharedText,
     pub rect: ReaderRect,
     pub paint: RunPaint,
     pub line_height_px: Option<f64>,
@@ -74,7 +78,7 @@ pub(crate) struct DisplayTextCommand {
     pub source_text_offset: Option<u64>,
     /// Every cluster of the text, in text order. Empty only for a run the
     /// renderer still places itself.
-    pub clusters: Vec<TextCluster>,
+    pub clusters: Arc<[TextCluster]>,
 }
 
 /// Where one cluster of a painted run sits: its byte offset into the run's
@@ -82,15 +86,11 @@ pub(crate) struct DisplayTextCommand {
 /// baseline, for a text run and an annotation alike — and whether a pen
 /// drawing from the previous cluster's origin, in one string, reaches it
 /// (see `rito_fragment::ClusterPosition::joins`).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct TextCluster {
-    pub byte: u32,
-    pub x: f64,
-    pub y: f64,
-    pub joins: bool,
-}
+/// The wire carries the same origin, so the run hands its clusters on as
+/// they are.
+pub(crate) type TextCluster = contract::ReaderCluster;
 
-impl TextCluster {
+impl contract::ReaderCluster {
     /// A cluster a pen places on its own.
     pub(crate) const fn at(byte: u32, x: f64, y: f64) -> Self {
         Self {

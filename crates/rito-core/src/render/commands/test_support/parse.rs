@@ -63,7 +63,11 @@ pub(crate) fn parse_display_command(value: &Value) -> Result<DisplayCommand, Fix
         },
         "paintBlock" => DisplayCommand::PaintBlock {
             rect: parse_rect(field(object, "rect", "paintBlock.rect")?, "paintBlock.rect")?,
-            paint: parse_block_paint(field(object, "paint", "paintBlock.paint")?)?,
+            paint: Box::new(parse_block_paint(field(
+                object,
+                "paint",
+                "paintBlock.paint",
+            )?)?),
             border_box: object.get("borderBox").map(parse_border_box).transpose()?,
         },
         "paintText" => DisplayCommand::PaintText(parse_text(object)?),
@@ -95,7 +99,7 @@ pub(crate) fn parse_display_command(value: &Value) -> Result<DisplayCommand, Fix
 
 fn parse_text(object: &Map<String, Value>) -> Result<DisplayTextCommand, FixtureError> {
     Ok(DisplayTextCommand {
-        text: field_string(object, "text", "text.text")?.to_owned(),
+        text: field_string(object, "text", "text.text")?.into(),
         rect: parse_rect(field(object, "rect", "text.rect")?, "text.rect")?,
         paint: parse_run_paint(field(object, "paint", "text.paint")?)?,
         line_height_px: optional_number(object, "lineHeightPx", "text.lineHeightPx")?,
@@ -110,7 +114,7 @@ fn parse_text(object: &Map<String, Value>) -> Result<DisplayTextCommand, Fixture
             })
             .transpose()?,
         clusters: match object.get("clusters") {
-            None => Vec::new(),
+            None => Vec::new().into(),
             Some(clusters) => clusters
                 .as_array()
                 .ok_or(FixtureError::InvalidField("text.clusters"))?
@@ -139,7 +143,8 @@ fn parse_text(object: &Map<String, Value>) -> Result<DisplayTextCommand, Fixture
                         joins,
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect::<Result<Vec<_>, _>>()?
+                .into(),
         },
     })
 }
@@ -163,7 +168,7 @@ fn parse_run_paint(value: &Value) -> Result<RunPaint, FixtureError> {
     Ok(RunPaint::new(ReaderRunPaint {
         font: ReaderFontPaint {
             family: font_string("family")
-                .map(str::to_owned)
+                .map(std::sync::Arc::from)
                 .unwrap_or(defaults.font.family),
             size_px: font_number("sizePx").unwrap_or(defaults.font.size_px),
             weight: font_number("weight").unwrap_or(defaults.font.weight),

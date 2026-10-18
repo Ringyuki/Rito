@@ -10,7 +10,7 @@ use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
     interaction::{FootnoteEntry, FootnoteTargetSet},
     layout::LayoutConfig,
-    render::{summarize_display_list_resource_refs, DisplayCommand, ImageSize},
+    render::{summarize_display_list_resource_refs, ImageSize},
 };
 
 use super::{
@@ -159,7 +159,7 @@ impl LoadedEpubDocument {
     /// reference, so the lowering can size them.
     pub(super) fn ensure_frame_image_sizes(
         &mut self,
-        commands: &[DisplayCommand],
+        commands: &super::page_artifact::FrameCommands,
     ) -> EpubResult<()> {
         let refs = summarize_display_list_resource_refs(commands);
         if refs.images.is_empty() {
@@ -191,7 +191,7 @@ impl RuntimeDocument {
     /// reference, so lowering the frame can size them.
     pub(super) fn ensure_frame_image_sizes(
         &mut self,
-        commands: &[DisplayCommand],
+        commands: &super::page_artifact::FrameCommands,
     ) -> EpubResult<()> {
         self.document.ensure_frame_image_sizes(commands)
     }

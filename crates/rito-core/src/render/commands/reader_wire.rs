@@ -71,5 +71,11 @@ fn collect_primitive_refs(list: &PrimitiveList) -> (Vec<String>, Vec<String>) {
             _ => {}
         }
     }
-    (images.into_iter().collect(), families.into_iter().collect())
+    (
+        images.into_iter().collect(),
+        families
+            .into_iter()
+            .map(|family: std::sync::Arc<str>| family.to_string())
+            .collect(),
+    )
 }

@@ -300,7 +300,7 @@ fn representative_commands() -> Vec<DisplayCommand> {
         DisplayCommand::PushState,
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     color: Some(css_color("#112233")),
                     image: Some("images/background.png".to_owned()),
@@ -327,7 +327,7 @@ fn representative_commands() -> Vec<DisplayCommand> {
                     color: css_color("rgba(0, 0, 0, .5)"),
                     inset: false,
                 }],
-            },
+            }),
             border_box: Some(ReaderBorderBox {
                 top_width: 1.0,
                 right_width: 0.0,
@@ -336,11 +336,11 @@ fn representative_commands() -> Vec<DisplayCommand> {
             }),
         },
         DisplayCommand::PaintText(DisplayTextCommand {
-            text: "text".to_owned(),
+            text: "text".into(),
             rect: rect(),
             paint: RunPaint::new(ReaderRunPaint {
                 font: ReaderFontPaint {
-                    family: "Rito Serif".to_owned(),
+                    family: "Rito Serif".into(),
                     size_px: 16.0,
                     weight: 700.0,
                     style: ReaderFontStyle::Italic,
@@ -401,7 +401,8 @@ fn representative_commands() -> Vec<DisplayCommand> {
                 },
                 TextCluster::at(2, 12.25, 12.5),
                 TextCluster::at(3, 16.0, 12.5),
-            ],
+            ]
+            .into(),
         }),
         DisplayCommand::paint_image(
             "images/cover.jpg".to_owned(),
@@ -414,14 +415,14 @@ fn representative_commands() -> Vec<DisplayCommand> {
 
 fn all_command_shapes() -> Vec<DisplayCommand> {
     let text = || DisplayTextCommand {
-        text: "text".to_owned(),
+        text: "text".into(),
         rect: rect(),
         paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_text: None,
         source_text_offset: None,
-        clusters: Vec::new(),
+        clusters: Vec::new().into(),
     };
     vec![
         DisplayCommand::PushState,
@@ -455,13 +456,13 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         },
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     color: Some(css_color("#ffffff")),
                     ..ReaderBackgroundPaint::default()
                 }),
                 ..ReaderBlockPaint::default()
-            },
+            }),
             border_box: None,
         },
         DisplayCommand::PaintText(text()),

@@ -23,11 +23,11 @@ fn rect() -> ReaderRect {
 
 fn text(text: &str, family: &str) -> DisplayTextCommand {
     DisplayTextCommand {
-        text: text.to_owned(),
+        text: text.into(),
         rect: rect(),
         paint: RunPaint::new(ReaderRunPaint {
             font: ReaderFontPaint {
-                family: family.to_owned(),
+                family: family.into(),
                 ..ReaderRunPaint::default().font
             },
             ..ReaderRunPaint::default()
@@ -36,7 +36,7 @@ fn text(text: &str, family: &str) -> DisplayTextCommand {
         href: None,
         source_text: None,
         source_text_offset: None,
-        clusters: Vec::new(),
+        clusters: Vec::new().into(),
     }
 }
 
@@ -46,13 +46,13 @@ fn summarizes_image_refs_from_images_and_block_backgrounds() {
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), rect(), None, None),
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     image: Some("images/bg.png".to_owned()),
                     ..ReaderBackgroundPaint::default()
                 }),
                 ..ReaderBlockPaint::default()
-            },
+            }),
             border_box: None,
         },
         DisplayCommand::paint_image("images/cover.jpg".to_owned(), rect(), None, None),
@@ -99,14 +99,14 @@ fn fixture_json_round_trips_every_command_shape() {
         },
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     color: Some(css_color("rgba(1, 2, 3, 0.5)")),
                     image: Some("images/bg.png".to_owned()),
                     ..ReaderBackgroundPaint::default()
                 }),
                 ..ReaderBlockPaint::default()
-            },
+            }),
             border_box: None,
         },
         DisplayCommand::PaintText(text("Hello", "Rito Serif")),

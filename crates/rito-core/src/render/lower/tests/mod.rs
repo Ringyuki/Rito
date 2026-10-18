@@ -1747,7 +1747,7 @@ fn block(
 ) -> DisplayCommand {
     DisplayCommand::PaintBlock {
         rect,
-        paint,
+        paint: Box::new(paint),
         border_box,
     }
 }
@@ -1782,11 +1782,11 @@ fn text_run() -> ReaderTextRun {
 
 fn text() -> DisplayTextCommand {
     DisplayTextCommand {
-        text: "run".to_owned(),
+        text: "run".into(),
         rect: rect(5.5, 2.0, 10.0, 20.0),
         paint: RunPaint::new(ReaderRunPaint {
             font: ReaderFontPaint {
-                family: "Rito Serif".to_owned(),
+                family: "Rito Serif".into(),
                 size_px: 16.0,
                 weight: 400.0,
                 style: ReaderFontStyle::Italic,
@@ -1834,6 +1834,6 @@ fn text() -> DisplayTextCommand {
         href: Some("#note".to_owned()),
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
-        clusters: vec![],
+        clusters: Vec::new().into(),
     }
 }
