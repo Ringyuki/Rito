@@ -73,10 +73,11 @@ vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
     paint: (
       prepared: { artifact: { localSpreadIndex: number } },
       _ctx: unknown,
-      options: { backgroundColor?: string },
+      options: { backgroundColor?: string; scale?: number },
     ) => {
       harness.painted.push(
-        `${String(prepared.artifact.localSpreadIndex)}:${String(options.backgroundColor)}`,
+        `${String(prepared.artifact.localSpreadIndex)}:${String(options.backgroundColor)}` +
+          (options.scale === 1 ? '' : `@${String(options.scale)}`),
       );
     },
     dispose: () => undefined,
@@ -237,9 +238,8 @@ describe('Reader on a session', () => {
     invalidated.length = 0;
 
     expect(reader.renderSpreadTo(1, ctx as never)).toBe(true);
-    expect(harness.painted).toEqual(['1:#ffffff']);
     // The target is on the artifact's own device grid: no scaling.
-    expect(ctx.calls.some((call) => call.startsWith('scale'))).toBe(false);
+    expect(harness.painted).toEqual(['1:#ffffff']);
 
     expect(reader.renderSpreadTo(9, ctx as never)).toBe(false);
     await vi.waitFor(() => {
@@ -248,9 +248,10 @@ describe('Reader on a session', () => {
     expect(reader.renderSpreadTo(9, ctx as never)).toBe(true);
     expect(reader.renderSpreadTo(99, ctx as never)).toBe(false);
 
+    harness.painted = [];
     const zoomed = fakeCanvasContext(1200, 1800);
     expect(reader.renderSpreadTo(1, zoomed as never)).toBe(true);
-    expect(zoomed.calls).toContain('scale(1.5,1.5)');
+    expect(harness.painted).toEqual(['1:#ffffff@1.5']);
     await reader.dispose();
   });
 

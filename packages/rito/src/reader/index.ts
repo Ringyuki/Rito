@@ -25,6 +25,7 @@ export type {
   ReaderSourcePoint,
   ReaderSourcePosition,
   ReaderSourceRange,
+  ReaderGlTarget,
   ReaderSearchSourceResolution,
   ReaderTextSelectionMovement,
   SearchOptions,

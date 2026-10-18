@@ -1,5 +1,11 @@
+import type { ReaderGlTarget } from './gl-pen/target';
 import type { CoreReaderPrimitiveList } from './core-contracts';
-import { renderReaderPrimitivesToCanvas, type CanvasRenderingTarget } from './primitive-renderer';
+import { renderReaderPrimitivesToGl } from './gl-pen/pen';
+import {
+  renderReaderPrimitivesToCanvas,
+  type CanvasRenderingTarget,
+  type PrimitiveRenderOptions,
+} from './primitive-renderer';
 import type { BrowserReaderArtifact, BrowserReaderSession } from './reader-session';
 import { convertReaderRuby, convertReaderText } from './reader-session-canvas-converter';
 import { BrowserReaderCanvasUnsupportedError } from './reader-session-canvas-error';
@@ -16,7 +22,13 @@ export type BrowserReaderCanvasTarget = CanvasRenderingTarget;
 export interface BrowserReaderCanvasPaintOptions {
   readonly foregroundColor?: string | undefined;
   readonly backgroundColor?: string | undefined;
-  readonly clear?: boolean | undefined;
+  /** What the cleared target is filled with first; none leaves it clear. */
+  readonly ground?: string | undefined;
+  /**
+   * Target device pixels per device pixel of the artifact's grid: 1 on it,
+   * any other (a host zoom) paints it uniformly scaled.
+   */
+  readonly scale?: number | undefined;
 }
 
 export interface BrowserReaderPreparedCanvasArtifact {
@@ -53,12 +65,24 @@ export interface BrowserReaderCanvasPresenter {
    * the Core candidate without adopting it.
    */
   prepare(artifact: BrowserReaderArtifact): Promise<BrowserReaderPreparedCanvasArtifact>;
-  /** Paints a prepared artifact only after the host has received its adoption ACK. */
+  /**
+   * Paints a prepared artifact over the cleared target, only after the
+   * host has received its adoption ACK.
+   */
   paint(
     prepared: BrowserReaderPreparedCanvasArtifact,
     target: BrowserReaderCanvasTarget,
     options?: BrowserReaderCanvasPaintOptions,
   ): void;
+  /**
+   * Paints a prepared artifact into a WebGL2 framebuffer, pixel for pixel
+   * as `paint` would on a canvas. Answers false when the context is lost.
+   */
+  paintGl(
+    prepared: BrowserReaderPreparedCanvasArtifact,
+    target: ReaderGlTarget,
+    options?: BrowserReaderCanvasPaintOptions,
+  ): boolean;
   /** Browser resources only; the host still owns session.dispose(). */
   dispose(): void;
 }
@@ -119,17 +143,34 @@ class CanvasPresenter implements BrowserReaderCanvasPresenter {
   ): void {
     this.assertOpen();
     const owned = requirePreparedArtifact(prepared, this.owner);
-    if (options.clear !== false) clearTarget(target);
-    renderReaderPrimitivesToCanvas(owned.list, target, {
-      ...(options.foregroundColor === undefined
-        ? {}
-        : { foregroundColor: options.foregroundColor }),
-      ...(options.backgroundColor === undefined
-        ? {}
-        : { backgroundColor: options.backgroundColor }),
-      resolveImage: (href) => owned.resources.resolveImage(href),
-      imageFallback: (href) => owned.resources.imageFallback(href),
-      imageOpacity: (href) => owned.resources.imageOpacity(href),
+    const context = target as CanvasRenderingContext2D;
+    context.save();
+    try {
+      context.resetTransform();
+      context.clearRect(0, 0, target.canvas.width, target.canvas.height);
+      if (options.ground) {
+        context.fillStyle = options.ground;
+        context.fillRect(0, 0, target.canvas.width, target.canvas.height);
+      }
+      const scale = options.scale ?? 1;
+      if (scale !== 1) context.scale(scale, scale);
+      renderReaderPrimitivesToCanvas(owned.list, target, renderOptions(owned, options));
+    } finally {
+      context.restore();
+    }
+  }
+
+  paintGl(
+    prepared: BrowserReaderPreparedCanvasArtifact,
+    target: ReaderGlTarget,
+    options: BrowserReaderCanvasPaintOptions = {},
+  ): boolean {
+    this.assertOpen();
+    const owned = requirePreparedArtifact(prepared, this.owner);
+    return renderReaderPrimitivesToGl(owned.list, target, {
+      ...renderOptions(owned, options),
+      ground: options.ground,
+      scale: options.scale ?? 1,
     });
   }
 
@@ -212,6 +253,22 @@ function validateReaderPrimitives(list: CoreReaderPrimitiveList): void {
   }
 }
 
+function renderOptions(
+  owned: PreparedCanvasArtifact,
+  options: {
+    readonly foregroundColor?: string | undefined;
+    readonly backgroundColor?: string | undefined;
+  },
+): PrimitiveRenderOptions {
+  return {
+    ...(options.foregroundColor === undefined ? {} : { foregroundColor: options.foregroundColor }),
+    ...(options.backgroundColor === undefined ? {} : { backgroundColor: options.backgroundColor }),
+    resolveImage: (href) => owned.resources.resolveImage(href),
+    imageFallback: (href) => owned.resources.imageFallback(href),
+    imageOpacity: (href) => owned.resources.imageOpacity(href),
+  };
+}
+
 function requirePreparedArtifact(
   value: BrowserReaderPreparedCanvasArtifact,
   owner: symbol,
@@ -221,15 +278,4 @@ function requirePreparedArtifact(
   }
   if (value.disposed) throw new Error('Prepared reader session Canvas artifact is disposed.');
   return value;
-}
-
-function clearTarget(target: BrowserReaderCanvasTarget): void {
-  const context = target as CanvasRenderingContext2D;
-  context.save();
-  try {
-    context.resetTransform();
-    context.clearRect(0, 0, target.canvas.width, target.canvas.height);
-  } finally {
-    context.restore();
-  }
 }

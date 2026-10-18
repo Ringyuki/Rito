@@ -55,7 +55,9 @@ const SESSION_READER_LINE_BUDGET = 2808;
 // layout.
 // +8 lines (2026-10-18): `resolveTextRangeFromSource`, a source range
 // resolved as a selection with its carets.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 795;
+// +5 lines (2026-10-18): `ReaderGlTarget`, a WebGL2 framebuffer
+// `renderSpreadTo` paints into.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 800;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

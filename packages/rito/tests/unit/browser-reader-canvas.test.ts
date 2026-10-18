@@ -84,7 +84,6 @@ describe('Browser reader session Canvas presenter', () => {
     expect(mock.getCalls('drawImage')[0]?.args.slice(1)).toEqual([0, 0, 80, 120]);
 
     presenter.paint(prepared, mock.ctx, {
-      clear: false,
       foregroundColor: '#f5f5f5',
       backgroundColor: '#000000',
     });

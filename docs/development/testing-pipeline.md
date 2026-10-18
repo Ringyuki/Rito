@@ -19,7 +19,8 @@ by hand.
 | Reader e2e   | `pnpm test:e2e`                                                               | the demo reader in Chromium: load, navigation, TOC, search, settings, reflow, selection             |
 | Flutter      | `flutter test` in `packages/rito_flutter`                                     | protocol decoders, the pen, session lifecycle, the paint-parity render test                         |
 | Coverage     | `pnpm test:coverage`                                                          | V8 coverage for the published packages                                                              |
-| Paint parity | `node tools/paint-parity/run.mjs`                                             | the two pens on identical `RITODL1` bytes, budget-gated                                             |
+| Paint parity | `node tools/paint-parity/run.mjs`                                             | the two pens on identical `RITODL1` bytes, budget-gated; the GPU pen held to the canvas pen exactly |
+| GPU pen      | `node tools/gl-pen-parity/run.mjs`                                            | real books through both web pens, compared pixel for pixel                                          |
 | Pixel walk   | `tools/corpus-oracle/pixel-walk.mjs`                                          | the pages of a real book against pinned Chromium; the acceptance instrument                         |
 
 `pnpm run check` (`test:ci`) is the local aggregate: bootstrap, typecheck,

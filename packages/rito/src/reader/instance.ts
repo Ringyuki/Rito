@@ -12,6 +12,7 @@ import type {
   ReaderLocatorResolution,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
+  ReaderGlTarget,
   ReaderPageTargets,
   ReaderTextSelectionMovement,
   Rect,
@@ -326,9 +327,10 @@ export interface Reader {
     signal?: AbortSignal,
   ): Promise<ReaderLocatorResolution | undefined>;
   renderSpread(index: number, scale?: number): void;
+  /** Paints a loaded spread into a 2D context or a WebGL2 framebuffer, the same pixels either way. */
   renderSpreadTo(
     index: number,
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    target: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | ReaderGlTarget,
   ): boolean;
   notifyActiveSpread(index: number): void;
   resize(width: number, height: number): void;

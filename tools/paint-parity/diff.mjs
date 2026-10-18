@@ -20,7 +20,25 @@ const { PNG } = createRequire(`${REPO}package.json`)('pngjs');
 const outRoot = process.argv[2] ?? path.join(HERE, 'out');
 const oracleDir = path.join(outRoot, 'browser');
 
-const LANES = [{ label: 'flutter', renders: 'flutter', diff: 'diff', budgets: 'budgets.json' }];
+// The GPU pen paints the same pixels as the canvas pen or it is wrong: its
+// lane has no budget but zero.
+const LANES = [
+  { label: 'flutter', renders: 'flutter', diff: 'diff', budgets: 'budgets.json' },
+  {
+    label: 'browser-gl-software',
+    renders: 'browser-gl-software',
+    oracle: 'browser-offscreen',
+    diff: 'diff-gl-software',
+    exact: true,
+  },
+  {
+    label: 'browser-gl',
+    renders: 'browser-gl',
+    oracle: 'browser-gpu',
+    diff: 'diff-gl',
+    exact: true,
+  },
+];
 
 const names = readdirSync(oracleDir)
   .filter((f) => f.endsWith('.png'))
@@ -39,7 +57,9 @@ function diffLane(lane) {
       results.push({ name, error: `missing ${lane.label} render` });
       continue;
     }
-    const a = PNG.sync.read(readFileSync(path.join(oracleDir, `${name}.png`)));
+    const a = PNG.sync.read(
+      readFileSync(path.join(outRoot, lane.oracle ?? 'browser', `${name}.png`)),
+    );
     const b = PNG.sync.read(readFileSync(candidatePath));
     if (a.width !== b.width || a.height !== b.height) {
       results.push({ name, error: `size ${a.width}x${a.height} vs ${b.width}x${b.height}` });
@@ -94,15 +114,18 @@ function diffLane(lane) {
 // the run, so pen drift and un-budgeted coverage both surface here
 // instead of in a real book.
 function laneViolations(lane, results) {
-  const budgetsPath = path.join(HERE, lane.budgets);
-  const budgets = existsSync(budgetsPath) ? JSON.parse(readFileSync(budgetsPath, 'utf8')) : {};
+  const budgetsPath = lane.budgets === undefined ? undefined : path.join(HERE, lane.budgets);
+  const budgets =
+    budgetsPath !== undefined && existsSync(budgetsPath)
+      ? JSON.parse(readFileSync(budgetsPath, 'utf8'))
+      : {};
   const violations = [];
   for (const r of results) {
     if (r.error) {
       violations.push(`${lane.label} ${r.name}: ${r.error}`);
       continue;
     }
-    const budget = budgets[r.name];
+    const budget = lane.exact ? { maxDiffPx: 0, maxDelta: 0 } : budgets[r.name];
     if (!budget) {
       violations.push(
         `${lane.label} ${r.name}: no budget in ${lane.budgets} (add one consciously)`,
@@ -134,7 +157,7 @@ for (const lane of LANES) {
     continue;
   }
   lines.push(
-    `## ${lane.label}`,
+    `## ${lane.label} (against ${lane.oracle ?? 'browser'}/)`,
     '',
     '| fixture | diff px | ratio | max Δ | mean Δ |',
     '|---|---|---|---|---|',

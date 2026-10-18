@@ -107,13 +107,22 @@ loads a new Reader.
 | Member                                              | What it does                                     |
 | --------------------------------------------------- | ------------------------------------------------ |
 | `renderSpread(index, scale?)`                       | Render a spread to the bound canvas              |
-| `renderSpreadTo(index, ctx)`                        | Render to a Canvas 2D target                     |
+| `renderSpreadTo(index, target)`                     | Render to a Canvas 2D or a `ReaderGlTarget`      |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
 | `updateLayout(width, height, spreadMode?, margin?)` | Update viewport and spread settings in one pass  |
 | `getCanvasSize(scale?)`                             | Return CSS canvas size for the current layout    |
 | `getLayoutGeometry()`                               | Return the active `LayoutConfig`                 |
 | `notifyActiveSpread(index)`                         | Trigger spread-change listeners without painting |
+
+`ReaderGlTarget` is `{ gl, framebuffer, width, height }`: a WebGL2
+context and the framebuffer in it to paint (`null` for its canvas),
+sized like a 2D target. Both targets receive the same pixels. Painting
+changes the context's viewport, scissor, blending, program, vertex array
+and bound textures; set your own before drawing with it again.
+`createReader` takes the canvas's 2D context only when `renderSpread`
+first paints into it, so a host painting through `renderSpreadTo` can
+use the canvas for WebGL.
 
 ### Theme / typography
 

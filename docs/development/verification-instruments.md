@@ -146,12 +146,28 @@ lower_paint_parity_fixtures`, env-gated), blits the same `RITODL1` bytes
 through the browser pen (oracle) and the Flutter pen, and diffs the
 bitmaps. `budgets.json` pins each fixture's allowed diff-pixel count and
 channel delta; `diff.mjs` exits non-zero when a fixture exceeds its
-budget or has none. The residuals are rasterizer differences on identical
+budget or has none. Two more lanes hold the browser's GPU pen to the
+canvas pen on an `OffscreenCanvas`, the kind of canvas a reader's pages
+are painted on, with no budget but zero: in the headless default, where
+WebGL is a software rasterizer, and in Chromium on the machine's GPU. The residuals are rasterizer differences on identical
 device geometry, itemized in `EXEMPTIONS.md`. Run it whenever a pen or the
 lowering changes. The fixtures are display commands in the browser pen's
 JSON shape: a hand-written corpus, except `text-vertical.json`, which the
 ignored `write_vertical_paint_parity_fixture` test writes from the
 painter's own output.
+
+## GPU pen against the canvas pen on real books
+
+```bash
+DPR=1,2 SAMPLES=16 node tools/gl-pen-parity/run.mjs <epub>...
+```
+
+With the demo reader on port 5173, paints sampled spreads of each book
+through `reader.renderSpreadTo` into a 2D canvas and into a WebGL2
+framebuffer and compares them pixel for pixel; any differing pixel fails
+the run. Each line says which pen painted the spread (`gpu` or
+`canvas`). Runs Chromium on the machine's GPU; `GPU=0` runs the headless
+default, where WebGL is a software rasterizer.
 
 ## Line baseline against Chromium
 

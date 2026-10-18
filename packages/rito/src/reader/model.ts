@@ -272,3 +272,5 @@ export interface SearchResult {
 export type ReaderSearchSourceResolution =
   | { readonly status: 'resolved'; readonly href: string; readonly sourceRange: ReaderSourceRange }
   | { readonly status: 'unavailable'; readonly reason: 'sourceUnavailable' };
+
+export type { ReaderGlTarget } from '../bindings/browser/gl-pen/target';

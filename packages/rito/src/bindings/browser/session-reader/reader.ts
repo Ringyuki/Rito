@@ -6,8 +6,8 @@ import {
   recordReaderSession,
   type ReaderEventLog,
 } from '../reader-event-log';
-import type { CanvasRenderingTarget } from '../primitive-renderer';
 import { openBrowserReaderSession, type BrowserReaderSession } from '../reader-session';
+import { lazyCanvasContext } from '../lazy-canvas-context';
 import { createBrowserReaderSessionCanvasPresenter } from '../reader-session-canvas';
 import { adoptSessionReaderFirstFrame, readSessionReaderLayout } from './artifacts';
 import { holdSessionReaderBook, stepSessionReaderBook } from './background';
@@ -48,8 +48,6 @@ export async function createReader(
         'shapes text with those exact font bytes and cannot start without them',
     );
   }
-  const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
-  if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
   const { pinnedFontPolicy: _policy, ...layoutOptions } = options;
   const typography = initialTypography(options);
   const config = sessionReaderLayoutConfig(layoutOptions, typography);
@@ -83,7 +81,7 @@ export async function createReader(
     throw error;
   }
   try {
-    const state = await openState(session, canvas, ctx, layoutOptions, typography, hostFonts, {
+    const state = await openState(session, canvas, layoutOptions, typography, hostFonts, {
       dpr,
       log,
     });
@@ -124,7 +122,6 @@ function yieldToPage(): Promise<void> {
 async function openState(
   session: BrowserReaderSession,
   canvas: HTMLCanvasElement | OffscreenCanvas,
-  ctx: CanvasRenderingTarget,
   options: ReaderOptions,
   typography: SessionReaderTypography,
   hostFonts: SessionReaderHostFonts,
@@ -142,7 +139,7 @@ async function openState(
     presenter,
     hostFonts,
     canvas,
-    ctx,
+    canvasContext: lazyCanvasContext(canvas),
     logger: recordReaderLogger(createBrowserHostLogger(options.logLevel ?? 'warn'), log),
     log,
     options,

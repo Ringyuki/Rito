@@ -56,7 +56,8 @@ export interface SessionReaderState {
   readonly hostFonts: SessionReaderHostFonts;
   readonly publication: SessionReaderPublication;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
-  readonly ctx: CanvasRenderingTarget;
+  /** The canvas's 2D context, taken the first time the reader paints into it. */
+  readonly canvasContext: () => CanvasRenderingTarget;
   readonly logger: BrowserHostLogger;
   /** What this reader asked its session and was answered, for a report of something going wrong. */
   readonly log: ReaderEventLog;

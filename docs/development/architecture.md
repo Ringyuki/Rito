@@ -28,6 +28,7 @@ packages/rito_flutter        the Flutter adapter and pen (pub.dev)
 apps/reader                  the demo reader and its e2e harness
 tools/corpus-oracle          the pixel walk and corpus probes
 tools/paint-parity           the two-pen raster diff
+tools/gl-pen-parity          the web GPU pen against the canvas pen on real books
 ```
 
 Dependencies point toward the engine. The Rust crates never depend on

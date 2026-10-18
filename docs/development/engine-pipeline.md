@@ -115,7 +115,11 @@ The primitive list is encoded as `RITODL1` format 3 (see
 [Wire Format](./wire-format.md)). The web pen
 (`packages/rito/src/bindings/browser/primitive-renderer.ts`) and the
 Flutter pen (`packages/rito_flutter/lib/src/render/primitive_replayer.dart`)
-decode and blit; neither holds a layout or paint law. A browser reader
+decode and blit; neither holds a layout or paint law. The web's GPU pen
+(`packages/rito/src/bindings/browser/gl-pen/`) paints the same list into
+a WebGL2 framebuffer: a list of whole-pixel fills and plain text runs is
+drawn on the GPU from a glyph atlas the canvas rasterized, any other list
+is painted by the canvas pen and copied in, the same pixels either way. A browser reader
 runs the engine on the page's own thread through `crates/rito-wasm`, so a
 frame draws the size it asks for; Flutter and other
 native hosts use the C ABI in `crates/rito-ffi`.

@@ -17,6 +17,7 @@ export type {
   ReaderFontCatalog,
   ReaderFontFamily,
   ReaderFontFamilyFace,
+  ReaderGlTarget,
   ReaderHostFontFace,
   ReaderPinnedFontPolicy,
   ReaderPublication,
