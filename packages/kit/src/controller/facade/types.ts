@@ -51,6 +51,7 @@ export type SearchActionsSlice = Pick<
   | 'searchActiveIndex'
 >;
 export type RangeGeometrySlice = Pick<ReaderController, 'rangeRects'>;
+export type RangeSelectionSlice = Pick<ReaderController, 'selectRange'>;
 export type SelectionAccessorsSlice = Pick<
   ReaderController,
   | 'clearSelection'

@@ -335,7 +335,12 @@ revision through `interactions.textSelection`, exact rectangles drive the overla
 selected source text drives copy, and the returned source range anchors annotations.
 Use `hasSelection` for presence, `selectionSourceLocator` for the durable source range
 (present when both endpoints share a resource), and `selectionSourceSpan` for the
-resource-qualified endpoints. Layout revision invalidation, spread changes, render-scale
+resource-qualified endpoints. `controller.selectRange({ href, sourceRange })` makes a
+source range the selection as a drag would, with the same `selectionChange` and
+handles; it resolves `false` and leaves the selection alone when none of the range
+is on the spread shown, the engine cannot place it, or a turn, a relayout, a later
+call or the reader's own selecting came first, so a host goes to the range before
+selecting it. Layout revision invalidation, spread changes, render-scale
 changes, cancellation, and disposal discard late async results. A content-only resource
 repaint, such as an image decode or frame warmup completing, keeps the committed
 selection because its layout and source range remain valid. A captured handle or an

@@ -15,6 +15,7 @@ import { buildLayoutActions } from './layout-actions';
 import { buildSearchActions } from './search-actions';
 import { buildSelectionAccessors } from './selection-accessors';
 import { buildRangeGeometry } from './range-geometry';
+import { buildRangeSelection } from './select-range';
 import { buildAnnotationActions } from './annotation-actions';
 import { buildContentHit } from './content-hit';
 import { buildPositionActions } from './position-actions';
@@ -46,6 +47,7 @@ export function buildController(
     buildSearchActions(internals, emitter, nav, runtime),
     buildSelectionAccessors(internals, canvas, nav),
     buildRangeGeometry(internals, canvas),
+    buildRangeSelection(internals, emitter),
     buildAnnotationActions(internals, emitter),
     buildContentHit(canvas, lifecycleDeps),
     buildPositionActions(internals, nav, runtime.frameDriver),

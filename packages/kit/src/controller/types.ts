@@ -170,6 +170,14 @@ export interface ReaderController {
   readonly searchActiveIndex: number;
 
   clearSelection(): void;
+  /**
+   * Selects a source range as a reader's drag would, raising
+   * `selectionChange`. Resolves `true` once it is the selection; `false`
+   * when none of it is on the spread shown, the engine cannot place it, or
+   * a turn, a relayout, a later call or the reader's own selecting came
+   * first.
+   */
+  selectRange(range: ReaderExactSourceRangeRequest): Promise<boolean>;
   readonly hasSelection: boolean;
   readonly selectionText: string;
   /** Durable source locator of the selection, when both endpoints share a resource. */
