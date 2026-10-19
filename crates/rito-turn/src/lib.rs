@@ -21,6 +21,8 @@ pub mod motion;
 pub mod pack;
 pub mod physics;
 pub mod sheets;
+#[cfg(test)]
+mod spec;
 mod swing;
 
 pub use leaves::LeafId;

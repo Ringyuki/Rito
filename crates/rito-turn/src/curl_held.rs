@@ -48,9 +48,9 @@ pub(crate) struct Held {
     /// The lean the finger asks for.
     wanted: f64,
     /// That the finger has gone far enough the way the turn goes to mean it.
-    set_off: bool,
+    pub(crate) set_off: bool,
     /// The page's way to the finger since then.
-    coming: Option<Coming>,
+    pub(crate) coming: Option<Coming>,
     /// That the finger has let go: whatever takes the page next takes it anew.
     pub(crate) released: bool,
 }
