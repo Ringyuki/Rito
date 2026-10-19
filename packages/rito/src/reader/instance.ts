@@ -10,6 +10,7 @@ import type {
   ReaderSourcePosition,
   ReaderLocator,
   ReaderLocatorResolution,
+  ReaderMargin,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderGlTarget,
@@ -279,7 +280,7 @@ export interface ReaderOptions {
   readonly height: number;
   /** Durable source target for bindings that support locator-first initialization. */
   readonly initialLocator?: ReaderLocator | undefined;
-  readonly margin?: number;
+  readonly margin?: ReaderMargin;
   readonly spread?: 'single' | 'double';
   readonly spreadGap?: number;
   readonly backgroundColor?: string | null;
@@ -345,7 +346,7 @@ export interface Reader {
     width: number,
     height: number,
     spreadMode?: 'single' | 'double',
-    margin?: number,
+    margin?: ReaderMargin,
   ): boolean;
   /**
    * Holds the whole-book layout back until the returned function is

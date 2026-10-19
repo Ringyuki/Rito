@@ -1,6 +1,7 @@
 import type {
   PackageMetadata,
   Reader,
+  ReaderMargin,
   ReaderOptions,
   ReaderPublication,
   Spread,
@@ -45,7 +46,7 @@ export interface RitoReaderActions {
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
   readonly navigateToTocEntry: (entry: TocEntry) => void;
-  readonly resize: (width: number, height: number, margin?: number) => void;
+  readonly resize: (width: number, height: number, margin?: ReaderMargin) => void;
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setTheme: (opts: Parameters<Reader['setTheme']>[0]) => void;

@@ -31,7 +31,7 @@ other native hosts bridge the C ABI (see
 | ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
 | `width`            | `number`                 | required                         | Viewport width in logical pixels       |
 | `height`           | `number`                 | required                         | Viewport height in logical pixels      |
-| `margin`           | `number`                 | `40`                             | Page margin                            |
+| `margin`           | `ReaderMargin`           | `40`                             | Page margins; see below                |
 | `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
 | `spreadGap`        | `number`                 | `20`                             | Least gap between pages in double mode |
 | `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
@@ -99,6 +99,10 @@ Cache Storage, IndexedDB, or its own asset loader. Resolve the complete policy
 before calling `createReader()`. Changing the policy object later cannot mutate
 an existing Reader; the replacement takes effect only when the host creates or
 loads a new Reader.
+
+`ReaderMargin` is one number for every side, `{ x, y }` for left and right and for
+top and bottom, or `{ top, right, bottom, left }`, in CSS pixels; both pages of a
+spread take the same left and right margins. `updateLayout` takes the same forms.
 
 ## `Reader`
 

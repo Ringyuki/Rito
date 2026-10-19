@@ -33,6 +33,7 @@ export type {
   ReaderLocator,
   ReaderLocatorMatchedBy,
   ReaderLocatorResolution,
+  ReaderMargin,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderPageTargets,

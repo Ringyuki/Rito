@@ -358,6 +358,22 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('lays the pages out in the margins asked for, each side its own', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+
+    reader.updateLayout(400, 600, undefined, { top: 10, right: 20, bottom: 30, left: 40 });
+    await vi.waitFor(() => {
+      expect(reader.layoutScope).toBe('book');
+      expect(commits.length).toBeGreaterThan(0);
+    });
+    const margins = { marginTop: 10, marginRight: 20, marginBottom: 30, marginLeft: 40 };
+    expect(fake.requests.at(-1)?.layout).toMatchObject(margins);
+    expect(reader.getLayoutGeometry()).toMatchObject(margins);
+    await reader.dispose();
+  });
+
   it('lays the book out again at a new device ratio, taking it as the layout commits', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);

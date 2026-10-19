@@ -4,6 +4,7 @@ import type {
   ReaderHostFontFace,
   ReaderDocumentSourceSpan,
   ReaderExactSourceRangeRequest,
+  ReaderMargin,
   ReaderLocator,
   Spread,
   TocEntry,
@@ -113,8 +114,8 @@ export interface ReaderController {
    */
   jumpToSpread(index: number): void;
 
-  /** Re-paginate with new viewport dimensions (and optional margin). Also syncs canvas size using renderScale. */
-  resize(width: number, height: number, margin?: number): void;
+  /** Re-paginate with new viewport dimensions (and optional margins). Also syncs canvas size using renderScale. */
+  resize(width: number, height: number, margin?: ReaderMargin): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setTheme(options: ReaderThemeOptions): void;
   /** Paints every page again, `paintPage` included, for when what it draws has changed. */

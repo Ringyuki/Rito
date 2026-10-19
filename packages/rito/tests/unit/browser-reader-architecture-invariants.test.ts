@@ -67,7 +67,8 @@ const SESSION_READER_LINE_BUDGET = 2855;
 // `renderSpreadTo` paints into.
 // +6 lines (2026-10-18): `setDevicePixelRatio`, a layout at the screen's
 // new pixel ratio.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 806;
+// +5 lines (2026-10-19): `ReaderMargin`, a page's margins side by side.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 811;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
