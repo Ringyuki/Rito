@@ -402,6 +402,11 @@ box around the annotation's rectangles on the clicked page, in the screen coordi
 of `imageClick.screenBounds`; its `x`, `y` is that box's top centre. A popover can sit
 above or below the box without covering the highlight.
 
+`controller.rangeRects({ href, sourceRange })` places any source range the same way:
+it resolves to the range's rectangles on the pages shown, in those screen
+coordinates, and to none when no part of it is shown or the engine cannot place
+it. A relayout or turn while it is read reads it again on the new layout.
+
 Focus: the controller makes the Canvas focusable (`tabindex="0"`) so it receives keys,
 and sets its inline `outline-style` to `none`, since the browser's focus ring would
 outline the whole reading surface after a key press. Disposal gives the Canvas back the

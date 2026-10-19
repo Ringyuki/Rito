@@ -3,6 +3,7 @@ import type {
   ReaderFontCatalog,
   ReaderHostFontFace,
   ReaderDocumentSourceSpan,
+  ReaderExactSourceRangeRequest,
   ReaderLocator,
   Spread,
   TocEntry,
@@ -203,6 +204,13 @@ export interface ReaderController {
    * either.
    */
   hitTestContent(point: ReaderClientPoint): ContentHitKind | null;
+
+  /**
+   * Where a source range is on screen: its rects on the pages shown, in
+   * screen coordinates like `annotationClick.screenBounds`. Empty when none
+   * of it is shown or the engine cannot place it.
+   */
+  rangeRects(range: ReaderExactSourceRangeRequest): Promise<readonly Rect[]>;
 
   /** Resolves once the engine has built the target; the selection is read at call time. */
   addAnnotation(input: AddAnnotationInput): Promise<AnnotationRecord | undefined>;
