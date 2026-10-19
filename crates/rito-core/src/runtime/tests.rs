@@ -9,6 +9,7 @@ mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
 mod relayout_equivalence_tests;
 pub(crate) mod revisions;
+mod ruby_range_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;

@@ -173,6 +173,7 @@ mod tests {
                         source_end: 5,
                         normalized_start: 0,
                         normalized_end: 5,
+                        annotation: false,
                     },
                     RuntimeChapterTextSpan {
                         node_path: vec![1],
@@ -180,6 +181,7 @@ mod tests {
                         source_end: 5,
                         normalized_start: 5,
                         normalized_end: 10,
+                        annotation: false,
                     },
                 ],
             },

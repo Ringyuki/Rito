@@ -1,8 +1,8 @@
-pub(super) fn source_segments_match(normalized_source_text: &str, segments: &[String]) -> bool {
+pub(super) fn source_segments_match(flow_text: &str, segments: &[String]) -> bool {
     let Some((first, remaining_segments)) = segments.split_first() else {
-        return normalized_source_text.is_empty();
+        return flow_text.is_empty();
     };
-    let Some(mut remaining) = normalized_source_text.strip_prefix(first) else {
+    let Some(mut remaining) = flow_text.strip_prefix(first) else {
         return false;
     };
     for segment in remaining_segments {

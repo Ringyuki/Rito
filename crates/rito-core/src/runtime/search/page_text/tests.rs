@@ -166,7 +166,10 @@ fn a_direct_match_split_across_contiguous_runs_keeps_its_full_anchor() {
 }
 
 #[test]
-fn direct_runs_of_different_nodes_keep_the_longest_segment() {
+fn direct_runs_of_different_nodes_anchor_the_whole_match_across_them() {
+    // A match across elements (a word in <em>, a ruby base) is one range
+    // across their text nodes, as a browser's is; the longest stretch of
+    // one node stays as the anchor to fall back on.
     let page = SearchPageText::from_parts(
         0,
         "abcd".to_owned(),
@@ -178,8 +181,14 @@ fn direct_runs_of_different_nodes_keep_the_longest_segment() {
     let matches = search_prebuilt_runtime_pages(&[page], "abcd", false, false, None);
     let matched = matches.first().expect("the match is found");
     let range = matched.source_range.as_ref().expect("a source range");
-    assert_eq!(range.start.node_path, vec![2]);
-    assert_eq!(matched.selected_text, "bcd");
+    assert_eq!(range.start.node_path, vec![1]);
+    assert_eq!(range.start.text_offset, 0);
+    assert_eq!(range.end.node_path, vec![2]);
+    assert_eq!(range.end.text_offset, 3);
+    assert_eq!(matched.selected_text, "abcd");
+    let fallback = matched.fallback_source.as_ref().expect("a fallback anchor");
+    assert_eq!(fallback.range.start.node_path, vec![2]);
+    assert_eq!(fallback.selected_text, "bcd");
 }
 
 #[test]

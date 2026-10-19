@@ -11,11 +11,12 @@ pub(in crate::runtime) use page_text::{
 pub use page_text::{SearchRuntimeResult, SearchTextPosition};
 
 use super::{
-    chapter_text::build_chapter_text_index, navigation::spread_index_for_page,
-    page_target::chapter_for_page, source_locator::utf16_slice, RuntimeChapterTextIndex,
-    RuntimeRevision, RuntimeSearchRequest, RuntimeSearchResponse, RuntimeSearchResult,
-    RuntimeSearchSource, RuntimeSearchSourceUnavailableReason, RuntimeSourcePoint,
-    RuntimeSourceRange,
+    chapter_text::{build_chapter_text_index, flow_text},
+    navigation::spread_index_for_page,
+    page_target::chapter_for_page,
+    RuntimeChapterTextIndex, RuntimeRevision, RuntimeSearchRequest, RuntimeSearchResponse,
+    RuntimeSearchResult, RuntimeSearchSource, RuntimeSearchSourceUnavailableReason,
+    RuntimeSourcePoint, RuntimeSourceRange,
 };
 
 pub(super) fn search_revision(
@@ -72,6 +73,7 @@ fn runtime_search_result(
         result,
         selected_text,
         source_range,
+        fallback_source,
     } = matched;
     let page_index = result.page_index;
     RuntimeSearchResult {
@@ -82,41 +84,45 @@ fn runtime_search_result(
             document,
             revision,
             page_index,
-            source_range,
-            &selected_text,
+            source_range.map(|range| (range, selected_text)),
+            fallback_source.map(|fallback| (fallback.range, fallback.selected_text)),
             source_indices,
         ),
     }
 }
 
+/// The first anchor that reads in the source as the page does: the
+/// match's own, then the stretch of one node it falls back on.
 fn runtime_search_source(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
     page_index: usize,
-    source_range: Option<SearchSourceRange>,
-    selected_text: &str,
+    anchor: Option<(SearchSourceRange, String)>,
+    fallback: Option<(SearchSourceRange, String)>,
     source_indices: &mut BTreeMap<String, RuntimeChapterTextIndex>,
 ) -> RuntimeSearchSource {
-    let Some(source_range) = source_range else {
+    if anchor.is_none() && fallback.is_none() {
         return unavailable_search_source();
-    };
+    }
     let Some(chapter) = chapter_for_page(document, revision, page_index) else {
         return unavailable_search_source();
-    };
-    let source_range = RuntimeSourceRange {
-        start: runtime_source_point(source_range.start),
-        end: runtime_source_point(source_range.end),
     };
     let source_index = source_indices
         .entry(chapter.idref.clone())
         .or_insert_with(|| source_index_for_chapter(chapter));
-    if !source_range_matches(source_index, &source_range, selected_text) {
-        return unavailable_search_source();
+    for (range, selected_text) in anchor.into_iter().chain(fallback) {
+        let source_range = RuntimeSourceRange {
+            start: runtime_source_point(range.start),
+            end: runtime_source_point(range.end),
+        };
+        if source_range_matches(source_index, &source_range, &selected_text) {
+            return RuntimeSearchSource::Resolved {
+                href: chapter.href.clone(),
+                source_range,
+            };
+        }
     }
-    RuntimeSearchSource::Resolved {
-        href: chapter.href.clone(),
-        source_range,
-    }
+    unavailable_search_source()
 }
 
 fn source_index_for_chapter(chapter: &LoadedChapter) -> RuntimeChapterTextIndex {
@@ -135,7 +141,7 @@ fn source_range_matches(
     let Some(end) = source_point_offset(index, &range.end) else {
         return false;
     };
-    utf16_slice(&index.normalized_text, start, end).is_some_and(|text| text == selected_text)
+    flow_text(index, start, end).is_some_and(|text| text == selected_text)
 }
 
 fn source_point_offset(

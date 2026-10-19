@@ -32,7 +32,9 @@ pub(in crate::runtime) struct PreparedExactSourceRange {
     pub(super) locator: RuntimeSourceLocator,
     pub(super) spine_idref: String,
     pub(super) source_range: RuntimeSourceRange,
-    pub(super) normalized_source_text: String,
+    /// The range's text as the line shows it, ruby annotations left out:
+    /// what the layout's range must read.
+    pub(super) flow_text: String,
 }
 
 /// A locator checked against the source and ready to place in a revision.
@@ -381,14 +383,13 @@ impl RuntimeDocument {
             .expect("exact source range request installs a sourceRange");
         let start = require_source_point_offset(source_index, &source_range.start)?;
         let end = require_source_point_offset(source_index, &source_range.end)?;
-        let normalized_source_text = utf16_slice(&source_index.text.normalized_text, start, end)
-            .ok_or_else(|| RuntimeSourceLocatorError::invalid_selector("invalid UTF-16 range"))?
-            .to_owned();
+        let flow_text = super::chapter_text::flow_text(&source_index.text, start, end)
+            .ok_or_else(|| RuntimeSourceLocatorError::invalid_selector("invalid UTF-16 range"))?;
         Ok(PreparedExactSourceRange {
             locator: canonical.locator,
             spine_idref: canonical.spine_idref,
             source_range,
-            normalized_source_text,
+            flow_text,
         })
     }
 

@@ -70,10 +70,7 @@ impl RuntimeDocument {
             });
         match resolution {
             PageArtifactExactTextRangeResolution::Resolved(range)
-                if source_segments_match(
-                    &prepared.normalized_source_text,
-                    &range.exact_source_segments,
-                ) =>
+                if source_segments_match(&prepared.flow_text, &range.exact_source_segments) =>
             {
                 RuntimeExactSourceRangeResolution::Resolved {
                     range: Box::new(RuntimeExactSourceRange {
