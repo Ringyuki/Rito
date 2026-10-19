@@ -1,4 +1,13 @@
-## Unreleased
+## 0.8.0 - 2026-10-19
+
+### Ranges across ruby resolve
+
+A selection or annotation that runs over a ruby base resolves and is drawn
+instead of failing as source-unavailable: the source's annotation text is
+not on the line, so it is no longer required there. A caret or range inside
+a ruby base lands on the base's own text node, and a search match across
+elements (a ruby base, a word in `<em>`) anchors the whole match instead of
+its longest stretch inside one element.
 
 ### The first page is drawn before the book is paginated behind it
 
