@@ -165,13 +165,6 @@ pub(super) struct PageArtifactTextRangeGeometry {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct PageArtifactMetadata {
-    pub(super) page_index: usize,
-    pub(super) width: f64,
-    pub(super) height: f64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct PageArtifactRect {
     pub(super) x: f64,
     pub(super) y: f64,
@@ -216,8 +209,6 @@ pub(super) struct PageArtifactSemanticNode {
 /// Capabilities should be added here only as renderer-neutral artifacts. In
 /// particular, do not expose a backend's retained box/fragment tree.
 pub(super) trait PageArtifact {
-    fn metadata(&self) -> PageArtifactMetadata;
-
     fn semantic_nodes(&self) -> Vec<PageArtifactSemanticNode>;
 
     /// The page's text runs in flow order, then its links and images.

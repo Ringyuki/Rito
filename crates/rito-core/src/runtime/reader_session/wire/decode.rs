@@ -17,8 +17,8 @@ use crate::runtime::reader_session::{
     ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderBackgroundState, ReaderError,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
-    ReaderForegroundHandoffAck, ReaderLayout, ReaderLocator, ReaderPublication, ReaderRect,
-    ReaderResource, ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult,
+    ReaderForegroundHandoffAck, ReaderLayout, ReaderLocator, ReaderPageRecords, ReaderPublication,
+    ReaderRect, ReaderResource, ReaderSearchRequest, ReaderSearchResponse, ReaderSearchResult,
     ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderSpreadRequest,
     ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
     ReaderTextRenderingProfile, READER_PUBLICATION_WIRE_BYTES_MAX,
@@ -298,6 +298,18 @@ pub(super) fn text_range_geometry(bytes: &[u8]) -> Result<ReaderTextRangeGeometr
     };
     reader.finish("text range geometry wire message")?;
     Ok(geometry)
+}
+
+pub(super) fn page_records(bytes: &[u8]) -> Result<ReaderPageRecords, ReaderError> {
+    let mut reader = Reader::message(
+        bytes,
+        super::READER_PAGE_RECORDS_WIRE_MAGIC,
+        READER_WIRE_VERSION,
+    )?;
+    let artifact_id = external_id(reader.u64()?, "artifactId")?;
+    let records = artifact::page_records(&mut reader, artifact_id)?;
+    reader.finish("page records wire message")?;
+    Ok(records)
 }
 
 pub(super) fn footnote(bytes: &[u8]) -> Result<ReaderFootnote, ReaderError> {

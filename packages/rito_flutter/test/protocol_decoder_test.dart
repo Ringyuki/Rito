@@ -20,15 +20,8 @@ void main() {
     expect(artifact.locator.sourcePoint?.textOffset, 47);
     expect(artifact.matchedBy, RitoLocatorMatch.sourcePoint);
     expect(artifact.pages.single.pageIndex, 7);
-    expect(artifact.pages.single.hits.single.text, 'body');
-    final hit = artifact.pages.single.hits.single;
-    expect(hit.kind, RitoHitKind.link);
-    expect(hit.footnotePending, isFalse);
-    expect(hit.targetLocator?.href, 'chapter-2.xhtml');
-    expect(hit.targetLocator?.anchorId, 'note');
-    expect(hit.destinationLabel, 'Chapter two');
-    expect(artifact.pages.single.semantics.single.level, 2);
-    expect(artifact.pages.single.textRuns.single.end, 4);
+    expect(artifact.pages.single.width, 360);
+    expect(artifact.pages.single.height, 640);
     expect(
       artifact.resources
           .firstWhere((resource) => resource.kind == RitoResourceKind.image)

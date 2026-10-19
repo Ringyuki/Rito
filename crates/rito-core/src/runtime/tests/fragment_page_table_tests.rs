@@ -1266,12 +1266,7 @@ fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
 
     let page_state = |page_index: usize| {
         let page = session.page(page_index).expect("page resolves");
-        format!(
-            "{:?}|{:?}|{:?}",
-            page.metadata(),
-            page.text_positions(),
-            page.targets()
-        )
+        format!("{:?}|{:?}", page.text_positions(), page.targets())
     };
     // Single-page spreads, so a spread index is its page index.
     let frame_state = |spread_index: usize| {

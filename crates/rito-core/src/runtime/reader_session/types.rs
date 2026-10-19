@@ -610,11 +610,25 @@ pub struct ReaderTextRunOffset {
     pub run_index: u32,
 }
 
+/// A page an artifact shows: its index and size. What it holds for a host
+/// to hit-test, read out or select is read when the host first asks (see
+/// [`ReaderPageRecords`]), the way a browser hit-tests the fragments it
+/// painted when a pointer arrives instead of keeping a table of them for
+/// every frame it draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderPage {
     pub page_index: u32,
     pub width: f64,
     pub height: f64,
+}
+
+/// What one page of a live artifact holds for a host: its interaction
+/// targets, its semantic outline, its text and where each text run sits
+/// in that text. Rects are in the artifact's display-list space.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderPageRecords {
+    pub artifact_id: u64,
+    pub page_index: u32,
     pub hits: Vec<ReaderHitEntry>,
     pub semantics: Vec<ReaderSemanticNode>,
     pub text: String,

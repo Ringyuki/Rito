@@ -88,7 +88,8 @@ fn range_across_spreads(
     artifact: &ReaderArtifact,
     slot: usize,
 ) -> (ReaderCaretAddress, ReaderCaretAddress) {
-    let hit = artifact.pages[slot]
+    let records = session.artifact_page_records(artifact);
+    let hit = records[slot]
         .hits
         .iter()
         .find(|hit| !hit.text.trim().is_empty())

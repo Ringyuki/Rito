@@ -11,13 +11,13 @@ use rito_core::runtime::{
     encode_reader_background_handoff_ack, encode_reader_exact_source_range_resolution,
     encode_reader_font_catalog, encode_reader_font_names, encode_reader_footnote,
     encode_reader_foreground_handoff_ack, encode_reader_navigation_result,
-    encode_reader_publication, encode_reader_resource, encode_reader_search_response,
-    encode_reader_text_interaction_response, encode_reader_text_range_geometry,
-    ReaderAdjacentRequest, ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
-    ReaderBackgroundRequest, ReaderError, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
-    ReaderNavigationRequest, ReaderResourceKind, ReaderSearchRequest, ReaderSession,
-    ReaderSpreadRequest, ReaderTextInteractionRequest, ReaderTextRangeRequest,
-    RuntimePinnedFontPolicyInput,
+    encode_reader_page_records, encode_reader_publication, encode_reader_resource,
+    encode_reader_search_response, encode_reader_text_interaction_response,
+    encode_reader_text_range_geometry, ReaderAdjacentRequest, ReaderAnnotationRequest,
+    ReaderArtifactRequest, ReaderBackgroundHandoff, ReaderBackgroundRequest, ReaderError,
+    ReaderExactSourceRangeRequest, ReaderForegroundHandoff, ReaderNavigationRequest,
+    ReaderResourceKind, ReaderSearchRequest, ReaderSession, ReaderSpreadRequest,
+    ReaderTextInteractionRequest, ReaderTextRangeRequest, RuntimePinnedFontPolicyInput,
 };
 
 use rito_core::epub::shard::ShardKey;
@@ -98,6 +98,11 @@ pub(crate) enum ActorCommand {
     ReadFootnote {
         artifact_id: u64,
         key: String,
+        reply: Reply<Vec<u8>>,
+    },
+    ReadPage {
+        artifact_id: u64,
+        page_index: u32,
         reply: Reply<Vec<u8>>,
     },
     ReleaseArtifact {
@@ -744,6 +749,17 @@ fn run_commands(
                     .map_err(FfiError::from);
                 let _ = reply.send(result);
             }
+            ActorCommand::ReadPage {
+                artifact_id,
+                page_index,
+                reply,
+            } => {
+                let result = session
+                    .read_page(artifact_id, page_index)
+                    .and_then(|records| encode_reader_page_records(&records))
+                    .map_err(FfiError::from);
+                let _ = reply.send(result);
+            }
             ActorCommand::ReadFootnote {
                 artifact_id,
                 key,
@@ -979,6 +995,22 @@ pub(crate) fn request_exact_source_range(
         admission,
         |reply| ActorCommand::ExactSourceRange { request, reply },
         "exact source range",
+    )
+}
+
+pub(crate) fn request_page(
+    admission: CommandAdmission,
+    artifact_id: u64,
+    page_index: u32,
+) -> Result<Vec<u8>, FfiError> {
+    call(
+        admission,
+        |reply| ActorCommand::ReadPage {
+            artifact_id,
+            page_index,
+            reply,
+        },
+        "page",
     )
 }
 

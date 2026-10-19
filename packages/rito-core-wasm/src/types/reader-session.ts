@@ -238,10 +238,24 @@ export interface RitoReaderTextRunOffset {
   readonly runIndex: number;
 }
 
+/**
+ * A page an artifact shows: its index and size. What it holds for a host is
+ * read when the host first needs it (see {@link RitoReaderPageRecords}).
+ */
 export interface RitoReaderPage {
   readonly pageIndex: number;
   readonly width: number;
   readonly height: number;
+}
+
+/**
+ * What one page of a live artifact holds for a host: its interaction
+ * targets, semantic outline, text and where each text run sits in that
+ * text, in the artifact's display-list space.
+ */
+export interface RitoReaderPageRecords {
+  readonly artifactId: bigint;
+  readonly pageIndex: number;
   readonly hits: readonly RitoReaderHitEntry[];
   readonly semantics: readonly RitoReaderSemanticNode[];
   readonly text: string;

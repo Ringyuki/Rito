@@ -47,8 +47,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // screen's new pixel ratio and taken as it commits.
 // +19 lines (2026-10-18): the geometry a reader publishes is where the
 // engine laid its pages out, a spread's pages on the device grid.
+// +4 lines (2026-10-19): a page's targets, outline and text are asked of
+// the session when the reader needs them, not read off every artifact.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2843;
+const SESSION_READER_LINE_BUDGET = 2847;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -404,7 +406,8 @@ describe('Browser reader architecture invariant: one committed layout', () => {
     // An answer names pages of the layout it was asked of. Every question
     // whose answer carries pages or geometry goes through one gate that
     // resolves undefined once the layout was replaced.
-    const gated = /\.(?:textInteraction|exactSourceRange|readFootnote|search|textRangeGeometry)\(/g;
+    const gated =
+      /\.(?:textInteraction|exactSourceRange|readFootnote|readPage|search|textRangeGeometry)\(/g;
     for (const file of SESSION_READER_FILES) {
       const source = read(file);
       if (!gated.test(source)) continue;

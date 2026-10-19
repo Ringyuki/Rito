@@ -66,14 +66,21 @@ extension _ArtifactPages on RitoArtifactDecoder {
       pageIndex: record.uint32('page index'),
       width: record.float64('page width'),
       height: record.float64('page height'),
-      hits: _hits(record),
-      semantics: _semantics(record, 0),
-      text: record.string('page text'),
-      textLength: record.uint64('page text length'),
-      textRuns: _textRuns(record),
     );
     record.finish('page');
     return result;
+  }
+
+  RitoPageRecords _pageRecords(RitoBinaryReader reader, int artifactId) {
+    return RitoPageRecords(
+      artifactId: artifactId,
+      pageIndex: reader.uint32('page index'),
+      hits: _hits(reader),
+      semantics: _semantics(reader, 0),
+      text: reader.string('page text'),
+      textLength: reader.uint64('page text length'),
+      textRuns: _textRuns(reader),
+    );
   }
 
   List<RitoHitEntry> _hits(RitoBinaryReader reader) {

@@ -1,8 +1,9 @@
 use super::{locator, text_profile};
 use crate::runtime::reader_session::{
     ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontRef,
-    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderPage, ReaderRect, ReaderResourceKind,
-    ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole, ReaderTextRunOffset,
+    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderPage, ReaderPageRecords, ReaderRect,
+    ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
+    ReaderTextRunOffset,
 };
 
 use crate::runtime::reader_session::wire::primitives::{Writer, MAX_SEMANTIC_DEPTH};
@@ -100,7 +101,15 @@ fn pages(writer: &mut Writer, values: &[ReaderPage]) -> Result<(), ReaderError> 
 fn page(writer: &mut Writer, value: &ReaderPage) -> Result<(), ReaderError> {
     writer.u32(value.page_index);
     writer.f64(value.width, "page width")?;
-    writer.f64(value.height, "page height")?;
+    writer.f64(value.height, "page height")
+}
+
+/// A page's records after the message's artifact id (see `RITOPGR1`).
+pub(super) fn page_records(
+    writer: &mut Writer,
+    value: &ReaderPageRecords,
+) -> Result<(), ReaderError> {
+    writer.u32(value.page_index);
     writer.count(value.hits.len(), "page hit count")?;
     for hit in &value.hits {
         writer.record(|writer| hit_entry(writer, hit))?;

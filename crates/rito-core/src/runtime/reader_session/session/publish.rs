@@ -72,7 +72,7 @@ impl ReaderSession {
             local_spread_index: spread_index,
         };
         let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
-        let artifact = build_reader_artifact(
+        let built = build_reader_artifact(
             &mut self.document,
             ArtifactIdentity {
                 session_id: self.session_id,
@@ -88,7 +88,8 @@ impl ReaderSession {
             revision_id,
             ReaderRevisionBacking::Publication,
             spread_index,
-            &artifact,
+            &built.artifact,
+            built.painted_digest,
         );
         let revision = self
             .publication_revisions
@@ -99,7 +100,7 @@ impl ReaderSession {
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("artifact reference count"))?;
         self.artifacts.insert(artifact_id, artifact_owner);
-        Ok(artifact)
+        Ok(built.artifact)
     }
 
     pub(super) fn publish_revision_artifact(
@@ -148,7 +149,7 @@ impl ReaderSession {
         let local_spread_index = target.local_spread_index;
         let navigation = reader_navigation(&self.document, revision, local_spread_index);
         let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
-        let artifact = build_reader_artifact(
+        let built = build_reader_artifact(
             &mut self.document,
             ArtifactIdentity {
                 session_id: self.session_id,
@@ -164,7 +165,8 @@ impl ReaderSession {
             revision_id,
             ReaderRevisionBacking::ChapterLocal,
             local_spread_index,
-            &artifact,
+            &built.artifact,
+            built.painted_digest,
         );
         let revision = self.revisions.get_mut(&revision_id).ok_or_else(|| {
             ReaderError::new(
@@ -177,6 +179,6 @@ impl ReaderSession {
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("artifact reference count"))?;
         self.artifacts.insert(artifact_id, artifact_owner);
-        Ok(artifact)
+        Ok(built.artifact)
     }
 }

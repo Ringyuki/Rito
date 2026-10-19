@@ -12,8 +12,8 @@ use rito_core::runtime::{
     encode_reader_annotation_response, encode_reader_artifact,
     encode_reader_exact_source_range_resolution, encode_reader_footnote,
     encode_reader_foreground_handoff_ack, encode_reader_navigation_result,
-    encode_reader_search_response, encode_reader_text_interaction_response,
-    encode_reader_text_range_geometry,
+    encode_reader_page_records, encode_reader_search_response,
+    encode_reader_text_interaction_response, encode_reader_text_range_geometry,
 };
 use wasm_bindgen::prelude::*;
 
@@ -51,6 +51,16 @@ impl RitoReaderSession {
     pub fn commit_peeked_artifact(&mut self, request_wire: Vec<u8>) -> Result<Vec<u8>, JsValue> {
         self.inner
             .commit_peeked_artifact(&request_wire)
+            .map_err(ReaderProjectionError::into_js_value)
+    }
+
+    /// Reads what page `page_index` of a live artifact holds for a host —
+    /// its interaction targets, semantic outline, text and text runs — as a
+    /// `RITOPGR1` message.
+    #[wasm_bindgen(js_name = readPage)]
+    pub fn read_page(&mut self, artifact_id: u64, page_index: u32) -> Result<Vec<u8>, JsValue> {
+        self.inner
+            .read_page(artifact_id, page_index)
             .map_err(ReaderProjectionError::into_js_value)
     }
 
@@ -156,6 +166,20 @@ impl ReaderSessionProjection {
         )?;
         let ack = self.live_session()?.commit_peeked_artifact(request)?;
         encode_reader_foreground_handoff_ack(&ack).map_err(Into::into)
+    }
+
+    pub(super) fn read_page(
+        &mut self,
+        artifact_id: u64,
+        page_index: u32,
+    ) -> ProjectionResult<Vec<u8>> {
+        validate_external_id(
+            artifact_id,
+            ReaderProjectionErrorCode::InvalidRequest,
+            "artifactId",
+        )?;
+        let records = self.live_session()?.read_page(artifact_id, page_index)?;
+        encode_reader_page_records(&records).map_err(Into::into)
     }
 
     pub(super) fn read_footnote(

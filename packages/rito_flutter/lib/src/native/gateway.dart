@@ -131,6 +131,14 @@ abstract interface class RitoReaderGateway {
     required RitoNavigationRequest request,
   });
 
+  /// What page [pageIndex] of a live artifact holds for a host: its
+  /// interaction targets, semantic outline, text and text runs.
+  Future<RitoPageRecords> readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  });
+
   /// Reads a footnote definition an artifact referenced. [key] is the
   /// hit's canonical `footnoteKey` verbatim.
   Future<RitoFootnote> readFootnote({
@@ -1127,6 +1135,40 @@ final class RitoNativeGateway
             decode: _footnoteDecoder.decode,
             validate: (footnote) =>
                 footnote.artifactId == artifactId && footnote.key == key,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoPageRecords> readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  }) async {
+    return _queue.ordered<RitoPageRecords>(
+      sessionId: sessionId,
+      operation: () => _guardNativeSessionOperation<RitoPageRecords>(
+        sessionId: sessionId,
+        requestId: _diagnosticRequestId(sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _ReadPageOperation(
+              sessionId: sessionId,
+              artifactId: artifactId,
+              pageIndex: pageIndex,
+            ),
+          );
+          return _decodeSessionWire<RitoPageRecords>(
+            sessionId: sessionId,
+            field: 'page records',
+            wireBytes: wireBytes,
+            decode: _artifactDecoder.decodePageRecords,
+            validate: (records) =>
+                records.artifactId == artifactId &&
+                records.pageIndex == pageIndex,
           );
         },
       ),

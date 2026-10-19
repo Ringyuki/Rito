@@ -162,6 +162,11 @@ Object? _perform(
       artifactId: operation.artifactId,
       key: operation.key,
     ),
+    _ReadPageOperation() => bindings.readPage(
+      sessionId: operation.sessionId,
+      artifactId: operation.artifactId,
+      pageIndex: operation.pageIndex,
+    ),
     _ReleaseArtifactOperation() => _release(bindings, operation),
     _DisposeOperation() => _dispose(bindings, operation, liveSessions),
     _CloseOperation() => _disposeAll(bindings, liveSessions),
@@ -503,6 +508,18 @@ final class _ReadFootnoteOperation extends _WorkerOperation {
   final int sessionId;
   final int artifactId;
   final String key;
+}
+
+final class _ReadPageOperation extends _WorkerOperation {
+  const _ReadPageOperation({
+    required this.sessionId,
+    required this.artifactId,
+    required this.pageIndex,
+  });
+
+  final int sessionId;
+  final int artifactId;
+  final int pageIndex;
 }
 
 final class _ReleaseArtifactOperation extends _WorkerOperation {

@@ -187,6 +187,7 @@ static void consume(void) {
                                    &error);
   (void)rito_resolve_navigation(1, navigation, 8, &navigation_response,
                                    &error);
+  (void)rito_read_page(1, 1, 0, &footnote, &error);
   (void)rito_read_footnote(1, 1, footnote_key, sizeof(footnote_key),
                               &footnote, &error);
   rito_owned_buffer font_answer = {0};

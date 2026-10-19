@@ -40,8 +40,12 @@ paint domain grows, and a stale decoder misreads the byte stream.
   is a candidate; commit it through
   `rito_adopt_foreground_candidate` with the compare-and-swap
   expectation, exactly as the header describes.
-- **Taps resolve against the artifact's hits, not its paint commands.**
-  Each page's hit entries are the engine's account of links, note
+- **Taps resolve against a page's hits, not its paint commands.** An
+  artifact carries its pages' index and size only; what a page holds —
+  its hits, semantic outline, text and text runs — is read with
+  `rito_read_page` (one `RITOPGR1` message) when the host first needs it,
+  the way a browser hit-tests the fragments it painted when a pointer
+  arrives. A page's hit entries are the engine's account of links, note
   anchors and images, already in display-list space, and each says what
   it is: plain text, a link, an image, a footnote reference, or a
   footnote reference whose definition is not indexed yet. A link carries

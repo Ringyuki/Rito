@@ -815,7 +815,7 @@ final class RitoReaderSession {
   /// taken at. The engine owns the projection because a run's mapping
   /// back to its source node is piecewise — collapsed whitespace leaves
   /// gaps, and a run split at a space shares its seam offset with the
-  /// next run — so it cannot be rebuilt from [RitoPage.hits]. It also
+  /// next run — so it cannot be rebuilt from [RitoPageRecords.hits]. It also
   /// checks the text it landed on against the range's own source text,
   /// so an anchor whose text has changed reports
   /// [RitoExactSourceRangeStatus.unavailable] instead of painting over
@@ -1083,7 +1083,7 @@ final class RitoReaderSession {
   ///
   /// [pageIndex] is one the artifact published
   /// ([RitoPage.pageIndex]) and the positions are the ones its
-  /// [RitoPage.textRuns] describe, so a highlight anchors to source
+  /// [RitoPageRecords.textRuns] describe, so a highlight anchors to source
   /// text rather than to remembered pixels. The returned rects share
   /// the artifact's display-list space, so they paint straight onto the
   /// surface the page was drawn on.
@@ -1127,6 +1127,48 @@ final class RitoReaderSession {
       throw StateError('Text geometry ownership does not match its artifact.');
     }
     return geometry;
+  }
+
+  /// What page [pageIndex] of [prepared] holds for a host: its interaction
+  /// targets, semantic outline, text and text runs. An artifact carries
+  /// only its pages' index and size; the engine builds these when a host
+  /// first asks, the way a browser hit-tests the fragments it painted when
+  /// a pointer arrives. Hit-test a tap with [RitoHitResolver] over the
+  /// records of the pages it may land on.
+  Future<RitoPageRecords> readPage(
+    RitoPreparedArtifact prepared,
+    int pageIndex,
+  ) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    if (!artifact.pages.any((page) => page.pageIndex == pageIndex)) {
+      throw ArgumentError.value(
+        pageIndex,
+        'pageIndex',
+        'is not a page of the artifact',
+      );
+    }
+    late final RitoPageRecords records;
+    try {
+      records = await gateway.readPage(
+        sessionId: sessionId,
+        artifactId: artifact.artifactId,
+        pageIndex: pageIndex,
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (records.artifactId != artifact.artifactId ||
+        records.pageIndex != pageIndex) {
+      throw StateError('Page records ownership does not match the artifact.');
+    }
+    return records;
   }
 
   /// Reads the footnote definition a hit referenced.

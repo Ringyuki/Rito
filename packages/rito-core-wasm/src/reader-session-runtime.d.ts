@@ -3,6 +3,7 @@ import type {
   RitoReaderAdjacentRequest,
   RitoReaderArtifactRequest,
   RitoReaderArtifact,
+  RitoReaderPageRecords,
   RitoReaderBackgroundAdvance,
   RitoReaderBackgroundHandoffAck,
   RitoReaderBackgroundHandoff,
@@ -56,6 +57,9 @@ export declare function decodeRitoReaderBackgroundHandoffAck(
 export declare function decodeRitoReaderArtifact(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderArtifact;
+export declare function decodeRitoReaderPageRecords(
+  bytes: ArrayBuffer | Uint8Array,
+): RitoReaderPageRecords;
 export declare function decodeRitoReaderPublication(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderPublication;

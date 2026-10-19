@@ -68,7 +68,8 @@ fn hits_are_the_page_targets_of_the_whole_book_revision() {
                     .get_page_targets(&revision.revision_id, start + local_page)
                     .expect("page targets")
                     .entries;
-                let hits = &artifact.pages[0].hits;
+                let records = session.artifact_page_records(&artifact);
+                let hits = &records[0].hits;
                 assert_eq!(
                     hits.len(),
                     targets.len(),

@@ -4,6 +4,7 @@ import type {
   BrowserReaderAnnotationQuery,
   BrowserReaderAnnotationResponse,
   BrowserReaderArtifact,
+  BrowserReaderPageRecords,
   BrowserReaderArtifactRequest,
   BrowserReaderExactSourceRangeResolution,
   BrowserReaderFootnote,
@@ -19,7 +20,7 @@ import type {
   BrowserReaderTextInteractionResponse,
 } from '../../src/bindings/browser/reader-session';
 
-type FakePage = BrowserReaderArtifact['pages'][number];
+type FakePage = BrowserReaderPageRecords;
 
 /** A geometry question as the session received it. */
 export interface FakeGeometryQuestion<Question> {
@@ -116,6 +117,8 @@ export class FakeReaderSession {
     readonly range: BrowserReaderSourceRange;
   }>[] = [];
   readonly annotations: BrowserReaderAnnotationQuery[] = [];
+  /** Every page whose records a reader asked for. */
+  readonly pageReads: { readonly artifactId: bigint; readonly pageIndex: number }[] = [];
   answerInteraction: (
     query: BrowserReaderTextInteractionQuery,
   ) => BrowserReaderTextInteractionResponse['result'] = () => ({ kind: 'miss' });
@@ -261,6 +264,21 @@ export class FakeReaderSession {
         later(() => {
           this.annotations.push(query);
           return this.answerAnnotation(query);
+        }),
+      readPage: (artifactId, pageIndex) =>
+        later(() => {
+          const live = this.requireLive(artifactId);
+          this.pageReads.push({ artifactId, pageIndex });
+          return {
+            artifactId,
+            pageIndex,
+            hits: [],
+            semantics: [],
+            text: '',
+            textLength: 0n,
+            textRuns: [],
+            ...this.pageContent(pageIndex, live.revision.chapterIndex),
+          } as unknown as BrowserReaderPageRecords;
         }),
       readFootnote: (artifactId, key) =>
         later(() => {
@@ -534,12 +552,6 @@ export class FakeReaderSession {
           pageIndex: page,
           width: this.pageWidth ?? revision.layout.viewportWidth,
           height: revision.layout.viewportHeight,
-          hits: [],
-          semantics: [],
-          text: '',
-          textLength: 0n,
-          textRuns: [],
-          ...this.pageContent(page, revision.chapterIndex),
         },
       ],
     } as unknown as BrowserReaderArtifact;

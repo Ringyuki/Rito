@@ -2,9 +2,9 @@ use super::{locator, source_point, text_profile};
 use crate::runtime::reader_session::wire::primitives::{invalid, Reader, MAX_SEMANTIC_DEPTH};
 use crate::runtime::reader_session::{
     ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontRef,
-    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage, ReaderRect,
-    ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
-    ReaderTextRunOffset, READER_PROTOCOL_VERSION,
+    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
+    ReaderPageRecords, ReaderRect, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode,
+    ReaderSemanticRole, ReaderTextRunOffset, READER_PROTOCOL_VERSION,
 };
 
 pub(super) fn body(reader: &mut Reader<'_>) -> Result<ReaderArtifact, ReaderError> {
@@ -101,6 +101,17 @@ fn page(reader: &mut Reader<'_>) -> Result<ReaderPage, ReaderError> {
         page_index: reader.u32()?,
         width: reader.f64("page width")?,
         height: reader.f64("page height")?,
+    })
+}
+
+/// A page's records after the message's artifact id (see `RITOPGR1`).
+pub(super) fn page_records(
+    reader: &mut Reader<'_>,
+    artifact_id: u64,
+) -> Result<ReaderPageRecords, ReaderError> {
+    Ok(ReaderPageRecords {
+        artifact_id,
+        page_index: reader.u32()?,
         hits: reader.collection("page hits", |reader| reader.record("hit", hit_entry))?,
         semantics: reader.collection("page semantics", |reader| semantic_node(reader, 0))?,
         text: reader.string("page text")?,

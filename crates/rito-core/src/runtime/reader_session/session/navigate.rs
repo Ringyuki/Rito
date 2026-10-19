@@ -207,7 +207,7 @@ impl ReaderSession {
         };
         let revision = ReaderRevisionOwner::from_created(&created, layout, self.font_generation, 1);
         let navigation = reader_navigation(&self.document, &revision, target.local_spread_index);
-        let artifact = match build_reader_artifact(
+        let built = match build_reader_artifact(
             &mut self.document,
             ArtifactIdentity {
                 session_id: self.session_id,
@@ -219,7 +219,7 @@ impl ReaderSession {
             navigation,
             self.render_ratio,
         ) {
-            Ok(artifact) => artifact,
+            Ok(built) => built,
             Err(error) => {
                 let _ = self
                     .document
@@ -231,11 +231,12 @@ impl ReaderSession {
             revision_id,
             ReaderRevisionBacking::ChapterLocal,
             target.local_spread_index,
-            &artifact,
+            &built.artifact,
+            built.painted_digest,
         );
         self.revisions.insert(revision_id, revision);
         self.artifacts.insert(artifact_id, artifact_owner);
-        Ok(artifact)
+        Ok(built.artifact)
     }
 
     fn start_exact_seek(

@@ -14,6 +14,7 @@ import type {
   RitoReaderResource,
   RitoReaderTextProfile,
   RitoReaderSourceRange,
+  RitoReaderPageRecords,
 } from './reader-session';
 import type {
   RitoReaderAnnotationRequest,
@@ -153,6 +154,8 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
     expectedVisibleArtifactId: bigint | undefined,
     candidateArtifactId: bigint,
   ): Promise<RitoReaderForegroundHandoffAck>;
+  /** What a page of a live artifact holds for a host, read when first needed. */
+  readPage(artifactId: bigint, pageIndex: number): Promise<RitoReaderPageRecords>;
   readFootnote(artifactId: bigint, key: string): Promise<RitoReaderFootnote>;
   /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
   search(

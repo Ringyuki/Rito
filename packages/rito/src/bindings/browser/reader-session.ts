@@ -18,6 +18,7 @@ import {
   type RitoReaderExactSourceRangeResolution,
   type RitoReaderGeometryOptions,
   type RitoReaderFootnote,
+  type RitoReaderPageRecords,
   type RitoReaderNavigationRequest,
   type RitoReaderNavigationResult,
   type RitoReaderSearchResponse,
@@ -44,6 +45,7 @@ export type BrowserReaderResource = RitoReaderResource;
 export type BrowserReaderResourceKind = RitoReaderResourceKind;
 export type BrowserReaderTextProfile = RitoReaderTextProfile;
 export type BrowserReaderFootnote = RitoReaderFootnote;
+export type BrowserReaderPageRecords = RitoReaderPageRecords;
 export type BrowserReaderSearchResponse = RitoReaderSearchResponse;
 export type BrowserReaderSourceRange = RitoReaderSourceRange;
 export type BrowserReaderExactSourceRangeResolution = RitoReaderExactSourceRangeResolution;
@@ -142,6 +144,8 @@ export interface BrowserReaderSession {
     expectedVisibleArtifactId: bigint | undefined,
     candidateArtifactId: bigint,
   ): Promise<BrowserReaderForegroundHandoffAck>;
+  /** What a page of a live artifact holds for a host, read when first needed. */
+  readPage(artifactId: bigint, pageIndex: number): Promise<BrowserReaderPageRecords>;
   readFootnote(artifactId: bigint, key: string): Promise<BrowserReaderFootnote>;
   /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
   search(
@@ -261,6 +265,7 @@ function browserReaderSession(
     markFontFamiliesUnavailable: (families) => client.markFontFamiliesUnavailable(families),
     peekSpread: (...args) => client.peekSpread(...args),
     commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
+    readPage: (...args) => client.readPage(...args),
     readFootnote: (...args) => client.readFootnote(...args),
     search: (...args) => client.search(...args),
     exactSourceRange: (...args) => client.exactSourceRange(...args),

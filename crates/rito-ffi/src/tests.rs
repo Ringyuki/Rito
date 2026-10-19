@@ -7,32 +7,32 @@ use std::{
 use rito_core::runtime::{
     decode_reader_annotation_response, decode_reader_artifact, decode_reader_background_advance,
     decode_reader_background_handoff_ack, decode_reader_footnote,
-    decode_reader_foreground_handoff_ack, decode_reader_publication, decode_reader_resource,
-    decode_reader_search_response, decode_reader_text_interaction_response,
+    decode_reader_foreground_handoff_ack, decode_reader_page_records, decode_reader_publication,
+    decode_reader_resource, decode_reader_search_response, decode_reader_text_interaction_response,
     decode_reader_text_range_geometry, encode_reader_adjacent_request,
     encode_reader_annotation_request, encode_reader_artifact_request,
     encode_reader_background_handoff, encode_reader_background_request,
     encode_reader_foreground_handoff, encode_reader_search_request,
     encode_reader_text_interaction_request, encode_reader_text_range_request,
     ReaderAdjacentDirection, ReaderAdjacentRequest, ReaderAnnotationLevel, ReaderAnnotationQuery,
-    ReaderAnnotationRequest, ReaderArtifactRequest, ReaderBackgroundHandoff,
+    ReaderAnnotationRequest, ReaderArtifact, ReaderArtifactRequest, ReaderBackgroundHandoff,
     ReaderBackgroundRequest, ReaderBackgroundState, ReaderError, ReaderErrorKind,
-    ReaderForegroundHandoff, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderResourceKind,
-    ReaderSearchRequest, ReaderSelectionGranularity, ReaderSourceRange, ReaderSpreadMode,
-    ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResult,
-    ReaderTextPoint, ReaderTextPosition, ReaderTextRangeRequest, ReaderTextRenderingProfile,
-    READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_BYTES,
-    READER_WIRE_HEADER_BYTES,
+    ReaderForegroundHandoff, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderPageRecords,
+    ReaderResourceKind, ReaderSearchRequest, ReaderSelectionGranularity, ReaderSourceRange,
+    ReaderSpreadMode, ReaderTextInteractionQuery, ReaderTextInteractionRequest,
+    ReaderTextInteractionResult, ReaderTextPoint, ReaderTextPosition, ReaderTextRangeRequest,
+    ReaderTextRenderingProfile, READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES,
+    READER_FOREGROUND_HANDOFF_WIRE_BYTES, READER_WIRE_HEADER_BYTES,
 };
 
 use crate::{
     abi::copy_owned_buffer_for_test, error::FfiError, rito_adopt_background_candidate,
     rito_adopt_foreground_candidate, rito_advance_background, rito_buffer_free,
     rito_commit_peeked_artifact, rito_dispose, rito_get_text_range_geometry, rito_open,
-    rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote, rito_read_publication,
-    rito_read_resource, rito_release_artifact, rito_request_adjacent, rito_request_artifact,
-    rito_resolve_annotation, rito_resolve_text_interaction, rito_search, RitoOwnedBuffer,
-    RitoPinnedFontFace, RITO_ACTOR_MAX_IN_FLIGHT, RITO_PINNED_FONT_ROLE_SERIF,
+    rito_open_with_pinned_fonts, rito_peek_adjacent, rito_read_footnote, rito_read_page,
+    rito_read_publication, rito_read_resource, rito_release_artifact, rito_request_adjacent,
+    rito_request_artifact, rito_resolve_annotation, rito_resolve_text_interaction, rito_search,
+    RitoOwnedBuffer, RitoPinnedFontFace, RITO_ACTOR_MAX_IN_FLIGHT, RITO_PINNED_FONT_ROLE_SERIF,
     RITO_PUBLICATION_WIRE_BYTES_MAX, RITO_RESOURCE_KIND_IMAGE, RITO_STATUS_ADJACENT_PENDING,
     RITO_STATUS_ALREADY_EXISTS, RITO_STATUS_BUSY, RITO_STATUS_INVALID_ARGUMENT,
     RITO_STATUS_NOT_FOUND, RITO_STATUS_OK, RITO_STATUS_QUEUE_FULL, RITO_STATUS_SESSION_TERMINATED,
@@ -893,6 +893,31 @@ fn call_read_resource(session_id: u64, artifact_id: u64, kind: u32, href: &[u8])
     result
 }
 
+/// Every page record of `artifact`, read through the ABI.
+fn read_page_records(session_id: u64, artifact: &ReaderArtifact) -> Vec<ReaderPageRecords> {
+    artifact
+        .pages
+        .iter()
+        .map(|page| {
+            let mut records = RitoOwnedBuffer::EMPTY;
+            let mut error = RitoOwnedBuffer::EMPTY;
+            let status = rito_read_page(
+                session_id,
+                artifact.artifact_id,
+                page.page_index,
+                &mut records,
+                &mut error,
+            );
+            let bytes = copy_owned_buffer_for_test(&records);
+            let message = String::from_utf8_lossy(&copy_owned_buffer_for_test(&error)).into_owned();
+            rito_buffer_free(&mut records);
+            rito_buffer_free(&mut error);
+            assert_eq!(status, RITO_STATUS_OK, "{message}");
+            decode_reader_page_records(&bytes).expect("page records decode")
+        })
+        .collect()
+}
+
 fn call_read_footnote(session_id: u64, artifact_id: u64, key: &[u8]) -> ResourceResult {
     let mut footnote = RitoOwnedBuffer::EMPTY;
     let mut error = RitoOwnedBuffer::EMPTY;
@@ -1163,8 +1188,7 @@ fn footnote_hits_read_back_through_the_abi() {
     let mut current = artifact;
     let mut found = None;
     for request_id in 2..26 {
-        if let Some(key) = current
-            .pages
+        if let Some(key) = read_page_records(session_id, &current)
             .iter()
             .flat_map(|page| page.hits.iter())
             .find_map(|hit| {
@@ -1217,7 +1241,10 @@ fn text_range_geometry_crosses_the_abi_in_display_list_space() {
     // The opening spread of the corpus book can be a plate with no text
     // runs; walk forward until a page actually carries one.
     for request_id in 2..14 {
-        if artifact.pages.iter().any(|page| !page.text_runs.is_empty()) {
+        if read_page_records(session_id, &artifact)
+            .iter()
+            .any(|page| !page.text_runs.is_empty())
+        {
             break;
         }
         let wire = encode_reader_adjacent_request(&ReaderAdjacentRequest {
@@ -1235,8 +1262,8 @@ fn text_range_geometry_crosses_the_abi_in_display_list_space() {
         artifact = decode_reader_artifact(&next.artifact).expect("next decodes");
         call_release(session_id, previous);
     }
-    let page = artifact
-        .pages
+    let records = read_page_records(session_id, &artifact);
+    let page = records
         .iter()
         .find(|page| !page.text_runs.is_empty())
         .expect("a page with text");
@@ -1297,8 +1324,8 @@ fn search_crosses_the_abi_with_locators_and_context() {
     let opened = call_open(&publication(), &open_wire);
     assert_eq!(opened.status, RITO_STATUS_OK, "{}", opened.error);
     let artifact = decode_reader_artifact(&opened.artifact).expect("artifact decodes");
-    let needle = artifact
-        .pages
+    let records = read_page_records(session_id, &artifact);
+    let needle = records
         .iter()
         .flat_map(|page| page.text.split_whitespace())
         .find(|word| word.chars().count() >= 2)
@@ -1363,8 +1390,7 @@ fn a_word_selection_becomes_a_stored_annotation_across_the_abi() {
     assert_eq!(opened.status, RITO_STATUS_OK, "{}", opened.error);
     let mut artifact = decode_reader_artifact(&opened.artifact).expect("artifact decodes");
     for request_id in 2..14 {
-        if artifact
-            .pages
+        if read_page_records(session_id, &artifact)
             .iter()
             .any(|page| !page.hits.is_empty() && !page.text_runs.is_empty())
         {
@@ -1377,8 +1403,8 @@ fn a_word_selection_becomes_a_stored_annotation_across_the_abi() {
         }
         artifact = decode_reader_artifact(&next.artifact).expect("next decodes");
     }
-    let page = artifact
-        .pages
+    let records = read_page_records(session_id, &artifact);
+    let page = records
         .iter()
         .find(|page| !page.text_runs.is_empty())
         .expect("a page with text");

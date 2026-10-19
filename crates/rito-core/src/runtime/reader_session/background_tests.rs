@@ -1038,8 +1038,8 @@ fn every_publication_candidate_locator_describes_the_page_it_draws() {
             })
             .expect("the candidate's own locator resolves");
         assert_eq!(
-            reresolved.pages.first().map(|page| page.text.clone()),
-            candidate.pages.first().map(|page| page.text.clone()),
+            first_page_text(&session, &reresolved),
+            first_page_text(&session, &candidate),
             "a candidate's locator must describe the page it draws"
         );
         session
@@ -1048,8 +1048,8 @@ fn every_publication_candidate_locator_describes_the_page_it_draws() {
 
         // And the handoff says whether adopting moves the reader.
         let moved = step.moves_visible_content;
-        let same_text = adopted.pages.first().map(|page| page.text.clone())
-            == candidate.pages.first().map(|page| page.text.clone());
+        let same_text =
+            first_page_text(&session, &adopted) == first_page_text(&session, &candidate);
         assert_eq!(
             moved, !same_text,
             "movesVisibleContent must match what the reader would see"
@@ -1100,8 +1100,8 @@ fn no_handoff_ever_moves_the_reader() {
                     "{start}: handoff {handoffs} moved the reader"
                 );
                 assert_eq!(
-                    candidate.pages.first().map(|page| page.text.clone()),
-                    current.pages.first().map(|page| page.text.clone()),
+                    first_page_text(&session, &candidate),
+                    first_page_text(&session, &current),
                     "{start}: handoff {handoffs} drew different content"
                 );
                 session
@@ -1148,8 +1148,8 @@ fn a_mid_book_candidate_paints_the_same_page_as_the_visible_chapter_local_artifa
     assert!(
         !step.moves_visible_content,
         "candidate must paint the visible page: visible={:?} candidate={:?}",
-        visible.pages.iter().map(|p| &p.text).collect::<Vec<_>>(),
-        candidate.pages.iter().map(|p| &p.text).collect::<Vec<_>>(),
+        first_page_text(&session, &visible),
+        first_page_text(&session, &candidate),
     );
     session
         .adopt_background_candidate(ReaderBackgroundHandoff {
@@ -1158,4 +1158,12 @@ fn a_mid_book_candidate_paints_the_same_page_as_the_visible_chapter_local_artifa
             candidate_artifact_id: candidate.artifact_id,
         })
         .expect("mid-book candidate adopts");
+}
+
+/// The text of an artifact's first page, read from its page records.
+fn first_page_text(session: &ReaderSession, artifact: &ReaderArtifact) -> Option<String> {
+    session
+        .artifact_page_records(artifact)
+        .first()
+        .map(|page| page.text.clone())
 }

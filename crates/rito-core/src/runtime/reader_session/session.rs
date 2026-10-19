@@ -26,10 +26,11 @@ use super::{
     ReaderBackgroundState, ReaderDisposeAck, ReaderError, ReaderErrorKind,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
-    ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPublication, ReaderRect,
-    ReaderResource, ReaderResourceKind, ReaderSearchRequest, ReaderSearchResponse,
-    ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry,
-    ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile, READER_EXTERNAL_ID_MAX,
+    ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPageRecords,
+    ReaderPublication, ReaderRect, ReaderResource, ReaderResourceKind, ReaderSearchRequest,
+    ReaderSearchResponse, ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition,
+    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
+    READER_EXTERNAL_ID_MAX,
 };
 
 mod content;
@@ -84,6 +85,8 @@ struct ReaderArtifactOwner {
     /// carry different progressions, so comparing them reports a move
     /// that is not one. Comparing what was drawn does answer it.
     painted_digest: u64,
+    /// The revision pages it shows, by spread slot.
+    page_indexes: Vec<u32>,
 }
 
 #[derive(Debug)]

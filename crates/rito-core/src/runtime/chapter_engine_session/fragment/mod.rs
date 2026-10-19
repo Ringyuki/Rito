@@ -125,7 +125,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             let Some((page, chapter)) = self.layout.page_with_chapter(*page_index)? else {
                 return Ok(None);
             };
-            let metadata = page.artifact().metadata();
+            let (page_width, page_height) = page.size();
             let offset_x = slot as f64 * (config.page_width + config.spread_gap);
             commands.push(DisplayCommand::PushState);
             commands.push(DisplayCommand::Translate {
@@ -143,18 +143,18 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 let left_half = ((config.spread_gap * ratio / 2.0) + 1e-6).floor() / ratio;
                 let right_half = config.spread_gap - left_half;
                 if slot == 0 {
-                    (0.0, metadata.width + left_half)
+                    (0.0, page_width + left_half)
                 } else {
-                    (-right_half, metadata.width + right_half)
+                    (-right_half, page_width + right_half)
                 }
             } else {
-                (0.0, metadata.width)
+                (0.0, page_width)
             };
             commands.push(paint_rect_command(
                 wash_x,
                 0.0,
                 wash_width,
-                metadata.height,
+                page_height,
                 chapter.page_background.unwrap_or(ReaderColor::WHITE),
             ));
             if let Some(paint) = &chapter.page_background_image {
@@ -167,8 +167,8 @@ impl<'a> FragmentChapterEngineSession<'a> {
                     rect: display_rect(
                         config.margin_left,
                         config.margin_top,
-                        metadata.width - config.margin_left - config.margin_right,
-                        metadata.height - config.margin_top - config.margin_bottom,
+                        page_width - config.margin_left - config.margin_right,
+                        page_height - config.margin_top - config.margin_bottom,
                     ),
                     paint: Box::new(ReaderBlockPaint {
                         background: Some(paint.clone()),
@@ -193,8 +193,8 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 rect: display_rect(
                     config.margin_left,
                     config.margin_top,
-                    metadata.width - config.margin_left,
-                    metadata.height - config.margin_top - config.margin_bottom,
+                    page_width - config.margin_left,
+                    page_height - config.margin_top - config.margin_bottom,
                 ),
                 radius: None,
             });

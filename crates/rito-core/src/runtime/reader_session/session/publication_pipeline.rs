@@ -14,7 +14,6 @@ use super::{
         background_yields_to_foreground, engine_error, missing_artifact_revision,
         stale_background_intent, take_identity, validate_external_request_id,
     },
-    project::painted_digest,
     PendingPublication, ReaderArtifact, ReaderBackgroundAdvance, ReaderBackgroundRequest,
     ReaderBackgroundState, ReaderError, ReaderErrorKind, ReaderPublicationRevisionOwner,
     ReaderRevisionBacking, ReaderSession, ReaderVisibleIntent, READER_EXTERNAL_ID_MAX,
@@ -314,7 +313,8 @@ impl ReaderSession {
     ) -> bool {
         self.artifacts
             .get(&visible_artifact_id)
-            .is_none_or(|visible| visible.painted_digest != painted_digest(candidate))
+            .zip(self.artifacts.get(&candidate.artifact_id))
+            .is_none_or(|(visible, candidate)| visible.painted_digest != candidate.painted_digest)
     }
 
     fn visible_intent_matches(&self, expected: &ReaderVisibleIntent) -> bool {

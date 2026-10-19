@@ -389,7 +389,11 @@ void main() {
         // the key exactly as the hit published it.
         var read = 0;
         for (var step = 0; step < 12; step++) {
-          final keys = current.artifact.pages
+          final records = [
+            for (final page in current.artifact.pages)
+              await session.readPage(current, page.pageIndex),
+          ];
+          final keys = records
               .expand((page) => page.hits)
               .where((hit) => hit.footnoteKey != null && !hit.footnotePending)
               .map((hit) => hit.footnoteKey!)
@@ -539,7 +543,11 @@ void main() {
     );
     try {
       final prepared = session.firstArtifact;
-      final page = prepared.artifact.pages.firstWhere(
+      final records = [
+        for (final page in prepared.artifact.pages)
+          await session.readPage(prepared, page.pageIndex),
+      ];
+      final page = records.firstWhere(
         (candidate) => candidate.textRuns.isNotEmpty,
       );
       final run = page.textRuns.first;
@@ -635,7 +643,11 @@ void main() {
     );
     try {
       final prepared = session.firstArtifact;
-      final needle = prepared.artifact.pages
+      final records = [
+        for (final page in prepared.artifact.pages)
+          await session.readPage(prepared, page.pageIndex),
+      ];
+      final needle = records
           .expand((page) => page.text.split(RegExp(r'\s+')))
           .firstWhere((word) => word.characters.length >= 2);
 

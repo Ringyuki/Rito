@@ -380,6 +380,15 @@ external int _ritoReadFootnote(
   Pointer<_RitoOwnedBuffer> errorOut,
 );
 
+@Native<_ReadPageNative>(symbol: 'rito_read_page', assetId: ritoNativeAssetId)
+external int _ritoReadPage(
+  int sessionId,
+  int artifactId,
+  int pageIndex,
+  Pointer<_RitoOwnedBuffer> pageOut,
+  Pointer<_RitoOwnedBuffer> errorOut,
+);
+
 @Native<_ReleaseNative>(
   symbol: 'rito_release_artifact',
   assetId: ritoNativeAssetId,
@@ -427,6 +436,7 @@ final class RitoNativeBindings {
        _adoptBackground = _ritoAdoptBackgroundCandidate,
        _readResource = _ritoReadResource,
        _readFootnote = _ritoReadFootnote,
+       _readPage = _ritoReadPage,
        _textRangeGeometry = _ritoGetTextRangeGeometry,
        _exactSourceRange = _ritoResolveExactSourceRange,
        _textInteraction = _ritoResolveTextInteraction,
@@ -528,6 +538,9 @@ final class RitoNativeBindings {
            .lookupFunction<_ReadFootnoteNative, _ReadFootnoteDart>(
              'rito_read_footnote',
            ),
+       _readPage = library.lookupFunction<_ReadPageNative, _ReadPageDart>(
+         'rito_read_page',
+       ),
        _textRangeGeometry = library
            .lookupFunction<_OwnedWireRequestNative, _OwnedWireRequestDart>(
              'rito_get_text_range_geometry',
@@ -586,6 +599,7 @@ final class RitoNativeBindings {
   final _OwnedWireRequestDart _adoptBackground;
   final _ReadResourceDart _readResource;
   final _ReadFootnoteDart _readFootnote;
+  final _ReadPageDart _readPage;
   final _OwnedWireRequestDart _textRangeGeometry;
   final _OwnedWireRequestDart _exactSourceRange;
   final _OwnedWireRequestDart _textInteraction;
@@ -1495,6 +1509,68 @@ final class RitoNativeBindings {
     }
   }
 
+  /// What page [pageIndex] of a live artifact holds for a host.
+  RitoPageRecords readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  }) {
+    final owned = _readPageWire(
+      sessionId: sessionId,
+      artifactId: artifactId,
+      pageIndex: pageIndex,
+    );
+    try {
+      final records = artifactDecoder.decodePageRecords(owned);
+      if (records.artifactId != artifactId || records.pageIndex != pageIndex) {
+        throw const RitoNativeException(
+          status: 4,
+          message: 'Native page records identity does not match its request.',
+        );
+      }
+      return records;
+    } on Object catch (error, stackTrace) {
+      _disposeAfterFailedSessionOutput(sessionId);
+      Error.throwWithStackTrace(
+        _terminatedSessionResultError('page records', error),
+        stackTrace,
+      );
+    }
+  }
+
+  Uint8List _readPageWire({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  }) {
+    _validateId(sessionId, 'session id');
+    _validateId(artifactId, 'artifact id');
+    if (pageIndex < 0 || pageIndex > 0xffffffff) {
+      throw ArgumentError.value(pageIndex, 'pageIndex', 'must be a uint32');
+    }
+    final pageOut = calloc<_RitoOwnedBuffer>();
+    final errorOut = calloc<_RitoOwnedBuffer>();
+    try {
+      final status = _readPage(
+        sessionId,
+        artifactId,
+        pageIndex,
+        pageOut,
+        errorOut,
+      );
+      if (status != 0) {
+        throw _nativeError(status, errorOut);
+      }
+      return _copyOutput(pageOut, 'page records');
+    } finally {
+      _bufferFree(pageOut);
+      _bufferFree(errorOut);
+      calloc
+        ..free(pageOut)
+        ..free(errorOut);
+    }
+  }
+
   void releaseArtifact({required int sessionId, required int artifactId}) {
     _validateId(sessionId, 'session id');
     _validateId(artifactId, 'artifact id');
@@ -1914,6 +1990,16 @@ final class RitoNativeWireBindings {
     sessionId: sessionId,
     artifactId: artifactId,
     key: key,
+  );
+
+  Uint8List readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  }) => _bindings._readPageWire(
+    sessionId: sessionId,
+    artifactId: artifactId,
+    pageIndex: pageIndex,
   );
 
   void releaseArtifact({required int sessionId, required int artifactId}) {

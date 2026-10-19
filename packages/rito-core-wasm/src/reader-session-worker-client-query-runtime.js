@@ -1,3 +1,4 @@
+import { decodeRitoReaderPageRecords } from './reader-session-artifact-decoder-runtime.js';
 import { decodeRitoReaderForegroundHandoffAck } from './reader-session-foreground-runtime.js';
 import { ritoReaderNavigationQueryArtifactId } from './reader-session-query-request-runtime.js';
 import {
@@ -96,6 +97,8 @@ export function createRitoReaderSessionQueryMethods(ctx) {
     peekAdjacent,
     peekSpread,
     commitPeekedArtifact,
+    readPage: (artifactId, pageIndex) =>
+      query('read-page', { artifactId, pageIndex }, decodeRitoReaderPageRecords, artifactId),
     readFootnote: (artifactId, key) =>
       query('read-footnote', { artifactId, key }, decodeRitoReaderFootnote, artifactId),
     search: (artifactId, options) =>

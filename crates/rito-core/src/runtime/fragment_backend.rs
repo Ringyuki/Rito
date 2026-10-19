@@ -127,8 +127,6 @@ impl MaterializedChapter {
         entry.artifact.get_or_init(|| {
             Rc::new(FragmentPageArtifact::build(
                 entry.page_index,
-                self.page_width,
-                self.page_height,
                 self.text_tree(page),
                 &self.paint.built,
                 0.0,
@@ -231,8 +229,9 @@ pub(super) struct FragmentPageRef {
 }
 
 impl FragmentPageRef {
-    pub(super) fn artifact(&self) -> &FragmentPageArtifact {
-        self.chapter.artifact(self.page)
+    /// The page's width and height, without building its query artifact.
+    pub(super) fn size(&self) -> (f64, f64) {
+        (self.chapter.page_width, self.chapter.page_height)
     }
 
     /// The page's query artifact as a standalone handle: it carries the
@@ -505,9 +504,9 @@ impl FragmentBuiltLayout {
     /// The search records of every page, read from the chapters' pages.
     /// Only a table built without them gets here; its chapters are kept.
     fn take_search_records(&self) -> Vec<SearchPageText> {
-        let Some(build) = self.build.as_ref() else {
+        if self.build.is_none() {
             return Vec::new();
-        };
+        }
         let mut records = Vec::with_capacity(self.page_count);
         for (chapter_index, &base) in self.chapter_starts.iter().enumerate() {
             let Ok(chapter) = self.materialize(chapter_index) else {
@@ -521,7 +520,6 @@ impl FragmentBuiltLayout {
                     base + offset,
                     chapter.text_tree(offset),
                     &chapter.paint,
-                    &build.config,
                 ));
             }
         }
@@ -1188,17 +1186,10 @@ fn search_record(
     page_index: usize,
     root: &rito_fragment::Fragment,
     paint: &ChapterPaintSource,
-    config: &LayoutConfig,
 ) -> SearchPageText {
     search_page_text(
         page_index,
-        FragmentPageArtifact::build_text(
-            page_index,
-            config.page_width,
-            config.page_height,
-            root,
-            &paint.built,
-        ),
+        FragmentPageArtifact::build_text(page_index, root, &paint.built),
     )
 }
 

@@ -6,9 +6,10 @@ import type {
   ReaderPageTargets,
   ReaderSemanticNode,
 } from '../../../reader';
-import type { BrowserReaderArtifact } from '../reader-session';
+import type { BrowserReaderArtifact, BrowserReaderPageRecords } from '../reader-session';
 import { ensureSessionReaderFrame } from './frames';
 import {
+  askSessionReaderLayout,
   captureSessionReaderLayout,
   readerLocator,
   readerSourcePoint,
@@ -20,9 +21,8 @@ import {
 } from './page-space';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
-type ArtifactPage = BrowserReaderArtifact['pages'][number];
-type ArtifactHit = ArtifactPage['hits'][number];
-type ArtifactSemanticNode = ArtifactPage['semantics'][number];
+type ArtifactHit = BrowserReaderPageRecords['hits'][number];
+type ArtifactSemanticNode = BrowserReaderPageRecords['semantics'][number];
 
 const TARGET_KINDS = {
   text: 'text',
@@ -44,12 +44,12 @@ const SEMANTIC_ROLES = {
   generic: 'generic',
 } as const satisfies Record<ArtifactSemanticNode['role'], ReaderSemanticNode['role']>;
 
-/** One page of the committed layout as its spread's artifact publishes it. */
+/** One page of the committed layout and what its spread's artifact holds for it. */
 interface PublishedPage {
   readonly capture: SessionReaderCapture;
   readonly place: SessionReaderPagePlace;
   readonly artifact: BrowserReaderArtifact;
-  readonly page: ArtifactPage;
+  readonly page: BrowserReaderPageRecords;
 }
 
 /**
@@ -70,7 +70,11 @@ async function publishedPage(
   if (!frame || sessionReaderClosed(state) || capture.generation !== state.layoutGeneration) {
     return undefined;
   }
-  const page = frame.artifact.pages.find((candidate) => candidate.pageIndex === pageIndex);
+  if (!frame.artifact.pages.some((candidate) => candidate.pageIndex === pageIndex))
+    return undefined;
+  const page = await askSessionReaderLayout(state, () =>
+    state.session.readPage(frame.artifact.artifactId, pageIndex),
+  );
   return page ? { capture, place, artifact: frame.artifact, page } : undefined;
 }
 

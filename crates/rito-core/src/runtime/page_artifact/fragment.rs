@@ -13,10 +13,10 @@ use rito_fragment::{FormattingNodeContent, Fragment, InlineItem, LineFragment, T
 use crate::fragment_bridge::ChapterFormattingTree;
 
 use super::{
-    PageArtifact, PageArtifactMetadata, PageArtifactRect, PageArtifactSemanticNode,
-    PageArtifactSemanticRole, PageArtifactSourceRunStart, PageArtifactTarget,
-    PageArtifactTextPosition, PageArtifactTextPositions, PageArtifactTextRangeGeometry,
-    PageArtifactTextRangeRect, PageArtifactTextRunOffset,
+    PageArtifact, PageArtifactRect, PageArtifactSemanticNode, PageArtifactSemanticRole,
+    PageArtifactSourceRunStart, PageArtifactTarget, PageArtifactTextPosition,
+    PageArtifactTextPositions, PageArtifactTextRangeGeometry, PageArtifactTextRangeRect,
+    PageArtifactTextRunOffset,
 };
 
 use crate::fragment_bridge::{FlowItemSource, SourceSegment};
@@ -226,9 +226,6 @@ impl RunSourceMap {
 /// Query-ready interaction data for one fragment-engine page.
 #[derive(Debug, Clone)]
 pub(in crate::runtime) struct FragmentPageArtifact {
-    page_index: usize,
-    width: f64,
-    height: f64,
     text: String,
     text_length: usize,
     runs: Vec<FragmentRunRecord>,
@@ -309,8 +306,6 @@ impl FragmentPageArtifact {
     /// (the page's content origin, exactly as the paint producer does).
     pub(in crate::runtime) fn build(
         page_index: usize,
-        width: f64,
-        height: f64,
         root: &Fragment,
         chapter: &ChapterFormattingTree,
         origin_x: f64,
@@ -318,8 +313,6 @@ impl FragmentPageArtifact {
     ) -> Self {
         Self::collect_page(
             page_index,
-            width,
-            height,
             root,
             chapter,
             (origin_x, origin_y),
@@ -334,21 +327,10 @@ impl FragmentPageArtifact {
     /// artifact is built for the pages that are read.
     pub(in crate::runtime) fn build_text(
         page_index: usize,
-        width: f64,
-        height: f64,
         root: &Fragment,
         chapter: &ChapterFormattingTree,
     ) -> Self {
-        Self::collect_page(
-            page_index,
-            width,
-            height,
-            root,
-            chapter,
-            (0.0, 0.0),
-            CollectMode::Text,
-        )
-        .0
+        Self::collect_page(page_index, root, chapter, (0.0, 0.0), CollectMode::Text).0
     }
 
     /// Where each of the page's text runs that maps to source starts: its
@@ -360,22 +342,11 @@ impl FragmentPageArtifact {
         root: &Fragment,
         chapter: &ChapterFormattingTree,
     ) -> Vec<PageArtifactSourceRunStart> {
-        Self::collect_page(
-            page_index,
-            0.0,
-            0.0,
-            root,
-            chapter,
-            (0.0, 0.0),
-            CollectMode::Starts,
-        )
-        .1
+        Self::collect_page(page_index, root, chapter, (0.0, 0.0), CollectMode::Starts).1
     }
 
     fn collect_page(
         page_index: usize,
-        width: f64,
-        height: f64,
         root: &Fragment,
         chapter: &ChapterFormattingTree,
         (origin_x, origin_y): (f64, f64),
@@ -399,7 +370,7 @@ impl FragmentPageArtifact {
             host_paragraph: None,
         };
         let Fragment::Box(page_root) = root else {
-            return (Self::empty(page_index, width, height), Vec::new());
+            return (Self::empty(), Vec::new());
         };
         for (block_index, child) in page_root.children.iter().enumerate() {
             let mut line_index = 0usize;
@@ -413,9 +384,6 @@ impl FragmentPageArtifact {
         }
         let text_length = builder.offset;
         let artifact = Self {
-            page_index,
-            width,
-            height,
             text: builder.text,
             text_length,
             runs: builder.runs,
@@ -427,11 +395,8 @@ impl FragmentPageArtifact {
         (artifact, builder.starts)
     }
 
-    fn empty(page_index: usize, width: f64, height: f64) -> Self {
+    fn empty() -> Self {
         Self {
-            page_index,
-            width,
-            height,
             text: String::new(),
             text_length: 0,
             runs: Vec::new(),
@@ -834,14 +799,6 @@ fn source_start(
 }
 
 impl PageArtifact for FragmentPageArtifact {
-    fn metadata(&self) -> PageArtifactMetadata {
-        PageArtifactMetadata {
-            page_index: self.page_index,
-            width: self.width,
-            height: self.height,
-        }
-    }
-
     fn semantic_nodes(&self) -> Vec<PageArtifactSemanticNode> {
         self.semantics
             .iter()
@@ -1218,17 +1175,8 @@ mod tests {
                 &CancelFlag::new(),
             )
             .expect("chapter lays out");
-        let artifact = FragmentPageArtifact::build(
-            3,
-            200.0,
-            300.0,
-            &outcome.fragments.root,
-            &built,
-            24.0,
-            32.0,
-        );
+        let artifact = FragmentPageArtifact::build(3, &outcome.fragments.root, &built, 24.0, 32.0);
 
-        assert_eq!(artifact.metadata().page_index, 3);
         let positions = artifact.text_positions();
         // Line splits insert newlines (trailing spaces hang on their
         // line); the words themselves survive intact.
@@ -1309,15 +1257,7 @@ mod tests {
                 &CancelFlag::new(),
             )
             .expect("chapter lays out");
-        let artifact = FragmentPageArtifact::build(
-            0,
-            600.0,
-            300.0,
-            &outcome.fragments.root,
-            &built,
-            24.0,
-            32.0,
-        );
+        let artifact = FragmentPageArtifact::build(0, &outcome.fragments.root, &built, 24.0, 32.0);
         assert_eq!(artifact.runs.len(), 1, "the line's one item is one run");
         let run = &artifact.runs[0];
         let length = run.end - run.start;

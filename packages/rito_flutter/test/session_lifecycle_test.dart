@@ -1037,6 +1037,15 @@ final class _MockGateway implements RitoReaderGateway {
   }
 
   @override
+  Future<RitoPageRecords> readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  }) async {
+    throw UnimplementedError('page records are out of scope for this fake');
+  }
+
+  @override
   Future<RitoResource> readResource({
     required int sessionId,
     required int artifactId,

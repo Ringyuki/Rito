@@ -6,7 +6,7 @@ import 'binary_reader.dart';
 import 'wire_message.dart';
 
 /// A position inside a page's laid-out text, in the same coordinates
-/// [RitoPage.textRuns] reports.
+/// [RitoPageRecords.textRuns] reports.
 final class RitoTextPosition {
   const RitoTextPosition({
     required this.blockIndex,
@@ -21,7 +21,7 @@ final class RitoTextPosition {
 
   /// Offset **in UTF-16 code units**, not characters — the same domain
   /// as [RitoTextRunOffset.start]/[RitoTextRunOffset.end] and as
-  /// `RitoPage.text`, so `page.text` can be indexed with it directly.
+  /// `RitoPageRecords.text`, so `records.text` can be indexed with it directly.
   /// Dart's `String` is UTF-16, so plain `substring`/`length` agree;
   /// anything that counts user-perceived characters (`characters`,
   /// grapheme clusters) does not, and converting through it lands in

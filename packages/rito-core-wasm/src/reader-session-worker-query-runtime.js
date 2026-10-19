@@ -58,6 +58,9 @@ export function handleRitoReaderSessionQuery(state, message, guards) {
         message.request,
         session.commitPeekedArtifact(encodeRitoReaderForegroundHandoff(message.request)),
       );
+    case 'read-page':
+      guards.requireOwnedArtifact(state, message.artifactId);
+      return wireResponse('read-page', session.readPage(message.artifactId, message.pageIndex));
     case 'read-footnote':
       guards.requireOwnedArtifact(state, message.artifactId);
       return wireResponse('read-footnote', session.readFootnote(message.artifactId, message.key));

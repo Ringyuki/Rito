@@ -1,5 +1,17 @@
 ## Unreleased
 
+### A page's records are read when a host needs them
+
+`RitoPage` carries a page's index and size only. What the page holds — its
+hits, semantic outline, text and text runs — is a `RitoPageRecords` read
+with `RitoReaderSession.readPage(prepared, pageIndex)` when a host first
+needs it, as a browser hit-tests what it painted when a pointer arrives;
+the engine no longer builds them, nor the host decodes them, for every
+artifact it draws. `RitoHitResolver` takes the records of the pages a tap
+may land on: `RitoHitResolver([await session.readPage(prepared, index)])`
+replaces `RitoHitResolver.forArtifact(artifact)`. The native ABI gains
+`rito_read_page`.
+
 ### A line holds a text run per inline item
 
 A line's text in one inline item is one text paint command and one text
