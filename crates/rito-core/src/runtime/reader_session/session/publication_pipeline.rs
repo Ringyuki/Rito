@@ -14,9 +14,10 @@ use super::{
         background_yields_to_foreground, engine_error, missing_artifact_revision,
         stale_background_intent, take_identity, validate_external_request_id,
     },
-    PendingPublication, ReaderArtifact, ReaderBackgroundAdvance, ReaderBackgroundRequest,
-    ReaderBackgroundState, ReaderError, ReaderErrorKind, ReaderPublicationRevisionOwner,
-    ReaderRevisionBacking, ReaderSession, ReaderVisibleIntent, READER_EXTERNAL_ID_MAX,
+    PendingPublication, PublicationPreparation, ReaderArtifact, ReaderBackgroundAdvance,
+    ReaderBackgroundRequest, ReaderBackgroundState, ReaderError, ReaderErrorKind,
+    ReaderPublicationRevisionOwner, ReaderRevisionBacking, ReaderSession, ReaderVisibleIntent,
+    READER_EXTERNAL_ID_MAX,
 };
 
 impl ReaderSession {
@@ -130,20 +131,65 @@ impl ReaderSession {
         pages: usize,
     ) -> Result<(ReaderBackgroundState, Option<u64>), ReaderError> {
         let font_generation = self.font_generation;
+        let mut budget = pages;
         let under_way = self
             .pending_publication
             .take()
             .filter(|pending| pending.layout == *layout && pending.fonts == font_generation);
         let (state, build) = match under_way {
             Some(pending) => (ReaderBackgroundState::Advanced, *pending.build),
-            None => (
-                ReaderBackgroundState::Started,
-                self.document.begin_revision(layout).map_err(engine_error)?,
-            ),
+            None => {
+                // The book's chapters are readied a step each before its
+                // revision begins: no step parses and styles every chapter
+                // while the reader waits on it.
+                let fresh = self
+                    .publication_preparation
+                    .as_ref()
+                    .is_none_or(|ready| ready.layout != *layout || ready.fonts != font_generation);
+                if fresh {
+                    self.publication_preparation = Some(PublicationPreparation {
+                        layout: layout.clone(),
+                        fonts: font_generation,
+                        next_chapter: 0,
+                    });
+                }
+                let state = if fresh {
+                    ReaderBackgroundState::Started
+                } else {
+                    ReaderBackgroundState::Advanced
+                };
+                let preparation = self
+                    .publication_preparation
+                    .as_mut()
+                    .expect("the preparation was just made");
+                // Readying a chapter spends what laying a page out would.
+                let chapters = self.document.chapter_count();
+                while budget > 0 && preparation.next_chapter < chapters {
+                    self.document
+                        .prepare_revision_chapter(layout, preparation.next_chapter)
+                        .map_err(engine_error)?;
+                    preparation.next_chapter += 1;
+                    budget -= 1;
+                }
+                if preparation.next_chapter < chapters {
+                    return Ok((state, None));
+                }
+                self.publication_preparation = None;
+                let build = self.document.begin_revision(layout).map_err(engine_error)?;
+                if budget == 0 {
+                    self.pending_publication = Some(PendingPublication {
+                        layout: layout.clone(),
+                        fonts: font_generation,
+                        build: Box::new(build),
+                    });
+                    return Ok((state, None));
+                }
+                (state, build)
+            }
         };
         match self
             .document
-            .advance_revision(build, pages)
+            .advance_revision(build, budget)
             .map_err(engine_error)?
         {
             RevisionProgress::Pending(build) => {

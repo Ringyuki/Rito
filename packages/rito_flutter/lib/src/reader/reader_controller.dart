@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../font/artifact_font_cache.dart';
 import '../protocol/artifact_models.dart';
@@ -55,7 +56,10 @@ final class RitoReaderController extends ChangeNotifier {
     this.paginationQuantum = defaultPaginationQuantum,
   }) : _layout = layout,
        _page = _source.firstPage {
-    _schedulePagination();
+    // The first page reaches the screen before the book is paginated
+    // behind it: the first step waits out the frame that draws the page.
+    final release = holdPagination();
+    unawaited(SchedulerBinding.instance.endOfFrame.then((_) => release()));
   }
 
   final RitoPageSource _source;

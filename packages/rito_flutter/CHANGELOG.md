@@ -1,5 +1,13 @@
 ## Unreleased
 
+### The first page is drawn before the book is paginated behind it
+
+`RitoReaderController` starts paginating the book once the first frame has
+drawn the page it opened on, and every background step readies at most
+its budget of chapters (a chapter for each page) before pagination begins
+instead of parsing and styling the whole book in one step, so a step never
+holds the isolate for the whole publication.
+
 ### A page's records are read when a host needs them
 
 `RitoPage` carries a page's index and size only. What the page holds — its

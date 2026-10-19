@@ -36,9 +36,9 @@ fn the_first_artifact_completes_the_footnote_index_without_parsing_other_chapter
 
 #[test]
 fn a_background_step_lays_out_the_pages_its_budget_allows() {
-    // One page per step: the starting call lays the first page out and
-    // each call after it one more, and the candidate comes with the call
-    // that lays the last page out.
+    // One unit of work per step: the starting call readies the first
+    // chapter, each call after it the next chapter and then one page more,
+    // and the candidate comes with the call that lays the last page out.
     let mut session = super::tests::open_test_session(209, source_locator_fixture_epub())
         .expect("reader session opens");
     let visible = session
@@ -67,7 +67,11 @@ fn a_background_step_lays_out_the_pages_its_budget_allows() {
     let pages = candidate
         .book_page_count
         .expect("the candidate carries the book's page count");
-    assert_eq!(steps, pages as usize, "each step laid exactly one page out");
+    assert_eq!(
+        steps,
+        session.chapter_count() + pages as usize,
+        "each step readied exactly one chapter, then laid exactly one page out"
+    );
     assert_eq!(session.publication_revision_count(), 1);
     release_all(&mut session, [visible.artifact_id, candidate.artifact_id]);
 }

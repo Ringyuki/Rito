@@ -108,6 +108,15 @@ struct PendingPublication {
     build: Box<crate::runtime::revision::RevisionBuild>,
 }
 
+/// How far the chapters of a whole-book revision are readied before it
+/// begins: the chapter the next step readies, for one layout and font set.
+#[derive(Debug)]
+struct PublicationPreparation {
+    layout: LayoutConfig,
+    fonts: u64,
+    next_chapter: usize,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ReaderPendingAdjacent {
     from_artifact_id: u64,
@@ -150,6 +159,7 @@ pub struct ReaderSession {
     active_publication_revision_id: Option<u64>,
     /// The publication revision being laid out, until it is registered.
     pending_publication: Option<PendingPublication>,
+    publication_preparation: Option<PublicationPreparation>,
     artifacts: BTreeMap<u64, ReaderArtifactOwner>,
     released_artifacts: BTreeSet<u64>,
     // Read-only adjacent artifacts produced by `peek_adjacent`. Only these

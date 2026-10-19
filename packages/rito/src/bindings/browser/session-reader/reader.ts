@@ -101,7 +101,15 @@ export async function createReader(
       await yieldToPage();
       return stepSessionReaderBook(state);
     };
-    wakeSessionReaderQueue(state);
+    // The first page reaches the screen before the whole book starts: the
+    // book waits out the frame the host draws that page in.
+    state.bookHolds += 1;
+    const release = () => {
+      state.bookHolds -= 1;
+      wakeSessionReaderQueue(state);
+    };
+    if (typeof requestAnimationFrame !== 'function') void yieldToPage().then(release);
+    else requestAnimationFrame(() => void yieldToPage().then(release));
     installSessionReaderDiagnostics(state);
     return buildReader(state);
   } catch (error) {

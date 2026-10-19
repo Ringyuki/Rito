@@ -49,8 +49,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // engine laid its pages out, a spread's pages on the device grid.
 // +4 lines (2026-10-19): a page's targets, outline and text are asked of
 // the session when the reader needs them, not read off every artifact.
+// +8 lines (2026-10-19): the whole book waits out the frame the first
+// page is drawn in.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2847;
+const SESSION_READER_LINE_BUDGET = 2855;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built

@@ -119,9 +119,15 @@ impl ReaderSession {
     }
 
     #[cfg(test)]
-    #[cfg(test)]
     pub(in crate::runtime::reader_session) fn publication_revision_count(&self) -> usize {
         self.publication_revisions.len()
+    }
+
+    /// The publication's chapters, each readied by a background step
+    /// before its whole-book revision begins.
+    #[cfg(test)]
+    pub(in crate::runtime::reader_session) fn chapter_count(&self) -> usize {
+        self.document.chapter_count()
     }
 
     #[cfg(test)]

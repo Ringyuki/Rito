@@ -69,6 +69,36 @@ impl RuntimeDocument {
         }
     }
 
+    /// The publication's number of chapters.
+    pub(in crate::runtime) fn chapter_count(&self) -> usize {
+        self.document.chapters.len()
+    }
+
+    /// Readies chapter `index` for a whole-book revision laid out with
+    /// `layout_config` — its source read, its images measured, its markup
+    /// parsed and its styles resolved — so [`Self::begin_revision`] finds
+    /// it done. Laying the book out behind the page shown, a host readies a
+    /// chapter a step, so no step holds the reader for the whole book.
+    pub(in crate::runtime) fn prepare_revision_chapter(
+        &mut self,
+        layout_config: &LayoutConfig,
+        index: usize,
+    ) -> EpubResult<()> {
+        self.document.ensure_chapter_loaded(index)?;
+        self.document
+            .ensure_chapter_image_dimensions_loaded(index, 1)?;
+        let chapter = self.parsed_chapter(index)?;
+        self.prepared_base();
+        let ledger = &self
+            .prepared_base
+            .as_ref()
+            .expect("the prepared base was just made")
+            .stylesheet_ledger;
+        self.chapter_styles
+            .tables(ledger, &[chapter], layout_config)?;
+        Ok(())
+    }
+
     /// Begins laying a whole-book revision out: style projection runs for
     /// every chapter, and [`Self::advance_revision`] paginates them a few
     /// pages at a time.

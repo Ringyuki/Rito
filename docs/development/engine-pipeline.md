@@ -138,19 +138,22 @@ native hosts use the C ABI in `crates/rito-ffi`.
 `rito-core::runtime` owns documents, layout revisions, resources,
 interaction geometry and the reader session, the one protocol a host
 speaks. A host asks the session for the page at a locator under a
-layout and gets an artifact: a spread's lowered paint bytes, its hit
-targets and semantics, and the fonts and images it draws. Interaction
-reads (page targets, text carets and ranges, search, source-anchored
-ranges, page semantics) name an artifact and are served from the
-fragment page artifacts, never inferred from paint.
+layout and gets an artifact: a spread's lowered paint bytes, its pages'
+index and size, and the fonts and images it draws. What a page holds —
+its hit targets, semantics, text and text runs — is read when the host
+first needs it (`read_page`). Interaction reads (page records, text
+carets and ranges, search, source-anchored ranges) name an artifact and
+are served from the fragment page artifacts, never inferred from paint.
 
 A layout the session has not seen is answered in two revisions. The
 first paginates the one chapter the locator is in, so the page costs a
 chapter's work; its pages count from that chapter's first. The second
 is built by `advance_background_once`, which the host calls between its
-own work: each call advances the footnote index by one step, and the call
-after the index is complete paginates the whole book at once. The host
-then adopts it:
+own work, from the frame after the first page is drawn: each call
+advances the footnote index by one step, then readies the book's
+chapters (source, images, markup, styles) a chapter per page of the
+call's budget, then paginates the book that many pages at a time. The
+host then adopts it:
 the visible artifact is exchanged, by compare-and-swap, for the same
 page of the book revision. A chapter lays out the same alone as it does
 inside the book, so the exchange moves nothing on screen.
