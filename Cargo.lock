@@ -1126,6 +1126,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rito-turn"
+version = "0.0.0"
+dependencies = [
+ "libm",
+ "serde_json",
+]
+
+[[package]]
 name = "rito-wasm"
 version = "0.0.0"
 dependencies = [

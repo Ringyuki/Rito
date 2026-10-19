@@ -1,0 +1,15 @@
+[package]
+name = "rito-turn"
+description = "The page turn every Rito host shows: where each sheet of paper is in a frame, and how a turn moves."
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+libm = "0.2.16"
+
+[dev-dependencies]
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+
+[lints]
+workspace = true
