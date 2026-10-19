@@ -49,11 +49,10 @@ pub enum Begun {
     },
 }
 
-/// A frame laid out: the sheets, the led leaf and the pages it shows now,
-/// and the leaves that left the book.
+/// A frame laid out: the led leaf and the pages it shows now, the leaves
+/// that left the book, and the grid the sheets (`PaperModel::sheets`) are on.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Laid<'a> {
-    pub sheets: Vec<Sheet<'a>>,
+pub struct Laid {
     pub columns: usize,
     pub rows: usize,
     pub led: LeafId,
@@ -87,6 +86,8 @@ pub struct PaperModel {
     epoch: u64,
     next_id: u32,
     flat: Option<Flat>,
+    /// Where the pages of the frame last laid out are bound.
+    spine: f64,
     pending: Option<Pending>,
 }
 
@@ -106,6 +107,7 @@ impl PaperModel {
             epoch: 0,
             next_id: 0,
             flat: None,
+            spine: 0.0,
             pending: None,
         }
     }
@@ -160,7 +162,7 @@ impl PaperModel {
 
     /// Moves the leaves of the frame `begin` read on, and lays them out.
     /// `None` when no frame is waiting.
-    pub fn lay(&mut self, epoch: u64) -> Option<Laid<'_>> {
+    pub fn lay(&mut self, epoch: u64) -> Option<Laid> {
         let Pending {
             scene,
             frame,
@@ -191,9 +193,8 @@ impl PaperModel {
         left_book.extend(out.iter().map(|leaf| leaf.id));
         lay_out(&mut self.book, columns, rows);
         self.flat = Some(Flat::for_shape(self.flat.take(), shape, columns, rows));
-        let flat = self.flat.as_ref().expect("laid out above");
+        self.spine = scene.spine;
         Some(Laid {
-            sheets: sheets(flat, &self.book, scene.spine),
             columns,
             rows,
             led: led_id,
@@ -201,6 +202,14 @@ impl PaperModel {
             after: read.after,
             left_book,
         })
+    }
+
+    /// The sheets of the frame last laid out, from the front of the book to the back.
+    pub fn sheets(&self) -> Vec<Sheet<'_>> {
+        match self.flat.as_ref() {
+            Some(flat) => sheets(flat, &self.book, self.spine),
+            None => Vec::new(),
+        }
     }
 
     /// Nothing is in the air any more. `epoch` names the host's GPU context:

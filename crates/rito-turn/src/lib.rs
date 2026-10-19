@@ -18,6 +18,7 @@ mod math;
 pub mod mesh;
 mod model;
 pub mod motion;
+pub mod pack;
 pub mod physics;
 pub mod sheets;
 mod swing;

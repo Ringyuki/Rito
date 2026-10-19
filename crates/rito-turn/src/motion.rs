@@ -286,3 +286,78 @@ impl Alone {
         }
     }
 }
+
+/// How many numbers a `LeafMotion` is written as.
+pub(crate) const LEAF_MOTION_NUMBERS: usize = 9;
+
+impl LeafMotion {
+    /// The motion as numbers, for a host to hold between steps: its way (a
+    /// tag and up to six parameters), where it ends, and whether it has landed.
+    pub(crate) fn write(&self, out: &mut [f64]) {
+        out[..LEAF_MOTION_NUMBERS].fill(0.0);
+        match self.way {
+            Way::There { to } => {
+                out[0] = 0.0;
+                out[1] = to;
+            }
+            Way::Unhurried(Unhurried { from, to, duration }) => {
+                out[0] = 1.0;
+                out[1..4].copy_from_slice(&[from, to, duration]);
+            }
+            Way::TurnedRound {
+                stop,
+                velocity,
+                back,
+            } => {
+                out[0] = 2.0;
+                out[1..6].copy_from_slice(&[stop, velocity, back.from, back.to, back.duration]);
+            }
+            Way::Spring(spring) => {
+                out[0] = 3.0;
+                out[1..7].copy_from_slice(&[
+                    spring.config.stiffness,
+                    spring.config.damping,
+                    spring.to,
+                    spring.offset,
+                    spring.start,
+                    spring.omega,
+                ]);
+            }
+        }
+        out[7] = self.to;
+        out[8] = if self.landed { 1.0 } else { 0.0 };
+    }
+
+    /// The motion `write` wrote.
+    pub(crate) fn read(numbers: &[f64]) -> Self {
+        let unhurried = |at: usize| Unhurried {
+            from: numbers[at],
+            to: numbers[at + 1],
+            duration: numbers[at + 2],
+        };
+        let way = match numbers[0] as u8 {
+            0 => Way::There { to: numbers[1] },
+            1 => Way::Unhurried(unhurried(1)),
+            2 => Way::TurnedRound {
+                stop: numbers[1],
+                velocity: numbers[2],
+                back: unhurried(3),
+            },
+            _ => Way::Spring(SpringSettle {
+                config: Spring {
+                    stiffness: numbers[1],
+                    damping: numbers[2],
+                },
+                to: numbers[3],
+                offset: numbers[4],
+                start: numbers[5],
+                omega: numbers[6],
+            }),
+        };
+        Self {
+            way,
+            to: numbers[7],
+            landed: numbers[8] != 0.0,
+        }
+    }
+}

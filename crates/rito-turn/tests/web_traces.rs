@@ -186,13 +186,14 @@ fn the_model_turns_as_the_web_does() {
                         (laid.front.map(|p| p.spread), laid.after.map(|p| p.spread)),
                     );
                     let web = out["sheets"].as_array().expect("sheets");
-                    assert_eq!(laid.sheets.len(), web.len(), "{name}: {at}: sheets");
+                    let sheets = model.sheets();
+                    assert_eq!(sheets.len(), web.len(), "{name}: {at}: sheets");
                     let face = |face: Face| match face {
                         Face::None => None,
                         Face::Front(id) => shows.get(&id).and_then(|s| s.0),
                         Face::After(id) => shows.get(&id).and_then(|s| s.1),
                     };
-                    for (k, (ours, web)) in laid.sheets.iter().zip(web).enumerate() {
+                    for (k, (ours, web)) in sheets.iter().zip(web).enumerate() {
                         let at = format!("{at} sheet {k}");
                         assert_eq!(
                             face(ours.front),

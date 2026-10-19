@@ -146,3 +146,29 @@ impl PaperSettle {
         at
     }
 }
+
+/// How many numbers a `PaperSettle` is written as.
+pub const SETTLE_NUMBERS: usize = crate::motion::LEAF_MOTION_NUMBERS + 3;
+
+impl PaperSettle {
+    /// The settle as numbers: what a host holds between steps, in place of
+    /// the settle itself, so that nothing of it lives on in the model.
+    pub fn write(&self, out: &mut [f64]) {
+        let motion = crate::motion::LEAF_MOTION_NUMBERS;
+        self.motion.write(&mut out[..motion]);
+        out[motion] = self.to;
+        out[motion + 1] = self.began as f64;
+        out[motion + 2] = if self.shown { 1.0 } else { 0.0 };
+    }
+
+    /// The settle `write` wrote.
+    pub fn read(numbers: &[f64]) -> Self {
+        let motion = crate::motion::LEAF_MOTION_NUMBERS;
+        Self {
+            motion: LeafMotion::read(&numbers[..motion]),
+            to: numbers[motion],
+            began: numbers[motion + 1] as u64,
+            shown: numbers[motion + 2] != 0.0,
+        }
+    }
+}
