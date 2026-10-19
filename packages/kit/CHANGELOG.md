@@ -1,5 +1,55 @@
 # @ritojs/kit
 
+## 4.0.0
+
+### Major Changes
+
+- 4482738: The controller draws with WebGL2 on its canvas: the pages it keeps are textures painted by `reader.renderSpreadTo`, every frame and the paper turn are drawn on the GPU, and a painted effect's scene is the display's WebGL2 context (`scene.gl`, `scene.page(slot).texture`, `prepare(gl)`) instead of a 2D context; `createController` throws `WebGlUnavailableError` where there is no WebGL2. See docs/migration/v4.md.
+
+### Minor Changes
+
+- 24c2c44: A painted page-turn effect may have `warm(scene)`, called once the pages beside the one shown are painted and no turn is under way; the paper turn copies those pages into its textures then instead of in a turn's first frame.
+- f884325: An `'underline'` annotation is painted as a line under its text instead of a fill, and the colours of the selection, search results and annotations without a colour of their own are `HighlightColors`, set by `ControllerOptions.highlightColors` and changed with `controller.setHighlightColors(colors)`.
+- 923a497: A page's margins can be set side by side: `ReaderMargin` is one number, `{ x, y }` or `{ top, right, bottom, left }`, and `createReader`'s `margin`, `reader.updateLayout`, `controller.resize` and `useReaderAutoResize`'s `margin` take it. `useReaderAutoResize` now lays the book out again when only one side changes.
+- 4482738: The pages are laid out again at the screen's pixel ratio when the page zooms or the window goes to another screen, instead of stretched: `reader.setDevicePixelRatio(ratio)` lays the book out at a new ratio and the controller calls it, and the display canvas is shown pixel for pixel unless a pinch magnifies it.
+- 79b9dac: `controller.rangeRects({ href, sourceRange })` resolves to where a source range is on the pages shown, in the screen coordinates of `annotationClick.screenBounds`.
+- 0fbab4b: `controller.selectRange({ href, sourceRange })` makes a source range the selection as a reader's drag would, raising `selectionChange`, and resolves whether it did.
+- 73165dd: `canDrawWithWebGl2()` tells a host ahead of time whether the controller can draw in this browser, and `useRitoReader` reports `WebGlUnavailableError` before it opens the book instead of after laying it out.
+- fb39b32: `controller.search(query, options)` and `useSearch().setQuery(query, options)` take the engine's search options, `caseSensitive` and `wholeWord`, and the book is searched again with them after a relayout.
+
+### Patch Changes
+
+- a5fa80d: The display canvas's drawing buffer is as large as the screen and only grows: a window dragged through a new size every frame reallocated it, and made the page wait for the GPU, on every frame. The canvas shows the buffer's bottom-left corner, as large as its box at the screen's ratio, one buffer pixel per device pixel; `canvas.width` and `canvas.height` are the buffer's size, and a host that reads the display back draws that corner.
+- 18323eb: The reader's engine runs on the page's own thread instead of in a Worker, and a layout commit paints at once: the frame in which a window is resized draws the layout for its new size, where the Worker's answer reached the page a frame or more later and most sizes of a drag were never drawn. The whole book behind the page shown lays out a few pages per step, each after the page has had a turn. Opening a book, and the first search or text interaction that lays the rest of a chapter out, hold the page while they run. The package no longer ships a worker entry.
+- 668e6e2: A finger held down to select no longer loses its long press when the whole book's layout commits while it waits: the press holds that layout back until it starts a selection or ends as a tap.
+- ee5c484: While a window is being resized, the spreads beside the one shown are no longer painted ahead: each was painted for a size the next one replaced, and the reader asked for that next size only once the paint was done. They are painted once no size has come for 300 ms, when the whole-book layout is let go.
+- dfc9b1c: A selection survives a relayout: when the book's layout follows the chapter's, or the reader is resized, retypeset or rescaled, the selection is found again by its source range and shown in the new layout, as a browser keeps a selection through a resize. While a selection is being made, the book's layout waits. The reader's text selection gains `resolveTextRangeFromSource()`, which resolves a source range as a range with both its carets, and a range resolved between two carets now comes back with them.
+- 1ca0c87: While a window is being resized the controller reads the interaction targets of the spread shown once the size has stood still, instead of on every frame; until then a click on the spread finds none.
+- Updated dependencies [a151d3d]
+- Updated dependencies [72edd3a]
+- Updated dependencies [5bc67f6]
+- Updated dependencies [e163e31]
+- Updated dependencies [3aef3d1]
+- Updated dependencies [c31a349]
+- Updated dependencies [18323eb]
+- Updated dependencies [7c12275]
+- Updated dependencies [567ae7a]
+- Updated dependencies [e410c99]
+- Updated dependencies [32e2302]
+- Updated dependencies [923a497]
+- Updated dependencies [9afbb66]
+- Updated dependencies [4482738]
+- Updated dependencies [f8240fe]
+- Updated dependencies [7d67977]
+- Updated dependencies [ea14ef6]
+- Updated dependencies [71e61f9]
+- Updated dependencies [0968baa]
+- Updated dependencies [dfc9b1c]
+- Updated dependencies [c6f4d2d]
+- Updated dependencies [ad49023]
+- Updated dependencies [15c49e0]
+  - @ritojs/core@4.0.0
+
 ## 3.2.1
 
 ### Patch Changes

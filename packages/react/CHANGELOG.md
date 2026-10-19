@@ -1,5 +1,52 @@
 # @ritojs/react
 
+## 4.0.0
+
+### Minor Changes
+
+- 923a497: A page's margins can be set side by side: `ReaderMargin` is one number, `{ x, y }` or `{ top, right, bottom, left }`, and `createReader`'s `margin`, `reader.updateLayout`, `controller.resize` and `useReaderAutoResize`'s `margin` take it. `useReaderAutoResize` now lays the book out again when only one side changes.
+- fb39b32: `controller.search(query, options)` and `useSearch().setQuery(query, options)` take the engine's search options, `caseSensitive` and `wholeWord`, and the book is searched again with them after a relayout.
+
+### Patch Changes
+
+- 73165dd: `canDrawWithWebGl2()` tells a host ahead of time whether the controller can draw in this browser, and `useRitoReader` reports `WebGlUnavailableError` before it opens the book instead of after laying it out.
+- Updated dependencies [a151d3d]
+- Updated dependencies [72edd3a]
+- Updated dependencies [5bc67f6]
+- Updated dependencies [e163e31]
+- Updated dependencies [3aef3d1]
+- Updated dependencies [c31a349]
+- Updated dependencies [a5fa80d]
+- Updated dependencies [24c2c44]
+- Updated dependencies [18323eb]
+- Updated dependencies [7c12275]
+- Updated dependencies [567ae7a]
+- Updated dependencies [e410c99]
+- Updated dependencies [32e2302]
+- Updated dependencies [f884325]
+- Updated dependencies [4482738]
+- Updated dependencies [668e6e2]
+- Updated dependencies [923a497]
+- Updated dependencies [9afbb66]
+- Updated dependencies [4482738]
+- Updated dependencies [f8240fe]
+- Updated dependencies [7d67977]
+- Updated dependencies [79b9dac]
+- Updated dependencies [0fbab4b]
+- Updated dependencies [ea14ef6]
+- Updated dependencies [ee5c484]
+- Updated dependencies [71e61f9]
+- Updated dependencies [0968baa]
+- Updated dependencies [73165dd]
+- Updated dependencies [fb39b32]
+- Updated dependencies [dfc9b1c]
+- Updated dependencies [1ca0c87]
+- Updated dependencies [c6f4d2d]
+- Updated dependencies [ad49023]
+- Updated dependencies [15c49e0]
+  - @ritojs/core@4.0.0
+  - @ritojs/kit@4.0.0
+
 ## 3.2.1
 
 ### Patch Changes
