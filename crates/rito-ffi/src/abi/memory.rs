@@ -74,13 +74,92 @@ fn clear_buffer(target: *mut RitoOwnedBuffer) -> Result<(), FfiError> {
     Ok(())
 }
 
-fn write_u32(target: *mut u32, value: u32, field: &str) -> Result<(), FfiError> {
+pub(super) fn write_u32(target: *mut u32, value: u32, field: &str) -> Result<(), FfiError> {
     if target.is_null() {
         return Err(FfiError::invalid(format!("{field} pointer is null")));
     }
     // SAFETY: The caller supplies one writable `u32`.
     unsafe { ptr::write(target, value) };
     Ok(())
+}
+
+pub(super) fn write_u64(target: *mut u64, value: u64, field: &str) -> Result<(), FfiError> {
+    if target.is_null() {
+        return Err(FfiError::invalid(format!("{field} pointer is null")));
+    }
+    // SAFETY: The caller supplies one writable `u64`.
+    unsafe { ptr::write(target, value) };
+    Ok(())
+}
+
+/// Copies `N` numbers the caller passes.
+pub(super) fn read_numbers<const N: usize>(
+    source: *const f64,
+    field: &str,
+) -> Result<[f64; N], FfiError> {
+    if source.is_null() {
+        return Err(FfiError::invalid(format!("{field} pointer is null")));
+    }
+    let mut numbers = [0.0; N];
+    // SAFETY: The caller supplies `N` readable `f64`s; they are copied before use.
+    numbers.copy_from_slice(unsafe { slice::from_raw_parts(source, N) });
+    Ok(numbers)
+}
+
+/// Writes `values` into the caller's array of as many numbers.
+pub(super) fn write_numbers(target: *mut f64, values: &[f64], field: &str) -> Result<(), FfiError> {
+    if target.is_null() {
+        return Err(FfiError::invalid(format!("{field} pointer is null")));
+    }
+    // SAFETY: The caller supplies `values.len()` writable `f64`s, which the
+    // header fixes for each call.
+    unsafe { ptr::copy_nonoverlapping(values.as_ptr(), target, values.len()) };
+    Ok(())
+}
+
+/// Writes `values` into the caller's array of `capacity` floats.
+pub(super) fn write_floats(
+    target: *mut f32,
+    capacity: u64,
+    values: &[f32],
+    field: &str,
+) -> Result<(), FfiError> {
+    if values.len() as u64 > capacity {
+        return Err(FfiError::invalid(format!(
+            "{field} holds {capacity} numbers, not {}",
+            values.len()
+        )));
+    }
+    if target.is_null() {
+        return Err(FfiError::invalid(format!("{field} pointer is null")));
+    }
+    // SAFETY: The caller supplies `capacity` writable `f32`s, at least `values.len()`.
+    unsafe { ptr::copy_nonoverlapping(values.as_ptr(), target, values.len()) };
+    Ok(())
+}
+
+/// Writes `values` into the caller's array of `capacity` and their count into `count`.
+pub(super) fn write_ids(
+    target: *mut u32,
+    capacity: u32,
+    count: *mut u32,
+    values: &[u32],
+    field: &str,
+) -> Result<(), FfiError> {
+    if values.len() as u64 > u64::from(capacity) {
+        return Err(FfiError::invalid(format!(
+            "{field} holds {capacity} ids, not {}",
+            values.len()
+        )));
+    }
+    if !values.is_empty() {
+        if target.is_null() {
+            return Err(FfiError::invalid(format!("{field} pointer is null")));
+        }
+        // SAFETY: The caller supplies `capacity` writable `u32`s, at least `values.len()`.
+        unsafe { ptr::copy_nonoverlapping(values.as_ptr(), target, values.len()) };
+    }
+    write_u32(count, values.len() as u32, field)
 }
 
 pub(super) fn write_buffer(

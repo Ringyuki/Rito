@@ -1050,6 +1050,7 @@ name = "rito-ffi"
 version = "0.0.0"
 dependencies = [
  "rito-core",
+ "rito-turn",
  "sha2",
 ]
 

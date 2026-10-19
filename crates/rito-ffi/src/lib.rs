@@ -16,6 +16,8 @@ mod font_tests;
 #[cfg(test)]
 mod layout_tests;
 #[cfg(test)]
+mod paper_turn_tests;
+#[cfg(test)]
 mod shard_tests;
 #[cfg(test)]
 mod tests;
@@ -33,6 +35,14 @@ pub use abi::{
     rito_request_adjacent, rito_request_artifact, rito_resolve_annotation,
     rito_resolve_exact_source_range, rito_resolve_navigation, rito_resolve_text_interaction,
     rito_search, rito_supply_shard,
+};
+pub use abi::{
+    rito_paper_turn_begin, rito_paper_turn_begins, rito_paper_turn_eye_height,
+    rito_paper_turn_forget, rito_paper_turn_free, rito_paper_turn_lands, rito_paper_turn_lay,
+    rito_paper_turn_layouts, rito_paper_turn_new, rito_paper_turn_settle,
+    rito_paper_turn_settle_step, rito_paper_turn_sheet, rito_paper_turn_state,
+    rito_paper_turn_travel, RITO_PAPER_TURN_BEGUN_NUMBERS, RITO_PAPER_TURN_LAID_NUMBERS,
+    RITO_PAPER_TURN_STATE_NUMBERS,
 };
 pub use abi::{
     RitoOwnedBuffer, RitoPinnedFontFace, RITO_ABI_VERSION, RITO_PINNED_FONT_ROLE_MONOSPACE,

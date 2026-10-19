@@ -209,6 +209,39 @@ static void consume(void) {
                               href, sizeof(href), &resource, &error);
   (void)rito_release_artifact(1, 1, &error);
   (void)rito_dispose(1, &error);
+  uint32_t turn_layouts[7] = {0};
+  (void)rito_paper_turn_layouts(turn_layouts, &error);
+  uint64_t turn = 0;
+  (void)rito_paper_turn_new(&turn, &error);
+  double turn_frame[RITO_PAPER_TURN_FRAME_NUMBERS] = {0};
+  double turn_begun[RITO_PAPER_TURN_BEGUN_NUMBERS] = {0};
+  double turn_laid[RITO_PAPER_TURN_LAID_NUMBERS] = {0};
+  double turn_sheet[RITO_PAPER_TURN_SHEET_NUMBERS] = {0};
+  double turn_state[RITO_PAPER_TURN_STATE_NUMBERS] = {0};
+  double turn_settle[RITO_PAPER_TURN_SETTLE_NUMBERS] = {0};
+  double turn_release[RITO_PAPER_TURN_RELEASE_NUMBERS] = {0};
+  double turn_pair[4] = {0};
+  float turn_points[6] = {0};
+  uint32_t turn_leaves[8] = {0};
+  uint32_t turn_leaf_count = 0;
+  uint32_t turn_answer = 0;
+  (void)rito_paper_turn_begin(turn, turn_frame, turn_begun, turn_leaves, 8,
+                              &turn_leaf_count, &error);
+  (void)rito_paper_turn_lay(turn, 0, turn_laid, turn_leaves, 8,
+                            &turn_leaf_count, &error);
+  (void)rito_paper_turn_sheet(turn, 0, turn_sheet, turn_points,
+                              turn_points + 3, 3, &error);
+  (void)rito_paper_turn_forget(turn, 0, &turn_answer, turn_leaves, 8,
+                               &turn_leaf_count, &error);
+  (void)rito_paper_turn_state(turn, 0, turn_state, &error);
+  (void)rito_paper_turn_begins(turn, 0, 0, 1, turn_pair, &error);
+  (void)rito_paper_turn_settle(turn, 0, 0, 1, turn_settle, &error);
+  (void)rito_paper_turn_settle_step(turn, turn_settle, 0, 0, turn_pair,
+                                    &error);
+  (void)rito_paper_turn_travel(turn_pair, 400, 0, turn_pair, &error);
+  (void)rito_paper_turn_lands(turn_release, &turn_answer, &error);
+  (void)rito_paper_turn_eye_height(400, 600, turn_pair, &error);
+  (void)rito_paper_turn_free(turn, &error);
   rito_buffer_free(&artifact);
   rito_buffer_free(&next_artifact);
   rito_buffer_free(&publication_metadata);

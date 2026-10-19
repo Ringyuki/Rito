@@ -14,6 +14,7 @@ path = "src/lib.rs"
 
 [dependencies]
 rito-core = { path = "../rito-core" }
+rito-turn = { path = "../rito-turn" }
 
 [dev-dependencies]
 sha2 = "0.10"
