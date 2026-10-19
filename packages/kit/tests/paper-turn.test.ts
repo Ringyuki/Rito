@@ -1,8 +1,12 @@
+import type { PaperTurnModel } from '@ritojs/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { TransitionFrame, TransitionPage, TransitionScene } from '../src/driver/effects';
-import { createPaperPhysics, grabOf } from '../src/driver/paper/paper-physics';
-import { createPaperTurn } from '../src/driver/paper/paper-turn';
+import { paperPhysics } from '../src/driver/paper/paper-physics';
+import { paperTurnWith } from '../src/driver/paper/paper-turn';
+import { createPaperRenderer } from '../src/driver/paper/renderer';
+import type { TransitionPhysics } from '../src/driver/physics';
 import { springSettle, stepSpring } from '../src/driver/spring';
+import { engineBuilt, paperTurnModel } from './helpers/engine';
 import { createFakeGl } from './helpers/fake-gl';
 
 const one = { width: 400, spine: 0 };
@@ -12,9 +16,12 @@ const touch = (fromX: number, toX: number, y = 300) => ({
   position: { x: toX, y },
 });
 
-const physics = createPaperPhysics;
+// The engine's physics, as the paper turn takes them, on a model no frame
+// has been drawn by: nothing in the air, no page anywhere.
+const engine = engineBuilt ? paperPhysics(await paperTurnModel(), () => 0) : {};
+const physics = (): TransitionPhysics => engine;
 
-describe('how far a finger carries a paper turn', () => {
+describe.skipIf(!engineBuilt)('how far a finger carries a paper turn', () => {
   const paper = physics();
   const travel = (points: ReturnType<typeof touch>, bounds: typeof one): number =>
     paper.travel?.(points, bounds) ?? Number.NaN;
@@ -38,19 +45,9 @@ describe('how far a finger carries a paper turn', () => {
     // Two pages: taken 160 px left of the spine and carried to it.
     expect(travel(touch(40, 200), two)).toBeCloseTo(200, 6);
   });
-
-  it('takes a sheet no nearer the spine than a hand could turn it by', () => {
-    expect(grabOf(touch(210, 200), { ...two, height: 600 }).u).toBe(0.35);
-    expect(grabOf(touch(390, 380, 150), { ...two, height: 600 })).toEqual({ u: 0.95, v: 0.25 });
-    // One page is taken by its outer edge, whichever way it is turned.
-    expect(grabOf(touch(20, 10), { ...one, height: 600 }).u).toBe(1);
-    expect(grabOf(touch(20, 60), { ...one, height: 600 }).u).toBe(1);
-    // A turn no finger started takes the outer edge, toward the lower corner.
-    expect(grabOf(null, { ...one, height: 600 })).toEqual({ u: 1, v: 0.86 });
-  });
 });
 
-describe('whether letting a paper turn go turns the page', () => {
+describe.skipIf(!engineBuilt)('whether letting a paper turn go turns the page', () => {
   const paper = physics();
   const release = (dx: number, velocity: number, fromX: number, toX: number) =>
     paper.lands?.({
@@ -71,7 +68,7 @@ describe('whether letting a paper turn go turns the page', () => {
   });
 });
 
-describe('whether letting a page curled over go turns it', () => {
+describe.skipIf(!engineBuilt)('whether letting a page curled over go turns it', () => {
   const paper = physics();
   /** A finger down at `from`, at `to` when it lifts, having been as far as `farthest`; the turn going at `velocity`. */
   const release = (
@@ -153,7 +150,7 @@ describe('whether letting a page curled over go turns it', () => {
   });
 });
 
-describe('how a paper turn comes to rest', () => {
+describe.skipIf(!engineBuilt)('how a paper turn comes to rest', () => {
   it('a leaf no finger turned is off at once, lands softly, and takes well under half a second', () => {
     const settle = physics().settle?.(0, 0, -800);
     if (!settle) throw new Error('the paper turn carries a released turn itself');
@@ -182,7 +179,7 @@ describe('how a paper turn comes to rest', () => {
   });
 });
 
-describe('a paper turn that cuts into another', () => {
+describe.skipIf(!engineBuilt)('a paper turn that cuts into another', () => {
   const left = { dx: 150, velocity: -900, width: 400, direction: 'forward' as const };
 
   it('takes up the same leaf where it is, and lifts another from flat', () => {
@@ -194,17 +191,6 @@ describe('a paper turn that cuts into another', () => {
     });
     // Turned on: the next sheet starts flat; the one in the air is the effect's to bring down.
     expect(paper.begins?.({ ...left, sameSpreads: false })).toEqual({ dx: 0, velocity: 0 });
-  });
-
-  it('is not over while a leaf it left in the air is still coming down', () => {
-    let aloft = true;
-    const settle = physics(() => aloft).settle?.(0, 0, -800);
-    if (!settle) throw new Error('the paper turn carries a released turn itself');
-    settle(0.38);
-    expect(settle(0.4)).toEqual({ x: -800, velocity: 0, done: false });
-    expect(settle(0.6).done).toBe(false);
-    aloft = false;
-    expect(settle(0.62)).toEqual({ x: -800, velocity: 0, done: true });
   });
 
   it('sent back the way it came, slows to a stop before it comes back', () => {
@@ -221,24 +207,6 @@ describe('a paper turn that cuts into another', () => {
     expect(settle(0.15).x).toBeGreaterThan(stopped.x);
     expect(settle(0.15).velocity).toBeGreaterThan(0);
     expect(settle(0.6).x).toBe(0);
-  });
-
-  it('is over a frame after its page is where it takes it, with its own motion still on its way', () => {
-    const picture = { painted: 0, there: false };
-    const paper = physics(() => false, {
-      painted: () => picture.painted,
-      there: () => picture.there,
-      gone: () => false,
-    });
-    const settle = paper.settle?.(100, 0, 400);
-    if (!settle) throw new Error('the paper turn carries a released turn itself');
-    expect(settle(0.05).done).toBe(false);
-    // The page lies flat again, but no frame has shown it so since the turn was let go.
-    picture.there = true;
-    expect(settle(0.06).x).toBeLessThan(400);
-    picture.painted = 1;
-    expect(settle(0.08)).toEqual({ x: 400, velocity: 0, done: false });
-    expect(settle(0.1)).toEqual({ x: 400, velocity: 0, done: true });
   });
 
   it('with nowhere left to go is there, whatever speed it was let go at', () => {
@@ -278,7 +246,7 @@ describe('the spring as a motion', () => {
   });
 });
 
-describe('a paper turn where there is no GPU', () => {
+describe.skipIf(!engineBuilt)('a paper turn where there is no GPU', () => {
   function scene(spine: number) {
     const drawn: string[] = [];
     const page = (slot: string): TransitionPage => ({
@@ -310,9 +278,9 @@ describe('a paper turn where there is no GPU', () => {
     touch: null,
   });
 
-  it('turns as the built-in cover does, and its turn ends with the hand', () => {
+  it('turns as the built-in cover does, and its turn ends with the hand', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const effect = createPaperTurn({ now: () => 0 });
+    const effect = paperTurnWith(createPaperRenderer(), { now: () => 0 }, await paperTurnModel());
     const { fake, drawn } = scene(0);
     effect.paint(fake, frame(-100, 'next'));
     expect(drawn).toEqual(['curr@0', 'next@300']);
@@ -322,10 +290,45 @@ describe('a paper turn where there is no GPU', () => {
     error.mockRestore();
   });
 
-  it('slides a single page against the start of the book', () => {
-    const effect = createPaperTurn({ now: () => 0 });
+  it('slides a single page against the start of the book', async () => {
+    const effect = paperTurnWith(createPaperRenderer(), { now: () => 0 }, await paperTurnModel());
     const { fake, drawn } = scene(0);
     effect.paint(fake, frame(30, null));
     expect(drawn).toEqual(['curr@30']);
+  });
+});
+
+describe.skipIf(!engineBuilt)('a paper turn before the engine is loaded', () => {
+  it('is drawn as the built-in cover and moved by the built-in physics, then as paper', async () => {
+    let load: (model: PaperTurnModel) => void = () => undefined;
+    const loading = new Promise<PaperTurnModel>((resolve) => {
+      load = resolve;
+    });
+    const effect = paperTurnWith(createPaperRenderer(), { now: () => 0 }, loading);
+    const drawn: string[] = [];
+    const scene = {
+      gl: createFakeGl(undefined, { programsLink: false }).gl,
+      width: 400,
+      height: 600,
+      cssPixel: 1,
+      spine: 200,
+      page: () => null,
+      drawPage: (slot: string, x: number) => drawn.push(`${slot}@${String(x)}`),
+    } as unknown as TransitionScene;
+    const frame: TransitionFrame = {
+      dx: -100,
+      width: 400,
+      incoming: 'next',
+      phase: 'landing',
+      velocity: 0,
+      touch: null,
+    };
+    effect.paint(scene, frame);
+    expect(drawn).toEqual(['curr@0', 'next@300']);
+    expect(effect.physics).toBeUndefined();
+    load(await paperTurnModel());
+    await loading;
+    // The held point under the finger, as the engine has it.
+    expect(effect.physics?.travel?.(touch(380, 200), two)).toBeCloseTo(-200, 6);
   });
 });

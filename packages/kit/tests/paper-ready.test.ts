@@ -6,6 +6,7 @@ import { paperTurnWith } from '../src/driver/paper/paper-turn';
 import { createPaperRenderer, type PaperRenderer } from '../src/driver/paper/renderer';
 import { sheetFragment, sheetVertex } from '../src/driver/paper/shaders';
 import { createTransitionDriver } from '../src/driver/transition-driver';
+import { engineBuilt, paperTurnModel } from './helpers/engine';
 
 /** A GPU that says when asked whether it has finished compiling, and records what it is asked. */
 function compiling() {
@@ -81,8 +82,8 @@ describe('a paper turn readied ahead of its first frame', () => {
   });
 });
 
-describe('a paper turn warmed between turns', () => {
-  it('copies the pages a turn may take before the turn, and holds none of them', () => {
+describe.skipIf(!engineBuilt)('a paper turn warmed between turns', () => {
+  it('copies the pages a turn may take before the turn, and holds none of them', async () => {
     const taken: number[] = [];
     const released: number[] = [];
     const renderer: PaperRenderer = {
@@ -98,7 +99,7 @@ describe('a paper turn warmed between turns', () => {
       },
       draw: () => true,
     };
-    const effect = paperTurnWith(renderer);
+    const effect = paperTurnWith(renderer, {}, await paperTurnModel());
     const pages: Record<string, number | undefined> = { curr: 4, next: 5, prev: undefined };
     const scene = {
       page: (slot: string) =>
@@ -119,8 +120,8 @@ describe('a paper turn warmed between turns', () => {
   });
 });
 
-describe('a paper turn begun before the GPU is ready', () => {
-  function staged() {
+describe.skipIf(!engineBuilt)('a paper turn begun before the GPU is ready', () => {
+  async function staged() {
     let standing: PaperRenderer['standing'] = 'waiting';
     const drawn: string[] = [];
     const prepared = vi.fn();
@@ -138,7 +139,7 @@ describe('a paper turn begun before the GPU is ready', () => {
       },
     };
     const clock = { now: 0 };
-    const effect = paperTurnWith(renderer, { now: () => clock.now });
+    const effect = paperTurnWith(renderer, { now: () => clock.now }, await paperTurnModel());
     const page = (spread: number): TransitionPage => ({
       spread,
       texture: { spread } as unknown as WebGLTexture,
@@ -174,17 +175,17 @@ describe('a paper turn begun before the GPU is ready', () => {
     return { effect, prepared, paint, ready: () => (standing = 'ready') };
   }
 
-  it('readies its renderer when it is set', () => {
-    const { effect, prepared } = staged();
+  it('readies its renderer when it is set', async () => {
+    const { effect, prepared } = await staged();
     const gl = compiling().started.gl;
     effect.prepare?.(gl);
     expect(prepared).toHaveBeenCalledOnce();
     expect(prepared.mock.calls[0]?.[0]).toBe(gl);
   });
 
-  it('is drawn plain to its end, said once, and holds no turn up; the next is a leaf', () => {
+  it('is drawn plain to its end, said once, and holds no turn up; the next is a leaf', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { paint, ready } = staged();
+    const { paint, ready } = await staged();
     expect(paint(4, -40)).toEqual(['plain:curr', 'plain:next']);
     // The GPU finishes halfway: a leaf appearing now would be a jump.
     ready();

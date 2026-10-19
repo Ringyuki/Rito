@@ -59,6 +59,7 @@
     "@ritojs/core": "workspace:^"
   },
   "devDependencies": {
+    "@ritojs/core-wasm": "workspace:*",
     "tsdown": "^0.21.7",
     "@vitest/coverage-v8": "^4.1.12",
     "vitest": "^4.1.12"

@@ -1,5 +1,6 @@
+import type { PaperTurnCurl } from '@ritojs/core';
+
 import type { TransitionPage } from '../effects';
-import type { Curl } from './curl';
 import { drawSheet, liesOnThePages, outline, uploadSheets, type SheetPart } from './draw-sheet';
 import type { Gl, PageSnapshot } from './gl';
 import { finishGpu, frameBuffersFor, gpuDone, startGpu, type Gpu, type StartedGpu } from './gpu';
@@ -25,7 +26,7 @@ export interface PaperSheet {
    * pages: that part is drawn under the shadows, which fall on it as on any
    * page, and its back shows its own front through.
    */
-  readonly curl?: Curl;
+  readonly curl?: PaperTurnCurl;
   /** That it lies flat and is laid out the same from frame to frame. */
   readonly still?: boolean;
 }
@@ -37,6 +38,8 @@ export interface PaperFrame {
   readonly spine: number;
   readonly columns: number;
   readonly rows: number;
+  /** How high the eye is over the frame drawn, in its units. */
+  readonly eye: number;
   readonly sheets: readonly PaperSheet[];
   /** The paper's colour, red, green and blue from 0 to 1. */
   readonly paper: readonly [number, number, number];
@@ -65,11 +68,9 @@ export interface PaperRenderer {
   draw(frame: PaperFrame): boolean;
 }
 
-/** The eye's height above the spread, in spreads. Lower exaggerates what rises. */
-const EYE_HEIGHT = 2.4;
-/** How high the eye is over a spread of this size. */
-export function eyeHeight(width: number, height: number): number {
-  return EYE_HEIGHT * Math.max(width, height);
+/** A length of the frame as it is drawn: whole pixels, at least one. */
+export function drawnLength(length: number): number {
+  return Math.max(1, Math.round(length));
 }
 
 /** `make` is how the GPU is set to work; a test brings its own. */
@@ -131,13 +132,13 @@ export function createPaperRenderer(make: (gl: Gl) => StartedGpu | null = startG
  */
 function drawFrame(gpu: Gpu, frame: PaperFrame): void {
   const { gl } = gpu;
-  const width = Math.max(1, Math.round(frame.width));
-  const height = Math.max(1, Math.round(frame.height));
+  const width = drawnLength(frame.width);
+  const height = drawnLength(frame.height);
   const drawingTo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
   // The sheets set their attributes on the context's own vertex array.
   gl.bindVertexArray(null);
   const mesh = uploadSheets(gpu, frame);
-  const eye = eyeHeight(width, height);
+  const { eye } = frame;
   const standing = frame.sheets.map((sheet) => !liesOnThePages(sheet));
   const buffers = frameBuffersFor(gpu, width, height);
 
@@ -183,8 +184,8 @@ function castShadows(
   eye: number,
   standing: readonly boolean[],
 ): void {
-  const width = Math.max(1, Math.round(frame.width));
-  const height = Math.max(1, Math.round(frame.height));
+  const width = drawnLength(frame.width);
+  const height = drawnLength(frame.height);
   gpu.shadow.begin(width, height, frame.spine);
   frame.sheets.forEach((sheet, index) => {
     const buffers = gpu.sheets[index];

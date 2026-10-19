@@ -1,5 +1,5 @@
+import type { PaperTurnCurl } from '@ritojs/core';
 import { describe, expect, it } from 'vitest';
-import { curlThrough, lineAt } from '../src/driver/paper/curl';
 import { hidesFrom } from '../src/driver/paper/shadow';
 import { sidesOf } from '../src/driver/paper/shadow-targets';
 
@@ -32,15 +32,26 @@ describe('where the spine parts what a shadow is worked out in', () => {
 });
 
 describe('what of a sheet hides the pages from the eye', () => {
-  const page = { spine: 0, width: 400, height: 600 };
+  const page = { width: 400, height: 600 };
+  /** A page curled over through the line from `top` on its top edge to `bottom` on its bottom edge. */
+  const curlThrough = (line: { top: number; bottom: number }): PaperTurnCurl => {
+    const across = line.top - line.bottom;
+    const length = Math.hypot(page.height, across);
+    const dx = page.height / length;
+    return { dx, dy: across / length, at: line.top * dx, radius: 40 };
+  };
   /** Whether the cover counts a point of the sheet, as its shader does. */
   const hides = (from: readonly [number, number, number], x: number, y: number): boolean =>
     x * from[0] + y * from[1] - from[2] > 0;
 
   it('is, of a page curled over, its paper from the line it leaves the pages at', () => {
-    for (const lean of [0.5, 0, -0.5]) {
-      const line = lineAt(page, 0.4, lean);
-      const from = hidesFrom(curlThrough(page, line));
+    // Leaning either way, and upright.
+    for (const line of [
+      { top: 300, bottom: 180 },
+      { top: 240, bottom: 240 },
+      { top: 180, bottom: 300 },
+    ]) {
+      const from = hidesFrom(curlThrough(line));
       for (const [x, y] of [
         [line.top, 0],
         [line.bottom, page.height],

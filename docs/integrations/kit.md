@@ -224,10 +224,12 @@ not stop its page: turned back, the same page slows, stops and comes back from
 where it is; turned on, it carries on by itself while the next lifts, so
 several are in the air at once (up to three going by themselves) and none
 passes through another; and a finger that takes a leaf in the air holds it by the
-point it touched, a curled page where it is. A leaf lying flat is exactly the page's own colours. The effect
-hands the GPU its shaders when it is set and does not wait for them: a turn begun
-before they are compiled is drawn as the built-in `cover` to its end, so no turn is
-held up, and so is every turn where its shaders cannot run. It draws in the
+point it touched, a curled page where it is. A leaf lying flat is exactly the page's own colours. How the
+paper moves and where every point of it is are the engine's (`loadPaperTurnModel()`
+in `@ritojs/core`); the effect draws what it lays out. The effect hands the GPU its shaders when it is set and does not wait for them: a
+turn begun before they are compiled is drawn as the built-in `cover` to its end, so no
+turn is held up, and so is every turn where its shaders cannot run, and every turn
+before the engine has loaded, which the built-in physics move. It draws in the
 display's own context, taking the pages from their textures, into a frame of its
 own that is multisampled below two device pixels to a CSS pixel; at two or more a
 leaf's edge is softened where it is drawn instead. It keeps the leaves in the air, so make one per
