@@ -3,11 +3,12 @@
 //! search match may run across several text nodes.
 
 use super::pinned_font_policy_fixtures::{content_epub, layout};
-use super::revisions::{exact_source_range, search};
+use super::revisions::{exact_source_range, revision_by_id, search};
 use crate::runtime::{
     RuntimeDocument, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
     RuntimeRevisionHandle, RuntimeSearchRequest, RuntimeSearchSource, RuntimeSourcePoint,
-    RuntimeSourceRange,
+    RuntimeSourceRange, RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest,
+    RuntimeTextRangeFromPointsResolution, RuntimeTextSelectionGranularity,
 };
 
 const RUBY: &str = "<p>那个混杂在普通的<ruby><rb>白羊</rb><rt>军团</rt></ruby>之中，难以对付。</p>";
@@ -114,4 +115,73 @@ fn a_search_match_across_hidden_text_falls_back_to_one_node() {
     let range = search_source(&document, &revision_id, "xxab");
     assert_eq!(range.start, point(&[0, 0], 0));
     assert_eq!(range.end, point(&[0, 0], 3));
+}
+
+#[test]
+fn a_selection_from_a_ruby_base_builds_an_annotation_that_resolves() {
+    let (mut document, revision_id) = open(RUBY);
+    // Where 普通的 sits on the line, and the em its glyphs are: the ruby
+    // base 白羊 follows it, then 之中.
+    let before = exact_source_range(
+        &mut document,
+        &revision_id,
+        RuntimeExactSourceRangeRequest {
+            href: "chapter.xhtml".to_owned(),
+            source_range: RuntimeSourceRange {
+                start: point(&[0, 0], 5),
+                end: point(&[0, 0], 8),
+            },
+        },
+    )
+    .expect("the range is a valid selector");
+    let RuntimeExactSourceRangeResolution::Resolved { range } = before else {
+        panic!("plain text projects onto the page");
+    };
+    let rect = &range.rects[0];
+    let em = rect.width / 3.0;
+    let base = rect.x + rect.width;
+    let at = |x: f64| RuntimeTextPointRequest {
+        page_index: 0,
+        x,
+        y: rect.y + rect.height / 2.0,
+    };
+    // From inside the ruby base to inside 之中, word by word.
+    let response = document
+        .resolve_text_range_from_points_in(
+            &revision_id,
+            revision_by_id(&document, &revision_id),
+            RuntimeTextRangeFromPointsRequest {
+                anchor: at(base + 0.5 * em),
+                focus: at(base + 3.5 * em),
+                granularity: RuntimeTextSelectionGranularity::Word,
+            },
+        )
+        .expect("the selection request is valid");
+    let RuntimeTextRangeFromPointsResolution::Resolved { range, .. } = response.resolution else {
+        panic!("the selection resolves: {:?}", response.resolution);
+    };
+    let locator = range
+        .source_locator
+        .expect("the selection has one resource");
+    let source_range = locator
+        .source_range
+        .expect("the selection has a source range");
+    assert_eq!(source_range.start.node_path, vec![0, 1, 0, 0]);
+
+    // The host builds the annotation from the selection's own source range.
+    let target = document
+        .create_annotation_target(&locator.href, &source_range)
+        .expect("a selection from a ruby base builds an annotation target");
+    let text = project(
+        &mut document,
+        &revision_id,
+        source_range.start,
+        source_range.end,
+    );
+    assert!(text.starts_with("白羊"), "{text}");
+    assert!(
+        target.quote.exact.starts_with("白羊军团"),
+        "{:?}",
+        target.quote
+    );
 }
