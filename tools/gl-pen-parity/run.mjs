@@ -15,14 +15,16 @@
 //
 // Needs the demo reader on http://localhost:5173 (pnpm dev:reader). Runs
 // Chromium on the machine's GPU, as a reader would; GPU=0 runs the
-// headless default the pixel walks run in.
+// headless default the pixel walks run in. BROWSER=webkit or firefox runs
+// that engine instead, headed with HEADED=1; each spread line says which
+// pen painted it, so a lane with no `gpu` line has proved nothing.
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { launchUnthrottled } from '../resize-frames/shared.mjs';
 
-const { chromium } = createRequire(new URL('../../apps/reader/package.json', import.meta.url))(
-  '@playwright/test',
-);
+const { chromium, firefox, webkit } = createRequire(
+  new URL('../../apps/reader/package.json', import.meta.url),
+)('@playwright/test');
 const { PNG } = createRequire(new URL('../../package.json', import.meta.url))('pngjs');
 
 const RATIOS = (process.env.DPR ?? '1,2').split(',').map(Number);
@@ -172,7 +174,13 @@ async function compareDisplay(page, index) {
   return { width, height, differ, maxDelta, first, onGpu: undefined };
 }
 
-const browser = process.env.GPU === '0' ? await chromium.launch() : await launchUnthrottled();
+const BROWSER = process.env.BROWSER ?? 'chromium';
+const browser =
+  BROWSER !== 'chromium'
+    ? await { firefox, webkit }[BROWSER].launch({ headless: process.env.HEADED !== '1' })
+    : process.env.GPU === '0'
+      ? await chromium.launch()
+      : await launchUnthrottled();
 let failed = 0;
 let compared = 0;
 let gpu = 0;
@@ -189,6 +197,9 @@ try {
       await page.evaluate(() => localStorage.clear());
       await page.reload();
       await page.waitForFunction(() => typeof window.__ritoLoad === 'function');
+      // The demo opens a book at the size it has measured: a load asked
+      // for before its first measurement lands opens at width 0.
+      await page.waitForTimeout(1000);
       await page.evaluate(async (base64) => {
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
         await window.__ritoLoad(bytes.buffer);

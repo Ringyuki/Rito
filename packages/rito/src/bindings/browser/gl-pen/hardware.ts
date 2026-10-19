@@ -16,3 +16,23 @@ export function webglOnGpu(): boolean {
   }
   return onGpu;
 }
+
+let chromium: boolean | undefined;
+
+/**
+ * Whether the canvas here rasterizes text the way the GPU pen reproduces
+ * it. The pen places each glyph by laws measured on Chromium's canvas
+ * (quarter-pixel phases, advances within a joined cluster); WebKit's and
+ * Gecko's canvases place some glyphs otherwise (measured: up to 128 levels
+ * apart on more than half of a book's sampled spreads), so there the canvas
+ * pen paints every list and the GPU only copies it in.
+ */
+export function canvasTextMatchesGpuPen(): boolean {
+  chromium ??=
+    (
+      globalThis.navigator as
+        | { userAgentData?: { brands?: readonly { brand: string }[] } }
+        | undefined
+    )?.userAgentData?.brands?.some((entry) => entry.brand === 'Chromium') ?? false;
+  return chromium;
+}

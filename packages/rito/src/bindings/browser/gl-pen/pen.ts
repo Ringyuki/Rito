@@ -10,7 +10,7 @@ import {
 import { QuadBatch } from './batch';
 import { canvasChannels, paintsInColor } from './color-probe';
 import { penDevice, type GlPenDevice } from './device';
-import { webglOnGpu } from './hardware';
+import { canvasTextMatchesGpuPen, webglOnGpu } from './hardware';
 import { paintThroughCanvas } from './canvas-copy';
 import { drawRunGlyphs } from './run';
 import { RunInks } from './run-ink';
@@ -57,8 +57,8 @@ interface Walk {
  * for pixel as the canvas pen paints it on a canvas. A list of nothing but
  * primitives the GPU paints exactly (most pages of text) is drawn on the
  * GPU; any other, a list off the device grid, or any list where WebGL has
- * no GPU, is painted by the canvas pen and copied in. Answers false when
- * the context is lost.
+ * no GPU or the canvas places glyphs otherwise than Chromium's, is painted
+ * by the canvas pen and copied in. Answers false when the context is lost.
  */
 export function renderReaderPrimitivesToGl(
   list: CoreReaderPrimitiveList,
@@ -70,7 +70,10 @@ export function renderReaderPrimitivesToGl(
   const gl = target.gl;
   const scale = options.scale ?? 1;
   const onGpu =
-    scale === 1 && webglOnGpu() && paintsWhollyOnGpu(list, paintsInColor, themeOpaque(options));
+    scale === 1 &&
+    webglOnGpu() &&
+    canvasTextMatchesGpuPen() &&
+    paintsWhollyOnGpu(list, paintsInColor, themeOpaque(options));
   // Session-scoped tap for instruments: which pen painted the list.
   (globalThis as { __ritoGlPenTap?: (onGpu: boolean) => void }).__ritoGlPenTap?.(onGpu);
   gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);

@@ -128,7 +128,10 @@ decode and blit; neither holds a layout or paint law. The web's GPU pen
 (`packages/rito/src/bindings/browser/gl-pen/`) paints the same list into
 a WebGL2 framebuffer: a list of whole-pixel fills and plain text runs is
 drawn on the GPU from a glyph atlas the canvas rasterized, any other list
-is painted by the canvas pen and copied in, the same pixels either way. A browser reader
+is painted by the canvas pen and copied in, the same pixels either way.
+Only Chromium's canvas places glyphs as the GPU pen reproduces them; in
+WebKit and Gecko, and where WebGL has no GPU, every list goes through the
+canvas pen. A browser reader
 runs the engine on the page's own thread through `crates/rito-wasm`, so a
 frame draws the size it asks for; Flutter and other
 native hosts use the C ABI in `crates/rito-ffi`.

@@ -167,7 +167,10 @@ through `reader.renderSpreadTo` into a 2D canvas and into a WebGL2
 framebuffer and compares them pixel for pixel; any differing pixel fails
 the run. Each line says which pen painted the spread (`gpu` or
 `canvas`). Runs Chromium on the machine's GPU; `GPU=0` runs the headless
-default, where WebGL is a software rasterizer.
+default, where WebGL is a software rasterizer. `BROWSER=webkit` or
+`firefox` runs that engine (`HEADED=1` with a window): there the canvas pen
+paints every spread, and the lane holds the copy it makes to its own
+canvas.
 
 ## Line baseline against Chromium
 
