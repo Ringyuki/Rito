@@ -14,6 +14,7 @@ by hand.
 | WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and session protocol         |
 | Static       | `pnpm audit:dependencies`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | advisories, types, ESLint, Prettier                                                                 |
 | Unit         | `pnpm test:unit`                                                              | Vitest suites of core, kit and react, including the architecture invariants                         |
+| Browser unit | `pnpm --filter @ritojs/core test:browser`                                     | core's WebGL2 GPU pen in headless Chromium against the canvas pen; part of `test:unit` and coverage |
 | Integration  | `pnpm test:integration`                                                       | the public entry's export surface; no book is opened                                                |
 | Pixel suite  | `pnpm test:golden:pixel`                                                      | the built reader in Chromium: engine text geometry against the painted canvas                       |
 | Reader e2e   | `pnpm test:e2e`                                                               | the demo reader in Chromium: load, navigation, TOC, search, settings, reflow, selection             |

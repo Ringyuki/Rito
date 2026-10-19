@@ -235,6 +235,8 @@ jobs:
           cache: pnpm
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install --with-deps chromium
       - name: Run Coverage
         run: pnpm run test:coverage
       - name: Upload Coverage Reports
