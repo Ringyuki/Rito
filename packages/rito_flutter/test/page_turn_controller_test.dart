@@ -416,6 +416,8 @@ void main() {
     tester,
   ) async {
     final rig = _rig(tester);
+    // The pages beside the one shown are in their slots: a turn need not wait.
+    await tester.pump();
     rig.turns
       ..dragStart(const Offset(300, 500))
       ..dragUpdate(const Offset(180, 420));
@@ -456,6 +458,7 @@ void main() {
   ) async {
     final physics = _RecordingPhysics();
     final rig = _rig(tester, physics: physics);
+    await tester.pump();
     rig.turns
       ..dragStart(const Offset(300, 500))
       ..dragUpdate(const Offset(200, 480))
@@ -721,15 +724,17 @@ void main() {
 
       rig.turns.turn(_next);
 
-      // The first turn is over, landed where it stood; the second is its
-      // picture still moving, the page it left beside it.
-      expect(rig.turns.direction, _next);
+      // The first turn is over, landed where it stood; its picture is still
+      // moving, the page it left beside it, and the second waits for the
+      // page it brings in, as the web's does.
       final after = rig.turns.frame;
       expect(after.offset, closeTo(before.offset + 400, 1e-6));
       expect(after.velocity, closeTo(before.velocity, 1e-6));
       expect(after.incoming, RitoPageSlot.previous);
       expect(after.phase, RitoPageTurnPhase.returning);
       expect(rig.turns.textures.page(RitoPageSlot.previous), isNotNull);
+      await tester.pump();
+      expect(rig.turns.direction, _next);
 
       var last = after.offset;
       var crossed = false;
@@ -790,6 +795,8 @@ void main() {
       expect(rig.turns.frame.offset, closeTo(before.offset + 400, 1e-6));
 
       rig.turns.dragUpdate(const Offset(270, 0));
+      // It takes the page once the one it brings in is there.
+      await tester.pump();
       expect(rig.turns.direction, _next);
       final held = rig.turns.frame;
       // What was left of the first turn, and the finger's 30 px on top of it.
@@ -852,6 +859,7 @@ void main() {
 
   testWidgets('physics an application writes move the turn', (tester) async {
     final rig = _rig(tester, physics: const _VerticalPhysics());
+    await tester.pump();
     // A sideways drag is no travel to these physics: no turn begins.
     rig.turns
       ..dragStart(const Offset(200, 500))
@@ -882,6 +890,7 @@ void main() {
   ) async {
     final rig = _rig(tester);
     rig.turns.effect = _PhysicalEffect();
+    await tester.pump();
     // A sideways drag is no travel to the effect's physics: no turn begins.
     rig.turns
       ..dragStart(const Offset(200, 500))

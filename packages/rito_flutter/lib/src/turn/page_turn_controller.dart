@@ -87,6 +87,15 @@ final class RitoPageTurnController extends ChangeNotifier {
   bool _landing = false;
   RitoPreparedArtifact? _landed;
   RitoAdjacentDirection? _pendingTurn;
+
+  /// A turn asked for before the page it brings in was in its slot: by a
+  /// finger or by a key. It begins when the page is there, the finger's
+  /// page where the finger is by then, as the web's does.
+  ({RitoAdjacentDirection direction, bool byKey})? _awaiting;
+  bool _liftedWhileAwaiting = false;
+
+  /// Where the finger was last heard of.
+  Offset _lastPosition = Offset.zero;
   VoidCallback? _releasePagination;
 
   bool _dragActive = false;
@@ -205,6 +214,7 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// the controller's own clock tells, for this and every later sample.
   void dragStart(Offset position, {Duration? at}) {
     _dragOrigin = position;
+    _lastPosition = position;
     _dragAt = _ms(at);
     if (_open == null) {
       _dragActive = true;
@@ -217,13 +227,23 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// The finger is at [position], at [at].
   void dragUpdate(Offset position, {Duration? at}) {
     _dragAt = _ms(at);
+    _lastPosition = position;
     if (!_dragActive) return;
     final travel = _travel(position);
+    final awaiting = _awaiting;
+    if (awaiting != null) {
+      _track(position, travel, forward: _isNext(awaiting.direction));
+      return;
+    }
     if (_open == null) {
       if (travel == 0) return;
       final direction = travel < 0
           ? RitoAdjacentDirection.next
           : RitoAdjacentDirection.previous;
+      if (_await(direction, byKey: false)) {
+        _track(position, travel, forward: _isNext(direction));
+        return;
+      }
       _begin(direction);
       _motion.startDrag(
         forward: direction == RitoAdjacentDirection.next,
@@ -241,8 +261,23 @@ final class RitoPageTurnController extends ChangeNotifier {
     _dragWaiting = false;
     if (!_dragActive) return;
     _dragActive = false;
-    if (position != null && _open != null) {
+    if (position != null) {
+      _lastPosition = position;
       _dragAt = _ms(at);
+    }
+    final awaiting = _awaiting;
+    if (awaiting != null) {
+      _liftedWhileAwaiting = true;
+      if (position != null) {
+        _track(
+          position,
+          _travel(position),
+          forward: _isNext(awaiting.direction),
+        );
+      }
+      return;
+    }
+    if (position != null && _open != null) {
       _follow(position, _travel(position));
     }
     if (_motion.release(touch: _touch)) _commit();
@@ -255,10 +290,16 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// Where the finger is, and where it carried the turn farthest the way
   /// the turn goes, taken into the turn.
   void _follow(Offset position, double travel) {
+    _track(position, travel, forward: _motion.forward);
+    _motion.drag(travel, at: _dragAt);
+  }
+
+  /// Where the finger is, and where it carried the turn farthest [forward]
+  /// or back.
+  void _track(Offset position, double travel, {required bool forward}) {
     final far = _farthest;
     final farther =
-        far == null ||
-        (_motion.forward ? travel < far.travel : travel > far.travel);
+        far == null || (forward ? travel < far.travel : travel > far.travel);
     final farthest = farther ? (travel: travel, at: position) : far;
     _farthest = farthest;
     _touch = RitoPageTurnTouch(
@@ -266,7 +307,54 @@ final class RitoPageTurnController extends ChangeNotifier {
       position: position,
       farthest: farthest.at,
     );
-    _motion.drag(travel, at: _dragAt);
+  }
+
+  static bool _isNext(RitoAdjacentDirection direction) =>
+      direction == RitoAdjacentDirection.next;
+
+  /// Waits for the page a turn [direction] brings in when it is to be had
+  /// but not in its slot yet; false when the turn can begin now.
+  bool _await(RitoAdjacentDirection direction, {required bool byKey}) {
+    if (!reader.canTurn(direction) ||
+        textures.page(_slotOf(direction)) != null) {
+      return false;
+    }
+    _awaiting = (direction: direction, byKey: byKey);
+    _liftedWhileAwaiting = false;
+    _fetchNeighbour(direction, reveal: false, then: _arrived);
+    return true;
+  }
+
+  /// The page a waiting turn brings in is in its slot (or will not be):
+  /// the turn begins, a finger's where the finger is by then, let go at
+  /// once if it has lifted.
+  void _arrived(RitoAdjacentDirection direction, {required bool there}) {
+    final awaiting = _awaiting;
+    if (awaiting == null || awaiting.direction != direction) return;
+    _awaiting = null;
+    final lifted = _liftedWhileAwaiting;
+    _liftedWhileAwaiting = false;
+    if (!there) {
+      _touch = null;
+      _farthest = null;
+      return;
+    }
+    if (awaiting.byKey) {
+      turn(direction);
+      return;
+    }
+    if (!_dragActive && !lifted) return;
+    final farthest = _farthest;
+    _begin(direction);
+    _farthest = farthest;
+    _motion.startDrag(
+      forward: _isNext(direction),
+      hasIncoming: true,
+      at: _dragAt,
+    );
+    _follow(_lastPosition, _travel(_lastPosition));
+    if (lifted && _motion.release(touch: _touch)) _commit();
+    _run();
   }
 
   /// [at] in ms, or the controller's clock when a caller does not say.
@@ -278,6 +366,10 @@ final class RitoPageTurnController extends ChangeNotifier {
     _dragWaiting = false;
     if (!_dragActive) return;
     _dragActive = false;
+    if (_awaiting?.byKey == false) {
+      _awaiting = null;
+      return;
+    }
     _motion.cancel();
     _run();
   }
@@ -289,6 +381,8 @@ final class RitoPageTurnController extends ChangeNotifier {
     if (_dragActive) return false;
     if (_open == null) {
       if (!reader.canTurn(direction)) return false;
+      if (_awaiting != null) return true;
+      if (_await(direction, byKey: true)) return true;
       _begin(direction);
       _motion.turn(forward: direction == RitoAdjacentDirection.next);
       _commit();
@@ -355,7 +449,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     }
     if (reader.canTurn(direction) &&
         textures.page(_slotOf(direction)) == null) {
-      _fetchNeighbour(direction, reveal: true);
+      _fetchNeighbour(direction, reveal: false);
     }
     _events.add(RitoPageTurnStarted(direction));
     _run();
@@ -521,6 +615,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     // was on its way carries on, a finger's drag included.
     _motion.reset();
     _pendingTurn = null;
+    _awaiting = null;
     _dragWaiting = false;
     _dragActive = false;
     _end(RitoPageTurnOutcome.interrupted);
@@ -580,13 +675,19 @@ final class RitoPageTurnController extends ChangeNotifier {
   void _fetchNeighbour(
     RitoAdjacentDirection direction, {
     required bool reveal,
+    void Function(RitoAdjacentDirection direction, {required bool there})? then,
   }) {
     final revision = reader.revision;
     reader.neighbour(direction).then<void>((page) {
-      if (page == null || revision != reader.revision || _disposed) return;
+      if (revision != reader.revision || _disposed) return;
+      if (page == null) {
+        then?.call(direction, there: false);
+        return;
+      }
       final shown = reveal && _open == direction;
       textures.assign(_slotOf(direction), page, reveal: shown);
       if (shown) _run();
+      then?.call(direction, there: true);
     }, onError: _report);
   }
 

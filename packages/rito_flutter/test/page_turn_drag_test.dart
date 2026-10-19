@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,6 +75,70 @@ void main() {
     expect(turns.isTurning, isFalse);
     await mouse.up();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'a finger whose page is not there yet waits for it, then takes it where the finger is',
+    (tester) async {
+      final source = FakePageSource()..peekGate = Completer<void>();
+      final reader = RitoReaderController.withSource(
+        source,
+        layout: fakeLayout,
+      );
+      final turns = RitoPageTurnController(
+        reader: reader,
+        vsync: tester,
+        paintPage: (canvas, size, page) {},
+      )..width = 400;
+      addTearDown(() {
+        turns.dispose();
+        reader.dispose();
+      });
+      await tester.pump();
+      turns
+        ..dragStart(const Offset(300, 300))
+        ..dragUpdate(const Offset(280, 300))
+        ..dragUpdate(const Offset(240, 300))
+        ..dragUpdate(const Offset(250, 300));
+      // No turn while the next page is on its way, nothing drawn of one.
+      expect(turns.isTurning, isFalse);
+      expect(turns.frame.offset, 0);
+      source.peekGate!.complete();
+      source.peekGate = null;
+      await tester.pump();
+      // The page is where the finger is by now, the farthest it went kept.
+      expect(turns.direction, RitoAdjacentDirection.next);
+      expect(turns.frame.offset, -50);
+      expect(turns.frame.touch!.farthest, const Offset(240, 300));
+      turns.dragEnd();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
+  testWidgets('a key whose page is not there yet turns once it is', (
+    tester,
+  ) async {
+    final source = FakePageSource()..peekGate = Completer<void>();
+    final reader = RitoReaderController.withSource(source, layout: fakeLayout);
+    final turns = RitoPageTurnController(
+      reader: reader,
+      vsync: tester,
+      paintPage: (canvas, size, page) {},
+    )..width = 400;
+    addTearDown(() {
+      turns.dispose();
+      reader.dispose();
+    });
+    await tester.pump();
+    expect(turns.turn(RitoAdjacentDirection.next), isTrue);
+    expect(turns.isTurning, isFalse);
+    source.peekGate!.complete();
+    source.peekGate = null;
+    await tester.pump();
+    expect(turns.direction, RitoAdjacentDirection.next);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
   test('measures the finger as the web does', () {
