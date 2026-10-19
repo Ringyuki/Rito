@@ -164,6 +164,31 @@ impl TextFragment {
             index: 0,
         }
     }
+
+    /// Every cluster with the origin of the segment it is placed from, in
+    /// cluster order. Its length is the clusters' count, so collecting it
+    /// allocates once.
+    pub fn clusters_with_origins(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (f64, &ClusterPosition)> + '_ {
+        let segments = self.segments.as_deref();
+        let mut segment = 0usize;
+        (0..self.clusters.len()).map(move |index| {
+            let origin = match segments {
+                None => self.rect.x,
+                Some(segments) => {
+                    while segments
+                        .get(segment + 1)
+                        .is_some_and(|next| next.cluster as usize <= index)
+                    {
+                        segment += 1;
+                    }
+                    segments[segment].x
+                }
+            };
+            (origin, &self.clusters[index])
+        })
+    }
 }
 
 /// The iterator [`TextFragment::segment_clusters`] answers.

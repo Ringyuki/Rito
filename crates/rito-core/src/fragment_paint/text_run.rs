@@ -425,15 +425,15 @@ pub(super) fn append_text_run_command(
     // strings draws it in the same string and a pen drawing clusters still
     // has its origin. A segment's first cluster starts a string.
     let clusters = run
-        .segment_clusters()
-        .flat_map(|(segment_x, clusters)| {
+        .clusters_with_origins()
+        .map(|(segment_x, cluster)| {
             let origin_x = line_x + segment_x + run.ruby_center_shift_px;
-            clusters.iter().map(move |cluster| TextCluster {
+            TextCluster {
                 byte: cluster.byte - run.text_start,
                 x: cluster_x(origin_x + cluster.x, run.cluster_grid),
                 y: baseline,
                 joins: cluster.joins,
-            })
+            }
         })
         .collect();
     let command = DisplayTextCommand {

@@ -34,6 +34,17 @@ pub(in crate::render::commands::reader_wire) struct TextTables {
 }
 
 impl TextTables {
+    /// Tables with room for `clusters` clusters and `text` bytes of text.
+    pub(super) fn with_capacity(clusters: usize, text: usize) -> Self {
+        Self {
+            bytes: Vec::with_capacity(clusters),
+            origins: Vec::with_capacity(2 * clusters),
+            joins: Vec::with_capacity(clusters),
+            text: String::with_capacity(text),
+            ..Self::default()
+        }
+    }
+
     /// A run's text: its byte range in the text table and the same range
     /// in UTF-16 code units, where a host decoding the table once into a
     /// UTF-16 string finds it.
@@ -102,6 +113,7 @@ impl TextTables {
 
     /// Appends the tables after the last primitive.
     pub(super) fn finish(self, output: &mut Vec<u8>) -> Result<(), ReaderDisplayListWireError> {
+        output.reserve(4 + 3 + 13 * self.bytes.len() + 4 + self.text.len() + 4 + self.paints.len());
         write_length(output, self.bytes.len(), "cluster table")?;
         while !output.len().is_multiple_of(4) {
             output.push(0);

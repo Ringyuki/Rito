@@ -31,12 +31,22 @@ pub(in crate::render::commands::reader_wire) fn encode_primitive_list(
     list: &PrimitiveList,
 ) -> Result<Vec<u8>, ReaderDisplayListWireError> {
     let count = checked_length(list.commands.len(), "primitive")?;
+    // The tables are sized once for every run's clusters and text.
+    let (clusters, text) = list
+        .commands
+        .iter()
+        .fold((0, 0), |(clusters, text), primitive| match primitive {
+            Primitive::Text(run) | Primitive::Ruby(run) => {
+                (clusters + run.clusters.len(), text + run.text.len())
+            }
+            _ => (clusters, text),
+        });
     let mut output = Vec::new();
     output.extend_from_slice(READER_DISPLAY_LIST_MAGIC);
     write_u32(&mut output, READER_PRIMITIVE_LIST_FORMAT_VERSION);
     write_finite_f64(&mut output, list.ratio)?;
     write_u32(&mut output, count);
-    let mut tables = TextTables::default();
+    let mut tables = TextTables::with_capacity(clusters, text);
     for primitive in &list.commands {
         write_primitive(&mut output, &mut tables, primitive)?;
     }
