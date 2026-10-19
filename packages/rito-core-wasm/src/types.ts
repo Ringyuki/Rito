@@ -1,4 +1,5 @@
 export type * from './types/frame-command';
+export type * from './types/paper-turn';
 export type * from './types/pinned-font';
 export type * from './types/sharded-publication';
 export type * from './types/reader-session-display';
