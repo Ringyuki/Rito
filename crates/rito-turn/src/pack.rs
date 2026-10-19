@@ -32,13 +32,13 @@ fn point(numbers: &[f64]) -> Point {
 fn page(numbers: &[f64]) -> Option<PageRef> {
     (numbers[0] != 0.0).then(|| PageRef {
         spread: numbers[1] as i64,
-        content: numbers[2] as u64,
+        buffer: numbers[2] as u64,
     })
 }
 
 fn put_page(out: &mut [f64], page: Option<PageRef>) {
     match page {
-        Some(page) => out.copy_from_slice(&[1.0, page.spread as f64, page.content as f64]),
+        Some(page) => out.copy_from_slice(&[1.0, page.spread as f64, page.buffer as f64]),
         None => out.fill(0.0),
     }
 }
@@ -48,7 +48,7 @@ impl FrameInput {
     /// (dx, incoming 0 none / 1 next / 2 prev, phase 0 held / 1 landing /
     /// 2 returning); the touch (present, origin x, y, position x, y, farthest
     /// present, x, y); the current page and the incoming one (present,
-    /// spread, content); the time in ms and the GPU context's epoch.
+    /// spread, buffer); the time in ms and the GPU context's epoch.
     pub fn read(numbers: &[f64]) -> Self {
         let touch = (numbers[7] != 0.0).then(|| Touch {
             origin: point(&numbers[8..10]),
@@ -136,7 +136,8 @@ fn face(face: Face) -> (f64, f64) {
 
 /// Writes a sheet's description: the page on its front and its back (kind
 /// 0 none / 1 a leaf's front / 2 a leaf's after, and the leaf), how far over
-/// it is, whether it lies still, and its curl (present, dx, dy, at, radius).
+/// it is, the name of its points when it lies still (0 when it moves), and
+/// its curl (present, dx, dy, at, radius).
 pub fn write_sheet(sheet: &Sheet<'_>, out: &mut [f64]) {
     let (front_kind, front_leaf) = face(sheet.front);
     let (back_kind, back_leaf) = face(sheet.back);
@@ -146,7 +147,7 @@ pub fn write_sheet(sheet: &Sheet<'_>, out: &mut [f64]) {
         back_kind,
         back_leaf,
         sheet.shown,
-        if sheet.still { 1.0 } else { 0.0 },
+        sheet.still.map_or(0.0, |name| name as f64),
     ]);
     match sheet.curl {
         Some(curl) => out[6..11].copy_from_slice(&[1.0, curl.dx, curl.dy, curl.at, curl.radius]),
@@ -210,7 +211,7 @@ mod tests {
             },
             current: Some(PageRef {
                 spread: 10,
-                content: 1010,
+                buffer: 1010,
             }),
             incoming: None,
             now: 1234.5,

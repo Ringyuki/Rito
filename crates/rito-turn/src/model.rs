@@ -291,7 +291,7 @@ impl PaperModel {
         read: &LeafTurn,
         shape: LeafShape,
     ) -> (usize, Vec<LeafId>) {
-        let printed = read.front.map(|page| page.content);
+        let printed = read.front.map(|page| page.buffer);
         let mut replaced = Vec::new();
         let mut found = self.book.iter().position(|leaf| leaf.spread == read.spread);
         // The same place in another book: what is remembered of it is of something else.
@@ -330,7 +330,7 @@ impl PaperModel {
         Leaf {
             id,
             spread: read.spread,
-            printed: read.front.map(|page| page.content),
+            printed: read.front.map(|page| page.buffer),
             shape,
             curled: if shape.spine == 0.0 {
                 Some(curled_flat())

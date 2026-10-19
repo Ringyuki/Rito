@@ -54,5 +54,5 @@ pub struct Frame {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PageRef {
     pub spread: i64,
-    pub content: u64,
+    pub buffer: u64,
 }

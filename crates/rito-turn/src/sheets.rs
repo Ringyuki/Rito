@@ -14,8 +14,10 @@ pub enum Face {
 }
 
 /// A sheet of a frame: where its points are and how they face, the page on
-/// each face, how far over it is, whether it lies still (the same points
-/// every frame while the layout lasts), and the curl it is laid out through.
+/// each face, how far over it is, whether it lies still, and the curl it is
+/// laid out through. A sheet lying still has the same points every frame
+/// while the frame keeps its size: `still` names them, by a number of the
+/// model's that is another whenever they are laid out anew.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sheet<'a> {
     pub positions: &'a [f32],
@@ -23,7 +25,7 @@ pub struct Sheet<'a> {
     pub front: Face,
     pub back: Face,
     pub shown: f64,
-    pub still: bool,
+    pub still: Option<u64>,
     pub curl: Option<Curl>,
 }
 
@@ -37,6 +39,8 @@ struct Lying {
 /// The two sheets lying flat for a leaf of this shape on this grid, laid out once.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Flat {
+    /// How many times the flat sheets have been laid out: what names their points.
+    generation: u64,
     shape: LeafShape,
     columns: usize,
     rows: usize,
@@ -52,10 +56,12 @@ impl Flat {
         columns: usize,
         rows: usize,
     ) -> Flat {
+        let mut generation = 1;
         if let Some(kept) = kept {
             if kept.shape == shape && kept.columns == columns && kept.rows == rows {
                 return kept;
             }
+            generation = kept.generation + 1;
         }
         let lying = |turned: f64| {
             let mut positions = vec![0.0f32; columns * rows * 3];
@@ -72,6 +78,7 @@ impl Flat {
             Lying { positions, normals }
         };
         Flat {
+            generation,
             shape,
             columns,
             rows,
@@ -95,7 +102,7 @@ pub(crate) fn sheets<'a>(flat: &'a Flat, book: &'a [Leaf], spine: f64) -> Vec<Sh
             front: Face::None,
             back: book.first().map_or(Face::None, |leaf| Face::Front(leaf.id)),
             shown: 1.0,
-            still: true,
+            still: Some(flat.generation * 2 + 1),
             curl: None,
         });
     }
@@ -112,7 +119,7 @@ pub(crate) fn sheets<'a>(flat: &'a Flat, book: &'a [Leaf], spine: f64) -> Vec<Sh
                 Face::After(leaf.id)
             },
             shown: leaf.shown,
-            still: false,
+            still: None,
             curl,
         });
     }
@@ -122,7 +129,7 @@ pub(crate) fn sheets<'a>(flat: &'a Flat, book: &'a [Leaf], spine: f64) -> Vec<Sh
         front: book.last().map_or(Face::None, |leaf| Face::After(leaf.id)),
         back: Face::None,
         shown: 0.0,
-        still: true,
+        still: Some(flat.generation * 2),
         curl: None,
     });
     sheets
