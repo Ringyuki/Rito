@@ -138,3 +138,4 @@ export 'src/turn/page_textures.dart'
 export 'src/turn/page_turn_controller.dart';
 export 'src/turn/page_turn_events.dart';
 export 'src/turn/page_turn_view.dart';
+export 'src/turn/paper/paper_turn_effect.dart' show RitoPaperTurnEffect;

@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import 'motion.dart';
+
 /// The pages a turn can show: the one on screen and its neighbours.
 enum RitoPageSlot { previous, current, next }
 
@@ -149,6 +151,16 @@ abstract class RitoPageTurnEffect {
   /// a ripple as it lands). Null for an effect that only follows the
   /// frame.
   Listenable? get repaint => null;
+
+  /// How turns move with this effect: the physics it is made for, which
+  /// the controller takes over its own. Null for an effect that moves as
+  /// the controller's physics say.
+  RitoPageTurnPhysics? get physics => null;
+
+  /// Called between turns once the pages beside the one shown are painted:
+  /// the place for work on those pages that a turn would otherwise do in
+  /// its first frames, such as copying them where the effect draws from.
+  void warm(RitoPageTurnPages pages) {}
 
   void paint(RitoPageTurnScene scene, RitoPageTurnFrame frame);
 }

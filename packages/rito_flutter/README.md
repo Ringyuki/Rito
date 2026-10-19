@@ -148,6 +148,24 @@ ListenableBuilder(
 );
 ```
 
+`RitoPaperTurnEffect` turns a page as the web reader's paper turn does:
+curled over on itself under the finger, its back showing its print
+through, its shadow on the page beneath; how the paper moves and where it
+is are the engine's, the same as on the web. It draws with Flutter GPU,
+which needs Impeller and which the app enables (Android: the
+`io.flutter.embedding.android.EnableFlutterGPU` meta-data set to `true` in
+the manifest; iOS: `FLTEnableFlutterGPU` set to `true` in Info.plist);
+without it turns are drawn as `cover`. Make one per controller and dispose
+of it with the controller:
+
+```dart
+final paper = RitoPaperTurnEffect();
+final turns = RitoPageTurnController(reader: reader, vsync: this, effect: paper);
+// ...
+turns.dispose();
+paper.dispose();
+```
+
 A full integration reference lives in `doc/INTEGRATION.md`.
 
 ## Fonts

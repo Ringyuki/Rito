@@ -107,6 +107,12 @@ class RitoPageTurnPhysics {
   /// page turns.
   double travel(Offset origin, Offset position) => position.dx - origin.dx;
 
+  /// [travel] in a turn [width] logical px wide: what the controller asks.
+  /// Physics whose travel depends on the width the turn crosses override
+  /// this; the rest are asked [travel].
+  double travelAcross(Offset origin, Offset position, double width) =>
+      travel(origin, position);
+
   /// Where a pull of [travel] px leaves the page when no neighbour lies
   /// that way: it stretches like a rubber band.
   double resist(double travel, double width) {

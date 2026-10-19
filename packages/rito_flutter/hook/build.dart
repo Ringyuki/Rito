@@ -1,4 +1,5 @@
 import 'package:code_assets/code_assets.dart';
+import 'package:flutter_gpu_shaders/build.dart';
 import 'package:hooks/hooks.dart';
 import 'package:rito_flutter/src/native/asset.dart';
 
@@ -8,6 +9,12 @@ import 'package:rito_flutter/src/hook/toolchains.dart';
 
 Future<void> main(List<String> arguments) async {
   await build(arguments, (input, output) async {
+    // The paper turn's shaders, made from the web's (`shaders/paper`).
+    await buildShaderBundleJson(
+      buildInput: input,
+      buildOutput: output,
+      manifestFileName: 'shaders/paper/paper.shaderbundle.json',
+    );
     if (!input.config.buildCodeAssets) {
       return;
     }

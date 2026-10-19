@@ -59,6 +59,21 @@ Future<void> _settle(WidgetTester tester, {int frames = 120}) async {
 
 /// Turns pages under a vertical drag, turns on any release past a quarter
 /// of the page however the finger was moving, and takes one second to rest.
+/// An effect that brings the vertical physics, and says when it is warmed.
+final class _PhysicalEffect extends RitoLayeredPageTurnEffect {
+  final warmed = <RitoPageTurnPages>[];
+
+  @override
+  RitoPageTurnPhysics get physics => const _VerticalPhysics();
+
+  @override
+  void warm(RitoPageTurnPages pages) => warmed.add(pages);
+
+  @override
+  List<RitoPageTurnLayer> layers(RitoPageTurnFrame frame) =>
+      RitoPageTurnEffects.slide.layers(frame);
+}
+
 final class _VerticalPhysics extends RitoPageTurnPhysics {
   const _VerticalPhysics();
 
@@ -849,6 +864,44 @@ void main() {
     await _settle(tester, frames: 15);
     expect(rig.events, ['start:next', 'end:next:committed']);
   });
+
+  testWidgets('an effect that brings physics moves the turn by them', (
+    tester,
+  ) async {
+    final rig = _rig(tester);
+    rig.turns.effect = _PhysicalEffect();
+    // A sideways drag is no travel to the effect's physics: no turn begins.
+    rig.turns
+      ..dragStart(const Offset(200, 500))
+      ..dragUpdate(const Offset(60, 500));
+    expect(rig.turns.isTurning, isFalse);
+    rig.turns.dragUpdate(const Offset(60, 380));
+    expect(rig.turns.frame.offset, -120);
+    rig.turns.dragCancel();
+    // Back to an effect without physics: the controller's own again.
+    rig.turns.effect = RitoPageTurnEffects.slide;
+    await _settle(tester);
+    rig.turns
+      ..dragStart(const Offset(200, 500))
+      ..dragUpdate(const Offset(60, 500));
+    expect(rig.turns.frame.offset, -140);
+    rig.turns.dragCancel();
+    await _settle(tester);
+  });
+
+  testWidgets(
+    'warms the effect once the pages beside the one shown are painted',
+    (tester) async {
+      final rig = _rig(tester);
+      final effect = _PhysicalEffect();
+      rig.turns.effect = effect;
+      await _settle(tester, frames: 10);
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await _settle(tester, frames: 10);
+      expect(effect.warmed, isNotEmpty);
+      expect(effect.warmed.last.image(RitoPageSlot.current), isNotNull);
+    },
+  );
 
   testWidgets('an effect on a clock of its own repaints the turn', (
     tester,

@@ -57,6 +57,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.7"
+  data_assets:
+    dependency: transitive
+    description:
+      name: data_assets
+      sha256: "8bfdbf25ec8a0f4b5a3c993042c4ab9996ba354f0b03d40f4e360f3730d71cae"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.0"
   fake_async:
     dependency: transitive
     description:
@@ -78,6 +86,19 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_gpu:
+    dependency: "direct main"
+    description: flutter
+    source: sdk
+    version: "0.0.0"
+  flutter_gpu_shaders:
+    dependency: "direct main"
+    description:
+      name: flutter_gpu_shaders
+      sha256: "1e8c5438c24e79629f5688c7b5dfd2b7cf09b36b443a806bc8c083cd8c04644a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.2"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -233,7 +254,7 @@ packages:
     source: hosted
     version: "1.4.0"
   vector_math:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: vector_math
       sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b

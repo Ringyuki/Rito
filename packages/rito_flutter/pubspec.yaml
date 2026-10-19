@@ -20,11 +20,19 @@ dependencies:
   ffi: ^2.1.4
   flutter:
     sdk: flutter
+  flutter_gpu:
+    sdk: flutter
+  flutter_gpu_shaders: ^0.5.2
   hooks: ^2.0.2
+  vector_math: ^2.2.0
 
 dev_dependencies:
   characters: ^1.4.1
   flutter_test:
     sdk: flutter
 
-flutter: {}
+flutter:
+  assets:
+    # The paper turn's shaders, compiled by the build hook for the Flutter
+    # building the app (a bundle is stamped with the impellerc that made it).
+    - build/shaderbundles/paper.shaderbundle

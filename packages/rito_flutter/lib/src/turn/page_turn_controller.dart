@@ -38,7 +38,8 @@ final class RitoPageTurnController extends ChangeNotifier {
     RitoPagePainter paintPage = ritoPaintArtifactPage,
     this.respectReducedMotion = true,
     this.prewarm = true,
-  }) : _motion = RitoTurnMotion(physics),
+  }) : _motion = RitoTurnMotion(effect.physics ?? physics),
+       _physics = physics,
        _effect = effect,
        _revision = reader.revision {
     textures = RitoPageTextures(
@@ -146,14 +147,26 @@ final class RitoPageTurnController extends ChangeNotifier {
     );
   }
 
-  RitoPageTurnPhysics get physics => _motion.physics;
-  set physics(RitoPageTurnPhysics value) => _motion.physics = value;
+  /// How turns move, unless the effect brings physics of its own.
+  RitoPageTurnPhysics get physics => _physics;
+  set physics(RitoPageTurnPhysics value) {
+    _physics = value;
+    _applyPhysics();
+  }
+
+  RitoPageTurnPhysics _physics;
+
+  void _applyPhysics() {
+    _motion.physics = effectiveEffect.physics ?? _physics;
+  }
 
   /// The configured effect; see [effectiveEffect].
   RitoPageTurnEffect get effect => _effect;
   set effect(RitoPageTurnEffect value) {
     if (identical(value, _effect)) return;
     _effect = value;
+    _applyPhysics();
+    _scheduleWarm();
     notifyListeners();
   }
 
@@ -163,6 +176,7 @@ final class RitoPageTurnController extends ChangeNotifier {
   set reduceMotion(bool value) {
     if (value == _reduceMotion) return;
     _reduceMotion = value;
+    _applyPhysics();
     notifyListeners();
   }
 
@@ -196,7 +210,11 @@ final class RitoPageTurnController extends ChangeNotifier {
   void dragUpdate(Offset position) {
     _dragPosition = position;
     if (!_dragActive) return;
-    final travel = physics.travel(_dragOrigin, position);
+    final travel = _motion.physics.travelAcross(
+      _dragOrigin,
+      position,
+      _motion.width,
+    );
     if (_open == null) {
       if (travel == 0) return;
       final direction = travel < 0
@@ -236,8 +254,14 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// the physics' travel changes over the next 1/1024 s of it.
   double _speedAlongTurn(Offset velocity) {
     const step = 1 / 1024;
-    return (physics.travel(_dragOrigin, _dragPosition + velocity * step) -
-            physics.travel(_dragOrigin, _dragPosition)) /
+    final physics = _motion.physics;
+    final width = _motion.width;
+    return (physics.travelAcross(
+              _dragOrigin,
+              _dragPosition + velocity * step,
+              width,
+            ) -
+            physics.travelAcross(_dragOrigin, _dragPosition, width)) /
         step;
   }
 
@@ -537,6 +561,8 @@ final class RitoPageTurnController extends ChangeNotifier {
       _scheduleWarm();
       return;
     }
+    // Every page is painted: the effect may copy them where it draws from.
+    effectiveEffect.warm(textures);
   }
 
   void _fetchNeighbour(
