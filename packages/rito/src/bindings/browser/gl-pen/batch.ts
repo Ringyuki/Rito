@@ -63,6 +63,36 @@ export class QuadBatch {
     this.count += 1;
   }
 
+  /** `push('glyph', …)`, for the run loop's every inked cluster. */
+  glyph(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    u: number,
+    v: number,
+    ink: { readonly red: number; readonly green: number; readonly blue: number },
+  ): void {
+    if (this.kind !== 'glyph') {
+      this.flush();
+      this.kind = 'glyph';
+    }
+    const at = this.count * INSTANCE_FLOATS;
+    if (at + INSTANCE_FLOATS > this.data.length) this.grow();
+    const data = this.data;
+    data[at] = x;
+    data[at + 1] = y;
+    data[at + 2] = width;
+    data[at + 3] = height;
+    data[at + 4] = u;
+    data[at + 5] = v;
+    data[at + 6] = ink.red;
+    data[at + 7] = ink.green;
+    data[at + 8] = ink.blue;
+    data[at + 9] = 1;
+    this.count += 1;
+  }
+
   /** Clips what is drawn from now on to a device rect, or to nothing narrower than the target. */
   clip(scissor: Scissor | null): void {
     if (scissor === this.scissor) return;

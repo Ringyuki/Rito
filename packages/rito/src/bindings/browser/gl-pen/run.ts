@@ -90,8 +90,7 @@ function placeCluster(
   if (cell === undefined) return false;
   if (cell.width === 0) return true;
   const row = deviceRow(y, table.ratio, at.ty);
-  batch.push(
-    'glyph',
+  batch.glyph(
     whole - cell.originX,
     row - cell.originY,
     cell.width,
@@ -123,10 +122,11 @@ function familyOf(
     unitLength(code) === 1 &&
     (next === undefined ? unit + 1 === text.length : next === start + utf8Length(code));
   if (single) {
-    let family = table.byCode.get(code);
+    const page = (table.byCode[code >> 8] ??= new Array<GlyphFamily | undefined>(256));
+    let family = page[code & 0xff];
     if (family === undefined) {
       family = { text: String.fromCharCode(code), cells: [], reach: undefined };
-      table.byCode.set(code, family);
+      page[code & 0xff] = family;
     }
     return family;
   }

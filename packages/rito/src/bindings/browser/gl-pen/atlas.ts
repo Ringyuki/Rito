@@ -42,7 +42,13 @@ export interface GlyphTable {
   readonly red: number;
   readonly green: number;
   readonly blue: number;
-  readonly byCode: Map<number, GlyphFamily>;
+  /**
+   * The families of clusters of one UTF-16 code, by the code: 256 pages of
+   * 256, a page made when a code in it is first drawn, so a cluster's
+   * family is two array reads away.
+   */
+  readonly byCode: (GlyphFamily | undefined)[][];
+  /** The families of longer clusters, by their text. */
   readonly byText: Map<string, GlyphFamily>;
 }
 
@@ -106,7 +112,7 @@ export class GlyphAtlas {
         red: (channels[0] ?? 0) / 255,
         green: (channels[1] ?? 0) / 255,
         blue: (channels[2] ?? 0) / 255,
-        byCode: new Map(),
+        byCode: [],
         byText: new Map(),
       };
       this.tables.set(key, table);
