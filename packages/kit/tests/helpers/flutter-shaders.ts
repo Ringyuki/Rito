@@ -37,15 +37,58 @@ interface Entry {
   readonly source: string;
   /** Whether it reads textures another pass rendered. */
   readonly readsTargets?: boolean;
+  /** Whether it reads pages: over the pixel's footprint, for the web's mipmaps. */
+  readonly readsPages?: boolean;
 }
+
+/**
+ * How a page is read where Flutter GPU has no smaller copies of it: the
+ * web reads a page tilted away from the eye from its mipmaps, up to eight
+ * times along the way it is squeezed. Here the pixel's footprint on the
+ * page is told before the web's \`main\` runs (derivatives are not to be
+ * had after a \`discard\`), and a page is read at up to eight places along
+ * its longer side. \`uTexels\` is the page's size in texels; the sheet's
+ * page coordinate is its uv scaled across by \`uSheet\`, front and back.
+ */
+const PAGE_FOOTPRINT = [
+  'vec2 footprintAlong;',
+  'float footprintReads;',
+  'void footprintOf(vec2 across, vec2 down) {',
+  '  float x = length(across * uTexels);',
+  '  float y = length(down * uTexels);',
+  // A page drawn texel for texel is read once, whatever rounding its derivatives carry.
+  '  footprintReads = clamp(ceil(max(x, y) / max(min(x, y), 1.0) - 0.01), 1.0, 8.0);',
+  '  footprintAlong = x > y ? across : down;',
+  '}',
+  'vec4 pageTexel(sampler2D page, vec2 at) {',
+  '  if (footprintReads < 1.5) return texture(page, at);',
+  '  vec4 sum = vec4(0.0);',
+  '  for (int i = 0; i < 8; i++) {',
+  '    if (float(i) >= footprintReads) break;',
+  '    sum += texture(page, at + footprintAlong * ((float(i) + 0.5) / footprintReads - 0.5));',
+  '  }',
+  '  return sum / footprintReads;',
+  '}',
+  '#define texture2D pageTexel',
+];
 
 /** Every varying the shaders pass, at one location each. */
 const VARYINGS = ['vAt', 'vHeight', 'vLit', 'vPast', 'vUv'];
 
 export const FLUTTER_SHADERS: readonly Entry[] = [
   { name: 'SheetVertex', stage: 'vertex', source: sheetVertex(false) },
-  { name: 'SheetFragment', stage: 'fragment', source: sheetFragment(false, false) },
-  { name: 'SheetSoftenedFragment', stage: 'fragment', source: sheetFragment(true, false) },
+  {
+    name: 'SheetFragment',
+    stage: 'fragment',
+    source: sheetFragment(false, false),
+    readsPages: true,
+  },
+  {
+    name: 'SheetSoftenedFragment',
+    stage: 'fragment',
+    source: sheetFragment(true, false),
+    readsPages: true,
+  },
   { name: 'CastVertex', stage: 'vertex', source: CAST_VERTEX },
   { name: 'CastFragment', stage: 'fragment', source: CAST_FRAGMENT },
   { name: 'CoverVertex', stage: 'vertex', source: COVER_VERTEX },
@@ -100,6 +143,7 @@ export function flutterShader(entry: Entry): string {
     body.push(line);
   }
   if (entry.readsTargets) block.push('  vec2 uFlip;');
+  if (entry.readsPages) block.push('  vec2 uTexels;');
   const head = [
     `// Made from the web paper turn's ${entry.name} (packages/kit/src/driver/paper);`,
     '// regenerate with RITO_EMIT_SHADERS=1 pnpm --filter @ritojs/kit test paper-flutter-shaders.',
@@ -122,11 +166,23 @@ export function flutterShader(entry: Entry): string {
         '}',
         '#define texture2D readTarget',
       );
+    } else if (entry.readsPages) {
+      head.push(...PAGE_FOOTPRINT);
     } else {
       head.push('#define texture2D texture');
     }
   }
   let text = body.join('\n');
+  if (entry.readsPages) {
+    text = text.replace('void main()', 'void webMain()');
+    text += [
+      '',
+      'void main() {',
+      '  footprintOf(dFdx(vUv) * vec2(uSheet, 1.0), dFdy(vUv) * vec2(uSheet, 1.0));',
+      '  webMain();',
+      '}',
+    ].join('\n');
+  }
   if (entry.stage === 'vertex') {
     if (!/void main\(\)/.test(text)) throw new Error(`${entry.name} has no main`);
     text = text.replace('void main()', 'void webMain()');

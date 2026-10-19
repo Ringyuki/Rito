@@ -236,6 +236,8 @@ final class PaperRenderer {
       ..set('uKeyShare', [RitoPaperLight.keyShare])
       ..set('uThrough', [RitoPaperLight.paperThrough])
       ..set('uHandedBack', [RitoPaperLight.handedBack])
+      // The pages are the frame's size: what a texel of one is on the sheet.
+      ..set('uTexels', [frame.width, frame.height])
       ..set('uHasFront', [sheet.front != null ? 1 : 0])
       ..set('uHasBack', [sheet.back != null ? 1 : 0]);
     plain(pass);
