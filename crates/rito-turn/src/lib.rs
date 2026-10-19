@@ -5,8 +5,23 @@
 //! Flutter through the C ABI; each host only draws what it is told, so a
 //! page turns the same way on every host, to the bit.
 
+mod aloft;
 pub mod curl;
+mod curl_held;
 pub mod curl_hold;
+mod curled;
+pub mod frame;
 pub mod hold;
 pub mod leaf;
+mod leaves;
 mod math;
+pub mod mesh;
+mod model;
+pub mod motion;
+pub mod physics;
+pub mod sheets;
+mod swing;
+
+pub use leaves::LeafId;
+pub use model::{Begun, Forgotten, Laid, PaperModel};
+pub use swing::{eye_height, leaf_turn, LeafTurn};

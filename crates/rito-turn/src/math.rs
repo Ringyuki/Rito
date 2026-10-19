@@ -31,6 +31,10 @@ pub(crate) fn exp(x: f64) -> f64 {
     libm::exp(x)
 }
 
+pub(crate) fn pow(x: f64, y: f64) -> f64 {
+    libm::pow(x, y)
+}
+
 pub(crate) fn hypot(x: f64, y: f64) -> f64 {
     libm::hypot(x, y)
 }
@@ -78,6 +82,22 @@ pub(crate) fn clamp(value: f64, low: f64, high: f64) -> f64 {
     min(high, max(low, value))
 }
 
+/// The nearest whole number, halves rounded up.
+pub(crate) fn round(x: f64) -> f64 {
+    libm::floor(x + 0.5)
+}
+
+/// -1, 0 or 1 as `x` is below, at or above zero (keeping the zero's sign).
+pub(crate) fn sign(x: f64) -> f64 {
+    if x > 0.0 {
+        1.0
+    } else if x < 0.0 {
+        -1.0
+    } else {
+        x
+    }
+}
+
 /// `x`, or 1 where it is zero or NaN: a length divided by.
 pub(crate) fn or_one(x: f64) -> f64 {
     if x == 0.0 || x.is_nan() {
@@ -101,6 +121,10 @@ mod tests {
     fn javascript_semantics() {
         assert!(max(f64::NAN, 1.0).is_nan());
         assert!(min(1.0, f64::NAN).is_nan());
+        assert_eq!(round(2.5), 3.0);
+        assert_eq!(round(-2.5), -2.0);
+        assert_eq!(sign(0.0), 0.0);
+        assert_eq!(sign(-0.0).to_bits(), (-0.0f64).to_bits());
         assert_eq!(or_one(0.0), 1.0);
         assert_eq!(or_one(f64::NAN), 1.0);
         assert_eq!(or_one(3.0), 3.0);
