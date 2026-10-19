@@ -1,5 +1,23 @@
 ## Unreleased
 
+### A finger turns the page as the web reader takes it
+
+`RitoPageTurnView` takes a drag as the web reader does
+(`RitoPageTurnDragRecognizer`): by the first finger down, a touch or a
+stylus — a mouse no longer turns pages — once it has moved 5 logical px
+either way, from where it came down, every sample at its event's time. A
+turn let go goes on as fast as the web measures the finger: from the turn's
+last five samples, the later ones weighing more, instead of the platform's
+velocity tracker on the raw finger; a finger taken away, or one whose turn
+another cuts into, leaves the turn going at that speed. While a turn is
+open the controller steps every frame, held or not, its first step a frame
+long. A finger that comes down while a turn lands takes the page by where
+it came down; one dragging when the reader jumps or lays out again is let
+go. **Breaking:** `dragStart` and `dragUpdate` take the sample's time as
+`at`, and `dragEnd` takes where and when the finger lifted instead of a
+velocity; a host feeding the controller from its own recognizers passes
+its pointer events' `timeStamp`s (left out, the controller's clock tells).
+
 ### The web's paper turn
 
 `RitoPaperTurnEffect` turns a page as the web reader's paper turn does: the

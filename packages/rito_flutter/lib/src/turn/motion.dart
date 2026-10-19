@@ -246,6 +246,12 @@ final class RitoTurnMotion {
   /// it was made for landed.
   double _shift = 0;
 
+  /// The turn's last few places under the finger, and when (ms).
+  final _samples = <({double offset, double at})>[];
+
+  /// How fast the finger carries the turn, logical px/ms.
+  double _fingerSpeed = 0;
+
   /// Where the turn was when the finger took it: what its travel adds to.
   double _from = 0;
 
@@ -300,9 +306,13 @@ final class RitoTurnMotion {
     return _forward ? RitoPageSlot.next : RitoPageSlot.previous;
   }
 
-  /// A finger takes the turn: from rest, or from what a turn it cut into
-  /// had left.
-  void startDrag({required bool forward, required bool hasIncoming}) {
+  /// A finger takes the turn at [at] ms: from rest, or from what a turn it
+  /// cut into had left. Its speed is measured from there.
+  void startDrag({
+    required bool forward,
+    required bool hasIncoming,
+    required double at,
+  }) {
     final begun = _beginning(forward: forward, hasIncoming: hasIncoming);
     _phase = RitoTurnMotionPhase.dragging;
     _forward = forward;
@@ -313,20 +323,33 @@ final class RitoTurnMotion {
     _velocity = 0;
     _settling = null;
     _shift = 0;
+    _samples
+      ..clear()
+      ..add((offset: begun.offset, at: at));
+    _fingerSpeed = 0;
   }
 
   /// Follows a finger that has carried the turn [travel] px from where it
-  /// took it; a pull with no neighbour is resisted, what the turn had
-  /// already travelled is not.
-  void drag(double travel) {
+  /// took it, at [at] ms; a pull with no neighbour is resisted, what the
+  /// turn had already travelled is not.
+  void drag(double travel, {required double at}) {
     if (_phase != RitoTurnMotionPhase.dragging) return;
     final carried = _hasIncoming ? travel : physics.resist(travel, width);
     _offset = _withinAPage(_from + carried);
+    _samples.add((offset: _offset, at: at));
+    if (_samples.length > _speedWindow) _samples.removeAt(0);
+    _fingerSpeed = _speedOf(_samples);
   }
 
-  /// Lets go at [velocity] logical px/s; true when the page turns.
-  bool release(double velocity, {RitoPageTurnTouch? touch}) {
+  /// How fast the finger carries the turn, logical px/s, from where the
+  /// turn was at its last few samples (the web's `estimateVelocity`).
+  double get fingerVelocity => _fingerSpeed * 1000;
+
+  /// Lets go; true when the page turns. It goes as fast as the finger was
+  /// carrying it.
+  bool release({RitoPageTurnTouch? touch}) {
     if (_phase != RitoTurnMotionPhase.dragging) return false;
+    final velocity = fingerVelocity;
     _velocity = velocity;
     final lands =
         _hasIncoming &&
@@ -348,6 +371,8 @@ final class RitoTurnMotion {
   /// arrived but could not land).
   void cancel() {
     if (_phase == RitoTurnMotionPhase.idle && _offset == 0) return;
+    // A finger taken away leaves the turn going as fast as it carried it.
+    if (_phase == RitoTurnMotionPhase.dragging) _velocity = fingerVelocity;
     _settleTo(0);
   }
 
@@ -398,7 +423,8 @@ final class RitoTurnMotion {
     if (keeps) {
       _shift += shift;
     } else {
-      if (_phase == RitoTurnMotionPhase.dragging) _velocity = 0;
+      // A turn a finger held goes on as fast as the finger carried it.
+      if (_phase == RitoTurnMotionPhase.dragging) _velocity = fingerVelocity;
       _settling = physics.settle(from: offset, velocity: _velocity, to: 0);
       _elapsed = 0;
       _shift = 0;
@@ -527,4 +553,23 @@ double ritoTurnProgress({
     velocity,
   );
   return (offset: simulation.x(t), velocity: simulation.dx(t));
+}
+
+/// How many of a finger's last samples its speed is measured from.
+const int _speedWindow = 5;
+
+/// How fast the samples move, px/ms: each step's speed, the later ones
+/// weighing more, no step shorter than a millisecond (the web's
+/// `estimateVelocity`).
+double _speedOf(List<({double offset, double at})> samples) {
+  if (samples.length < 2) return 0;
+  if (samples.last.at - samples.first.at < 1) return 0;
+  var weighted = 0.0;
+  var weights = 0;
+  for (var i = 1; i < samples.length; i += 1) {
+    final step = math.max(samples[i].at - samples[i - 1].at, 1.0);
+    weighted += (samples[i].offset - samples[i - 1].offset) / step * i;
+    weights += i;
+  }
+  return weights > 0 ? weighted / weights : 0;
 }
