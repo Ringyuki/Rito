@@ -1,5 +1,21 @@
 export { createReader, preloadReaderRuntime } from './create-reader';
 export { createLayoutConfig } from './layout-config';
+export { loadPaperTurnModel } from './paper-turn';
+export type {
+  PaperTurnAt,
+  PaperTurnBegun,
+  PaperTurnCurl,
+  PaperTurnFace,
+  PaperTurnForgotten,
+  PaperTurnFrame,
+  PaperTurnLaid,
+  PaperTurnModel,
+  PaperTurnPage,
+  PaperTurnPoint,
+  PaperTurnRelease,
+  PaperTurnSheet,
+  PaperTurnTouch,
+} from './paper-turn';
 export type {
   ChapterRange,
   FootnoteEntry,

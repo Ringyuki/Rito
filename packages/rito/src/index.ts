@@ -1,4 +1,4 @@
-export { createReader, preloadReaderRuntime } from './reader';
+export { createReader, loadPaperTurnModel, preloadReaderRuntime } from './reader';
 export type {
   ChapterRange,
   FootnoteEntry,
@@ -6,6 +6,19 @@ export type {
   LayoutConfig,
   LogLevel,
   PackageMetadata,
+  PaperTurnAt,
+  PaperTurnBegun,
+  PaperTurnCurl,
+  PaperTurnFace,
+  PaperTurnForgotten,
+  PaperTurnFrame,
+  PaperTurnLaid,
+  PaperTurnModel,
+  PaperTurnPage,
+  PaperTurnPoint,
+  PaperTurnRelease,
+  PaperTurnSheet,
+  PaperTurnTouch,
   Reader,
   ReaderAnnotationTarget,
   ReaderAnnotationTargetResolution,

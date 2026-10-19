@@ -43,7 +43,8 @@ reader.renderSpread(0);
 ## Package Scope
 
 - the root entry only: `createReader()`, `preloadReaderRuntime()`, the
-  `Reader` facade and its types
+  `Reader` facade and its types, and `loadPaperTurnModel()`, the engine's
+  model of the paper page turn that `@ritojs/kit` draws
 - browser binding internals for WASM loading, the engine's session, resource
   transfer, font registration, image decoding and Canvas blitting
 

@@ -1,10 +1,11 @@
 import {
   createRitoCoreWasmReaderSessionWorkerHandler,
-  initRitoCoreWasm,
   RitoReaderSession,
   type RitoReaderSessionWorkerLike,
   type RitoReaderSessionWorkerScope,
 } from '@ritojs/core-wasm';
+
+import { engineModuleReady } from './engine-module';
 
 type MessageListener = (event: { readonly data: unknown }) => void;
 
@@ -35,7 +36,7 @@ export function createInThreadReaderSessionWorker(): RitoReaderSessionWorkerLike
     },
   };
   const engine = createRitoCoreWasmReaderSessionWorkerHandler(scope, {
-    initRitoCoreWasm: () => initRitoCoreWasm(),
+    initRitoCoreWasm: engineModuleReady,
     RitoReaderSession,
   });
   const worker = {

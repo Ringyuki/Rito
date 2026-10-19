@@ -68,7 +68,9 @@ const SESSION_READER_LINE_BUDGET = 2855;
 // +6 lines (2026-10-18): `setDevicePixelRatio`, a layout at the screen's
 // new pixel ratio.
 // +5 lines (2026-10-19): `ReaderMargin`, a page's margins side by side.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 811;
+// +191 lines (2026-10-19): `loadPaperTurnModel`, the paper page turn's
+// motion and geometry, the engine's, which the kit's paper turn draws.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1002;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -225,7 +227,13 @@ describe('Browser reader architecture invariant: one host protocol', () => {
     ).toBe(true);
     expect(read(BROWSER_SESSION_ENGINE)).toMatch(/^} from '@ritojs\/core-wasm';$/m);
 
-    const allowed = new Set([BROWSER_CORE_CONTRACTS, BROWSER_SESSION_ENGINE]);
+    // The page's one instance of the engine, and the paper turn's model on it (2026-10-19).
+    const allowed = new Set([
+      BROWSER_CORE_CONTRACTS,
+      BROWSER_SESSION_ENGINE,
+      join(BROWSER_BINDING, 'engine-module.ts'),
+      join(BROWSER_BINDING, 'paper-turn/model.ts'),
+    ]);
     const hits = scan(
       BROWSER_BINDING_FILES,
       /(?:from\s+|import\s*\()\s*['"]@ritojs\/core-wasm['"]/g,
@@ -442,15 +450,21 @@ describe('Workspace architecture invariant: one host protocol, everywhere', () =
   // page and its worker. The revision runtime that stood beside it — a
   // document binding, a worker of its own, a chapter-local preview — was
   // removed layer by layer; each layer says here that it stays removed.
-  it('the WASM boundary exports the reader session and no other class', () => {
+  it('the WASM boundary exports the reader session and the paper turn, no other class', () => {
     const crate = join(WORKSPACE_ROOT, 'crates/rito-wasm/src');
     const classes = walkRust(crate)
       .flatMap((file) => [
         ...read(file).matchAll(/#\[wasm_bindgen\(js_name = (\w+)\)\]\s*pub struct/g),
       ])
       .map((match) => match[1]);
-    expect(classes).toEqual(['RitoReaderSession']);
-    expect(readdirSync(crate).sort()).toEqual(['lib.rs', 'reader_session', 'reader_session.rs']);
+    // The paper page turn's model (2026-10-19).
+    expect(classes.sort()).toEqual(['RitoPaperTurn', 'RitoReaderSession']);
+    expect(readdirSync(crate).sort()).toEqual([
+      'lib.rs',
+      'paper_turn.rs',
+      'reader_session',
+      'reader_session.rs',
+    ]);
   });
 
   it('the wasm package ships the session runtime alone', () => {

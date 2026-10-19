@@ -14,7 +14,8 @@ crates/rito-block            block flow, floats, tables, fragmentation into page
 crates/rito-inline           Parley-backed inline flows
 crates/rito-core             EPUB, XHTML, style projection, the bridge, paint,
                              lowering, the wire, interaction, resources, runtime
-crates/rito-wasm             the reader session through wasm-bindgen, for the browser
+crates/rito-turn             the paper page turn's motion and geometry, on libm alone
+crates/rito-wasm             the reader session and the paper turn through wasm-bindgen, for the browser
 crates/rito-pack             packing into shards and the readability check through wasm-bindgen, for servers
 crates/rito-ffi              the C ABI actor for native hosts
 crates/rito-inline-spike     a line-break parity instrument, never a dependency
@@ -74,8 +75,12 @@ where a WebAssembly heap only grows and a peak becomes a floor.
 
 ## Host boundaries
 
-`rito-wasm` exports one class, the reader session, and moves its wire
-messages across the boundary; it owns no reader policy. `rito-ffi` runs a
+`rito-wasm` exports two classes: the reader session, which moves its wire
+messages across the boundary and owns no reader policy, and the paper page
+turn's model (`rito-turn`), which takes a frame's numbers and gives back
+each sheet's, in the layouts `rito_turn::pack` fixes for every host. Its
+transcendentals are `libm`'s, never the platform's, so every host computes
+the same bits for the same frames. `rito-ffi` runs a
 session on one actor thread and exchanges fixed-width values and owned
 byte buffers. The messages are the same on both: open, seek, adjacent
 turns and peeks, a spread by its position, candidate adoption, background
