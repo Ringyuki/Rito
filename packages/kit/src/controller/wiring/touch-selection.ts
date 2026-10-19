@@ -2,6 +2,7 @@ import type { PrimarySelectionDragSession } from './selection-drag';
 import type { PrimarySelectionInputIntent } from './selection-drag';
 import {
   clearTouchTimer,
+  releaseTouchBookHold,
   resetTouchState,
   type TouchHandlerContext,
   type TouchState,
@@ -9,27 +10,43 @@ import {
 
 const LONG_PRESS_MS = 350;
 
+/**
+ * Waits to tell a long press from a tap. A whole-book layout committed
+ * meanwhile would end the press, so it is held back until the wait ends:
+ * a long press starts a selection, which holds it while it is made.
+ */
 export function scheduleLongPressSelection(context: TouchHandlerContext): void {
-  const { state, modeManager, selection } = context;
+  const { state } = context;
+  releaseTouchBookHold(state);
+  state.bookHold = context.deps.holdBookLayout?.() ?? null;
   state.timer = setTimeout(() => {
     state.timer = null;
-    const start = state.selectionStart;
-    if (state.phase !== 'waiting' || !start) return;
-    if (context.selectionNavigation && !state.selectionInput) {
-      abandonSupersededTouch(context);
-      return;
+    try {
+      startLongPressSelection(context);
+    } finally {
+      releaseTouchBookHold(state);
     }
-    if (state.selectionInput && !state.selectionInput.owns()) {
-      resetTouchState(state);
-      return;
-    }
-    state.phase = 'long-press';
-    modeManager.setMode('selection');
-    state.selectionDrag = beginSelectionDrag(context, state.selectionInput, () => {
-      selection.handlePointerDown(context.toContent(start), 'word');
-    });
-    if (!ownsSelectionDrag(state)) abandonSupersededTouch(context);
   }, LONG_PRESS_MS);
+}
+
+function startLongPressSelection(context: TouchHandlerContext): void {
+  const { state, modeManager, selection } = context;
+  const start = state.selectionStart;
+  if (state.phase !== 'waiting' || !start) return;
+  if (context.selectionNavigation && !state.selectionInput) {
+    abandonSupersededTouch(context);
+    return;
+  }
+  if (state.selectionInput && !state.selectionInput.owns()) {
+    resetTouchState(state);
+    return;
+  }
+  state.phase = 'long-press';
+  modeManager.setMode('selection');
+  state.selectionDrag = beginSelectionDrag(context, state.selectionInput, () => {
+    selection.handlePointerDown(context.toContent(start), 'word');
+  });
+  if (!ownsSelectionDrag(state)) abandonSupersededTouch(context);
 }
 
 export function handleLongPressSelectionMove(

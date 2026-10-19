@@ -100,5 +100,6 @@ function createGestureDeps(
     supersedeTurnInFlight: () => {
       nav.supersedeForGesture();
     },
+    holdBookLayout: () => reader.holdBookLayout?.() ?? (() => undefined),
   };
 }
