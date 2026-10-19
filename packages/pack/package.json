@@ -1,7 +1,7 @@
 {
   "name": "@ritojs/pack",
   "type": "module",
-  "version": "3.2.1",
+  "version": "4.0.0",
   "description": "Packs EPUBs into Rito publication shards and checks that the Rito reader can read them, in a Node server process",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
