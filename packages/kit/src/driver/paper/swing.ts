@@ -47,6 +47,16 @@ export function leafTurn(scene: TransitionScene, frame: TransitionFrame): LeafTu
   };
 }
 
+/**
+ * How a leaf nothing leads goes by itself: as a turn let go does. A turn's
+ * motion is told in CSS px, so the leaf's is too, whatever its frame is
+ * drawn at: a leaf left alone comes down at the same pace at any device
+ * pixel ratio.
+ */
+export function byItself(scene: TransitionScene): ReturnType<typeof aloneBy> {
+  return aloneBy(scene.width / (scene.cssPixel || 1));
+}
+
 /** How a leaf nothing leads comes down, in turns of the leaf: as a turn let go does, in a frame this wide. */
 export function aloneBy(
   width: number,
@@ -95,7 +105,7 @@ export function wantedOf(
     // and the leaf not: nothing is left to carry it there, and it goes by itself.
     const stranded =
       Math.abs(end - read.turned) < NO_WAY_LEFT && Math.abs(end - leaf.shown) > NO_WAY_LEFT;
-    if (stranded) sendOff(leaf, end, aloneBy(scene.width));
+    if (stranded) sendOff(leaf, end, byItself(scene));
     leaf.letGo = { through: leaf.shown, turned: read.turned };
   }
   const left = end - leaf.letGo.turned;

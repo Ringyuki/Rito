@@ -6,7 +6,7 @@ import type {
 } from '../effects';
 import { bring, layOut } from './aloft';
 import { stillHeld } from './curl-held';
-import { byItself, curledFlat, isThere, wantedCurled } from './curled';
+import { curledFlat, isThere, wantedCurled } from './curled';
 import type { LeafShape } from './leaf';
 import { leaveAlone, placeInBook, type Leaf } from './leaves';
 import { gridFor } from './mesh';
@@ -14,7 +14,7 @@ import { colourOf, paintPlain } from './pages';
 import { createPaperPhysics, grabOf } from './paper-physics';
 import { createPaperRenderer, type PaperRenderer, type PaperSheet } from './renderer';
 import { createSheets } from './sheets';
-import { aloneBy, leafTurn, wantedOf, type LeafTurn } from './swing';
+import { byItself, leafTurn, wantedOf, type LeafTurn } from './swing';
 
 export interface PaperTurnOptions {
   /**
@@ -254,7 +254,7 @@ function leafOf(
     taken.flight = null;
     // It goes on from where it is, whatever it was doing by itself.
     if (taken.curled) taken.curled.pace = null;
-    leaveAlone(state.book, taken, taken.curled ? byItself(scene) : aloneBy(scene.width));
+    leaveAlone(state.book, taken, byItself(scene));
   }
   state.led = taken;
   return taken;

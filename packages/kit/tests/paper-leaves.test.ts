@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TransitionScene } from '../src/driver/effects';
 import type { TransitionSettle } from '../src/driver/physics';
 import { moveOn } from '../src/driver/paper/aloft';
 import { curledFlat } from '../src/driver/paper/curled';
@@ -15,6 +16,7 @@ import {
   sendOff,
   type Leaf,
 } from '../src/driver/paper/leaves';
+import { byItself } from '../src/driver/paper/swing';
 
 const COLUMNS = 16;
 const ROWS = 12;
@@ -187,5 +189,18 @@ describe('the hold a finger takes of a leaf in the air', () => {
       expect(swungTo(two, turned.grab, hold, view, finger.x + 40, 1)).toBeLessThan(shown);
       expect(swungTo(two, turned.grab, hold, view, finger.x - 40, 1)).toBeGreaterThan(shown);
     }
+  });
+});
+
+describe('a leaf left to come down by itself', () => {
+  it('comes down at the same pace at any device pixel ratio', () => {
+    const scene = (cssPixel: number) =>
+      ({ width: 800 * cssPixel, cssPixel }) as unknown as TransitionScene;
+    const at = (cssPixel: number) => {
+      const motion = byItself(scene(cssPixel))(0.4, -1.5, 0);
+      return [0, 0.05, 0.1, 0.2, 0.3, 0.5].map((seconds) => motion(seconds));
+    };
+    expect(at(2)).toEqual(at(1));
+    expect(at(3)).toEqual(at(1));
   });
 });

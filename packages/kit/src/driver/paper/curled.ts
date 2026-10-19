@@ -3,7 +3,7 @@ import { behind, curlThrough, layCurl, lineAt, type Curl, type CurlLine } from '
 import { underFinger, type Held } from './curl-held';
 import { GONE_BY, sendOff, type Leaf } from './leaves';
 import { eyeHeight } from './renderer';
-import { aloneBy, type LeafTurn } from './swing';
+import { byItself, type LeafTurn } from './swing';
 
 /**
  * How a curled page keeps step with its turn's own way: what moves the turn
@@ -41,14 +41,6 @@ const NO_WAY_LEFT = 0.02;
 /** A page curled over that has yet to be turned, held or laid out. */
 export function curledFlat(): Curled {
   return { lean: 0, toward: null, pace: null, held: null, curl: null };
-}
-
-/**
- * How a curled page goes by itself: as a turn let go does. A turn's motion
- * is told in CSS px, so the page's is too, whatever its frame is drawn at.
- */
-export function byItself(scene: TransitionScene): ReturnType<typeof aloneBy> {
-  return aloneBy(scene.width / (scene.cssPixel || 1));
 }
 
 /** Whether a curled page is where its turn takes it; under a finger its turn takes it nowhere. */
