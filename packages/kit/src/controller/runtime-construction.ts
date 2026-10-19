@@ -13,6 +13,7 @@ import { createCoordinatorState } from './core/index';
 import { createEngines } from './engines/index';
 import type { Internals } from './facade';
 import type { RuntimeComponents } from './facade/types';
+import { DEFAULT_HIGHLIGHT_COLORS, withHighlightColors } from './overlay/colors';
 import { createPositionPersistence } from './position-persistence';
 import { createPrerenderScheduler } from './prerender';
 import { createRuntimeFrameParts, wireSettledEvents } from './runtime-frame';
@@ -197,6 +198,7 @@ function createControllerInternals(reader: Reader, options: ControllerOptions): 
       reader,
       currentSpread: initialActiveSpread(reader),
       renderScale: options.renderScale ?? 1,
+      highlightColors: withHighlightColors(DEFAULT_HIGHLIGHT_COLORS, options.highlightColors),
       options,
       engines,
       coordState,

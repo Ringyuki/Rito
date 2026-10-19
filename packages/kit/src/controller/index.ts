@@ -31,6 +31,7 @@ export type {
   SelectionHandleState,
 } from './types';
 export type { PagePaint, PagePainter } from './page-paint';
+export type { HighlightColors } from './overlay/colors';
 
 export function createController(
   reader: Reader,

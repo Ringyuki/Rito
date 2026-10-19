@@ -12,6 +12,7 @@ export {
   type ReaderControllerEvents,
   type ControllerOptions,
   type ContentHitKind,
+  type HighlightColors,
   type InteractionMode,
   type PagePaint,
   type PagePainter,

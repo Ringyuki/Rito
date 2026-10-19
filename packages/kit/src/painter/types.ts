@@ -15,6 +15,8 @@ export interface OverlayLayer {
   readonly color: string;
   readonly borderColor?: string | undefined;
   readonly zIndex: number;
+  /** How each rect is marked: filled (the default), or a line along its bottom edge. */
+  readonly mark?: 'fill' | 'underline' | undefined;
 }
 
 /** A rendering context that can target either on-screen or off-screen canvases. */

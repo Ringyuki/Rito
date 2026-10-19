@@ -374,6 +374,14 @@ creation order, which is the order annotations are painted in, so a removed reco
 put back lies under and over the same neighbours. It is persisted like any change and
 returns `false` once the controller is disposed.
 
+A `'highlight'` or `'note'` record is painted as a fill over its rectangles and an
+`'underline'` record as a 2 CSS px line along their bottom edges, each in the record's
+`color` when it has one. Everything kit paints over the page takes its colour from
+`HighlightColors` — `selection`, `searchMatch`, `searchActive`, and `highlight` and
+`underline` for records without a colour: `ControllerOptions.highlightColors` sets
+some or all of them, and `controller.setHighlightColors(colors)` changes them later
+(with the theme, say), repainting the highlights but not the pages.
+
 Re-projection is two engine reads. `interactions.resolveAnnotationTarget` finds the
 stored target in the chapter as it is now, trying the source range (checked against
 its quote), then the quote with the best-matching context, then the stored offsets,

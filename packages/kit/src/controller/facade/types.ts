@@ -31,6 +31,7 @@ export type LayoutActionsSlice = Pick<
   | 'setSpreadMode'
   | 'setTheme'
   | 'repaintPages'
+  | 'setHighlightColors'
   | 'setTypography'
   | 'setRenderScale'
   | 'renderScale'

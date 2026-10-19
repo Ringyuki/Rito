@@ -82,6 +82,29 @@ describe('paintOverlayInto', () => {
     expect(strokeCalls.length).toBe(1);
   });
 
+  it('underlines each rect along its bottom edge, no thicker than the rect', () => {
+    const { ctx, calls } = createMockCtx();
+    const layers: OverlayLayer[] = [
+      {
+        id: 'a',
+        rects: [
+          { x: 5, y: 10, width: 30, height: 20 },
+          { x: 5, y: 40, width: 30, height: 1 },
+        ],
+        color: 'red',
+        zIndex: 0,
+        mark: 'underline',
+      },
+    ];
+
+    paintOverlayInto(ctx, layers, 1);
+
+    expect(calls.filter((c) => c.method === 'fillRect').map((c) => c.args)).toEqual([
+      [5, 28, 30, 2],
+      [5, 40, 30, 1],
+    ]);
+  });
+
   it('does not draw border when borderColor is absent', () => {
     const { ctx, calls } = createMockCtx();
     const layers: OverlayLayer[] = [

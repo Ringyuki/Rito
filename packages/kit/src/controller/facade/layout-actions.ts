@@ -11,6 +11,7 @@ import { reportUnresolvedFontFamilies } from './font-actions';
 import { abortTransition } from '../core/transition-lifecycle';
 import { createResizeSettle, endResizeSettle, holdWhileResizing } from './resize-settle';
 import { carrySelection, restoreSelection } from './selection-carry';
+import { withHighlightColors } from '../overlay/colors';
 import type { Disposables } from './types';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
@@ -46,6 +47,9 @@ export function buildLayoutActions(
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();
     },
+    setHighlightColors(colors): void {
+      applyHighlightColors(colors, internals, runtime);
+    },
     setTypography(options): boolean {
       const anchor = currentPosition(internals);
       const changed = internals.reader.setTypography(options);
@@ -61,6 +65,15 @@ export function buildLayoutActions(
       return internals.renderScale;
     },
   };
+}
+
+function applyHighlightColors(
+  colors: Parameters<LayoutActionsSlice['setHighlightColors']>[0],
+  internals: Internals,
+  runtime: RuntimeComponents,
+): void {
+  internals.highlightColors = withHighlightColors(internals.highlightColors, colors);
+  runtime.frameDriver.markAllOverlaysDirty();
 }
 
 function applyRenderScale(

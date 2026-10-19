@@ -22,6 +22,7 @@ import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 import type { ReaderControllerEvents } from './events';
 import type { PagePainter } from './page-paint';
+import type { HighlightColors } from './overlay/colors';
 
 export type { ReaderControllerEvents };
 
@@ -72,6 +73,8 @@ export interface ControllerOptions {
   readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
   /** Draws over each page as part of it (a page number, say): it moves with the page in turns. */
   readonly paintPage?: PagePainter | undefined;
+  /** Colours for selection, search and annotations; the rest keep kit's own. */
+  readonly highlightColors?: Partial<HighlightColors> | undefined;
 }
 
 /** Input for creating an annotation from the current selection. */
@@ -115,6 +118,8 @@ export interface ReaderController {
   setTheme(options: ReaderThemeOptions): void;
   /** Paints every page again, `paintPage` included, for when what it draws has changed. */
   repaintPages(): void;
+  /** Paints selection, search and annotations in the colours given; the others are kept. */
+  setHighlightColors(colors: Partial<HighlightColors>): void;
   /**
    * Update typography overrides. For each value field:
    * `undefined` leaves it untouched, `null` clears the override (falls back to the

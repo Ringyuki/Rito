@@ -177,6 +177,7 @@ function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProv
       reader,
       internals.coordState,
       mapper,
+      internals.highlightColors,
       isCurrent,
     );
 
@@ -185,6 +186,7 @@ function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProv
       data.searchRects,
       data.activeSearchRects,
       data.annotationLayers,
+      internals.highlightColors,
     );
   };
 }
