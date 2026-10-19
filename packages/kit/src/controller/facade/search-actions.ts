@@ -1,4 +1,4 @@
-import type { SearchResult } from '../../interaction/index';
+import type { SearchOptions, SearchResult } from '../../interaction/index';
 import {
   goToSearchResult,
   navigateToSearchIndex,
@@ -13,18 +13,18 @@ export function buildSearchActions(
   _runtime: RuntimeComponents,
 ): SearchActionsSlice {
   const searchNavDeps = createSearchNavDeps(internals, nav);
-  const searchState = { serial: 0, query: '' };
+  const searchState: SearchState = { serial: 0, query: '', options: undefined };
   internals.coordState.searchResults.refresh = () => {
     if (searchState.query.length === 0) {
       internals.coordState.searchResults.stale = false;
       return;
     }
-    runSearch(searchState.query, internals, emitter, searchState);
+    runSearch(searchState.query, searchState.options, internals, emitter, searchState);
   };
 
   return {
-    search(q: string): void {
-      runSearch(q, internals, emitter, searchState);
+    search(q: string, options?: SearchOptions): void {
+      runSearch(q, options, internals, emitter, searchState);
     },
     searchNext(): SearchResult | undefined {
       const result = internals.engines.search.nextResult();
@@ -55,12 +55,20 @@ interface SearchState {
   serial: number;
   /** The query whose results are shown, searched again when the layout is replaced. */
   query: string;
+  options: SearchOptions | undefined;
 }
 
-function runSearch(q: string, internals: Internals, emitter: Emitter, state: SearchState): void {
+function runSearch(
+  q: string,
+  options: SearchOptions | undefined,
+  internals: Internals,
+  emitter: Emitter,
+  state: SearchState,
+): void {
   if (!internals.coordState.nativeInteractionsAlive) return;
   state.serial += 1;
   state.query = q;
+  state.options = options;
   const search = internals.reader.search?.bind(internals.reader);
   if (q.length === 0 || !search) {
     internals.coordState.searchResults.stale = false;
@@ -69,7 +77,7 @@ function runSearch(q: string, internals: Internals, emitter: Emitter, state: Sea
   }
   const serial = state.serial;
   void Promise.resolve()
-    .then(() => search(q))
+    .then(() => search(q, options))
     .then(
       (results) => {
         if (!ownsSearch(serial, internals, state)) return;
@@ -115,6 +123,7 @@ function clearSearch(internals: Internals, state: SearchState): void {
   if (!internals.coordState.nativeInteractionsAlive) return;
   state.serial += 1;
   state.query = '';
+  state.options = undefined;
   internals.coordState.searchResults.stale = false;
   internals.engines.search.clear();
 }

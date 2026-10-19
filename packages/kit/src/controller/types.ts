@@ -15,7 +15,7 @@ import type {
   RecordStorageAdapter,
 } from '../interaction/index';
 import type { ReadingPosition } from '../interaction/index';
-import type { SearchResult } from '../interaction/index';
+import type { SearchOptions, SearchResult } from '../interaction/index';
 import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
@@ -153,7 +153,8 @@ export interface ReaderController {
   setRenderScale(scale: number): void;
   readonly renderScale: number;
 
-  search(query: string): void;
+  /** Searches the whole book; `options` matches case or whole words only, as the engine does. */
+  search(query: string, options?: SearchOptions): void;
   searchNext(): SearchResult | undefined;
   searchPrev(): SearchResult | undefined;
   /** Navigate to a specific search result by index (sets active + jumps to page). */

@@ -302,7 +302,7 @@ describe('what a host is told while a chapter is laid out alone', () => {
     commitLayoutChange(internals, emitter, runtime, undefined, 22);
     await settle();
     expect(search).toHaveBeenCalledTimes(2);
-    expect(search).toHaveBeenLastCalledWith('snow');
+    expect(search).toHaveBeenLastCalledWith('snow', undefined);
     expect(actions.searchResults).toEqual([found(37)]);
     expect(internals.coordState.searchResults.stale).toBe(false);
 

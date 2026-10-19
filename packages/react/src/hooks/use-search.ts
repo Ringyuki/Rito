@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ReaderController, SearchResult } from '@ritojs/kit';
+import type { ReaderController, SearchOptions, SearchResult } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface SearchState {
@@ -19,7 +19,7 @@ const EMPTY_STATE: SearchState = {
 // eslint-disable-next-line max-lines-per-function -- React hook with 6-line return type; hooks cannot be split further
 export function useSearch(controller: ReaderController | null): SearchState & {
   query: string;
-  setQuery: (q: string) => void;
+  setQuery: (q: string, options?: SearchOptions) => void;
   next: () => void;
   prev: () => void;
   goTo: (index: number) => void;
@@ -42,9 +42,9 @@ export function useSearch(controller: ReaderController | null): SearchState & {
   });
 
   const setQuery = useCallback(
-    (q: string) => {
+    (q: string, options?: SearchOptions) => {
       setQueryState(q);
-      controller?.search(q);
+      controller?.search(q, options);
     },
     [controller],
   );

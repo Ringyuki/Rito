@@ -400,7 +400,9 @@ outline the whole reading surface after a key press. Disposal gives the Canvas b
 `tabindex` and `outline-style` it had. A host that wants a ring sets the Canvas's
 inline `outline` after `createController`.
 
-Search: results come from `reader.search()`; highlight rectangles for the visible spread
+Search: `controller.search(query, { caseSensitive, wholeWord })` matches case or whole
+words only when asked (both off by default) and keeps the options when the book is
+searched again after a relayout. Results come from `reader.search()`; highlight rectangles for the visible spread
 are resolved from each result's source range through `interactions.resolveExactSourceRange`.
 
 Accessibility: the optional mirror loads both visible pages' semantics
