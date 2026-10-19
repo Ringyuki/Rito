@@ -60,30 +60,33 @@ export interface TransitionLayer {
 }
 
 /**
- * A page as a painted effect sees it: its bitmap and the overlay drawn over
- * it (highlights, selection), both covering the page at `pixelRatio` bitmap
- * pixels per unit of the scene.
+ * A page as a painted effect sees it: one texture of the display's WebGL2
+ * context holding the page with its overlay (highlights, selection) over
+ * it, `width` by `height` texels, `pixelRatio` of them to a unit of the
+ * scene. Its rows run as a framebuffer's do: the last row is the top of
+ * the page. Premultiplied.
  */
 export interface TransitionPage {
   /** Which spread of the book it is: what tells a page from every other across turns. */
   readonly spread: number;
-  readonly content: CanvasImageSource;
-  readonly overlay: CanvasImageSource | null;
+  readonly texture: WebGLTexture;
+  readonly width: number;
+  readonly height: number;
   readonly pixelRatio: number;
   /**
-   * Changes whenever the bitmap or the overlay is painted again: what an
-   * effect keeps of a page (a texture) is good for one version.
+   * Changes whenever the page or its overlay is painted again: what an
+   * effect keeps of a page (a copy of the texture) is good for one version.
    */
   readonly version: number;
 }
 
 /**
- * Where a painted effect draws one frame. The surface is cleared before
- * `paint` runs; `width` and `height` are the surface's size in the units
- * its context draws in.
+ * Where a painted effect draws one frame: the display's WebGL2 context,
+ * its own framebuffer bound and cleared, `width` by `height` device
+ * pixels. The effect draws the frame into that framebuffer.
  */
 export interface TransitionScene {
-  readonly context: CanvasRenderingContext2D;
+  readonly gl: WebGL2RenderingContext;
   readonly width: number;
   readonly height: number;
   /** The length of a CSS pixel in those units: what sizes a shadow or a curl. */
@@ -93,9 +96,16 @@ export interface TransitionScene {
    * spread is one page, the middle when it is two.
    */
   readonly spine: number;
-  /** The page in a slot, or null while it is not painted yet. */
+  /**
+   * The page in a slot, or null while it is not painted yet. Asking for it
+   * may paint it, which changes the context's program, vertex array,
+   * textures and blending; the display's framebuffer is bound again after.
+   */
   page(slot: SlotPosition): TransitionPage | null;
-  /** Draw a page whole at `x`, with its overlay; a page not painted yet is skipped. */
+  /**
+   * Draws a page whole at `x`, with its overlay, over what is drawn; a page
+   * not painted yet is skipped. It changes the same state `page` does.
+   */
   drawPage(slot: SlotPosition, x: number, opacity?: number): void;
 }
 
@@ -112,7 +122,7 @@ export interface LayeredTransitionEffect {
   /** The pages to draw, bottom to top. */
   layers(frame: TransitionFrame): readonly TransitionLayer[];
   /** See `PaintedTransitionEffect.prepare`. */
-  prepare?(): void;
+  prepare?(gl: WebGL2RenderingContext): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
   /** The physics the effect is made for; `physics` in the options outranks them. */
@@ -122,11 +132,20 @@ export interface LayeredTransitionEffect {
 export interface PaintedTransitionEffect {
   paint(scene: TransitionScene, frame: TransitionFrame): void;
   /**
-   * Called when the effect is set, before any turn: the place for work that
-   * would otherwise hold up the first frame of the first turn. It may be
-   * called more than once.
+   * Called when the effect is set, before any turn, with the display's
+   * WebGL2 context: the place for work that would otherwise hold up the
+   * first frame of the first turn, such as compiling programs. It may be
+   * called more than once, and again with a new context after the display
+   * lost its context.
    */
-  prepare?(): void;
+  prepare?(gl: WebGL2RenderingContext): void;
+  /**
+   * Called when the pages beside the one shown have been painted and no
+   * turn is under way: the place for work on those pages that a turn would
+   * otherwise do in its first frame, such as copying them into textures of
+   * the effect's own. Asking the scene for a page makes its texture.
+   */
+  warm?(scene: TransitionScene): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
   /** The physics the effect is made for; `physics` in the options outranks them. */

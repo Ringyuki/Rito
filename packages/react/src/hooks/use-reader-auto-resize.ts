@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
+import type { ReaderMargin } from '@ritojs/core';
 import type { ReaderController } from '@ritojs/kit';
 import type { ContainerSize } from './use-container-size';
 
 export interface ReaderAutoResizeOptions {
   readonly enabled?: boolean | undefined;
   readonly zoomScale?: number | undefined;
-  readonly margin?: number | ((size: ContainerSize) => number) | undefined;
+  readonly margin?: ReaderMargin | ((size: ContainerSize) => ReaderMargin) | undefined;
 }
 
 interface AutoResizeState {
@@ -164,9 +165,16 @@ function resizeKey(
   width: number,
   height: number,
   zoomScale: number,
-  margin: number | undefined,
+  margin: ReaderMargin | undefined,
 ): string {
-  return `${String(width)}:${String(height)}:${String(zoomScale)}:${String(margin ?? '')}`;
+  return `${String(width)}:${String(height)}:${String(zoomScale)}:${marginKey(margin)}`;
+}
+
+function marginKey(margin: ReaderMargin | undefined): string {
+  if (margin === undefined) return '';
+  if (typeof margin === 'number') return String(margin);
+  if ('x' in margin) return `${String(margin.x)},${String(margin.y)}`;
+  return `${String(margin.top)},${String(margin.right)},${String(margin.bottom)},${String(margin.left)}`;
 }
 
 function attachViewportResizeListener(onResize: () => void): () => void {

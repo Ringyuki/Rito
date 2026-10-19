@@ -4,6 +4,7 @@ import type {
   BrowserReaderAnnotationQuery,
   BrowserReaderAnnotationResponse,
   BrowserReaderArtifact,
+  BrowserReaderPageRecords,
   BrowserReaderArtifactRequest,
   BrowserReaderExactSourceRangeResolution,
   BrowserReaderFootnote,
@@ -19,7 +20,7 @@ import type {
   BrowserReaderTextInteractionResponse,
 } from '../../src/bindings/browser/reader-session';
 
-type FakePage = BrowserReaderArtifact['pages'][number];
+type FakePage = BrowserReaderPageRecords;
 
 /** A geometry question as the session received it. */
 export interface FakeGeometryQuestion<Question> {
@@ -87,6 +88,8 @@ export class FakeReaderSession {
   backgroundGate: Promise<void> | undefined;
   /** How long a requested chapter takes to lay out; every call made after it waits too. */
   layoutMs = 0;
+  /** The width the engine lays a page out at, when it is not the viewport's. */
+  pageWidth: number | undefined;
   /** Artifact calls the reader made while another was unanswered. */
   readonly violations: string[] = [];
   private readonly unanswered: string[] = [];
@@ -114,6 +117,8 @@ export class FakeReaderSession {
     readonly range: BrowserReaderSourceRange;
   }>[] = [];
   readonly annotations: BrowserReaderAnnotationQuery[] = [];
+  /** Every page whose records a reader asked for. */
+  readonly pageReads: { readonly artifactId: bigint; readonly pageIndex: number }[] = [];
   answerInteraction: (
     query: BrowserReaderTextInteractionQuery,
   ) => BrowserReaderTextInteractionResponse['result'] = () => ({ kind: 'miss' });
@@ -259,6 +264,21 @@ export class FakeReaderSession {
         later(() => {
           this.annotations.push(query);
           return this.answerAnnotation(query);
+        }),
+      readPage: (artifactId, pageIndex) =>
+        later(() => {
+          const live = this.requireLive(artifactId);
+          this.pageReads.push({ artifactId, pageIndex });
+          return {
+            artifactId,
+            pageIndex,
+            hits: [],
+            semantics: [],
+            text: '',
+            textLength: 0n,
+            textRuns: [],
+            ...this.pageContent(pageIndex, live.revision.chapterIndex),
+          } as unknown as BrowserReaderPageRecords;
         }),
       readFootnote: (artifactId, key) =>
         later(() => {
@@ -467,6 +487,8 @@ export class FakeReaderSession {
         location: { kind: 'page', pageIndex, drawn: false, matchedBy: 'progression' },
       };
     }
+    const whole = query.whole ?? true;
+    this.calls.push(`layout ${whole ? 'whole' : 'so far'}`);
     const chapters =
       revision.chapterIndex === undefined
         ? this.chapters.map((_, spineIndex) => spineIndex)
@@ -491,6 +513,9 @@ export class FakeReaderSession {
         activeTocEntryByPage: ranges.flatMap((range) =>
           Array.from({ length: range.endPage - range.startPage + 1 }, () => range.spineIndex),
         ),
+        // A table asked for in part stands for one whose chapter is laid
+        // out only through the spread shown.
+        complete: whole,
       },
     };
   }
@@ -525,14 +550,8 @@ export class FakeReaderSession {
       pages: [
         {
           pageIndex: page,
-          width: revision.layout.viewportWidth,
+          width: this.pageWidth ?? revision.layout.viewportWidth,
           height: revision.layout.viewportHeight,
-          hits: [],
-          semantics: [],
-          text: '',
-          textLength: 0n,
-          textRuns: [],
-          ...this.pageContent(page, revision.chapterIndex),
         },
       ],
     } as unknown as BrowserReaderArtifact;

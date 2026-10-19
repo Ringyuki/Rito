@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:rito_flutter/rito_flutter_native.dart' show RitoArtifactDecoder;
+import 'package:rito_flutter/rito_flutter_protocol.dart'
+    show RitoPrimitiveListDecoder;
 
 import 'display_fixture.dart';
 import 'wire_writer.dart';
@@ -46,9 +48,8 @@ Uint8List artifactFixture({
     ..uint32(0);
   writer.record((record) {
     record
-      ..uint32(2)
+      ..uint32(RitoPrimitiveListDecoder.formatVersion)
       ..uint32(13)
-      ..fixed(List<int>.filled(32, 0x5a))
       ..blob(display);
   });
   _resources(writer, fontHref, includeFontResource: includeFontResource);
@@ -147,64 +148,6 @@ void _pages(TestWireWriter writer, int pageIndex) {
     page
       ..uint32(pageIndex)
       ..float64(360)
-      ..float64(640)
-      ..uint32(1);
-    page.record((hit) {
-      hit.uint32(pageIndex);
-      _rect(hit, 4, 5, 20, 30);
-      hit.uint8(1);
-      hit.string('body');
-      hit.option(() => hit.string('#note'));
-      hit.option(() => _sourcePoint(hit, <int>[1, 9, 2], 47));
-      hit.option(() {
-        hit.record((locator) {
-          locator.string('chapter-2.xhtml');
-          locator.option(() => locator.string('note'));
-          locator.option(null);
-          locator.option(null);
-          locator.option(null);
-        });
-      });
-      hit.option(() => hit.string('Chapter two'));
-      hit.option(null);
-      hit.option(null);
-      hit.option(null);
-    });
-    page.uint32(1);
-    page.record((semantic) {
-      semantic.uint32(0);
-      semantic.option(() => semantic.uint8(2));
-      semantic.option(() => semantic.string('Chapter four'));
-      semantic.option(null);
-      semantic.option(null);
-      _rect(semantic, 0, 0, 360, 40);
-      semantic.uint32(0);
-    });
-    page
-      ..string('body')
-      ..uint64(4)
-      ..uint32(1);
-    page.record((run) {
-      run
-        ..uint64(0)
-        ..uint64(4)
-        ..uint32(0)
-        ..uint32(0)
-        ..uint32(0);
-    });
+      ..float64(640);
   });
-}
-
-void _rect(
-  TestWireWriter writer,
-  double x,
-  double y,
-  double width,
-  double height,
-) {
-  writer
-    ..float64(x)
-    ..float64(y)
-    ..float64(width)
-    ..float64(height);
 }

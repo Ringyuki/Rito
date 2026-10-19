@@ -4,6 +4,7 @@ pub const OWNS: &str = "Platform-neutral display-list and paint command generati
 mod commands;
 mod lower;
 mod run_paint;
+mod shared_text;
 
 #[cfg(test)]
 pub(crate) use commands::test_support;
@@ -11,7 +12,8 @@ pub(crate) use commands::test_support;
 pub(crate) use commands::READER_PRIMITIVE_LIST_FORMAT_VERSION;
 pub(crate) use commands::{
     contract, display_number, display_rect, encode_reader_primitive_list,
-    summarize_display_list_resource_refs, DisplayCommand, DisplayTextCommand,
+    summarize_display_list_resource_refs, DisplayCommand, DisplayTextCommand, TextCluster,
 };
 pub(crate) use lower::{lower, ImageSize};
 pub(crate) use run_paint::RunPaint;
+pub(crate) use shared_text::SharedText;

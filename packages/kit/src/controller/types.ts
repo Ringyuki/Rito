@@ -3,6 +3,8 @@ import type {
   ReaderFontCatalog,
   ReaderHostFontFace,
   ReaderDocumentSourceSpan,
+  ReaderExactSourceRangeRequest,
+  ReaderMargin,
   ReaderLocator,
   Spread,
   TocEntry,
@@ -15,13 +17,14 @@ import type {
   RecordStorageAdapter,
 } from '../interaction/index';
 import type { ReadingPosition } from '../interaction/index';
-import type { SearchResult } from '../interaction/index';
+import type { SearchOptions, SearchResult } from '../interaction/index';
 import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 import type { ReaderControllerEvents } from './events';
 import type { PagePainter } from './page-paint';
+import type { HighlightColors } from './overlay/colors';
 
 export type { ReaderControllerEvents };
 
@@ -72,6 +75,8 @@ export interface ControllerOptions {
   readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
   /** Draws over each page as part of it (a page number, say): it moves with the page in turns. */
   readonly paintPage?: PagePainter | undefined;
+  /** Colours for selection, search and annotations; the rest keep kit's own. */
+  readonly highlightColors?: Partial<HighlightColors> | undefined;
 }
 
 /** Input for creating an annotation from the current selection. */
@@ -109,12 +114,14 @@ export interface ReaderController {
    */
   jumpToSpread(index: number): void;
 
-  /** Re-paginate with new viewport dimensions (and optional margin). Also syncs canvas size using renderScale. */
-  resize(width: number, height: number, margin?: number): void;
+  /** Re-paginate with new viewport dimensions (and optional margins). Also syncs canvas size using renderScale. */
+  resize(width: number, height: number, margin?: ReaderMargin): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setTheme(options: ReaderThemeOptions): void;
   /** Paints every page again, `paintPage` included, for when what it draws has changed. */
   repaintPages(): void;
+  /** Paints selection, search and annotations in the colours given; the others are kept. */
+  setHighlightColors(colors: Partial<HighlightColors>): void;
   /**
    * Update typography overrides. For each value field:
    * `undefined` leaves it untouched, `null` clears the override (falls back to the
@@ -153,7 +160,8 @@ export interface ReaderController {
   setRenderScale(scale: number): void;
   readonly renderScale: number;
 
-  search(query: string): void;
+  /** Searches the whole book; `options` matches case or whole words only, as the engine does. */
+  search(query: string, options?: SearchOptions): void;
   searchNext(): SearchResult | undefined;
   searchPrev(): SearchResult | undefined;
   /** Navigate to a specific search result by index (sets active + jumps to page). */
@@ -163,6 +171,14 @@ export interface ReaderController {
   readonly searchActiveIndex: number;
 
   clearSelection(): void;
+  /**
+   * Selects a source range as a reader's drag would, raising
+   * `selectionChange`. Resolves `true` once it is the selection; `false`
+   * when none of it is on the spread shown, the engine cannot place it, or
+   * a turn, a relayout, a later call or the reader's own selecting came
+   * first.
+   */
+  selectRange(range: ReaderExactSourceRangeRequest): Promise<boolean>;
   readonly hasSelection: boolean;
   readonly selectionText: string;
   /** Durable source locator of the selection, when both endpoints share a resource. */
@@ -197,6 +213,13 @@ export interface ReaderController {
    * either.
    */
   hitTestContent(point: ReaderClientPoint): ContentHitKind | null;
+
+  /**
+   * Where a source range is on screen: its rects on the pages shown, in
+   * screen coordinates like `annotationClick.screenBounds`. Empty when none
+   * of it is shown or the engine cannot place it.
+   */
+  rangeRects(range: ReaderExactSourceRangeRequest): Promise<readonly Rect[]>;
 
   /** Resolves once the engine has built the target; the selection is read at call time. */
   addAnnotation(input: AddAnnotationInput): Promise<AnnotationRecord | undefined>;

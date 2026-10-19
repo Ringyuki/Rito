@@ -179,8 +179,8 @@ fn exact_href_seek_reuses_only_a_chapter_origin_revision() {
     assert_ne!(chapter_start.revision_id, tail.revision_id);
     assert_eq!(tail_session.exact_cache_hit_count(), 0);
     assert!(tail_session.exact_layout_quantum_count() > tail_quanta);
-    assert!(chapter_start
-        .pages
+    assert!(tail_session
+        .artifact_page_records(&chapter_start)
         .iter()
         .any(|page| page.text.contains("Source locator paragraph 0 ")));
 }
@@ -271,7 +271,7 @@ fn foreground_result_is_not_visible_until_initial_cas_adoption() {
         .advance_background_once(ReaderBackgroundRequest {
             session_id: 42,
             expected_visible_artifact_id: candidate.artifact_id,
-            max_top_level_nodes_per_quantum: 1,
+            max_pages_per_quantum: 1,
         })
         .expect_err("background work cannot observe an unadopted candidate");
     assert_eq!(background.kind, ReaderErrorKind::InvalidRequest);
@@ -797,7 +797,7 @@ fn a_chapter_local_page_lays_images_out_with_their_real_dimensions() {
     let mut current = session
         .request_artifact(request(97, 1, "chapter.xhtml"))
         .expect("first page artifact");
-    let mut actual = vec![single_page_text(&current)];
+    let mut actual = vec![single_page_text(&session, &current)];
     let mut request_id = 1u64;
     for _ in 1..reference_revision.page_count {
         request_id += 1;
@@ -809,7 +809,7 @@ fn a_chapter_local_page_lays_images_out_with_their_real_dimensions() {
                 ReaderAdjacentDirection::Next,
             ))
             .expect("adjacent page");
-        actual.push(single_page_text(&next));
+        actual.push(single_page_text(&session, &next));
         session
             .release_artifact(current.artifact_id)
             .expect("previous artifact releases");
@@ -909,7 +909,7 @@ fn chapter_local_pages_match_the_whole_book_fragment_layout() {
     let mut current = session
         .request_artifact(request(101, 1, "chapter.xhtml"))
         .expect("first page artifact");
-    let mut actual = vec![single_page_text(&current)];
+    let mut actual = vec![single_page_text(&session, &current)];
     let mut request_id = 1u64;
     for _ in 0..20 {
         request_id += 1;
@@ -921,7 +921,7 @@ fn chapter_local_pages_match_the_whole_book_fragment_layout() {
                 ReaderAdjacentDirection::Next,
             ))
             .expect("adjacent page");
-        actual.push(single_page_text(&next));
+        actual.push(single_page_text(&session, &next));
         session
             .release_artifact(current.artifact_id)
             .expect("previous artifact releases");
@@ -1007,8 +1007,8 @@ fn exact_tail_locator_resolves_from_the_whole_chapter_revision() {
         .expect("tail locator resolves from the one-pass chapter revision");
 
     assert_eq!(tail.locator.anchor_id.as_deref(), Some("window-point-519"));
-    assert!(tail
-        .pages
+    assert!(session
+        .artifact_page_records(&tail)
         .iter()
         .any(|page| page.text.contains("Window paragraph 519")));
     assert_eq!(session.live_revision_count(), 1);
@@ -1122,9 +1122,9 @@ fn adopt_replacement(
         .expect("replacement foreground candidate adopts")
 }
 
-fn single_page_text(artifact: &ReaderArtifact) -> String {
+fn single_page_text(session: &ReaderSession, artifact: &ReaderArtifact) -> String {
     assert_eq!(artifact.pages.len(), 1);
-    artifact.pages[0].text.clone()
+    session.artifact_page_records(artifact)[0].text.clone()
 }
 
 #[test]
@@ -1492,8 +1492,8 @@ fn artifact_hits_carry_footnote_keys_that_read_back_directly() {
         .request_artifact(request(130, 1, ""))
         .expect("first chapter resolves");
 
-    let hits = visible
-        .pages
+    let records = session.artifact_page_records(&visible);
+    let hits = records
         .iter()
         .flat_map(|page| page.hits.iter())
         .collect::<Vec<_>>();
@@ -1576,7 +1576,7 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
                 continue;
             };
             painted
-                .entry(input.text.clone())
+                .entry(input.text.to_string())
                 .or_default()
                 .push((input.rect.x, input.rect.y));
         }
@@ -1595,13 +1595,13 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
             ("#intro", "internal"),
             ("https://example.com/help#reader", "external"),
         ];
+        let records = session.artifact_page_records(&artifact);
         let mut checked = 0;
         for (href, label_text) in link_labels {
             let origins = painted
                 .get(label_text)
                 .unwrap_or_else(|| panic!("{label}: label {label_text:?} is never painted"));
-            let matched = artifact
-                .pages
+            let matched = records
                 .iter()
                 .flat_map(|page| page.hits.iter())
                 .filter(|hit| hit.href.as_deref() == Some(href))
@@ -1620,7 +1620,7 @@ fn artifact_hits_share_the_display_list_coordinate_space() {
             checked += 1;
         }
         assert!(checked > 0, "{label}: the fixture must publish link hits");
-        for hit in artifact.pages.iter().flat_map(|page| page.hits.iter()) {
+        for hit in records.iter().flat_map(|page| page.hits.iter()) {
             assert!(
                 hit.bounds.x >= layout.margin_left && hit.bounds.y >= layout.margin_top,
                 "{label}: hits sit inside the page margins, not at the page corner"
@@ -1653,14 +1653,15 @@ fn double_spread_hits_carry_their_page_offset() {
         artifact.local_page_indexes
     );
     let right_origin = layout.page_width + layout.spread_gap + layout.margin_left;
-    for hit in &artifact.pages[1].hits {
+    let records = session.artifact_page_records(&artifact);
+    for hit in &records[1].hits {
         assert!(
             hit.bounds.x >= right_origin,
             "right-page hit {:?} must sit past {right_origin}",
             hit.bounds
         );
     }
-    for node in &artifact.pages[1].semantics {
+    for node in &records[1].semantics {
         assert!(node.bounds.x >= right_origin, "{node:?}");
     }
 }
@@ -1695,7 +1696,8 @@ fn text_range_geometry_lands_in_display_list_space() {
     let artifact = session
         .request_artifact(request(160, 1, ""))
         .expect("artifact resolves");
-    let page = artifact.pages.first().expect("a page");
+    let records = session.artifact_page_records(&artifact);
+    let page = records.first().expect("a page");
     let run = page.text_runs.first().copied().expect("a text run");
 
     let geometry = session
@@ -1761,7 +1763,8 @@ fn search_hits_feed_straight_into_text_geometry() {
         .request_artifact(request(170, 1, ""))
         .expect("artifact resolves");
     // Take a word the fixture actually renders, straight off the page.
-    let page = artifact.pages.first().expect("a page");
+    let records = session.artifact_page_records(&artifact);
+    let page = records.first().expect("a page");
     let needle = page
         .text
         .split_whitespace()
@@ -1878,7 +1881,8 @@ fn selection_geometry_spans_the_font_grid_box() {
     let artifact = session
         .request_artifact(request(164, 1, ""))
         .expect("artifact resolves");
-    let page = artifact.pages.first().expect("a page");
+    let records = session.artifact_page_records(&artifact);
+    let page = records.first().expect("a page");
     let run = page.text_runs.first().copied().expect("a text run");
     let geometry = session
         .get_text_range_geometry(ReaderTextRangeRequest {
@@ -1931,7 +1935,7 @@ fn a_render_ratio_change_repaints_without_a_new_revision() {
     );
     assert_ne!(at_one.artifact_id, at_two.artifact_id);
     assert_ne!(
-        at_one.display_list.semantic_digest, at_two.display_list.semantic_digest,
+        at_one.display_list.bytes, at_two.display_list.bytes,
         "the ratio-2 display list snaps on the finer grid"
     );
     for ratio in [0.0, -1.0, f64::NAN, f64::INFINITY] {

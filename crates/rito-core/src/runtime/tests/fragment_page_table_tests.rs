@@ -135,7 +135,6 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
     let page = session.page(0).expect("page 0 resolves");
     let targets = page.targets();
     let link: Vec<_> = targets
-        .entries
         .iter()
         .filter(|entry| entry.href.as_deref() == Some("https://example.com/next"))
         .collect();
@@ -146,7 +145,6 @@ fn fragment_pages_serve_targets_semantics_and_anchors() {
         "link targets carry the linked text, got {link_text:?}"
     );
     let plain = targets
-        .entries
         .iter()
         .any(|entry| entry.href.is_none() && !entry.text.is_empty());
     assert!(plain, "text outside the link carries no destination");
@@ -1158,7 +1156,7 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
             .frame(0, ratio)
             .expect("frame paints")
             .expect("spread 0 exists");
-        frame
+        let y = frame
             .commands
             .iter()
             .rev()
@@ -1166,7 +1164,8 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
                 crate::render::DisplayCommand::PaintText(input) => Some(input.rect.y),
                 _ => None,
             })
-            .expect("a text command")
+            .expect("a text command");
+        y
     };
     let at_one = first_text_y(1.0);
     let at_two = first_text_y(2.0);
@@ -1190,12 +1189,14 @@ fn render_ratio_moves_raster_snaps_without_re_paginating() {
             .frame(0, 1.0)
             .expect("frame paints")
             .expect("spread")
-            .commands,
+            .commands
+            .to_vec(),
         session
             .frame(0, 1.0)
             .expect("frame paints")
             .expect("spread")
-            .commands,
+            .commands
+            .to_vec(),
         "a repainted ratio is served from the page's paint cache"
     );
     assert_eq!(
@@ -1235,6 +1236,7 @@ fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     });
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -1264,12 +1266,7 @@ fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
 
     let page_state = |page_index: usize| {
         let page = session.page(page_index).expect("page resolves");
-        format!(
-            "{:?}|{:?}|{:?}",
-            page.metadata(),
-            page.text_positions(),
-            page.targets()
-        )
+        format!("{:?}|{:?}", page.text_positions(), page.targets())
     };
     // Single-page spreads, so a spread index is its page index.
     let frame_state = |spread_index: usize| {
@@ -1321,11 +1318,11 @@ fn a_chapter_rebuilds_to_the_same_pages_after_it_is_evicted() {
 }
 
 #[test]
-fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
-    // The build pass records every page's text and run offsets, so a
-    // query reads that slice; a movement builds only the pages it steps
-    // onto. Neither may re-bridge and re-paginate the whole book, which
-    // is what walking the page table page by page would do.
+fn finding_the_page_of_a_source_point_rebuilds_no_chapter() {
+    // A reading anchor is the first source point a page shows, and
+    // resolving a source point finds the page whose runs cover it. Both
+    // read the runs the build pass recorded for every page; laying the
+    // chapter out again to read them repeated the whole pagination.
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
         &chapter_eviction_fixture_epub(),
         policy(vec![face(
@@ -1347,6 +1344,69 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
+    });
+    layout.font_family_override = Some("serif".to_owned());
+    layout.font_family_force = Some(true);
+    let summary = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let page = summary.page_count - 1;
+    let crate::runtime::RuntimePageReadingAnchor::Resolved { locator, .. } = document
+        .get_page_reading_anchor(&summary.revision_id, page)
+        .expect("the last page has an anchor")
+    else {
+        panic!("the last page shows text");
+    };
+    assert!(locator.source_point.is_some(), "{locator:?}");
+    let resolution = document
+        .resolve_source_locator(&summary.revision_id, locator)
+        .expect("the anchor resolves");
+    let crate::runtime::RuntimeSourceLocatorResolution::Resolved { page_index, .. } = resolution
+    else {
+        panic!("the anchor did not resolve: {resolution:?}");
+    };
+    assert_eq!(page_index, page);
+    let table = &document
+        .revisions
+        .get(&summary.revision_id)
+        .expect("revision is retained")
+        .fragment_layout;
+    assert!(
+        table.materialized_chapter_indexes().is_empty(),
+        "the anchor and its page come from the recorded runs, so no chapter is rebuilt"
+    );
+}
+
+#[test]
+fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
+    // The build pass paginates without the text: the first search takes
+    // every page's text and run offsets once, and a later query reads
+    // them; a movement builds only the pages it steps onto. Neither may
+    // re-bridge and re-paginate the whole book again, which is what
+    // walking the page table page by page would do.
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &chapter_eviction_fixture_epub(),
+        policy(vec![face(
+            serif_text_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("eviction fixture opens");
+    let mut layout = create_layout_config(LayoutConfigInput {
+        width: 200.0,
+        height: 96.0,
+        margin: MarginInput::All(8.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+        device_pixel_ratio: 1.0,
     });
     layout.font_family_override = Some("serif".to_owned());
     layout.font_family_force = Some(true);
@@ -1362,16 +1422,23 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
             .revision_version,
     };
 
-    let response = search(
-        &document,
-        &handle.revision_id,
-        crate::runtime::RuntimeSearchRequest {
-            query: "paragraph 2.".to_owned(),
-            case_sensitive: false,
-            whole_word: false,
-            limit: Some(50),
-        },
-    );
+    let query = || crate::runtime::RuntimeSearchRequest {
+        query: "paragraph 2.".to_owned(),
+        case_sensitive: false,
+        whole_word: false,
+        limit: Some(50),
+    };
+    let response = search(&document, &handle.revision_id, query());
+    let materialized = |document: &RuntimeDocument| {
+        document
+            .revisions
+            .get(&summary.revision_id)
+            .expect("revision is retained")
+            .fragment_layout
+            .materialized_chapter_indexes()
+    };
+    let after_first = materialized(&document);
+    assert_eq!(search(&document, &handle.revision_id, query()), response);
     assert_eq!(
         response.result_count, 3,
         "every chapter of the fixture carries the phrase once"
@@ -1385,14 +1452,10 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         pages.iter().any(|page| *page > 0),
         "the hits span the book, got {pages:?}"
     );
-    let table = &document
-        .revisions
-        .get(&summary.revision_id)
-        .expect("revision is retained")
-        .fragment_layout;
-    assert!(
-        table.materialized_chapter_indexes().is_empty(),
-        "search reads the recorded page text, so it rebuilds no chapter"
+    assert_eq!(
+        materialized(&document),
+        after_first,
+        "a second search reads the page text the first took, so it rebuilds no chapter"
     );
 
     let caret = |page_index| crate::interaction::TextCaretAddress {
@@ -1420,14 +1483,12 @@ fn search_and_a_movement_step_rebuild_no_chapter_they_do_not_read() {
         panic!("a character step on page 0 resolves");
     };
     assert_eq!(range.selected_text.chars().count(), 1);
-    let table = &document
-        .revisions
-        .get(&summary.revision_id)
-        .expect("revision is retained")
-        .fragment_layout;
-    assert_eq!(
-        table.materialized_chapter_indexes(),
-        vec![0],
-        "a step inside page 0 builds page 0's chapter and no other"
+    let after_step = materialized(&document);
+    assert!(
+        after_step.last() == Some(&0)
+            && after_step
+                .iter()
+                .all(|index| *index == 0 || after_first.contains(index)),
+        "a step inside page 0 builds page 0's chapter and no other: {after_first:?} -> {after_step:?}"
     );
 }

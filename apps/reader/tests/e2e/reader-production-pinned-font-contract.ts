@@ -63,9 +63,6 @@ export const PRODUCTION_PINNED_OPEN_EXPECTATIONS = [
 export const PRODUCTION_PINNED_FONT_HASHES = PRODUCTION_PINNED_OPEN_EXPECTATIONS.map(
   (font) => font.sha256,
 );
-export const PRODUCTION_PINNED_FONT_BYTE_LENGTHS = PRODUCTION_PINNED_OPEN_EXPECTATIONS.map(
-  (font) => font.byteLength,
-);
 export const PRODUCTION_PINNED_FONT_ALIASES = PRODUCTION_PINNED_FONT_HASHES.map(
   (hash) => `__RitoPinned_${hash}`,
 );

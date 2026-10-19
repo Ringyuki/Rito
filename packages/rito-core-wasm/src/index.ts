@@ -1,5 +1,6 @@
 export {
   decodeRitoReaderArtifact,
+  decodeRitoReaderPageRecords,
   decodeRitoReaderResource,
 } from './reader-session-artifact-decoder-runtime.js';
 export { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';

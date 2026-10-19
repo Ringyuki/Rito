@@ -19,6 +19,9 @@ use super::{RuntimeDocument, RuntimeRevision};
 /// platform font database.
 pub(super) struct RuntimeFragmentEngine {
     pub(super) engine: BlockFormattingContext<ParleyInlineContext>,
+    /// Chapters' formatting trees as last built and measured by this
+    /// engine (see [`super::chapter_trees`]).
+    pub(super) trees: std::cell::RefCell<super::chapter_trees::ChapterTreeCache>,
 }
 
 impl std::fmt::Debug for RuntimeFragmentEngine {
@@ -82,6 +85,7 @@ impl RuntimeDocument {
             }
             Some(Rc::new(RuntimeFragmentEngine {
                 engine: BlockFormattingContext::new(context),
+                trees: Default::default(),
             }))
         });
         engine

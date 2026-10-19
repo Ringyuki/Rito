@@ -17,7 +17,7 @@ use crate::render::{display_rect, DisplayCommand};
 
 use super::family::css_color;
 use super::image::append_image_command;
-use super::text_run::{append_text_run_command, ItemLineExtent};
+use super::text_run::{append_text_run_command, ItemLineExtent, LinePaints};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_line_commands(
@@ -26,7 +26,7 @@ pub(super) fn append_line_commands(
     line: &LineFragment,
     origin_x: f64,
     origin_y: f64,
-    faces: Option<&[String]>,
+    faces: Option<&[std::sync::Arc<str>]>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
@@ -53,6 +53,8 @@ pub(super) fn append_line_commands(
             text_ranges.push((start..full_text.len(), item_index));
         }
     }
+    // Shared by every run cut from it.
+    let full_text: std::sync::Arc<str> = full_text.into();
     let line_x = origin_x + line.rect.x;
     let line_y = origin_y + line.rect.y;
     // The list item's outside disc marker, filled with the line's text
@@ -76,14 +78,14 @@ pub(super) fn append_line_commands(
                 marker.diameter,
                 marker.diameter,
             ),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     color: Some(color),
                     ..ReaderBackgroundPaint::default()
                 }),
                 radius: Some(ReaderBlockRadius::Px(marker.diameter / 2.0)),
                 ..ReaderBlockPaint::default()
-            },
+            }),
             border_box: None,
         });
     }
@@ -108,11 +110,13 @@ pub(super) fn append_line_commands(
             }
         }
     }
+    let mut paints = LinePaints::default();
     for child in &line.children {
         match child {
             Fragment::Text(run) => {
                 append_text_run_command(
                     commands,
+                    &mut paints,
                     items,
                     styles,
                     &full_text,

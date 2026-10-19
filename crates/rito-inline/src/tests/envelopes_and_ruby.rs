@@ -950,27 +950,24 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
     let Some(Fragment::Line(line)) = root.children.first() else {
         panic!("outcome has a first line");
     };
-    let runs: Vec<&TextFragment> = line
-        .children
-        .iter()
-        .filter_map(|child| match child {
-            Fragment::Text(run) => Some(run),
-            _ => None,
-        })
-        .collect();
+    let runs = placed(line.children.iter().filter_map(|child| match child {
+        Fragment::Text(run) => Some(run),
+        _ => None,
+    }));
     let before = runs
         .iter()
-        .find(|run| run.text_start == 0)
+        .find(|piece| piece.text_start == 0)
         .expect("the run before the ruby");
     let column = runs
         .iter()
-        .find(|run| run.text_start == 24)
-        .expect("the ruby base");
+        .find(|piece| piece.text_start == 24)
+        .expect("the ruby base")
+        .run;
     let after = runs
         .iter()
-        .find(|run| run.text_start == 27)
+        .find(|piece| piece.text_start == 27)
         .expect("the run after the ruby");
-    let share = before.justify_px;
+    let share = before.run.justify_px;
     assert!(share > 0.0, "the line justifies: {share}");
     assert_eq!(
         column.justify_px, 0.0,
@@ -986,21 +983,21 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
     // of that edge.
     let column_end = column.rect.x + column.rect.width;
     assert!(
-        (after.rect.x - (column_end + share)).abs() < 1e-9,
+        (after.x - (column_end + share)).abs() < 1e-9,
         "after the column: {} vs {column_end} + {share}",
-        after.rect.x
+        after.x
     );
     // The boundary that ideograph leaves behind opens two shares (its
     // own before-share lands one boundary late) — the ink shift moved
     // no neighbour — and the line steps one share each from there.
     let next = runs
         .iter()
-        .find(|run| run.text_start == 30)
+        .find(|piece| piece.text_start == 30)
         .expect("the run after that");
     assert!(
-        (next.rect.x - (column_end + 16.0 + 2.0 * share)).abs() < 1e-6,
+        (next.x - (column_end + 16.0 + 2.0 * share)).abs() < 1e-6,
         "two shares after the first ideograph: {} vs {column_end} + 16 + 2 × {share}",
-        next.rect.x
+        next.x
     );
     let steps: Vec<f64> = next.clusters.windows(2).map(|w| w[1].x - w[0].x).collect();
     assert!(

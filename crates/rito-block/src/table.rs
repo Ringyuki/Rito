@@ -199,6 +199,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragmentainer_size: cell_fragmentainer_size,
                     float_band: None,
                     containing_block_size: None,
+                    // Cells keep their text: a table's cells are laid out
+                    // whole however the page around them is.
+                    line_text: LineText::All,
                 },
                 inner_token.as_ref(),
                 cancel,

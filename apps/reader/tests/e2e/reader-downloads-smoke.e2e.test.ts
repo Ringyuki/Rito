@@ -89,17 +89,46 @@ async function readerSpreadCount(page: Page): Promise<number> {
 }
 
 async function hasNonBlankCanvas(page: Page): Promise<boolean> {
-  return page.locator('canvas').evaluateAll((canvases) =>
-    canvases.some((canvas) => {
+  return page.locator('canvas').evaluateAll((canvases) => {
+    // A canvas shows its drawing buffer, or — the reader's, cropped with
+    // object-fit: none — the bottom-left region its box covers at the
+    // device ratio.
+    const shownRegion = (canvas: HTMLCanvasElement) => {
+      if (getComputedStyle(canvas).objectFit !== 'none') {
+        return { x: 0, y: 0, width: canvas.width, height: canvas.height };
+      }
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.min(canvas.width, Math.round(rect.width * devicePixelRatio));
+      const height = Math.min(canvas.height, Math.round(rect.height * devicePixelRatio));
+      return { x: 0, y: canvas.height - height, width, height };
+    };
+    return canvases.some((canvas) => {
       if (!(canvas instanceof HTMLCanvasElement) || canvas.width === 0 || canvas.height === 0) {
         return false;
       }
-      const context = canvas.getContext('2d');
+      // The reader draws with WebGL: its pixels are read through a 2D copy
+      // of what it shows, the bottom-left region of its drawing buffer.
+      const shown = shownRegion(canvas);
+      const copy = document.createElement('canvas');
+      copy.width = shown.width;
+      copy.height = shown.height;
+      const context = copy.getContext('2d', { willReadFrequently: true });
       if (!context) return false;
-      const stepX = Math.max(1, Math.floor(canvas.width / 40));
-      const stepY = Math.max(1, Math.floor(canvas.height / 40));
-      for (let y = 0; y < canvas.height; y += stepY) {
-        for (let x = 0; x < canvas.width; x += stepX) {
+      context.drawImage(
+        canvas,
+        shown.x,
+        shown.y,
+        shown.width,
+        shown.height,
+        0,
+        0,
+        shown.width,
+        shown.height,
+      );
+      const stepX = Math.max(1, Math.floor(shown.width / 40));
+      const stepY = Math.max(1, Math.floor(shown.height / 40));
+      for (let y = 0; y < shown.height; y += stepY) {
+        for (let x = 0; x < shown.width; x += stepX) {
           const pixel = context.getImageData(x, y, 1, 1).data;
           if ((pixel[3] ?? 0) === 0) continue;
           const distanceFromWhite =
@@ -110,6 +139,6 @@ async function hasNonBlankCanvas(page: Page): Promise<boolean> {
         }
       }
       return false;
-    }),
-  );
+    });
+  });
 }

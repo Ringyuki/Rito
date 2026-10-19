@@ -103,10 +103,45 @@ pub struct ChapterFormattingTree {
     /// `ruby-align`, and how far over the base's baseline the annotation
     /// line sits. Filled by [`ChapterFormattingTree::measure_painted_runs`].
     pub ruby_annotation_runs: BTreeMap<(u32, usize), rito_inline::MeasuredRuby>,
+    /// Each inline flow's text items joined as its text fragments address
+    /// them, by node id: joined once with the tree, read for every line a
+    /// page's query artifact walks.
+    pub flow_texts: BTreeMap<u32, FlowText>,
     /// Constructs the tree could not represent exactly and rendered with
     /// an approximation instead (ignored decoration, flattened display,
     /// collapsed preserved white space, …). Empty means exact.
     pub degradations: Vec<String>,
+}
+
+/// One inline flow's text items joined: the text its text fragments' byte
+/// offsets index, with each text item's range in it and the item's index.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FlowText {
+    pub text: String,
+    pub item_ranges: Vec<(std::ops::Range<usize>, usize)>,
+}
+
+/// The joined text of every inline flow in `tree`, by node id.
+pub(crate) fn flow_texts(tree: &FormattingTree) -> BTreeMap<u32, FlowText> {
+    (0..tree.len())
+        .filter_map(|index| {
+            let id = u32::try_from(index).ok()?;
+            let FormattingNodeContent::InlineFlow { items } =
+                &tree.node(FormattingNodeId(id)).content
+            else {
+                return None;
+            };
+            let mut flow = FlowText::default();
+            for (item_index, item) in items.iter().enumerate() {
+                if let InlineItem::Text { text, .. } = item {
+                    let start = flow.text.len();
+                    flow.text.push_str(text);
+                    flow.item_ranges.push((start..flow.text.len(), item_index));
+                }
+            }
+            Some((id, flow))
+        })
+        .collect()
 }
 
 /// One outside list marker's paint inputs.
@@ -191,8 +226,8 @@ pub struct FlowItemSource {
     /// text run, the image element for an image).
     pub source_index: Option<usize>,
     /// Source-tree node path of the item's owner, the durable locator
-    /// coordinate shared with the retained backend.
-    pub source_path: Option<Vec<usize>>,
+    /// coordinate, shared by every run of the item a page records.
+    pub source_path: Option<std::rc::Rc<[usize]>>,
     /// Destination of the nearest enclosing `<a href>`, if any.
     pub href: Option<String>,
     /// Alt text for an image item.
@@ -388,8 +423,10 @@ pub fn build_chapter_formatting_tree_with_generated(
     )
     .map_err(EpubError::new)?;
     tree.set_strut_styles(strut_styles);
+    let flow_texts = flow_texts(&tree);
     Ok(ChapterFormattingTree {
         tree,
+        flow_texts,
         source_nodes,
         node_paints,
         image_border_paints,
@@ -506,6 +543,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         node_tags: BTreeMap::new(),
         list_markers: BTreeMap::new(),
         ruby_annotation_runs: BTreeMap::new(),
+        flow_texts: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })
 }

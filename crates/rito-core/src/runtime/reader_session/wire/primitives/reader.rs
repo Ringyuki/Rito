@@ -115,20 +115,6 @@ impl<'a> Reader<'a> {
         self.take(length)
     }
 
-    pub(crate) fn fixed_bytes<const N: usize>(
-        &mut self,
-        field: &str,
-    ) -> Result<[u8; N], ReaderError> {
-        let length = self.u32()?;
-        let expected = u32::try_from(N).map_err(|_| invalid("fixed byte width is invalid"))?;
-        if length != expected {
-            return Err(invalid(format!("{field} must contain {expected} bytes")));
-        }
-        self.take(N)?
-            .try_into()
-            .map_err(|_| invalid(format!("{field} is truncated")))
-    }
-
     pub(crate) fn option<T>(
         &mut self,
         field: &str,

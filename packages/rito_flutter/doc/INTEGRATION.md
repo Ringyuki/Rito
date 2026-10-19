@@ -12,14 +12,14 @@ with a Canvas pen that is pixel-calibrated against the browser pen
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `package:rito_flutter/rito_flutter.dart`          | Everything a host app needs: gateway, session, page surface, font/image caches, request models.                                        |
 | `package:rito_flutter/rito_flutter_protocol.dart` | Typed decoders and models for every wire contract (`RITOART1`, `RITODL1`, `RITONAV1`, …). Only needed for tooling or custom pipelines. |
-| `package:rito_flutter/rito_flutter_native.dart`   | `RitoNativeBindings`, the blocking low-level ABI projection for custom embedders. Normal apps use the isolate gateway instead.         |
+| `package:rito_flutter/rito_flutter_native.dart`   | `RitoNativeBindings`, the blocking low-level ABI projection for custom embedders. Normal apps use `RitoNativeGateway` instead.         |
 
 ## Quick start
 
 ```dart
 import 'package:rito_flutter/rito_flutter.dart';
 
-final gateway = RitoIsolateGateway();
+final gateway = RitoNativeGateway();
 final session = await RitoReaderSession.open(
   gateway: gateway,
   publicationBytes: epubBytes,
@@ -348,20 +348,28 @@ Omit the override for light mode — the authored page paints unmodified.
 
 ## Threading and native assets
 
-- `RitoIsolateGateway` runs all native work (parse, layout, seek,
-  turn) on a persistent worker isolate; every public future completes
-  on the calling isolate. The UI isolate only registers fonts and
-  replays display lists.
+- `RitoNativeGateway` runs all native work (parse, layout, seek,
+  turn) on the calling isolate: each call into the engine answers before
+  it returns, so the frame that asks for a layout can draw it. Opening a
+  book and the first search hold the isolate while they run; the whole
+  book behind the page shown is laid out a few pages at a time between
+  frames. `RitoIsolateGateway` is its deprecated former name.
+- A relayout completes within the microtasks of the task that asks for
+  it. To draw a new size in the frame that shows it, ask before that
+  frame builds — from `WidgetsBindingObserver.didChangeMetrics` or a
+  transient frame callback — not from `build` or a `LayoutBuilder`,
+  which run inside the frame: the page laid out there shows a frame
+  later. `test/relayout_in_frame_test.dart` holds this with real frames.
 - Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.41.7,
   pinned Rust toolchain). Tests and diagnostics may bypass with
-  `RitoIsolateGateway(diagnosticLibrary: ...)`.
+  `RitoNativeGateway(diagnosticLibrary: ...)`.
 
 ## Fidelity contract
 
 The engine resolves every page into device-pixel primitives, and the
 Flutter pen blits the same bytes the browser pen does: border bands and
 dash cadences, radii, box shadows, background sizing and tiling, inline
-boxes, decoration lines and the origin of every text cluster are
+boxes, decoration lines and the cluster origins of every text run are
 decided in the engine, not in either pen. The two pens are held
 together by a pixel-diff instrument (`tools/paint-parity/run.mjs` at
 the repo root) that fails when a fixture exceeds its budget. What the
@@ -375,9 +383,9 @@ report is a regression.
 
 Known open semantics:
 
-- A text run carries its string and the origin of every cluster, not
-  glyph ids or a bidi direction; the pen draws each cluster at its
-  origin as a left-to-right string through Flutter's own shaper, so
+- A text run carries its string and its cluster origins, not glyph ids
+  or a bidi direction; the pen draws the text from each origin up to
+  the next as a left-to-right string through Flutter's own shaper, so
   right-to-left and complex-script text is not guaranteed to match the
   browser.
 - Inset box shadows are not painted: the engine does not lower them.

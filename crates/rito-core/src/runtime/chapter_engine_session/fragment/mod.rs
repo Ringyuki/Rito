@@ -5,19 +5,19 @@
 //! source-range resolution, pointer-driven text interaction (caret from
 //! point, range selection, word/paragraph expansion) and keyboard
 //! selection movement (`movement`) are served from the fragment page
-//! artifacts. Character positions inside a run interpolate linearly by
-//! UTF-16 offset: the page artifacts do not carry the per-cluster origins
-//! the paint list does.
+//! artifacts. A position inside a run lands on the cluster edges the run
+//! was drawn with (`FragmentRunRecord::x_at` and `offset_at`).
 
 mod movement;
+mod word;
 
 use std::{collections::BTreeMap, ops::Range, rc::Rc};
 
 use movement::{move_focus, Moved, MovementRequest, ScopePages, StreamPosition};
+use word::{word_around, NextPage};
 
 use crate::interaction::{
-    plain_word_bounds, TextCaretAddress, TextCaretAffinity, TextCaretGeometry,
-    TextInteractionUnavailableReason,
+    TextCaretAddress, TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,
 };
 
 use super::super::page_artifact::{
@@ -34,8 +34,8 @@ use super::super::{
     fragment_backend::FragmentBuiltLayout,
     fragment_frame::paint_rect_command,
     page_artifact::{
-        FragmentPageArtifact, FragmentRunRecord, PageArtifact, PageArtifactChapterRange,
-        PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange,
+        FragmentPageArtifact, FragmentRunRecord, FrameCommands, PageArtifact,
+        PageArtifactChapterRange, PageArtifactExactSourceRangeQuery, PageArtifactExactTextRange,
         PageArtifactExactTextRangeRect, PageArtifactExactTextRangeResolution, PageArtifactFrame,
         PageArtifactRevisionMetadata, PageArtifactSourcePoint, PageArtifactSourceRunStart,
         PageArtifactSpread, PageArtifactTextCaret, PageArtifactTextCaretQuery,
@@ -112,7 +112,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
         // around its content commands. The page wash is the chapter
         // body's background when it declares one; block-level paint
         // beyond that is excluded by the representability gate.
-        let mut commands = Vec::new();
+        let mut commands = FrameCommands::default();
         commands.push(paint_rect_command(
             0.0,
             0.0,
@@ -125,7 +125,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
             let Some((page, chapter)) = self.layout.page_with_chapter(*page_index)? else {
                 return Ok(None);
             };
-            let metadata = page.artifact().metadata();
+            let (page_width, page_height) = page.size();
             let offset_x = slot as f64 * (config.page_width + config.spread_gap);
             commands.push(DisplayCommand::PushState);
             commands.push(DisplayCommand::Translate {
@@ -138,20 +138,23 @@ impl<'a> FragmentChapterEngineSession<'a> {
             // two sheets with a slit between them. Content stays clipped
             // to the page box below.
             let (wash_x, wash_width) = if dual {
-                let half_gap = config.spread_gap / 2.0;
+                // The two washes meet in the middle of the gap, on a device
+                // pixel, as the pages sit on the device grid.
+                let left_half = ((config.spread_gap * ratio / 2.0) + 1e-6).floor() / ratio;
+                let right_half = config.spread_gap - left_half;
                 if slot == 0 {
-                    (0.0, metadata.width + half_gap)
+                    (0.0, page_width + left_half)
                 } else {
-                    (-half_gap, metadata.width + half_gap)
+                    (-right_half, page_width + right_half)
                 }
             } else {
-                (0.0, metadata.width)
+                (0.0, page_width)
             };
             commands.push(paint_rect_command(
                 wash_x,
                 0.0,
                 wash_width,
-                metadata.height,
+                page_height,
                 chapter.page_background.unwrap_or(ReaderColor::WHITE),
             ));
             if let Some(paint) = &chapter.page_background_image {
@@ -164,13 +167,13 @@ impl<'a> FragmentChapterEngineSession<'a> {
                     rect: display_rect(
                         config.margin_left,
                         config.margin_top,
-                        metadata.width - config.margin_left - config.margin_right,
-                        metadata.height - config.margin_top - config.margin_bottom,
+                        page_width - config.margin_left - config.margin_right,
+                        page_height - config.margin_top - config.margin_bottom,
                     ),
-                    paint: ReaderBlockPaint {
+                    paint: Box::new(ReaderBlockPaint {
                         background: Some(paint.clone()),
                         ..ReaderBlockPaint::default()
-                    },
+                    }),
                     border_box: None,
                 });
             }
@@ -190,12 +193,12 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 rect: display_rect(
                     config.margin_left,
                     config.margin_top,
-                    metadata.width - config.margin_left,
-                    metadata.height - config.margin_top - config.margin_bottom,
+                    page_width - config.margin_left,
+                    page_height - config.margin_top - config.margin_bottom,
                 ),
                 radius: None,
             });
-            commands.extend(page.commands_for(ratio)?.iter().cloned());
+            commands.push_page(page.commands_for(ratio)?);
             commands.push(DisplayCommand::PopState);
             commands.push(DisplayCommand::PopState);
         }
@@ -253,30 +256,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
         &self,
         range: Range<usize>,
     ) -> Option<Vec<PageArtifactSourceRunStart>> {
-        if range.start > range.end || range.end > self.layout.page_count() {
-            return None;
-        }
-        let mut starts = Vec::new();
-        for page_index in range {
-            let Some(artifact) = self.artifact(page_index) else {
-                continue;
-            };
-            for run in artifact.interaction_runs() {
-                let Some(source) = run.source.as_ref() else {
-                    continue;
-                };
-                let Some(text_offset) = source.source_offset(0) else {
-                    continue;
-                };
-                starts.push(PageArtifactSourceRunStart {
-                    page_index,
-                    node_path: source.path.clone(),
-                    text_offset: text_offset as usize,
-                    text_length: run.end - run.start,
-                });
-            }
-        }
-        Some(starts)
+        // Read from what the build pass recorded: no chapter is laid out
+        // again to find where a source point is.
+        self.layout.source_run_starts(range)
     }
 
     pub(super) fn search_page_index(&self) -> &'a [crate::runtime::search::SearchPageText] {
@@ -635,7 +617,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     /// The caret for an exact address, with its geometry recomputed from
     /// the owning run.
-    fn caret_at(&self, address: TextCaretAddress) -> Option<PageArtifactTextCaret> {
+    pub(super) fn caret_at(&self, address: TextCaretAddress) -> Option<PageArtifactTextCaret> {
         let artifact = self.artifact(address.page_index)?;
         let run = artifact.interaction_runs().iter().find(|run| {
             run.block_index == address.block_index
@@ -646,7 +628,10 @@ impl<'a> FragmentChapterEngineSession<'a> {
         if address.char_index > length {
             return None;
         }
-        Some(caret_record(address.page_index, run, address.char_index))
+        let mut caret = caret_record(address.page_index, run, address.char_index);
+        // The caret at the address keeps the side of the boundary it names.
+        caret.address.affinity = address.affinity;
+        Some(caret)
     }
 
     fn caret_near_point(&self, point: PageArtifactTextPoint) -> Option<PageArtifactTextCaret> {
@@ -745,18 +730,17 @@ impl<'a> FragmentChapterEngineSession<'a> {
                     )
                     .map(|unit| unit.unwrap_or(char::REPLACEMENT_CHARACTER)),
                 );
-                let length = (run.end - run.start).max(1) as f64;
-                let from = (clip_start - run.start) as f64 / length;
-                let to = (clip_end - run.start) as f64 / length;
+                let left = run.x_at(clip_start - run.start);
+                let right = run.x_at(clip_end - run.start);
                 // A native selection rect spans the run's FONT box, the
                 // way a Chromium Range rect does; the line box is the
                 // fallback for hosts that inject no grid metric.
                 let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
                 rects.push(PageArtifactExactTextRangeRect {
                     page_index,
-                    x: run.x + run.width * from,
+                    x: left,
                     y: rect_y,
-                    width: run.width * (to - from),
+                    width: right - left,
                     height: rect_height,
                     block_index: run.block_index,
                     line_index: run.line_index,
@@ -836,14 +820,20 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let artifact = self.artifact(anchor.page_index)?;
         let anchor_hit = position_of(&artifact, &anchor)?;
         let focus_hit = position_of(&artifact, &focus)?;
+        let following = self.artifact(anchor.page_index + 1);
+        let next = NextPage {
+            exists: following.is_some(),
+            first_paragraph: following
+                .as_ref()
+                .and_then(|page| page.interaction_runs().first().map(|run| run.paragraph)),
+        };
         // Each endpoint expands to ITS OWN word: a word-granularity drag
         // spans from the anchor word's outer edge to the focus word's
         // outer edge (a single word interval never contains a multi-word
         // drag). Document order flips with the drag direction so the
         // anchor word stays fully selected either way.
-        let text = artifact.page_text();
-        let anchor_word = plain_word_bounds(text, anchor_hit as u32, anchor_hit as u32, language)?;
-        let focus_word = plain_word_bounds(text, focus_hit as u32, focus_hit as u32, language)?;
+        let anchor_word = word_around(&artifact, anchor_hit, next, language);
+        let focus_word = word_around(&artifact, focus_hit, next, language);
         let (start, end) = if focus_hit >= anchor_hit {
             (anchor_word.0, focus_word.1)
         } else {
@@ -927,13 +917,7 @@ fn caret_from_point(
         }
     }
     let (_, run) = best?;
-    let length = run.end - run.start;
-    let char_index = if length == 0 || run.width <= 0.0 {
-        0
-    } else {
-        (((x - run.x) / run.width * length as f64).round().max(0.0) as usize).min(length)
-    };
-    Some(caret_record(page_index, run, char_index))
+    Some(caret_record(page_index, run, run.offset_at(x)))
 }
 
 fn caret_record(
@@ -941,12 +925,6 @@ fn caret_record(
     run: &FragmentRunRecord,
     char_index: usize,
 ) -> PageArtifactTextCaret {
-    let length = run.end - run.start;
-    let ratio = if length == 0 {
-        0.0
-    } else {
-        char_index as f64 / length as f64
-    };
     PageArtifactTextCaret {
         address: TextCaretAddress {
             page_index,
@@ -957,7 +935,7 @@ fn caret_record(
             affinity: TextCaretAffinity::Downstream,
         },
         geometry: TextCaretGeometry {
-            x: run.x + run.width * ratio,
+            x: run.x_at(char_index),
             // The caret spans the run's font box like a selection rect;
             // hit-testing above stays on the full line band.
             y: run.font_box.map_or(run.y, |(top, _)| top),

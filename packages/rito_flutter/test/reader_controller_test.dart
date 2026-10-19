@@ -77,16 +77,43 @@ void main() {
     expect(source.seeks, <String>['b.xhtml']);
   });
 
-  test('pagination adopts the renumbered page and pauses while held', () async {
+  testWidgets('pagination starts after the first frame, a step a task', (
+    tester,
+  ) async {
+    final source = FakePageSource(paginationSteps: 3);
+    final reader = RitoReaderController.withSource(source, layout: fakeLayout);
+    addTearDown(reader.dispose);
+    // The first page reaches the screen first: no step runs before the
+    // frame that draws it ends, however many tasks go by.
+    await tester.runAsync(() => pumpEventQueue());
+    expect(source.paginations, 0);
+    await tester.pump(Duration.zero);
+    // The engine answers within the task that asks, so microtasks alone
+    // would run the whole book before the next frame: they run no step.
+    for (var turn = 0; turn < 20; turn += 1) {
+      await Future<void>.microtask(() {});
+    }
+    expect(source.paginations, 0);
+    // Each step is a task of its own, so letting the tasks run runs them.
+    await tester.pump(Duration.zero);
+    expect(source.paginations, 3);
+  });
+
+  testWidgets('pagination adopts the renumbered page and pauses while held', (
+    tester,
+  ) async {
     final source = FakePageSource(paginationSteps: 2);
     final reader = RitoReaderController.withSource(source, layout: fakeLayout);
     addTearDown(reader.dispose);
     final release = reader.holdPagination();
-    await pumpEventQueue();
+    await tester.pump(Duration.zero);
+    await tester.pump(Duration.zero);
     expect(source.paginations, 0);
 
     release();
-    await pumpEventQueue();
+    for (var frame = 0; frame < 4; frame += 1) {
+      await tester.pump(Duration.zero);
+    }
     expect(source.paginations, 2);
     expect(reader.paginationComplete, isTrue);
     expect(reader.revision, 1);
@@ -116,7 +143,9 @@ void main() {
     expect(reader.paginationComplete, isTrue);
   });
 
-  test('a pagination failure is reported and stops pagination', () async {
+  testWidgets('a pagination failure is reported and stops pagination', (
+    tester,
+  ) async {
     final errors = <FlutterErrorDetails>[];
     final previous = FlutterError.onError;
     FlutterError.onError = errors.add;
@@ -125,7 +154,8 @@ void main() {
     final reader = RitoReaderController.withSource(source, layout: fakeLayout);
     addTearDown(reader.dispose);
 
-    await pumpEventQueue();
+    await tester.pump(Duration.zero);
+    await tester.pump(Duration.zero);
     expect(errors.single.library, 'rito_flutter');
     expect(reader.paginationComplete, isTrue);
     expect(reader.page, same(source.firstPage));

@@ -131,7 +131,7 @@ fn command_value(command: &DisplayCommand) -> Value {
 }
 
 fn insert_text_fields(fields: &mut Map<String, Value>, text: &DisplayTextCommand) {
-    fields.insert("text".to_owned(), Value::String(text.text.clone()));
+    fields.insert("text".to_owned(), Value::String(text.text.to_string()));
     fields.insert("rect".to_owned(), rect_value(&text.rect));
     fields.insert("paint".to_owned(), run_paint_value(&text.paint));
     if let Some(line_height) = text.line_height_px {
@@ -148,8 +148,16 @@ fn insert_text_fields(fields: &mut Map<String, Value>, text: &DisplayTextCommand
             Value::Array(
                 text.clusters
                     .iter()
-                    .map(|(byte, x, y)| {
-                        Value::Array(vec![Value::from(*byte), number(*x), number(*y)])
+                    .map(|cluster| {
+                        let mut entries = vec![
+                            Value::from(cluster.byte),
+                            number(cluster.x),
+                            number(cluster.y),
+                        ];
+                        if cluster.joins {
+                            entries.push(Value::Bool(true));
+                        }
+                        Value::Array(entries)
                     })
                     .collect(),
             ),
@@ -163,7 +171,7 @@ fn run_paint_value(paint: &ReaderRunPaint) -> Value {
     output.insert(
         "font".to_owned(),
         json!({
-            "family": paint.font.family,
+            "family": &*paint.font.family,
             "sizePx": number(paint.font.size_px),
             "style": match paint.font.style {
                 ReaderFontStyle::Normal => "normal",

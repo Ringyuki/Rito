@@ -1,12 +1,10 @@
-use sha2::{Digest, Sha256};
-
 use crate::render::{
     lower::{
         lower, DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground,
         ImageFallbackState, ImageSize, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
     },
     test_support::css_color,
-    DisplayCommand, DisplayTextCommand, RunPaint,
+    DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
 };
 
 use super::{
@@ -20,7 +18,7 @@ use super::{
         ReaderRunDecorationKind, ReaderRunPaint, ReaderSize, ReaderSpacing, ReaderTextShadow,
         ReaderTransform,
     },
-    decode::{validate, DecodeError},
+    decode::{joins_offset, validate, DecodeError},
     encode::checked_length,
     encode_reader_primitive_list, ReaderDisplayListWireError, READER_PRIMITIVE_LIST_FORMAT_VERSION,
 };
@@ -70,8 +68,6 @@ fn every_primitive_shape_roundtrips_through_the_strict_validator() {
     assert_eq!(encoded.command_count, 14);
     assert_eq!(&encoded.bytes[..7], b"RITODL1");
     assert_eq!(validate(&encoded.bytes), Ok(14));
-    let expected_digest: [u8; 32] = Sha256::digest(&encoded.bytes).into();
-    assert_eq!(encoded.semantic_digest, expected_digest);
     assert_eq!(encoded.image_hrefs, vec!["images/cover.jpg"]);
     assert_eq!(encoded.font_families, vec!["Rito Serif"]);
 }
@@ -84,13 +80,14 @@ fn fixed_primitive_wire_does_not_drift() {
     })
     .expect("encode fixed primitive");
 
-    // Magic, format 2, ratio 2.0 as a little-endian f64, one primitive,
-    // the push-state opcode.
+    // Magic, format 4, ratio 2.0 as a little-endian f64, one primitive,
+    // the push-state opcode, then the empty tables: no clusters (padded to
+    // a four-byte boundary), no text, no paints.
     assert_eq!(
         encoded.bytes,
         [
-            b'R', b'I', b'T', b'O', b'D', b'L', b'1', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 1, 0,
-            0, 0, 1, 0,
+            b'R', b'I', b'T', b'O', b'D', b'L', b'1', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 1, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]
     );
 }
@@ -139,6 +136,18 @@ fn validator_rejects_the_semantic_format_and_trailing_bytes() {
         validate(&format_one),
         Err(DecodeError::UnsupportedVersion(1))
     );
+    // Format 2 carried only the clusters a pen starts a string at.
+    format_one[7..11].copy_from_slice(&2u32.to_le_bytes());
+    assert_eq!(
+        validate(&format_one),
+        Err(DecodeError::UnsupportedVersion(2))
+    );
+    // Format 3 carried each run's text, paint and clusters with the run.
+    format_one[7..11].copy_from_slice(&3u32.to_le_bytes());
+    assert_eq!(
+        validate(&format_one),
+        Err(DecodeError::UnsupportedVersion(3))
+    );
 
     let mut trailing = encode_reader_primitive_list(&all_primitive_shapes())
         .expect("encode")
@@ -181,10 +190,78 @@ fn every_color_space_tag_is_valid_and_tag_16_is_rejected() {
 }
 
 #[test]
-fn lowered_display_commands_encode_as_format_2() {
+fn validator_rejects_a_cluster_flag_other_than_joins() {
+    let lowered = lower(&representative_commands(), 1.0, &fixture_image_size).expect("lower");
+    let run = lowered
+        .commands
+        .into_iter()
+        .find(|primitive| matches!(primitive, Primitive::Text(_)))
+        .expect("representative text lowers to a text run");
+    let Primitive::Text(text) = &run else {
+        unreachable!()
+    };
+    assert!(text.clusters.iter().any(|cluster| cluster.joins));
+    let mut bytes = encode_reader_primitive_list(&PrimitiveList {
+        ratio: 1.0,
+        commands: vec![run.clone()],
+    })
+    .expect("encode")
+    .bytes;
+    assert_eq!(validate(&bytes), Ok(1));
+    let joins = joins_offset(&bytes).expect("valid list");
+    bytes[joins] = 2;
+    assert_eq!(validate(&bytes), Err(DecodeError::InvalidOption(2)));
+}
+
+#[test]
+fn runs_share_one_paint_and_index_into_the_tables() {
+    let lowered = lower(&representative_commands(), 1.0, &fixture_image_size).expect("lower");
+    let run = lowered
+        .commands
+        .into_iter()
+        .find(|primitive| matches!(primitive, Primitive::Text(_)))
+        .expect("representative text lowers to a text run");
+    let Primitive::Text(text) = &run else {
+        unreachable!()
+    };
+    let clusters = text.clusters.len();
+    let one = encode_reader_primitive_list(&PrimitiveList {
+        ratio: 1.0,
+        commands: vec![run.clone()],
+    })
+    .expect("encode")
+    .bytes;
+    let two = encode_reader_primitive_list(&PrimitiveList {
+        ratio: 1.0,
+        commands: vec![run.clone(), run],
+    })
+    .expect("encode")
+    .bytes;
+    assert_eq!(validate(&two), Ok(2));
+    // The paint count is the u32 right after the text table; the second
+    // run adds its clusters and text but no paint.
+    let paint_count = |bytes: &[u8], runs: usize| {
+        let text_at = joins_offset(bytes).expect("valid list") + runs * clusters;
+        let text = u32::from_le_bytes(bytes[text_at..text_at + 4].try_into().unwrap()) as usize;
+        let at = text_at + 4 + text;
+        u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap())
+    };
+    assert_eq!(paint_count(&one, 1), 1);
+    assert_eq!(paint_count(&two, 2), 1);
+
+    // A run naming a paint past the table is refused. The run's paint
+    // index follows its four text range numbers and its rect.
+    let mut outside = one.clone();
+    let paint = 23 + 2 + 16 + 32;
+    outside[paint..paint + 4].copy_from_slice(&1u32.to_le_bytes());
+    assert_eq!(validate(&outside), Err(DecodeError::InvalidReference));
+}
+
+#[test]
+fn lowered_display_commands_encode_as_format_4() {
     let lowered = lower(&representative_commands(), 2.0, &fixture_image_size).expect("lower");
     let encoded = encode_reader_primitive_list(&lowered).expect("encode");
-    assert_eq!(encoded.format_version, 2);
+    assert_eq!(encoded.format_version, 4);
     assert_eq!(validate(&encoded.bytes), Ok(encoded.command_count));
     assert_eq!(
         encoded.image_hrefs,
@@ -272,7 +349,7 @@ fn representative_commands() -> Vec<DisplayCommand> {
         DisplayCommand::PushState,
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     color: Some(css_color("#112233")),
                     image: Some("images/background.png".to_owned()),
@@ -299,7 +376,7 @@ fn representative_commands() -> Vec<DisplayCommand> {
                     color: css_color("rgba(0, 0, 0, .5)"),
                     inset: false,
                 }],
-            },
+            }),
             border_box: Some(ReaderBorderBox {
                 top_width: 1.0,
                 right_width: 0.0,
@@ -308,11 +385,11 @@ fn representative_commands() -> Vec<DisplayCommand> {
             }),
         },
         DisplayCommand::PaintText(DisplayTextCommand {
-            text: "text".to_owned(),
+            text: "text".into(),
             rect: rect(),
             paint: RunPaint::new(ReaderRunPaint {
                 font: ReaderFontPaint {
-                    family: "Rito Serif".to_owned(),
+                    family: "Rito Serif".into(),
                     size_px: 16.0,
                     weight: 700.0,
                     style: ReaderFontStyle::Italic,
@@ -366,11 +443,15 @@ fn representative_commands() -> Vec<DisplayCommand> {
             source_text: Some("source".to_owned()),
             source_text_offset: Some(9),
             clusters: vec![
-                (0, 0.0, 12.5),
-                (1, 8.5, 12.5),
-                (2, 12.25, 12.5),
-                (3, 16.0, 12.5),
-            ],
+                TextCluster::at(0, 0.0, 12.5),
+                TextCluster {
+                    joins: true,
+                    ..TextCluster::at(1, 8.5, 12.5)
+                },
+                TextCluster::at(2, 12.25, 12.5),
+                TextCluster::at(3, 16.0, 12.5),
+            ]
+            .into(),
         }),
         DisplayCommand::paint_image(
             "images/cover.jpg".to_owned(),
@@ -383,14 +464,14 @@ fn representative_commands() -> Vec<DisplayCommand> {
 
 fn all_command_shapes() -> Vec<DisplayCommand> {
     let text = || DisplayTextCommand {
-        text: "text".to_owned(),
+        text: "text".into(),
         rect: rect(),
         paint: RunPaint::default(),
         line_height_px: None,
         href: None,
         source_text: None,
         source_text_offset: None,
-        clusters: Vec::new(),
+        clusters: Vec::new().into(),
     };
     vec![
         DisplayCommand::PushState,
@@ -424,13 +505,13 @@ fn all_command_shapes() -> Vec<DisplayCommand> {
         },
         DisplayCommand::PaintBlock {
             rect: rect(),
-            paint: ReaderBlockPaint {
+            paint: Box::new(ReaderBlockPaint {
                 background: Some(ReaderBackgroundPaint {
                     color: Some(css_color("#ffffff")),
                     ..ReaderBackgroundPaint::default()
                 }),
                 ..ReaderBlockPaint::default()
-            },
+            }),
             border_box: None,
         },
         DisplayCommand::PaintText(text()),

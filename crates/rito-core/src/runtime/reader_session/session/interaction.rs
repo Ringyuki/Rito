@@ -186,6 +186,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         let view = self
             .artifact_view(request.artifact_id)?
             .covering(request.every_page);
@@ -303,9 +304,23 @@ impl ReaderSession {
                     .map_err(engine_error)?;
                 Ok(match response.resolution {
                     RuntimeTextRangeResolution::Resolved { range } => {
+                        // The ends come back as carets at the addresses
+                        // the range normalized them to, so a host that
+                        // asked by address alone (a selection carried
+                        // into a new layout) holds them as it would ones
+                        // it resolved itself.
+                        let carets = document
+                            .range_end_carets_in(revision, &range)
+                            .map_err(engine_error)?;
+                        let (anchor_caret, focus_caret) = match carets {
+                            Some((anchor, focus)) => {
+                                (Some(view.caret(anchor)?), Some(view.caret(focus)?))
+                            }
+                            None => (None, None),
+                        };
                         ReaderTextInteractionResult::Selection(Box::new(ReaderSelectionResult {
-                            anchor_caret: None,
-                            focus_caret: None,
+                            anchor_caret,
+                            focus_caret,
                             selection: view.selection(*range)?,
                             preferred_inline_position: None,
                             preferred_block_position: None,

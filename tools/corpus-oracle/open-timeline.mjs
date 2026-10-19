@@ -1,6 +1,6 @@
-// Times one book's open in the real browser reader, stage by stage:
-// every worker message the page sends and receives, plus the resource
-// fetches the page makes, on one clock.
+// Times one book's open in the real browser reader, stage by stage: every
+// request the page sends its reader session and how long it took, on one
+// clock.
 import { createRequire } from 'node:module';
 
 const require2 = createRequire(new URL('../../packages/rito/package.json', import.meta.url));
@@ -14,55 +14,16 @@ const page = await browser.newPage({
   deviceScaleFactor: 1,
   viewport: { width: 1280, height: 900 },
 });
-await page.addInitScript(() => {
-  const marks = [];
-  window.__timeline = marks;
-  const label = (data) => {
-    if (!data || typeof data !== 'object') return String(data);
-    const kind = data.kind ?? data.type ?? Object.keys(data).slice(0, 2).join('+');
-    if (data.result && Array.isArray(data.result)) return `${kind}[${data.result.length}]`;
-    if (data.result && Array.isArray(data.result?.requests))
-      return `${kind}[${data.result.requests.length}]`;
-    return kind;
-  };
-  const NativeWorker = window.Worker;
-  window.Worker = class extends NativeWorker {
-    constructor(...args) {
-      super(...args);
-      marks.push({ at: performance.now(), dir: 'new', kind: String(args[0]).split('/').pop() });
-      this.addEventListener('message', (event) => {
-        const d = event.data;
-        let counts = '';
-        try {
-          const seen = new Set();
-          const walk = (v, depth) => {
-            if (counts || !v || typeof v !== 'object' || depth > 5 || seen.has(v)) return;
-            seen.add(v);
-            if (typeof v.pageCount === 'number' && typeof v.spreadCount === 'number') {
-              counts = ` pages=${v.pageCount} spreads=${v.spreadCount}`;
-              return;
-            }
-            for (const k of Object.keys(v)) walk(v[k], depth + 1);
-          };
-          walk(d, 0);
-        } catch {
-          // A payload shape this probe does not know about carries no
-          // counts; the timeline entry is still worth recording.
-        }
-        marks.push({ at: performance.now(), dir: '<-', kind: label(d) + counts });
-      });
-    }
-    postMessage(data, ...rest) {
-      marks.push({ at: performance.now(), dir: '->', kind: label(data) });
-      return super.postMessage(data, ...rest);
-    }
-  };
-});
+// The timeline is the reader's own log: every request it sent its session,
+// when, how long it took and what it answered.
+const timeline = () =>
+  page.evaluate(() =>
+    (window.__ritoReaderDiagnostics?.log() ?? []).filter((entry) => entry.at >= window.__t0),
+  );
 await page.goto(url);
 await page.waitForSelector('input[type=file]', { state: 'attached', timeout: 60000 });
 await page.waitForTimeout(1500);
 await page.evaluate(() => {
-  window.__timeline.length = 0;
   window.__t0 = performance.now();
 });
 const load = async (which = bookPath) => {
@@ -72,19 +33,15 @@ const load = async (which = bookPath) => {
   return Date.now() - started;
 };
 // A layout is asked for when a session opens and on every artifact request.
-const layoutRequests = () =>
-  page.evaluate(
-    () =>
-      window.__timeline.filter(
-        (m) => m.dir === '->' && (m.kind === 'open' || m.kind === 'request-artifact'),
-      ).length,
-  );
+const layoutRequests = async () =>
+  (await timeline()).filter(
+    (entry) => entry.kind === 'openSession' || entry.kind === 'requestArtifact',
+  ).length;
 const wall = await load();
 if (process.env.RITO_TIMELINE_TWICE === '1') {
   const paginations = await layoutRequests();
   await load(process.env.RITO_TIMELINE_OTHER);
   await page.evaluate(() => {
-    window.__timeline.length = 0;
     window.__t0 = performance.now();
   });
   const second = await load();
@@ -94,18 +51,20 @@ if (process.env.RITO_TIMELINE_TWICE === '1') {
   await browser.close();
   process.exit(0);
 }
-const { marks, t0, spreads } = await page.evaluate(() => ({
-  marks: window.__timeline,
+const marks = await timeline();
+const { t0, spreads } = await page.evaluate(() => ({
   t0: window.__t0,
   spreads: document.querySelector('[data-testid=reader-shell]')?.dataset.totalSpreads,
 }));
 console.log(`file selected -> data-loaded=true: ${wall} ms   (${spreads} spreads)`);
-console.log('  at(ms)  gap   dir  kind');
+console.log('  at(ms)  gap    took  kind');
 let prev = t0;
 for (const m of marks) {
   const at = m.at - t0;
+  const took = m.ms === undefined ? '' : m.ms.toFixed(1);
+  const times = m.times === undefined ? '' : ` ×${m.times}`;
   console.log(
-    `${at.toFixed(0).padStart(8)} ${(m.at - prev).toFixed(0).padStart(6)}  ${m.dir}   ${m.kind}`,
+    `${at.toFixed(0).padStart(8)} ${(m.at - prev).toFixed(0).padStart(6)} ${took.padStart(7)}  ${m.kind}${times} ${m.result ?? ''}`,
   );
   prev = m.at;
 }

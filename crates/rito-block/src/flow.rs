@@ -162,6 +162,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragmentainer_size: space.fragmentainer_size,
                     float_band: None,
                     containing_block_size: None,
+                    line_text: space.line_text,
                 };
                 let outcome =
                     self.layout(tree, child_id, &sub_space, Some(&float_break.token), cancel)?;
@@ -365,6 +366,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         fragmentainer_size: space.fragmentainer_size,
                         float_band: None,
                         containing_block_size: None,
+                        line_text: space.line_text,
                     };
                     let outcome = self.layout(tree, *child_id, &sub_space, None, cancel)?;
                     let Fragment::Box(head_root) = outcome.fragments.root else {
@@ -656,6 +658,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         continuation,
                         escaped_floats: Vec::new(),
                         positioned: Vec::new(),
+                        inline_size_range: None,
                     });
                 }
                 FormattingNodeContent::InlineFlow { items } => {
@@ -744,15 +747,6 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let definite_content_height =
                         resolve_fixed_height(child_style, hbox.padding_top + hbox.padding_bottom)?
                             .map(|fixed| (fixed - hbox.padding_top - hbox.padding_bottom).max(0.0));
-                    let lines = self.inline_lines(
-                        tree,
-                        *child_id,
-                        hbox.content_width,
-                        space.fragmentainer_size,
-                        definite_content_height,
-                        band,
-                        cancel,
-                    )?;
                     let available_for_lines = (available - leading_padding).max(0.0);
                     // A fresh page narrowed by the box's own leading
                     // padding is NOT force-fit territory: the padding
@@ -767,18 +761,43 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // column before a full-height illustration whose
                     // 854px line box — 850px image plus strut descent —
                     // overflows the following column invisibly).
-                    let padding_squeezed = page_is_empty
-                        && leading_padding > 0.0
-                        && lines.first().is_some_and(|line| {
-                            line.rect().height > available_for_lines + f64::EPSILON
-                        });
-                    let placement = place_lines(
-                        &lines,
-                        consumed,
-                        available_for_lines,
-                        page_is_empty && !padding_squeezed,
+                    let (padding_squeezed, placement) = self.inline_lines(
+                        tree,
+                        *child_id,
+                        hbox.content_width,
                         space.fragmentainer_size,
-                    );
+                        definite_content_height,
+                        band,
+                        // Only the lines this fragmentainer can place
+                        // carry their text: `place_lines` stacks them from
+                        // where earlier fragmentainers stopped, within the
+                        // space left for lines. A pixel of slack either
+                        // side can only add a line.
+                        match space.line_text {
+                            LineText::Omitted => LineText::Omitted,
+                            _ if available_for_lines.is_finite() => LineText::Within {
+                                top: consumed - 1.0,
+                                bottom: consumed + available_for_lines + 1.0,
+                            },
+                            all => all,
+                        },
+                        cancel,
+                        |lines| {
+                            let squeezed = page_is_empty
+                                && leading_padding > 0.0
+                                && lines.first().is_some_and(|line| {
+                                    line.rect().height > available_for_lines + f64::EPSILON
+                                });
+                            let placement = place_lines(
+                                lines,
+                                consumed,
+                                available_for_lines,
+                                page_is_empty && !squeezed,
+                                space.fragmentainer_size,
+                            );
+                            (squeezed, placement)
+                        },
+                    )?;
                     if placement.lines.is_empty() && !placement.exhausted {
                         if padding_squeezed {
                             // The break lands AFTER the leading padding:
@@ -1211,6 +1230,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             floats.band_at(y + gap, content_width)
                         },
                         containing_block_size: None,
+                        line_text: space.line_text,
                     };
                     // Mirror of through_collapsed_top's descent predicate:
                     // when the child's leading chain joined THIS loop's
@@ -1432,6 +1452,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             continuation,
             escaped_floats,
             positioned: Vec::new(),
+            inline_size_range: None,
         })
     }
 
@@ -1508,9 +1529,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
     }
 
     /// Lays an inline flow out in continuous space through the internal
-    /// cache and returns its line fragments in paragraph coordinates.
+    /// cache and reads its line fragments, in paragraph coordinates, where
+    /// the cache keeps them.
     #[allow(clippy::too_many_arguments)]
-    fn inline_lines(
+    fn inline_lines<R>(
         &self,
         tree: &FormattingTree,
         node: FormattingNodeId,
@@ -1518,8 +1540,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         page_block_size: Option<f64>,
         containing_block_size: Option<f64>,
         float_band: Option<rito_fragment::FloatBand>,
+        line_text: LineText,
         cancel: &CancelFlag,
-    ) -> Result<Vec<Fragment>, LayoutError> {
+        read: impl FnOnce(&[Fragment]) -> R,
+    ) -> Result<R, LayoutError> {
         // Paragraphs lay out continuously — line-level slicing into pages
         // happens here in the block container — but the provider still
         // needs the page block size so replaced content can honor the
@@ -1530,17 +1554,21 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             fragmentainer_size: page_block_size,
             float_band,
             containing_block_size,
+            line_text,
         };
-        let outcome = self
-            .inline_cache
-            .borrow_mut()
-            .layout(&self.inline, tree, node, &space, None, cancel)?
-            .outcome;
-        let Fragment::Box(root) = outcome.fragments.root else {
-            return Err(LayoutError::Invalid(
-                "inline provider must produce a box fragment root".to_owned(),
-            ));
-        };
-        Ok(root.children)
+        self.inline_cache.borrow_mut().layout_with(
+            &self.inline,
+            tree,
+            node,
+            &space,
+            None,
+            cancel,
+            |outcome, _| match &outcome.fragments.root {
+                Fragment::Box(root) => Ok(read(&root.children)),
+                _ => Err(LayoutError::Invalid(
+                    "inline provider must produce a box fragment root".to_owned(),
+                )),
+            },
+        )?
     }
 }

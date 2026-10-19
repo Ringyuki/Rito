@@ -1,5 +1,5 @@
 import { useCallback, type RefObject } from 'react';
-import type { Reader, TocEntry } from '@ritojs/core';
+import type { Reader, ReaderMargin, TocEntry } from '@ritojs/core';
 import type { ReaderController, TransitionDriverOptions } from '@ritojs/kit';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
@@ -9,7 +9,7 @@ export interface ControllerActions {
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
   readonly navigateToTocEntry: (entry: TocEntry) => void;
-  readonly resize: (width: number, height: number) => void;
+  readonly resize: (width: number, height: number, margin?: ReaderMargin) => void;
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setTheme: (opts: ReaderThemeOptions) => void;
@@ -32,7 +32,10 @@ export function useControllerActions(
     prevSpread: useCallback(() => ctrlRef.current?.prevSpread(), []),
     goToSpread: useCallback((i: number) => ctrlRef.current?.goToSpread(i), []),
     navigateToTocEntry: useCallback((e: TocEntry) => ctrlRef.current?.navigateToTocEntry(e), []),
-    resize: useCallback((w: number, h: number, m?: number) => ctrlRef.current?.resize(w, h, m), []),
+    resize: useCallback(
+      (w: number, h: number, m?: ReaderMargin) => ctrlRef.current?.resize(w, h, m),
+      [],
+    ),
     setRenderScale: useCallback((s: number) => ctrlRef.current?.setRenderScale(s), []),
     setSpreadMode: useCallback((m: 'single' | 'double') => ctrlRef.current?.setSpreadMode(m), []),
     setTheme: useCallback((o: ReaderThemeOptions) => ctrlRef.current?.setTheme(o), []),

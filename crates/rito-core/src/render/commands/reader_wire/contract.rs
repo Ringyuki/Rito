@@ -19,7 +19,8 @@ pub(crate) use paint::{
 
 /// Where one cluster of a run paints: the origin of the cluster starting
 /// at `byte` of the run's text, in CSS pixels. Spacing and justification
-/// are already in it.
+/// are already in it. The wire carries the origin as float32, the
+/// precision every pen's rasterizer takes it at.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct ReaderCluster {
     pub byte: u32,
@@ -27,6 +28,9 @@ pub(crate) struct ReaderCluster {
     /// The cluster's paint anchor: the alphabetic baseline, of a text run
     /// and of an annotation alike.
     pub y: f64,
+    /// Whether a pen drawing from the previous cluster's origin, in one
+    /// string, puts this cluster here.
+    pub joins: bool,
 }
 
 /// The text run the wire carries (opcodes 12 and 13): the run stripped to
@@ -34,12 +38,12 @@ pub(crate) struct ReaderCluster {
 /// line have lowered to primitives around it.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReaderTextRun {
-    pub text: String,
+    pub text: crate::render::SharedText,
     pub rect: ReaderRect,
     pub paint: ReaderTextRunPaint,
     pub line_height_px: Option<f64>,
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    pub clusters: Vec<ReaderCluster>,
+    pub clusters: std::sync::Arc<[ReaderCluster]>,
 }

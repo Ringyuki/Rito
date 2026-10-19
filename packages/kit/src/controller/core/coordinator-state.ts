@@ -47,6 +47,12 @@ export interface CoordinatorState {
   nativeTargetLoadGeneration: number;
   /** False after controller disposal; retained event callbacks must not re-enter navigation. */
   nativeInteractionsAlive: boolean;
+  /**
+   * While a window is being resized every frame shows a spread of a new
+   * layout: its targets are cleared, and read once the size has settled
+   * (`reload`, for the spread shown then) instead of on every frame.
+   */
+  nativeTargetHold: { held: boolean; reload: (() => void) | null };
   /** Current coordinate mapper (rebuilt on each spread render). */
   mapper: CoordinateMapper | null;
   /** Source-anchored annotation store. */
@@ -82,6 +88,7 @@ export function createCoordinatorState(): CoordinatorState {
     nativeTargetsByPage: new Map(),
     nativeTargetLoadGeneration: 0,
     nativeInteractionsAlive: true,
+    nativeTargetHold: { held: false, reload: null },
     mapper: null,
     annotationStore: null,
     resolvedAnnotations: [],

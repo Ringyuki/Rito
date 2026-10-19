@@ -72,7 +72,7 @@ impl ReaderSession {
             local_spread_index: spread_index,
         };
         let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
-        let artifact = build_reader_artifact(
+        let built = build_reader_artifact(
             &mut self.document,
             ArtifactIdentity {
                 session_id: self.session_id,
@@ -88,7 +88,8 @@ impl ReaderSession {
             revision_id,
             ReaderRevisionBacking::Publication,
             spread_index,
-            &artifact,
+            &built.artifact,
+            built.painted_digest,
         );
         let revision = self
             .publication_revisions
@@ -99,7 +100,7 @@ impl ReaderSession {
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("artifact reference count"))?;
         self.artifacts.insert(artifact_id, artifact_owner);
-        Ok(artifact)
+        Ok(built.artifact)
     }
 
     pub(super) fn publish_revision_artifact(
@@ -108,14 +109,29 @@ impl ReaderSession {
         local_spread_index: usize,
         request_id: u64,
     ) -> Result<ReaderArtifact, ReaderError> {
+        self.paginate_through_spread(revision_id, local_spread_index)?;
+        let mut target = self.spread_target(revision_id, local_spread_index)?;
+        if target.locator.source_point.is_none() && !self.revision_is_complete(revision_id) {
+            // A page without text is placed by its fraction of the
+            // chapter's pages: all of them.
+            self.complete_revision(revision_id)?;
+            target = self.spread_target(revision_id, local_spread_index)?;
+        }
+        self.publish_resolved_revision_artifact(revision_id, target, request_id)
+    }
+
+    fn spread_target(
+        &self,
+        revision_id: u64,
+        local_spread_index: usize,
+    ) -> Result<ResolvedArtifactTarget, ReaderError> {
         let revision = self.revisions.get(&revision_id).ok_or_else(|| {
             ReaderError::new(
                 ReaderErrorKind::EngineFailure,
                 "artifact revision ownership is missing",
             )
         })?;
-        let target = published_spread_target(&self.document, &revision.owner, local_spread_index)?;
-        self.publish_resolved_revision_artifact(revision_id, target, request_id)
+        published_spread_target(&self.document, &revision.owner, local_spread_index)
     }
 
     pub(super) fn publish_resolved_revision_artifact(
@@ -133,7 +149,7 @@ impl ReaderSession {
         let local_spread_index = target.local_spread_index;
         let navigation = reader_navigation(&self.document, revision, local_spread_index);
         let artifact_id = take_identity(&mut self.next_artifact_id, "artifactId")?;
-        let artifact = build_reader_artifact(
+        let built = build_reader_artifact(
             &mut self.document,
             ArtifactIdentity {
                 session_id: self.session_id,
@@ -149,7 +165,8 @@ impl ReaderSession {
             revision_id,
             ReaderRevisionBacking::ChapterLocal,
             local_spread_index,
-            &artifact,
+            &built.artifact,
+            built.painted_digest,
         );
         let revision = self.revisions.get_mut(&revision_id).ok_or_else(|| {
             ReaderError::new(
@@ -162,6 +179,6 @@ impl ReaderSession {
             .checked_add(1)
             .ok_or_else(|| numeric_overflow("artifact reference count"))?;
         self.artifacts.insert(artifact_id, artifact_owner);
-        Ok(artifact)
+        Ok(built.artifact)
     }
 }

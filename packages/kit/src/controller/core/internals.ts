@@ -1,5 +1,6 @@
 import type { Reader } from '@ritojs/core';
 import type { ControllerOptions } from '../types';
+import type { HighlightColors } from '../overlay/colors';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
 import type { PositionPersistence } from '../position-persistence';
 
@@ -7,6 +8,8 @@ export interface Internals {
   reader: Reader;
   currentSpread: number;
   renderScale: number;
+  /** What selection, search and annotations are painted in. */
+  highlightColors: HighlightColors;
   options: ControllerOptions;
   engines: CoordinatorEngines;
   coordState: CoordinatorState;

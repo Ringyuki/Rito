@@ -57,6 +57,7 @@ pub fn decode_layout_outcome(bytes: &[u8]) -> Result<LayoutOutcome, String> {
         continuation,
         escaped_floats: Vec::new(),
         positioned: Vec::new(),
+        inline_size_range: None,
     })
 }
 
@@ -86,6 +87,11 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     out.extend_from_slice(&marker.y.to_bits().to_le_bytes());
                     out.extend_from_slice(&marker.diameter.to_bits().to_le_bytes());
                 }
+            }
+            out.extend_from_slice(&(fragment.text_runs.len() as u32).to_le_bytes());
+            for (start, end) in &fragment.text_runs {
+                out.extend_from_slice(&start.to_le_bytes());
+                out.extend_from_slice(&end.to_le_bytes());
             }
             out.extend_from_slice(&(fragment.children.len() as u32).to_le_bytes());
             for child in &fragment.children {
@@ -127,12 +133,24 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                 }
             }
             out.extend_from_slice(&(fragment.clusters.len() as u32).to_le_bytes());
-            for cluster in &fragment.clusters {
+            for cluster in fragment.clusters.iter() {
                 out.extend_from_slice(&cluster.byte.to_le_bytes());
                 out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
                 out.extend_from_slice(&cluster.face.0.to_le_bytes());
+                out.push(u8::from(cluster.joins));
             }
             out.push(u8::from(fragment.cluster_grid));
+            match &fragment.segments {
+                None => out.push(0),
+                Some(segments) => {
+                    out.push(1);
+                    out.extend_from_slice(&(segments.len() as u32).to_le_bytes());
+                    for segment in segments.iter() {
+                        out.extend_from_slice(&segment.cluster.to_le_bytes());
+                        out.extend_from_slice(&segment.x.to_bits().to_le_bytes());
+                    }
+                }
+            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -179,6 +197,11 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }),
                 tag => return Err(format!("unknown line marker tag {tag}")),
             };
+            let run_count = reader.u32()? as usize;
+            let mut text_runs = Vec::with_capacity(run_count.min(reader.remaining()));
+            for _ in 0..run_count {
+                text_runs.push((reader.u32()?, reader.u32()?));
+            }
             let child_count = reader.u32()? as usize;
             let mut children = Vec::with_capacity(child_count.min(reader.remaining()));
             for _ in 0..child_count {
@@ -191,6 +214,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 trailing_whitespace,
                 ruby_growth,
                 marker,
+                text_runs,
                 children,
             }))
         }
@@ -225,12 +249,32 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                     byte: reader.u32()?,
                     x: reader.f64()?,
                     face: crate::FontFaceId(reader.u32()?),
+                    joins: match reader.u8()? {
+                        0 => false,
+                        1 => true,
+                        tag => return Err(format!("unknown cluster joins tag {tag}")),
+                    },
                 });
             }
             let cluster_grid = match reader.u8()? {
                 0 => false,
                 1 => true,
                 tag => return Err(format!("unknown text cluster-grid tag {tag}")),
+            };
+            let segments = match reader.u8()? {
+                0 => None,
+                1 => {
+                    let count = reader.u32()? as usize;
+                    let mut segments = Vec::with_capacity(count.min(4096));
+                    for _ in 0..count {
+                        segments.push(crate::TextSegment {
+                            cluster: reader.u32()?,
+                            x: reader.f64()?,
+                        });
+                    }
+                    Some(segments.into())
+                }
+                tag => return Err(format!("unknown text segments tag {tag}")),
             };
             Ok(Fragment::Text(TextFragment {
                 source,
@@ -245,8 +289,9 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 font_grid,
                 ruby_center_shift_px,
                 ruby_overhang_right_px,
-                clusters,
+                clusters: clusters.into(),
                 cluster_grid,
+                segments,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -412,6 +457,7 @@ mod tests {
                 },
                 pending_floats: Vec::new(),
             }),
+            inline_size_range: None,
         }
     }
 
@@ -484,6 +530,7 @@ mod tests {
                         baseline: 14.8,
                         trailing_whitespace: 4.25,
                         ruby_growth: 1.5,
+                        text_runs: vec![(0, 42)],
                         children: vec![Fragment::Text(TextFragment {
                             source: FormattingNodeId(0),
                             rect: FragmentRect {
@@ -496,8 +543,18 @@ mod tests {
                             text_end: 42,
                             box_snap: None,
                             font_grid: None,
-                            clusters: Vec::new(),
+                            clusters: Vec::new().into(),
                             cluster_grid: false,
+                            segments: Some(
+                                vec![
+                                    crate::TextSegment { cluster: 0, x: 0.0 },
+                                    crate::TextSegment {
+                                        cluster: 0,
+                                        x: 90.5,
+                                    },
+                                ]
+                                .into(),
+                            ),
                             ruby_center_shift_px: 0.0,
                             justify_px: 0.25,
                             ruby_gap_px: 1.5,
@@ -511,6 +568,7 @@ mod tests {
             continuation: None,
             escaped_floats: Vec::new(),
             positioned: Vec::new(),
+            inline_size_range: None,
         }
     }
 

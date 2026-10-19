@@ -15,7 +15,7 @@ use crate::render::contract::{
     ReaderBlockPaint, ReaderBorderStyle, ReaderPoint, ReaderRect, ReaderTransform,
 };
 use crate::render::test_support::css_color;
-use crate::render::{display_number, display_rect, DisplayTextCommand};
+use crate::render::{display_number, display_rect, DisplayTextCommand, TextCluster};
 
 use rito_fragment::{
     BoxFragment, FormattingNode, FormattingNodeId, FormattingTreeStyles, FragmentRect,
@@ -107,8 +107,9 @@ fn text_run(x: f64, width: f64, start: u32, end: u32) -> Fragment {
         opener_trim_px: 0.0,
         ruby_overhang_px: 0.0,
         ruby_overhang_right_px: 0.0,
-        clusters: Vec::new(),
+        clusters: Vec::new().into(),
         cluster_grid: false,
+        segments: None,
     })
 }
 
@@ -133,6 +134,7 @@ fn boxed_line(children: Vec<Fragment>) -> Fragment {
             baseline: 13.0,
             trailing_whitespace: 0.0,
             ruby_growth: 0.0,
+            text_runs: Vec::new(),
             children,
         })],
     })

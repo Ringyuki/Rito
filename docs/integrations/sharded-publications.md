@@ -135,7 +135,7 @@ Opening, whole-book pagination, seeking and turning never call
 `loadShards`. A page whose image has not arrived paints at once without
 it, and repaints when the image does. When a page reads an image the session does not have yet,
 the engine names its shard; the client calls `loadShards`, hands the
-shard to the worker and retries the read. A rejected `loadShards` fails
+shard to the engine and retries the read. A rejected `loadShards` fails
 only that read. A layout change is a request on the same session, so
 shards already supplied stay supplied.
 
@@ -143,7 +143,7 @@ shards already supplied stay supplied.
 
 ```dart
 final session = await RitoReaderSession.openShards(
-  gateway: RitoIsolateGateway(),
+  gateway: RitoNativeGateway(),
   skeletonBytes: skeleton,
   skeletonKey: skeletonKey,
   loadShards: (ids) => fetchShards(ids), // List<RitoPublicationShard>

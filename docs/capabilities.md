@@ -68,10 +68,11 @@ projected into typed tables the layout crates read:
 
 - every page lowered in the engine to device-pixel primitives: fills,
   paths, strokes with dash cadences, shadows, images with tiling, text
-  and ruby runs carrying the origin of every glyph cluster
+  and ruby runs carrying the origin of every glyph cluster, flagged where
+  a pen reaches it from the one before
 - box edges and border widths snapped to whole CSS pixels, glyph
   baselines snapped on the device grid, the way the browser rasters
-- `RITODL1` format 2 as the only wire; hosts blit and never interpret
+- `RITODL1` format 4 as the only wire; hosts blit and never interpret
 - theme background and foreground overrides without re-pagination
 - pinned fonts shared by layout and paint on every host
 
@@ -89,7 +90,7 @@ projected into typed tables the layout crates read:
 
 ## Hosts
 
-- web: the engine as WASM in a Worker, a Canvas presenter, `@ritojs/kit`
+- web: the engine as WASM on the page's own thread, a Canvas presenter, `@ritojs/kit`
   and `@ritojs/react` on top
 - Flutter: `rito_flutter` over the C ABI with a `CustomPainter` pen
 - any native host: the C ABI in `crates/rito-ffi`

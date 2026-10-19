@@ -10,6 +10,7 @@ mod annotation;
 mod href;
 mod index;
 mod projection;
+mod settle;
 mod toc;
 mod types;
 
@@ -18,11 +19,12 @@ pub use annotation::{
     AnnotationPosition, AnnotationQuote, AnnotationTarget, AnnotationTargetResolution,
     ANNOTATION_TARGET_VERSION,
 };
+use href::CanonicalSourceLocator;
 pub(super) use href::RuntimeSourceLocatorCanonicalizer;
-use href::{canonicalize_source_locator, CanonicalSourceLocator};
 use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_point, SourceProjection};
+pub(in crate::runtime) use settle::PaginationTarget;
 pub(super) use toc::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition};
 pub use types::*;
 
@@ -30,11 +32,20 @@ pub(in crate::runtime) struct PreparedExactSourceRange {
     pub(super) locator: RuntimeSourceLocator,
     pub(super) spine_idref: String,
     pub(super) source_range: RuntimeSourceRange,
-    pub(super) normalized_source_text: String,
+    /// The range's text as the line shows it, ruby annotations left out:
+    /// what the layout's range must read.
+    pub(super) flow_text: String,
 }
 
 /// A locator checked against the source and ready to place in a revision.
 pub(in crate::runtime) struct PreparedSourceLocator(CanonicalSourceLocator);
+
+impl PreparedSourceLocator {
+    /// The locator in its canonical form.
+    pub(in crate::runtime) fn locator(&self) -> &RuntimeSourceLocator {
+        &self.0.locator
+    }
+}
 
 pub(super) enum ExactSourceRangePageWindow {
     Ready { first_page: usize, last_page: usize },
@@ -212,7 +223,7 @@ impl RuntimeDocument {
             .expect("source chapter index was ensured");
         let (source_point, source_offset) = source_starts.into_iter().find_map(|start| {
             let source_point = RuntimeSourcePoint {
-                node_path: start.node_path,
+                node_path: start.node_path.to_vec(),
                 text_offset: start.text_offset,
             };
             source_point_offset(source_index, &source_point).map(|offset| (source_point, offset))
@@ -236,7 +247,7 @@ impl RuntimeDocument {
         if !self.revisions.contains_key(revision_id) {
             return Err(RuntimeSourceLocatorError::unknown_revision(revision_id));
         }
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         if matched_by(&canonical.locator) == RuntimeSourceLocatorMatchedBy::Href {
             let revision = self
                 .revisions
@@ -271,7 +282,7 @@ impl RuntimeDocument {
         &mut self,
         locator: RuntimeSourceLocator,
     ) -> Result<(usize, RuntimeSourceLocator), RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         if matched_by(&canonical.locator) != RuntimeSourceLocatorMatchedBy::Href {
             self.ensure_source_chapter_index(canonical.chapter_index)?;
             let source_index = self
@@ -291,7 +302,7 @@ impl RuntimeDocument {
         if !self.chapter_local_revisions.contains_key(revision_id) {
             return Err(RuntimeSourceLocatorError::unknown_revision(revision_id));
         }
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         let source_index = if matched_by(&canonical.locator) == RuntimeSourceLocatorMatchedBy::Href
         {
             None
@@ -324,7 +335,7 @@ impl RuntimeDocument {
         &mut self,
         locator: RuntimeSourceLocator,
     ) -> Result<PreparedSourceLocator, RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(&self.document, locator)?;
+        let canonical = self.canonicalize_source_locator(locator)?;
         if matched_by(&canonical.locator) != RuntimeSourceLocatorMatchedBy::Href {
             self.ensure_source_chapter_index(canonical.chapter_index)?;
             let source_index = self
@@ -352,16 +363,13 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeExactSourceRangeRequest,
     ) -> Result<PreparedExactSourceRange, RuntimeSourceLocatorError> {
-        let canonical = canonicalize_source_locator(
-            &self.document,
-            RuntimeSourceLocator {
-                href: request.href,
-                anchor_id: None,
-                source_point: None,
-                source_range: Some(request.source_range),
-                progression: None,
-            },
-        )?;
+        let canonical = self.canonicalize_source_locator(RuntimeSourceLocator {
+            href: request.href,
+            anchor_id: None,
+            source_point: None,
+            source_range: Some(request.source_range),
+            progression: None,
+        })?;
         self.ensure_source_chapter_index(canonical.chapter_index)?;
         let source_index = self
             .source_chapter_indices
@@ -375,14 +383,13 @@ impl RuntimeDocument {
             .expect("exact source range request installs a sourceRange");
         let start = require_source_point_offset(source_index, &source_range.start)?;
         let end = require_source_point_offset(source_index, &source_range.end)?;
-        let normalized_source_text = utf16_slice(&source_index.text.normalized_text, start, end)
-            .ok_or_else(|| RuntimeSourceLocatorError::invalid_selector("invalid UTF-16 range"))?
-            .to_owned();
+        let flow_text = super::chapter_text::flow_text(&source_index.text, start, end)
+            .ok_or_else(|| RuntimeSourceLocatorError::invalid_selector("invalid UTF-16 range"))?;
         Ok(PreparedExactSourceRange {
             locator: canonical.locator,
             spine_idref: canonical.spine_idref,
             source_range,
-            normalized_source_text,
+            flow_text,
         })
     }
 

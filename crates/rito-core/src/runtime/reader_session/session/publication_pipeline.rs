@@ -1,20 +1,23 @@
 //! The host-driven background step: one footnote-index quantum per call
 //! until the index is complete, then the publication revision for the
-//! visible layout is selected or created (it paginates whole in that one
-//! call) and the publication candidate the host may adopt in place of the
-//! visible artifact is minted from it.
+//! visible layout is selected, or laid out a quantum of pages per call,
+//! and the publication candidate the host may adopt in place of the
+//! visible artifact is minted from it once it is.
 
-use crate::{layout::LayoutConfig, runtime::RuntimeSourceLocatorResolution};
+use crate::{
+    layout::LayoutConfig,
+    runtime::{revision::RevisionProgress, RuntimeSourceLocatorResolution},
+};
 
 use super::{
     errors::{
         background_yields_to_foreground, engine_error, missing_artifact_revision,
         stale_background_intent, take_identity, validate_external_request_id,
     },
-    project::painted_digest,
-    ReaderArtifact, ReaderBackgroundAdvance, ReaderBackgroundRequest, ReaderBackgroundState,
-    ReaderError, ReaderErrorKind, ReaderPublicationRevisionOwner, ReaderRevisionBacking,
-    ReaderSession, ReaderVisibleIntent, READER_EXTERNAL_ID_MAX,
+    PendingPublication, PublicationPreparation, ReaderArtifact, ReaderBackgroundAdvance,
+    ReaderBackgroundRequest, ReaderBackgroundState, ReaderError, ReaderErrorKind,
+    ReaderPublicationRevisionOwner, ReaderRevisionBacking, ReaderSession, ReaderVisibleIntent,
+    READER_EXTERNAL_ID_MAX,
 };
 
 impl ReaderSession {
@@ -103,7 +106,11 @@ impl ReaderSession {
                 None,
             ));
         }
-        let revision_id = self.start_publication_once(intent.layout.clone())?;
+        let pages = usize::try_from(request.max_pages_per_quantum).unwrap_or(usize::MAX);
+        let (state, laid_out) = self.advance_publication(&intent.layout, pages)?;
+        let Some(revision_id) = laid_out else {
+            return Ok(background_result(state, &intent, None));
+        };
         let artifact = if needs_handoff {
             self.try_publication_candidate(revision_id, &intent)?
         } else {
@@ -112,12 +119,92 @@ impl ReaderSession {
         let moves = artifact.as_ref().is_some_and(|candidate| {
             self.handoff_moves_visible_content(intent.visible_artifact_id, candidate)
         });
-        Ok(background_result_with_move(
-            ReaderBackgroundState::Started,
-            &intent,
-            artifact,
-            moves,
-        ))
+        Ok(background_result_with_move(state, &intent, artifact, moves))
+    }
+
+    /// Lays out up to `pages` more pages of the publication revision for
+    /// `layout`, beginning it when none is under way for that layout and
+    /// the session's faces, and registers it once the book is laid out.
+    fn advance_publication(
+        &mut self,
+        layout: &LayoutConfig,
+        pages: usize,
+    ) -> Result<(ReaderBackgroundState, Option<u64>), ReaderError> {
+        let font_generation = self.font_generation;
+        let mut budget = pages;
+        let under_way = self
+            .pending_publication
+            .take()
+            .filter(|pending| pending.layout == *layout && pending.fonts == font_generation);
+        let (state, build) = match under_way {
+            Some(pending) => (ReaderBackgroundState::Advanced, *pending.build),
+            None => {
+                // The book's chapters are readied a step each before its
+                // revision begins: no step parses and styles every chapter
+                // while the reader waits on it.
+                let fresh = self
+                    .publication_preparation
+                    .as_ref()
+                    .is_none_or(|ready| ready.layout != *layout || ready.fonts != font_generation);
+                if fresh {
+                    self.publication_preparation = Some(PublicationPreparation {
+                        layout: layout.clone(),
+                        fonts: font_generation,
+                        next_chapter: 0,
+                    });
+                }
+                let state = if fresh {
+                    ReaderBackgroundState::Started
+                } else {
+                    ReaderBackgroundState::Advanced
+                };
+                let preparation = self
+                    .publication_preparation
+                    .as_mut()
+                    .expect("the preparation was just made");
+                // Readying a chapter spends what laying a page out would.
+                let chapters = self.document.chapter_count();
+                while budget > 0 && preparation.next_chapter < chapters {
+                    self.document
+                        .prepare_revision_chapter(layout, preparation.next_chapter)
+                        .map_err(engine_error)?;
+                    preparation.next_chapter += 1;
+                    budget -= 1;
+                }
+                if preparation.next_chapter < chapters {
+                    return Ok((state, None));
+                }
+                self.publication_preparation = None;
+                let build = self.document.begin_revision(layout).map_err(engine_error)?;
+                if budget == 0 {
+                    self.pending_publication = Some(PendingPublication {
+                        layout: layout.clone(),
+                        fonts: font_generation,
+                        build: Box::new(build),
+                    });
+                    return Ok((state, None));
+                }
+                (state, build)
+            }
+        };
+        match self
+            .document
+            .advance_revision(build, budget)
+            .map_err(engine_error)?
+        {
+            RevisionProgress::Pending(build) => {
+                self.pending_publication = Some(PendingPublication {
+                    layout: layout.clone(),
+                    fonts: font_generation,
+                    build,
+                });
+                Ok((state, None))
+            }
+            RevisionProgress::Done(summary) => Ok((
+                state,
+                Some(self.register_publication(summary, layout.clone())?),
+            )),
+        }
     }
 
     fn validate_background_request(
@@ -137,10 +224,10 @@ impl ReaderSession {
             request.expected_visible_artifact_id,
             "expectedVisibleArtifactId",
         )?;
-        if request.max_top_level_nodes_per_quantum == 0 {
+        if request.max_pages_per_quantum == 0 {
             return Err(ReaderError::new(
                 ReaderErrorKind::InvalidRequest,
-                "background top-level work budget must be non-zero",
+                "background page budget must be non-zero",
             ));
         }
         Ok(())
@@ -172,11 +259,13 @@ impl ReaderSession {
         Ok(())
     }
 
-    fn start_publication_once(&mut self, layout: LayoutConfig) -> Result<u64, ReaderError> {
-        let summary = self
-            .document
-            .create_revision(&layout)
-            .map_err(engine_error)?;
+    /// Registers a publication revision laid out for `layout` as the
+    /// session's active one.
+    fn register_publication(
+        &mut self,
+        summary: crate::runtime::RuntimeRevisionSummary,
+        layout: LayoutConfig,
+    ) -> Result<u64, ReaderError> {
         let reader_revision_id = match take_identity(&mut self.next_revision_id, "revisionId") {
             Ok(value) => value,
             Err(error) => {
@@ -270,7 +359,8 @@ impl ReaderSession {
     ) -> bool {
         self.artifacts
             .get(&visible_artifact_id)
-            .is_none_or(|visible| visible.painted_digest != painted_digest(candidate))
+            .zip(self.artifacts.get(&candidate.artifact_id))
+            .is_none_or(|(visible, candidate)| visible.painted_digest != candidate.painted_digest)
     }
 
     fn visible_intent_matches(&self, expected: &ReaderVisibleIntent) -> bool {

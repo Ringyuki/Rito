@@ -87,7 +87,7 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
       if (!coordinated || idx !== deps.getCurrentSpread()) return;
       const currentSpread = deps.reader.spreads[idx];
       if (!currentSpread) return;
-      scheduleNativeTargetLoad(currentSpread, deps);
+      loadOrHoldNativeTargets(currentSpread, deps);
       scheduleNativeAnnotationLoad(currentSpread, deps);
       scheduleNativeSearchForSpread(currentSpread, deps);
       deps.frameDriver.markOverlayDirty(idx);
@@ -100,7 +100,12 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
       }),
     );
   }
+  deps.coordState.nativeTargetHold.reload = () => {
+    const spread = deps.reader.spreads[deps.getCurrentSpread()];
+    if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
+  };
   disposables.add(() => {
+    deps.coordState.nativeTargetHold.reload = null;
     deps.coordState.nativeInteractionsAlive = false;
     invalidateNativeTargets(deps.coordState);
     invalidateNativeAnnotationGeometry(deps.coordState);
@@ -118,7 +123,7 @@ function refreshInvalidatedSpread(idx: number, deps: WiringDeps): void {
     }
     deps.canvas.style.cursor = '';
     const spread = deps.reader.spreads[idx];
-    if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
+    if (deps.reader.interactions?.enabled && spread) loadOrHoldNativeTargets(spread, deps);
     deps.syncViewport?.();
   }
   deps.frameDriver.markContentDirty(idx);
@@ -144,6 +149,12 @@ function scheduleNativeAnnotationLoad(spread: Spread, deps: WiringDeps): void {
       });
     },
   );
+}
+
+/** Reads the spread's targets, or — while a resize holds them — only clears the last spread's. */
+function loadOrHoldNativeTargets(spread: Spread, deps: WiringDeps): void {
+  if (deps.coordState.nativeTargetHold.held) invalidateNativeTargets(deps.coordState);
+  else scheduleNativeTargetLoad(spread, deps);
 }
 
 function scheduleNativeTargetLoad(spread: Spread, deps: WiringDeps): void {

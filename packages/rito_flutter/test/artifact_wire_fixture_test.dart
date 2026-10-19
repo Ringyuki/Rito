@@ -9,9 +9,9 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rito_flutter/rito_flutter_protocol.dart';
 
-Uint8List _fixture() {
+Uint8List _fixture([String name = 'reader-session-artifact.hex']) {
   final hex = File(
-    '../../packages/rito-core-wasm/tests/fixtures/reader-session-artifact.hex',
+    '../../packages/rito-core-wasm/tests/fixtures/$name',
   ).readAsStringSync().trim();
   return Uint8List.fromList(<int>[
     for (var index = 0; index < hex.length; index += 2)
@@ -20,14 +20,31 @@ Uint8List _fixture() {
 }
 
 void main() {
-  test('decodes the artifact the Rust encoder writes, every hit field', () {
+  test('decodes the artifact the Rust encoder writes, its pages by size', () {
     final artifact = RitoArtifactDecoder().decode(_fixture());
 
     expect(artifact.localSpreadIndex, 5);
     expect(artifact.localPageIndexes, <int>[9, 10]);
     expect(artifact.bookPageIndex, 140);
     expect(artifact.bookPageCount, 312);
-    final hit = artifact.pages.single.hits.single;
+    final page = artifact.pages.single;
+    expect(page.pageIndex, 9);
+    expect(page.width, 400.25);
+    expect(page.height, 1194.25);
+  });
+
+  test('decodes the page records the Rust encoder writes, every hit field', () {
+    final records = RitoArtifactDecoder().decodePageRecords(
+      _fixture('reader-session-page-records.hex'),
+    );
+
+    expect(records.artifactId, (1 << 52) + 11);
+    expect(records.pageIndex, 9);
+    expect(records.text, '吾輩は猫である。');
+    expect(records.textLength, 9);
+    expect(records.textRuns.single.end, 9);
+    expect(records.textRuns.single.blockIndex, 0xffffffff);
+    final hit = records.hits.single;
     expect(hit.pageIndex, 9);
     expect(hit.kind, RitoHitKind.footnotePending);
     expect(hit.footnotePending, isTrue);
@@ -40,6 +57,18 @@ void main() {
     expect(hit.imageSrc, 'images/next.png');
     expect(hit.imageAlt, '次章');
     expect(hit.footnoteKey, 'Text/chapter-02.xhtml#fn7');
+  });
+
+  test('page records reject truncation', () {
+    final bytes = _fixture('reader-session-page-records.hex');
+    for (var end = 0; end < bytes.length; end += 1) {
+      expect(
+        () => RitoArtifactDecoder().decodePageRecords(
+          Uint8List.sublistView(bytes, 0, end),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    }
   });
 
   test('an artifact rejects truncation', () {

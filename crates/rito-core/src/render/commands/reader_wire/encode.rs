@@ -3,23 +3,23 @@ use super::{contract::ReaderTextRun, ReaderDisplayListWireError};
 mod lowered;
 mod paint;
 mod primitives;
+mod tables;
 
 pub(super) use lowered::encode_primitive_list;
-use paint::write_run_paint;
 pub(super) use primitives::checked_length;
-use primitives::{
-    write_finite_f64, write_length, write_optional, write_optional_string, write_rect,
-    write_string, write_u32, write_u64,
-};
+use primitives::{write_finite_f64, write_optional, write_optional_string, write_rect, write_u64};
+use tables::TextTables;
 
-/// A text run's body, shared by the text and ruby primitives.
+/// A text run's body, shared by the text and ruby primitives: its text,
+/// paint and clusters by where they sit in the tables (see `tables`).
 fn write_text(
     output: &mut Vec<u8>,
+    tables: &mut TextTables,
     input: &ReaderTextRun,
 ) -> Result<(), ReaderDisplayListWireError> {
-    write_string(output, &input.text)?;
+    tables.write_text(output, &input.text)?;
     write_rect(output, &input.rect)?;
-    write_run_paint(output, &input.paint)?;
+    tables.write_paint(output, &input.paint)?;
     write_optional(output, input.line_height_px.as_ref(), |output, value| {
         write_finite_f64(output, *value)
     })?;
@@ -33,11 +33,8 @@ fn write_text(
             Ok(())
         },
     )?;
-    write_length(output, input.clusters.len(), "cluster")?;
-    for cluster in &input.clusters {
-        write_u32(output, cluster.byte);
-        write_finite_f64(output, cluster.x)?;
-        write_finite_f64(output, cluster.y)?;
-    }
-    Ok(())
+    // Every cluster, the joined ones included: a pen that blits clusters
+    // places each, a pen that draws strings starts one at each cluster
+    // that does not join.
+    tables.write_clusters(output, &input.clusters)
 }

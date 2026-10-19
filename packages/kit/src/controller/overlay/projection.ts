@@ -7,13 +7,14 @@ import type { Rect } from '../../painter/types';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import { collectNativeSearchGeometry } from '../search-resolution';
-import { OVERLAY_COLORS } from './merger';
+import type { HighlightColors } from './colors';
+import type { AnnotationOverlay } from './merger';
 
 export interface OverlayData {
   readonly selectionRects: readonly Rect[];
   readonly searchRects: readonly Rect[];
   readonly activeSearchRects: readonly Rect[];
-  readonly annotationLayers: readonly { id: string; rects: readonly Rect[]; color: string }[];
+  readonly annotationLayers: readonly AnnotationOverlay[];
 }
 
 /**
@@ -29,6 +30,7 @@ export function buildOverlayData(
   reader: Reader,
   state: CoordinatorState,
   mapper: CoordinateMapper,
+  colors: HighlightColors,
   includeSelection = true,
 ): OverlayData {
   const selectionRects = includeSelection
@@ -49,7 +51,7 @@ export function buildOverlayData(
     activeSearchRects: geometry.active.map((rect) =>
       mapper.pageContentToViewport(rect.pageIndex, rect),
     ),
-    annotationLayers: collectAnnotationLayers(spread, state, mapper),
+    annotationLayers: collectAnnotationLayers(spread, state, mapper, colors),
   };
 }
 
@@ -57,19 +59,23 @@ function collectAnnotationLayers(
   spread: Spread,
   state: CoordinatorState,
   mapper: CoordinateMapper,
-): readonly { id: string; rects: readonly Rect[]; color: string }[] {
-  const layers: { id: string; rects: readonly Rect[]; color: string }[] = [];
+  colors: HighlightColors,
+): readonly AnnotationOverlay[] {
+  const layers: AnnotationOverlay[] = [];
   const pageIndices = new Set(spread.pageIndexes);
 
   for (const resolved of state.resolvedAnnotations) {
     if (resolved.status === 'orphaned') continue;
+    const underline = resolved.record.kind === 'underline';
+    const color = resolved.record.color ?? (underline ? colors.underline : colors.highlight);
     for (const seg of resolved.segments) {
       if (!pageIndices.has(seg.pageIndex)) continue;
       if (seg.rects.length > 0) {
         layers.push({
           id: resolved.id,
           rects: seg.rects.map((r) => mapper.pageContentToViewport(seg.pageIndex, r)),
-          color: resolved.record.color ?? OVERLAY_COLORS.annotationDefault,
+          color,
+          mark: underline ? 'underline' : 'fill',
         });
       }
     }

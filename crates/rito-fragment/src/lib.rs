@@ -22,7 +22,7 @@ mod serialize;
 
 pub use break_token::{BreakToken, BreakTokenStage, FloatBreak};
 pub use cache::{CachedLayout, FragmentCache};
-pub use constraint_space::{ConstraintSpace, FloatBand};
+pub use constraint_space::{ConstraintSpace, FloatBand, LineText};
 pub use context::{
     CancelFlag, EscapedFloat, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
     PendingPositioned,
@@ -34,7 +34,7 @@ pub use formatting_tree::{
 };
 pub use fragment::{
     BoxFragment, BoxSnap, ClusterPosition, FontFaceId, Fragment, FragmentRect, FragmentTree,
-    ImageFragment, LineFragment, MarkerFragment, TextFragment,
+    ImageFragment, LineFragment, MarkerFragment, TextFragment, TextSegment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
 

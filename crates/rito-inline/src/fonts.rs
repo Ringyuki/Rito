@@ -102,10 +102,23 @@ pub(crate) struct ResolvedStack {
     pub locale: Option<Language>,
     /// Cache key: equal keys shape identically.
     pub key: String,
+    /// The key as a number, the same for every stack with this key: what
+    /// caches read per line key on, without hashing the string.
+    pub key_id: u32,
 }
 
-/// Resolved stacks per (family list key, content language).
-type StackCache = RefCell<FxHashMap<(String, Option<String>), Rc<ResolvedStack>>>;
+/// Resolved stacks per (family list, content language), compared by value:
+/// a style's lists are shared `Arc`s, so a hit hashes and compares them in
+/// place instead of formatting a key string for every run and line.
+type StackCache = RefCell<
+    FxHashMap<
+        (
+            rito_style_contract::FontFamilies,
+            Option<rito_style_contract::LanguageTag>,
+        ),
+        Rc<ResolvedStack>,
+    >,
+>;
 
 #[derive(Debug, Default)]
 pub(crate) struct FontCatalog {
@@ -113,8 +126,22 @@ pub(crate) struct FontCatalog {
     aliases: Vec<String>,
     face_ids: FxHashMap<(u64, u32), FontFaceId>,
     stacks: StackCache,
+    /// The number each distinct stack key was given, in order of first use.
+    key_ids: RefCell<FxHashMap<String, u32>>,
     unknown: RefCell<BTreeSet<String>>,
+    /// Units per em per (blob id, face index): a face's `head` table, read
+    /// once instead of for every cluster whose advance is snapped.
+    units_per_em: RefCell<FxHashMap<(u64, u32), Option<i64>>>,
+    /// The advance every glyph of a face declares in its `hmtx` table, in
+    /// font units, per (blob id, face index); read once per face.
+    declared_advances: RefCell<FxHashMap<(u64, u32), Option<DeclaredAdvances>>>,
+    /// Whether a face declares the OpenType `halt` feature, per (blob id,
+    /// face index); its feature lists are read once per face.
+    halt: RefCell<FxHashMap<(u64, u32), bool>>,
 }
+
+/// A face's `hmtx` advances in font units, indexed by glyph id.
+type DeclaredAdvances = std::rc::Rc<[u16]>;
 
 impl FontCatalog {
     /// Registers one host face, grouped into the family its name table
@@ -262,25 +289,73 @@ impl FontCatalog {
             .text_flow
             .language
             .as_ref()
-            .filter(|tag| !tag.is_empty())
-            .map(|tag| tag.as_str().to_owned());
-        let list_key = style
-            .font
-            .families
-            .iter()
-            .map(|family| match family {
-                FontFamily::Named(name) => format!("\"{}\"", name.as_str().to_lowercase()),
-                FontFamily::Generic(generic) => format!("{generic:?}"),
-            })
-            .collect::<Vec<_>>()
-            .join(",");
-        let key = (list_key, language);
+            .filter(|tag| !tag.is_empty());
+        let key = (style.font.families.clone(), language.cloned());
         if let Some(stack) = self.stacks.borrow().get(&key) {
             return Rc::clone(stack);
         }
-        let stack = Rc::new(self.resolve_uncached(style, key.1.as_deref()));
+        let stack = Rc::new(self.resolve_uncached(style, language.map(|tag| tag.as_str())));
         self.stacks.borrow_mut().insert(key, Rc::clone(&stack));
         stack
+    }
+
+    /// The units per em of the face a run was shaped with, from its `head`
+    /// table, read once per face.
+    pub(crate) fn units_per_em(&self, font: &parley::FontData) -> Option<i64> {
+        use skrifa::raw::TableProvider as _;
+        let key = (font.data.id(), font.index);
+        if let Some(units) = self.units_per_em.borrow().get(&key) {
+            return *units;
+        }
+        let units = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+            .ok()
+            .and_then(|face| face.head().ok())
+            .map(|head| i64::from(head.units_per_em()));
+        self.units_per_em.borrow_mut().insert(key, units);
+        units
+    }
+
+    /// Whether `font` declares the OpenType `halt` feature in GSUB or GPOS.
+    pub(crate) fn has_halt(&self, font: &parley::FontData) -> bool {
+        let key = (font.data.id(), font.index);
+        if let Some(halt) = self.halt.borrow().get(&key) {
+            return *halt;
+        }
+        let halt = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+            .is_ok_and(|face| crate::punctuation::font_ref_has_halt(&face));
+        self.halt.borrow_mut().insert(key, halt);
+        halt
+    }
+
+    /// The advance `glyph` of `font` declares in font units, before
+    /// shaping adjusts it: its `hmtx` entry, or the last entry for the
+    /// glyphs past the table's metrics, which share it.
+    pub(crate) fn declared_advance(&self, font: &parley::FontData, glyph: u32) -> Option<u16> {
+        use skrifa::raw::TableProvider as _;
+        let key = (font.data.id(), font.index);
+        let cached = self.declared_advances.borrow().get(&key).cloned();
+        let advances = match cached {
+            Some(advances) => advances,
+            None => {
+                let advances = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
+                    .ok()
+                    .and_then(|face| face.hmtx().ok())
+                    .map(|hmtx| {
+                        hmtx.h_metrics()
+                            .iter()
+                            .map(|metric| metric.advance())
+                            .collect::<std::rc::Rc<[u16]>>()
+                    });
+                self.declared_advances
+                    .borrow_mut()
+                    .insert(key, advances.clone());
+                advances
+            }
+        }?;
+        advances
+            .get(glyph as usize)
+            .or_else(|| advances.last())
+            .copied()
     }
 
     fn resolve_uncached(
@@ -317,11 +392,17 @@ impl FontCatalog {
             .join(", ");
         let locale = language.and_then(|tag| tag.parse::<Language>().ok());
         let key = format!("{source}|{}", language.unwrap_or_default());
+        let key_id = {
+            let mut ids = self.key_ids.borrow_mut();
+            let next = u32::try_from(ids.len()).unwrap_or(u32::MAX);
+            *ids.entry(key.clone()).or_insert(next)
+        };
         ResolvedStack {
             families,
             source,
             locale,
             key,
+            key_id,
         }
     }
 

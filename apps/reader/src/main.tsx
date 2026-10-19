@@ -1,9 +1,11 @@
 import { StrictMode, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { canDrawWithWebGl2 } from '@ritojs/kit';
 import { App } from './App';
 import { StartupError } from '@/components/startup-error';
 import { StartupLoading } from '@/components/startup-loading';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { WebGlUnavailable } from '@/components/webgl-unavailable';
 import { loadProductionPinnedFontPolicy } from '@/lib/production-pinned-font-policy';
 import './index.css';
 
@@ -12,6 +14,11 @@ if (!container) throw new Error('Root element not found');
 void startApplication(createRoot(container));
 
 async function startApplication(root: Root): Promise<void> {
+  // Said before anything is loaded: without WebGL2 no book can be shown.
+  if (!canDrawWithWebGl2()) {
+    renderRoot(root, <WebGlUnavailable />);
+    return;
+  }
   renderRoot(root, <StartupLoading />);
   try {
     const pinnedFontPolicy = await loadProductionPinnedFontPolicy();

@@ -1,6 +1,7 @@
 import { advanceSessionReaderBook } from './artifacts';
-import { commitSessionReaderLayout } from './commit';
-import { wakeSessionReaderQueue } from './queue';
+import { commitSessionReaderLayout, completeSessionReaderLayout } from './commit';
+import { warmSessionReaderNeighbours } from './frames';
+import { runSessionReaderOperation, wakeSessionReaderQueue } from './queue';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
 /** Steps in a row that may bring no page for one layout before the book is reported stuck. */
@@ -31,6 +32,11 @@ export async function stepSessionReaderBook(state: SessionReaderState): Promise<
     const step = await advanceSessionReaderBook(state, () => state.activeSpreadIndex === shown);
     // The reader turned meanwhile: the queue follows it, then asks again.
     if (step === 'moved') return true;
+    // The step laid pages out: the book is under way, however many steps it takes.
+    if (step === 'laying-out') {
+      state.bookIdleSteps = 0;
+      return true;
+    }
     if (step === 'more') {
       state.bookIdleSteps += 1;
       if (state.bookIdleSteps <= BOOK_IDLE_STEPS) return true;
@@ -56,6 +62,12 @@ export function holdSessionReaderBook(state: SessionReaderState): () => void {
     if (released) return;
     released = true;
     state.bookHolds -= 1;
-    if (state.bookHolds === 0 && !state.disposed) wakeSessionReaderQueue(state);
+    if (state.bookHolds > 0 || state.disposed) return;
+    // The sizes stopped: the page table a resize read only in part is read whole.
+    if (!state.view.complete) {
+      void runSessionReaderOperation(state, 'asked', () => completeSessionReaderLayout(state));
+    }
+    warmSessionReaderNeighbours(state);
+    wakeSessionReaderQueue(state);
   };
 }

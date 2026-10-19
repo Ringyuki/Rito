@@ -9,7 +9,9 @@ import { invalidateNativeAnnotationGeometry } from '../annotation-resolution';
 import { invalidateNativeSearchLayout } from '../search-resolution';
 import { reportUnresolvedFontFamilies } from './font-actions';
 import { abortTransition } from '../core/transition-lifecycle';
-import { createResizeSettle, endResizeSettle, holdBookWhileResizing } from './resize-settle';
+import { createResizeSettle, endResizeSettle, holdWhileResizing } from './resize-settle';
+import { carrySelection, restoreSelection } from './selection-carry';
+import { withHighlightColors } from '../overlay/colors';
 import type { Disposables } from './types';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
@@ -26,7 +28,7 @@ export function buildLayoutActions(
   });
   return {
     resize(width, height, margin): void {
-      holdBookWhileResizing(settle, internals.reader);
+      holdWhileResizing(settle, internals.reader, runtime.prerenderScheduler, internals.coordState);
       const anchor = currentPosition(internals);
       const changed = internals.reader.updateLayout(width, height, undefined, margin);
       refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
@@ -45,6 +47,9 @@ export function buildLayoutActions(
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();
     },
+    setHighlightColors(colors): void {
+      applyHighlightColors(colors, internals, runtime);
+    },
     setTypography(options): boolean {
       const anchor = currentPosition(internals);
       const changed = internals.reader.setTypography(options);
@@ -54,7 +59,7 @@ export function buildLayoutActions(
       return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
     setRenderScale(scale): void {
-      applyRenderScale(scale, internals, runtime);
+      applyRenderScale(scale, internals, emitter, runtime);
     },
     get renderScale() {
       return internals.renderScale;
@@ -62,9 +67,24 @@ export function buildLayoutActions(
   };
 }
 
-function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeComponents): void {
+function applyHighlightColors(
+  colors: Parameters<LayoutActionsSlice['setHighlightColors']>[0],
+  internals: Internals,
+  runtime: RuntimeComponents,
+): void {
+  internals.highlightColors = withHighlightColors(internals.highlightColors, colors);
+  runtime.frameDriver.markAllOverlaysDirty();
+}
+
+function applyRenderScale(
+  scale: number,
+  internals: Internals,
+  emitter: Emitter,
+  runtime: RuntimeComponents,
+): void {
   requireRenderScale(scale);
   if (scale === internals.renderScale) return;
+  const carried = carrySelection(internals);
   invalidateSelectionForLayout(internals);
   internals.renderScale = scale;
   syncCanvasSize(internals, runtime);
@@ -76,6 +96,7 @@ function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeC
   };
   runtime.frameDriver.scheduleComposite();
   internals.reader.notifyActiveSpread(internals.currentSpread);
+  restoreSelection(internals, emitter, carried);
 }
 
 function refreshLayoutWhenChanged(
@@ -157,11 +178,15 @@ function applyLayoutCommitMutation(
   abortTransition(runtime.td, emitter);
   const committedSpread = internals.currentSpread;
   installLayoutPositionMode(internals, positionPlan, preserved, committedSpread);
+  const carried = carrySelection(internals);
   invalidateSelectionForLayout(internals);
   if (internals.currentSpread === committedSpread) {
     internals.reader.notifyActiveSpread(committedSpread);
   }
+  // Painted as it commits: the reader lays a size out on the page's own
+  // thread, so the frame that asked for the size draws it.
   runtime.frameDriver.compositeNow();
+  restoreSelection(internals, emitter, carried);
   return committedSpread;
 }
 

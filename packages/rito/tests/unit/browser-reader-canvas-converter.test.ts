@@ -5,6 +5,7 @@ import {
   convertReaderRuby,
   toCanvasColor,
 } from '../../src/bindings/browser/reader-session-canvas-converter';
+import { clusterTable, NO_CLUSTERS } from '../helpers/cluster-table';
 
 const INK: RitoReaderColor = {
   space: 'srgb',
@@ -23,15 +24,17 @@ describe('reader session canvas converter', () => {
       textShadows: [],
     };
     const rect = { x: 0, y: 0, width: 10, height: 8 };
-    const clusters = [
-      { byte: 0, x: 1.5, y: 6 },
-      { byte: 1, x: 5.25, y: 6 },
-    ];
+    const clusters = clusterTable([
+      [0, 1.5, 6],
+      [1, 5.25, 6],
+    ]);
     expect(convertReaderRuby({ text: 'rb', rect, paint, clusters })).toMatchObject({
       kind: 'paintRuby',
       clusters,
     });
-    expect('clusters' in convertReaderRuby({ text: 'rb', rect, paint, clusters: [] })).toBe(false);
+    expect(
+      'clusters' in convertReaderRuby({ text: 'rb', rect, paint, clusters: NO_CLUSTERS }),
+    ).toBe(false);
   });
 
   it('spells every predefined color space the canvas parses', () => {

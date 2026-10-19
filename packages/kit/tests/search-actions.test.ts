@@ -58,6 +58,22 @@ describe('native search actions', () => {
     expect(fixture.actions.searchResults).toHaveLength(1);
   });
 
+  it('hands the options to the reader, and again when the layout is replaced', async () => {
+    const search = vi.fn(() => Promise.resolve([result('match')]));
+    const fixture = createFixture(search);
+    const options = { caseSensitive: true, wholeWord: true };
+
+    fixture.actions.search('Word', options);
+    await settleTasks();
+    fixture.coordState.searchResults.refresh?.();
+    await settleTasks();
+
+    expect(search.mock.calls).toEqual([
+      ['Word', options],
+      ['Word', options],
+    ]);
+  });
+
   it('drops a pending result and rejects retained searches after controller disposal', async () => {
     const pending = deferred<readonly SearchResult[]>();
     const search = vi.fn(() => pending.promise);

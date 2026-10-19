@@ -54,9 +54,10 @@ pub(in crate::runtime::reader_session::wire) fn encode_request(
             writer.string(second_href, "second href")?;
             write_source_point(&mut writer, second)?;
         }
-        ReaderNavigationQuery::Layout { artifact_id } => {
+        ReaderNavigationQuery::Layout { artifact_id, whole } => {
             writer.u8(4);
             writer.u64(external_id(*artifact_id, "artifactId")?);
+            writer.bool(*whole);
         }
     }
     writer.finish_message()
@@ -92,6 +93,7 @@ pub(in crate::runtime::reader_session::wire) fn decode_request(
         },
         4 => ReaderNavigationQuery::Layout {
             artifact_id: external_id(reader.u64()?, "artifactId")?,
+            whole: reader.bool("layout whole")?,
         },
         tag => return Err(invalid(format!("unknown navigation query tag: {tag}"))),
     };
@@ -190,6 +192,7 @@ fn write_layout(writer: &mut Writer, value: &ReaderRevisionLayout) -> Result<(),
     for entry in &value.active_toc_entry_by_page {
         write_optional_u32(writer, *entry)?;
     }
+    writer.bool(value.complete);
     Ok(())
 }
 
@@ -218,6 +221,7 @@ fn read_layout(reader: &mut Reader<'_>) -> Result<ReaderRevisionLayout, ReaderEr
         active_toc_entry_by_page: reader.collection("layout page toc entries", |reader| {
             reader.option("page toc entry", Reader::u32)
         })?,
+        complete: reader.bool("layout complete")?,
     })
 }
 

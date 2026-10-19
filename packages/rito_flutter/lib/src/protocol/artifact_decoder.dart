@@ -14,10 +14,11 @@ final class RitoArtifactDecoder {
     this.displayListDecoder = const RitoPrimitiveListDecoder(),
   });
 
-  static const int protocolVersion = 6;
+  static const int protocolVersion = 7;
   static const int wireVersion = 1;
   static const int _maxSemanticDepth = 64;
   static final List<int> _magic = ascii.encode('RITOART1');
+  static final List<int> _pageRecordsMagic = ascii.encode('RITOPGR1');
 
   final RitoPrimitiveListDecoder displayListDecoder;
 
@@ -38,6 +39,27 @@ final class RitoArtifactDecoder {
     final artifact = _artifact(reader);
     reader.finish('artifact wire message');
     return artifact;
+  }
+
+  /// Decodes a `RITOPGR1` message: what one page of a live artifact holds
+  /// for a host.
+  RitoPageRecords decodePageRecords(Uint8List bytes) {
+    if (bytes.length > ritoMaxWireBytes) {
+      throw const FormatException('RITOPGR1 exceeds the byte limit.');
+    }
+    final reader = RitoBinaryReader(bytes);
+    reader.expectMagic(_pageRecordsMagic, 'page records magic');
+    final version = reader.uint32('page records wire version');
+    if (version != wireVersion) {
+      reader.fail('unsupported page records wire version: $version');
+    }
+    final declaredLength = reader.uint64('page records total length');
+    if (declaredLength != bytes.length) {
+      reader.fail('page records total length does not match input');
+    }
+    final records = _pageRecords(reader, reader.externalId('artifact id'));
+    reader.finish('page records wire message');
+    return records;
   }
 
   RitoArtifact _artifact(RitoBinaryReader reader) {

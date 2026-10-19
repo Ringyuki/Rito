@@ -1,6 +1,11 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { createReader, type Reader, type ReaderPublication } from '@ritojs/core';
-import { createController, type ReaderController } from '@ritojs/kit';
+import {
+  canDrawWithWebGl2,
+  createController,
+  WebGlUnavailableError,
+  type ReaderController,
+} from '@ritojs/kit';
 import {
   createLoadedState,
   INITIAL,
@@ -202,6 +207,8 @@ async function loadReaderStack(
 ): Promise<LoadedReaderStack | null> {
   const canvas = getOrCreateCanvas(canvasRef);
   if (!canvas) throw new Error('useRitoReader requires a browser document to create a canvas');
+  // Said before the book is opened, not after it was laid out for nothing.
+  if (!canDrawWithWebGl2()) throw new WebGlUnavailableError();
 
   const reader = await createReader(
     data,

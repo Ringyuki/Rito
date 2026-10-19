@@ -134,6 +134,7 @@ impl FormattingContext for FixedLineInline {
                     baseline: 8.0,
                     trailing_whitespace: 0.0,
                     ruby_growth: 0.0,
+                    text_runs: Vec::new(),
                     children: Vec::new(),
                 })
             })
@@ -154,6 +155,7 @@ impl FormattingContext for FixedLineInline {
             continuation: None,
             escaped_floats: Vec::new(),
             positioned: Vec::new(),
+            inline_size_range: None,
         })
     }
 

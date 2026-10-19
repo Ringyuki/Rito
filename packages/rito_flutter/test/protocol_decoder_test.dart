@@ -20,15 +20,8 @@ void main() {
     expect(artifact.locator.sourcePoint?.textOffset, 47);
     expect(artifact.matchedBy, RitoLocatorMatch.sourcePoint);
     expect(artifact.pages.single.pageIndex, 7);
-    expect(artifact.pages.single.hits.single.text, 'body');
-    final hit = artifact.pages.single.hits.single;
-    expect(hit.kind, RitoHitKind.link);
-    expect(hit.footnotePending, isFalse);
-    expect(hit.targetLocator?.href, 'chapter-2.xhtml');
-    expect(hit.targetLocator?.anchorId, 'note');
-    expect(hit.destinationLabel, 'Chapter two');
-    expect(artifact.pages.single.semantics.single.level, 2);
-    expect(artifact.pages.single.textRuns.single.end, 4);
+    expect(artifact.pages.single.width, 360);
+    expect(artifact.pages.single.height, 640);
     expect(
       artifact.resources
           .firstWhere((resource) => resource.kind == RitoResourceKind.image)
@@ -44,7 +37,7 @@ void main() {
     expect(artifact.fonts.single.shapeFingerprint, 'shape-v1');
     expect(artifact.navigation.previous, RitoAdjacentAvailability.available);
     expect(artifact.navigation.next, RitoAdjacentAvailability.chapterBoundary);
-    expect(artifact.displayList.formatVersion, 2);
+    expect(artifact.displayList.formatVersion, 4);
     final list = artifact.displayList.displayList;
     expect(list.ratio, 1);
     expect(list.commandCount, 13);
@@ -165,6 +158,7 @@ void main() {
     invalidUtf8[_indexOf(invalidUtf8, testRelativeImageHref.codeUnits)] = 0xff;
     final malformed = <Uint8List>[
       primitiveFixture(version: 1),
+      primitiveFixture(version: 2),
       primitiveFixture(ratio: 0),
       invalidUtf8,
       primitiveFixture(unknownOpcode: 65535),

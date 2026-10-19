@@ -8,8 +8,10 @@ describe('public API surface', () => {
   it('exports the Rust-backed reader facade from the main entry', async () => {
     const api = await import('../../src/index');
     expect(api.createReader).toBeDefined();
-    expect(api.createLayoutConfig).toBeDefined();
     expect(api.preloadReaderRuntime).toBeDefined();
+    // The engine places a spread's pages on the device grid: a reader's
+    // geometry is what `getLayoutGeometry()` reports, not a formula here.
+    expect((api as Record<string, unknown>)['createLayoutConfig']).toBeUndefined();
   });
 
   it('does not export internal APIs from main entry', async () => {

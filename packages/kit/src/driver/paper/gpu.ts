@@ -1,13 +1,10 @@
 import {
-  createGlCanvas,
   createPageTextures,
   finishProgram,
-  isSecondGeneration,
   programDone,
   startProgram,
   type Gl,
   type PageTextures,
-  type PaperCanvas,
   type Program,
   type StartedProgram,
 } from './gl';
@@ -41,16 +38,32 @@ export interface SheetBuffers {
   holds: Float32Array | null;
 }
 
+/**
+ * Where a frame is drawn before it is copied to the display: a colour and a
+ * depth buffer, each drawn at several points a pixel when `samples` is more
+ * than none.
+ */
+export interface FrameBuffers {
+  readonly framebuffer: WebGLFramebuffer;
+  readonly color: WebGLRenderbuffer;
+  readonly depth: WebGLRenderbuffer;
+  width: number;
+  height: number;
+}
+
 /** Everything the paper turn holds on the GPU. */
 export interface Gpu {
-  readonly canvas: PaperCanvas;
   readonly gl: Gl;
   readonly sheet: Program;
   /**
    * Whether the edge of a sheet in the air is softened where it is drawn,
-   * which blends it with what lies beneath: the canvas is not multisampled.
+   * which blends it with what lies beneath: the frame is not multisampled.
    */
   readonly softened: boolean;
+  /** How many points a pixel the frame is drawn at; 0 draws it once. */
+  readonly samples: number;
+  /** Where frames are drawn; made at the first frame's size. */
+  frame: FrameBuffers | null;
   readonly shadow: ShadowPass;
   readonly sheets: SheetBuffers[];
   readonly uvs: WebGLBuffer;
@@ -65,9 +78,9 @@ export interface Gpu {
 
 /** A GPU context with the paper turn's programs handed to it, their outcome not yet asked for. */
 export interface StartedGpu {
-  readonly canvas: PaperCanvas;
   readonly gl: Gl;
   readonly softened: boolean;
+  readonly samples: number;
   readonly sheet: StartedProgram;
   readonly shadow: StartedShadow;
 }
@@ -81,33 +94,28 @@ export interface StartedGpu {
 const FINE = 2;
 
 /**
- * Makes the GPU context and hands it the programs to compile, without
- * waiting for them. Null where there is no GPU to be had.
+ * Hands the display's context the programs to compile, without waiting
+ * for them. Null where they cannot be made.
  */
-export function startGpu(): StartedGpu | null {
+export function startGpu(gl: Gl): StartedGpu | null {
   const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio ?? 1;
-  const made = createGlCanvas(scale < FINE);
-  if (!made) return null;
-  const { canvas, gl } = made;
   try {
     // Asked for before anything is compiled: with it the GPU compiles while the page goes on.
     gl.getExtension('KHR_parallel_shader_compile');
-    // Softening an edge needs to know how fast a sheet's surface crosses a pixel.
-    const second = isSecondGeneration(gl);
-    const softened =
-      scale >= FINE && (second || gl.getExtension('OES_standard_derivatives') !== null);
+    const softened = scale >= FINE;
+    const samples = softened ? 0 : Math.min(4, gl.getParameter(gl.MAX_SAMPLES) as number);
     const uniforms = [...SHEET_UNIFORMS, ...FACES.flat()];
     const sheet = startProgram(
       gl,
-      sheetVertex(softened && second),
-      sheetFragment(softened, softened && second),
+      sheetVertex(softened),
+      sheetFragment(softened, softened),
       ['aPosition', 'aNormal', 'aUv'],
       uniforms,
     );
     const shadow = startShadowPrograms(gl);
     // Sent now: a context nothing is drawn with keeps what it is told until it is asked something.
     gl.flush();
-    return { canvas, gl, softened, sheet, shadow };
+    return { gl, softened, samples, sheet, shadow };
   } catch (error) {
     report(error);
     return null;
@@ -122,12 +130,13 @@ export function gpuDone(started: StartedGpu): boolean {
 
 /** The GPU set up to draw sheets and their shadows; waits for it if it has not finished. */
 export function finishGpu(started: StartedGpu): Gpu | null {
-  const { canvas, gl, softened } = started;
+  const { gl, softened, samples } = started;
   try {
     return {
-      canvas,
       gl,
       softened,
+      samples,
+      frame: null,
       sheet: finishProgram(gl, started.sheet),
       shadow: createShadowPass(gl, started.shadow),
       sheets: [],
@@ -155,4 +164,35 @@ function bareTexture(gl: Gl): WebGLTexture {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, clear);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   return texture;
+}
+
+/** The buffers a frame `width` by `height` is drawn in: those kept, sized for it. */
+export function frameBuffersFor(gpu: Gpu, width: number, height: number): FrameBuffers {
+  const { gl } = gpu;
+  const kept = gpu.frame;
+  if (kept && kept.width === width && kept.height === height) return kept;
+  const buffers = kept ?? {
+    framebuffer: gl.createFramebuffer(),
+    color: gl.createRenderbuffer(),
+    depth: gl.createRenderbuffer(),
+    width,
+    height,
+  };
+  buffers.width = width;
+  buffers.height = height;
+  gl.bindRenderbuffer(gl.RENDERBUFFER, buffers.color);
+  gl.renderbufferStorageMultisample(gl.RENDERBUFFER, gpu.samples, gl.RGBA8, width, height);
+  gl.bindRenderbuffer(gl.RENDERBUFFER, buffers.depth);
+  gl.renderbufferStorageMultisample(
+    gl.RENDERBUFFER,
+    gpu.samples,
+    gl.DEPTH_COMPONENT24,
+    width,
+    height,
+  );
+  gl.bindFramebuffer(gl.FRAMEBUFFER, buffers.framebuffer);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, buffers.color);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, buffers.depth);
+  gpu.frame = buffers;
+  return buffers;
 }

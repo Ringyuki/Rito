@@ -42,11 +42,12 @@ enum Content {
     TextAndImage,
 }
 
-fn content(artifact: &ReaderArtifact) -> Content {
-    let text = artifact
-        .pages
-        .iter()
-        .any(|page| !page.text.trim().is_empty());
+fn content(session: &ReaderSession, artifact: &ReaderArtifact) -> Content {
+    let text = artifact.pages.iter().any(|page| {
+        session
+            .read_page(artifact.artifact_id, page.page_index)
+            .is_ok_and(|records| !records.text.trim().is_empty())
+    });
     let image = artifact
         .resources
         .iter()
@@ -122,7 +123,7 @@ fn probe_book(
         };
         loop {
             pages += 1;
-            let here = content(&artifact);
+            let here = content(&session, &artifact);
             if let Some(line) = open.take() {
                 blanks.push(format!("{line}, before {})", label(here)));
             }

@@ -13,6 +13,8 @@ target/
 coverage/
 playwright-report/
 test-results/
+__screenshots__/
+.vitest-attachments/
 *.tsbuildinfo
 .DS_Store
 

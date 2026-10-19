@@ -15,7 +15,7 @@ class RitoExampleApp extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         body: Center(
-          child: Text('rito_flutter adapter host: $RitoIsolateGateway'),
+          child: Text('rito_flutter adapter host: $RitoNativeGateway'),
         ),
       ),
     );

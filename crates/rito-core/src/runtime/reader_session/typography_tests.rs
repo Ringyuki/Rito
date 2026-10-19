@@ -33,6 +33,7 @@ fn page_count(line_height_override: Option<f64>, line_height_force: bool) -> u32
             session_id: SESSION,
             query: ReaderNavigationQuery::Layout {
                 artifact_id: artifact.artifact_id,
+                whole: true,
             },
         })
         .expect("layout resolves")

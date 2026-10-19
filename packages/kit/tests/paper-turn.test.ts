@@ -3,6 +3,7 @@ import type { TransitionFrame, TransitionPage, TransitionScene } from '../src/dr
 import { createPaperPhysics, grabOf } from '../src/driver/paper/paper-physics';
 import { createPaperTurn } from '../src/driver/paper/paper-turn';
 import { springSettle, stepSpring } from '../src/driver/spring';
+import { createFakeGl } from './helpers/fake-gl';
 
 const one = { width: 400, spine: 0 };
 const two = { width: 400, spine: 200 };
@@ -282,13 +283,15 @@ describe('a paper turn where there is no GPU', () => {
     const drawn: string[] = [];
     const page = (slot: string): TransitionPage => ({
       spread: ['prev', 'curr', 'next'].indexOf(slot),
-      content: { slot } as unknown as CanvasImageSource,
-      overlay: null,
+      texture: { slot } as unknown as WebGLTexture,
+      width: 400,
+      height: 600,
       pixelRatio: 1,
       version: 0,
     });
+    // The paper's programs do not link here: the GPU cannot draw them.
     const fake: TransitionScene = {
-      context: {} as CanvasRenderingContext2D,
+      gl: createFakeGl(undefined, { programsLink: false }).gl,
       width: 400,
       height: 600,
       cssPixel: 1,

@@ -1,22 +1,4 @@
 import { transitionEffects, type TransitionFrame, type TransitionScene } from '../effects';
-import type { SlotPosition } from '../../painter/types';
-
-/** One of the pages beneath the sheet, between two x. */
-export function drawUnder(
-  scene: TransitionScene,
-  left: number,
-  right: number,
-  slot: SlotPosition | null,
-): void {
-  if (!slot || right <= left) return;
-  const { context } = scene;
-  context.save();
-  context.beginPath();
-  context.rect(left, 0, right - left, scene.height);
-  context.clip();
-  scene.drawPage(slot, 0);
-  context.restore();
-}
 
 /** The turn without a GPU: the built-in cover's pages. */
 export function paintPlain(scene: TransitionScene, frame: TransitionFrame): void {

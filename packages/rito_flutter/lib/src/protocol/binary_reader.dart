@@ -9,16 +9,23 @@ const int ritoMaxCollectionItems = 1000000;
 
 final class RitoBinaryReader {
   RitoBinaryReader(Uint8List bytes, {int start = 0, int? end})
-    : _bytes = bytes,
-      _start = start,
-      _end = end ?? bytes.length,
+    : this._shared(bytes, ByteData.sublistView(bytes), start, end);
+
+  RitoBinaryReader._shared(this._bytes, this._data, int start, int? end)
+    : _start = start,
+      _end = end ?? _bytes.length,
       _offset = start {
-    if (start < 0 || _end < start || _end > bytes.length) {
+    if (start < 0 || _end < start || _end > _bytes.length) {
       throw ArgumentError('Invalid Rito binary reader range.');
     }
   }
 
   final Uint8List _bytes;
+
+  /// One view over the whole message, which every record of it shares: a
+  /// view per number read made decoding a display list allocate for every
+  /// number in it.
+  final ByteData _data;
   final int _start;
   final int _end;
   int _offset;
@@ -33,7 +40,7 @@ final class RitoBinaryReader {
       fail('$field exceeds the record byte limit');
     }
     final recordEnd = _checkedEnd(length, field);
-    final reader = RitoBinaryReader(_bytes, start: _offset, end: recordEnd);
+    final reader = RitoBinaryReader._shared(_bytes, _data, _offset, recordEnd);
     _offset = recordEnd;
     return reader;
   }
@@ -71,14 +78,6 @@ final class RitoBinaryReader {
     return take(length, field);
   }
 
-  Uint8List fixedBytes(int expected, String field) {
-    final length = uint32('$field length');
-    if (length != expected) {
-      fail('$field must contain $expected bytes');
-    }
-    return Uint8List.fromList(take(expected, field));
-  }
-
   T? option<T>(String field, T Function() read) {
     final tag = uint8('$field option tag');
     return switch (tag) {
@@ -97,13 +96,16 @@ final class RitoBinaryReader {
     };
   }
 
-  int uint8(String field) => take(1, field)[0];
+  int uint8(String field) => _bytes[_advance(1, field)];
 
-  int uint16(String field) => _byteData(2, field).getUint16(0, Endian.little);
+  int uint16(String field) =>
+      _data.getUint16(_advance(2, field), Endian.little);
 
-  int uint32(String field) => _byteData(4, field).getUint32(0, Endian.little);
+  int uint32(String field) =>
+      _data.getUint32(_advance(4, field), Endian.little);
 
-  int uint64(String field) => _byteData(8, field).getUint64(0, Endian.little);
+  int uint64(String field) =>
+      _data.getUint64(_advance(8, field), Endian.little);
 
   int externalId(String field) {
     final value = uint64(field);
@@ -125,10 +127,10 @@ final class RitoBinaryReader {
     };
   }
 
-  int int64(String field) => _byteData(8, field).getInt64(0, Endian.little);
+  int int64(String field) => _data.getInt64(_advance(8, field), Endian.little);
 
   double float32(String field) {
-    final value = _byteData(4, field).getFloat32(0, Endian.little);
+    final value = _data.getFloat32(_advance(4, field), Endian.little);
     if (!value.isFinite) {
       fail('$field must be finite');
     }
@@ -136,7 +138,7 @@ final class RitoBinaryReader {
   }
 
   double float64(String field) {
-    final value = _byteData(8, field).getFloat64(0, Endian.little);
+    final value = _data.getFloat64(_advance(8, field), Endian.little);
     if (!value.isFinite) {
       fail('$field must be finite');
     }
@@ -169,9 +171,11 @@ final class RitoBinaryReader {
     throw RitoWireException(message, offset);
   }
 
-  ByteData _byteData(int length, String field) {
-    final bytes = take(length, field);
-    return ByteData.sublistView(bytes);
+  /// Moves past [length] bytes and answers where they begin.
+  int _advance(int length, String field) {
+    final at = _offset;
+    _offset = _checkedEnd(length, field);
+    return at;
   }
 
   int _checkedEnd(int length, String field) {

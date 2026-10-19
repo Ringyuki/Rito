@@ -50,7 +50,7 @@ export const typeModules = [
  */
 export function readerSessionRuntimeExports() {
   return [
-    "export { decodeRitoReaderArtifact, decodeRitoReaderResource } from './reader-session-artifact-decoder-runtime.js';",
+    "export { decodeRitoReaderArtifact, decodeRitoReaderPageRecords, decodeRitoReaderResource } from './reader-session-artifact-decoder-runtime.js';",
     "export { decodeRitoReaderPublication } from './reader-session-publication-runtime.js';",
     "export { decodeRitoReaderPrimitiveList, READER_V1_PRIMITIVE_LIST_FORMAT_VERSION } from './reader-session-primitive-decoder-runtime.js';",
     "export { encodeRitoReaderAdjacentRequest, encodeRitoReaderArtifactRequest, encodeRitoReaderSpreadRequest } from './reader-session-request-runtime.js';",

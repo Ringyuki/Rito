@@ -1,9 +1,11 @@
-//! `RITODL1` format version 2: the device-resolved primitive list.
+//! `RITODL1` format version 4: the device-resolved primitive list.
 //!
 //! Header: magic, u32 format version, f64 render ratio, u32 primitive
 //! count. Every primitive is a u16 opcode followed by its fields; paths are
 //! a u32 op count of tagged ops. Colours and run paints use the encodings
-//! in the sibling `paint` module.
+//! in the sibling `paint` module. The text and ruby runs' text, paint and
+//! clusters follow the primitives as tables (see the sibling `tables`
+//! module).
 //!
 //! An image fallback (opcode 14): string src, u8 state (1 loading, 2
 //! broken), the block rect, f64 block ink, f64 icon ink, then a u32 count
@@ -18,7 +20,7 @@ use super::{
         checked_length, write_finite_f64, write_length, write_optional, write_rect, write_string,
         write_u16, write_u32,
     },
-    write_text,
+    write_text, TextTables,
 };
 use crate::render::lower::{
     DevicePath, DevicePoint, DeviceRect, DeviceTransform, Ground, PathOp, Primitive, PrimitiveList,
@@ -29,19 +31,32 @@ pub(in crate::render::commands::reader_wire) fn encode_primitive_list(
     list: &PrimitiveList,
 ) -> Result<Vec<u8>, ReaderDisplayListWireError> {
     let count = checked_length(list.commands.len(), "primitive")?;
+    // The tables are sized once for every run's clusters and text.
+    let (clusters, text) = list
+        .commands
+        .iter()
+        .fold((0, 0), |(clusters, text), primitive| match primitive {
+            Primitive::Text(run) | Primitive::Ruby(run) => {
+                (clusters + run.clusters.len(), text + run.text.len())
+            }
+            _ => (clusters, text),
+        });
     let mut output = Vec::new();
     output.extend_from_slice(READER_DISPLAY_LIST_MAGIC);
     write_u32(&mut output, READER_PRIMITIVE_LIST_FORMAT_VERSION);
     write_finite_f64(&mut output, list.ratio)?;
     write_u32(&mut output, count);
+    let mut tables = TextTables::with_capacity(clusters, text);
     for primitive in &list.commands {
-        write_primitive(&mut output, primitive)?;
+        write_primitive(&mut output, &mut tables, primitive)?;
     }
+    tables.finish(&mut output)?;
     Ok(output)
 }
 
 fn write_primitive(
     output: &mut Vec<u8>,
+    tables: &mut TextTables,
     primitive: &Primitive,
 ) -> Result<(), ReaderDisplayListWireError> {
     write_u16(output, primitive.opcode());
@@ -132,7 +147,7 @@ fn write_primitive(
             write_optional(output, source_rect.as_ref(), write_rect)?;
             write_optional(output, tiles.as_ref(), write_tile_plan)
         }
-        Primitive::Text(text) | Primitive::Ruby(text) => write_text(output, text),
+        Primitive::Text(text) | Primitive::Ruby(text) => write_text(output, tables, text),
         Primitive::ImageFallback {
             src,
             state,

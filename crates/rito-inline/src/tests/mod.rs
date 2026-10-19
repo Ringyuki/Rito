@@ -22,6 +22,7 @@ mod breaks_and_spacing;
 mod clusters;
 mod envelopes_and_ruby;
 mod fonts;
+mod line_items;
 mod punctuation_and_contract;
 
 /// A publication `@font-face` binding of `family` to `bytes`, upright at
@@ -56,11 +57,19 @@ fn px(value: f32) -> NonNegativeCssPx {
     NonNegativeCssPx::new(value).expect("test length is non-negative")
 }
 
+fn black() -> AbsoluteColor {
+    color(1.0)
+}
+
 fn transparent() -> AbsoluteColor {
+    color(0.0)
+}
+
+fn color(alpha: f32) -> AbsoluteColor {
     AbsoluteColor::new(
         AbsoluteColorSpace::Srgb,
         [0.0, 0.0, 0.0],
-        1.0,
+        alpha,
         ColorNoneFlags::new(false, false, false, false),
     )
     .expect("test color is finite")
@@ -79,7 +88,7 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
     let border = BorderEdge {
         resolved_width: px(0.0),
         style: BorderStyle::None,
-        color: transparent().into(),
+        color: black().into(),
     };
     let radius = CornerRadius {
         horizontal: NonNegativeLengthPercentage::new(LengthPercentage::Length(
@@ -155,7 +164,7 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
             )),
         },
         paint: InlinePaintStyle {
-            foreground: transparent(),
+            foreground: black(),
             opacity: UnitInterval::new(1.0).expect("opacity is bounded"),
             background: transparent().into(),
             background_image: None,
@@ -163,7 +172,7 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
             text_decoration: TextDecoration {
                 lines: TextDecorationLines::new(false, false, false, false),
                 style: TextDecorationStyle::Solid,
-                color: transparent().into(),
+                color: black().into(),
             },
             text_shadows: Arc::from(Vec::new()),
             box_shadows: Arc::from(Vec::new()),
@@ -171,11 +180,37 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
     }
 }
 
+/// A piece the line loop placed, read back from its fragment's segments:
+/// its origin in the line, its first byte and its clusters.
+struct Placed<'a> {
+    run: &'a TextFragment,
+    x: f64,
+    text_start: u32,
+    clusters: &'a [rito_fragment::ClusterPosition],
+}
+
+fn placed<'a>(runs: impl IntoIterator<Item = &'a TextFragment>) -> Vec<Placed<'a>> {
+    runs.into_iter()
+        .flat_map(|run| {
+            run.segment_clusters().map(move |(x, clusters)| Placed {
+                run,
+                x,
+                text_start: clusters
+                    .first()
+                    .map_or(run.text_start, |cluster| cluster.byte),
+                clusters,
+            })
+        })
+        .collect()
+}
+
 fn paragraph_tree(text: &str, indent_px: f32) -> (FormattingTree, String) {
+    styled_paragraph_tree(text, tinos_style(indent_px))
+}
+
+fn styled_paragraph_tree(text: &str, style: InlineFormattingStyle) -> (FormattingTree, String) {
     let mut inline = InlineStyleTable::new(1);
-    let style = inline
-        .intern_for_node(0, tinos_style(indent_px))
-        .expect("style interns");
+    let style = inline.intern_for_node(0, style).expect("style interns");
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
         content: FormattingNodeContent::InlineFlow {

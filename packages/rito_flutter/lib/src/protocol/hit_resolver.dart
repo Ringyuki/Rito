@@ -61,7 +61,8 @@ final class RitoTapImage extends RitoTapTarget {
   final String? alt;
 }
 
-/// Resolves taps against an artifact's pages.
+/// Resolves taps against the records of an artifact's pages
+/// ([RitoReaderSession.readPage]).
 ///
 /// Resolution order follows the engine's hit order — text runs, then
 /// block-level link boxes, then images — so a tap inside a link's text
@@ -71,9 +72,7 @@ final class RitoTapImage extends RitoTapTarget {
 final class RitoHitResolver {
   const RitoHitResolver(this.pages);
 
-  RitoHitResolver.forArtifact(RitoArtifact artifact) : pages = artifact.pages;
-
-  final List<RitoPage> pages;
+  final List<RitoPageRecords> pages;
 
   /// The target under `(x, y)`, or null when the tap lands on nothing.
   ///

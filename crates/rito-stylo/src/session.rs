@@ -30,6 +30,7 @@ use crate::{
     dom::DomStorage,
     projection::{self, ProductionStyleProjection},
     traversal,
+    viewport_dependence::ViewportDependence,
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -102,6 +103,12 @@ impl StylesheetInput {
 /// exclusive sequential traversal.
 pub struct StyleDocument {
     stylist: Stylist,
+    /// The sheets the cascade reads, in order, and what they were read
+    /// under: what [`StyleDocument::viewport_dependence`] reports on.
+    sheets: Vec<DocumentStyleSheet>,
+    viewport: Viewport,
+    root_font_size: f32,
+    lock: SharedRwLock,
     animations: DocumentAnimationSet,
     snapshots: SnapshotMap,
     _not_send_or_sync: PhantomData<Rc<()>>,
@@ -141,16 +148,19 @@ impl StyleDocument {
             document_url_string,
             StyleOrigin::UserAgent,
         );
-        let sheet = parsed_stylesheet(&registration, &lock)?;
-        stylist.append_stylesheet(sheet, &lock.read());
-
-        for input in stylesheets {
+        let mut sheets = Vec::with_capacity(stylesheets.len() + 1);
+        for input in std::iter::once(&registration).chain(stylesheets) {
             let sheet = parsed_stylesheet(input, &lock)?;
-            stylist.append_stylesheet(sheet, &lock.read());
+            stylist.append_stylesheet(sheet.clone(), &lock.read());
+            sheets.push(sheet);
         }
 
         Ok(Self {
             stylist,
+            sheets,
+            viewport,
+            root_font_size,
+            lock,
             animations: DocumentAnimationSet::default(),
             snapshots: SnapshotMap::new(),
             _not_send_or_sync: PhantomData,
@@ -172,6 +182,18 @@ impl StyleDocument {
         let generated =
             projection::project_generated(&self.dom, inline.table_mut(), layout.table_mut());
         Ok(ProductionStyleProjection::new(inline, layout, generated))
+    }
+
+    /// What the cascade read of the viewport: once styles are resolved,
+    /// whether they would come out the same at another viewport.
+    pub fn viewport_dependence(&self) -> ViewportDependence {
+        ViewportDependence::capture(
+            self.stylist.device(),
+            self.viewport,
+            self.root_font_size,
+            &self.sheets,
+            &self.lock,
+        )
     }
 }
 

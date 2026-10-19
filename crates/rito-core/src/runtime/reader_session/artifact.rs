@@ -6,21 +6,22 @@ use crate::{
     render::{encode_reader_primitive_list, lower},
     runtime::{
         page_artifact::{
-            PageArtifact, PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
+            PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
             PageArtifactSemanticRole, PageArtifactTarget,
         },
-        RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTarget,
-        RuntimePageTargetKind, RuntimeRevision, RuntimeRevisionHandle, RuntimeSourceLocator,
-        RuntimeSourceLocatorMatchedBy, RuntimeSourcePoint,
+        page_target::PageTargetClass,
+        RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTargetKind, RuntimeRevision,
+        RuntimeRevisionHandle, RuntimeSourceLocator, RuntimeSourceLocatorMatchedBy,
+        RuntimeSourcePoint,
     },
 };
 
 use super::{
     convert::{reader_locator, u32_from_usize, u64_from_usize},
     ReaderArtifact, ReaderDisplayList, ReaderError, ReaderErrorKind, ReaderFontRef, ReaderHitEntry,
-    ReaderHitKind, ReaderNavigation, ReaderPage, ReaderRect, ReaderResourceKind, ReaderResourceRef,
-    ReaderSemanticNode, ReaderSemanticRole, ReaderTextRenderingProfile, ReaderTextRunOffset,
-    READER_CAPABILITY_PROFILE_STRING_TEXT, READER_PROTOCOL_VERSION,
+    ReaderHitKind, ReaderNavigation, ReaderPage, ReaderPageRecords, ReaderRect, ReaderResourceKind,
+    ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole, ReaderTextRenderingProfile,
+    ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT, READER_PROTOCOL_VERSION,
 };
 
 #[derive(Debug, Clone)]
@@ -46,6 +47,13 @@ pub(super) struct ResolvedArtifactTarget {
     pub(super) local_spread_index: usize,
 }
 
+/// An artifact and a digest of the text its display list draws, in paint
+/// order: two artifacts with the same digest put the same text on screen.
+pub(super) struct BuiltReaderArtifact {
+    pub(super) artifact: ReaderArtifact,
+    pub(super) painted_digest: u64,
+}
+
 pub(super) struct ArtifactIdentity {
     pub(super) session_id: u64,
     pub(super) request_id: u64,
@@ -59,7 +67,7 @@ pub(super) fn build_reader_artifact(
     target: &ResolvedArtifactTarget,
     navigation: ReaderNavigation,
     render_ratio: f64,
-) -> Result<ReaderArtifact, ReaderError> {
+) -> Result<BuiltReaderArtifact, ReaderError> {
     // The frame first: its display commands name the images the lowering
     // sizes background images by, and their dimensions load on the
     // document before the revision is borrowed again to build the rest.
@@ -129,8 +137,8 @@ fn build_reader_artifact_from_revision(
     target: &ResolvedArtifactTarget,
     navigation: ReaderNavigation,
     render_ratio: f64,
-) -> Result<ReaderArtifact, ReaderError> {
-    let engine = revision.chapter_engine_session();
+) -> Result<BuiltReaderArtifact, ReaderError> {
+    let painted_digest = painted_digest(frame.commands.iter());
     // The display list the artifact carries is the frame lowered to the
     // host's device grid: every raster decision resolved here, the host
     // only blits.
@@ -139,33 +147,18 @@ fn build_reader_artifact_from_revision(
     })
     .map_err(engine_error)?;
     let encoded = encode_reader_primitive_list(&lowered).map_err(engine_error)?;
-    // Page geometry from the engine is content-box relative and
-    // page-local. The display list this artifact carries is not: it
-    // translates the right-hand page of a spread and paints content at
-    // the margin origin. Hosts hit-test against what they painted, so
-    // every rect this artifact publishes is lifted into that same
-    // display-list space here — see `page_origin`.
     let config = &revision.layout_config;
     let pages = frame
         .page_indexes
         .iter()
-        .enumerate()
-        .map(|(slot, page_index)| {
-            let page = engine.page(*page_index).ok_or_else(|| {
-                ReaderError::new(
-                    ReaderErrorKind::TargetNotPublished,
-                    format!("published frame references unknown page {page_index}"),
-                )
-            })?;
-            reader_page(
-                document,
-                revision,
-                *page_index,
-                page.as_ref(),
-                page_origin(config, slot),
-            )
+        .map(|page_index| {
+            Ok(ReaderPage {
+                page_index: u32_from_usize(*page_index, "page index")?,
+                width: config.page_width,
+                height: config.page_height,
+            })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, ReaderError>>()?;
     let font_families = used_font_families(&encoded.font_families);
     let fonts = revision
         .required_font_face_catalog
@@ -188,7 +181,7 @@ fn build_reader_artifact_from_revision(
         href: font.href.clone(),
     }));
 
-    Ok(ReaderArtifact {
+    let artifact = ReaderArtifact {
         protocol_version: READER_PROTOCOL_VERSION,
         capability_profile_id: READER_CAPABILITY_PROFILE_STRING_TEXT,
         session_id: identity.session_id,
@@ -224,13 +217,30 @@ fn build_reader_artifact_from_revision(
         display_list: ReaderDisplayList {
             format_version: encoded.format_version,
             command_count: encoded.command_count,
-            semantic_digest: encoded.semantic_digest,
             bytes: encoded.bytes,
         },
         resources,
         fonts,
         pages,
+    };
+    Ok(BuiltReaderArtifact {
+        artifact,
+        painted_digest,
     })
+}
+
+/// A digest of the text a frame's commands draw, in paint order.
+fn painted_digest<'a>(commands: impl Iterator<Item = &'a crate::render::DisplayCommand>) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for command in commands {
+        if let crate::render::DisplayCommand::PaintText(text)
+        | crate::render::DisplayCommand::PaintRuby(text) = command
+        {
+            text.text.hash(&mut hasher);
+        }
+    }
+    hasher.finish()
 }
 
 /// Projects an already-published spread into an artifact target without
@@ -261,12 +271,12 @@ pub(super) fn published_spread_target(
         .and_then(|end| engine.source_run_starts(local_page_index..end))
         .and_then(|starts| starts.into_iter().next())
         .map(|start| RuntimeSourcePoint {
-            node_path: start.node_path,
+            node_path: start.node_path.to_vec(),
             text_offset: start.text_offset,
         })
         .or_else(|| {
             engine.page(local_page_index).and_then(|page| {
-                page.targets().entries.into_iter().find_map(|entry| {
+                page.targets().into_iter().find_map(|entry| {
                     Some(RuntimeSourcePoint {
                         node_path: entry.source_path?,
                         text_offset: entry.source_text_offset.unwrap_or(0),
@@ -319,28 +329,40 @@ pub(super) fn page_origin(config: &LayoutConfig, slot: usize) -> (f64, f64) {
     (spread_offset_x + config.margin_left, config.margin_top)
 }
 
-fn reader_page(
+/// What page `page_index` of a revision holds for a host, its rects lifted
+/// into the display-list space of the artifact showing it in spread slot
+/// `slot`.
+pub(super) fn reader_page_records(
     document: &RuntimeDocument,
     revision: &RuntimeRevision,
+    artifact_id: u64,
     page_index: usize,
-    page: &dyn PageArtifact,
-    origin: (f64, f64),
-) -> Result<ReaderPage, ReaderError> {
-    let metadata = page.metadata();
+    slot: usize,
+) -> Result<ReaderPageRecords, ReaderError> {
+    let page = revision
+        .chapter_engine_session()
+        .page(page_index)
+        .ok_or_else(|| {
+            ReaderError::new(
+                ReaderErrorKind::TargetNotPublished,
+                format!("artifact references unknown page {page_index}"),
+            )
+        })?;
+    let page = page.as_ref();
+    let origin = page_origin(&revision.layout_config, slot);
     // Each hit is the target the runtime's own page targets hold: one
     // classifier decides what it is, where its link leads and under which
     // key its footnote is held, for every host.
-    let targets = page.targets().entries;
-    let resolved = document.page_targets_of(revision, page_index, targets.clone());
+    let targets = page.targets();
+    let classes = document.classify_page_targets(revision, page_index, &targets);
     let text = page.text_positions();
-    Ok(ReaderPage {
+    Ok(ReaderPageRecords {
+        artifact_id,
         page_index: u32_from_usize(page_index, "page index")?,
-        width: metadata.width,
-        height: metadata.height,
         hits: targets
             .into_iter()
-            .zip(resolved)
-            .map(|(target, resolved)| reader_hit(page_index, target, resolved, origin))
+            .zip(classes)
+            .map(|(target, class)| reader_hit(page_index, target, class, origin))
             .collect::<Result<Vec<_>, ReaderError>>()?,
         semantics: page
             .semantic_nodes()
@@ -368,10 +390,10 @@ fn reader_page(
 fn reader_hit(
     page_index: usize,
     target: PageArtifactTarget,
-    resolved: RuntimePageTarget,
+    class: PageTargetClass,
     origin: (f64, f64),
 ) -> Result<ReaderHitEntry, ReaderError> {
-    let source_point = resolved
+    let source_point = class
         .source_locator
         .and_then(|locator| locator.source_point)
         .map(super::convert::reader_source_point)
@@ -379,7 +401,7 @@ fn reader_hit(
     Ok(ReaderHitEntry {
         page_index: u32_from_usize(page_index, "hit page index")?,
         bounds: reader_rect_at(target.bounds, origin),
-        kind: match resolved.kind {
+        kind: match class.kind {
             RuntimePageTargetKind::Text => ReaderHitKind::Text,
             RuntimePageTargetKind::Link => ReaderHitKind::Link,
             RuntimePageTargetKind::Image => ReaderHitKind::Image,
@@ -387,13 +409,13 @@ fn reader_hit(
             RuntimePageTargetKind::FootnotePending => ReaderHitKind::FootnotePending,
         },
         text: target.text,
-        href: resolved.href,
+        href: class.href,
         source_point,
-        target_locator: resolved.target_locator.map(reader_locator).transpose()?,
-        destination_label: resolved.destination_label,
-        image_src: resolved.image_src,
-        image_alt: resolved.image_alt,
-        footnote_key: resolved.footnote_key,
+        target_locator: class.target_locator.map(reader_locator).transpose()?,
+        destination_label: class.destination_label,
+        image_src: target.image_src,
+        image_alt: target.image_alt,
+        footnote_key: class.footnote_key,
     })
 }
 

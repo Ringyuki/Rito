@@ -23,7 +23,7 @@ fn painted_families(document: &mut RuntimeDocument) -> Vec<String> {
         .iter()
         .filter_map(|command| match command {
             crate::render::DisplayCommand::PaintText(input) => {
-                Some(input.paint.font.family.clone())
+                Some(input.paint.font.family.to_string())
             }
             _ => None,
         })

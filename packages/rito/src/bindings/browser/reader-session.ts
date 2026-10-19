@@ -18,6 +18,7 @@ import {
   type RitoReaderExactSourceRangeResolution,
   type RitoReaderGeometryOptions,
   type RitoReaderFootnote,
+  type RitoReaderPageRecords,
   type RitoReaderNavigationRequest,
   type RitoReaderNavigationResult,
   type RitoReaderSearchResponse,
@@ -28,6 +29,7 @@ import {
 } from '@ritojs/core-wasm/decoder';
 
 import type { ReaderFontCatalog, ReaderHostFontFace, ReaderPublication } from '../../reader';
+import { createInThreadReaderSessionWorker } from './reader-session-in-thread';
 
 export { RitoReaderError };
 
@@ -43,6 +45,7 @@ export type BrowserReaderResource = RitoReaderResource;
 export type BrowserReaderResourceKind = RitoReaderResourceKind;
 export type BrowserReaderTextProfile = RitoReaderTextProfile;
 export type BrowserReaderFootnote = RitoReaderFootnote;
+export type BrowserReaderPageRecords = RitoReaderPageRecords;
 export type BrowserReaderSearchResponse = RitoReaderSearchResponse;
 export type BrowserReaderSourceRange = RitoReaderSourceRange;
 export type BrowserReaderExactSourceRangeResolution = RitoReaderExactSourceRangeResolution;
@@ -117,7 +120,7 @@ export interface BrowserReaderSession {
   /** Executes one cooperative publication quantum and never schedules another by itself. */
   advanceBackgroundOnce(
     expectedVisibleArtifactId: bigint,
-    maxTopLevelNodesPerQuantum: number,
+    maxPagesPerQuantum: number,
   ): Promise<BrowserReaderBackgroundAdvance>;
   /** Keeps the replaced artifact live for the host's animation lifecycle. */
   adoptBackgroundCandidate(
@@ -141,6 +144,8 @@ export interface BrowserReaderSession {
     expectedVisibleArtifactId: bigint | undefined,
     candidateArtifactId: bigint,
   ): Promise<BrowserReaderForegroundHandoffAck>;
+  /** What a page of a live artifact holds for a host, read when first needed. */
+  readPage(artifactId: bigint, pageIndex: number): Promise<BrowserReaderPageRecords>;
   readFootnote(artifactId: bigint, key: string): Promise<BrowserReaderFootnote>;
   /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
   search(
@@ -181,8 +186,8 @@ export interface BrowserReaderSession {
 
 export async function openBrowserReaderSession(
   /**
-   * A whole EPUB, whose ownership is transferred to the dedicated reader
-   * session Worker, or a publication split by `@ritojs/pack`: the session opens
+   * A whole EPUB, which the engine copies as it opens, or a publication
+   * split by `@ritojs/pack`: the session opens
    * from the skeleton and loads each content shard the first time a request
    * needs it (a sharded open requires `pinnedFontPolicy`).
    */
@@ -190,7 +195,7 @@ export async function openBrowserReaderSession(
   options: BrowserReaderSessionOpenOptions,
 ): Promise<BrowserReaderSession> {
   return openBrowserReaderSessionWithWorker(
-    createBrowserReaderSessionWorker(),
+    createInThreadReaderSessionWorker(),
     publication,
     options,
   );
@@ -260,6 +265,7 @@ function browserReaderSession(
     markFontFamiliesUnavailable: (families) => client.markFontFamiliesUnavailable(families),
     peekSpread: (...args) => client.peekSpread(...args),
     commitPeekedArtifact: (...args) => client.commitPeekedArtifact(...args),
+    readPage: (...args) => client.readPage(...args),
     readFootnote: (...args) => client.readFootnote(...args),
     search: (...args) => client.search(...args),
     exactSourceRange: (...args) => client.exactSourceRange(...args),
@@ -269,13 +275,6 @@ function browserReaderSession(
     release: (...args) => client.release(...args),
     dispose: () => client.dispose(),
   };
-}
-
-function createBrowserReaderSessionWorker(): Worker {
-  return new Worker(new URL('./reader-session-worker-entry.mjs', import.meta.url), {
-    type: 'module',
-    name: 'rito-browser-reader-session',
-  });
 }
 
 function defaultRenderRatio(): number {

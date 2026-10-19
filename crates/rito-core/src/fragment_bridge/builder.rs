@@ -546,7 +546,9 @@ impl TreeBuilder<'_> {
         widen(&mut derived.padding.right, widths[1])?;
         widen(&mut derived.padding.bottom, widths[2])?;
         widen(&mut derived.padding.left, widths[3])?;
-        if std::env::var_os("RITO_BORDER_DEBUG").is_some() {
+        static BORDER_DEBUG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        // Forensic output a native probe switches on; read once per process.
+        if *BORDER_DEBUG.get_or_init(|| std::env::var_os("RITO_BORDER_DEBUG").is_some()) {
             eprintln!(
                 "[border-absorb] {what}: widths={widths:?} padding after: {:?}",
                 derived.padding

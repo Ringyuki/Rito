@@ -99,15 +99,12 @@ final class RitoDisplayListPayload {
   RitoDisplayListPayload({
     required this.formatVersion,
     required this.commandCount,
-    required Uint8List semanticDigest,
     required Uint8List wireBytes,
     required this.displayList,
-  }) : semanticDigest = semanticDigest.asUnmodifiableView(),
-       wireBytes = wireBytes.asUnmodifiableView();
+  }) : wireBytes = wireBytes.asUnmodifiableView();
 
   final int formatVersion;
   final int commandCount;
-  final Uint8List semanticDigest;
   final Uint8List wireBytes;
   final RitoPrimitiveList displayList;
 }
@@ -251,11 +248,28 @@ final class RitoTextRunOffset {
   final int runIndex;
 }
 
+/// A page an artifact shows: its index and size. What it holds for a
+/// host — its targets, outline and text — is read when the host first
+/// needs it ([RitoReaderSession.readPage]).
 final class RitoPage {
-  RitoPage({
+  const RitoPage({
     required this.pageIndex,
     required this.width,
     required this.height,
+  });
+
+  final int pageIndex;
+  final double width;
+  final double height;
+}
+
+/// What one page of a live artifact holds for a host: its interaction
+/// targets, its semantic outline, its text and where each text run sits in
+/// that text, in the artifact's display-list space.
+final class RitoPageRecords {
+  RitoPageRecords({
+    required this.artifactId,
+    required this.pageIndex,
     required List<RitoHitEntry> hits,
     required List<RitoSemanticNode> semantics,
     required this.text,
@@ -265,9 +279,8 @@ final class RitoPage {
        semantics = List<RitoSemanticNode>.unmodifiable(semantics),
        textRuns = List<RitoTextRunOffset>.unmodifiable(textRuns);
 
+  final int artifactId;
   final int pageIndex;
-  final double width;
-  final double height;
   final List<RitoHitEntry> hits;
   final List<RitoSemanticNode> semantics;
   final String text;

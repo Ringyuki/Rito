@@ -42,6 +42,21 @@ impl<'a, B: Brush> Cluster<'a, B> {
                 if !run.text_range().contains(&byte_index) {
                     continue;
                 }
+                // Rito: a left-to-right run's clusters cover its text in
+                // order, so the one holding the byte is found by bisection
+                // instead of by a walk from the line's start.
+                if !run.is_rtl() {
+                    let clusters = &layout.data.clusters[run.cluster_range()];
+                    let index = clusters
+                        .partition_point(|cluster| cluster.text_range(run.data).end <= byte_index);
+                    if clusters
+                        .get(index)
+                        .is_some_and(|cluster| cluster.text_range(run.data).contains(&byte_index))
+                    {
+                        path.logical_index = index as u32;
+                        return path.cluster(layout);
+                    }
+                }
                 for (cluster_index, cluster) in run.clusters().enumerate() {
                     path.logical_index = cluster_index as u32;
                     if cluster.text_range().contains(&byte_index) {

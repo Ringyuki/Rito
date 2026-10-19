@@ -1602,7 +1602,7 @@ fn json_form_mirrors_the_decoded_wire_shape() {
     assert_eq!(
         primitive_list_value(&list),
         json!({
-            "formatVersion": 2,
+            "formatVersion": 4,
             "ratio": 1.0,
             "commandCount": 3,
             "commands": [
@@ -1747,7 +1747,7 @@ fn block(
 ) -> DisplayCommand {
     DisplayCommand::PaintBlock {
         rect,
-        paint,
+        paint: Box::new(paint),
         border_box,
     }
 }
@@ -1770,18 +1770,23 @@ fn text_run() -> ReaderTextRun {
         clusters: text
             .clusters
             .iter()
-            .map(|&(byte, x, y)| ReaderCluster { byte, x, y })
+            .map(|cluster| ReaderCluster {
+                byte: cluster.byte,
+                x: cluster.x,
+                y: cluster.y,
+                joins: cluster.joins,
+            })
             .collect(),
     }
 }
 
 fn text() -> DisplayTextCommand {
     DisplayTextCommand {
-        text: "run".to_owned(),
+        text: "run".into(),
         rect: rect(5.5, 2.0, 10.0, 20.0),
         paint: RunPaint::new(ReaderRunPaint {
             font: ReaderFontPaint {
-                family: "Rito Serif".to_owned(),
+                family: "Rito Serif".into(),
                 size_px: 16.0,
                 weight: 400.0,
                 style: ReaderFontStyle::Italic,
@@ -1829,6 +1834,6 @@ fn text() -> DisplayTextCommand {
         href: Some("#note".to_owned()),
         source_text: Some("source".to_owned()),
         source_text_offset: Some(9),
-        clusters: vec![],
+        clusters: Vec::new().into(),
     }
 }

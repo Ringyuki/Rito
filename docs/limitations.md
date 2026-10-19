@@ -83,14 +83,19 @@ by `resolveExactSourceRange`, including across soft-wrapped lines.
 ## Platform Assumptions
 
 - the main `@ritojs/core` entry is the browser reader facade over the WASM
-  engine; it depends on `Worker`, `FontFace`, `createImageBitmap`, Canvas
-  and optionally `OffscreenCanvas`
+  engine; it depends on `FontFace`, `createImageBitmap`, Canvas and
+  optionally `OffscreenCanvas`
+- the engine runs on the page's own thread so that a frame draws the size
+  it asks for: opening a book, and the first search or text interaction in
+  a chapter that lays the rest of that chapter out, hold the page while
+  they run
 - `@ritojs/kit` assumes `OffscreenCanvas` support for its compositing
 - `rito_flutter` paints through Flutter's own rasterizer; the differences
   against the browser pen measured under Skia are rasterizer-level and
   itemized in `tools/paint-parity/EXEMPTIONS.md`
-- the Flutter pen draws each text cluster left to right through Flutter's
-  own shaper and cannot promise browser-identical complex-script shaping
+- the Flutter pen draws the text from each cluster origin to the next
+  left to right through Flutter's own shaper and cannot promise
+  browser-identical complex-script shaping
 
 ## Format Scope
 

@@ -130,26 +130,69 @@ test('decodes every optional field of a text run, scaled to the device grid', ()
   assert.equal(text.href, '#note');
   assert.equal(text.sourceText, 'source');
   assert.equal(text.sourceTextOffset, 9n);
-  assert.deepEqual(text.clusters, [
-    { byte: 0, x: 0, y: 12.5 },
-    { byte: 1, x: 8.5, y: 12.5 },
-    { byte: 2, x: 12.25, y: 12.5 },
-    { byte: 3, x: 16, y: 12.5 },
-  ]);
+  assert.deepEqual(text.clusters, {
+    bytes: Uint32Array.of(0, 1, 2, 3),
+    origins: Float32Array.of(0, 12.5, 8.5, 12.5, 12.25, 12.5, 16, 12.5),
+    joins: Uint8Array.of(0, 1, 0, 0),
+  });
 });
 
-test('the primitive decoder rejects format 1, truncation and trailing bytes', () => {
+test('the primitive decoder rejects earlier formats, truncation and trailing bytes', () => {
   const primitives = primitiveListFixture();
-  const formatOne = Uint8Array.from(primitives);
-  new DataView(formatOne.buffer).setUint32(7, 1, true);
-  assert.throws(
-    () => decodeRitoReaderPrimitiveList(formatOne),
-    /unsupported primitive list version: 1/,
-  );
+  const earlier = Uint8Array.from(primitives);
+  for (const version of [1, 2, 3]) {
+    new DataView(earlier.buffer).setUint32(7, version, true);
+    assert.throws(
+      () => decodeRitoReaderPrimitiveList(earlier),
+      new RegExp(`unsupported primitive list version: ${String(version)}`),
+    );
+  }
   for (const end of [0, 7, 11, 19, 23, 25, primitives.length - 1]) {
     assert.throws(() => decodeRitoReaderPrimitiveList(primitives.subarray(0, end)));
   }
   const trailing = new Uint8Array(primitives.length + 1);
   trailing.set(primitives);
   assert.throws(() => decodeRitoReaderPrimitiveList(trailing), /trailing bytes/);
+});
+
+test('text runs index into tables they share, read in place', () => {
+  const list = decodeRitoReaderPrimitiveList(primitiveListFixture());
+  const [text, ruby] = [list.commands[11], list.commands[12]];
+  // One paint, decoded once, serves both runs; both runs' clusters are
+  // views of one table.
+  assert.equal(text.paint, ruby.paint);
+  assert.equal(text.clusters.origins.buffer, ruby.clusters.origins.buffer);
+  assert.equal(ruby.text, 'text');
+});
+
+test('the primitive decoder rejects a cluster flag other than joins', () => {
+  const primitives = primitiveListFixture();
+  const list = decodeRitoReaderPrimitiveList(primitives);
+  const runs = list.commands.filter(
+    (command) => command.kind === 'text' || command.kind === 'ruby',
+  );
+  const clusters = runs.reduce((sum, run) => sum + run.clusters.bytes.length, 0);
+  // The cluster table opens with the first run's bytes; its joins flags
+  // follow every byte and origin. The fixture's second cluster joins the
+  // first.
+  const first = new Uint8Array(runs[0].clusters.bytes.slice().buffer);
+  const at = Buffer.from(primitives).indexOf(first);
+  assert.ok(at > 0, 'the fixture carries the cluster table');
+  const joins = at + clusters * 12;
+  assert.equal(primitives[joins + 1], 1);
+  const corrupt = Uint8Array.from(primitives);
+  corrupt[joins + 1] = 2;
+  assert.throws(() => decodeRitoReaderPrimitiveList(corrupt), /cluster joins boolean tag: 2/);
+});
+
+test('a list held off a four-byte boundary still reads its clusters', () => {
+  const primitives = primitiveListFixture();
+  const shifted = new Uint8Array(primitives.length + 1);
+  shifted.set(primitives, 1);
+  const list = decodeRitoReaderPrimitiveList(shifted.subarray(1));
+  assert.deepEqual(list.commands[11].clusters, {
+    bytes: Uint32Array.of(0, 1, 2, 3),
+    origins: Float32Array.of(0, 12.5, 8.5, 12.5, 12.25, 12.5, 16, 12.5),
+    joins: Uint8Array.of(0, 1, 0, 0),
+  });
 });

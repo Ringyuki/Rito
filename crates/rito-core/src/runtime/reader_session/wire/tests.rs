@@ -7,7 +7,7 @@ use crate::runtime::reader_session::{
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderExactSourceRect, ReaderFontRef, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
     ReaderHitEntry, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderLocatorMatch,
-    ReaderNavigation, ReaderPage, ReaderPublication, ReaderPublicationMetadata,
+    ReaderNavigation, ReaderPage, ReaderPageRecords, ReaderPublication, ReaderPublicationMetadata,
     ReaderPublicationSpineItem, ReaderPublicationTocEntry, ReaderPublicationTocTarget, ReaderRect,
     ReaderResource, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
     ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderTextRenderingProfile,
@@ -409,7 +409,6 @@ fn identities_retain_exact_bigint_width_and_reject_the_sign_bit() {
     artifact.revision_id = READER_EXTERNAL_ID_MAX - 2;
     artifact.artifact_id = READER_EXTERNAL_ID_MAX - 3;
     artifact.locator.source_point.as_mut().unwrap().text_offset = u64::MAX - 1;
-    artifact.pages[0].text_runs[0].end = u64::MAX;
 
     let bytes = encode_reader_artifact(&artifact).expect("encode wide identities");
     assert_eq!(decode_reader_artifact(&bytes), Ok(artifact));
@@ -623,7 +622,7 @@ fn background_request_fixture() -> ReaderBackgroundRequest {
     ReaderBackgroundRequest {
         session_id: (1u64 << 54) + 1,
         expected_visible_artifact_id: (1u64 << 57) + 4,
-        max_top_level_nodes_per_quantum: u32::MAX,
+        max_pages_per_quantum: u32::MAX,
     }
 }
 
@@ -687,7 +686,6 @@ fn artifact_fixture() -> ReaderArtifact {
         display_list: ReaderDisplayList {
             format_version: READER_PRIMITIVE_LIST_FORMAT_VERSION,
             command_count: 3,
-            semantic_digest: std::array::from_fn(|index| u8::try_from(index).unwrap()),
             bytes: vec![0, 1, 2, 127, 128, 255],
         },
         resources: vec![
@@ -760,6 +758,55 @@ fn write_reader_artifact_fixture() {
         format!("{}\n", artifact_fixture_hex()),
     )
     .expect("write artifact fixture");
+}
+
+/// The bytes the JavaScript and Dart page-records decoder tests read.
+const PAGE_RECORDS_FIXTURE: &str = include_str!(
+    "../../../../../../packages/rito-core-wasm/tests/fixtures/reader-session-page-records.hex"
+);
+
+fn page_records_fixture_hex() -> String {
+    encode_reader_page_records(&page_records_fixture())
+        .expect("encode page records")
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+#[test]
+fn cross_language_page_records_fixture_matches_the_encoder() {
+    assert_eq!(
+        PAGE_RECORDS_FIXTURE.trim(),
+        page_records_fixture_hex(),
+        "regenerate with `cargo test -p rito-core --lib write_reader_page_records_fixture -- --ignored`"
+    );
+}
+
+#[test]
+#[ignore = "writes the cross-language page records fixture the JavaScript and Dart decoder tests read"]
+fn write_reader_page_records_fixture() {
+    std::fs::write(
+        format!("{FIXTURE_DIR}/reader-session-page-records.hex"),
+        format!("{}\n", page_records_fixture_hex()),
+    )
+    .expect("write page records fixture");
+}
+
+#[test]
+fn page_records_round_trip_and_reject_truncation() {
+    let mut records = page_records_fixture();
+    records.text_runs[0].end = u64::MAX;
+    let bytes = encode_reader_page_records(&records).expect("encode page records");
+    assert_eq!(decode_reader_page_records(&bytes), Ok(records));
+    for length in 0..bytes.len() {
+        assert!(
+            decode_reader_page_records(&bytes[..length]).is_err(),
+            "a prefix of {length} bytes must not decode"
+        );
+    }
+    let mut wrong_magic = bytes.clone();
+    wrong_magic[..8].copy_from_slice(b"RITOFTN1");
+    assert!(decode_reader_page_records(&wrong_magic).is_err());
 }
 
 fn publication_fixture() -> ReaderPublication {
@@ -862,6 +909,13 @@ fn page_fixture() -> ReaderPage {
         page_index: 9,
         width: 400.25,
         height: 1_194.25,
+    }
+}
+
+fn page_records_fixture() -> ReaderPageRecords {
+    ReaderPageRecords {
+        artifact_id: (1u64 << 52) + 11,
+        page_index: 9,
         hits: vec![ReaderHitEntry {
             page_index: 9,
             bounds: rect(11.5, 12.5, 120.0, 24.0),

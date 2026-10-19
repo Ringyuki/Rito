@@ -471,6 +471,18 @@ uint32_t rito_resolve_navigation(uint64_t session_id,
                                  rito_owned_buffer *error_out);
 
 /*
+ * Reads what page page_index of a live RITOART1 artifact holds for a host —
+ * its interaction targets, semantic outline, text and text runs — and returns
+ * a complete RITOPGR1 message. An artifact carries only its pages' index and
+ * size; their records are built when a host first asks.
+ */
+uint32_t rito_read_page(uint64_t session_id,
+                        uint64_t artifact_id,
+                        uint32_t page_index,
+                        rito_owned_buffer *page_out,
+                        rito_owned_buffer *error_out);
+
+/*
  * Reads a footnote definition referenced by a live RITOART1 artifact and
  * returns a complete RITOFTN1 message. key_data is the hit's footnoteKey
  * verbatim — it is already canonical, so hosts must not normalize the link

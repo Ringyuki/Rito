@@ -17,10 +17,12 @@ use std::{
     sync::Arc,
 };
 
-use rito_fragment::CancelFlag;
+use rito_fragment::{BreakToken, CancelFlag};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_pagination::{paginate_chapter, paint_chapter_page};
+use crate::fragment_pagination::{
+    layout_chapter_page, paint_chapter_page, ChapterPaginator, FragmentChapterPage,
+};
 use crate::fragment_paint::FragmentPaintContext;
 use crate::layout::LayoutConfig;
 use crate::render::{
@@ -28,11 +30,11 @@ use crate::render::{
     DisplayCommand,
 };
 
-use super::chapter_tree_report::chapter_formatting_tree;
 use super::fragment_frame::RuntimeFragmentEngine;
 use super::frame::{RuntimeChapterStyleTables, RuntimeRevisionInteractions};
-use super::page_artifact::FragmentPageArtifact;
+use super::page_artifact::{FragmentPageArtifact, PageArtifactSourceRunStart};
 use super::search::{SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource};
+use super::source_locator::PaginationTarget;
 use super::RuntimeDocument;
 
 /// How many pages the table keeps materialized across all chapters. A
@@ -52,7 +54,7 @@ const MATERIALIZED_CHAPTER_FLOOR: usize = 2;
 /// A page table always filters footnote asides out of the content flow:
 /// the reader's pages are the reader-semantic flow, and an aside left in
 /// it would paginate differently from the pages the reader shows.
-const FILTER_FOOTNOTES: bool = true;
+pub(super) const FILTER_FOOTNOTES: bool = true;
 
 /// One chapter's place in the book, in spine order within the layout.
 /// This is what the table retains for every chapter: page numbers,
@@ -88,7 +90,7 @@ struct FragmentTableBuildInputs {
     prepared: Rc<crate::epub::PreparedLoadedDocument>,
     engine: Rc<RuntimeFragmentEngine>,
     /// The paint alias of every face the engine shapes with.
-    faces: Rc<[String]>,
+    faces: Rc<[std::sync::Arc<str>]>,
     config: LayoutConfig,
 }
 
@@ -105,64 +107,83 @@ impl std::fmt::Debug for FragmentTableBuildInputs {
 
 /// One chapter's pages, rebuilt on demand: the paint inputs its pages
 /// share and the pages themselves.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct MaterializedChapter {
     paint: ChapterPaintSource,
     pages: Vec<FragmentBackendPage>,
+    /// The page box the pages' query artifacts are built in.
+    page_width: f64,
+    page_height: f64,
+    /// The engine that paginated the pages, which lays one out again with
+    /// its text.
+    engine: Rc<RuntimeFragmentEngine>,
 }
 
-/// One page of a materialized chapter. Holding it keeps that chapter
-/// materialized, so a caller can read a page's geometry and paint it
-/// without the chapter being evicted underneath.
-#[derive(Debug, Clone)]
-pub(super) struct FragmentPageRef {
-    chapter: Rc<MaterializedChapter>,
-    page: usize,
-}
-
-impl FragmentPageRef {
-    pub(super) fn artifact(&self) -> &FragmentPageArtifact {
-        &self.chapter.pages[self.page].artifact
+impl MaterializedChapter {
+    /// The page's query artifact, built when the page is first read: a
+    /// chapter's pages are laid out together, few of them are read.
+    fn artifact(&self, page: usize) -> &Rc<FragmentPageArtifact> {
+        let entry = &self.pages[page];
+        entry.artifact.get_or_init(|| {
+            Rc::new(FragmentPageArtifact::build(
+                entry.page_index,
+                self.text_tree(page),
+                &self.paint.built,
+                0.0,
+                0.0,
+            ))
+        })
     }
 
-    /// The page's query artifact as a standalone handle: it carries the
-    /// page text, run table and geometry, and outlives its chapter's
-    /// eviction.
-    pub(super) fn artifact_handle(&self) -> Rc<FragmentPageArtifact> {
-        Rc::clone(&self.chapter.pages[self.page].artifact)
+    /// Lays a page paginated without its text out again with it, from the
+    /// break token pagination resumed the page at, once: what reading a
+    /// page's text, paint or query artifact goes through first. A page
+    /// that then ends anywhere but where pagination ended it is an error,
+    /// never a page shown.
+    fn ensure_text(&self, page: usize) -> EpubResult<()> {
+        let entry = &self.pages[page];
+        if entry.has_text || entry.text_root.get().is_some() {
+            return Ok(());
+        }
+        let (root, end) = layout_chapter_page(
+            &self.engine.engine,
+            &self.paint.built.tree,
+            self.paint.content_width,
+            self.paint.content_height,
+            entry.start.as_ref(),
+            &CancelFlag::new(),
+        )?;
+        if end != entry.end {
+            return Err(EpubError::new(format!(
+                "page {} laid out with its text breaks where pagination did not",
+                entry.page_index
+            )));
+        }
+        let _ = entry.text_root.set(root);
+        Ok(())
     }
 
-    /// The page's paint commands at `ratio` device pixels per CSS pixel.
-    pub(super) fn commands_for(&self, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
-        self.chapter.pages[self.page].commands_for(ratio, &self.chapter.paint)
+    /// The page's fragment tree with its text, once [`Self::ensure_text`]
+    /// laid it out.
+    fn text_tree(&self, page: usize) -> &rito_fragment::Fragment {
+        let entry = &self.pages[page];
+        if entry.has_text {
+            return &entry.root;
+        }
+        entry
+            .text_root
+            .get()
+            .expect("a page's text is laid out before the page is read")
     }
-}
 
-/// One page: its query artifact and the commands that paint its content
-/// (in page coordinates, at the page's content origin).
-#[derive(Debug)]
-struct FragmentBackendPage {
-    artifact: Rc<FragmentPageArtifact>,
-    /// The page's sealed fragment tree, in content-box coordinates.
-    root: rito_fragment::Fragment,
-    /// Paint commands per device ratio (as f64 bits). A reader draws at
-    /// one ratio at a time and a zoom or density change is rare, so the
-    /// cache keeps the two most recent.
-    paint_cache: RefCell<Vec<(u64, Arc<Vec<DisplayCommand>>)>>,
-}
-
-impl FragmentBackendPage {
     /// The page's paint commands at `ratio` device pixels per CSS pixel,
     /// painted on first use and cached: pagination geometry is identical
     /// at every ratio, only the glyph baselines' device rounding moves.
     /// The cache dies with its chapter, so it needs no bound of its own.
-    fn commands_for(
-        &self,
-        ratio: f64,
-        paint: &ChapterPaintSource,
-    ) -> EpubResult<Arc<Vec<DisplayCommand>>> {
+    fn commands_for(&self, page: usize, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
         let key = ratio.to_bits();
-        if let Some((_, commands)) = self
+        let entry = &self.pages[page];
+        if let Some((_, commands)) = entry
             .paint_cache
             .borrow()
             .iter()
@@ -170,9 +191,10 @@ impl FragmentBackendPage {
         {
             return Ok(Arc::clone(commands));
         }
+        let paint = &self.paint;
         let commands = Arc::new(paint_chapter_page(
             &paint.built.tree,
-            &self.root,
+            self.text_tree(page),
             paint.content_width,
             paint.origin.0,
             paint.origin.1,
@@ -188,7 +210,7 @@ impl FragmentBackendPage {
             },
             paint.vertical,
         )?);
-        let mut cache = self.paint_cache.borrow_mut();
+        let mut cache = entry.paint_cache.borrow_mut();
         if cache.len() >= 2 {
             cache.remove(0);
         }
@@ -197,16 +219,69 @@ impl FragmentBackendPage {
     }
 }
 
+/// One page of a materialized chapter. Holding it keeps that chapter
+/// materialized, so a caller can read a page's geometry and paint it
+/// without the chapter being evicted underneath.
+#[derive(Debug, Clone)]
+pub(super) struct FragmentPageRef {
+    chapter: Rc<MaterializedChapter>,
+    page: usize,
+}
+
+impl FragmentPageRef {
+    /// The page's width and height, without building its query artifact.
+    pub(super) fn size(&self) -> (f64, f64) {
+        (self.chapter.page_width, self.chapter.page_height)
+    }
+
+    /// The page's query artifact as a standalone handle: it carries the
+    /// page text, run table and geometry, and outlives its chapter's
+    /// eviction.
+    pub(super) fn artifact_handle(&self) -> Rc<FragmentPageArtifact> {
+        Rc::clone(self.chapter.artifact(self.page))
+    }
+
+    /// The page's paint commands at `ratio` device pixels per CSS pixel.
+    pub(super) fn commands_for(&self, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
+        self.chapter.commands_for(self.page, ratio)
+    }
+}
+
+/// One page: its query artifact and the commands that paint its content
+/// (in page coordinates, at the page's content origin).
+#[derive(Debug, Clone)]
+struct FragmentBackendPage {
+    /// The page's index in its table.
+    page_index: usize,
+    /// Its query artifact, once the page is read.
+    artifact: std::cell::OnceCell<Rc<FragmentPageArtifact>>,
+    /// The page's sealed fragment tree as pagination made it, in
+    /// content-box coordinates: its boxes and lines, with their text when
+    /// `has_text`. Where every anchor and run sits reads from it.
+    root: rito_fragment::Fragment,
+    has_text: bool,
+    /// Where pagination resumed the chapter on this page and after it.
+    start: Option<BreakToken>,
+    end: Option<BreakToken>,
+    /// The page laid out again with its text, when pagination left it out.
+    text_root: std::cell::OnceCell<rito_fragment::Fragment>,
+    /// Paint commands per device ratio (as f64 bits). A reader draws at
+    /// one ratio at a time and a zoom or density change is rare, so the
+    /// cache keeps the two most recent.
+    paint_cache: RefCell<Vec<(u64, Arc<Vec<DisplayCommand>>)>>,
+}
+
 /// The paint inputs a chapter's pages share: the bridged formatting tree
 /// (styles, node paints, item provenance) and the build's family policy,
 /// content width, page origin and writing mode.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ChapterPaintSource {
-    built: crate::fragment_bridge::ChapterFormattingTree,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     /// The paint alias of every face the engine shapes with.
-    faces: Rc<[String]>,
+    faces: Rc<[std::sync::Arc<str>]>,
     vertical: bool,
     content_width: f64,
+    content_height: f64,
     origin: (f64, f64),
 }
 
@@ -259,13 +334,22 @@ pub(super) struct FragmentBuiltLayout {
     /// the revision builder from the chapters' source nodes.
     pub(super) anchors: BTreeMap<String, usize>,
     /// One search record per page, in page order: the page text and its
-    /// run offsets, taken while the build pass had the chapter in hand.
-    /// A query reads this slice and materializes no chapter.
-    search_index: Vec<SearchPageText>,
+    /// run offsets. A book's are taken while the build pass has each
+    /// chapter in hand, so a query materializes no chapter; a chapter's
+    /// table keeps its pages and takes them when first asked.
+    search_index: std::cell::OnceCell<Vec<SearchPageText>>,
+    /// Where each text run starts in its source, by page, when the table
+    /// records them apart from its search records: what finding the page
+    /// of a source point reads, taken as a chapter's table is built.
+    run_starts: Option<Vec<super::page_artifact::PageArtifactSourceRunStart>>,
     /// What the chapters are rebuilt from; absent only for a table with
     /// no chapters.
     build: Option<FragmentTableBuildInputs>,
     materialized: RefCell<MaterializedChapters>,
+    /// Where a chapter-local table's chapter resumes, while its pages stop
+    /// where its reader needed them: the rest paginates when the table is
+    /// extended (see [`Self::extend_chapter`]).
+    rest: Option<ChapterPaginator>,
 }
 
 impl FragmentBuiltLayout {
@@ -290,9 +374,11 @@ impl FragmentBuiltLayout {
             page_count,
             chapter_start_pages,
             anchors: BTreeMap::new(),
-            search_index: Vec::new(),
+            search_index: std::cell::OnceCell::new(),
+            run_starts: None,
             build,
             materialized: RefCell::new(MaterializedChapters::default()),
+            rest: None,
         }
     }
 
@@ -300,9 +386,180 @@ impl FragmentBuiltLayout {
         self.page_count
     }
 
+    /// Whether every page of the table's chapters is paginated.
+    pub(super) fn is_complete(&self) -> bool {
+        self.rest.is_none()
+    }
+
+    /// Paginates a chapter-local table's chapter until `settled` accepts a
+    /// page — given its run starts and where the chapter resumes after it —
+    /// first among the pages so far, then among the pages it lays out, or
+    /// to the chapter's end.
+    pub(super) fn settle_chapter(
+        &mut self,
+        mut settled: impl FnMut(&[PageArtifactSourceRunStart], Option<&BreakToken>) -> bool,
+    ) -> EpubResult<()> {
+        let mut page = 0;
+        loop {
+            if page == self.page_count {
+                if self.rest.is_none() {
+                    return Ok(());
+                }
+                self.extend_chapter(Some(page + 1))?;
+                if page == self.page_count {
+                    return Ok(());
+                }
+            }
+            let end = self
+                .materialized
+                .borrow()
+                .entries
+                .iter()
+                .find(|(index, _)| *index == 0)
+                .and_then(|(_, chapter)| chapter.pages.get(page).map(|entry| entry.end.clone()))
+                .ok_or_else(|| EpubError::new("a chapter-local table keeps its chapter's pages"))?;
+            let starts = self.run_starts.as_deref().unwrap_or_default();
+            let from = starts.partition_point(|start| start.page_index < page);
+            let to = starts.partition_point(|start| start.page_index <= page);
+            if settled(&starts[from..to], end.as_ref()) {
+                return Ok(());
+            }
+            page += 1;
+        }
+    }
+
+    /// Paginates more of a chapter-local table's chapter, resuming where
+    /// its pages stopped: until the table holds `pages` pages, or to the
+    /// chapter's end. The pages are those one pass over the chapter makes,
+    /// numbered and resumed alike, with their anchors and run starts.
+    pub(super) fn extend_chapter(&mut self, pages: Option<usize>) -> EpubResult<()> {
+        let wanted = |count: usize| pages.is_none_or(|pages| count < pages);
+        let Some(mut rest) = self.rest.take() else {
+            return Ok(());
+        };
+        if !wanted(self.page_count) {
+            self.rest = Some(rest);
+            return Ok(());
+        }
+        let materialized = self.materialized.get_mut();
+        let position = materialized
+            .entries
+            .iter()
+            .position(|(index, _)| *index == 0)
+            .ok_or_else(|| EpubError::new("a chapter-local table keeps its chapter's pages"))?;
+        let (_, shared) = materialized.entries.remove(position);
+        let mut chapter = Rc::try_unwrap(shared).unwrap_or_else(|shared| (*shared).clone());
+        let before = chapter.pages.len();
+        let run_starts = self.run_starts.get_or_insert_with(Vec::new);
+        while wanted(chapter.pages.len()) {
+            let Some(page) = rest.next_page(
+                &chapter.engine.engine,
+                &chapter.paint.built.tree,
+                &CancelFlag::new(),
+            )?
+            else {
+                break;
+            };
+            let index = chapter.pages.len();
+            collect_page_anchors(
+                &page.root,
+                &chapter.paint.built.node_anchors,
+                index,
+                &mut self.anchors,
+            );
+            run_starts.extend(FragmentPageArtifact::source_run_starts(
+                index,
+                &page.root,
+                &chapter.paint.built,
+            ));
+            chapter.pages.push(FragmentBackendPage {
+                page_index: index,
+                artifact: std::cell::OnceCell::new(),
+                root: page.root,
+                has_text: false,
+                start: page.start,
+                end: rest.resumes_at().cloned(),
+                text_root: std::cell::OnceCell::new(),
+                paint_cache: RefCell::new(Vec::new()),
+            });
+        }
+        let added = chapter.pages.len() - before;
+        self.page_count += added;
+        if let Some(record) = self.chapters.first_mut() {
+            record.page_count += added;
+        }
+        materialized.pages += added;
+        materialized.entries.push((0, Rc::new(chapter)));
+        if !rest.is_done() {
+            self.rest = Some(rest);
+        }
+        Ok(())
+    }
+
     /// Every page's searchable text and run offsets, in page order.
     pub(super) fn search_page_index(&self) -> &[SearchPageText] {
-        &self.search_index
+        self.search_index.get_or_init(|| self.take_search_records())
+    }
+
+    /// The search records of every page, read from the chapters' pages.
+    /// Only a table built without them gets here; its chapters are kept.
+    fn take_search_records(&self) -> Vec<SearchPageText> {
+        if self.build.is_none() {
+            return Vec::new();
+        }
+        let mut records = Vec::with_capacity(self.page_count);
+        for (chapter_index, &base) in self.chapter_starts.iter().enumerate() {
+            let Ok(chapter) = self.materialize(chapter_index) else {
+                break;
+            };
+            for offset in 0..chapter.pages.len() {
+                if chapter.ensure_text(offset).is_err() {
+                    return records;
+                }
+                records.push(search_record(
+                    base + offset,
+                    chapter.text_tree(offset),
+                    &chapter.paint,
+                ));
+            }
+        }
+        records
+    }
+
+    /// Where each text run of the pages in `range` starts in its source.
+    pub(super) fn source_run_starts(
+        &self,
+        range: std::ops::Range<usize>,
+    ) -> Option<Vec<super::page_artifact::PageArtifactSourceRunStart>> {
+        if range.start > range.end || range.end > self.page_count {
+            return None;
+        }
+        if let Some(starts) = &self.run_starts {
+            return Some(
+                starts
+                    .iter()
+                    .filter(|start| range.contains(&start.page_index))
+                    .cloned()
+                    .collect(),
+            );
+        }
+        let pages = self.search_page_index().get(range.clone())?;
+        Some(
+            range
+                .zip(pages)
+                .flat_map(|(page_index, page)| {
+                    page.source_run_starts()
+                        .map(move |(node_path, text_offset, text_length)| {
+                            super::page_artifact::PageArtifactSourceRunStart {
+                                page_index,
+                                node_path: node_path.into(),
+                                text_offset: text_offset as usize,
+                                text_length,
+                            }
+                        })
+                })
+                .collect(),
+        )
     }
 
     pub(super) fn chapter_start_pages(&self) -> &BTreeSet<usize> {
@@ -340,6 +597,7 @@ impl FragmentBuiltLayout {
             return Ok(None);
         };
         let materialized = self.materialize(chapter_index)?;
+        materialized.ensure_text(page_in_chapter)?;
         Ok(Some((
             FragmentPageRef {
                 chapter: materialized,
@@ -372,6 +630,39 @@ impl FragmentBuiltLayout {
             .collect()
     }
 
+    /// How many of a materialized chapter's pages have their query
+    /// artifact built.
+    #[cfg(test)]
+    pub(super) fn built_artifacts(&self, chapter_index: usize) -> Option<usize> {
+        self.materialized
+            .borrow()
+            .entries
+            .iter()
+            .find(|(index, _)| *index == chapter_index)
+            .map(|(_, chapter)| {
+                chapter
+                    .pages
+                    .iter()
+                    .filter(|page| page.artifact.get().is_some())
+                    .count()
+            })
+    }
+
+    /// The formatting tree a materialized chapter's pages were laid out
+    /// from.
+    #[cfg(test)]
+    pub(super) fn materialized_tree(
+        &self,
+        chapter_index: usize,
+    ) -> Option<Rc<crate::fragment_bridge::ChapterFormattingTree>> {
+        self.materialized
+            .borrow()
+            .entries
+            .iter()
+            .find(|(index, _)| *index == chapter_index)
+            .map(|(_, chapter)| Rc::clone(&chapter.paint.built))
+    }
+
     fn materialize(&self, chapter_index: usize) -> EpubResult<Rc<MaterializedChapter>> {
         if let Some(chapter) = self.materialized.borrow_mut().hit(chapter_index) {
             return Ok(chapter);
@@ -393,11 +684,10 @@ impl FragmentBuiltLayout {
                 record.idref
             ))
         })?;
-        let built = chapter_formatting_tree(
+        let built = build.engine.chapter_tree(
             &build.prepared,
             &record.style_tables,
             &record.idref,
-            FILTER_FOOTNOTES,
             &record.image_dimensions,
         )?;
         let paginated = paginate_built_chapter(
@@ -406,38 +696,109 @@ impl FragmentBuiltLayout {
             built,
             &build.config,
             &record.idref,
+            false,
         )
         .map_err(EpubError::new)?;
-        if paginated.roots.len() != record.page_count {
+        if paginated.pages.len() != record.page_count {
             // The page table's numbers would be lies: report it instead of
             // serving a page that is not the page the book paginated.
             return Err(EpubError::new(format!(
                 "chapter {} rebuilt to {} pages, the page table recorded {}",
                 record.idref,
-                paginated.roots.len(),
+                paginated.pages.len(),
                 record.page_count
             )));
         }
-        let page_index_base = self.chapter_starts[chapter_index];
-        let pages = paginated
-            .roots
-            .into_iter()
-            .enumerate()
-            .map(|(offset, root)| FragmentBackendPage {
-                artifact: Rc::new(page_artifact(
-                    page_index_base + offset,
-                    &root,
-                    &paginated.paint,
-                    &build.config,
-                )),
-                root,
-                paint_cache: RefCell::new(Vec::new()),
-            })
-            .collect();
-        Ok(MaterializedChapter {
-            paint: paginated.paint,
-            pages,
+        Ok(materialized_chapter(
+            paginated,
+            self.chapter_starts[chapter_index],
+            &build.config,
+            Rc::clone(&build.engine),
+        ))
+    }
+}
+
+/// A paginated chapter's pages, each with its query artifact, numbered
+/// from `page_index_base`.
+fn materialized_chapter(
+    paginated: PaginatedChapter,
+    page_index_base: usize,
+    config: &LayoutConfig,
+    engine: Rc<RuntimeFragmentEngine>,
+) -> MaterializedChapter {
+    // Each page ends where the next starts; the last one ends the chapter,
+    // or where the rest of it resumes.
+    let last_end = paginated
+        .rest
+        .as_ref()
+        .and_then(|rest| rest.resumes_at().cloned());
+    let ends: Vec<Option<BreakToken>> = paginated
+        .pages
+        .iter()
+        .skip(1)
+        .map(|page| page.start.clone())
+        .chain(std::iter::once(last_end))
+        .collect();
+    let has_text = paginated.line_text;
+    let pages = paginated
+        .pages
+        .into_iter()
+        .zip(ends)
+        .enumerate()
+        .map(|(offset, (page, end))| FragmentBackendPage {
+            page_index: page_index_base + offset,
+            artifact: std::cell::OnceCell::new(),
+            root: page.root,
+            has_text,
+            start: page.start,
+            end,
+            text_root: std::cell::OnceCell::new(),
+            paint_cache: RefCell::new(Vec::new()),
         })
+        .collect();
+    MaterializedChapter {
+        paint: paginated.paint,
+        pages,
+        page_width: config.page_width,
+        page_height: config.page_height,
+        engine,
+    }
+}
+
+/// A whole-book page table being paginated a few pages at a time: the
+/// chapters paginated so far, with their anchors and run starts, and the
+/// chapter under way.
+pub(super) struct FragmentTableBuild {
+    build: FragmentTableBuildInputs,
+    /// The chapters not begun yet, in spine order.
+    idrefs: std::collections::VecDeque<String>,
+    chapters: Vec<FragmentBackendChapter>,
+    anchors: BTreeMap<String, usize>,
+    run_starts: Vec<PageArtifactSourceRunStart>,
+    /// The pages paginated so far.
+    pages: usize,
+    current: Option<TableChapter>,
+}
+
+/// The chapter a whole-book page table is paginating.
+struct TableChapter {
+    record: FragmentBackendChapter,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
+    paginator: ChapterPaginator,
+}
+
+impl FragmentTableBuild {
+    /// The pages paginated so far.
+    pub(super) fn pages(&self) -> usize {
+        self.pages
+    }
+
+    /// The page table, once every chapter is paginated.
+    pub(super) fn finish(self) -> FragmentBuiltLayout {
+        let mut layout = FragmentBuiltLayout::new(self.chapters, Some(self.build));
+        layout.anchors = self.anchors;
+        layout.run_starts = Some(self.run_starts);
+        layout
     }
 }
 
@@ -451,98 +812,151 @@ pub(super) struct ChapterLocalFragmentBuild {
 }
 
 impl RuntimeDocument {
-    /// Paginates every chapter of the prepared publication under
-    /// `layout_config`, laying each out from its typed style tables.
+    /// Begins a whole-book page table: every chapter of the prepared
+    /// publication paginated under `layout_config` from its typed style
+    /// tables, a few pages at a time ([`Self::advance_fragment_page_table`]).
     /// Page indexes are book-wide. Any chapter that fails to build or
-    /// paginate fails the whole table, so a revision never holds a
-    /// partial one.
-    ///
-    /// Each chapter's pages are dropped as soon as its record, anchors and
-    /// search text are taken, so the pass peaks at one chapter's contents
-    /// rather than the book's.
-    pub(super) fn build_fragment_page_table(
+    /// paginate fails the whole table, so a revision never holds a partial
+    /// one.
+    pub(super) fn begin_fragment_page_table(
         &self,
         layout_config: &LayoutConfig,
-        chapter_style_tables: &BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
-    ) -> Result<FragmentBuiltLayout, String> {
+    ) -> Result<FragmentTableBuild, String> {
         let prepared = self
             .prepared
             .clone()
             .ok_or_else(|| "document is not prepared".to_owned())?;
         let build = self.fragment_table_build_inputs(prepared, layout_config)?;
-        let mut chapters = Vec::with_capacity(build.prepared.chapters.len());
-        let mut anchors = BTreeMap::new();
-        let mut search_index = Vec::new();
-        let mut page_index = 0;
-        let idrefs: Vec<String> = build
+        let idrefs = build
             .prepared
             .chapters
             .iter()
             .map(|chapter| chapter.source.idref.clone())
             .collect();
-        for idref in idrefs {
-            let style_tables = chapter_style_tables.get(&idref).ok_or_else(|| {
-                format!("chapter {idref}: revision retains no style tables for chapter {idref}")
-            })?;
-            let image_dimensions = self
-                .chapter_image_dimensions(&build.prepared, &idref, FILTER_FOOTNOTES)
-                .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            let built = chapter_formatting_tree(
-                &build.prepared,
-                style_tables,
-                &idref,
-                FILTER_FOOTNOTES,
-                &image_dimensions,
-            )
-            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-            let paginated = paginate_built_chapter(
-                &build.engine,
-                Rc::clone(&build.faces),
-                built,
-                layout_config,
-                &idref,
-            )?;
-            for (offset, root) in paginated.roots.iter().enumerate() {
-                collect_page_anchors(
-                    root,
-                    &paginated.paint.built.node_anchors,
-                    page_index + offset,
-                    &mut anchors,
-                );
-                search_index.push(search_page_text(
-                    page_index + offset,
-                    &page_artifact(page_index + offset, root, &paginated.paint, layout_config),
-                ));
+        Ok(FragmentTableBuild {
+            build,
+            idrefs,
+            chapters: Vec::new(),
+            anchors: BTreeMap::new(),
+            run_starts: Vec::new(),
+            pages: 0,
+            current: None,
+        })
+    }
+
+    /// Paginates up to `pages` more pages of a whole-book page table, and
+    /// says whether every chapter is paginated. The chapters paginate
+    /// without their text: each page is dropped as soon as its anchors and
+    /// run starts are taken, so the table holds no chapter's contents, and
+    /// the search records are taken when the book is first searched.
+    pub(super) fn advance_fragment_page_table(
+        &self,
+        table: &mut FragmentTableBuild,
+        chapter_style_tables: &BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
+        pages: usize,
+    ) -> Result<bool, String> {
+        let mut left = pages;
+        loop {
+            if table.current.is_none() {
+                let Some(idref) = table.idrefs.pop_front() else {
+                    return Ok(true);
+                };
+                table.current =
+                    Some(self.begin_table_chapter(&table.build, chapter_style_tables, idref)?);
             }
-            page_index += paginated.roots.len();
-            chapters.push(FragmentBackendChapter {
+            if left == 0 {
+                return Ok(false);
+            }
+            let chapter = table.current.as_mut().expect("a chapter is under way");
+            let page = chapter
+                .paginator
+                .next_page(
+                    &table.build.engine.engine,
+                    &chapter.built.tree,
+                    &CancelFlag::new(),
+                )
+                .map_err(|error| {
+                    format!(
+                        "chapter {} pagination: {}",
+                        chapter.record.idref,
+                        error.message()
+                    )
+                })?;
+            if let Some(page) = page {
+                collect_page_anchors(
+                    &page.root,
+                    &chapter.built.node_anchors,
+                    table.pages,
+                    &mut table.anchors,
+                );
+                table
+                    .run_starts
+                    .extend(FragmentPageArtifact::source_run_starts(
+                        table.pages,
+                        &page.root,
+                        &chapter.built,
+                    ));
+                table.pages += 1;
+                chapter.record.page_count += 1;
+                left -= 1;
+            }
+            if chapter.paginator.is_done() {
+                if let Some(done) = table.current.take() {
+                    table.chapters.push(done.record);
+                }
+            }
+        }
+    }
+
+    /// Bridges a chapter of a whole-book page table to paginate it.
+    fn begin_table_chapter(
+        &self,
+        build: &FragmentTableBuildInputs,
+        chapter_style_tables: &BTreeMap<String, Rc<RuntimeChapterStyleTables>>,
+        idref: String,
+    ) -> Result<TableChapter, String> {
+        let style_tables = chapter_style_tables.get(&idref).ok_or_else(|| {
+            format!("chapter {idref}: revision retains no style tables for chapter {idref}")
+        })?;
+        let image_dimensions = self
+            .chapter_image_dimensions(&build.prepared, &idref, FILTER_FOOTNOTES)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        let built = build
+            .engine
+            .chapter_tree(&build.prepared, style_tables, &idref, &image_dimensions)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        let config = &build.config;
+        let content_width = config.page_width - config.margin_left - config.margin_right;
+        let content_height = config.page_height - config.margin_top - config.margin_bottom;
+        if content_width <= 0.0 || content_height <= 0.0 {
+            return Err("page content box is empty".to_owned());
+        }
+        let paginator = ChapterPaginator::new(&built.tree, content_width, content_height, false);
+        Ok(TableChapter {
+            record: FragmentBackendChapter {
                 idref,
-                page_count: paginated.roots.len(),
-                block_count: paginated.block_count,
-                page_background: paginated.paint.built.page_background,
-                page_background_image: paginated.paint.built.page_background_image.clone(),
+                page_count: 0,
+                block_count: built.tree.node(built.tree.root()).children.len(),
+                page_background: built.page_background,
+                page_background_image: built.page_background_image.clone(),
                 style_tables: Rc::clone(style_tables),
                 image_dimensions,
-            });
-            // The chapter's fragment trees and bridged tree die here; the
-            // table rebuilds them for the pages a host actually reads.
-            drop(paginated);
-        }
-        let mut layout = FragmentBuiltLayout::new(chapters, Some(build));
-        layout.anchors = anchors;
-        layout.search_index = search_index;
-        Ok(layout)
+            },
+            built,
+            paginator,
+        })
     }
 
     /// Paginates ONE chapter for a chapter-local revision: parse and
     /// style the chapter in a single-chapter prepared window (the
-    /// whole-book preparation is untouched), bridge it, and paginate the
-    /// entire chapter in one pass. Page indexes are chapter-local
-    /// (base 0).
+    /// whole-book preparation is untouched), bridge it, and paginate it as
+    /// far as `target` needs, in one pass that the table resumes when it
+    /// is extended. Page indexes are chapter-local (base 0).
     pub(super) fn build_chapter_local_fragment_layout(
         &mut self,
         config: &LayoutConfig,
         chapter_index: usize,
+        target: &PaginationTarget,
     ) -> Result<ChapterLocalFragmentBuild, String> {
         self.document
             .ensure_chapter_loaded(chapter_index)
@@ -583,62 +997,79 @@ impl RuntimeDocument {
         interactions.pending_footnote_keys =
             crate::interaction::FootnoteTargetSet::new(pending_footnote_keys);
         interactions.footnote_index_complete = footnote_index_complete;
-        let chapter = crate::epub::prepare_runtime_layout_chapter(&prepared, config)
+        let (idref, style_tables) = self
+            .chapter_styles
+            .tables(
+                &prepared.stylesheet_ledger,
+                &prepared.chapters[..prepared.chapters.len().min(1)],
+                config,
+            )
             .map_err(|error| format!("chapter style resolution: {}", error.message()))?
+            .into_iter()
+            .next()
             .ok_or_else(|| "prepared runtime chapter is unavailable".to_owned())?;
-        let idref = chapter.idref;
-        let style_tables = Rc::new(RuntimeChapterStyleTables {
-            layout: chapter.layout_style_table,
-            inline: chapter.inline_style_table,
-            generated: chapter.generated_boxes,
-        });
         let prepared = Rc::new(prepared);
         let build = self.fragment_table_build_inputs(Rc::clone(&prepared), config)?;
         let image_dimensions = self
             .chapter_image_dimensions(&prepared, &idref, FILTER_FOOTNOTES)
             .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-        let built = chapter_formatting_tree(
-            &prepared,
-            &style_tables,
-            &idref,
-            FILTER_FOOTNOTES,
-            &image_dimensions,
-        )
-        .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
-        let paginated = paginate_built_chapter(
+        let built = build
+            .engine
+            .chapter_tree(&prepared, &style_tables, &idref, &image_dimensions)
+            .map_err(|error| format!("chapter {idref}: {}", error.message()))?;
+        // The run starts every resize resolves its position through, taken
+        // as each page is made; the search records wait for a search.
+        let mut run_starts = Vec::new();
+        let source_index = self.source_chapter_index(&idref);
+        let starts_from = Rc::clone(&built);
+        // Without its text: the page shown is laid out with it when read.
+        let paginated = paginate_built_chapter_until(
             &build.engine,
             Rc::clone(&build.faces),
             built,
             config,
             &idref,
+            false,
+            |page, index, resumes_at| {
+                let starts =
+                    FragmentPageArtifact::source_run_starts(index, &page.root, &starts_from);
+                let settled = target.settled_after(&starts, resumes_at, source_index);
+                run_starts.extend(starts);
+                settled
+            },
         )?;
+        let block_count = paginated.block_count;
+        let rest = paginated.rest.clone();
+        // The pages stay: the revision's only chapter is read as soon as it
+        // is shown, so it starts materialized instead of being dropped and
+        // laid out a second time on that first read.
+        let materialized = materialized_chapter(paginated, 0, config, Rc::clone(&build.engine));
         let mut anchors = BTreeMap::new();
-        let mut search_index = Vec::with_capacity(paginated.roots.len());
-        for (offset, root) in paginated.roots.iter().enumerate() {
+        for (offset, page) in materialized.pages.iter().enumerate() {
             collect_page_anchors(
-                root,
-                &paginated.paint.built.node_anchors,
+                &page.root,
+                &materialized.paint.built.node_anchors,
                 offset,
                 &mut anchors,
             );
-            search_index.push(search_page_text(
-                offset,
-                &page_artifact(offset, root, &paginated.paint, config),
-            ));
         }
         let chapter = FragmentBackendChapter {
             idref: idref.clone(),
-            page_count: paginated.roots.len(),
-            block_count: paginated.block_count,
-            page_background: paginated.paint.built.page_background,
-            page_background_image: paginated.paint.built.page_background_image.clone(),
+            page_count: materialized.pages.len(),
+            block_count,
+            page_background: materialized.paint.built.page_background,
+            page_background_image: materialized.paint.built.page_background_image.clone(),
             style_tables: Rc::clone(&style_tables),
             image_dimensions,
         };
-        drop(paginated);
         let mut layout = FragmentBuiltLayout::new(vec![chapter], Some(build));
         layout.anchors = anchors;
-        layout.search_index = search_index;
+        layout.run_starts = Some(run_starts);
+        layout.rest = rest;
+        layout
+            .materialized
+            .borrow_mut()
+            .insert(0, Rc::new(materialized));
         Ok(ChapterLocalFragmentBuild {
             layout,
             idref,
@@ -658,7 +1089,13 @@ impl RuntimeDocument {
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
         Ok(FragmentTableBuildInputs {
             prepared,
-            faces: engine.engine.inline().face_aliases().into(),
+            faces: engine
+                .engine
+                .inline()
+                .face_aliases()
+                .iter()
+                .map(|alias| std::sync::Arc::from(alias.as_str()))
+                .collect(),
             engine,
             config: config.clone(),
         })
@@ -668,7 +1105,12 @@ impl RuntimeDocument {
 /// One chapter laid out into pages: the page roots, the paint inputs they
 /// share and the block count chapter ranges report.
 struct PaginatedChapter {
-    roots: Vec<rito_fragment::Fragment>,
+    pages: Vec<FragmentChapterPage>,
+    /// Where the chapter resumes after `pages`, when they stop short of
+    /// its end.
+    rest: Option<ChapterPaginator>,
+    /// Whether the pages' lines hold their text.
+    line_text: bool,
     paint: ChapterPaintSource,
     block_count: usize,
 }
@@ -677,87 +1119,99 @@ struct PaginatedChapter {
 /// out into page roots under the given layout config.
 fn paginate_built_chapter(
     engine: &RuntimeFragmentEngine,
-    faces: Rc<[String]>,
-    mut built: crate::fragment_bridge::ChapterFormattingTree,
+    faces: Rc<[std::sync::Arc<str>]>,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
     config: &LayoutConfig,
     idref: &str,
+    line_text: bool,
 ) -> Result<PaginatedChapter, String> {
-    // Outside markers and ruby annotations are painted, never laid
-    // out: shape them once here with the same context the chapter
-    // lays out with, so their boxes and clusters come from the
-    // engine's own advances.
-    built
-        .measure_painted_runs(engine.engine.inline())
-        .map_err(|error| format!("chapter {idref} markers: {}", error.message()))?;
+    paginate_built_chapter_until(engine, faces, built, config, idref, line_text, |_, _, _| {
+        false
+    })
+}
+
+/// [`paginate_built_chapter`], stopping after the first page `settled`
+/// accepts — given the page, its index and where the chapter resumes after
+/// it — and keeping where the rest resumes.
+fn paginate_built_chapter_until(
+    engine: &RuntimeFragmentEngine,
+    faces: Rc<[std::sync::Arc<str>]>,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
+    config: &LayoutConfig,
+    idref: &str,
+    line_text: bool,
+    mut settled: impl FnMut(&FragmentChapterPage, usize, Option<&BreakToken>) -> bool,
+) -> Result<PaginatedChapter, String> {
     let content_width = config.page_width - config.margin_left - config.margin_right;
     let content_height = config.page_height - config.margin_top - config.margin_bottom;
     if content_width <= 0.0 || content_height <= 0.0 {
         return Err("page content box is empty".to_owned());
     }
-    let pages = paginate_chapter(
-        &engine.engine,
-        &built.tree,
-        content_width,
-        content_height,
-        &CancelFlag::new(),
-    )
-    .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?;
+    let mut paginator =
+        ChapterPaginator::new(&built.tree, content_width, content_height, line_text);
+    let mut pages = Vec::new();
+    while let Some(page) = paginator
+        .next_page(&engine.engine, &built.tree, &CancelFlag::new())
+        .map_err(|error| format!("chapter {idref} pagination: {}", error.message()))?
+    {
+        let stop = settled(&page, pages.len(), paginator.resumes_at());
+        pages.push(page);
+        if stop {
+            break;
+        }
+    }
+    let rest = (!paginator.is_done()).then_some(paginator);
     let block_count = built.tree.node(built.tree.root()).children.len();
     let vertical = crate::fragment_pagination::chapter_is_vertical(&built.tree);
     Ok(PaginatedChapter {
-        roots: pages.into_iter().map(|page| page.root).collect(),
+        pages,
+        rest,
+        line_text,
         block_count,
         paint: ChapterPaintSource {
             built,
             faces,
             vertical,
             content_width,
+            content_height,
             origin: (config.margin_left, config.margin_top),
         },
     })
 }
 
-/// One page's query artifact. Its geometry is in page-content space:
-/// every consumer — the selection mapper, tap targets, search bounds —
-/// translates it to the viewport, so page margins must not be baked in
-/// here.
-fn page_artifact(
+/// One page's search record: its text and text runs, taken without the
+/// rest of its query artifact. Its geometry is in page-content space, as
+/// the artifact's is: every consumer translates it to the viewport.
+fn search_record(
     page_index: usize,
     root: &rito_fragment::Fragment,
     paint: &ChapterPaintSource,
-    config: &LayoutConfig,
-) -> FragmentPageArtifact {
-    FragmentPageArtifact::build(
+) -> SearchPageText {
+    search_page_text(
         page_index,
-        config.page_width,
-        config.page_height,
-        root,
-        &paint.built,
-        0.0,
-        0.0,
+        FragmentPageArtifact::build_text(page_index, root, &paint.built),
     )
 }
 
-/// One page's search record: its text and the run offsets a query walks.
-/// Taken during the build pass while the chapter is in hand, so a query
-/// reads the recorded slice instead of rebuilding the book's chapters.
-fn search_page_text(page_index: usize, artifact: &FragmentPageArtifact) -> SearchPageText {
-    let runs = artifact
-        .interaction_runs()
-        .iter()
+/// A page's search record, taking the text and runs of an artifact built
+/// for it alone.
+fn search_page_text(page_index: usize, artifact: FragmentPageArtifact) -> SearchPageText {
+    let (text, runs) = artifact.into_text_and_runs();
+    let runs = runs
+        .into_iter()
         .map(|run| SearchPrebuiltRun {
             start: run.start,
             end: run.end,
             block_index: run.block_index,
             line_index: run.line_index,
             run_index: run.run_index,
-            source: run.source.as_ref().map(|source| SearchPrebuiltRunSource {
-                node_path: source.path.clone(),
-                segments: source.segments.clone(),
+            source: run.source.map(|source| SearchPrebuiltRunSource {
+                node_path: source.path,
+                segments: source.segments,
             }),
         })
         .collect();
-    SearchPageText::from_parts(page_index, artifact.page_text().to_owned(), runs)
+    SearchPageText::from_parts(page_index, text, runs)
 }
 
 /// Records each anchored node's first page. Anchors are block-level ids

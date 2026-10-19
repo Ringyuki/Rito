@@ -359,6 +359,10 @@ pub struct RuntimeChapterTextSpan {
     pub source_end: usize,
     pub normalized_start: usize,
     pub normalized_end: usize,
+    /// Ruby annotation text (`<rt>`, `<rp>` in a `<ruby>`): laid out apart
+    /// from the line, so the line's text does not hold it.
+    #[serde(default)]
+    pub annotation: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

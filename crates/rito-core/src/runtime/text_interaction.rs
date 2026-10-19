@@ -70,10 +70,7 @@ impl RuntimeDocument {
             });
         match resolution {
             PageArtifactExactTextRangeResolution::Resolved(range)
-                if source_segments_match(
-                    &prepared.normalized_source_text,
-                    &range.exact_source_segments,
-                ) =>
+                if source_segments_match(&prepared.flow_text, &range.exact_source_segments) =>
             {
                 RuntimeExactSourceRangeResolution::Resolved {
                     range: Box::new(RuntimeExactSourceRange {
@@ -158,6 +155,29 @@ impl RuntimeDocument {
             revision_id: revision_id.to_owned(),
             resolution,
         })
+    }
+}
+
+impl RuntimeDocument {
+    /// The carets at a resolved range's anchor and focus, each with its
+    /// geometry and source point, or `None` when either address names no
+    /// caret.
+    pub(in crate::runtime) fn range_end_carets_in(
+        &self,
+        revision: &RuntimeRevision,
+        range: &RuntimeTextRange,
+    ) -> EpubResult<Option<(RuntimeTextCaret, RuntimeTextCaret)>> {
+        let session = revision.chapter_engine_session();
+        let (Some(anchor), Some(focus)) = (
+            session.text_caret(range.anchor),
+            session.text_caret(range.focus),
+        ) else {
+            return Ok(None);
+        };
+        Ok(Some((
+            runtime_text_caret(&self.document, revision, anchor)?,
+            runtime_text_caret(&self.document, revision, focus)?,
+        )))
     }
 }
 

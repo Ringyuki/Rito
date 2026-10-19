@@ -38,6 +38,21 @@ impl SearchPageText {
                 .collect(),
         }
     }
+
+    /// Each run that maps to source, in page order: its source node path,
+    /// the source offset of its first character and its length in UTF-16.
+    /// The same runs, in the same order, as the page artifact's interaction
+    /// runs this record was taken from.
+    pub(crate) fn source_run_starts(&self) -> impl Iterator<Item = (&[usize], u32, usize)> + '_ {
+        self.offsets.iter().filter_map(|run| {
+            let source = run.source.as_ref()?;
+            Some((
+                source.node_path.as_slice(),
+                source.source_offset(0)?,
+                run.end - run.start,
+            ))
+        })
+    }
 }
 
 /// One text run of a search page, in page-text UTF-16 offsets.
@@ -123,6 +138,7 @@ struct SearchResultDetail {
     selected_text: String,
     context: String,
     source_range: Option<SearchSourceRange>,
+    fallback_source: Option<SearchFallbackSource>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,6 +155,18 @@ pub(crate) struct SearchRuntimeMatch {
     pub(crate) result: SearchRuntimeResult,
     pub(crate) selected_text: String,
     pub(crate) source_range: Option<SearchSourceRange>,
+    /// The longest stretch of one source node, for a match `source_range`
+    /// anchors across several: the source may not read as the line does
+    /// between them (white space collapsed across the seam), and then this
+    /// is the anchor.
+    pub(crate) fallback_source: Option<SearchFallbackSource>,
+}
+
+/// An anchor to try when the match's own does not read as the page does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SearchFallbackSource {
+    pub(crate) range: SearchSourceRange,
+    pub(crate) selected_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,6 +231,7 @@ impl SearchRuntimeMatch {
             },
             selected_text: detail.selected_text,
             source_range: detail.source_range,
+            fallback_source: detail.fallback_source,
         }
     }
 }
@@ -230,25 +259,32 @@ fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchR
             search_offset_to_position(&page.offsets, start_offset, SearchBias::Start),
             search_offset_to_position(&page.offsets, end_offset, SearchBias::End),
         ) {
-            let source_range = search_source_range(&page.offsets, start_offset, end_offset);
+            let anchors = search_source_range(&page.offsets, start_offset, end_offset);
             // The source range is verified against the text it claims
             // to cover, which is the whole match unless generated
             // content forced it to shrink. Verifying a shrunken range
             // against the full match would fail and throw the anchor
             // away, which is exactly the outcome the shrinking exists
             // to avoid.
-            let (covered_start, covered_end) = source_range
-                .as_ref()
-                .map_or((start_offset, end_offset), |range| {
-                    (range.covered_start, range.covered_end)
-                });
+            let covered = |range: &SearchSourceRange| {
+                utf16_slice(&page.text, range.covered_start, range.covered_end)
+            };
+            let selected_text = anchors.primary.as_ref().map_or_else(
+                || utf16_slice(&page.text, start_offset, end_offset),
+                covered,
+            );
+            let fallback_source = anchors.fallback.map(|range| SearchFallbackSource {
+                selected_text: covered(&range),
+                range,
+            });
             results.push(SearchResultDetail {
                 page_index: page.page_index,
                 start,
                 end,
-                selected_text: utf16_slice(&page.text, covered_start, covered_end),
+                selected_text,
                 context: extract_search_context(&page.text, start_offset, end_offset),
-                source_range,
+                source_range: anchors.primary,
+                fallback_source,
             });
         }
         pos = end_byte;
@@ -357,11 +393,17 @@ fn search_offset_to_position(
     None
 }
 
-fn search_source_range(
-    offsets: &[SearchRunOffset],
-    start: usize,
-    end: usize,
-) -> Option<SearchSourceRange> {
+/// Where a match is anchored in the source: the whole match when every
+/// part of it has a source and nothing sits between the parts, so a match
+/// across elements (a word in `<em>`, a ruby base) anchors as a range
+/// across their text nodes; with the longest stretch of one node kept to
+/// fall back on.
+struct SearchAnchors {
+    primary: Option<SearchSourceRange>,
+    fallback: Option<SearchSourceRange>,
+}
+
+fn search_source_range(offsets: &[SearchRunOffset], start: usize, end: usize) -> SearchAnchors {
     // Walk the match, collecting the runs that carry source identity
     // into contiguous segments. A run without a source or a gap ends
     // the current segment rather than discarding the match: the longest
@@ -370,6 +412,7 @@ fn search_source_range(
     let mut segments: Vec<SearchSourceRange> = Vec::new();
     let mut current: Option<SearchSourceRange> = None;
     let mut cursor = start;
+    let mut whole = true;
 
     let close = |current: &mut Option<SearchSourceRange>, segments: &mut Vec<SearchSourceRange>| {
         if let Some(segment) = current.take() {
@@ -384,10 +427,12 @@ fn search_source_range(
         let part_start = start.max(entry.start);
         let part_end = end.min(entry.end);
         if part_start != cursor {
+            whole = false;
             close(&mut current, &mut segments);
         }
         cursor = part_end;
         let Some(source) = entry.source.as_ref() else {
+            whole = false;
             close(&mut current, &mut segments);
             continue;
         };
@@ -402,6 +447,7 @@ fn search_source_range(
             .ok()
             .and_then(|offset| source.source_offset(offset));
         let (Some(head), Some(tail)) = (head, tail) else {
+            whole = false;
             close(&mut current, &mut segments);
             continue;
         };
@@ -433,9 +479,25 @@ fn search_source_range(
     }
     close(&mut current, &mut segments);
 
-    segments
+    let across = (whole && cursor == end && segments.len() > 1).then(|| SearchSourceRange {
+        start: segments[0].start.clone(),
+        end: segments[segments.len() - 1].end.clone(),
+        covered_start: start,
+        covered_end: end,
+    });
+    let longest = segments
         .into_iter()
-        .max_by_key(|segment| segment.covered_end - segment.covered_start)
+        .max_by_key(|segment| segment.covered_end - segment.covered_start);
+    match across {
+        Some(across) => SearchAnchors {
+            primary: Some(across),
+            fallback: longest,
+        },
+        None => SearchAnchors {
+            primary: longest,
+            fallback: None,
+        },
+    }
 }
 
 fn is_search_word_boundary(text: &str, start: usize, end: usize) -> bool {

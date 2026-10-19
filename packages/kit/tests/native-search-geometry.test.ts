@@ -9,6 +9,7 @@ import { createCoordinatorState, type CoordinatorEngines } from '../src/controll
 import type { WiringDeps } from '../src/controller/core/wiring-deps';
 import type { CoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 import { buildOverlayData } from '../src/controller/overlay/projection';
+import { DEFAULT_HIGHLIGHT_COLORS } from '../src/controller/overlay/colors';
 import {
   collectNativeSearchGeometry,
   disposeNativeSearchGeometry,
@@ -178,7 +179,14 @@ describe('native search geometry', () => {
       pageContentToViewport: (_pageIndex: number, rect: unknown) => rect,
     } as unknown as CoordinateMapper;
 
-    const overlay = buildOverlayData(spread, engines, fixture.reader, fixture.state, mapper);
+    const overlay = buildOverlayData(
+      spread,
+      engines,
+      fixture.reader,
+      fixture.state,
+      mapper,
+      DEFAULT_HIGHLIGHT_COLORS,
+    );
 
     expect(getHighlightRects).not.toHaveBeenCalled();
     expect(overlay.searchRects).toEqual([]);

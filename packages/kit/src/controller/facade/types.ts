@@ -31,6 +31,7 @@ export type LayoutActionsSlice = Pick<
   | 'setSpreadMode'
   | 'setTheme'
   | 'repaintPages'
+  | 'setHighlightColors'
   | 'setTypography'
   | 'setRenderScale'
   | 'renderScale'
@@ -49,6 +50,8 @@ export type SearchActionsSlice = Pick<
   | 'searchResults'
   | 'searchActiveIndex'
 >;
+export type RangeGeometrySlice = Pick<ReaderController, 'rangeRects'>;
+export type RangeSelectionSlice = Pick<ReaderController, 'selectRange'>;
 export type SelectionAccessorsSlice = Pick<
   ReaderController,
   | 'clearSelection'

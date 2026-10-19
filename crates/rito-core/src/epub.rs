@@ -29,8 +29,7 @@ pub(crate) use fonts::{
     ResolvedFontFaceSource,
 };
 pub(crate) use layout_bridge::{
-    check_chapter_style_sources, prepare_runtime_layout_chapter, project_prepared_document_styles,
-    ChapterStyleTable,
+    chapter_style_options, chapter_style_table, chapter_style_viewport, check_chapter_style_sources,
 };
 pub(crate) use paths::{is_external_href, join_epub_href, join_zip_path, opf_dir};
 #[cfg(test)]

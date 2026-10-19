@@ -7,9 +7,9 @@ import {
 } from './pinned-fallback-probe';
 import {
   PRODUCTION_PINNED_FONT_ALIASES as EXPECTED_ALIASES,
-  PRODUCTION_PINNED_FONT_BYTE_LENGTHS as EXPECTED_BYTE_LENGTHS,
   PRODUCTION_PINNED_FONT_HASHES as EXPECTED_HASHES,
 } from './reader-production-pinned-font-contract';
+import { pinnedFaceOpens, readReaderSessionLog } from './reader-session-log';
 
 const LOAD_TIMEOUT_MS = 90_000;
 const TINOS_FILE_URL = new URL('../../src/assets/fonts/Tinos-Regular.ttf', import.meta.url);
@@ -28,11 +28,17 @@ test.describe('reader app production pinned fallback', () => {
     await reloadDemo(page);
     await forceTargetCanvasPaint(page);
 
-    // Every load opens a session with the same two source buffers, still
-    // whole: the invariant is the policy of EVERY open.
-    const probe = await waitForPolicyCycles(page, 2);
-    expectPolicyRequests(probe);
-    expect(probe.openResults.length).toBeGreaterThanOrEqual(2);
+    // Every load opens a session with the same faces, still whole: the
+    // engine refuses a face whose bytes do not hash to its SHA-256, so the
+    // invariant is the policy of EVERY open, and that every open succeeded.
+    await waitForPolicyCycles(page, 2);
+    const opens = pinnedFaceOpens(await readReaderSessionLog(page));
+    expect(opens.length).toBeGreaterThanOrEqual(2);
+    for (const open of opens) {
+      expect(open.sha256).toEqual(EXPECTED_HASHES);
+      expect(open.ok).toBe(true);
+    }
+    const probe = await readPinnedFallbackProbe(page);
     expect(probe.paints.some(isPinnedTargetPaint)).toBe(true);
   });
 
@@ -49,7 +55,7 @@ test.describe('reader app production pinned fallback', () => {
     await expect(error).toBeVisible();
     await expect(error).toContainText('Tinos-Regular.ttf');
     await expect(page.getByTestId('reader-shell')).toHaveCount(0);
-    expect((await readPinnedFallbackProbe(page)).openRequests).toHaveLength(0);
+    expect(pinnedFaceOpens(await readReaderSessionLog(page))).toHaveLength(0);
   });
 
   test('rejects same-length font corruption before mounting App', async ({ page }) => {
@@ -64,7 +70,7 @@ test.describe('reader app production pinned fallback', () => {
     const error = page.getByTestId('reader-startup-error');
     await expect(error).toContainText('SHA-256 mismatch');
     await expect(page.getByTestId('reader-shell')).toHaveCount(0);
-    expect((await readPinnedFallbackProbe(page)).openRequests).toHaveLength(0);
+    expect(pinnedFaceOpens(await readReaderSessionLog(page))).toHaveLength(0);
   });
 });
 
@@ -105,31 +111,21 @@ async function forceTargetCanvasPaint(page: Page): Promise<void> {
   await expect.poll(() => currentSpread(page)).toBeGreaterThan(before);
 }
 
-async function waitForPolicyCycles(
-  page: Page,
-  count: number,
-): Promise<PinnedFallbackProbeSnapshot> {
+async function waitForPolicyCycles(page: Page, count: number): Promise<void> {
   await expect
     .poll(() => policyCycleCount(page), { timeout: LOAD_TIMEOUT_MS })
     .toBeGreaterThanOrEqual(count);
-  return readPinnedFallbackProbe(page);
 }
 
+/** Sessions the page has opened. */
 async function policyCycleCount(page: Page): Promise<number> {
-  return (await readPinnedFallbackProbe(page)).openResults.length;
+  return pinnedFaceOpens(await readReaderSessionLog(page)).filter((open) => open.ok === true)
+    .length;
 }
 
 async function currentSpread(page: Page): Promise<number> {
   const value = await page.getByTestId('reader-shell').getAttribute('data-current-spread');
   return Number(value);
-}
-
-function expectPolicyRequests(probe: PinnedFallbackProbeSnapshot): void {
-  expect(probe.openRequests.length).toBeGreaterThanOrEqual(2);
-  for (const request of probe.openRequests) {
-    expect(request.expectedSha256).toEqual(EXPECTED_HASHES);
-    expect(request.faceBufferByteLengths).toEqual(EXPECTED_BYTE_LENGTHS);
-  }
 }
 
 function isPinnedTargetPaint(paint: PinnedFallbackProbeSnapshot['paints'][number]): boolean {

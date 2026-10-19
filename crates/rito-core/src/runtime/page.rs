@@ -3,7 +3,7 @@ use crate::epub::{EpubError, EpubResult, LoadedEpubDocument};
 use super::{
     navigation::spread_index_for_page,
     page_artifact::{PageArtifactTextPosition, PageArtifactTextRangeRect},
-    page_target::{runtime_page_targets, RuntimePageTargetContext},
+    page_target::{hash_page_text, runtime_page_targets, RuntimePageTargetContext},
     RuntimePageTargets, RuntimeRevision, RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
     SearchTextPosition, TextRangeRect,
 };
@@ -20,13 +20,21 @@ pub(super) fn page_targets(
         .page(page_index)
         .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?
         .targets();
-    let entries = runtime_page_targets(document, context, revision, page_index, targets.entries);
+    // The page's text is its runs' text in flow order; links and images
+    // carry none.
+    let text_hash = hash_page_text(
+        &targets
+            .iter()
+            .map(|target| target.text.as_str())
+            .collect::<String>(),
+    );
+    let entries = runtime_page_targets(document, context, revision, page_index, targets);
     Ok(RuntimePageTargets {
         revision_id: revision_id.to_owned(),
         page_index,
         spread_index: spread_index_for_page(revision, page_index),
         entry_count: entries.len(),
-        text_hash: targets.text_hash,
+        text_hash,
         entries,
     })
 }

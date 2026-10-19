@@ -32,7 +32,7 @@ abstract interface class RitoFontGateway {
   });
 }
 
-extension _FontOperations on RitoIsolateGateway {
+extension _FontOperations on RitoNativeGateway {
   /// Runs a font query in the session's order and decodes its message.
   Future<T> _fontQuery<T>(
     int sessionId,

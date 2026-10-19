@@ -5,7 +5,11 @@
 // a PNG data URL. The blitter itself is the oracle — this file must add
 // nothing to the raster beyond the optional background fill both pens
 // share.
-import { renderReaderPrimitivesToCanvas } from '../../../packages/rito/src/bindings/browser/primitive-renderer';
+import { renderReaderPrimitivesToGl } from '../../../packages/rito/src/bindings/browser/gl-pen/pen';
+import {
+  renderReaderPrimitivesToCanvas,
+  type PrimitiveRenderOptions,
+} from '../../../packages/rito/src/bindings/browser/primitive-renderer';
 import { decodeRitoReaderPrimitiveList } from '../../../packages/rito-core-wasm/src/reader-session-primitive-decoder-runtime.js';
 
 // Synthetic image sources shared with the Flutter renderer. Pixel
@@ -90,23 +94,15 @@ interface LoweredFixture {
   readonly theme?: { readonly foreground: string; readonly background: string };
 }
 
-/** The engine's `RITODL1` format-2 bytes decoded by the production decoder
- * and blitted onto a device-sized canvas. */
-function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
+function decodeFixture(base64: string): ReturnType<typeof decodeRitoReaderPrimitiveList> {
   const raw = atob(base64);
   const bytes = new Uint8Array(raw.length);
   for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
-  const list = decodeRitoReaderPrimitiveList(bytes);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(fixture.width * fixture.ratio);
-  canvas.height = Math.round(fixture.height * fixture.ratio);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('2d context unavailable');
-  if (fixture.background) {
-    ctx.fillStyle = fixture.background;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-  renderReaderPrimitivesToCanvas(list, ctx, {
+  return decodeRitoReaderPrimitiveList(bytes);
+}
+
+function fixtureOptions(fixture: LoweredFixture): PrimitiveRenderOptions {
+  return {
     resolveImage: makeSyntheticImage,
     // A `pending:` source is still on its way past its first second; any
     // other source no synthetic image answers can no longer arrive.
@@ -118,14 +114,84 @@ function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
           backgroundColor: fixture.theme.background,
         }
       : {}),
+  };
+}
+
+/** The engine's `RITODL1` bytes decoded by the production decoder and
+ * blitted onto a device-sized canvas. */
+function renderLoweredFixture(fixture: LoweredFixture, base64: string): string {
+  const list = decodeFixture(base64);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(fixture.width * fixture.ratio);
+  canvas.height = Math.round(fixture.height * fixture.ratio);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2d context unavailable');
+  if (fixture.background) {
+    ctx.fillStyle = fixture.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  renderReaderPrimitivesToCanvas(list, ctx, fixtureOptions(fixture));
+  return canvas.toDataURL('image/png');
+}
+
+/**
+ * The same bytes through the canvas pen on an OffscreenCanvas, the kind of
+ * canvas a reader's pages are painted on (and the GPU pen's canvas-pen
+ * part): what the GPU pen is held to.
+ */
+async function renderLoweredFixtureOffscreen(
+  fixture: LoweredFixture,
+  base64: string,
+): Promise<string> {
+  const list = decodeFixture(base64);
+  const canvas = new OffscreenCanvas(
+    Math.round(fixture.width * fixture.ratio),
+    Math.round(fixture.height * fixture.ratio),
+  );
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2d context unavailable');
+  if (fixture.background) {
+    ctx.fillStyle = fixture.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  renderReaderPrimitivesToCanvas(list, ctx, fixtureOptions(fixture));
+  const bytes = new Uint8Array(
+    await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer(),
+  );
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+/** The same bytes through the GPU pen into a WebGL2 canvas. */
+function renderLoweredFixtureGl(fixture: LoweredFixture, base64: string): string {
+  const list = decodeFixture(base64);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(fixture.width * fixture.ratio);
+  canvas.height = Math.round(fixture.height * fixture.ratio);
+  const gl = canvas.getContext('webgl2', {
+    alpha: true,
+    premultipliedAlpha: true,
+    antialias: false,
+    preserveDrawingBuffer: true,
   });
+  if (!gl) throw new Error('webgl2 context unavailable');
+  renderReaderPrimitivesToGl(
+    list,
+    { gl, framebuffer: null, width: canvas.width, height: canvas.height },
+    { ...fixtureOptions(fixture), ground: fixture.background },
+  );
   return canvas.toDataURL('image/png');
 }
 
 declare global {
   interface Window {
     __renderLoweredFixture: typeof renderLoweredFixture;
+    __renderLoweredFixtureGl: typeof renderLoweredFixtureGl;
+    __renderLoweredFixtureOffscreen: typeof renderLoweredFixtureOffscreen;
   }
 }
 
 window.__renderLoweredFixture = renderLoweredFixture;
+window.__renderLoweredFixtureGl = renderLoweredFixtureGl;
+window.__renderLoweredFixtureOffscreen = renderLoweredFixtureOffscreen;

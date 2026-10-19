@@ -11,15 +11,17 @@ by hand.
 | Layer        | Command                                                                       | Purpose                                                                                             |
 | ------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Rust         | `pnpm rust:check`                                                             | `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace` |
-| WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and Worker helpers           |
+| WASM         | `pnpm rust:wasm:check`, `pnpm --filter @ritojs/core-wasm build && test`       | wasm32 target check, the generated binding, Node tests of the decoders and session protocol         |
 | Static       | `pnpm audit:dependencies`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | advisories, types, ESLint, Prettier                                                                 |
 | Unit         | `pnpm test:unit`                                                              | Vitest suites of core, kit and react, including the architecture invariants                         |
+| Browser unit | `pnpm --filter @ritojs/core test:browser`                                     | core's WebGL2 GPU pen in headless Chromium against the canvas pen; part of `test:unit` and coverage |
 | Integration  | `pnpm test:integration`                                                       | the public entry's export surface; no book is opened                                                |
 | Pixel suite  | `pnpm test:golden:pixel`                                                      | the built reader in Chromium: engine text geometry against the painted canvas                       |
 | Reader e2e   | `pnpm test:e2e`                                                               | the demo reader in Chromium: load, navigation, TOC, search, settings, reflow, selection             |
 | Flutter      | `flutter test` in `packages/rito_flutter`                                     | protocol decoders, the pen, session lifecycle, the paint-parity render test                         |
 | Coverage     | `pnpm test:coverage`                                                          | V8 coverage for the published packages                                                              |
-| Paint parity | `node tools/paint-parity/run.mjs`                                             | the two pens on identical `RITODL1` bytes, budget-gated                                             |
+| Paint parity | `node tools/paint-parity/run.mjs`                                             | the two pens on identical `RITODL1` bytes, budget-gated; the GPU pen held to the canvas pen exactly |
+| GPU pen      | `node tools/gl-pen-parity/run.mjs`                                            | real books through both web pens, compared pixel for pixel                                          |
 | Pixel walk   | `tools/corpus-oracle/pixel-walk.mjs`                                          | the pages of a real book against pinned Chromium; the acceptance instrument                         |
 
 `pnpm run check` (`test:ci`) is the local aggregate: bootstrap, typecheck,
@@ -65,9 +67,9 @@ Whole-book pixel verification against pinned Chromium is the pixel walk in
 
 The suite lives in `apps/reader/tests/e2e/`, builds the demo reader with
 Vite, starts `vite preview` and runs Playwright against the production
-bundle. `reader-worker-probe.ts` records every request a page sends its
-reader session worker and how it was answered, for a test that has to say
-which protocol a reader spoke or that none of it failed.
+bundle. `reader-session-log.ts` reads the reader's own log of every
+request it sent its session and how it was answered, for a test that has
+to say which protocol a reader spoke or that none of it failed.
 
 Opening, font-change and page-turn latency are measured by the acceptance
 probe, against a production build served by `vite preview --port 4317`:
@@ -90,7 +92,7 @@ starts each row only once the machine's load is low.
 
 When a turn measures slow, `turn-trace.mjs` in the same directory says
 where the time went: one timeline per turn with the key event, every
-worker request and answer, and every animation frame with its cost and
+session request and how long it took, and every animation frame with its cost and
 the Canvas calls it made. `SAMPLE=none` traces without reading the canvas
 back, and `RASTER_FIRST=1` rasters every drawn canvas before each turn,
 the control for a first frame that pays for a buffer the browser had only

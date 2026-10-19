@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../font/artifact_font_cache.dart';
 import '../protocol/artifact_models.dart';
@@ -40,7 +41,7 @@ final class RitoReaderController extends ChangeNotifier {
   RitoReaderController(
     RitoReaderSession session, {
     required RitoLayoutRequest layout,
-    int paginationQuantum = 512,
+    int paginationQuantum = defaultPaginationQuantum,
   }) : this.withSource(
          RitoSessionPageSource(session),
          layout: layout,
@@ -52,23 +53,29 @@ final class RitoReaderController extends ChangeNotifier {
   RitoReaderController.withSource(
     this._source, {
     required RitoLayoutRequest layout,
-    this.paginationQuantum = 512,
+    this.paginationQuantum = defaultPaginationQuantum,
   }) : _layout = layout,
        _page = _source.firstPage {
-    _schedulePagination();
+    // The first page reaches the screen before the book is paginated
+    // behind it: the first step waits out the frame that draws the page.
+    final release = holdPagination();
+    unawaited(SchedulerBinding.instance.endOfFrame.then((_) => release()));
   }
 
   final RitoPageSource _source;
 
-  /// Top-level nodes laid out per background pagination quantum.
+  /// The most pages a background pagination quantum lays out.
   final int paginationQuantum;
 
+  /// The engine runs on the isolate that paints, so a quantum is what
+  /// stands between two frames: a few pages, the engine's
+  /// `READER_FRAME_QUANTUM_PAGES`.
+  static const int defaultPaginationQuantum = 4;
+
   /// How long the layout must go unchanged after a [relayout] before the
-  /// rest of the book is paginated behind it. A pagination step holds the
-  /// session for as long as the book takes (measured on the web reader:
-  /// 240 ms for a 400-page novel, 1.3 s for an 800-page one), and one
-  /// started between two sizes of a window being resized held every
-  /// relayout after it; laid out alone, each size reached the screen.
+  /// rest of the book is paginated behind it: pages laid out behind a size
+  /// the next one replaces are thrown away, so while a window is being
+  /// resized the book waits: the engine's `READER_RELAYOUT_SETTLE_MS`.
   static const Duration layoutSettle = Duration(milliseconds: 300);
 
   RitoLayoutRequest _layout;
@@ -80,7 +87,7 @@ final class RitoReaderController extends ChangeNotifier {
   int _seekGeneration = 0;
   int _paginationHolds = 0;
   bool _paginationComplete = false;
-  bool _paginationScheduled = false;
+  Timer? _paginationStep;
   Timer? _layoutSettling;
   bool _disposed = false;
 
@@ -241,16 +248,17 @@ final class RitoReaderController extends ChangeNotifier {
   }
 
   void _schedulePagination() {
-    if (_paginationScheduled ||
+    if (_paginationStep != null ||
         _paginationComplete ||
         _paginationHolds > 0 ||
         _layoutSettling != null ||
         _disposed) {
       return;
     }
-    _paginationScheduled = true;
-    scheduleMicrotask(() {
-      _paginationScheduled = false;
+    // Each step waits for the isolate's next task, so the frames and input
+    // that came in meanwhile go first: the steps are the reader's idle time.
+    _paginationStep = Timer(Duration.zero, () {
+      _paginationStep = null;
       if (_paginationHolds > 0 ||
           _paginationComplete ||
           _layoutSettling != null ||
@@ -303,6 +311,8 @@ final class RitoReaderController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _layoutSettling?.cancel();
+    _paginationStep?.cancel();
+    _paginationStep = null;
     _releaseNeighbours();
     super.dispose();
   }

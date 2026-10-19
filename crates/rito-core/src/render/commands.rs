@@ -1,4 +1,6 @@
-use super::RunPaint;
+use std::sync::Arc;
+
+use super::{RunPaint, SharedText};
 
 mod reader_wire;
 mod refs;
@@ -44,7 +46,9 @@ pub(crate) enum DisplayCommand {
     },
     PaintBlock {
         rect: ReaderRect,
-        paint: ReaderBlockPaint,
+        /// Boxed: a block's paint is the largest field a command holds,
+        /// and most commands are text runs.
+        paint: Box<ReaderBlockPaint>,
         border_box: Option<ReaderBorderBox>,
     },
     PaintText(DisplayTextCommand),
@@ -65,18 +69,42 @@ pub(crate) enum DisplayCommand {
 /// A painted text run or ruby annotation.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DisplayTextCommand {
-    pub text: String,
+    pub text: SharedText,
     pub rect: ReaderRect,
     pub paint: RunPaint,
     pub line_height_px: Option<f64>,
     pub href: Option<String>,
     pub source_text: Option<String>,
     pub source_text_offset: Option<u64>,
-    /// Where each cluster of the text paints, in text order: byte offset
-    /// into `text` and the absolute CSS origin the pen draws it at — its
-    /// alphabetic baseline, for a text run and an annotation alike.
-    /// Empty only for a run the renderer still places itself.
-    pub clusters: Vec<(u32, f64, f64)>,
+    /// Every cluster of the text, in text order. Empty only for a run the
+    /// renderer still places itself.
+    pub clusters: Arc<[TextCluster]>,
+}
+
+/// Where one cluster of a painted run sits: its byte offset into the run's
+/// text and the absolute CSS origin a pen draws it at — its alphabetic
+/// baseline, for a text run and an annotation alike — and whether a pen
+/// drawing from the previous cluster's origin, in one string, reaches it
+/// (see `rito_fragment::ClusterPosition::joins`).
+/// The wire carries the same origin, so the run hands its clusters on as
+/// they are.
+pub(crate) type TextCluster = contract::ReaderCluster;
+
+impl contract::ReaderCluster {
+    /// A cluster a pen places on its own.
+    pub(crate) const fn at(byte: u32, x: f64, y: f64) -> Self {
+        Self {
+            byte,
+            x,
+            y,
+            joins: false,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) const fn origin(self) -> (u32, f64, f64) {
+        (self.byte, self.x, self.y)
+    }
 }
 
 impl DisplayCommand {

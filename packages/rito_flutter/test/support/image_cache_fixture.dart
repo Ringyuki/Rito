@@ -133,7 +133,7 @@ RitoArtifact imageArtifact({
     ),
   );
   final displayList = RitoPrimitiveList(
-    formatVersion: 2,
+    formatVersion: RitoPrimitiveListDecoder.formatVersion,
     ratio: ratio,
     commands: commands,
   );
@@ -155,9 +155,8 @@ RitoArtifact imageArtifact({
     navigation: source.navigation,
     textProfile: source.textProfile,
     displayList: RitoDisplayListPayload(
-      formatVersion: 2,
+      formatVersion: RitoPrimitiveListDecoder.formatVersion,
       commandCount: commands.length,
-      semanticDigest: Uint8List(32),
       wireBytes: Uint8List(0),
       displayList: displayList,
     ),

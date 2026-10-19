@@ -3,7 +3,7 @@ pub const OWNS: &str = "Hit maps, locators, selection, search, anchors, annotati
 
 mod text;
 
-pub(crate) use text::{plain_word_boundaries, plain_word_bounds};
+pub(crate) use text::{plain_word_around, plain_word_boundaries, WordSide};
 pub use text::{
     TextCaretAddress, TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,
     TextSelectionBoundary, TextSelectionMovement,

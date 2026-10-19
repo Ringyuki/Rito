@@ -8,11 +8,14 @@ import type { Reader } from '@ritojs/core';
 import type { ReaderController } from '@ritojs/kit';
 import { useRitoReader, type UseRitoReaderOptions } from '../src/hooks';
 
-const { createReaderMock, createControllerMock, parseReadingPositionMock } = vi.hoisted(() => ({
-  createReaderMock: vi.fn(),
-  createControllerMock: vi.fn(),
-  parseReadingPositionMock: vi.fn(),
-}));
+const { createReaderMock, createControllerMock, parseReadingPositionMock, gpu } = vi.hoisted(
+  () => ({
+    createReaderMock: vi.fn(),
+    createControllerMock: vi.fn(),
+    parseReadingPositionMock: vi.fn(),
+    gpu: { drawable: true },
+  }),
+);
 
 vi.mock('@ritojs/core', () => ({
   createReader: createReaderMock,
@@ -32,6 +35,12 @@ vi.mock('@ritojs/kit', () => ({
     return controller;
   },
   parseReadingPosition: parseReadingPositionMock,
+  canDrawWithWebGl2: () => gpu.drawable,
+  WebGlUnavailableError: class WebGlUnavailableError extends Error {
+    constructor() {
+      super('no WebGL2');
+    }
+  },
 }));
 
 interface Deferred<T> {
@@ -183,6 +192,7 @@ describe('useRitoReader', () => {
     createReaderMock.mockReset();
     createControllerMock.mockReset();
     parseReadingPositionMock.mockReset();
+    gpu.drawable = true;
   });
 
   afterEach(() => {
@@ -735,6 +745,28 @@ describe('useRitoReader', () => {
     expect(dispose).toHaveBeenCalledOnce();
     expect(expectHookValue(latest).isLoaded).toBe(false);
     expect(expectHookValue(latest).error).toBe('controller setup failed');
+  });
+
+  it('says a browser cannot draw before it opens the book', async () => {
+    gpu.drawable = false;
+    let latest: HookValue | null = null;
+    act(() => {
+      root.render(
+        <Harness
+          options={{ reader: { width: 800, height: 600 } }}
+          onValue={(value) => {
+            latest = value;
+          }}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await expectHookValue(latest).load(new ArrayBuffer(8));
+    });
+
+    expect(createReaderMock).not.toHaveBeenCalled();
+    expect(expectHookValue(latest).error).toBe('no WebGL2');
   });
 
   it('renders safely without document during server rendering', () => {

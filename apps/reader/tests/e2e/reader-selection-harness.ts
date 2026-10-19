@@ -250,12 +250,32 @@ export async function readSelectionHighlightBands(
 ): Promise<readonly CanvasHighlightBand[]> {
   return readerSurface(page).evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Reader Canvas is unavailable');
-    const canvas = element;
-    const context = canvas.getContext('2d');
+    const bounds = element.getBoundingClientRect();
+    // The reader draws with WebGL and shows the bottom-left region of its
+    // drawing buffer, one pixel per device pixel: that region's pixels are
+    // read through a 2D copy.
+    const canvas = {
+      width: Math.min(element.width, Math.round(bounds.width * devicePixelRatio)),
+      height: Math.min(element.height, Math.round(bounds.height * devicePixelRatio)),
+    };
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    const context = copy.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Reader Canvas context is unavailable');
-    const bounds = canvas.getBoundingClientRect();
+    context.drawImage(
+      element,
+      0,
+      element.height - canvas.height,
+      canvas.width,
+      canvas.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     const renderScale = Number(
-      canvas.closest('[data-render-scale]')?.getAttribute('data-render-scale'),
+      element.closest('[data-render-scale]')?.getAttribute('data-render-scale'),
     );
     if (!Number.isFinite(renderScale) || renderScale <= 0) {
       throw new Error('Reader render scale is unavailable');
@@ -344,12 +364,32 @@ export async function copySelection(page: Page): Promise<string> {
 export async function readCanvasTextBands(page: Page): Promise<readonly CanvasTextBand[]> {
   return readerSurface(page).evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) throw new Error('Reader Canvas is unavailable');
-    const canvas = element;
-    const context = canvas.getContext('2d');
+    const bounds = element.getBoundingClientRect();
+    // The reader draws with WebGL and shows the bottom-left region of its
+    // drawing buffer, one pixel per device pixel: that region's pixels are
+    // read through a 2D copy.
+    const canvas = {
+      width: Math.min(element.width, Math.round(bounds.width * devicePixelRatio)),
+      height: Math.min(element.height, Math.round(bounds.height * devicePixelRatio)),
+    };
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    const context = copy.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Reader Canvas context is unavailable');
-    const bounds = canvas.getBoundingClientRect();
+    context.drawImage(
+      element,
+      0,
+      element.height - canvas.height,
+      canvas.width,
+      canvas.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     const renderScale = Number(
-      canvas.closest('[data-render-scale]')?.getAttribute('data-render-scale'),
+      element.closest('[data-render-scale]')?.getAttribute('data-render-scale'),
     );
     if (!Number.isFinite(renderScale) || renderScale <= 0) {
       throw new Error('Reader render scale is unavailable');

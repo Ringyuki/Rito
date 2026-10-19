@@ -38,18 +38,21 @@ export interface LayoutConfig {
   readonly fontFamilyForce?: boolean | undefined;
 }
 
+/** A page's margins in CSS pixels: one for all sides, `x` and `y`, or each side. */
+export type ReaderMargin =
+  | number
+  | { readonly x: number; readonly y: number }
+  | {
+      readonly top: number;
+      readonly right: number;
+      readonly bottom: number;
+      readonly left: number;
+    };
+
 export interface LayoutConfigInput {
   readonly width: number;
   readonly height: number;
-  readonly margin?:
-    | number
-    | { readonly x: number; readonly y: number }
-    | {
-        readonly top: number;
-        readonly right: number;
-        readonly bottom: number;
-        readonly left: number;
-      };
+  readonly margin?: ReaderMargin;
   readonly spread?: 'single' | 'double';
   readonly firstPageAlone?: boolean;
   readonly spreadGap?: number;
@@ -272,3 +275,5 @@ export interface SearchResult {
 export type ReaderSearchSourceResolution =
   | { readonly status: 'resolved'; readonly href: string; readonly sourceRange: ReaderSourceRange }
   | { readonly status: 'unavailable'; readonly reason: 'sourceUnavailable' };
+
+export type { ReaderGlTarget } from '../bindings/browser/gl-pen/target';

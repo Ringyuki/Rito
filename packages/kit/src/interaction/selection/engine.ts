@@ -17,6 +17,7 @@
 import type {
   ReaderDocumentSourceSpan,
   ReaderLocator,
+  ReaderTextRange,
   ReaderTextSelectionInteractions,
 } from '@ritojs/core';
 import type { Rect } from '../layout-types';
@@ -64,6 +65,12 @@ export interface SelectionEngine {
   clear(): void;
   /** Cancel revision-bound work while retaining the engine for the next spread. */
   invalidate(): void;
+  /**
+   * Show `range`, resolved in the layout now committed, as the selection:
+   * one a relayout carried over. Nothing happens while another selection
+   * is being made or shown.
+   */
+  restore(range: ReaderTextRange): void;
   /** Permanently cancel work and detach listeners. */
   dispose(): void;
   onSelectionChange(cb: () => void): () => void;

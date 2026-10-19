@@ -57,11 +57,17 @@ vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
     options: { hostFont?: (font: unknown) => Promise<unknown> | undefined } = {},
   ) => ({
     // Like the presenter it stands in for, it waits for the faces the page registers itself.
-    prepare: async (artifact: { localSpreadIndex: number; fonts: readonly unknown[] }) => {
+    prepare: async (artifact: {
+      artifactId: bigint;
+      localSpreadIndex: number;
+      fonts: readonly unknown[];
+    }) => {
       for (const font of artifact.fonts) await options.hostFont?.(font);
+      // Painted at the ratio its layout was asked at.
+      const owned = (harness.fake as FakeReaderSession | undefined)?.live.get(artifact.artifactId);
       return {
         artifact,
-        ratio: 2,
+        ratio: owned?.revision.layout.renderRatio ?? 2,
         disposed: false,
         onImagesChanged: () => () => undefined,
         imagesSettled: Promise.resolve(),
@@ -73,10 +79,11 @@ vi.mock('../../src/bindings/browser/reader-session-canvas', () => ({
     paint: (
       prepared: { artifact: { localSpreadIndex: number } },
       _ctx: unknown,
-      options: { backgroundColor?: string },
+      options: { backgroundColor?: string; scale?: number },
     ) => {
       harness.painted.push(
-        `${String(prepared.artifact.localSpreadIndex)}:${String(options.backgroundColor)}`,
+        `${String(prepared.artifact.localSpreadIndex)}:${String(options.backgroundColor)}` +
+          (options.scale === 1 ? '' : `@${String(options.scale)}`),
       );
     },
     dispose: () => undefined,
@@ -237,9 +244,8 @@ describe('Reader on a session', () => {
     invalidated.length = 0;
 
     expect(reader.renderSpreadTo(1, ctx as never)).toBe(true);
-    expect(harness.painted).toEqual(['1:#ffffff']);
     // The target is on the artifact's own device grid: no scaling.
-    expect(ctx.calls.some((call) => call.startsWith('scale'))).toBe(false);
+    expect(harness.painted).toEqual(['1:#ffffff']);
 
     expect(reader.renderSpreadTo(9, ctx as never)).toBe(false);
     await vi.waitFor(() => {
@@ -248,9 +254,10 @@ describe('Reader on a session', () => {
     expect(reader.renderSpreadTo(9, ctx as never)).toBe(true);
     expect(reader.renderSpreadTo(99, ctx as never)).toBe(false);
 
+    harness.painted = [];
     const zoomed = fakeCanvasContext(1200, 1800);
     expect(reader.renderSpreadTo(1, zoomed as never)).toBe(true);
-    expect(zoomed.calls).toContain('scale(1.5,1.5)');
+    expect(harness.painted).toEqual(['1:#ffffff@1.5']);
     await reader.dispose();
   });
 
@@ -332,6 +339,72 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('publishes the page geometry the engine laid the spread out in', async () => {
+    const { reader, fake, commits } = await open({ width: 1201, height: 600, spread: 'double' });
+    await bookScope(reader);
+    commits.length = 0;
+    // The engine puts the pages on the device grid: at an odd width a page
+    // is narrower than an even split, and the gap takes the pixel over.
+    fake.pageWidth = 590;
+    reader.resize(1201, 601);
+    await vi.waitFor(() => {
+      expect(commits.length).toBeGreaterThan(0);
+    });
+    expect(reader.getLayoutGeometry()).toMatchObject({
+      viewportWidth: 1201,
+      pageWidth: 590,
+      spreadGap: 21,
+    });
+    await reader.dispose();
+  });
+
+  it('lays the pages out in the margins asked for, each side its own', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+
+    reader.updateLayout(400, 600, undefined, { top: 10, right: 20, bottom: 30, left: 40 });
+    await vi.waitFor(() => {
+      expect(reader.layoutScope).toBe('book');
+      expect(commits.length).toBeGreaterThan(0);
+    });
+    const margins = { marginTop: 10, marginRight: 20, marginBottom: 30, marginLeft: 40 };
+    expect(fake.requests.at(-1)?.layout).toMatchObject(margins);
+    expect(reader.getLayoutGeometry()).toMatchObject(margins);
+    await reader.dispose();
+  });
+
+  it('lays the book out again at a new device ratio, taking it as the layout commits', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    commits.length = 0;
+
+    reader.setDevicePixelRatio(3);
+    // The pages shown were painted at 2 until the new layout replaces them.
+    expect(reader.dpr).toBe(2);
+    await vi.waitFor(() => {
+      expect(reader.layoutScope).toBe('book');
+      expect(commits.length).toBeGreaterThan(1);
+    });
+    expect(fake.requests.at(-1)?.layout).toMatchObject({
+      viewportWidth: 400,
+      viewportHeight: 600,
+      renderRatio: 3,
+    });
+    expect(reader.dpr).toBe(3);
+    expect(reader.getCanvasSize()).toEqual({ width: 400, height: 600 });
+
+    // The ratio it is at already lays nothing out.
+    const requests = fake.requests.length;
+    reader.setDevicePixelRatio(3);
+    await settle();
+    expect(fake.requests).toHaveLength(requests);
+    expect(() => {
+      reader.setDevicePixelRatio(0);
+    }).toThrow(RangeError);
+    await reader.dispose();
+  });
+
   it('commits a layout under way, then lays out only the newest request made meanwhile', async () => {
     const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);
@@ -385,6 +458,66 @@ describe('Reader on a session', () => {
     release?.();
     await bookScope(reader);
     expect(reader.getLayoutGeometry().pageWidth).toBe(510);
+    await reader.dispose();
+  });
+
+  it('reads only the pages laid out while the host holds the book, and the whole table once it lets go', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    await settle();
+    commits.length = 0;
+    const tables = (): string[] => fake.calls.filter((call) => call.startsWith('layout '));
+    const before = tables().length;
+
+    // The rest of the chapter would be laid out for every size of the drag.
+    const release = reader.holdBookLayout?.();
+    for (let frame = 0; frame < 4; frame += 1) {
+      reader.resize(420 + frame * 10, 600);
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    await settle();
+    const held = tables().slice(before);
+    expect(held.length).toBeGreaterThanOrEqual(3);
+    expect(held.every((call) => call === 'layout so far')).toBe(true);
+    const heldCommits = commits.length;
+
+    // Once the sizes stop, the table is read whole and the host told.
+    release?.();
+    await vi.waitFor(() => {
+      expect(tables().slice(before + held.length)[0]).toBe('layout whole');
+    });
+    await vi.waitFor(() => {
+      expect(commits.length).toBeGreaterThan(heldCommits);
+    });
+    await reader.dispose();
+  });
+
+  it('loads no neighbouring spread while the host holds the book, and loads them once it lets go', async () => {
+    const { reader, fake, commits } = await open({ initialLocator: { href: 'one.xhtml' } });
+    await bookScope(reader);
+    // The book's own neighbours are loaded.
+    await settle();
+    commits.length = 0;
+    const peeks = (): number => fake.calls.filter((call) => call.startsWith('peek ')).length;
+    const before = peeks();
+
+    // Each size's neighbours would be painted for a layout the next size
+    // replaces, and a peek under way holds that size back.
+    const release = reader.holdBookLayout?.();
+    for (let frame = 0; frame < 5; frame += 1) {
+      reader.resize(420 + frame * 10, 600);
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+    await settle();
+    expect(commits.length).toBeGreaterThanOrEqual(4);
+    const held = peeks() - before;
+
+    release?.();
+    await bookScope(reader);
+    await vi.waitFor(() => {
+      expect(peeks() - before).toBeGreaterThan(held);
+    });
+    expect(held).toBe(0);
     await reader.dispose();
   });
 

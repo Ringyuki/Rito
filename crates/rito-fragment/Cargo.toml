@@ -7,3 +7,4 @@ publish = false
 
 [dependencies]
 rito-style-contract = { path = "../rito-style-contract" }
+rustc-hash = "2"

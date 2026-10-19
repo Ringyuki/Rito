@@ -784,6 +784,28 @@ pub extern "C" fn rito_resolve_navigation(
     })
 }
 
+/// Reads what page `page_index` of a live artifact holds for a host — its
+/// interaction targets, semantic outline, text and text runs — as one
+/// complete `RITOPGR1` message. An artifact carries only its pages' index
+/// and size; their records are built when a host first asks.
+#[no_mangle]
+pub extern "C" fn rito_read_page(
+    session_id: u64,
+    artifact_id: u64,
+    page_index: u32,
+    page_out: *mut RitoOwnedBuffer,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        prepare_owned_output(page_out, error_out, "page_out")?;
+        validate_external_id(session_id, "session_id")?;
+        validate_external_id(artifact_id, "artifact_id")?;
+        let admission = registry::try_admit(session_id)?;
+        let page = registry::read_page(admission, artifact_id, page_index)?;
+        write_buffer(page_out, page)
+    })
+}
+
 /// Reads a footnote definition an artifact's hits referenced. The key
 /// is the hit's `footnote_key` verbatim — it is already canonical, so
 /// hosts must not normalize the link href themselves. A definition the

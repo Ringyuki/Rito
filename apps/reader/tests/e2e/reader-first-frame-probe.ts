@@ -46,15 +46,31 @@ export async function installFirstVisibleReaderFrameProbe(page: Page): Promise<v
         'canvas[data-rito-reader-surface="true"]',
       );
       if (!canvas?.isConnected || canvas.width === 0 || canvas.height === 0) return null;
+      // The reader shows the bottom-left region of its drawing buffer, one
+      // pixel per device pixel.
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.min(canvas.width, Math.round(rect.width * devicePixelRatio));
+      const height = Math.min(canvas.height, Math.round(rect.height * devicePixelRatio));
+      if (width === 0 || height === 0) return null;
       const sample = document.createElement('canvas');
       sample.width = 64;
       sample.height = 64;
       const context = sample.getContext('2d');
       if (!context) return null;
-      context.drawImage(canvas, 0, 0, sample.width, sample.height);
+      context.drawImage(
+        canvas,
+        0,
+        canvas.height - height,
+        width,
+        height,
+        0,
+        0,
+        sample.width,
+        sample.height,
+      );
       const result = hashPixels(context.getImageData(0, 0, sample.width, sample.height).data);
       return {
-        checksum: `${String(canvas.width)}x${String(canvas.height)}:${String(result.hash >>> 0)}`,
+        checksum: `${String(width)}x${String(height)}:${String(result.hash >>> 0)}`,
         nonBlank: result.nonBlank,
       };
     };

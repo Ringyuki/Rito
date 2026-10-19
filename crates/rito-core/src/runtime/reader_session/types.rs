@@ -235,7 +235,10 @@ pub struct ReaderForegroundHandoffAck {
 pub struct ReaderBackgroundRequest {
     pub session_id: u64,
     pub expected_visible_artifact_id: u64,
-    pub max_top_level_nodes_per_quantum: u32,
+    /// The most pages a step lays the publication out by: a host on a
+    /// thread that also paints asks for few, one in the background for
+    /// many.
+    pub max_pages_per_quantum: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -243,9 +246,10 @@ pub enum ReaderBackgroundState {
     /// This call consumed one bounded publication footnote-index quantum.
     /// No publication layout work ran in the same call.
     Indexing,
-    /// This call created the publication revision and ran its first quantum.
+    /// This call began laying the publication revision out and ran its
+    /// first quantum.
     Started,
-    /// This call consumed exactly one continuation quantum.
+    /// This call laid one more quantum of the publication revision out.
     Advanced,
     /// The visible locator was already covered; no layout quantum was needed.
     Reused,
@@ -317,7 +321,6 @@ pub struct ReaderNavigation {
 pub struct ReaderDisplayList {
     pub format_version: u32,
     pub command_count: u32,
-    pub semantic_digest: [u8; 32],
     pub bytes: Vec<u8>,
 }
 
@@ -607,11 +610,25 @@ pub struct ReaderTextRunOffset {
     pub run_index: u32,
 }
 
+/// A page an artifact shows: its index and size. What it holds for a host
+/// to hit-test, read out or select is read when the host first asks (see
+/// [`ReaderPageRecords`]), the way a browser hit-tests the fragments it
+/// painted when a pointer arrives instead of keeping a table of them for
+/// every frame it draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderPage {
     pub page_index: u32,
     pub width: f64,
     pub height: f64,
+}
+
+/// What one page of a live artifact holds for a host: its interaction
+/// targets, its semantic outline, its text and where each text run sits
+/// in that text. Rects are in the artifact's display-list space.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReaderPageRecords {
+    pub artifact_id: u64,
+    pub page_index: u32,
     pub hits: Vec<ReaderHitEntry>,
     pub semantics: Vec<ReaderSemanticNode>,
     pub text: String,

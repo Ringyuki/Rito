@@ -312,6 +312,14 @@ pub(crate) fn exact_source_range(
     actor::request_exact_source_range(admission, request)
 }
 
+pub(crate) fn read_page(
+    admission: CommandAdmission,
+    artifact_id: u64,
+    page_index: u32,
+) -> Result<Vec<u8>, FfiError> {
+    actor::request_page(admission, artifact_id, page_index)
+}
+
 pub(crate) fn read_footnote(
     admission: CommandAdmission,
     artifact_id: u64,

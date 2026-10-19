@@ -7,8 +7,10 @@ use crate::layout::{
 };
 
 mod footnotes;
+mod relayout;
 
 pub use footnotes::cross_chapter_footnote_fixture_epub;
+pub use relayout::relayout_fixture_epub;
 
 pub fn layout() -> LayoutConfig {
     create_layout_config(LayoutConfigInput {
@@ -23,6 +25,7 @@ pub fn layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     })
 }
 
@@ -39,6 +42,7 @@ pub fn double_layout() -> LayoutConfig {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     })
 }
 
@@ -97,6 +101,25 @@ pub fn long_chapter_window_fixture_epub() -> Vec<u8> {
     );
     fixture_epub_with_chapter(chapter.as_bytes())
 }
+/// One chapter of paragraphs each several pages long: most pages open
+/// inside a paragraph begun on an earlier one.
+pub fn long_paragraphs_fixture_epub() -> Vec<u8> {
+    let paragraphs = (0..24)
+        .map(|index| {
+            let sentences = (0..60)
+                .map(|sentence| {
+                    format!("Paragraph {index:02} sentence {sentence:02} runs on past the page. ")
+                })
+                .collect::<String>();
+            format!("<p>{sentences}</p>")
+        })
+        .collect::<String>();
+    let chapter = format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>{paragraphs}</body></html>"#
+    );
+    fixture_epub_with_chapter(chapter.as_bytes())
+}
+
 pub fn image_only_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(
         br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><img src="Images/cover.png" alt="cover"/></body></html>"#,

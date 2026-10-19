@@ -15,6 +15,7 @@ import {
   publishNativeSelection,
   reportNativeSelectionError,
   subscribeNativeSelection,
+  toNativeSelectionSnapshot,
   type NativeSelectionEngineData,
   type NativeSelectionFocusSample,
   type NativeSelectionGestureSession,
@@ -55,6 +56,10 @@ export function createNativeSelectionEngine(
     },
     invalidate: () => {
       cancelNativeSelection(data, 'idle', true);
+    },
+    restore: (range) => {
+      if (data.state !== 'idle' || range.selectedText.length === 0) return;
+      publishNativeSelection(data, 'selected', toNativeSelectionSnapshot(range));
     },
     dispose: () => {
       disposeNativeSelection(data);

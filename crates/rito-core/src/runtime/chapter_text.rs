@@ -11,6 +11,8 @@ pub(super) fn build_chapter_text_index(
         spans: Vec::new(),
         normalized_text: String::new(),
         normalized_offset: 0,
+        ruby_depth: 0,
+        annotation_depth: 0,
     };
     for node in nodes {
         builder.walk(node);
@@ -26,6 +28,10 @@ struct ChapterTextIndexBuilder {
     spans: Vec<RuntimeChapterTextSpan>,
     normalized_text: String,
     normalized_offset: usize,
+    /// How many `<ruby>` elements the walk is inside.
+    ruby_depth: usize,
+    /// How many `<rt>`/`<rp>` elements inside a ruby the walk is inside.
+    annotation_depth: usize,
 }
 
 impl ChapterTextIndexBuilder {
@@ -33,9 +39,16 @@ impl ChapterTextIndexBuilder {
         match node {
             DocumentNode::Text(text) => self.push_text(text),
             DocumentNode::Block(element) | DocumentNode::Inline(element) => {
+                let ruby = element.tag == "ruby";
+                let annotation =
+                    self.ruby_depth > 0 && (element.tag == "rt" || element.tag == "rp");
+                self.ruby_depth += usize::from(ruby);
+                self.annotation_depth += usize::from(annotation);
                 for child in &element.children {
                     self.walk(child);
                 }
+                self.ruby_depth -= usize::from(ruby);
+                self.annotation_depth -= usize::from(annotation);
             }
             DocumentNode::Image(_) => {}
         }
@@ -52,10 +65,38 @@ impl ChapterTextIndexBuilder {
             source_end: text_len,
             normalized_start: self.normalized_offset,
             normalized_end: self.normalized_offset + text_len,
+            annotation: self.annotation_depth > 0,
         });
         self.normalized_offset += text_len;
         self.normalized_text.push_str(&text.content);
     }
+}
+
+/// The text a line shows for `start..end` of the index's text (UTF-16
+/// offsets): the text there without its ruby annotations, which are laid
+/// out apart from the line. `None` when the range is not on the text.
+pub(super) fn flow_text(
+    index: &RuntimeChapterTextIndex,
+    start: usize,
+    end: usize,
+) -> Option<String> {
+    let whole = super::source_locator::utf16_slice(&index.normalized_text, start, end)?;
+    if !index.spans.iter().any(|span| span.annotation) {
+        return Some(whole.to_owned());
+    }
+    let mut text = String::new();
+    for span in &index.spans {
+        if span.annotation || span.normalized_end <= start || span.normalized_start >= end {
+            continue;
+        }
+        let piece = super::source_locator::utf16_slice(
+            &index.normalized_text,
+            span.normalized_start.max(start),
+            span.normalized_end.min(end),
+        )?;
+        text.push_str(piece);
+    }
+    Some(text)
 }
 
 fn utf16_len(text: &str) -> usize {

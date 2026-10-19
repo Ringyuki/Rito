@@ -38,13 +38,15 @@ pub(crate) fn merge_ruby_spread_fragments(
                 let offset = next.rect.x - previous.rect.x;
                 previous.rect.width = next.rect.x + next.rect.width - previous.rect.x;
                 previous.text_end = next.text_end;
-                previous
+                previous.clusters = previous
                     .clusters
-                    .extend(next.clusters.iter().map(|cluster| ClusterPosition {
-                        byte: cluster.byte,
+                    .iter()
+                    .copied()
+                    .chain(next.clusters.iter().map(|cluster| ClusterPosition {
                         x: cluster.x + offset,
-                        face: cluster.face,
-                    }));
+                        ..*cluster
+                    }))
+                    .collect();
             }
             continue;
         }

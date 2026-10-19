@@ -12,6 +12,7 @@ export {
   type ReaderControllerEvents,
   type ControllerOptions,
   type ContentHitKind,
+  type HighlightColors,
   type InteractionMode,
   type PagePaint,
   type PagePainter,
@@ -29,11 +30,13 @@ export type {
   RecordStorageAdapter,
   ResolvedAnnotation,
   ReadingPosition,
+  SearchOptions,
   SearchResult,
 } from './interaction/index';
 export { parseReadingPosition } from './interaction/index';
 
 export type { OverlayLayer, Rect } from './painter/types';
+export { canDrawWithWebGl2, WebGlUnavailableError } from './painter/display-surface';
 export type { TransitionDriverOptions } from './driver/types';
 export {
   springPresets,

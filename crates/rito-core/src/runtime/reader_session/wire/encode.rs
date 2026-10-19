@@ -16,10 +16,11 @@ use crate::runtime::reader_session::{
     ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderBackgroundState, ReaderError,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
-    ReaderLayout, ReaderLocator, ReaderPublication, ReaderResource, ReaderSearchRequest,
-    ReaderSearchResponse, ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode,
-    ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry, ReaderTextRangeRequest,
-    ReaderTextRenderingProfile, READER_PROTOCOL_VERSION, READER_PUBLICATION_WIRE_BYTES_MAX,
+    ReaderLayout, ReaderLocator, ReaderPageRecords, ReaderPublication, ReaderResource,
+    ReaderSearchRequest, ReaderSearchResponse, ReaderSourcePoint, ReaderSourceRange,
+    ReaderSpreadMode, ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry,
+    ReaderTextRangeRequest, ReaderTextRenderingProfile, READER_PROTOCOL_VERSION,
+    READER_PUBLICATION_WIRE_BYTES_MAX,
 };
 
 pub(super) fn artifact(value: &ReaderArtifact) -> Result<Vec<u8>, ReaderError> {
@@ -109,7 +110,7 @@ pub(super) fn background_request(value: &ReaderBackgroundRequest) -> Result<Vec<
     let mut writer = Writer::message(READER_BACKGROUND_REQUEST_WIRE_MAGIC, READER_WIRE_VERSION);
     writer.u64(value.session_id);
     writer.u64(value.expected_visible_artifact_id);
-    writer.u32(value.max_top_level_nodes_per_quantum);
+    writer.u32(value.max_pages_per_quantum);
     writer.finish_message()
 }
 
@@ -260,6 +261,14 @@ pub(super) fn text_range_geometry(value: &ReaderTextRangeGeometry) -> Result<Vec
             Ok(())
         })?;
     }
+    writer.finish_message()
+}
+
+pub(super) fn page_records(value: &ReaderPageRecords) -> Result<Vec<u8>, ReaderError> {
+    super::primitives::external_id(value.artifact_id, "artifactId")?;
+    let mut writer = Writer::message(super::READER_PAGE_RECORDS_WIRE_MAGIC, READER_WIRE_VERSION);
+    writer.u64(value.artifact_id);
+    artifact::page_records(&mut writer, value)?;
     writer.finish_message()
 }
 

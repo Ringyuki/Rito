@@ -10,8 +10,10 @@ import type {
   ReaderSourcePosition,
   ReaderLocator,
   ReaderLocatorResolution,
+  ReaderMargin,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
+  ReaderGlTarget,
   ReaderPageTargets,
   ReaderTextSelectionMovement,
   Rect,
@@ -160,6 +162,14 @@ export interface ReaderTextSelectionInteractions {
   resolveTextSelectionMovement?(
     request: ReaderTextSelectionMovementRequest,
   ): Promise<ReaderTextSelectionMovementResolution | undefined>;
+  /**
+   * The range a durable source range spans in the committed layout, with
+   * both its carets: how a selection made in one layout is found in the
+   * next. Undefined when a newer layout replaced the one it was asked of.
+   */
+  resolveTextRangeFromSource?(
+    request: ReaderExactSourceRangeRequest,
+  ): Promise<ReaderTextRangeResolution | undefined>;
 }
 
 /** Optional atomic capability for revision-safe semantic interaction reads. */
@@ -270,7 +280,7 @@ export interface ReaderOptions {
   readonly height: number;
   /** Durable source target for bindings that support locator-first initialization. */
   readonly initialLocator?: ReaderLocator | undefined;
-  readonly margin?: number;
+  readonly margin?: ReaderMargin;
   readonly spread?: 'single' | 'double';
   readonly spreadGap?: number;
   readonly backgroundColor?: string | null;
@@ -318,25 +328,32 @@ export interface Reader {
     signal?: AbortSignal,
   ): Promise<ReaderLocatorResolution | undefined>;
   renderSpread(index: number, scale?: number): void;
+  /** Paints a loaded spread into a 2D context or a WebGL2 framebuffer, the same pixels either way. */
   renderSpreadTo(
     index: number,
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    target: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | ReaderGlTarget,
   ): boolean;
   notifyActiveSpread(index: number): void;
   resize(width: number, height: number): void;
+  /**
+   * Lays the book out again at `ratio` device pixels per CSS pixel (the
+   * page zoomed, or the window went to another screen), as `resize` does;
+   * `dpr` takes the new ratio when that layout commits.
+   */
+  setDevicePixelRatio(ratio: number): void;
   setSpreadMode(mode: 'single' | 'double'): boolean;
   updateLayout(
     width: number,
     height: number,
     spreadMode?: 'single' | 'double',
-    margin?: number,
+    margin?: ReaderMargin,
   ): boolean;
   /**
    * Holds the whole-book layout back until the returned function is
    * called; holds nest. A step of it occupies the session for as long as
    * the book takes, so a host about to ask for layouts in quick succession
    * (the sizes of a window being resized) holds it and has each one laid
-   * out at once.
+   * out at once. The spreads beside the one shown load once it is released.
    */
   holdBookLayout?(): () => void;
   setTheme(options: ReaderThemeOptions): void;

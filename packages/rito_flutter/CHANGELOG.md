@@ -1,3 +1,118 @@
+## 0.8.0 - 2026-10-19
+
+### Ranges across ruby resolve
+
+A selection or annotation that runs over a ruby base resolves and is drawn
+instead of failing as source-unavailable: the source's annotation text is
+not on the line, so it is no longer required there. A caret or range inside
+a ruby base lands on the base's own text node, and a search match across
+elements (a ruby base, a word in `<em>`) anchors the whole match instead of
+its longest stretch inside one element.
+
+### The first page is drawn before the book is paginated behind it
+
+`RitoReaderController` starts paginating the book once the first frame has
+drawn the page it opened on, and every background step readies at most
+its budget of chapters (a chapter for each page) before pagination begins
+instead of parsing and styling the whole book in one step, so a step never
+holds the isolate for the whole publication.
+
+### A page's records are read when a host needs them
+
+`RitoPage` carries a page's index and size only. What the page holds — its
+hits, semantic outline, text and text runs — is a `RitoPageRecords` read
+with `RitoReaderSession.readPage(prepared, pageIndex)` when a host first
+needs it, as a browser hit-tests what it painted when a pointer arrives;
+the engine no longer builds them, nor the host decodes them, for every
+artifact it draws. `RitoHitResolver` takes the records of the pages a tap
+may land on: `RitoHitResolver([await session.readPage(prepared, index)])`
+replaces `RitoHitResolver.forArtifact(artifact)`. The native ABI gains
+`rito_read_page`.
+
+### A line holds a text run per inline item
+
+A line's text in one inline item is one text paint command and one text
+page target, as the browser keeps one text fragment per inline item on a
+line: the words, justification points and re-anchored ideographs it was
+placed in stay inside it as the origins its clusters step from, so every
+pixel is the same. A caret, a selection edge or a hit inside a run lands on
+the cluster edges the run is drawn with instead of a proportional share of
+its width, and a double tap selects the word the browser selects.
+
+### A run's clusters are views of one table
+
+`RitoTextPaintCommand.clusters` is a `RitoClusters`: the run's cluster
+bytes, origins (x and y interleaved) and joins flags as `Uint32List`,
+`Float32List` and `Uint8List` views of a table every run of the display
+list shares, read where the message holds it. `RitoClusterPosition` is
+gone; read cluster `i` as `bytes[i]`, `origins[2 * i]`, `origins[2 * i + 1]`
+and `joins[i] == 1`. Runs that paint alike share one `RitoRunPaint`. The
+text paint commands' constructors are no longer `const`.
+
+### The engine runs on the calling isolate
+
+`RitoNativeGateway` (formerly `RitoIsolateGateway`, still available as a
+deprecated alias) calls the engine on the isolate that holds it instead of
+a worker isolate: an answer is ready within the task that asked for it, so
+the frame that asks for a layout can draw it, and no bytes are copied into
+transfer buffers on the way. The reader controller lays the whole book out
+four pages at a time, each step after the isolate's other work, instead of
+512 pages a step. Opening a book and the first search hold the isolate
+while they run. A host that asks for a relayout before a frame builds
+(from `didChangeMetrics`) has the new page drawn in that frame. `RitoNativeWorkerTerminatedException` is deprecated:
+nothing raises it.
+
+### A range between two carets comes back with them
+
+A text interaction that resolves the range between two caret addresses
+answers with both carets, geometry and source point included, as a range
+resolved from points does: a host that kept only the addresses of a
+selection holds its ends as resolved.
+
+### Clusters a pen reaches from the one before join its string
+
+`RitoClusterPosition.joins` marks a cluster the one before it reaches by
+its bare glyph advance, and the pen draws it inside the string started
+before it: the text from each cluster that does not join up to the next
+one is one paragraph, so a page of Latin text lays out a few hundred
+paragraphs instead of one per character. Cluster origins arrive at
+float32, the precision the canvas takes them at; the display list is
+`RITODL1` format 3.
+
+### Decoding an artifact allocates no view per number
+
+The wire reader reads every number through one view of the message's
+bytes; it made a view and a slice for each, which for a page of text cost
+as much as laying the page out.
+
+### A resize lays out only the spread it shows
+
+A request at a new size lays the chapter out only through the spread the
+reader stays on and the page after it, instead of the whole chapter. The
+rest is laid out when a turn reaches it, or when a search, a text
+interaction or a page table reads it; every spread is the one laying out
+the whole chapter shows.
+
+### Protocol and breaking changes
+
+The artifact protocol is version 7 (was 6): the display list record no
+longer carries a SHA-256 of its bytes. No host read it, and the engine
+hashed the display list of every artifact it published, as for every
+size of a window being resized. `RitoDisplayListPayload.semanticDigest`
+is removed.
+
+`RITONVQ1`'s layout query ends with a `whole` flag and `RITONVR1`'s page
+table with `complete`. `RitoReaderSession.revisionLayout` takes `whole`
+(default `true`, which is what it did until now): without it the table
+holds the pages laid out so far, which `RitoRevisionLayout.complete`
+reports. Locating a position no longer lays out the rest of its chapter.
+
+`RitoReaderSession.advanceBackground` takes `maxPagesPerQuantum` (was
+`maxTopLevelNodesPerQuantum`, which no layout read): a step lays the
+publication out by at most that many pages, and its candidate comes with
+the step that lays the last page out. `RitoReaderController.paginationQuantum`
+counts pages too; its default of 512 lays most books out in one step.
+
 ## 0.7.0 - 2026-10-17
 
 ### Ranges across paragraphs inside one wrapper resolve

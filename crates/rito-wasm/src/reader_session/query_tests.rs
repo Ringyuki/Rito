@@ -10,12 +10,12 @@ use rito_core::runtime::{
     encode_reader_annotation_request, encode_reader_annotation_response, encode_reader_artifact,
     encode_reader_exact_source_range_request, encode_reader_exact_source_range_resolution,
     encode_reader_foreground_handoff_ack, encode_reader_navigation_request,
-    encode_reader_navigation_result, encode_reader_search_request, encode_reader_search_response,
-    encode_reader_spread_request, encode_reader_text_interaction_request,
-    encode_reader_text_interaction_response, encode_reader_text_range_geometry,
-    encode_reader_text_range_request, ReaderAdjacentDirection, ReaderAnnotationQuery,
-    ReaderAnnotationRequest, ReaderExactSourceRangeRequest, ReaderForegroundHandoff,
-    ReaderNavigationQuery, ReaderNavigationRequest, ReaderSearchRequest,
+    encode_reader_navigation_result, encode_reader_page_records, encode_reader_search_request,
+    encode_reader_search_response, encode_reader_spread_request,
+    encode_reader_text_interaction_request, encode_reader_text_interaction_response,
+    encode_reader_text_range_geometry, encode_reader_text_range_request, ReaderAdjacentDirection,
+    ReaderAnnotationQuery, ReaderAnnotationRequest, ReaderExactSourceRangeRequest,
+    ReaderForegroundHandoff, ReaderNavigationQuery, ReaderNavigationRequest, ReaderSearchRequest,
     ReaderSelectionGranularity, ReaderSession, ReaderSourceRange, ReaderSpreadRequest,
     ReaderTextInteractionQuery, ReaderTextInteractionRequest, ReaderTextInteractionResult,
     ReaderTextPoint, ReaderTextPosition, ReaderTextRangeRequest,
@@ -84,7 +84,17 @@ fn every_query_answers_the_bytes_core_answers() {
     projection
         .request_artifact(&request_wire(SESSION_ID, 2, "chapter.xhtml"))
         .expect("binding second artifact");
-    let page = &artifact.pages[0];
+    let page_index = artifact.pages[0].page_index;
+    let records = direct
+        .read_page(artifact.artifact_id, page_index)
+        .expect("the page has records");
+    assert_eq!(
+        projection
+            .read_page(artifact.artifact_id, page_index)
+            .expect("binding page records"),
+        encode_reader_page_records(&records).unwrap()
+    );
+    let page = &records;
     let hit = page
         .hits
         .iter()
@@ -241,7 +251,10 @@ fn a_spread_by_position_and_its_layout_answer_the_bytes_core_answers() {
     let (mut direct, mut projection, artifact_id) = sessions();
     let layout = encode_reader_navigation_request(&ReaderNavigationRequest {
         session_id: SESSION_ID,
-        query: ReaderNavigationQuery::Layout { artifact_id },
+        query: ReaderNavigationQuery::Layout {
+            artifact_id,
+            whole: true,
+        },
     })
     .unwrap();
     assert_eq!(

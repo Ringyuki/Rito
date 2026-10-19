@@ -52,7 +52,7 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// The alias every face the engine shaped with is registered under
     /// for paint, indexed by face id; `None` (a tree painted outside a
     /// document) paints computed family lists as-is.
-    pub(crate) faces: Option<&'a [String]>,
+    pub(crate) faces: Option<&'a [std::sync::Arc<str>]>,
     /// Layout-inert per-node paint the bridge collected (rules today).
     pub(crate) node_paints: Option<&'a BTreeMap<u32, NodePaint>>,
     /// Flank border strokes for inline images, keyed by the `<img>`

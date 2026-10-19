@@ -7,8 +7,10 @@ use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 mod access;
 mod chapter_engine_session;
 mod chapter_local;
+mod chapter_styles;
 mod chapter_text;
 mod chapter_tree_report;
+mod chapter_trees;
 mod cleanup;
 mod font_catalog;
 mod fragment_backend;
@@ -90,8 +92,13 @@ pub struct RuntimeDocument {
     #[cfg(test)]
     publication_footnote_scan_count: usize,
     page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
+    /// The publication's chapter hrefs indexed for resolving a locator's.
+    source_locator_canonicalizer: OnceCell<source_locator::RuntimeSourceLocatorCanonicalizer>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, std::rc::Rc<crate::epub::ParsedLoadedChapterSource>>,
+    /// Each chapter's style tables as last resolved, reused by every
+    /// layout they hold under.
+    chapter_styles: chapter_styles::ChapterStyleCache,
     font_face_sources: OnceCell<Vec<crate::epub::ResolvedFontFaceSource>>,
     fragment_engine: OnceCell<Option<std::rc::Rc<fragment_frame::RuntimeFragmentEngine>>>,
     pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
@@ -172,8 +179,10 @@ impl RuntimeDocument {
             #[cfg(test)]
             publication_footnote_scan_count: 0,
             page_target_context: OnceCell::new(),
+            source_locator_canonicalizer: OnceCell::new(),
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
+            chapter_styles: chapter_styles::ChapterStyleCache::default(),
             font_face_sources: OnceCell::new(),
             fragment_engine: OnceCell::new(),
             pinned_font_policy,
@@ -369,20 +378,20 @@ impl RuntimeDocument {
         page_targets(&self.document, context, revision_id, revision, page_index)
     }
 
-    /// The targets of one page of a revision this document holds, from
+    /// The targets of one page of a revision this document holds, through
     /// the classifier `get_page_targets` runs: every host surface agrees on
     /// what a target is, where a link leads and under which key a footnote
     /// is held.
-    pub(in crate::runtime) fn page_targets_of(
+    pub(in crate::runtime) fn classify_page_targets(
         &self,
         revision: &RuntimeRevision,
         page_index: usize,
-        targets: Vec<page_artifact::PageArtifactTarget>,
-    ) -> Vec<RuntimePageTarget> {
+        targets: &[page_artifact::PageArtifactTarget],
+    ) -> Vec<page_target::PageTargetClass> {
         let context = self
             .page_target_context
             .get_or_init(|| page_target::RuntimePageTargetContext::new(&self.document));
-        page_target::runtime_page_targets(&self.document, context, revision, page_index, targets)
+        page_target::classify_page_targets(&self.document, context, revision, page_index, targets)
     }
 
     pub fn get_footnote(&mut self, revision_id: &str, key: &str) -> EpubResult<RuntimeFootnote> {

@@ -6,6 +6,7 @@ import type {
 } from '@ritojs/core-wasm';
 
 import { renderReaderPrimitivesToCanvas } from '../../src/bindings/browser/primitive-renderer';
+import { NO_CLUSTERS } from '../helpers/cluster-table';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 function srgb(r: number, g: number, b: number, alpha = 1): RitoReaderColor {
@@ -24,7 +25,7 @@ const PAPER = srgb(1, 1, 1);
 const SLATE = srgb(0.1, 0.1, 0.1);
 
 function list(commands: readonly RitoReaderPrimitive[], ratio = 1): RitoReaderPrimitiveList {
-  return { formatVersion: 2, ratio, commandCount: commands.length, commands };
+  return { formatVersion: 4, ratio, commandCount: commands.length, commands };
 }
 
 describe('browser primitive renderer', () => {
@@ -179,7 +180,7 @@ describe('browser primitive renderer', () => {
         },
         {
           kind: 'text',
-          clusters: [],
+          clusters: NO_CLUSTERS,
           text: 'run',
           rect: { x: 10, y: 10, width: 30, height: 20 },
           paint: {
@@ -219,7 +220,7 @@ describe('browser primitive renderer', () => {
           },
           {
             kind: 'text',
-            clusters: [],
+            clusters: NO_CLUSTERS,
             text: 'run',
             rect: { x: 10, y: 10, width: 30, height: 20 },
             paint: {
@@ -246,6 +247,66 @@ describe('browser primitive renderer', () => {
       'rgba(0, 0, 0, 1)',
     ]);
     expect(mock.getCalls('save')).toHaveLength(mock.getCalls('restore').length);
+  });
+
+  it('draws consecutive text runs under one saved state and one scale', () => {
+    // Each run sets all the state it draws with; sharing one save across a
+    // stretch of runs lets a run whose font and ink match the run before
+    // it set nothing the canvas has to parse again.
+    const run = (text: string, x: number): RitoReaderPrimitive => ({
+      kind: 'text',
+      clusters: NO_CLUSTERS,
+      text,
+      rect: { x, y: 10, width: 30, height: 20 },
+      paint: {
+        font: { family: 'serif', sizePx: 16, weight: 400, style: 'normal' },
+        color: INK,
+        textShadows: [],
+      },
+    });
+    const mock = createMockCanvasContext();
+    renderReaderPrimitivesToCanvas(
+      list(
+        [
+          run('one', 0),
+          run('two', 40),
+          {
+            kind: 'fill-rect',
+            rect: { x: 0, y: 40, width: 9, height: 1 },
+            color: INK,
+            ground: 'none',
+          },
+          run('three', 80),
+        ],
+        2,
+      ),
+      mock.ctx,
+    );
+    expect(mock.getCalls('fillText').map((call) => call.args[0])).toEqual(['one', 'two', 'three']);
+    // The outer save, one for the first two runs, one for the last.
+    expect(mock.getCalls('save')).toHaveLength(3);
+    expect(mock.getCalls('scale').map((call) => call.args)).toEqual([
+      [2, 2],
+      [2, 2],
+    ]);
+    // The rule between the runs is drawn outside their scale.
+    const order = mock.records
+      .flatMap((record) => ('method' in record ? [record.method] : []))
+      .filter((method) => ['save', 'restore', 'scale', 'fillRect', 'fillText'].includes(method));
+    expect(order).toEqual([
+      'save',
+      'save',
+      'scale',
+      'fillText',
+      'fillText',
+      'restore',
+      'fillRect',
+      'save',
+      'scale',
+      'fillText',
+      'restore',
+      'restore',
+    ]);
   });
 
   it('blurs a shadow at twice its sigma inside its exclusion clip', () => {
@@ -288,7 +349,7 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'ruby',
-              clusters: [],
+              clusters: NO_CLUSTERS,
               text: 'boom',
               rect: { x: 0, y: 0, width: 20, height: 10 },
               paint: {
@@ -383,7 +444,7 @@ describe('browser primitive renderer', () => {
             { kind: 'push-state' },
             {
               kind: 'text',
-              clusters: [],
+              clusters: NO_CLUSTERS,
               text: 'boom',
               rect: { x: 0, y: 0, width: 10, height: 10 },
               paint: {

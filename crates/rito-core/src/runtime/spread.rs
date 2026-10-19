@@ -9,6 +9,17 @@ pub(crate) struct SpreadSlot {
     pub(crate) right_page_index: Option<usize>,
 }
 
+/// The last page the spread at `index` of one chapter's pages holds, when
+/// the chapter has that many pages: the spreads of a chapter's first pages
+/// are the first spreads of all of them.
+pub(crate) fn spread_last_page(layout_config: &LayoutConfig, index: usize) -> usize {
+    match (layout_config.spread_mode, layout_config.first_page_alone) {
+        (SpreadMode::Single, _) => index,
+        (_, true) => index.saturating_mul(2),
+        (_, false) => index.saturating_mul(2).saturating_add(1),
+    }
+}
+
 pub(crate) fn build_spread_slots(
     page_count: usize,
     chapter_start_pages: &BTreeSet<usize>,
@@ -119,6 +130,7 @@ mod tests {
             line_height_force: None,
             font_family_override: None,
             font_family_force: None,
+            device_pixel_ratio: 1.0,
         })
     }
 }

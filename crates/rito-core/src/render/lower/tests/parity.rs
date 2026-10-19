@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 use super::super::{lower, ImageSize};
 use crate::render::{
     commands::encode_reader_primitive_list, test_support::parse_display_command, DisplayCommand,
+    TextCluster,
 };
 use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
@@ -131,7 +132,7 @@ fn shape_fixture_clusters(
     ratio: f64,
     kind: &str,
     value: &Value,
-) -> Option<Vec<(u32, f64, f64)>> {
+) -> Option<Vec<TextCluster>> {
     let text = value.get("text")?.as_str()?;
     let rect = value.get("rect")?;
     let (x, y, width) = (
@@ -184,12 +185,14 @@ fn shape_fixture_clusters(
             run.clusters
                 .iter()
                 .zip(origins)
-                .map(|(cluster, origin)| (cluster.byte, origin, baseline))
+                .map(|(cluster, origin)| TextCluster::at(cluster.byte, origin, baseline))
                 .collect(),
         );
     }
     let run = shaper.measure_run(&style, text);
     let baseline = ((y + 0.8 * f64::from(size)) * ratio).round() / ratio;
+    // The origins a painted run carries, every cluster's, with the ones
+    // the cluster before reaches by its bare advance marked.
     Some(
         run.clusters
             .iter()
@@ -200,7 +203,12 @@ fn shape_fixture_clusters(
                 } else {
                     origin
                 };
-                (cluster.byte, origin, baseline)
+                TextCluster {
+                    byte: cluster.byte,
+                    x: origin,
+                    y: baseline,
+                    joins: cluster.joins,
+                }
             })
             .collect(),
     )
@@ -219,7 +227,7 @@ fn parse_command(
     if let DisplayCommand::PaintText(text) | DisplayCommand::PaintRuby(text) = &mut command {
         if text.clusters.is_empty() {
             let kind = value.get("kind")?.as_str()?;
-            text.clusters = shape_fixture_clusters(shaper, ratio, kind, value)?;
+            text.clusters = shape_fixture_clusters(shaper, ratio, kind, value)?.into();
         }
     }
     Some(command)

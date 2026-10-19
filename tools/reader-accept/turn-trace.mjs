@@ -1,8 +1,8 @@
 // Turn trace: what the main thread does between a key press and the first
-// changed frame. Prints one timeline per turn — the key event, every worker
-// request and answer, every animation-frame callback with its cost and the
-// Canvas calls it made, and the frame the canvas changed in — with times in
-// ms from the moment the probe armed.
+// changed frame. Prints one timeline per turn — the key event, every session
+// request and how long it took, every animation-frame callback with its
+// cost and the Canvas calls it made, and the frame the canvas changed in —
+// with times in ms from the moment the probe armed.
 //
 // ACTION=size traces a font-size change through the controller instead of a
 // page turn, alternating between two sizes; ACTION=panel makes the change
@@ -88,32 +88,16 @@ await page.addInitScript((sample) => {
         span('frame', startedAt, drawn(before));
       }
     });
-  const NativeWorker = window.Worker;
-  window.Worker = class extends NativeWorker {
-    postMessage(message, ...rest) {
-      log.push({ kind: 'request', at: performance.now(), ms: 0, what: message?.kind });
-      super.postMessage(message, ...rest);
-    }
-    addEventListener(type, listener, options) {
-      if (type !== 'message') {
-        super.addEventListener(type, listener, options);
-        return;
-      }
-      super.addEventListener(
-        type,
-        (event) => {
-          const startedAt = performance.now();
-          const before = new Map(calls);
-          try {
-            listener(event);
-          } finally {
-            span('answer', startedAt, `#${String(event.data?.id)} ${drawn(before)}`);
-          }
-        },
-        options,
-      );
-    }
-  };
+  // Every request the reader sent its session since `armedAt`, from the
+  // reader's own log: the engine runs on the page's thread, so a request's
+  // time is time the page spent in it.
+  const withSessionRequests = (armedAt) =>
+    [
+      ...log,
+      ...(window.__ritoReaderDiagnostics?.log() ?? [])
+        .filter((entry) => entry.at >= armedAt && entry.ms !== undefined)
+        .map((entry) => ({ kind: 'request', at: entry.at, ms: entry.ms, what: entry.kind })),
+    ].sort((a, b) => a.at - b.at);
   window.addEventListener(
     'keydown',
     (event) => {
@@ -149,7 +133,7 @@ await page.addInitScript((sample) => {
       // No readback at all: the frames of the first quarter second, as they cost unwatched.
       return new Promise((resolve) => {
         setTimeout(() => {
-          resolve({ armedAt, changedAt: performance.now(), log: log.slice() });
+          resolve({ armedAt, changedAt: performance.now(), log: withSessionRequests(armedAt) });
         }, 250);
       });
     }
@@ -160,9 +144,9 @@ await page.addInitScript((sample) => {
         const now = window.__sig();
         span('watch', startedAt);
         if (now !== before) {
-          resolve({ armedAt, changedAt: performance.now(), log: log.slice() });
+          resolve({ armedAt, changedAt: performance.now(), log: withSessionRequests(armedAt) });
         } else if (performance.now() - armedAt > 5000) {
-          resolve({ armedAt, changedAt: -1, log: log.slice() });
+          resolve({ armedAt, changedAt: -1, log: withSessionRequests(armedAt) });
         } else nativeFrame(tick);
       };
       nativeFrame(tick);

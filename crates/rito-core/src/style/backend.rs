@@ -39,6 +39,20 @@ pub(crate) struct ResolvedPreparedChapterStyle {
     pub(crate) inline_style_table: rito_style_contract::InlineStyleTable,
     /// The `::before` and `::after` boxes, their styles in the two tables.
     pub(crate) generated_boxes: rito_style_contract::GeneratedBoxTable,
+    /// What the cascade read of the viewport.
+    pub(crate) viewport_use: ChapterStyleViewportUse,
+}
+
+/// What a resolved chapter's styles read of the viewport: whether a
+/// computed value used its size and how each media query answered.
+#[derive(Debug)]
+pub(crate) struct ChapterStyleViewportUse(rito_stylo::ViewportDependence);
+
+impl ChapterStyleViewportUse {
+    /// Whether the same sources resolve to the same styles at `viewport`.
+    pub(crate) fn holds_at(&self, viewport: CssViewport) -> bool {
+        stylo_viewport(Some(viewport)).is_ok_and(|viewport| self.0.holds_at(viewport))
+    }
 }
 
 /// A typed failure from the Stylo pipeline, retaining the original
@@ -151,6 +165,7 @@ fn try_resolve_with_stylo(
         layout_style_table: layout,
         inline_style_table: inline,
         generated_boxes: generated,
+        viewport_use: ChapterStyleViewportUse(document.viewport_dependence()),
     })
 }
 

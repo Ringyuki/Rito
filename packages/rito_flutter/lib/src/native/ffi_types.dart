@@ -167,6 +167,22 @@ typedef _ReadFootnoteDart =
       Pointer<_RitoOwnedBuffer>,
       Pointer<_RitoOwnedBuffer>,
     );
+typedef _ReadPageNative =
+    Uint32 Function(
+      Uint64,
+      Uint64,
+      Uint32,
+      Pointer<_RitoOwnedBuffer>,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _ReadPageDart =
+    int Function(
+      int,
+      int,
+      int,
+      Pointer<_RitoOwnedBuffer>,
+      Pointer<_RitoOwnedBuffer>,
+    );
 typedef _ReleaseNative =
     Uint32 Function(Uint64, Uint64, Pointer<_RitoOwnedBuffer>);
 typedef _ReleaseDart = int Function(int, int, Pointer<_RitoOwnedBuffer>);

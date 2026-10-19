@@ -18,8 +18,8 @@ use super::{
     ReaderBackgroundHandoffAck, ReaderBackgroundRequest, ReaderError,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderFootnote,
     ReaderForegroundHandoff, ReaderForegroundHandoffAck, ReaderNavigationRequest,
-    ReaderNavigationResult, ReaderPublication, ReaderResource, ReaderSearchRequest,
-    ReaderSearchResponse, ReaderSpreadRequest, ReaderTextInteractionRequest,
+    ReaderNavigationResult, ReaderPageRecords, ReaderPublication, ReaderResource,
+    ReaderSearchRequest, ReaderSearchResponse, ReaderSpreadRequest, ReaderTextInteractionRequest,
     ReaderTextInteractionResponse, ReaderTextRangeGeometry, ReaderTextRangeRequest,
 };
 
@@ -61,6 +61,7 @@ pub const READER_PUBLICATION_WIRE_MAGIC: [u8; 8] = *b"RITOPUB1";
 pub const READER_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOREQ1";
 pub const READER_RESOURCE_WIRE_MAGIC: [u8; 8] = *b"RITORES1";
 pub const READER_FOOTNOTE_WIRE_MAGIC: [u8; 8] = *b"RITOFTN1";
+pub const READER_PAGE_RECORDS_WIRE_MAGIC: [u8; 8] = *b"RITOPGR1";
 pub const READER_PENDING_SHARDS_WIRE_MAGIC: [u8; 8] = *b"RITOPSH1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_MAGIC: [u8; 8] = *b"RITOTRQ1";
 pub const READER_TEXT_RANGE_REQUEST_WIRE_BYTES: u32 = 72;
@@ -218,6 +219,14 @@ pub fn encode_reader_pending_shards(error: &ReaderError) -> Result<Vec<u8>, Read
 
 pub fn decode_reader_pending_shards(bytes: &[u8]) -> Result<ReaderError, ReaderError> {
     pending::decode(bytes)
+}
+
+pub fn encode_reader_page_records(records: &ReaderPageRecords) -> Result<Vec<u8>, ReaderError> {
+    encode::page_records(records)
+}
+
+pub fn decode_reader_page_records(bytes: &[u8]) -> Result<ReaderPageRecords, ReaderError> {
+    decode::page_records(bytes)
 }
 
 pub fn encode_reader_footnote(footnote: &ReaderFootnote) -> Result<Vec<u8>, ReaderError> {

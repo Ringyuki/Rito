@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use sha2::{Digest, Sha256};
+
 use crate::epub::{
     is_external_href, join_epub_href, opf_dir, LoadedChapter, LoadedEpubDocument, TocEntry,
 };
@@ -30,6 +32,27 @@ impl RuntimePageTargetContext {
     }
 }
 
+/// What the classifier decides about one target of a page: what it is,
+/// where its link leads and under which key its footnote is held.
+pub(super) struct PageTargetClass {
+    pub(super) kind: RuntimePageTargetKind,
+    pub(super) href: Option<String>,
+    pub(super) source_locator: Option<RuntimeSourceLocator>,
+    pub(super) target_locator: Option<RuntimeSourceLocator>,
+    pub(super) destination_label: Option<String>,
+    pub(super) footnote_key: Option<String>,
+}
+
+/// The short hash of a page's or a target's text the page targets carry:
+/// the first eight bytes of its SHA-256 digest, lowercase hex.
+pub(super) fn hash_page_text(text: &str) -> String {
+    Sha256::digest(text.as_bytes())
+        .iter()
+        .take(8)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 pub(super) fn runtime_page_targets(
     document: &LoadedEpubDocument,
     context: &RuntimePageTargetContext,
@@ -37,21 +60,36 @@ pub(super) fn runtime_page_targets(
     page_index: usize,
     targets: Vec<PageArtifactTarget>,
 ) -> Vec<RuntimePageTarget> {
-    let chapter = chapter_for_page(document, revision, page_index);
+    let classes = classify_page_targets(document, context, revision, page_index, &targets);
     targets
         .into_iter()
-        .map(|target| runtime_page_target(document, context, revision, chapter, target))
+        .zip(classes)
+        .map(|(target, class)| runtime_page_target(target, class))
         .collect()
 }
 
-fn runtime_page_target(
+pub(super) fn classify_page_targets(
+    document: &LoadedEpubDocument,
+    context: &RuntimePageTargetContext,
+    revision: &RuntimeRevision,
+    page_index: usize,
+    targets: &[PageArtifactTarget],
+) -> Vec<PageTargetClass> {
+    let chapter = chapter_for_page(document, revision, page_index);
+    targets
+        .iter()
+        .map(|target| classify_page_target(document, context, revision, chapter, target))
+        .collect()
+}
+
+fn classify_page_target(
     document: &LoadedEpubDocument,
     context: &RuntimePageTargetContext,
     revision: &RuntimeRevision,
     chapter: Option<&LoadedChapter>,
-    target: PageArtifactTarget,
-) -> RuntimePageTarget {
-    let source_locator = source_locator(chapter, &target);
+    target: &PageArtifactTarget,
+) -> PageTargetClass {
+    let source_locator = source_locator(chapter, target);
     let href = target.href.clone();
     let destination = href
         .as_deref()
@@ -78,14 +116,24 @@ fn runtime_page_target(
         .flatten()
         .and_then(|locator| context.toc_labels.label(locator))
         .map(str::to_owned);
+    PageTargetClass {
+        kind,
+        href,
+        source_locator,
+        target_locator,
+        destination_label,
+        footnote_key,
+    }
+}
+
+fn runtime_page_target(target: PageArtifactTarget, class: PageTargetClass) -> RuntimePageTarget {
     let label = if target.text.is_empty() {
         target.image_alt.clone().unwrap_or_default()
     } else {
         target.text.clone()
     };
-
     RuntimePageTarget {
-        kind,
+        kind: class.kind,
         bounds: RuntimePageTargetBounds {
             x: target.bounds.x,
             y: target.bounds.y,
@@ -97,16 +145,16 @@ fn runtime_page_target(
         run_index: target.run_index,
         label,
         text: RuntimePageTargetText {
-            hash: target.text_hash,
+            hash: hash_page_text(&target.text),
             length: target.text_length,
         },
-        href,
-        source_locator,
-        target_locator,
-        destination_label,
+        href: class.href,
+        source_locator: class.source_locator,
+        target_locator: class.target_locator,
+        destination_label: class.destination_label,
         image_src: target.image_src,
         image_alt: target.image_alt,
-        footnote_key,
+        footnote_key: class.footnote_key,
     }
 }
 

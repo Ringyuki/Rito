@@ -9,9 +9,9 @@ import {
   PINNED_FALLBACK_QUERY,
 } from './pinned-fallback-fixture';
 import { installPinnedFallbackProbe, readPinnedFallbackProbe } from './pinned-fallback-probe';
-import { installReaderWorkerProbe, readReaderWorkerOperations } from './reader-worker-probe';
+import { pinnedFaceOpens, readReaderSessionLog } from './reader-session-log';
 
-test.describe('production pinned fallback worker path', () => {
+test.describe('production pinned fallback', () => {
   test.beforeAll(async () => {
     await buildPinnedFallbackProductionCore();
   });
@@ -20,7 +20,6 @@ test.describe('production pinned fallback worker path', () => {
     page,
   }) => {
     const fixture = await createPinnedFallbackFixture();
-    await installReaderWorkerProbe(page);
     await installPinnedFallbackProbe(page);
     await installPinnedFallbackHarness(page, fixture);
     await openPinnedFallbackHarness(page);
@@ -28,7 +27,7 @@ test.describe('production pinned fallback worker path', () => {
     const first = await runPinnedFallbackCycle(page, fixture);
     const second = await runPinnedFallbackCycle(page, fixture);
     const probe = await readPinnedFallbackProbe(page);
-    const operations = await readReaderWorkerOperations(page);
+    const log = await readReaderSessionLog(page);
 
     for (const proof of [first, second]) {
       expect(proof.selectedText).toBe(PINNED_FALLBACK_QUERY);
@@ -44,7 +43,7 @@ test.describe('production pinned fallback worker path', () => {
       );
       expect(proof.pinnedFacePresentBeforeDispose).toBe(true);
       expect(proof.pinnedFacePresentAfterDispose).toBe(false);
-      expect(proof.terminatedWorkerCountAfter - proof.terminatedWorkerCountBefore).toBe(1);
+      expect(proof.disposedSessionCountAfter - proof.disposedSessionCountBefore).toBe(1);
     }
 
     expect(second.checksum).toBe(first.checksum);
@@ -57,22 +56,17 @@ test.describe('production pinned fallback worker path', () => {
       .join('');
     expect(targetAliasText).toContain(PINNED_FALLBACK_QUERY);
 
-    expect(probe.openRequests).toHaveLength(2);
-    for (const request of probe.openRequests) {
-      expect(request.expectedSha256).toEqual([fixture.fontSha256]);
-      expect(request.faceBufferByteLengths).toEqual([fixture.font.byteLength]);
+    // One session per cycle, each opened with the fixture face. The engine
+    // refuses a face whose bytes do not hash to its SHA-256, so a session
+    // that opened was handed the whole font.
+    const opens = pinnedFaceOpens(log);
+    expect(opens).toHaveLength(2);
+    for (const open of opens) {
+      expect(open.sha256).toEqual([fixture.fontSha256]);
+      expect(open.ok).toBe(true);
     }
-    expect(probe.openResults).toHaveLength(2);
-    expect(probe.terminatedWorkerIds).toHaveLength(2);
-    expect(new Set(probe.terminatedWorkerIds).size).toBe(2);
-
-    const opens = operations.filter((operation) => operation.kind === 'open');
-    expect(opens.length).toBeGreaterThanOrEqual(2);
-    expect(new Set(opens.map((operation) => operation.workerId)).size).toBeGreaterThanOrEqual(2);
-    expect(opens.every((operation) => operation.ok === true)).toBe(true);
-    expect(
-      operations.filter((operation) => operation.kind === 'exact-source-range'),
-    ).not.toHaveLength(0);
-    expect(operations.some((operation) => operation.ok === false)).toBe(false);
+    expect(new Set(opens.map((open) => open.reader)).size).toBe(2);
+    expect(log.filter((entry) => entry.kind === 'exactSourceRange')).not.toHaveLength(0);
+    expect(log.some((entry) => entry.ok === false)).toBe(false);
   });
 });

@@ -3,6 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
 import { readerInteractions } from './helpers/native-selection';
 import { annotationTarget } from './annotation-target-fixture';
+import { createFakeGl, type FakeGl } from './helpers/fake-gl';
+
+/** The fake WebGL2 context of the last canvas made. */
+const contexts: FakeGl[] = [];
+function releasedPages(): number {
+  return contexts.at(-1)?.named('deleteTexture').length ?? 0;
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -49,7 +56,7 @@ describe('controller bootstrap cleanup', () => {
   });
 
   it('rolls back earlier subscriptions and buffers when later wiring fails', () => {
-    const buffers = stubOffscreenBuffers();
+    stubOffscreenBuffers();
     const canvas = createCanvas();
     const listeners = new Set<(spreadIndex: number, spread: unknown) => void>();
     const unsubscribe = vi.fn((listener: (spreadIndex: number, spread: unknown) => void) => {
@@ -63,12 +70,12 @@ describe('controller bootstrap cleanup', () => {
     }).toThrow(sentinel);
     expect(unsubscribe).toHaveBeenCalledOnce();
     expect(listeners.size).toBe(0);
-    expect(buffers).toHaveLength(3);
-    expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
+    // The three page buffers are let go.
+    expect(releasedPages()).toBe(3);
   });
 
   it('releases the pool when engine construction fails', () => {
-    const buffers = stubOffscreenBuffers();
+    stubOffscreenBuffers();
     const canvas = createCanvas();
     const sentinel = new Error('locator navigator lookup failed');
     const reader = createReaderStub({
@@ -84,12 +91,12 @@ describe('controller bootstrap cleanup', () => {
     expect(() => {
       createController(reader as never, canvas);
     }).toThrow(sentinel);
-    expect(buffers).toHaveLength(3);
-    expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
+    // The three page buffers are let go.
+    expect(releasedPages()).toBe(3);
   });
 
   it('removes partially installed DOM wiring before rethrowing', () => {
-    const buffers = stubOffscreenBuffers();
+    stubOffscreenBuffers();
     const canvas = createCanvas();
     const sentinel = new Error('pointer listener registration failed');
     const activeListeners = new Set<EventListenerOrEventListenerObject>();
@@ -124,7 +131,7 @@ describe('controller bootstrap cleanup', () => {
     expect(activeListeners.size).toBe(0);
     expect(unsubscribe).toHaveBeenCalledOnce();
     expect(listeners.size).toBe(0);
-    expect(buffers.every((buffer) => buffer.width === 0 && buffer.height === 0)).toBe(true);
+    expect(releasedPages()).toBe(3);
   });
 
   it('invalidates an annotation load when later controller construction fails', async () => {
@@ -237,10 +244,11 @@ function stubOffscreenBuffers(): Array<{ width: number; height: number }> {
 
 function createCanvas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.getContext = vi.fn(() => ({
-    clearRect: vi.fn(),
-    drawImage: vi.fn(),
-  })) as unknown as typeof canvas.getContext;
+  const fake = createFakeGl(canvas);
+  contexts.push(fake);
+  canvas.getContext = vi.fn((kind: string) =>
+    kind === 'webgl2' ? fake.gl : null,
+  ) as unknown as typeof canvas.getContext;
   return canvas;
 }
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:ffi';
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import '../protocol/annotation_target.dart';
@@ -26,11 +25,9 @@ import '../protocol/text_geometry.dart';
 import '../protocol/text_interaction.dart';
 import 'bindings.dart';
 import 'gateway_queue.dart';
-import 'owned_byte_transfer.dart';
 import 'pending_adjacent.dart';
 import 'pinned_font_policy.dart';
 import 'session_lane.dart';
-import 'worker_lifecycle.dart';
 
 export '../protocol/background_models.dart';
 export '../protocol/foreground_models.dart';
@@ -134,6 +131,14 @@ abstract interface class RitoReaderGateway {
     required RitoNavigationRequest request,
   });
 
+  /// What page [pageIndex] of a live artifact holds for a host: its
+  /// interaction targets, semantic outline, text and text runs.
+  Future<RitoPageRecords> readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  });
+
   /// Reads a footnote definition an artifact referenced. [key] is the
   /// hit's canonical `footnoteKey` verbatim.
   Future<RitoFootnote> readFootnote({
@@ -202,20 +207,27 @@ final class RitoDynamicLibrarySource {
   }
 }
 
-/// Runs EPUB parsing, CSS, layout, resource access, release and disposal away
-/// from Flutter's UI isolate. Large typed-wire payloads use Dart's transferable
-/// isolate transport and are decoded only after the receiver materializes them.
-/// This avoids an isolate-message copy; it is not an end-to-end zero-copy claim
-/// across caller buffers, FFI allocation, and Rust ownership.
-final class RitoIsolateGateway
+/// The previous name of [RitoNativeGateway], from when the engine ran on an
+/// isolate of its own.
+@Deprecated('Use RitoNativeGateway; the engine runs on the calling isolate.')
+typedef RitoIsolateGateway = RitoNativeGateway;
+
+/// Runs EPUB parsing, CSS, layout, resource access, release and disposal on
+/// the isolate that holds the gateway, Flutter's UI isolate in an app: each
+/// call into the engine answers before it returns, so the frame that asks
+/// for a layout can draw it. A session's own background work (the whole
+/// book behind the page shown) runs in small steps between frames.
+final class RitoNativeGateway
     implements
         RitoReaderGateway,
         RitoResumableExactSeekGateway,
         RitoResumableAdjacentGateway,
         RitoShardedPublicationGateway,
         RitoFontGateway {
-  RitoIsolateGateway({this.diagnosticLibrary}) {
-    _worker = _RitoWorkerClient.start(diagnosticLibrary);
+  RitoNativeGateway({this.diagnosticLibrary}) {
+    _worker = Future<_RitoEngineClient>.sync(
+      () => _RitoEngineClient.start(diagnosticLibrary),
+    );
   }
 
   /// Optional explicit library source for tests and embedding diagnostics.
@@ -257,7 +269,7 @@ final class RitoIsolateGateway
       <int, RitoArtifact>{};
   final Map<int, RitoBackgroundAdvance> _pendingBackgroundCandidates =
       <int, RitoBackgroundAdvance>{};
-  late final Future<_RitoWorkerClient> _worker;
+  late final Future<_RitoEngineClient> _worker;
   final Map<int, RitoShardLoader> _shardLoaders = <int, RitoShardLoader>{};
   final Map<(int, int), Future<void>> _supplying = <(int, int), Future<void>>{};
   final Map<int, _ShardPrefetchLane> _prefetchLanes =
@@ -278,7 +290,7 @@ final class RitoIsolateGateway
         : <_PinnedFontFaceTransfer>[
             for (final face in pinnedFontPolicy.faces)
               _PinnedFontFaceTransfer(
-                bytes: RitoOwnedByteTransfer.take(face.bytes),
+                bytes: face.bytes,
                 sha256Hex: face.sha256Hex,
                 genericRole: face.genericRole,
                 language: face.language,
@@ -299,7 +311,7 @@ final class RitoIsolateGateway
             final wireBytes = await worker.invokeWire(
               _OpenOperation(
                 sessionId: request.sessionId,
-                publicationBytes: RitoOwnedByteTransfer.take(publicationBytes),
+                publicationBytes: publicationBytes,
                 requestBytes: requestBytes,
                 pinnedFontFaces: pinnedFontFaces,
               ),
@@ -334,7 +346,7 @@ final class RitoIsolateGateway
     final pinnedFontFaces = <_PinnedFontFaceTransfer>[
       for (final face in pinnedFontPolicy.faces)
         _PinnedFontFaceTransfer(
-          bytes: RitoOwnedByteTransfer.take(face.bytes),
+          bytes: face.bytes,
           sha256Hex: face.sha256Hex,
           genericRole: face.genericRole,
           language: face.language,
@@ -359,7 +371,7 @@ final class RitoIsolateGateway
             final wireBytes = await worker.invokeWire(
               _OpenShardsOperation(
                 sessionId: sessionId,
-                skeletonBytes: RitoOwnedByteTransfer.take(skeletonBytes),
+                skeletonBytes: skeletonBytes,
                 skeletonKey: skeletonKey,
                 requestBytes: _requestEncoder.encode(
                   request.withRequestId(intent.requestId),
@@ -1123,6 +1135,40 @@ final class RitoIsolateGateway
             decode: _footnoteDecoder.decode,
             validate: (footnote) =>
                 footnote.artifactId == artifactId && footnote.key == key,
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<RitoPageRecords> readPage({
+    required int sessionId,
+    required int artifactId,
+    required int pageIndex,
+  }) async {
+    return _queue.ordered<RitoPageRecords>(
+      sessionId: sessionId,
+      operation: () => _guardNativeSessionOperation<RitoPageRecords>(
+        sessionId: sessionId,
+        requestId: _diagnosticRequestId(sessionId),
+        operation: () async {
+          final worker = await _worker;
+          final wireBytes = await worker.invokeWire(
+            _ReadPageOperation(
+              sessionId: sessionId,
+              artifactId: artifactId,
+              pageIndex: pageIndex,
+            ),
+          );
+          return _decodeSessionWire<RitoPageRecords>(
+            sessionId: sessionId,
+            field: 'page records',
+            wireBytes: wireBytes,
+            decode: _artifactDecoder.decodePageRecords,
+            validate: (records) =>
+                records.artifactId == artifactId &&
+                records.pageIndex == pageIndex,
           );
         },
       ),

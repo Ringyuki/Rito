@@ -276,8 +276,12 @@ pub enum ReaderNavigationQuery {
         second: ReaderSourcePoint,
     },
     /// The page table of the revision behind an artifact: its spreads,
-    /// the chapters it lays out and where its TOC entries land.
-    Layout { artifact_id: u64 },
+    /// the chapters it lays out and where its TOC entries land. With
+    /// `whole`, a chapter is laid out to its end first; without it the
+    /// table holds the pages laid out so far, which a chapter-local
+    /// revision stops at the spread its reader needs (see
+    /// [`ReaderRevisionLayout::complete`]).
+    Layout { artifact_id: u64, whole: bool },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -326,6 +330,11 @@ pub struct ReaderRevisionLayout {
     /// Per page, the TOC entry it reads under: the last entry whose target
     /// sits at or before it.
     pub active_toc_entry_by_page: Vec<Option<u32>>,
+    /// Whether the table holds every page of its chapters. A table that
+    /// does not holds their first pages, numbered and spread as the whole
+    /// chapters number and spread them; a TOC entry whose target lies past
+    /// them is not placed yet.
+    pub complete: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

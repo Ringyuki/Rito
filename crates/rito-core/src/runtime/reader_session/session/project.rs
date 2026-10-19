@@ -21,6 +21,7 @@ pub(super) fn artifact_owner(
     backing: ReaderRevisionBacking,
     local_spread_index: usize,
     artifact: &ReaderArtifact,
+    painted_digest: u64,
 ) -> ReaderArtifactOwner {
     ReaderArtifactOwner {
         request_id: artifact.request_id,
@@ -33,18 +34,9 @@ pub(super) fn artifact_owner(
             .iter()
             .map(|resource| (resource.kind, resource.href.clone()))
             .collect(),
-        painted_digest: painted_digest(artifact),
+        page_indexes: artifact.local_page_indexes.clone(),
+        painted_digest,
     }
-}
-
-pub(super) fn painted_digest(artifact: &ReaderArtifact) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    for page in &artifact.pages {
-        page.text.hash(&mut hasher);
-        page.text_length.hash(&mut hasher);
-    }
-    hasher.finish()
 }
 
 pub(super) fn publication_navigation(

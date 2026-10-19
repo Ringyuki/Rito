@@ -175,7 +175,7 @@ function canonicalTarget(target: ReaderAnnotationTarget): ReaderAnnotationTarget
   };
 }
 
-function copySourceRange(range: ReaderSourceRange): ReaderSourceRange {
+export function copySourceRange(range: ReaderSourceRange): ReaderSourceRange {
   const copy = (point: ReaderSourcePoint): ReaderSourcePoint => ({
     nodePath: [...point.nodePath],
     textOffset: point.textOffset,
@@ -183,6 +183,6 @@ function copySourceRange(range: ReaderSourceRange): ReaderSourceRange {
   return { start: copy(range.start), end: copy(range.end) };
 }
 
-function sessionSourceRange(range: ReaderSourceRange): BrowserReaderSourceRange {
+export function sessionSourceRange(range: ReaderSourceRange): BrowserReaderSourceRange {
   return { start: sessionSourcePoint(range.start), end: sessionSourcePoint(range.end) };
 }

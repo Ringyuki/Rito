@@ -14,7 +14,12 @@ import {
   convertReaderText,
   toCanvasColor,
 } from './reader-session-canvas-converter';
-import { isBookOwnedPageGround } from './theme/text-color';
+import {
+  createDeclaredGrounds,
+  declareFillGround,
+  declaredGroundFor,
+  type DeclaredGrounds,
+} from './theme/declared-grounds';
 
 type Primitive = CoreReaderPrimitive;
 type FillPrimitive = Extract<Primitive, { readonly kind: 'fill-rect' | 'fill-path' }>;
@@ -47,14 +52,6 @@ interface DeviceRect {
   readonly height: number;
 }
 
-/** The declared grounds a replay accumulates for the theme override:
- * opaque block backgrounds so far, and the page ground R1 kept for the
- * book. Reset by every page ground. */
-interface DeclaredGrounds {
-  readonly blockGrounds: { readonly rect: DeviceRect; readonly color: string }[];
-  bookOwnedPageGround: string | undefined;
-}
-
 interface RenderState extends DeclaredGrounds {
   readonly resolveImage: CanvasImageResolver;
   readonly imageFallback: CanvasImageFallbackResolver;
@@ -64,6 +61,12 @@ interface RenderState extends DeclaredGrounds {
   /** Device pixels per CSS pixel the list was resolved at. */
   readonly ratio: number;
   saveDepth: number;
+  /**
+   * The save depth of the state consecutive text runs share, 0 when none
+   * is open: one save and one scale for a stretch of runs, so a run whose
+   * font and ink match the run before it sets nothing the canvas parses.
+   */
+  textDepth: number;
 }
 
 /**
@@ -106,6 +109,7 @@ export function renderReaderPrimitivesToCanvas(
       // escaping the paint path would leave the spread permanently "not
       // ready" and wedge paging into it. The fault is recorded loudly
       // instead; the canvas keeps everything else.
+      if (primitive.kind !== 'text' && primitive.kind !== 'ruby') endTextRuns(ctx, state);
       const entryDepth = state.saveDepth;
       try {
         renderPrimitive(ctx, primitive, state);
@@ -117,6 +121,7 @@ export function renderReaderPrimitivesToCanvas(
           ctx.restore();
           state.saveDepth -= 1;
         }
+        if (state.textDepth > state.saveDepth) state.textDepth = 0;
       }
       rendered += 1;
     }
@@ -185,9 +190,9 @@ function createRenderState(options: PrimitiveRenderOptions, ratio: number): Rend
       foreground: options.foregroundColor ?? DEFAULT_INK,
     },
     ratio,
+    textDepth: 0,
     saveDepth: 0,
-    blockGrounds: [],
-    bookOwnedPageGround: undefined,
+    ...createDeclaredGrounds(),
     ...(colorOverride ? { colorOverride } : {}),
   };
 }
@@ -225,12 +230,12 @@ function renderPrimitive(
       return;
     case 'fill-rect': {
       const { rect } = primitive;
-      ctx.fillStyle = declareGround(primitive, state);
+      ctx.fillStyle = fillColor(primitive, state);
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
       return;
     }
     case 'fill-path':
-      ctx.fillStyle = declareGround(primitive, state);
+      ctx.fillStyle = fillColor(primitive, state);
       ctx.beginPath();
       tracePath(ctx, primitive.path);
       ctx.fill(primitive.rule);
@@ -258,48 +263,8 @@ function renderPrimitive(
   }
 }
 
-/** The colour a fill paints, after its declared ground is taken in. A
- * fill declaring the page ground resets the declared grounds and takes
- * the theme's R1 decision: a designed ground (opaque, darker than the
- * white-paper limit) stays the book's and marks the page book-owned; a
- * near-white ground is the typesetter's paper default and the theme
- * paints its own. A fill declaring a block ground records the unsnapped
- * box it covers for the ink typeset over it (the engine only declares
- * opaque ones). */
-function declareGround(primitive: FillPrimitive, state: RenderState): string {
-  const color = toCanvasColor(primitive.color);
-  if (primitive.ground === 'page') {
-    state.blockGrounds.length = 0;
-    state.bookOwnedPageGround = undefined;
-    if (state.colorOverride) {
-      if (isBookOwnedPageGround(color)) state.bookOwnedPageGround = color;
-      else return state.colorOverride.backgroundColor;
-    }
-  } else if (primitive.ground === 'block' && primitive.groundRect !== undefined) {
-    state.blockGrounds.push({ rect: primitive.groundRect, color });
-  }
-  return color;
-}
-
-/** The ground a run's ink was typeset against, when the book expressed
- * one (R2): the nearest opaque fill containing the run's rect — the run's
- * own inline band lowers to such a fill just before the run — else the
- * page ground R1 kept for the book. Undefined means the theme supplies
- * the ground. */
-function declaredGroundFor(rect: DeviceRect, state: DeclaredGrounds): string | undefined {
-  for (let index = state.blockGrounds.length - 1; index >= 0; index -= 1) {
-    const ground = state.blockGrounds[index];
-    if (
-      ground !== undefined &&
-      rect.x >= ground.rect.x &&
-      rect.y >= ground.rect.y &&
-      rect.x + rect.width <= ground.rect.x + ground.rect.width &&
-      rect.y + rect.height <= ground.rect.y + ground.rect.height
-    ) {
-      return ground.color;
-    }
-  }
-  return state.bookOwnedPageGround;
+function fillColor(primitive: FillPrimitive, state: RenderState): string {
+  return declareFillGround(state, primitive, toCanvasColor(primitive.color), state.colorOverride);
 }
 
 /** Text runs are in CSS pixels and paint under the list's ratio; the
@@ -310,26 +275,15 @@ function renderText(
   primitive: TextPrimitive,
   state: RenderState,
 ): void {
-  ctx.save();
-  try {
+  if (state.textDepth === 0) {
+    ctx.save();
+    state.saveDepth += 1;
+    state.textDepth = state.saveDepth;
     if (state.ratio !== 1) ctx.scale(state.ratio, state.ratio);
-    if (primitive.kind === 'text') {
-      const command = convertReaderText(primitive);
-      drawCanvasTextFragment(
-        ctx,
-        {
-          text: command.text,
-          rect: command.rect,
-          paint: command.paint,
-          ...(command.clusters === undefined ? {} : { clusters: command.clusters }),
-        },
-        state.colorOverride,
-        declaredGroundFor(deviceRect(command.rect, state.ratio), state),
-      );
-      return;
-    }
-    const command = convertReaderRuby(primitive);
-    drawCanvasRubyFragment(
+  }
+  if (primitive.kind === 'text') {
+    const command = convertReaderText(primitive);
+    drawCanvasTextFragment(
       ctx,
       {
         text: command.text,
@@ -340,9 +294,30 @@ function renderText(
       state.colorOverride,
       declaredGroundFor(deviceRect(command.rect, state.ratio), state),
     );
-  } finally {
-    ctx.restore();
+    return;
   }
+  const command = convertReaderRuby(primitive);
+  drawCanvasRubyFragment(
+    ctx,
+    {
+      text: command.text,
+      rect: command.rect,
+      paint: command.paint,
+      ...(command.clusters === undefined ? {} : { clusters: command.clusters }),
+    },
+    state.colorOverride,
+    declaredGroundFor(deviceRect(command.rect, state.ratio), state),
+  );
+}
+
+/** Ends the state a stretch of text runs shared, before any other primitive. */
+function endTextRuns(ctx: CanvasRenderingContext2D, state: RenderState): void {
+  if (state.textDepth === 0) return;
+  while (state.saveDepth >= state.textDepth) {
+    ctx.restore();
+    state.saveDepth -= 1;
+  }
+  state.textDepth = 0;
 }
 
 function deviceRect(rect: DeviceRect, ratio: number): DeviceRect {

@@ -1,4 +1,7 @@
-import type { AnyRenderingContext, OverlayLayer } from './types';
+import type { AnyRenderingContext, OverlayLayer, Rect } from './types';
+
+/** An underline's thickness, in CSS pixels. */
+const UNDERLINE_WIDTH = 2;
 
 /**
  * Paint overlay layers into a target canvas context.
@@ -28,7 +31,8 @@ export function paintOverlayInto(
   for (const layer of sorted) {
     ctx.fillStyle = layer.color;
     for (const rect of layer.rects) {
-      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+      if (layer.mark === 'underline') fillUnderline(ctx, rect);
+      else ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     }
     if (layer.borderColor) {
       ctx.strokeStyle = layer.borderColor;
@@ -40,4 +44,9 @@ export function paintOverlayInto(
   }
 
   ctx.restore();
+}
+
+function fillUnderline(ctx: AnyRenderingContext, rect: Rect): void {
+  const width = Math.min(UNDERLINE_WIDTH, rect.height);
+  ctx.fillRect(rect.x, rect.y + rect.height - width, rect.width, width);
 }

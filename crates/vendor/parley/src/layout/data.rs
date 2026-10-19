@@ -8,6 +8,7 @@ use crate::util::nearly_zero;
 use crate::{FontData, IndentOptions, InlineBoxKind, LineHeight, OverflowWrap, TextWrapMode};
 use core::ops::Range;
 
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::analysis::cluster::Whitespace;
@@ -143,6 +144,9 @@ pub(crate) struct RunData {
     pub(crate) letter_spacing: f32,
     /// Total advance of the run.
     pub(crate) advance: f32,
+    /// Rito: the run's entries in [`LayoutData::style_breaks`], set once
+    /// the layout is built.
+    pub(crate) style_breaks: Range<usize>,
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
@@ -170,6 +174,13 @@ pub(crate) struct LineData {
     pub(crate) num_spaces: usize,
     /// Text indent applied to this line.
     pub(crate) indent: f32,
+    /// Rito: the max advances over which every fit comparison the breaker
+    /// made for this line comes out as it did — content that fit measured
+    /// at most `fit_floor`, content that did not fit at least
+    /// `fit_ceiling` — so a max advance in `[fit_floor, fit_ceiling)`
+    /// breaks the line exactly here.
+    pub(crate) fit_floor: f32,
+    pub(crate) fit_ceiling: f32,
 }
 
 impl LineData {
@@ -275,17 +286,23 @@ pub(crate) struct LayoutData<B: Brush> {
     /// The length of the text in the layout
     pub(crate) text_len: usize,
 
-    // Output of style resolution (input to line breaking)
-    pub(crate) styles: Vec<Style<B>>,
-    pub(crate) inline_boxes: Vec<InlineBox>,
-
-    // Output of shaping (input to line breaking)
-    pub(crate) fonts: Vec<FontData>,
-    pub(crate) coords: Vec<i16>,
-    pub(crate) runs: Vec<RunData>,
-    pub(crate) items: Vec<LayoutItem>,
-    pub(crate) clusters: Vec<ClusterData>,
-    pub(crate) glyphs: Vec<Glyph>,
+    // Output of style resolution and shaping (input to line breaking).
+    // Rito: shared between clones. Breaking and alignment write only the
+    // line output below, so a layout cloned to be broken at another width
+    // copies its lines, not its shaping; a write here copies it out first.
+    pub(crate) styles: Arc<Vec<Style<B>>>,
+    pub(crate) inline_boxes: Arc<Vec<InlineBox>>,
+    pub(crate) fonts: Arc<Vec<FontData>>,
+    pub(crate) coords: Arc<Vec<i16>>,
+    pub(crate) runs: Arc<Vec<RunData>>,
+    pub(crate) items: Arc<Vec<LayoutItem>>,
+    pub(crate) clusters: Arc<Vec<ClusterData>>,
+    pub(crate) glyphs: Arc<Vec<Glyph>>,
+    /// Rito: every cluster holding a glyph whose style differs from the
+    /// previous such cluster of its run, by index in `clusters`, run by run
+    /// in logical order: where a line splits a run by style (see
+    /// `Line::style_runs`), found without reading the clusters between.
+    pub(crate) style_breaks: Arc<Vec<u32>>,
 
     // Output of line breaking
     /// The lines in the
@@ -324,14 +341,15 @@ impl<B: Brush> Default for LayoutData<B> {
             width: 0.,
             full_width: 0.,
             height: 0.,
-            fonts: Vec::new(),
-            coords: Vec::new(),
-            styles: Vec::new(),
-            inline_boxes: Vec::new(),
-            runs: Vec::new(),
-            items: Vec::new(),
-            clusters: Vec::new(),
-            glyphs: Vec::new(),
+            fonts: Arc::default(),
+            coords: Arc::default(),
+            styles: Arc::default(),
+            inline_boxes: Arc::default(),
+            runs: Arc::default(),
+            items: Arc::default(),
+            clusters: Arc::default(),
+            glyphs: Arc::default(),
+            style_breaks: Arc::default(),
             lines: Vec::new(),
             line_items: Vec::new(),
             #[cfg(feature = "accesskit")]
@@ -353,14 +371,15 @@ impl<B: Brush> LayoutData<B> {
         self.width = 0.;
         self.full_width = 0.;
         self.height = 0.;
-        self.fonts.clear();
-        self.coords.clear();
-        self.styles.clear();
-        self.inline_boxes.clear();
-        self.runs.clear();
-        self.items.clear();
-        self.clusters.clear();
-        self.glyphs.clear();
+        vacate(&mut self.fonts);
+        vacate(&mut self.coords);
+        vacate(&mut self.styles);
+        vacate(&mut self.inline_boxes);
+        vacate(&mut self.runs);
+        vacate(&mut self.items);
+        vacate(&mut self.clusters);
+        vacate(&mut self.glyphs);
+        vacate(&mut self.style_breaks);
         self.lines.clear();
         self.line_items.clear();
     }
@@ -371,7 +390,7 @@ impl<B: Brush> LayoutData<B> {
         // (or else default to 0 if there is not yet a text run)
         let bidi_level = self.runs.last().map(|r| r.bidi_level).unwrap_or(0);
 
-        self.items.push(LayoutItem {
+        owned(&mut self.items).push(LayoutItem {
             kind: LayoutItemKind::InlineBox,
             index,
             bidi_level,
@@ -395,7 +414,7 @@ impl<B: Brush> LayoutData<B> {
         coords: &[harfrust::NormalizedCoord],
     ) {
         let coords_start = self.coords.len();
-        self.coords.extend(coords.iter().map(|c| c.to_bits()));
+        owned(&mut self.coords).extend(coords.iter().map(|c| c.to_bits()));
         let coords_end = self.coords.len();
 
         let font_index = self
@@ -404,7 +423,7 @@ impl<B: Brush> LayoutData<B> {
             .position(|f| *f == font)
             .unwrap_or_else(|| {
                 let index = self.fonts.len();
-                self.fonts.push(font);
+                owned(&mut self.fonts).push(font);
                 index
             });
 
@@ -471,6 +490,7 @@ impl<B: Brush> LayoutData<B> {
             word_spacing,
             letter_spacing,
             advance: 0.,
+            style_breaks: 0..0,
         };
 
         // `HarfRust` returns glyphs in visual order, so we need to process them as such while
@@ -487,8 +507,8 @@ impl<B: Brush> LayoutData<B> {
         if !is_rtl {
             run.advance = process_clusters(
                 Direction::Ltr,
-                &mut self.clusters,
-                &mut self.glyphs,
+                owned(&mut self.clusters),
+                owned(&mut self.glyphs),
                 scale_factor,
                 glyph_infos,
                 glyph_positions,
@@ -498,8 +518,8 @@ impl<B: Brush> LayoutData<B> {
         } else {
             run.advance = process_clusters(
                 Direction::Rtl,
-                &mut self.clusters,
-                &mut self.glyphs,
+                owned(&mut self.clusters),
+                owned(&mut self.glyphs),
                 scale_factor,
                 glyph_infos,
                 glyph_positions,
@@ -508,13 +528,13 @@ impl<B: Brush> LayoutData<B> {
             );
             // Reverse clusters into logical order for RTL
             let clusters_len = self.clusters.len();
-            self.clusters[cluster_range_start..clusters_len].reverse();
+            owned(&mut self.clusters)[cluster_range_start..clusters_len].reverse();
         }
 
         run.cluster_range = cluster_range_start..self.clusters.len();
         if !run.cluster_range.is_empty() {
-            self.runs.push(run);
-            self.items.push(LayoutItem {
+            owned(&mut self.runs).push(run);
+            owned(&mut self.items).push(LayoutItem {
                 kind: LayoutItemKind::TextRun,
                 index: self.runs.len() - 1,
                 bidi_level,
@@ -523,13 +543,29 @@ impl<B: Brush> LayoutData<B> {
     }
 
     pub(crate) fn finish(&mut self) {
-        for run in &self.runs {
+        let breaks = owned(&mut self.style_breaks);
+        for run in owned(&mut self.runs).iter_mut() {
+            let start = breaks.len();
+            let mut previous = None;
+            for index in run.cluster_range.clone() {
+                let cluster = &self.clusters[index];
+                if cluster.glyph_len == 0 {
+                    continue;
+                }
+                if previous.is_some_and(|style| style != cluster.style_index) {
+                    breaks.push(index as u32);
+                }
+                previous = Some(cluster.style_index);
+            }
+            run.style_breaks = start..breaks.len();
+        }
+        for run in self.runs.iter() {
             let word = run.word_spacing;
             let letter = run.letter_spacing;
             if nearly_zero(word) && nearly_zero(letter) {
                 continue;
             }
-            let clusters = &mut self.clusters[run.cluster_range.clone()];
+            let clusters = &mut owned(&mut self.clusters)[run.cluster_range.clone()];
             for cluster in clusters {
                 let mut spacing = letter;
                 if !nearly_zero(word) && cluster.info.whitespace().is_space_or_nbsp() {
@@ -540,7 +576,7 @@ impl<B: Brush> LayoutData<B> {
                     if cluster.glyph_len != 0xFF {
                         let start = run.glyph_start + cluster.glyph_offset as usize;
                         let end = start + cluster.glyph_len as usize;
-                        let glyphs = &mut self.glyphs[start..end];
+                        let glyphs = &mut owned(&mut self.glyphs)[start..end];
                         if let Some(last) = glyphs.last_mut() {
                             last.advance += spacing;
                         }
@@ -570,7 +606,7 @@ impl<B: Brush> LayoutData<B> {
         let mut text_wrap_mode = TextWrapMode::Wrap;
         let mut prev_cluster: Option<&ClusterData> = None;
         let is_rtl = self.base_level & 1 == 1;
-        for item in &self.items {
+        for item in self.items.iter() {
             match item.kind {
                 LayoutItemKind::TextRun => {
                     let run = &self.runs[item.index];
@@ -970,4 +1006,18 @@ fn push_cluster(
         text_offset: cluster_start_char.0 as u16,
         advance: final_advance,
     });
+}
+
+/// Rito: the vector behind `shared` to write into — this layout's own,
+/// copied out first when a clone still shares it.
+pub(crate) fn owned<T: Clone>(shared: &mut Arc<Vec<T>>) -> &mut Vec<T> {
+    Arc::make_mut(shared)
+}
+
+/// Rito: empties a shared vector without copying what a clone still reads.
+fn vacate<T>(shared: &mut Arc<Vec<T>>) {
+    match Arc::get_mut(shared) {
+        Some(vector) => vector.clear(),
+        None => *shared = Arc::default(),
+    }
 }

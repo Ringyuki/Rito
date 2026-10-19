@@ -107,6 +107,7 @@ impl FormattingContext for StubBlockContext {
                 }),
                 escaped_floats: Vec::new(),
                 positioned: Vec::new(),
+                inline_size_range: None,
             });
         }
         Ok(LayoutOutcome {
@@ -114,6 +115,7 @@ impl FormattingContext for StubBlockContext {
             continuation: None,
             escaped_floats: Vec::new(),
             positioned: Vec::new(),
+            inline_size_range: None,
         })
     }
 
@@ -211,6 +213,7 @@ fn outcome_with_break(
         continuation: Some(token),
         escaped_floats: Vec::new(),
         positioned: Vec::new(),
+        inline_size_range: None,
     }
 }
 

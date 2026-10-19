@@ -47,14 +47,14 @@ export function createContentRenderer(
   internals: Internals,
   emitter: Emitter,
 ): ContentRenderer {
-  return (spreadIndex, context) => {
+  return (spreadIndex, page) => {
     // Last-resort paint boundary: an exception here would leave the
     // spread permanently unpainted and wedge navigation into it, which
     // is the worst possible failure mode for a reader. Whatever the
-    // canvas holds is shown, and the fault is reported loudly instead.
+    // buffer holds is shown, and the fault is reported loudly instead.
     let painted: boolean;
     try {
-      painted = reader.renderSpreadTo(spreadIndex, context);
+      painted = reader.renderSpreadTo(spreadIndex, page.target);
     } catch (error) {
       console.error(
         `[rito] spread ${String(spreadIndex)} paint failed; showing degraded content`,
@@ -65,9 +65,16 @@ export function createContentRenderer(
     // The host draws over the engine's page, into the same picture.
     const painter = internals.options.paintPage;
     if (painted && painter) {
-      paintPagesOver(painter, spreadIndex, context, reader, internals.renderScale, (error) => {
-        reportPainterError(emitter, error);
-      });
+      paintPagesOver(
+        painter,
+        spreadIndex,
+        page.hostLayer(),
+        reader,
+        internals.renderScale,
+        (error) => {
+          reportPainterError(emitter, error);
+        },
+      );
     }
     return painted;
   };
@@ -98,6 +105,9 @@ export function scheduleControllerPrerender(
     reader: internals.reader,
     pool: runtime.pool,
     contentRenderer,
+    painted: () => {
+      runtime.frameDriver.warmTransition();
+    },
   });
 }
 
@@ -119,6 +129,9 @@ export function wireSettledEvents(
       pool,
       contentRenderer,
       ...(eagerPosition ? { eagerPosition } : {}),
+      painted: () => {
+        frameDriver.warmTransition();
+      },
     });
   };
   // A turn cut into was settled while its picture still moved, when the
@@ -164,6 +177,7 @@ function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProv
       reader,
       internals.coordState,
       mapper,
+      internals.highlightColors,
       isCurrent,
     );
 
@@ -172,6 +186,7 @@ function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProv
       data.searchRects,
       data.activeSearchRects,
       data.annotationLayers,
+      internals.highlightColors,
     );
   };
 }

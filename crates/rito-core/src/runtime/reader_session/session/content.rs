@@ -11,7 +11,7 @@ use crate::runtime::{
 };
 
 use super::super::{
-    artifact::page_origin,
+    artifact::{page_origin, reader_page_records},
     convert::{reader_locator, runtime_source_range},
 };
 use super::{
@@ -22,10 +22,10 @@ use super::{
     interaction::ArtifactView,
     reader_resource_bytes_max, runtime_resource_kind, u32_from_usize, usize_from_u32, ReaderError,
     ReaderErrorKind, ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution,
-    ReaderExactSourceRangeStatus, ReaderFootnote, ReaderFootnoteKind, ReaderRect, ReaderResource,
-    ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest, ReaderSearchResponse,
-    ReaderSearchResult, ReaderSession, ReaderTextPosition, ReaderTextRangeGeometry,
-    ReaderTextRangeRequest, ReaderTextRect,
+    ReaderExactSourceRangeStatus, ReaderFootnote, ReaderFootnoteKind, ReaderPageRecords,
+    ReaderRect, ReaderResource, ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest,
+    ReaderSearchResponse, ReaderSearchResult, ReaderSession, ReaderTextPosition,
+    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
 };
 
 impl ReaderSession {
@@ -168,6 +168,55 @@ impl ReaderSession {
         })
     }
 
+    /// What page `page_index` of a live artifact holds for a host: its
+    /// interaction targets, semantic outline, text and text runs, built
+    /// when a host first asks rather than with the artifact (see
+    /// [`super::ReaderPage`]).
+    pub fn read_page(
+        &self,
+        artifact_id: u64,
+        page_index: u32,
+    ) -> Result<ReaderPageRecords, ReaderError> {
+        validate_external_request_id(artifact_id, "artifactId")?;
+        let slot = self
+            .artifacts
+            .get(&artifact_id)
+            .ok_or_else(|| unknown_artifact(artifact_id))?
+            .page_indexes
+            .iter()
+            .position(|index| *index == page_index)
+            .ok_or_else(|| {
+                ReaderError::new(
+                    ReaderErrorKind::InvalidRequest,
+                    format!("page {page_index} is not part of artifact {artifact_id}"),
+                )
+            })?;
+        let view = self.artifact_view(artifact_id)?;
+        reader_page_records(
+            &self.document,
+            view.revision,
+            artifact_id,
+            usize_from_u32(page_index, "page index")?,
+            slot,
+        )
+    }
+
+    /// Every page record of `artifact`, in its page order.
+    #[cfg(test)]
+    pub(crate) fn artifact_page_records(
+        &self,
+        artifact: &super::ReaderArtifact,
+    ) -> Vec<ReaderPageRecords> {
+        artifact
+            .pages
+            .iter()
+            .map(|page| {
+                self.read_page(artifact.artifact_id, page.page_index)
+                    .expect("a live artifact's page has records")
+            })
+            .collect()
+    }
+
     /// Searches the revision backing an artifact.
     ///
     /// Scope follows that revision: from a chapter-local artifact the
@@ -187,6 +236,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         if request.query.is_empty() {
             return Err(ReaderError::new(
                 ReaderErrorKind::InvalidRequest,
@@ -297,6 +347,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         if !self.artifacts.contains_key(&request.artifact_id) {
             return Err(unknown_artifact(request.artifact_id));
         }
@@ -338,6 +389,7 @@ impl ReaderSession {
             ));
         }
         validate_external_request_id(request.artifact_id, "artifactId")?;
+        self.complete_artifact_revision(request.artifact_id)?;
         let artifact = self
             .artifacts
             .get(&request.artifact_id)

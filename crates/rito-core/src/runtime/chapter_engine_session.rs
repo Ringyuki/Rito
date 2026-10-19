@@ -106,6 +106,14 @@ impl<'a> ChapterEngineSession<'a> {
         self.backend.resolve_text_range(query)
     }
 
+    /// The caret at an exact address, with its geometry and source point.
+    pub(super) fn text_caret(
+        &self,
+        address: crate::interaction::TextCaretAddress,
+    ) -> Option<super::page_artifact::PageArtifactTextCaret> {
+        self.backend.caret_at(address)
+    }
+
     pub(super) fn resolve_text_range_to_point(
         &self,
         query: PageArtifactTextRangeToPointQuery,

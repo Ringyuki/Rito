@@ -22,7 +22,7 @@ RitoArtifactRequest _request(int sessionId) => RitoArtifactRequest(
 );
 
 Future<RitoReaderSession> _open(int sessionId) => RitoReaderSession.open(
-  gateway: RitoIsolateGateway(),
+  gateway: RitoNativeGateway(),
   publicationBytes: File(
     '../rito/tests/fixtures/books/book-10.epub',
   ).readAsBytesSync(),

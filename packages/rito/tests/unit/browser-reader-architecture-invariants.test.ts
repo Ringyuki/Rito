@@ -12,8 +12,7 @@ const BROWSER_CANVAS_TEXT = join(BROWSER_BINDING, 'canvas-text');
 const BROWSER_PRIMITIVE_RENDERER = join(BROWSER_BINDING, 'primitive-renderer.ts');
 const BROWSER_PRIMITIVE_BLITS = join(BROWSER_BINDING, 'primitive-blits.ts');
 const BROWSER_SESSION = join(BROWSER_BINDING, 'reader-session.ts');
-const BROWSER_SESSION_WORKER = join(BROWSER_BINDING, 'reader-session-worker.ts');
-const BROWSER_SESSION_WORKER_ENTRY = join(BROWSER_BINDING, 'reader-session-worker-entry.mjs');
+const BROWSER_SESSION_ENGINE = join(BROWSER_BINDING, 'reader-session-in-thread.ts');
 const BROWSER_SESSION_CANVAS = join(BROWSER_BINDING, 'reader-session-canvas.ts');
 const BROWSER_BINDING_FILES = walkTs(BROWSER_BINDING);
 const SESSION_READER_FILES = walkTs(SESSION_READER);
@@ -32,8 +31,28 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // run occupies the session for as long as the book takes), and the
 // listener registrations moved beside the state they register into, which
 // kept reader.ts within the file limit.
+// +2 lines (2026-10-17): the hold also keeps the spreads beside the one
+// shown from loading, each for a layout the next size replaces.
+// +39 lines (2026-10-17): while the hold stands a relayout reads only the
+// page table laid out so far, since the engine lays a chapter out only
+// through the spread shown and the whole table would have it lay out the
+// rest for every size; releasing the hold reads the whole table.
+// +35 lines (2026-10-18): the engine runs on the page's own thread, so a
+// frame draws the size it asked for; the whole book then lays out a few
+// pages per step, each step after the page has had a turn, and a step
+// that lays pages out counts as progress however many the book takes.
+// +58 lines (2026-10-18): a source range resolved as a selection, carets
+// included, so a selection made in one layout is shown again in the next.
+// +16 lines (2026-10-18): `setDevicePixelRatio`, the book laid out at the
+// screen's new pixel ratio and taken as it commits.
+// +19 lines (2026-10-18): the geometry a reader publishes is where the
+// engine laid its pages out, a spread's pages on the device grid.
+// +4 lines (2026-10-19): a page's targets, outline and text are asked of
+// the session when the reader needs them, not read off every artifact.
+// +8 lines (2026-10-19): the whole book waits out the frame the first
+// page is drawn in.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2674;
+const SESSION_READER_LINE_BUDGET = 2855;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -42,7 +61,14 @@ const SESSION_READER_LINE_BUDGET = 2674;
 // the whole book's.
 // +5 lines (2026-10-17): `holdBookLayout`, a host's hold on the whole-book
 // layout.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 787;
+// +8 lines (2026-10-18): `resolveTextRangeFromSource`, a source range
+// resolved as a selection with its carets.
+// +5 lines (2026-10-18): `ReaderGlTarget`, a WebGL2 framebuffer
+// `renderSpreadTo` paints into.
+// +6 lines (2026-10-18): `setDevicePixelRatio`, a layout at the screen's
+// new pixel ratio.
+// +5 lines (2026-10-19): `ReaderMargin`, a page's margins side by side.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 811;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -174,37 +200,21 @@ describe('Browser reader architecture invariant: one host protocol', () => {
     for (const retired of ['reader', 'chapter-local-preview']) {
       expect(existsSync(join(BROWSER_BINDING, retired)), retired).toBe(false);
     }
-    const workers = scan(BROWSER_BINDING_FILES, /new Worker\(/g);
-    expect(workers).toEqual([{ file: rel(BROWSER_SESSION), match: 'new Worker(' }]);
   });
 
-  it('builds one worker', () => {
+  it('runs the engine on the page thread: no worker, one build entry', () => {
+    // A size the page asks for is laid out within the frame that asked,
+    // which an engine apart from the page cannot answer in time.
+    expect(scan(BROWSER_BINDING_FILES, /new Worker\(/g)).toEqual([]);
+    expect(read(BROWSER_SESSION)).toContain('createInThreadReaderSessionWorker()');
     const tsdownSource = read(join(SRC, '../tsdown.config.ts'));
     const entries = [...tsdownSource.matchAll(/['"]?([\w-]+)['"]?:\s*['"]src\/[^'"]+['"]/g)].map(
       (match) => match[1],
     );
-    expect(entries.sort()).toEqual(['index', 'reader-session-worker-entry']);
+    expect(entries).toEqual(['index']);
   });
 
-  it('uses one statically analyzable worker URL in source and published builds', () => {
-    const sessionSource = read(BROWSER_SESSION);
-    const workerEntrySource = read(BROWSER_SESSION_WORKER_ENTRY);
-    const tsdownSource = read(join(SRC, '../tsdown.config.ts'));
-
-    expect(sessionSource).toContain(
-      "new Worker(new URL('./reader-session-worker-entry.mjs', import.meta.url)",
-    );
-    expect(sessionSource).not.toContain('new URL(import.meta.url).pathname');
-    expect(workerEntrySource).toContain(
-      "import { startBrowserReaderSessionWorker } from './reader-session-worker.ts'",
-    );
-    expect(workerEntrySource).toContain('startBrowserReaderSessionWorker()');
-    expect(tsdownSource).toMatch(
-      /['"]reader-session-worker-entry['"]:\s*['"]src\/bindings\/browser\/reader-session-worker-main\.ts['"]/,
-    );
-  });
-
-  it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {
+  it('keeps the wasm package behind the decoder entry and the one module that hosts the engine', () => {
     const coreContractsSource = read(BROWSER_CORE_CONTRACTS);
     const rootContractStatements = coreContractsSource
       .split(';')
@@ -213,9 +223,9 @@ describe('Browser reader architecture invariant: one host protocol', () => {
     expect(
       rootContractStatements.every((statement) => statement.trimStart().startsWith('export type')),
     ).toBe(true);
-    expect(read(BROWSER_SESSION_WORKER)).toContain("from '@ritojs/core-wasm'");
+    expect(read(BROWSER_SESSION_ENGINE)).toMatch(/^} from '@ritojs\/core-wasm';$/m);
 
-    const allowed = new Set([BROWSER_CORE_CONTRACTS, BROWSER_SESSION_WORKER]);
+    const allowed = new Set([BROWSER_CORE_CONTRACTS, BROWSER_SESSION_ENGINE]);
     const hits = scan(
       BROWSER_BINDING_FILES,
       /(?:from\s+|import\s*\()\s*['"]@ritojs\/core-wasm['"]/g,
@@ -231,10 +241,10 @@ describe('Browser reader architecture invariant: one host protocol', () => {
     ).toEqual([]);
   });
 
-  it('delegates worker payload construction to the private core-wasm wrapper', () => {
-    const workerSource = read(BROWSER_SESSION_WORKER);
-    expect(workerSource).toContain('createRitoCoreWasmReaderSessionWorkerHandler');
-    expect(lineCount([BROWSER_SESSION_WORKER])).toBeLessThanOrEqual(40);
+  it('delegates the protocol handler to the private core-wasm wrapper', () => {
+    const engineSource = read(BROWSER_SESSION_ENGINE);
+    expect(engineSource).toContain('createRitoCoreWasmReaderSessionWorkerHandler');
+    expect(lineCount([BROWSER_SESSION_ENGINE])).toBeLessThanOrEqual(70);
   });
 });
 
@@ -399,7 +409,8 @@ describe('Browser reader architecture invariant: one committed layout', () => {
     // An answer names pages of the layout it was asked of. Every question
     // whose answer carries pages or geometry goes through one gate that
     // resolves undefined once the layout was replaced.
-    const gated = /\.(?:textInteraction|exactSourceRange|readFootnote|search|textRangeGeometry)\(/g;
+    const gated =
+      /\.(?:textInteraction|exactSourceRange|readFootnote|readPage|search|textRangeGeometry)\(/g;
     for (const file of SESSION_READER_FILES) {
       const source = read(file);
       if (!gated.test(source)) continue;

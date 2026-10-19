@@ -5,7 +5,7 @@
  * against this one constant — the Rust side has a single constant too,
  * so scattering literals here is how the two drift apart unnoticed.
  */
-export const READER_PROTOCOL_VERSION = 6;
+export const READER_PROTOCOL_VERSION = 7;
 
 const MAX_WIRE_BYTES = 256 * 1024 * 1024;
 const MAX_STRING_BYTES = 16 * 1024 * 1024;
@@ -24,11 +24,15 @@ export class RitoReaderWireError extends Error {
 }
 
 export class ReaderWireReader {
-  constructor(bytes, start = 0, end = bytes.byteLength) {
+  constructor(bytes, start = 0, end = bytes.byteLength, data = undefined) {
     if (!(bytes instanceof Uint8Array) || start < 0 || end < start || end > bytes.byteLength) {
       throw new TypeError('Invalid reader session wire byte range');
     }
     this.bytes = bytes;
+    // One view over the whole message, which every record of it shares: a
+    // view per number read made decoding a display list allocate twice for
+    // every number in it.
+    this.data = data ?? new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     this.start = start;
     this.end = end;
     this.cursor = start;
@@ -41,7 +45,7 @@ export class ReaderWireReader {
   record(field) {
     const length = this.length64(`${field} length`);
     const end = this.checkedEnd(length, field);
-    const out = new ReaderWireReader(this.bytes, this.cursor, end);
+    const out = new ReaderWireReader(this.bytes, this.cursor, end, this.data);
     this.cursor = end;
     return out;
   }
@@ -63,15 +67,14 @@ export class ReaderWireReader {
   }
 
   blob(field, maxBytes = MAX_WIRE_BYTES) {
-    const length = this.length64(`${field} length`);
-    if (length > maxBytes) this.fail(`${field} exceeds its operation byte limit`);
-    return this.take(length, field).slice();
+    return this.view(field, maxBytes).slice();
   }
 
-  fixedBytes(expected, field) {
-    const length = this.u32(`${field} length`);
-    if (length !== expected) this.fail(`${field} must contain ${String(expected)} bytes`);
-    return this.take(expected, field).slice();
+  /** A length-prefixed byte run, as a view of the message. */
+  view(field, maxBytes = MAX_WIRE_BYTES) {
+    const length = this.length64(`${field} length`);
+    if (length > maxBytes) this.fail(`${field} exceeds its operation byte limit`);
+    return this.take(length, field);
   }
 
   option(field, read) {
@@ -89,19 +92,19 @@ export class ReaderWireReader {
   }
 
   u8(field) {
-    return this.take(1, field)[0];
+    return this.bytes[this.advance(1, field)];
   }
 
   u16(field) {
-    return this.view(2, field).getUint16(0, true);
+    return this.data.getUint16(this.advance(2, field), true);
   }
 
   u32(field) {
-    return this.view(4, field).getUint32(0, true);
+    return this.data.getUint32(this.advance(4, field), true);
   }
 
   u64(field) {
-    return this.view(8, field).getBigUint64(0, true);
+    return this.data.getBigUint64(this.advance(8, field), true);
   }
 
   externalId(field) {
@@ -111,11 +114,11 @@ export class ReaderWireReader {
   }
 
   f32(field) {
-    return this.finite(this.view(4, field).getFloat32(0, true), field);
+    return this.finite(this.data.getFloat32(this.advance(4, field), true), field);
   }
 
   f64(field) {
-    return this.finite(this.view(8, field).getFloat64(0, true), field);
+    return this.finite(this.data.getFloat64(this.advance(8, field), true), field);
   }
 
   expectMagic(expected, field) {
@@ -153,9 +156,12 @@ export class ReaderWireReader {
     return this.cursor + length;
   }
 
-  view(length, field) {
-    const bytes = this.take(length, field);
-    return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  /** Moves past `length` bytes and answers where they begin. */
+  advance(length, field) {
+    if (length > this.end - this.cursor) this.fail(`${field} is truncated`);
+    const at = this.cursor;
+    this.cursor = at + length;
+    return at;
   }
 
   finite(value, field) {

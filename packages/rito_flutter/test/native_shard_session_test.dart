@@ -118,8 +118,8 @@ void main() {
       final packed = _pack(out);
       final loads = <List<int>>[];
       final network = Completer<void>();
-      final shardGateway = RitoIsolateGateway();
-      final archiveGateway = RitoIsolateGateway();
+      final shardGateway = RitoNativeGateway();
+      final archiveGateway = RitoNativeGateway();
       final sharded = await RitoReaderSession.openShards(
         gateway: shardGateway,
         skeletonBytes: packed.skeleton,

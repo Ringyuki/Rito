@@ -7,23 +7,29 @@
 //! input even across rebuilt trees, and a rebuilt chapter naturally misses
 //! instead of replaying stale fragments.
 //!
-//! Styles live outside the tree (typed references into the shared style
-//! table), so a style-table edit changes layout without changing the tree.
-//! Callers own that dependency and must call [`FragmentCache::invalidate_node`]
-//! for every node whose resolved style changed.
+//! A tree that carries its style tables folds them into the fingerprint, so
+//! a style change misses too. The constraint space joins the key whole.
 //!
-//! Memory is bounded by a byte budget measured over the canonical serialized
-//! size of each outcome — the same encoding the artifacts cross boundaries
-//! with, so accounting is deterministic across platforms. Least-recently-used
-//! entries are evicted first.
+//! An outcome that reports the inline sizes it holds for (a layout without
+//! line text, see `LayoutOutcome::inline_size_range`) also answers a layout
+//! at any other size inside them, the rest of its inputs equal: a window
+//! being resized asks for a new width every frame, and most paragraphs
+//! break into the same lines at the next one.
+//!
+//! Memory is bounded by a byte budget charged a fixed size per fragment of
+//! each outcome: deterministic across platforms, and counted by walking the
+//! fragments rather than encoding them. Least-recently-used entries are
+//! evicted first.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::VecDeque;
+
+use rustc_hash::FxHashMap;
 
 use crate::break_token::BreakToken;
-use crate::constraint_space::ConstraintSpace;
+use crate::constraint_space::{ConstraintSpace, FloatBand, LineText};
 use crate::context::{CancelFlag, FormattingContext, LayoutError, LayoutOutcome};
 use crate::formatting_tree::FormattingTree;
-use crate::serialize::encode_layout_outcome;
+use crate::fragment::Fragment;
 
 /// One cache lookup-or-compute result.
 #[derive(Clone, Debug, PartialEq)]
@@ -38,13 +44,30 @@ pub struct CachedLayout {
 struct CacheKey {
     tree_fingerprint: u64,
     root: u32,
-    /// Constraint space by f64 bit pattern: conservative (distinguishes
-    /// `0.0` from `-0.0`) but never conflates distinct inputs.
-    inline_size_bits: u64,
-    fragmentainer_remaining_bits: Option<u64>,
-    fragmentainer_size_bits: Option<u64>,
+    space: SpaceKey,
     /// Break token in canonical form; `None` for a from-the-start layout.
     token: Option<TokenKey>,
+}
+
+/// Every field of the constraint space, by f64 bit pattern: conservative
+/// (distinguishes `0.0` from `-0.0`) but never conflates distinct inputs.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct SpaceKey {
+    inline_size: u64,
+    fragmentainer_remaining: Option<u64>,
+    fragmentainer_size: Option<u64>,
+    /// Left inset, right inset and bottom of the float band.
+    float_band: Option<[u64; 3]>,
+    containing_block_size: Option<u64>,
+    line_text: LineTextKey,
+}
+
+/// [`LineText`] by the bit patterns of its window.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum LineTextKey {
+    Omitted,
+    All,
+    Within([u64; 2]),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -102,11 +125,15 @@ pub struct FragmentCache {
     budget_bytes: usize,
     used_bytes: usize,
     clock: u64,
-    entries: HashMap<CacheKey, CacheEntry>,
-    /// Every entry by its last-use stamp, oldest first: eviction takes the
-    /// first one instead of scanning the entries, which made a full cache
-    /// cost a pass over every entry per insert.
-    recency: BTreeMap<u64, CacheKey>,
+    entries: FxHashMap<CacheKey, CacheEntry>,
+    /// Every use of an entry by its stamp, oldest first: eviction takes the
+    /// first whose stamp is still its entry's last use instead of scanning
+    /// the entries, and a use only appends. Uses an entry has outlived are
+    /// skipped, and dropped once they outnumber the entries.
+    recency: VecDeque<(u64, CacheKey)>,
+    /// The latest entry reporting the inline sizes it holds for, by its key
+    /// with the inline size left out.
+    widths: FxHashMap<CacheKey, CacheKey>,
 }
 
 impl FragmentCache {
@@ -117,13 +144,15 @@ impl FragmentCache {
             budget_bytes,
             used_bytes: 0,
             clock: 0,
-            entries: HashMap::new(),
-            recency: BTreeMap::new(),
+            entries: FxHashMap::default(),
+            recency: VecDeque::new(),
+            widths: FxHashMap::default(),
         }
     }
 
-    /// Replays a cached outcome for these exact inputs, or invokes the
-    /// provider and caches the result.
+    /// Replays a cached outcome for these exact inputs, or for the same
+    /// inputs at another inline size the outcome reports holding for, or
+    /// invokes the provider and caches the result.
     ///
     /// A cancelled or failed invocation inserts nothing. An outcome larger
     /// than the whole budget is returned but not cached.
@@ -136,37 +165,73 @@ impl FragmentCache {
         token: Option<&BreakToken>,
         cancel: &CancelFlag,
     ) -> Result<CachedLayout, LayoutError> {
+        self.layout_with(
+            provider,
+            tree,
+            node,
+            space,
+            token,
+            cancel,
+            |outcome, from_cache| CachedLayout {
+                outcome: outcome.clone(),
+                from_cache,
+            },
+        )
+    }
+
+    /// [`Self::layout`], reading the outcome where the cache keeps it
+    /// (`read` is told whether it was replayed) instead of copying it out:
+    /// a layout that only reads its child's lines copies none of them.
+    #[allow(clippy::too_many_arguments)]
+    pub fn layout_with<R>(
+        &mut self,
+        provider: &dyn FormattingContext,
+        tree: &FormattingTree,
+        node: crate::FormattingNodeId,
+        space: &ConstraintSpace,
+        token: Option<&BreakToken>,
+        cancel: &CancelFlag,
+        read: impl FnOnce(&LayoutOutcome, bool) -> R,
+    ) -> Result<R, LayoutError> {
         let key = cache_key(tree, node, space, token);
         self.clock += 1;
-        if let Some(entry) = self.entries.get_mut(&key) {
-            self.recency.remove(&entry.last_used);
-            entry.last_used = self.clock;
-            self.recency.insert(self.clock, key);
-            return Ok(CachedLayout {
-                outcome: entry.outcome.clone(),
-                from_cache: true,
-            });
+        let held = if self.entries.contains_key(&key) {
+            Some(key.clone())
+        } else if space.line_text != LineText::Omitted {
+            None
+        } else {
+            self.widths
+                .get(&without_inline_size(&key))
+                .filter(|held| {
+                    self.entries[*held]
+                        .outcome
+                        .inline_size_range
+                        .is_some_and(|(lo, hi)| lo <= space.inline_size && space.inline_size < hi)
+                })
+                .cloned()
+        };
+        if let Some(held) = held {
+            self.touch(&held);
+            return Ok(read(&self.entries[&held].outcome, true));
         }
         let outcome = provider.layout(tree, node, space, token, cancel)?;
-        let bytes = encode_layout_outcome(&outcome).len();
-        if bytes <= self.budget_bytes {
-            self.evict_until_fits(bytes);
-            self.used_bytes += bytes;
-            self.recency.insert(self.clock, key.clone());
-            self.entries.insert(
-                key,
-                CacheEntry {
-                    outcome: outcome.clone(),
-                    bytes,
-                    covered_nodes: tree.len() as u32,
-                    last_used: self.clock,
-                },
-            );
+        let bytes = footprint(&outcome);
+        if bytes > self.budget_bytes {
+            return Ok(read(&outcome, false));
         }
-        Ok(CachedLayout {
+        self.evict_until_fits(bytes);
+        self.used_bytes += bytes;
+        if outcome.inline_size_range.is_some() {
+            self.widths.insert(without_inline_size(&key), key.clone());
+        }
+        self.recency.push_back((self.clock, key.clone()));
+        let entry = self.entries.entry(key).insert_entry(CacheEntry {
             outcome,
-            from_cache: false,
-        })
+            bytes,
+            covered_nodes: tree.len() as u32,
+            last_used: self.clock,
+        });
+        Ok(read(&entry.get().outcome, false))
     }
 
     /// Drops every entry that depends on `node` of `tree` — i.e. every
@@ -183,6 +248,7 @@ impl FragmentCache {
     pub fn clear(&mut self) {
         self.entries.clear();
         self.recency.clear();
+        self.widths.clear();
         self.used_bytes = 0;
     }
 
@@ -201,6 +267,18 @@ impl FragmentCache {
         self.entries.is_empty()
     }
 
+    /// Records a use of `key`, which is cached, at the current stamp.
+    fn touch(&mut self, key: &CacheKey) {
+        let entry = self.entries.get_mut(key).expect("a touched key is cached");
+        entry.last_used = self.clock;
+        self.recency.push_back((self.clock, key.clone()));
+        if self.recency.len() > 2 * self.entries.len() + 64 {
+            let entries = &self.entries;
+            self.recency
+                .retain(|(stamp, key)| is_last_use(entries, key, *stamp));
+        }
+    }
+
     fn retain(&mut self, keep: impl Fn(&CacheKey, &CacheEntry) -> bool) {
         let mut released = 0usize;
         self.entries.retain(|key, entry| {
@@ -212,21 +290,59 @@ impl FragmentCache {
         });
         self.used_bytes -= released;
         let entries = &self.entries;
-        self.recency.retain(|_, key| entries.contains_key(key));
+        self.recency
+            .retain(|(stamp, key)| is_last_use(entries, key, *stamp));
+        self.widths.retain(|_, key| entries.contains_key(key));
     }
 
     fn evict_until_fits(&mut self, incoming_bytes: usize) {
         while self.used_bytes + incoming_bytes > self.budget_bytes {
             // Unique clock stamps make the least recently used entry the
-            // first in stamp order, deterministically.
-            let Some((_, victim)) = self.recency.pop_first() else {
+            // first in stamp order whose stamp is its last use,
+            // deterministically.
+            let Some((stamp, victim)) = self.recency.pop_front() else {
                 return;
             };
+            if !is_last_use(&self.entries, &victim, stamp) {
+                continue;
+            }
             if let Some(entry) = self.entries.remove(&victim) {
                 self.used_bytes -= entry.bytes;
+                let any_size = without_inline_size(&victim);
+                if self.widths.get(&any_size) == Some(&victim) {
+                    self.widths.remove(&any_size);
+                }
             }
         }
     }
+}
+
+/// Whether `stamp` is the last use of the entry `key` names.
+fn is_last_use(entries: &FxHashMap<CacheKey, CacheEntry>, key: &CacheKey, stamp: u64) -> bool {
+    entries
+        .get(key)
+        .is_some_and(|entry| entry.last_used == stamp)
+}
+
+/// The key every inline size shares with `key`'s other inputs.
+fn without_inline_size(key: &CacheKey) -> CacheKey {
+    let mut key = key.clone();
+    key.space.inline_size = 0;
+    key
+}
+
+/// What an outcome is charged against the budget: a fixed size per
+/// fragment, the unit layout output is made of.
+fn footprint(outcome: &LayoutOutcome) -> usize {
+    const FRAGMENT_BYTES: usize = 96;
+    fn fragments(fragment: &Fragment) -> usize {
+        1 + match fragment {
+            Fragment::Box(fragment) => fragment.children.iter().map(fragments).sum(),
+            Fragment::Line(fragment) => fragment.children.iter().map(fragments).sum(),
+            Fragment::Text(_) | Fragment::Image(_) => 0,
+        }
+    }
+    FRAGMENT_BYTES * fragments(&outcome.fragments.root)
 }
 
 fn cache_key(
@@ -238,10 +354,42 @@ fn cache_key(
     CacheKey {
         tree_fingerprint: tree.fingerprint(),
         root: node.0,
-        inline_size_bits: space.inline_size.to_bits(),
-        fragmentainer_remaining_bits: space.fragmentainer_remaining.map(f64::to_bits),
-        fragmentainer_size_bits: space.fragmentainer_size.map(f64::to_bits),
+        space: space_key(space),
         token: token.map(token_key),
+    }
+}
+
+/// Destructured without a rest pattern: a field added to the constraint
+/// space does not compile until it joins the key, so a layout never
+/// replays an outcome computed under a different space.
+fn space_key(space: &ConstraintSpace) -> SpaceKey {
+    let ConstraintSpace {
+        inline_size,
+        fragmentainer_remaining,
+        fragmentainer_size,
+        float_band,
+        containing_block_size,
+        line_text,
+    } = *space;
+    SpaceKey {
+        inline_size: inline_size.to_bits(),
+        fragmentainer_remaining: fragmentainer_remaining.map(f64::to_bits),
+        fragmentainer_size: fragmentainer_size.map(f64::to_bits),
+        float_band: float_band.map(
+            |FloatBand {
+                 left_inset,
+                 right_inset,
+                 bottom,
+             }| [left_inset, right_inset, bottom].map(f64::to_bits),
+        ),
+        containing_block_size: containing_block_size.map(f64::to_bits),
+        line_text: match line_text {
+            LineText::Omitted => LineTextKey::Omitted,
+            LineText::All => LineTextKey::All,
+            LineText::Within { top, bottom } => {
+                LineTextKey::Within([top, bottom].map(f64::to_bits))
+            }
+        },
     }
 }
 
@@ -363,6 +511,65 @@ mod tests {
     }
 
     #[test]
+    fn every_field_of_the_space_keys_the_cache() {
+        let provider = CountingContext::new();
+        let tree = leaf_tree(0, &[80.0]);
+        let cancel = CancelFlag::new();
+        let mut cache = FragmentCache::new(1 << 20);
+        let base = ConstraintSpace::continuous(300.0);
+        let band = |left_inset, bottom| {
+            Some(FloatBand {
+                left_inset,
+                right_inset: 0.0,
+                bottom,
+            })
+        };
+        // Each differs from the one before it in one field only.
+        let spaces = [
+            base,
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                ..base
+            },
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                float_band: band(96.0, 72.0),
+                ..base
+            },
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                float_band: band(96.0, 40.0),
+                ..base
+            },
+            ConstraintSpace {
+                fragmentainer_size: Some(600.0),
+                float_band: band(96.0, 40.0),
+                containing_block_size: Some(200.0),
+                ..base
+            },
+        ];
+        for space in &spaces {
+            let outcome = cache
+                .layout(&provider, &tree, tree.root(), space, None, &cancel)
+                .expect("lays out");
+            assert!(
+                !outcome.from_cache,
+                "{space:?} replayed another space's outcome"
+            );
+        }
+        for space in &spaces {
+            let outcome = cache
+                .layout(&provider, &tree, tree.root(), space, None, &cancel)
+                .expect("lays out again");
+            assert!(
+                outcome.from_cache,
+                "{space:?} did not replay its own outcome"
+            );
+        }
+        assert_eq!(provider.calls.get(), spaces.len());
+    }
+
+    #[test]
     fn rebuilt_tree_with_same_ids_never_replays_stale_fragments() {
         let provider = CountingContext::new();
         let cancel = CancelFlag::new();
@@ -407,7 +614,7 @@ mod tests {
 
         cache.invalidate_node(&tree_a, FormattingNodeId(0));
         assert_eq!(cache.len(), 1);
-        assert_eq!(cache.recency.len(), cache.entries.len());
+        assert_eq!(live_uses(&cache), cache.entries.len());
         assert!(
             cache
                 .layout(&provider, &tree_b, tree_b.root(), &space, None, &cancel)
@@ -493,7 +700,7 @@ mod tests {
                 )
                 .expect("fill");
             assert!(cache.used_bytes() <= cache_budget(&cache));
-            assert_eq!(cache.recency.len(), cache.entries.len());
+            assert_eq!(live_uses(&cache), cache.entries.len());
         }
         assert_eq!(cache.len(), 2);
         // Width 100 was least recently used and must have been evicted;
@@ -557,5 +764,14 @@ mod tests {
 
     fn cache_budget(cache: &FragmentCache) -> usize {
         cache.budget_bytes
+    }
+
+    /// The uses still standing for an entry's last one: one per entry.
+    fn live_uses(cache: &FragmentCache) -> usize {
+        cache
+            .recency
+            .iter()
+            .filter(|(stamp, key)| is_last_use(&cache.entries, key, *stamp))
+            .count()
     }
 }

@@ -56,16 +56,20 @@ export interface SessionReaderState {
   readonly hostFonts: SessionReaderHostFonts;
   readonly publication: SessionReaderPublication;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
-  readonly ctx: CanvasRenderingTarget;
+  /** The canvas's 2D context, taken the first time the reader paints into it. */
+  readonly canvasContext: () => CanvasRenderingTarget;
   readonly logger: BrowserHostLogger;
   /** What this reader asked its session and was answered, for a report of something going wrong. */
   readonly log: ReaderEventLog;
   /** The layout options as last requested; a layout in flight may not have committed them. */
   options: ReaderOptions;
   readonly typography: SessionReaderTypography;
-  /** Geometry of the committed layout. */
+  /** The layout options of the committed layout, as they were asked for. */
   config: LayoutConfig;
-  readonly dpr: number;
+  /** The committed layout's geometry, its pages where the engine laid them out. */
+  geometry: LayoutConfig;
+  /** Device pixels per CSS pixel the committed layout is painted at. */
+  dpr: number;
   bgColor: string;
   fgColor: string | undefined;
   /** The committed page table. */

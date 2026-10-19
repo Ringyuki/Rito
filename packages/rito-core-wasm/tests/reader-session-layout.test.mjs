@@ -47,13 +47,14 @@ const LAYOUT = {
     { tocId: 6, pageIndex: 3 },
   ],
   activeTocEntryByPage: [undefined, 2, 2, 6, 6],
+  complete: false,
 };
 
 test('the layout query and the spread request encode to the Rust bytes', () => {
   assert.deepEqual(
     encodeRitoReaderNavigationRequest({
       sessionId: 7n,
-      query: { kind: 'layout', artifactId: 9n },
+      query: { kind: 'layout', artifactId: 9n, whole: false },
     }),
     rustHex('LAYOUT_REQUEST_HEX'),
   );

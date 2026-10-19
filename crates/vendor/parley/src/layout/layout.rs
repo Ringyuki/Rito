@@ -4,7 +4,8 @@
 use crate::InlineBox;
 use crate::layout::alignment::align;
 use crate::layout::alignment::unjustify;
-use crate::layout::data::LayoutData;
+use crate::layout::data::{LayoutData, LineData, LineItemData};
+use alloc::vec::Vec;
 use crate::style::Brush;
 use core::cmp::Ordering;
 use core::fmt;
@@ -24,6 +25,20 @@ use crate::layout::{
 #[derive(Clone)]
 pub struct Layout<B: Brush> {
     pub(crate) data: LayoutData<B>,
+}
+
+/// Rito: what line breaking leaves in a layout — its lines and their items,
+/// the width constraint they were broken in and the extents measured from
+/// them — taken from one copy of a build to put into another copy broken
+/// alike instead of breaking it again.
+#[derive(Clone, Debug, Default)]
+pub struct LineBreaks {
+    lines: Vec<LineData>,
+    line_items: Vec<LineItemData>,
+    layout_max_advance: f32,
+    width: f32,
+    full_width: f32,
+    height: f32,
 }
 
 impl<B: Brush> fmt::Debug for Layout<B> {
@@ -120,7 +135,7 @@ impl<B: Brush> Layout<B> {
     }
 
     pub fn inline_boxes_mut(&mut self) -> &mut [InlineBox] {
-        &mut self.data.inline_boxes
+        super::data::owned(&mut self.data.inline_boxes)
     }
 
     /// Returns an iterator over the lines in the layout.
@@ -161,6 +176,29 @@ impl<B: Brush> Layout<B> {
     pub fn break_all_lines(&mut self, max_advance: Option<f32>) {
         self.break_lines()
             .break_remaining(max_advance.unwrap_or(f32::MAX));
+    }
+
+    /// Rito: writes the lines the last line breaking left, before
+    /// alignment, into `breaks`, reusing what it holds (see [`LineBreaks`]).
+    pub fn keep_line_breaks(&self, breaks: &mut LineBreaks) {
+        breaks.lines.clone_from(&self.data.lines);
+        breaks.line_items.clone_from(&self.data.line_items);
+        breaks.layout_max_advance = self.data.layout_max_advance;
+        breaks.width = self.data.width;
+        breaks.full_width = self.data.full_width;
+        breaks.height = self.data.height;
+    }
+
+    /// Rito: puts back the lines another copy of this build was broken
+    /// into, as breaking this copy alike would leave them.
+    pub fn restore_line_breaks(&mut self, breaks: &LineBreaks) {
+        unjustify(&mut self.data);
+        self.data.lines.clone_from(&breaks.lines);
+        self.data.line_items.clone_from(&breaks.line_items);
+        self.data.layout_max_advance = breaks.layout_max_advance;
+        self.data.width = breaks.width;
+        self.data.full_width = breaks.full_width;
+        self.data.height = breaks.height;
     }
 
     /// Apply alignment to the layout.

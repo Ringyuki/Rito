@@ -32,6 +32,25 @@ describe('PrerenderScheduler', () => {
     expect(ensureContent).toHaveBeenCalledTimes(2);
   });
 
+  it('says when both neighbours are painted, once', () => {
+    const callbacks: (() => void)[] = [];
+    vi.stubGlobal('requestIdleCallback', (next: () => void) => {
+      callbacks.push(next);
+      return callbacks.length;
+    });
+    vi.stubGlobal('cancelIdleCallback', vi.fn());
+    const { job } = createJob();
+    const painted = vi.fn();
+    const scheduler = createPrerenderScheduler();
+
+    scheduler.schedule({ ...job, painted });
+    callbacks.shift()?.();
+    expect(painted).not.toHaveBeenCalled();
+    callbacks.shift()?.();
+    expect(painted).toHaveBeenCalledOnce();
+    expect(callbacks).toHaveLength(0);
+  });
+
   it('does not dirty an adjacent slot that already owns its spread', () => {
     const callbacks: (() => void)[] = [];
     vi.stubGlobal('requestIdleCallback', (next: () => void) => {

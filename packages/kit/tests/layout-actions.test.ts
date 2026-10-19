@@ -25,6 +25,8 @@ function createMocks(options?: {
   const updateLayout = vi.fn(() => false);
   const releaseBook = vi.fn();
   const holdBookLayout = vi.fn(() => releaseBook);
+  const pausePrerender = vi.fn();
+  const resumePrerender = vi.fn();
   const spreads = Array.from({ length: options?.totalSpreads ?? 3 }, (_, index) => ({ index }));
   const reader = {
     totalSpreads: spreads.length,
@@ -55,7 +57,6 @@ function createMocks(options?: {
   const invalidateAllContent = vi.fn();
   const assignSlot = vi.fn();
   const reset = vi.fn();
-  const scheduleComposite = vi.fn();
   let annotationStateAtComposite:
     | {
         readonly generation: number;
@@ -79,6 +80,7 @@ function createMocks(options?: {
   );
   const invalidateSelection = vi.fn();
   const coordState = {
+    nativeTargetHold: { held: false, reload: null as (() => void) | null },
     contentInteractionGeneration: 6,
     selectionProjectionTransfer: null,
     positionUpdateMode: { kind: 'capture' },
@@ -100,7 +102,7 @@ function createMocks(options?: {
     },
     searchResults: { stale: false, refresh: null },
   };
-  const compositeNow = vi.fn(() => {
+  const captureCompositeState = () => {
     annotationStateAtComposite = {
       generation: coordState.nativeAnnotationGeometry.generation,
       cacheSize: coordState.nativeAnnotationGeometry.cache.size,
@@ -108,14 +110,18 @@ function createMocks(options?: {
       pendingSize: coordState.nativeAnnotationGeometry.pending.size,
       resolvedCount: coordState.resolvedAnnotations.length,
     };
-  });
+  };
+  // A layout commit paints as it commits; the state it paints is the
+  // state at the call.
+  const scheduleComposite = vi.fn(captureCompositeState);
+  const compositeNow = vi.fn(captureCompositeState);
   const internals = {
     reader,
     currentSpread: options?.currentSpread ?? 1,
     renderScale: 1,
     options: {},
     engines: {
-      selection: { invalidate: invalidateSelection },
+      selection: { invalidate: invalidateSelection, getState: () => 'idle' },
       search: {},
       position: {
         getCurrent,
@@ -133,6 +139,7 @@ function createMocks(options?: {
     pool: { resize, invalidateAllContent, assignSlot },
     td: { reset, viewportWidth: 0 },
     frameDriver: { scheduleComposite, compositeNow },
+    prerenderScheduler: { pause: pausePrerender, resume: resumePrerender },
   } as unknown as RuntimeComponents;
   const emit = vi.fn();
   const emitter = { emit } as unknown as Emitter;
@@ -145,6 +152,8 @@ function createMocks(options?: {
     spies: {
       holdBookLayout,
       releaseBook,
+      pausePrerender,
+      resumePrerender,
       setSize,
       resize,
       invalidateAllContent,
@@ -171,10 +180,12 @@ function createMocks(options?: {
 }
 
 describe('buildLayoutActions', () => {
-  it('holds the whole-book layout while sizes keep coming', () => {
+  it('holds the whole-book layout, the neighbouring spreads and the interaction targets while sizes keep coming', () => {
     vi.useFakeTimers();
     try {
       const { internals, runtime, emitter, spies } = createMocks();
+      const reloadTargets = vi.fn();
+      internals.coordState.nativeTargetHold.reload = reloadTargets;
       const disposables = createDisposableCollection();
       const actions = buildLayoutActions(internals, emitter, runtime, disposables);
 
@@ -185,15 +196,26 @@ describe('buildLayoutActions', () => {
       // One hold for the run of sizes, still standing: the last size is new.
       expect(spies.holdBookLayout).toHaveBeenCalledOnce();
       expect(spies.releaseBook).not.toHaveBeenCalled();
+      // A neighbour painted for one size is replaced by the next.
+      expect(spies.pausePrerender).toHaveBeenCalledOnce();
+      expect(spies.resumePrerender).not.toHaveBeenCalled();
+      // Targets read for one size are thrown away by the next.
+      expect(internals.coordState.nativeTargetHold.held).toBe(true);
+      expect(reloadTargets).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(50);
       expect(spies.releaseBook).toHaveBeenCalledOnce();
+      expect(spies.resumePrerender).toHaveBeenCalledOnce();
+      // The size stands: the spread shown has its targets read.
+      expect(internals.coordState.nativeTargetHold.held).toBe(false);
+      expect(reloadTargets).toHaveBeenCalledOnce();
 
       // A size after the settle holds again; disposing lets it go at once.
       actions.resize(720, 600);
       expect(spies.holdBookLayout).toHaveBeenCalledTimes(2);
       disposables.disposeAll();
       expect(spies.releaseBook).toHaveBeenCalledTimes(2);
+      expect(spies.resumePrerender).toHaveBeenCalledTimes(2);
       vi.advanceTimersByTime(RESIZE_SETTLE_MS);
       expect(spies.releaseBook).toHaveBeenCalledTimes(2);
     } finally {

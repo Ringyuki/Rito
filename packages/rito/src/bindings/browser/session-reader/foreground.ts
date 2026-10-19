@@ -1,3 +1,4 @@
+import type { Reader } from '../../../reader';
 import { commitSessionReaderFrame, requestSessionReaderLayout } from './artifacts';
 import { commitSessionReaderLayout } from './commit';
 import { loadSessionReaderFrame, warmSessionReaderNeighbours } from './frames';
@@ -56,14 +57,79 @@ async function relayout(state: SessionReaderState, token: number): Promise<void>
   const force = state.relayoutForced;
   state.relayoutForced = false;
   const config = sessionReaderLayoutConfig(state.options, state.typography);
-  if (!force && sameSessionReaderLayoutConfig(config, state.config)) return;
+  const ratio = state.options.devicePixelRatio ?? state.dpr;
+  if (!force && ratio === state.dpr && sameSessionReaderLayoutConfig(config, state.config)) return;
   let committed = false;
   try {
-    const candidate = await requestSessionReaderLayout(state, config);
+    const candidate = await requestSessionReaderLayout(state, config, ratio);
     await commitSessionReaderLayout(state, candidate, config);
     committed = true;
   } finally {
     // What forced this layout is still not laid out for: the next request is forced too.
     if (!committed) state.relayoutForced ||= force;
   }
+}
+
+/** What a page is laid out in: its size, its spreads and the ratio it is painted at. */
+export function sessionReaderGeometryMethods(
+  state: SessionReaderState,
+): Pick<Reader, 'resize' | 'setDevicePixelRatio' | 'setSpreadMode' | 'updateLayout'> {
+  return {
+    resize(width, height) {
+      state.options = { ...state.options, width, height };
+      scheduleSessionReaderRelayout(state);
+    },
+    setDevicePixelRatio(ratio) {
+      if (!Number.isFinite(ratio) || ratio <= 0) {
+        throw new RangeError(`A device pixel ratio is a positive number, not ${String(ratio)}`);
+      }
+      state.options = { ...state.options, devicePixelRatio: ratio };
+      scheduleSessionReaderRelayout(state);
+    },
+    setSpreadMode(mode) {
+      state.options = { ...state.options, spread: mode };
+      scheduleSessionReaderRelayout(state);
+      return false;
+    },
+    updateLayout(width, height, spreadMode, margin) {
+      state.options = {
+        ...state.options,
+        width,
+        height,
+        ...(spreadMode === undefined ? {} : { spread: spreadMode }),
+        ...(margin === undefined ? {} : { margin }),
+      };
+      scheduleSessionReaderRelayout(state);
+      return false;
+    },
+  };
+}
+
+/** How the text looks: its colours and the reader's typography. */
+export function sessionReaderAppearanceMethods(
+  state: SessionReaderState,
+): Pick<Reader, 'setTheme' | 'setTypography'> {
+  return {
+    setTheme(theme) {
+      const { bgColor, fgColor } = state;
+      if (theme.backgroundColor !== undefined) state.bgColor = theme.backgroundColor ?? '#ffffff';
+      if (theme.foregroundColor !== undefined) state.fgColor = theme.foregroundColor ?? undefined;
+      if (state.bgColor === bgColor && state.fgColor === fgColor) return;
+      // Colours are read at paint time, so every loaded spread stays valid
+      // but nothing repaints on its own: the invalidation is the cue.
+      for (const listener of state.spreadContentInvalidatedListeners) {
+        listener(state.activeSpreadIndex);
+      }
+    },
+    setTypography(next) {
+      const { typography } = state;
+      if (next.fontSize !== undefined) typography.fontSize = next.fontSize ?? undefined;
+      if (next.lineHeight !== undefined) typography.lineHeight = next.lineHeight ?? undefined;
+      if (next.lineHeightForce !== undefined) typography.lineHeightForce = next.lineHeightForce;
+      if (next.fontFamily !== undefined) typography.fontFamily = next.fontFamily ?? undefined;
+      if (next.fontFamilyForce !== undefined) typography.fontFamilyForce = next.fontFamilyForce;
+      scheduleSessionReaderRelayout(state);
+      return false;
+    },
+  };
 }

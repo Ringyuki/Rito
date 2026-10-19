@@ -11,8 +11,8 @@ import { createReader } from '@ritojs/core';
 
 Creates a ready-to-render browser `Reader` from an EPUB `ArrayBuffer`.
 
-It opens a reader session in a Worker and resolves once the first page can
-be painted:
+It opens a reader session, whose engine runs on the page's own thread, and
+resolves once the first page can be painted:
 
 1. parse the EPUB archive
 2. lay out the chapter being read, alone, and publish the spread that shows
@@ -31,9 +31,9 @@ other native hosts bridge the C ABI (see
 | ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
 | `width`            | `number`                 | required                         | Viewport width in logical pixels       |
 | `height`           | `number`                 | required                         | Viewport height in logical pixels      |
-| `margin`           | `number`                 | `40`                             | Page margin                            |
+| `margin`           | `ReaderMargin`           | `40`                             | Page margins; see below                |
 | `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
-| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
+| `spreadGap`        | `number`                 | `20`                             | Least gap between pages in double mode |
 | `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
 | `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
 | `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
@@ -100,6 +100,10 @@ before calling `createReader()`. Changing the policy object later cannot mutate
 an existing Reader; the replacement takes effect only when the host creates or
 loads a new Reader.
 
+`ReaderMargin` is one number for every side, `{ x, y }` for left and right and for
+top and bottom, or `{ top, right, bottom, left }`, in CSS pixels; both pages of a
+spread take the same left and right margins. `updateLayout` takes the same forms.
+
 ## `Reader`
 
 ### Render / layout
@@ -107,13 +111,30 @@ loads a new Reader.
 | Member                                              | What it does                                     |
 | --------------------------------------------------- | ------------------------------------------------ |
 | `renderSpread(index, scale?)`                       | Render a spread to the bound canvas              |
-| `renderSpreadTo(index, ctx)`                        | Render to a Canvas 2D target                     |
+| `renderSpreadTo(index, target)`                     | Render to a Canvas 2D or a `ReaderGlTarget`      |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
+| `setDevicePixelRatio(ratio)`                        | Re-paginate at a new device pixel ratio          |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
 | `updateLayout(width, height, spreadMode?, margin?)` | Update viewport and spread settings in one pass  |
 | `getCanvasSize(scale?)`                             | Return CSS canvas size for the current layout    |
 | `getLayoutGeometry()`                               | Return the active `LayoutConfig`                 |
 | `notifyActiveSpread(index)`                         | Trigger spread-change listeners without painting |
+
+`ReaderGlTarget` is `{ gl, framebuffer, width, height }`: a WebGL2
+context and the framebuffer in it to paint (`null` for its canvas),
+sized like a 2D target. Both targets receive the same pixels. Painting
+changes the context's viewport, scissor, blending, program, vertex array
+and bound textures; set your own before drawing with it again.
+`createReader` takes the canvas's 2D context only when `renderSpread`
+first paints into it, so a host painting through `renderSpreadTo` can
+use the canvas for WebGL.
+
+A page is laid out and painted at a device pixel ratio, as the browser
+lays out its own page at one: call `setDevicePixelRatio` when the
+window's changes (the page zoomed, the window went to another screen) so
+the pages keep one pixel per device pixel. `dpr` takes the new ratio when
+that layout commits, so a host sizes its canvas from `dpr` as it does
+after a resize. `@ritojs/kit` does this itself.
 
 ### Theme / typography
 
@@ -197,13 +218,13 @@ faces do not cover. Variable fonts are rejected.
 | `layoutScope`          | What the committed layout covers: `'chapter'` or `'book'`                              |
 | `totalSpreads`         | Number of spreads in the committed layout                                              |
 | `pageCount`            | Number of pages in the committed layout                                                |
-| `dpr`                  | Device pixel ratio used by rendering                                                   |
+| `dpr`                  | Device pixel ratio the committed layout is painted at                                  |
 | `getImageBlobUrl(src)` | Create or asynchronously resolve an EPUB image URL                                     |
 | `interactions`         | Optional revision-safe semantic interaction provider                                   |
 
 A layout is committed twice. When a book opens, and again after every change
-that re-paginates (`resize`, `setSpreadMode`, `updateLayout`, `setTypography`,
-`addFontFaces`, `removeFontFaces`), the reader lays out the chapter being read
+that re-paginates (`resize`, `setDevicePixelRatio`, `setSpreadMode`, `updateLayout`,
+`setTypography`, `addFontFaces`, `removeFontFaces`), the reader lays out the chapter being read
 alone and commits it with `layoutScope: 'chapter'`: the page is on screen after
 one chapter's work, and `pageCount`, `totalSpreads`, `spreads`, `chapterMap` and
 every page index describe that chapter, counted from its first page. The whole
@@ -219,7 +240,11 @@ new size each time a layout ends.
 
 A spread carries page indexes only; page geometry comes from
 `getLayoutGeometry()` and page content from the rendered frame and
-`interactions`. Page and spread indexes are projections of the committed layout
+`interactions`. In double mode the two pages sit on the device grid, as a
+browser places a frame: each is a whole number of device pixels wide, so where
+the viewport less `spreadGap` does not halve into whole device pixels the pages
+are a little narrower and the gap takes what is left — read `pageWidth` and
+`spreadGap` from `getLayoutGeometry()`. Page and spread indexes are projections of the committed layout
 and change on every commit — persist a `ReaderLocator`, not an index.
 `@ritojs/kit` hides the chapter commit: its page numbers, progress and
 navigation are book-wide, and a target outside the chapter is carried over to
@@ -252,6 +277,9 @@ line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
 Vertical line moves return a `preferredInlinePosition` that callers pass into the
 next vertical move to preserve sticky x. Reaching an incomplete retained tail is
 reported as typed `pending`.
+`resolveTextRangeFromSource()`, when supported, resolves a durable
+`{ href, sourceRange }` as a range in the committed layout, carets included:
+how a selection made in one layout is found in the next.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact
@@ -286,7 +314,7 @@ rewrite them through an explicit caller-owned resource URL.
 | `dispose()`                      | Start releasing assets and close the loaded document    |
 
 Disposal invalidates the Reader synchronously. A browser-backed Reader returns
-a promise that settles after its Worker and the session in it have been released;
+a promise that settles after its session and engine have been released;
 `await reader.dispose()` before creating a replacement Reader. Synchronous
 Reader implementations may return `void`, which is also safe to `await`.
 

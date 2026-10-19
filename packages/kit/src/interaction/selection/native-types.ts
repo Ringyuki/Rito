@@ -69,6 +69,8 @@ export interface NativeSelectionEngine {
   handlePointerUp(point: NativeSelectionPoint): void;
   clear(): void;
   invalidate(): void;
+  /** Shows `range` as the selection when none is being made or shown. */
+  restore(range: ReaderTextRange): void;
   dispose(): void;
   getState(): NativeSelectionState;
   getInteractionGeneration(): number;

@@ -41,6 +41,7 @@ fn a_spread_named_by_the_layout_is_published_and_committed_across_the_abi() {
         session_id,
         query: ReaderNavigationQuery::Layout {
             artifact_id: first.artifact_id,
+            whole: true,
         },
     })
     .expect("layout query encodes");

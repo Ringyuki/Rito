@@ -237,9 +237,10 @@ extension RitoNavigationEncoding on RitoRequestEncoder {
         _sourcePointRecord(writer, query.first);
         writer.string(query.secondHref, 'second href');
         _sourcePointRecord(writer, query.second);
-      case RitoLayoutQuery(:final artifactId):
+      case RitoLayoutQuery(:final artifactId, :final whole):
         writer.uint8(4);
         writer.externalId(artifactId, 'artifact id');
+        writer.boolean(whole);
     }
     return writer.finish();
   }

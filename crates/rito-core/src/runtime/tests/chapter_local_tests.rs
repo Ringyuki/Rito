@@ -237,8 +237,8 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
             .collect()
     };
     assert_eq!(
-        text_rects(&cold_frame.commands),
-        text_rects(&warmed_frame.commands),
+        text_rects(&cold_frame.commands.to_vec()),
+        text_rects(&warmed_frame.commands.to_vec()),
         "chapter-two text geometry must not depend on engine warm-up"
     );
 
@@ -255,8 +255,8 @@ fn a_chapter_lays_out_the_same_on_a_cold_and_a_book_warmed_engine() {
         .frame_commands_for_tests(&revision.revision_id, spread_index)
         .expect("whole-book frame");
     assert_eq!(
-        text_rects(&cold_frame.commands),
-        text_rects(&book_frame.commands),
+        text_rects(&cold_frame.commands.to_vec()),
+        text_rects(&book_frame.commands.to_vec()),
         "whole-book text geometry must match the cold chapter-local build"
     );
 }

@@ -42,6 +42,9 @@ impl ReaderSession {
         owner: crate::runtime::RuntimeChapterLocalRevisionHandle,
         locator: &RuntimeSourceLocator,
     ) -> Result<Option<(u64, ResolvedArtifactTarget)>, ReaderError> {
+        // Placed among all of its chapter's pages, as a fresh revision
+        // would place it.
+        self.complete_revision(revision_id)?;
         let resolved = self
             .document
             .resolve_chapter_local_source_locator(&owner, locator.clone())

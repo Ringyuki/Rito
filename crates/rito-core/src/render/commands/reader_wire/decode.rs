@@ -12,10 +12,35 @@ pub(super) enum DecodeError {
     InvalidUtf8,
     NonFiniteNumber,
     TrailingBytes,
+    /// A run's text, paint or clusters outside the tables, or its text
+    /// ranges disagreeing with each other.
+    InvalidReference,
+}
+
+/// Where a run's text, paint and clusters sit in the tables.
+struct RunReference {
+    text_bytes: (u32, u32),
+    text_units: (u32, u32),
+    paint: u32,
+    clusters: (u32, u32),
 }
 
 pub(super) fn validate(bytes: &[u8]) -> Result<u32, DecodeError> {
-    let mut decoder = Decoder { bytes, offset: 0 };
+    validated(bytes).map(|(count, _)| count)
+}
+
+/// Where the joins flags of the cluster table start in a valid list.
+pub(super) fn joins_offset(bytes: &[u8]) -> Result<usize, DecodeError> {
+    validated(bytes).map(|(_, joins)| joins)
+}
+
+fn validated(bytes: &[u8]) -> Result<(u32, usize), DecodeError> {
+    let mut decoder = Decoder {
+        bytes,
+        offset: 0,
+        runs: Vec::new(),
+        joins_at: 0,
+    };
     if decoder.read_exact::<7>()? != *READER_DISPLAY_LIST_MAGIC {
         return Err(DecodeError::InvalidMagic);
     }
@@ -28,18 +53,67 @@ pub(super) fn validate(bytes: &[u8]) -> Result<u32, DecodeError> {
     for _ in 0..command_count {
         decoder.read_primitive()?;
     }
+    decoder.read_tables()?;
     if decoder.offset != bytes.len() {
         return Err(DecodeError::TrailingBytes);
     }
-    Ok(command_count)
+    Ok((command_count, decoder.joins_at))
 }
 
 struct Decoder<'a> {
     bytes: &'a [u8],
     offset: usize,
+    runs: Vec<RunReference>,
+    joins_at: usize,
 }
 
 impl Decoder<'_> {
+    /// The tables after the primitives, and every run's place in them.
+    fn read_tables(&mut self) -> Result<(), DecodeError> {
+        let clusters = self.read_u32()?;
+        while !self.offset.is_multiple_of(4) {
+            if self.read_u8()? != 0 {
+                return Err(DecodeError::InvalidOption(1));
+            }
+        }
+        for _ in 0..clusters {
+            self.read_u32()?;
+        }
+        for _ in 0..u64::from(clusters) * 2 {
+            self.read_finite_f32()?;
+        }
+        self.joins_at = self.offset;
+        for _ in 0..clusters {
+            let joins = self.read_u8()?;
+            if joins > 1 {
+                return Err(DecodeError::InvalidOption(joins));
+            }
+        }
+        let text = self.read_string()?;
+        let paints = self.read_u32()?;
+        for _ in 0..paints {
+            self.read_run_paint()?;
+        }
+        for run in &self.runs {
+            let within = |(start, length): (u32, u32), bound: u32| {
+                start.checked_add(length).is_some_and(|end| end <= bound)
+            };
+            let (start, length) = (run.text_bytes.0 as usize, run.text_bytes.1 as usize);
+            let units = |range: std::ops::Range<usize>| {
+                text.get(range)
+                    .map(|slice| slice.encode_utf16().count() as u32)
+            };
+            if !within(run.clusters, clusters)
+                || run.paint >= paints
+                || units(0..start) != Some(run.text_units.0)
+                || units(start..start + length) != Some(run.text_units.1)
+            {
+                return Err(DecodeError::InvalidReference);
+            }
+        }
+        Ok(())
+    }
+
     fn read_primitive(&mut self) -> Result<(), DecodeError> {
         match self.read_u16()? {
             1 | 2 => Ok(()),
@@ -144,20 +218,23 @@ impl Decoder<'_> {
     }
 
     fn read_text(&mut self) -> Result<(), DecodeError> {
-        self.read_string()?;
+        let text_bytes = (self.read_u32()?, self.read_u32()?);
+        let text_units = (self.read_u32()?, self.read_u32()?);
         self.read_rect()?;
-        self.read_run_paint()?;
+        let paint = self.read_u32()?;
         self.read_optional_f64()?;
         self.read_optional_string()?;
         self.read_optional_string()?;
         if self.read_option()? {
             self.read_exact::<8>()?;
         }
-        let cluster_count = self.read_u32()?;
-        for _ in 0..cluster_count {
-            self.read_u32()?;
-            self.read_f64s(2)?;
-        }
+        let clusters = (self.read_u32()?, self.read_u32()?);
+        self.runs.push(RunReference {
+            text_bytes,
+            text_units,
+            paint,
+            clusters,
+        });
         Ok(())
     }
 

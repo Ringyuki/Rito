@@ -2,7 +2,7 @@
 
 This directory holds the Playwright pixel suite of `@ritojs/core`. It runs
 the production browser reader — the built `dist/` bundle, the WASM engine
-in its Worker and the Canvas pen — in Chromium and checks what reaches the
+and the Canvas pen — in Chromium and checks what reaches the
 canvas against what the engine reports.
 
 The suite has one spec today:

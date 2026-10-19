@@ -3,11 +3,12 @@
 `@ritojs/core` exposes the root entry and `./package.json` only.
 
 ```ts
-import { createReader, createLayoutConfig, preloadReaderRuntime } from '@ritojs/core';
+import { createReader, preloadReaderRuntime } from '@ritojs/core';
 ```
 
 `createReader()` is the browser's one host of the reader session: the
-session, its Worker and the Canvas pen it paints with are internal to it.
+session, the engine it runs on the page's thread and the Canvas pen it
+paints with are internal to it.
 
 There are no package subpaths. Controller-level selection, search,
 annotations, accessibility, storage, transitions and DOM wiring belong in

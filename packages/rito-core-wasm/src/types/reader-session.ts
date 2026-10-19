@@ -129,7 +129,7 @@ export interface RitoReaderForegroundHandoffAck {
 export interface RitoReaderBackgroundRequest {
   readonly sessionId: bigint;
   readonly expectedVisibleArtifactId: bigint;
-  readonly maxTopLevelNodesPerQuantum: number;
+  readonly maxPagesPerQuantum: number;
 }
 
 export type RitoReaderBackgroundState =
@@ -162,11 +162,10 @@ export interface RitoReaderBackgroundHandoffAck {
 }
 
 /** The artifact's paint: its display commands lowered to the host's
- * device grid, carried as the `RITODL1` format-2 primitive list. */
+ * device grid, carried as the `RITODL1` format-4 primitive list. */
 export interface RitoReaderDisplayListPayload {
-  readonly formatVersion: 2;
+  readonly formatVersion: 4;
   readonly commandCount: number;
-  readonly semanticDigest: Uint8Array;
   readonly wireBytes: Uint8Array;
   readonly displayList: RitoReaderPrimitiveList;
 }
@@ -239,10 +238,24 @@ export interface RitoReaderTextRunOffset {
   readonly runIndex: number;
 }
 
+/**
+ * A page an artifact shows: its index and size. What it holds for a host is
+ * read when the host first needs it (see {@link RitoReaderPageRecords}).
+ */
 export interface RitoReaderPage {
   readonly pageIndex: number;
   readonly width: number;
   readonly height: number;
+}
+
+/**
+ * What one page of a live artifact holds for a host: its interaction
+ * targets, semantic outline, text and where each text run sits in that
+ * text, in the artifact's display-list space.
+ */
+export interface RitoReaderPageRecords {
+  readonly artifactId: bigint;
+  readonly pageIndex: number;
   readonly hits: readonly RitoReaderHitEntry[];
   readonly semantics: readonly RitoReaderSemanticNode[];
   readonly text: string;

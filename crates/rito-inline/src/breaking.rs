@@ -150,11 +150,13 @@ pub(crate) const LINE_END_TRIM_SCAN: usize = 64;
 /// only the leading `①` span while greedy would split the text item.
 /// Returns the cluster count the line must be forced to hold.
 pub(crate) fn rewind_break_count(
+    catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
     line_index: usize,
     max_advance: f64,
     item_ranges: &[std::ops::Range<usize>],
+    bounds: &mut WidthBounds,
 ) -> Option<u32> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
@@ -163,19 +165,9 @@ pub(crate) fn rewind_break_count(
     }
     // Only a line crossing an element boundary rewinds; a single-item
     // line extends instead (see `line_end_trim_candidate`).
-    let mut line_item: Option<u32> = None;
-    let mut crosses = false;
-    for item in line.items() {
-        let brush = match item {
-            PositionedLayoutItem::GlyphRun(run) => u32::from_le_bytes(run.style().brush),
-            PositionedLayoutItem::InlineBox(inline_box) => u32::MAX - inline_box.id as u32,
-        };
-        if *line_item.get_or_insert(brush) != brush {
-            crosses = true;
-            break;
-        }
-    }
-    if !crosses {
+    let mut items = line_item_keys(&line);
+    let first = items.next();
+    if !items.any(|item| Some(item) != first) {
         return None;
     }
     let metrics = line.metrics();
@@ -189,19 +181,22 @@ pub(crate) fn rewind_break_count(
         }
         let character = text[byte..].chars().next()?;
         let cluster_advance = f64::from(cluster.advance());
-        if advance + cluster_advance <= max_advance + f64::from(LINE_FIT_EPS) {
+        if bounds.fits(
+            advance + cluster_advance,
+            max_advance + f64::from(LINE_FIT_EPS),
+        ) {
             advance += cluster_advance;
             cluster = cluster.next_logical()?;
             continue;
         }
-        if !cluster_font_has_halt(&cluster) {
+        if !cluster_font_has_halt(catalog, &cluster) {
             return None;
         }
         if !line_end_trim_eligible(character) {
             return None;
         }
         let trimmed = cluster_advance - 0.5 * f64::from(cluster.run().font_size());
-        if advance + trimmed > max_advance + f64::from(LINE_FIT_EPS) {
+        if !bounds.fits(advance + trimmed, max_advance + f64::from(LINE_FIT_EPS)) {
             return None;
         }
         // Only a PARAGRAPH-FINAL candidate rewinds (measured: `……。）啊`
@@ -232,7 +227,8 @@ pub(crate) fn rewind_break_count(
 
 /// The first character after `line_index`'s soft break that did not fit,
 /// if extending the line by exactly that character with its blank right
-/// half trimmed could keep it on the line.
+/// half trimmed could keep it on the line. `decided` says whether a
+/// character's trim was already accepted or rejected.
 ///
 /// This reconstructs Blink's `ShapingLineBreaker::ShapeLine` extension:
 /// the candidate is the first character past the break that exceeds the
@@ -242,14 +238,16 @@ pub(crate) fn rewind_break_count(
 /// caller re-lays the paragraph with the trim applied and keeps it only
 /// if the line then breaks exactly after the trimmed closer, so parley's
 /// own fitting (and its break rules) remain the authority.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn line_end_trim_candidate(
+    catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
     line_index: usize,
     max_advance: f32,
-    accepted: &[usize],
-    rejected: &[usize],
+    decided: impl Fn(usize) -> bool,
     suppressed_openers: &[(usize, usize)],
+    bounds: &mut WidthBounds,
 ) -> Option<(usize, Vec<usize>)> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
@@ -263,18 +261,14 @@ pub(crate) fn line_end_trim_candidate(
     // <span>① kills it at every size, alignment and vertical-align while
     // a font-fallback split inside one element does not; flip widths
     // 560.35 span vs 541.41 without). The line must be one inline item.
-    let mut line_item: Option<u32> = None;
-    for item in line.items() {
-        match item {
-            PositionedLayoutItem::GlyphRun(run) => {
-                let brush = u32::from_le_bytes(run.style().brush);
-                if *line_item.get_or_insert(brush) != brush {
-                    return None;
-                }
-            }
-            // An atomic inline is an element boundary by definition.
-            PositionedLayoutItem::InlineBox(_) => return None,
-        }
+    // An atomic inline is an element boundary by definition.
+    if line.has_inline_box() {
+        return None;
+    }
+    let mut items = line_item_keys(&line);
+    let first = items.next();
+    if items.any(|item| Some(item) != first) {
+        return None;
     }
     let metrics = line.metrics();
     // Hung trailing whitespace is not measured against the available
@@ -303,7 +297,7 @@ pub(crate) fn line_end_trim_candidate(
             cluster_advance -= 0.5 * cluster.run().font_size();
             unsuppress.push(*left_byte);
         }
-        if advance + cluster_advance <= max_advance + LINE_FIT_EPS {
+        if bounds.fits_f32(advance + cluster_advance, max_advance + LINE_FIT_EPS) {
             // Fits, so it only moved down under a break prohibition; the
             // overflowing character is further along.
             advance += cluster_advance;
@@ -315,19 +309,36 @@ pub(crate) fn line_end_trim_candidate(
         if !line_end_trim_eligible(character) {
             return None;
         }
-        if !cluster_font_has_halt(&cluster) {
+        if !cluster_font_has_halt(catalog, &cluster) {
             return None;
         }
-        if accepted.contains(&byte) || rejected.contains(&byte) {
+        if decided(byte) {
             return None;
         }
         let trimmed = cluster_advance - 0.5 * cluster.run().font_size();
-        if advance + trimmed > max_advance + LINE_FIT_EPS {
+        if !bounds.fits_f32(advance + trimmed, max_advance + LINE_FIT_EPS) {
             return None;
         }
         return Some((byte, unsuppress));
     }
     None
+}
+
+/// Whether a line of the paragraph could take a line-end trim, or the
+/// rewind it is rejected into, at any width: both need an eligible closer
+/// (see [`line_end_trim_eligible`]) shaped in a face with `halt`, and
+/// shaping puts a character in the same face at every width.
+pub(crate) fn line_end_trims_possible(
+    catalog: &FontCatalog,
+    layout: &parley::Layout<[u8; 4]>,
+    text: &str,
+) -> bool {
+    text.char_indices()
+        .filter(|(_, character)| line_end_trim_eligible(*character))
+        .any(|(byte, _)| {
+            parley::layout::Cluster::from_byte_index(layout, byte)
+                .is_some_and(|cluster| cluster_font_has_halt(catalog, &cluster))
+        })
 }
 
 /// Whether a fullwidth closing glyph is eligible for the conditional

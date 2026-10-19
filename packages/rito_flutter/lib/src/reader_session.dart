@@ -297,22 +297,23 @@ final class RitoReaderSession {
     return publication;
   }
 
-  /// Runs one host-scheduled publication-layout quantum.
+  /// Runs one host-scheduled publication-layout quantum: the publication
+  /// is laid out by up to [maxPagesPerQuantum] more pages, and a candidate
+  /// comes once it is laid out.
   ///
   /// Any returned artifact has completed font preparation and the configured
   /// resource-preparer hook. It is owned by this session, but remains invisible
   /// until [adoptBackground] succeeds. Call [releaseArtifact] if the candidate
   /// is no longer wanted.
   Future<RitoPreparedBackgroundAdvance> advanceBackground({
-    required int maxTopLevelNodesPerQuantum,
+    required int maxPagesPerQuantum,
   }) async {
     _requireOpen();
     _requireForegroundIdle('Background work');
-    if (maxTopLevelNodesPerQuantum <= 0 ||
-        maxTopLevelNodesPerQuantum > 0xffffffff) {
+    if (maxPagesPerQuantum <= 0 || maxPagesPerQuantum > 0xffffffff) {
       throw ArgumentError.value(
-        maxTopLevelNodesPerQuantum,
-        'maxTopLevelNodesPerQuantum',
+        maxPagesPerQuantum,
+        'maxPagesPerQuantum',
         'must be in 1..=0xffffffff',
       );
     }
@@ -323,7 +324,7 @@ final class RitoReaderSession {
         request: RitoBackgroundRequest(
           sessionId: sessionId,
           expectedVisibleArtifactId: expectedVisible,
-          maxTopLevelNodesPerQuantum: maxTopLevelNodesPerQuantum,
+          maxPagesPerQuantum: maxPagesPerQuantum,
         ),
       );
     } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
@@ -814,7 +815,7 @@ final class RitoReaderSession {
   /// taken at. The engine owns the projection because a run's mapping
   /// back to its source node is piecewise — collapsed whitespace leaves
   /// gaps, and a run split at a space shares its seam offset with the
-  /// next run — so it cannot be rebuilt from [RitoPage.hits]. It also
+  /// next run — so it cannot be rebuilt from [RitoPageRecords.hits]. It also
   /// checks the text it landed on against the range's own source text,
   /// so an anchor whose text has changed reports
   /// [RitoExactSourceRangeStatus.unavailable] instead of painting over
@@ -1025,13 +1026,18 @@ final class RitoReaderSession {
   /// alone, so the table covers that chapter and counts pages from zero;
   /// once the whole book is adopted the table covers the book and its
   /// pages are book pages. [peekSpread] reaches any spread it lists.
+  ///
+  /// A chapter is laid out only as far as the reader has needed it; with
+  /// [whole] it is laid out to its end first, and without it the table
+  /// holds the pages laid out so far ([RitoRevisionLayout.complete]).
   Future<RitoRevisionLayout> revisionLayout(
-    RitoPreparedArtifact prepared,
-  ) async {
+    RitoPreparedArtifact prepared, {
+    bool whole = true,
+  }) async {
     final artifact = prepared.artifact;
     _requireLiveArtifact(artifact);
     final result = await _navigation(
-      RitoLayoutQuery(artifactId: artifact.artifactId),
+      RitoLayoutQuery(artifactId: artifact.artifactId, whole: whole),
     );
     return (result as RitoLayoutResult).layout;
   }
@@ -1077,7 +1083,7 @@ final class RitoReaderSession {
   ///
   /// [pageIndex] is one the artifact published
   /// ([RitoPage.pageIndex]) and the positions are the ones its
-  /// [RitoPage.textRuns] describe, so a highlight anchors to source
+  /// [RitoPageRecords.textRuns] describe, so a highlight anchors to source
   /// text rather than to remembered pixels. The returned rects share
   /// the artifact's display-list space, so they paint straight onto the
   /// surface the page was drawn on.
@@ -1121,6 +1127,48 @@ final class RitoReaderSession {
       throw StateError('Text geometry ownership does not match its artifact.');
     }
     return geometry;
+  }
+
+  /// What page [pageIndex] of [prepared] holds for a host: its interaction
+  /// targets, semantic outline, text and text runs. An artifact carries
+  /// only its pages' index and size; the engine builds these when a host
+  /// first asks, the way a browser hit-tests the fragments it painted when
+  /// a pointer arrives. Hit-test a tap with [RitoHitResolver] over the
+  /// records of the pages it may land on.
+  Future<RitoPageRecords> readPage(
+    RitoPreparedArtifact prepared,
+    int pageIndex,
+  ) async {
+    _requireOpen();
+    final artifact = prepared.artifact;
+    _requireLiveArtifact(artifact);
+    if (!artifact.pages.any((page) => page.pageIndex == pageIndex)) {
+      throw ArgumentError.value(
+        pageIndex,
+        'pageIndex',
+        'is not a page of the artifact',
+      );
+    }
+    late final RitoPageRecords records;
+    try {
+      records = await gateway.readPage(
+        sessionId: sessionId,
+        artifactId: artifact.artifactId,
+        pageIndex: pageIndex,
+      );
+    } on RitoNativeSessionInvalidatedException catch (error, stackTrace) {
+      return _failClosedAfterCleanupFailure(
+        requestId: error.requestId,
+        cleanupError: error,
+        cleanupStackTrace: stackTrace,
+      );
+    }
+    _requireOpen();
+    if (records.artifactId != artifact.artifactId ||
+        records.pageIndex != pageIndex) {
+      throw StateError('Page records ownership does not match the artifact.');
+    }
+    return records;
   }
 
   /// Reads the footnote definition a hit referenced.

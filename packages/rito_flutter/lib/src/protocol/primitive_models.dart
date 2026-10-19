@@ -2,7 +2,7 @@ import 'display_color.dart';
 import 'display_geometry.dart';
 import 'display_models.dart';
 
-/// `RITODL1` format version 2: the device-resolved primitive list.
+/// `RITODL1` format version 3: the device-resolved primitive list.
 ///
 /// Every coordinate is a device pixel on the grid the host rasterizes and
 /// every rule about where ink lands has been applied by the engine; a

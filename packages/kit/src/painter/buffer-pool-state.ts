@@ -1,25 +1,28 @@
 import { runDisposers } from '../utils/disposable';
+import { createPageTarget, deletePageTarget, sizePageTarget } from './gl/targets';
 import type { PageBufferSlot } from './types';
 
 export interface PageBufferPoolState {
+  readonly gl: WebGL2RenderingContext;
   readonly slots: [PageBufferSlot, PageBufferSlot, PageBufferSlot];
-  /** One pixel a painted buffer is read into so that it is rastered; made on first use. */
-  rasterScratch: OffscreenCanvas | null;
+  /** The canvas a host's painter draws a page on, and the texture it is copied in through; made on first use. */
+  host: { readonly canvas: OffscreenCanvas; readonly texture: WebGLTexture } | null;
   indices: [number, number, number];
   width: number;
   height: number;
   disposed: boolean;
 }
 
-export function createPageBufferPoolState(): PageBufferPoolState {
+export function createPageBufferPoolState(gl: WebGL2RenderingContext): PageBufferPoolState {
   const created: PageBufferSlot[] = [];
   try {
-    const first = createSlot(created);
-    const second = createSlot(created);
-    const third = createSlot(created);
+    const first = createSlot(gl, created);
+    const second = createSlot(gl, created);
+    const third = createSlot(gl, created);
     return {
+      gl,
       slots: [first, second, third],
-      rasterScratch: null,
+      host: null,
       indices: [0, 1, 2],
       width: 1,
       height: 1,
@@ -27,7 +30,7 @@ export function createPageBufferPoolState(): PageBufferPoolState {
     };
   } catch (error: unknown) {
     try {
-      releaseSlots(created);
+      releaseSlots(gl, created);
     } catch {
       // Preserve the allocation error after best-effort cleanup.
     }
@@ -35,13 +38,22 @@ export function createPageBufferPoolState(): PageBufferPoolState {
   }
 }
 
-export function resizeBufferSlot(slot: PageBufferSlot, width: number, height: number): void {
-  slot.content.width = width;
-  slot.content.height = height;
+export function resizeBufferSlot(
+  gl: WebGL2RenderingContext,
+  slot: PageBufferSlot,
+  width: number,
+  height: number,
+): void {
+  sizePageTarget(gl, slot.content, width, height);
   if (slot.overlay) {
-    slot.overlay.width = width;
-    slot.overlay.height = height;
+    slot.overlay.canvas.width = width;
+    slot.overlay.canvas.height = height;
   }
+  if (slot.composed) {
+    deletePageTarget(gl, slot.composed);
+    slot.composed = null;
+  }
+  slot.composedAt = -1;
   slot.contentDirty = true;
   slot.overlayDirty = true;
   slot.paints += 1;
@@ -50,35 +62,42 @@ export function resizeBufferSlot(slot: PageBufferSlot, width: number, height: nu
 export function disposePageBufferPoolState(state: PageBufferPoolState): void {
   if (state.disposed) return;
   state.disposed = true;
-  releaseSlots(state.slots);
-  state.rasterScratch = null;
+  releaseSlots(state.gl, state.slots);
+  if (state.host) state.gl.deleteTexture(state.host.texture);
+  state.host = null;
   state.width = 0;
   state.height = 0;
 }
 
-function createSlot(created: PageBufferSlot[]): PageBufferSlot {
+function createSlot(gl: WebGL2RenderingContext, created: PageBufferSlot[]): PageBufferSlot {
   const slot: PageBufferSlot = {
     spreadIndex: null,
-    content: new OffscreenCanvas(1, 1),
+    content: createPageTarget(gl, 1, 1),
     overlay: null,
+    composed: null,
+    composedAt: -1,
     contentDirty: true,
     overlayDirty: true,
+    overlayShown: false,
     paints: 0,
   };
   created.push(slot);
   return slot;
 }
 
-function releaseSlots(slots: readonly PageBufferSlot[]): void {
+function releaseSlots(gl: WebGL2RenderingContext, slots: readonly PageBufferSlot[]): void {
   runDisposers(
     slots.map((slot) => () => {
-      releaseSlot(slot);
+      releaseSlot(gl, slot);
     }),
   );
 }
 
-function releaseSlot(slot: PageBufferSlot): void {
+function releaseSlot(gl: WebGL2RenderingContext, slot: PageBufferSlot): void {
   slot.spreadIndex = null;
-  resizeBufferSlot(slot, 0, 0);
+  deletePageTarget(gl, slot.content);
+  if (slot.overlay) gl.deleteTexture(slot.overlay.texture);
+  if (slot.composed) deletePageTarget(gl, slot.composed);
   slot.overlay = null;
+  slot.composed = null;
 }

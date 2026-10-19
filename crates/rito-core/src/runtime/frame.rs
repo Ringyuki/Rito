@@ -10,7 +10,7 @@ use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
     interaction::{FootnoteEntry, FootnoteTargetSet},
     layout::LayoutConfig,
-    render::{summarize_display_list_resource_refs, DisplayCommand, ImageSize},
+    render::{summarize_display_list_resource_refs, ImageSize},
 };
 
 use super::{
@@ -124,6 +124,20 @@ impl RuntimeRevision {
             fragment_layout,
         }
     }
+
+    /// Recounts the extent after the page table paginated further.
+    pub(super) fn refresh_extent(&mut self) {
+        let page_count = self.fragment_layout.page_count();
+        self.extent = RuntimeRevisionExtent {
+            page_count,
+            spread_count: build_spread_slots(
+                page_count,
+                self.fragment_layout.chapter_start_pages(),
+                &self.layout_config,
+            )
+            .len(),
+        };
+    }
 }
 
 pub(super) fn revision_summary(
@@ -145,7 +159,7 @@ impl LoadedEpubDocument {
     /// reference, so the lowering can size them.
     pub(super) fn ensure_frame_image_sizes(
         &mut self,
-        commands: &[DisplayCommand],
+        commands: &super::page_artifact::FrameCommands,
     ) -> EpubResult<()> {
         let refs = summarize_display_list_resource_refs(commands);
         if refs.images.is_empty() {
@@ -177,7 +191,7 @@ impl RuntimeDocument {
     /// reference, so lowering the frame can size them.
     pub(super) fn ensure_frame_image_sizes(
         &mut self,
-        commands: &[DisplayCommand],
+        commands: &super::page_artifact::FrameCommands,
     ) -> EpubResult<()> {
         self.document.ensure_frame_image_sizes(commands)
     }

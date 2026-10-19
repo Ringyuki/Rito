@@ -26,10 +26,11 @@ use super::{
     ReaderBackgroundState, ReaderDisposeAck, ReaderError, ReaderErrorKind,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
-    ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPublication, ReaderRect,
-    ReaderResource, ReaderResourceKind, ReaderSearchRequest, ReaderSearchResponse,
-    ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition, ReaderTextRangeGeometry,
-    ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile, READER_EXTERNAL_ID_MAX,
+    ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPageRecords,
+    ReaderPublication, ReaderRect, ReaderResource, ReaderResourceKind, ReaderSearchRequest,
+    ReaderSearchResponse, ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition,
+    ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
+    READER_EXTERNAL_ID_MAX,
 };
 
 mod content;
@@ -40,6 +41,7 @@ mod handoff;
 mod interaction;
 mod navigate;
 mod open;
+mod paginate;
 mod position;
 #[cfg(test)]
 mod probe;
@@ -56,6 +58,18 @@ use project::owner_from_created;
 // candidate, with one slot of slack.
 pub const READER_LIVE_ARTIFACT_CAP: u32 = 6;
 
+/// The most pages a host asks one background step to lay out when the
+/// engine shares a thread with the frames it draws: a step is what stands
+/// between two frames, so it is a few pages, not the book. Both hosts ask
+/// with this budget and give the thread back between steps.
+pub const READER_FRAME_QUANTUM_PAGES: u32 = 4;
+
+/// How long a host lets the layout go unchanged after a relayout before
+/// the rest of the book is laid out behind it: pages laid out behind a
+/// size the next one replaces are thrown away, so while a window is being
+/// resized the book waits.
+pub const READER_RELAYOUT_SETTLE_MS: u32 = 300;
+
 #[derive(Debug, Clone)]
 struct ReaderArtifactOwner {
     request_id: u64,
@@ -71,6 +85,8 @@ struct ReaderArtifactOwner {
     /// carry different progressions, so comparing them reports a move
     /// that is not one. Comparing what was drawn does answer it.
     painted_digest: u64,
+    /// The revision pages it shows, by spread slot.
+    page_indexes: Vec<u32>,
 }
 
 #[derive(Debug)]
@@ -81,6 +97,24 @@ struct ReaderRevisionOwner {
     fonts: u64,
     local_spread_count: usize,
     artifact_ref_count: u32,
+}
+
+/// A publication revision being laid out a quantum of pages at a time,
+/// for the layout and the faces it began under.
+#[derive(Debug)]
+struct PendingPublication {
+    layout: LayoutConfig,
+    fonts: u64,
+    build: Box<crate::runtime::revision::RevisionBuild>,
+}
+
+/// How far the chapters of a whole-book revision are readied before it
+/// begins: the chapter the next step readies, for one layout and font set.
+#[derive(Debug)]
+struct PublicationPreparation {
+    layout: LayoutConfig,
+    fonts: u64,
+    next_chapter: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -123,6 +157,9 @@ pub struct ReaderSession {
     revisions: BTreeMap<u64, ReaderRevisionOwner>,
     publication_revisions: BTreeMap<u64, ReaderPublicationRevisionOwner>,
     active_publication_revision_id: Option<u64>,
+    /// The publication revision being laid out, until it is registered.
+    pending_publication: Option<PendingPublication>,
+    publication_preparation: Option<PublicationPreparation>,
     artifacts: BTreeMap<u64, ReaderArtifactOwner>,
     released_artifacts: BTreeSet<u64>,
     // Read-only adjacent artifacts produced by `peek_adjacent`. Only these
@@ -141,6 +178,9 @@ pub struct ReaderSession {
     /// out under an earlier generation is never reused for a request, even
     /// at an equal layout config.
     font_generation: u64,
+    /// Whether chapter-local revisions paginate their whole chapter when
+    /// created (see [`Self::paginate_whole_chapters`]).
+    whole_chapters: bool,
     #[cfg(test)]
     exact_cache_hit_count: u64,
     #[cfg(test)]
@@ -148,6 +188,15 @@ pub struct ReaderSession {
 }
 
 impl ReaderSession {
+    /// An instrument: with `whole` set, a chapter-local revision paginates
+    /// its whole chapter when it is created instead of stopping at the
+    /// spread its target needs. A session with it set publishes the same
+    /// artifacts as one without, which is what it is for comparing.
+    #[doc(hidden)]
+    pub fn paginate_whole_chapters(&mut self, whole: bool) {
+        self.whole_chapters = whole;
+    }
+
     /// Sets the device pixels per CSS pixel the host rasterizes at. Every
     /// raster snap in the display list lands on that grid; pagination is
     /// identical at every ratio. Artifacts requested after the change

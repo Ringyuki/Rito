@@ -71,13 +71,6 @@ impl Writer {
         Ok(())
     }
 
-    pub(crate) fn fixed_bytes(&mut self, value: &[u8], field: &str) -> Result<(), ReaderError> {
-        let length = u32::try_from(value.len()).map_err(|_| overflow(field))?;
-        self.u32(length);
-        self.raw(value);
-        Ok(())
-    }
-
     pub(crate) fn option<T: ?Sized>(
         &mut self,
         value: Option<&T>,

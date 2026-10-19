@@ -319,9 +319,7 @@ fn build_into_layout<B: Brush>(
     }
 
     // Copy the visual styles into the layout
-    layout
-        .data
-        .styles
+    crate::layout::data::owned(&mut layout.data.styles)
         .extend(lcx.style_table.iter().map(|s| s.as_layout_style()));
 
     // Sort the inline boxes as subsequent code assumes that they are in text index order.
@@ -345,8 +343,7 @@ fn build_into_layout<B: Brush>(
     }
 
     // Move inline boxes into the layout
-    layout.data.inline_boxes.clear();
-    core::mem::swap(&mut layout.data.inline_boxes, &mut lcx.inline_boxes);
+    layout.data.inline_boxes = alloc::sync::Arc::new(core::mem::take(&mut lcx.inline_boxes));
 
     layout.data.finish();
 }

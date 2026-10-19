@@ -29,7 +29,7 @@ Display commands (CSS pixels)
 Primitives (device pixels)
   │  crates/rito-core/src/render/lower
   ▼
-RITODL1 format 2
+RITODL1 format 3
   │  crates/rito-core/src/render/commands/reader_wire
   ▼
 Hosts blit: web Canvas pen, Flutter pen
@@ -92,11 +92,21 @@ counts are identical at every ratio.
 
 `fragment_paint.rs` walks a page's fragment tree and emits typed
 `DisplayCommand`s (`render/commands.rs`): page and block paint, text and
-ruby runs with the origin of every glyph cluster, images, rules, clips
+ruby runs with the origin of every glyph cluster, flagged where a pen
+reaches it from the one before by its bare advance, images, rules, clips
 and transforms. Coordinates are stored at display precision (six
 decimals, exact for every 1/64 position). A text run's baseline is the
 one place the ratio enters here: it rounds on the device grid the way
 the browser's two-stage raster does.
+
+A text run is a line's text in one inline item, as the browser keeps one
+text fragment per inline item on a line: the stretches layout placed it
+in (words, justification points, re-anchored ideographs) stay inside it
+as the origins its clusters step from. An item that paints more than its
+glyphs — a band, a box edge, a decoration line, a shadow — keeps a run
+per stretch. The page records carry the same runs, and a caret, a
+selection edge or a hit inside a run lands on the cluster edges the run
+is drawn with.
 
 ## Lowering
 
@@ -110,12 +120,20 @@ rasterization follows the CSS font size.
 
 ## Wire and pens
 
-The primitive list is encoded as `RITODL1` format 2 (see
+The primitive list is encoded as `RITODL1` format 3 (see
 [Wire Format](./wire-format.md)). The web pen
 (`packages/rito/src/bindings/browser/primitive-renderer.ts`) and the
 Flutter pen (`packages/rito_flutter/lib/src/render/primitive_replayer.dart`)
-decode and blit; neither holds a layout or paint law. A browser reader
-runs the engine in a Worker through `crates/rito-wasm`; Flutter and other
+decode and blit; neither holds a layout or paint law. The web's GPU pen
+(`packages/rito/src/bindings/browser/gl-pen/`) paints the same list into
+a WebGL2 framebuffer: a list of whole-pixel fills and plain text runs is
+drawn on the GPU from a glyph atlas the canvas rasterized, any other list
+is painted by the canvas pen and copied in, the same pixels either way.
+Only Chromium's canvas places glyphs as the GPU pen reproduces them; in
+WebKit and Gecko, and where WebGL has no GPU, every list goes through the
+canvas pen. A browser reader
+runs the engine on the page's own thread through `crates/rito-wasm`, so a
+frame draws the size it asks for; Flutter and other
 native hosts use the C ABI in `crates/rito-ffi`.
 
 ## Runtime
@@ -123,19 +141,22 @@ native hosts use the C ABI in `crates/rito-ffi`.
 `rito-core::runtime` owns documents, layout revisions, resources,
 interaction geometry and the reader session, the one protocol a host
 speaks. A host asks the session for the page at a locator under a
-layout and gets an artifact: a spread's lowered paint bytes, its hit
-targets and semantics, and the fonts and images it draws. Interaction
-reads (page targets, text carets and ranges, search, source-anchored
-ranges, page semantics) name an artifact and are served from the
-fragment page artifacts, never inferred from paint.
+layout and gets an artifact: a spread's lowered paint bytes, its pages'
+index and size, and the fonts and images it draws. What a page holds —
+its hit targets, semantics, text and text runs — is read when the host
+first needs it (`read_page`). Interaction reads (page records, text
+carets and ranges, search, source-anchored ranges) name an artifact and
+are served from the fragment page artifacts, never inferred from paint.
 
 A layout the session has not seen is answered in two revisions. The
 first paginates the one chapter the locator is in, so the page costs a
 chapter's work; its pages count from that chapter's first. The second
 is built by `advance_background_once`, which the host calls between its
-own work: each call advances the footnote index by one step, and the call
-after the index is complete paginates the whole book at once. The host
-then adopts it:
+own work, from the frame after the first page is drawn: each call
+advances the footnote index by one step, then readies the book's
+chapters (source, images, markup, styles) a chapter per page of the
+call's budget, then paginates the book that many pages at a time. The
+host then adopts it:
 the visible artifact is exchanged, by compare-and-swap, for the same
 page of the book revision. A chapter lays out the same alone as it does
 inside the book, so the exchange moves nothing on screen.

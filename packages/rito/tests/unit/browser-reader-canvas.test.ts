@@ -14,6 +14,7 @@ import type {
   BrowserReaderResource,
   BrowserReaderSession,
 } from '../../src/bindings/browser/reader-session';
+import { NO_CLUSTERS } from '../helpers/cluster-table';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 type Primitives = BrowserReaderArtifact['displayList']['displayList']['commands'];
@@ -83,7 +84,6 @@ describe('Browser reader session Canvas presenter', () => {
     expect(mock.getCalls('drawImage')[0]?.args.slice(1)).toEqual([0, 0, 80, 120]);
 
     presenter.paint(prepared, mock.ctx, {
-      clear: false,
       foregroundColor: '#f5f5f5',
       backgroundColor: '#000000',
     });
@@ -597,7 +597,7 @@ function readerArtifact(): BrowserReaderArtifact {
     },
     {
       kind: 'text',
-      clusters: [],
+      clusters: NO_CLUSTERS,
       text: 'target',
       rect: { x: 40, y: 60, width: 160, height: 48 },
       paint: {
@@ -646,11 +646,10 @@ function readerArtifact(): BrowserReaderArtifact {
 
 function displayList(commands: Primitives, ratio: number): BrowserReaderArtifact['displayList'] {
   return {
-    formatVersion: 2,
+    formatVersion: 4,
     commandCount: commands.length,
-    semanticDigest: new Uint8Array(32),
     wireBytes: new Uint8Array(),
-    displayList: { formatVersion: 2, ratio, commandCount: commands.length, commands },
+    displayList: { formatVersion: 4, ratio, commandCount: commands.length, commands },
   };
 }
 

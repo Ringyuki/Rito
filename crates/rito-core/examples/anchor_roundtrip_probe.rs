@@ -65,6 +65,7 @@ fn run() -> Result<(), String> {
         line_height_force: None,
         font_family_override: None,
         font_family_force: None,
+        device_pixel_ratio: 1.0,
     });
     let revision = document
         .create_revision(&layout)

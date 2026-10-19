@@ -129,7 +129,10 @@ function buildReadMethods(
 
 function buildLifecycleMethods(
   data: AdapterData,
-): Pick<SelectionEngine, 'clear' | 'invalidate' | 'dispose' | 'onSelectionChange' | 'onError'> {
+): Pick<
+  SelectionEngine,
+  'clear' | 'invalidate' | 'restore' | 'dispose' | 'onSelectionChange' | 'onError'
+> {
   return {
     clear() {
       data.lastValidPoint = undefined;
@@ -138,6 +141,10 @@ function buildLifecycleMethods(
     invalidate() {
       data.lastValidPoint = undefined;
       data.native.invalidate();
+    },
+    restore(range) {
+      if (data.disposed) return;
+      data.native.restore(range);
     },
     dispose() {
       disposeAdapter(data);

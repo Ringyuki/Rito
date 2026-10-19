@@ -1,10 +1,11 @@
-//! The primitive list as JSON: the object shape a `RITODL1` format-2
-//! decoder yields, so a JSON transport and the paint-parity instrument hand
+//! The primitive list as JSON: the object shape the `RITODL1` decoder
+//! yields, so a JSON transport and the paint-parity instrument hand
 //! a renderer the same objects the binary wire does.
 
 use serde_json::{json, Map, Number, Value};
 
 use super::ImageFallbackState;
+use crate::render::commands::READER_PRIMITIVE_LIST_FORMAT_VERSION;
 
 use super::super::commands::contract::{
     ReaderColor, ReaderRect, ReaderTextRun, ReaderTextRunPaint,
@@ -16,7 +17,7 @@ use super::{
 
 pub(crate) fn primitive_list_value(list: &PrimitiveList) -> Value {
     json!({
-        "formatVersion": 2,
+        "formatVersion": READER_PRIMITIVE_LIST_FORMAT_VERSION,
         "ratio": number(list.ratio),
         "commandCount": list.commands.len(),
         "commands": list.commands.iter().map(primitive).collect::<Vec<_>>(),
@@ -260,7 +261,7 @@ fn insert_ground(object: &mut Map<String, Value>, ground: Ground) {
 fn text(kind: &str, command: &ReaderTextRun) -> Value {
     let mut object = object([
         ("kind", json!(kind)),
-        ("text", json!(command.text)),
+        ("text", json!(&*command.text)),
         ("rect", reader_rect(&command.rect)),
         ("paint", run_paint(&command.paint)),
     ]);
@@ -278,7 +279,12 @@ fn text(kind: &str, command: &ReaderTextRun) -> Value {
                     .clusters
                     .iter()
                     .map(|cluster| {
-                        json!({ "byte": cluster.byte, "x": number(cluster.x), "y": number(cluster.y) })
+                        json!({
+                            "byte": cluster.byte,
+                            "x": number(cluster.x),
+                            "y": number(cluster.y),
+                            "joins": cluster.joins,
+                        })
                     })
                     .collect(),
             ),
@@ -292,7 +298,7 @@ fn run_paint(paint: &ReaderTextRunPaint) -> Value {
         (
             "font",
             json!({
-                "family": paint.font.family,
+                "family": &*paint.font.family,
                 "sizePx": number(paint.font.size_px),
                 "weight": number(paint.font.weight),
                 "style": paint.font.style.tag_name(),

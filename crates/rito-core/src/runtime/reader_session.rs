@@ -13,7 +13,7 @@ mod types;
 mod wire;
 
 pub use interaction_types::*;
-pub use session::ReaderSession;
+pub use session::{ReaderSession, READER_FRAME_QUANTUM_PAGES, READER_RELAYOUT_SETTLE_MS};
 pub use types::*;
 pub use wire::{
     decode_reader_adjacent_request, decode_reader_annotation_request,
@@ -22,7 +22,7 @@ pub use wire::{
     decode_reader_background_handoff_ack, decode_reader_background_request,
     decode_reader_exact_source_range_request, decode_reader_exact_source_range_resolution,
     decode_reader_footnote, decode_reader_foreground_handoff, decode_reader_foreground_handoff_ack,
-    decode_reader_navigation_request, decode_reader_navigation_result,
+    decode_reader_navigation_request, decode_reader_navigation_result, decode_reader_page_records,
     decode_reader_pending_shards, decode_reader_publication, decode_reader_resource,
     decode_reader_search_request, decode_reader_search_response, decode_reader_spread_request,
     decode_reader_text_interaction_request, decode_reader_text_interaction_response,
@@ -33,7 +33,7 @@ pub use wire::{
     encode_reader_background_handoff_ack, encode_reader_background_request,
     encode_reader_exact_source_range_request, encode_reader_exact_source_range_resolution,
     encode_reader_footnote, encode_reader_foreground_handoff, encode_reader_foreground_handoff_ack,
-    encode_reader_navigation_request, encode_reader_navigation_result,
+    encode_reader_navigation_request, encode_reader_navigation_result, encode_reader_page_records,
     encode_reader_pending_shards, encode_reader_publication, encode_reader_resource,
     encode_reader_search_request, encode_reader_search_response, encode_reader_spread_request,
     encode_reader_text_interaction_request, encode_reader_text_interaction_response,
@@ -49,20 +49,20 @@ pub use wire::{
     READER_FOREGROUND_HANDOFF_ACK_WIRE_BYTES, READER_FOREGROUND_HANDOFF_ACK_WIRE_MAGIC,
     READER_FOREGROUND_HANDOFF_WIRE_BYTES, READER_FOREGROUND_HANDOFF_WIRE_MAGIC,
     READER_NAVIGATION_REQUEST_WIRE_MAGIC, READER_NAVIGATION_RESPONSE_WIRE_MAGIC,
-    READER_PENDING_SHARDS_WIRE_MAGIC, READER_PUBLICATION_WIRE_MAGIC, READER_REQUEST_WIRE_MAGIC,
-    READER_RESOURCE_WIRE_MAGIC, READER_SEARCH_REQUEST_WIRE_MAGIC,
-    READER_SEARCH_RESPONSE_WIRE_MAGIC, READER_SPREAD_REQUEST_WIRE_BYTES,
-    READER_SPREAD_REQUEST_WIRE_MAGIC, READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC,
-    READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC, READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC,
-    READER_TEXT_RANGE_REQUEST_WIRE_BYTES, READER_TEXT_RANGE_REQUEST_WIRE_MAGIC,
-    READER_WIRE_HEADER_BYTES, READER_WIRE_VERSION,
+    READER_PAGE_RECORDS_WIRE_MAGIC, READER_PENDING_SHARDS_WIRE_MAGIC,
+    READER_PUBLICATION_WIRE_MAGIC, READER_REQUEST_WIRE_MAGIC, READER_RESOURCE_WIRE_MAGIC,
+    READER_SEARCH_REQUEST_WIRE_MAGIC, READER_SEARCH_RESPONSE_WIRE_MAGIC,
+    READER_SPREAD_REQUEST_WIRE_BYTES, READER_SPREAD_REQUEST_WIRE_MAGIC,
+    READER_TEXT_INTERACTION_REQUEST_WIRE_MAGIC, READER_TEXT_INTERACTION_RESPONSE_WIRE_MAGIC,
+    READER_TEXT_RANGE_GEOMETRY_WIRE_MAGIC, READER_TEXT_RANGE_REQUEST_WIRE_BYTES,
+    READER_TEXT_RANGE_REQUEST_WIRE_MAGIC, READER_WIRE_HEADER_BYTES, READER_WIRE_VERSION,
 };
 pub use wire::{
     decode_reader_font_catalog, decode_reader_font_names, encode_reader_font_catalog,
     encode_reader_font_names, READER_FONT_CATALOG_WIRE_MAGIC, READER_FONT_NAMES_WIRE_MAGIC,
 };
 
-pub const READER_PROTOCOL_VERSION: u32 = 6;
+pub const READER_PROTOCOL_VERSION: u32 = 7;
 pub const READER_PUBLICATION_TOC_DEPTH_MAX: u32 = 64;
 pub const READER_PUBLICATION_TOC_ITEM_MAX: u32 = 100_000;
 pub const READER_PUBLICATION_WIRE_BYTES_MAX: u64 = 16 * 1024 * 1024;
@@ -79,6 +79,8 @@ mod hit_tests;
 mod interaction_tests;
 #[cfg(test)]
 mod layout_tests;
+#[cfg(test)]
+mod pagination_tests;
 #[cfg(test)]
 mod shard_tests;
 #[cfg(test)]

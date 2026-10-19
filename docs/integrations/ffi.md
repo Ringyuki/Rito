@@ -40,8 +40,12 @@ paint domain grows, and a stale decoder misreads the byte stream.
   is a candidate; commit it through
   `rito_adopt_foreground_candidate` with the compare-and-swap
   expectation, exactly as the header describes.
-- **Taps resolve against the artifact's hits, not its paint commands.**
-  Each page's hit entries are the engine's account of links, note
+- **Taps resolve against a page's hits, not its paint commands.** An
+  artifact carries its pages' index and size only; what a page holds —
+  its hits, semantic outline, text and text runs — is read with
+  `rito_read_page` (one `RITOPGR1` message) when the host first needs it,
+  the way a browser hit-tests the fragments it painted when a pointer
+  arrives. A page's hit entries are the engine's account of links, note
   anchors and images, already in display-list space, and each says what
   it is: plain text, a link, an image, a footnote reference, or a
   footnote reference whose definition is not indexed yet. A link carries
@@ -146,7 +150,7 @@ commit as any engine-side encoding change. When you bump your pinned
 commit, diff that directory (and `render/commands/reader_wire/` on
 the Rust side) against your bridge.
 
-`RITODL1` is written at format version 2 only: the device-resolved
+`RITODL1` is written at format version 3 only: the device-resolved
 primitive list the engine lowers every frame to (the byte layout is in
 [Wire Format](../development/wire-format.md)). The header carries the
 render ratio (u32 format version, f64 ratio, u32 primitive count), every
@@ -160,12 +164,15 @@ grid rasters different ink from the browser's). A run carries only glyph
 paint — font, colour, text shadows: its inline box (background band,
 padding, border edges) and its decoration line arrive as fill and stroke
 primitives around it, and its letter and word spacing are already in its
-cluster origins. Every run carries the origin of every
-cluster (UTF-8 byte offset into its text, absolute CSS x and y — its
-alphabetic baseline, for a text run and an annotation alike) with
-spacing, justification and the browser's fixed-point advances already
-applied: a host draws each cluster at its origin with its own spacing
-off and never places a glyph itself. An outside list marker is such a
+cluster origins. Every run carries cluster origins (UTF-8 byte offset
+into its text, absolute CSS x and y — its alphabetic baseline, for a
+text run and an annotation alike) with spacing, justification and the
+browser's fixed-point advances already applied: a host draws the text
+from each origin up to the next as one string at that origin, with its
+own spacing off, and never places a glyph itself. A cluster the one
+before it reaches by its bare glyph advance (no spacing, justification
+or kerning added, the same face, left to right) is flagged `joins` and
+drawn inside the string started before it. An outside list marker is such a
 run: the engine shapes the marker string, sizes its box on the layout
 grid and sends the box's left edge and cluster origins. A ruby
 annotation arrives the same way: the engine distributes it over its base

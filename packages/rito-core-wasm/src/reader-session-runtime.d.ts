@@ -3,6 +3,7 @@ import type {
   RitoReaderAdjacentRequest,
   RitoReaderArtifactRequest,
   RitoReaderArtifact,
+  RitoReaderPageRecords,
   RitoReaderBackgroundAdvance,
   RitoReaderBackgroundHandoffAck,
   RitoReaderBackgroundHandoff,
@@ -13,6 +14,7 @@ import type {
   RitoReaderForegroundHandoff,
   RitoReaderPublication,
   RitoReaderResource,
+  RitoReaderSessionWorkerHandle,
   RitoReaderSessionWorkerHandlerDependencies,
   RitoReaderSessionWorkerLike,
   RitoReaderSessionWorkerScope,
@@ -55,10 +57,13 @@ export declare function decodeRitoReaderBackgroundHandoffAck(
 export declare function decodeRitoReaderArtifact(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderArtifact;
+export declare function decodeRitoReaderPageRecords(
+  bytes: ArrayBuffer | Uint8Array,
+): RitoReaderPageRecords;
 export declare function decodeRitoReaderPublication(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderPublication;
-export declare const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION: 2;
+export declare const READER_V1_PRIMITIVE_LIST_FORMAT_VERSION: 3;
 export declare function decodeRitoReaderPrimitiveList(
   bytes: ArrayBuffer | Uint8Array,
 ): RitoReaderPrimitiveList;
@@ -75,4 +80,4 @@ export declare function createRitoCoreWasmReaderSessionWorkerClient(
 export declare function createRitoCoreWasmReaderSessionWorkerHandler(
   scope: RitoReaderSessionWorkerScope,
   deps: RitoReaderSessionWorkerHandlerDependencies,
-): void;
+): RitoReaderSessionWorkerHandle;

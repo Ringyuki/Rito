@@ -106,7 +106,7 @@ shapes with the host's faces and the publication's own). The reader pins
   pagination at 420×640; prints wall-clock milliseconds and page count.
 - `turn-trace.mjs` (in `tools/reader-accept/`, `BOOK=<epub>`) — one
   timeline per page turn in the running reader: the key event, every
-  worker request and answer, every animation frame with its cost and its
+  session request and how long it took, every animation frame with its cost and its
   Canvas calls, and the frame the canvas changed in.
 - `settings-storm.mjs` (in `tools/reader-accept/`, `BOOK=<epub>`, or
   without one the demo's sharded book) — changes the font size in bursts at
@@ -117,10 +117,10 @@ shapes with the host's faces and the publication's own). The reader pins
   no warning, and no call that
   creates, adopts, commits or releases an artifact was sent while another
   was unanswered (read from the reader's own log, so it measures the real
-  worker).
+  session).
 - `open-timeline.mjs <epub> [url]` (in `tools/corpus-oracle/`) — times one
-  book's open in the running reader, printing every worker message the page
-  sends and receives on one clock.
+  book's open in the running reader, printing every request the page sends
+  its session, and how long it took, on one clock.
 - `memory-stage-probe <epub> <serif-font-path>` — resident bytes after
   each stage of opening and paginating one book, then after releasing
   the revision, paginating a second time, and dropping the document.
@@ -146,12 +146,31 @@ lower_paint_parity_fixtures`, env-gated), blits the same `RITODL1` bytes
 through the browser pen (oracle) and the Flutter pen, and diffs the
 bitmaps. `budgets.json` pins each fixture's allowed diff-pixel count and
 channel delta; `diff.mjs` exits non-zero when a fixture exceeds its
-budget or has none. The residuals are rasterizer differences on identical
+budget or has none. Two more lanes hold the browser's GPU pen to the
+canvas pen on an `OffscreenCanvas`, the kind of canvas a reader's pages
+are painted on, with no budget but zero: in the headless default, where
+WebGL is a software rasterizer, and in Chromium on the machine's GPU. The residuals are rasterizer differences on identical
 device geometry, itemized in `EXEMPTIONS.md`. Run it whenever a pen or the
 lowering changes. The fixtures are display commands in the browser pen's
 JSON shape: a hand-written corpus, except `text-vertical.json`, which the
 ignored `write_vertical_paint_parity_fixture` test writes from the
 painter's own output.
+
+## GPU pen against the canvas pen on real books
+
+```bash
+DPR=1,2 SAMPLES=16 node tools/gl-pen-parity/run.mjs <epub>...
+```
+
+With the demo reader on port 5173, paints sampled spreads of each book
+through `reader.renderSpreadTo` into a 2D canvas and into a WebGL2
+framebuffer and compares them pixel for pixel; any differing pixel fails
+the run. Each line says which pen painted the spread (`gpu` or
+`canvas`). Runs Chromium on the machine's GPU; `GPU=0` runs the headless
+default, where WebGL is a software rasterizer. `BROWSER=webkit` or
+`firefox` runs that engine (`HEADED=1` with a window): there the canvas pen
+paints every spread, and the lane holds the copy it makes to its own
+canvas.
 
 ## Line baseline against Chromium
 
@@ -247,11 +266,11 @@ painted across the author's and a pinned fallback face
   exported.
 - `packages/rito/tests/unit/session-reader-fixtures.ts` — the session the
   reader's unit tests run against answers one call at a time, as the
-  worker does, and records in `violations` any artifact call the reader
+  engine does, and records in `violations` any artifact call the reader
   sends while another is unanswered; every reader test asserts there are
   none.
 - `packages/rito-core-wasm/tests/reader-session-worker-facade.test.mjs` —
-  the worker refuses at the live-artifact cap the engine declares (read
+  the protocol handler refuses at the live-artifact cap the engine declares (read
   from the Rust source), and its client holds a call past the pending
   limit instead of refusing it.
 - `packages/rito_flutter/test/architecture_test.dart` and

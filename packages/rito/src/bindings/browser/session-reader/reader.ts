@@ -6,14 +6,18 @@ import {
   recordReaderSession,
   type ReaderEventLog,
 } from '../reader-event-log';
-import type { CanvasRenderingTarget } from '../primitive-renderer';
 import { openBrowserReaderSession, type BrowserReaderSession } from '../reader-session';
+import { lazyCanvasContext } from '../lazy-canvas-context';
 import { createBrowserReaderSessionCanvasPresenter } from '../reader-session-canvas';
 import { adoptSessionReaderFirstFrame, readSessionReaderLayout } from './artifacts';
 import { holdSessionReaderBook, stepSessionReaderBook } from './background';
 import { commitSessionReaderLayout } from './commit';
 import { installSessionReaderDiagnostics } from './diagnostics';
-import { scheduleSessionReaderRelayout } from './foreground';
+import {
+  scheduleSessionReaderRelayout,
+  sessionReaderAppearanceMethods,
+  sessionReaderGeometryMethods,
+} from './foreground';
 import { SessionReaderHostFonts } from './host-fonts';
 import { createSessionReaderInteractions } from './interactions';
 import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-options';
@@ -48,8 +52,6 @@ export async function createReader(
         'shapes text with those exact font bytes and cannot start without them',
     );
   }
-  const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
-  if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
   const { pinnedFontPolicy: _policy, ...layoutOptions } = options;
   const typography = initialTypography(options);
   const config = sessionReaderLayoutConfig(layoutOptions, typography);
@@ -59,7 +61,12 @@ export async function createReader(
   const initialLocator = options.initialLocator
     ? sessionLocator(options.initialLocator)
     : { href: '' };
-  const opened = log.begin('openSession', { layout, initialLocator, faces: policy.faces.length });
+  // The faces by their SHA-256, which the engine checks their bytes against.
+  log.note(
+    'pinnedFaces',
+    policy.faces.map((face) => face.expectedSha256),
+  );
+  const opened = log.begin('openSession', { layout, initialLocator });
   const opening = openBrowserReaderSession(data, {
     initialLocator,
     layout,
@@ -78,7 +85,7 @@ export async function createReader(
     throw error;
   }
   try {
-    const state = await openState(session, canvas, ctx, layoutOptions, typography, hostFonts, {
+    const state = await openState(session, canvas, layoutOptions, typography, hostFonts, {
       dpr,
       log,
     });
@@ -87,8 +94,22 @@ export async function createReader(
     // A face the browser refused while the first page was prepared: the
     // book is laid out again without it, and the whole book follows that.
     if (state.rejectedFontFamilies.size > 0) scheduleSessionReaderRelayout(state, true);
-    state.queue.idle = () => stepSessionReaderBook(state);
-    wakeSessionReaderQueue(state);
+    // The engine runs on the page's thread: each step of the whole book
+    // waits for the page to paint and handle input first, so the steps are
+    // the page's idle time.
+    state.queue.idle = async () => {
+      await yieldToPage();
+      return stepSessionReaderBook(state);
+    };
+    // The first page reaches the screen before the whole book starts: the
+    // book waits out the frame the host draws that page in.
+    state.bookHolds += 1;
+    const release = () => {
+      state.bookHolds -= 1;
+      wakeSessionReaderQueue(state);
+    };
+    if (typeof requestAnimationFrame !== 'function') void yieldToPage().then(release);
+    else requestAnimationFrame(() => void yieldToPage().then(release));
     installSessionReaderDiagnostics(state);
     return buildReader(state);
   } catch (error) {
@@ -98,10 +119,21 @@ export async function createReader(
   }
 }
 
+/** Resolves once the page has had a turn: a task, not a microtask. */
+function yieldToPage(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(undefined);
+  });
+}
+
 async function openState(
   session: BrowserReaderSession,
   canvas: HTMLCanvasElement | OffscreenCanvas,
-  ctx: CanvasRenderingTarget,
   options: ReaderOptions,
   typography: SessionReaderTypography,
   hostFonts: SessionReaderHostFonts,
@@ -119,12 +151,13 @@ async function openState(
     presenter,
     hostFonts,
     canvas,
-    ctx,
+    canvasContext: lazyCanvasContext(canvas),
     logger: recordReaderLogger(createBrowserHostLogger(options.logLevel ?? 'warn'), log),
     log,
     options,
     typography,
     config: sessionReaderLayoutConfig(options, typography),
+    geometry: sessionReaderLayoutConfig(options, typography),
     dpr,
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
@@ -172,10 +205,11 @@ function buildReader(state: SessionReaderState): Reader {
     interactions: createSessionReaderInteractions(state),
     ...sessionReaderRenderingMethods(state),
     ...sessionReaderNavigationMethods(state),
-    ...layoutMethods(state),
+    ...sessionReaderGeometryMethods(state),
+    ...sessionReaderAppearanceMethods(state),
     ...sessionReaderListenerMethods(state),
     ...sessionReaderResourceMethods(state),
-    getLayoutGeometry: () => state.config,
+    getLayoutGeometry: () => state.geometry,
     holdBookLayout: () => holdSessionReaderBook(state),
     dispose() {
       if (state.disposed) return Promise.resolve();
@@ -205,54 +239,6 @@ function buildReader(state: SessionReaderState): Reader {
     layoutScope: { enumerable: true, get: () => state.view.scope },
   });
   return reader as unknown as Reader;
-}
-
-function layoutMethods(
-  state: SessionReaderState,
-): Pick<Reader, 'resize' | 'setSpreadMode' | 'updateLayout' | 'setTheme' | 'setTypography'> {
-  return {
-    resize(width, height) {
-      state.options = { ...state.options, width, height };
-      scheduleSessionReaderRelayout(state);
-    },
-    setSpreadMode(mode) {
-      state.options = { ...state.options, spread: mode };
-      scheduleSessionReaderRelayout(state);
-      return false;
-    },
-    updateLayout(width, height, spreadMode, margin) {
-      state.options = {
-        ...state.options,
-        width,
-        height,
-        ...(spreadMode === undefined ? {} : { spread: spreadMode }),
-        ...(margin === undefined ? {} : { margin }),
-      };
-      scheduleSessionReaderRelayout(state);
-      return false;
-    },
-    setTheme(theme) {
-      const { bgColor, fgColor } = state;
-      if (theme.backgroundColor !== undefined) state.bgColor = theme.backgroundColor ?? '#ffffff';
-      if (theme.foregroundColor !== undefined) state.fgColor = theme.foregroundColor ?? undefined;
-      if (state.bgColor === bgColor && state.fgColor === fgColor) return;
-      // Colours are read at paint time, so every loaded spread stays valid
-      // but nothing repaints on its own: the invalidation is the cue.
-      for (const listener of state.spreadContentInvalidatedListeners) {
-        listener(state.activeSpreadIndex);
-      }
-    },
-    setTypography(next) {
-      const { typography } = state;
-      if (next.fontSize !== undefined) typography.fontSize = next.fontSize ?? undefined;
-      if (next.lineHeight !== undefined) typography.lineHeight = next.lineHeight ?? undefined;
-      if (next.lineHeightForce !== undefined) typography.lineHeightForce = next.lineHeightForce;
-      if (next.fontFamily !== undefined) typography.fontFamily = next.fontFamily ?? undefined;
-      if (next.fontFamilyForce !== undefined) typography.fontFamilyForce = next.fontFamilyForce;
-      scheduleSessionReaderRelayout(state);
-      return false;
-    },
-  };
 }
 
 function initialTypography(options: ReaderOptions): SessionReaderTypography {

@@ -99,16 +99,19 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
                         byte: 0,
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
+                        joins: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 1,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
+                        joins: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 2,
                         x: 12.0,
                         face: rito_fragment::FontFaceId::default(),
+                        joins: false,
                     },
                 ],
                 grid: false,
@@ -139,7 +142,7 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
     assert_eq!(texts.len(), 2, "the marker and the item's text");
     let marker = texts[0];
     assert_eq!(
-        marker.text, "3. ",
+        &*marker.text, "3. ",
         "the marker paints before the item, with its trailing space"
     );
     // The item box starts at x = 10: the 16px marker box ends there.
@@ -147,7 +150,11 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
     assert_eq!(marker.rect.width, 16.0);
     // The item's painted baseline: line top 26 plus baseline 13.
     assert_eq!(
-        marker.clusters,
+        marker
+            .clusters
+            .iter()
+            .map(|cluster| cluster.origin())
+            .collect::<Vec<_>>(),
         vec![(0, -6.0, 39.0), (1, 2.0, 39.0), (2, 6.0, 39.0)]
     );
     assert!(

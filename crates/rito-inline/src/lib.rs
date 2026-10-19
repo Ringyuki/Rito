@@ -11,10 +11,12 @@
 //!
 //! The context is one type spread over the modules that own its laws:
 //! `context` (construction), `fonts` (the face catalog and family
-//! resolution), `line_metrics` (normal-line
-//! geometry from font tables), `strut` (line heights and measurement), `paragraph` (building a paragraph's
-//! Parley layout), `layout` (the provider entry points and the line
-//! loop), and the free laws the loop applies — `breaking`, `justify`,
+//! resolution), `line_metrics` (normal-line geometry from font tables),
+//! `strut` (line heights and measurement), `paragraph` (building a
+//! paragraph's Parley layout), `atoms` (sizing its images and inline
+//! blocks), `shaped` (the builds kept across layouts), `layout` (the
+//! provider entry points and the line loop), and the free laws the loop
+//! applies — `breaking`, `justify`,
 //! `punctuation`, `marker`, `shaping`, `ruby`, `image`. Every module sees
 //! the whole crate through the root's re-exports, as the single file they
 //! were carved from did.
@@ -29,29 +31,37 @@ use parley::{
 use rito_fragment::{
     BoxFragment, CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent,
     FormattingNodeId, FormattingTree, Fragment, FragmentRect, FragmentTree, InlineItem,
-    IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, TextFragment,
+    IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, LineText, TextFragment,
 };
 use rito_style_contract::{
     FontSlant, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage, LineHeight,
     MaximumSize, PreferredSize, TextAlign,
 };
 
+mod atoms;
 mod breaking;
 mod clusters;
 mod context;
 mod fonts;
+mod forensics;
 mod image;
 mod justify;
 mod layout;
+mod line_breaks;
+mod line_items;
 mod line_metrics;
+mod line_text;
 mod marker;
 mod paragraph;
 mod punctuation;
 mod ruby;
+mod segmented_lru;
+mod shaped;
 mod shaping;
 mod strut;
 #[cfg(test)]
 mod tests;
+mod width_bounds;
 
 pub(crate) use breaking::*;
 pub(crate) use clusters::*;
@@ -60,15 +70,22 @@ pub(crate) use fonts::*;
 pub use fonts::{font_family_name, HostFontFace, HostFontRole, PublicationFontFace};
 pub(crate) use image::*;
 pub(crate) use justify::*;
+pub(crate) use line_breaks::{BreakKey, KeptBreaks};
+pub(crate) use line_items::{line_item_keys, line_items, LineItemView};
 pub(crate) use line_metrics::*;
+pub(crate) use line_text::{paints_alone, LineRuns, Piece};
 pub(crate) use marker::*;
 pub use paragraph::plain_paragraph_style;
 pub(crate) use paragraph::*;
 pub(crate) use punctuation::*;
 pub(crate) use ruby::*;
+pub(crate) use shaped::{
+    BuildSpace, IntrinsicSizes, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs,
+};
 pub(crate) use shaping::*;
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
+pub(crate) use width_bounds::WidthBounds;
 
 /// Inline formatting context backed by Parley shaping and line breaking.
 ///
@@ -89,8 +106,14 @@ pub struct ParleyInlineContext {
     /// The character a text run's font is sampled with, per (family key,
     /// size bits, blob id, face index): every run that resolved to the
     /// same face shares one line-metric entry.
-    pub(crate) run_samples: RefCell<rustc_hash::FxHashMap<(String, u64, u64, u32), char>>,
+    pub(crate) run_samples: RefCell<rustc_hash::FxHashMap<(u32, u64, u64, u32), char>>,
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
     pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32), bool>>,
+    /// Paragraphs as built and not yet broken into lines, reused by every
+    /// layout that reads them the same (see [`ShapedParagraphs`]).
+    pub(crate) shaped: RefCell<ShapedParagraphs>,
+    /// Each paragraph's min- and max-content widths, measured once (see
+    /// [`IntrinsicSizes`]).
+    pub(crate) intrinsic_sizes: RefCell<IntrinsicSizes>,
 }

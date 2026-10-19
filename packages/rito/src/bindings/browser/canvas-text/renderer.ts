@@ -1,7 +1,9 @@
+import type { RitoReaderClusters } from '@ritojs/core-wasm/decoder';
+
 import { buildFontString } from './font-string';
 import { drawTextShadows } from './text-shadow';
 import type { CanvasRubyFragment, CanvasTextColorOverride, CanvasTextFragment } from './types';
-import { resolveTextColor } from '../theme/text-color';
+import { themedInk } from '../theme/declared-grounds';
 
 export function drawCanvasTextFragment(
   ctx: CanvasRenderingContext2D,
@@ -11,7 +13,7 @@ export function drawCanvasTextFragment(
 ): void {
   const { paint } = fragment;
   ctx.font = buildFontString(paint.font);
-  const color = effectiveTextColor(paint.color, colorOverride, declaredGround);
+  const color = themedInk(paint.color, colorOverride, declaredGround);
   ctx.fillStyle = color;
   ctx.textBaseline = 'alphabetic';
   // Every spacing is already in the cluster origins the engine sent.
@@ -25,11 +27,12 @@ export function drawCanvasTextFragment(
   // baseline - 0.8*size (fragment_paint::CANVAS_TOP_ASCENT_RATIO).
   const baseline = y + 0.8 * paint.font.sizePx;
   const clusters = fragment.clusters;
-  if (clusters !== undefined && clusters.length > 0) {
+  if (clusters !== undefined && clusters.bytes.length > 0) {
     // The engine placed every cluster — along a line or down a column,
     // spacing, justification shares and the browser's fixed-point
-    // advances already in each origin — so the canvas draws one cluster
-    // at a time at its own origin with its own spacing off.
+    // advances already in each origin — so the canvas draws from each
+    // cluster's own origin, spacing off, through the clusters that join
+    // it.
     const pieces = clusterPieces(fragment.text, clusters);
     if (paint.textShadow && paint.textShadow.length > 0) {
       drawTextShadows(ctx, fragment, x, y, color, pieces);
@@ -55,7 +58,7 @@ export function drawCanvasRubyFragment(
   declaredGround?: string,
 ): void {
   const { paint } = ruby;
-  const color = effectiveTextColor(paint.color, colorOverride, declaredGround);
+  const color = themedInk(paint.color, colorOverride, declaredGround);
   ctx.save();
   try {
     ctx.font = buildFontString(paint.font);
@@ -70,7 +73,7 @@ export function drawCanvasRubyFragment(
     // the canvas draws each at its origin with spacing off. A run that
     // arrives without origins draws as one string at the box's start,
     // its baseline 0.8 em below the rect's top like a text run's.
-    const pieces = clusterPieces(ruby.text, ruby.clusters ?? []);
+    const pieces = ruby.clusters === undefined ? [] : clusterPieces(ruby.text, ruby.clusters);
     if (pieces.length === 0) {
       ctx.fillText(ruby.text, ruby.rect.x, ruby.rect.y + 0.8 * paint.font.sizePx);
       return;
@@ -84,13 +87,14 @@ export function drawCanvasRubyFragment(
 }
 
 /**
- * The run's text cut at its cluster origins. Cluster boundaries are UTF-8
- * byte offsets into the run text; the canvas takes UTF-16 strings, so the
- * cut walks code points and counts their UTF-8 lengths.
+ * The run's text cut at every cluster that does not join the one before
+ * it, each piece drawn from that cluster's origin. Cluster boundaries are
+ * UTF-8 byte offsets into the run text; the canvas takes UTF-16 strings,
+ * so the cut walks code points and counts their UTF-8 lengths.
  */
 function clusterPieces(
   text: string,
-  clusters: readonly { readonly byte: number; readonly x: number; readonly y: number }[],
+  clusters: RitoReaderClusters,
 ): { readonly text: string; readonly x: number; readonly y: number }[] {
   const starts = new Map<number, number>();
   let byte = 0;
@@ -102,32 +106,20 @@ function clusterPieces(
     index += character.length;
   }
   starts.set(byte, index);
+  const { bytes, origins, joins } = clusters;
   const pieces: { text: string; x: number; y: number }[] = [];
-  for (let at = 0; at < clusters.length; at += 1) {
-    const cluster = clusters[at];
-    if (cluster === undefined) continue;
-    const start = starts.get(cluster.byte);
-    const next = clusters[at + 1];
-    const end = next === undefined ? text.length : starts.get(next.byte);
+  for (let at = 0; at < bytes.length; at += 1) {
+    if (joins[at] === 1) continue;
+    let next = at + 1;
+    while (next < bytes.length && joins[next] === 1) next += 1;
+    const start = starts.get(bytes[at] ?? -1);
+    const end = next < bytes.length ? starts.get(bytes[next] ?? -1) : text.length;
     if (start === undefined || end === undefined || end <= start) continue;
-    pieces.push({ text: text.slice(start, end), x: cluster.x, y: cluster.y });
+    pieces.push({
+      text: text.slice(start, end),
+      x: origins[at * 2] ?? 0,
+      y: origins[at * 2 + 1] ?? 0,
+    });
   }
   return pieces;
-}
-
-function effectiveTextColor(
-  originalColor: string,
-  colorOverride: CanvasTextColorOverride | undefined,
-  declaredGround: string | undefined,
-): string {
-  // R2: ink is only re-resolved when its ground is theme-supplied. A
-  // declared ground (inline band, block fill, book-owned page) means
-  // the foreground/background pair was the typesetter's choice — any
-  // one-sided substitution would break it.
-  if (!colorOverride || declaredGround !== undefined) return originalColor;
-  return resolveTextColor(
-    originalColor,
-    colorOverride.backgroundColor,
-    colorOverride.foregroundColor,
-  );
 }

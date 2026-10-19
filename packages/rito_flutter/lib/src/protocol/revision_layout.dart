@@ -12,6 +12,7 @@ final class RitoRevisionLayout {
     required this.chapters,
     required this.tocTargets,
     required this.activeTocEntryByPage,
+    required this.complete,
   });
 
   final int pageCount;
@@ -28,6 +29,11 @@ final class RitoRevisionLayout {
   /// Per page, the `tocId` of the entry it reads under: the last entry
   /// whose target sits at or before it.
   final List<int?> activeTocEntryByPage;
+
+  /// Whether the table holds every page of its chapters. One that does
+  /// not holds their first pages, numbered and spread as all of them are;
+  /// a TOC entry whose target lies past them is not placed yet.
+  final bool complete;
 }
 
 final class RitoSpreadPages {
@@ -94,5 +100,6 @@ RitoRevisionLayout readRitoRevisionLayout(RitoBinaryReader reader) {
       'layout page toc entries',
       () => optional('page toc entry'),
     ),
+    complete: reader.boolean('layout complete'),
   );
 }

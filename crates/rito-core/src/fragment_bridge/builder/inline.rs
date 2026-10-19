@@ -276,9 +276,16 @@ impl TreeBuilder<'_> {
         self.require_inline_capabilities(style, true, "ruby")?;
         let collapse = self.white_space_collapse(style)?;
         let mut pending_base = String::new();
+        // The text nodes the pending base was read from, in order.
+        let mut base_nodes: Vec<&crate::xhtml::TextNode> = Vec::new();
         for child in &element.children {
             match child {
-                DocumentNode::Text(text) => pending_base.push_str(&text.content),
+                DocumentNode::Text(text) => {
+                    pending_base.push_str(&text.content);
+                    if !text.content.is_empty() {
+                        base_nodes.push(text);
+                    }
+                }
                 DocumentNode::Inline(inner) if inner.tag == "rt" => {
                     let mut text = String::new();
                     if collect_plain_text(&inner.children, &mut text).is_err() {
@@ -313,6 +320,8 @@ impl TreeBuilder<'_> {
                         .style(rt_style)
                         .map(|rt_resolved| rt_resolved.text_flow.ruby_align)
                         .unwrap_or(rito_style_contract::RubyAlign::SpaceAround);
+                    let (base_index, base_path) =
+                        ruby_base_source(&std::mem::take(&mut base_nodes), source_index, element);
                     collector.push_text(
                         &std::mem::take(&mut pending_base),
                         style,
@@ -325,16 +334,19 @@ impl TreeBuilder<'_> {
                                 size_ratio,
                                 align: ruby_align,
                             }),
-                        Some(source_index),
-                        Some(element.source_ref.node_path.clone()),
+                        base_index,
+                        base_path,
                     );
                 }
                 DocumentNode::Inline(inner) if inner.tag == "rp" => {}
                 DocumentNode::Inline(inner) if inner.tag == "rb" => {
+                    let before = pending_base.len();
                     if collect_plain_text(&inner.children, &mut pending_base).is_err() {
                         self.degrade("ruby base markup flattened to text".to_owned());
+                        pending_base.truncate(before);
                         collect_text_lenient(&inner.children, &mut pending_base);
                     }
+                    collect_text_nodes(&inner.children, &mut base_nodes);
                 }
                 DocumentNode::Inline(inner) => {
                     // Nested inline markup inside a ruby base: flatten to
@@ -344,6 +356,7 @@ impl TreeBuilder<'_> {
                         inner.tag
                     ));
                     collect_text_lenient(&inner.children, &mut pending_base);
+                    collect_text_nodes(&inner.children, &mut base_nodes);
                 }
                 DocumentNode::Image(_) | DocumentNode::Block(_) => {
                     self.degrade("non-text ruby content dropped".to_owned());
@@ -351,14 +364,15 @@ impl TreeBuilder<'_> {
             }
         }
         if !pending_base.is_empty() {
+            let (base_index, base_path) = ruby_base_source(&base_nodes, source_index, element);
             collector.push_text(
                 &pending_base,
                 style,
                 ancestor_shift_px,
                 collapse,
                 None,
-                Some(source_index),
-                Some(element.source_ref.node_path.clone()),
+                base_index,
+                base_path,
             );
         }
         Ok(())
@@ -461,6 +475,35 @@ fn resolved_baseline_shift_with_parent(
 
 /// Flattens all text content into `out`, descending through inline
 /// markup and skipping non-text nodes — the lenient ruby fallback.
+/// Where a ruby base's text sits in the source, as an inline item records
+/// it: the base's own text node when it was read from one, so a caret or
+/// a range in the base lands on that node's offsets; the ruby element
+/// otherwise, whose offsets no text node answers.
+fn ruby_base_source(
+    nodes: &[&crate::xhtml::TextNode],
+    ruby_index: usize,
+    ruby: &ElementNode,
+) -> (Option<usize>, Option<Vec<usize>>) {
+    match nodes {
+        [text] => (
+            text.source_ref.source_node_id.map(|id| id.index()),
+            Some(text.source_ref.node_path.clone()),
+        ),
+        _ => (Some(ruby_index), Some(ruby.source_ref.node_path.clone())),
+    }
+}
+
+/// The non-empty text nodes under `nodes`, in document order.
+fn collect_text_nodes<'a>(nodes: &'a [DocumentNode], out: &mut Vec<&'a crate::xhtml::TextNode>) {
+    for node in nodes {
+        match node {
+            DocumentNode::Text(text) if !text.content.is_empty() => out.push(text),
+            DocumentNode::Inline(element) => collect_text_nodes(&element.children, out),
+            DocumentNode::Text(_) | DocumentNode::Image(_) | DocumentNode::Block(_) => {}
+        }
+    }
+}
+
 fn collect_text_lenient(nodes: &[DocumentNode], out: &mut String) {
     for node in nodes {
         match node {

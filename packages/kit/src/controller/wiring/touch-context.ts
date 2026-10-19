@@ -16,6 +16,8 @@ export type TouchPhase = 'idle' | 'waiting' | 'gesture' | 'long-press';
 export interface TouchState {
   phase: TouchPhase;
   timer: ReturnType<typeof setTimeout> | null;
+  /** The whole-book layout held back while `timer` waits to tell a long press from a tap. */
+  bookHold: (() => void) | null;
   activeTouchId: number | null;
   startTouch: { x: number; y: number } | null;
   selectionStart: Touch | null;
@@ -40,6 +42,8 @@ export interface GestureDeps {
    * picture from where it is.
    */
   readonly supersedeTurnInFlight: () => void;
+  /** Holds the whole-book layout back until the returned function is called. */
+  readonly holdBookLayout?: (() => () => void) | undefined;
 }
 
 export interface TouchHandlerContext extends GestureSessionContext {
@@ -88,9 +92,15 @@ export function activeTouch(touches: TouchList, state: TouchState): Touch | unde
 }
 
 export function clearTouchTimer(state: TouchState): void {
-  if (state.timer === null) return;
-  clearTimeout(state.timer);
+  if (state.timer !== null) clearTimeout(state.timer);
   state.timer = null;
+  releaseTouchBookHold(state);
+}
+
+export function releaseTouchBookHold(state: TouchState): void {
+  const release = state.bookHold;
+  state.bookHold = null;
+  release?.();
 }
 
 export function resetTouchState(state: TouchState): void {
@@ -107,6 +117,7 @@ function createTouchState(): TouchState {
   return {
     phase: 'idle',
     timer: null,
+    bookHold: null,
     activeTouchId: null,
     startTouch: null,
     selectionStart: null,

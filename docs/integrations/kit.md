@@ -79,6 +79,32 @@ and with `a11y` enabled the accessibility mirror with it. Turns and overlays are
 composited into that one canvas; pointer and touch listeners sit on the canvas from
 `createController` on, and keyboard shortcuts listen on the document element.
 
+The controller draws with WebGL2 on that canvas: the pages it keeps painted are
+textures in the canvas's context, painted by `reader.renderSpreadTo` into their
+framebuffers, and every frame is drawn on the GPU. Where the browser gives no
+WebGL2 — hardware acceleration turned off, a GPU it blocks — `createController`
+throws `WebGlUnavailableError`; `canDrawWithWebGl2()` answers ahead of time, so a
+host can say so before it opens a book (`useRitoReader` does: its `error` says it
+without opening the book). The canvas's drawing buffer is as large as the
+screen and only ever grows: a window resized through a new size every frame
+would otherwise reallocate it, and wait for the GPU, on every frame. The
+canvas shows the buffer's bottom-left corner, as large as the canvas's box at
+the screen's ratio, one buffer pixel per device pixel (the controller sets the
+canvas's `zoom`, `object-fit` and `object-position` for it); its box keeps the
+size the controller gives it. The canvas keeps its drawing buffer, so a host
+can read the display back at any time — that corner of it (`drawImage`). A
+context the browser takes away is asked back; when it returns, every page is
+painted again and the effect prepared again.
+
+The controller keeps the book laid out at the screen's pixel ratio: when the page
+zooms or the window goes to another screen, the reader lays the book out again at
+the new ratio, as the browser does its own page, so the canvas holds one pixel per
+device pixel it is shown on. While it does, the controller sets
+`image-rendering: pixelated` on the canvas so the browser shows those pixels as
+they are instead of filtering them; while the canvas is stretched — a pinch
+magnifying the page, or the moment between a zoom and the pages painted at the
+new ratio — it sets `auto` and the browser smooths it, as it smooths the page.
+
 ## Page Turns
 
 A turn is physics plus an effect. The physics say how it moves — the drag, the
@@ -97,10 +123,15 @@ damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
     the sheet onto the page beneath it: it reaches 24 CSS px and fades as the sheet
     leaves the frame, so it is gone when the sheet is;
   - painted — `paint(scene, frame)` draws the frame itself, for looks that bend or
-    cut the pages such as a curl. `scene.context` is the cleared display canvas,
-    `scene.page(slot)` gives a page's bitmap and overlay (`{ spread, content, overlay,
-pixelRatio }`, or `null` while it is not painted yet) and
-    `scene.drawPage(slot, x, opacity?)` draws one whole.
+    cut the pages such as a curl. `scene.gl` is the display's WebGL2 context, its
+    own framebuffer bound and cleared, and the effect draws the frame into it.
+    `scene.page(slot)` gives a page as one texture of that context with its
+    overlay over it (`{ spread, texture, width, height, pixelRatio, version }`,
+    premultiplied, its last row the top of the page as in any framebuffer; `null`
+    while it is not painted yet) and `scene.drawPage(slot, x, opacity?)` draws one
+    whole. Either may paint the page first, which changes the context's program,
+    vertex array, textures and blending; the display's framebuffer is bound again
+    after.
 
   A frame's `dx` and `width`, like the scene's `width` and `height`, are in the
   display canvas's own pixels; `scene.cssPixel` is the length of a CSS pixel in
@@ -110,12 +141,17 @@ pixelRatio }`, or `null` while it is not painted yet) and
   (`touch.origin` and `touch.position`, `null` for a turn no finger has held;
   `touch.farthest` is where the finger was when it had carried the turn farthest
   the way the turn goes, so a finger short of it has come back).
-  An effect of either kind may have a `prepare()`: it is called when the effect is
-  set, before any turn, for work that would otherwise hold up the first frame of
-  the first turn, and may be called more than once.
+  An effect of either kind may have a `prepare(gl)`: it is called with the
+  display's context when the effect is set, before any turn, for work that would
+  otherwise hold up the first frame of the first turn such as compiling programs;
+  it may be called more than once, and again after the context was lost and
+  given back. A painted effect may also have a `warm(scene)`: it is called once
+  the pages beside the one shown are painted and no turn is under way, for work
+  on those pages that a turn would otherwise do in its first frame — the paper
+  turn copies them into its own textures then.
   `scene.spine` is where the pages are bound — the left edge when a spread is one
   page, the middle when it is two — and a page's `version` changes whenever its
-  bitmap or overlay is painted again, so an effect can keep a texture of it. A
+  texture or overlay is painted again, so an effect can keep a copy of it. A
   page's `spread` is which spread of the book it is: what tells it from every
   other from one turn to the next.
 
@@ -191,9 +227,10 @@ passes through another; and a finger that takes a leaf in the air holds it by th
 point it touched, a curled page where it is. A leaf lying flat is exactly the page's own colours. The effect
 hands the GPU its shaders when it is set and does not wait for them: a turn begun
 before they are compiled is drawn as the built-in `cover` to its end, so no turn is
-held up, and so is every turn where WebGL is not to be had. At two device pixels or
-more to a CSS pixel the canvas is not multisampled and a leaf's edge is softened
-where it is drawn instead. It keeps the leaves in the air, so make one per
+held up, and so is every turn where its shaders cannot run. It draws in the
+display's own context, taking the pages from their textures, into a frame of its
+own that is multisampled below two device pixels to a CSS pixel; at two or more a
+leaf's edge is softened where it is drawn instead. It keeps the leaves in the air, so make one per
 controller:
 
 ```ts
@@ -298,15 +335,24 @@ revision through `interactions.textSelection`, exact rectangles drive the overla
 selected source text drives copy, and the returned source range anchors annotations.
 Use `hasSelection` for presence, `selectionSourceLocator` for the durable source range
 (present when both endpoints share a resource), and `selectionSourceSpan` for the
-resource-qualified endpoints. Layout revision invalidation, spread changes, render-scale
+resource-qualified endpoints. `controller.selectRange({ href, sourceRange })` makes a
+source range the selection as a drag would, with the same `selectionChange` and
+handles; it resolves `false` and leaves the selection alone when none of the range
+is on the spread shown, the engine cannot place it, or a turn, a relayout, a later
+call or the reader's own selecting came first, so a host goes to the range before
+selecting it. Layout revision invalidation, spread changes, render-scale
 changes, cancellation, and disposal discard late async results. A content-only resource
 repaint, such as an image decode or frame warmup completing, keeps the committed
 selection because its layout and source range remain valid. A captured handle or an
 active primary mouse/pen/touch drag can continue into an adjacent spread after edge
 dwell; the projection handoff is authorized by the exact active gesture and consumed
 once, so a released or replacement selection cannot inherit it. The dwell stops at the
-first and last spread. A newly committed layout — the book following the chapter
-included — invalidates the selection before it is painted.
+first and last spread. A newly committed layout — the book following the chapter, a
+resize, a typography or render-scale change — invalidates the selection before it is
+painted and then shows it again, as a browser keeps a selection through a resize: its
+source range is resolved in the new layout and shown when it lands on the spread on
+screen, no later layout or turn came first, and no other selection was started. While a
+selection is being made, the book's layout waits for it to be made.
 While the Canvas owns focus, Kit also maps the host platform's Shift-modified
 character, word, line, paragraph, and chapter-edge chords onto the native movement
 capability. Commands are serialized around one fixed anchor, retain sticky visual-line
@@ -333,6 +379,14 @@ creation order, which is the order annotations are painted in, so a removed reco
 put back lies under and over the same neighbours. It is persisted like any change and
 returns `false` once the controller is disposed.
 
+A `'highlight'` or `'note'` record is painted as a fill over its rectangles and an
+`'underline'` record as a 2 CSS px line along their bottom edges, each in the record's
+`color` when it has one. Everything kit paints over the page takes its colour from
+`HighlightColors` — `selection`, `searchMatch`, `searchActive`, and `highlight` and
+`underline` for records without a colour: `ControllerOptions.highlightColors` sets
+some or all of them, and `controller.setHighlightColors(colors)` changes them later
+(with the theme, say), repainting the highlights but not the pages.
+
 Re-projection is two engine reads. `interactions.resolveAnnotationTarget` finds the
 stored target in the chapter as it is now, trying the source range (checked against
 its quote), then the quote with the best-matching context, then the stored offsets,
@@ -353,13 +407,20 @@ box around the annotation's rectangles on the clicked page, in the screen coordi
 of `imageClick.screenBounds`; its `x`, `y` is that box's top centre. A popover can sit
 above or below the box without covering the highlight.
 
+`controller.rangeRects({ href, sourceRange })` places any source range the same way:
+it resolves to the range's rectangles on the pages shown, in those screen
+coordinates, and to none when no part of it is shown or the engine cannot place
+it. A relayout or turn while it is read reads it again on the new layout.
+
 Focus: the controller makes the Canvas focusable (`tabindex="0"`) so it receives keys,
 and sets its inline `outline-style` to `none`, since the browser's focus ring would
 outline the whole reading surface after a key press. Disposal gives the Canvas back the
 `tabindex` and `outline-style` it had. A host that wants a ring sets the Canvas's
 inline `outline` after `createController`.
 
-Search: results come from `reader.search()`; highlight rectangles for the visible spread
+Search: `controller.search(query, { caseSensitive, wholeWord })` matches case or whole
+words only when asked (both off by default) and keeps the options when the book is
+searched again after a relayout. Results come from `reader.search()`; highlight rectangles for the visible spread
 are resolved from each result's source range through `interactions.resolveExactSourceRange`.
 
 Accessibility: the optional mirror loads both visible pages' semantics

@@ -1,15 +1,18 @@
 import 'dart:typed_data';
 
+import 'package:rito_flutter/rito_flutter_protocol.dart'
+    show RitoPrimitiveListDecoder;
+
 import 'wire_writer.dart';
 
 const String testRelativeImageHref = '../Images/cover.png';
 
-/// A hand-written `RITODL1` format-2 primitive list: one of every
+/// A hand-written `RITODL1` primitive list in the current format: one of every
 /// primitive, every optional field present, with the typed enum tags the
 /// decoder tests vary. Thirteen primitives, opcodes 1 through 13 in order.
 Uint8List primitiveFixture({
   int? unknownOpcode,
-  int version = 2,
+  int version = RitoPrimitiveListDecoder.formatVersion,
   double ratio = 1,
   int transformTag = 1,
   int pathOpTag = 1,
@@ -84,8 +87,28 @@ Uint8List primitiveFixture({
       ..uint32(2)
       ..uint32(3);
   });
-  _text(writer, 12, 'body', fontStyleTag: fontStyleTag);
-  _text(writer, 13, 'ruby');
+  // The text run indexes the first two clusters, the first paint and
+  // `body` in the text table; the annotation no clusters, the second paint
+  // and `ruby`.
+  _text(
+    writer,
+    12,
+    'body',
+    byteStart: 0,
+    paint: 0,
+    clusterStart: 0,
+    clusters: 2,
+  );
+  _text(
+    writer,
+    13,
+    'ruby',
+    byteStart: 4,
+    paint: 1,
+    clusterStart: 2,
+    clusters: 0,
+  );
+  _tables(writer, fontStyleTag: fontStyleTag);
   return Uint8List.fromList(writer.bytes);
 }
 
@@ -160,12 +183,52 @@ void _text(
   TestWireWriter writer,
   int opcode,
   String text, {
-  int fontStyleTag = 1,
+  required int byteStart,
+  required int paint,
+  required int clusterStart,
+  required int clusters,
 }) {
+  // Both texts are four ASCII characters: bytes and UTF-16 units agree.
   writer
     ..uint16(opcode)
-    ..string(text);
+    ..uint32(byteStart)
+    ..uint32(4)
+    ..uint32(byteStart)
+    ..uint32(4);
   _rect(writer);
+  writer.uint32(paint);
+  writer.option(() => writer.float64(18));
+  writer.option(() => writer.string('#note'));
+  writer.option(() => writer.string('source $text'));
+  writer.option(() => writer.uint64(9));
+  writer
+    ..uint32(clusterStart)
+    ..uint32(clusters);
+}
+
+/// The tables after the primitives: two clusters, the second joining the
+/// first; the two runs' text; the text run's paint and the annotation's.
+void _tables(TestWireWriter writer, {required int fontStyleTag}) {
+  writer.uint32(2);
+  while (writer.bytes.length % 4 != 0) {
+    writer.uint8(0);
+  }
+  writer
+    ..uint32(0)
+    ..uint32(2)
+    ..float32(0)
+    ..float32(12.5)
+    ..float32(8.5)
+    ..float32(12.5)
+    ..uint8(0)
+    ..uint8(1)
+    ..string('bodyruby')
+    ..uint32(2);
+  _paint(writer, fontStyleTag);
+  _paint(writer, 1);
+}
+
+void _paint(TestWireWriter writer, int fontStyleTag) {
   writer
     ..string('Rito Serif')
     ..float64(16)
@@ -178,23 +241,6 @@ void _text(
     ..float64(1)
     ..float64(2);
   _color(writer, alpha: .4);
-  writer.option(() => writer.float64(18));
-  writer.option(() => writer.string('#note'));
-  writer.option(() => writer.string('source $text'));
-  writer.option(() => writer.uint64(9));
-  // Cluster origins: two for the text run, none for the annotation.
-  if (opcode == 12) {
-    writer
-      ..uint32(2)
-      ..uint32(0)
-      ..float64(0)
-      ..float64(12.5)
-      ..uint32(2)
-      ..float64(8.5)
-      ..float64(12.5);
-  } else {
-    writer.uint32(0);
-  }
 }
 
 void _color(

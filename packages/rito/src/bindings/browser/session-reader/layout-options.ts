@@ -1,5 +1,5 @@
 import { createLayoutConfig, type LayoutConfig, type ReaderOptions } from '../../../reader';
-import type { BrowserReaderLayout } from '../reader-session';
+import type { BrowserReaderArtifact, BrowserReaderLayout } from '../reader-session';
 import type { SessionReaderTypography } from './state';
 
 /** The geometry a reader's options and typography overrides ask for. */
@@ -19,6 +19,20 @@ export function sessionReaderLayoutConfig(
     ...(typography.fontFamily === undefined ? {} : { fontFamilyOverride: typography.fontFamily }),
     fontFamilyForce: typography.fontFamilyForce,
   });
+}
+
+/**
+ * `config` with its pages where the engine laid them out: a spread's pages
+ * sit on the device grid, so at an odd width a page is narrower than an
+ * even split of the viewport and the gap between them wider.
+ */
+export function sessionReaderLaidOutGeometry(
+  config: LayoutConfig,
+  artifact: BrowserReaderArtifact,
+): LayoutConfig {
+  const page = artifact.pages[0];
+  if (config.spreadMode !== 'double' || page === undefined) return config;
+  return { ...config, pageWidth: page.width, spreadGap: config.viewportWidth - 2 * page.width };
 }
 
 /** The same geometry as the session lays it out, painted at `renderRatio`. */

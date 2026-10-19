@@ -8,30 +8,18 @@
 //! runs concatenated with a newline between text-bearing lines, offsets are
 //! UTF-16, and (block, line, run) indexes address the page's own structure.
 
-use rito_fragment::{FormattingNodeContent, Fragment, InlineItem};
-use sha2::{Digest, Sha256};
+use rito_fragment::{FormattingNodeContent, Fragment, InlineItem, LineFragment, TextFragment};
 
 use crate::fragment_bridge::ChapterFormattingTree;
 
-/// Page-text hash in the shared artifact format: the first eight bytes of
-/// the SHA-256 digest, lowercase hex (the same shape the retained backend
-/// produces, so cross-backend consistency checks compare like for like).
-fn hash_page_text(text: &str) -> String {
-    Sha256::digest(text.as_bytes())
-        .iter()
-        .take(8)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
 use super::{
-    PageArtifact, PageArtifactMetadata, PageArtifactRect, PageArtifactSemanticNode,
-    PageArtifactSemanticRole, PageArtifactTarget, PageArtifactTargets, PageArtifactTextPosition,
+    PageArtifact, PageArtifactRect, PageArtifactSemanticNode, PageArtifactSemanticRole,
+    PageArtifactSourceRunStart, PageArtifactTarget, PageArtifactTextPosition,
     PageArtifactTextPositions, PageArtifactTextRangeGeometry, PageArtifactTextRangeRect,
     PageArtifactTextRunOffset,
 };
 
-use crate::fragment_bridge::FlowItemSource;
+use crate::fragment_bridge::{FlowItemSource, SourceSegment};
 
 /// One text run's geometry and text, pre-resolved from the fragment tree.
 #[derive(Debug, Clone)]
@@ -61,6 +49,114 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) href: Option<String>,
     /// Source-locator mapping for the run, when its item has one.
     pub(in crate::runtime) source: Option<RunSourceMap>,
+    /// Where each of the run's clusters starts, left to right; empty when
+    /// they do not run left to right.
+    pub(in crate::runtime) edges: std::rc::Rc<[RunEdge]>,
+}
+
+/// Where a cluster of a run starts: its UTF-16 offset in the run's text and
+/// its page x.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(in crate::runtime) struct RunEdge {
+    pub(in crate::runtime) offset: u32,
+    pub(in crate::runtime) x: f64,
+}
+
+impl FragmentRunRecord {
+    /// The page x of the boundary before UTF-16 offset `offset` of the run
+    /// (clamped to its length): a cluster's own x where one starts there,
+    /// in proportion between a cluster's edges inside one — the way the
+    /// browser places a caret inside a ligature — and in proportion across
+    /// the run where its clusters do not run left to right.
+    pub(in crate::runtime) fn x_at(&self, offset: usize) -> f64 {
+        let length = self.end - self.start;
+        let offset = offset.min(length);
+        if self.edges.is_empty() {
+            return if length == 0 {
+                self.x
+            } else {
+                self.x + self.width * offset as f64 / length as f64
+            };
+        }
+        let next = self
+            .edges
+            .partition_point(|edge| edge.offset as usize <= offset);
+        let (from, to) = self.cluster_bounds(next.max(1));
+        if to.0 == from.0 {
+            return from.1;
+        }
+        from.1 + (to.1 - from.1) * (offset - from.0) as f64 / (to.0 - from.0) as f64
+    }
+
+    /// The UTF-16 offset of the boundary of the run nearest page x `x`.
+    pub(in crate::runtime) fn offset_at(&self, x: f64) -> usize {
+        let length = self.end - self.start;
+        if length == 0 || self.width <= 0.0 {
+            return 0;
+        }
+        if self.edges.is_empty() {
+            return (((x - self.x) / self.width * length as f64).round().max(0.0) as usize)
+                .min(length);
+        }
+        let next = self.edges.partition_point(|edge| edge.x <= x);
+        let (from, to) = self.cluster_bounds(next.max(1));
+        let span = to.1 - from.1;
+        let units = to.0 - from.0;
+        let within = if span <= 0.0 {
+            0
+        } else {
+            (((x - from.1) / span * units as f64).round().max(0.0) as usize).min(units)
+        };
+        from.0 + within
+    }
+
+    /// The (offset, x) the cluster before `next` starts at and the one the
+    /// next starts at, or the run's end.
+    fn cluster_bounds(&self, next: usize) -> ((usize, f64), (usize, f64)) {
+        let edge = self.edges[next - 1];
+        let to = self
+            .edges
+            .get(next)
+            .map_or((self.end - self.start, self.x + self.width), |edge| {
+                (edge.offset as usize, edge.x)
+            });
+        ((edge.offset as usize, edge.x), to)
+    }
+}
+
+/// Where each of `run`'s clusters starts, in page x from `line_x`, or none
+/// when they do not run left to right from the run's start.
+fn run_edges(run: &TextFragment, run_text: &str, line_x: f64) -> std::rc::Rc<[RunEdge]> {
+    let mut edges = Vec::with_capacity(run.clusters.len());
+    let mut byte = 0usize;
+    let mut units = 0u32;
+    for (segment_x, clusters) in run.segment_clusters() {
+        let origin_x = line_x + segment_x + run.ruby_center_shift_px;
+        for cluster in clusters {
+            let at = (cluster.byte - run.text_start) as usize;
+            while byte < at {
+                let Some(character) = run_text.get(byte..).and_then(|rest| rest.chars().next())
+                else {
+                    break;
+                };
+                units += character.len_utf16() as u32;
+                byte += character.len_utf8();
+            }
+            edges.push(RunEdge {
+                offset: units,
+                x: origin_x + cluster.x,
+            });
+        }
+    }
+    let ordered = edges.first().is_some_and(|edge| edge.offset == 0)
+        && edges
+            .windows(2)
+            .all(|pair| pair[1].offset > pair[0].offset && pair[1].x >= pair[0].x);
+    if ordered {
+        edges.into()
+    } else {
+        std::rc::Rc::from([])
+    }
 }
 
 /// A run's piecewise-linear mapping back to its source node's text.
@@ -130,12 +226,8 @@ impl RunSourceMap {
 /// Query-ready interaction data for one fragment-engine page.
 #[derive(Debug, Clone)]
 pub(in crate::runtime) struct FragmentPageArtifact {
-    page_index: usize,
-    width: f64,
-    height: f64,
     text: String,
     text_length: usize,
-    text_hash: String,
     runs: Vec<FragmentRunRecord>,
     images: Vec<FragmentImageRecord>,
     links: Vec<FragmentLinkRecord>,
@@ -204,20 +296,68 @@ impl FragmentPageArtifact {
         &self.text
     }
 
+    /// The page's text and text runs, given up whole.
+    pub(in crate::runtime) fn into_text_and_runs(self) -> (String, Vec<FragmentRunRecord>) {
+        (self.text, self.runs)
+    }
+
     /// Builds the artifact from one page's root fragment. `origin_x` and
     /// `origin_y` translate fragment coordinates into page coordinates
     /// (the page's content origin, exactly as the paint producer does).
     pub(in crate::runtime) fn build(
         page_index: usize,
-        width: f64,
-        height: f64,
         root: &Fragment,
         chapter: &ChapterFormattingTree,
         origin_x: f64,
         origin_y: f64,
     ) -> Self {
+        Self::collect_page(
+            page_index,
+            root,
+            chapter,
+            (origin_x, origin_y),
+            CollectMode::Whole,
+        )
+        .0
+    }
+
+    /// The page's text and text runs alone, the same as [`Self::build`]
+    /// makes them, without its links, images, semantic nodes and hard
+    /// breaks: what a page table records for every page, while the whole
+    /// artifact is built for the pages that are read.
+    pub(in crate::runtime) fn build_text(
+        page_index: usize,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+    ) -> Self {
+        Self::collect_page(page_index, root, chapter, (0.0, 0.0), CollectMode::Text).0
+    }
+
+    /// Where each of the page's text runs that maps to source starts: its
+    /// node path, the source offset of its first character and its UTF-16
+    /// length, the same as [`Self::build`]'s runs give, without the page's
+    /// text. What finding the page of a source point reads.
+    pub(in crate::runtime) fn source_run_starts(
+        page_index: usize,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+    ) -> Vec<PageArtifactSourceRunStart> {
+        Self::collect_page(page_index, root, chapter, (0.0, 0.0), CollectMode::Starts).1
+    }
+
+    fn collect_page(
+        page_index: usize,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+        (origin_x, origin_y): (f64, f64),
+        mode: CollectMode,
+    ) -> (Self, Vec<PageArtifactSourceRunStart>) {
         let mut builder = ArtifactBuilder {
             chapter,
+            mode,
+            page_index,
+            starts: Vec::new(),
+            utf16_cursors: rustc_hash::FxHashMap::default(),
             text: String::new(),
             offset: 0,
             has_text: false,
@@ -226,11 +366,11 @@ impl FragmentPageArtifact {
             links: Vec::new(),
             semantics: Vec::new(),
             hard_breaks: Vec::new(),
-            flow_last_text_end: std::collections::HashMap::new(),
+            flow_last_text_end: rustc_hash::FxHashMap::default(),
             host_paragraph: None,
         };
         let Fragment::Box(page_root) = root else {
-            return Self::empty(page_index, width, height);
+            return (Self::empty(), Vec::new());
         };
         for (block_index, child) in page_root.children.iter().enumerate() {
             let mut line_index = 0usize;
@@ -243,30 +383,22 @@ impl FragmentPageArtifact {
             );
         }
         let text_length = builder.offset;
-        let text_hash = hash_page_text(&builder.text);
-        Self {
-            page_index,
-            width,
-            height,
+        let artifact = Self {
             text: builder.text,
             text_length,
-            text_hash,
             runs: builder.runs,
             images: builder.images,
             links: builder.links,
             semantics: builder.semantics,
             hard_breaks: builder.hard_breaks,
-        }
+        };
+        (artifact, builder.starts)
     }
 
-    fn empty(page_index: usize, width: f64, height: f64) -> Self {
+    fn empty() -> Self {
         Self {
-            page_index,
-            width,
-            height,
             text: String::new(),
             text_length: 0,
-            text_hash: hash_page_text(""),
             runs: Vec::new(),
             images: Vec::new(),
             links: Vec::new(),
@@ -276,8 +408,27 @@ impl FragmentPageArtifact {
     }
 }
 
+/// What a walk over a page's fragments records.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CollectMode {
+    /// Everything a page's query artifact holds.
+    Whole,
+    /// The page's text and its runs.
+    Text,
+    /// Where each run starts in its source, alone.
+    Starts,
+}
+
 struct ArtifactBuilder<'a> {
     chapter: &'a ChapterFormattingTree,
+    mode: CollectMode,
+    page_index: usize,
+    /// The runs' source starts, in [`CollectMode::Starts`].
+    starts: Vec<PageArtifactSourceRunStart>,
+    /// Per (flow, text item): a byte offset in the flow's text and its
+    /// UTF-16 offset from the item's start, so the next run of the item
+    /// counts on from there instead of from the item's start.
+    utf16_cursors: rustc_hash::FxHashMap<(u32, usize), (usize, u32)>,
     text: String,
     /// UTF-16 running offset.
     offset: usize,
@@ -289,7 +440,7 @@ struct ArtifactBuilder<'a> {
     hard_breaks: Vec<usize>,
     /// Per flow: the byte end of the previous line's last text fragment
     /// in that flow's concatenated text, for hard-break detection.
-    flow_last_text_end: std::collections::HashMap<u32, usize>,
+    flow_last_text_end: rustc_hash::FxHashMap<u32, usize>,
     /// The paragraph of the line an inline-block being collected rides.
     host_paragraph: Option<u32>,
 }
@@ -305,7 +456,12 @@ impl ArtifactBuilder<'_> {
     ) {
         match fragment {
             Fragment::Box(inner) => {
-                if let Some(href) = self.chapter.node_links.get(&inner.source.0) {
+                if let Some(href) = self
+                    .chapter
+                    .node_links
+                    .get(&inner.source.0)
+                    .filter(|_| self.mode == CollectMode::Whole)
+                {
                     self.links.push(FragmentLinkRecord {
                         block_index,
                         x: origin_x + inner.rect.x,
@@ -315,14 +471,19 @@ impl ArtifactBuilder<'_> {
                         href: href.clone(),
                     });
                 }
-                if let Some(tag) = self.chapter.node_tags.get(&inner.source.0) {
+                if let Some(tag) = self
+                    .chapter
+                    .node_tags
+                    .get(&inner.source.0)
+                    .filter(|_| self.mode == CollectMode::Whole)
+                {
                     self.semantics.push(FragmentSemanticRecord {
                         tag: tag.clone(),
                         x: origin_x + inner.rect.x,
                         y: origin_y + inner.rect.y,
                         width: inner.rect.width,
                         height: inner.rect.height,
-                        text: fragment_subtree_text(&self.chapter.tree, fragment),
+                        text: fragment_subtree_text(self.chapter, fragment),
                     });
                 }
                 for child in &inner.children {
@@ -335,6 +496,10 @@ impl ArtifactBuilder<'_> {
                     );
                 }
             }
+            Fragment::Line(line) if self.mode == CollectMode::Starts => {
+                self.collect_line_starts(line, block_index, line_index, origin_x, origin_y);
+                *line_index += 1;
+            }
             Fragment::Line(line) => {
                 let FormattingNodeContent::InlineFlow { items } =
                     &self.chapter.tree.node(line.source).content
@@ -342,17 +507,13 @@ impl ArtifactBuilder<'_> {
                     return;
                 };
                 // Text fragments address the flow's concatenated text-item
-                // bytes; rebuild the ranges to attribute each run to the
-                // item (and so to the link/source) that produced it.
-                let mut flow_text = String::new();
-                let mut item_ranges: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
-                for (item_index, item) in items.iter().enumerate() {
-                    if let InlineItem::Text { text, .. } = item {
-                        let start = flow_text.len();
-                        flow_text.push_str(text);
-                        item_ranges.push((start..flow_text.len(), item_index));
-                    }
-                }
+                // bytes; the ranges attribute each run to the item (and so
+                // to the link/source) that produced it.
+                let Some(flow) = self.chapter.flow_texts.get(&line.source.0) else {
+                    return;
+                };
+                let flow_text = flow.text.as_str();
+                let item_ranges = &flow.item_ranges;
                 let sources = self.chapter.flow_item_sources.get(&line.source.0);
                 let item_source = |item_index: usize| -> Option<&FlowItemSource> {
                     sources.and_then(|sources| sources.get(item_index))
@@ -378,16 +539,22 @@ impl ArtifactBuilder<'_> {
                         .zip(first_start)
                         .and_then(|(previous, first)| flow_text.get(*previous..first))
                         .is_some_and(|gap| gap.contains('\n'));
-                    if hard {
+                    if hard && self.mode == CollectMode::Whole {
                         self.hard_breaks.push(self.offset);
                     }
                     self.text.push('\n');
                     self.offset += 1;
                 }
-                if let Some(last_end) = line.children.iter().rev().find_map(|child| match child {
-                    Fragment::Text(run) => Some(run.text_end as usize),
-                    _ => None,
-                }) {
+                // Read only where the page's text is written.
+                let last_end = (self.mode != CollectMode::Starts)
+                    .then(|| {
+                        line.children.iter().rev().find_map(|child| match child {
+                            Fragment::Text(run) => Some(run.text_end as usize),
+                            _ => None,
+                        })
+                    })
+                    .flatten();
+                if let Some(last_end) = last_end {
                     self.flow_last_text_end.insert(line.source.0, last_end);
                 }
                 for (run_index, child) in line.children.iter().enumerate() {
@@ -398,30 +565,31 @@ impl ArtifactBuilder<'_> {
                             else {
                                 continue;
                             };
-                            let owner = item_ranges
-                                .iter()
-                                .find(|(range, _)| range.contains(&(run.text_start as usize)))
-                                .map(|(_, item_index)| *item_index);
-                            let owner_range = owner.and_then(|item_index| {
-                                item_ranges
-                                    .iter()
-                                    .find(|(_, index)| *index == item_index)
-                                    .map(|(range, _)| range.clone())
+                            // The item ranges run in flow order: the owner is
+                            // the first whose end passes the run's start.
+                            let start = run.text_start as usize;
+                            let owner_entry = item_ranges
+                                .get(item_ranges.partition_point(|(range, _)| range.end <= start))
+                                .filter(|(range, _)| range.contains(&start));
+                            let owner = owner_entry.map(|(_, item_index)| *item_index);
+                            let run_len = run_text.encode_utf16().count() as u32;
+                            // The run's UTF-16 offset from its item's start.
+                            let prefix = owner_entry.and_then(|(range, item_index)| {
+                                self.item_prefix(
+                                    (line.source.0, *item_index),
+                                    range.start,
+                                    (start, run.text_end as usize),
+                                    run_len,
+                                    flow_text,
+                                )
                             });
                             let href = owner
                                 .and_then(item_source)
                                 .and_then(|source| source.href.clone());
                             let source = owner.and_then(item_source).and_then(|item| {
-                                let path = item.source_path.clone()?;
-                                let range = owner_range.clone()?;
-                                let prefix = flow_text
-                                    .get(range.start..run.text_start as usize)?
-                                    .encode_utf16()
-                                    .count() as u32;
-                                let run_len = run_text.encode_utf16().count() as u32;
-                                let segments = item
-                                    .segments
-                                    .iter()
+                                let path = item.source_path.as_deref()?.to_vec();
+                                let prefix = prefix?;
+                                let segments = run_segments(&item.segments, prefix, run_len)
                                     .filter_map(|segment| {
                                         let lo = segment.item_start.max(prefix);
                                         let hi = (segment.item_start + segment.len)
@@ -437,7 +605,7 @@ impl ArtifactBuilder<'_> {
                                     .collect::<Vec<_>>();
                                 Some(RunSourceMap { path, segments })
                             });
-                            let length = run_text.encode_utf16().count();
+                            let length = run_len as usize;
                             let font_box = run.font_grid.map(|(ascent, descent)| {
                                 (line_y + line.baseline - ascent, ascent + descent)
                             });
@@ -455,12 +623,13 @@ impl ArtifactBuilder<'_> {
                                 font_box,
                                 href,
                                 source,
+                                edges: run_edges(run, run_text, line_x),
                             });
                             self.text.push_str(run_text);
                             self.offset += length;
                             self.has_text = true;
                         }
-                        Fragment::Image(image) => {
+                        Fragment::Image(image) if self.mode == CollectMode::Whole => {
                             let InlineItem::Image { src, .. } = &items[image.item_index as usize]
                             else {
                                 continue;
@@ -498,15 +667,138 @@ impl ArtifactBuilder<'_> {
     }
 }
 
-impl PageArtifact for FragmentPageArtifact {
-    fn metadata(&self) -> PageArtifactMetadata {
-        PageArtifactMetadata {
-            page_index: self.page_index,
-            width: self.width,
-            height: self.height,
+impl ArtifactBuilder<'_> {
+    /// Where each of a line's runs starts in its source, read from the
+    /// glyph-run ranges the line records rather than from its text
+    /// fragments, which cover exactly those ranges: a line laid out without
+    /// its text records the same starts. An inline block's own lines start
+    /// runs where it sits among them.
+    fn collect_line_starts(
+        &mut self,
+        line: &LineFragment,
+        block_index: usize,
+        line_index: &mut usize,
+        origin_x: f64,
+        origin_y: f64,
+    ) {
+        let Some(flow) = self.chapter.flow_texts.get(&line.source.0) else {
+            return;
+        };
+        let flow_text = flow.text.as_str();
+        let item_ranges = &flow.item_ranges;
+        let sources = self.chapter.flow_item_sources.get(&line.source.0);
+        let paragraph = self.host_paragraph.unwrap_or(line.source.0);
+        let mut atoms = line
+            .children
+            .iter()
+            .filter(|child| matches!(child, Fragment::Image(_) | Fragment::Box(_)));
+        for &(start, end) in &line.text_runs {
+            let (start, end) = (start as usize, end as usize);
+            if start == end {
+                if let Some(atom) = atoms.next().filter(|atom| matches!(atom, Fragment::Box(_))) {
+                    let host = self.host_paragraph.replace(paragraph);
+                    self.collect(
+                        atom,
+                        block_index,
+                        line_index,
+                        origin_x + line.rect.x,
+                        origin_y + line.rect.y,
+                    );
+                    self.host_paragraph = host;
+                }
+                continue;
+            }
+            let Some(run_text) = flow_text.get(start..end) else {
+                continue;
+            };
+            // The item ranges run in flow order: the owner is the first
+            // whose end passes the run's start.
+            let Some((range, item_index)) = item_ranges
+                .get(item_ranges.partition_point(|(range, _)| range.end <= start))
+                .filter(|(range, _)| range.contains(&start))
+            else {
+                continue;
+            };
+            let run_len = run_text.encode_utf16().count() as u32;
+            let prefix = self.item_prefix(
+                (line.source.0, *item_index),
+                range.start,
+                (start, end),
+                run_len,
+                flow_text,
+            );
+            if let Some(start) = sources
+                .and_then(|sources| sources.get(*item_index))
+                .zip(prefix)
+                .and_then(|(item, prefix)| source_start(self.page_index, item, prefix, run_len))
+            {
+                self.starts.push(start);
+            }
         }
     }
 
+    /// The UTF-16 offset of byte `run.0` from its item's start (`item_start`),
+    /// counted on from where the item's previous run ended when that is no
+    /// further than this run's start; this run's end becomes the item's.
+    fn item_prefix(
+        &mut self,
+        item: (u32, usize),
+        item_start: usize,
+        run: (usize, usize),
+        run_len: u32,
+        flow_text: &str,
+    ) -> Option<u32> {
+        let cursor = self
+            .utf16_cursors
+            .get(&item)
+            .copied()
+            .filter(|(byte, _)| *byte <= run.0)
+            .unwrap_or((item_start, 0));
+        let prefix = cursor.1 + flow_text.get(cursor.0..run.0)?.encode_utf16().count() as u32;
+        self.utf16_cursors.insert(item, (run.1, prefix + run_len));
+        Some(prefix)
+    }
+}
+
+/// The segments of an item's text that can overlap the run at `prefix`,
+/// `run_len` long, in order. They follow the item's text without
+/// overlapping, so those ending before the run are skipped by binary
+/// search and the walk stops at the first starting after it: an item of a
+/// long paragraph holds a segment per collapsed space of its source.
+fn run_segments(
+    segments: &[SourceSegment],
+    prefix: u32,
+    run_len: u32,
+) -> impl Iterator<Item = &SourceSegment> {
+    let first = segments.partition_point(|segment| segment.item_start + segment.len <= prefix);
+    segments[first..]
+        .iter()
+        .take_while(move |segment| segment.item_start < prefix + run_len)
+}
+
+/// A run's source start: the source offset its first stretch maps to, the
+/// offset a [`RunSourceMap`] of the run gives for its first character.
+fn source_start(
+    page_index: usize,
+    item: &FlowItemSource,
+    prefix: u32,
+    run_len: u32,
+) -> Option<PageArtifactSourceRunStart> {
+    let path = item.source_path.as_ref()?;
+    let text_offset = run_segments(&item.segments, prefix, run_len).find_map(|segment| {
+        let lo = segment.item_start.max(prefix);
+        let hi = (segment.item_start + segment.len).min(prefix + run_len);
+        (hi > lo).then(|| segment.source_start + (lo - segment.item_start))
+    })?;
+    Some(PageArtifactSourceRunStart {
+        page_index,
+        node_path: path.clone(),
+        text_offset: text_offset as usize,
+        text_length: run_len as usize,
+    })
+}
+
+impl PageArtifact for FragmentPageArtifact {
     fn semantic_nodes(&self) -> Vec<PageArtifactSemanticNode> {
         self.semantics
             .iter()
@@ -530,15 +822,11 @@ impl PageArtifact for FragmentPageArtifact {
             .collect()
     }
 
-    fn targets(&self) -> PageArtifactTargets {
-        // Entry order and hashing mirror the retained backend: text runs
-        // in flow order (their concatenation is the hash input), then
-        // page images.
-        let mut text = String::new();
+    fn targets(&self) -> Vec<PageArtifactTarget> {
         let mut entries = Vec::new();
+        let mut slicer = PageTextSlicer::new(&self.text);
         for run in &self.runs {
-            let run_text = page_text_slice(&self.text, run.start, run.end);
-            text.push_str(&run_text);
+            let run_text = slicer.slice(run.start, run.end);
             entries.push(PageArtifactTarget {
                 block_index: run.block_index,
                 line_index: run.line_index,
@@ -549,7 +837,6 @@ impl PageArtifact for FragmentPageArtifact {
                     width: run.width,
                     height: run.height,
                 },
-                text_hash: hash_page_text(&run_text),
                 text_length: run.end - run.start,
                 text: run_text,
                 href: run.href.clone(),
@@ -571,7 +858,6 @@ impl PageArtifact for FragmentPageArtifact {
                     height: link.height,
                 },
                 text: String::new(),
-                text_hash: hash_page_text(""),
                 text_length: 0,
                 href: Some(link.href.clone()),
                 source_path: None,
@@ -592,7 +878,6 @@ impl PageArtifact for FragmentPageArtifact {
                     height: image.height,
                 },
                 text: String::new(),
-                text_hash: hash_page_text(""),
                 text_length: 0,
                 href: image.href.clone(),
                 source_path: None,
@@ -601,17 +886,13 @@ impl PageArtifact for FragmentPageArtifact {
                 image_alt: image.alt.clone(),
             });
         }
-        PageArtifactTargets {
-            entries,
-            text_hash: hash_page_text(&text),
-        }
+        entries
     }
 
     fn text_positions(&self) -> PageArtifactTextPositions {
         PageArtifactTextPositions {
             text: self.text.clone(),
             text_length: self.text_length,
-            text_hash: self.text_hash.clone(),
             offsets: self
                 .runs
                 .iter()
@@ -658,22 +939,17 @@ impl PageArtifact for FragmentPageArtifact {
             if to_char <= from_char {
                 continue;
             }
-            // Character-interior endpoints interpolate linearly across the
-            // run's advance until per-cluster metrics are retained; exact
-            // for the run-aligned endpoints selection snapping produces.
-            let per_char = if run_chars > 0 {
-                run.width / run_chars as f64
-            } else {
-                0.0
-            };
+            // Endpoints land on the clusters' own edges (see `x_at`).
+            let left = run.x_at(from_char);
+            let right = run.x_at(to_char);
             // Chromium's native selection rect spans the FONT box, not
             // the line box; the line box is the documented fallback for
             // hosts that inject no grid metrics.
             let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
             rects.push(PageArtifactTextRangeRect {
-                x: run.x + per_char * from_char as f64,
+                x: left,
                 y: rect_y,
-                width: per_char * (to_char - from_char) as f64,
+                width: right - left,
                 height: rect_height,
                 block_index: run.block_index,
                 line_index: run.line_index,
@@ -695,6 +971,48 @@ fn position_key(position: &PageArtifactTextPosition) -> (usize, usize, usize, us
     )
 }
 
+/// Slices the page text by UTF-16 offsets, counting on from where the
+/// previous slice ended: a page's runs ask for their text in page order.
+struct PageTextSlicer<'a> {
+    text: &'a str,
+    /// The cursor's byte and its UTF-16 offset, at a character boundary.
+    byte: usize,
+    unit: usize,
+}
+
+impl<'a> PageTextSlicer<'a> {
+    fn new(text: &'a str) -> Self {
+        Self {
+            text,
+            byte: 0,
+            unit: 0,
+        }
+    }
+
+    fn slice(&mut self, start: usize, end: usize) -> String {
+        if start < self.unit {
+            self.byte = 0;
+            self.unit = 0;
+        }
+        match self.advance(start).zip(self.advance(end.max(start))) {
+            Some((from, to)) => self.text[from..to].to_owned(),
+            // An offset inside a character or past the text.
+            None => page_text_slice(self.text, start, end),
+        }
+    }
+
+    /// Moves the cursor to UTF-16 offset `unit`, giving its byte when a
+    /// character starts there.
+    fn advance(&mut self, unit: usize) -> Option<usize> {
+        while self.unit < unit {
+            let next = self.text[self.byte..].chars().next()?;
+            self.unit += next.len_utf16();
+            self.byte += next.len_utf8();
+        }
+        (self.unit == unit).then_some(self.byte)
+    }
+}
+
 /// UTF-16 offset range back to a string slice of the page text.
 fn page_text_slice(text: &str, start: usize, end: usize) -> String {
     text.encode_utf16()
@@ -713,28 +1031,19 @@ impl<T: Sized> Pipe for T {}
 
 /// Text content of one fragment subtree, lines joined by spaces — the
 /// heading/paragraph text a semantic outline shows.
-fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragment) -> String {
-    fn walk(tree: &rito_fragment::FormattingTree, fragment: &Fragment, out: &mut String) {
+fn fragment_subtree_text(chapter: &ChapterFormattingTree, fragment: &Fragment) -> String {
+    fn walk(chapter: &ChapterFormattingTree, fragment: &Fragment, out: &mut String) {
         match fragment {
             Fragment::Box(inner) => {
                 for child in &inner.children {
-                    walk(tree, child, out);
+                    walk(chapter, child, out);
                 }
             }
             Fragment::Line(line) => {
-                let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content
-                else {
+                let Some(flow) = chapter.flow_texts.get(&line.source.0) else {
                     return;
                 };
-                let flow_text: String = items
-                    .iter()
-                    .filter_map(|item| match item {
-                        InlineItem::Text { text, .. } => Some(text.as_str()),
-                        InlineItem::Image { .. }
-                        | InlineItem::InlineBlock { .. }
-                        | InlineItem::EmptyBox { .. } => None,
-                    })
-                    .collect();
+                let flow_text = flow.text.as_str();
                 for child in &line.children {
                     if let Fragment::Text(run) = child {
                         if let Some(run_text) =
@@ -752,7 +1061,7 @@ fn fragment_subtree_text(tree: &rito_fragment::FormattingTree, fragment: &Fragme
         }
     }
     let mut out = String::new();
-    walk(tree, fragment, &mut out);
+    walk(chapter, fragment, &mut out);
     out.trim().to_owned()
 }
 
@@ -834,6 +1143,7 @@ mod tests {
         )
         .expect("tree builds");
         ChapterFormattingTree {
+            flow_texts: crate::fragment_bridge::flow_texts(&tree),
             tree,
             image_border_paints: BTreeMap::new(),
             source_nodes: vec![None, None],
@@ -865,17 +1175,8 @@ mod tests {
                 &CancelFlag::new(),
             )
             .expect("chapter lays out");
-        let artifact = FragmentPageArtifact::build(
-            3,
-            200.0,
-            300.0,
-            &outcome.fragments.root,
-            &built,
-            24.0,
-            32.0,
-        );
+        let artifact = FragmentPageArtifact::build(3, &outcome.fragments.root, &built, 24.0, 32.0);
 
-        assert_eq!(artifact.metadata().page_index, 3);
         let positions = artifact.text_positions();
         // Line splits insert newlines (trailing spaces hang on their
         // line); the words themselves survive intact.
@@ -917,7 +1218,7 @@ mod tests {
             assert!(rect.width > 0.0);
             assert!(rect.height > 0.0);
         }
-        // A mid-run selection interpolates inside the run's advance.
+        // A mid-run selection lands inside the run's advance.
         let first = &positions.offsets[0];
         let chars = first.end - first.start;
         let partial = artifact.text_range_geometry(
@@ -937,5 +1238,63 @@ mod tests {
         assert_eq!(partial.rects.len(), 1);
         assert!(partial.rects[0].x > geometry.rects[0].x);
         assert!(partial.rects[0].width < geometry.rects[0].width);
+    }
+
+    /// A run's boundaries are its clusters' own origins, segment by
+    /// segment: each cluster's offset maps to its x and back, and an x
+    /// inside a cluster lands on its nearer edge.
+    #[test]
+    fn a_runs_boundaries_are_its_clusters_origins() {
+        let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+        let engine = BlockFormattingContext::new(context);
+        let built = chapter("Hello quiet world");
+        let outcome = engine
+            .layout(
+                &built.tree,
+                built.tree.root(),
+                &ConstraintSpace::continuous(600.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("chapter lays out");
+        let artifact = FragmentPageArtifact::build(0, &outcome.fragments.root, &built, 24.0, 32.0);
+        assert_eq!(artifact.runs.len(), 1, "the line's one item is one run");
+        let run = &artifact.runs[0];
+        let length = run.end - run.start;
+        assert_eq!(run.edges.len(), length, "a cluster per character");
+        assert_eq!(run.edges[0].x, run.x);
+        for pair in run.edges.windows(2) {
+            let (edge, next) = (pair[0], pair[1]);
+            assert_eq!(run.x_at(edge.offset as usize), edge.x);
+            assert_eq!(run.offset_at(edge.x), edge.offset as usize);
+            let quarter = (next.x - edge.x) / 4.0;
+            assert_eq!(run.offset_at(edge.x + quarter), edge.offset as usize);
+            assert_eq!(run.offset_at(next.x - quarter), next.offset as usize);
+        }
+        assert_eq!(run.x_at(length), run.x + run.width);
+        assert_eq!(run.offset_at(run.x + run.width + 10.0), length);
+    }
+
+    #[test]
+    fn runs_slice_the_page_text_the_way_its_utf16_offsets_read_it() {
+        // A surrogate pair, a two-byte and a three-byte character.
+        let text = "a\u{1F600}b\u{e9}\n\u{6f22}c";
+        let length = text.encode_utf16().count();
+        let mut slicer = PageTextSlicer::new(text);
+        let mut ranges = Vec::new();
+        for start in 0..=length + 1 {
+            for end in start..=length + 1 {
+                ranges.push((start, end));
+            }
+        }
+        // In page order, then backwards, as a page's runs never ask.
+        let backwards = ranges.iter().rev().copied().collect::<Vec<_>>();
+        for (start, end) in ranges.into_iter().chain(backwards) {
+            assert_eq!(
+                slicer.slice(start, end),
+                page_text_slice(text, start, end),
+                "{start}..{end}"
+            );
+        }
     }
 }

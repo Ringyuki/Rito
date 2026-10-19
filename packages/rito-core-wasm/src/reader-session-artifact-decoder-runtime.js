@@ -141,14 +141,14 @@ function readDisplayList(reader) {
   const record = reader.record('display list');
   const formatVersion = record.u32('display list format version');
   const commandCount = record.u32('display list command count');
-  const semanticDigest = record.fixedBytes(32, 'display list digest');
-  const wireBytes = record.blob('display list bytes');
+  // Read where the artifact holds it.
+  const wireBytes = record.view('display list bytes');
   record.finish('display list');
   const displayList = decodeRitoReaderPrimitiveList(wireBytes);
   if (displayList.formatVersion !== formatVersion || displayList.commandCount !== commandCount) {
     reader.fail('display list metadata does not match RITODL1 bytes');
   }
-  return { formatVersion, commandCount, semanticDigest, wireBytes, displayList };
+  return { formatVersion, commandCount, wireBytes, displayList };
 }
 
 function readResourceRef(reader) {
@@ -181,14 +181,30 @@ function readPage(reader) {
     pageIndex: record.u32('page index'),
     width: record.f64('page width'),
     height: record.f64('page height'),
-    hits: readCollection(record, 'page hits', () => readHit(record)),
-    semantics: readSemantics(record, 0),
-    text: record.string('page text'),
-    textLength: record.u64('page text length'),
-    textRuns: readCollection(record, 'page text runs', () => readTextRun(record)),
   };
   record.finish('page');
   return page;
+}
+
+/**
+ * Decodes a `RITOPGR1` message: what one page of a live artifact holds for
+ * a host — its interaction targets, semantic outline, text and text runs.
+ * An artifact carries only its pages' index and size; a host reads these
+ * when it first needs them.
+ */
+export function decodeRitoReaderPageRecords(value) {
+  const reader = validateReaderWireMessage(value, 'RITOPGR1', 'page records');
+  const records = {
+    artifactId: reader.externalId('page records artifact id'),
+    pageIndex: reader.u32('page index'),
+    hits: readCollection(reader, 'page hits', () => readHit(reader)),
+    semantics: readSemantics(reader, 0),
+    text: reader.string('page text'),
+    textLength: reader.u64('page text length'),
+    textRuns: readCollection(reader, 'page text runs', () => readTextRun(reader)),
+  };
+  reader.finish('page records wire message');
+  return records;
 }
 
 const HIT_KINDS = ['text', 'link', 'image', 'footnote', 'footnote-pending'];
@@ -273,6 +289,11 @@ export function readTaggedU32(reader, field, values) {
   return value;
 }
 
-export function copyRitoReaderWireBytes(value) {
-  return new Uint8Array(readerWireBytes(value, 'reader wire bytes'));
+/** The message in a buffer of its own, which can be transferred: as handed
+ * over when it already owns its whole buffer (wasm-bindgen copies every
+ * result out of the module's memory), copied otherwise. */
+export function ownRitoReaderWireBytes(value) {
+  const bytes = readerWireBytes(value, 'reader wire bytes');
+  const owned = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength;
+  return owned ? bytes : new Uint8Array(bytes);
 }

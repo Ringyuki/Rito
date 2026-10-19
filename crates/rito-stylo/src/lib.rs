@@ -33,6 +33,7 @@ mod projection;
 mod session;
 mod traversal;
 mod ua;
+mod viewport_dependence;
 
 pub use font_faces::{parse_font_faces, FontFaceRule, FontFaceStylesheetInput};
 pub use projection::{
@@ -45,6 +46,7 @@ pub use session::{
     StylesheetInput, Viewport,
 };
 pub use ua::epub_ua_stylesheet;
+pub use viewport_dependence::ViewportDependence;
 
 /// Reports whether CSS itself defines this property name.
 ///

@@ -1,3 +1,5 @@
+import type { PageBufferPool } from '../painter/buffer-pool';
+import type { DisplaySurface } from '../painter/display-surface';
 import type { SlotPosition } from '../painter/types';
 import type {
   TransitionEffect,
@@ -27,31 +29,63 @@ export function scaledTouch(touch: TransitionTouch, scale: number): TransitionTo
   };
 }
 
+/** What a scene draws its pages from. */
+export interface SceneSource {
+  readonly surface: DisplaySurface;
+  readonly pool: PageBufferPool;
+  /** Whether a slot's page is painted, painting it if it can be. */
+  readonly ready: (slot: SlotPosition) => boolean;
+}
+
 /**
- * A scene over a cleared surface whose pages come from `pageOf`, which
- * answers null for a page that is not painted yet. `cssPixel` is the
- * length of a CSS pixel in the surface's units and `spine` where the pages
- * are bound.
+ * A scene over the cleared display. `cssPixel` is the length of a CSS
+ * pixel in the surface's units and `spine` where the pages are bound.
  */
 export function createTransitionScene(
-  context: CanvasRenderingContext2D,
+  source: SceneSource,
   width: number,
   height: number,
-  pageOf: (slot: SlotPosition) => TransitionPage | null,
   cssPixel = 1,
   spine = 0,
 ): TransitionScene {
+  const { surface, pool } = source;
+  const pages = new Map<SlotPosition, TransitionPage | null>();
   return {
-    context,
+    gl: surface.gl,
     width,
     height,
     cssPixel,
     spine,
-    page: pageOf,
-    drawPage(slot, x, opacity = 1): void {
-      const page = pageOf(slot);
-      if (page) drawPageAt(context, page, x, width, height, opacity);
+    page(slot): TransitionPage | null {
+      if (!pages.has(slot)) pages.set(slot, transitionPage(source, slot, width));
+      return pages.get(slot) ?? null;
     },
+    drawPage(slot, x, opacity = 1): void {
+      if (!source.ready(slot)) return;
+      surface.compositor.bind(null, surface.width, surface.height);
+      pool.drawSlot(slot, { x, y: 0, width, height }, opacity);
+    },
+  };
+}
+
+function transitionPage(
+  source: SceneSource,
+  slot: SlotPosition,
+  width: number,
+): TransitionPage | null {
+  if (!source.ready(slot)) return null;
+  const { surface, pool } = source;
+  const texture = pool.pageTexture(slot);
+  // Making the texture may have bound a framebuffer of its own.
+  surface.compositor.bind(null, surface.width, surface.height);
+  const painted = pool[slot];
+  return {
+    spread: painted.spreadIndex ?? 0,
+    texture: texture.texture,
+    width: texture.width,
+    height: texture.height,
+    pixelRatio: width > 0 ? texture.width / width : 1,
+    version: painted.paints,
   };
 }
 
@@ -60,38 +94,21 @@ export function paintTransition(
   scene: TransitionScene,
   effect: TransitionEffect,
   frame: TransitionFrame,
+  surface: DisplaySurface,
 ): void {
   if ('paint' in effect) {
     effect.paint(scene, frame);
     return;
   }
-  for (const layer of effect.layers(frame)) drawLayer(scene, layer);
+  for (const layer of effect.layers(frame)) drawLayer(scene, surface, layer);
 }
 
-function drawLayer(scene: TransitionScene, layer: TransitionLayer): void {
+function drawLayer(scene: TransitionScene, surface: DisplaySurface, layer: TransitionLayer): void {
   const opacity = layer.opacity ?? 1;
   if (opacity <= 0 || !scene.page(layer.slot)) return;
   const x = Math.round(layer.x);
-  if (layer.shadow) drawEdgeShadow(scene, x, layer.shadow);
+  if (layer.shadow) drawEdgeShadow(scene, surface, x, layer.shadow);
   scene.drawPage(layer.slot, x, opacity);
-}
-
-function drawPageAt(
-  context: CanvasRenderingContext2D,
-  page: TransitionPage,
-  x: number,
-  width: number,
-  height: number,
-  opacity: number,
-): void {
-  const alpha = context.globalAlpha;
-  context.globalAlpha = alpha * Math.min(1, opacity);
-  try {
-    context.drawImage(page.content, x, 0, width, height);
-    if (page.overlay) context.drawImage(page.overlay, x, 0, width, height);
-  } finally {
-    context.globalAlpha = alpha;
-  }
 }
 
 /**
@@ -102,16 +119,28 @@ function drawPageAt(
  * stood beside a sheet no longer shown and went out in one frame when
  * the turn ended.
  */
-function drawEdgeShadow(scene: TransitionScene, x: number, side: 'left' | 'right'): void {
+function drawEdgeShadow(
+  scene: TransitionScene,
+  surface: DisplaySurface,
+  x: number,
+  side: 'left' | 'right',
+): void {
   const reach = SHADOW_REACH * scene.cssPixel;
   const inFrame = Math.min(x + scene.width, scene.width) - Math.max(x, 0);
   const strength = Math.min(1, inFrame / reach);
   if (strength <= 0) return;
   const edgeX = side === 'left' ? x : x + scene.width;
-  const to = side === 'left' ? edgeX - reach : edgeX + reach;
-  const gradient = scene.context.createLinearGradient(edgeX, 0, to, 0);
-  gradient.addColorStop(0, `rgba(0, 0, 0, ${String(SHADOW_ALPHA * strength)})`);
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  scene.context.fillStyle = gradient;
-  scene.context.fillRect(Math.min(edgeX, to), 0, reach, scene.height);
+  // The shadow's ink is a CSS colour, black at that alpha, and a colour
+  // keeps its alpha as a byte: the ramp runs to that byte.
+  const alpha = Math.round(SHADOW_ALPHA * strength * 255) / 255;
+  const rect = {
+    x: side === 'left' ? edgeX - reach : edgeX,
+    y: 0,
+    width: reach,
+    height: scene.height,
+  };
+  surface.compositor.bind(null, surface.width, surface.height);
+  // The ramp is darkest at the sheet's edge.
+  if (side === 'left') surface.compositor.drawRamp(rect, 0, alpha);
+  else surface.compositor.drawRamp(rect, alpha, 0);
 }

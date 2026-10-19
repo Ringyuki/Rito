@@ -48,7 +48,7 @@ fn adjacent_items_paint_with_their_own_styles() {
     };
     assert_eq!(first.text, "Red ");
     assert_eq!(first.paint.color, css_color("#ff0000"));
-    assert_eq!(first.paint.font.family, "Tinos");
+    assert_eq!(&*first.paint.font.family, "Tinos");
     // Line top is 20 + 6 = 26; the paint rect starts one canvas-'top'
     // ascent (0.8 × 16px) above the 13px baseline.
     assert_eq!(first.rect, display_rect(14.0, 26.2, 30.0, 16.0));
@@ -104,6 +104,7 @@ fn a_baseline_rounds_the_line_top_on_css_pixels_and_the_sum_on_the_device_grid()
                 baseline: within_line,
                 trailing_whitespace: 0.0,
                 ruby_growth: 0.0,
+                text_runs: Vec::new(),
                 children: vec![text_run(0.0, 8.0, 0, 1)],
             })],
         });

@@ -54,10 +54,13 @@ void main() {
     final publication = File(
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
+    // How many text runs each opened session's first page holds, read
+    // before the session closes.
+    final firstPageRuns = <int, int>{};
     RitoArtifact open(int sessionId, {double? lineHeight, String? family}) {
       final bindings = RitoNativeBindings();
       try {
-        return bindings.openEncoded(
+        final artifact = bindings.openEncoded(
           publicationBytes: publication,
           pinnedFontPolicy: _testPinnedPolicy(),
           requestBytes: const RitoRequestEncoder().encode(
@@ -82,6 +85,15 @@ void main() {
             ),
           ),
         );
+        firstPageRuns[sessionId] = bindings
+            .readPage(
+              sessionId: sessionId,
+              artifactId: artifact.artifactId,
+              pageIndex: artifact.pages.first.pageIndex,
+            )
+            .textRuns
+            .length;
+        return artifact;
       } finally {
         bindings.dispose(sessionId: sessionId);
       }
@@ -90,9 +102,9 @@ void main() {
     final baseline = open(9201);
     // A unitless scale: 2.4x line height must fit strictly fewer text
     // runs on the first page than the book's own leading.
-    final loose = open(9202, lineHeight: 2.4);
-    final baselineRuns = baseline.pages.first.textRuns.length;
-    final looseRuns = loose.pages.first.textRuns.length;
+    open(9202, lineHeight: 2.4);
+    final baselineRuns = firstPageRuns[9201]!;
+    final looseRuns = firstPageRuns[9202]!;
     expect(
       looseRuns,
       lessThan(baselineRuns),

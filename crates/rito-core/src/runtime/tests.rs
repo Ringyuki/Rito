@@ -7,10 +7,13 @@ mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
 mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
+mod relayout_equivalence_tests;
 pub(crate) mod revisions;
+mod ruby_range_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;
+mod word_selection_tests;
 
 use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_stylesheet,
@@ -907,7 +910,6 @@ fn a_page_exposes_its_text_and_where_each_run_sits_in_it() {
 
     assert!(positions.text.contains("Hello runtime"));
     assert_eq!(positions.text_length, positions.text.encode_utf16().count());
-    assert!(!positions.text_hash.is_empty());
     assert!(positions
         .offsets
         .iter()

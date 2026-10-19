@@ -190,7 +190,7 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9003;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -265,7 +265,7 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9004;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -298,7 +298,7 @@ void main() {
         RitoPreparedArtifact? candidate;
         for (var quantum = 0; quantum < 512 && candidate == null; quantum++) {
           final advance = await session.advanceBackground(
-            maxTopLevelNodesPerQuantum: 32,
+            maxPagesPerQuantum: 32,
           );
           candidate = advance.artifact;
           if (candidate != null) {
@@ -355,7 +355,7 @@ void main() {
         '../rito/tests/fixtures/books/book-01.epub',
       ).readAsBytesSync();
       const sessionId = 9005;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -389,7 +389,11 @@ void main() {
         // the key exactly as the hit published it.
         var read = 0;
         for (var step = 0; step < 12; step++) {
-          final keys = current.artifact.pages
+          final records = [
+            for (final page in current.artifact.pages)
+              await session.readPage(current, page.pageIndex),
+          ];
+          final keys = records
               .expand((page) => page.hits)
               .where((hit) => hit.footnoteKey != null && !hit.footnotePending)
               .map((hit) => hit.footnoteKey!)
@@ -442,7 +446,7 @@ void main() {
         '../rito/tests/fixtures/books/book-10.epub',
       ).readAsBytesSync();
       const sessionId = 9006;
-      final gateway = RitoIsolateGateway();
+      final gateway = RitoNativeGateway();
       final session = await RitoReaderSession.open(
         gateway: gateway,
         publicationBytes: publication,
@@ -474,7 +478,7 @@ void main() {
         int? total;
         for (var quantum = 0; quantum < 4096; quantum++) {
           final advance = await session.advanceBackground(
-            maxTopLevelNodesPerQuantum: 64,
+            maxPagesPerQuantum: 64,
           );
           final candidate = advance.artifact;
           if (candidate != null) {
@@ -514,7 +518,7 @@ void main() {
       '../rito/tests/fixtures/books/book-01.epub',
     ).readAsBytesSync();
     const sessionId = 9007;
-    final gateway = RitoIsolateGateway();
+    final gateway = RitoNativeGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
       publicationBytes: publication,
@@ -539,7 +543,11 @@ void main() {
     );
     try {
       final prepared = session.firstArtifact;
-      final page = prepared.artifact.pages.firstWhere(
+      final records = [
+        for (final page in prepared.artifact.pages)
+          await session.readPage(prepared, page.pageIndex),
+      ];
+      final page = records.firstWhere(
         (candidate) => candidate.textRuns.isNotEmpty,
       );
       final run = page.textRuns.first;
@@ -610,7 +618,7 @@ void main() {
       '../rito/tests/fixtures/books/book-10.epub',
     ).readAsBytesSync();
     const sessionId = 9008;
-    final gateway = RitoIsolateGateway();
+    final gateway = RitoNativeGateway();
     final session = await RitoReaderSession.open(
       gateway: gateway,
       publicationBytes: publication,
@@ -635,7 +643,11 @@ void main() {
     );
     try {
       final prepared = session.firstArtifact;
-      final needle = prepared.artifact.pages
+      final records = [
+        for (final page in prepared.artifact.pages)
+          await session.readPage(prepared, page.pageIndex),
+      ];
+      final needle = records
           .expand((page) => page.text.split(RegExp(r'\s+')))
           .firstWhere((word) => word.characters.length >= 2);
 

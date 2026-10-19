@@ -3,7 +3,6 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    'reader-session-worker-entry': 'src/bindings/browser/reader-session-worker-main.ts',
   },
   format: 'esm',
   // The package ships browser code end to end: resolve dependencies via

@@ -37,10 +37,9 @@ RitoHitEntry _hit(
 
 RitoHitResolver _resolver(List<RitoHitEntry> hits) {
   return RitoHitResolver([
-    RitoPage(
+    RitoPageRecords(
+      artifactId: 1,
       pageIndex: 0,
-      width: 400,
-      height: 800,
       hits: hits,
       semantics: const [],
       text: hits.map((hit) => hit.text).join(),

@@ -43,7 +43,7 @@ use rito_fragment::{
     BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
     FormattingContext, FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment,
     FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
-    PendingPositioned,
+    LineText, PendingPositioned,
 };
 use rito_style_contract::{
     BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,

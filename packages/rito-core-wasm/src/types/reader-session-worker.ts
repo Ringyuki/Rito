@@ -14,6 +14,7 @@ import type {
   RitoReaderResource,
   RitoReaderTextProfile,
   RitoReaderSourceRange,
+  RitoReaderPageRecords,
 } from './reader-session';
 import type {
   RitoReaderAnnotationRequest,
@@ -119,7 +120,7 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
   /** Runs exactly one host-scheduled publication quantum; never loops automatically. */
   advanceBackgroundOnce(
     expectedVisibleArtifactId: bigint,
-    maxTopLevelNodesPerQuantum: number,
+    maxPagesPerQuantum: number,
   ): Promise<RitoReaderBackgroundAdvance>;
   /** Atomically adopts a pending candidate without releasing the replaced artifact. */
   adoptBackgroundCandidate(
@@ -153,6 +154,8 @@ export interface RitoCoreWasmReaderSessionWorkerClient {
     expectedVisibleArtifactId: bigint | undefined,
     candidateArtifactId: bigint,
   ): Promise<RitoReaderForegroundHandoffAck>;
+  /** What a page of a live artifact holds for a host, read when first needed. */
+  readPage(artifactId: bigint, pageIndex: number): Promise<RitoReaderPageRecords>;
   readFootnote(artifactId: bigint, key: string): Promise<RitoReaderFootnote>;
   /** Searches the revision behind the artifact; a zero or absent `limit` is unbounded. */
   search(
@@ -214,6 +217,16 @@ export interface RitoReaderSessionWorkerLike {
 export interface RitoReaderSessionWorkerScope {
   addEventListener(type: 'message', listener: (event: { readonly data: unknown }) => void): void;
   postMessage(message: unknown, transfer?: readonly Transferable[]): void;
+}
+
+/** The engine a worker handler hosts, as the scope that started it holds it. */
+export interface RitoReaderSessionWorkerHandle {
+  /**
+   * Releases the session as a dispose would, for a scope that ends without
+   * one: a terminated worker takes its memory with it, an engine on the
+   * page's own thread does not.
+   */
+  close(): void;
 }
 
 export interface RitoReaderRawSession {

@@ -1,6 +1,6 @@
 use crate::{epub::LoadedEpubDocument, resources::ResourceHrefIndex};
 
-use super::{RuntimeSourceLocator, RuntimeSourceLocatorError};
+use super::{RuntimeDocument, RuntimeSourceLocator, RuntimeSourceLocatorError};
 
 #[derive(Debug, Clone)]
 pub(super) struct CanonicalSourceLocator {
@@ -14,11 +14,17 @@ pub(in crate::runtime) struct RuntimeSourceLocatorCanonicalizer {
     href_index: ResourceHrefIndex<usize>,
 }
 
-pub(super) fn canonicalize_source_locator(
-    document: &LoadedEpubDocument,
-    locator: RuntimeSourceLocator,
-) -> Result<CanonicalSourceLocator, RuntimeSourceLocatorError> {
-    RuntimeSourceLocatorCanonicalizer::new(document).canonicalize(document, locator)
+impl RuntimeDocument {
+    /// `locator` with its href resolved to one of the publication's
+    /// chapters, through an index of their hrefs built once.
+    pub(super) fn canonicalize_source_locator(
+        &self,
+        locator: RuntimeSourceLocator,
+    ) -> Result<CanonicalSourceLocator, RuntimeSourceLocatorError> {
+        self.source_locator_canonicalizer
+            .get_or_init(|| RuntimeSourceLocatorCanonicalizer::new(&self.document))
+            .canonicalize(&self.document, locator)
+    }
 }
 
 impl RuntimeSourceLocatorCanonicalizer {

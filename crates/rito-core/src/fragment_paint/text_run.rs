@@ -6,13 +6,17 @@
 //! segment of a split base carries and its cluster distribution over the
 //! base, and the glyph cluster origins with the enclosing link's target.
 
-use rito_fragment::{InlineItem, LineFragment, TextFragment};
+use rito_fragment::{FontFaceId, InlineItem, LineFragment, TextFragment};
+use rito_style_contract::StyleId;
 
 use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::FlowItemSource;
-use crate::render::{display_number, display_rect, DisplayCommand, DisplayTextCommand};
+use crate::render::{
+    display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, SharedText,
+    TextCluster,
+};
 
 use super::family::{face_family, split_by_face};
 use super::run_style::run_paint;
@@ -58,19 +62,46 @@ impl ItemLineExtent {
     }
 }
 
+/// The paints a line's runs were given, by what they were built from: the
+/// runs of one line are mostly words of one item, painted alike.
+#[derive(Default)]
+pub(super) struct LinePaints {
+    built: Vec<(PaintKey, RunPaint)>,
+}
+
+/// Item style, face, spacing bits, and whether the run opens and closes
+/// its inline box.
+type PaintKey = (StyleId, FontFaceId, u64, bool, bool);
+
+impl LinePaints {
+    fn paint(
+        &mut self,
+        key: PaintKey,
+        build: impl FnOnce() -> EpubResult<RunPaint>,
+    ) -> EpubResult<RunPaint> {
+        if let Some((_, paint)) = self.built.iter().find(|(built, _)| *built == key) {
+            return Ok(paint.clone());
+        }
+        let paint = build()?;
+        self.built.push((key, paint.clone()));
+        Ok(paint)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_text_run_command(
     commands: &mut Vec<DisplayCommand>,
+    paints: &mut LinePaints,
     items: &[InlineItem],
     styles: &rito_fragment::FormattingTreeStyles,
-    full_text: &str,
+    full_text: &std::sync::Arc<str>,
     text_ranges: &[(std::ops::Range<usize>, usize)],
     item_extents: &BTreeMap<usize, ItemLineExtent>,
     line: &LineFragment,
     run: &TextFragment,
     line_x: f64,
     line_y: f64,
-    faces: Option<&[String]>,
+    faces: Option<&[std::sync::Arc<str>]>,
     item_sources: Option<&[FlowItemSource]>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
     snap_origin_y: f64,
@@ -90,7 +121,7 @@ pub(super) fn append_text_run_command(
             ))
         })?;
     let InlineItem::Text {
-        style,
+        style: style_id,
         baseline_shift_px,
         ruby_annotation,
         ..
@@ -100,7 +131,7 @@ pub(super) fn append_text_run_command(
     };
     let style = styles
         .inline
-        .style(*style)
+        .style(*style_id)
         .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
     // A span shaping into several glyph runs still paints ONE inline box:
     // only the run at the item's start carries the start edge and left
@@ -130,12 +161,23 @@ pub(super) fn append_text_run_command(
         .first()
         .map(|cluster| cluster.face)
         .unwrap_or_default();
-    let mut paint = run_paint(
-        style,
-        face_family(style, faces, run_face)?,
-        spacing_px,
-        box_start,
-        box_end,
+    let mut paint = paints.paint(
+        (
+            *style_id,
+            run_face,
+            spacing_px.to_bits(),
+            box_start,
+            box_end,
+        ),
+        || {
+            run_paint(
+                style,
+                face_family(style, faces, run_face)?,
+                spacing_px,
+                box_start,
+                box_end,
+            )
+        },
     )?;
     let font_size = f64::from(style.font.size.get());
     // The run's baseline is the line's, raised by the item's own shift;
@@ -326,6 +368,8 @@ pub(super) fn append_text_run_command(
                 byte: cluster.byte - range.start as u32,
                 x: cluster.x - first_x,
                 face: cluster.face,
+                // Distribution moves every annotation cluster on its own.
+                joins: false,
             })
             .collect();
         let slice_end = measured
@@ -346,12 +390,12 @@ pub(super) fn append_text_run_command(
         let clusters = natural
             .iter()
             .zip(origins)
-            .map(|(cluster, x)| (cluster.byte, x, annotation_baseline))
+            .map(|(cluster, x)| TextCluster::at(cluster.byte, x, annotation_baseline))
             .collect();
         let annotation_paint = paint.for_ruby(annotation_size);
         let annotation_faces: Vec<_> = natural.iter().map(|cluster| cluster.face).collect();
         let annotation_command = DisplayTextCommand {
-            text: text.to_owned(),
+            text: text.into(),
             rect: display_rect(rect_x, annotation_top, rect_width, annotation_size),
             paint: annotation_paint.clone(),
             line_height_px: None,
@@ -376,19 +420,24 @@ pub(super) fn append_text_run_command(
     // accumulates.
     let cluster_origin_x = line_x + run.rect.x + run.ruby_center_shift_px;
     let run_origin_x = cluster_origin_x - run.opener_trim_px;
+    // Every cluster keeps its origin, at its offset from its segment's;
+    // one the pen reaches from the one before it says so, so a pen drawing
+    // strings draws it in the same string and a pen drawing clusters still
+    // has its origin. A segment's first cluster starts a string.
     let clusters = run
-        .clusters
-        .iter()
-        .map(|cluster| {
-            (
-                cluster.byte - run.text_start,
-                cluster_x(cluster_origin_x + cluster.x, run.cluster_grid),
-                baseline,
-            )
+        .clusters_with_origins()
+        .map(|(segment_x, cluster)| {
+            let origin_x = line_x + segment_x + run.ruby_center_shift_px;
+            TextCluster {
+                byte: cluster.byte - run.text_start,
+                x: cluster_x(origin_x + cluster.x, run.cluster_grid),
+                y: baseline,
+                joins: cluster.joins,
+            }
         })
         .collect();
     let command = DisplayTextCommand {
-        text: full_text[start..end].to_owned(),
+        text: SharedText::slice(full_text, start..end),
         // A halt-trimmed opener was laid at half width, but the painter
         // draws the untrimmed glyph whose outline sits one blank half
         // further right — shift the draw origin left by the removed half
@@ -412,6 +461,11 @@ pub(super) fn append_text_run_command(
         source_text_offset: None,
         clusters,
     };
+    // A run drawn from one face paints as it is.
+    if run.clusters.iter().all(|cluster| cluster.face == run_face) {
+        commands.push(DisplayCommand::PaintText(command));
+        return Ok(());
+    }
     // A ruby spread base fused across a fallback face paints once per
     // face; the inline box opens on the first piece and closes on the
     // last, every piece keeping the run's box extent and decoration.

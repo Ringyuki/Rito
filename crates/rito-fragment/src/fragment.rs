@@ -49,6 +49,12 @@ pub struct LineFragment {
     /// device rows (ceil) while the strut part keeps the two-stage
     /// round. Zero on lines without ruby growth.
     pub ruby_growth: f64,
+    /// The flow-text byte range of each glyph run on the line, in visual
+    /// order, with an empty range for each atomic inline (image or inline
+    /// block) at its place among them: the text the line's text fragments
+    /// cover and where its atoms sit, kept when a layout leaves the text
+    /// fragments out (`ConstraintSpace::line_text`).
+    pub text_runs: Vec<(u32, u32)>,
     /// Text (and later inline-box) fragments in visual order.
     pub children: Vec<Fragment>,
 }
@@ -122,12 +128,97 @@ pub struct TextFragment {
     pub ruby_overhang_right_px: f64,
     /// Where each cluster paints, in text order: the origin offsets the
     /// browser's pen steps to from the run's start. Spacing and
-    /// justification shares are already in them.
-    pub clusters: Vec<ClusterPosition>,
+    /// justification shares are already in them. Shared by every copy of
+    /// the fragment: a laid-out paragraph is kept and copied whole, a copy
+    /// per word would be most of the copying.
+    pub clusters: std::rc::Rc<[ClusterPosition]>,
     /// Whether the painter floors each cluster's absolute origin onto the
     /// 1/64 CSS-pixel grid: the browser does so for an all-CJK run at a
     /// fractional font size, and accumulates in float everywhere else.
     pub cluster_grid: bool,
+    /// Where the run's clusters are placed from, when not all from the
+    /// rect's left edge: each segment's clusters sit at offsets from the
+    /// segment's own origin, and its first cluster starts a string a pen
+    /// draws. A line's text in one inline item is one fragment, as in the
+    /// browser; the anchors it was laid out from stay with it. `None`: one
+    /// segment, from `rect.x`.
+    pub segments: Option<std::rc::Rc<[TextSegment]>>,
+}
+
+/// A stretch of a text fragment's clusters placed from one origin.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextSegment {
+    /// Index of the segment's first cluster in the fragment's clusters.
+    pub cluster: u32,
+    /// The segment's origin, in the parent line's coordinates like the
+    /// fragment's rect.
+    pub x: f64,
+}
+
+impl TextFragment {
+    /// Each segment's clusters and the origin they are placed from, in
+    /// order: the fragment's rect edge for a fragment of one segment.
+    pub fn segment_clusters(&self) -> SegmentClusters<'_> {
+        SegmentClusters {
+            fragment: self,
+            index: 0,
+        }
+    }
+
+    /// Every cluster with the origin of the segment it is placed from, in
+    /// cluster order. Its length is the clusters' count, so collecting it
+    /// allocates once.
+    pub fn clusters_with_origins(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (f64, &ClusterPosition)> + '_ {
+        let segments = self.segments.as_deref();
+        let mut segment = 0usize;
+        (0..self.clusters.len()).map(move |index| {
+            let origin = match segments {
+                None => self.rect.x,
+                Some(segments) => {
+                    while segments
+                        .get(segment + 1)
+                        .is_some_and(|next| next.cluster as usize <= index)
+                    {
+                        segment += 1;
+                    }
+                    segments[segment].x
+                }
+            };
+            (origin, &self.clusters[index])
+        })
+    }
+}
+
+/// The iterator [`TextFragment::segment_clusters`] answers.
+pub struct SegmentClusters<'a> {
+    fragment: &'a TextFragment,
+    index: usize,
+}
+
+impl<'a> Iterator for SegmentClusters<'a> {
+    type Item = (f64, &'a [ClusterPosition]);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let fragment = self.fragment;
+        let count = fragment.clusters.len();
+        let Some(segments) = &fragment.segments else {
+            if self.index > 0 {
+                return None;
+            }
+            self.index = 1;
+            return Some((fragment.rect.x, &fragment.clusters[..]));
+        };
+        let segment = segments.get(self.index)?;
+        let end = segments
+            .get(self.index + 1)
+            .map_or(count, |next| next.cluster as usize)
+            .min(count);
+        let start = (segment.cluster as usize).min(end);
+        self.index += 1;
+        Some((segment.x, &fragment.clusters[start..end]))
+    }
 }
 
 /// The vertical anchor a decorated inline box gives the runs inside it.
@@ -168,6 +259,12 @@ pub struct ClusterPosition {
     pub x: f64,
     /// The face the cluster's glyphs come from.
     pub face: FontFaceId,
+    /// Whether a pen drawing from the previous cluster's origin, in one
+    /// string, puts this cluster where layout did: the previous cluster
+    /// stepped by its bare glyph advance alone (no spacing, justification
+    /// or kerning added, no glyph offset) in the same face, under the
+    /// float law. Such a cluster needs no origin of its own.
+    pub joins: bool,
 }
 
 /// One laid-out atomic inline (an image) inside a line.

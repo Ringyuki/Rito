@@ -27,7 +27,7 @@ fn project_source_point_from_starts(
     let mut sealed_node_end = None;
     for start in starts
         .iter()
-        .filter(|start| start.node_path == point.node_path)
+        .filter(|start| *start.node_path == *point.node_path)
     {
         update_nearest_pages(
             start.text_offset,
@@ -95,7 +95,7 @@ mod tests {
         let index = source_index();
         let starts = vec![PageArtifactSourceRunStart {
             page_index: 0,
-            node_path: vec![0],
+            node_path: vec![0].into(),
             text_offset: 0,
             text_length: 5,
         }];
@@ -130,19 +130,19 @@ mod tests {
         let starts = vec![
             PageArtifactSourceRunStart {
                 page_index: 2,
-                node_path: vec![0],
+                node_path: vec![0].into(),
                 text_offset: 4,
                 text_length: 1,
             },
             PageArtifactSourceRunStart {
                 page_index: 0,
-                node_path: vec![0],
+                node_path: vec![0].into(),
                 text_offset: 0,
                 text_length: 2,
             },
             PageArtifactSourceRunStart {
                 page_index: 1,
-                node_path: vec![0],
+                node_path: vec![0].into(),
                 text_offset: 2,
                 text_length: 2,
             },
@@ -173,6 +173,7 @@ mod tests {
                         source_end: 5,
                         normalized_start: 0,
                         normalized_end: 5,
+                        annotation: false,
                     },
                     RuntimeChapterTextSpan {
                         node_path: vec![1],
@@ -180,6 +181,7 @@ mod tests {
                         source_end: 5,
                         normalized_start: 5,
                         normalized_end: 10,
+                        annotation: false,
                     },
                 ],
             },

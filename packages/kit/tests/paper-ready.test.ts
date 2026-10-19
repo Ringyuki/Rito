@@ -20,6 +20,7 @@ function compiling() {
       return what === 'finished?' ? state.done : true;
     },
     isContextLost: () => false,
+    canvas: { addEventListener: () => undefined },
   };
   // Everything else it is told to do, it does without a word.
   const gl = new Proxy(answers, {
@@ -27,9 +28,9 @@ function compiling() {
   }) as unknown as Gl;
   const program = { program: {}, shaders: [], attributes: [], uniforms: [] };
   const started: StartedGpu = {
-    canvas: {} as StartedGpu['canvas'],
     gl,
     softened: false,
+    samples: 4,
     sheet: program,
     shadow: { cast: program, cover: program, occlusion: program, blur: program, lay: program },
   };
@@ -39,11 +40,12 @@ function compiling() {
 describe('a paper turn readied ahead of its first frame', () => {
   it('hands the GPU its programs once and does not wait for them', () => {
     const gpu = compiling();
-    const make = vi.fn(() => gpu.started);
+    const make = vi.fn((_gl: Gl) => gpu.started);
     const renderer = createPaperRenderer(make);
-    renderer.prepare();
-    renderer.prepare();
+    renderer.prepare(gpu.started.gl);
+    renderer.prepare(gpu.started.gl);
     expect(make).toHaveBeenCalledOnce();
+    expect(make.mock.calls[0]?.[0]).toBe(gpu.started.gl);
     // Nothing has been asked that would make the page wait for the GPU.
     expect(gpu.asked).toEqual([]);
 
@@ -57,16 +59,18 @@ describe('a paper turn readied ahead of its first frame', () => {
 
   it('says there is no GPU where none is to be had', () => {
     const renderer = createPaperRenderer(() => null);
-    renderer.prepare();
+    renderer.prepare(compiling().started.gl);
     expect(renderer.standing).toBe('none');
-    expect(renderer.draw({} as Parameters<PaperRenderer['draw']>[0])).toBeNull();
+    expect(renderer.draw({} as Parameters<PaperRenderer['draw']>[0])).toBe(false);
   });
 
   it('is told it has been set, by the driver, at once and again when it is set again', () => {
     const prepare = vi.fn();
     const effect = { paint: vi.fn(), prepare };
-    const td = createTransitionDriver({ effect });
+    const gl = compiling().started.gl;
+    const td = createTransitionDriver({ effect }, gl);
     expect(prepare).toHaveBeenCalledOnce();
+    expect(prepare.mock.calls[0]?.[0]).toBe(gl);
     td.configure({ stiffness: 200 });
     expect(prepare).toHaveBeenCalledOnce();
     td.configure({ effect });
@@ -74,6 +78,44 @@ describe('a paper turn readied ahead of its first frame', () => {
     // A built-in effect has nothing to ready.
     td.configure({ effect: 'cover' });
     expect(prepare).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a paper turn warmed between turns', () => {
+  it('copies the pages a turn may take before the turn, and holds none of them', () => {
+    const taken: number[] = [];
+    const released: number[] = [];
+    const renderer: PaperRenderer = {
+      epoch: 1,
+      standing: 'ready',
+      prepare: vi.fn(),
+      snapshot: (page) => {
+        taken.push(page.spread);
+        return { spread: page.spread } as unknown as ReturnType<PaperRenderer['snapshot']>;
+      },
+      release: (snapshot) => {
+        released.push((snapshot as unknown as { spread: number }).spread);
+      },
+      draw: () => true,
+    };
+    const effect = paperTurnWith(renderer);
+    const pages: Record<string, number | undefined> = { curr: 4, next: 5, prev: undefined };
+    const scene = {
+      page: (slot: string) =>
+        pages[slot] === undefined
+          ? null
+          : ({
+              spread: pages[slot],
+              texture: {},
+              width: 400,
+              height: 600,
+              pixelRatio: 1,
+              version: 0,
+            } as TransitionPage),
+    } as unknown as TransitionScene;
+    effect.warm?.(scene);
+    expect(taken).toEqual([4, 5]);
+    expect(released).toEqual([4, 5]);
   });
 });
 
@@ -92,21 +134,22 @@ describe('a paper turn begun before the GPU is ready', () => {
       release: () => undefined,
       draw: () => {
         drawn.push('leaf');
-        return {} as CanvasImageSource;
+        return true;
       },
     };
     const clock = { now: 0 };
     const effect = paperTurnWith(renderer, { now: () => clock.now });
     const page = (spread: number): TransitionPage => ({
       spread,
-      content: { spread } as unknown as CanvasImageSource,
-      overlay: null,
+      texture: { spread } as unknown as WebGLTexture,
+      width: 400,
+      height: 600,
       pixelRatio: 1,
       version: 0,
     });
     /** The scene with `current` as the spread on screen. */
     const scene = (current: number): TransitionScene => ({
-      context: { drawImage: () => undefined } as unknown as CanvasRenderingContext2D,
+      gl: compiling().started.gl as unknown as WebGL2RenderingContext,
       width: 400,
       height: 600,
       cssPixel: 1,
@@ -133,8 +176,10 @@ describe('a paper turn begun before the GPU is ready', () => {
 
   it('readies its renderer when it is set', () => {
     const { effect, prepared } = staged();
-    effect.prepare?.();
+    const gl = compiling().started.gl;
+    effect.prepare?.(gl);
     expect(prepared).toHaveBeenCalledOnce();
+    expect(prepared.mock.calls[0]?.[0]).toBe(gl);
   });
 
   it('is drawn plain to its end, said once, and holds no turn up; the next is a leaf', () => {

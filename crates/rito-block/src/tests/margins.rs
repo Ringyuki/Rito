@@ -546,6 +546,7 @@ fn a_snug_last_paragraph_keeps_its_full_margin() {
                         baseline: 16.0,
                         trailing_whitespace: 0.0,
                         ruby_growth: 0.0,
+                        text_runs: Vec::new(),
                         children: Vec::new(),
                     })
                 })
@@ -566,6 +567,7 @@ fn a_snug_last_paragraph_keeps_its_full_margin() {
                 continuation: None,
                 escaped_floats: Vec::new(),
                 positioned: Vec::new(),
+                inline_size_range: None,
             })
         }
         fn intrinsic_inline_sizes(

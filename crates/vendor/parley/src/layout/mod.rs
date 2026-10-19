@@ -27,8 +27,10 @@ pub use alignment::{Alignment, AlignmentOptions};
 pub use cluster::{Affinity, Cluster, ClusterPath, ClusterSide};
 pub use data::BreakReason;
 pub use glyph::Glyph;
-pub use layout::Layout;
-pub use line::{GlyphRun, Line, LineMetrics, PositionedInlineBox, PositionedLayoutItem};
+pub use layout::{Layout, LineBreaks};
+pub use line::{
+    GlyphRun, Line, LineMetrics, LineStyleRun, PositionedInlineBox, PositionedLayoutItem,
+};
 pub use line_break::{
     BoxBreakData, BreakLines, BreakerState, LineBreakData, MaxHeightBreakData, YieldData,
 };

@@ -1,4 +1,5 @@
 import type {
+  ReaderExactSourceRangeRequest,
   ReaderExactTextRangeRect,
   ReaderTextCaret,
   ReaderTextCaretResolution,
@@ -23,6 +24,7 @@ import {
   sessionReaderPageRect,
   type SessionReaderCapture,
 } from './page-space';
+import { copySourceRange, sessionSourceRange } from './source-range';
 import type { SessionReaderState } from './state';
 
 type InteractionResult = BrowserReaderTextInteractionResponse['result'];
@@ -136,6 +138,7 @@ export function createSessionReaderTextSelection(
       });
       return answer && pointRangeResolution(bindings, answer.capture, answer.result);
     },
+    resolveTextRangeFromSource: (request) => rangeFromSource(state, bindings, request),
     async resolveTextSelectionMovement(request) {
       const from = requireBinding(bindings, request.anchor);
       const to = requireBinding(bindings, request.focus);
@@ -177,6 +180,61 @@ function caretResolution(
     case 'pending':
       throw new Error('Reader session answered a caret question wrongly');
   }
+}
+
+/**
+ * The range a durable source range spans in the committed layout. The
+ * engine places the source range first; its first rectangle starts where
+ * the range starts and its last ends where it ends, which are the caret
+ * addresses the engine then answers a range between, carets included.
+ */
+async function rangeFromSource(
+  state: SessionReaderState,
+  bindings: CaretBindings,
+  request: ReaderExactSourceRangeRequest,
+): Promise<ReaderTextRangeResolution | undefined> {
+  const sourceRange = sessionSourceRange(copySourceRange(request.sourceRange));
+  const answer = await askSessionReaderLayout(state, async (capture) => {
+    const placed = await state.session.exactSourceRange(
+      capture.artifactId,
+      request.href,
+      sourceRange,
+      { everyPage: true },
+    );
+    const first = placed.rects[0];
+    const last = placed.rects.at(-1);
+    if (placed.status !== 'resolved' || !first || !last) return { capture, result: undefined };
+    const at = (rect: typeof first, charIndex: number, affinity: 'upstream' | 'downstream') => ({
+      pageIndex: rect.pageIndex,
+      position: {
+        blockIndex: rect.blockIndex,
+        lineIndex: rect.lineIndex,
+        runIndex: rect.runIndex,
+        charIndex,
+      },
+      affinity,
+    });
+    const response = await state.session.textInteraction(
+      capture.artifactId,
+      {
+        kind: 'range',
+        anchor: at(first, first.startCharIndex, 'downstream'),
+        focus: at(last, last.endCharIndex, 'upstream'),
+      },
+      { everyPage: true },
+    );
+    return { capture, result: response.result };
+  });
+  if (!answer) return undefined;
+  const { capture, result } = answer;
+  if (result === undefined) return { status: 'unavailable', reason: 'sourceUnavailable' };
+  if (result.kind === 'unavailable') {
+    return { status: 'unavailable', reason: UNAVAILABLE[result.reason] };
+  }
+  if (result.kind !== 'selection') {
+    throw new Error('Reader session answered a range question wrongly');
+  }
+  return { status: 'resolved', range: caretRange(bindings, capture, result) };
 }
 
 function rangeResolution(

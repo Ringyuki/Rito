@@ -94,6 +94,8 @@ impl ReaderSession {
             revisions: BTreeMap::new(),
             publication_revisions: BTreeMap::new(),
             active_publication_revision_id: None,
+            pending_publication: None,
+            publication_preparation: None,
             artifacts: BTreeMap::new(),
             released_artifacts: BTreeSet::new(),
             peeked_artifacts: BTreeSet::new(),
@@ -102,6 +104,7 @@ impl ReaderSession {
             pending_adjacent: None,
             render_ratio: 1.0,
             font_generation: 0,
+            whole_chapters: false,
             #[cfg(test)]
             exact_cache_hit_count: 0,
             #[cfg(test)]

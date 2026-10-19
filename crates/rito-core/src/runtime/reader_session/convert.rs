@@ -37,6 +37,7 @@ pub(super) fn layout_config(value: ReaderLayout) -> Result<LayoutConfig, ReaderE
             .as_ref()
             .map(|_| value.font_family_force),
         font_family_override: value.font_family_override,
+        device_pixel_ratio: value.render_ratio,
     }))
 }
 
