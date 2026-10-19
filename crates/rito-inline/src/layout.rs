@@ -208,6 +208,7 @@ impl FormattingContext for ParleyInlineContext {
                     empty_box_struts,
                     cluster_steps,
                     line_end_trims,
+                    kept_breaks,
                     reads_space,
                 } = self.shaped_paragraph(
                     tree,
@@ -220,7 +221,13 @@ impl FormattingContext for ParleyInlineContext {
                     },
                     cancel,
                 )?;
-                break_lines(&mut layout, &forced_line_breaks);
+                // A copy of this build broken alike before takes its lines
+                // back rather than breaking again.
+                kept_breaks.break_or_restore(
+                    &mut layout,
+                    BreakKey::new(space, band, &forced_line_breaks),
+                    |layout| break_lines(layout, &forced_line_breaks),
+                );
                 if reads_space {
                     bounds.pin();
                 }

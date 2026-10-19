@@ -27,7 +27,7 @@ pub use alignment::{Alignment, AlignmentOptions};
 pub use cluster::{Affinity, Cluster, ClusterPath, ClusterSide};
 pub use data::BreakReason;
 pub use glyph::Glyph;
-pub use layout::Layout;
+pub use layout::{Layout, LineBreaks};
 pub use line::{
     GlyphRun, Line, LineMetrics, LineStyleRun, PositionedInlineBox, PositionedLayoutItem,
 };

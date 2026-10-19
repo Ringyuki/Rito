@@ -740,6 +740,7 @@ impl ParleyInlineContext {
             ruby_center_shifts,
             cluster_steps: std::rc::Rc::default(),
             line_end_trims: std::rc::Rc::default(),
+            kept_breaks: std::rc::Rc::default(),
             reads_space: false,
         })
     }
@@ -823,6 +824,9 @@ pub(crate) struct ParagraphLayout {
     /// width (see [`line_end_trims_possible`]), read after the first line
     /// breaking and shared like `cluster_steps`.
     pub(crate) line_end_trims: std::rc::Rc<std::cell::OnceCell<bool>>,
+    /// The lines this build was last broken into, shared like
+    /// `cluster_steps` (see [`KeptBreaks`]).
+    pub(crate) kept_breaks: std::rc::Rc<KeptBreaks>,
     pub(crate) layout: parley::Layout<[u8; 4]>,
     pub(crate) text: String,
     pub(crate) alignment: parley::Alignment,
