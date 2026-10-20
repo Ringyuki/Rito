@@ -35,11 +35,11 @@ jobs:
       # standalone Dart binary in the following step.
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: 3.11.5
+          sdk: 3.13.5
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.41.7
+          flutter-version: 3.47.7
 
       - uses: dtolnay/rust-toolchain@1.95.0
 

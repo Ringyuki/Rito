@@ -260,7 +260,8 @@ final class PaperRenderer {
         sheet.back ?? _bare,
         sampler: linearSampler,
       );
-    grid.bindIndices(pass, fromBelow: fromBelow(sheet, part));
-    pass.draw();
+    grid
+      ..bindIndices(pass, fromBelow: fromBelow(sheet, part))
+      ..draw(pass);
   }
 }

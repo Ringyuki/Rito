@@ -67,7 +67,6 @@ final class Quad {
           offsetInBytes: 0,
           lengthInBytes: _corners.sizeInBytes,
         ),
-        6,
       )
       ..bindIndexBuffer(
         gpu.BufferView(
@@ -76,9 +75,11 @@ final class Quad {
           lengthInBytes: _indices.sizeInBytes,
         ),
         gpu.IndexType.int16,
-        6,
       );
   }
+
+  /// Draws both triangles with what is bound.
+  void draw(gpu.RenderPass pass) => pass.drawIndexed(6);
 }
 
 /// How the backend stores a rendered texture's rows, as the programs
@@ -95,16 +96,16 @@ Future<List<double>> rowsOf(PaperPrograms programs, Quad quad) async {
   var pass = passInto(written);
   plain(pass);
   programs.rowsWritten.use(pass, host);
-  quad.bind(pass);
-  pass.draw();
+  quad
+    ..bind(pass)
+    ..draw(pass);
   submit(pass);
   pass = passInto(apart);
   plain(pass);
   programs.rowsRead.use(pass, host);
   quad.bind(pass);
-  pass
-    ..bindTexture(programs.rowsRead.sampler('uSource'), written)
-    ..draw();
+  pass.bindTexture(programs.rowsRead.sampler('uSource'), written);
+  quad.draw(pass);
   submit(pass);
   final image = apart.asImage();
   final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);

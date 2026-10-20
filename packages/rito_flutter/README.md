@@ -18,7 +18,7 @@ application decodes them and supplies them through `RitoImageResolver`.
 
 Flutter's Native Assets build hook compiles the workspace `rito-ffi` crate and
 bundles the correct dynamic library for the selected Android, iOS, or host
-target on Flutter 3.41.7 or newer. Application code does not construct or guess
+target on Flutter 3.47 or newer. Application code does not construct or guess
 a library path.
 
 ## Installation

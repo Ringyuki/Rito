@@ -1,5 +1,8 @@
 ## Unreleased
 
+**Breaking:** requires Flutter 3.47, whose Flutter GPU samples a page image's
+own texture.
+
 ### A finger turns the page as the web reader takes it
 
 `RitoPageTurnView` takes a drag as the web reader does

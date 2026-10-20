@@ -59,9 +59,11 @@ final class SheetGrid {
         lengthInBytes: indexCount * 2,
       ),
       gpu.IndexType.int16,
-      indexCount,
     );
   }
+
+  /// Draws the triangles bound by [bindIndices].
+  void draw(gpu.RenderPass pass) => pass.drawIndexed(indexCount);
 }
 
 /// A sheet's points as each program takes them, interleaved: the sheet's
@@ -134,6 +136,5 @@ final class SheetVertices {
           offsetInBytes: 0,
           lengthInBytes: buffer.sizeInBytes,
         ),
-        points,
       );
 }

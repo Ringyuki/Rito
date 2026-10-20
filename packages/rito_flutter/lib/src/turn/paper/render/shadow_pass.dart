@@ -73,8 +73,9 @@ final class ShadowPass {
       plain(pass);
       cover.use(pass, host);
       vertices[index].bindCover(pass);
-      grid.bindIndices(pass, fromBelow: false);
-      pass.draw();
+      grid
+        ..bindIndices(pass, fromBelow: false)
+        ..draw(pass);
     }
     submit(pass);
     submit(passInto(targets.dark));
@@ -119,8 +120,9 @@ final class ShadowPass {
     plain(pass);
     cast.use(pass, host);
     vertices.bindCast(pass);
-    grid.bindIndices(pass, fromBelow: false);
-    pass.draw();
+    grid
+      ..bindIndices(pass, fromBelow: false)
+      ..draw(pass);
     submit(pass);
     pass = passInto(targets.dark, keep: true);
     final curl = sheet.curl;
@@ -164,8 +166,8 @@ final class ShadowPass {
         occlusion.sampler('uCover'),
         targets.cover,
         sampler: linearSampler,
-      )
-      ..draw();
+      );
+    _quad.draw(pass);
     submit(pass);
   }
 
@@ -184,9 +186,8 @@ final class ShadowPass {
     plain(pass);
     blur.use(pass, host);
     _quad.bind(pass);
-    pass
-      ..bindTexture(blur.sampler('uSource'), from, sampler: linearSampler)
-      ..draw();
+    pass..bindTexture(blur.sampler('uSource'), from, sampler: linearSampler);
+    _quad.draw(pass);
     submit(pass);
   }
 
@@ -207,8 +208,7 @@ final class ShadowPass {
       ..setColorBlendEquation(gpu.ColorBlendEquation());
     lay.use(pass, host);
     _quad.bind(pass);
-    pass
-      ..bindTexture(lay.sampler('uSource'), dark, sampler: linearSampler)
-      ..draw();
+    pass..bindTexture(lay.sampler('uSource'), dark, sampler: linearSampler);
+    _quad.draw(pass);
   }
 }

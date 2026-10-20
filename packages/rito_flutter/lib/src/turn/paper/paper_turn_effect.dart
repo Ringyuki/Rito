@@ -243,34 +243,38 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   /// be had, says so once and turns are drawn plain.
   void _start(double pixelRatio) {
     if (_standing != _Standing.unknown) return;
-    final gpu.ShaderLibrary library;
     try {
       gpu.gpuContext;
-      library = _library();
     } on Object catch (error, stack) {
       _standing = _Standing.none;
       _report(error, stack, 'starting the paper turn; turns are drawn plain');
       return;
     }
     _standing = _Standing.starting;
-    PaperRenderer.start(library, pixelRatio: pixelRatio).then(
-      (renderer) {
-        _renderer = renderer;
-        _standing = _Standing.ready;
-        _repaint.now();
-      },
-      onError: (Object error, StackTrace stack) {
-        _standing = _Standing.none;
-        _report(error, stack, 'starting the paper turn; turns are drawn plain');
-      },
-    );
+    _library()
+        .then((library) => PaperRenderer.start(library, pixelRatio: pixelRatio))
+        .then(
+          (renderer) {
+            _renderer = renderer;
+            _standing = _Standing.ready;
+            _repaint.now();
+          },
+          onError: (Object error, StackTrace stack) {
+            _standing = _Standing.none;
+            _report(
+              error,
+              stack,
+              'starting the paper turn; turns are drawn plain',
+            );
+          },
+        );
   }
 
-  static gpu.ShaderLibrary _library() {
+  static Future<gpu.ShaderLibrary> _library() async {
     Object? failure;
     for (final key in _bundles) {
       try {
-        final library = gpu.ShaderLibrary.fromAsset(key);
+        final library = await gpu.ShaderLibrary.fromAsset(key);
         if (library != null) return library;
       } on Object catch (error) {
         failure = error;

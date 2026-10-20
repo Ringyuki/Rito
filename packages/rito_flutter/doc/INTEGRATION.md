@@ -363,7 +363,7 @@ Omit the override for light mode — the authored page paints unmodified.
   transient frame callback — not from `build` or a `LayoutBuilder`,
   which run inside the frame: the page laid out there shows a frame
   later. `test/relayout_in_frame_test.dart` holds this with real frames.
-- Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.41.7,
+- Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.47,
   pinned Rust toolchain). Tests and diagnostics may bypass with
   `RitoNativeGateway(diagnosticLibrary: ...)`.
 

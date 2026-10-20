@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import 'effects.dart';
-import 'page_turn_drag.dart';
 import 'page_turn_controller.dart';
+import 'page_turn_drag.dart';
 
 /// Shows a page and the turns away from it.
 ///
