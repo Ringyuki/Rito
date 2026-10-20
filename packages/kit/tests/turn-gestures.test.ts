@@ -8,12 +8,17 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { PaperTurnModel } from '@ritojs/core';
 import { describe, expect, it } from 'vitest';
+import { paperPhysics } from '../src/driver/paper/paper-physics';
 import type { DrawInstruction } from '../src/driver/types';
 import { touch, touchEvent } from './helpers/dom-input';
+import { engineBuilt, paperTurnModel } from './helpers/engine';
 import { createTouchNavigationScenario as createScenario } from './helpers/touch-navigation';
 
 const FIXTURE = join(import.meta.dirname, 'fixtures/turn-gestures.json');
+/** The same scenarios moved by the paper turn's physics, the engine's model. */
+const PAPER_FIXTURE = join(import.meta.dirname, 'fixtures/turn-gestures-paper.json');
 const emitting = process.env['RITO_EMIT_TURN_GESTURES'] === '1';
 
 /** The page width a turn crosses, px. */
@@ -164,12 +169,15 @@ function animating(td: { readonly isAnimating: boolean }): boolean {
  * Plays a scenario through the kit's touch handler and transition driver,
  * frames drawn as the frame driver draws them: while a turn is on screen,
  * each step as long as the time since the last, at most 32 ms, the first
- * after a rest 16 ms.
+ * after a rest 16 ms. With `model`, the turn moves by the paper turn's
+ * physics, its clock the time of the touch or frame at hand.
  */
-function play(scenario: Scenario): Recorded {
+function play(scenario: Scenario, model?: PaperTurnModel): Recorded {
   const s = createScenario(true, 5);
   s.internals.currentSpread = 2;
   s.td.viewportWidth = WIDTH;
+  let clock = 0;
+  if (model) s.td.configure({ physics: paperPhysics(model, () => clock) });
   const starts: string[] = [];
   const ends: string[] = [];
   s.transitionStart.mockImplementation((event: { direction: string }) => {
@@ -184,6 +192,7 @@ function play(scenario: Scenario): Recorded {
   for (let at = scenario.frame; at <= scenario.until; at += scenario.frame) {
     while (next < scenario.touches.length && (scenario.touches[next]?.[1] ?? Infinity) <= at) {
       const [what, when, x, y] = scenario.touches[next] ?? ['up', 0, 0, 0];
+      clock = when;
       const finger = touch(1, x, y);
       if (what === 'down') s.dom.emit('touchstart', touchEvent([finger], [finger], when));
       if (what === 'move') s.dom.emit('touchmove', touchEvent([finger], [finger], when));
@@ -192,6 +201,7 @@ function play(scenario: Scenario): Recorded {
       if (what === 'prev') s.nav.prevSpread();
       next += 1;
     }
+    clock = at;
     if (!s.td.isAnimating) {
       last = 0;
       frames.push(null);
@@ -207,21 +217,40 @@ function play(scenario: Scenario): Recorded {
   return played;
 }
 
+const NOTE =
+  'How a finger turns a page, frame by frame, the same in @ritojs/kit and rito_flutter: each scenario plays its touches (what, ms, x, y in the view; `next` and `prev` are keys) with a frame every `frame` ms up to `until`, the page `width` px wide and neighbours both ways; `frames` is what the turn draws at each frame (null for none), `starts` and `ends` each turn it starts and how it ends. Written by packages/kit/tests/turn-gestures.test.ts (RITO_EMIT_TURN_GESTURES=1).';
+
+/** Holds what `recorded` says to `file`, or writes it there. */
+function heldTo(file: string, physics: string, scenarios: readonly Recorded[]): void {
+  const recorded = { note: NOTE, physics, width: WIDTH, scenarios };
+  const text = `${JSON.stringify(recorded, null, 1)}\n`;
+  if (emitting) writeFileSync(file, text);
+  expect(existsSync(file), 'the fixture is missing; emit it').toBe(true);
+  expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(text));
+}
+
 describe('a finger turning pages, frame by frame', () => {
   it('draws what the fixture every host is held to says', () => {
-    const recorded = {
-      note: 'How a finger turns a page, frame by frame, the same in @ritojs/kit and rito_flutter: each scenario plays its touches (what, ms, x, y in the view; `next` and `prev` are keys) with a frame every `frame` ms up to `until`, the page `width` px wide and neighbours both ways; `frames` is what the turn draws at each frame (null for none), `starts` and `ends` each turn it starts and how it ends. Written by packages/kit/tests/turn-gestures.test.ts (RITO_EMIT_TURN_GESTURES=1).',
-      width: WIDTH,
-      scenarios: SCENARIOS.map(play),
-    };
-    const text = `${JSON.stringify(recorded, null, 1)}\n`;
-    if (emitting) writeFileSync(FIXTURE, text);
-    expect(existsSync(FIXTURE), 'the fixture is missing; emit it').toBe(true);
-    expect(JSON.parse(readFileSync(FIXTURE, 'utf8'))).toEqual(JSON.parse(text));
+    heldTo(
+      FIXTURE,
+      'built-in',
+      SCENARIOS.map((scenario) => play(scenario)),
+    );
+  });
+
+  it.skipIf(!engineBuilt)('draws it as the paper turn moves it, too', async () => {
+    const model = await paperTurnModel();
+    heldTo(
+      PAPER_FIXTURE,
+      'paper',
+      SCENARIOS.map((scenario) => play(scenario, model)),
+    );
   });
 
   it('turns the pages each scenario means to turn', () => {
-    const ends = Object.fromEntries(SCENARIOS.map((scenario) => [scenario.name, play(scenario)]));
+    const ends = Object.fromEntries(
+      SCENARIOS.map((scenario) => [scenario.name, play(scenario)] as const),
+    );
     // Every scenario plays until its turns are at rest.
     for (const played of Object.values(ends)) expect(played.frames.at(-1)).toBeNull();
     expect(ends['flick-forward']?.ends).toEqual(['committed']);

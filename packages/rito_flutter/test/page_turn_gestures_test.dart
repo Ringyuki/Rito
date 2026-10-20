@@ -1,5 +1,6 @@
 // A finger turning pages, frame by frame, as the web reader turns them:
-// the kit's fixtures/turn-gestures.json says, for each scenario, the
+// the kit's fixtures/turn-gestures.json (the built-in physics) and
+// turn-gestures-paper.json (the paper turn's) say, for each scenario, the
 // touches, the frame times and what the turn draws at each frame. Here the
 // touches go through the page turn view's recognizer and controller, and
 // every frame is held to the web's.
@@ -12,10 +13,8 @@ import 'package:rito_flutter/rito_flutter.dart';
 
 import 'support/fake_page_source.dart';
 
-final _fixture =
-    jsonDecode(
-          File('../kit/tests/fixtures/turn-gestures.json').readAsStringSync(),
-        )
+Map<String, Object?> _fixture(String name) =>
+    jsonDecode(File('../kit/tests/fixtures/$name').readAsStringSync())
         as Map<String, Object?>;
 
 /// How far a frame may be from the web's: rounding, not a different motion.
@@ -30,8 +29,25 @@ String? _incoming(RitoPageSlot? slot) => switch (slot) {
 String _way(RitoAdjacentDirection direction) =>
     direction == RitoAdjacentDirection.next ? 'forward' : 'backward';
 
-Future<void> _play(WidgetTester tester, Map<String, Object?> scenario) async {
-  final width = (_fixture['width']! as num).toDouble();
+Future<void> _play(
+  WidgetTester tester,
+  Map<String, Object?> fixture,
+  Map<String, Object?> scenario,
+) async {
+  final width = (fixture['width']! as num).toDouble();
+  // The time of the touch or frame at hand, ms: the paper turn's clock.
+  var clock = 0.0;
+  RitoPaperTurnEffect? paper;
+  if (fixture['physics'] == 'paper') {
+    paper = RitoPaperTurnEffect(now: () => clock);
+    // Without Flutter GPU here the paper is drawn as the cover and says so
+    // once; its motion is what is held to the web's.
+    final reported = FlutterError.onError;
+    FlutterError.onError = (details) {
+      if (details.library != 'rito_flutter') reported?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = reported);
+  }
   final reader = RitoReaderController.withSource(
     FakePageSource(),
     layout: fakeLayout,
@@ -39,6 +55,7 @@ Future<void> _play(WidgetTester tester, Map<String, Object?> scenario) async {
   final turns = RitoPageTurnController(
     reader: reader,
     vsync: tester,
+    effect: paper ?? RitoPageTurnEffects.slide,
     paintPage: (canvas, size, page) {},
   )..width = width;
   final starts = <String>[];
@@ -52,6 +69,7 @@ Future<void> _play(WidgetTester tester, Map<String, Object?> scenario) async {
   addTearDown(() async {
     await events.cancel();
     turns.dispose();
+    paper?.dispose();
     reader.dispose();
   });
   await tester.pumpWidget(
@@ -86,6 +104,7 @@ Future<void> _play(WidgetTester tester, Map<String, Object?> scenario) async {
     while (next < touches.length &&
         ((touches[next]! as List<Object?>)[1]! as num) <= at) {
       final touch = touches[next]! as List<Object?>;
+      clock = (touch[1]! as num).toDouble();
       final when = Duration(microseconds: ((touch[1]! as num) * 1000).round());
       final where = Offset(
         (touch[2]! as num).toDouble(),
@@ -105,6 +124,7 @@ Future<void> _play(WidgetTester tester, Map<String, Object?> scenario) async {
       }
       next += 1;
     }
+    clock = at.toDouble();
     await tester.pump(Duration(milliseconds: period));
     final want = expected[frame] as Map<String, Object?>?;
     final drawn = turns.isMoving ? turns.frame : null;
@@ -138,11 +158,15 @@ Future<void> _play(WidgetTester tester, Map<String, Object?> scenario) async {
 }
 
 void main() {
-  for (final scenario in _fixture['scenarios']! as List<Object?>) {
-    final played = scenario! as Map<String, Object?>;
-    testWidgets(
-      'a finger turns pages as on the web: ${played['name']}',
-      (tester) => _play(tester, played),
-    );
+  for (final name in ['turn-gestures.json', 'turn-gestures-paper.json']) {
+    final fixture = _fixture(name);
+    for (final scenario in fixture['scenarios']! as List<Object?>) {
+      final played = scenario! as Map<String, Object?>;
+      testWidgets(
+        'a finger turns pages as on the web, ${fixture['physics']} physics: '
+        '${played['name']}',
+        (tester) => _play(tester, fixture, played),
+      );
+    }
   }
 }

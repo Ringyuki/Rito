@@ -1,5 +1,6 @@
 {
   "note": "How a finger turns a page, frame by frame, the same in @ritojs/kit and rito_flutter: each scenario plays its touches (what, ms, x, y in the view; `next` and `prev` are keys) with a frame every `frame` ms up to `until`, the page `width` px wide and neighbours both ways; `frames` is what the turn draws at each frame (null for none), `starts` and `ends` each turn it starts and how it ends. Written by packages/kit/tests/turn-gestures.test.ts (RITO_EMIT_TURN_GESTURES=1).",
+  "physics": "built-in",
   "width": 300,
   "scenarios": [
     {

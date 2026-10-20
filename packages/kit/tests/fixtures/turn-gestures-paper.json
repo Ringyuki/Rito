@@ -1,0 +1,3448 @@
+{
+  "note": "How a finger turns a page, frame by frame, the same in @ritojs/kit and rito_flutter: each scenario plays its touches (what, ms, x, y in the view; `next` and `prev` are keys) with a frame every `frame` ms up to `until`, the page `width` px wide and neighbours both ways; `frames` is what the turn draws at each frame (null for none), `starts` and `ends` each turn it starts and how it ends. Written by packages/kit/tests/turn-gestures.test.ts (RITO_EMIT_TURN_GESTURES=1).",
+  "physics": "paper",
+  "width": 300,
+  "scenarios": [
+    {
+      "name": "flick-forward",
+      "frame": 8,
+      "until": 1200,
+      "touches": [
+        ["down", 0, 250, 300],
+        ["move", 8, 240, 300.3333333333333],
+        ["move", 16, 230, 300.6666666666667],
+        ["move", 24, 220, 301],
+        ["move", 32, 210, 301.3333333333333],
+        ["move", 40, 200, 301.6666666666667],
+        ["move", 48, 190, 302],
+        ["up", 52, 190, 302]
+      ],
+      "frames": [
+        {
+          "dx": -5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -10,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -15,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -20,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -25,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -30,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -34.698396769159444,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -780.5172411336534
+        },
+        {
+          "dx": -42.211879619415186,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1082.2630358448296
+        },
+        {
+          "dx": -51.789390178717895,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1299.4489182817451
+        },
+        {
+          "dx": -62.82067155361915,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1448.1499553591711
+        },
+        {
+          "dx": -74.81314226683776,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1541.7835663002625
+        },
+        {
+          "dx": -87.37231312313259,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1591.5182259678622
+        },
+        {
+          "dx": -100.18522699796188,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1606.6220335144444
+        },
+        {
+          "dx": -113.0064756892931,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1594.759735537502
+        },
+        {
+          "dx": -125.6464117637554,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1562.2455918641172
+        },
+        {
+          "dx": -137.96122818798915,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1514.2584363346523
+        },
+        {
+          "dx": -149.8446256949336,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1455.0243920357561
+        },
+        {
+          "dx": -161.22082835589327,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1387.9719308968415
+        },
+        {
+          "dx": -172.03874263070537,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1315.8633045849147
+        },
+        {
+          "dx": -182.26708504296698,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1240.905802653965
+        },
+        {
+          "dx": -191.89032925955337,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1164.8458023383182
+        },
+        {
+          "dx": -200.9053453342322,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1089.048151339808
+        },
+        {
+          "dx": -209.3186227137289,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1014.5630610364005
+        },
+        {
+          "dx": -217.14398474075495,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -942.1823746022442
+        },
+        {
+          "dx": -224.40071620132866,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -872.4868055489851
+        },
+        {
+          "dx": -231.1120372800125,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -805.8855111043013
+        },
+        {
+          "dx": -237.3038673880389,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -742.6491663931106
+        },
+        {
+          "dx": -243.00383095831643,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -682.937535052283
+        },
+        {
+          "dx": -248.24046466688844,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -626.8223857830301
+        },
+        {
+          "dx": -253.04259182242205,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -574.306479053651
+        },
+        {
+          "dx": -257.4388350184686,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -525.3392407993908
+        },
+        {
+          "dx": -261.4572427006996,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -479.8296480159844
+        },
+        {
+          "dx": -265.1250091775179,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -437.6567724453213
+        },
+        {
+          "dx": -268.46827089576135,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -398.6783612401065
+        },
+        {
+          "dx": -271.5119645981508,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -362.73777596240996
+        },
+        {
+          "dx": -274.27973534824696,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -329.66956213397634
+        },
+        {
+          "dx": -276.7938844142455,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -299.30387962212137
+        },
+        {
+          "dx": -279.07534869837656,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -271.4699883877187
+        },
+        {
+          "dx": -281.14370482976733,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -245.9989536583488
+        },
+        {
+          "dx": -283.017192244625,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -222.72570866070225
+        },
+        {
+          "dx": -284.71275059208864,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -201.4905909989593
+        },
+        {
+          "dx": -286.24606765584065,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -182.14045003905375
+        },
+        {
+          "dx": -287.63163469514996,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -164.5294067705574
+        },
+        {
+          "dx": -288.88280670544634,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -148.5193341546874
+        },
+        {
+          "dx": -290.0118655957487,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -133.9801145735477
+        },
+        {
+          "dx": -291.03008469359315,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -120.78972136773493
+        },
+        {
+          "dx": -291.94779333058517,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -108.83416332579452
+        },
+        {
+          "dx": -292.7744405444509,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -98.00732414615433
+        },
+        {
+          "dx": -293.51865716594403,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -88.21072313860022
+        },
+        {
+          "dx": -294.1883157492214,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -79.35321860433325
+        },
+        {
+          "dx": -294.79058795916234,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -71.35067129106858
+        },
+        {
+          "dx": -295.3319991543625,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -64.12558194287635
+        },
+        {
+          "dx": -295.81848000509194,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -57.6067141513271
+        },
+        {
+          "dx": -296.25541506552463,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -51.72871137786377
+        },
+        {
+          "dx": -296.64768828251965,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -46.431715082867875
+        },
+        {
+          "dx": -296.99972547212997,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -41.66098930138469
+        },
+        {
+          "dx": -297.31553383231983,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -37.366555695083676
+        },
+        {
+          "dx": -297.59873858817645,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -33.50284203903172
+        },
+        {
+          "dx": -297.85261688596927,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -30.02834623141389
+        },
+        {
+          "dx": -298.0801290661994,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -26.90531721152565
+        },
+        {
+          "dx": -298.28394745452874,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -24.099453608307677
+        },
+        {
+          "dx": -298.46648281419857,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -21.579620494809546
+        },
+        {
+          "dx": -298.62990860508927,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -19.31758427335444
+        },
+        {
+          "dx": -298.7761831936388,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -17.287765445034665
+        },
+        {
+          "dx": -298.9070701550036,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -15.467008811380152
+        },
+        {
+          "dx": -299.0241568045882,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -13.834370503733199
+        },
+        {
+          "dx": -299.128871090771,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -12.370921127090723
+        },
+        {
+          "dx": -299.2224969746347,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -11.059564231614107
+        },
+        {
+          "dx": -299.3061884160154,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -9.884869279721073
+        },
+        {
+          "dx": -299.3809820784251,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -8.832918253881584
+        },
+        {
+          "dx": -299.4478088585315,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -7.8911650451599
+        },
+        {
+          "dx": -300,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward"],
+      "ends": ["committed"]
+    },
+    {
+      "name": "drag-past-half-and-let-go",
+      "frame": 16,
+      "until": 1600,
+      "touches": [
+        ["down", 0, 280, 300],
+        ["move", 16, 270, 300.55555555555554],
+        ["move", 32, 260, 301.1111111111111],
+        ["move", 48, 250, 301.6666666666667],
+        ["move", 64, 240, 302.22222222222223],
+        ["move", 80, 230, 302.77777777777777],
+        ["move", 96, 220, 303.3333333333333],
+        ["move", 112, 210, 303.8888888888889],
+        ["move", 128, 200, 304.44444444444446],
+        ["move", 144, 190, 305],
+        ["move", 160, 180, 305.55555555555554],
+        ["move", 176, 170, 306.1111111111111],
+        ["move", 192, 160, 306.6666666666667],
+        ["move", 208, 150, 307.22222222222223],
+        ["move", 224, 140, 307.77777777777777],
+        ["move", 240, 130, 308.3333333333333],
+        ["move", 256, 120, 308.8888888888889],
+        ["move", 272, 110, 309.44444444444446],
+        ["move", 288, 100, 310],
+        ["up", 400, 100, 310]
+      ],
+      "frames": [
+        {
+          "dx": -5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -10,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -15,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -20,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -25,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -30,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -35,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -40,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -45,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -50,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -54.99999999999999,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -60,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -65,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -70,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -75,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -80,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -85,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -90,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -101.08747275978068,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -946.8001141146171
+        },
+        {
+          "dx": -118.08973538644102,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1149.9129445597607
+        },
+        {
+          "dx": -137.2807477276886,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1235.7608502821035
+        },
+        {
+          "dx": -157.3067842588437,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1259.3815262216935
+        },
+        {
+          "dx": -177.36499094214162,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1242.2065616605714
+        },
+        {
+          "dx": -196.89968336054744,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1195.3243790399522
+        },
+        {
+          "dx": -215.49280040332854,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1125.3884412894474
+        },
+        {
+          "dx": -232.81274882092353,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1036.779790498559
+        },
+        {
+          "dx": -248.5867108085955,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -932.5743122055761
+        },
+        {
+          "dx": -262.5841100335916,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -815.0357135386398
+        },
+        {
+          "dx": -274.60602033551095,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -685.8912261311325
+        },
+        {
+          "dx": -284.4780103674875,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -546.4969483251823
+        },
+        {
+          "dx": -292.0451033944811,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -397.94256698140856
+        },
+        {
+          "dx": -297.16810536210505,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -241.12066375570475
+        },
+        {
+          "dx": -299.7208544463364,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -76.77427210904315
+        },
+        {
+          "dx": -300,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward"],
+      "ends": ["committed"]
+    },
+    {
+      "name": "drag-a-little-and-let-go",
+      "frame": 16,
+      "until": 1200,
+      "touches": [
+        ["down", 0, 250, 300],
+        ["move", 24, 247.5, 300],
+        ["move", 48, 245, 300],
+        ["move", 72, 242.5, 300],
+        ["move", 96, 240, 300],
+        ["move", 120, 237.5, 300],
+        ["move", 144, 235, 300],
+        ["move", 168, 232.5, 300],
+        ["move", 192, 230, 300],
+        ["move", 216, 227.5, 300],
+        ["move", 240, 225, 300],
+        ["up", 300, 225, 300]
+      ],
+      "frames": [
+        null,
+        null,
+        null,
+        null,
+        {
+          "dx": -3.75,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -6.25,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -7.5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -7.5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -8.75,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -10,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -10,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -11.25,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -12.5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -12.5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -12.5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -12.5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -26.327852536230377,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1184.1570015373538
+        },
+        {
+          "dx": -47.66294933657501,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1447.4767732374637
+        },
+        {
+          "dx": -71.90271358786927,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1566.239404257531
+        },
+        {
+          "dx": -97.3800212459856,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1608.454848088039
+        },
+        {
+          "dx": -123.108065397703,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1600.571511396544
+        },
+        {
+          "dx": -148.40491761316008,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1556.2587757362205
+        },
+        {
+          "dx": -172.7582318126891,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1483.711079946204
+        },
+        {
+          "dx": -195.7621136475543,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1388.3195856276889
+        },
+        {
+          "dx": -217.08296920034286,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1273.8664545225863
+        },
+        {
+          "dx": -236.43912760456047,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1143.1331968448264
+        },
+        {
+          "dx": -253.58779539758675,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -998.2407251908162
+        },
+        {
+          "dx": -268.31624786421247,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -840.8531927673351
+        },
+        {
+          "dx": -280.4356274608997,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -672.307039823173
+        },
+        {
+          "dx": -289.77642799616535,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -493.6963622518396
+        },
+        {
+          "dx": -296.18511363725935,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -305.9314667869747
+        },
+        {
+          "dx": -299.5215278139663,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -109.7802713920096
+        },
+        {
+          "dx": -300,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward"],
+      "ends": ["committed"]
+    },
+    {
+      "name": "flick-back",
+      "frame": 8,
+      "until": 1200,
+      "touches": [
+        ["down", 0, 40, 300],
+        ["move", 8, 54, 299.2],
+        ["move", 16, 68, 298.4],
+        ["move", 24, 82, 297.6],
+        ["move", 32, 96, 296.8],
+        ["move", 40, 110, 296],
+        ["up", 44, 110, 296]
+      ],
+      "frames": [
+        {
+          "dx": 7,
+          "phase": "held",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        {
+          "dx": 14,
+          "phase": "held",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        {
+          "dx": 21.000000000000004,
+          "phase": "held",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        {
+          "dx": 28,
+          "phase": "held",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        {
+          "dx": 35,
+          "phase": "held",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        {
+          "dx": 40.714779049498475,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 886.1695992411514
+        },
+        {
+          "dx": 48.92509835556689,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1152.1191867611342
+        },
+        {
+          "dx": 58.94246031472494,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1340.637203514354
+        },
+        {
+          "dx": 70.20868604649445,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1466.5952963840355
+        },
+        {
+          "dx": 82.27441378791207,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1542.394737550232
+        },
+        {
+          "dx": 94.78090002272427,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1578.3473632579044
+        },
+        {
+          "dx": 107.44463776451244,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1583.0003644956669
+        },
+        {
+          "dx": 120.04437573308132,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1563.412959165802
+        },
+        {
+          "dx": 132.41018179395064,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1525.391851509523
+        },
+        {
+          "dx": 144.41424530497142,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1473.691415517742
+        },
+        {
+          "dx": 155.96315708394621,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1412.183703751124
+        },
+        {
+          "dx": 166.99144357185344,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1344.0026631940664
+        },
+        {
+          "dx": 177.45616427735257,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1271.6663197134067
+        },
+        {
+          "dx": 187.3324094917694,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1197.1801587507816
+        },
+        {
+          "dx": 196.60955920034772,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1122.124470257162
+        },
+        {
+          "dx": 205.2881846379947,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1047.7280303860502
+        },
+        {
+          "dx": 213.3774915229708,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 974.9301522866167
+        },
+        {
+          "dx": 220.89321906132582,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 904.4328458643126
+        },
+        {
+          "dx": 227.85592170299475,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 836.7445750254142
+        },
+        {
+          "dx": 234.28957165304953,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 772.2168850094386
+        },
+        {
+          "dx": 240.22042956204217,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 711.0749870317352
+        },
+        {
+          "dx": 245.67613886455462,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 653.4432283699086
+        },
+        {
+          "dx": 250.68500610034528,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 599.3662395745798
+        },
+        {
+          "dx": 255.27543540600328,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 548.8264335109784
+        },
+        {
+          "dx": 259.47549035145346,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 501.75843072034604
+        },
+        {
+          "dx": 263.3125605394413,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 458.06089978085276
+        },
+        {
+          "dx": 266.81311399421446,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 417.6062279224583
+        },
+        {
+          "dx": 270.00251942995084,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 380.2483743638994
+        },
+        {
+          "dx": 272.90492508898467,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 345.82920518968615
+        },
+        {
+          "dx": 275.54318304235943,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 314.1835627757847
+        },
+        {
+          "dx": 277.9388097088235,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 285.1432836899129
+        },
+        {
+          "dx": 280.1119749229767,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 258.5403456766241
+        },
+        {
+          "dx": 282.0815132116149,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 234.20929596329648
+        },
+        {
+          "dx": 283.8649520560353,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 211.9890889809451
+        },
+        {
+          "dx": 285.47855285850227,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 191.72444107333445
+        },
+        {
+          "dx": 286.937361120065,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 173.26679234495614
+        },
+        {
+          "dx": 288.2552629973906,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 156.47495102280683
+        },
+        {
+          "dx": 289.44504595782627,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 141.21548319215816
+        },
+        {
+          "dx": 290.5184617112581,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 127.36290018101082
+        },
+        {
+          "dx": 291.4862899787584,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 114.79968692742935
+        },
+        {
+          "dx": 292.3584019736693,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 103.41620712473357
+        },
+        {
+          "dx": 293.14382273101205,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 93.11051459294586
+        },
+        {
+          "dx": 293.85079163474654,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 83.78809499226463
+        },
+        {
+          "dx": 294.4868206669165,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 75.36155752289606
+        },
+        {
+          "dx": 295.0587500444601,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 67.75029251466366
+        },
+        {
+          "dx": 295.5728010238266,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 60.88010768789266
+        },
+        {
+          "dx": 296.03462574507773,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 54.68285326886739
+        },
+        {
+          "dx": 296.4493540597253,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 49.09604398749799
+        },
+        {
+          "dx": 296.82163734342134,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 44.062484202479276
+        },
+        {
+          "dx": 297.1556893385149,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 39.52990093129563
+        },
+        {
+          "dx": 297.45532410473226,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 35.45058835879708
+        },
+        {
+          "dx": 297.723991180766,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 31.781066416199806
+        },
+        {
+          "dx": 297.964808076994,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 28.481755226121383
+        },
+        {
+          "dx": 298.1805902312561,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 25.516666568038183
+        },
+        {
+          "dx": 298.3738785667233,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 22.853113006444914
+        },
+        {
+          "dx": 298.5469647943504,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 20.461434919091076
+        },
+        {
+          "dx": 298.7019146029804,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 18.314745346496537
+        },
+        {
+          "dx": 298.8405888785258,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 16.388692340921565
+        },
+        {
+          "dx": 298.9646630903059,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 14.66123830999692
+        },
+        {
+          "dx": 299.07564497801957,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 13.112455716303502
+        },
+        {
+          "dx": 299.17489066731906,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 11.724338400125262
+        },
+        {
+          "dx": 299.26361933582507,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 10.480627730680927
+        },
+        {
+          "dx": 299.34292654490315,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 9.366652754962278
+        },
+        {
+          "dx": 299.4137963458007,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 8.369183497530052
+        },
+        {
+          "dx": 299.47711226196174,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 7.476296564836502
+        },
+        {
+          "dx": 300,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["backward"],
+      "ends": ["committed"]
+    },
+    {
+      "name": "slide-up-then-across",
+      "frame": 8,
+      "until": 1300,
+      "touches": [
+        ["down", 0, 250, 500],
+        ["move", 8, 250.25, 487.5],
+        ["move", 16, 250.5, 475],
+        ["move", 24, 250.75, 462.5],
+        ["move", 32, 251, 450],
+        ["move", 40, 251.25, 437.5],
+        ["move", 48, 251.5, 425],
+        ["move", 56, 251.75, 412.5],
+        ["move", 64, 252, 400],
+        ["move", 72, 239.25, 399.5],
+        ["move", 80, 226.5, 399],
+        ["move", 88, 213.75, 398.5],
+        ["move", 96, 201, 398],
+        ["move", 104, 188.25, 397.5],
+        ["move", 112, 175.5, 397],
+        ["move", 120, 162.75, 396.5],
+        ["move", 128, 150, 396],
+        ["up", 132, 150, 396]
+      ],
+      "frames": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "dx": -6.375000000000001,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -12.750000000000002,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -19.125,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -25.500000000000004,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -31.875,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -38.25,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -44.625,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -51.00000000000001,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -56.2630354850794,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -821.0504578661785
+        },
+        {
+          "dx": -63.89679670164605,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1073.863925649861
+        },
+        {
+          "dx": -73.24965092605566,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1253.3830379054307
+        },
+        {
+          "dx": -83.79317741894852,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1373.6691172726241
+        },
+        {
+          "dx": -95.10184835495977,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1446.4489159312398
+        },
+        {
+          "dx": -106.83582995938127,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1481.474507290448
+        },
+        {
+          "dx": -118.7264451913536,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1486.8301418376523
+        },
+        {
+          "dx": -130.5639047818023,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1469.1936506564816
+        },
+        {
+          "dx": -142.18696975256705,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1434.058918840925
+        },
+        {
+          "dx": -153.47425697004167,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1385.9250359093267
+        },
+        {
+          "dx": -164.3369409099472,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1328.4569414767975
+        },
+        {
+          "dx": -174.71264056934507,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1264.6217046734819
+        },
+        {
+          "dx": -184.56031116931103,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1196.8039902157088
+        },
+        {
+          "dx": -193.85598664758282,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1126.9037597741217
+        },
+        {
+          "dx": -202.5892415499277,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1056.4188232041865
+        },
+        {
+          "dx": -210.76026031397024,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -986.5144806848739
+        },
+        {
+          "dx": -218.37741855015673,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -918.0821755302272
+        },
+        {
+          "dx": -225.45529514987507,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -851.7888012051758
+        },
+        {
+          "dx": -232.0130462253938,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -788.1180686786156
+        },
+        {
+          "dx": -238.07308229894778,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -727.4051363163067
+        },
+        {
+          "dx": -243.65999905771002,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -669.8655294189284
+        },
+        {
+          "dx": -248.79971959182984,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -615.6192262448628
+        },
+        {
+          "dx": -253.5188125186749,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -564.7106584690418
+        },
+        {
+          "dx": -257.84395592670165,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -517.1252635377973
+        },
+        {
+          "dx": -261.8015217836196,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -472.8031317140392
+        },
+        {
+          "dx": -265.41725946324584,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -431.6502095495366
+        },
+        {
+          "dx": -268.71606045467087,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -393.54745216009064
+        },
+        {
+          "dx": -271.72178921291913,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -358.3582573669165
+        },
+        {
+          "dx": -274.45716756673414,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -325.9344640841987
+        },
+        {
+          "dx": -276.9437021804839,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -296.1211540555787
+        },
+        {
+          "dx": -279.20164632839135,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -268.76045911868545
+        },
+        {
+          "dx": -281.2499887274657,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -243.69454470050198
+        },
+        {
+          "dx": -283.1064634310228,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -220.7679134379627
+        },
+        {
+          "dx": -284.7875758421324,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -199.82915000726598
+        },
+        {
+          "dx": -286.30864079533177,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -180.7322088557429
+        },
+        {
+          "dx": -287.68382940084143,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -163.33733006660108
+        },
+        {
+          "dx": -288.9262219699729,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -147.51165462421753
+        },
+        {
+          "dx": -290.04786486193683,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -133.12959852090341
+        },
+        {
+          "dx": -291.05982952665255,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -120.07303514196971
+        },
+        {
+          "dx": -291.9722723788985,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -108.23132691598761
+        },
+        {
+          "dx": -292.7944944377215,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -97.50124009115062
+        },
+        {
+          "dx": -293.5349999112224,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -87.78677049951858
+        },
+        {
+          "dx": -294.2015531089766,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -78.99890312986453
+        },
+        {
+          "dx": -294.8012332295062,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -71.0553241025427
+        },
+        {
+          "dx": -295.3404867043968,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -63.880100102817906
+        },
+        {
+          "dx": -295.82517688893824,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -57.40333737707189
+        },
+        {
+          "dx": -296.2606309758696,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -51.56082993922657
+        },
+        {
+          "dx": -296.6516840775804,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -46.29370459590064
+        },
+        {
+          "dx": -297.00272047602573,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -41.54806871283106
+        },
+        {
+          "dx": -297.31771208125787,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -37.27466525631203
+        },
+        {
+          "dx": -297.6002541710387,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -33.428538504470744
+        },
+        {
+          "dx": -297.85359850731106,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -29.968712893908382
+        },
+        {
+          "dx": -298.08068394190883,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -26.857886713451116
+        },
+        {
+          "dx": -298.2841646350631,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -24.06214174955088
+        },
+        {
+          "dx": -298.46643601708155,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -21.55066950276972
+        },
+        {
+          "dx": -298.62965862693943,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -19.295514211064223
+        },
+        {
+          "dx": -298.7757799621546,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -17.27133261580108
+        },
+        {
+          "dx": -298.9065544728439,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -15.455170175847575
+        },
+        {
+          "dx": -299.02356182977036,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -13.826253261320874
+        },
+        {
+          "dx": -299.1282235919077,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -12.365796731242899
+        },
+        {
+          "dx": -299.22181839389964,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -11.05682620973433
+        },
+        {
+          "dx": -299.3054957680557,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -9.884014316207256
+        },
+        {
+          "dx": -299.38028870941406,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -8.833530070222704
+        },
+        {
+          "dx": -299.447125086094,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -7.892900676217853
+        },
+        {
+          "dx": -300,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward"],
+      "ends": ["committed"]
+    },
+    {
+      "name": "finger-during-turn",
+      "frame": 8,
+      "until": 1400,
+      "touches": [
+        ["down", 0, 250, 300],
+        ["move", 8, 238, 300],
+        ["move", 16, 226, 300],
+        ["move", 24, 214, 300],
+        ["move", 32, 202, 300],
+        ["move", 40, 190, 300],
+        ["up", 44, 190, 300],
+        ["down", 120, 260, 320],
+        ["move", 128, 250, 320],
+        ["move", 136, 240, 320],
+        ["move", 144, 230, 320],
+        ["move", 152, 220, 320],
+        ["move", 160, 210, 320],
+        ["move", 168, 200, 320],
+        ["move", 176, 190, 320],
+        ["move", 184, 180, 320],
+        ["move", 192, 170, 320],
+        ["up", 200, 170, 320]
+      ],
+      "frames": [
+        {
+          "dx": -6,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -12,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -18,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -24,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -30,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -35.22568030816342,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -837.9132108587764
+        },
+        {
+          "dx": -43.138655649252314,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1125.2231702282406
+        },
+        {
+          "dx": -53.011117413435386,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1330.6313635989354
+        },
+        {
+          "dx": -64.25229504183949,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1469.7800294361805
+        },
+        {
+          "dx": -76.38590159785417,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1555.7197327940557
+        },
+        {
+          "dx": -89.0310388373016,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1599.3084174690139
+        },
+        {
+          "dx": -101.8860536208972,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1609.5516964038306
+        },
+        {
+          "dx": -114.71491000835385,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1593.8927781168459
+        },
+        {
+          "dx": -127.33570374069609,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1558.4592521536397
+        },
+        {
+          "dx": -139.61099944909563,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1508.2729435224555
+        },
+        {
+          "dx": -5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -10,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -15,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -20,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -25,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -30,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -35,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -40,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -45,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -49.58384237615155,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -753.098497105424
+        },
+        {
+          "dx": -56.79087964884684,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1034.0706822932807
+        },
+        {
+          "dx": -65.91823717843272,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1235.9191020764192
+        },
+        {
+          "dx": -76.3949741029237,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1373.705533971719
+        },
+        {
+          "dx": -87.76040084396254,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1460.000081087408
+        },
+        {
+          "dx": -99.64571953689438,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1505.264488831077
+        },
+        {
+          "dx": -111.7584995600015,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1518.1790491218035
+        },
+        {
+          "dx": -123.86956990629369,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1505.9211509463457
+        },
+        {
+          "dx": -135.80196999269697,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1474.4024090631992
+        },
+        {
+          "dx": -147.42165197229713,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1428.4703307571162
+        },
+        {
+          "dx": -158.62967186011576,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1372.079642686339
+        },
+        {
+          "dx": -169.35564479929184,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1308.4376777913294
+        },
+        {
+          "dx": -179.55227244411662,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1240.127600154984
+        },
+        {
+          "dx": -189.1907784630929,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1169.2127099595264
+        },
+        {
+          "dx": -198.25711221136393,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1097.3246094600227
+        },
+        {
+          "dx": -206.74880124176357,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1025.7376139739204
+        },
+        {
+          "dx": -214.67235099564263,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -955.4314504393637
+        },
+        {
+          "dx": -222.0411051510561,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -887.1439924900101
+        },
+        {
+          "dx": -228.87349306254123,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -821.4155286361756
+        },
+        {
+          "dx": -235.19160181023796,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -758.6258433339581
+        },
+        {
+          "dx": -241.02001985070982,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -699.0252045455059
+        },
+        {
+          "dx": -246.38490735516308,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -642.7601915960943
+        },
+        {
+          "dx": -251.31325522883998,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -589.8951600500659
+        },
+        {
+          "dx": -255.83230069692812,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -540.4300227929252
+        },
+        {
+          "dx": -259.9690723625744,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -494.3149257907005
+        },
+        {
+          "dx": -263.7500419164246,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -451.4623107449854
+        },
+        {
+          "dx": -267.20086331190146,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -411.7567830425346
+        },
+        {
+          "dx": -270.34618330848946,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -375.06314026148925
+        },
+        {
+          "dx": -273.2095099058818,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -341.23286253439824
+        },
+        {
+          "dx": -275.8131274130452,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -310.10931998196975
+        },
+        {
+          "dx": -278.17804877648615,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -281.531913102512
+        },
+        {
+          "dx": -280.3239973813743,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -255.33932846742903
+        },
+        {
+          "dx": -282.2694118806444,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -231.37206350457984
+        },
+        {
+          "dx": -284.0314687375755,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -209.47434983627244
+        },
+        {
+          "dx": -285.62611811813883,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -189.4955839646396
+        },
+        {
+          "dx": -287.0681295675957,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -171.2913565377636
+        },
+        {
+          "dx": -288.371144574466,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -154.72415653303878
+        },
+        {
+          "dx": -289.54773368379165,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -139.6638140718019
+        },
+        {
+          "dx": -290.60945628741376,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -125.98773489806678
+        },
+        {
+          "dx": -291.5669216061234,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -113.58097052869957
+        },
+        {
+          "dx": -292.42984969928204,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -102.3361604676469
+        },
+        {
+          "dx": -293.2071316022537,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -92.15337646318926
+        },
+        {
+          "dx": -293.9068879096287,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -82.93989339500168
+        },
+        {
+          "dx": -294.53652530028415,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -74.6099068534699
+        },
+        {
+          "dx": -295.1027906452198,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -67.08421368582535
+        },
+        {
+          "dx": -295.61182245627214,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -60.28986862002668
+        },
+        {
+          "dx": -296.0691995278285,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -54.15982744208056
+        },
+        {
+          "dx": -296.4799866984438,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -48.63258501394634
+        },
+        {
+          "dx": -296.8487777180808,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -43.65181460761976
+        },
+        {
+          "dx": -297.17973525233344,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -39.166013537140046
+        },
+        {
+          "dx": -297.4766280897735,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -35.128158843625265
+        },
+        {
+          "dx": -297.7428656444577,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -31.49537578614084
+        },
+        {
+          "dx": -297.9815298642839,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -28.22862107683096
+        },
+        {
+          "dx": -298.1954046686654,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -25.29238214142418
+        },
+        {
+          "dx": -298.3870030470575,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -22.65439315983168
+        },
+        {
+          "dx": -298.55859195417275,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -20.285368223972075
+        },
+        {
+          "dx": -298.71221513905243,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -18.158751622531476
+        },
+        {
+          "dx": -298.8497140441828,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -16.250485009354094
+        },
+        {
+          "dx": -298.97274690809667,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -14.538791020326796
+        },
+        {
+          "dx": -299.08280620081774,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -13.00397276184077
+        },
+        {
+          "dx": -299.18123451646653,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -11.628228492869253
+        },
+        {
+          "dx": -299.26923904162624,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -10.39548075459037
+        },
+        {
+          "dx": -299.34790471192,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -9.291219159812151
+        },
+        {
+          "dx": -299.41820616285065,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -8.302356033805811
+        },
+        {
+          "dx": -299.48101857446306,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -7.4170940940465355
+        },
+        {
+          "dx": -300,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward", "forward"],
+      "ends": ["committed", "committed"]
+    },
+    {
+      "name": "key-next",
+      "frame": 16,
+      "until": 1000,
+      "touches": [["next", 0, 0, 0]],
+      "frames": [
+        {
+          "dx": -14.221560209545292,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1218.3882233863212
+        },
+        {
+          "dx": -36.18423900659184,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1490.7478026530002
+        },
+        {
+          "dx": -61.16125843061515,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1614.695096033144
+        },
+        {
+          "dx": -87.44129452560828,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1660.079182983773
+        },
+        {
+          "dx": -114.01167638178568,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1654.0583109450358
+        },
+        {
+          "dx": -140.17277076202697,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1610.666443272398
+        },
+        {
+          "dx": -165.39903818044957,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1538.3153759527318
+        },
+        {
+          "dx": -189.27420787061712,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1442.5385602597476
+        },
+        {
+          "dx": -211.45621357104463,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1327.2175250381117
+        },
+        {
+          "dx": -231.6562734413871,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1195.2065478420107
+        },
+        {
+          "dx": -249.6254981696354,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1048.6818063190158
+        },
+        {
+          "dx": -265.14584927836955,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -889.3506547625752
+        },
+        {
+          "dx": -278.0237739833003,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -718.5841045037323
+        },
+        {
+          "dx": -288.08557061421084,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -537.5044585733885
+        },
+        {
+          "dx": -295.17391895182,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -347.04541753336065
+        },
+        {
+          "dx": -299.14522135697604,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -147.9945737262708
+        },
+        {
+          "dx": -300,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward"],
+      "ends": ["committed"]
+    },
+    {
+      "name": "key-back-during-turn",
+      "frame": 8,
+      "until": 1200,
+      "touches": [
+        ["next", 0, 0, 0],
+        ["prev", 96, 0, 0]
+      ],
+      "frames": [
+        {
+          "dx": -14.221560209545292,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1218.3882233863212
+        },
+        {
+          "dx": -24.667312571521155,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1381.5221557447453
+        },
+        {
+          "dx": -36.18423900659184,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1490.7478026530002
+        },
+        {
+          "dx": -48.42728557378163,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1565.2043305304076
+        },
+        {
+          "dx": -61.16125843061515,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1614.695096033144
+        },
+        {
+          "dx": -74.211549771656,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1645.0505705713697
+        },
+        {
+          "dx": -87.44129452560828,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1660.079182983773
+        },
+        {
+          "dx": -100.73908446330631,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1662.435106260244
+        },
+        {
+          "dx": -114.0116763817857,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1654.0583109450356
+        },
+        {
+          "dx": -127.17934694511732,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1636.4195163961608
+        },
+        {
+          "dx": -140.17277076202706,
+          "phase": "landing",
+          "incoming": "next",
+          "velocity": -1610.666443272398
+        },
+        {
+          "dx": 147.45731095364093,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -1481.8131278106064
+        },
+        {
+          "dx": 136.11821919300323,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -1352.9598123488142
+        },
+        {
+          "dx": 125.8099539560599,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -1224.1064968870226
+        },
+        {
+          "dx": 116.53251524281087,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -1095.2531814252307
+        },
+        {
+          "dx": 108.2859030532562,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -966.399865963439
+        },
+        {
+          "dx": 101.07011738739585,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -837.5465505016471
+        },
+        {
+          "dx": 94.88515824522985,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -708.6932350398553
+        },
+        {
+          "dx": 89.73102562675817,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -579.8399195780632
+        },
+        {
+          "dx": 85.60771953198082,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -450.98660411627134
+        },
+        {
+          "dx": 82.51523996089782,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -322.1332886544794
+        },
+        {
+          "dx": 80.45358691350916,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -193.2799731926874
+        },
+        {
+          "dx": 79.42276038981483,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": -64.42665773089544
+        },
+        {
+          "dx": 80.95619262824233,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 587.8959870757728
+        },
+        {
+          "dx": 87.03740909576328,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 891.5708879715319
+        },
+        {
+          "dx": 94.87027181185408,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1053.4053211818702
+        },
+        {
+          "dx": 103.73877851242017,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1156.5618920966695
+        },
+        {
+          "dx": 113.28344828727077,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1224.9279795858797
+        },
+        {
+          "dx": 123.27432959908674,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1269.4127160267935
+        },
+        {
+          "dx": 133.54678259345576,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1296.100650336887
+        },
+        {
+          "dx": 143.97475380866814,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1308.8045615488402
+        },
+        {
+          "dx": 154.45731032579545,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1310.1053381047184
+        },
+        {
+          "dx": 164.91099443542393,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1301.8490756138422
+        },
+        {
+          "dx": 175.2651081577672,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1285.4122197588879
+        },
+        {
+          "dx": 185.45862125494722,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1261.8548228575114
+        },
+        {
+          "dx": 195.4380457091293,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1232.0147689002752
+        },
+        {
+          "dx": 205.15591853741444,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1196.5686156078618
+        },
+        {
+          "dx": 214.56968504080265,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1156.0724814205137
+        },
+        {
+          "dx": 223.64085550091696,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1110.9904496709098
+        },
+        {
+          "dx": 232.3343544383063,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1061.7148621799722
+        },
+        {
+          "dx": 240.61800906135971,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 1008.58117066037
+        },
+        {
+          "dx": 248.46214061492927,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 951.879033922987
+        },
+        {
+          "dx": 255.83923330241643,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 891.8607622502236
+        },
+        {
+          "dx": 262.7236627017443,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 828.7478471895537
+        },
+        {
+          "dx": 269.0914705085632,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 762.7360835115217
+        },
+        {
+          "dx": 274.92017584651853,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 693.9996385674931
+        },
+        {
+          "dx": 280.1886157940745,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 622.6943228006127
+        },
+        {
+          "dx": 284.87680951273586,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 548.9602457629098
+        },
+        {
+          "dx": 288.9658416315734,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 472.923993634215
+        },
+        {
+          "dx": 292.4377614861776,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 394.70042996814544
+        },
+        {
+          "dx": 295.27549552003336,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 314.3941967260709
+        },
+        {
+          "dx": 297.4627706970951,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 232.1009746572521
+        },
+        {
+          "dx": 298.9840471909423,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 147.9085487721212
+        },
+        {
+          "dx": 299.8244589401454,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 61.89771469547916
+        },
+        {
+          "dx": 300,
+          "phase": "landing",
+          "incoming": "prev",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward", "backward"],
+      "ends": ["committed", "committed"]
+    }
+  ]
+}
