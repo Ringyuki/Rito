@@ -26,6 +26,16 @@ instead of beginning at once and fading the page in. **Breaking:** `dragStart` a
 velocity; a host feeding the controller from its own recognizers passes
 its pointer events' `timeStamp`s (left out, the controller's clock tells).
 
+### Flat turns drawn as the web draws them
+
+`slide`, `cover` and `fade` draw a page from the device pixel the web puts
+it on (its offset rounded as `Math.round` does) texel for texel, where they
+filtered it at a fraction of a pixel, and the cover's edge shadow as the
+web's: its alpha at the edge a byte, its strength from the page as drawn, a
+column of device pixels at a time. Against the web's own frames, at three
+pixel ratios, every pixel is the same but where a blend lands on an exact
+half.
+
 ### The web's paper turn
 
 `RitoPaperTurnEffect` turns a page as the web reader's paper turn does: the
