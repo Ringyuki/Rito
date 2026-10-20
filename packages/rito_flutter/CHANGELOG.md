@@ -1,4 +1,4 @@
-## Unreleased
+## 0.9.0 - 2026-10-20
 
 **Breaking:** requires Flutter 3.47, whose Flutter GPU samples a page image's
 own texture.
