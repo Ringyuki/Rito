@@ -86,3 +86,22 @@ export function travelOf(
 ): number {
   return physics?.travel?.(touch, bounds) ?? touch.position.x - touch.origin.x;
 }
+
+/**
+ * Whether a finger come down at [origin] that has moved by [moved] moves
+ * more along the way [physics] turn pages than across it: a finger sliding
+ * up or down the page, as pages turn, is not turning it. The way is told by
+ * the travel the physics give a step right and a step down from [origin].
+ */
+export function alongTheTurn(
+  physics: TransitionPhysics | undefined,
+  origin: { readonly x: number; readonly y: number },
+  moved: { readonly x: number; readonly y: number },
+  bounds: TransitionBounds,
+): boolean {
+  const step = (x: number, y: number): number =>
+    travelOf(physics, { origin, position: { x: origin.x + x, y: origin.y + y } }, bounds);
+  const right = step(1, 0);
+  const down = step(0, 1);
+  return Math.abs(moved.x * right + moved.y * down) >= Math.abs(moved.x * down - moved.y * right);
+}

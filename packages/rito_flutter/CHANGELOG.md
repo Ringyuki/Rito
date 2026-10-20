@@ -9,6 +9,9 @@ own texture.
 (`RitoPageTurnDragRecognizer`): by the first finger down, a touch or a
 stylus — a mouse no longer turns pages — once it has moved 5 logical px
 either way, from where it came down, every sample at its event's time. A
+finger sliding up or down the page (across the way its physics turn pages)
+does not turn it, however it drifts; it is followed from where it is, and
+turns the page from where it goes the way pages turn. A
 turn let go goes on as fast as the web measures the finger: from the turn's
 last five samples, the later ones weighing more, instead of the platform's
 velocity tracker on the raw finger; a finger taken away, or one whose turn

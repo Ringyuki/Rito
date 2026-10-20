@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'effects.dart';
+import 'motion.dart' show alongTheTurn;
 import 'page_turn_controller.dart';
 import 'page_turn_drag.dart';
 
@@ -117,7 +118,13 @@ final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
                     ..onEnd = (position, at) {
                       controller.dragEnd(position: position, at: at);
                     }
-                    ..onCancel = controller.dragCancel;
+                    ..onCancel = controller.dragCancel
+                    ..alongTheTurn = (down, moved) => alongTheTurn(
+                      controller.effectiveEffect.physics ?? controller.physics,
+                      down,
+                      moved,
+                      controller.width,
+                    );
                 },
               ),
         },

@@ -57,15 +57,62 @@ void main() {
       final finger = await tester.startGesture(const Offset(300, 300));
       await finger.moveTo(const Offset(296, 303));
       expect(turns.isTurning, isFalse);
-      // Past the slop up the page: a drag, but no way to turn yet.
-      await finger.moveTo(const Offset(300, 307));
-      expect(turns.isTurning, isFalse);
-      await finger.moveTo(const Offset(290, 307));
+      await finger.moveTo(const Offset(290, 303));
       expect(turns.direction, RitoAdjacentDirection.next);
       expect(turns.frame.offset, -10);
       expect(turns.frame.touch!.origin, const Offset(300, 300));
       await finger.up();
       await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('a finger sliding up or down the page does not turn it', (
+    tester,
+  ) async {
+    final turns = _controller(tester);
+    await _view(tester, turns);
+    final finger = await tester.startGesture(const Offset(300, 300));
+    await finger.moveTo(const Offset(298, 330));
+    await finger.moveTo(const Offset(296, 420));
+    expect(turns.isTurning, isFalse);
+    await finger.up();
+    await tester.pumpAndSettle();
+    expect(turns.isTurning, isFalse);
+    expect(turns.reader.lastChange, isNot(RitoPageChange.turn));
+  });
+
+  testWidgets(
+    'a finger sliding up the page and then across turns it from where it went across',
+    (tester) async {
+      final turns = _controller(tester);
+      await _view(tester, turns);
+      final finger = await tester.startGesture(const Offset(300, 400));
+      await finger.moveTo(const Offset(300, 340));
+      expect(turns.isTurning, isFalse);
+      await finger.moveTo(const Offset(290, 338));
+      expect(turns.direction, RitoAdjacentDirection.next);
+      expect(turns.frame.offset, -10);
+      expect(turns.frame.touch!.origin, const Offset(300, 340));
+      await finger.up();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
+  testWidgets(
+    'a finger drifting a little across as it slides does not turn it',
+    (tester) async {
+      final turns = _controller(tester);
+      await _view(tester, turns);
+      final finger = await tester.startGesture(const Offset(300, 500));
+      for (var i = 1; i <= 10; i += 1) {
+        await finger.moveTo(Offset(300 - 3.0 * i, 500 - 30.0 * i));
+      }
+      expect(turns.isTurning, isFalse);
+      await finger.up();
+      await tester.pumpAndSettle();
+      expect(turns.isTurning, isFalse);
+      expect(turns.reader.lastChange, isNot(RitoPageChange.turn));
     },
   );
 

@@ -3,7 +3,7 @@ import type { InteractionModeManager } from '../interaction-mode/index';
 import type { DisposableCollection } from '../../utils/disposable';
 import type { PrimarySelectionDragNavigation } from './selection-drag';
 import type { TransitionTouch } from '../../driver/effects';
-import { travelOf } from '../../driver/physics';
+import { alongTheTurn, travelOf } from '../../driver/physics';
 import {
   activateGestureTransition,
   applyGestureSample,
@@ -126,7 +126,8 @@ function handleTouchMove(context: TouchHandlerContext, event: TouchEvent): void 
   if (!activeTouch(event.changedTouches, context.state)) return;
   const touch = activeTouch(event.touches, context.state);
   if (!touch) return;
-  if (context.state.phase === 'waiting' && context.state.startTouch) {
+  const { phase } = context.state;
+  if ((phase === 'waiting' || phase === 'sliding') && context.state.startTouch) {
     handleWaitingMove(context, event, touch);
   } else if (context.state.phase === 'gesture') {
     handleGestureMove(context, event, touch);
@@ -136,14 +137,26 @@ function handleTouchMove(context: TouchHandlerContext, event: TouchEvent): void 
 }
 
 function handleWaitingMove(context: TouchHandlerContext, event: TouchEvent, touch: Touch): void {
-  const start = context.state.startTouch;
+  const { state } = context;
+  const start = state.startTouch;
   if (!start) return;
   const dx = touch.clientX - start.x;
   const dy = touch.clientY - start.y;
   if (Math.abs(dx) <= MOVE_SLOP_PX && Math.abs(dy) <= MOVE_SLOP_PX) return;
-  if (!(context.state.selectionInput?.owns() ?? true)) {
-    clearTouchTimer(context.state);
-    resetTouchState(context.state);
+  if (!(state.selectionInput?.owns() ?? true)) {
+    clearTouchTimer(state);
+    resetTouchState(state);
+    return;
+  }
+  const { td } = context.deps;
+  const bounds = { width: td.viewportWidth, spine: td.spine };
+  if (!alongTheTurn(td.physics, context.toLocal(start), { x: dx, y: dy }, bounds)) {
+    // Sliding up or down the page: no turn, tap or press. The finger is
+    // followed from where it is, and turns the page from where it goes
+    // the way pages turn.
+    clearTouchTimer(state);
+    state.phase = 'sliding';
+    state.startTouch = { x: touch.clientX, y: touch.clientY };
     return;
   }
   beginGesture(context, gestureSample(context, touch), event.timeStamp);

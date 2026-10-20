@@ -9,6 +9,9 @@ const double _slop = 5;
 /// once it has moved [_slop] px either way from where it came down — which
 /// is where it took hold — every sample at its event's time. A finger
 /// lifted before it moved that far is a tap, left to whatever wants taps.
+/// One that moves that far across the way pages turn ([alongTheTurn]: up
+/// or down the page, as pages turn) is no drag yet: it is followed from
+/// where it is, and takes hold where it goes the way pages turn.
 final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
   RitoPageTurnDragRecognizer({super.debugOwner})
     : super(
@@ -28,6 +31,11 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
 
   /// The drag was taken away: another gesture won, or the pointer was cancelled.
   void Function()? onCancel;
+
+  /// Whether a finger come down at `down` that has moved by `moved` moves
+  /// along the way pages turn rather than across it; unset, a finger that
+  /// moves more sideways than up or down does.
+  bool Function(Offset down, Offset moved)? alongTheTurn;
 
   int? _pointer;
   Offset _down = Offset.zero;
@@ -67,6 +75,11 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
           moved.dy.abs() <= _slop) {
         return;
       }
+      if (_moved == null && !_along(moved)) {
+        // Sliding across the way pages turn: followed from where it is.
+        _down = event.localPosition;
+        return;
+      }
       _moved = event;
       if (_won) {
         _begin();
@@ -94,6 +107,9 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
     // Given the finger before it moved: a drag only once it has.
     if (_moved != null) _begin();
   }
+
+  bool _along(Offset moved) =>
+      alongTheTurn?.call(_down, moved) ?? moved.dx.abs() >= moved.dy.abs();
 
   void _begin() {
     final moved = _moved;

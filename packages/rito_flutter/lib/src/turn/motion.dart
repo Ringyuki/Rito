@@ -573,3 +573,21 @@ double _speedOf(List<({double offset, double at})> samples) {
   }
   return weights > 0 ? weighted / weights : 0;
 }
+
+/// Whether a finger come down at [origin] that has moved by [moved] moves
+/// more along the way [physics] turn pages than across it: a finger sliding
+/// up or down the page, as pages turn, is not turning it. The way is told by
+/// the travel the physics give a step right and a step down from [origin]
+/// (kit `alongTheTurn`).
+bool alongTheTurn(
+  RitoPageTurnPhysics physics,
+  Offset origin,
+  Offset moved,
+  double width,
+) {
+  double step(Offset by) => physics.travelAcross(origin, origin + by, width);
+  final right = step(const Offset(1, 0));
+  final down = step(const Offset(0, 1));
+  return (moved.dx * right + moved.dy * down).abs() >=
+      (moved.dx * down - moved.dy * right).abs();
+}
