@@ -61,14 +61,19 @@ final class _Repaint extends ChangeNotifier {
 /// GPU is not to be had, turns are drawn as [RitoPageTurnEffects.cover].
 /// Make one per controller, and [dispose] it with the controller.
 final class RitoPaperTurnEffect extends RitoPageTurnEffect {
-  RitoPaperTurnEffect({this.paper = const Color(0xFFFFFFFF)}) {
+  RitoPaperTurnEffect({
+    this.paper = const Color(0xFFFFFFFF),
+    double Function()? now,
+  }) : _clock = now {
     _physics = PaperTurnPhysics(() => _model, _now);
   }
 
   /// The paper's colour: what shows where a page's image is transparent.
   final Color paper;
 
-  final _clock = Stopwatch()..start();
+  /// The clock the leaf moves by, in ms; the effect's own when not given.
+  final double Function()? _clock;
+  final _own = Stopwatch()..start();
   late final RitoPaperTurnModel _model = RitoPaperTurnModel();
   late final PaperTurnPhysics _physics;
   final _repaint = _Repaint();
@@ -95,7 +100,7 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   /// drawn plain to its end; a leaf appearing halfway would be a jump.
   int? _plain;
 
-  double _now() => _clock.elapsedMicroseconds / 1000;
+  double _now() => _clock?.call() ?? _own.elapsedMicroseconds / 1000;
 
   @override
   Listenable get repaint => _repaint;

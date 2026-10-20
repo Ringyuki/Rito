@@ -44,7 +44,8 @@ where the finger is. An effect may now bring its own `physics`, which the
 controller takes over its own, be `warm`ed between turns once the pages
 beside the one shown are painted, and say through `canDraw` that it cannot
 draw a turn yet; `RitoPageTurnPhysics.travelAcross` gives physics the width
-a turn crosses.
+a turn crosses. `RitoPaperTurnEffect(now:)` takes the clock the leaf moves
+by, in ms, as the web's `createPaperTurn({ now })` does.
 
 ## 0.8.0 - 2026-10-19
 
