@@ -1,5 +1,16 @@
 # @ritojs/react
 
+## 4.1.0
+
+### Patch Changes
+
+- Updated dependencies [7188939]
+- Updated dependencies [3beb603]
+- Updated dependencies [e58af5e]
+- Updated dependencies [c17d64e]
+  - @ritojs/kit@4.1.0
+  - @ritojs/core@4.1.0
+
 ## 4.0.0
 
 ### Minor Changes

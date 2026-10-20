@@ -1,5 +1,19 @@
 # @ritojs/kit
 
+## 4.1.0
+
+### Minor Changes
+
+- e58af5e: The paper turn's motion and geometry are the engine's: `loadPaperTurnModel()` in `@ritojs/core` resolves to the engine's model of the turn, and `createPaperTurn()` draws what it lays out, frame for frame what it drew before. Until the engine has loaded, a paper turn is drawn as the built-in `cover` and moved by the built-in physics; `PaintedTransitionEffect.physics` may be `undefined` for that while.
+
+### Patch Changes
+
+- 7188939: In the paper turn with two pages a spread, a leaf left to come down by itself moves at the same pace at any device pixel ratio, as a curled page already did: its motion is told in CSS px, not in the canvas's pixels.
+- c17d64e: A finger sliding up or down the page no longer turns it; it turns the page from where it goes across.
+- Updated dependencies [3beb603]
+- Updated dependencies [e58af5e]
+  - @ritojs/core@4.1.0
+
 ## 4.0.0
 
 ### Major Changes
