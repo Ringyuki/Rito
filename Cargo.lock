@@ -1050,6 +1050,7 @@ name = "rito-ffi"
 version = "0.0.0"
 dependencies = [
  "rito-core",
+ "rito-turn",
  "sha2",
 ]
 
@@ -1126,11 +1127,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rito-turn"
+version = "0.0.0"
+dependencies = [
+ "libm",
+ "serde_json",
+]
+
+[[package]]
 name = "rito-wasm"
 version = "0.0.0"
 dependencies = [
  "js-sys",
  "rito-core",
+ "rito-turn",
  "serde",
  "serde_json",
  "sha2",

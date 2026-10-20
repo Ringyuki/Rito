@@ -11,7 +11,12 @@ import type {
   PrimarySelectionInputIntent,
 } from './selection-drag';
 
-export type TouchPhase = 'idle' | 'waiting' | 'gesture' | 'long-press';
+/**
+ * Where a touch is: `waiting` to be told a tap, a long press or a turn;
+ * `sliding` across the way pages turn (up or down the page, as pages turn),
+ * no tap nor press any more, a turn once it goes the way pages turn.
+ */
+export type TouchPhase = 'idle' | 'waiting' | 'sliding' | 'gesture' | 'long-press';
 
 export interface TouchState {
   phase: TouchPhase;

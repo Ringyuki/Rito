@@ -51,6 +51,18 @@ _Rig _rig(
   return (source: pages, reader: reader, turns: turns, events: events);
 }
 
+var _at = const Duration(hours: 1);
+
+/// Lifts the finger at [to], having carried it there at [velocity] logical
+/// px/s over its last five samples, a millisecond apart.
+void _flick(RitoPageTurnController turns, Offset to, Offset velocity) {
+  for (var i = 4; i >= 0; i -= 1) {
+    _at += const Duration(milliseconds: 1);
+    turns.dragUpdate(to - velocity * (i / 1000), at: _at);
+  }
+  turns.dragEnd();
+}
+
 Future<void> _settle(WidgetTester tester, {int frames = 120}) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 16));
@@ -59,6 +71,21 @@ Future<void> _settle(WidgetTester tester, {int frames = 120}) async {
 
 /// Turns pages under a vertical drag, turns on any release past a quarter
 /// of the page however the finger was moving, and takes one second to rest.
+/// An effect that brings the vertical physics, and says when it is warmed.
+final class _PhysicalEffect extends RitoLayeredPageTurnEffect {
+  final warmed = <RitoPageTurnPages>[];
+
+  @override
+  RitoPageTurnPhysics get physics => const _VerticalPhysics();
+
+  @override
+  void warm(RitoPageTurnPages pages) => warmed.add(pages);
+
+  @override
+  List<RitoPageTurnLayer> layers(RitoPageTurnFrame frame) =>
+      RitoPageTurnEffects.slide.layers(frame);
+}
+
 final class _VerticalPhysics extends RitoPageTurnPhysics {
   const _VerticalPhysics();
 
@@ -211,8 +238,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
       rig.turns
         ..dragStart(const Offset(300, 0))
-        ..dragUpdate(const Offset(240, 0))
-        ..dragEnd(const Offset(-900, 0));
+        ..dragUpdate(const Offset(240, 0));
+      _flick(rig.turns, const Offset(240, 0), const Offset(-900, 0));
     });
     // A finger that comes down and lifts without moving leaves the turn be.
     run('finger-rests-during-turn', (tester, rig) async {
@@ -220,7 +247,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
       rig.turns
         ..dragStart(const Offset(300, 0))
-        ..dragEnd(Offset.zero);
+        ..dragEnd();
     });
     run('jump-during-turn', (tester, rig) async {
       rig.turns.turn(_next);
@@ -266,7 +293,7 @@ void main() {
     rig.turns
       ..dragStart(Offset.zero)
       ..dragUpdate(const Offset(-20, 0))
-      ..dragEnd(Offset.zero);
+      ..dragEnd();
     await _settle(tester);
 
     expect(rig.events, ['start:next', 'end:next:cancelled']);
@@ -282,7 +309,7 @@ void main() {
       ..dragUpdate(const Offset(-300, 0));
     expect(rig.turns.frame.incoming, isNull);
     expect(rig.turns.frame.offset, greaterThan(-300));
-    rig.turns.dragEnd(const Offset(-3000, 0));
+    _flick(rig.turns, const Offset(-300, 0), const Offset(-3000, 0));
     await _settle(tester);
 
     expect(rig.events, ['start:next', 'end:next:cancelled']);
@@ -380,7 +407,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(source.paginations, before);
 
-    rig.turns.dragEnd(Offset.zero);
+    rig.turns.dragEnd();
     await _settle(tester);
     expect(rig.reader.paginationComplete, isTrue);
   });
@@ -389,6 +416,8 @@ void main() {
     tester,
   ) async {
     final rig = _rig(tester);
+    // The pages beside the one shown are in their slots: a turn need not wait.
+    await tester.pump();
     rig.turns
       ..dragStart(const Offset(300, 500))
       ..dragUpdate(const Offset(180, 420));
@@ -399,7 +428,7 @@ void main() {
     expect(frame.touch!.origin, const Offset(300, 500));
     expect(frame.touch!.position, const Offset(180, 420));
 
-    rig.turns.dragEnd(const Offset(-900, -200));
+    _flick(rig.turns, const Offset(180, 420), const Offset(-900, -200));
     await tester.pump(const Duration(milliseconds: 16));
     frame = rig.turns.frame;
     expect(frame.phase, RitoPageTurnPhase.landing);
@@ -418,7 +447,7 @@ void main() {
     rig.turns
       ..dragStart(Offset.zero)
       ..dragUpdate(const Offset(-20, 0))
-      ..dragEnd(Offset.zero);
+      ..dragEnd();
     await tester.pump(const Duration(milliseconds: 16));
     expect(rig.turns.frame.phase, RitoPageTurnPhase.returning);
     await _settle(tester);
@@ -429,6 +458,7 @@ void main() {
   ) async {
     final physics = _RecordingPhysics();
     final rig = _rig(tester, physics: physics);
+    await tester.pump();
     rig.turns
       ..dragStart(const Offset(300, 500))
       ..dragUpdate(const Offset(200, 480))
@@ -439,7 +469,7 @@ void main() {
     expect(touch.farthest, const Offset(120, 470));
 
     // The physics judging the release, and the frames after it, see it too.
-    rig.turns.dragEnd(Offset.zero);
+    rig.turns.dragEnd();
     expect(physics.released!.touch!.farthest, const Offset(120, 470));
     await tester.pump(const Duration(milliseconds: 16));
     expect(rig.turns.frame.touch!.farthest, const Offset(120, 470));
@@ -659,10 +689,10 @@ void main() {
     await _settle(tester);
     expect(rig.events, ['start:next', 'end:next:committed']);
 
-    // The page follows the finger from where it was when the turn landed.
+    // The page follows the finger, from where it came down, as the web's does.
     rig.turns.dragUpdate(const Offset(220, 0));
     expect(rig.turns.direction, _next);
-    expect(rig.turns.frame.offset, -30);
+    expect(rig.turns.frame.offset, -80);
     rig.turns.dragCancel();
     await _settle(tester);
     expect(rig.events.sublist(2), ['start:next', 'end:next:cancelled']);
@@ -694,15 +724,17 @@ void main() {
 
       rig.turns.turn(_next);
 
-      // The first turn is over, landed where it stood; the second is its
-      // picture still moving, the page it left beside it.
-      expect(rig.turns.direction, _next);
+      // The first turn is over, landed where it stood; its picture is still
+      // moving, the page it left beside it, and the second waits for the
+      // page it brings in, as the web's does.
       final after = rig.turns.frame;
       expect(after.offset, closeTo(before.offset + 400, 1e-6));
       expect(after.velocity, closeTo(before.velocity, 1e-6));
       expect(after.incoming, RitoPageSlot.previous);
       expect(after.phase, RitoPageTurnPhase.returning);
       expect(rig.turns.textures.page(RitoPageSlot.previous), isNotNull);
+      await tester.pump();
+      expect(rig.turns.direction, _next);
 
       var last = after.offset;
       var crossed = false;
@@ -763,6 +795,8 @@ void main() {
       expect(rig.turns.frame.offset, closeTo(before.offset + 400, 1e-6));
 
       rig.turns.dragUpdate(const Offset(270, 0));
+      // It takes the page once the one it brings in is there.
+      await tester.pump();
       expect(rig.turns.direction, _next);
       final held = rig.turns.frame;
       // What was left of the first turn, and the finger's 30 px on top of it.
@@ -772,7 +806,7 @@ void main() {
 
       // A flick on: still short of its own start, and two pages on all the
       // same.
-      rig.turns.dragEnd(const Offset(-900, 0));
+      _flick(rig.turns, const Offset(270, 0), const Offset(-900, 0));
       await _settle(tester);
       expect(rig.events, both);
       expect(rig.source.turns, ['next', 'next']);
@@ -786,7 +820,7 @@ void main() {
 
       rig.turns
         ..dragStart(const Offset(300, 0))
-        ..dragEnd(Offset.zero);
+        ..dragEnd();
       expect(rig.turns.isMoving, isTrue);
       await _settle(tester);
 
@@ -825,6 +859,7 @@ void main() {
 
   testWidgets('physics an application writes move the turn', (tester) async {
     final rig = _rig(tester, physics: const _VerticalPhysics());
+    await tester.pump();
     // A sideways drag is no travel to these physics: no turn begins.
     rig.turns
       ..dragStart(const Offset(200, 500))
@@ -835,7 +870,7 @@ void main() {
     expect(rig.turns.frame.incoming, RitoPageSlot.next);
     expect(rig.turns.frame.offset, -120);
     // Let go while pulling back: the built-in rule would send it back.
-    rig.turns.dragEnd(const Offset(0, 900));
+    _flick(rig.turns, const Offset(60, 380), const Offset(0, 900));
     expect(rig.turns.frame.phase, RitoPageTurnPhase.landing);
 
     // Their simulation carries it: constant speed, one second.
@@ -850,45 +885,85 @@ void main() {
     expect(rig.events, ['start:next', 'end:next:committed']);
   });
 
-  testWidgets('an effect on a clock of its own repaints the turn', (
+  testWidgets('an effect that brings physics moves the turn by them', (
     tester,
   ) async {
     final rig = _rig(tester);
-    final effect = _ClockEffect();
-    rig.turns.effect = effect;
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Center(
-          child: SizedBox(
-            width: 400,
-            height: 600,
-            child: RitoPageTurnView(
-              controller: rig.turns,
-              child: const SizedBox.expand(),
-            ),
-          ),
-        ),
-      ),
-    );
+    rig.turns.effect = _PhysicalEffect();
+    await tester.pump();
+    // A sideways drag is no travel to the effect's physics: no turn begins.
     rig.turns
-      ..dragStart(const Offset(300, 100))
-      ..dragUpdate(const Offset(250, 100));
-    // The neighbour that arrived late has faded in; the finger rests and
-    // nothing paints the turn again.
-    await _settle(tester, frames: 30);
-    final held = effect.paints;
-    expect(held, greaterThan(0));
-    await tester.pump(const Duration(milliseconds: 16));
-    expect(effect.paints, held);
-
-    // The effect's own clock moves on.
-    effect.clock.value += 1;
-    await tester.pump(const Duration(milliseconds: 16));
-    expect(effect.paints, held + 1);
+      ..dragStart(const Offset(200, 500))
+      ..dragUpdate(const Offset(60, 500));
+    expect(rig.turns.isTurning, isFalse);
+    rig.turns.dragUpdate(const Offset(60, 380));
+    expect(rig.turns.frame.offset, -120);
+    rig.turns.dragCancel();
+    // Back to an effect without physics: the controller's own again.
+    rig.turns.effect = RitoPageTurnEffects.slide;
+    await _settle(tester);
+    rig.turns
+      ..dragStart(const Offset(200, 500))
+      ..dragUpdate(const Offset(60, 500));
+    expect(rig.turns.frame.offset, -140);
     rig.turns.dragCancel();
     await _settle(tester);
   });
+
+  testWidgets(
+    'warms the effect once the pages beside the one shown are painted',
+    (tester) async {
+      final rig = _rig(tester);
+      final effect = _PhysicalEffect();
+      rig.turns.effect = effect;
+      await _settle(tester, frames: 10);
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await _settle(tester, frames: 10);
+      expect(effect.warmed, isNotEmpty);
+      expect(effect.warmed.last.image(RitoPageSlot.current), isNotNull);
+    },
+  );
+
+  testWidgets(
+    'a turn a finger holds is painted every frame, as the web paints it',
+    (tester) async {
+      final rig = _rig(tester);
+      final effect = _ClockEffect();
+      rig.turns.effect = effect;
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: SizedBox(
+              width: 400,
+              height: 600,
+              child: RitoPageTurnView(
+                controller: rig.turns,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        ),
+      );
+      rig.turns
+        ..dragStart(const Offset(300, 100))
+        ..dragUpdate(const Offset(250, 100));
+      // The neighbour that arrived late has faded in; the finger rests and
+      // the turn is painted all the same, once a frame.
+      await _settle(tester, frames: 30);
+      final held = effect.paints;
+      expect(held, greaterThan(0));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(effect.paints, held + 1);
+
+      // The effect's own clock moving on paints it no more than once a frame.
+      effect.clock.value += 1;
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(effect.paints, held + 2);
+      rig.turns.dragCancel();
+      await _settle(tester);
+    },
+  );
 
   testWidgets('reduced motion cross-fades whatever the effect', (tester) async {
     final rig = _rig(tester);

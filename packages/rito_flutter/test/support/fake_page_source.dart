@@ -40,6 +40,9 @@ final class FakePageSource implements RitoPageSource {
 
   /// A peek waits for this while it is set.
   Completer<void>? peekGate;
+
+  /// A pagination step waits for this while it is set.
+  Completer<void>? paginationGate;
   bool failTurn = false;
   final List<String> turns = <String>[];
   int peeks = 0;
@@ -84,6 +87,7 @@ final class FakePageSource implements RitoPageSource {
     RitoPreparedArtifact visible,
     int quantum,
   ) async {
+    await paginationGate?.future;
     if (failPagination) throw StateError('pagination failed');
     paginations += 1;
     final complete = paginations >= paginationSteps;

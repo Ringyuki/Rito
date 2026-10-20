@@ -61,45 +61,63 @@ List<double> _settle(RitoTurnMotion motion) {
   return seen;
 }
 
+var _now = 0.0;
+
+/// Carries the turn to [travel], the finger going [velocity] px/s as it
+/// gets there: five samples a millisecond apart.
+void _carry(RitoTurnMotion motion, double travel, [double velocity = 0]) {
+  for (var i = 4; i >= 0; i -= 1) {
+    _now += 1;
+    motion.drag(travel - velocity * i / 1000, at: _now);
+  }
+}
+
 void main() {
   test('a drag past the threshold turns the page and lands on it', () {
-    final motion = _motion()..startDrag(forward: true, hasIncoming: true);
-    motion.drag(-60);
-    expect(motion.release(0), isTrue);
+    final motion = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(motion, -60, 0);
+    expect(motion.release(), isTrue);
     final seen = _settle(motion);
     expect(motion.offset, -400);
     expect(seen.reduce((a, b) => a < b ? a : b), greaterThanOrEqualTo(-400));
   });
 
   test('a short drag goes back unless it was flicked', () {
-    final slow = _motion()..startDrag(forward: true, hasIncoming: true);
-    slow.drag(-10);
-    expect(slow.release(-20), isFalse);
+    final slow = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(slow, -10, -20);
+    expect(slow.release(), isFalse);
     _settle(slow);
     expect(slow.offset, 0);
 
-    final flick = _motion()..startDrag(forward: true, hasIncoming: true);
-    flick.drag(-10);
-    expect(flick.release(-500), isTrue);
+    final flick = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(flick, -10, -500);
+    expect(flick.release(), isTrue);
   });
 
   test('dragging back past the start or pulling back keeps the page', () {
-    final reversed = _motion()..startDrag(forward: true, hasIncoming: true);
-    reversed.drag(20);
-    expect(reversed.release(-900), isFalse);
+    final reversed = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(reversed, 20, -900);
+    expect(reversed.release(), isFalse);
 
-    final pulling = _motion()..startDrag(forward: true, hasIncoming: true);
-    pulling.drag(-200);
-    expect(pulling.release(80), isFalse);
+    final pulling = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(pulling, -200, 80);
+    expect(pulling.release(), isFalse);
   });
 
   test('a released flick carries its momentum into the spring', () {
-    final rest = _motion()..startDrag(forward: true, hasIncoming: true);
-    rest.drag(-60);
-    rest.release(0);
-    final flick = _motion()..startDrag(forward: true, hasIncoming: true);
-    flick.drag(-60);
-    flick.release(-2000);
+    final rest = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(rest, -60, 0);
+    rest.release();
+    final flick = _motion()
+      ..startDrag(forward: true, hasIncoming: true, at: _now);
+    _carry(flick, -60, -2000);
+    flick.release();
     expect(_settle(flick).length, lessThan(_settle(rest).length));
   });
 
@@ -112,9 +130,9 @@ void main() {
       for (final velocity in [0.0, -800.0, -3000.0, -20000.0]) {
         final motion = RitoTurnMotion(RitoPageTurnPhysics(spring: spring))
           ..width = 400
-          ..startDrag(forward: true, hasIncoming: true);
-        motion.drag(-60);
-        motion.release(velocity);
+          ..startDrag(forward: true, hasIncoming: true, at: _now);
+        _carry(motion, -60, velocity);
+        motion.release();
         var lowest = 0.0;
         for (var i = 0; i < 400 && !motion.step(1 / 120); i++) {
           lowest = lowest < motion.offset ? lowest : motion.offset;
@@ -217,9 +235,10 @@ void main() {
     });
 
     test('stays where it is when it was going back', () {
-      final motion = _motion()..startDrag(forward: true, hasIncoming: true);
+      final motion = _motion()
+        ..startDrag(forward: true, hasIncoming: true, at: _now);
       motion
-        ..drag(-120)
+        ..drag(-120, at: _now)
         ..cancel()
         ..step(1 / 60);
       final offset = motion.offset;
@@ -285,11 +304,11 @@ void main() {
         final left = motion.offset;
         expect(left, greaterThan(150));
         motion
-          ..startDrag(forward: true, hasIncoming: true)
-          ..drag(-120);
+          ..startDrag(forward: true, hasIncoming: true, at: _now)
+          ..drag(-120, at: _now);
         expect(motion.offset, closeTo(left - 120, 1e-9));
         // Still short of its own start, and a pull toward the next page all the same.
-        expect(motion.release(0), isTrue);
+        expect(motion.release(), isTrue);
       },
     );
 
@@ -297,8 +316,8 @@ void main() {
       final motion = inFlight()..carryOn(committed: true);
       final left = motion.offset;
       motion
-        ..startDrag(forward: true, hasIncoming: false)
-        ..drag(-40);
+        ..startDrag(forward: true, hasIncoming: false, at: _now)
+        ..drag(-40, at: _now);
       final pulled = motion.offset - left;
       expect(pulled, lessThan(0));
       expect(pulled, greaterThan(-40));
@@ -331,10 +350,11 @@ void main() {
   });
 
   test('a pull with no neighbour stretches and never turns', () {
-    final motion = _motion()..startDrag(forward: true, hasIncoming: false);
-    motion.drag(-400);
+    final motion = _motion()
+      ..startDrag(forward: true, hasIncoming: false, at: _now);
+    _carry(motion, -400, -3000);
     expect(motion.offset, closeTo(-110, 0.001));
-    expect(motion.release(-3000), isFalse);
+    expect(motion.release(), isFalse);
     _settle(motion);
     expect(motion.offset, 0);
   });

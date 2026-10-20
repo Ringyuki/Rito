@@ -1,0 +1,66 @@
+{
+  "SheetVertex": {
+    "type": "vertex",
+    "file": "shaders/paper/sheet.vert"
+  },
+  "SheetFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/sheet.frag"
+  },
+  "SheetSoftenedFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/sheet_softened.frag"
+  },
+  "SheetFootprintFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/sheet_footprint.frag"
+  },
+  "SheetSoftenedFootprintFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/sheet_softened_footprint.frag"
+  },
+  "CastVertex": {
+    "type": "vertex",
+    "file": "shaders/paper/cast.vert"
+  },
+  "CastFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/cast.frag"
+  },
+  "CoverVertex": {
+    "type": "vertex",
+    "file": "shaders/paper/cover.vert"
+  },
+  "CoverFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/cover.frag"
+  },
+  "QuadVertex": {
+    "type": "vertex",
+    "file": "shaders/paper/quad.vert"
+  },
+  "OcclusionFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/occlusion.frag"
+  },
+  "BlurFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/blur.frag"
+  },
+  "LayFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/lay.frag"
+  },
+  "RowsWrittenFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/rows_written.frag"
+  },
+  "RowsReadFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/rows_read.frag"
+  },
+  "CopyFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/copy.frag"
+  }
+}

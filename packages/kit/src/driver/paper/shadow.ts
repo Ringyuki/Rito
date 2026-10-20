@@ -1,5 +1,6 @@
+import type { PaperTurnCurl as Curl } from '@ritojs/core';
+
 import { attribute, type Gl, type Program, type RenderTarget } from './gl';
-import type { Curl } from './curl';
 import { HANDED_BACK, KEY_DIRECTION, KEY_SHARE, KEY_SIZE, PAPER_THROUGH } from './light';
 import { finishShadowPrograms, type ShadowPrograms, type StartedShadow } from './shadow-programs';
 import { sidesOf, targetsFor, type ShadowTargets, type SpineSides } from './shadow-targets';

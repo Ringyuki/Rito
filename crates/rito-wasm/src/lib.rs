@@ -2,8 +2,10 @@
 //! `wasm-bindgen` exposes it to a worker. Requests and answers cross as the
 //! session's own wire messages; this crate adds nothing to them.
 
+pub(crate) mod paper_turn;
 pub(crate) mod reader_session;
 
+pub use paper_turn::RitoPaperTurn;
 pub use reader_session::RitoReaderSession;
 
 pub const BOUNDARY_NAME: &str = "rito-wasm";

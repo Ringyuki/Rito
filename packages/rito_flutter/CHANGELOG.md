@@ -1,3 +1,65 @@
+## 0.9.0 - 2026-10-20
+
+**Breaking:** requires Flutter 3.47, whose Flutter GPU samples a page image's
+own texture.
+
+### A finger turns the page as the web reader takes it
+
+`RitoPageTurnView` takes a drag as the web reader does
+(`RitoPageTurnDragRecognizer`): by the first finger down, a touch or a
+stylus — a mouse no longer turns pages — once it has moved 5 logical px
+either way, from where it came down, every sample at its event's time. A
+finger sliding up or down the page (across the way its physics turn pages)
+does not turn it, however it drifts; it is followed from where it is, and
+turns the page from where it goes the way pages turn. A
+turn let go goes on as fast as the web measures the finger: from the turn's
+last five samples, the later ones weighing more, instead of the platform's
+velocity tracker on the raw finger; a finger taken away, or one whose turn
+another cuts into, leaves the turn going at that speed. While a turn is
+open the controller steps every frame, held or not, its first step a frame
+long. A finger that comes down while a turn lands takes the page by where
+it came down; one dragging when the reader jumps or lays out again is let
+go. A turn whose page is not in its slot yet, by a finger or a key, waits
+for it and then begins, a finger's page where the finger is by then,
+instead of beginning at once and fading the page in. **Breaking:** `dragStart` and `dragUpdate` take the sample's time as
+`at`, and `dragEnd` takes where and when the finger lifted instead of a
+velocity; a host feeding the controller from its own recognizers passes
+its pointer events' `timeStamp`s (left out, the controller's clock tells).
+
+### Flat turns drawn as the web draws them
+
+`slide`, `cover` and `fade` draw a page from the device pixel the web puts
+it on (its offset rounded as `Math.round` does) texel for texel, where they
+filtered it at a fraction of a pixel, and the cover's edge shadow as the
+web's: its alpha at the edge a byte, its strength from the page as drawn, a
+column of device pixels at a time. Against the web's own frames, at three
+pixel ratios, every pixel is the same but where a blend lands on an exact
+half.
+
+### The web's paper turn
+
+`RitoPaperTurnEffect` turns a page as the web reader's paper turn does: the
+page curled over on itself under the finger, its back showing its own print
+through, lit from over the reader's shoulder with its shadow on the page
+beneath. Its motion and geometry are the engine's, the same frames giving
+the same bits as on the web; it is drawn with the web's shaders on Flutter
+GPU, which the app enables, and as `cover` where that is not to be had. A
+page is read from its mipmaps, made on the GPU, linearly between them and up
+to eight times along a squeeze, as the web reads it; where the backend
+cannot render into a texture's smaller levels (OpenGL ES), over each pixel's
+footprint on it instead. It samples the textures the page images were drawn
+into, not a pixel copied; a turn waits the moment a page image just made
+takes to be drawn, as it waits for a page being laid out, and then begins
+where the finger is. An effect may now bring its own `physics`, which the
+controller takes over its own, be `warm`ed between turns once the pages
+beside the one shown are painted, and say through `canDraw` that it cannot
+draw a turn yet; `RitoPageTurnPhysics.travelAcross` gives physics the width
+a turn crosses. `RitoPaperTurnEffect(now:)` takes the clock the leaf moves
+by, in ms, as the web's `createPaperTurn({ now })` does. **Breaking:** an
+effect that implements `RitoPageTurnEffect` rather than extending it adds
+`physics`, `warm` and `canDraw`; `RitoPageTurnController.physics` is the
+physics the controller was given, no longer those its effect brings.
+
 ## 0.8.0 - 2026-10-19
 
 ### Ranges across ruby resolve

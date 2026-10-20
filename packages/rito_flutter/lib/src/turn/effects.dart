@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import 'motion.dart';
+
 /// The pages a turn can show: the one on screen and its neighbours.
 enum RitoPageSlot { previous, current, next }
 
@@ -111,12 +113,14 @@ final class RitoPageTurnScene {
   /// The paper colour: what an effect shows where no page is.
   final Color background;
 
-  /// Draws the page in [slot] at [x], scaled to the frame; a page not
-  /// painted yet is skipped.
+  /// Draws the page in [slot] at [x], as the web draws a page: from the
+  /// device pixel nearest [x], texel for texel; a page not painted yet is
+  /// skipped.
   void drawPage(RitoPageSlot slot, double x, {double opacity = 1}) {
     final image = pages.image(slot);
     final alpha = (opacity * pages.reveal(slot)).clamp(0.0, 1.0);
     if (image == null || alpha <= 0) return;
+    final ratio = pages.pixelRatio;
     final source = Rect.fromLTWH(
       0,
       0,
@@ -124,11 +128,25 @@ final class RitoPageTurnScene {
       image.height.toDouble(),
     );
     final paint = Paint()
-      ..filterQuality = FilterQuality.medium
+      ..filterQuality = FilterQuality.none
       ..color = Color.fromRGBO(255, 255, 255, alpha);
-    canvas.drawImageRect(image, source, Offset(x, 0) & size, paint);
+    canvas.drawImageRect(
+      image,
+      source,
+      Rect.fromLTWH(
+        _devicePixelOf(x * ratio) / ratio,
+        0,
+        image.width / ratio,
+        image.height / ratio,
+      ),
+      paint,
+    );
   }
 }
+
+/// The device pixel the web puts a layer at [x] (device px) on:
+/// `Math.round`, halves up.
+double _devicePixelOf(double x) => (x + 0.5).floorToDouble();
 
 /// How a page turn looks. How it moves — the drag, the decision to turn,
 /// the way to rest, the pull at the ends of the book — is the controller's
@@ -149,6 +167,25 @@ abstract class RitoPageTurnEffect {
   /// a ripple as it lands). Null for an effect that only follows the
   /// frame.
   Listenable? get repaint => null;
+
+  /// How turns move with this effect: the physics it is made for, which
+  /// the controller takes over its own. Null for an effect that moves as
+  /// the controller's physics say.
+  RitoPageTurnPhysics? get physics => null;
+
+  /// Called between turns once the pages beside the one shown are painted:
+  /// the place for work on those pages that a turn would otherwise do in
+  /// its first frames, such as copying them where the effect draws from.
+  void warm(RitoPageTurnPages pages) {}
+
+  /// Whether a turn bringing in the page in [incoming] can be drawn from
+  /// [pages] now. An effect that has to take the pages where it draws from
+  /// first says no until it has, and then notifies [repaint]; a turn asked
+  /// for meanwhile waits, as it waits for a page still being laid out, and
+  /// begins where the finger is by then. A turn waits for it no longer than
+  /// [RitoPageTurnController.effectPatience], and then begins, the effect
+  /// drawing it as it can. An effect with no [repaint] is never waited for.
+  bool canDraw(RitoPageTurnPages pages, RitoPageSlot incoming) => true;
 
   void paint(RitoPageTurnScene scene, RitoPageTurnFrame frame);
 }
@@ -214,25 +251,45 @@ const double _shadowAlpha = 0.18;
 /// as that share, and gone when the sheet is. At full strength there it
 /// stood beside a sheet no longer shown and went out in one frame when
 /// the turn ended.
+///
+/// Drawn as the web draws it (kit `transition-scene.ts`), in device pixels
+/// from the device pixel its sheet is drawn at: black, its alpha at the edge
+/// a byte, as a CSS colour keeps it, and falling off linearly to nothing, as
+/// the colours of a quad's corners do across it.
 void _paintEdgeShadow(RitoPageTurnScene scene, double x, RitoPageEdge side) {
-  final width = scene.size.width;
-  final inFrame = math.min(x + width, width) - math.max(x, 0.0);
-  final strength = math.min(1.0, inFrame / _shadowReach);
+  final ratio = scene.pages.pixelRatio;
+  final width = scene.size.width * ratio;
+  final height = scene.size.height;
+  final left = _devicePixelOf(x * ratio);
+  final reach = _shadowReach * ratio;
+  final inFrame = math.min(left + width, width) - math.max(left, 0.0);
+  final strength = math.min(1.0, inFrame / reach);
   if (strength <= 0) return;
-  final edge = side == RitoPageEdge.left ? x : x + width;
-  final to = side == RitoPageEdge.left
-      ? edge - _shadowReach
-      : edge + _shadowReach;
-  final paint = Paint()
-    ..shader = ui.Gradient.linear(Offset(edge, 0), Offset(to, 0), [
-      Color.fromRGBO(0, 0, 0, _shadowAlpha * strength),
-      const Color.fromRGBO(0, 0, 0, 0),
-    ]);
-  scene.canvas.drawRect(
-    Rect.fromLTRB(math.min(edge, to), 0, math.max(edge, to), scene.size.height),
-    paint,
-  );
+  final alpha = _devicePixelOf(_shadowAlpha * strength * 255) / 255;
+  final edge = side == RitoPageEdge.left ? left : left + width;
+  final from = side == RitoPageEdge.left ? edge - reach : edge;
+  // Each column of device pixels its own alpha, as the web's quad gives
+  // the pixel at its centre: the ramp in single precision.
+  final first = (from - 0.5).ceil();
+  final last = (from + reach - 0.5).ceil();
+  final paint = Paint();
+  for (var column = first; column < last; column += 1) {
+    final along = _single((column + 0.5 - from) / reach);
+    final dark = side == RitoPageEdge.left
+        ? _single(_single(alpha) * along)
+        : _single(alpha) + _single(-_single(alpha) * along);
+    paint.color = Color.from(alpha: dark, red: 0, green: 0, blue: 0);
+    scene.canvas.drawRect(
+      Rect.fromLTRB(column / ratio, 0, (column + 1) / ratio, height),
+      paint,
+    );
+  }
 }
+
+final _rounding = Float32List(1);
+
+/// [value] in single precision, as a shader holds it.
+double _single(double value) => (_rounding..[0] = value)[0];
 
 /// The built-in effects, the same as the web reader's.
 abstract final class RitoPageTurnEffects {

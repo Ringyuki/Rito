@@ -573,6 +573,101 @@ uint32_t rito_dispose(uint64_t session_id,
 /* Frees and zeroes a descriptor returned by any Rito FFI function. */
 void rito_buffer_free(rito_owned_buffer *buffer);
 
+/*
+ * The paper page turn's model. Called on the host's UI thread, frame by
+ * frame, not through a session's actor; a host holds a model by the handle
+ * rito_paper_turn_new gives and frees it with rito_paper_turn_free. Numbers
+ * cross as arrays of double in fixed layouts (rito_paper_turn_layouts
+ * writes their lengths, in the order of the defines below); a sheet's
+ * points are copied into the host's float arrays, x, y, z per point.
+ *
+ * A frame (RITO_PAPER_TURN_FRAME_NUMBERS): width, height, spine and the
+ * units of a CSS px; dx, incoming (0 none, 1 next, 2 prev), phase (0 held,
+ * 1 landing, 2 returning); the touch (present, origin x, y, position x, y,
+ * farthest present, x, y); the current and the incoming page (present,
+ * spread, buffer each); the time in ms; the host's GPU context epoch.
+ * A sheet (RITO_PAPER_TURN_SHEET_NUMBERS): its front and back faces (kind
+ * 0 none, 1 a leaf's front, 2 a leaf's after; the leaf), how far over it
+ * is, the name of its points when it lies still (0 when it moves), and its
+ * curl (present, dx, dy, at, radius).
+ * A release (RITO_PAPER_TURN_RELEASE_NUMBERS): dx, from, velocity, width,
+ * forward (1) or back (0), the touch as in a frame, the spine (present, x).
+ * A settle (RITO_PAPER_TURN_SETTLE_NUMBERS) is the host's to hold and to
+ * step once a frame with rito_paper_turn_settle_step.
+ */
+#define RITO_PAPER_TURN_FRAME_NUMBERS UINT32_C(23)
+#define RITO_PAPER_TURN_SHEET_NUMBERS UINT32_C(11)
+#define RITO_PAPER_TURN_RELEASE_NUMBERS UINT32_C(15)
+#define RITO_PAPER_TURN_SETTLE_NUMBERS UINT32_C(12)
+/* begun_out: a leaf turns (1/0), its spread, anew (1/0), release the forgotten leaves' pages (1/0). */
+#define RITO_PAPER_TURN_BEGUN_NUMBERS UINT32_C(4)
+/* laid_out: laid (1/0), the led leaf, columns, rows, sheets, the led leaf's front and after pages. */
+#define RITO_PAPER_TURN_LAID_NUMBERS UINT32_C(11)
+/* state_out: frames painted, there (1/0), gone (1/0), a leaf aloft (1/0). */
+#define RITO_PAPER_TURN_STATE_NUMBERS UINT32_C(4)
+
+/* Writes the seven layout lengths above, in their order, into layouts_out. */
+uint32_t rito_paper_turn_layouts(uint32_t *layouts_out,
+                                 rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_new(uint64_t *turn_out, rito_owned_buffer *error_out);
+/* Idempotent: freeing an absent model succeeds. */
+uint32_t rito_paper_turn_free(uint64_t turn, rito_owned_buffer *error_out);
+/*
+ * Reads a frame. The leaves forgotten are written to leaves_out (at most
+ * leaves_capacity) and their count to leaf_count_out.
+ */
+uint32_t rito_paper_turn_begin(uint64_t turn, const double *frame,
+                               double *begun_out, uint32_t *leaves_out,
+                               uint32_t leaves_capacity,
+                               uint32_t *leaf_count_out,
+                               rito_owned_buffer *error_out);
+/*
+ * Moves the leaves of the frame begin read on and lays them out; laid_out
+ * starts with 0 when no frame waits. The leaves that left the book are
+ * written to leaves_out.
+ */
+uint32_t rito_paper_turn_lay(uint64_t turn, uint64_t epoch, double *laid_out,
+                             uint32_t *leaves_out, uint32_t leaves_capacity,
+                             uint32_t *leaf_count_out,
+                             rito_owned_buffer *error_out);
+/*
+ * Writes sheet `index` of the frame last laid out, and its points into
+ * positions_out and normals_out (points_capacity floats each); both null
+ * leave the points, as for a sheet lying still whose points the host has.
+ */
+uint32_t rito_paper_turn_sheet(uint64_t turn, uint32_t index,
+                               double *sheet_out, float *positions_out,
+                               float *normals_out, uint64_t points_capacity,
+                               rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_forget(uint64_t turn, uint64_t epoch,
+                                uint32_t *release_out, uint32_t *leaves_out,
+                                uint32_t leaves_capacity,
+                                uint32_t *leaf_count_out,
+                                rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_state(uint64_t turn, double now, double *state_out,
+                               rito_owned_buffer *error_out);
+/* begins_out: where a turn that cuts into another begins, and how fast. */
+uint32_t rito_paper_turn_begins(uint64_t turn, double dx, double velocity,
+                                uint32_t same_spreads, double *begins_out,
+                                rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_settle(uint64_t turn, double from, double velocity,
+                                double to, double *settle_out,
+                                rito_owned_buffer *error_out);
+/* Steps the settle in place; at_out: x, velocity, done (1/0). */
+uint32_t rito_paper_turn_settle_step(uint64_t turn, double *settle,
+                                     double seconds, double now,
+                                     double *at_out,
+                                     rito_owned_buffer *error_out);
+/* touch: origin x, y, position x, y. */
+uint32_t rito_paper_turn_travel(const double *touch, double width,
+                                double spine, double *travel_out,
+                                rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_lands(const double *release, uint32_t *lands_out,
+                               rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_eye_height(double width, double height,
+                                    double *eye_out,
+                                    rito_owned_buffer *error_out);
+
 #ifdef __cplusplus
 }
 #endif

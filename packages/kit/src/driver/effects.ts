@@ -148,8 +148,11 @@ export interface PaintedTransitionEffect {
   warm?(scene: TransitionScene): void;
   /** A turn lands at once instead of animating (drags still decide commit). */
   readonly instant?: boolean;
-  /** The physics the effect is made for; `physics` in the options outranks them. */
-  readonly physics?: TransitionPhysics;
+  /**
+   * The physics the effect is made for; `physics` in the options outranks
+   * them. Undefined while it has none yet: the built-in physics move turns.
+   */
+  readonly physics?: TransitionPhysics | undefined;
 }
 
 /** The whole spread moves with the turn; the neighbour follows edge to edge. */

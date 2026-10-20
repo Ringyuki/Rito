@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 
 import 'effects.dart';
+import 'motion.dart' show alongTheTurn;
 import 'page_turn_controller.dart';
+import 'page_turn_drag.dart';
 
 /// Shows a page and the turns away from it.
 ///
@@ -11,10 +13,11 @@ import 'page_turn_controller.dart';
 /// textures instead, keeping [child] mounted underneath. Size it to the
 /// page: textures are drawn to fill it.
 ///
-/// With [dragToTurn] it turns pages under a horizontal drag itself; a host
-/// that arbitrates gestures (text selection, taps on links) or turns pages
-/// with another gesture leaves it off and feeds the controller's drag
-/// methods from its own recognizers, in this view's coordinates.
+/// With [dragToTurn] it turns pages under a drag itself, taken as the web
+/// reader takes one ([RitoPageTurnDragRecognizer]); a host that arbitrates
+/// gestures (text selection, taps on links) or turns pages with another
+/// gesture leaves it off and feeds the controller's drag methods from its
+/// own recognizers, in this view's coordinates.
 final class RitoPageTurnView extends StatefulWidget {
   const RitoPageTurnView({
     required this.controller,
@@ -98,18 +101,33 @@ final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
       },
     );
     if (widget.dragToTurn) {
-      view = GestureDetector(
+      view = RawGestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (details) {
-          controller.dragStart(details.localPosition);
+        gestures: {
+          RitoPageTurnDragRecognizer:
+              GestureRecognizerFactoryWithHandlers<RitoPageTurnDragRecognizer>(
+                () => RitoPageTurnDragRecognizer(debugOwner: this),
+                (recognizer) {
+                  recognizer
+                    ..onStart = (down, at) {
+                      controller.dragStart(down, at: at);
+                    }
+                    ..onUpdate = (position, at) {
+                      controller.dragUpdate(position, at: at);
+                    }
+                    ..onEnd = (position, at) {
+                      controller.dragEnd(position: position, at: at);
+                    }
+                    ..onCancel = controller.dragCancel
+                    ..alongTheTurn = (down, moved) => alongTheTurn(
+                      controller.effectiveEffect.physics ?? controller.physics,
+                      down,
+                      moved,
+                      controller.width,
+                    );
+                },
+              ),
         },
-        onHorizontalDragUpdate: (details) {
-          controller.dragUpdate(details.localPosition);
-        },
-        onHorizontalDragEnd: (details) {
-          controller.dragEnd(details.velocity.pixelsPerSecond);
-        },
-        onHorizontalDragCancel: controller.dragCancel,
         child: view,
       );
     }

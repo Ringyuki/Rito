@@ -149,12 +149,15 @@ Three layers, each usable on its own:
 
 1. `RitoReaderController` — the pages (above).
 2. `RitoPageTurnController(reader:, vsync:)` — the turn: feed it a drag
-   (`dragStart(position)` / `dragUpdate(position)` / `dragEnd(velocity)` /
-   `dragCancel`, positions in the view's coordinates and the velocity in
-   logical px/s) or call `turn(direction)` for taps and keys. It moves
-   with the web reader's physics (`RitoPageTurnPhysics`, with the springs
-   `RitoSpring.standard`, `snappy` and `gentle`): a release hands its
-   velocity to the spring, a turn follows the same path at any refresh
+   (`dragStart(position, at:)` where the finger came down, once it has
+   moved far enough / `dragUpdate(position, at:)` / `dragEnd(position:,
+at:)` / `dragCancel`, positions in the view's coordinates, `at` the
+   pointer event's `timeStamp`; `RitoPageTurnDragRecognizer` takes a drag
+   as the web reader does) or call `turn(direction)` for taps and keys. It
+   moves with the web reader's physics (`RitoPageTurnPhysics`, with the
+   springs `RitoSpring.standard`, `snappy` and `gentle`), or with the
+   physics its effect brings: a release hands the finger's speed, measured
+   as the web measures it, to the spring, a turn follows the same path at any refresh
    rate (the spring is solved in closed form) and, with these three
    springs, never bounces past the neighbour — a custom spring damped
    below critical does; a pull against the first or last page stretches.
@@ -202,7 +205,12 @@ finger has held; `touch.farthest` is where the finger was when it had
 carried the turn farthest the way the turn goes, so a finger short of it
 has come back). An effect that moves on a clock of its own returns a
 `Listenable` as `repaint`, and the view paints the turn again whenever it
-notifies. Page textures are drawn by `paintPage` (default
+notifies. An effect that has to take the pages where it draws from
+before it can draw them answers `canDraw(pages, incoming)` no until it
+has, and notifies `repaint` then: a turn asked for meanwhile waits, as for
+a page still being laid out, and begins where the finger is by then — or
+after `RitoPageTurnController.effectPatience` (500 ms) regardless.
+Page textures are drawn by `paintPage` (default
 `ritoPaintArtifactPage`); draw highlights or a theme there and call
 `invalidatePages()` when they change. A page whose images land late is
 rasterized again.
@@ -360,7 +368,7 @@ Omit the override for light mode — the authored page paints unmodified.
   transient frame callback — not from `build` or a `LayoutBuilder`,
   which run inside the frame: the page laid out there shows a frame
   later. `test/relayout_in_frame_test.dart` holds this with real frames.
-- Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.41.7,
+- Native Assets builds `rito-ffi` automatically (Flutter ≥ 3.47,
   pinned Rust toolchain). Tests and diagnostics may bypass with
   `RitoNativeGateway(diagnosticLibrary: ...)`.
 

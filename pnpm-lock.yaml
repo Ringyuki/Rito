@@ -162,6 +162,9 @@ importers:
         specifier: workspace:^
         version: link:../rito
     devDependencies:
+      '@ritojs/core-wasm':
+        specifier: workspace:*
+        version: link:../rito-core-wasm
       '@vitest/coverage-v8':
         specifier: ^4.1.12
         version: 4.1.12(@vitest/browser@4.1.12)(vitest@4.1.12)

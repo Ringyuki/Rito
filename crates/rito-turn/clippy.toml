@@ -1,0 +1,16 @@
+# The platform's math library differs between wasm, iOS and Android in the
+# last bit; libm is the same code everywhere, so every host computes the
+# same paper.
+disallowed-methods = [
+  { path = "f64::sin", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::cos", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::tan", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::asin", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::atan2", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::exp", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::powf", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::powi", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::hypot", reason = "use crate::math (libm): platform math differs between hosts" },
+  { path = "f64::mul_add", reason = "a fused multiply-add rounds once where the web rounds twice" },
+  { path = "f32::mul_add", reason = "a fused multiply-add rounds once where the web rounds twice" },
+]

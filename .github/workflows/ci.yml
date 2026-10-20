@@ -233,8 +233,19 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      # The engine is built as for the unit tests: coverage is of the tests
+      # that run, the engine-backed ones included, not of a placeholder.
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install matching wasm-bindgen CLI
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.120
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build WASM Bindings
+        run: pnpm --filter @ritojs/core-wasm run build
       - name: Install Playwright Browser
         run: pnpm exec playwright install --with-deps chromium
       - name: Run Coverage

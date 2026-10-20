@@ -43,6 +43,25 @@ final class _Pages implements RitoPageTurnPages {
   int? spread(RitoPageSlot slot) => slot.index;
 }
 
+/// Every slot shows [_page], [pixelRatio] device pixels to the logical one.
+final class _ScaledPages implements RitoPageTurnPages {
+  _ScaledPages(this._page, this.pixelRatio);
+
+  final ui.Image _page;
+
+  @override
+  final double pixelRatio;
+
+  @override
+  ui.Image? image(RitoPageSlot slot) => _page;
+
+  @override
+  double reveal(RitoPageSlot slot) => 1;
+
+  @override
+  int? spread(RitoPageSlot slot) => slot.index;
+}
+
 void main() {
   const next = RitoPageSlot.next;
   const previous = RitoPageSlot.previous;
@@ -136,6 +155,56 @@ void main() {
     expect(await darkness(-12, next), closeTo(full / 2, 2));
     expect(await darkness(-200, next), closeTo(full, 1));
   });
+
+  test(
+    'a page between device pixels is drawn whole at the nearest one, as the web draws it',
+    () async {
+      // A page two device pixels to the logical one, its columns alternating.
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      for (var column = 0; column < 20; column += 2) {
+        canvas.drawRect(
+          Rect.fromLTWH(column.toDouble(), 0, 1, 4),
+          Paint()..color = const Color(0xff000000),
+        );
+      }
+      final page = await recorder.endRecording().toImage(20, 4);
+      final pages = _ScaledPages(page, 2);
+      Future<List<int>> row(double x) async {
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder)..scale(2);
+        RitoPageTurnScene(
+          canvas: canvas,
+          size: const Size(10, 2),
+          pages: pages,
+          background: const Color(0xffffffff),
+        ).drawPage(current, x);
+        final image = await recorder.endRecording().toImage(20, 4);
+        final data = (await image.toByteData())!.buffer.asUint8List();
+        image.dispose();
+        return [
+          for (var column = 0; column < 20; column += 1) data[column * 4 + 3],
+        ];
+      }
+
+      // The page's columns, each where the page puts it, nothing between.
+      List<int> shifted(int by) => [
+        for (var column = 0; column < 20; column += 1)
+          column - by >= 0 && column - by < 20 && (column - by).isEven
+              ? 255
+              : 0,
+      ];
+      // Half a device pixel to the left rounds up to where it was.
+      expect(await row(-0.25), shifted(0));
+      expect(await row(0.3), shifted(1));
+      expect(await row(-0.8), shifted(-2));
+      final ink = await row(0.3);
+      final drawn = await row(0);
+      // The columns themselves, not a blur of them.
+      expect(ink.where((alpha) => alpha != 0 && alpha != 255), isEmpty);
+      expect(drawn, shifted(0));
+    },
+  );
 
   test('the shadow is the web reader\'s', () {
     final web = File(

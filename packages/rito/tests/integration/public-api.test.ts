@@ -9,6 +9,7 @@ describe('public API surface', () => {
     const api = await import('../../src/index');
     expect(api.createReader).toBeDefined();
     expect(api.preloadReaderRuntime).toBeDefined();
+    expect(api.loadPaperTurnModel).toBeDefined();
     // The engine places a spread's pages on the device grid: a reader's
     // geometry is what `getLayoutGeometry()` reports, not a formula here.
     expect((api as Record<string, unknown>)['createLayoutConfig']).toBeUndefined();

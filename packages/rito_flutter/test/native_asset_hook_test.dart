@@ -1,10 +1,9 @@
 import 'package:code_assets/code_assets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks/hooks.dart';
-import 'package:rito_flutter/src/native/asset.dart';
-
 import 'package:rito_flutter/src/hook/cargo_builder.dart';
 import 'package:rito_flutter/src/hook/target.dart';
+import 'package:rito_flutter/src/native/asset.dart';
 
 void main() {
   group('Rust target mapping', () {

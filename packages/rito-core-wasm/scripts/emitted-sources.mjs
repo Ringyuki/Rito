@@ -34,6 +34,7 @@ export const decoderDeclarationFiles = ['reader-session-runtime.d.ts'];
 /** Type modules under src/types/, named without their extension. */
 export const typeModules = [
   'frame-command',
+  'paper-turn',
   'pinned-font',
   'sharded-publication',
   'reader-session-display',

@@ -53,7 +53,7 @@ await writeFile(resolve(dist, 'decoder.mjs'), [...runtimeExports, ''].join('\n')
 await writeFile(
   resolve(dist, 'index.mjs'),
   [
-    "export { default as initRitoCoreWasm, RitoReaderSession } from './rito_wasm.js';",
+    "export { default as initRitoCoreWasm, initSync as initRitoCoreWasmSync, RitoPaperTurn, RitoReaderSession } from './rito_wasm.js';",
     ...runtimeExports,
     '',
   ].join('\n'),
@@ -61,7 +61,7 @@ await writeFile(
 await writeFile(
   resolve(dist, 'index.d.mts'),
   [
-    "export { default as initRitoCoreWasm, RitoReaderSession } from './rito_wasm.js';",
+    "export { default as initRitoCoreWasm, initSync as initRitoCoreWasmSync, RitoPaperTurn, RitoReaderSession } from './rito_wasm.js';",
     "export type { InitInput } from './rito_wasm.js';",
     declarations,
     '',
