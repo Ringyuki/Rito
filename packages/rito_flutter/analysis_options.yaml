@@ -6,6 +6,9 @@ analyzer:
   errors:
     missing_required_param: error
     missing_return: error
+    # The package's one asset, the paper turn's shader bundle, is the build
+    # hook's output: a clean checkout has none until a build runs the hook.
+    asset_does_not_exist: ignore
   exclude:
     - build/**
 
