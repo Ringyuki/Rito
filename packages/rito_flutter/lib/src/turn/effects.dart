@@ -134,7 +134,7 @@ final class RitoPageTurnScene {
       image,
       source,
       Rect.fromLTWH(
-        devicePixelOf(x * ratio) / ratio,
+        _devicePixelOf(x * ratio) / ratio,
         0,
         image.width / ratio,
         image.height / ratio,
@@ -146,7 +146,7 @@ final class RitoPageTurnScene {
 
 /// The device pixel the web puts a layer at [x] (device px) on:
 /// `Math.round`, halves up.
-double devicePixelOf(double x) => (x + 0.5).floorToDouble();
+double _devicePixelOf(double x) => (x + 0.5).floorToDouble();
 
 /// How a page turn looks. How it moves — the drag, the decision to turn,
 /// the way to rest, the pull at the ends of the book — is the controller's
@@ -260,12 +260,12 @@ void _paintEdgeShadow(RitoPageTurnScene scene, double x, RitoPageEdge side) {
   final ratio = scene.pages.pixelRatio;
   final width = scene.size.width * ratio;
   final height = scene.size.height;
-  final left = devicePixelOf(x * ratio);
+  final left = _devicePixelOf(x * ratio);
   final reach = _shadowReach * ratio;
   final inFrame = math.min(left + width, width) - math.max(left, 0.0);
   final strength = math.min(1.0, inFrame / reach);
   if (strength <= 0) return;
-  final alpha = devicePixelOf(_shadowAlpha * strength * 255) / 255;
+  final alpha = _devicePixelOf(_shadowAlpha * strength * 255) / 255;
   final edge = side == RitoPageEdge.left ? left : left + width;
   final from = side == RitoPageEdge.left ? edge - reach : edge;
   // Each column of device pixels its own alpha, as the web's quad gives
