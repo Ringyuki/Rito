@@ -141,6 +141,71 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
   });
 
+  testWidgets('a key turn waits for an effect that cannot draw its pages yet', (
+    tester,
+  ) async {
+    final turns = _controller(tester);
+    final effect = _Gated();
+    turns.effect = effect;
+    await tester.pump();
+    expect(turns.turn(RitoAdjacentDirection.next), isTrue);
+    expect(turns.isTurning, isFalse);
+    expect(effect.asked, isNonZero);
+    effect.open();
+    expect(turns.direction, RitoAdjacentDirection.next);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets(
+    'a finger waits for the effect, then takes the page where the finger is',
+    (tester) async {
+      final turns = _controller(tester);
+      final effect = _Gated();
+      turns.effect = effect;
+      await tester.pump();
+      turns
+        ..dragStart(const Offset(300, 300))
+        ..dragUpdate(const Offset(280, 300))
+        ..dragUpdate(const Offset(240, 300))
+        ..dragUpdate(const Offset(250, 300));
+      expect(turns.isTurning, isFalse);
+      effect.open();
+      expect(turns.direction, RitoAdjacentDirection.next);
+      expect(turns.frame.offset, -50);
+      expect(turns.frame.touch!.farthest, const Offset(240, 300));
+      turns.dragEnd();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
+  testWidgets(
+    'a jump played as a turn shows the page it leaves until the effect can draw the one it brings',
+    (tester) async {
+      final turns = _controller(tester);
+      final effect = _Gated();
+      turns.effect = effect;
+      await tester.pump();
+      await turns.jumpTo(
+        const RitoLocator(href: 'b.xhtml'),
+        animateAs: RitoAdjacentDirection.next,
+      );
+      for (var i = 0; i < 5; i += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(turns.direction, RitoAdjacentDirection.next);
+      expect(turns.frame.offset, 0);
+      effect.open();
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(turns.frame.offset, lessThan(0));
+      await tester.pumpAndSettle();
+      expect(turns.isTurning, isFalse);
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
   test('measures the finger as the web does', () {
     final motion = RitoTurnMotion(const RitoPageTurnPhysics())
       ..width = 400
@@ -160,4 +225,34 @@ void main() {
     }
     expect(motion.fingerVelocity, closeTo(-1000, 1e-9));
   });
+}
+
+final class _Bell extends ChangeNotifier {
+  void ring() => notifyListeners();
+}
+
+/// An effect that cannot draw any turn until it is opened, and then says so.
+final class _Gated extends RitoLayeredPageTurnEffect {
+  final _bell = _Bell();
+  bool _open = false;
+  int asked = 0;
+
+  @override
+  Listenable get repaint => _bell;
+
+  @override
+  bool canDraw(RitoPageTurnPages pages, RitoPageSlot incoming) {
+    asked += 1;
+    return _open;
+  }
+
+  void open() {
+    _open = true;
+    _bell.ring();
+  }
+
+  @override
+  List<RitoPageTurnLayer> layers(RitoPageTurnFrame frame) => [
+    RitoPageTurnLayer(RitoPageSlot.current, frame.offset),
+  ];
 }

@@ -1,60 +1,66 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_gpu/gpu.dart' as gpu;
+/// The pages as the GPU samples them: the texture each page image was
+/// drawn into, shared with the image, not a pixel of it copied. An image
+/// just made has none until the raster thread has drawn it, a moment
+/// later; until then its page is sampled from the texture the page was
+/// last sampled from. A page is known by its spread, which it keeps from
+/// one turn to the next whatever image or artifact shows it.
+final class PaperPageSnapshots<T extends Object> {
+  PaperPageSnapshots({required this.share, required this.onGivenUp});
 
-/// The pages as the GPU samples them: one texture for each page image,
-/// read back from the image and uploaded once. An image is never painted
-/// again, so a texture is good for as long as anything shows its page.
-/// Reading an image back takes a while; until a texture is [ready] the
-/// turn that needs it is drawn plain.
-final class PaperPageSnapshots {
-  PaperPageSnapshots({required this.onReady});
+  /// The texture [image] was drawn into, shared; throws while the image has
+  /// none.
+  final T Function(ui.Image image) share;
 
-  /// Called when a texture asked for has been made.
-  final VoidCallback onReady;
+  /// How many times an image is asked for its texture before it is taken
+  /// to have none to share: about once a frame, two seconds at 60 Hz.
+  static const int patience = 120;
 
-  final _made = Expando<gpu.Texture>();
-  final _making = Expando<bool>();
+  /// Called once an image has been asked for its texture [patience] times
+  /// and still has none: the turns that need it are drawn without it.
+  final void Function(Object error, StackTrace stack) onGivenUp;
 
-  /// The texture of [image], or null while it is being made.
-  gpu.Texture? ready(ui.Image image) => _made[image];
+  final _shared = Expando<T>();
+  final _asked = Expando<int>();
+  final _givenUp = Expando<bool>();
 
-  /// Starts making the texture of [image], if it has not been.
-  void warm(ui.Image image) {
-    if (_made[image] != null || _making[image] == true) return;
-    _making[image] = true;
-    // The image may be let go by its slot while it is read back.
-    final copy = image.clone();
-    unawaited(
-      copy
-          .toByteData(format: ui.ImageByteFormat.rawRgba)
-          .then((bytes) {
-            if (bytes == null) return;
-            final texture = gpu.gpuContext.createTexture(
-              gpu.StorageMode.hostVisible,
-              copy.width,
-              copy.height,
-            );
-            texture.overwrite(bytes);
-            _made[image] = texture;
-            onReady();
-          })
-          .catchError((Object error, StackTrace stack) {
-            FlutterError.reportError(
-              FlutterErrorDetails(
-                exception: error,
-                stack: stack,
-                library: 'rito_flutter',
-                context: ErrorDescription('copying a page for the paper turn'),
-              ),
-            );
-          })
-          .whenComplete(() {
-            _making[image] = null;
-            copy.dispose();
-          }),
-    );
+  /// The texture each spread was last sampled from.
+  final _lastOf = <int, T>{};
+
+  /// The texture [image] of the page [spread] is sampled from: its own once
+  /// the raster thread has drawn it, before that the page's last one; null
+  /// while there is neither.
+  T? of(ui.Image image, int? spread) {
+    final shared = _sharedOf(image);
+    if (spread == null) return shared;
+    if (shared != null) return _lastOf[spread] = shared;
+    return _lastOf[spread];
+  }
+
+  /// Lets go of the textures of every page but [spreads].
+  void keepOnly(Iterable<int?> spreads) {
+    final kept = spreads.toSet();
+    _lastOf.removeWhere((spread, _) => !kept.contains(spread));
+  }
+
+  /// Whether [image] will never have a texture to share.
+  bool hasNone(ui.Image image) => _givenUp[image] ?? false;
+
+  T? _sharedOf(ui.Image image) {
+    final shared = _shared[image];
+    if (shared != null || hasNone(image)) return shared;
+    try {
+      return _shared[image] = share(image);
+    } on Exception catch (error, stack) {
+      // Not drawn yet: asked again later, but not for ever.
+      final asked = (_asked[image] ?? 0) + 1;
+      _asked[image] = asked;
+      if (asked >= patience) {
+        _givenUp[image] = true;
+        onGivenUp(error, stack);
+      }
+      return null;
+    }
   }
 }

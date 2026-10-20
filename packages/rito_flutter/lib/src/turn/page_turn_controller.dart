@@ -94,6 +94,14 @@ final class RitoPageTurnController extends ChangeNotifier {
   ({RitoAdjacentDirection direction, bool byKey})? _awaiting;
   bool _liftedWhileAwaiting = false;
 
+  /// The effect's [RitoPageTurnEffect.repaint], listened to while a turn
+  /// waits for the effect to be able to draw it.
+  Listenable? _waitingOn;
+
+  /// A jump played as a turn, open but not moving until the effect can
+  /// draw the page it brings in: until then it shows the page it leaves.
+  RitoAdjacentDirection? _heldFor;
+
   /// Where the finger was last heard of.
   Offset _lastPosition = Offset.zero;
   VoidCallback? _releasePagination;
@@ -183,6 +191,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _applyPhysics();
     _scheduleWarm();
     notifyListeners();
+    _effectChanged();
   }
 
   /// Whether the system asks for reduced motion ([RitoPageTurnView] keeps
@@ -193,6 +202,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _reduceMotion = value;
     _applyPhysics();
     notifyListeners();
+    _effectChanged();
   }
 
   /// What turns look like now: the [effect], or a cross-fade under
@@ -313,16 +323,61 @@ final class RitoPageTurnController extends ChangeNotifier {
       direction == RitoAdjacentDirection.next;
 
   /// Waits for the page a turn [direction] brings in when it is to be had
-  /// but not in its slot yet; false when the turn can begin now.
+  /// but not in its slot yet, or not yet where the effect can draw it from;
+  /// false when the turn can begin now.
   bool _await(RitoAdjacentDirection direction, {required bool byKey}) {
-    if (!reader.canTurn(direction) ||
-        textures.page(_slotOf(direction)) != null) {
-      return false;
-    }
+    if (!reader.canTurn(direction)) return false;
+    final there = textures.page(_slotOf(direction)) != null;
+    if (there && _drawable(direction)) return false;
     _awaiting = (direction: direction, byKey: byKey);
     _liftedWhileAwaiting = false;
-    _fetchNeighbour(direction, reveal: false, then: _arrived);
+    if (there) {
+      _waitForEffect();
+    } else {
+      _fetchNeighbour(direction, reveal: false, then: _arrived);
+    }
     return true;
+  }
+
+  /// Whether the effect can draw a turn [direction] now. An effect that
+  /// cannot says so through its repaint once it can; one with none is not
+  /// waited for.
+  bool _drawable(RitoAdjacentDirection direction) {
+    final effect = effectiveEffect;
+    return effect.repaint == null ||
+        effect.canDraw(textures, _slotOf(direction));
+  }
+
+  void _waitForEffect() {
+    if (_waitingOn != null) return;
+    _waitingOn = effectiveEffect.repaint?..addListener(_effectChanged);
+  }
+
+  void _stopWaitingForEffect() {
+    _waitingOn?.removeListener(_effectChanged);
+    _waitingOn = null;
+  }
+
+  /// The effect may be able to draw what waits for it now: a held jump
+  /// moves, a waiting turn begins.
+  void _effectChanged() {
+    _stopWaitingForEffect();
+    final held = _heldFor;
+    if (held != null) {
+      if (!_drawable(held)) {
+        _waitForEffect();
+        return;
+      }
+      _heldFor = null;
+      _motion.turn(forward: _isNext(held));
+      _run();
+      return;
+    }
+    final awaiting = _awaiting;
+    if (awaiting != null &&
+        textures.page(_slotOf(awaiting.direction)) != null) {
+      _arrived(awaiting.direction, there: true);
+    }
   }
 
   /// The page a waiting turn brings in is in its slot (or will not be):
@@ -331,6 +386,10 @@ final class RitoPageTurnController extends ChangeNotifier {
   void _arrived(RitoAdjacentDirection direction, {required bool there}) {
     final awaiting = _awaiting;
     if (awaiting == null || awaiting.direction != direction) return;
+    if (there && !_drawable(direction)) {
+      _waitForEffect();
+      return;
+    }
     _awaiting = null;
     final lifted = _liftedWhileAwaiting;
     _liftedWhileAwaiting = false;
@@ -368,6 +427,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _dragActive = false;
     if (_awaiting?.byKey == false) {
       _awaiting = null;
+      _stopWaitingForEffect();
       return;
     }
     _motion.cancel();
@@ -422,9 +482,14 @@ final class RitoPageTurnController extends ChangeNotifier {
     textures.clear(except: {RitoPageSlot.current});
     textures.assign(_slotOf(animateAs), page, jump: true);
     _begin(animateAs, fromShown: true);
-    _motion.turn(forward: animateAs == RitoAdjacentDirection.next);
     _committing = true;
     _landed = page;
+    if (_drawable(animateAs)) {
+      _motion.turn(forward: _isNext(animateAs));
+    } else {
+      _heldFor = animateAs;
+      _waitForEffect();
+    }
     _run();
     return page;
   }
@@ -487,7 +552,7 @@ final class RitoPageTurnController extends ChangeNotifier {
   /// then ends wherever its picture is and the picture carries on.
   void _settleTurn() {
     final open = _open;
-    if (open == null) return;
+    if (open == null || _heldFor != null) return;
     final atRest =
         !_motion.moving && _motion.phase != RitoTurnMotionPhase.dragging;
     final cut = _pendingTurn != null || _dragWaiting;
@@ -550,6 +615,10 @@ final class RitoPageTurnController extends ChangeNotifier {
     final open = _open;
     if (open == null) return;
     _open = null;
+    if (_heldFor != null) {
+      _heldFor = null;
+      _stopWaitingForEffect();
+    }
     _committing = false;
     _touch = null;
     _farthest = null;
@@ -616,6 +685,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     _motion.reset();
     _pendingTurn = null;
     _awaiting = null;
+    _stopWaitingForEffect();
     _dragWaiting = false;
     _dragActive = false;
     _end(RitoPageTurnOutcome.interrupted);
@@ -718,6 +788,7 @@ final class RitoPageTurnController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _warmTimer?.cancel();
+    _stopWaitingForEffect();
     reader.removeListener(_readerChanged);
     _motion.reset();
     _end(RitoPageTurnOutcome.interrupted);

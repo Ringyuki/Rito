@@ -30,14 +30,17 @@ final class _Repaint extends ChangeNotifier {
 
   void now() => notifyListeners();
 
-  /// Paints again next frame: a page on a clock of its own still moves.
+  /// Paints again next frame: a page on a clock of its own still moves,
+  /// or a page not yet drawn for the GPU is asked for again.
   void nextFrame() {
     if (_asked) return;
     _asked = true;
-    SchedulerBinding.instance.scheduleFrameCallback((_) {
-      _asked = false;
-      notifyListeners();
-    });
+    SchedulerBinding.instance
+      ..scheduleFrameCallback((_) {
+        _asked = false;
+        notifyListeners();
+      })
+      ..scheduleFrame();
   }
 }
 
@@ -52,10 +55,11 @@ final class _Repaint extends ChangeNotifier {
 ///
 /// It is drawn with Flutter GPU, which an app enables (on Android the
 /// `io.flutter.embedding.android.EnableFlutterGPU` meta-data, on iOS
-/// `FLTEnableFlutterGPU` in Info.plist) and which needs Impeller. Where it
-/// is not to be had, and until the pages of a turn have been copied for the
-/// GPU, turns are drawn as [RitoPageTurnEffects.cover]. Make one per
-/// controller, and [dispose] it with the controller.
+/// `FLTEnableFlutterGPU` in Info.plist) and which needs Impeller. It samples
+/// the textures the page images were drawn into; a turn waits the moment
+/// it takes for a page image just made to be drawn ([canDraw]). Where Flutter
+/// GPU is not to be had, turns are drawn as [RitoPageTurnEffects.cover].
+/// Make one per controller, and [dispose] it with the controller.
 final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   RitoPaperTurnEffect({this.paper = const Color(0xFFFFFFFF)}) {
     _physics = PaperTurnPhysics(() => _model, _now);
@@ -68,7 +72,19 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   late final RitoPaperTurnModel _model = RitoPaperTurnModel();
   late final PaperTurnPhysics _physics;
   final _repaint = _Repaint();
-  late final _snapshots = PaperPageSnapshots(onReady: _repaint.now);
+  late final _snapshots = PaperPageSnapshots<gpu.Texture>(
+    share: (image) => gpu.Texture.fromImage(gpu.gpuContext, image),
+    onGivenUp: (error, stack) {
+      if (_givenUp) return;
+      _givenUp = true;
+      _report(
+        error,
+        stack,
+        'sharing a page with the GPU; its turn is drawn plain',
+      );
+    },
+  );
+  bool _givenUp = false;
   final _leaves = PaperLeafPages();
   final _points = <RitoNativePaperTurnPoints>[];
   PaperRenderer? _renderer;
@@ -89,11 +105,29 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   @override
   void warm(RitoPageTurnPages pages) {
     _start(pages.pixelRatio);
-    if (_standing == _Standing.none) return;
     for (final slot in RitoPageSlot.values) {
       final image = pages.image(slot);
-      if (image != null) _snapshots.warm(image);
+      if (image != null) _textureOf(image, pages.spread(slot));
     }
+  }
+
+  /// No while the programs are being readied, or while the page on screen
+  /// or the one coming in has no texture yet: an image just made does once
+  /// the raster thread has drawn it, which is asked about every frame.
+  @override
+  bool canDraw(RitoPageTurnPages pages, RitoPageSlot incoming) {
+    _start(pages.pixelRatio);
+    if (_standing == _Standing.none) return true;
+    if (_standing == _Standing.starting) return false;
+    for (final slot in [RitoPageSlot.current, incoming]) {
+      final image = pages.image(slot);
+      if (image == null || _snapshots.hasNone(image)) continue;
+      if (_textureOf(image, pages.spread(slot)) == null) {
+        _repaint.nextFrame();
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
@@ -118,10 +152,21 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
     }
     if (begun.anew) _plain = null;
     final renderer = _renderer;
-    final front = _textureOf(current);
-    final back = incoming == null ? null : _textureOf(incoming);
+    _snapshots.keepOnly([
+      for (final slot in RitoPageSlot.values) pages.spread(slot),
+    ]);
+    final front = _textureOf(current, pages.spread(RitoPageSlot.current));
+    final back = incoming == null
+        ? null
+        : _textureOf(incoming, pages.spread(slot!));
     final ready =
         renderer != null && front != null && (incoming == null || back != null);
+    // A leaf that has not moved yet is the page at rest: whether it is
+    // drawn as paper is not decided before it moves.
+    if (!ready && frame.offset == 0) {
+      scene.drawPage(RitoPageSlot.current, 0);
+      return;
+    }
     if (_drawnPlain(begun.spread, ready)) {
       RitoPageTurnEffects.cover.paint(scene, frame);
       return;
@@ -156,8 +201,6 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
     RitoPageSlot? slot,
     double ratio,
   ) {
-    Object? holder(RitoPageSlot slot) =>
-        pages is RitoPageTextures ? pages.page(slot) : pages.image(slot);
     final touch = frame.touch;
     return RitoPaperTurnInput(
       width: current.width.toDouble(),
@@ -175,12 +218,12 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
               farthest: touch.farthest * ratio,
             ),
       current: _leaves.named(
-        holder(RitoPageSlot.current),
+        _holder(pages, RitoPageSlot.current),
         pages.spread(RitoPageSlot.current),
       ),
       incomingPage: slot == null
           ? null
-          : _leaves.named(holder(slot), pages.spread(slot)),
+          : _leaves.named(_holder(pages, slot), pages.spread(slot)),
       now: _now(),
       epoch: 0,
     );
@@ -224,11 +267,15 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
     );
   }
 
-  gpu.Texture? _textureOf(ui.Image image) {
-    if (_standing == _Standing.none) return null;
-    final texture = _snapshots.ready(image);
-    if (texture == null) _snapshots.warm(image);
-    return texture;
+  /// What stands for the page in [slot]: its page, or its image where
+  /// there is no page.
+  static Object? _holder(RitoPageTurnPages pages, RitoPageSlot slot) =>
+      pages is RitoPageTextures ? pages.page(slot) : pages.image(slot);
+
+  /// The texture the page [spread] shown by [image] is sampled from.
+  gpu.Texture? _textureOf(ui.Image image, int? spread) {
+    if (_standing != _Standing.ready) return null;
+    return _snapshots.of(image, spread);
   }
 
   /// Whether the turn of [leaf] is drawn plain: it began before the GPU or
@@ -266,6 +313,8 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
               stack,
               'starting the paper turn; turns are drawn plain',
             );
+            // A turn waiting for the programs is drawn plain instead.
+            _repaint.now();
           },
         );
   }

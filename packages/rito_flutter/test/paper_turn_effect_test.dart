@@ -62,6 +62,15 @@ RitoPageTurnFrame _held(double x) => RitoPageTurnFrame(
   ),
 );
 
+/// How many pixels of [a] and [b] differ by more than 8 in red.
+int _differ(Uint8List a, Uint8List b) {
+  var differ = 0;
+  for (var i = 0; i < a.length; i += 4) {
+    if ((a[i] - b[i]).abs() > 8) differ += 1;
+  }
+  return differ;
+}
+
 Future<Uint8List> _painted(
   RitoPageTurnEffect effect,
   RitoPageTurnPages pages,
@@ -86,6 +95,33 @@ Future<Uint8List> _painted(
   final bytes = (await image.toByteData())!.buffer.asUint8List();
   image.dispose();
   return bytes;
+}
+
+/// Waits until [effect] can draw a turn to the next page of [pages].
+Future<void> _drawable(
+  RitoPaperTurnEffect effect,
+  RitoPageTurnPages pages,
+) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (!effect.canDraw(pages, RitoPageSlot.next)) {
+    if (DateTime.now().isAfter(deadline)) {
+      throw TimeoutException('the paper turn never could draw its pages');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+  }
+}
+
+/// A page dark over its top half and white below, made as a turn makes
+/// its page images: at once, drawn by the raster thread a moment later.
+ui.Image _halves({Color top = const Color(0xff000000)}) {
+  final recorder = ui.PictureRecorder();
+  Canvas(recorder)
+    ..drawRect(
+      const Rect.fromLTWH(0, 0, _w, _h),
+      Paint()..color = const Color(0xffffffff),
+    )
+    ..drawRect(const Rect.fromLTWH(0, 0, _w, _h / 2), Paint()..color = top);
+  return recorder.endRecording().toImageSync(_w.toInt(), _h.toInt());
 }
 
 bool get _gpuAvailable {
@@ -179,18 +215,9 @@ void main() {
         pages,
         _held(240),
       );
-      // The programs are readied and the pages copied first; until then a turn is plain.
+      // The programs are readied first; until then a turn waits.
       effect.warm(pages);
-      final ready = Completer<void>();
-      var asked = 0;
-      void heard() {
-        asked += 1;
-        if (asked == 3 && !ready.isCompleted) ready.complete();
-      }
-
-      effect.repaint.addListener(heard);
-      await ready.future.timeout(const Duration(seconds: 10));
-      effect.repaint.removeListener(heard);
+      await _drawable(effect, pages);
       // A new turn: lifted from flat and carried half way under the finger.
       Uint8List? curled;
       for (var step = 0; step < 30; step += 1) {
@@ -202,6 +229,32 @@ void main() {
       }
       // Not the cover: the curled page and its shadow are drawn.
       expect(differ, greaterThan(10000));
+    },
+    skip: _gpuAvailable
+        ? false
+        : 'needs --enable-impeller --enable-flutter-gpu',
+  );
+
+  test(
+    'draws a page the right way up from the texture its image was drawn into',
+    () async {
+      final effect = RitoPaperTurnEffect();
+      addTearDown(effect.dispose);
+      final pages = _Pages(_halves(), _halves(top: const Color(0xff808080)));
+      // An image just made has no texture until the raster thread has drawn it.
+      await _drawable(effect, pages);
+      // The leaf lifts at the right edge; the page beside it lies flat.
+      final drawn = await _painted(effect, pages, _held(300));
+      int red(double x, double y) => drawn[((y * _w + x) * 4).toInt()];
+      expect(red(60, 60), lessThan(40));
+      expect(red(60, _h - 60), greaterThan(215));
+      // Drawn as paper, not as the cover a turn falls back to.
+      final cover = await _painted(
+        RitoPageTurnEffects.cover,
+        pages,
+        _held(300),
+      );
+      expect(_differ(drawn, cover), greaterThan(2000));
     },
     skip: _gpuAvailable
         ? false

@@ -162,6 +162,15 @@ abstract class RitoPageTurnEffect {
   /// its first frames, such as copying them where the effect draws from.
   void warm(RitoPageTurnPages pages) {}
 
+  /// Whether a turn bringing in the page in [incoming] can be drawn from
+  /// [pages] now. An effect that has to take the pages where it draws from
+  /// first says no until it has, and then notifies [repaint]; a turn asked
+  /// for meanwhile waits, as it waits for a page still being laid out, and
+  /// begins where the finger is by then. It must not say no for long: an
+  /// effect that cannot have its pages draws the turn without them. An
+  /// effect with no [repaint] is never waited for.
+  bool canDraw(RitoPageTurnPages pages, RitoPageSlot incoming) => true;
+
   void paint(RitoPageTurnScene scene, RitoPageTurnFrame frame);
 }
 

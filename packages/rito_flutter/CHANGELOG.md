@@ -30,10 +30,13 @@ page curled over on itself under the finger, its back showing its own print
 through, lit from over the reader's shoulder with its shadow on the page
 beneath. Its motion and geometry are the engine's, the same frames giving
 the same bits as on the web; it is drawn with the web's shaders on Flutter
-GPU, which the app enables, and as `cover` where that is not to be had or
-while a turn's pages are being copied for the GPU. An effect may now bring
-its own `physics`, which the controller takes over its own, and be `warm`ed
-between turns once the pages beside the one shown are painted;
+GPU, which the app enables, and as `cover` where that is not to be had. It
+samples the textures the page images were drawn into, not a pixel copied; a
+turn waits the moment a page image just made takes to be drawn, as it waits
+for a page being laid out, and then begins where the finger is. An effect
+may now bring its own `physics`, which the controller takes over its own, be
+`warm`ed between turns once the pages beside the one shown are painted, and
+say through `canDraw` that it cannot draw a turn yet;
 `RitoPageTurnPhysics.travelAcross` gives physics the width a turn crosses.
 
 ## 0.8.0 - 2026-10-19
