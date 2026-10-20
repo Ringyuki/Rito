@@ -8,15 +8,20 @@ import 'package:rito_flutter/src/turn/motion.dart';
 
 import 'support/fake_page_source.dart';
 
-RitoPageTurnController _controller(WidgetTester tester) {
+RitoPageTurnController _controller(
+  WidgetTester tester, {
+  FakePageSource? source,
+  bool prewarm = true,
+}) {
   final reader = RitoReaderController.withSource(
-    FakePageSource(),
+    source ?? FakePageSource(),
     layout: fakeLayout,
   );
   final turns = RitoPageTurnController(
     reader: reader,
     vsync: tester,
     paintPage: (canvas, size, page) {},
+    prewarm: prewarm,
   )..width = 400;
   addTearDown(() {
     turns.dispose();
@@ -205,6 +210,81 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     },
   );
+
+  testWidgets(
+    'a turn waiting for the effect is taken up again when the book is paginated meanwhile',
+    (tester) async {
+      final source = FakePageSource(paginationSteps: 2);
+      final turns = _controller(tester, source: source);
+      final effect = _Gated();
+      turns.effect = effect;
+      await tester.pump();
+      expect(turns.turn(RitoAdjacentDirection.next), isTrue);
+      expect(turns.isTurning, isFalse);
+      // The whole book laid out and the page on screen renumbered, its
+      // neighbours peeked again and still on their way when the effect
+      // says it can draw.
+      source.peekGate = Completer<void>();
+      while (!turns.reader.paginationComplete) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      effect.open();
+      source.peekGate!.complete();
+      source.peekGate = null;
+      await tester.pump();
+      await tester.pump();
+      expect(turns.direction, RitoAdjacentDirection.next);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
+  testWidgets(
+    'a turn waiting for its page is taken up again when the book is paginated meanwhile',
+    (tester) async {
+      // A pagination step under way, the page a turn brings in asked for
+      // behind it.
+      final source = FakePageSource(paginationSteps: 1)
+        ..paginationGate = Completer<void>();
+      final turns = _controller(tester, source: source, prewarm: false);
+      final started = <RitoAdjacentDirection>[];
+      final events = turns.events.listen((event) {
+        if (event is RitoPageTurnStarted) started.add(event.direction);
+      });
+      addTearDown(events.cancel);
+      // Background pagination starts after the first frame; its first step
+      // waits at the gate.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(turns.turn(RitoAdjacentDirection.next), isTrue);
+      expect(turns.isTurning, isFalse);
+      // The step adopts the whole book's layout before the page comes.
+      source.paginationGate!.complete();
+      source.paginationGate = null;
+      for (var i = 0; i < 20; i += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(source.paginations, 1);
+      expect(started, [RitoAdjacentDirection.next]);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+    },
+  );
+
+  testWidgets('a turn begins without an effect that cannot draw it for long', (
+    tester,
+  ) async {
+    final turns = _controller(tester);
+    turns.effect = _Gated();
+    await tester.pump();
+    expect(turns.turn(RitoAdjacentDirection.next), isTrue);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(turns.isTurning, isFalse);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(turns.direction, RitoAdjacentDirection.next);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
+  });
 
   test('measures the finger as the web does', () {
     final motion = RitoTurnMotion(const RitoPageTurnPhysics())

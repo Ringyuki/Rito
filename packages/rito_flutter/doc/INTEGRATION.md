@@ -208,7 +208,8 @@ has come back). An effect that moves on a clock of its own returns a
 notifies. An effect that has to take the pages where it draws from
 before it can draw them answers `canDraw(pages, incoming)` no until it
 has, and notifies `repaint` then: a turn asked for meanwhile waits, as for
-a page still being laid out, and begins where the finger is by then.
+a page still being laid out, and begins where the finger is by then — or
+after `RitoPageTurnController.effectPatience` (500 ms) regardless.
 Page textures are drawn by `paintPage` (default
 `ritoPaintArtifactPage`); draw highlights or a theme there and call
 `invalidatePages()` when they change. A page whose images land late is

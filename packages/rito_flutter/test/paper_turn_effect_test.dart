@@ -233,6 +233,8 @@ void main() {
     skip: _gpuAvailable
         ? false
         : 'needs --enable-impeller --enable-flutter-gpu',
+    // Thirty frames read back from the GPU, slow on a busy machine.
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 
   test(
@@ -259,5 +261,7 @@ void main() {
     skip: _gpuAvailable
         ? false
         : 'needs --enable-impeller --enable-flutter-gpu',
+    // Thirty frames read back from the GPU, slow on a busy machine.
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 }
