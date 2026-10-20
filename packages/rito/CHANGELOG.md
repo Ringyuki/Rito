@@ -1,5 +1,15 @@
 # @ritojs/core
 
+## 4.1.0
+
+### Minor Changes
+
+- e58af5e: The paper turn's motion and geometry are the engine's: `loadPaperTurnModel()` in `@ritojs/core` resolves to the engine's model of the turn, and `createPaperTurn()` draws what it lays out, frame for frame what it drew before. Until the engine has loaded, a paper turn is drawn as the built-in `cover` and moved by the built-in physics; `PaintedTransitionEffect.physics` may be `undefined` for that while.
+
+### Patch Changes
+
+- 3beb603: Readers opened together share one instance of the engine: two instantiated at once could each replace the module the other's session called into.
+
 ## 4.0.0
 
 ### Major Changes
