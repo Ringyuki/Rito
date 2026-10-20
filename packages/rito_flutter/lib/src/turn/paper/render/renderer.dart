@@ -5,6 +5,7 @@ import 'package:flutter_gpu/gpu.dart' as gpu;
 import 'package:vector_math/vector_math.dart' as vm;
 
 import '../light.dart';
+import 'page_mips.dart';
 import 'paper_frame.dart';
 import 'passes.dart';
 import 'programs.dart';
@@ -35,19 +36,28 @@ final class PaperRenderer {
   PaperRenderer._(
     this._programs,
     this._shadow,
+    this._mips,
     this._bare, {
     required this.softened,
   });
 
   /// Readies the programs for a frame drawn at [pixelRatio] device pixels
   /// to a logical one, and learns how the backend stores a texture's rows.
+  /// Pages are read from their mipmaps where the backend can render into a
+  /// texture's smaller levels ([mipmaps] says otherwise, for tests).
   static Future<PaperRenderer> start(
     gpu.ShaderLibrary library, {
     required double pixelRatio,
+    bool? mipmaps,
   }) async {
     final context = gpu.gpuContext;
     final softened = pixelRatio >= _fine || !context.doesSupportOffscreenMSAA;
-    final programs = PaperPrograms(library, softened: softened);
+    final mipmapped = mipmaps ?? context.doesSupportFramebufferRenderMipmap;
+    final programs = PaperPrograms(
+      library,
+      softened: softened,
+      mipmapped: mipmapped,
+    );
     final quad = Quad();
     final flip = await rowsOf(programs, quad);
     final bare = context.createTexture(gpu.StorageMode.hostVisible, 1, 1)
@@ -55,6 +65,7 @@ final class PaperRenderer {
     return PaperRenderer._(
       programs,
       ShadowPass(programs, quad, flip),
+      mipmapped ? PageMips(programs, quad, flip) : null,
       bare,
       softened: softened,
     );
@@ -63,6 +74,9 @@ final class PaperRenderer {
   final PaperPrograms _programs;
   final ShadowPass _shadow;
 
+  /// Makes a page's mipmaps; null where the backend cannot.
+  final PageMips? _mips;
+
   /// What a face with no page shows: nothing, the paper's own colour.
   final gpu.Texture _bare;
 
@@ -70,11 +84,18 @@ final class PaperRenderer {
   /// than the frame multisampled.
   final bool softened;
   final _grids = <String, SheetGrid>{};
+
+  /// How a sheet reads its pages.
+  gpu.SamplerOptions get _pages =>
+      _mips != null ? mipmappedSampler : linearSampler;
   final _slots = List.generate(_kept, (_) => _Slot());
   final _host = gpu.gpuContext.createHostBuffer();
   var _frames = 0;
   gpu.Texture? _depth;
   gpu.Texture? _samples;
+
+  /// [page] as a sheet reads it: with its mipmaps, where they are made.
+  gpu.Texture pageOf(gpu.Texture page) => _mips?.of(page) ?? page;
 
   /// Draws a frame; its texture is not drawn over for two frames more.
   gpu.Texture draw(PaperFrame frame) {
@@ -253,12 +274,12 @@ final class PaperRenderer {
       ..bindTexture(
         program.sampler('uFront'),
         sheet.front ?? _bare,
-        sampler: linearSampler,
+        sampler: _pages,
       )
       ..bindTexture(
         program.sampler('uBack'),
         sheet.back ?? _bare,
-        sampler: linearSampler,
+        sampler: _pages,
       );
     grid
       ..bindIndices(pass, fromBelow: fromBelow(sheet, part))

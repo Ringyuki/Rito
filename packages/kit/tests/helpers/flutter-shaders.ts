@@ -37,9 +37,20 @@ interface Entry {
   readonly source: string;
   /** Whether it reads textures another pass rendered. */
   readonly readsTargets?: boolean;
-  /** Whether it reads pages: over the pixel's footprint, for the web's mipmaps. */
-  readonly readsPages?: boolean;
+  /**
+   * Whether it reads pages, and how: from their mipmaps as the web does, or
+   * over the pixel's footprint where Flutter GPU cannot make mipmaps.
+   */
+  readonly readsPages?: 'mipmaps' | 'footprint';
 }
+
+/**
+ * How a page is read where Flutter GPU makes its mipmaps: as the web reads
+ * it, by the GPU from the pixel's derivatives. A \`discard\` is held until
+ * the web's \`main\` has run, so that every read has the pixels beside it
+ * to take derivatives from.
+ */
+const PAGE_MIPMAPS = ['bool paperDropped = false;', '#define texture2D texture'];
 
 /**
  * How a page is read where Flutter GPU has no smaller copies of it: the
@@ -81,13 +92,25 @@ export const FLUTTER_SHADERS: readonly Entry[] = [
     name: 'SheetFragment',
     stage: 'fragment',
     source: sheetFragment(false, false),
-    readsPages: true,
+    readsPages: 'mipmaps',
   },
   {
     name: 'SheetSoftenedFragment',
     stage: 'fragment',
     source: sheetFragment(true, false),
-    readsPages: true,
+    readsPages: 'mipmaps',
+  },
+  {
+    name: 'SheetFootprintFragment',
+    stage: 'fragment',
+    source: sheetFragment(false, false),
+    readsPages: 'footprint',
+  },
+  {
+    name: 'SheetSoftenedFootprintFragment',
+    stage: 'fragment',
+    source: sheetFragment(true, false),
+    readsPages: 'footprint',
   },
   { name: 'CastVertex', stage: 'vertex', source: CAST_VERTEX },
   { name: 'CastFragment', stage: 'fragment', source: CAST_FRAGMENT },
@@ -143,7 +166,7 @@ export function flutterShader(entry: Entry): string {
     body.push(line);
   }
   if (entry.readsTargets) block.push('  vec2 uFlip;');
-  if (entry.readsPages) block.push('  vec2 uTexels;');
+  if (entry.readsPages === 'footprint') block.push('  vec2 uTexels;');
   const head = [
     `// Made from the web paper turn's ${entry.name} (packages/kit/src/driver/paper);`,
     '// regenerate with RITO_EMIT_SHADERS=1 pnpm --filter @ritojs/kit test paper-flutter-shaders.',
@@ -166,14 +189,21 @@ export function flutterShader(entry: Entry): string {
         '}',
         '#define texture2D readTarget',
       );
-    } else if (entry.readsPages) {
+    } else if (entry.readsPages === 'footprint') {
       head.push(...PAGE_FOOTPRINT);
+    } else if (entry.readsPages === 'mipmaps') {
+      head.push(...PAGE_MIPMAPS);
     } else {
       head.push('#define texture2D texture');
     }
   }
   let text = body.join('\n');
-  if (entry.readsPages) {
+  if (entry.readsPages === 'mipmaps') {
+    text = text.replace(/\bdiscard;/g, 'paperDropped = true;');
+    text = text.replace('void main()', 'void webMain()');
+    text += ['', 'void main() {', '  webMain();', '  if (paperDropped) discard;', '}'].join('\n');
+  }
+  if (entry.readsPages === 'footprint') {
     text = text.replace('void main()', 'void webMain()');
     text += [
       '',
@@ -199,10 +229,13 @@ export function flutterShader(entry: Entry): string {
 }
 
 /**
- * Two programs of Flutter's own, with no web counterpart: they tell how the
- * backend stores a rendered texture's rows. The first writes, at each row,
- * where a quad pass thinks it is; the second reads that back where it
- * thinks it is and writes how far apart the two are.
+ * Programs of Flutter's own, with no web counterpart. The first two tell how
+ * the backend stores a rendered texture's rows: the first writes, at each
+ * row, where a quad pass thinks it is; the second reads that back where it
+ * thinks it is and writes how far apart the two are. The third copies a
+ * page into a texture a pass renders, upright as the page was, read
+ * linearly: at half the size, each texel the mean of the four it covers,
+ * as the web's \`generateMipmap\` makes a page's smaller copies.
  */
 export const FLUTTER_PROBES: readonly { readonly name: string; readonly text: string }[] = [
   {
@@ -224,6 +257,21 @@ export const FLUTTER_PROBES: readonly { readonly name: string; readonly text: st
       'layout(location = 0) out vec4 apart;',
       'void main() {',
       '  apart = vec4(abs(texture(uSource, vAt).r - vAt.y), 0.0, 0.0, 1.0);',
+      '}',
+      '',
+    ].join('\n'),
+  },
+  {
+    name: 'CopyFragment',
+    text: [
+      'uniform FragmentInfo {',
+      '  vec2 uFlip;',
+      '};',
+      'uniform sampler2D uSource;',
+      'layout(location = 0) in vec2 vAt;',
+      'layout(location = 0) out vec4 copied;',
+      'void main() {',
+      '  copied = texture(uSource, vec2(vAt.x, uFlip.x + uFlip.y * vAt.y));',
       '}',
       '',
     ].join('\n'),

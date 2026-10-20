@@ -34,21 +34,28 @@ final class Program {
   }
 }
 
-/// Every program the paper turn draws with.
+/// Every program the paper turn draws with. With [mipmapped] a sheet reads
+/// its pages from their mipmaps, as the web does; without, over each pixel's
+/// footprint on them.
 final class PaperPrograms {
-  PaperPrograms(gpu.ShaderLibrary library, {required bool softened})
-    : sheet = Program(
-        library,
-        'SheetVertex',
-        softened ? 'SheetSoftenedFragment' : 'SheetFragment',
-      ),
-      cast = Program(library, 'CastVertex', 'CastFragment'),
-      cover = Program(library, 'CoverVertex', 'CoverFragment'),
-      occlusion = Program(library, 'QuadVertex', 'OcclusionFragment'),
-      blur = Program(library, 'QuadVertex', 'BlurFragment'),
-      lay = Program(library, 'QuadVertex', 'LayFragment'),
-      rowsWritten = Program(library, 'QuadVertex', 'RowsWrittenFragment'),
-      rowsRead = Program(library, 'QuadVertex', 'RowsReadFragment');
+  PaperPrograms(
+    gpu.ShaderLibrary library, {
+    required bool softened,
+    required bool mipmapped,
+  }) : sheet = Program(
+         library,
+         'SheetVertex',
+         'Sheet${softened ? 'Softened' : ''}'
+             '${mipmapped ? '' : 'Footprint'}Fragment',
+       ),
+       cast = Program(library, 'CastVertex', 'CastFragment'),
+       cover = Program(library, 'CoverVertex', 'CoverFragment'),
+       occlusion = Program(library, 'QuadVertex', 'OcclusionFragment'),
+       blur = Program(library, 'QuadVertex', 'BlurFragment'),
+       lay = Program(library, 'QuadVertex', 'LayFragment'),
+       rowsWritten = Program(library, 'QuadVertex', 'RowsWrittenFragment'),
+       rowsRead = Program(library, 'QuadVertex', 'RowsReadFragment'),
+       copy = Program(library, 'QuadVertex', 'CopyFragment');
 
   final Program sheet;
   final Program cast;
@@ -58,4 +65,5 @@ final class PaperPrograms {
   final Program lay;
   final Program rowsWritten;
   final Program rowsRead;
+  final Program copy;
 }

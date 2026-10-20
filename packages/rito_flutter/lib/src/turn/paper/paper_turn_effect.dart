@@ -73,7 +73,8 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   late final PaperTurnPhysics _physics;
   final _repaint = _Repaint();
   late final _snapshots = PaperPageSnapshots<gpu.Texture>(
-    share: (image) => gpu.Texture.fromImage(gpu.gpuContext, image),
+    share: (image) =>
+        _renderer!.pageOf(gpu.Texture.fromImage(gpu.gpuContext, image)),
     onGivenUp: (error, stack) {
       if (_givenUp) return;
       _givenUp = true;

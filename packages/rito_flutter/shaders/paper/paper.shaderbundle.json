@@ -11,6 +11,14 @@
     "type": "fragment",
     "file": "shaders/paper/sheet_softened.frag"
   },
+  "SheetFootprintFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/sheet_footprint.frag"
+  },
+  "SheetSoftenedFootprintFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/sheet_softened_footprint.frag"
+  },
   "CastVertex": {
     "type": "vertex",
     "file": "shaders/paper/cast.vert"
@@ -50,5 +58,9 @@
   "RowsReadFragment": {
     "type": "fragment",
     "file": "shaders/paper/rows_read.frag"
+  },
+  "CopyFragment": {
+    "type": "fragment",
+    "file": "shaders/paper/copy.frag"
   }
 }

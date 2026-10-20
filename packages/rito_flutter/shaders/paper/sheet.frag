@@ -12,7 +12,6 @@ uniform FragmentInfo {
   vec3 uPaper;
   float uKeyShare;
   float uHandedBack;
-  vec2 uTexels;
 };
 uniform sampler2D uFront;
 uniform sampler2D uBack;
@@ -21,24 +20,8 @@ layout(location = 1) in float vHeight;
 layout(location = 4) in vec2 vUv;
 layout(location = 0) out vec4 paperColour;
 #define gl_FragColor paperColour
-vec2 footprintAlong;
-float footprintReads;
-void footprintOf(vec2 across, vec2 down) {
-  float x = length(across * uTexels);
-  float y = length(down * uTexels);
-  footprintReads = clamp(ceil(max(x, y) / max(min(x, y), 1.0) - 0.01), 1.0, 8.0);
-  footprintAlong = x > y ? across : down;
-}
-vec4 pageTexel(sampler2D page, vec2 at) {
-  if (footprintReads < 1.5) return texture(page, at);
-  vec4 sum = vec4(0.0);
-  for (int i = 0; i < 8; i++) {
-    if (float(i) >= footprintReads) break;
-    sum += texture(page, at + footprintAlong * ((float(i) + 0.5) / footprintReads - 0.5));
-  }
-  return sum / footprintReads;
-}
-#define texture2D pageTexel
+bool paperDropped = false;
+#define texture2D texture
 float withBounces(float seen) {
   return seen + (1.0 - seen) * uHandedBack;
 }
@@ -78,8 +61,8 @@ vec3 printed(sampler2D page, vec2 at) {
 void webMain() {
   vec2 onFront = vec2(uSpine + vUv.x * uSheet, vUv.y);
   float past = dot(onFront * uSize, uCurl.xy) - uCurl.z;
-  if (uPart > 0.5 && past > 0.0) discard;
-  if (uPart < -0.5 && past <= 0.0) discard;
+  if (uPart > 0.5 && past > 0.0) paperDropped = true;
+  if (uPart < -0.5 && past <= 0.0) paperDropped = true;
   vec3 front = uHasFront > 0.5 ? printed(uFront, onFront) : uPaper;
   vec3 colour = front;
   if (!gl_FrontFacing) {
@@ -97,6 +80,6 @@ void webMain() {
 }
 
 void main() {
-  footprintOf(dFdx(vUv) * vec2(uSheet, 1.0), dFdy(vUv) * vec2(uSheet, 1.0));
   webMain();
+  if (paperDropped) discard;
 }
