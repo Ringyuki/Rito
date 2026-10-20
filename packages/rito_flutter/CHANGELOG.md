@@ -55,7 +55,10 @@ controller takes over its own, be `warm`ed between turns once the pages
 beside the one shown are painted, and say through `canDraw` that it cannot
 draw a turn yet; `RitoPageTurnPhysics.travelAcross` gives physics the width
 a turn crosses. `RitoPaperTurnEffect(now:)` takes the clock the leaf moves
-by, in ms, as the web's `createPaperTurn({ now })` does.
+by, in ms, as the web's `createPaperTurn({ now })` does. **Breaking:** an
+effect that implements `RitoPageTurnEffect` rather than extending it adds
+`physics`, `warm` and `canDraw`; `RitoPageTurnController.physics` is the
+physics the controller was given, no longer those its effect brings.
 
 ## 0.8.0 - 2026-10-19
 
