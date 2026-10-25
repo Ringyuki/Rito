@@ -701,7 +701,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // fragment; bottom padding rides the last. An Inside
                     // resume is never the first fragment, even at zero
                     // consumed lines (the padding-only fragment case).
-                    let leading_padding = if consumed == 0.0 && !child_resumed_inside {
+                    let mut leading_padding = if consumed == 0.0 && !child_resumed_inside {
                         hbox.padding_top
                     } else {
                         0.0
@@ -715,12 +715,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // content span (CSS 2.1 §9.5 — a float left of an
                     // auto-centered box never shortens its lines) and the
                     // extent re-bases to the paragraph's first line.
-                    let paragraph_top = y + gap + leading_padding;
+                    let child_left = hbox.x + hbox.padding_left;
+                    let child_right = child_left + hbox.content_width;
+                    let first_line_top = y + gap + leading_padding;
+                    let paragraph_top =
+                        floats.first_line_y(first_line_top, child_left, child_right, content_width);
+                    // Keep the paragraph's border/background at its normal
+                    // position. Only its line content clears a full band;
+                    // this leading space also counts against this page.
+                    leading_padding += paragraph_top - first_line_top;
                     let band = floats
                         .band_at(paragraph_top, content_width)
                         .and_then(|band| {
-                            let child_left = hbox.x + hbox.padding_left;
-                            let child_right = child_left + hbox.content_width;
                             let left =
                                 (band.left_inset - child_left).clamp(0.0, hbox.content_width);
                             let right = (child_right - (content_width - band.right_inset))

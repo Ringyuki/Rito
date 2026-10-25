@@ -4,6 +4,169 @@
 
 use super::*;
 
+#[test]
+fn blocked_lines_resume_at_the_first_open_band_within_their_own_span() {
+    let mut floats = FloatBands::new();
+    floats.place(Float::Left, 100.0, 30.0, 0.0, 200.0);
+    floats.place(Float::Right, 100.0, 80.0, 0.0, 200.0);
+    assert_eq!(floats.first_line_y(0.0, 0.0, 200.0, 200.0), 30.0);
+    assert_eq!(floats.first_line_y(0.0, 100.0, 200.0, 200.0), 80.0);
+    assert_eq!(floats.first_line_y(40.0, 0.0, 200.0, 200.0), 40.0);
+    // A paragraph extended outside the container by negative margins is
+    // not excluded just because it lies past an unoccupied content edge.
+    assert_eq!(floats.first_line_y(40.0, -80.0, -20.0, 200.0), 40.0);
+}
+
+fn blocked_float_paragraph_tree(float_width: f32, side: Float, nested: bool) -> FormattingTree {
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline
+        .intern_for_node(
+            0,
+            plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))]).unwrap(),
+                16.0,
+                0.0,
+            ),
+        )
+        .unwrap();
+    let layout = layout_table_with(4, |index| {
+        let mut value = block_style(margin_px(0.0), margin_px(0.0));
+        if index == 0 {
+            value.float = side;
+            value.width = PreferredSize::Value(NonNegativeLengthPercentage::new(
+                LengthPercentage::Length(CssPx::new(float_width).unwrap()),
+            ));
+        }
+        value
+    });
+    let mut nodes = vec![
+        FormattingNode {
+            style: node_style_id(&layout, 0),
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..4)
+                    .map(|_| InlineItem::Text {
+                        text: "float line".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    })
+                    .collect(),
+            },
+            children: vec![],
+        },
+        FormattingNode {
+            style: node_style_id(&layout, 1),
+            content: FormattingNodeContent::InlineFlow {
+                items: (0..2)
+                    .map(|_| InlineItem::Text {
+                        text: "line".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    })
+                    .collect(),
+            },
+            children: vec![],
+        },
+        FormattingNode {
+            style: node_style_id(&layout, 2),
+            content: FormattingNodeContent::BlockContainer,
+            children: vec![FormattingNodeId(0), FormattingNodeId(1)],
+        },
+    ];
+    if nested {
+        nodes.push(FormattingNode {
+            style: node_style_id(&layout, 3),
+            content: FormattingNodeContent::BlockContainer,
+            children: vec![FormattingNodeId(1)],
+        });
+        nodes[2].children[1] = FormattingNodeId(3);
+    }
+    FormattingTree::with_styles(
+        nodes,
+        FormattingNodeId(2),
+        FormattingTreeStyles { layout, inline },
+    )
+    .unwrap()
+}
+
+#[test]
+fn full_width_float_delays_lines_without_moving_the_paragraph_box() {
+    for side in [Float::Left, Float::Right] {
+        for width in [200.0, 230.0] {
+            let tree = blocked_float_paragraph_tree(width, side, false);
+            let pages = paginate(
+                &BlockFormattingContext::new(FixedLineInline),
+                &tree,
+                ConstraintSpace::continuous(200.0),
+            );
+            let Fragment::Box(paragraph) = &box_children(&pages[0])[1] else {
+                panic!("paragraph box")
+            };
+            assert_eq!(
+                paragraph.rect.y, 0.0,
+                "float avoidance must not move the block background"
+            );
+            assert_eq!(
+                paragraph.children[0].rect().y,
+                40.0,
+                "first line clears the float"
+            );
+            assert_eq!(
+                paragraph.rect.height, 60.0,
+                "clearance contributes to auto height"
+            );
+        }
+    }
+}
+
+#[test]
+fn full_width_float_clearance_does_not_repeat_on_the_next_page() {
+    let tree = blocked_float_paragraph_tree(200.0, Float::Right, false);
+    let pages = paginate(
+        &BlockFormattingContext::new(FixedLineInline),
+        &tree,
+        ConstraintSpace {
+            fragmentainer_remaining: Some(50.0),
+            fragmentainer_size: Some(50.0),
+            ..ConstraintSpace::continuous(200.0)
+        },
+    );
+    assert_eq!(pages.len(), 2);
+    assert_eq!(
+        box_children(&pages[0]).len(),
+        1,
+        "only the float fits on page one"
+    );
+    let Fragment::Box(paragraph) = &box_children(&pages[1])[0] else {
+        panic!("paragraph box")
+    };
+    assert_eq!(paragraph.children.len(), 2);
+    assert_eq!(paragraph.children[0].rect().y, 0.0);
+}
+
+#[test]
+fn full_width_float_exclusion_reaches_nested_paragraphs() {
+    for side in [Float::Left, Float::Right] {
+        let tree = blocked_float_paragraph_tree(200.0, side, true);
+        let pages = paginate(
+            &BlockFormattingContext::new(FixedLineInline),
+            &tree,
+            ConstraintSpace::continuous(200.0),
+        );
+        let Fragment::Box(wrapper) = &box_children(&pages[0])[1] else {
+            panic!("wrapper")
+        };
+        let Fragment::Box(paragraph) = &wrapper.children[0] else {
+            panic!("paragraph")
+        };
+        assert_eq!(
+            wrapper.rect.y + paragraph.rect.y + paragraph.children[0].rect().y,
+            40.0
+        );
+    }
+}
+
 /// Floats place individually per CSS 9.5.1 — each stacks
 /// against the floats still ACTIVE at its own position, not into a
 /// cumulative band chain. Replica of b60's title page (element-box
