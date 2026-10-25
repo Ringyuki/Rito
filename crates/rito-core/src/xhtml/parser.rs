@@ -49,6 +49,7 @@ pub(crate) fn parse_xhtml_from_source(source: &SourceArena) -> ParseResult {
     let author_stylesheets = extract_author_stylesheets(document);
     let stylesheet_hrefs = author_stylesheets
         .iter()
+        .filter(|source| source.is_enabled())
         .filter_map(|source| match source {
             super::AuthorStylesheetSource::External { href, .. } => Some(href.clone()),
             super::AuthorStylesheetSource::Embedded { .. } => None,
@@ -56,6 +57,7 @@ pub(crate) fn parse_xhtml_from_source(source: &SourceArena) -> ParseResult {
         .collect::<Vec<_>>();
     let embedded_stylesheets = author_stylesheets
         .iter()
+        .filter(|source| source.is_enabled())
         .filter_map(|source| match source {
             super::AuthorStylesheetSource::External { .. } => None,
             super::AuthorStylesheetSource::Embedded { css, .. } => Some(css.clone()),
@@ -581,19 +583,19 @@ fn has_any_attribute(attributes: &ElementAttributes) -> bool {
 }
 
 fn extract_author_stylesheets(document: Node<'_>) -> Vec<super::AuthorStylesheetSource> {
+    // Resolve the static default set before collecting sources. An alternate
+    // preceding its preferred sibling must still join the same named set.
+    // No scripting or reader-selected alternate set is modeled here.
+    let preferred = preferred_stylesheet_set(document);
     document
         .descendants()
         .filter_map(|node| {
-            if has_tag(&node, "link")
-                && node.attribute("rel").is_some_and(|rel| {
-                    rel.split_whitespace()
-                        .any(|token| token.eq_ignore_ascii_case("stylesheet"))
-                })
-            {
+            if is_stylesheet_link(node) {
                 return node.attribute("href").map(|href| {
                     super::AuthorStylesheetSource::External {
                         source_node_id: node.id,
                         href: href.to_owned(),
+                        enabled: stylesheet_enabled(node, preferred),
                         selection_issues: stylesheet_selection_issues(node, true),
                         media_environment_issues: stylesheet_media_environment_issues(node, true),
                     }
@@ -611,6 +613,7 @@ fn extract_author_stylesheets(document: Node<'_>) -> Vec<super::AuthorStylesheet
             (!css.is_empty()).then(|| super::AuthorStylesheetSource::Embedded {
                 source_node_id: node.id,
                 css: css.to_owned(),
+                enabled: stylesheet_enabled(node, preferred),
                 selection_issues: stylesheet_selection_issues(node, false),
                 media_environment_issues: stylesheet_media_environment_issues(node, false),
             })
@@ -618,18 +621,58 @@ fn extract_author_stylesheets(document: Node<'_>) -> Vec<super::AuthorStylesheet
         .collect()
 }
 
+fn has_rel(node: Node<'_>, token: &str) -> bool {
+    node.attribute("rel").is_some_and(|rel| {
+        rel.split_ascii_whitespace()
+            .any(|value| value.eq_ignore_ascii_case(token))
+    })
+}
+
+fn is_stylesheet_link(node: Node<'_>) -> bool {
+    has_tag(&node, "link") && has_rel(node, "stylesheet")
+}
+
+fn preferred_stylesheet_set(document: Node<'_>) -> Option<&str> {
+    let mut preferred = None;
+    for node in document.descendants() {
+        if has_tag(&node, "meta")
+            && node
+                .attribute("http-equiv")
+                .is_some_and(|value| value.eq_ignore_ascii_case("default-style"))
+        {
+            if let Some(name) = node.attribute("content").filter(|value| !value.is_empty()) {
+                preferred = Some(name);
+            }
+            continue;
+        }
+        let link = is_stylesheet_link(node) && node.attribute("href").is_some();
+        if preferred.is_none()
+            && (link || has_tag(&node, "style"))
+            && !(link && (has_rel(node, "alternate") || node.attribute("disabled").is_some()))
+            && node.attribute("type").is_none_or(|value| {
+                value.trim().is_empty() || value.trim().eq_ignore_ascii_case("text/css")
+            })
+        {
+            preferred = node.attribute("title").filter(|value| !value.is_empty());
+        }
+    }
+    preferred
+}
+
+fn stylesheet_enabled(node: Node<'_>, preferred: Option<&str>) -> bool {
+    if is_stylesheet_link(node) && node.attribute("disabled").is_some() {
+        return false;
+    }
+    let title = node.attribute("title").unwrap_or("");
+    // CSSOM keeps untitled sheets persistent; named sheets are enabled as a
+    // set, including alternate occurrences with the same case-sensitive name.
+    title.is_empty() || Some(title) == preferred
+}
+
 fn stylesheet_selection_issues(node: Node<'_>, is_link: bool) -> Vec<String> {
     let mut issues = Vec::new();
     let kind = if is_link { "link" } else { "style" };
-    if is_link
-        && node.attribute("rel").is_some_and(|rel| {
-            rel.split_whitespace()
-                .any(|token| token.eq_ignore_ascii_case("alternate"))
-        })
-    {
-        issues.push("alternate stylesheet activation is not modeled".to_owned());
-    }
-    if node.attribute("disabled").is_some() {
+    if !is_link && node.attribute("disabled").is_some() {
         issues.push(format!("{kind} disabled state is not modeled"));
     }
     if let Some(content_type) = node.attribute("type").map(str::trim) {

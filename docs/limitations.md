@@ -6,6 +6,8 @@ reason or fails the chapter closed; nothing is silently misplaced.
 
 ## CSS Scope
 
+- stylesheet sets are selected from static XHTML; there is no host API or
+  scripting support for switching alternate sets after loading a chapter
 - no flexbox
 - no grid
 - no multicolumn layout

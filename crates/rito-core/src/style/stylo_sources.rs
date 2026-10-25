@@ -113,6 +113,12 @@ pub(crate) fn select_stylo_sources(
     }
 
     for source in author_stylesheets {
+        // Keep inactive link occurrences in the ledger: dropping all of them
+        // would incorrectly trigger the implicit-all-publication fallback.
+        // Their media, missing resources and CSS are irrelevant to this set.
+        if !source.is_enabled() {
+            continue;
+        }
         let source_index = stylesheets.len();
         reject_source_issues(source_index, source)?;
         let (css, base_url) = match source {
@@ -1177,12 +1183,14 @@ mod tests {
             AuthorStylesheetSource::Embedded {
                 source_node_id: source_id(),
                 css: "h1 { margin: 0 }".to_owned(),
+                enabled: true,
                 selection_issues: Vec::new(),
                 media_environment_issues: Vec::new(),
             },
             AuthorStylesheetSource::External {
                 source_node_id: source_id(),
                 href: "../Styles/book.css".to_owned(),
+                enabled: true,
                 selection_issues: Vec::new(),
                 media_environment_issues: Vec::new(),
             },
@@ -1197,6 +1205,109 @@ mod tests {
         );
     }
 
+    fn selected_css(head: &str, sheets: &[(&str, &str)]) -> Vec<String> {
+        let parsed = crate::xhtml::parse_xhtml(&format!(
+            "<html><head>{head}</head><body><p>Reading text</p></body></html>"
+        ))
+        .unwrap();
+        select_stylo_sources(
+            &ledger(sheets),
+            "Text/chapter.xhtml",
+            &parsed.author_stylesheets,
+        )
+        .expect("the default author stylesheet set must select")
+        .stylesheets
+        .into_iter()
+        .map(|sheet| sheet.css)
+        .collect()
+    }
+
+    #[test]
+    fn default_set_ignores_unselected_alternate_media_and_missing_resources() {
+        let selected = selected_css(
+            r#"<link rel="stylesheet" href="day.css" title="Day"/>
+            <link rel="AlTeRnAtE&#9;StYlEsHeEt" href="missing.css" title="Night" media="screen"/>
+            <style>p { margin: 0 }</style>"#,
+            &[("Text/day.css", "p { color: black }")],
+        );
+        assert_eq!(selected, ["p { color: black }", "p { margin: 0 }"]);
+    }
+
+    #[test]
+    fn default_set_keeps_persistent_and_same_named_sheets_in_document_order() {
+        let selected = selected_css(
+            r#"<link rel="alternate stylesheet" href="day-extra.css" title="Day"/>
+            <style>p { margin: 0 }</style>
+            <link rel="stylesheet" href="day.css" title="Day"/>
+            <style title="Day">p { font-size: 20px }</style>
+            <link rel="stylesheet" href="night.css" title="Night"/>
+            <style title="day">p { color: red }</style>"#,
+            &[
+                ("Text/day-extra.css", "p { line-height: 1.4 }"),
+                ("Text/day.css", "p { color: black }"),
+            ],
+        );
+        assert_eq!(
+            selected,
+            [
+                "p { line-height: 1.4 }",
+                "p { margin: 0 }",
+                "p { color: black }",
+                "p { font-size: 20px }",
+            ]
+        );
+    }
+
+    #[test]
+    fn default_style_pragma_can_select_an_alternate_after_its_link() {
+        let selected = selected_css(
+            r#"<link rel="stylesheet" href="day.css" title="Day"/>
+            <link rel="alternate stylesheet" href="night.css" title="Night"/>
+            <meta http-equiv="DEFAULT-STYLE" content="Night"/>
+            <meta http-equiv="default-style" content=""/>"#,
+            &[("Text/night.css", "p { color: white }")],
+        );
+        assert_eq!(selected, ["p { color: white }"]);
+    }
+
+    #[test]
+    fn disabled_link_does_not_establish_or_join_the_default_set() {
+        let selected = selected_css(
+            r#"<link rel="stylesheet" href="disabled-first.css" title="Night" disabled=""/>
+            <style title="Day">p { color: black }</style>
+            <link rel="stylesheet" href="disabled-same.css" title="Day" disabled="disabled"/>
+            <link rel="stylesheet" href="day.css" title="Day"/>"#,
+            &[("Text/day.css", "p { margin: 0 }")],
+        );
+        assert_eq!(selected, ["p { color: black }", "p { margin: 0 }"]);
+    }
+
+    #[test]
+    fn alternate_only_chapter_does_not_reactivate_all_publication_css() {
+        let selected = selected_css(
+            r#"<link rel="alternate stylesheet" href="night.css" title="Night"/>
+            <style>p { color: black }</style>"#,
+            &[("Text/night.css", "p { border-image: none }")],
+        );
+        assert_eq!(selected, ["p { color: black }"]);
+    }
+
+    #[test]
+    fn named_stylesheet_selection_does_not_hide_active_source_errors() {
+        let parsed = crate::xhtml::parse_xhtml(
+            r#"<html><head><link rel="stylesheet" href="missing.css" title="Day"/>
+            <link rel="alternate stylesheet" href="night.css" title="Night"/></head><body/></html>"#,
+        ).unwrap();
+        assert!(matches!(
+            select_stylo_sources(
+                &ledger(&[]),
+                "Text/chapter.xhtml",
+                &parsed.author_stylesheets
+            ),
+            Err(StyloSourceRejection::ExternalStylesheetMissing { .. })
+        ));
+    }
+
     #[test]
     fn preserves_implicit_all_publication_stylesheets_compatibility() {
         let ledger = ledger(&[
@@ -1206,6 +1317,7 @@ mod tests {
         let embedded = AuthorStylesheetSource::Embedded {
             source_node_id: source_id(),
             css: "p { color: green }".to_owned(),
+            enabled: true,
             selection_issues: Vec::new(),
             media_environment_issues: Vec::new(),
         };
@@ -1225,6 +1337,7 @@ mod tests {
         let source = AuthorStylesheetSource::External {
             source_node_id: source_id(),
             href: "../Styles/book.css".to_owned(),
+            enabled: true,
             selection_issues: Vec::new(),
             media_environment_issues: Vec::new(),
         };
@@ -1240,6 +1353,7 @@ mod tests {
         let embedded = |css: &str| AuthorStylesheetSource::Embedded {
             source_node_id: source_id(),
             css: css.to_owned(),
+            enabled: true,
             selection_issues: Vec::new(),
             media_environment_issues: Vec::new(),
         };
@@ -1273,6 +1387,7 @@ mod tests {
         let nested = AuthorStylesheetSource::Embedded {
             source_node_id: source_id(),
             css: "p { color: red; & span { color: blue } }".to_owned(),
+            enabled: true,
             selection_issues: Vec::new(),
             media_environment_issues: Vec::new(),
         };
@@ -1290,6 +1405,7 @@ mod tests {
         let escaped = AuthorStylesheetSource::Embedded {
             source_node_id: source_id(),
             css: "p { \\2D\\2D rito-internal-break-before: always }".to_owned(),
+            enabled: true,
             selection_issues: Vec::new(),
             media_environment_issues: Vec::new(),
         };
