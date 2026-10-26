@@ -1,5 +1,14 @@
 ## Unreleased
 
+### Line edges are decided as each line is broken
+
+A paragraph decides its line-end trims, the punctuation pairs a break
+separates and its split ruby bases one line at a time, building itself at
+most twice however many lines decide (once per decision before). A pair
+trim that an earlier decision suppressed and a later one moved off its
+break is applied again, as Chromium applies it: some CJK dialogue lines
+now hold the character Chromium puts on them.
+
 ### Line breaking fixes
 
 A `<br>` breaks the line under `line-break: anywhere` and after a preserved

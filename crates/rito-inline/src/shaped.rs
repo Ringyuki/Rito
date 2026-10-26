@@ -116,7 +116,7 @@ pub(crate) struct ShapeKey {
 /// What the line loop has decided so far and builds the paragraph again
 /// with: line-end trims, pair trims a break separated, and the spacing a
 /// ruby base split across lines takes.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub(crate) struct ParagraphEdits<'a> {
     pub(crate) end_trims: &'a [usize],
     pub(crate) suppressed_pair_trims: &'a [usize],

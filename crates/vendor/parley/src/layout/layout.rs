@@ -104,6 +104,43 @@ impl<B: Brush> Layout<B> {
     }
 
     /// Returns the number of lines in the layout.
+    /// Rito: the index, in layout order, of the cluster holding text index
+    /// `byte`, found through the runs rather than the lines: it answers
+    /// before the layout is broken into lines.
+    pub fn cluster_index_at(&self, byte: usize) -> Option<usize> {
+        let runs = &self.data.runs;
+        let run = runs
+            .get(runs.partition_point(|run| run.text_range.end <= byte))
+            .filter(|run| run.text_range.contains(&byte))?;
+        let clusters = &self.data.clusters[run.cluster_range.clone()];
+        let index = clusters.partition_point(|cluster| cluster.text_range(run).end <= byte);
+        clusters
+            .get(index)
+            .filter(|cluster| cluster.text_range(run).contains(&byte))
+            .map(|_| run.cluster_range.start + index)
+    }
+
+    /// Rito: the index, in layout order, of the cluster whose text starts at
+    /// `byte`, if one does.
+    pub fn cluster_starting_at(&self, byte: usize) -> Option<usize> {
+        let index = self.cluster_index_at(byte)?;
+        let run = &self.data.runs[self
+            .data
+            .runs
+            .partition_point(|run| run.cluster_range.end <= index)];
+        (self.data.clusters[index].text_range(run).start == byte).then_some(index)
+    }
+
+    /// Rito: the font of the run holding text index `byte`, found through
+    /// the runs: it answers before the layout is broken into lines.
+    pub fn font_at(&self, byte: usize) -> Option<&crate::FontData> {
+        let runs = &self.data.runs;
+        let run = runs
+            .get(runs.partition_point(|run| run.text_range.end <= byte))
+            .filter(|run| run.text_range.contains(&byte))?;
+        self.data.fonts.get(run.font_index)
+    }
+
     pub fn len(&self) -> usize {
         self.data.lines.len()
     }

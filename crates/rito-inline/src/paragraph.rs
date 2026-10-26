@@ -44,9 +44,7 @@ impl ParleyInlineContext {
             node,
             &build_space,
             PercentageImageSizing::Intrinsic,
-            edits.end_trims,
-            edits.suppressed_pair_trims,
-            edits.split_spreads,
+            edits,
             cancel,
         )?;
         built.reads_space = build_space.was_read();
@@ -63,9 +61,7 @@ impl ParleyInlineContext {
         node: FormattingNodeId,
         space: &BuildSpace,
         percentage_images: PercentageImageSizing,
-        end_trims: &[usize],
-        suppressed_pair_trims: &[usize],
-        split_spread_edits: &[(std::ops::Range<usize>, f32)],
+        edits: ParagraphEdits<'_>,
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -372,19 +368,17 @@ impl ParleyInlineContext {
             .iter()
             .map(|inline_box| inline_box.index)
             .collect();
+        // Every pair the paragraph trims while no break separates it; the
+        // edits say which a break did.
         let punctuation_trims = compute_cjk_punctuation_trims(
             &mut fonts,
             &self.catalog,
             &mut self.halt_feature_cache.borrow_mut(),
             &text,
             &runs,
-            suppressed_pair_trims,
+            &[],
             &inline_box_bytes,
         );
-        let pair_trims: Vec<(usize, usize)> = punctuation_trims
-            .iter()
-            .map(|trim| (trim.left_byte, trim.right_byte))
-            .collect();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, &text, 1.0, true));
         // The pinned-browser baseline: Chromium's ASCII break tailoring plus
@@ -627,8 +621,30 @@ impl ParleyInlineContext {
             box_edits = coalesced;
         }
         let first_line_indent = first_line_indent + leading_box_indent;
-        let opener_halt_trims: Vec<(std::ops::Range<usize>, f64)> = punctuation_trims
-            .iter()
+        let plan = SpacingPlan::new(
+            punctuation_trims,
+            box_edits,
+            ruby_spread_edits,
+            runs.iter()
+                .map(|(range, style, _)| {
+                    let author = match style.text_flow.letter_spacing {
+                        LengthPercentage::Length(px) => px.get(),
+                        _ => 0.0,
+                    };
+                    PlannedRun {
+                        range: range.clone(),
+                        author,
+                        end_trim: author - 0.5 * shaping_font_size(style.font.size.get()),
+                    }
+                })
+                .collect(),
+        );
+        let pair_trims: Vec<(usize, usize)> = plan
+            .applied_pair_trims(edits)
+            .map(|trim| (trim.left_byte, trim.right_byte))
+            .collect();
+        let opener_halt_trims: Vec<(std::ops::Range<usize>, f64)> = plan
+            .applied_pair_trims(edits)
             .filter_map(|trim| match trim.edit {
                 PunctuationTrimEdit::OpenerHalt(half) => {
                     Some((trim.edit_range.clone(), f64::from(half)))
@@ -636,50 +652,22 @@ impl ParleyInlineContext {
                 PunctuationTrimEdit::LetterSpacing(_) => None,
             })
             .collect();
-        for trim in punctuation_trims {
-            let range = trim.edit_range;
-            let spacing = match trim.edit {
-                PunctuationTrimEdit::OpenerHalt(_) => {
-                    builder.push(
-                        StyleProperty::FontFeatures(parley::FontFeatures::List(
-                            std::borrow::Cow::Owned(vec![parley::FontFeature::new(
-                                parley::setting::Tag::new(b"halt"),
-                                1,
-                            )]),
-                        )),
-                        range,
-                    );
-                    continue;
+        for push in plan.pushes(&text, edits) {
+            match push {
+                SpacingPush::LetterSpacing(range, spacing) => {
+                    builder.push(StyleProperty::LetterSpacing(spacing), range);
                 }
-                PunctuationTrimEdit::LetterSpacing(spacing) => spacing,
-            };
-            // A box gap on the same character composes with the trim (the
-            // trim value already carries the author spacing).
-            let boxed = box_edits
-                .iter()
-                .position(|(edit_range, ..)| *edit_range == range);
-            let spacing = match boxed {
-                Some(found) => {
-                    let (_, gap, _) = box_edits.remove(found);
-                    spacing + gap
-                }
-                None => spacing,
-            };
-            builder.push(StyleProperty::LetterSpacing(spacing), range);
+                SpacingPush::Halt(range) => builder.push(
+                    StyleProperty::FontFeatures(parley::FontFeatures::List(
+                        std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                            parley::setting::Tag::new(b"halt"),
+                            1,
+                        )]),
+                    )),
+                    range,
+                ),
+            }
         }
-        for (range, gap, author) in box_edits {
-            builder.push(StyleProperty::LetterSpacing(author + gap), range);
-        }
-        for (range, spacing) in &ruby_spread_edits {
-            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
-        }
-        // A split spread segment's widening, decided by the outer layout
-        // loop once line breaks are known (the segment carries its
-        // allocated annotation words and spreads to their advance).
-        for (range, spacing) in split_spread_edits {
-            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
-        }
-        push_line_end_trims(&mut builder, &text, &runs, end_trims);
         for image_box in image_boxes {
             builder.push_inline_box(image_box);
         }
@@ -743,6 +731,8 @@ impl ParleyInlineContext {
             cluster_steps: std::rc::Rc::default(),
             line_end_trims: std::rc::Rc::default(),
             kept_breaks: std::rc::Rc::default(),
+            spacing_plan: std::rc::Rc::new(plan),
+            kept_decisions: std::rc::Rc::default(),
             reads_space: false,
         })
     }
@@ -829,6 +819,12 @@ pub(crate) struct ParagraphLayout {
     /// The lines this build was last broken into, shared like
     /// `cluster_steps` (see [`KeptBreaks`]).
     pub(crate) kept_breaks: std::rc::Rc<KeptBreaks>,
+    /// The spacing the build pushed on top of its runs' styles, apart from
+    /// the edits it was built with (see [`SpacingPlan`]).
+    pub(crate) spacing_plan: std::rc::Rc<SpacingPlan>,
+    /// The line edges decided on this build, by the space they were
+    /// decided in (see [`KeptDecisions`]).
+    pub(crate) kept_decisions: std::rc::Rc<KeptDecisions>,
     pub(crate) layout: parley::Layout<[u8; 4]>,
     pub(crate) text: String,
     pub(crate) alignment: parley::Alignment,

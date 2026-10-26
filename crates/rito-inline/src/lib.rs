@@ -50,6 +50,7 @@ mod image;
 mod justify;
 mod layout;
 mod line_breaks;
+mod line_decisions;
 mod line_items;
 mod line_metrics;
 mod line_text;
@@ -60,6 +61,7 @@ mod ruby;
 mod segmented_lru;
 mod shaped;
 mod shaping;
+mod spacing_plan;
 mod strut;
 #[cfg(test)]
 mod tests;
@@ -73,6 +75,9 @@ pub use fonts::{font_family_name, HostFontFace, HostFontRole, PublicationFontFac
 pub(crate) use image::*;
 pub(crate) use justify::*;
 pub(crate) use line_breaks::{BreakKey, KeptBreaks};
+pub(crate) use line_decisions::{
+    line_max_advance, DecidedParagraph, KeptDecisions, LineEdgeInputs, LINE_FIT_EPSILON,
+};
 pub(crate) use line_items::{line_item_keys, line_items, LineItemView};
 pub(crate) use line_metrics::*;
 pub(crate) use line_text::{paints_alone, LineRuns, Piece};
@@ -85,6 +90,7 @@ pub(crate) use shaped::{
     BuildSpace, IntrinsicSizes, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs,
 };
 pub(crate) use shaping::*;
+pub(crate) use spacing_plan::{PlannedRun, SpacingPlan, SpacingPush};
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
 pub(crate) use width_bounds::WidthBounds;

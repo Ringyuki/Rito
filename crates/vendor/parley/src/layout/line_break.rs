@@ -430,6 +430,29 @@ impl<'a, B: Brush> BreakLines<'a, B> {
         }
     }
 
+    /// Rito: runs `inspect` on the layout with the lines committed so far
+    /// in place, as `Layout::get` and every cluster lookup read them. The
+    /// layout's extents stay unset until the breaker is done.
+    pub fn inspect<R>(&mut self, inspect: impl FnOnce(&Layout<B>) -> R) -> R {
+        self.lines.swap(&mut self.layout.data);
+        let result = inspect(self.layout);
+        self.lines.swap(&mut self.layout.data);
+        result
+    }
+
+    /// Rito: the advance of cluster `index`, in layout order.
+    pub fn cluster_advance(&self, index: usize) -> f32 {
+        self.layout.data.clusters[index].advance
+    }
+
+    /// Rito: sets the advance of cluster `index`, in layout order, so the
+    /// lines from here on break as if the paragraph were built with other
+    /// spacing. Its glyphs keep their advances: such a layout is broken to
+    /// decide where its lines end, never drawn.
+    pub fn set_cluster_advance(&mut self, index: usize, advance: f32) {
+        crate::layout::data::owned(&mut self.layout.data.clusters)[index].advance = advance;
+    }
+
     /// Reverts the to an externally saved state.
     pub fn revert_to(&mut self, state: BreakerState) {
         self.state = state;

@@ -336,7 +336,8 @@ pub(crate) fn line_end_trim_candidate(
 /// Whether a line of the paragraph could take a line-end trim, or the
 /// rewind it is rejected into, at any width: both need an eligible closer
 /// (see [`line_end_trim_eligible`]) shaped in a face with `halt`, and
-/// shaping puts a character in the same face at every width.
+/// shaping puts a character in the same face at every width. It reads the
+/// runs, so it answers before the paragraph is broken into lines.
 pub(crate) fn line_end_trims_possible(
     catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
@@ -345,8 +346,9 @@ pub(crate) fn line_end_trims_possible(
     text.char_indices()
         .filter(|(_, character)| line_end_trim_eligible(*character))
         .any(|(byte, _)| {
-            parley::layout::Cluster::from_byte_index(layout, byte)
-                .is_some_and(|cluster| cluster_font_has_halt(catalog, &cluster))
+            layout
+                .font_at(byte)
+                .is_some_and(|font| catalog.has_halt(font))
         })
 }
 
@@ -385,36 +387,4 @@ pub(crate) fn line_end_trim_eligible(character: char) -> bool {
             | '’'
             | '”'
     )
-}
-
-/// Applies accepted line-end trims as negative letter-spacing on the
-/// closing glyph itself — the same mechanism as the pair trims, so the
-/// trimmed character is isolated in its own glyph run and the paint stays
-/// position-exact. The blank right half collapses; the ink does not move.
-pub(crate) fn push_line_end_trims(
-    builder: &mut SpacingBuilder<'_>,
-    text: &str,
-    runs: &[(std::ops::Range<usize>, &InlineFormattingStyle, usize)],
-    end_trims: &[usize],
-) {
-    for &byte in end_trims {
-        let Some(character) = text[byte..].chars().next() else {
-            continue;
-        };
-        let Some(style) = runs
-            .iter()
-            .find(|(range, ..)| range.contains(&byte))
-            .map(|(_, style, _)| *style)
-        else {
-            continue;
-        };
-        let author = match style.text_flow.letter_spacing {
-            LengthPercentage::Length(px) => px.get(),
-            _ => 0.0,
-        };
-        builder.push(
-            StyleProperty::LetterSpacing(author - 0.5 * shaping_font_size(style.font.size.get())),
-            byte..byte + character.len_utf8(),
-        );
-    }
 }

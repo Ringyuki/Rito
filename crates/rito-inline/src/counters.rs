@@ -10,6 +10,8 @@ pub(crate) struct LineLoopCounts {
     pub(crate) builds: Cell<u64>,
     /// Line breakings run because no kept breaking matched.
     pub(crate) breaks: Cell<u64>,
+    /// Passes deciding a paragraph's line edges.
+    pub(crate) passes: Cell<u64>,
 }
 
 impl LineLoopCounts {
@@ -19,5 +21,9 @@ impl LineLoopCounts {
 
     pub(crate) fn note_break(&self) {
         self.breaks.set(self.breaks.get() + 1);
+    }
+
+    pub(crate) fn note_pass(&self) {
+        self.passes.set(self.passes.get() + 1);
     }
 }
