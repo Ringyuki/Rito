@@ -10,6 +10,7 @@ mod reading_anchor_tests;
 mod relayout_equivalence_tests;
 pub(crate) mod revisions;
 mod ruby_range_tests;
+mod search_soft_wrap_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;

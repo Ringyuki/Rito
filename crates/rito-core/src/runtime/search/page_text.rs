@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::runtime::page_artifact::PageTextSoftWrap;
+
 #[derive(Debug, Clone, Copy)]
 struct SearchQuerySpec<'a> {
     query: &'a str,
@@ -14,6 +16,7 @@ pub(crate) struct SearchPageText {
     page_index: usize,
     text: String,
     offsets: Vec<SearchRunOffset>,
+    soft_wraps: Vec<PageTextSoftWrap>,
 }
 
 impl SearchPageText {
@@ -25,6 +28,7 @@ impl SearchPageText {
         Self {
             page_index,
             text,
+            soft_wraps: Vec::new(),
             offsets: runs
                 .into_iter()
                 .map(|run| SearchRunOffset {
@@ -37,6 +41,39 @@ impl SearchPageText {
                 })
                 .collect(),
         }
+    }
+
+    pub(in crate::runtime) fn with_soft_wraps(mut self, soft_wraps: Vec<PageTextSoftWrap>) -> Self {
+        self.soft_wraps = soft_wraps;
+        self
+    }
+
+    /// Restore flow text without changing the page offsets used by hits,
+    /// text-range geometry, and existing callers' explicit line queries.
+    fn source_text(&self, start: usize, end: usize) -> String {
+        let mut text = String::new();
+        let mut cursor = start;
+        for wrap in self
+            .soft_wraps
+            .iter()
+            .filter(|wrap| wrap.offset >= start && wrap.offset < end)
+        {
+            text.push_str(&utf16_slice(&self.text, cursor, wrap.offset));
+            text.push_str(&wrap.replacement);
+            cursor = wrap.offset + 1;
+        }
+        text.push_str(&utf16_slice(&self.text, cursor, end));
+        text
+    }
+
+    fn is_soft_gap(&self, start: usize, end: usize) -> bool {
+        end.checked_sub(start).is_some_and(|length| {
+            self.soft_wraps
+                .iter()
+                .filter(|wrap| wrap.offset >= start && wrap.offset < end)
+                .count()
+                == length
+        })
     }
 
     /// Each run that maps to source, in page order: its source node path,
@@ -237,7 +274,14 @@ impl SearchRuntimeMatch {
 }
 
 fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchResultDetail> {
-    let haystack = fold_search_text(&page.text, spec.case_sensitive);
+    // Selection clients already query explicit page line breaks. Preserve
+    // that spelling while natural queries search the underlying flow text.
+    let wraps = if spec.query.contains('\n') || spec.query.contains('\r') {
+        &[][..]
+    } else {
+        &page.soft_wraps
+    };
+    let haystack = fold_search_text(&page.text, wraps, spec.case_sensitive);
     let needle = fold_query_text(spec.query, spec.case_sensitive);
     let mut results = Vec::new();
     let mut pos = 0usize;
@@ -259,7 +303,7 @@ fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchR
             search_offset_to_position(&page.offsets, start_offset, SearchBias::Start),
             search_offset_to_position(&page.offsets, end_offset, SearchBias::End),
         ) {
-            let anchors = search_source_range(&page.offsets, start_offset, end_offset);
+            let anchors = search_source_range(page, start_offset, end_offset);
             // The source range is verified against the text it claims
             // to cover, which is the whole match unless generated
             // content forced it to shrink. Verifying a shrunken range
@@ -267,12 +311,12 @@ fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchR
             // away, which is exactly the outcome the shrinking exists
             // to avoid.
             let covered = |range: &SearchSourceRange| {
-                utf16_slice(&page.text, range.covered_start, range.covered_end)
+                page.source_text(range.covered_start, range.covered_end)
             };
-            let selected_text = anchors.primary.as_ref().map_or_else(
-                || utf16_slice(&page.text, start_offset, end_offset),
-                covered,
-            );
+            let selected_text = anchors
+                .primary
+                .as_ref()
+                .map_or_else(|| page.source_text(start_offset, end_offset), covered);
             let fallback_source = anchors.fallback.map(|range| SearchFallbackSource {
                 selected_text: covered(&range),
                 range,
@@ -293,21 +337,48 @@ fn search_page(page: &SearchPageText, spec: &SearchQuerySpec<'_>) -> Vec<SearchR
     results
 }
 
-fn fold_search_text(text: &str, case_sensitive: bool) -> FoldedSearchText {
+fn fold_search_text(
+    text: &str,
+    soft_wraps: &[PageTextSoftWrap],
+    case_sensitive: bool,
+) -> FoldedSearchText {
     let mut folded = String::new();
     let mut source_spans = Vec::new();
     let mut original_offset = 0usize;
 
+    let mut wraps = soft_wraps.iter().peekable();
     for character in text.chars() {
         let folded_start = folded.len();
         let original_start = original_offset;
-        let chars = if case_sensitive {
-            character.to_string()
+        let replacement = if wraps
+            .peek()
+            .is_some_and(|wrap| wrap.offset == original_offset)
+        {
+            Some(
+                wraps
+                    .next()
+                    .expect("wrap offset checked")
+                    .replacement
+                    .as_str(),
+            )
         } else {
-            character.to_lowercase().collect::<String>()
+            None
         };
-        folded.push_str(&chars);
+        if let Some(replacement) = replacement {
+            if case_sensitive {
+                folded.push_str(replacement);
+            } else {
+                folded.extend(replacement.chars().flat_map(char::to_lowercase));
+            }
+        } else if case_sensitive {
+            folded.push(character);
+        } else {
+            folded.extend(character.to_lowercase());
+        }
         original_offset += character.len_utf16();
+        if folded.len() == folded_start {
+            continue;
+        }
         source_spans.push(FoldedSourceSpan {
             folded_start,
             folded_end: folded.len(),
@@ -345,7 +416,7 @@ fn folded_byte_to_original_utf16(
                 SearchBias::End => span.original_end,
             };
         }
-        if byte_index == span.folded_end {
+        if byte_index == span.folded_end && matches!(bias, SearchBias::End) {
             return span.original_end;
         }
     }
@@ -403,7 +474,7 @@ struct SearchAnchors {
     fallback: Option<SearchSourceRange>,
 }
 
-fn search_source_range(offsets: &[SearchRunOffset], start: usize, end: usize) -> SearchAnchors {
+fn search_source_range(page: &SearchPageText, start: usize, end: usize) -> SearchAnchors {
     // Walk the match, collecting the runs that carry source identity
     // into contiguous segments. A run without a source or a gap ends
     // the current segment rather than discarding the match: the longest
@@ -420,14 +491,17 @@ fn search_source_range(offsets: &[SearchRunOffset], start: usize, end: usize) ->
         }
     };
 
-    for entry in offsets
+    for entry in page
+        .offsets
         .iter()
         .filter(|entry| entry.end > start && entry.start < end)
     {
         let part_start = start.max(entry.start);
         let part_end = end.min(entry.end);
         if part_start != cursor {
-            whole = false;
+            if !page.is_soft_gap(cursor, part_start) {
+                whole = false;
+            }
             close(&mut current, &mut segments);
         }
         cursor = part_end;

@@ -16,7 +16,7 @@ use super::{
     PageArtifact, PageArtifactRect, PageArtifactSemanticNode, PageArtifactSemanticRole,
     PageArtifactSourceRunStart, PageArtifactTarget, PageArtifactTextPosition,
     PageArtifactTextPositions, PageArtifactTextRangeGeometry, PageArtifactTextRangeRect,
-    PageArtifactTextRunOffset,
+    PageArtifactTextRunOffset, PageTextSoftWrap,
 };
 
 use crate::fragment_bridge::{FlowItemSource, SourceSegment};
@@ -239,6 +239,7 @@ pub(in crate::runtime) struct FragmentPageArtifact {
     /// boundary re-adds the line break a browser copy carries. Soft
     /// wraps share the same separator character but are absent here.
     hard_breaks: Vec<usize>,
+    soft_wraps: Vec<PageTextSoftWrap>,
 }
 
 /// A block-level link's whole border box on this page: the browser makes
@@ -296,9 +297,11 @@ impl FragmentPageArtifact {
         &self.text
     }
 
-    /// The page's text and text runs, given up whole.
-    pub(in crate::runtime) fn into_text_and_runs(self) -> (String, Vec<FragmentRunRecord>) {
-        (self.text, self.runs)
+    /// The page's text, runs and visual-wrap mappings, given up whole.
+    pub(in crate::runtime) fn into_search_parts(
+        self,
+    ) -> (String, Vec<FragmentRunRecord>, Vec<PageTextSoftWrap>) {
+        (self.text, self.runs, self.soft_wraps)
     }
 
     /// Builds the artifact from one page's root fragment. `origin_x` and
@@ -321,10 +324,10 @@ impl FragmentPageArtifact {
         .0
     }
 
-    /// The page's text and text runs alone, the same as [`Self::build`]
-    /// makes them, without its links, images, semantic nodes and hard
-    /// breaks: what a page table records for every page, while the whole
-    /// artifact is built for the pages that are read.
+    /// The page's text, runs and visual-wrap mappings, the same as
+    /// [`Self::build`] makes them, without its links, images, semantic
+    /// nodes and hard breaks: what a page table records for every page,
+    /// while the whole artifact is built for the pages that are read.
     pub(in crate::runtime) fn build_text(
         page_index: usize,
         root: &Fragment,
@@ -366,6 +369,8 @@ impl FragmentPageArtifact {
             links: Vec::new(),
             semantics: Vec::new(),
             hard_breaks: Vec::new(),
+            soft_wraps: Vec::new(),
+            previous_text_flow: None,
             flow_last_text_end: rustc_hash::FxHashMap::default(),
             host_paragraph: None,
         };
@@ -391,6 +396,7 @@ impl FragmentPageArtifact {
             links: builder.links,
             semantics: builder.semantics,
             hard_breaks: builder.hard_breaks,
+            soft_wraps: builder.soft_wraps,
         };
         (artifact, builder.starts)
     }
@@ -404,6 +410,7 @@ impl FragmentPageArtifact {
             links: Vec::new(),
             semantics: Vec::new(),
             hard_breaks: Vec::new(),
+            soft_wraps: Vec::new(),
         }
     }
 }
@@ -438,6 +445,10 @@ struct ArtifactBuilder<'a> {
     links: Vec<FragmentLinkRecord>,
     semantics: Vec<FragmentSemanticRecord>,
     hard_breaks: Vec<usize>,
+    soft_wraps: Vec<PageTextSoftWrap>,
+    /// Only adjacent text-bearing lines in the same flow can share a
+    /// visual wrap. A nested flow or another paragraph is a boundary.
+    previous_text_flow: Option<u32>,
     /// Per flow: the byte end of the previous line's last text fragment
     /// in that flow's concatenated text, for hard-break detection.
     flow_last_text_end: rustc_hash::FxHashMap<u32, usize>,
@@ -533,17 +544,30 @@ impl ArtifactBuilder<'_> {
                         Fragment::Text(run) => Some(run.text_start as usize),
                         _ => None,
                     });
-                    let hard = self
+                    let gap = self
                         .flow_last_text_end
                         .get(&line.source.0)
                         .zip(first_start)
-                        .and_then(|(previous, first)| flow_text.get(*previous..first))
-                        .is_some_and(|gap| gap.contains('\n'));
+                        .and_then(|(previous, first)| flow_text.get(*previous..first));
+                    let hard = gap.is_some_and(|gap| gap.contains('\n'));
                     if hard && self.mode == CollectMode::Whole {
                         self.hard_breaks.push(self.offset);
                     }
+                    if self.previous_text_flow == Some(line.source.0) {
+                        if let Some(gap) = gap.filter(|gap| {
+                            gap.chars().all(|character| matches!(character, ' ' | '\t'))
+                        }) {
+                            self.soft_wraps.push(PageTextSoftWrap {
+                                offset: self.offset,
+                                replacement: gap.to_owned(),
+                            });
+                        }
+                    }
                     self.text.push('\n');
                     self.offset += 1;
+                }
+                if has_line_text {
+                    self.previous_text_flow = Some(line.source.0);
                 }
                 // Read only where the page's text is written.
                 let last_end = (self.mode != CollectMode::Starts)

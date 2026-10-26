@@ -9,6 +9,15 @@ mod interaction;
 
 pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord};
 
+/// A visual line separator in page-text UTF-16 coordinates, with the flow
+/// text it replaced. An empty replacement joins a word or CJK text; a
+/// whitespace replacement restores space trimmed by the line breaker.
+#[derive(Debug, Clone)]
+pub(in crate::runtime) struct PageTextSoftWrap {
+    pub(in crate::runtime) offset: usize,
+    pub(in crate::runtime) replacement: String,
+}
+
 use std::sync::Arc;
 
 use crate::render::DisplayCommand;

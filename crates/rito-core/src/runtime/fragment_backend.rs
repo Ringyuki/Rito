@@ -1196,7 +1196,7 @@ fn search_record(
 /// A page's search record, taking the text and runs of an artifact built
 /// for it alone.
 fn search_page_text(page_index: usize, artifact: FragmentPageArtifact) -> SearchPageText {
-    let (text, runs) = artifact.into_text_and_runs();
+    let (text, runs, soft_wraps) = artifact.into_search_parts();
     let runs = runs
         .into_iter()
         .map(|run| SearchPrebuiltRun {
@@ -1211,7 +1211,7 @@ fn search_page_text(page_index: usize, artifact: FragmentPageArtifact) -> Search
             }),
         })
         .collect();
-    SearchPageText::from_parts(page_index, text, runs)
+    SearchPageText::from_parts(page_index, text, runs).with_soft_wraps(soft_wraps)
 }
 
 /// Records each anchored node's first page. Anchors are block-level ids

@@ -2,6 +2,122 @@ use super::{
     search_page, search_prebuilt_runtime_pages, SearchPageText, SearchPrebuiltRun,
     SearchPrebuiltRunSource, SearchQuerySpec, SearchTextPosition,
 };
+use crate::runtime::page_artifact::PageTextSoftWrap;
+
+fn soft_wrap(offset: usize, replacement: &str) -> PageTextSoftWrap {
+    PageTextSoftWrap {
+        offset,
+        replacement: replacement.to_owned(),
+    }
+}
+
+#[test]
+fn soft_wrap_search_preserves_utf16_positions_and_the_full_source_range() {
+    let mut second = run(4, 6, 0, Some((vec![1], 3, 2)));
+    second.line_index = 1;
+    let page = SearchPageText::from_parts(
+        0,
+        "甲😀\n乙丁".to_owned(),
+        vec![run(0, 3, 0, Some((vec![1], 0, 3))), second],
+    )
+    .with_soft_wraps(vec![soft_wrap(3, "")]);
+    let matches =
+        search_prebuilt_runtime_pages(std::slice::from_ref(&page), "😀乙", true, false, None);
+    let matched = matches.first().expect("a query crosses the visual wrap");
+    assert_eq!(matched.selected_text, "😀乙");
+    assert_eq!(matched.result.start.char_index, 1);
+    assert_eq!(matched.result.end.line_index, 1);
+    assert_eq!(matched.result.end.char_index, 1);
+    let source = matched
+        .source_range
+        .as_ref()
+        .expect("the full source anchors");
+    assert_eq!(source.start.text_offset, 1);
+    assert_eq!(source.end.text_offset, 4);
+    assert_eq!((source.covered_start, source.covered_end), (1, 5));
+
+    let next_line = search_prebuilt_runtime_pages(&[page], "乙丁", true, false, None);
+    assert_eq!(
+        next_line.len(),
+        1,
+        "a start just after a removed separator maps rightward"
+    );
+    assert_eq!(next_line[0].result.start.line_index, 1);
+    assert_eq!(next_line[0].result.start.char_index, 0);
+}
+
+#[test]
+fn soft_wrap_search_restores_trimmed_spaces_and_keeps_explicit_line_queries() {
+    let mut second = run(6, 9, 0, Some((vec![1], 6, 3)));
+    second.line_index = 1;
+    let page = SearchPageText::from_parts(
+        0,
+        "quick\nfox".to_owned(),
+        vec![run(0, 5, 0, Some((vec![1], 0, 5))), second],
+    )
+    .with_soft_wraps(vec![soft_wrap(5, " ")]);
+    for query in ["quick fox", "quick\nfox"] {
+        let matched =
+            search_prebuilt_runtime_pages(std::slice::from_ref(&page), query, true, false, None);
+        assert_eq!(matched.len(), 1, "query: {query:?}");
+        assert_eq!(matched[0].selected_text, "quick fox");
+        let source = matched[0]
+            .source_range
+            .as_ref()
+            .expect("complete source range");
+        assert_eq!(source.start.text_offset, 0);
+        assert_eq!(source.end.text_offset, 9);
+        assert_eq!(source.covered_end, 9);
+    }
+    assert!(search_prebuilt_runtime_pages(&[page], "quickfox", true, false, None).is_empty());
+}
+
+#[test]
+fn structural_breaks_are_not_joined_and_soft_wraps_do_not_create_word_boundaries() {
+    let page = SearchPageText::from_parts(
+        0,
+        "pre\nfix\nhard".to_owned(),
+        vec![run(0, 3, 0, None), run(4, 7, 1, None), run(8, 12, 2, None)],
+    )
+    .with_soft_wraps(vec![soft_wrap(3, "")]);
+    assert_eq!(
+        search_prebuilt_runtime_pages(std::slice::from_ref(&page), "prefix", true, true, None)
+            .len(),
+        1
+    );
+    for query in ["pre", "fix", "prefixhard", "prefix hard"] {
+        assert!(
+            search_prebuilt_runtime_pages(std::slice::from_ref(&page), query, true, true, None)
+                .is_empty(),
+            "{query}"
+        );
+    }
+    assert_eq!(
+        search_prebuilt_runtime_pages(&[page], "fix\nhard", true, false, None).len(),
+        1
+    );
+}
+
+#[test]
+fn case_fold_expansion_still_maps_across_soft_wraps() {
+    let page = SearchPageText::from_parts(
+        0,
+        "İ\nxY".to_owned(),
+        vec![
+            run(0, 1, 0, Some((vec![1], 0, 1))),
+            run(2, 4, 1, Some((vec![1], 1, 2))),
+        ],
+    )
+    .with_soft_wraps(vec![soft_wrap(1, "")]);
+    let matches = search_prebuilt_runtime_pages(&[page], "i\u{307}xy", false, false, None);
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0].selected_text, "İxY");
+    let source = matches[0]
+        .source_range
+        .as_ref()
+        .expect("source survives case folding");
+    assert_eq!((source.start.text_offset, source.end.text_offset), (0, 3));
+}
 
 fn run(
     start: usize,
