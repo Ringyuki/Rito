@@ -37,11 +37,12 @@ impl FormattingContext for ParleyInlineContext {
             .float_band
             .filter(|band| band.bottom > 0.0 && (band.left_inset > 0.0 || band.right_inset > 0.0));
         // Lines break through one manual loop so a specific line index can
-        // be FORCED to hold an exact cluster count: the browser's rejected
+        // be FORCED to end before a text index: the browser's rejected
         // line-end trim extension rewinds the whole overflowing item to
         // the next line (measured: a razor-fit note line breaks as
         // [span ①][whole text item] where greedy would split the text),
-        // and `break_next_with_length` reproduces that rewind.
+        // and `break_next_to` reproduces that rewind, holding whatever
+        // precedes the item (an inline image included).
         // Blink accepts a line that overflows its available width by up to
         // one LayoutUnit: NGLineBreaker::CanFitOnLine compares against
         // available_width_.AddEpsilon(). Measured on the Tinos body idiom:
@@ -51,7 +52,7 @@ impl FormattingContext for ParleyInlineContext {
         // justify target below keeps the true width, exactly as Blink
         // justifies to the unwidened line box.
         const LINE_FIT_EPSILON: f64 = 1.0 / 64.0;
-        let break_lines = |layout: &mut parley::Layout<[u8; 4]>, forced: &[(usize, u32)]| {
+        let break_lines = |layout: &mut parley::Layout<[u8; 4]>, forced: &[(usize, usize)]| {
             if band.is_none() && forced.is_empty() {
                 layout.break_all_lines(Some((space.inline_size + LINE_FIT_EPSILON) as f32));
                 return;
@@ -82,12 +83,12 @@ impl FormattingContext for ParleyInlineContext {
                         .state_mut()
                         .set_line_max_advance((space.inline_size + LINE_FIT_EPSILON) as f32);
                 }
-                let forced_count = forced
+                let forced_end = forced
                     .iter()
                     .find(|(line, _)| *line == index)
-                    .map(|(_, count)| *count);
-                let progressed = match forced_count {
-                    Some(count) => breaker.break_next_with_length(count).is_some(),
+                    .map(|(_, end)| *end);
+                let progressed = match forced_end {
+                    Some(end) => breaker.break_next_to(end).is_some(),
                     None => breaker.break_next().is_some(),
                 };
                 if !progressed {
@@ -159,7 +160,7 @@ impl FormattingContext for ParleyInlineContext {
         let mut end_trims: Vec<usize> = Vec::new();
         let mut rejected_trims: Vec<usize> = Vec::new();
         let mut suppressed_pair_trims: Vec<usize> = Vec::new();
-        let mut forced_line_breaks: Vec<(usize, u32)> = Vec::new();
+        let mut forced_line_breaks: Vec<(usize, usize)> = Vec::new();
         let mut pending_trim: Option<usize> = None;
         let (
             layout,
@@ -431,15 +432,7 @@ impl FormattingContext for ParleyInlineContext {
                         if item_start <= range.start {
                             continue;
                         }
-                        let Some(count) = text
-                            .get(range.start..item_start)
-                            .map(|held| held.chars().count())
-                            .filter(|count| *count > 0)
-                            .and_then(|count| u32::try_from(count).ok())
-                        else {
-                            continue;
-                        };
-                        forced_line_breaks.push((index, count));
+                        forced_line_breaks.push((index, item_start));
                         rewound_ruby = true;
                         break;
                     }
@@ -652,7 +645,7 @@ impl FormattingContext for ParleyInlineContext {
                             if forced_line_breaks.iter().any(|(line, _)| *line == index) {
                                 continue;
                             }
-                            let Some(count) = rewind_break_count(
+                            let Some(end) = rewind_break_end(
                                 &self.catalog,
                                 &layout,
                                 &text,
@@ -663,7 +656,7 @@ impl FormattingContext for ParleyInlineContext {
                             ) else {
                                 continue;
                             };
-                            forced_line_breaks.push((index, count));
+                            forced_line_breaks.push((index, end));
                             rewound = true;
                             break;
                         }

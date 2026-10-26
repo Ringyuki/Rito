@@ -6,7 +6,9 @@ A `<br>` breaks the line under `line-break: anywhere` and after a preserved
 space (both were laid out as one line). A paragraph shaped as a single run
 longer than 64 KiB, as a volume written as one block in one font can be,
 lays out instead of failing. A ligature is measured by its own glyphs in
-every run, not only the paragraph's first.
+every run, not only the paragraph's first. A line that gives the start of an
+item to the next line (a ruby base or a note that does not fit) keeps an
+inline image that comes before that item, as Chromium does.
 
 ### A long `<br>`-broken paragraph lays out as fast on a phone as on a desktop
 

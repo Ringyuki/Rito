@@ -14,19 +14,20 @@ const KEPT_BREAKS: usize = 4;
 
 /// Everything a build's line breaking reads besides the build: the space it
 /// lays out in (which also sized its images and inline blocks), the float
-/// band its lines wrap around and the lines the loop forced.
+/// band its lines wrap around and the lines the loop forced to end before
+/// a text index.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct BreakKey {
     space: [Option<u64>; 3],
     band: Option<[u64; 3]>,
-    forced: Vec<(usize, u32)>,
+    forced: Vec<(usize, usize)>,
 }
 
 impl BreakKey {
     pub(crate) fn new(
         space: &ConstraintSpace,
         band: Option<FloatBand>,
-        forced: &[(usize, u32)],
+        forced: &[(usize, usize)],
     ) -> Self {
         Self {
             space: [

@@ -1007,3 +1007,146 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
         "one share per boundary after it: {steps:?}"
     );
 }
+
+/// An inline image's layout style: auto-sized, in flow, unpadded.
+fn plain_image_layout(layout: &mut LayoutStyleTable) -> rito_style_contract::LayoutStyleId {
+    use rito_style_contract::{
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle, MaximumHeight, MaximumSize,
+        MinimumHeight, Overflow, PageBreak, Position, PreferredSize,
+    };
+    let auto = LengthPercentageOrAuto::Auto;
+    let zero =
+        NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(0.0).expect("zero")));
+    let zero_px = rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero");
+    layout
+        .intern_for_node(
+            0,
+            LayoutFormattingStyle {
+                display: LayoutDisplay {
+                    outside: LayoutDisplayOutside::Inline,
+                    inside: LayoutDisplayInside::Flow,
+                    is_list_item: false,
+                },
+                margin: sides(auto),
+                padding: sides(zero),
+                box_sizing: rito_style_contract::BoxSizing::ContentBox,
+                justify_content: JustifyContent::Normal,
+                align_items: AlignItems::Normal,
+                break_before: PageBreak::Auto,
+                break_after: PageBreak::Auto,
+                width: PreferredSize::Auto,
+                height: PreferredSize::Auto,
+                max_width: MaximumSize::None,
+                min_height: MinimumHeight::Auto,
+                max_height: MaximumHeight::None,
+                clear: Clear::None,
+                float: Float::None,
+                overflow: Overflow::Visible,
+                list_style_type: ListMarkerStyle::None,
+                position: Position::Static,
+                inset: sides(auto),
+                vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
+                border_spacing: (zero_px, zero_px),
+                border_collapse: false,
+                object_fit: rito_style_contract::ObjectFit::Fill,
+            },
+        )
+        .expect("layout style interns")
+}
+
+/// A line rewound to the start of a ruby item holds everything before
+/// that item, an inline image included: the rewind held a count of the
+/// text characters before the item, and the breaker counts an image as
+/// one, so the line ended one character early and the image went down
+/// with the ruby.
+#[test]
+fn a_ruby_split_rewind_keeps_an_image_before_the_ruby_on_the_line() {
+    let context = ParleyInlineContext::new(vec![source_han_bytes()]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        32.0,
+        0.0,
+    );
+    let mut inline = InlineStyleTable::new(1);
+    let interned = inline.intern_for_node(0, style).expect("style interns");
+    let mut layout = LayoutStyleTable::new(1);
+    let image_layout = plain_image_layout(&mut layout);
+    let items = vec![
+        InlineItem::Text {
+            text: "中中".to_owned(),
+            style: interned,
+            baseline_shift_px: 0.0,
+            ruby_annotation: None,
+        },
+        InlineItem::Image {
+            source: 0,
+            src: "images/note.png".to_owned(),
+            intrinsic_width: 32.0,
+            intrinsic_height: 32.0,
+            style: interned,
+            layout_style: image_layout,
+            fit_contain: false,
+            viewport: None,
+            baseline_shift_px: 0.0,
+            align_top: false,
+            object_fit: rito_style_contract::ObjectFit::Fill,
+        },
+        InlineItem::Text {
+            text: "中文中".to_owned(),
+            style: interned,
+            baseline_shift_px: 0.0,
+            ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                text: "wwwwww".to_owned(),
+                size_ratio: 0.5,
+                align: rito_style_contract::RubyAlign::SpaceAround,
+            }),
+        },
+    ];
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles { layout, inline },
+    )
+    .expect("inline tree builds");
+    // The geometry of the rewind above with an image for one lead glyph.
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(165.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let text = "中中中文中";
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("root is a box");
+    };
+    // Each line as its text, an image as `▣`.
+    let lines: Vec<String> = root
+        .children
+        .iter()
+        .map(|line| {
+            let Fragment::Line(line) = line else {
+                panic!("a line");
+            };
+            line.children
+                .iter()
+                .map(|child| match child {
+                    Fragment::Text(run) => {
+                        text[run.text_start as usize..run.text_end as usize].to_owned()
+                    }
+                    Fragment::Image(_) => "▣".to_owned(),
+                    _ => String::new(),
+                })
+                .collect()
+        })
+        .collect();
+    assert_eq!(lines, vec!["中中▣".to_owned(), "中文中".to_owned()]);
+}

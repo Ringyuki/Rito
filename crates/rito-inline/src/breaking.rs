@@ -148,8 +148,9 @@ pub(crate) const LINE_END_TRIM_SCAN: usize = 64;
 /// which Blink answers by rewinding the WHOLE overflowing item to the
 /// next line — measured on razor-fit note-box lines, where line one keeps
 /// only the leading `①` span while greedy would split the text item.
-/// Returns the cluster count the line must be forced to hold.
-pub(crate) fn rewind_break_count(
+/// Returns the text index the line must be forced to end before: the
+/// start of the rewound item.
+pub(crate) fn rewind_break_end(
     catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
     text: &str,
@@ -157,7 +158,7 @@ pub(crate) fn rewind_break_count(
     max_advance: f64,
     item_ranges: &[std::ops::Range<usize>],
     bounds: &mut WidthBounds,
-) -> Option<u32> {
+) -> Option<usize> {
     let line = layout.get(line_index)?;
     let next = layout.get(line_index + 1)?;
     if line.break_reason() != parley::layout::BreakReason::Regular {
@@ -215,12 +216,10 @@ pub(crate) fn rewind_break_count(
             .iter()
             .find(|range| range.contains(&byte))
             .map(|range| range.start)?;
-        let line_start = line.text_range().start;
-        if item_start <= line_start {
+        if item_start <= line.text_range().start {
             return None;
         }
-        let count = text.get(line_start..item_start)?.chars().count();
-        return u32::try_from(count).ok().filter(|count| *count > 0);
+        return Some(item_start);
     }
     None
 }

@@ -882,6 +882,80 @@ impl<'a, B: Brush> BreakLines<'a, B> {
         Some(())
     }
 
+    /// Rito: breaks the next line so that it holds exactly the content
+    /// before text index `end`: every cluster starting before it and every
+    /// in-flow box placed at or before it (a box sits before the text at its
+    /// index). The line is forced, so it records no fit, and it can be
+    /// reverted like a line `break_next` computed. Returns `None` once all
+    /// content is placed.
+    pub fn break_next_to(&mut self, end: usize) -> Option<()> {
+        if self.done {
+            return None;
+        }
+        self.prev_state = Some(self.state.clone());
+        self.fit = (f32::NEG_INFINITY, f32::INFINITY);
+        let line_indent = self.resolve_indent();
+        let item_count = self.layout.data.items.len();
+        while self.state.item_idx < item_count {
+            let item = &self.layout.data.items[self.state.item_idx];
+            match item.kind {
+                LayoutItemKind::InlineBox => {
+                    let inline_box = &self.layout.data.inline_boxes[item.index];
+                    if inline_box.kind != InlineBoxKind::InFlow {
+                        self.state.append_inline_box_to_line(self.state.line.x, 0.0);
+                        continue;
+                    }
+                    if inline_box.index > end {
+                        self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
+                        return Some(());
+                    }
+                    let next_x = self.state.line.x + inline_box.width;
+                    self.state
+                        .append_inline_box_to_line(next_x, inline_box.height);
+                }
+                LayoutItemKind::TextRun => {
+                    let run_data = &self.layout.data.runs[item.index];
+                    let run = Run::new(self.layout, 0, 0, run_data, None);
+                    let cluster_start = run_data.cluster_range.start;
+                    let cluster_end = run_data.cluster_range.end;
+                    while self.state.cluster_idx < cluster_end {
+                        let cluster = run.get(self.state.cluster_idx - cluster_start).unwrap();
+                        if cluster.text_range().start >= end {
+                            self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
+                            return Some(());
+                        }
+                        let whitespace = cluster.info().whitespace();
+                        let is_newline = whitespace == Whitespace::Newline;
+                        // Newlines don't contribute to line width (as in
+                        // `break_next`).
+                        let next_x = if is_newline {
+                            self.state.line.x
+                        } else {
+                            self.state.line.x + cluster.advance()
+                        };
+                        let line_height = run.metrics().line_height;
+                        self.state.append_cluster_to_line(next_x, line_height);
+                        if whitespace.is_space_or_nbsp() {
+                            self.state.line.num_spaces += 1;
+                        }
+                        if is_newline {
+                            self.start_new_line(BreakReason::Explicit, f32::MAX, line_indent);
+                            return Some(());
+                        }
+                    }
+                    self.state.run_idx += 1;
+                    self.state.item_idx += 1;
+                }
+            }
+        }
+        if self.state.line.items.end == 0 {
+            self.state.line.items.end = 1;
+        }
+        self.done = true;
+        self.start_new_line(BreakReason::None, f32::MAX, line_indent);
+        Some(())
+    }
+
     /// Breaks all remaining lines with the specified maximum advance. This
     /// consumes the line breaker.
     pub fn break_remaining(mut self, max_advance: f32) {
