@@ -319,6 +319,16 @@ pub(crate) fn line_end_trim_candidate(
         if !bounds.fits_f32(advance + trimmed, max_advance + LINE_FIT_EPS) {
             return None;
         }
+        // A forced break right after the closer ends the line there at
+        // any width, and no soft break comes before a forced one: no line
+        // can end exactly after the trimmed closer, and the re-lay, which
+        // builds the whole paragraph again, could only reject the trim.
+        if cluster
+            .next_logical()
+            .is_some_and(|next| next.is_hard_line_break())
+        {
+            return None;
+        }
         return Some((byte, unsuppress));
     }
     None

@@ -1,3 +1,12 @@
+## Unreleased
+
+### A long `<br>`-broken paragraph lays out as fast on a phone as on a desktop
+
+A chapter written as one block of `<br>`-separated lines no longer has its
+text shaped again for every wrapped line that ends in a closing bracket or
+quote before a `<br>`, which made such a chapter several times slower to lay
+out at a phone's width; what is laid out is unchanged.
+
 ## 0.9.0 - 2026-10-20
 
 **Breaking:** requires Flutter 3.47, whose Flutter GPU samples a page image's

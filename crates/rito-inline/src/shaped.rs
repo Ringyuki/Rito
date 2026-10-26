@@ -206,6 +206,12 @@ impl ShapedParagraphs {
         self.kept.clear();
     }
 
+    /// How many builds are kept.
+    #[cfg(test)]
+    pub(crate) fn kept_count(&self) -> usize {
+        self.kept.count()
+    }
+
     fn touch(&mut self, key: &ShapeKey, space: &BuildSpace) -> Option<KeptParagraph> {
         let entry = self.kept.get(key)?;
         Some(KeptParagraph {

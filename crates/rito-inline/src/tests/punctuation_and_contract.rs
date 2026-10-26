@@ -929,3 +929,81 @@ fn an_atomic_inline_expands_before_but_defers_after() {
         "without the atom: 3 opportunities"
     );
 }
+
+/// A closer a forced break follows is never trimmed at a line's end: the
+/// break ends the line there whatever the closer's width, so the line can
+/// never end exactly after the trimmed closer (pinned Chromium wraps
+/// `…十」<br>` alike: 十」 opens the next line). The paragraph is built once
+/// for it, not again with a trim the line could only reject: a chapter
+/// laid out as one `<br>`-broken paragraph shaped itself again for every
+/// such dialogue line.
+#[test]
+fn a_closer_before_a_forced_break_is_not_built_trimmed() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline
+        .intern_for_node(
+            0,
+            plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(
+                    rito_style_contract::GenericFontFamily::Serif,
+                )])
+                .expect("family list"),
+                16.0,
+                0.0,
+            ),
+        )
+        .expect("style interns");
+    // Ten ideographs fill 160px; the closer needs 176 full, 168 trimmed.
+    let text = format!("{}」\n永永", "永".repeat(10));
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.clone(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            FormattingNodeId(0),
+            &ConstraintSpace::continuous(170.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let lines = line_texts(&outcome, &text);
+    assert_eq!(
+        lines[0],
+        "永".repeat(9),
+        "the closer is not trimmed onto the line"
+    );
+    assert_eq!(
+        lines[1].trim_end(),
+        "永」",
+        "it opens the next line full-width"
+    );
+    assert_eq!(
+        context.shaped.borrow().kept_count(),
+        1,
+        "the paragraph is built once, untrimmed"
+    );
+}
