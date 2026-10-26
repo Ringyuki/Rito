@@ -20,7 +20,9 @@ mod formatting_tree;
 mod fragment;
 mod serialize;
 
-pub use break_token::{BreakToken, BreakTokenStage, FloatBreak};
+pub use break_token::{
+    BreakToken, BreakTokenStage, FloatBreak, SpanningTableContinuation, TableCellInsertion,
+};
 pub use cache::{CachedLayout, FragmentCache};
 pub use constraint_space::{ConstraintSpace, FloatBand, LineText};
 pub use context::{

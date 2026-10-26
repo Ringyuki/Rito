@@ -31,6 +31,20 @@ reason or fails the chapter closed; nothing is silently misplaced.
 - `@font-face` sources in WOFF or WOFF2 are not decoded: text set in such
   a face falls to the next face its family list resolves to
 
+## Table Fragmentation
+
+- a connected group of rows joined by `rowspan` stays together when it
+  fits a fresh fragmentainer; larger spanning grids keep global column
+  widths and continue each cell independently at whole line/image boundaries
+- an indivisible line or image taller than a fresh fragmentainer in a
+  spanning grid fails the chapter closed, rather than silently clipping
+  that content. This path does not yet enforce paragraph widows/orphans
+  or repeat header/footer groups
+- an oversized multi-cell row in a table without row spans still follows
+  the existing force-placement path and can overflow a page
+- overlong positive spans end at the last explicit row of their group;
+  the table model does not synthesize implied rows for them
+
 ## Writing System Scope
 
 - left-to-right and `vertical-rl` only; no RTL / BiDi

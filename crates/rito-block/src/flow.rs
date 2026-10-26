@@ -463,6 +463,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     seal_height(y, &floats),
                     fragments,
                     BreakToken {
+                        spanning_table: None,
                         resume_path: vec![*child_id],
                         stage: BreakTokenStage::Before,
                         pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -491,6 +492,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     seal_height(y, &floats),
                     fragments,
                     BreakToken {
+                        spanning_table: None,
                         resume_path: vec![*child_id],
                         stage: BreakTokenStage::Before,
                         pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -584,6 +586,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             y + available,
                             fragments,
                             BreakToken {
+                                spanning_table: None,
                                 resume_path: vec![*child_id],
                                 stage: BreakTokenStage::Inside {
                                     consumed_block_size: already,
@@ -601,6 +604,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             y,
                             fragments,
                             BreakToken {
+                                spanning_table: None,
                                 resume_path: vec![*child_id],
                                 stage: BreakTokenStage::Before,
                                 pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -622,6 +626,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             y,
                             fragments,
                             BreakToken {
+                                spanning_table: None,
                                 resume_path: vec![*child_id],
                                 stage: BreakTokenStage::Before,
                                 pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -642,11 +647,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let pending = std::mem::take(&mut pending_float_breaks);
                     let continuation = match children.get(index + 1) {
                         Some(next) => Some(BreakToken {
+                            spanning_table: None,
                             resume_path: vec![*next],
                             stage: BreakTokenStage::Before,
                             pending_floats: pending,
                         }),
                         None if !pending.is_empty() => Some(BreakToken {
+                            spanning_table: None,
                             resume_path: Vec::new(),
                             stage: BreakTokenStage::Before,
                             pending_floats: pending,
@@ -825,6 +832,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 y,
                                 fragments,
                                 BreakToken {
+                                    spanning_table: None,
                                     resume_path: vec![*child_id],
                                     stage: BreakTokenStage::Inside {
                                         consumed_block_size: consumed,
@@ -841,6 +849,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             y,
                             fragments,
                             BreakToken {
+                                spanning_table: None,
                                 resume_path: vec![*child_id],
                                 stage: if child_resumed {
                                     BreakTokenStage::Inside {
@@ -884,6 +893,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 seal_height(y, &floats),
                                 fragments,
                                 BreakToken {
+                                    spanning_table: None,
                                     resume_path: vec![*child_id],
                                     stage: BreakTokenStage::Before,
                                     pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -1030,6 +1040,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 y,
                                 fragments,
                                 BreakToken {
+                                    spanning_table: None,
                                     resume_path: vec![*child_id],
                                     stage: BreakTokenStage::Inside {
                                         consumed_block_size: placement.consumed_end,
@@ -1069,6 +1080,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         y,
                         fragments,
                         BreakToken {
+                            spanning_table: None,
                             resume_path: vec![*child_id],
                             stage: BreakTokenStage::Inside {
                                 consumed_block_size: placement.consumed_end,
@@ -1101,7 +1113,35 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         }
                     } else {
                         let child_token = if child_resumed {
-                            descend_token(token, consumed)?
+                            // A spanning grid resumes at a physical table
+                            // offset, rather than inside a named row/cell.
+                            // Ordinary container continuations still require
+                            // a descendant path; only tables accept this form.
+                            match token {
+                                Some(token)
+                                    if token.resume_path.len() == 1
+                                        && token
+                                            .spanning_table
+                                            .as_ref()
+                                            .is_some_and(|state| state.table == *child_id)
+                                        && matches!(
+                                            token.stage,
+                                            BreakTokenStage::Inside { .. }
+                                        )
+                                        && !token
+                                            .pending_floats
+                                            .iter()
+                                            .any(|entry| entry.depth > 0) =>
+                                {
+                                    Some(BreakToken {
+                                        spanning_table: token.spanning_table.clone(),
+                                        resume_path: Vec::new(),
+                                        stage: token.stage,
+                                        pending_floats: Vec::new(),
+                                    })
+                                }
+                                _ => descend_token(token, consumed)?,
+                            }
                         } else {
                             None
                         };
@@ -1125,6 +1165,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 seal_height(y, &floats),
                                 fragments,
                                 BreakToken {
+                                    spanning_table: None,
                                     resume_path: vec![*child_id],
                                     stage: BreakTokenStage::Before,
                                     pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -1196,6 +1237,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 y,
                                 fragments,
                                 BreakToken {
+                                    spanning_table: inner.spanning_table,
                                     resume_path,
                                     stage: inner.stage,
                                     pending_floats,
@@ -1280,6 +1322,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             seal_height(y, &floats),
                             fragments,
                             BreakToken {
+                                spanning_table: None,
                                 resume_path: vec![*child_id],
                                 stage: BreakTokenStage::Before,
                                 pending_floats: std::mem::take(&mut pending_float_breaks),
@@ -1390,6 +1433,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 y,
                                 fragments,
                                 BreakToken {
+                                    spanning_table: inner.spanning_table,
                                     resume_path,
                                     stage: inner.stage,
                                     pending_floats,
@@ -1442,6 +1486,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             None
         } else {
             Some(BreakToken {
+                spanning_table: None,
                 resume_path: Vec::new(),
                 stage: BreakTokenStage::Before,
                 pending_floats: std::mem::take(&mut pending_float_breaks),

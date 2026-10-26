@@ -19,6 +19,9 @@ const FRAGMENT_TAG_TEXT: u8 = 2;
 const FRAGMENT_TAG_IMAGE: u8 = 3;
 const STAGE_TAG_BEFORE: u8 = 0;
 const STAGE_TAG_INSIDE: u8 = 1;
+// Existing continuations retain their byte encoding. Only a spanning-table
+// continuation uses this extension tag, which older readers reject closed.
+const STAGE_TAG_SPANNING_TABLE: u8 = 2;
 
 /// Encodes one layout outcome (fragments plus optional continuation) into
 /// its canonical byte form.
@@ -330,6 +333,30 @@ fn encode_break_token(token: &BreakToken, out: &mut Vec<u8>) {
     for node in &token.resume_path {
         out.extend_from_slice(&node.0.to_le_bytes());
     }
+    if let Some(table) = &token.spanning_table {
+        out.push(STAGE_TAG_SPANNING_TABLE);
+        match token.stage {
+            BreakTokenStage::Inside {
+                consumed_block_size,
+            } => {
+                out.push(STAGE_TAG_INSIDE);
+                out.extend_from_slice(&consumed_block_size.to_le_bytes());
+            }
+            BreakTokenStage::Before => out.push(STAGE_TAG_BEFORE),
+        }
+        out.extend_from_slice(&table.table.0.to_le_bytes());
+        out.extend_from_slice(&(table.row_growth.len() as u32).to_le_bytes());
+        for value in &table.row_growth {
+            out.extend_from_slice(&value.to_le_bytes());
+        }
+        out.extend_from_slice(&(table.insertions.len() as u32).to_le_bytes());
+        for entry in &table.insertions {
+            out.extend_from_slice(&entry.cell.0.to_le_bytes());
+            out.extend_from_slice(&entry.at.to_le_bytes());
+            out.extend_from_slice(&entry.gap.to_le_bytes());
+        }
+        return;
+    }
     match token.stage {
         BreakTokenStage::Before => out.push(STAGE_TAG_BEFORE),
         BreakTokenStage::Inside {
@@ -359,14 +386,52 @@ fn decode_break_token(reader: &mut Reader<'_>) -> Result<BreakToken, String> {
     for _ in 0..path_len {
         resume_path.push(FormattingNodeId(reader.u32()?));
     }
+    let mut spanning_table = None;
     let stage = match reader.u8()? {
         STAGE_TAG_BEFORE => BreakTokenStage::Before,
         STAGE_TAG_INSIDE => BreakTokenStage::Inside {
             consumed_block_size: reader.f64()?,
         },
+        STAGE_TAG_SPANNING_TABLE => {
+            let stage = match reader.u8()? {
+                STAGE_TAG_BEFORE => BreakTokenStage::Before,
+                STAGE_TAG_INSIDE => BreakTokenStage::Inside {
+                    consumed_block_size: reader.f64()?,
+                },
+                tag => return Err(format!("unknown spanning-table inner stage {tag}")),
+            };
+            let table = FormattingNodeId(reader.u32()?);
+            let count = reader.u32()? as usize;
+            if count > reader.remaining() / 8 {
+                return Err("truncated spanning-table rows".to_owned());
+            }
+            let mut row_growth = Vec::with_capacity(count);
+            for _ in 0..count {
+                row_growth.push(reader.f64()?);
+            }
+            let count = reader.u32()? as usize;
+            if count > reader.remaining() / 20 {
+                return Err("truncated spanning-table insertions".to_owned());
+            }
+            let mut insertions = Vec::with_capacity(count);
+            for _ in 0..count {
+                insertions.push(crate::TableCellInsertion {
+                    cell: FormattingNodeId(reader.u32()?),
+                    at: reader.f64()?,
+                    gap: reader.f64()?,
+                });
+            }
+            spanning_table = Some(crate::SpanningTableContinuation {
+                table,
+                row_growth,
+                insertions,
+            });
+            stage
+        }
         tag => return Err(format!("unknown break-token stage tag {tag}")),
     };
     Ok(BreakToken {
+        spanning_table,
         resume_path,
         stage,
         pending_floats,
@@ -451,6 +516,7 @@ mod tests {
                 }),
             },
             continuation: Some(BreakToken {
+                spanning_table: None,
                 resume_path: vec![FormattingNodeId(2)],
                 stage: BreakTokenStage::Inside {
                     consumed_block_size: 79.5,
@@ -466,6 +532,48 @@ mod tests {
         let outcome = sample_outcome();
         let bytes = encode_layout_outcome(&outcome);
         assert_eq!(decode_layout_outcome(&bytes).expect("decode"), outcome);
+    }
+
+    #[test]
+    fn spanning_table_state_round_trips_and_truncation_fails_closed() {
+        let mut outcome = sample_outcome();
+        outcome.continuation.as_mut().expect("token").spanning_table =
+            Some(crate::SpanningTableContinuation {
+                table: FormattingNodeId(2),
+                row_growth: vec![0.0, 9.5],
+                insertions: vec![crate::TableCellInsertion {
+                    cell: FormattingNodeId(3),
+                    at: 47.0,
+                    gap: 9.5,
+                }],
+            });
+        let bytes = encode_layout_outcome(&outcome);
+        assert_eq!(
+            decode_layout_outcome(&bytes).expect("decode table state"),
+            outcome
+        );
+        for end in 0..bytes.len() {
+            assert!(decode_layout_outcome(&bytes[..end]).is_err());
+        }
+        outcome.continuation.as_mut().expect("token").stage = BreakTokenStage::Before;
+        assert_eq!(
+            decode_layout_outcome(&encode_layout_outcome(&outcome)).expect("before"),
+            outcome
+        );
+    }
+
+    #[test]
+    fn ordinary_break_tokens_keep_their_existing_encoding() {
+        let token = sample_outcome().continuation.expect("token");
+        let mut expected = Vec::new();
+        for value in [0_u32, 1, 2] {
+            expected.extend_from_slice(&value.to_le_bytes());
+        }
+        expected.push(1);
+        expected.extend_from_slice(&79.5_f64.to_le_bytes());
+        let mut encoded = Vec::new();
+        encode_break_token(&token, &mut encoded);
+        assert_eq!(encoded, expected);
     }
 
     #[test]

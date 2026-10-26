@@ -31,6 +31,7 @@ pub(crate) fn descend_token(
         .collect();
     if token.resume_path.len() > 1 {
         return Ok(Some(BreakToken {
+            spanning_table: token.spanning_table.clone(),
             resume_path: token.resume_path[1..].to_vec(),
             stage: token.stage,
             pending_floats: descended_floats,
@@ -40,6 +41,7 @@ pub(crate) fn descend_token(
         // The named child finished its in-flow content on the previous
         // fragmentainer; only its split floats resume.
         return Ok(Some(BreakToken {
+            spanning_table: None,
             resume_path: Vec::new(),
             stage: BreakTokenStage::Before,
             pending_floats: descended_floats,

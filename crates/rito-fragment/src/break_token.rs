@@ -23,9 +23,13 @@ pub enum BreakTokenStage {
 /// across the runtime protocol as data.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BreakToken {
+    /// Parallel cell continuations for the table named at the end of the
+    /// resume path. Ancestor containers pass this pure value through.
+    pub spanning_table: Option<SpanningTableContinuation>,
     /// Path from the context root to the node where layout resumes; each
     /// entry is the node to resume at within its parent's child list. May
-    /// be empty when only `pending_floats` remain to lay out.
+    /// be empty when only `pending_floats` remain or a spanning table
+    /// resumes at its own physical offset.
     pub resume_path: Vec<FormattingNodeId>,
     /// Stage within the final node of `resume_path`.
     pub stage: BreakTokenStage,
@@ -34,6 +38,23 @@ pub struct BreakToken {
     /// while in-flow layout resumes at `resume_path` — the way columns
     /// built from floats continue across pages in a browser.
     pub pending_floats: Vec<FloatBreak>,
+}
+
+/// Pagination gaps already inserted into independent cells. They keep a
+/// line whole without requiring other columns to break at the same height.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SpanningTableContinuation {
+    pub table: FormattingNodeId,
+    pub row_growth: Vec<f64>,
+    pub insertions: Vec<TableCellInsertion>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TableCellInsertion {
+    pub cell: FormattingNodeId,
+    /// Cell-local position after applying all earlier insertions.
+    pub at: f64,
+    pub gap: f64,
 }
 
 /// One float's resumption across a fragmentainer edge.

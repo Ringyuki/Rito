@@ -745,6 +745,7 @@ fn fragmented_space_and_break_tokens_fail_closed() {
         Err(LayoutError::Invalid(_))
     ));
     let token = BreakToken {
+        spanning_table: None,
         resume_path: vec![FormattingNodeId(0)],
         stage: BreakTokenStage::Before,
         pending_floats: Vec::new(),

@@ -5,10 +5,29 @@
 
 use crate::*;
 
+mod spanning;
+
 impl TableGridLayout {
     /// A cell's border-box width across its column span.
     fn cell_width(&self, cell: &TableGridCell) -> f64 {
         self.offsets[cell.column + cell.span] - self.offsets[cell.column] - self.spacing_x
+    }
+
+    fn has_row_spans(&self) -> bool {
+        self.rows.iter().flatten().any(|cell| cell.row_span > 1)
+    }
+
+    /// Rows joined by cells cannot independently move to another page.
+    fn group_end(&self, start: usize) -> usize {
+        let mut end = start + 1;
+        let mut row = start;
+        while row < end {
+            for cell in &self.rows[row] {
+                end = end.max(row + cell.row_span);
+            }
+            row += 1;
+        }
+        end
     }
 }
 
@@ -42,11 +61,17 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         };
         let mut rows = Vec::with_capacity(grid.rows.len());
         let mut y = grid.spacing_y;
-        for row_index in 0..grid.rows.len() {
+        let laid_rows = if grid.has_row_spans() {
+            self.layout_spanning_rows(tree, &grid, cancel)?.rows
+        } else {
+            (0..grid.rows.len())
+                .map(|i| self.layout_table_row(tree, &grid, i, cancel))
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        for mut row in laid_rows {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
-            let mut row = self.layout_table_row(tree, &grid, row_index, cancel)?;
             let row_height = row.rect.height;
             row.rect.y = y;
             rows.push(Fragment::Box(row));
@@ -91,6 +116,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 continuation: None,
             });
         };
+        if grid.has_row_spans() {
+            return self.layout_spanning_table_in_fragmentainer(
+                tree,
+                table,
+                &grid,
+                budget,
+                fragmentainer_size,
+                token,
+                page_is_empty,
+                cancel,
+            );
+        }
         // Decode the resume point: the token names the interrupted row,
         // then the interrupted cell with its own inner path. Two levels
         // strip off; split floats ride down rebased the same two levels.
@@ -117,6 +154,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     ));
                 }
                 cell_token = Some(BreakToken {
+                    spanning_table: token.spanning_table.clone(),
                     resume_path: token.resume_path[2..].to_vec(),
                     stage: token.stage,
                     pending_floats: token
@@ -164,6 +202,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         continue;
                     }
                     continuation = Some(BreakToken {
+                        spanning_table: None,
                         resume_path: vec![row_id],
                         stage: BreakTokenStage::Before,
                         pending_floats: Vec::new(),
@@ -222,6 +261,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     return Ok(TableFragmentainerPlacement::BreakBefore);
                 }
                 continuation = Some(BreakToken {
+                    spanning_table: None,
                     resume_path: vec![row_id],
                     stage: BreakTokenStage::Before,
                     pending_floats: Vec::new(),
@@ -251,6 +291,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     resume_path.push(cell.node);
                     resume_path.extend(inner.resume_path);
                     continuation = Some(BreakToken {
+                        spanning_table: inner.spanning_table,
                         resume_path,
                         stage: inner.stage,
                         pending_floats: inner
@@ -298,7 +339,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let mut rows: Vec<Vec<TableGridCell>> = Vec::new();
         let mut row_ids: Vec<FormattingNodeId> = Vec::new();
         let mut column_count = 0usize;
-        for row_id in &tree.node(table).children {
+        let mut occupied_until: Vec<usize> = Vec::new();
+        let row_count = tree.node(table).children.len();
+        for (row_index, row_id) in tree.node(table).children.iter().enumerate() {
             let FormattingNodeContent::TableRow = tree.node(*row_id).content else {
                 return Err(LayoutError::Invalid(
                     "table children must be rows".to_owned(),
@@ -307,17 +350,33 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             let mut cells = Vec::new();
             let mut column = 0usize;
             for cell_id in &tree.node(*row_id).children {
-                let FormattingNodeContent::TableCell { col_span } = tree.node(*cell_id).content
+                let FormattingNodeContent::TableCell { col_span, row_span } =
+                    tree.node(*cell_id).content
                 else {
                     return Err(LayoutError::Invalid(
                         "table-row children must be cells".to_owned(),
                     ));
                 };
                 let span = (col_span as usize).max(1);
+                let row_span = (row_span as usize).max(1).min(row_count - row_index);
+                loop {
+                    let occupied = (column..column + span).find(|index| {
+                        occupied_until
+                            .get(*index)
+                            .is_some_and(|until| *until > row_index)
+                    });
+                    match occupied {
+                        Some(index) => column = index + 1,
+                        None => break,
+                    }
+                }
+                occupied_until.resize(occupied_until.len().max(column + span), 0);
+                occupied_until[column..column + span].fill(row_index + row_span);
                 cells.push(TableGridCell {
                     node: *cell_id,
                     column,
                     span,
+                    row_span,
                 });
                 column += span;
             }
@@ -496,6 +555,104 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 height: row_height,
             },
             children: cell_fragments.into_iter().map(Fragment::Box).collect(),
+        })
+    }
+
+    /// Measure cells at their globally assigned widths, then satisfy each
+    /// spanning cell's height demand across the rows it actually covers.
+    fn layout_spanning_rows(
+        &self,
+        tree: &FormattingTree,
+        grid: &TableGridLayout,
+        cancel: &CancelFlag,
+    ) -> Result<SpanningRows, LayoutError> {
+        let mut heights = vec![0.0_f64; grid.rows.len()];
+        let mut cells = Vec::with_capacity(grid.rows.len());
+        let mut spans = Vec::new();
+        for (row_index, row) in grid.rows.iter().enumerate() {
+            let mut fragments = Vec::with_capacity(row.len());
+            for cell in row {
+                if cancel.is_cancelled() {
+                    return Err(LayoutError::Cancelled);
+                }
+                let width = grid.cell_width(cell);
+                let outcome = self.layout_container(
+                    tree,
+                    cell.node,
+                    &ConstraintSpace::continuous(width),
+                    None,
+                    cancel,
+                    false,
+                    false,
+                )?;
+                let Fragment::Box(mut root) = outcome.fragments.root else {
+                    return Err(LayoutError::Invalid(
+                        "cell layout must produce a box fragment".to_owned(),
+                    ));
+                };
+                root.source = cell.node;
+                root.rect.x = grid.offsets[cell.column] - grid.spacing_x;
+                root.rect.width = width;
+                if cell.row_span == 1 {
+                    heights[row_index] = heights[row_index].max(root.rect.height);
+                } else {
+                    spans.push((cell.row_span, row_index, root.rect.height));
+                }
+                fragments.push(root);
+            }
+            cells.push(fragments);
+        }
+        // Resolve short spans first. CSS 2.2 leaves surplus distribution
+        // unspecified; give empty auto rows their share before growing
+        // the remaining rows equally, never shrinking a content minimum.
+        spans.sort_by_key(|&(span, row, _)| (span, row));
+        for (span, row, demand) in spans {
+            let bands = &mut heights[row..row + span];
+            let available = bands.iter().sum::<f64>() + grid.spacing_y * (span - 1) as f64;
+            let deficit = (demand - available).max(0.0);
+            let empty = bands.iter().filter(|height| **height == 0.0).count();
+            let count = if empty > 0 { empty } else { bands.len() };
+            for height in bands {
+                if empty == 0 || *height == 0.0 {
+                    *height += deficit / count as f64;
+                }
+            }
+        }
+        let mut rows = Vec::with_capacity(grid.rows.len());
+        let mut content_heights = Vec::with_capacity(grid.rows.len());
+        for (index, (row, mut fragments)) in grid.rows.iter().zip(cells).enumerate() {
+            let mut aligned_content_heights = Vec::with_capacity(row.len());
+            for (cell, root) in row.iter().zip(&mut fragments) {
+                let height = heights[index..index + cell.row_span].iter().sum::<f64>()
+                    + grid.spacing_y * (cell.row_span - 1) as f64;
+                let free = (height - root.rect.height).max(0.0);
+                let shift = match container_layout_style(tree, root.source)?.vertical_align {
+                    rito_style_contract::CellVerticalAlign::Middle => free / 2.0,
+                    rito_style_contract::CellVerticalAlign::Bottom => free,
+                    _ => 0.0,
+                };
+                for child in &mut root.children {
+                    translate_fragment(child, 0.0, shift);
+                }
+                aligned_content_heights.push(root.rect.height + shift);
+                root.rect.y = 0.0;
+                root.rect.height = height;
+            }
+            rows.push(BoxFragment {
+                source: grid.row_ids[index],
+                rect: FragmentRect {
+                    x: grid.spacing_x,
+                    y: 0.0,
+                    width: (grid.table_width - 2.0 * grid.spacing_x).max(0.0),
+                    height: heights[index],
+                },
+                children: fragments.into_iter().map(Fragment::Box).collect(),
+            });
+            content_heights.push(aligned_content_heights);
+        }
+        Ok(SpanningRows {
+            rows,
+            content_heights,
         })
     }
 

@@ -565,8 +565,9 @@ fn table_span(element: Node<'_>, name: &str) -> Option<u32> {
 
     element
         .attribute(name)
-        .and_then(|value| value.parse::<u32>().ok())
-        .filter(|value| *value > 1)
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .filter(|value| *value > 1 || (name == "rowspan" && *value == 0))
+        .map(|value| value.min(if name == "rowspan" { 65534 } else { 1000 }))
 }
 
 fn has_any_attribute(attributes: &ElementAttributes) -> bool {
@@ -801,6 +802,27 @@ mod tests {
 
     use super::{parse_xhtml, parse_xhtml_from_source, parse_xhtml_with_source, DocumentNode};
     use crate::xhtml::AuthorStylesheetSource;
+
+    #[test]
+    fn rowspan_zero_and_html_span_limits_survive_projection() {
+        for (attributes, rows, columns) in [
+            ("rowspan='0' colspan='0'", Some(0), None),
+            ("rowspan=' 2 ' colspan=' 3 '", Some(2), Some(3)),
+            ("rowspan='99999' colspan='99999'", Some(65534), Some(1000)),
+            ("rowspan='invalid' colspan='-2'", None, None),
+        ] {
+            let parsed = parse_xhtml(&format!(
+                "<html><body><td {attributes}>cell</td></body></html>"
+            ))
+            .expect("parse");
+            let DocumentNode::Block(cell) = &parsed.nodes[0] else {
+                panic!("cell")
+            };
+            let attrs = cell.attributes.as_ref().expect("attributes retained");
+            assert_eq!(attrs.rowspan, rows);
+            assert_eq!(attrs.colspan, columns);
+        }
+    }
 
     #[test]
     fn derives_semantic_nodes_from_the_callers_exact_source_arena() {

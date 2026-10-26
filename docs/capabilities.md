@@ -56,7 +56,9 @@ projected into typed tables the layout crates read:
 - inline-block atoms
 - images with intrinsic sizing, EXIF orientation, `object-fit: contain`
   letterboxing and SVG `viewBox` placement
-- tables with row groups, collapsed borders and CSS column sizing
+- tables with row groups, collapsed borders, CSS column sizing, and
+  combined `colspan` / `rowspan` occupancy and height allocation;
+  `rowspan="0"` extends to the end of its row group
 - lists with outside markers shaped by the engine
 - `hr` rules including the inset bevel pair
 - ruby with `ruby-align`, mono-ruby pairing and annotation growth

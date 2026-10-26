@@ -7,6 +7,10 @@ use super::*;
 /// the paragraph line counts of each cell (single-line paragraphs
 /// through `FixedLineInline`, so every count is 10 px of content).
 fn table_tree(rows: &[&[&[usize]]]) -> FormattingTree {
+    table_tree_with_rowspans(rows, &[])
+}
+
+fn table_tree_with_rowspans(rows: &[&[&[usize]]], spans: &[(usize, usize, u32)]) -> FormattingTree {
     let mut inline = InlineStyleTable::new(1);
     let text_style = inline
         .intern_for_node(
@@ -22,9 +26,9 @@ fn table_tree(rows: &[&[&[usize]]]) -> FormattingTree {
     let mut nodes: Vec<FormattingNode> = Vec::new();
     let mut row_ids = Vec::new();
     let mut node_total = 0usize;
-    for row in rows {
+    for (row_index, row) in rows.iter().enumerate() {
         let mut cell_ids = Vec::new();
-        for cell in *row {
+        for (cell_index, cell) in row.iter().enumerate() {
             let mut paragraph_ids = Vec::new();
             for count in *cell {
                 nodes.push(FormattingNode {
@@ -46,7 +50,13 @@ fn table_tree(rows: &[&[&[usize]]]) -> FormattingTree {
             }
             nodes.push(FormattingNode {
                 style: LayoutStyleId::from_raw(0),
-                content: FormattingNodeContent::TableCell { col_span: 1 },
+                content: FormattingNodeContent::TableCell {
+                    col_span: 1,
+                    row_span: spans
+                        .iter()
+                        .find(|(r, c, _)| *r == row_index && *c == cell_index)
+                        .map_or(1, |(_, _, s)| *s),
+                },
                 children: paragraph_ids,
             });
             cell_ids.push(FormattingNodeId(node_total as u32));
@@ -123,7 +133,10 @@ fn border_spacing_wraps_the_single_row_once_per_side() {
         },
         FormattingNode {
             style: node_style_id(&layout, 0),
-            content: FormattingNodeContent::TableCell { col_span: 1 },
+            content: FormattingNodeContent::TableCell {
+                col_span: 1,
+                row_span: 1,
+            },
             children: vec![FormattingNodeId(0)],
         },
         FormattingNode {
@@ -243,4 +256,250 @@ fn a_fitting_table_places_whole_and_continuous_flow_never_fragments() {
     let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 80.0));
     assert_eq!(pages.len(), 1);
     assert!((table_fragment(&pages[0]).rect.height - 60.0).abs() < 1e-9);
+}
+
+#[test]
+fn rowspan_group_moves_as_a_unit_and_column_occupancy_survives_the_break() {
+    let context = BlockFormattingContext::new(FixedLineInline);
+    let tree = table_tree_with_rowspans(&[&[&[2], &[1]], &[&[1]], &[&[1], &[1]]], &[(0, 0, 2)]);
+    let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+    assert_eq!(pages.len(), 2);
+    let first = table_fragment(&pages[0]);
+    let second = table_fragment(&pages[1]);
+    assert_eq!(first.children.len(), 2);
+    assert_eq!(second.children.len(), 1);
+    assert!((first.rect.height - 20.0).abs() < 1e-9);
+    let Fragment::Box(first_row) = &first.children[0] else {
+        panic!("row")
+    };
+    let Fragment::Box(second_row) = &first.children[1] else {
+        panic!("row")
+    };
+    let Fragment::Box(span) = &first_row.children[0] else {
+        panic!("cell")
+    };
+    let Fragment::Box(upper) = &first_row.children[1] else {
+        panic!("cell")
+    };
+    let Fragment::Box(lower) = &second_row.children[0] else {
+        panic!("cell")
+    };
+    assert_eq!(span.rect.height, 20.0);
+    assert_eq!(upper.rect.x, lower.rect.x);
+    assert!(lower.rect.x >= span.rect.x + span.rect.width);
+}
+
+#[test]
+fn rowspan_table_preserves_fragmentation_of_an_unrelated_tall_single_cell_row() {
+    let context = BlockFormattingContext::new(FixedLineInline);
+    let tree = table_tree_with_rowspans(
+        &[&[&[1], &[1]], &[&[1]], &[&[1, 1, 1, 1, 1, 1]]],
+        &[(0, 0, 2)],
+    );
+    let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+    assert_eq!(
+        pages.len(),
+        4,
+        "20px group, then three fragments of the 60px cell"
+    );
+    fn lines(fragment: &Fragment) -> usize {
+        match fragment {
+            Fragment::Box(b) => b.children.iter().map(lines).sum(),
+            Fragment::Line(_) => 1,
+            _ => 0,
+        }
+    }
+    assert_eq!(
+        pages
+            .iter()
+            .map(|p| lines(&p.fragments.root))
+            .sum::<usize>(),
+        9
+    );
+    assert!(pages.iter().all(|p| table_fragment(p).rect.height <= 25.0));
+}
+
+#[test]
+fn rowspan_participates_in_the_formatting_tree_fingerprint() {
+    let rows: &[&[&[usize]]] = &[&[&[1], &[1]], &[&[1]]];
+    let first = table_tree_with_rowspans(rows, &[(0, 0, 1)]);
+    let spanning = table_tree_with_rowspans(rows, &[(0, 0, 2)]);
+    assert_ne!(first.fingerprint(), spanning.fingerprint());
+}
+
+#[test]
+fn rowspan_taller_than_a_page_fragments_without_lost_or_repeated_lines() {
+    let context = BlockFormattingContext::new(FixedLineInline);
+    let owned: Vec<Vec<Vec<usize>>> = (0..30)
+        .map(|row| {
+            if row == 0 {
+                vec![vec![1], vec![1]]
+            } else {
+                vec![vec![1]]
+            }
+        })
+        .collect();
+    let cells: Vec<Vec<&[usize]>> = owned
+        .iter()
+        .map(|row| row.iter().map(Vec::as_slice).collect())
+        .collect();
+    let rows: Vec<&[&[usize]]> = cells.iter().map(Vec::as_slice).collect();
+    let tree = table_tree_with_rowspans(&rows, &[(0, 0, 30)]);
+    let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
+    assert_eq!(pages.len(), 15, "two 10px rows per page");
+    fn collect(fragment: &Fragment, parent_y: f64, seen: &mut std::collections::BTreeSet<u32>) {
+        match fragment {
+            Fragment::Box(b) => {
+                for child in &b.children {
+                    collect(child, parent_y + b.rect.y, seen);
+                }
+            }
+            Fragment::Line(line) => {
+                let top = parent_y + line.rect.y;
+                assert!(
+                    top >= -1e-7 && top + line.rect.height <= 25.0 + 1e-7,
+                    "line outside page: {top}"
+                );
+                assert!(
+                    seen.insert(line.source.0),
+                    "a source paragraph appeared twice"
+                );
+            }
+            _ => {}
+        }
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    for page in &pages {
+        collect(&page.fragments.root, 0.0, &mut seen);
+    }
+    assert_eq!(
+        seen.len(),
+        31,
+        "the spanning cell and every ordinary row remain readable"
+    );
+}
+
+#[test]
+fn rowspan_reports_an_indivisible_line_instead_of_silently_clipping_it() {
+    let context = BlockFormattingContext::new(FixedLineInline);
+    let tree = table_tree_with_rowspans(&[&[&[1], &[1]], &[&[1]]], &[(0, 0, 2)]);
+    let error = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::fragmented(100.0, 5.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect_err("a 10px line cannot fit a 5px page");
+    assert!(
+        matches!(error, LayoutError::Invalid(message) if message.contains("indivisible line or image"))
+    );
+}
+
+#[test]
+fn parallel_cell_continuation_survives_serialization_and_a_fresh_context() {
+    struct DifferentLineHeights;
+    impl FormattingContext for DifferentLineHeights {
+        fn layout(
+            &self,
+            tree: &FormattingTree,
+            node: FormattingNodeId,
+            space: &ConstraintSpace,
+            token: Option<&BreakToken>,
+            cancel: &CancelFlag,
+        ) -> Result<LayoutOutcome, LayoutError> {
+            let mut outcome = FixedLineInline.layout(tree, node, space, token, cancel)?;
+            if node == FormattingNodeId(0) {
+                let Fragment::Box(root) = &mut outcome.fragments.root else {
+                    unreachable!()
+                };
+                root.rect.height = root.children.len() as f64 * 7.0;
+                for (index, child) in root.children.iter_mut().enumerate() {
+                    let Fragment::Line(line) = child else {
+                        unreachable!()
+                    };
+                    line.rect.y = index as f64 * 7.0;
+                    line.rect.height = 7.0;
+                    line.baseline = 5.0;
+                }
+            }
+            Ok(outcome)
+        }
+        fn intrinsic_inline_sizes(
+            &self,
+            tree: &FormattingTree,
+            node: FormattingNodeId,
+        ) -> Result<IntrinsicInlineSizes, LayoutError> {
+            FixedLineInline.intrinsic_inline_sizes(tree, node)
+        }
+    }
+    let owned: Vec<Vec<Vec<usize>>> = (0..30)
+        .map(|row| {
+            if row == 0 {
+                vec![vec![30], vec![1]]
+            } else {
+                vec![vec![1]]
+            }
+        })
+        .collect();
+    let cells: Vec<Vec<&[usize]>> = owned
+        .iter()
+        .map(|row| row.iter().map(Vec::as_slice).collect())
+        .collect();
+    let rows: Vec<&[&[usize]]> = cells.iter().map(Vec::as_slice).collect();
+    let tree = table_tree_with_rowspans(&rows, &[(0, 0, 30)]);
+    let warm = BlockFormattingContext::new(DifferentLineHeights);
+    let space = ConstraintSpace::fragmented(100.0, 25.0);
+    let cancel = CancelFlag::new();
+    let mut token = None;
+    let mut counts = [0, 0];
+    let mut used_cell_state = false;
+    fn count(fragment: &Fragment, parent_y: f64, counts: &mut [usize; 2]) {
+        match fragment {
+            Fragment::Box(root) => {
+                for child in &root.children {
+                    count(child, parent_y + root.rect.y, counts)
+                }
+            }
+            Fragment::Line(line) => {
+                let top = parent_y + line.rect.y;
+                assert!(top >= -1e-7 && top + line.rect.height <= 25.0 + 1e-7);
+                counts[usize::from(line.source != FormattingNodeId(0))] += 1;
+            }
+            _ => {}
+        }
+    }
+    for page in 0..64 {
+        let fresh = BlockFormattingContext::new(DifferentLineHeights);
+        let outcome = fresh
+            .layout(&tree, tree.root(), &space, token.as_ref(), &cancel)
+            .expect("fresh context resumes");
+        assert_eq!(
+            warm.layout(&tree, tree.root(), &space, token.as_ref(), &cancel)
+                .expect("warm context"),
+            outcome
+        );
+        count(&outcome.fragments.root, 0.0, &mut counts);
+        let decoded =
+            rito_fragment::decode_layout_outcome(&rito_fragment::encode_layout_outcome(&outcome))
+                .expect("serialized continuation");
+        assert_eq!(decoded, outcome);
+        token = decoded.continuation;
+        let Some(next) = &token else {
+            assert_eq!(counts, [30, 30]);
+            assert!(used_cell_state);
+            assert_eq!(
+                page + 1,
+                15,
+                "free span height must absorb inserted gaps without blank tail pages"
+            );
+            return;
+        };
+        used_cell_state |= next
+            .spanning_table
+            .as_ref()
+            .is_some_and(|state| !state.insertions.is_empty());
+        assert!(page < 63, "parallel cells must finish");
+    }
 }

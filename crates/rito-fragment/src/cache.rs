@@ -17,8 +17,8 @@
 //! break into the same lines at the next one.
 //!
 //! Memory is bounded by a byte budget charged a fixed size per fragment of
-//! each outcome: deterministic across platforms, and counted by walking the
-//! fragments rather than encoding them. Least-recently-used entries are
+//! each outcome plus retained spanning-table continuation vectors in both
+//! the input key and output. Counted without encoding them. Least-recently-used entries are
 //! evicted first.
 
 use std::collections::VecDeque;
@@ -80,13 +80,36 @@ enum TokenStageKey {
 /// every float the same edge split.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct TokenKey {
+    table: Option<std::sync::Arc<TableTokenKey>>,
     path: Vec<u32>,
     stage: TokenStageKey,
     floats: Vec<(u32, u32, TokenKey)>,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct TableTokenKey {
+    owner: u32,
+    rows: Vec<u64>,
+    insertions: Vec<(u32, u64, u64)>,
+}
+
 fn token_key(token: &BreakToken) -> TokenKey {
     TokenKey {
+        table: token.spanning_table.as_ref().map(|table| {
+            std::sync::Arc::new(TableTokenKey {
+                owner: table.table.0,
+                rows: table
+                    .row_growth
+                    .iter()
+                    .map(|value| value.to_bits())
+                    .collect(),
+                insertions: table
+                    .insertions
+                    .iter()
+                    .map(|entry| (entry.cell.0, entry.at.to_bits(), entry.gap.to_bits()))
+                    .collect(),
+            })
+        }),
         path: token.resume_path.iter().map(|node| node.0).collect(),
         stage: match token.stage {
             crate::BreakTokenStage::Before => TokenStageKey::Before,
@@ -195,8 +218,10 @@ impl FragmentCache {
     ) -> Result<R, LayoutError> {
         let key = cache_key(tree, node, space, token);
         self.clock += 1;
-        let held = if self.entries.contains_key(&key) {
-            Some(key.clone())
+        let held = if let Some((held, _)) = self.entries.get_key_value(&key) {
+            // Reuse the canonical key's Arc: repeated cache hits must not
+            // leave fresh copies of large cell vectors in the recency queue.
+            Some(held.clone())
         } else if space.line_text != LineText::Omitted {
             None
         } else {
@@ -215,7 +240,7 @@ impl FragmentCache {
             return Ok(read(&self.entries[&held].outcome, true));
         }
         let outcome = provider.layout(tree, node, space, token, cancel)?;
-        let bytes = footprint(&outcome);
+        let bytes = footprint(&outcome) + token.map_or(0, table_state_bytes);
         if bytes > self.budget_bytes {
             return Ok(read(&outcome, false));
         }
@@ -343,6 +368,20 @@ fn footprint(outcome: &LayoutOutcome) -> usize {
         }
     }
     FRAGMENT_BYTES * fragments(&outcome.fragments.root)
+        + outcome.continuation.as_ref().map_or(0, table_state_bytes)
+}
+
+fn table_state_bytes(token: &BreakToken) -> usize {
+    let own = token.spanning_table.as_ref().map_or(0, |state| {
+        std::mem::size_of::<crate::SpanningTableContinuation>()
+            + state.row_growth.len() * std::mem::size_of::<f64>()
+            + state.insertions.len() * std::mem::size_of::<crate::TableCellInsertion>()
+    });
+    own + token
+        .pending_floats
+        .iter()
+        .map(|entry| table_state_bytes(&entry.token))
+        .sum::<usize>()
 }
 
 fn cache_key(
@@ -400,6 +439,143 @@ mod tests {
     use crate::formatting_tree::{FormattingNode, FormattingNodeContent, FormattingNodeId};
     use rito_style_contract::LayoutStyleId;
     use std::cell::Cell;
+
+    #[test]
+    fn spanning_table_state_affects_cache_identity_and_memory_charge() {
+        let mut token = BreakToken {
+            resume_path: vec![FormattingNodeId(7)],
+            stage: crate::BreakTokenStage::Inside {
+                consumed_block_size: 20.0,
+            },
+            pending_floats: Vec::new(),
+            spanning_table: Some(crate::SpanningTableContinuation {
+                table: FormattingNodeId(7),
+                row_growth: vec![0.0, 6.0],
+                insertions: vec![crate::TableCellInsertion {
+                    cell: FormattingNodeId(1),
+                    at: 14.0,
+                    gap: 6.0,
+                }],
+            }),
+        };
+        let original = token_key(&token);
+        let cloned = original.clone();
+        assert!(
+            std::sync::Arc::ptr_eq(
+                original.table.as_ref().expect("table key"),
+                cloned.table.as_ref().expect("cloned table key")
+            ),
+            "recency/index copies must share the table vectors"
+        );
+        token.spanning_table.as_mut().expect("state").insertions[0].gap = 7.0;
+        assert_ne!(original, token_key(&token));
+        token.spanning_table.as_mut().expect("state").insertions[0].gap = 6.0;
+        token.spanning_table.as_mut().expect("state").row_growth[1] = 7.0;
+        assert_ne!(original, token_key(&token));
+        let mut outcome = LayoutOutcome {
+            fragments: crate::FragmentTree {
+                root: Fragment::Box(crate::BoxFragment {
+                    source: FormattingNodeId(7),
+                    rect: crate::FragmentRect {
+                        x: 0.0,
+                        y: 0.0,
+                        width: 10.0,
+                        height: 20.0,
+                    },
+                    children: Vec::new(),
+                }),
+            },
+            continuation: Some(token),
+            escaped_floats: Vec::new(),
+            positioned: Vec::new(),
+            inline_size_range: None,
+        };
+        let charged = footprint(&outcome);
+        outcome.continuation.as_mut().expect("token").spanning_table = None;
+        assert!(
+            charged > footprint(&outcome),
+            "retained cell state must count against the cache budget"
+        );
+    }
+
+    #[test]
+    fn incoming_table_state_is_budgeted_and_cache_hits_share_its_vectors() {
+        let provider = CountingContext::new();
+        let tree = leaf_tree(0, &[10.0]);
+        let mut token = BreakToken {
+            resume_path: vec![FormattingNodeId(0)],
+            stage: crate::BreakTokenStage::Before,
+            pending_floats: Vec::new(),
+            spanning_table: Some(crate::SpanningTableContinuation {
+                table: FormattingNodeId(0),
+                row_growth: vec![0.0; 10000],
+                insertions: Vec::new(),
+            }),
+        };
+        let mut cache = FragmentCache::new(1024);
+        for _ in 0..2 {
+            let result = cache
+                .layout(
+                    &provider,
+                    &tree,
+                    tree.root(),
+                    &ConstraintSpace::continuous(100.0),
+                    Some(&token),
+                    &CancelFlag::new(),
+                )
+                .expect("layout");
+            assert!(result.outcome.continuation.is_none());
+            assert!(
+                !result.from_cache && cache.is_empty(),
+                "the key still owns the incoming table state after the last page"
+            );
+        }
+        assert_eq!(provider.calls.get(), 2);
+        token
+            .spanning_table
+            .as_mut()
+            .expect("state")
+            .row_growth
+            .truncate(2);
+        let space = ConstraintSpace::continuous(100.0);
+        let cancel = CancelFlag::new();
+        assert!(
+            !cache
+                .layout(&provider, &tree, tree.root(), &space, Some(&token), &cancel)
+                .expect("store")
+                .from_cache
+        );
+        assert!(
+            cache
+                .layout(&provider, &tree, tree.root(), &space, Some(&token), &cancel)
+                .expect("hit")
+                .from_cache
+        );
+        let stored = cache
+            .entries
+            .keys()
+            .next()
+            .expect("entry")
+            .token
+            .as_ref()
+            .expect("key token")
+            .table
+            .as_ref()
+            .expect("table key");
+        let recent = cache
+            .recency
+            .back()
+            .expect("recent")
+            .1
+            .token
+            .as_ref()
+            .expect("recent token")
+            .table
+            .as_ref()
+            .expect("recent table key");
+        assert!(std::sync::Arc::ptr_eq(stored, recent));
+        assert_eq!(provider.calls.get(), 3);
+    }
 
     /// Counts provider invocations so tests can prove replay versus recompute.
     struct CountingContext {

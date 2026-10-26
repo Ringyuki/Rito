@@ -350,6 +350,8 @@ pub enum FormattingNodeContent {
     TableCell {
         /// Grid columns this cell spans (≥ 1).
         col_span: u32,
+        /// Grid rows this cell spans (≥ 1), resolved within its row group.
+        row_span: u32,
     },
 }
 
@@ -583,9 +585,10 @@ fn fingerprint(
             }
             FormattingNodeContent::Table => mixer.mix(&[3]),
             FormattingNodeContent::TableRow => mixer.mix(&[4]),
-            FormattingNodeContent::TableCell { col_span } => {
+            FormattingNodeContent::TableCell { col_span, row_span } => {
                 mixer.mix(&[5]);
                 mixer.mix(&col_span.to_le_bytes());
+                mixer.mix(&row_span.to_le_bytes());
             }
             FormattingNodeContent::InlineFlow { items } => {
                 mixer.mix(&[2]);

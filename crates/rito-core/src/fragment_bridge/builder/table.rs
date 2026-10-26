@@ -39,12 +39,14 @@ impl TreeBuilder<'_> {
             Some((paint, _)) => (style, Some(paint)),
             None => (style, None),
         };
-        let mut rows = Vec::new();
-        self.collect_table_rows(&element.children, &mut rows)?;
-        let row_ids = rows
-            .into_iter()
-            .map(|row| self.build_table_row(row))
-            .collect::<EpubResult<Vec<_>>>()?;
+        let mut groups = Vec::new();
+        self.collect_table_rows(&element.children, &mut groups)?;
+        let mut row_ids = Vec::new();
+        for group in groups {
+            for (index, row) in group.iter().enumerate() {
+                row_ids.push(self.build_table_row(row, group.len() - index)?);
+            }
+        }
         let id = self.push_node(
             FormattingNode {
                 style,
@@ -78,8 +80,9 @@ impl TreeBuilder<'_> {
     fn collect_table_rows<'n>(
         &mut self,
         children: &'n [DocumentNode],
-        rows: &mut Vec<&'n ElementNode>,
+        groups: &mut Vec<Vec<&'n ElementNode>>,
     ) -> EpubResult<()> {
+        let mut rows = Vec::new();
         for child in children {
             let DocumentNode::Block(inner) = child else {
                 continue;
@@ -100,7 +103,10 @@ impl TreeBuilder<'_> {
                 LayoutDisplayInside::TableRowGroup
                 | LayoutDisplayInside::TableHeaderGroup
                 | LayoutDisplayInside::TableFooterGroup => {
-                    self.collect_table_rows(&inner.children, rows)?;
+                    if !rows.is_empty() {
+                        groups.push(std::mem::take(&mut rows));
+                    }
+                    self.collect_table_rows(&inner.children, groups)?;
                 }
                 LayoutDisplayInside::TableColumn | LayoutDisplayInside::TableColumnGroup => {}
                 _ => {
@@ -111,10 +117,17 @@ impl TreeBuilder<'_> {
                 }
             }
         }
+        if !rows.is_empty() {
+            groups.push(rows);
+        }
         Ok(())
     }
 
-    fn build_table_row(&mut self, row: &ElementNode) -> EpubResult<FormattingNodeId> {
+    fn build_table_row(
+        &mut self,
+        row: &ElementNode,
+        remaining_rows: usize,
+    ) -> EpubResult<FormattingNodeId> {
         let source_index = element_source_index(row)?;
         let style = self.layout_style_id(source_index, &row.tag);
         let mut cells = Vec::new();
@@ -143,20 +156,22 @@ impl TreeBuilder<'_> {
                 .and_then(|attributes| attributes.colspan)
                 .unwrap_or(1)
                 .max(1);
-            if cell
+            let row_span = cell
                 .attributes
                 .as_ref()
                 .and_then(|attributes| attributes.rowspan)
-                .is_some_and(|span| span > 1)
-            {
-                self.degrade("table rowspan laid out as a single row".to_owned());
-            }
+                .unwrap_or(1);
+            let row_span = if row_span == 0 {
+                remaining_rows
+            } else {
+                (row_span as usize).min(remaining_rows)
+            } as u32;
             let inline_style = self.inline_style_id(cell_index, &cell.tag);
             let children = self.build_children(&cell.children, inline_style)?;
             let id = self.push_node(
                 FormattingNode {
                     style: cell_style,
-                    content: FormattingNodeContent::TableCell { col_span },
+                    content: FormattingNodeContent::TableCell { col_span, row_span },
                     children,
                 },
                 Some(cell_index),

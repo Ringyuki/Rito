@@ -111,6 +111,7 @@ struct TableGridCell {
     node: FormattingNodeId,
     column: usize,
     span: usize,
+    row_span: usize,
 }
 
 /// The table's sized grid: rows of placed cells over globally sized
@@ -123,6 +124,13 @@ struct TableGridLayout {
     table_width: f64,
     spacing_x: f64,
     spacing_y: f64,
+}
+
+/// Whole-grid boxes plus each cell's used content extent before its box
+/// stretches over the rows it spans. Pagination gaps can use that free space.
+struct SpanningRows {
+    rows: Vec<BoxFragment>,
+    content_heights: Vec<Vec<f64>>,
 }
 
 /// One table's placement attempt into the current fragmentainer.

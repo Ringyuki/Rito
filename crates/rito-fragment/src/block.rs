@@ -71,6 +71,7 @@ impl FormattingContext for StubBlockContext {
                     y + remaining,
                     fragments,
                     BreakToken {
+                        spanning_table: None,
                         resume_path: vec![*child_id],
                         stage: BreakTokenStage::Inside {
                             consumed_block_size: already,
@@ -89,6 +90,7 @@ impl FormattingContext for StubBlockContext {
                     y,
                     fragments,
                     BreakToken {
+                        spanning_table: None,
                         resume_path: vec![*child_id],
                         stage: BreakTokenStage::Before,
                         pending_floats: Vec::new(),
@@ -101,6 +103,7 @@ impl FormattingContext for StubBlockContext {
             return Ok(LayoutOutcome {
                 fragments: sealed(root, space.inline_size, y, fragments),
                 continuation: next.map(|next_id| BreakToken {
+                    spanning_table: None,
                     resume_path: vec![*next_id],
                     stage: BreakTokenStage::Before,
                     pending_floats: Vec::new(),
