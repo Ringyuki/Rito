@@ -222,18 +222,18 @@ fn a_paragraph_laid_out_again_at_its_width_decides_nothing_again() {
     );
 }
 
-/// The lines (ranges and break reasons) and the letter-spacing pushes each
-/// driver decides for the paragraph at `root` in `space`.
+/// The lines (ranges and break reasons) and the letter-spacing pushes the
+/// line loop decides for the paragraph at `root` in `space`.
 type DriverResult = (
     Vec<(std::ops::Range<usize>, String)>,
     Vec<(std::ops::Range<usize>, f32)>,
 );
 
-fn both_drivers(
+fn decided_lines(
     context: &ParleyInlineContext,
     tree: &FormattingTree,
     space: &ConstraintSpace,
-) -> (DriverResult, DriverResult, usize) {
+) -> (DriverResult, usize) {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(FormattingNodeId(0)).content
     else {
         panic!("an inline flow");
@@ -280,13 +280,10 @@ fn both_drivers(
         .spacing_edits
         .letter
         .len();
-    let (fixpoint, _) = context
-        .fixpoint_line_edges(&inputs, &mut WidthBounds::new(space.inline_size))
-        .expect("fixpoint decides");
-    let (forward, _) = context
-        .forward_line_edges(&inputs, &mut WidthBounds::new(space.inline_size))
-        .expect("forward decides");
-    (result(&fixpoint), result(&forward), base_pushes)
+    let decided = context
+        .decide_line_edges(&inputs, &mut WidthBounds::new(space.inline_size))
+        .expect("line edges decide");
+    (result(&decided), base_pushes)
 }
 
 /// A line rewound to the start of the item it overflows with (Blink skips
@@ -341,10 +338,11 @@ fn a_razor_fit_note_line_rewinds_its_item_across_an_element_boundary() {
 }
 
 /// A ruby base split across lines spreads each segment to its allocated
-/// annotation words decided line by line, exactly as the fixpoint decided
-/// them over the whole paragraph.
+/// annotation words decided line by line, as the whole-paragraph fixpoint
+/// the line loop replaced decided them (its lines and pushes at every
+/// width, pinned when it was retired).
 #[test]
-fn split_ruby_segments_spread_as_the_fixpoint_spread_them() {
+fn split_ruby_segments_spread_as_pinned() {
     let context = source_han_context();
     let mut inline = InlineStyleTable::new(1);
     let style = inline
@@ -388,14 +386,15 @@ fn split_ruby_segments_spread_as_the_fixpoint_spread_them() {
     )
     .expect("inline tree builds");
     let mut spread = 0;
-    for width in 96..160 {
-        let (fixpoint, forward, base_pushes) = both_drivers(
+    let pinned = include_str!("fixtures/ruby_split_spreads.txt").lines();
+    for (width, pinned) in (96..160).zip(pinned) {
+        let (decided, base_pushes) = decided_lines(
             &context,
             &tree,
             &ConstraintSpace::continuous(f64::from(width)),
         );
-        assert_eq!(forward, fixpoint, "at {width}px");
-        if fixpoint.1.len() > base_pushes {
+        assert_eq!(snapshot_line(width, &decided), pinned);
+        if decided.1.len() > base_pushes {
             spread += 1;
         }
     }
@@ -403,9 +402,10 @@ fn split_ruby_segments_spread_as_the_fixpoint_spread_them() {
 }
 
 /// Lines beside a float band break at its narrower width with their trims
-/// and pairs decided against it, as the fixpoint decided them.
+/// and pairs decided against it, as the whole-paragraph fixpoint the line
+/// loop replaced decided them (pinned when it was retired).
 #[test]
-fn line_edges_beside_a_float_band_are_decided_as_the_fixpoint_decided_them() {
+fn line_edges_beside_a_float_band_are_decided_as_pinned() {
     let context = source_han_context();
     let text = format!(
         "{}{}」{}",
@@ -415,6 +415,7 @@ fn line_edges_beside_a_float_band_are_decided_as_the_fixpoint_decided_them() {
     );
     let tree = serif_paragraph(&text);
     let mut decided = 0;
+    let mut pinned = include_str!("fixtures/float_band_line_edges.txt").lines();
     for width in 150..200 {
         let space = ConstraintSpace {
             float_band: Some(rito_fragment::FloatBand {
@@ -424,9 +425,9 @@ fn line_edges_beside_a_float_band_are_decided_as_the_fixpoint_decided_them() {
             }),
             ..ConstraintSpace::continuous(f64::from(width))
         };
-        let (fixpoint, forward, base_pushes) = both_drivers(&context, &tree, &space);
-        assert_eq!(forward, fixpoint, "at {width}px");
-        if fixpoint.1.len() != base_pushes {
+        let (lines, base_pushes) = decided_lines(&context, &tree, &space);
+        assert_eq!(Some(snapshot_line(width, &lines).as_str()), pinned.next());
+        if lines.1.len() != base_pushes {
             decided += 1;
         }
     }
@@ -492,4 +493,17 @@ fn the_sizes_a_decided_paragraph_holds_for_lay_it_out_alike() {
             "at {width}px in {lo}..{hi}"
         );
     }
+}
+
+/// One width's lines and letter-spacing pushes as one fixture line.
+fn snapshot_line(width: i32, (lines, pushes): &DriverResult) -> String {
+    let lines: Vec<String> = lines
+        .iter()
+        .map(|(range, reason)| format!("{}..{} {reason}", range.start, range.end))
+        .collect();
+    let pushes: Vec<String> = pushes
+        .iter()
+        .map(|(range, spacing)| format!("{}..{} {spacing:?}", range.start, range.end))
+        .collect();
+    format!("{width} | {} | {}", lines.join(", "), pushes.join(", "))
 }

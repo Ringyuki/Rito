@@ -43,14 +43,6 @@ impl LineEdits {
             .collect()
     }
 
-    fn decided_edits(&self) -> DecidedEdits {
-        DecidedEdits {
-            end_trims: self.end_trims.clone(),
-            suppressed_pair_trims: self.suppressed_pair_trims.clone(),
-            forced: self.forced(),
-        }
-    }
-
     /// Whether a build under `other` is a build under these edits.
     fn builds_as(&self, other: &Self) -> bool {
         self.end_trims == other.end_trims
@@ -137,11 +129,14 @@ struct Pass<'a> {
 }
 
 impl ParleyInlineContext {
-    pub(crate) fn forward_line_edges(
+    /// The paragraph at `inputs.root` built with its line edges decided and
+    /// broken into its lines; every comparison a decision made is recorded
+    /// in `bounds`.
+    pub(crate) fn decide_line_edges(
         &self,
         inputs: &LineEdgeInputs<'_>,
         bounds: &mut WidthBounds,
-    ) -> Result<(DecidedParagraph, DecidedEdits), LayoutError> {
+    ) -> Result<DecidedParagraph, LayoutError> {
         let LineEdgeInputs {
             tree,
             root,
@@ -165,8 +160,7 @@ impl ParleyInlineContext {
                 self.shaped_paragraph(tree, root, space, decided.edits(), cancel)?
             };
             self.break_decided(inputs, &mut built, &decided.forced(), bounds);
-            let edits = decided.decided_edits();
-            return Ok((decided_paragraph(built), edits));
+            return Ok(decided_paragraph(built));
         }
         let mut pass_bounds = WidthBounds::new(space.inline_size);
         // A pass over a build whose lines broke elsewhere than its copy's
@@ -219,9 +213,8 @@ impl ParleyInlineContext {
             });
             if ends_match || attempt == 2 {
                 bounds.intersect(&pass_bounds);
-                let edits = decided.decided_edits();
                 kept.keep(key, decided, pass_bounds);
-                return Ok((decided_paragraph(built), edits));
+                return Ok(decided_paragraph(built));
             }
             source = built;
             source_edits = decided;

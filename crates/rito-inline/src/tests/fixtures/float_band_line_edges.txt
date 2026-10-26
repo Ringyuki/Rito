@@ -1,0 +1,50 @@
+150 | 0..21 Regular, 21..45 Regular, 45..69 Regular, 69..90 Regular, 90..114 Regular, 114..141 Regular, 141..168 Regular, 168..195 Regular, 195..222 Regular, 222..249 Regular, 249..276 Regular, 276..282 None | 
+151 | 0..21 Regular, 21..45 Regular, 45..69 Regular, 69..90 Regular, 90..114 Regular, 114..141 Regular, 141..168 Regular, 168..195 Regular, 195..222 Regular, 222..249 Regular, 249..276 Regular, 276..282 None | 
+152 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+153 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+154 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+155 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+156 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+157 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+158 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+159 | 0..24 Regular, 24..48 Regular, 48..72 Regular, 72..96 Regular, 96..126 Regular, 126..153 Regular, 153..183 Regular, 183..210 Regular, 210..237 Regular, 237..264 Regular, 264..282 None | 180..183 -8.0
+160 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+161 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+162 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+163 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+164 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+165 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+166 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+167 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..135 Regular, 135..165 Regular, 165..195 Regular, 195..225 Regular, 225..255 Regular, 255..282 None | 
+168 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+169 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+170 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+171 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+172 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+173 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+174 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+175 | 0..24 Regular, 24..51 Regular, 51..78 Regular, 78..105 Regular, 105..138 Regular, 138..168 Regular, 168..198 Regular, 198..228 Regular, 228..258 Regular, 258..282 None | 
+176 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+177 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+178 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+179 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+180 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+181 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+182 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+183 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 27..30 -8.0, 57..60 -8.0, 87..90 -8.0, 117..120 -8.0
+184 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+185 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+186 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+187 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+188 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+189 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+190 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+191 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..153 Regular, 153..186 Regular, 186..219 Regular, 219..252 Regular, 252..282 None | 
+192 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+193 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+194 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+195 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+196 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+197 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+198 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
+199 | 0..30 Regular, 30..60 Regular, 60..90 Regular, 90..120 Regular, 120..156 Regular, 156..192 Regular, 192..228 Regular, 228..264 Regular, 264..282 None | 
