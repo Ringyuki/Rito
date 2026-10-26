@@ -7,8 +7,12 @@
 //! ```text
 //! RITO_STRIP_PROBE_BOOKS=~/rito-corpus RITO_STRIP_PROBE_FONTS=apps/reader/src/assets/fonts \
 //! RITO_STRIP_PROBE_OUT=strip.tsv [RITO_STRIP_PROBE_ONLY=001,003] [RITO_STRIP_PROBE_CHAPTER=4] \
-//! cargo test -p rito-core --release --lib strip_cost_probe -- --ignored --nocapture
+//! cargo test -p rito-core --release --lib strip_cost_probe::strip_cost_probe -- --ignored --nocapture
 //! ```
+//!
+//! (`strip_cost_probe::session_open_cost_probe` takes the same variables and
+//! `RITO_STRIP_PROBE_ONLY`; the two write the same report, so run one at a
+//! time.)
 //!
 //! Every chapter is measured at a desktop and a phone viewport, each pass
 //! on a document opened afresh so no chapter starts with another pass's
