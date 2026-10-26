@@ -55,7 +55,15 @@ pub struct TextCaretAddress {
 pub struct TextCaretGeometry {
     pub x: f64,
     pub y: f64,
+    /// A vertical-writing caret extends horizontally; horizontal-writing
+    /// carets retain a zero width and the existing serialized shape.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub width: f64,
     pub height: f64,
+}
+
+fn is_zero(value: &f64) -> bool {
+    *value == 0.0
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

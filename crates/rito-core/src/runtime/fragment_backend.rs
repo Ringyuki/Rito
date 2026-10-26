@@ -125,6 +125,14 @@ impl MaterializedChapter {
     fn artifact(&self, page: usize) -> &Rc<FragmentPageArtifact> {
         let entry = &self.pages[page];
         entry.artifact.get_or_init(|| {
+            if self.paint.vertical {
+                return Rc::new(FragmentPageArtifact::build_vertical(
+                    entry.page_index,
+                    self.text_tree(page),
+                    &self.paint.built,
+                    self.paint.content_width,
+                ));
+            }
             Rc::new(FragmentPageArtifact::build(
                 entry.page_index,
                 self.text_tree(page),

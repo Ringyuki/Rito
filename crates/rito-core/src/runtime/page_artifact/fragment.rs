@@ -11,6 +11,7 @@
 use rito_fragment::{FormattingNodeContent, Fragment, InlineItem, LineFragment, TextFragment};
 
 use crate::fragment_bridge::ChapterFormattingTree;
+use crate::fragment_vertical::VerticalFrame;
 
 use super::{
     PageArtifact, PageArtifactRect, PageArtifactSemanticNode, PageArtifactSemanticRole,
@@ -39,6 +40,8 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) y: f64,
     pub(in crate::runtime) width: f64,
     pub(in crate::runtime) height: f64,
+    /// Physical inline axis is y in a vertical column, x otherwise.
+    pub(in crate::runtime) vertical: bool,
     /// The run's font box (top, height) in the same coordinates — the
     /// primary font's grid ascent/descent hung from the line baseline,
     /// which is the extent Chromium gives a native selection rect.
@@ -49,13 +52,13 @@ pub(in crate::runtime) struct FragmentRunRecord {
     pub(in crate::runtime) href: Option<String>,
     /// Source-locator mapping for the run, when its item has one.
     pub(in crate::runtime) source: Option<RunSourceMap>,
-    /// Where each of the run's clusters starts, left to right; empty when
-    /// they do not run left to right.
+    /// Character edges on the physical inline axis (x horizontally, y
+    /// vertically); empty when shaping supplied no monotonic edges.
     pub(in crate::runtime) edges: std::rc::Rc<[RunEdge]>,
 }
 
 /// Where a cluster of a run starts: its UTF-16 offset in the run's text and
-/// its page x.
+/// its physical inline coordinate (x horizontally, y vertically).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(in crate::runtime) struct RunEdge {
     pub(in crate::runtime) offset: u32,
@@ -63,19 +66,19 @@ pub(in crate::runtime) struct RunEdge {
 }
 
 impl FragmentRunRecord {
-    /// The page x of the boundary before UTF-16 offset `offset` of the run
+    /// The physical inline coordinate before UTF-16 offset `offset` of the run
     /// (clamped to its length): a cluster's own x where one starts there,
     /// in proportion between a cluster's edges inside one — the way the
     /// browser places a caret inside a ligature — and in proportion across
     /// the run where its clusters do not run left to right.
-    pub(in crate::runtime) fn x_at(&self, offset: usize) -> f64 {
+    pub(in crate::runtime) fn inline_at(&self, offset: usize) -> f64 {
         let length = self.end - self.start;
         let offset = offset.min(length);
         if self.edges.is_empty() {
             return if length == 0 {
-                self.x
+                self.inline_start()
             } else {
-                self.x + self.width * offset as f64 / length as f64
+                self.inline_start() + self.inline_extent() * offset as f64 / length as f64
             };
         }
         let next = self
@@ -88,18 +91,27 @@ impl FragmentRunRecord {
         from.1 + (to.1 - from.1) * (offset - from.0) as f64 / (to.0 - from.0) as f64
     }
 
-    /// The UTF-16 offset of the boundary of the run nearest page x `x`.
+    /// The UTF-16 offset of the nearest boundary on the physical inline axis.
     pub(in crate::runtime) fn offset_at(&self, x: f64) -> usize {
         let length = self.end - self.start;
-        if length == 0 || self.width <= 0.0 {
+        if length == 0 || self.inline_extent() <= 0.0 {
             return 0;
         }
         if self.edges.is_empty() {
-            return (((x - self.x) / self.width * length as f64).round().max(0.0) as usize)
+            return (((x - self.inline_start()) / self.inline_extent() * length as f64)
+                .round()
+                .max(0.0) as usize)
                 .min(length);
         }
         let next = self.edges.partition_point(|edge| edge.x <= x);
         let (from, to) = self.cluster_bounds(next.max(1));
+        if self.vertical {
+            return if x < (from.1 + to.1) / 2.0 {
+                from.0
+            } else {
+                to.0
+            };
+        }
         let span = to.1 - from.1;
         let units = to.0 - from.0;
         let within = if span <= 0.0 {
@@ -110,18 +122,87 @@ impl FragmentRunRecord {
         from.0 + within
     }
 
-    /// The (offset, x) the cluster before `next` starts at and the one the
+    /// The (offset, inline coordinate) before `next` and the one the
     /// next starts at, or the run's end.
     fn cluster_bounds(&self, next: usize) -> ((usize, f64), (usize, f64)) {
         let edge = self.edges[next - 1];
-        let to = self
-            .edges
-            .get(next)
-            .map_or((self.end - self.start, self.x + self.width), |edge| {
-                (edge.offset as usize, edge.x)
-            });
+        let to = self.edges.get(next).map_or(
+            (
+                self.end - self.start,
+                self.inline_start() + self.inline_extent(),
+            ),
+            |edge| (edge.offset as usize, edge.x),
+        );
         ((edge.offset as usize, edge.x), to)
     }
+
+    fn inline_start(&self) -> f64 {
+        if self.vertical {
+            self.y
+        } else {
+            self.x
+        }
+    }
+    fn inline_extent(&self) -> f64 {
+        if self.vertical {
+            self.height
+        } else {
+            self.width
+        }
+    }
+
+    pub(in crate::runtime) fn block_start(&self) -> f64 {
+        if self.vertical {
+            -self.x - self.width
+        } else {
+            self.y
+        }
+    }
+
+    pub(in crate::runtime) fn block_extent(&self) -> f64 {
+        if self.vertical {
+            self.width
+        } else {
+            self.height
+        }
+    }
+
+    pub(in crate::runtime) fn range_rect(&self, start: usize, end: usize) -> PageArtifactRect {
+        let from = self.inline_at(start);
+        let to = self.inline_at(end);
+        if self.vertical {
+            PageArtifactRect {
+                x: self.x,
+                y: from,
+                width: self.width,
+                height: to - from,
+            }
+        } else {
+            let (y, height) = self.font_box.unwrap_or((self.y, self.height));
+            PageArtifactRect {
+                x: from,
+                y,
+                width: to - from,
+                height,
+            }
+        }
+    }
+}
+
+fn vertical_edges(text: &str, top: f64, step: f64) -> std::rc::Rc<[RunEdge]> {
+    let mut offset = 0;
+    text.chars()
+        .enumerate()
+        .map(|(index, ch)| {
+            let edge = RunEdge {
+                offset,
+                x: top + index as f64 * step,
+            };
+            offset += ch.len_utf16() as u32;
+            edge
+        })
+        .collect::<Vec<_>>()
+        .into()
 }
 
 /// Where each of `run`'s clusters starts, in page x from `line_x`, or none
@@ -317,6 +398,27 @@ impl FragmentPageArtifact {
             chapter,
             (origin_x, origin_y),
             CollectMode::Whole,
+            None,
+        )
+        .0
+    }
+
+    pub(in crate::runtime) fn build_vertical(
+        page_index: usize,
+        root: &Fragment,
+        chapter: &ChapterFormattingTree,
+        content_width: f64,
+    ) -> Self {
+        Self::collect_page(
+            page_index,
+            root,
+            chapter,
+            (0.0, 0.0),
+            CollectMode::Whole,
+            Some(VerticalFrame {
+                right: content_width,
+                top: 0.0,
+            }),
         )
         .0
     }
@@ -330,7 +432,15 @@ impl FragmentPageArtifact {
         root: &Fragment,
         chapter: &ChapterFormattingTree,
     ) -> Self {
-        Self::collect_page(page_index, root, chapter, (0.0, 0.0), CollectMode::Text).0
+        Self::collect_page(
+            page_index,
+            root,
+            chapter,
+            (0.0, 0.0),
+            CollectMode::Text,
+            None,
+        )
+        .0
     }
 
     /// Where each of the page's text runs that maps to source starts: its
@@ -342,7 +452,15 @@ impl FragmentPageArtifact {
         root: &Fragment,
         chapter: &ChapterFormattingTree,
     ) -> Vec<PageArtifactSourceRunStart> {
-        Self::collect_page(page_index, root, chapter, (0.0, 0.0), CollectMode::Starts).1
+        Self::collect_page(
+            page_index,
+            root,
+            chapter,
+            (0.0, 0.0),
+            CollectMode::Starts,
+            None,
+        )
+        .1
     }
 
     fn collect_page(
@@ -351,6 +469,7 @@ impl FragmentPageArtifact {
         chapter: &ChapterFormattingTree,
         (origin_x, origin_y): (f64, f64),
         mode: CollectMode,
+        vertical_frame: Option<VerticalFrame>,
     ) -> (Self, Vec<PageArtifactSourceRunStart>) {
         let mut builder = ArtifactBuilder {
             chapter,
@@ -368,6 +487,7 @@ impl FragmentPageArtifact {
             hard_breaks: Vec::new(),
             flow_last_text_end: rustc_hash::FxHashMap::default(),
             host_paragraph: None,
+            vertical_frame,
         };
         let Fragment::Box(page_root) = root else {
             return (Self::empty(), Vec::new());
@@ -443,6 +563,7 @@ struct ArtifactBuilder<'a> {
     flow_last_text_end: rustc_hash::FxHashMap<u32, usize>,
     /// The paragraph of the line an inline-block being collected rides.
     host_paragraph: Option<u32>,
+    vertical_frame: Option<VerticalFrame>,
 }
 
 impl ArtifactBuilder<'_> {
@@ -456,6 +577,22 @@ impl ArtifactBuilder<'_> {
     ) {
         match fragment {
             Fragment::Box(inner) => {
+                let (x, y, width, height) = self.vertical_frame.map_or(
+                    (
+                        origin_x + inner.rect.x,
+                        origin_y + inner.rect.y,
+                        inner.rect.width,
+                        inner.rect.height,
+                    ),
+                    |frame| {
+                        frame.rect(
+                            origin_x + inner.rect.x,
+                            origin_y + inner.rect.y,
+                            inner.rect.width,
+                            inner.rect.height,
+                        )
+                    },
+                );
                 if let Some(href) = self
                     .chapter
                     .node_links
@@ -464,10 +601,10 @@ impl ArtifactBuilder<'_> {
                 {
                     self.links.push(FragmentLinkRecord {
                         block_index,
-                        x: origin_x + inner.rect.x,
-                        y: origin_y + inner.rect.y,
-                        width: inner.rect.width,
-                        height: inner.rect.height,
+                        x,
+                        y,
+                        width,
+                        height,
                         href: href.clone(),
                     });
                 }
@@ -479,10 +616,10 @@ impl ArtifactBuilder<'_> {
                 {
                     self.semantics.push(FragmentSemanticRecord {
                         tag: tag.clone(),
-                        x: origin_x + inner.rect.x,
-                        y: origin_y + inner.rect.y,
-                        width: inner.rect.width,
-                        height: inner.rect.height,
+                        x,
+                        y,
+                        width,
+                        height,
                         text: fragment_subtree_text(self.chapter, fragment),
                     });
                 }
@@ -520,6 +657,9 @@ impl ArtifactBuilder<'_> {
                 };
                 let line_x = origin_x + line.rect.x;
                 let line_y = origin_y + line.rect.y;
+                let column = self
+                    .vertical_frame
+                    .map(|frame| frame.column(line, origin_x, origin_y));
                 let paragraph = self.host_paragraph.unwrap_or(line.source.0);
                 let has_line_text = line
                     .children
@@ -606,6 +746,14 @@ impl ArtifactBuilder<'_> {
                                 Some(RunSourceMap { path, segments })
                             });
                             let length = run_len as usize;
+                            let vertical = column.and_then(|column| {
+                                let InlineItem::Text { style, .. } = items.get(owner?)? else {
+                                    return None;
+                                };
+                                let style =
+                                    self.chapter.tree.styles()?.inline.style(*style).ok()?;
+                                Some(column.run(run, style))
+                            });
                             let font_box = run.font_grid.map(|(ascent, descent)| {
                                 (line_y + line.baseline - ascent, ascent + descent)
                             });
@@ -616,14 +764,20 @@ impl ArtifactBuilder<'_> {
                                 run_index,
                                 start: self.offset,
                                 end: self.offset + length,
-                                x: line_x + run.rect.x,
-                                y: line_y,
-                                width: run.rect.width,
-                                height: line.rect.height,
-                                font_box,
+                                x: vertical.as_ref().map_or(line_x + run.rect.x, |g| g.x),
+                                y: vertical.as_ref().map_or(line_y, |g| g.top),
+                                width: vertical.as_ref().map_or(run.rect.width, |g| g.font_size),
+                                height: vertical.as_ref().map_or(line.rect.height, |g| {
+                                    run_text.chars().count() as f64 * g.step
+                                }),
+                                vertical: vertical.is_some(),
+                                font_box: if vertical.is_some() { None } else { font_box },
                                 href,
                                 source,
-                                edges: run_edges(run, run_text, line_x),
+                                edges: vertical.as_ref().map_or_else(
+                                    || run_edges(run, run_text, line_x),
+                                    |g| vertical_edges(run_text, g.top, g.step),
+                                ),
                             });
                             self.text.push_str(run_text);
                             self.offset += length;
@@ -635,14 +789,30 @@ impl ArtifactBuilder<'_> {
                                 continue;
                             };
                             let source = item_source(image.item_index as usize);
+                            let (x, y, width, height) = column.map_or(
+                                (
+                                    line_x + image.rect.x,
+                                    line_y + image.rect.y,
+                                    image.rect.width,
+                                    image.rect.height,
+                                ),
+                                |column| {
+                                    (
+                                        column.x,
+                                        column.top + image.rect.x,
+                                        image.rect.height,
+                                        image.rect.width,
+                                    )
+                                },
+                            );
                             self.images.push(FragmentImageRecord {
                                 block_index,
                                 line_index: *line_index,
                                 run_index,
-                                x: line_x + image.rect.x,
-                                y: line_y + image.rect.y,
-                                width: image.rect.width,
-                                height: image.rect.height,
+                                x,
+                                y,
+                                width,
+                                height,
                                 src: src.clone(),
                                 alt: source.and_then(|source| source.image_alt.clone()),
                                 href: source.and_then(|source| source.href.clone()),
@@ -939,18 +1109,16 @@ impl PageArtifact for FragmentPageArtifact {
             if to_char <= from_char {
                 continue;
             }
-            // Endpoints land on the clusters' own edges (see `x_at`).
-            let left = run.x_at(from_char);
-            let right = run.x_at(to_char);
+            // Endpoints land on the painted character edges.
+            let rect = run.range_rect(from_char, to_char);
             // Chromium's native selection rect spans the FONT box, not
             // the line box; the line box is the documented fallback for
             // hosts that inject no grid metrics.
-            let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
             rects.push(PageArtifactTextRangeRect {
-                x: left,
-                y: rect_y,
-                width: right - left,
-                height: rect_height,
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
                 block_index: run.block_index,
                 line_index: run.line_index,
                 run_index: run.run_index,
@@ -1265,13 +1433,13 @@ mod tests {
         assert_eq!(run.edges[0].x, run.x);
         for pair in run.edges.windows(2) {
             let (edge, next) = (pair[0], pair[1]);
-            assert_eq!(run.x_at(edge.offset as usize), edge.x);
+            assert_eq!(run.inline_at(edge.offset as usize), edge.x);
             assert_eq!(run.offset_at(edge.x), edge.offset as usize);
             let quarter = (next.x - edge.x) / 4.0;
             assert_eq!(run.offset_at(edge.x + quarter), edge.offset as usize);
             assert_eq!(run.offset_at(next.x - quarter), next.offset as usize);
         }
-        assert_eq!(run.x_at(length), run.x + run.width);
+        assert_eq!(run.inline_at(length), run.x + run.width);
         assert_eq!(run.offset_at(run.x + run.width + 10.0), length);
     }
 

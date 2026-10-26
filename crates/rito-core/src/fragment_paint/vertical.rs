@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::FlowItemSource;
+use crate::fragment_vertical::VerticalFrame;
 use crate::render::contract::{ReaderPoint, ReaderRect, ReaderSize, ReaderTransform};
 use crate::render::{
     display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
@@ -166,8 +167,13 @@ pub(super) fn append_vertical_line_commands(
             text_ranges.push((start..full_text.len(), item_index));
         }
     }
-    let column_x = frame_right - (box_block + line.rect.y + line.rect.height);
-    let column_top = frame_top + box_inline + line.rect.x;
+    let column = VerticalFrame {
+        right: frame_right,
+        top: frame_top,
+    }
+    .column(line, box_inline, box_block);
+    let column_x = column.x;
+    let column_top = column.top;
     for child in &line.children {
         // A replaced atom in a vertical line: the layout box is the
         // swapped one (advance = physical height), so the device rect
@@ -239,10 +245,11 @@ pub(super) fn append_vertical_line_commands(
         // the base keeps its plain-line distance from the left edge and
         // the annotation column pushes the right edge out), so the
         // centering basis excludes the growth.
-        let glyph_x = column_x + (line.rect.height - line.ruby_growth - font_size) / 2.0;
+        let geometry = column.run(run, style);
+        let glyph_x = geometry.x;
         // Each face's glyphs paint as their own column piece, stepping on
         // from where the previous piece's glyphs ended.
-        let step = font_size + base_paint.letter_spacing_px.unwrap_or(0.0);
+        let step = geometry.step;
         let run_faces: Vec<_> = run.clusters.iter().map(|cluster| cluster.face).collect();
         let pieces = face_pieces(&run_faces);
         let mut glyphs_before = 0usize;
@@ -266,7 +273,7 @@ pub(super) fn append_vertical_line_commands(
                 },
                 font_size,
                 glyph_x,
-                column_top + run.rect.x + glyphs_before as f64 * step,
+                geometry.top + glyphs_before as f64 * step,
                 item_sources
                     .and_then(|sources| sources.get(*item_index))
                     .and_then(|source| source.href.clone()),

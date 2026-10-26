@@ -13,6 +13,7 @@ mod ruby_range_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;
+mod vertical_interaction_tests;
 mod word_selection_tests;
 
 use fixture::{

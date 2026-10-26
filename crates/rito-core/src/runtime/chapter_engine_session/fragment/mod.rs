@@ -6,7 +6,7 @@
 //! point, range selection, word/paragraph expansion) and keyboard
 //! selection movement (`movement`) are served from the fragment page
 //! artifacts. A position inside a run lands on the cluster edges the run
-//! was drawn with (`FragmentRunRecord::x_at` and `offset_at`).
+//! was drawn with (`FragmentRunRecord::inline_at` and `offset_at`).
 
 mod movement;
 mod word;
@@ -730,18 +730,16 @@ impl<'a> FragmentChapterEngineSession<'a> {
                     )
                     .map(|unit| unit.unwrap_or(char::REPLACEMENT_CHARACTER)),
                 );
-                let left = run.x_at(clip_start - run.start);
-                let right = run.x_at(clip_end - run.start);
+                let rect = run.range_rect(clip_start - run.start, clip_end - run.start);
                 // A native selection rect spans the run's FONT box, the
                 // way a Chromium Range rect does; the line box is the
                 // fallback for hosts that inject no grid metric.
-                let (rect_y, rect_height) = run.font_box.unwrap_or((run.y, run.height));
                 rects.push(PageArtifactExactTextRangeRect {
                     page_index,
-                    x: left,
-                    y: rect_y,
-                    width: right - left,
-                    height: rect_height,
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
                     block_index: run.block_index,
                     line_index: run.line_index,
                     run_index: run.run_index,
@@ -909,15 +907,23 @@ fn caret_from_point(
         } else {
             0.0
         };
-        // Vertical proximity dominates so a tap between lines picks the
-        // nearer line, not a horizontally closer run elsewhere.
-        let distance = dy * 1000.0 + dx;
+        // Proximity across lines/columns dominates; along a column the
+        // physical inline coordinate is y, not x.
+        let distance = if run.vertical {
+            dx * 1000.0 + dy
+        } else {
+            dy * 1000.0 + dx
+        };
         if best.is_none_or(|(best_distance, _)| distance < best_distance) {
             best = Some((distance, run));
         }
     }
     let (_, run) = best?;
-    Some(caret_record(page_index, run, run.offset_at(x)))
+    Some(caret_record(
+        page_index,
+        run,
+        run.offset_at(if run.vertical { y } else { x }),
+    ))
 }
 
 fn caret_record(
@@ -925,6 +931,7 @@ fn caret_record(
     run: &FragmentRunRecord,
     char_index: usize,
 ) -> PageArtifactTextCaret {
+    let rect = run.range_rect(char_index, char_index);
     PageArtifactTextCaret {
         address: TextCaretAddress {
             page_index,
@@ -935,11 +942,12 @@ fn caret_record(
             affinity: TextCaretAffinity::Downstream,
         },
         geometry: TextCaretGeometry {
-            x: run.x_at(char_index),
+            x: rect.x,
             // The caret spans the run's font box like a selection rect;
             // hit-testing above stays on the full line band.
-            y: run.font_box.map_or(run.y, |(top, _)| top),
-            height: run.font_box.map_or(run.height, |(_, height)| height),
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
         },
         source_point: run_source_point(run, char_index),
     }

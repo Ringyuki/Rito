@@ -10,6 +10,77 @@ use super::{convert::layout_config, tests::open_test_session, *};
 const SESSION: u64 = 171;
 const CHAPTER: &str = "chapter.xhtml";
 
+#[test]
+fn vertical_interaction_protocol_keeps_source_and_ranges_without_a_wrong_caret_bar() {
+    let bytes = crate::runtime::tests::pinned_font_policy_fixtures::content_epub(
+        "en",
+        "<p>Abc</p><p>Def</p>",
+        "body { writing-mode:vertical-rl; } p { margin:0; }",
+        None,
+    );
+    let mut session = open_test_session(SESSION, bytes).expect("session");
+    let artifact = session
+        .request_artifact(super::tests::request(SESSION, 1, ""))
+        .expect("artifact");
+    let page = session.read_page(artifact.artifact_id, 0).expect("page");
+    let hit = page
+        .hits
+        .iter()
+        .find(|h| h.text == "Abc")
+        .expect("text hit");
+    let point = |offset| ReaderTextPoint {
+        page_index: 0,
+        x: hit.bounds.x + hit.bounds.width / 2.0,
+        y: hit.bounds.y + hit.bounds.height * offset / 3.0,
+    };
+    let caret = caret_at(&mut session, artifact.artifact_id, point(1.1));
+    assert_eq!(caret.source_point.text_offset, 1);
+    assert!(
+        caret.geometry.is_none(),
+        "protocol 7 must not invent a vertical caret bar"
+    );
+    let selected = selection(interact(
+        &mut session,
+        artifact.artifact_id,
+        ReaderTextInteractionQuery::RangeToPoint {
+            anchor: caret.address,
+            focus: point(2.1),
+        },
+    ));
+    assert_eq!(selected.selection.selected_text, "b");
+    assert!(selected
+        .selection
+        .rects
+        .iter()
+        .all(|r| r.bounds.height > 0.0 && r.bounds.width > 0.0));
+    let response = ReaderTextInteractionResponse {
+        artifact_id: artifact.artifact_id,
+        result: ReaderTextInteractionResult::Selection(Box::new(selected)),
+    };
+    let wire = encode_reader_text_interaction_response(&response).expect("encode");
+    assert_eq!(
+        decode_reader_text_interaction_response(&wire).expect("decode"),
+        response
+    );
+    let moved = selection(interact(
+        &mut session,
+        artifact.artifact_id,
+        ReaderTextInteractionQuery::Movement {
+            anchor: caret.address,
+            focus: caret.address,
+            movement: ReaderSelectionMovement::LineDown,
+            preferred_inline_position: None,
+            preferred_block_position: None,
+        },
+    ));
+    let focus = moved.focus_caret.expect("next column caret");
+    assert_eq!(focus.source_point.node_path, vec![1, 0]);
+    assert_eq!(
+        focus.source_point.text_offset, 1,
+        "column movement keeps the physical y"
+    );
+}
+
 fn layout() -> ReaderLayout {
     ReaderLayout {
         render_ratio: 1.0,

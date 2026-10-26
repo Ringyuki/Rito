@@ -104,7 +104,8 @@ impl<'a> ScopePages<'a> {
     }
 }
 
-/// One line's offset span and geometry, in page coordinates. The span
+/// One line's offset span and block-axis band. For vertical-rl, block
+/// positions are -(physical x + width), increasing toward the left. The span
 /// includes the line-final caret (the newline separator's offset).
 #[derive(Debug, Clone, Copy)]
 struct ScopeLine {
@@ -146,16 +147,16 @@ fn build_scope_page(page_index: usize, artifact: Option<Rc<FragmentPageArtifact>
             // exactly when it starts where the line ends.
             Some(line) if run.start == line.end && run.block_index == line.block_index => {
                 line.end = run.end;
-                line.y = line.y.min(run.y);
-                line.height = line.height.max(run.height);
+                line.y = line.y.min(run.block_start());
+                line.height = line.height.max(run.block_extent());
             }
             _ => {
                 lines.push(ScopeLine {
                     block_index: run.block_index,
                     start: run.start,
                     end: run.end,
-                    y: run.y,
-                    height: run.height,
+                    y: run.block_start(),
+                    height: run.block_extent(),
                 });
             }
         }
@@ -327,7 +328,7 @@ fn step_line(
         });
     };
     let x = preferred_inline_position
-        .or_else(|| caret_x(&pages.page(slot), focus.offset))
+        .or_else(|| caret_inline(&pages.page(slot), focus.offset))
         .unwrap_or(0.0);
     let Some((target_slot, target_line)) = adjacent_line(pages, slot, line_index, direction) else {
         return Moved::Boundary(if direction < 0 {
@@ -336,7 +337,7 @@ fn step_line(
             TextSelectionBoundary::End
         });
     };
-    let offset = offset_at_x(&pages.page(target_slot), target_line, x);
+    let offset = offset_at_inline(&pages.page(target_slot), target_line, x);
     Moved::To(MovementOutcome {
         focus: StreamPosition {
             slot: target_slot,
@@ -525,20 +526,20 @@ fn jump_page(pages: &ScopePages<'_>, focus: StreamPosition, request: MovementReq
     let focus_page = pages.page(focus.slot);
     let x = request
         .preferred_inline_position
-        .or_else(|| caret_x(&focus_page, focus.offset))
+        .or_else(|| caret_inline(&focus_page, focus.offset))
         .unwrap_or(0.0);
     let y = request
         .preferred_block_position
-        .or_else(|| caret_y(&focus_page, focus.offset))
+        .or_else(|| caret_block(&focus_page, focus.offset))
         .unwrap_or(0.0);
     let page = pages.page(slot);
-    let Some(line_index) = nearest_line_at_y(&page, y) else {
+    let Some(line_index) = nearest_line_at_block(&page, y) else {
         return Moved::Boundary(match request.movement {
             TextSelectionMovement::PageUp => TextSelectionBoundary::Start,
             _ => TextSelectionBoundary::End,
         });
     };
-    let offset = offset_at_x(&page, line_index, x);
+    let offset = offset_at_inline(&page, line_index, x);
     Moved::To(MovementOutcome {
         focus: StreamPosition { slot, offset },
         preferred_inline_position: Some(x),
@@ -570,13 +571,13 @@ fn snap_scope_edge(pages: &ScopePages<'_>, edge: TextSelectionBoundary) -> Moved
     Moved::Boundary(edge)
 }
 
-fn caret_x(page: &ScopePage, offset: usize) -> Option<f64> {
+fn caret_inline(page: &ScopePage, offset: usize) -> Option<f64> {
     let run = run_at(page, offset)?;
-    Some(run.x_at(offset.clamp(run.start, run.end) - run.start))
+    Some(run.inline_at(offset.clamp(run.start, run.end) - run.start))
 }
 
-fn caret_y(page: &ScopePage, offset: usize) -> Option<f64> {
-    run_at(page, offset).map(|run| run.y)
+fn caret_block(page: &ScopePage, offset: usize) -> Option<f64> {
+    run_at(page, offset).map(|run| run.block_start())
 }
 
 fn run_at(page: &ScopePage, offset: usize) -> Option<&FragmentRunRecord> {
@@ -587,7 +588,7 @@ fn run_at(page: &ScopePage, offset: usize) -> Option<&FragmentRunRecord> {
         .or_else(|| runs.last())
 }
 
-fn nearest_line_at_y(page: &ScopePage, y: f64) -> Option<usize> {
+fn nearest_line_at_block(page: &ScopePage, y: f64) -> Option<usize> {
     // Line bands are half-open [top, top + height): a caret y exactly on
     // a boundary belongs to the line STARTING there, the way a browser
     // maps a caret at a line edge (a page jump from a line top would
@@ -610,7 +611,7 @@ fn nearest_line_at_y(page: &ScopePage, y: f64) -> Option<usize> {
 }
 
 /// The closest character edge to `x` within one line.
-fn offset_at_x(page: &ScopePage, line_index: usize, x: f64) -> usize {
+fn offset_at_inline(page: &ScopePage, line_index: usize, x: f64) -> usize {
     let line = &page.lines[line_index];
     let mut best = (f64::MAX, line.start);
     for run in page.runs() {
@@ -619,7 +620,7 @@ fn offset_at_x(page: &ScopePage, line_index: usize, x: f64) -> usize {
         }
         let length = run.end - run.start;
         for char_index in 0..=length {
-            let edge_x = run.x_at(char_index);
+            let edge_x = run.inline_at(char_index);
             let distance = (edge_x - x).abs();
             if distance < best.0 {
                 best = (distance, run.start + char_index);

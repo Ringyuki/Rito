@@ -8,6 +8,7 @@ pub mod epub;
 pub mod fragment_bridge;
 pub(crate) mod fragment_pagination;
 pub(crate) mod fragment_paint;
+mod fragment_vertical;
 pub mod interaction;
 pub mod layout;
 pub mod render;

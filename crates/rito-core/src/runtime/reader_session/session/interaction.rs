@@ -99,6 +99,10 @@ impl ArtifactView<'_> {
             address: reader_address(caret.address)?,
             geometry: self
                 .origin_of(caret.address.page_index)
+                // Protocol 7 only represents vertical caret bars. Keep
+                // the source/address and range rects, but do not export
+                // a fabricated vertical bar for a horizontal caret.
+                .filter(|_| caret.geometry.width == 0.0)
                 .map(|origin| ReaderCaretGeometry {
                     x: caret.geometry.x + origin.0,
                     y: caret.geometry.y + origin.1,

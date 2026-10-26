@@ -43,7 +43,9 @@ pub struct ReaderCaretGeometry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReaderCaret {
     pub address: ReaderCaretAddress,
-    /// Present when the caret's page is one this artifact draws.
+    /// Present when the caret's page is drawn and this protocol can
+    /// express the caret bar. Protocol 7 has no horizontal-bar width;
+    /// vertical-writing carets retain their address/source with no bar.
     pub geometry: Option<ReaderCaretGeometry>,
     /// Canonical manifest href and source point the caret sits at.
     pub href: String,
