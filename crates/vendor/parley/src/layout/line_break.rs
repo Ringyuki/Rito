@@ -593,16 +593,12 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         let text_wrap_mode = self.state.line.text_wrap_mode;
                         self.state.line.text_wrap_mode = style.text_wrap_mode;
 
-                        if boundary == Boundary::Line && text_wrap_mode == TextWrapMode::Wrap {
-                            // We do not currently handle breaking within a ligature, so we ignore boundaries in such a position.
-                            //
-                            // We also don't record boundaries when the advance is 0. As we do not want overflowing content to cause extra consecutive
-                            // line breaks. We should accept the overflowing fragment in that scenario.
-                            if !is_ligature_continuation && self.state.line.x != 0.0 {
-                                self.state.mark_line_break_opportunity();
-                                // break_opportunity = true;
-                            }
-                        } else if is_newline {
+                        // Rito: a forced break is taken before any soft wrap
+                        // opportunity, as upstream now does. A line break
+                        // override can mark the newline itself breakable
+                        // (`line-break: anywhere`, or Chromium's tailoring
+                        // after a space), and the soft branch lost the break.
+                        if is_newline {
                             if max_height_exceeded {
                                 return self.max_height_break_data(line_height);
                             }
@@ -613,6 +609,16 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                                 max_advance,
                                 line_indent,
                             );
+                        } else if boundary == Boundary::Line && text_wrap_mode == TextWrapMode::Wrap
+                        {
+                            // We do not currently handle breaking within a ligature, so we ignore boundaries in such a position.
+                            //
+                            // We also don't record boundaries when the advance is 0. As we do not want overflowing content to cause extra consecutive
+                            // line breaks. We should accept the overflowing fragment in that scenario.
+                            if !is_ligature_continuation && self.state.line.x != 0.0 {
+                                self.state.mark_line_break_opportunity();
+                                // break_opportunity = true;
+                            }
                         } else if
                         // This text can contribute "emergency" line breaks.
                         style.overflow_wrap != OverflowWrap::Normal && !is_ligature_continuation
@@ -627,7 +633,12 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         // the remaining clusters that make up the ligature
                         let mut advance = cluster.advance();
                         if cluster.is_ligature_start() {
-                            while let Some(cluster) = run.get(self.state.cluster_idx + 1) {
+                            // Rito: `Run::get` takes an index within the run,
+                            // as above; the absolute index read another run's
+                            // clusters for every run but the paragraph's first.
+                            while let Some(cluster) =
+                                run.get(self.state.cluster_idx - cluster_start + 1)
+                            {
                                 if !cluster.is_ligature_continuation() {
                                     break;
                                 } else {

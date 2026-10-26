@@ -23,6 +23,7 @@ mod clusters;
 mod envelopes_and_ruby;
 mod fonts;
 mod line_items;
+mod parley_breaker;
 mod punctuation_and_contract;
 
 /// A publication `@font-face` binding of `family` to `bytes`, upright at

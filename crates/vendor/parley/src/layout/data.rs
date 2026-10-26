@@ -30,7 +30,9 @@ pub(crate) struct ClusterData {
     /// taken from the owning run.
     pub(crate) glyph_offset: u32,
     /// Offset into the text for this cluster
-    pub(crate) text_offset: u16,
+    // Rito: 32 bits; a shaping run longer than 64 KiB (a volume written as
+    // one paragraph in one style) wrapped a 16-bit offset.
+    pub(crate) text_offset: u32,
     /// Advance width for this cluster
     pub(crate) advance: f32,
 }
@@ -1003,7 +1005,7 @@ fn push_cluster(
         glyph_len: final_glyph_len,
         text_len: cluster_start_char.1.len_utf8() as u8,
         glyph_offset: final_glyph_offset,
-        text_offset: cluster_start_char.0 as u16,
+        text_offset: cluster_start_char.0 as u32,
         advance: final_advance,
     });
 }
