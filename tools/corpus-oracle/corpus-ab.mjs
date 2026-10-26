@@ -5,6 +5,8 @@
 //   node tools/corpus-oracle/unpack-corpus.mjs ~/Downloads /tmp/rito-corpus
 //   cargo build --release --example chapter-fragment-probe -p rito-core
 //   RITO_ORACLE_DIR=/tmp/rito-corpus node tools/corpus-oracle/corpus-ab.mjs
+// `RITO_FRAGMENT_PROBE=<binary>` runs a probe built elsewhere instead, so a
+// run compares the engine it started with however `target/` is rebuilt.
 // Corpus A/B v2: rito fragment layout vs pinned-font Chromium, aligned by
 // line-break points instead of raw line index.
 //
@@ -24,7 +26,8 @@ const { chromium } = createRequire(`${new URL('../..', import.meta.url).pathname
 
 const REPO = new URL('../..', import.meta.url).pathname;
 const DIR = `${process.env.RITO_ORACLE_DIR ?? '.'}/`;
-const PROBE = `${REPO}target/release/examples/chapter-fragment-probe`;
+const PROBE =
+  process.env.RITO_FRAGMENT_PROBE ?? `${REPO}target/release/examples/chapter-fragment-probe`;
 const SERIF = `${REPO}apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf`;
 const TINOS = `${REPO}apps/reader/src/assets/fonts/Tinos-Regular.ttf`;
 const WIDTH = 500;
