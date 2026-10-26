@@ -221,3 +221,275 @@ fn a_paragraph_laid_out_again_at_its_width_decides_nothing_again() {
         "the second layout replayed the first"
     );
 }
+
+/// The lines (ranges and break reasons) and the letter-spacing pushes each
+/// driver decides for the paragraph at `root` in `space`.
+type DriverResult = (
+    Vec<(std::ops::Range<usize>, String)>,
+    Vec<(std::ops::Range<usize>, f32)>,
+);
+
+fn both_drivers(
+    context: &ParleyInlineContext,
+    tree: &FormattingTree,
+    space: &ConstraintSpace,
+) -> (DriverResult, DriverResult, usize) {
+    let FormattingNodeContent::InlineFlow { items } = &tree.node(FormattingNodeId(0)).content
+    else {
+        panic!("an inline flow");
+    };
+    let mut cursor = 0;
+    let item_text_ranges: Vec<std::ops::Range<usize>> = items
+        .iter()
+        .map(|item| match item {
+            InlineItem::Text { text, .. } => {
+                cursor += text.len();
+                cursor - text.len()..cursor
+            }
+            _ => cursor..cursor,
+        })
+        .collect();
+    let cancel = CancelFlag::new();
+    let inputs = LineEdgeInputs {
+        tree,
+        root: FormattingNodeId(0),
+        space,
+        band: space.float_band,
+        item_text_ranges: &item_text_ranges,
+        cancel: &cancel,
+    };
+    let result = |decided: &DecidedParagraph| -> DriverResult {
+        (
+            decided
+                .layout
+                .lines()
+                .map(|line| (line.text_range(), format!("{:?}", line.break_reason())))
+                .collect(),
+            decided.spacing_edits.letter.clone(),
+        )
+    };
+    let base_pushes = context
+        .shaped_paragraph(
+            tree,
+            FormattingNodeId(0),
+            space,
+            ParagraphEdits::default(),
+            &cancel,
+        )
+        .expect("base builds")
+        .spacing_edits
+        .letter
+        .len();
+    let (fixpoint, _) = context
+        .fixpoint_line_edges(&inputs, &mut WidthBounds::new(space.inline_size))
+        .expect("fixpoint decides");
+    let (forward, _) = context
+        .forward_line_edges(&inputs, &mut WidthBounds::new(space.inline_size))
+        .expect("forward decides");
+    (result(&fixpoint), result(&forward), base_pushes)
+}
+
+/// A line rewound to the start of the item it overflows with (Blink skips
+/// the line-end extension across an element boundary and sends the whole
+/// item down): pinned Chromium at 172px puts `①` alone on the first line
+/// when it is its own element, and keeps the whole paragraph on one line
+/// when it is not.
+#[test]
+fn a_razor_fit_note_line_rewinds_its_item_across_an_element_boundary() {
+    let context = source_han_context();
+    let lay_items = |texts: &[&str]| {
+        let mut inline = InlineStyleTable::new(1);
+        let style = inline
+            .intern_for_node(
+                0,
+                plain_paragraph_style(
+                    FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                        .expect("family list"),
+                    16.0,
+                    0.0,
+                ),
+            )
+            .expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: texts
+                        .iter()
+                        .map(|text| InlineItem::Text {
+                            text: (*text).to_owned(),
+                            style,
+                            baseline_shift_px: 0.0,
+                            ruby_annotation: None,
+                        })
+                        .collect(),
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        line_texts(&lay(&context, &tree, 172.0), &texts.concat())
+    };
+    let body = format!("{}）", "永".repeat(9));
+    assert_eq!(lay_items(&["①", &body]), vec!["①".to_owned(), body.clone()]);
+    assert_eq!(lay_items(&[&format!("①{body}")]), vec![format!("①{body}")]);
+}
+
+/// A ruby base split across lines spreads each segment to its allocated
+/// annotation words decided line by line, exactly as the fixpoint decided
+/// them over the whole paragraph.
+#[test]
+fn split_ruby_segments_spread_as_the_fixpoint_spread_them() {
+    let context = source_han_context();
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline
+        .intern_for_node(
+            0,
+            plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                    .expect("family list"),
+                16.0,
+                0.0,
+            ),
+        )
+        .expect("style interns");
+    let text_item = |text: &str, annotation: Option<&str>| InlineItem::Text {
+        text: text.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: annotation.map(|annotation| rito_fragment::RubyAnnotation {
+            text: annotation.to_owned(),
+            size_ratio: 0.5,
+            align: rito_style_contract::RubyAlign::SpaceAround,
+        }),
+    };
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    text_item("永永永永永", None),
+                    text_item("黄金妖精", Some("Leprechaun Leprechaun Lep")),
+                    text_item("永永永永永永永永", None),
+                ],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let mut spread = 0;
+    for width in 96..160 {
+        let (fixpoint, forward, base_pushes) = both_drivers(
+            &context,
+            &tree,
+            &ConstraintSpace::continuous(f64::from(width)),
+        );
+        assert_eq!(forward, fixpoint, "at {width}px");
+        if fixpoint.1.len() > base_pushes {
+            spread += 1;
+        }
+    }
+    assert!(spread > 0, "some width splits the base and spreads it");
+}
+
+/// Lines beside a float band break at its narrower width with their trims
+/// and pairs decided against it, as the fixpoint decided them.
+#[test]
+fn line_edges_beside_a_float_band_are_decided_as_the_fixpoint_decided_them() {
+    let context = source_han_context();
+    let text = format!(
+        "{}{}」{}",
+        "永".repeat(9),
+        format!("」「{}", "永".repeat(8)).repeat(4),
+        format!("{}」", "永".repeat(10)).repeat(4),
+    );
+    let tree = serif_paragraph(&text);
+    let mut decided = 0;
+    for width in 150..200 {
+        let space = ConstraintSpace {
+            float_band: Some(rito_fragment::FloatBand {
+                left_inset: 24.0,
+                right_inset: 0.0,
+                bottom: 70.0,
+            }),
+            ..ConstraintSpace::continuous(f64::from(width))
+        };
+        let (fixpoint, forward, base_pushes) = both_drivers(&context, &tree, &space);
+        assert_eq!(forward, fixpoint, "at {width}px");
+        if fixpoint.1.len() != base_pushes {
+            decided += 1;
+        }
+    }
+    assert!(decided > 0, "some width decides a line edge");
+}
+
+/// A cancelled layout stops while it decides its line edges.
+#[test]
+fn a_cancelled_layout_stops_deciding() {
+    let context = source_han_context();
+    let text = format!("{}」", "永".repeat(10)).repeat(8);
+    let cancel = CancelFlag::new();
+    cancel.cancel();
+    let outcome = context.layout(
+        &serif_paragraph(&text),
+        FormattingNodeId(0),
+        &ConstraintSpace::continuous(170.0),
+        None,
+        &cancel,
+    );
+    assert!(matches!(outcome, Err(LayoutError::Cancelled)));
+}
+
+/// The inline sizes a layout without its text reports it holds for lay the
+/// paragraph out exactly alike, decisions and all.
+#[test]
+fn the_sizes_a_decided_paragraph_holds_for_lay_it_out_alike() {
+    let text = format!(
+        "{}{}",
+        format!("{}」", "永".repeat(10)).repeat(6),
+        format!("」「{}", "永".repeat(8)).repeat(4),
+    );
+    let tree = serif_paragraph(&text);
+    let omitted = |width: f64| ConstraintSpace {
+        line_text: LineText::Omitted,
+        ..ConstraintSpace::continuous(width)
+    };
+    let laid = |width: f64| {
+        source_han_context()
+            .layout(
+                &tree,
+                FormattingNodeId(0),
+                &omitted(width),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds")
+    };
+    // The lines; the root box spans whatever width it is laid out at.
+    let lines = |outcome: &LayoutOutcome| match &outcome.fragments.root {
+        Fragment::Box(root) => root.children.clone(),
+        _ => panic!("the root is a box"),
+    };
+    let at = laid(170.0);
+    let (lo, hi) = at
+        .inline_size_range
+        .expect("the decided layout knows its range");
+    assert!(lo <= 170.0 && 170.0 < hi, "{lo}..{hi}");
+    for width in [lo, (lo + 170.0) / 2.0, (170.0 + hi) / 2.0, hi - 1e-6] {
+        assert_eq!(
+            lines(&laid(width)),
+            lines(&at),
+            "at {width}px in {lo}..{hi}"
+        );
+    }
+}
