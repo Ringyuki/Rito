@@ -42,6 +42,8 @@ mod atoms;
 mod breaking;
 mod clusters;
 mod context;
+#[cfg(test)]
+mod counters;
 mod fonts;
 mod forensics;
 mod image;
@@ -116,4 +118,6 @@ pub struct ParleyInlineContext {
     /// Each paragraph's min- and max-content widths, measured once (see
     /// [`IntrinsicSizes`]).
     pub(crate) intrinsic_sizes: RefCell<IntrinsicSizes>,
+    #[cfg(test)]
+    pub(crate) counts: counters::LineLoopCounts,
 }

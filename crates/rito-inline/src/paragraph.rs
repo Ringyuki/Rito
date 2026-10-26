@@ -50,6 +50,8 @@ impl ParleyInlineContext {
             cancel,
         )?;
         built.reads_space = build_space.was_read();
+        #[cfg(test)]
+        self.counts.note_build();
         self.shaped.borrow_mut().insert(key, &build_space, &built);
         Ok(built)
     }

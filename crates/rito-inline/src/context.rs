@@ -56,6 +56,8 @@ impl ParleyInlineContext {
             halt_feature_cache: RefCell::default(),
             shaped: RefCell::default(),
             intrinsic_sizes: RefCell::default(),
+            #[cfg(test)]
+            counts: crate::counters::LineLoopCounts::default(),
         })
     }
 

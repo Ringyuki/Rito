@@ -22,6 +22,7 @@ mod breaks_and_spacing;
 mod clusters;
 mod envelopes_and_ruby;
 mod fonts;
+mod line_decisions;
 mod line_items;
 mod parley_breaker;
 mod punctuation_and_contract;

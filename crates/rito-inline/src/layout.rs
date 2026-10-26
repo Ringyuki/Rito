@@ -226,7 +226,11 @@ impl FormattingContext for ParleyInlineContext {
                 kept_breaks.break_or_restore(
                     &mut layout,
                     BreakKey::new(space, band, &forced_line_breaks),
-                    |layout| break_lines(layout, &forced_line_breaks),
+                    |layout| {
+                        #[cfg(test)]
+                        self.counts.note_break();
+                        break_lines(layout, &forced_line_breaks);
+                    },
                 );
                 if reads_space {
                     bounds.pin();
