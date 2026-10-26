@@ -52,6 +52,10 @@ struct ProbeRequest {
     /// chapter file. Defaults to the reader-filtered production flow.
     #[serde(default)]
     unfiltered_flow: bool,
+    /// The initial font size the chapter's styles resolve against, as a
+    /// reader's root font size setting sets it. Defaults to 16px.
+    #[serde(default)]
+    root_font_size_px: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -131,7 +135,7 @@ fn main() {
         spread: SpreadMode::Single,
         first_page_alone: true,
         spread_gap: 0.0,
-        root_font_size: 16.0,
+        root_font_size: request.root_font_size_px.unwrap_or(16.0),
         line_height_override: None,
         line_height_force: None,
         font_family_override: None,
