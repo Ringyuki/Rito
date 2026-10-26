@@ -179,17 +179,27 @@ impl ParleyInlineContext {
             let decides = !source.pair_trims.is_empty()
                 || !source.ruby_annotation_widths.is_empty()
                 || trims_possible;
-            let (decided, ends) = if decides {
-                Pass {
-                    context: self,
-                    inputs,
-                    source: &source,
-                    source_edits: &source_edits,
-                    trims_possible,
-                }
-                .decide(&mut pass_bounds)?
+            let pass = Pass {
+                context: self,
+                inputs,
+                source: &source,
+                source_edits: &source_edits,
+                trims_possible,
+            };
+            // Most paragraphs break into lines that decide nothing: those
+            // stand as the build broke them, and a pass decides only from
+            // the first line that does.
+            let first = if decides {
+                pass.first_decision(&mut pass_bounds)
             } else {
-                (source_edits.clone(), Vec::new())
+                None
+            };
+            let (decided, ends) = match first {
+                Some(first) => {
+                    let (decided, ends) = pass.decide(&mut pass_bounds, first)?;
+                    (decided, Some(ends))
+                }
+                None => (source_edits.clone(), None),
             };
             let mut built = if decided.builds_as(&source_edits) {
                 source.clone()
@@ -197,15 +207,16 @@ impl ParleyInlineContext {
                 self.shaped_paragraph(tree, root, space, decided.edits(), cancel)?
             };
             self.break_decided(inputs, &mut built, &decided.forced(), bounds);
-            let ends_match = !decides
-                || built
+            let ends_match = ends.is_none_or(|ends| {
+                built
                     .layout
                     .lines()
                     .map(|line| LineEnd {
                         range: line.text_range(),
                         reason: line.break_reason(),
                     })
-                    .eq(ends.iter().cloned());
+                    .eq(ends)
+            });
             if ends_match || attempt == 2 {
                 bounds.intersect(&pass_bounds);
                 let edits = decided.decided_edits();
@@ -312,10 +323,45 @@ struct State {
 }
 
 impl Pass<'_> {
+    /// The first line of the source broken as its edits break it that
+    /// decides anything, when one does; every comparison is recorded in
+    /// `bounds`, so a paragraph whose lines decide nothing stands as broken.
+    fn first_decision(&self, bounds: &mut WidthBounds) -> Option<usize> {
+        let mut scanned = self.source.clone();
+        self.context.break_decided(
+            self.inputs,
+            &mut scanned,
+            &self.source_edits.forced(),
+            bounds,
+        );
+        let mut state = State {
+            edits: self.source_edits.clone(),
+            rejected: Vec::new(),
+            pending: None,
+            originals: HashMap::new(),
+        };
+        let mut line_top = 0.0_f64;
+        for (index, line) in scanned.layout.lines().enumerate() {
+            if self
+                .decide_line(&scanned.layout, index, line_top, 0, &mut state, bounds)
+                .is_some()
+            {
+                return Some(index);
+            }
+            line_top += f64::from(line.metrics().line_height);
+        }
+        None
+    }
+
     /// Breaks the source's lines one at a time on a copy, deciding each
-    /// line's edge: the edits and forced ends decided, and where each line
+    /// line's edge from line `first` on (the lines before it decide
+    /// nothing): the edits and forced ends decided, and where each line
     /// ended.
-    fn decide(&self, bounds: &mut WidthBounds) -> Result<(LineEdits, Vec<LineEnd>), LayoutError> {
+    fn decide(
+        &self,
+        bounds: &mut WidthBounds,
+        first: usize,
+    ) -> Result<(LineEdits, Vec<LineEnd>), LayoutError> {
         #[cfg(test)]
         self.context.counts.note_pass();
         let LineEdgeInputs {
@@ -364,6 +410,22 @@ impl Pass<'_> {
                 // empty lines for ever.
                 let last = breaker.is_done();
                 let after = breaker.state().clone();
+                if index < first {
+                    // Broken exactly as the source broke it: it decides
+                    // nothing, and its fit is recorded.
+                    break breaker.inspect(|layout| {
+                        layout.get(index).map(|line| {
+                            (
+                                LineEnd {
+                                    range: line.text_range(),
+                                    reason: line.break_reason(),
+                                },
+                                f64::from(line.metrics().line_height),
+                                last,
+                            )
+                        })
+                    });
+                }
                 set_next_line_width(&mut breaker, space, band);
                 let _ = breaker.break_next();
                 let decision = breaker.inspect(|layout| {
