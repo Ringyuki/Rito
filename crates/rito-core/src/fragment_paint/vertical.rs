@@ -4,7 +4,8 @@
 //! with bracket, dash and leader marks rotated a quarter turn about their
 //! em centre and comma and period marks shifted into the em's top-right
 //! corner; an inline image swaps its layout box back to physical; a ruby
-//! annotation spreads its glyphs down the base span.
+//! annotation spreads its glyphs down the base span. Inline-block atoms
+//! paint their own lines recursively in the same logical coordinate frame.
 
 use rito_fragment::{FormattingNodeContent, FormattingTree, Fragment, InlineItem, LineFragment};
 
@@ -169,6 +170,29 @@ pub(super) fn append_vertical_line_commands(
     let column_x = frame_right - (box_block + line.rect.y + line.rect.height);
     let column_top = frame_top + box_inline + line.rect.x;
     for child in &line.children {
+        if let Fragment::Box(atom) = child {
+            // An inline-block has its own miniature flow. Accumulate its
+            // logical origin before projecting each inner line, just as the
+            // horizontal painter descends into an atom's local frame.
+            for inner in &atom.children {
+                let Fragment::Line(inner_line) = inner else {
+                    continue;
+                };
+                append_vertical_line_commands(
+                    commands,
+                    tree,
+                    inner_line,
+                    box_inline + line.rect.x + atom.rect.x,
+                    box_block + line.rect.y + atom.rect.y,
+                    frame_right,
+                    frame_top,
+                    faces,
+                    flow_item_sources,
+                    ruby_annotation_runs,
+                )?;
+            }
+            continue;
+        }
         // A replaced atom in a vertical line: the layout box is the
         // swapped one (advance = physical height), so the device rect
         // swaps back — column position from the line, the atom's inline
