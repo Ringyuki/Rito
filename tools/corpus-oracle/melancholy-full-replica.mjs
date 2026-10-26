@@ -12,7 +12,7 @@ const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.tt
 const para =
   '「我聽說日文的名字大多不是只有音，而是有含意的。像小春就是spring day，古泉就是old spring。呵呵，真有趣。長門就是long gate了吧。可是我的名字寫成日文好像也不會有什麼意義。我不是不喜歡自己的名字，只是感覺很像古代悲劇裡會出現的人物，有點melancholy。」';
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({ viewport: { width: 800, height: 950 }, deviceScaleFactor: 1 });
 await page.setContent(
   `<!doctype html><html lang="zh-TW"><head><meta charset="utf-8"><style>

@@ -77,9 +77,7 @@ async function run() {
 
   const server = await startDiagnosticServer(extractedDir);
   const browser = await chromium.launch({
-    ...(process.env.PLAYWRIGHT_BROWSER_CHANNEL
-      ? { channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL }
-      : {}),
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? 'chromium',
     headless: true,
   });
 

@@ -9,7 +9,7 @@ const { chromium } = require2('@playwright/test');
 const [bookPath, url = 'http://127.0.0.1:4174/'] = process.argv.slice(2);
 if (!bookPath) throw new Error('usage: open-timeline.mjs <epub> [url]');
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({
   deviceScaleFactor: 1,
   viewport: { width: 1280, height: 900 },

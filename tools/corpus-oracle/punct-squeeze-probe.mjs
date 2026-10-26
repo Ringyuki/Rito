@@ -10,7 +10,7 @@ const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
 const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({ viewport: { width: 1200, height: 2000 } });
 
 // 35 CJK + melancholy + 。」 needs 618.2 with compress+trim, 625.8 with

@@ -27,7 +27,10 @@ export default defineConfig({
       },
       {
         // What only a browser runs — WebGL2, OffscreenCanvas text — runs
-        // in headless Chromium, its coverage counted with the rest.
+        // in headless Chromium, its coverage counted with the rest. The full
+        // build, not the headless shell: the shell rasterizes canvas and
+        // page text on the CPU, blending glyphs otherwise than a GPU, while
+        // the full build rasterizes them on the GPU as Chrome does.
         test: {
           name: 'browser',
           testTimeout: 30_000,
@@ -35,7 +38,7 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright(),
+            provider: playwright({ launchOptions: { channel: 'chromium' } }),
             instances: [{ browser: 'chromium' }],
           },
         },

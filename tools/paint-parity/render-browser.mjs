@@ -62,7 +62,7 @@ const FONTS = [
 // pen where WebGL has no GPU); the GPU pass is a reader's browser, where
 // the GPU pen draws text and fills itself and is held to that browser's
 // canvas pen.
-await renderPass(await chromium.launch(), {
+await renderPass(await chromium.launch({ channel: 'chromium' }), {
   flat: 'browser',
   offscreen: 'browser-offscreen',
   gpu: 'browser-gl-software',

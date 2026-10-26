@@ -171,7 +171,7 @@ const HOST_FACES = [
   url: path.join(REPO, 'apps/reader/src/assets/fonts', face.file),
 }));
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 
 // ---- Engine side: load the book, read the chapter map, walk and shoot --
 const reader = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: DSF });
@@ -523,7 +523,7 @@ const truthColumnCount = new Map();
 // back blank and scroll captures sat ~190px stale on a fresh page and
 // context alike; a fresh browser process renders the same page,
 // injection and clip correctly.
-const truthBrowser = await chromium.launch();
+const truthBrowser = await chromium.launch({ channel: 'chromium' });
 const truthContext = await truthBrowser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: DSF,

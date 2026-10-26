@@ -21,7 +21,7 @@ const viewport =
 const GAPS = (process.env.GAPS ?? '0,4,16,40,90,160,260,400').split(',').map(Number);
 const BURST = Number(process.env.BURST ?? 6);
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({
   viewport: { width: viewport.width, height: viewport.height },
   deviceScaleFactor: viewport.dsf,

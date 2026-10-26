@@ -1,6 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
-const browserChannel = process.env['PLAYWRIGHT_BROWSER_CHANNEL'];
+// The full Chromium build, which rasterizes page and canvas text on the GPU
+// as Chrome does; the headless shell rasterizes them on the CPU.
+const browserChannel = process.env['PLAYWRIGHT_BROWSER_CHANNEL'] ?? 'chromium';
 const DEFAULT_PIXEL_WORKERS = 2;
 
 export default defineConfig({
@@ -13,7 +15,7 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     browserName: 'chromium',
-    ...(browserChannel ? { channel: browserChannel } : {}),
+    channel: browserChannel,
     headless: true,
     viewport: { width: 1400, height: 1800 },
     deviceScaleFactor: 1,

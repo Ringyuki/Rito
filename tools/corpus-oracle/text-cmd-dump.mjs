@@ -18,7 +18,7 @@ if (!bookPath || !spreadArg || needles.length === 0) {
 const SPREAD = Number(spreadArg);
 const BASE = process.env.RITO_READER_URL ?? 'http://localhost:5173/';
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({
   viewport: { width: 1500, height: 950 },
   deviceScaleFactor: 1,

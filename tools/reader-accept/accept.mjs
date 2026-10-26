@@ -13,7 +13,7 @@ const viewport =
   VIEW === 'phone' ? { width: 393, height: 760, dsf: 3 } : { width: 1280, height: 860, dsf: 2 };
 const RUNS = Number(process.env.RUNS ?? 3);
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const out = [];
 for (let run = 0; run < RUNS; run++) {
   const page = await browser.newPage({

@@ -29,7 +29,7 @@ const ACTION = process.env.ACTION ?? 'turn';
 // one paying for something else.
 const RASTER_FIRST = process.env.RASTER_FIRST === '1';
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({
   viewport: { width: viewport.width, height: viewport.height },
   deviceScaleFactor: viewport.dsf,

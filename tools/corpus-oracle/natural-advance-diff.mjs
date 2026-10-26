@@ -137,7 +137,7 @@ p { text-align:left; font-size:0.95em; margin:0; white-space:nowrap; }
   return data;
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const real = await measureReal(browser);
 console.log('real font stack:', real.font);
 const replica = await measureReplica(browser, real.text);

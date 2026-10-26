@@ -14,7 +14,7 @@ const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-R
 const contentW = 640;
 const contentH = 850;
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const context = await browser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: 1,

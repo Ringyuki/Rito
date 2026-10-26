@@ -13,6 +13,7 @@ const { chromium } = require('@playwright/test');
  */
 export function launchUnthrottled() {
   return chromium.launch({
+    channel: 'chromium',
     args: [
       '--disable-gpu-vsync',
       '--disable-frame-rate-limit',

@@ -45,7 +45,7 @@ const NEEDLE = process.env.RITO_ORACLE_NEEDLE;
 const serifB64 = readFileSync(SERIF).toString('base64');
 const tinosB64 = readFileSync(TINOS).toString('base64');
 const manifest = JSON.parse(readFileSync(`${DIR}manifest.json`, 'utf8'));
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({ viewport: { width: Math.ceil(WIDTH), height: 6000 } });
 // The browser's default font size is the engine's root font size.
 await (

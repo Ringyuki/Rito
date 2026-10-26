@@ -179,7 +179,7 @@ const browser =
   BROWSER !== 'chromium'
     ? await { firefox, webkit }[BROWSER].launch({ headless: process.env.HEADED !== '1' })
     : process.env.GPU === '0'
-      ? await chromium.launch()
+      ? await chromium.launch({ channel: 'chromium' })
       : await launchUnthrottled();
 let failed = 0;
 let compared = 0;

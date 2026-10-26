@@ -10,7 +10,7 @@ const [, , bookPath] = process.argv;
 const BASE = process.env.RITO_READER_URL ?? 'http://localhost:5173/';
 const VIEWPORT = { width: 740, height: 950 };
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
 await page.goto(BASE);
 let lastNav = Date.now();

@@ -17,7 +17,7 @@ const CLASSES = {
   middle: ['・', '：', '；'],
 };
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const page = await browser.newPage({ viewport: { width: 2400, height: 400 } });
 const reps = Object.entries(CLASSES).flatMap(([cls, chars]) => chars.map((ch) => [cls, ch]));
 const pairs = [];

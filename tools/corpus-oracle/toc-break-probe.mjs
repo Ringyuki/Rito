@@ -23,7 +23,7 @@ if (!chapterFile) {
   process.exit(1);
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: 'chromium' });
 const context = await browser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: 1,
