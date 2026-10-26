@@ -653,6 +653,11 @@ impl ArtifactBuilder<'_> {
                             // mini paragraph serializes like any nested
                             // box, in the line's coordinates, as part of
                             // the line's paragraph.
+                            // Finish the host segment before entering the
+                            // atom. Its first run must not reuse the host's
+                            // (block, line, run) caret address; following
+                            // host runs resume after the nested flow.
+                            *line_index += 1;
                             let host = self.host_paragraph.replace(paragraph);
                             self.collect(child, block_index, line_index, line_x, line_y);
                             self.host_paragraph = host;
@@ -696,6 +701,7 @@ impl ArtifactBuilder<'_> {
             let (start, end) = (start as usize, end as usize);
             if start == end {
                 if let Some(atom) = atoms.next().filter(|atom| matches!(atom, Fragment::Box(_))) {
+                    *line_index += 1;
                     let host = self.host_paragraph.replace(paragraph);
                     self.collect(
                         atom,

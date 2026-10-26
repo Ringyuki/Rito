@@ -2,6 +2,7 @@ mod access_tests;
 mod chapter_local_tests;
 pub(crate) mod fixture;
 mod fragment_page_table_tests;
+mod inline_block_interaction_tests;
 pub(crate) mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
