@@ -46,12 +46,27 @@ impl ParleyInlineContext {
                     .layout
                     .style(*layout_style)
                     .map_err(|error| LayoutError::Invalid(error.to_string()))?;
+                let vertical = tree
+                    .strut_style(host)
+                    .and_then(|id| styles.inline.style(id).ok())
+                    .is_some_and(|strut| {
+                        strut.bidi.writing_mode
+                            == rito_style_contract::WritingMode::VerticalRightToLeft
+                    });
+                // Image CSS dimensions and the reader clamp are physical.
+                // In vertical flow the logical inline size is HEIGHT; using
+                // it as a width cap shrinks landscape images inside atoms.
+                let (physical_width, physical_height) = if vertical {
+                    (space.block_size(), space.inline_size())
+                } else {
+                    (space.inline_size(), space.block_size())
+                };
                 let (width, height) = image_display_size(
                     *intrinsic_width,
                     *intrinsic_height,
                     layout_style,
-                    space.inline_size(),
-                    space.block_size(),
+                    physical_width,
+                    physical_height,
                     space.containing_block_size(),
                     percentage_images,
                     *viewport,
@@ -63,13 +78,7 @@ impl ParleyInlineContext {
                 // is 318 wide, the image runs the page's length and
                 // clips); the swapped box maps back to the physical
                 // raster in the vertical paint walk.
-                let (width, height) = if tree
-                    .strut_style(host)
-                    .and_then(|id| styles.inline.style(id).ok())
-                    .is_some_and(|strut| {
-                        strut.bidi.writing_mode
-                            == rito_style_contract::WritingMode::VerticalRightToLeft
-                    }) {
+                let (width, height) = if vertical {
                     (height, width)
                 } else {
                     (width, height)
@@ -105,7 +114,12 @@ impl ParleyInlineContext {
                     self,
                     tree,
                     *node,
-                    &ConstraintSpace::continuous(width),
+                    &ConstraintSpace {
+                        // The atom is unfragmented, but its replaced
+                        // descendants still need the outer page clamp.
+                        fragmentainer_size: space.block_size(),
+                        ..ConstraintSpace::continuous(width)
+                    },
                     None,
                     cancel,
                 )?;

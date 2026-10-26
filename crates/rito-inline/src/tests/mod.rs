@@ -24,6 +24,7 @@ mod envelopes_and_ruby;
 mod fonts;
 mod line_items;
 mod punctuation_and_contract;
+mod vertical_images;
 
 /// A publication `@font-face` binding of `family` to `bytes`, upright at
 /// the default weight.
