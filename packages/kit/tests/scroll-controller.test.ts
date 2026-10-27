@@ -20,6 +20,7 @@ function fakeReader() {
   const reader = {
     dpr: 1,
     activeSpreadIndex: 0,
+    spreads: Array.from({ length: 5 }, (_, index) => ({ index, leftPageIndex: index })),
     painted: [] as number[],
     active: [] as number[],
     getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30 }),
@@ -148,6 +149,41 @@ describe('scroll controller', () => {
     expect(controller.offset).toBeGreaterThan(100 + 400);
     expect(controller.offset).toBeLessThan(100 + 501);
     expect(rests.at(-1)).toBe(controller.offset);
+    controller.dispose();
+  });
+
+  it('reads the line at the reading line once the strip rests', async () => {
+    const reader = fakeReader();
+    const points: unknown[] = [];
+    Object.assign(reader, {
+      spreads: Array.from({ length: 5 }, (_, index) => ({ index, leftPageIndex: index })),
+      interactions: {
+        textSelection: {
+          resolveCaret: (point: { pageIndex: number }) => {
+            points.push(point);
+            return Promise.resolve({
+              status: 'resolved',
+              pageIndex: point.pageIndex,
+              spreadIndex: point.pageIndex,
+              caret: { sourceLocator: { href: 'two.xhtml', progression: 0.25 } },
+            });
+          },
+        },
+      },
+    });
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    const positions: unknown[] = [];
+    controller.on('position', ({ locator }) => positions.push(locator));
+    controller.mount(document.body);
+    controller.scrollToSpread(3, 100);
+    runFrames();
+    await vi.waitFor(() => {
+      expect(positions).toEqual([{ href: 'two.xhtml', progression: 0.25 }]);
+    });
+    // The reading line 100 px into the window, a pixel in from the content's start.
+    expect(points.at(-1)).toEqual({ pageIndex: 3, x: 1, y: 100 - 30 });
     controller.dispose();
   });
 

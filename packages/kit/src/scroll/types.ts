@@ -1,3 +1,4 @@
+import type { ReaderLocator } from '@ritojs/core';
 import type { ScrollPhysics } from './physics';
 
 export interface ScrollControllerOptions {
@@ -19,6 +20,8 @@ export interface ScrollControllerEvents {
   window: { readonly spreadIndex: number };
   /** The strip came to rest. */
   rest: { readonly offset: number };
+  /** Where the reader reads once the strip rests: the line at the reading line. */
+  position: { readonly locator: ReaderLocator };
 }
 
 /**

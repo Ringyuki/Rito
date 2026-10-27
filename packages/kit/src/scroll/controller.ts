@@ -8,6 +8,7 @@ import { wireScrollInput } from './input';
 import { createScrollMotion, type ScrollMotion } from './motion';
 import { defaultScrollPhysics } from './physics';
 import { createWindowPool, type WindowPool } from './pool';
+import { readingPosition } from './position';
 import type { ScrollController, ScrollControllerEvents, ScrollControllerOptions } from './types';
 
 const GLIDE = { stiffness: 220, damping: 2 * Math.sqrt(220) };
@@ -163,8 +164,27 @@ function schedule(view: ScrollView): void {
     const moving = view.motion.step(now);
     draw(view);
     if (moving) schedule(view);
-    else view.emitter.emit('rest', { offset: view.motion.offset / ratioOf(view) });
+    else rest(view);
   });
+}
+
+/** The strip came to rest: say where, then where the reader reads. */
+function rest(view: ScrollView): void {
+  const { geometry, motion } = view;
+  view.emitter.emit('rest', { offset: motion.offset / ratioOf(view) });
+  if (geometry === undefined) return;
+  const offset = motion.offset;
+  readingPosition(view.reader, geometry, offset, readingLine(view)).then(
+    (locator) => {
+      // A position the strip has since moved away from is not where it reads.
+      if (locator !== undefined && view.geometry === geometry && view.motion.offset === offset) {
+        view.emitter.emit('position', { locator });
+      }
+    },
+    (error: unknown) => {
+      console.error('[rito] the scroll view could not read its reading position', error);
+    },
+  );
 }
 
 function draw(view: ScrollView): void {
