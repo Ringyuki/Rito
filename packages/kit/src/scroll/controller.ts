@@ -3,6 +3,7 @@ import { DEFAULT_HIGHLIGHT_COLORS, withHighlightColors } from '../controller/ove
 import { createDisplaySurface } from '../painter/display-surface';
 import { createEmitter } from '../utils/event-emitter';
 import { wireScrollA11y } from './a11y';
+import { beginSelectionHandleDrag, selectionHandles } from './handles';
 import { scrollPointAt, scrollTargetAt } from './hit';
 import { wireScrollInput } from './input';
 import { createScrollMotion } from './motion';
@@ -152,6 +153,9 @@ function controllerOf(
       return view.selection?.snapshot?.range ?? null;
     },
     ...highlighting(view),
+    selectionHandles: () => selectionHandles(view),
+    beginSelectionHandleDrag: (edge, origin) =>
+      beginSelectionHandleDrag(view, controller, edge, origin),
     on: (event, listener) => view.emitter.on(event, listener),
     dispose() {
       dispose(view, unsubscribe);
@@ -222,6 +226,7 @@ function selectionChanged(view: ScrollView): void {
     text: snapshot?.text ?? '',
     selecting: view.selection?.selecting ?? false,
     rects: selectionRects(view),
+    handles: selectionHandles(view),
   });
 }
 

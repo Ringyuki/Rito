@@ -1,5 +1,11 @@
 import type { ReaderInteractionTarget, ReaderLocator, ReaderTextRange } from '@ritojs/core';
 import type { HighlightColors } from '../controller/overlay/colors';
+import type {
+  SelectionClientPoint,
+  SelectionHandleDrag,
+  SelectionHandleEdge,
+  SelectionHandleState,
+} from '../controller/types';
 import type { Rect } from '../interaction/layout-types';
 import type { ScrollHighlight, ScrollPageRect } from './highlights';
 import type { ScrollPoint } from './hit';
@@ -61,6 +67,8 @@ export interface ScrollControllerEvents {
     readonly text: string;
     readonly selecting: boolean;
     readonly rects: readonly Rect[];
+    /** Its ends where the view shows them (see `selectionHandles`). */
+    readonly handles: SelectionHandleState | null;
   };
 }
 
@@ -108,6 +116,21 @@ export interface ScrollController {
    */
   viewRects(rects: readonly ScrollPageRect[]): readonly Rect[];
   clearSelection(): void;
+  /**
+   * The ends of what is selected where the view shows them now, in CSS
+   * pixels from its top-left corner, and the end being moved; the shape the
+   * page controller gives its handles.
+   */
+  selectionHandles(): SelectionHandleState | null;
+  /**
+   * Drags end `edge` of what is selected from client point `origin` (a
+   * handle grabbed), as the page controller's handles are dragged; null when
+   * nothing is selected.
+   */
+  beginSelectionHandleDrag(
+    edge: SelectionHandleEdge,
+    origin: SelectionClientPoint,
+  ): SelectionHandleDrag | null;
   /**
    * What the app highlights over the text, in place of what it highlighted
    * before: a search's matches, a book's annotations. Each is drawn over

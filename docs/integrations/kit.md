@@ -308,7 +308,10 @@ then follows the finger instead of scrolling, a drag held near either end of the
 strip on under it, and a press that does not move clears the selection and taps.
 A Shift chord moves the selection's focus as the page controller's does, its
 arrow keys read by the writing mode of the focus's line, and the strip follows a
-focus that moves off screen.
+focus that moves off screen. `selectionHandles()` and `beginSelectionHandleDrag`
+give the selection's ends and drag one by a handle the app draws, in the shapes
+the page controller gives (the `selection` event carries the handles too); a
+handle held near either end of the view scrolls the strip on.
 What is selected is drawn over each window that shows it and moves with it; the
 `selection` event gives the range, its text and its rects where the view shows
 them, `selectionRects()` the rects once the strip has moved, and

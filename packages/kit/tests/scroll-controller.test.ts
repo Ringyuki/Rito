@@ -469,6 +469,39 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it("gives the selection's ends as handles and moves an end dragged by its handle", async () => {
+    const { canvas, controller, pointer, reader } = selectingView();
+    const textSelection = (
+      reader as unknown as {
+        interactions: { textSelection: { resolveTextRangeToPoint: () => unknown } };
+      }
+    ).interactions.textSelection;
+    const asked = vi.spyOn(textSelection, 'resolveTextRangeToPoint');
+    controller.mount(document.body);
+    controller.scrollTo(500);
+    runFrames();
+    canvas.dispatchEvent(pointer('pointerdown', 30, 50));
+    canvas.dispatchEvent(pointer('pointermove', 60, 200));
+    canvas.dispatchEvent(pointer('pointerup', 60, 200));
+    await flushMicrotasks();
+    runFrames();
+    const handles = controller.selectionHandles();
+    // The focus, dragged to view x 60 over the second window, is the end:
+    // where the pointer let go, at the top of that window's content box.
+    expect(handles?.focusEdge).toBe('end');
+    expect(handles?.end).toEqual({ x: 60, y: 130, width: 0, height: 18 });
+    const before = asked.mock.calls.length;
+    const drag = controller.beginSelectionHandleDrag('end', { clientX: 80, clientY: 130 });
+    expect(drag).not.toBeNull();
+    drag?.update({ clientX: 120, clientY: 300 });
+    drag?.finish({ clientX: 120, clientY: 300 });
+    await flushMicrotasks();
+    runFrames();
+    expect(asked.mock.calls.length).toBeGreaterThan(before);
+    expect(controller.selection?.selectedText).toBe('selected text');
+    controller.dispose();
+  });
+
   it('scrolls on under a drag held near the end of the view until the button lets go', async () => {
     const { canvas, controller, pointer } = selectingView();
     controller.mount(document.body);

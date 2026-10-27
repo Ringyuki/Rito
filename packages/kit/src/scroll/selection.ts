@@ -10,6 +10,8 @@ import type {
   NativeSelectionCapability,
   NativeSelectionEngine,
   NativeSelectionGranularity,
+  NativeSelectionHandleDrag,
+  NativeSelectionHandleEdge,
   NativeSelectionSnapshot,
 } from '../interaction/selection/native-types';
 
@@ -29,6 +31,8 @@ export interface ScrollSelection {
    * can move.
    */
   extend(movement: ReaderTextSelectionMovement): Promise<boolean>;
+  /** Drags end `edge` of what is selected; null when nothing selected can be dragged. */
+  handleDrag(edge: NativeSelectionHandleEdge): NativeSelectionHandleDrag | null;
   /** What is selected, as a gesture selects it and once it has. */
   readonly snapshot: NativeSelectionSnapshot | null;
   /** Whether a gesture is selecting. */
@@ -67,6 +71,7 @@ export function createScrollSelection(
       );
       return movements;
     },
+    handleDrag: (edge) => engine.beginHandleDrag(edge),
     get snapshot() {
       return engine.getSnapshot();
     },
