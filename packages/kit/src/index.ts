@@ -38,6 +38,7 @@ export { parseReadingPosition } from './interaction/index';
 export { createScrollController } from './scroll/controller';
 export { defaultScrollPhysics } from './scroll/physics';
 export type { ScrollPhysics, ScrollSimulation } from './scroll/physics';
+export type { ScrollPoint } from './scroll/hit';
 export type {
   ScrollController,
   ScrollControllerEvents,

@@ -1,4 +1,5 @@
-import type { ReaderLocator } from '@ritojs/core';
+import type { ReaderInteractionTarget, ReaderLocator } from '@ritojs/core';
+import type { ScrollPoint } from './hit';
 import type { ScrollPhysics } from './physics';
 
 export interface ScrollControllerOptions {
@@ -22,6 +23,8 @@ export interface ScrollControllerEvents {
   rest: { readonly offset: number };
   /** Where the reader reads once the strip rests: the line at the reading line. */
   position: { readonly locator: ReaderLocator };
+  /** The built-in input's tap: the point, and the link, note or image under it. */
+  tap: { readonly point: ScrollPoint; readonly target: ReaderInteractionTarget | undefined };
 }
 
 /**
@@ -51,6 +54,10 @@ export interface ScrollController {
    * when it names no line; false when the locator lands nowhere.
    */
   scrollToLocator(locator: ReaderLocator): Promise<boolean>;
+  /** The point under view coordinates `x`, `y` (CSS pixels from the view's top-left corner). */
+  pointAt(x: number, y: number): ScrollPoint | undefined;
+  /** The link, note or image at a point, if any. */
+  targetAt(point: ScrollPoint): Promise<ReaderInteractionTarget | undefined>;
   /** A finger takes the strip: what it was gliding through stops. */
   grab(): void;
   /** The finger moved the strip on by `delta`. */

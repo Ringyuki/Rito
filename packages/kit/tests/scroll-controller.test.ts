@@ -204,6 +204,56 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it('finds the window and content point under a view point, and taps what is there', async () => {
+    const reader = fakeReader();
+    Object.assign(reader, {
+      getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30, marginLeft: 20 }),
+      interactions: {
+        getPageTargets: (pageIndex: number) =>
+          Promise.resolve({
+            pageIndex,
+            spreadIndex: pageIndex,
+            targets: [
+              { kind: 'link', bounds: { x: 0, y: 40, width: 100, height: 20 }, href: 'two.xhtml' },
+            ],
+          }),
+      },
+    });
+    const canvas = fakeCanvas();
+    const controller = createScrollController(reader as unknown as Reader, canvas);
+    const taps: { target: unknown }[] = [];
+    controller.on('tap', (tapped) => taps.push(tapped));
+    controller.mount(document.body);
+    controller.scrollTo(500);
+    runFrames();
+    // 100 px down the view is 600 px into the book: the second window's top.
+    const point = controller.pointAt(30, 100);
+    expect(point).toEqual({ spreadIndex: 1, pageIndex: 1, x: 10, y: -30 });
+    if (point === undefined) throw new Error('a point');
+    expect(await controller.targetAt({ ...point, y: 45 })).toMatchObject({ href: 'two.xhtml' });
+    canvas.dispatchEvent(new MouseEvent('click', { clientX: 30, clientY: 170 }));
+    await vi.waitFor(() => {
+      expect(taps).toHaveLength(1);
+    });
+    expect(taps[0]?.target).toMatchObject({ href: 'two.xhtml' });
+    controller.dispose();
+  });
+
+  it('reads a leftward strip from the right edge of the view', () => {
+    const reader = fakeReader();
+    Object.assign(reader, {
+      getScrollLayout: () => ({ ...LAYOUT, axis: 'left', windowLength: 400 }),
+      getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30, marginLeft: 20 }),
+    });
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    controller.mount(document.body);
+    runFrames();
+    expect(controller.pointAt(390, 50)).toEqual({ spreadIndex: 0, pageIndex: 0, x: 370, y: 20 });
+    controller.dispose();
+  });
+
   it('moves with the wheel when its own input drives it', () => {
     const reader = fakeReader();
     const canvas = fakeCanvas();

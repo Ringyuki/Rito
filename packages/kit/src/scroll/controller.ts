@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader, ReaderLocator } from '@ritojs/core';
 import { createDisplaySurface, type DisplaySurface } from '../painter/display-surface';
 import { springSettle } from '../driver/spring';
 import { createEmitter, type DisposableEmitter } from '../utils/event-emitter';
@@ -8,6 +8,7 @@ import { wireScrollInput } from './input';
 import { createScrollMotion, type ScrollMotion } from './motion';
 import { defaultScrollPhysics } from './physics';
 import { createWindowPool, type WindowPool } from './pool';
+import { scrollPointAt, scrollTargetAt } from './hit';
 import { readingPosition } from './position';
 import type { ScrollController, ScrollControllerEvents, ScrollControllerOptions } from './types';
 
@@ -63,7 +64,13 @@ export function createScrollController(
       view.pool.dispose();
       schedule(view);
     }),
-    ...(options.input === false ? [] : [wireScrollInput(surface.canvas, controller)]),
+    ...(options.input === false
+      ? []
+      : [
+          wireScrollInput(surface.canvas, controller, (x, y) => {
+            tap(view, controller, x, y);
+          }),
+        ]),
   );
   return controller;
 }
@@ -99,12 +106,12 @@ function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollControll
       if (window === undefined) return;
       moveTo(view, window.start + blockOffset * ratio() - readingLine(view), false);
     },
-    async scrollToLocator(locator) {
-      const located = await view.reader.navigateToLocator?.(locator);
-      if (located?.status !== 'resolved') return false;
-      controller.scrollToSpread(located.spreadIndex, located.blockOffset ?? 0);
-      return true;
-    },
+    scrollToLocator: (locator) => scrollToLocator(view, controller, locator),
+    pointAt: (x, y) =>
+      view.geometry === undefined
+        ? undefined
+        : scrollPointAt(view.reader, view.geometry, motion.offset, view.surface.width, x, y),
+    targetAt: (point) => scrollTargetAt(view.reader, point),
     grab() {
       motion.grab();
     },
@@ -131,6 +138,31 @@ function dispose(view: ScrollView, unsubscribe: () => void): void {
   view.surface.dispose();
   view.emitter.dispose();
   view.surface.canvas.remove();
+}
+
+async function scrollToLocator(
+  view: ScrollView,
+  controller: ScrollController,
+  locator: ReaderLocator,
+): Promise<boolean> {
+  const located = await view.reader.navigateToLocator?.(locator);
+  if (located?.status !== 'resolved') return false;
+  controller.scrollToSpread(located.spreadIndex, located.blockOffset ?? 0);
+  return true;
+}
+
+/** A tap of the built-in input: the point and what is under it. */
+function tap(view: ScrollView, controller: ScrollController, x: number, y: number): void {
+  const point = controller.pointAt(x, y);
+  if (point === undefined) return;
+  controller.targetAt(point).then(
+    (target) => {
+      view.emitter.emit('tap', { point, target });
+    },
+    (error: unknown) => {
+      console.error('[rito] the scroll view could not read what a tap is on', error);
+    },
+  );
 }
 
 /** Moves the strip to device offset `target`, gliding there when `animate`. */

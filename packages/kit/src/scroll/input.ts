@@ -3,6 +3,12 @@ import type { ScrollController } from './types';
 
 /** CSS pixels a wheel's line moves; a page moves the viewport less two lines. */
 const LINE = 40;
+/** A touch that moves less than this and lifts within TAP_MS is a tap. */
+const TAP_SLOP = 8;
+const TAP_MS = 400;
+
+/** A tap at view coordinates (CSS pixels from the view's top-left corner). */
+export type ScrollTap = (x: number, y: number) => void;
 
 /**
  * The built-in input: the wheel and the keys move the strip, a touch or a
@@ -12,12 +18,19 @@ const LINE = 40;
 export function wireScrollInput(
   canvas: HTMLCanvasElement,
   controller: ScrollController,
+  tap: ScrollTap,
 ): () => void {
   const stopKeys = wireWheelAndKeys(canvas, controller);
-  const stopDrag = wireDrag(canvas, controller);
+  const stopDrag = wireDrag(canvas, controller, tap);
+  const onClick = (event: MouseEvent): void => {
+    const rect = canvas.getBoundingClientRect();
+    tap(event.clientX - rect.left, event.clientY - rect.top);
+  };
+  canvas.addEventListener('click', onClick);
   return () => {
     stopKeys();
     stopDrag();
+    canvas.removeEventListener('click', onClick);
   };
 }
 
@@ -56,14 +69,20 @@ function wireWheelAndKeys(canvas: HTMLCanvasElement, controller: ScrollControlle
   };
 }
 
-function wireDrag(canvas: HTMLCanvasElement, controller: ScrollController): () => void {
+function wireDrag(
+  canvas: HTMLCanvasElement,
+  controller: ScrollController,
+  tap: ScrollTap,
+): () => void {
   let samples: VelocitySample[] = [];
   let last: { readonly x: number; readonly y: number } | undefined;
+  let down: { readonly x: number; readonly y: number; readonly at: number } | undefined;
   const onDown = (event: PointerEvent): void => {
     if (event.pointerType === 'mouse' || !event.isPrimary) return;
     canvas.setPointerCapture(event.pointerId);
     controller.grab();
     last = { x: event.clientX, y: event.clientY };
+    down = { ...last, at: event.timeStamp };
     samples = [{ dx: 0, timestamp: event.timeStamp }];
   };
   const onMove = (event: PointerEvent): void => {
@@ -77,7 +96,17 @@ function wireDrag(canvas: HTMLCanvasElement, controller: ScrollController): () =
   const onUp = (event: PointerEvent): void => {
     if (last === undefined || !event.isPrimary) return;
     last = undefined;
-    controller.release(estimateVelocity(samples) * 1000);
+    const start = down;
+    down = undefined;
+    const still =
+      start !== undefined &&
+      Math.hypot(event.clientX - start.x, event.clientY - start.y) < TAP_SLOP &&
+      event.timeStamp - start.at < TAP_MS;
+    controller.release(still ? 0 : estimateVelocity(samples) * 1000);
+    if (still && event.type === 'pointerup') {
+      const rect = canvas.getBoundingClientRect();
+      tap(event.clientX - rect.left, event.clientY - rect.top);
+    }
   };
   const events = [
     ['pointerdown', onDown],
