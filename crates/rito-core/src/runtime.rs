@@ -28,6 +28,7 @@ mod reader_session;
 mod resource;
 mod revision;
 mod revision_fonts;
+mod scroll_strip;
 mod search;
 mod source_locator;
 mod spread;

@@ -716,6 +716,40 @@ impl FragmentBuiltLayout {
             Rc::clone(&build.engine),
         ))
     }
+
+    /// One chapter laid out as a continuous strip from the inputs the table
+    /// recorded, on the engine that paginated it.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the scrolled reading mode's revision reads it, not wired yet"
+        )
+    )]
+    pub(super) fn chapter_strip(
+        &self,
+        chapter_index: usize,
+    ) -> EpubResult<super::scroll_strip::ChapterStrip> {
+        let record = &self.chapters[chapter_index];
+        let build = self.build.as_ref().ok_or_else(|| {
+            EpubError::new(format!(
+                "chapter {} has no build inputs recorded",
+                record.idref
+            ))
+        })?;
+        let built = build.engine.chapter_tree(
+            &build.prepared,
+            &record.style_tables,
+            &record.idref,
+            &record.image_dimensions,
+        )?;
+        super::scroll_strip::ChapterStrip::lay_out(
+            &build.engine,
+            Rc::clone(&build.faces),
+            built,
+            &build.config,
+        )
+    }
 }
 
 /// A paginated chapter's pages, each with its query artifact, numbered
