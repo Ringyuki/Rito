@@ -12,7 +12,8 @@
 // whose source contains this text), `RITO_ORACLE_WIDTH` (content width,
 // default 500), `RITO_ORACLE_ROOT_FONT` (the default font size on both
 // sides, default 16), `RITO_ORACLE_MAX_LINES` (default 90) and
-// `RITO_ORACLE_REPORT` (where the report goes).
+// `RITO_ORACLE_REPORT` (where the report goes). `RITO_ORACLE_DUMP=1` keeps
+// both sides' lines (text, top) in each chapter's report entry.
 // Corpus A/B v2: rito fragment layout vs pinned-font Chromium, aligned by
 // line-break points instead of raw line index.
 //
@@ -41,6 +42,7 @@ const MAX_LINES = Number(process.env.RITO_ORACLE_MAX_LINES ?? 90);
 const ROOT_FONT = Number(process.env.RITO_ORACLE_ROOT_FONT ?? 16);
 const BOOKS = process.env.RITO_ORACLE_BOOKS?.split(',');
 const NEEDLE = process.env.RITO_ORACLE_NEEDLE;
+const DUMP = process.env.RITO_ORACLE_DUMP === '1';
 
 const serifB64 = readFileSync(SERIF).toString('base64');
 const tinosB64 = readFileSync(TINOS).toString('base64');
@@ -304,7 +306,8 @@ for (const book of manifest) {
       continue;
     }
     const score = scoreLines(ritoLines, browserLines.slice(0, MAX_LINES));
-    bookResult.chapters.push({ idref, ...score });
+    const lines = DUMP ? { ritoLines, browserLines: browserLines.slice(0, MAX_LINES) } : {};
+    bookResult.chapters.push({ idref, ...score, ...lines });
   }
   results.push(bookResult);
   const scored = bookResult.chapters.filter((c) => !c.error && c.lines > 0);
