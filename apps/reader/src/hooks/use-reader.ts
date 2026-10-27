@@ -26,6 +26,7 @@ import { fetchShardedDemo } from '@/lib/sharded-demo';
 import { useDebugLog } from '@/hooks/use-debug-log';
 import { useReaderFonts } from '@/hooks/use-reader-fonts';
 import { useScrollMode } from '@/hooks/use-scroll-mode';
+import { useScrollSearch } from '@/hooks/use-scroll-search';
 import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
@@ -141,6 +142,23 @@ export function useReader(
     theme,
     pinnedFontPolicy,
   });
+
+  const scrollSearch = useScrollSearch(scroll);
+  // ⌘F / Ctrl+F searches the book read scrolled, as the controller's
+  // `searchOpen` does for pages.
+  useEffect(() => {
+    if (spreadMode !== 'scrolled') return;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [spreadMode]);
 
   // Page turns by keyboard only while nothing covers the page and the
   // book is not read scrolled.
@@ -264,7 +282,7 @@ export function useReader(
   return {
     ...rito,
     selection,
-    search,
+    search: spreadMode === 'scrolled' ? scrollSearch : search,
     annotations,
     position,
     fonts,

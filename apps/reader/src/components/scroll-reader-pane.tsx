@@ -1,4 +1,4 @@
-import { Copy, List, Loader2, Settings } from 'lucide-react';
+import { Copy, List, Loader2, Search, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { useScrollMode } from '@/hooks/use-scroll-mode';
@@ -7,6 +7,7 @@ interface ScrollReaderPaneProps {
   readonly containerRef: (node: HTMLElement | null) => void;
   readonly scroll: ReturnType<typeof useScrollMode>;
   readonly onOpenToc: () => void;
+  readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
 }
 
@@ -15,6 +16,7 @@ export function ScrollReaderPane({
   containerRef,
   scroll,
   onOpenToc,
+  onOpenSearch,
   onOpenSettings,
 }: ScrollReaderPaneProps) {
   const selected = scroll.selection?.text ?? '';
@@ -64,6 +66,9 @@ export function ScrollReaderPane({
             <Copy className="h-4 w-4" />
           </Button>
         )}
+        <Button variant="ghost" size="icon" aria-label="Search" onClick={onOpenSearch}>
+          <Search className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="icon" aria-label="Table of contents" onClick={onOpenToc}>
           <List className="h-4 w-4" />
         </Button>

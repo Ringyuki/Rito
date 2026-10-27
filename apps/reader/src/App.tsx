@@ -75,6 +75,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
           containerRef={sizeRef}
           scroll={reader.scroll}
           onOpenToc={handleOpenToc}
+          onOpenSearch={handleToggleSearch}
           onOpenSettings={handleToggleSettings}
         />
       ) : (
