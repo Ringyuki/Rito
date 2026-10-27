@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Reader, SearchOptions, SearchResult } from '@ritojs/core';
-import type { ScrollController } from '@ritojs/kit';
+import type { ScrollController, ScrollHighlight } from '@ritojs/kit';
 
 /** The search result the reader is on, drawn over the text of a scrolled view. */
 const ACTIVE_COLOR = 'rgba(249, 115, 22, 0.6)';
@@ -12,8 +12,8 @@ interface ScrolledBook {
 
 /**
  * Search in the book read scrolled, shaped as the paged reader's search: the
- * reader's own search, the result the reader is on shown at the reading
- * line and highlighted over its window.
+ * reader's own search, and the result the reader is on shown at the reading
+ * line and given as the highlight to draw over its window.
  */
 export function useScrollSearch({ controller, reader }: ScrolledBook) {
   const [query, setQueryState] = useState('');
@@ -53,8 +53,9 @@ export function useScrollSearch({ controller, reader }: ScrolledBook) {
     setResults([]);
     setActiveIndex(-1);
   }, []);
-  useActiveResult(controller, reader, results[activeIndex]);
+  const highlight = useActiveResult(controller, reader, results[activeIndex]);
   return {
+    highlight,
     query,
     results,
     activeIndex,
@@ -72,30 +73,27 @@ export function useScrollSearch({ controller, reader }: ScrolledBook) {
   };
 }
 
-/** Shows the result the reader is on and highlights it; none, nothing. */
+/** Shows the result the reader is on, and its highlight; none, nothing. */
 function useActiveResult(
   controller: ScrollController | null,
   reader: Reader | null,
   result: SearchResult | undefined,
-): void {
+): ScrollHighlight | null {
+  const [highlight, setHighlight] = useState<ScrollHighlight | null>(null);
   useEffect(() => {
-    if (!controller) return;
+    setHighlight(null);
     const source = result?.source;
-    if (source?.status !== 'resolved') {
-      controller.setHighlights([]);
-      return;
-    }
+    if (!controller || source?.status !== 'resolved') return;
     const { href, sourceRange } = source;
     let current = true;
     void controller.scrollToLocator({ href, sourceRange });
     void reader?.interactions?.resolveExactSourceRange?.({ href, sourceRange }).then((found) => {
       if (!current || found?.status !== 'resolved') return;
-      controller.setHighlights([
-        { id: 'search', color: ACTIVE_COLOR, zIndex: 1, rects: found.range.rects },
-      ]);
+      setHighlight({ id: 'search', color: ACTIVE_COLOR, zIndex: 2, rects: found.range.rects });
     });
     return () => {
       current = false;
     };
   }, [controller, reader, result]);
+  return highlight;
 }

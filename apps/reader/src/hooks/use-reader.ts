@@ -26,6 +26,7 @@ import { fetchShardedDemo } from '@/lib/sharded-demo';
 import { useDebugLog } from '@/hooks/use-debug-log';
 import { useReaderFonts } from '@/hooks/use-reader-fonts';
 import { useScrollMode } from '@/hooks/use-scroll-mode';
+import { useScrollAnnotations } from '@/hooks/use-scroll-annotations';
 import { useScrollSearch } from '@/hooks/use-scroll-search';
 import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
@@ -144,6 +145,19 @@ export function useReader(
   });
 
   const scrollSearch = useScrollSearch(scroll);
+  // The book's annotations and the search result the reader is on, drawn
+  // over the text read scrolled.
+  const scrollAnnotations = useScrollAnnotations(
+    scroll.reader,
+    annotations.annotations,
+    scroll.position,
+  );
+  const searchHighlight = scrollSearch.highlight;
+  useEffect(() => {
+    scroll.controller?.setHighlights(
+      searchHighlight ? [...scrollAnnotations, searchHighlight] : scrollAnnotations,
+    );
+  }, [scroll.controller, scrollAnnotations, searchHighlight]);
   // Where the book is read scrolled is saved as the pages' position is, so
   // the book opens there next time; each rest saves it once.
   const scrollProgress = useRef(0);
