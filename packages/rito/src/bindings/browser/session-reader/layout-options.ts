@@ -63,6 +63,11 @@ export function sessionReaderSessionLayout(
   };
 }
 
+/** A scrolled window's full length along `axis`: the viewport's height, or its width. */
+export function sessionReaderWindowLength(config: LayoutConfig, axis: 'down' | 'left'): number {
+  return axis === 'down' ? config.viewportHeight : config.viewportWidth;
+}
+
 export function sameSessionReaderLayoutConfig(first: LayoutConfig, second: LayoutConfig): boolean {
   const keys = new Set([...Object.keys(first), ...Object.keys(second)]) as Set<keyof LayoutConfig>;
   for (const key of keys) if (first[key] !== second[key]) return false;

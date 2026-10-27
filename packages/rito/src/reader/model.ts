@@ -41,6 +41,19 @@ export interface LayoutConfig {
 /** A page or two a spread, or each chapter one strip read a window a spread. */
 export type ReaderSpreadMode = 'single' | 'double' | 'scrolled';
 
+/** A scrolled reader's windows, end to end down the screen or leftwards (right to left books). */
+export interface ReaderScrollLayout {
+  readonly axis: 'down' | 'left';
+  /** A full window's length along the axis in CSS pixels; a chapter's last ends with it. */
+  readonly windowLength: number;
+  /** The chapters in reading order: their windows' spreads and their extent along the axis. */
+  readonly chapters: readonly {
+    readonly firstSpread: number;
+    readonly spreadCount: number;
+    readonly extent: number;
+  }[];
+}
+
 /** A page's margins in CSS pixels: one for all sides, `x` and `y`, or each side. */
 export type ReaderMargin =
   | number
@@ -174,6 +187,8 @@ export type ReaderLocatorResolution =
       readonly pageIndex: number;
       readonly spreadIndex: number;
       readonly matchedBy: ReaderLocatorMatchedBy;
+      /** Scrolled: where the locator's line starts in the spread's window, from its block start. */
+      readonly blockOffset?: number | undefined;
     }
   | {
       readonly status: 'pending';

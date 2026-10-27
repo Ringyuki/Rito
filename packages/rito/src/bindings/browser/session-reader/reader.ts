@@ -210,6 +210,7 @@ function buildReader(state: SessionReaderState): Reader {
     ...sessionReaderListenerMethods(state),
     ...sessionReaderResourceMethods(state),
     getLayoutGeometry: () => state.geometry,
+    getScrollLayout: () => state.view.scroll,
     holdBookLayout: () => holdSessionReaderBook(state),
     dispose() {
       if (state.disposed) return Promise.resolve();

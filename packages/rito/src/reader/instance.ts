@@ -13,6 +13,7 @@ import type {
   ReaderMargin,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
+  ReaderScrollLayout,
   ReaderSpreadMode,
   ReaderGlTarget,
   ReaderPageTargets,
@@ -368,6 +369,8 @@ export interface Reader {
   findActiveTocEntry(pageIndex: number): TocEntry | undefined;
   getCanvasSize(scale?: number): { width: number; height: number };
   getLayoutGeometry(): Readonly<LayoutConfig>;
+  /** The committed layout's windows, when the reader is scrolled. */
+  getScrollLayout(): ReaderScrollLayout | undefined;
   getImageBlobUrl(src: string): string | undefined | Promise<string | undefined>;
   setTypography(opts: {
     fontSize?: number | null;

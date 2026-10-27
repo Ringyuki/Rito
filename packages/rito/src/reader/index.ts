@@ -36,6 +36,7 @@ export type {
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderPageTargets,
+  ReaderScrollLayout,
   ReaderSemanticNode,
   ReaderSpreadMode,
   ReaderAnnotationTarget,

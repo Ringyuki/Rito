@@ -85,6 +85,7 @@ export async function locateSessionReaderLocator(
         pageIndex: location.pageIndex,
         spreadIndex,
         matchedBy: MATCHED_BY[location.matchedBy],
+        ...(location.blockOffset === undefined ? {} : { blockOffset: location.blockOffset }),
       };
     }
     if (location.kind === 'unavailable' || state.view.scope === 'book') return undefined;

@@ -236,6 +236,44 @@ describe('Reader on a session', () => {
     await reader.dispose();
   });
 
+  it('lays a scrolled book out as windows end to end, and paints a window alone', async () => {
+    const { reader, fake } = await open({
+      spread: 'scrolled',
+      initialLocator: { href: 'one.xhtml' },
+    });
+    await bookScope(reader);
+    await settle();
+    expect(reader.getScrollLayout()).toEqual({
+      axis: 'down',
+      windowLength: 600,
+      chapters: [
+        { firstSpread: 0, spreadCount: 1, extent: 300 },
+        { firstSpread: 1, spreadCount: 8, extent: 4500 },
+        { firstSpread: 9, spreadCount: 5, extent: 2700 },
+      ],
+    });
+    const located = await reader.navigateToLocator?.({ href: 'two.xhtml', progression: 0.5 });
+    expect(located).toMatchObject({ status: 'resolved', blockOffset: 42 });
+
+    // The last window of the second chapter is half a viewport tall: it is
+    // painted into a target of its own size as into one of the viewport's.
+    harness.painted = [];
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 1200) as never)).toBe(false);
+    await settle();
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 1200) as never)).toBe(true);
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 600) as never)).toBe(true);
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 900) as never)).toBe(false);
+    expect(harness.painted).toEqual(['8:#ffffff', '8:#ffffff']);
+    expect(fake.violations).toEqual([]);
+    await reader.dispose();
+  });
+
+  it('has no scroll layout while it shows pages', async () => {
+    const { reader } = await open({ initialLocator: { href: 'one.xhtml' } });
+    expect(reader.getScrollLayout()).toBeUndefined();
+    await reader.dispose();
+  });
+
   it('paints a loaded spread and loads one that is not, announcing its arrival', async () => {
     const { reader, ctx, invalidated } = await open({ initialLocator: { href: 'one.xhtml' } });
     await bookScope(reader);

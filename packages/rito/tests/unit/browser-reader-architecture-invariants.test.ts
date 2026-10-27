@@ -51,8 +51,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // the session when the reader needs them, not read off every artifact.
 // +8 lines (2026-10-19): the whole book waits out the frame the first
 // page is drawn in.
+// +42 lines (2026-10-27): a scrolled layout's windows by chapter, where a
+// located line starts in its window, and a window painted alone.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2855;
+const SESSION_READER_LINE_BUDGET = 2897;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -72,7 +74,9 @@ const SESSION_READER_LINE_BUDGET = 2855;
 // motion and geometry, the engine's, which the kit's paper turn draws.
 // +7 lines (2026-10-27): `ReaderSpreadMode`, whose `scrolled` reads each
 // chapter as one strip a window a spread.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1009;
+// +19 lines (2026-10-27): `ReaderScrollLayout` and `getScrollLayout`, a
+// scrolled reader's windows end to end, and where a located line starts.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1028;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

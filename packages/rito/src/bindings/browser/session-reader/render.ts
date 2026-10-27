@@ -63,10 +63,15 @@ function paintFrame(
   frame: SessionReaderFrame,
   target: CanvasRenderingTarget | ReaderGlTarget,
 ): boolean {
-  const { width, height } = frame.artifact;
   const size = 'gl' in target ? target : target.canvas;
-  const targetRatio = pixelRatioOf(size.width, size.height, width, height);
-  if (targetRatio === undefined) return false;
+  // A target takes the spread's canvas, or a scrolled window alone.
+  const window = state.view.scroll === undefined ? undefined : frame.artifact.pages[0];
+  const fitted = [frame.artifact, ...(window === undefined ? [] : [window])].find(
+    (shape) => pixelRatioOf(size.width, size.height, shape.width, shape.height) !== undefined,
+  );
+  if (fitted === undefined) return false;
+  const { width, height } = fitted;
+  const targetRatio = pixelRatioOf(size.width, size.height, width, height) ?? 1;
   // The artifact's paint is resolved on the device grid at its own
   // ratio; a target on that grid takes it as it is, and any other (a
   // host zoom) takes it uniformly scaled.
