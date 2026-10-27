@@ -70,7 +70,9 @@ const SESSION_READER_LINE_BUDGET = 2855;
 // +5 lines (2026-10-19): `ReaderMargin`, a page's margins side by side.
 // +191 lines (2026-10-19): `loadPaperTurnModel`, the paper page turn's
 // motion and geometry, the engine's, which the kit's paper turn draws.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1002;
+// +7 lines (2026-10-27): `ReaderSpreadMode`, whose `scrolled` reads each
+// chapter as one strip a window a spread.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1009;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

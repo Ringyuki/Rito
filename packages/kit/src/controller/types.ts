@@ -6,6 +6,7 @@ import type {
   ReaderExactSourceRangeRequest,
   ReaderMargin,
   ReaderLocator,
+  ReaderSpreadMode,
   Spread,
   TocEntry,
 } from '@ritojs/core';
@@ -116,7 +117,7 @@ export interface ReaderController {
 
   /** Re-paginate with new viewport dimensions (and optional margins). Also syncs canvas size using renderScale. */
   resize(width: number, height: number, margin?: ReaderMargin): void;
-  setSpreadMode(mode: 'single' | 'double'): void;
+  setSpreadMode(mode: ReaderSpreadMode): void;
   setTheme(options: ReaderThemeOptions): void;
   /** Paints every page again, `paintPage` included, for when what it draws has changed. */
   repaintPages(): void;

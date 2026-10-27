@@ -13,6 +13,7 @@ import type {
   ReaderMargin,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
+  ReaderSpreadMode,
   ReaderGlTarget,
   ReaderPageTargets,
   ReaderTextSelectionMovement,
@@ -281,7 +282,7 @@ export interface ReaderOptions {
   /** Durable source target for bindings that support locator-first initialization. */
   readonly initialLocator?: ReaderLocator | undefined;
   readonly margin?: ReaderMargin;
-  readonly spread?: 'single' | 'double';
+  readonly spread?: ReaderSpreadMode;
   readonly spreadGap?: number;
   readonly backgroundColor?: string | null;
   readonly foregroundColor?: string | null;
@@ -341,11 +342,11 @@ export interface Reader {
    * `dpr` takes the new ratio when that layout commits.
    */
   setDevicePixelRatio(ratio: number): void;
-  setSpreadMode(mode: 'single' | 'double'): boolean;
+  setSpreadMode(mode: ReaderSpreadMode): boolean;
   updateLayout(
     width: number,
     height: number,
-    spreadMode?: 'single' | 'double',
+    spreadMode?: ReaderSpreadMode,
     margin?: ReaderMargin,
   ): boolean;
   /**

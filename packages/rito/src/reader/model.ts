@@ -28,7 +28,7 @@ export interface LayoutConfig {
   readonly marginRight: number;
   readonly marginBottom: number;
   readonly marginLeft: number;
-  readonly spreadMode: 'single' | 'double';
+  readonly spreadMode: ReaderSpreadMode;
   readonly firstPageAlone: boolean;
   readonly spreadGap: number;
   readonly rootFontSize: number;
@@ -37,6 +37,9 @@ export interface LayoutConfig {
   readonly fontFamilyOverride?: string | undefined;
   readonly fontFamilyForce?: boolean | undefined;
 }
+
+/** A page or two a spread, or each chapter one strip read a window a spread. */
+export type ReaderSpreadMode = 'single' | 'double' | 'scrolled';
 
 /** A page's margins in CSS pixels: one for all sides, `x` and `y`, or each side. */
 export type ReaderMargin =
@@ -53,7 +56,7 @@ export interface LayoutConfigInput {
   readonly width: number;
   readonly height: number;
   readonly margin?: ReaderMargin;
-  readonly spread?: 'single' | 'double';
+  readonly spread?: ReaderSpreadMode;
   readonly firstPageAlone?: boolean;
   readonly spreadGap?: number;
   readonly rootFontSize?: number;

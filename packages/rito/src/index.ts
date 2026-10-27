@@ -51,6 +51,7 @@ export type {
   ReaderPageSemantics,
   ReaderPageTargets,
   ReaderSemanticNode,
+  ReaderSpreadMode,
   ReaderTextRange,
   ReaderTextRangeFromPointsRequest,
   ReaderTextRangeFromPointsResolution,

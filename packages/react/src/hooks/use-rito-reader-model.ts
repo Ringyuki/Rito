@@ -4,6 +4,7 @@ import type {
   ReaderMargin,
   ReaderOptions,
   ReaderPublication,
+  ReaderSpreadMode,
   Spread,
   TocEntry,
 } from '@ritojs/core';
@@ -48,7 +49,7 @@ export interface RitoReaderActions {
   readonly navigateToTocEntry: (entry: TocEntry) => void;
   readonly resize: (width: number, height: number, margin?: ReaderMargin) => void;
   readonly setRenderScale: (scale: number) => void;
-  readonly setSpreadMode: (mode: 'single' | 'double') => void;
+  readonly setSpreadMode: (mode: ReaderSpreadMode) => void;
   readonly setTheme: (opts: Parameters<Reader['setTheme']>[0]) => void;
   readonly setTypography: (opts: {
     fontSize?: number | null;
