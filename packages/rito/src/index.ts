@@ -63,6 +63,7 @@ export type {
   ReaderSourceRange,
   ReaderTextCaret,
   ReaderTextCaretGeometry,
+  ReaderWritingMode,
   ReaderTextCaretResolution,
   ReaderTextInteractionUnavailableReason,
   ReaderTextPoint,

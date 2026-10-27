@@ -84,7 +84,7 @@ function routeKeyboardSelection(
   ) {
     return;
   }
-  const movement = keyboardSelectionMovement(event, apple);
+  const movement = keyboardSelectionMovement(event, apple, state.owner.focusWritingMode());
   if (!movement) return;
   event.preventDefault();
   event.stopPropagation();

@@ -182,11 +182,25 @@ export interface RitoReaderTextInteractionRequest extends RitoReaderGeometryOpti
   readonly query: RitoReaderTextInteractionQuery;
 }
 
+/**
+ * A caret in display-list space: the segment across its line, as a rect with
+ * no extent along the line — `width` 0 on a horizontal line, `height` 0 down a
+ * vertical one.
+ */
+export interface RitoReaderCaretGeometry {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** The writing mode of the line a caret is on: which way its arrow keys move it. */
+export type RitoReaderWritingMode = 'horizontal-tb' | 'vertical-rl';
+
 export interface RitoReaderCaret {
   readonly address: RitoReaderCaretAddress;
-  readonly geometry?:
-    | { readonly x: number; readonly y: number; readonly height: number }
-    | undefined;
+  readonly geometry?: RitoReaderCaretGeometry | undefined;
+  readonly writingMode: RitoReaderWritingMode;
   readonly href: string;
   readonly sourcePoint: RitoReaderSourcePoint;
 }

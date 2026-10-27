@@ -248,7 +248,11 @@ function createKeyboardSelectionHarness(
     supportsProjectionTransfer: true,
   };
   registerSelectionInteractionOwner(selection, () => interactionGeneration, gestureOwner);
-  registerSelectionKeyboardOwner(selection, { canExtend: () => canExtend, begin });
+  registerSelectionKeyboardOwner(selection, {
+    canExtend: () => canExtend,
+    focusWritingMode: () => 'horizontal-tb',
+    begin,
+  });
   return { selection, begin, commit };
 }
 

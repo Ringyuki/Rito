@@ -30,11 +30,23 @@ export interface ReaderTextPoint {
   readonly x: number;
   readonly y: number;
 }
+/**
+ * A caret in page-content space: the segment across its line, as a rect with
+ * no extent along the line — `width` 0 on a horizontal line, `height` 0 down a
+ * vertical one.
+ */
 export interface ReaderTextCaretGeometry {
   readonly x: number;
   readonly y: number;
+  readonly width: number;
   readonly height: number;
 }
+/**
+ * The writing mode of the line a caret is on. An arrow key moves a caret on a
+ * `vertical-rl` line the way the key a quarter turn from it moves one on a
+ * horizontal line (down is forward along the line, left is the next line).
+ */
+export type ReaderWritingMode = 'horizontal-tb' | 'vertical-rl';
 export type ReaderTextInteractionUnavailableReason =
   | 'shapeUnavailable'
   | 'sourceUnavailable'
@@ -49,6 +61,7 @@ export interface ReaderTextCaret {
   /** Page owning this caret's page-local geometry. */
   readonly pageIndex: number;
   readonly geometry: ReaderTextCaretGeometry;
+  readonly writingMode: ReaderWritingMode;
   readonly sourceLocator: ReaderLocator;
 }
 export type ReaderTextCaretResolution =

@@ -225,6 +225,20 @@ version 8):
   where the line the locator lands on starts in that page's window, as an
   artifact's target block offset.
 - A scrolled session keeps up to 10 artifacts live (6 for pages).
+- A caret (`RITOTIR1`) carries its geometry as `x, y, width, height`
+  (`width` is new, before `height`): the segment across its line, as a
+  rect with no extent along the line, so `width` is 0 on a horizontal
+  line and `height` 0 down a vertical one. A `u8` writing mode follows
+  the geometry option: 0 horizontal-tb, 1 vertical-rl, the mode of the
+  caret's line. A host reads arrow keys on a vertical-rl line as the
+  browser does, as the key a quarter turn from them on a horizontal line
+  (down along the line, left to the next line), before mapping them to
+  movements.
+- Every rect and point of a vertical-rl page is in the page's drawn
+  space, like a horizontal page's: its hits, outline, caret geometry,
+  selection and range rects are columns where its lines are drawn, and a
+  point is read back the same way. A scrolled window's records move with
+  its pixels, by the device rows `D(k)` it is drawn from.
 
 Wire changes landed when the display list lost its digest (reader
 protocol version 7):

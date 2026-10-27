@@ -5,9 +5,11 @@
 //! backend's box, line, or fragment tree directly.
 
 mod fragment;
+mod frame;
 mod interaction;
 
 pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord};
+pub(in crate::runtime) use frame::{PageRecordFrame, PageWritingMode};
 
 use std::sync::Arc;
 

@@ -77,7 +77,8 @@ function sessionCaret(pageIndex: number, charIndex: number): SessionCaret {
       position: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex },
       affinity: 'downstream',
     },
-    geometry: { x: MARGIN + 10 * charIndex, y: MARGIN + 20, height: 18 },
+    geometry: { x: MARGIN + 10 * charIndex, y: MARGIN + 20, width: 0, height: 18 },
+    writingMode: 'horizontal-tb',
     href: 'one.xhtml',
     sourcePoint: { nodePath: [0, 0], textOffset: BigInt(charIndex) },
   };
@@ -306,7 +307,7 @@ describe('session reader interactions', () => {
       spreadIndex: 2,
       caret: {
         pageIndex: 2,
-        geometry: { x: 30, y: 20, height: 18 },
+        geometry: { x: 30, y: 20, width: 0, height: 18 },
         sourceLocator: { href: 'one.xhtml', sourcePoint: { nodePath: [0, 0], textOffset: 3 } },
       },
     });

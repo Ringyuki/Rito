@@ -4,8 +4,8 @@
 //! through the artifact's revision exactly as a browser revision does, and
 //! an annotation target is built and located by the same source cascade.
 //! The only work here is moving points and geometry between an artifact's
-//! display-list space and its pages, and keeping rectangles to the pages
-//! the artifact draws.
+//! display-list space and its pages' records, through each page's frame,
+//! and keeping rectangles to the pages the artifact draws.
 
 use crate::{
     interaction::{
@@ -13,7 +13,9 @@ use crate::{
         TextSelectionBoundary, TextSelectionMovement,
     },
     runtime::{
-        annotation_target_from_json, annotation_target_to_json, navigation::spread_index_for_page,
+        annotation_target_from_json, annotation_target_to_json,
+        navigation::spread_index_for_page,
+        page_artifact::{PageArtifactRect, PageRecordFrame, PageWritingMode},
         AnnotationOrphanReason, AnnotationTarget, AnnotationTargetResolution,
         RuntimeExactTextRangeRect, RuntimeRevision, RuntimeSourceLocatorErrorKind,
         RuntimeTextCaret, RuntimeTextCaretResolution, RuntimeTextPointRequest, RuntimeTextRange,
@@ -25,7 +27,7 @@ use crate::{
 };
 
 use super::super::{
-    artifact::page_origin,
+    artifact::{page_frame, reader_rect},
     convert::{reader_source_point, runtime_source_range},
     ReaderAnnotationLevel, ReaderAnnotationQuery, ReaderAnnotationRequest,
     ReaderAnnotationResponse, ReaderAnnotationTarget, ReaderCaret, ReaderCaretAddress,
@@ -33,13 +35,14 @@ use super::super::{
     ReaderSelectionMovement, ReaderSelectionResult, ReaderSourceRange, ReaderTextInteractionQuery,
     ReaderTextInteractionRequest, ReaderTextInteractionResponse, ReaderTextInteractionResult,
     ReaderTextInteractionUnavailableReason, ReaderTextPoint, ReaderTextSelection,
+    ReaderWritingMode,
 };
 use super::{
     errors::{
         engine_error, missing_artifact_revision, unknown_artifact, validate_external_request_id,
     },
     u32_from_usize, usize_from_u32, ReaderError, ReaderErrorKind, ReaderExactSourceRect,
-    ReaderRect, ReaderRevisionBacking, ReaderSession, ReaderTextPosition,
+    ReaderRevisionBacking, ReaderSession, ReaderTextPosition,
 };
 
 /// The revision behind an artifact and the spread of it the artifact draws.
@@ -48,6 +51,9 @@ pub(super) struct ArtifactView<'a> {
     pub(super) revision: &'a RuntimeRevision,
     spread_index: usize,
     every_page: bool,
+    /// The device ratio the artifact is drawn at, which places a scrolled
+    /// window's records on its pixels.
+    ratio: f64,
 }
 
 impl ArtifactView<'_> {
@@ -60,23 +66,20 @@ impl ArtifactView<'_> {
 
     fn page_point(&self, point: ReaderTextPoint) -> Result<RuntimeTextPointRequest, ReaderError> {
         let page_index = usize_from_u32(point.page_index, "text point page index")?;
-        let origin = self.origin_of(page_index).ok_or_else(|| {
+        let frame = self.frame_of(page_index).ok_or_else(|| {
             ReaderError::new(
                 ReaderErrorKind::InvalidRequest,
                 format!("page {page_index} is not part of this artifact"),
             )
         })?;
-        Ok(RuntimeTextPointRequest {
-            page_index,
-            x: point.x - origin.0,
-            y: point.y - origin.1,
-        })
+        let (x, y) = frame.point(point.x, point.y);
+        Ok(RuntimeTextPointRequest { page_index, x, y })
     }
 
-    /// The display-list origin of a page this view answers for: a page the
+    /// The display-list frame of a page this view answers for: a page the
     /// artifact draws, or any page of the revision when the view covers
     /// every page — its slot in the spread that draws it.
-    pub(super) fn origin_of(&self, page_index: usize) -> Option<(f64, f64)> {
+    pub(super) fn frame_of(&self, page_index: usize) -> Option<PageRecordFrame> {
         let spread_index = if self.every_page {
             spread_index_for_page(self.revision, page_index)
         } else {
@@ -87,7 +90,7 @@ impl ArtifactView<'_> {
             .chapter_engine_session()
             .spread_pages(spread_index)?;
         let slot = pages.iter().position(|index| *index == page_index)?;
-        Some(page_origin(&self.revision.layout_config, slot))
+        page_frame(self.revision, page_index, slot, self.ratio)
     }
 
     fn caret(&self, caret: RuntimeTextCaret) -> Result<ReaderCaret, ReaderError> {
@@ -95,39 +98,51 @@ impl ArtifactView<'_> {
             .source_locator
             .source_point
             .ok_or_else(|| engine_error("a resolved caret carries no source point"))?;
+        let page_index = caret.address.page_index;
+        let writing_mode = self
+            .revision
+            .chapter_engine_session()
+            .record_frame(page_index, self.ratio)
+            .map_or(PageWritingMode::HorizontalTb, PageRecordFrame::writing_mode);
         Ok(ReaderCaret {
             address: reader_address(caret.address)?,
-            geometry: self
-                .origin_of(caret.address.page_index)
-                .map(|origin| ReaderCaretGeometry {
-                    x: caret.geometry.x + origin.0,
-                    y: caret.geometry.y + origin.1,
-                    height: caret.geometry.height,
-                }),
+            geometry: self.frame_of(page_index).map(|frame| {
+                let drawn = frame.caret(caret.geometry.x, caret.geometry.y, caret.geometry.height);
+                ReaderCaretGeometry {
+                    x: drawn.x,
+                    y: drawn.y,
+                    width: drawn.width,
+                    height: drawn.height,
+                }
+            }),
+            writing_mode: match writing_mode {
+                PageWritingMode::HorizontalTb => ReaderWritingMode::HorizontalTb,
+                PageWritingMode::VerticalRl => ReaderWritingMode::VerticalRl,
+            },
             href: caret.source_locator.href,
             source_point: reader_source_point(source_point)?,
         })
     }
 
     /// The rects this view answers for, in display-list space. A range's
-    /// rects come page by page, so the origin is looked up once per page.
+    /// rects come page by page, so the frame is looked up once per page.
     pub(super) fn rects(
         &self,
         rects: &[RuntimeExactTextRangeRect],
     ) -> Result<Vec<ReaderExactSourceRect>, ReaderError> {
         let mut placed = Vec::new();
-        let mut page: Option<(usize, Option<(f64, f64)>)> = None;
+        let mut page: Option<(usize, Option<PageRecordFrame>)> = None;
         for rect in rects {
-            let origin = match page {
-                Some((index, origin)) if index == rect.page_index => origin,
+            let frame = match page {
+                Some((index, frame)) if index == rect.page_index => frame,
                 _ => {
-                    let origin = self.origin_of(rect.page_index);
-                    page = Some((rect.page_index, origin));
-                    origin
+                    let frame = self.frame_of(rect.page_index);
+                    page = Some((rect.page_index, frame));
+                    frame
                 }
             };
-            if let Some(origin) = origin {
-                placed.push(reader_rect(rect, origin)?);
+            if let Some(frame) = frame {
+                placed.push(reader_exact_rect(rect, frame)?);
             }
         }
         Ok(placed)
@@ -269,6 +284,7 @@ impl ReaderSession {
             revision,
             spread_index: artifact.local_spread_index,
             every_page: false,
+            ratio: self.render_ratio,
         })
     }
 
@@ -470,18 +486,18 @@ fn annotation_error(error: crate::runtime::RuntimeSourceLocatorError) -> ReaderE
     }
 }
 
-fn reader_rect(
+fn reader_exact_rect(
     rect: &RuntimeExactTextRangeRect,
-    origin: (f64, f64),
+    frame: PageRecordFrame,
 ) -> Result<ReaderExactSourceRect, ReaderError> {
     Ok(ReaderExactSourceRect {
         page_index: u32_from_usize(rect.page_index, "selection rect page index")?,
-        bounds: ReaderRect {
-            x: rect.x + origin.0,
-            y: rect.y + origin.1,
+        bounds: reader_rect(frame.rect(PageArtifactRect {
+            x: rect.x,
+            y: rect.y,
             width: rect.width,
             height: rect.height,
-        },
+        })),
         block_index: u32_from_usize(rect.block_index, "selection rect block index")?,
         line_index: u32_from_usize(rect.line_index, "selection rect line index")?,
         run_index: u32_from_usize(rect.run_index, "selection rect run index")?,

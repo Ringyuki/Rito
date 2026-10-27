@@ -2,12 +2,12 @@ use std::collections::BTreeSet;
 
 use crate::{
     epub::parse_font_family_list,
-    layout::{LayoutConfig, SpreadMode},
+    layout::SpreadMode,
     render::{encode_reader_primitive_list, lower, shift},
     runtime::{
         page_artifact::{
             PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
-            PageArtifactSemanticRole, PageArtifactSourcePoint, PageArtifactTarget,
+            PageArtifactSemanticRole, PageArtifactSourcePoint, PageArtifactTarget, PageRecordFrame,
         },
         page_target::PageTargetClass,
         RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTargetKind, RuntimeRevision,
@@ -225,6 +225,7 @@ fn build_reader_artifact_from_revision(
             target.local_page_index,
             &target.locator,
             target.matched_by,
+            render_ratio,
         ),
         navigation,
         text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
@@ -253,6 +254,7 @@ pub(super) fn scrolled_block_offset(
     page: usize,
     locator: &RuntimeSourceLocator,
     matched_by: RuntimeSourceLocatorMatchedBy,
+    ratio: f64,
 ) -> Option<f64> {
     if revision.layout_config.spread_mode != SpreadMode::Scrolled {
         return None;
@@ -265,6 +267,7 @@ pub(super) fn scrolled_block_offset(
                 node_path: point.node_path.clone(),
                 text_offset: point.text_offset,
             },
+            ratio,
         )
     };
     match matched_by {
@@ -273,7 +276,7 @@ pub(super) fn scrolled_block_offset(
         }
         RuntimeSourceLocatorMatchedBy::SourcePoint => line_of(locator.source_point.as_ref()?),
         RuntimeSourceLocatorMatchedBy::Anchor => {
-            session.anchor_block_offset(page, locator.anchor_id.as_deref()?)
+            session.anchor_block_offset(page, locator.anchor_id.as_deref()?, ratio)
         }
         RuntimeSourceLocatorMatchedBy::Progression | RuntimeSourceLocatorMatchedBy::Href => None,
     }
@@ -362,21 +365,34 @@ pub(super) fn published_spread_target(
     })
 }
 
-/// Origin of a spread slot's content box in display-list space.
+/// Where page `page_index` of a revision, shown in spread slot `slot` of an
+/// artifact drawn at `ratio`, puts the content box its records are laid out
+/// in, in the artifact's display-list space.
 ///
 /// `build_display_list_commands` lays the left page at x 0 and the right
 /// page at `page_width + spread_gap` (slot order matches
-/// `frame.page_indexes`), then paints each page's blocks offset by the
-/// page margins. Anything the artifact publishes as a rect must carry
-/// the same origin or it cannot be compared with the pixels the host
-/// drew.
-pub(super) fn page_origin(config: &LayoutConfig, slot: usize) -> (f64, f64) {
-    let spread_offset_x = if slot == 0 {
+/// `frame.page_indexes`), then paints each page's content at its margins,
+/// a vertical-rl page's columns in from its right one. Anything the
+/// artifact publishes as a rect must go through the same frame or it
+/// cannot be compared with the pixels the host drew.
+pub(super) fn page_frame(
+    revision: &RuntimeRevision,
+    page_index: usize,
+    slot: usize,
+    ratio: f64,
+) -> Option<PageRecordFrame> {
+    let config = &revision.layout_config;
+    let slot_x = if slot == 0 {
         0.0
     } else {
         config.page_width + config.spread_gap
     };
-    (spread_offset_x + config.margin_left, config.margin_top)
+    Some(
+        revision
+            .chapter_engine_session()
+            .record_frame(page_index, ratio)?
+            .moved_right(slot_x),
+    )
 }
 
 /// What page `page_index` of a revision holds for a host, its rects lifted
@@ -388,6 +404,7 @@ pub(super) fn reader_page_records(
     artifact_id: u64,
     page_index: usize,
     slot: usize,
+    ratio: f64,
 ) -> Result<ReaderPageRecords, ReaderError> {
     let page = revision
         .chapter_engine_session()
@@ -399,7 +416,12 @@ pub(super) fn reader_page_records(
             )
         })?;
     let page = page.as_ref();
-    let origin = page_origin(&revision.layout_config, slot);
+    let frame = page_frame(revision, page_index, slot, ratio).ok_or_else(|| {
+        ReaderError::new(
+            ReaderErrorKind::TargetNotPublished,
+            format!("artifact references unknown page {page_index}"),
+        )
+    })?;
     // Each hit is the target the runtime's own page targets hold: one
     // classifier decides what it is, where its link leads and under which
     // key its footnote is held, for every host.
@@ -412,12 +434,12 @@ pub(super) fn reader_page_records(
         hits: targets
             .into_iter()
             .zip(classes)
-            .map(|(target, class)| reader_hit(page_index, target, class, origin))
+            .map(|(target, class)| reader_hit(page_index, target, class, frame))
             .collect::<Result<Vec<_>, ReaderError>>()?,
         semantics: page
             .semantic_nodes()
             .into_iter()
-            .map(|node| reader_semantic_node(node, origin))
+            .map(|node| reader_semantic_node(node, frame))
             .collect(),
         text: text.text,
         text_length: u64_from_usize(text.text_length, "page text length")?,
@@ -441,7 +463,7 @@ fn reader_hit(
     page_index: usize,
     target: PageArtifactTarget,
     class: PageTargetClass,
-    origin: (f64, f64),
+    frame: PageRecordFrame,
 ) -> Result<ReaderHitEntry, ReaderError> {
     let source_point = class
         .source_locator
@@ -450,7 +472,7 @@ fn reader_hit(
         .transpose()?;
     Ok(ReaderHitEntry {
         page_index: u32_from_usize(page_index, "hit page index")?,
-        bounds: reader_rect_at(target.bounds, origin),
+        bounds: reader_rect(frame.rect(target.bounds)),
         kind: match class.kind {
             RuntimePageTargetKind::Text => ReaderHitKind::Text,
             RuntimePageTargetKind::Link => ReaderHitKind::Link,
@@ -482,7 +504,10 @@ fn reader_font_ref(
     })
 }
 
-fn reader_semantic_node(value: PageArtifactSemanticNode, origin: (f64, f64)) -> ReaderSemanticNode {
+fn reader_semantic_node(
+    value: PageArtifactSemanticNode,
+    frame: PageRecordFrame,
+) -> ReaderSemanticNode {
     ReaderSemanticNode {
         role: match value.role {
             PageArtifactSemanticRole::Heading => ReaderSemanticRole::Heading,
@@ -499,21 +524,20 @@ fn reader_semantic_node(value: PageArtifactSemanticNode, origin: (f64, f64)) -> 
         text: value.text,
         alt: value.alt,
         href: value.href,
-        bounds: reader_rect_at(value.bounds, origin),
+        bounds: reader_rect(frame.rect(value.bounds)),
         children: value
             .children
             .into_iter()
-            .map(|child| reader_semantic_node(child, origin))
+            .map(|child| reader_semantic_node(child, frame))
             .collect(),
     }
 }
 
-/// Lifts an engine rect (content-box relative, page-local) into the
-/// artifact's display-list space.
-fn reader_rect_at(value: PageArtifactRect, origin: (f64, f64)) -> ReaderRect {
+/// An engine rect already placed in the artifact's display-list space.
+pub(super) fn reader_rect(value: PageArtifactRect) -> ReaderRect {
     ReaderRect {
-        x: value.x + origin.0,
-        y: value.y + origin.1,
+        x: value.x,
+        y: value.y,
         width: value.width,
         height: value.height,
     }

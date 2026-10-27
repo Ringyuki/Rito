@@ -1,11 +1,39 @@
-import type { ReaderTextSelectionMovement } from '@ritojs/core';
+import type { ReaderTextSelectionMovement, ReaderWritingMode } from '@ritojs/core';
 
+/**
+ * The selection movement a Shift chord asks for with the selection's focus
+ * on a line of `writingMode`. An arrow key is first read as the key on that
+ * side of the line, as the browser transposes arrows by the focus's writing
+ * mode before interpreting them: on a vertical-rl line down moves along the
+ * line, up back along it, left on to the next line and right back to the
+ * previous one, with the same modifiers.
+ */
 export function keyboardSelectionMovement(
   event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'altKey' | 'ctrlKey' | 'metaKey' | 'isComposing'>,
   apple: boolean,
+  writingMode: ReaderWritingMode = 'horizontal-tb',
 ): ReaderTextSelectionMovement | null {
   if (!event.shiftKey || event.isComposing) return null;
-  return apple ? appleMovement(event) : otherPlatformMovement(event);
+  const read = {
+    key: transposedArrowKey(event.key, writingMode),
+    altKey: event.altKey,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+  };
+  return apple ? appleMovement(read) : otherPlatformMovement(read);
+}
+
+/** Each arrow key read on a vertical-rl line as the horizontal key on its side. */
+const VERTICAL_RL_ARROWS: Readonly<Record<string, string>> = {
+  ArrowLeft: 'ArrowDown',
+  ArrowRight: 'ArrowUp',
+  ArrowUp: 'ArrowLeft',
+  ArrowDown: 'ArrowRight',
+};
+
+function transposedArrowKey(key: string, writingMode: ReaderWritingMode): string {
+  if (writingMode === 'horizontal-tb') return key;
+  return VERTICAL_RL_ARROWS[key] ?? key;
 }
 
 export function isAppleKeyboardPlatform(value: Navigator): boolean {

@@ -13,6 +13,7 @@ const FONT_SOURCES = ['host', 'publication'];
 const FONT_GENERIC_ROLES = [null, 'serif', 'sansSerif', 'monospace'];
 const EXACT_STATUSES = ['resolved', 'pending', 'unavailable'];
 const AFFINITIES = ['upstream', 'downstream'];
+const WRITING_MODES = ['horizontal-tb', 'vertical-rl'];
 const BOUNDARIES = ['start', 'end'];
 const UNAVAILABLE_REASONS = [
   'shape-unavailable',
@@ -258,8 +259,10 @@ function readCaret(reader) {
     geometry: record.option('caret geometry', () => ({
       x: record.f64('caret x'),
       y: record.f64('caret y'),
+      width: record.f64('caret width'),
       height: record.f64('caret height'),
     })),
+    writingMode: u8Tag(record, 'caret writing mode', WRITING_MODES),
     href: record.string('caret href'),
     sourcePoint: readSourcePoint(record),
   };

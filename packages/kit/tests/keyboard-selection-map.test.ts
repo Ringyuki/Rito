@@ -36,6 +36,32 @@ describe('platform keyboard selection mapping', () => {
     expect(keyboardSelectionMovement(event(key, modifiers), false)).toBe(expected);
   });
 
+  it.each([
+    ['ArrowDown', {}, 'characterRight'],
+    ['ArrowUp', {}, 'characterLeft'],
+    ['ArrowLeft', {}, 'lineDown'],
+    ['ArrowRight', {}, 'lineUp'],
+    ['ArrowDown', { altKey: true }, 'wordRight'],
+    ['ArrowLeft', { altKey: true }, 'paragraphForward'],
+    ['PageDown', {}, 'pageDown'],
+  ] as const)(
+    'reads macOS Shift+%s with %o on a vertical-rl line as %s',
+    (key, modifiers, expected) => {
+      expect(keyboardSelectionMovement(event(key, modifiers), true, 'vertical-rl')).toBe(expected);
+    },
+  );
+
+  it.each([
+    ['ArrowDown', { ctrlKey: true }, 'wordStartRight'],
+    ['ArrowLeft', { ctrlKey: true }, 'paragraphNextStart'],
+    ['Home', {}, 'lineStart'],
+  ] as const)(
+    'reads Windows/Linux Shift+%s with %o on a vertical-rl line as %s',
+    (key, modifiers, expected) => {
+      expect(keyboardSelectionMovement(event(key, modifiers), false, 'vertical-rl')).toBe(expected);
+    },
+  );
+
   it('rejects non-selection, composing, and mixed-modifier chords', () => {
     expect(keyboardSelectionMovement(event('ArrowLeft', { shiftKey: false }), false)).toBeNull();
     expect(keyboardSelectionMovement(event('ArrowLeft', { isComposing: true }), false)).toBeNull();

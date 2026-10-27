@@ -32,12 +32,23 @@ pub struct ReaderCaretAddress {
     pub affinity: ReaderCaretAffinity,
 }
 
-/// A caret's line in display-list space: its top and its height.
+/// A caret in display-list space: the segment across its line, as a rect
+/// with no extent along the line — `width` 0 on a horizontal line,
+/// `height` 0 down a vertical one.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReaderCaretGeometry {
     pub x: f64,
     pub y: f64,
+    pub width: f64,
     pub height: f64,
+}
+
+/// The writing mode of the line a caret is on: which way its arrow keys
+/// move it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderWritingMode {
+    HorizontalTb,
+    VerticalRl,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +56,7 @@ pub struct ReaderCaret {
     pub address: ReaderCaretAddress,
     /// Present when the caret's page is one this artifact draws.
     pub geometry: Option<ReaderCaretGeometry>,
+    pub writing_mode: ReaderWritingMode,
     /// Canonical manifest href and source point the caret sits at.
     pub href: String,
     pub source_point: ReaderSourcePoint,

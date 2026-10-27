@@ -27,7 +27,7 @@ use super::{
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
     ReaderExactSourceRect, ReaderFootnote, ReaderFootnoteKind, ReaderForegroundHandoff,
     ReaderForegroundHandoffAck, ReaderLocator, ReaderNavigation, ReaderPageRecords,
-    ReaderPublication, ReaderRect, ReaderResource, ReaderResourceKind, ReaderSearchRequest,
+    ReaderPublication, ReaderResource, ReaderResourceKind, ReaderSearchRequest,
     ReaderSearchResponse, ReaderSearchResult, ReaderSpreadRequest, ReaderTextPosition,
     ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect, ReaderTextRenderingProfile,
     READER_EXTERNAL_ID_MAX,

@@ -112,12 +112,6 @@ impl ChapterStrip {
         self.windows
     }
 
-    /// Where the strip starts along its block axis: the top margin, or the
-    /// right margin for a chapter that runs leftwards.
-    pub(super) fn block_start(&self) -> f64 {
-        self.block_start
-    }
-
     /// What paints window `window`, laid out again with its text: the strip
     /// cut down to the fragments that reach the window, their lines holding
     /// their text, in the strip's coordinates. Only the lines the cut keeps

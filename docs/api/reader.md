@@ -289,11 +289,20 @@ next-block boundary. When the following flow belongs to the same chapter,
 against one currently committed layout, so callers never combine geometry from
 two versions. A caret belongs to the layout that answered it: after either
 commit, a caret from before resolves `undefined`.
+A caret's `geometry` is the segment across its line, as a rect with no extent
+along the line: `width` is 0 on a horizontal line and `height` 0 down a
+vertical one. Its `writingMode` (`ReaderWritingMode`, `'horizontal-tb'` or
+`'vertical-rl'`) is the mode of that line. On a `vertical-rl` page every target,
+outline node, range rectangle and caret is where its column is drawn, in the
+same page-content space as a horizontal page's.
 `resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
 anchor and live focus, advances the focus by a typed character, word, visual-line,
 line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
 Vertical line moves return a `preferredInlinePosition` that callers pass into the
-next vertical move to preserve sticky x. Reaching an incomplete retained tail is
+next vertical move to preserve sticky x. Movements are named for a horizontal
+line; on a `vertical-rl` focus a host reads an arrow key as the key a quarter turn
+from it, as the browser does (down moves along the line, left to the next line),
+which the kit's keyboard selection does. Reaching an incomplete retained tail is
 reported as typed `pending`.
 `resolveTextRangeFromSource()`, when supported, resolves a durable
 `{ href, sourceRange }` as a range in the committed layout, carets included:

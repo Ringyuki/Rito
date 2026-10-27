@@ -32,7 +32,7 @@ use crate::render::{
 
 use super::fragment_frame::RuntimeFragmentEngine;
 use super::frame::{RuntimeChapterStyleTables, RuntimeRevisionInteractions};
-use super::page_artifact::{FragmentPageArtifact, PageArtifactSourceRunStart};
+use super::page_artifact::{FragmentPageArtifact, PageArtifactSourceRunStart, PageRecordFrame};
 use super::scroll_strip::ChapterStrip;
 use super::search::{SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource};
 use super::source_locator::PaginationTarget;
@@ -373,11 +373,47 @@ impl FragmentPageRef {
         )
     }
 
-    /// Where a scrolled window's records start along its block axis in its
-    /// display list: the window's block-start margin. `None` for a page,
+    /// Where the content box the page's records are laid out in sits on
+    /// the page as drawn at `ratio`: at the page's margins, a vertical-rl
+    /// page's columns in from its right one; a scrolled window's moved as
+    /// its pixels are, by the device rows it is drawn from.
+    pub(super) fn record_frame(&self, ratio: f64) -> PageRecordFrame {
+        let paint = &self.chapter.paint;
+        let (start, (shift_x, shift_y)) = match &self.chapter.strip {
+            Some(strip) => {
+                let (x, y) = strip.windows().device_origin(self.page, ratio);
+                (
+                    strip.windows().range(self.page).start,
+                    (x / ratio, y / ratio),
+                )
+            }
+            None => (0.0, (0.0, 0.0)),
+        };
+        let (left, top) = paint.origin;
+        if paint.vertical {
+            PageRecordFrame::VerticalRl {
+                right: left + paint.content_width - start - shift_x,
+                top: top - shift_y,
+            }
+        } else {
+            PageRecordFrame::HorizontalTb {
+                left: left - shift_x,
+                top: top + start - shift_y,
+            }
+        }
+    }
+
+    /// Where record block position `y` of a scrolled window sits in the
+    /// window drawn at `ratio`, from its block-start edge (its top, or its
+    /// right edge for a chapter that runs leftwards). `None` for a page,
     /// which is shown whole.
-    pub(super) fn block_start(&self) -> Option<f64> {
-        Some(self.chapter.strip.as_ref()?.block_start())
+    pub(super) fn block_offset(&self, y: f64, ratio: f64) -> Option<f64> {
+        let strip = self.chapter.strip.as_ref()?;
+        let rows = strip.windows().device_rows(self.page, ratio);
+        Some(
+            self.record_frame(ratio)
+                .block_offset(y, (rows.end - rows.start) / ratio),
+        )
     }
 
     /// A scrolled chapter's window framed at `ratio`, in the chapter's
@@ -1591,9 +1627,9 @@ fn strip_built_chapter(
         line_text: false,
         block_count: built.tree.node(built.tree.root()).children.len(),
         paint: ChapterPaintSource {
+            vertical: strip.windows().axis() == ScrollAxis::Left,
             built,
             faces,
-            vertical: false,
             content_width: config.content_width(),
             content_height: config.content_height(),
             origin: (config.margin_left, config.margin_top),

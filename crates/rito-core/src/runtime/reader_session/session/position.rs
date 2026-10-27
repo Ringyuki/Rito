@@ -220,13 +220,14 @@ impl ReaderSession {
                 ..
             } => ReaderLocation::Page {
                 page_index: u32_from_usize(page_index, "located page")?,
-                drawn: view.origin_of(page_index).is_some(),
+                drawn: view.frame_of(page_index).is_some(),
                 matched_by: locator_match(matched_by),
                 block_offset: scrolled_block_offset(
                     view.revision,
                     page_index,
                     prepared.locator(),
                     matched_by,
+                    self.render_ratio,
                 ),
             },
             RuntimeSourceLocatorResolution::Pending { .. } => ReaderLocation::NotLaidOut,

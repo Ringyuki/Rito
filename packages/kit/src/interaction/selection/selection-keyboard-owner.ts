@@ -1,9 +1,11 @@
-import type { ReaderTextSelectionMovement } from '@ritojs/core';
+import type { ReaderTextSelectionMovement, ReaderWritingMode } from '@ritojs/core';
 import type { SelectionEngine } from './engine';
 import type { NativeSelectionKeyboardCommand } from './native-types';
 
 export interface SelectionKeyboardOwner {
   canExtend(): boolean;
+  /** The writing mode of the line the selection's focus is on. */
+  focusWritingMode(): ReaderWritingMode;
   begin(movement: ReaderTextSelectionMovement): NativeSelectionKeyboardCommand | null;
 }
 

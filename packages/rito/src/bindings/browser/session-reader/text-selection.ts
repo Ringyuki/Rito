@@ -391,8 +391,10 @@ function bind(
     geometry: {
       x: caret.geometry.x - place.originX,
       y: caret.geometry.y - place.originY,
+      width: caret.geometry.width,
       height: caret.geometry.height,
     },
+    writingMode: caret.writingMode,
     sourceLocator: { href: caret.href, sourcePoint: readerSourcePoint(caret.sourcePoint) },
   } as ReaderTextCaret;
   bindings.set(bound, { generation: capture.generation, address: caret.address });

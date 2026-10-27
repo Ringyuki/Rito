@@ -16,11 +16,11 @@ use crate::runtime::{
 use super::fixture::add_file;
 pub(super) use super::fixture::layout;
 
-pub(super) fn policy(faces: Vec<RuntimePinnedFontFaceInput>) -> RuntimePinnedFontPolicyInput {
+pub(crate) fn policy(faces: Vec<RuntimePinnedFontFaceInput>) -> RuntimePinnedFontPolicyInput {
     RuntimePinnedFontPolicyInput { faces }
 }
 
-pub(super) fn face(
+pub(crate) fn face(
     bytes: Vec<u8>,
     generic_role: RuntimePinnedFontGenericRole,
     language: Option<&str>,
@@ -47,7 +47,7 @@ pub(super) fn serif_text_font() -> Vec<u8> {
 }
 
 /// A bundled reader font by file name (`apps/reader/src/assets/fonts`).
-pub(super) fn bundled_font(file: &str) -> Vec<u8> {
+pub(crate) fn bundled_font(file: &str) -> Vec<u8> {
     std::fs::read(workspace_path(&format!(
         "apps/reader/src/assets/fonts/{file}"
     )))

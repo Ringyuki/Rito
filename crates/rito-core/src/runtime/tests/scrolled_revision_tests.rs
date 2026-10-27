@@ -241,7 +241,7 @@ fn every_line_start_resolves_to_its_window_and_reads_back_at_the_reading_line() 
     for (page, point, (x, _)) in &starts {
         let offset = revision
             .chapter_engine_session()
-            .target_block_offset(*page, point)
+            .target_block_offset(*page, point, 1.0)
             .expect("the window draws the point");
         assert_eq!(read_at_reading_line(revision, *page, offset, *x), *point);
     }
@@ -287,7 +287,7 @@ fn a_pages_reading_point_lands_in_a_window_and_reads_back_to_the_page() {
         let revision = &document.revisions[&scrolled_id];
         let offset = revision
             .chapter_engine_session()
-            .target_block_offset(window, &point)
+            .target_block_offset(window, &point, 1.0)
             .expect("the window draws the anchor");
         let read = read_at_reading_line(revision, window, offset, 0.0);
         let back = resolved_page(&mut document, &paged_id, locator(&anchor.href, &read));
@@ -323,11 +323,11 @@ fn a_kept_locator_stays_on_the_reading_line_through_ten_relayouts() {
         let revision = &document.revisions[&revision_id];
         let session = revision.chapter_engine_session();
         let offset = session
-            .target_block_offset(window, &kept)
+            .target_block_offset(window, &kept, 1.0)
             .expect("the window draws the kept point");
         let read = read_at_reading_line(revision, window, offset, 0.0);
         assert_eq!(
-            session.target_block_offset(window, &read),
+            session.target_block_offset(window, &read, 1.0),
             Some(offset),
             "relayout {relayout}: the reading line holds the kept point's line"
         );

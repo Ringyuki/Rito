@@ -6,12 +6,13 @@
 //! geometry values into their reader session shapes.
 
 use crate::runtime::{
+    page_artifact::{PageArtifactRect, PageRecordFrame},
     RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution, RuntimeRevision,
     RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextRangeGeometryRequest,
 };
 
 use super::super::{
-    artifact::{page_origin, reader_page_records},
+    artifact::{page_frame, reader_page_records, reader_rect},
     convert::{reader_locator, runtime_source_range},
 };
 use super::{
@@ -23,7 +24,7 @@ use super::{
     reader_resource_bytes_max, runtime_resource_kind, u32_from_usize, usize_from_u32, ReaderError,
     ReaderErrorKind, ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution,
     ReaderExactSourceRangeStatus, ReaderFootnote, ReaderFootnoteKind, ReaderPageRecords,
-    ReaderRect, ReaderResource, ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest,
+    ReaderResource, ReaderResourceKind, ReaderRevisionBacking, ReaderSearchRequest,
     ReaderSearchResponse, ReaderSearchResult, ReaderSession, ReaderTextPosition,
     ReaderTextRangeGeometry, ReaderTextRangeRequest, ReaderTextRect,
 };
@@ -198,6 +199,7 @@ impl ReaderSession {
             artifact_id,
             usize_from_u32(page_index, "page index")?,
             slot,
+            self.render_ratio,
         )
     }
 
@@ -401,7 +403,7 @@ impl ReaderSession {
             start: runtime_text_position(request.start)?,
             end: runtime_text_position(request.end)?,
         };
-        let (geometry, origin) = match artifact.backing {
+        let (geometry, frame) = match artifact.backing {
             ReaderRevisionBacking::ChapterLocal => {
                 let owner = self
                     .revisions
@@ -412,15 +414,19 @@ impl ReaderSession {
                     .document
                     .require_chapter_local_owner(&owner)
                     .map_err(engine_error)?;
-                let origin =
-                    page_display_origin(revision, artifact.local_spread_index, page_index)?;
+                let frame = page_display_frame(
+                    revision,
+                    artifact.local_spread_index,
+                    page_index,
+                    self.render_ratio,
+                )?;
                 let geometry = crate::runtime::page::text_range_geometry(
                     &owner.revision_id,
                     revision,
                     runtime_request,
                 )
                 .map_err(engine_error)?;
-                (geometry, origin)
+                (geometry, frame)
             }
             ReaderRevisionBacking::Publication => {
                 let owner = self
@@ -433,15 +439,19 @@ impl ReaderSession {
                     .revisions
                     .get(&owner.revision_id)
                     .ok_or_else(|| missing_artifact_revision(artifact.backing))?;
-                let origin =
-                    page_display_origin(revision, artifact.local_spread_index, page_index)?;
+                let frame = page_display_frame(
+                    revision,
+                    artifact.local_spread_index,
+                    page_index,
+                    self.render_ratio,
+                )?;
                 let geometry = crate::runtime::page::text_range_geometry(
                     &owner.revision_id,
                     revision,
                     runtime_request,
                 )
                 .map_err(engine_error)?;
-                (geometry, origin)
+                (geometry, frame)
             }
         };
         Ok(ReaderTextRangeGeometry {
@@ -452,12 +462,12 @@ impl ReaderSession {
                 .into_iter()
                 .map(|rect| {
                     Ok(ReaderTextRect {
-                        bounds: ReaderRect {
-                            x: rect.x + origin.0,
-                            y: rect.y + origin.1,
+                        bounds: reader_rect(frame.rect(PageArtifactRect {
+                            x: rect.x,
+                            y: rect.y,
                             width: rect.width,
                             height: rect.height,
-                        },
+                        })),
                         block_index: u32_from_usize(rect.block_index, "text rect block index")?,
                         line_index: u32_from_usize(rect.line_index, "text rect line index")?,
                         run_index: u32_from_usize(rect.run_index, "text rect run index")?,
@@ -522,13 +532,15 @@ const fn reader_footnote_kind(kind: crate::interaction::FootnoteKind) -> ReaderF
     }
 }
 
-/// Display-list origin of the page slot holding `page_index` inside the
-/// artifact's spread, so geometry lands where the pen painted.
-pub(super) fn page_display_origin(
+/// Display-list frame of the page slot holding `page_index` inside the
+/// artifact's spread drawn at `ratio`, so geometry lands where the pen
+/// painted.
+fn page_display_frame(
     revision: &RuntimeRevision,
     spread_index: usize,
     page_index: usize,
-) -> Result<(f64, f64), ReaderError> {
+    ratio: f64,
+) -> Result<PageRecordFrame, ReaderError> {
     let page_indexes = revision
         .chapter_engine_session()
         .spread_pages(spread_index)
@@ -542,7 +554,8 @@ pub(super) fn page_display_origin(
                 format!("page {page_index} is not part of this artifact"),
             )
         })?;
-    Ok(page_origin(&revision.layout_config, slot))
+    page_frame(revision, page_index, slot, ratio)
+        .ok_or_else(|| target_not_published("artifact page is not published"))
 }
 
 fn runtime_text_position(

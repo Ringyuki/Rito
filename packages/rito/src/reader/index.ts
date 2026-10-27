@@ -73,6 +73,7 @@ export type {
   ReaderThemeOptions,
   ReaderTextCaret,
   ReaderTextCaretGeometry,
+  ReaderWritingMode,
   ReaderTextCaretResolution,
   ReaderTextInteractionUnavailableReason,
   ReaderTextPoint,

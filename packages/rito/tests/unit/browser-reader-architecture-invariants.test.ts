@@ -55,8 +55,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // located line starts in its window, and a window painted alone.
 // +10 lines (2026-10-27): a scrolled view also holds the window after the
 // active one's neighbours, which a viewport shows with the window read.
+// +2 lines (2026-10-27): a caret's width across its line and the writing
+// mode of that line, which turns a vertical line's arrow keys.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2907;
+const SESSION_READER_LINE_BUDGET = 2909;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -78,7 +80,9 @@ const SESSION_READER_LINE_BUDGET = 2907;
 // chapter as one strip a window a spread.
 // +19 lines (2026-10-27): `ReaderScrollLayout` and `getScrollLayout`, a
 // scrolled reader's windows end to end, and where a located line starts.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1028;
+// +14 lines (2026-10-27): `ReaderWritingMode` and a caret's width, the
+// shape of a caret across a vertical line and which way its keys move it.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1042;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

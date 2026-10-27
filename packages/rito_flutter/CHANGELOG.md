@@ -17,6 +17,17 @@ where the reader reads at rest (`position`) and what a tap is on
 (`onTap`). `RitoScrollWindows` places the windows by the rule the engine
 paints them by. Selection does not reach a scrolled view yet.
 
+### Vertical pages are read where their columns are drawn
+
+A vertical-rl page's hits, outline, selection and range rects and carets
+are in the page's drawn space, as a horizontal page's are: columns where
+its lines are drawn, a point read back the same way, in a scrolled window
+too. `RitoCaretGeometry.width` is new: a caret is the segment across its
+line, `width` 0 on a horizontal line and `height` 0 down a vertical one.
+`RitoCaret.writingMode` (`RitoWritingMode`) is the mode of the caret's
+line; on `verticalRl` read an arrow key as the key a quarter turn from it
+(down along the line, left to the next line), as a browser does.
+
 ### Request IDs taken before the call
 
 `RitoReaderSession.takeRequestId()` holds the next request ID for the

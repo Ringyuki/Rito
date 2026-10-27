@@ -115,7 +115,8 @@ export 'src/protocol/text_interaction.dart'
         RitoTextInteractionUnavailableReason,
         RitoTextPoint,
         RitoTextSelection,
-        RitoUnavailableResult;
+        RitoUnavailableResult,
+        RitoWritingMode;
 export 'src/reader/reader_controller.dart';
 export 'src/reader_session.dart';
 export 'src/render/font_envelope.dart'

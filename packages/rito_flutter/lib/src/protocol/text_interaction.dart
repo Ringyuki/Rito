@@ -39,23 +39,32 @@ final class RitoCaretAddress {
   final RitoCaretAffinity affinity;
 }
 
-/// A caret's line in display-list space: its top and its height.
+/// A caret in display-list space: the segment across its line, as a rect
+/// with no extent along the line — [width] 0 on a horizontal line,
+/// [height] 0 down a vertical one.
 final class RitoCaretGeometry {
   const RitoCaretGeometry({
     required this.x,
     required this.y,
+    required this.width,
     required this.height,
   });
 
   final double x;
   final double y;
+  final double width;
   final double height;
 }
+
+/// The writing mode of the line a caret is on: which way its arrow keys
+/// move it.
+enum RitoWritingMode { horizontalTb, verticalRl }
 
 final class RitoCaret {
   const RitoCaret({
     required this.address,
     required this.geometry,
+    required this.writingMode,
     required this.href,
     required this.sourcePoint,
   });
@@ -64,6 +73,7 @@ final class RitoCaret {
 
   /// Present when the caret's page is one the artifact draws.
   final RitoCaretGeometry? geometry;
+  final RitoWritingMode writingMode;
 
   /// Canonical manifest href and source point the caret sits at.
   final String href;
@@ -347,9 +357,11 @@ final class RitoTextInteractionDecoder {
         () => RitoCaretGeometry(
           x: record.float64('caret x'),
           y: record.float64('caret y'),
+          width: record.float64('caret width'),
           height: record.float64('caret height'),
         ),
       ),
+      writingMode: _tag(record, RitoWritingMode.values),
       href: record.string('caret href'),
       sourcePoint: _sourcePoint(record),
     );

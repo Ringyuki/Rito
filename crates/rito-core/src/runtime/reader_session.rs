@@ -89,3 +89,5 @@ mod shard_tests;
 mod tests;
 #[cfg(test)]
 mod typography_tests;
+#[cfg(test)]
+mod vertical_tests;

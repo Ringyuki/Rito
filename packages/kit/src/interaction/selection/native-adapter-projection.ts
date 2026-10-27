@@ -18,7 +18,7 @@ export function projectNativeSelectionCaret(
   return projection.pageContentToSpread(caret.pageIndex, {
     x: caret.geometry.x,
     y: caret.geometry.y,
-    width: 0,
+    width: caret.geometry.width,
     height: caret.geometry.height,
   });
 }
