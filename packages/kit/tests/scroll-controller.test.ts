@@ -587,6 +587,26 @@ describe('scroll controller', () => {
     container.remove();
   });
 
+  it('comes to rest once for each place, not again for a frame drawn there', () => {
+    const reader = fakeReader();
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    const rests: number[] = [];
+    controller.on('rest', ({ offset }) => rests.push(offset));
+    controller.mount(document.body);
+    runFrames();
+    expect(rests).toEqual([0]);
+    // A highlight drawn over the windows shown moves nothing.
+    controller.setHighlights([{ id: 'search', color: 'orange', rects: [] }]);
+    runFrames();
+    expect(rests).toEqual([0]);
+    controller.scrollTo(120);
+    runFrames();
+    expect(rests).toEqual([0, 120]);
+    controller.dispose();
+  });
+
   it('moves with the wheel when its own input drives it', () => {
     const reader = fakeReader();
     const canvas = fakeCanvas();

@@ -47,6 +47,7 @@ export function createScrollController(
     highlighted: 0,
     geometry: undefined,
     current: reader.activeSpreadIndex,
+    rested: undefined,
     frame: null,
   };
   if (options.selection !== false) {
@@ -102,8 +103,13 @@ function wireInput(view: ScrollView, controller: ScrollController): (() => void)
   };
   const { selection } = view;
   if (selection === undefined) return [wireScrollInput(canvas, controller, onTap)];
+  // A tap selects nothing: a touch's lets the selection go, as the mouse's does.
+  const touchTap = (x: number, y: number): void => {
+    selection.clear();
+    onTap(x, y);
+  };
   return [
-    wireScrollInput(canvas, controller, onTap, {
+    wireScrollInput(canvas, controller, touchTap, {
       mouseTaps: false,
       longPress: touchLongPress(canvas, controller, selection),
     }),

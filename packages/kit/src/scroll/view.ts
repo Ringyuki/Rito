@@ -32,6 +32,8 @@ export interface ScrollView {
   geometry: ScrollGeometry | undefined;
   /** The window under the reading line, as the reader was last told. */
   current: number;
+  /** Where the strip last came to rest, over which windows: a frame drawn there again is no new rest. */
+  rested: { readonly offset: number; readonly geometry: ScrollGeometry } | undefined;
   frame: number | null;
 }
 
@@ -199,12 +201,18 @@ function draw(view: ScrollView): void {
   }
 }
 
-/** The strip came to rest: say where, then where the reader reads. */
+/**
+ * The strip came to rest: say where, then where the reader reads — once
+ * for each place and layout, not again for a frame drawn there for a
+ * highlight or a window that landed.
+ */
 function rest(view: ScrollView): void {
   const { geometry, motion } = view;
-  view.emitter.emit('rest', { offset: motion.offset / ratioOf(view) });
-  if (geometry === undefined) return;
   const offset = motion.offset;
+  if (view.rested?.offset === offset && view.rested.geometry === geometry) return;
+  view.rested = geometry === undefined ? undefined : { offset, geometry };
+  view.emitter.emit('rest', { offset: offset / ratioOf(view) });
+  if (geometry === undefined) return;
   readingPosition(view.reader, geometry, offset, readingLine(view)).then(
     (locator) => {
       // A position the strip has since moved away from is not where it reads.
