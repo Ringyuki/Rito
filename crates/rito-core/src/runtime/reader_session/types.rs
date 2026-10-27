@@ -13,12 +13,18 @@ pub enum ReaderSpreadMode {
     Single,
     Double,
     /// Each chapter one continuous strip read through windows the size of
-    /// the viewport, every window its own spread. Window `k` of a chapter
-    /// covers the chapter's CSS block range `[k·H, (k+1)·H)` (`H` the
-    /// viewport height, the last window ending at the chapter's extent) and
-    /// its device rows `[D(k), D(k+1))`, `D(k) = floor(k·H·ratio + 0.5)`,
-    /// the last ending at `floor(extent·ratio + 0.5)`: the windows tile the
-    /// chapter row for row.
+    /// the viewport, every window its own spread. A book whose pages
+    /// progress right to left scrolls leftwards, others down
+    /// ([`ReaderScrollAxis`]); a chapter whose blocks run across the book's
+    /// axis (horizontal text in a leftward book, vertical in a downward
+    /// one) is paginated instead, each page one window. Window `k` of a
+    /// strip covers the chapter's CSS block range `[k·L, (k+1)·L)` from its
+    /// block start (`L` the viewport's height, or its width for a leftward
+    /// strip; the last window ends at the chapter's extent) and the device
+    /// pixels `[D(k), D(k+1))` along the axis, `D(k) = floor(k·L·ratio +
+    /// 0.5)`, the last ending at `floor(extent·ratio + 0.5)`: the windows
+    /// tile the chapter. A leftward strip starts at the right edge of its
+    /// first window.
     Scrolled,
 }
 
@@ -679,10 +685,11 @@ pub struct ReaderArtifact {
     /// moment it exists) and absent on chapter-local artifacts.
     pub book_page_count: Option<u32>,
     /// Where the line the artifact's locator lands on starts in its
-    /// scrolled window's display list, in CSS pixels from the window's top:
-    /// the window is shown from here to put that line at the top of the
-    /// viewport's content box. Absent for a spread of pages, and for a
-    /// window whose locator names no line.
+    /// scrolled window's display list, in CSS pixels from the window's
+    /// block start (its top, or its right edge for a leftward strip): the
+    /// window is shown from here to put that line at the block start of the
+    /// viewport's content box. Absent for a spread of pages, for a page
+    /// shown as a window, and for a window whose locator names no line.
     pub target_block_offset: Option<f64>,
     pub navigation: ReaderNavigation,
     pub text_profile: ReaderTextRenderingProfile,

@@ -354,10 +354,11 @@ final class RitoArtifact {
   final int? bookPageCount;
 
   /// Where the line [locator] lands on starts in this scrolled window's
-  /// display list, in CSS pixels from the window's top: show the window
-  /// from here to put that line at the top of the viewport's content box.
-  /// Null for a spread of pages, and for a window whose locator names no
-  /// line in it.
+  /// display list, in CSS pixels from the window's block start (its top, or
+  /// its right edge for a leftward strip): show the window from here to put
+  /// that line at the block start of the viewport's content box. Null for a
+  /// spread of pages, for a page shown as a window, and for a window whose
+  /// locator names no line in it.
   final double? targetBlockOffset;
   final RitoNavigation navigation;
   final RitoTextProfile textProfile;

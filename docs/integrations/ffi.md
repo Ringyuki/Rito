@@ -199,16 +199,23 @@ version 8):
   to 7 must move with it.
 - The layout record's `spread mode` has a third tag, 2 scrolled: each
   chapter is one continuous strip read through windows the size of the
-  viewport, every window its own spread. Window `k` covers the chapter's
-  CSS block range `[k·H, (k+1)·H)` (`H` the viewport height, the last
-  window ending at the chapter's extent) and its device rows
-  `[D(k), D(k+1))`, `D(k) = floor(k·H·ratio + 0.5)`, the last ending at
-  `floor(extent·ratio + 0.5)`. `first page alone` and `spread gap` are
-  ignored.
+  viewport, every window its own spread. A book whose spine's
+  `page-progression-direction` is `rtl` scrolls leftwards, others down; a
+  chapter whose blocks run across the book's axis (horizontal text in a
+  leftward book, vertical in a downward one) is paginated instead, each
+  page one window. Window `k` of a strip covers the chapter's CSS block
+  range `[k·L, (k+1)·L)` from its block start (`L` the viewport's height,
+  or its width for a leftward strip; the last window ends at the
+  chapter's extent) and the device pixels `[D(k), D(k+1))` along the axis,
+  `D(k) = floor(k·L·ratio + 0.5)`, the last ending at
+  `floor(extent·ratio + 0.5)`; a leftward strip starts at the right edge
+  of its first window. `first page alone` and `spread gap` are ignored.
 - The artifact record carries an optional `f64` target block offset
   after `book page count`: where the line its locator lands on starts in
-  its scrolled window, in CSS pixels from the window's top. Absent for a
-  spread of pages and for a window whose locator names no line.
+  its scrolled window, in CSS pixels from the window's block start (its
+  top, or its right edge for a leftward strip). Absent for a spread of
+  pages, for a page shown as a window, and for a window whose locator
+  names no line.
 - The revision layout (`RITONVR1`, layout result) carries an optional
   `f64` extent after each chapter's `end page` (the chapter's margins and
   strip, scrolled revisions only) and, after `complete`, an optional `u8`
