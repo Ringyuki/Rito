@@ -4,11 +4,15 @@ import '../protocol/revision_layout.dart';
 final class RitoScrollWindow {
   const RitoScrollWindow({
     required this.spreadIndex,
+    required this.pageIndex,
     required this.start,
     required this.length,
   });
 
   final int spreadIndex;
+
+  /// The page the window shows: a scrolled spread is one window.
+  final int pageIndex;
 
   /// Device pixels from the book's block start to the window's.
   final int start;
@@ -55,6 +59,7 @@ final class RitoScrollWindows {
         windows.add(
           RitoScrollWindow(
             spreadIndex: first + k,
+            pageIndex: chapter.startPage + k,
             start: chapterStart + row(k),
             length: row(k + 1) - row(k),
           ),

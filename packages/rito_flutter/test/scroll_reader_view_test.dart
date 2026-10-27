@@ -103,4 +103,81 @@ void main() {
     await _settle(tester);
     await session.dispose();
   });
+
+  testWidgets(
+    'an app selects across a seam through the view and draws it over each window',
+    (tester) async {
+      final session = await _open(9952);
+      final controller = RitoScrollReaderController(
+        session,
+        layout: _layout,
+        devicePixelRatio: 1,
+        layOutBook: false,
+      );
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(420, 640);
+      addTearDown(tester.view.reset);
+      final key = GlobalKey<RitoScrollReaderViewState>();
+      final overlaid = <int>{};
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: RitoScrollReaderView(
+            key: key,
+            controller: controller,
+            windowOverlay: (context, window) {
+              overlaid.add(window.spreadIndex);
+              return const SizedBox.expand();
+            },
+          ),
+        ),
+      );
+      await _settle(tester);
+      // The seam between the first two windows 240 px down the view.
+      await tester.drag(
+        find.byType(RitoScrollReaderView),
+        const Offset(0, -400),
+      );
+      await _settle(tester);
+      expect(overlaid, containsAll(<int>[0, 1]));
+      final view = key.currentState!;
+      final from = view.pointAt(const Offset(100, 100))!;
+      final to = view.pointAt(const Offset(200, 400))!;
+      expect(from.spreadIndex, 0);
+      expect(from.point, const Offset(100, 500));
+      expect(to.spreadIndex, 1);
+      expect(to.point, const Offset(200, 160));
+
+      RitoTextPoint at(RitoScrollPoint point) => RitoTextPoint(
+        pageIndex: point.pageIndex,
+        x: point.point.dx,
+        y: point.point.dy,
+      );
+      final caret = await session.textInteraction(
+        controller.visible,
+        RitoCaretQuery(at(from)),
+        everyPage: true,
+      );
+      final anchor = (caret as RitoCaretResult).caret;
+      expect(anchor.writingMode, RitoWritingMode.horizontalTb);
+      expect(anchor.geometry!.width, 0);
+      final range = await session.textInteraction(
+        controller.visible,
+        RitoRangeToPointQuery(anchor: anchor.address, focus: at(to)),
+        everyPage: true,
+      );
+      final rects = (range as RitoSelectionResult).selection.rects;
+      // Each window's rects are in its own display list, where its overlay is.
+      expect(rects.map((rect) => rect.pageIndex).toSet(), <int>{
+        from.pageIndex,
+        to.pageIndex,
+      });
+      final second = rects.where((rect) => rect.pageIndex == to.pageIndex);
+      expect(second.first.bounds.y, lessThan(to.point.dy));
+
+      controller.dispose();
+      await _settle(tester);
+      await session.dispose();
+    },
+  );
 }

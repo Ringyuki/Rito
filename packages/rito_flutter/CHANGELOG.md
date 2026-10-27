@@ -15,7 +15,12 @@ on the device grid, moved by any `ScrollPhysics`, keeps the windows near
 the reading line loaded, makes the window under it the visible page, says
 where the reader reads at rest (`position`) and what a tap is on
 (`onTap`). `RitoScrollWindows` places the windows by the rule the engine
-paints them by. Selection does not reach a scrolled view yet.
+paints them by, each with the page it shows. An app selects with its own
+gestures: `RitoScrollReaderViewState.pointAt` (through a `GlobalKey` on the
+view) gives the window, page and display-list point under a view point, a
+text interaction asked with `everyPage` answers across windows with each
+window's rects in its own display list, and `windowOverlay` draws what the
+app highlights over each window, moved with it.
 
 ### Vertical pages are read where their columns are drawn
 
