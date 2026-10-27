@@ -333,3 +333,80 @@ fn a_downward_windows_records_move_with_its_pixels_by_whole_device_rows() {
         }
     }
 }
+
+/// The engine's side of `tools/corpus-oracle/vertical-rects-probe.mjs`: the
+/// first page of the vertical fixture's columns, as the probe lays its
+/// paragraphs out in Chromium, each character's range rects and the caret
+/// before it, in the page's display-list space and the probe's JSON shape.
+/// `tools/corpus-oracle/vertical-rects-compare.mjs` reads the two.
+#[test]
+#[ignore = "writes the engine's vertical records for the Chromium comparison"]
+fn dump_vertical_records() {
+    let path = std::env::var("RITO_VERTICAL_RECORDS_DUMP")
+        .expect("RITO_VERTICAL_RECORDS_DUMP names the file to write");
+    let (mut session, artifact) = columns(ReaderSpreadMode::Single, 1.0, 0);
+    let href = session.publication().spine[1].href.clone();
+    let rect = |bounds: &ReaderRect| {
+        serde_json::json!({
+            "x": bounds.x, "y": bounds.y, "width": bounds.width, "height": bounds.height,
+        })
+    };
+    let mut paragraphs = Vec::new();
+    for paragraph in 0..3u32 {
+        let mut characters = Vec::new();
+        for offset in 0..144u64 {
+            let point = |text_offset| ReaderSourcePoint {
+                node_path: vec![paragraph, 0],
+                text_offset,
+            };
+            let rects: Vec<ReaderRect> = session
+                .resolve_exact_source_range(ReaderExactSourceRangeRequest {
+                    session_id: SESSION,
+                    artifact_id: artifact.artifact_id,
+                    href: href.clone(),
+                    range: ReaderSourceRange {
+                        start: point(offset),
+                        end: point(offset + 1),
+                    },
+                    every_page: false,
+                })
+                .expect("range resolves")
+                .rects
+                .into_iter()
+                .map(|placed| placed.bounds)
+                .collect();
+            let caret = rects.first().and_then(|first| {
+                let at = ReaderTextPoint {
+                    page_index: artifact.pages[0].page_index,
+                    x: first.x + first.width / 2.0,
+                    y: first.y + first.height / 4.0,
+                };
+                match interact(
+                    &mut session,
+                    &artifact,
+                    ReaderTextInteractionQuery::Caret { point: at },
+                ) {
+                    ReaderTextInteractionResult::Caret(caret) => caret.geometry,
+                    _ => None,
+                }
+            });
+            characters.push(serde_json::json!({
+                "offset": offset,
+                "rects": rects.iter().map(rect).collect::<Vec<_>>(),
+                "caret": caret.iter().map(|geometry| serde_json::json!({
+                    "x": geometry.x, "y": geometry.y,
+                    "width": geometry.width, "height": geometry.height,
+                })).collect::<Vec<_>>(),
+            }));
+        }
+        paragraphs
+            .push(serde_json::json!({ "id": format!("p{paragraph}"), "characters": characters }));
+    }
+    let dump =
+        serde_json::json!({ "width": 420, "height": 640, "margin": 24, "rects": paragraphs });
+    std::fs::write(
+        path,
+        serde_json::to_string_pretty(&dump).expect("dump encodes"),
+    )
+    .expect("dump writes");
+}
