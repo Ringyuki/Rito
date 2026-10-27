@@ -64,7 +64,11 @@ function View({ controller }: { controller: ScrollController }) {
   return (
     <div ref={root}>
       {/* The view's canvas, which the controller put here. */}
-      <span ref={(node) => node?.parentElement?.appendChild(controller.canvas)} />
+      <span
+        ref={(node) => {
+          node?.parentElement?.appendChild(controller.canvas);
+        }}
+      />
       <ScrollSelectionHandles controller={controller} rootRef={root} touchInput />
     </div>
   );
@@ -108,6 +112,26 @@ describe('scrolled selection handles', () => {
       stub.select(null);
     });
     expect(container.querySelector('[data-rito-selection-handle]')).toBeNull();
+  });
+
+  it('hangs the knobs off the right and left ends of carets across a vertical line', () => {
+    const stub = scrollStub();
+    act(() => {
+      root.render(<View controller={stub.controller} />);
+    });
+    act(() => {
+      stub.select({
+        start: { x: 300, y: 40, width: 23, height: 0 },
+        end: { x: 254, y: 120, width: 23, height: 0 },
+        focusEdge: 'end',
+      });
+    });
+    const handle = (edge: string) =>
+      container.querySelector<HTMLElement>(`[data-rito-selection-handle="${edge}"]`);
+    // The start's knob at its caret's right end, the end's at its left end,
+    // each at the caret's height, less the knob's 22.
+    expect([handle('start')?.style.left, handle('start')?.style.top]).toEqual(['301px', '18px']);
+    expect([handle('end')?.style.left, handle('end')?.style.top]).toEqual(['232px', '98px']);
   });
 
   it('drags an end through the view', () => {
