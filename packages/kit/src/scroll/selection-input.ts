@@ -17,7 +17,7 @@ const EDGE_SPEED = 24;
 interface Press {
   readonly x: number;
   readonly y: number;
-  readonly granularity: NativeSelectionGranularity;
+  granularity: NativeSelectionGranularity;
   /** Whether it selects: it moved past the slop or picked a word or paragraph. */
   selecting: boolean;
   /** The pointer's last view point. */
@@ -46,9 +46,9 @@ export function wireMouseSelection(
   const onDown = (event: PointerEvent): void => {
     if (event.pointerType !== 'mouse' || event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
-    press = pressed(viewPoint(canvas, event), granularityOf(event.detail));
-    if (press.selecting) select(controller, selection, press, press.at, 'begin');
+    press = pressed(viewPoint(canvas, event), 'character');
   };
+  const onMouseDown = clickCount(() => press, controller, selection);
   const onMove = (event: PointerEvent): void => {
     if (press === undefined || event.pointerType !== 'mouse') return;
     drag(canvas, controller, selection, press, viewPoint(canvas, event));
@@ -58,8 +58,7 @@ export function wireMouseSelection(
     const released = press;
     press = undefined;
     const at = viewPoint(canvas, event);
-    released.held = false;
-    if (released.frame !== null) cancelAnimationFrame(released.frame);
+    release(released);
     if (released.selecting) select(controller, selection, released, at, 'end');
     else if (event.type === 'pointerup') {
       selection.clear();
@@ -73,10 +72,37 @@ export function wireMouseSelection(
     ['pointercancel', onUp],
   ] as const;
   for (const [name, handler] of events) canvas.addEventListener(name, handler);
+  canvas.addEventListener('mousedown', onMouseDown);
   return () => {
     if (press?.frame != null) cancelAnimationFrame(press.frame);
     for (const [name, handler] of events) canvas.removeEventListener(name, handler);
+    canvas.removeEventListener('mousedown', onMouseDown);
   };
+}
+
+/**
+ * The click count is the mouse event's that follows the pointer's: a
+ * second or third press selects a word or a paragraph at once.
+ */
+function clickCount(
+  current: () => Press | undefined,
+  controller: ScrollController,
+  selection: ScrollSelection,
+): (event: MouseEvent) => void {
+  return (event) => {
+    const press = current();
+    const granularity = granularityOf(event.detail);
+    if (press === undefined || event.button !== 0 || granularity === 'character') return;
+    press.granularity = granularity;
+    press.selecting = true;
+    select(controller, selection, press, press.at, 'begin');
+  };
+}
+
+/** The button let go: no more scrolling at the edges for this press. */
+function release(press: Press): void {
+  press.held = false;
+  if (press.frame !== null) cancelAnimationFrame(press.frame);
 }
 
 function viewPoint(canvas: HTMLCanvasElement, event: PointerEvent): ViewPoint {
@@ -222,8 +248,7 @@ export function touchLongPress(
         drag(canvas, controller, selection, press, { x: toX, y: toY });
       },
       end: (atX, atY) => {
-        press.held = false;
-        if (press.frame !== null) cancelAnimationFrame(press.frame);
+        release(press);
         select(controller, selection, press, { x: atX, y: atY }, 'end');
       },
     };

@@ -427,6 +427,36 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it('selects the word under a double press and the paragraph under a triple one', async () => {
+    const { canvas, controller, pointer, reader } = selectingView();
+    const asked: string[] = [];
+    const textSelection = (reader as unknown as { interactions: { textSelection: object } })
+      .interactions.textSelection;
+    Object.assign(textSelection, {
+      resolveTextRangeFromPoints: ({ granularity }: { granularity: string }) => {
+        asked.push(granularity);
+        return Promise.resolve({
+          status: 'resolved',
+          range: exactRange(caret(10, 0), caret(20, 0)),
+        });
+      },
+    });
+    controller.mount(document.body);
+    runFrames();
+    for (const [clicks, granularity] of [
+      [2, 'word'],
+      [3, 'paragraph'],
+    ] as const) {
+      canvas.dispatchEvent(pointer('pointerdown', 30, 50));
+      canvas.dispatchEvent(new MouseEvent('mousedown', { button: 0, detail: clicks }));
+      canvas.dispatchEvent(pointer('pointerup', 30, 50));
+      await flushMicrotasks();
+      expect(asked.at(-1)).toBe(granularity);
+      expect(controller.selection?.selectedText).toBe('selected text');
+    }
+    controller.dispose();
+  });
+
   it('selects the word under a touch held still and follows it, without scrolling', async () => {
     const { canvas, controller, reader } = selectingView();
     const words: string[] = [];
