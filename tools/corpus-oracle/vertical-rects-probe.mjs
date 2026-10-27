@@ -22,7 +22,8 @@ const width = Number(process.env.RITO_PROBE_WIDTH ?? 420);
 const height = Number(process.env.RITO_PROBE_HEIGHT ?? 640);
 const margin = Number(process.env.RITO_PROBE_MARGIN ?? 24);
 const font = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
-// The vertical fixture's paragraphs (runtime/tests/fixture.rs).
+// The vertical fixture's paragraphs (runtime/tests/fixture.rs), under the
+// user agent's own paragraph margins as the engine's are.
 const text = '春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。'.repeat(6);
 const paragraphs = Array.from({ length: 3 }, (_, index) => `<p id="p${index}">${text}</p>`);
 
@@ -36,7 +37,6 @@ writeFileSync(
 html { writing-mode: vertical-rl; font-family: "Pinned Serif"; font-size: 16px; }
 html, body { margin: 0; padding: 0; }
 body { position: absolute; top: ${margin}px; right: ${margin}px; height: ${height - 2 * margin}px; }
-p { margin: 0 0 1em 0; }
 </style></head><body>${paragraphs.join('')}</body></html>`,
 );
 const browser = await launchOracleChromium();
