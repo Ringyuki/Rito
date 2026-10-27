@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../font/artifact_font_cache.dart';
+import '../protocol/artifact_models.dart';
+import '../protocol/hit_resolver.dart';
 import '../protocol/request_models.dart';
 import '../protocol/revision_layout.dart';
+import '../protocol/text_interaction.dart';
 import '../reader/page_source.dart';
 import '../reader_session.dart';
 import 'scroll_windows.dart';
@@ -90,6 +94,67 @@ final class RitoScrollReaderController extends ChangeNotifier {
           ? _layout.marginRight
           : _layout.marginTop) *
       devicePixelRatio;
+
+  /// Where the reader reads, once the strip last came to rest: the line at
+  /// the reading line, else the window's own reading point. Null until the
+  /// strip first rests.
+  ValueListenable<RitoLocator?> get position => _position;
+  final ValueNotifier<RitoLocator?> _position = ValueNotifier<RitoLocator?>(
+    null,
+  );
+
+  /// The strip came to rest at device offset [offset]: where the reader
+  /// reads now becomes [position].
+  void settle(double offset) {
+    unawaited(
+      _enqueue(() async {
+        final locator = await _readingPosition(offset);
+        if (locator != null && !_disposed) _position.value = locator;
+      }),
+    );
+  }
+
+  /// The link, note or image at [point] of window [spreadIndex] (its
+  /// display-list space), if the window is loaded and there is one.
+  Future<RitoTapTarget?> targetAt(int spreadIndex, Offset point) {
+    return _enqueue(() async {
+      final artifact = windowArtifact(spreadIndex);
+      if (artifact == null || _disposed) return null;
+      final records = await session.readPage(
+        artifact,
+        artifact.artifact.localPageIndex,
+      );
+      return RitoHitResolver(<RitoPageRecords>[
+        records,
+      ]).resolve(x: point.dx, y: point.dy, linkSlack: 8);
+    });
+  }
+
+  Future<RitoLocator?> _readingPosition(double offset) async {
+    final window = _windows?.windowAt(offset + readingLine);
+    if (window == null || _disposed) return null;
+    final artifact = windowArtifact(window.spreadIndex);
+    if (artifact == null) return null;
+    if (_windows?.axis == RitoScrollAxis.down) {
+      // The reading line, a pixel in from the content box's start.
+      final point = RitoTextPoint(
+        pageIndex: artifact.artifact.localPageIndex,
+        x: _layout.marginLeft + 1,
+        y: (offset + readingLine - window.start) / devicePixelRatio,
+      );
+      final result = await session.textInteraction(
+        artifact,
+        RitoCaretQuery(point),
+      );
+      if (result is RitoCaretResult) {
+        return RitoLocator(
+          href: result.caret.href,
+          sourcePoint: result.caret.sourcePoint,
+        );
+      }
+    }
+    return artifact.artifact.locator;
+  }
 
   /// The artifact of window [spreadIndex]; null while it loads, and the
   /// listeners hear when it lands. Only windows near the reading line load.
@@ -259,6 +324,7 @@ final class RitoScrollReaderController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _position.dispose();
     final held = _held.values.map((entry) => entry.artifact).toList();
     _held.clear();
     for (final artifact in held) {

@@ -60,10 +60,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(420, 640);
     addTearDown(tester.view.reset);
+    final taps = <RitoScrollTap>[];
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
-        child: RitoScrollReaderView(controller: controller),
+        child: RitoScrollReaderView(controller: controller, onTap: taps.add),
       ),
     );
     await _settle(tester);
@@ -84,6 +85,19 @@ void main() {
     expect(controller.readingSpread, 1);
     expect(controller.visible.artifact.localSpreadIndex, 1);
     expect(session.visibleArtifactId, controller.visible.artifactId);
+
+    // At rest, the reader reads the line at the reading line of that window.
+    final position = controller.position.value;
+    expect(position, isNotNull);
+    expect(position!.href, 'OEBPS/Text/Section013.xhtml');
+    expect(position.sourcePoint, isNotNull);
+
+    // A tap says which window it fell in and where.
+    await tester.tapAt(const Offset(200, 300));
+    await _settle(tester);
+    expect(taps, hasLength(1));
+    expect(taps.single.spreadIndex, 1);
+    expect(taps.single.point.dx, 200);
 
     controller.dispose();
     await _settle(tester);

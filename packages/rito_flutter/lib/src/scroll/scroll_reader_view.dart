@@ -1,10 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../protocol/hit_resolver.dart';
 import '../protocol/revision_layout.dart';
 import '../render/page_surface.dart';
 import 'scroll_reader_controller.dart';
 import 'scroll_windows.dart';
+
+/// A tap on a scrolled reader: the window, the point in its display list,
+/// and the link, note or image there, if any.
+final class RitoScrollTap {
+  const RitoScrollTap({
+    required this.spreadIndex,
+    required this.point,
+    required this.target,
+  });
+
+  final int spreadIndex;
+  final Offset point;
+  final RitoTapTarget? target;
+}
 
 /// A scrolled reader: the book's windows end to end, down the screen or
 /// leftwards for a book that scrolls leftwards, in a scrollable that moves
@@ -17,8 +34,12 @@ final class RitoScrollReaderView extends StatefulWidget {
     this.scrollController,
     this.colorOverride,
     this.loadingColor = const Color(0xFFFFFFFF),
+    this.onTap,
     super.key,
   });
+
+  /// Called for a tap, with what is under it.
+  final ValueChanged<RitoScrollTap>? onTap;
 
   final RitoScrollReaderController controller;
   final ScrollPhysics? physics;
@@ -99,6 +120,59 @@ final class _RitoScrollReaderViewState extends State<RitoScrollReaderView> {
     if (windows == null) return ColoredBox(color: widget.loadingColor);
     final ratio = windows.ratio;
     final down = windows.axis == RitoScrollAxis.down;
+    final list = NotificationListener<ScrollEndNotification>(
+      onNotification: (notification) {
+        widget.controller.settle(notification.metrics.pixels * ratio);
+        return false;
+      },
+      child: _list(windows, ratio, down),
+    );
+    final onTap = widget.onTap;
+    if (onTap == null) return list;
+    return LayoutBuilder(
+      builder: (context, constraints) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: (details) => _tap(windows, constraints, details, onTap),
+        child: list,
+      ),
+    );
+  }
+
+  /// The window and the point in it under a tap, and what is there.
+  void _tap(
+    RitoScrollWindows windows,
+    BoxConstraints constraints,
+    TapUpDetails details,
+    ValueChanged<RitoScrollTap> onTap,
+  ) {
+    if (!_scroll.hasClients) return;
+    final ratio = windows.ratio;
+    final local = details.localPosition;
+    final down = windows.axis == RitoScrollAxis.down;
+    // How far along the strip the tap is, in device pixels.
+    final along = down
+        ? (_scroll.offset + local.dy) * ratio
+        : (_scroll.offset + constraints.maxWidth - local.dx) * ratio;
+    final window = windows.windowAt(along);
+    if (window == null) return;
+    final into = (along - window.start) / ratio;
+    final point = down
+        ? Offset(local.dx, into)
+        : Offset(window.length / ratio - into, local.dy);
+    unawaited(
+      widget.controller.targetAt(window.spreadIndex, point).then((target) {
+        onTap(
+          RitoScrollTap(
+            spreadIndex: window.spreadIndex,
+            point: point,
+            target: target,
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _list(RitoScrollWindows windows, double ratio, bool down) {
     return CustomScrollView(
       controller: _scroll,
       physics: widget.physics,
