@@ -13,6 +13,7 @@ interface Opened {
 
 const view = document.querySelector<HTMLElement>('#view');
 const input = document.querySelector<HTMLInputElement>('#open');
+const progress = document.querySelector<HTMLElement>('#progress');
 let opened: Opened | undefined;
 
 async function open(file: File): Promise<void> {
@@ -31,6 +32,14 @@ async function open(file: File): Promise<void> {
     pinnedFontPolicy: await loadProductionPinnedFontPolicy(),
   });
   const controller = createScrollController(reader, canvas);
+  // A link into the book goes to where it points; the rest is left alone.
+  controller.on('tap', ({ target }) => {
+    if (target?.targetLocator) void controller.scrollToLocator(target.targetLocator);
+  });
+  controller.on('scroll', ({ offset, extent }) => {
+    const max = extent - (controller.axis === 'left' ? view.clientWidth : view.clientHeight);
+    if (progress) progress.textContent = `${((100 * offset) / Math.max(1, max)).toFixed(1)}%`;
+  });
   controller.mount(view);
   opened = { reader, controller };
   // Headless checks drive and read the view directly.

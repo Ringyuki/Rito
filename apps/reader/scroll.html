@@ -23,11 +23,20 @@
         right: 8px;
         z-index: 1;
       }
+      #progress {
+        position: fixed;
+        bottom: 8px;
+        right: 8px;
+        z-index: 1;
+        font: 12px system-ui;
+        color: #888;
+      }
     </style>
   </head>
   <body>
     <input id="open" type="file" accept=".epub,application/epub+zip" />
     <div id="view" data-testid="scroll-view"></div>
+    <div id="progress"></div>
     <script type="module" src="/src/scroll-demo.ts"></script>
   </body>
 </html>
