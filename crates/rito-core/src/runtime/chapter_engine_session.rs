@@ -106,6 +106,23 @@ impl<'a> ChapterEngineSession<'a> {
         self.backend.resolve_text_range(query)
     }
 
+    /// Where the line a source point sits on starts in its page's display
+    /// list, for a scrolled window to be shown from.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "a scrolled artifact carries it once the wire does"
+        )
+    )]
+    pub(super) fn target_block_offset(
+        &self,
+        page_index: usize,
+        point: &super::page_artifact::PageArtifactSourcePoint,
+    ) -> Option<f64> {
+        self.backend.target_block_offset(page_index, point)
+    }
+
     /// The caret at an exact address, with its geometry and source point.
     pub(super) fn text_caret(
         &self,

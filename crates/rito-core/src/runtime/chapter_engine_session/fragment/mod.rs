@@ -93,6 +93,9 @@ impl<'a> FragmentChapterEngineSession<'a> {
         ratio: f64,
     ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
         let config = &self.revision.layout_config;
+        if config.spread_mode == SpreadMode::Scrolled {
+            return self.window_frame(spread_index, ratio);
+        }
         let spreads = build_spread_slots(
             self.layout.page_count(),
             self.layout.chapter_start_pages(),
@@ -205,6 +208,29 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Ok(Some(PageArtifactFrame {
             page_indexes,
             commands,
+            first_device_row: 0.0,
+        }))
+    }
+
+    /// A scrolled revision's spread: one window, framed by its chapter's
+    /// strip, which says the device row the window starts on.
+    fn window_frame(
+        &self,
+        page_index: usize,
+        ratio: f64,
+    ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
+        let Some((page, _)) = self.layout.page_with_chapter(page_index)? else {
+            return Ok(None);
+        };
+        let window = page.window_frame(ratio).ok_or_else(|| {
+            crate::epub::EpubError::new("a scrolled revision's page is not a window of a strip")
+        })??;
+        let mut commands = FrameCommands::default();
+        commands.push_page(window.commands);
+        Ok(Some(PageArtifactFrame {
+            page_indexes: vec![page_index],
+            commands,
+            first_device_row: window.rows.start,
         }))
     }
 
@@ -291,6 +317,30 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 TextInteractionUnavailableReason::InvalidCaret,
             ),
         }
+    }
+
+    /// Where the line a source point sits on starts in its page's display
+    /// list, the page's top at 0: the block offset a scrolled window is
+    /// shown from to put that line on the reading line, the top of the
+    /// viewport's content box. A line's runs can start at different heights;
+    /// the line starts at the highest. `None` when the page draws no run of
+    /// the point.
+    pub(super) fn target_block_offset(
+        &self,
+        page_index: usize,
+        point: &PageArtifactSourcePoint,
+    ) -> Option<f64> {
+        let address = self.address_at_source_point(page_index..page_index + 1, point, false)?;
+        let artifact = self.artifact(page_index)?;
+        let top = artifact
+            .interaction_runs()
+            .iter()
+            .filter(|run| {
+                run.block_index == address.block_index && run.line_index == address.line_index
+            })
+            .map(|run| run.y)
+            .reduce(f64::min)?;
+        Some(self.revision.layout_config.margin_top + top)
     }
 
     /// The caret address a durable source point lands on, searching the

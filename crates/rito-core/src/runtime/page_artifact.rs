@@ -21,6 +21,11 @@ pub(super) use interaction::*;
 pub(super) struct PageArtifactFrame {
     pub(super) page_indexes: Vec<usize>,
     pub(super) commands: FrameCommands,
+    /// The device row of its chapter a scrolled window starts on: the
+    /// window paints in the chapter's coordinates, where every edge and
+    /// baseline rounds as it does for the whole chapter, and moves up by
+    /// these rows once lowered. Zero for a spread of pages.
+    pub(super) first_device_row: f64,
 }
 
 /// A spread's display commands, in paint order: the frame's own around

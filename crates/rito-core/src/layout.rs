@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 pub enum SpreadMode {
     Single,
     Double,
+    /// Each chapter one continuous strip, shown through windows the size of
+    /// the viewport: every window its own spread.
+    Scrolled,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -79,7 +82,8 @@ impl LayoutConfig {
 
 pub fn create_layout_config(input: LayoutConfigInput) -> LayoutConfig {
     let margins = resolve_margins(input.margin);
-    let spread_mode = if input.width < input.height {
+    // A portrait viewport has no room for two pages side by side.
+    let spread_mode = if input.spread == SpreadMode::Double && input.width < input.height {
         SpreadMode::Single
     } else {
         input.spread
@@ -88,7 +92,7 @@ pub fn create_layout_config(input: LayoutConfigInput) -> LayoutConfig {
         SpreadMode::Double => {
             spread_on_device_grid(input.width, input.spread_gap, input.device_pixel_ratio)
         }
-        SpreadMode::Single => (input.width, input.spread_gap),
+        SpreadMode::Single | SpreadMode::Scrolled => (input.width, input.spread_gap),
     };
 
     LayoutConfig {
@@ -207,6 +211,27 @@ mod tests {
         assert_eq!(config.page_width, 600.0);
         assert_eq!(config.margin_left, 40.0);
         assert_eq!(config.margin_top, 30.0);
+    }
+
+    #[test]
+    fn a_portrait_viewport_scrolls_as_it_was_asked() {
+        let config = create_layout_config(LayoutConfigInput {
+            width: 390.0,
+            height: 844.0,
+            margin: MarginInput::All(20.0),
+            spread: SpreadMode::Scrolled,
+            first_page_alone: true,
+            spread_gap: 20.0,
+            root_font_size: 16.0,
+            line_height_override: None,
+            line_height_force: None,
+            font_family_override: None,
+            font_family_force: None,
+            device_pixel_ratio: 3.0,
+        });
+
+        assert_eq!(config.spread_mode, SpreadMode::Scrolled);
+        assert_eq!((config.page_width, config.page_height), (390.0, 844.0));
     }
 
     fn spread(width: f64, ratio: f64) -> (f64, f64) {

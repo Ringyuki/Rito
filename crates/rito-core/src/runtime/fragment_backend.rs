@@ -17,14 +17,14 @@ use std::{
     sync::Arc,
 };
 
-use rito_fragment::{BreakToken, CancelFlag};
+use rito_fragment::{BreakToken, CancelFlag, Fragment};
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_pagination::{
     layout_chapter_page, paint_chapter_page, ChapterPaginator, FragmentChapterPage,
 };
 use crate::fragment_paint::FragmentPaintContext;
-use crate::layout::LayoutConfig;
+use crate::layout::{LayoutConfig, SpreadMode};
 use crate::render::{
     contract::{ReaderBackgroundPaint, ReaderColor},
     DisplayCommand,
@@ -33,6 +33,7 @@ use crate::render::{
 use super::fragment_frame::RuntimeFragmentEngine;
 use super::frame::{RuntimeChapterStyleTables, RuntimeRevisionInteractions};
 use super::page_artifact::{FragmentPageArtifact, PageArtifactSourceRunStart};
+use super::scroll_strip::ChapterStrip;
 use super::search::{SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource};
 use super::source_locator::PaginationTarget;
 use super::RuntimeDocument;
@@ -111,6 +112,9 @@ impl std::fmt::Debug for FragmentTableBuildInputs {
 pub(super) struct MaterializedChapter {
     paint: ChapterPaintSource,
     pages: Vec<FragmentBackendPage>,
+    /// The strip a scrolled chapter's pages are windows of, which paints
+    /// them.
+    strip: Option<Rc<ChapterStrip>>,
     /// The page box the pages' query artifacts are built in.
     page_width: f64,
     page_height: f64,
@@ -176,6 +180,38 @@ impl MaterializedChapter {
             .expect("a page's text is laid out before the page is read")
     }
 
+    /// A scrolled chapter's window framed at `ratio` by its strip, cached
+    /// as a page's commands are, and the chapter's device rows it covers.
+    fn window_frame(
+        &self,
+        strip: &ChapterStrip,
+        page: usize,
+        ratio: f64,
+    ) -> EpubResult<WindowFrame> {
+        let rows = strip.windows().device_rows(page, ratio);
+        let key = ratio.to_bits();
+        let entry = &self.pages[page];
+        if let Some((_, commands)) = entry
+            .paint_cache
+            .borrow()
+            .iter()
+            .find(|(cached, _)| *cached == key)
+        {
+            return Ok(WindowFrame {
+                commands: Arc::clone(commands),
+                rows,
+            });
+        }
+        let (commands, _) = strip.window_frame(page..page + 1, ratio)?;
+        let commands = Arc::new(commands);
+        let mut cache = entry.paint_cache.borrow_mut();
+        if cache.len() >= 2 {
+            cache.remove(0);
+        }
+        cache.push((key, Arc::clone(&commands)));
+        Ok(WindowFrame { commands, rows })
+    }
+
     /// The page's paint commands at `ratio` device pixels per CSS pixel,
     /// painted on first use and cached: pagination geometry is identical
     /// at every ratio, only the glyph baselines' device rounding moves.
@@ -219,6 +255,13 @@ impl MaterializedChapter {
     }
 }
 
+/// A scrolled chapter's window painted at one ratio: its frame in the
+/// chapter's coordinates and the chapter's device rows it covers.
+pub(super) struct WindowFrame {
+    pub(super) commands: Arc<Vec<DisplayCommand>>,
+    pub(super) rows: std::ops::Range<f64>,
+}
+
 /// One page of a materialized chapter. Holding it keeps that chapter
 /// materialized, so a caller can read a page's geometry and paint it
 /// without the chapter being evicted underneath.
@@ -244,6 +287,13 @@ impl FragmentPageRef {
     /// The page's paint commands at `ratio` device pixels per CSS pixel.
     pub(super) fn commands_for(&self, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
         self.chapter.commands_for(self.page, ratio)
+    }
+
+    /// A scrolled chapter's window framed at `ratio`, in the chapter's
+    /// coordinates; `None` for a page of a paginated chapter.
+    pub(super) fn window_frame(&self, ratio: f64) -> Option<EpubResult<WindowFrame>> {
+        let strip = self.chapter.strip.as_ref()?;
+        Some(self.chapter.window_frame(strip, self.page, ratio))
     }
 }
 
@@ -719,13 +769,7 @@ impl FragmentBuiltLayout {
 
     /// One chapter laid out as a continuous strip from the inputs the table
     /// recorded, on the engine that paginated it.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "the scrolled reading mode's revision reads it, not wired yet"
-        )
-    )]
+    #[cfg(test)]
     pub(super) fn chapter_strip(
         &self,
         chapter_index: usize,
@@ -748,6 +792,7 @@ impl FragmentBuiltLayout {
             Rc::clone(&build.faces),
             built,
             &build.config,
+            true,
         )
     }
 }
@@ -793,6 +838,7 @@ fn materialized_chapter(
     MaterializedChapter {
         paint: paginated.paint,
         pages,
+        strip: paginated.strip,
         page_width: config.page_width,
         page_height: config.page_height,
         engine,
@@ -818,7 +864,40 @@ pub(super) struct FragmentTableBuild {
 struct TableChapter {
     record: FragmentBackendChapter,
     built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
-    paginator: ChapterPaginator,
+    pages: TableChapterPages,
+}
+
+/// Where a whole-book page table takes a chapter's next page from.
+enum TableChapterPages {
+    /// A chapter paginating one page at a time.
+    Paginated(ChapterPaginator),
+    /// A scrolled chapter's windows, its strip laid out when it began.
+    Windows(std::collections::VecDeque<Fragment>),
+}
+
+impl TableChapterPages {
+    /// The chapter's next page, or `None` once it has given every page.
+    fn next_page(
+        &mut self,
+        engine: &RuntimeFragmentEngine,
+        tree: &rito_fragment::FormattingTree,
+    ) -> EpubResult<Option<FragmentChapterPage>> {
+        match self {
+            Self::Paginated(paginator) => {
+                paginator.next_page(&engine.engine, tree, &CancelFlag::new())
+            }
+            Self::Windows(windows) => Ok(windows
+                .pop_front()
+                .map(|root| FragmentChapterPage { root, start: None })),
+        }
+    }
+
+    fn is_done(&self) -> bool {
+        match self {
+            Self::Paginated(paginator) => paginator.is_done(),
+            Self::Windows(windows) => windows.is_empty(),
+        }
+    }
 }
 
 impl FragmentTableBuild {
@@ -903,12 +982,8 @@ impl RuntimeDocument {
             }
             let chapter = table.current.as_mut().expect("a chapter is under way");
             let page = chapter
-                .paginator
-                .next_page(
-                    &table.build.engine.engine,
-                    &chapter.built.tree,
-                    &CancelFlag::new(),
-                )
+                .pages
+                .next_page(&table.build.engine, &chapter.built.tree)
                 .map_err(|error| {
                     format!(
                         "chapter {} pagination: {}",
@@ -934,7 +1009,7 @@ impl RuntimeDocument {
                 chapter.record.page_count += 1;
                 left -= 1;
             }
-            if chapter.paginator.is_done() {
+            if chapter.pages.is_done() {
                 if let Some(done) = table.current.take() {
                     table.chapters.push(done.record);
                 }
@@ -965,7 +1040,30 @@ impl RuntimeDocument {
         if content_width <= 0.0 || content_height <= 0.0 {
             return Err("page content box is empty".to_owned());
         }
-        let paginator = ChapterPaginator::new(&built.tree, content_width, content_height, false);
+        // Without its text, as a whole-book table paginates: each page is
+        // dropped once its anchors and run starts are taken.
+        let pages = if config.spread_mode == SpreadMode::Scrolled {
+            let strip = ChapterStrip::lay_out(
+                &build.engine,
+                Rc::clone(&build.faces),
+                Rc::clone(&built),
+                config,
+                false,
+            )
+            .map_err(|error| format!("chapter {idref} strip: {}", error.message()))?;
+            TableChapterPages::Windows(
+                (0..strip.windows().count())
+                    .map(|window| strip.window_page_root(window))
+                    .collect(),
+            )
+        } else {
+            TableChapterPages::Paginated(ChapterPaginator::new(
+                &built.tree,
+                content_width,
+                content_height,
+                false,
+            ))
+        };
         Ok(TableChapter {
             record: FragmentBackendChapter {
                 idref,
@@ -977,7 +1075,7 @@ impl RuntimeDocument {
                 image_dimensions,
             },
             built,
-            paginator,
+            pages,
         })
     }
 
@@ -1147,6 +1245,8 @@ struct PaginatedChapter {
     line_text: bool,
     paint: ChapterPaintSource,
     block_count: usize,
+    /// The strip a scrolled chapter's pages are windows of.
+    strip: Option<Rc<ChapterStrip>>,
 }
 
 /// The pagination half of a chapter build: lays a bridged formatting tree
@@ -1176,6 +1276,9 @@ fn paginate_built_chapter_until(
     line_text: bool,
     mut settled: impl FnMut(&FragmentChapterPage, usize, Option<&BreakToken>) -> bool,
 ) -> Result<PaginatedChapter, String> {
+    if config.spread_mode == SpreadMode::Scrolled {
+        return strip_built_chapter(engine, faces, built, config, idref, settled);
+    }
     let content_width = config.page_width - config.margin_left - config.margin_right;
     let content_height = config.page_height - config.margin_top - config.margin_bottom;
     if content_width <= 0.0 || content_height <= 0.0 {
@@ -1210,6 +1313,7 @@ fn paginate_built_chapter_until(
             content_height,
             origin: (config.margin_left, config.margin_top),
         },
+        strip: None,
     })
 }
 
@@ -1265,6 +1369,48 @@ fn collect_page_anchors(
             collect_page_anchors(child, node_anchors, page_index, out);
         }
     }
+}
+
+/// [`paginate_built_chapter_until`] for a scrolled layout: the chapter laid
+/// out as one strip, its pages the strip's windows. `settled` sees every
+/// window, as it sees every page pagination makes, but a strip is laid out
+/// whole, so nothing is left to resume. The strip holds its text whatever
+/// the pages were asked for: a window is a slice of the strip, which is
+/// not laid out again a window at a time.
+fn strip_built_chapter(
+    engine: &RuntimeFragmentEngine,
+    faces: Rc<[std::sync::Arc<str>]>,
+    built: Rc<crate::fragment_bridge::ChapterFormattingTree>,
+    config: &LayoutConfig,
+    idref: &str,
+    mut settled: impl FnMut(&FragmentChapterPage, usize, Option<&BreakToken>) -> bool,
+) -> Result<PaginatedChapter, String> {
+    let strip = ChapterStrip::lay_out(engine, Rc::clone(&faces), Rc::clone(&built), config, true)
+        .map_err(|error| format!("chapter {idref} strip: {}", error.message()))?;
+    let pages: Vec<FragmentChapterPage> = (0..strip.windows().count())
+        .map(|window| FragmentChapterPage {
+            root: strip.window_page_root(window),
+            start: None,
+        })
+        .collect();
+    for (index, page) in pages.iter().enumerate() {
+        settled(page, index, None);
+    }
+    Ok(PaginatedChapter {
+        pages,
+        rest: None,
+        line_text: true,
+        block_count: built.tree.node(built.tree.root()).children.len(),
+        paint: ChapterPaintSource {
+            built,
+            faces,
+            vertical: false,
+            content_width: config.content_width(),
+            content_height: config.content_height(),
+            origin: (config.margin_left, config.margin_top),
+        },
+        strip: Some(Rc::new(strip)),
+    })
 }
 
 #[cfg(test)]
