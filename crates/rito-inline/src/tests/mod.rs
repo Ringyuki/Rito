@@ -18,6 +18,7 @@ use std::sync::Arc;
 const FONT_SIZE: f32 = 16.0;
 
 mod atoms_and_grid;
+mod box_edges;
 mod breaks_and_spacing;
 mod clusters;
 mod envelopes_and_ruby;

@@ -112,6 +112,10 @@ impl TreeBuilder<'_> {
                 let parent_style = self.inline.style(inherited).ok();
                 let shift = ancestor_shift_px
                     + resolved_baseline_shift_with_parent(resolved, parent_font_size, parent_style);
+                // Blink's open and close tag items: the box's start and end
+                // sizes take their width on the lines its content lands on.
+                let opens = !resolved.inline_edge(false).is_empty();
+                let closes = !resolved.inline_edge(true).is_empty();
                 // An <a href> scopes its destination over everything it
                 // contains; nested links (invalid HTML) keep the inner.
                 let link = (element.tag == "a")
@@ -158,6 +162,9 @@ impl TreeBuilder<'_> {
                 }
                 let before = self.generated_inline(source_index, PseudoElementKind::Before);
                 let after = self.generated_inline(source_index, PseudoElementKind::After);
+                if opens {
+                    collector.push_box_edge(style, false, source_index);
+                }
                 if element.children.is_empty() && before.is_none() && after.is_none() {
                     // A childless inline box still opens on the line: its
                     // font's leaded envelope around its shifted baseline
@@ -175,6 +182,9 @@ impl TreeBuilder<'_> {
                 }
                 if let Some(generated) = &after {
                     self.collect_generated(generated, shift, source_index, collector)?;
+                }
+                if closes {
+                    collector.push_box_edge(style, true, source_index);
                 }
                 if let Some(saved) = saved_link {
                     collector.current_link = saved;

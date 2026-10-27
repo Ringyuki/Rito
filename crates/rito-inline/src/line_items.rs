@@ -54,14 +54,16 @@ pub(crate) fn line_items<'a>(
                 kind: inline_box.kind,
             }),
         });
-    placed.chain(split)
+    // A box's start and end sizes are neither glyphs nor atoms: they only
+    // move what follows them.
+    placed
+        .chain(split)
+        .filter(|item| !matches!(item, LineItemView::Atom(inline_box) if inline_box.kind.is_tag()))
 }
 
-/// The inline item each glyph run and inline box of a line belongs to, in
-/// line order: a glyph run by its brush, an inline box by `u32::MAX - id`.
-pub(crate) fn line_item_keys<'a>(line: &Line<'a, [u8; 4]>) -> impl Iterator<Item = u32> + 'a {
-    line.style_runs().map(|item| match item {
-        LineStyleRun::Glyphs { style, .. } => u32::from_le_bytes(style.brush),
-        LineStyleRun::InlineBox(inline_box) => u32::MAX - inline_box.id as u32,
+/// Whether the line holds an atomic inline (an image or an inline block).
+pub(crate) fn line_has_atom(line: &Line<'_, [u8; 4]>) -> bool {
+    line.style_runs().any(|item| {
+        matches!(item, LineStyleRun::InlineBox(inline_box) if inline_box.kind == parley::InlineBoxKind::InFlow)
     })
 }

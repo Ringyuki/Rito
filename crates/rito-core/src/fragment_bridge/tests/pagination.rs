@@ -64,7 +64,9 @@ fn real_chapter_paginates_losslessly_through_the_new_engine() {
                         InlineItem::Text { text, .. } => Some(text.as_str()),
                         InlineItem::Image { .. }
                         | InlineItem::InlineBlock { .. }
-                        | InlineItem::EmptyBox { .. } => None,
+                        | InlineItem::EmptyBox { .. }
+                        | InlineItem::OpenTag { .. }
+                        | InlineItem::CloseTag { .. } => None,
                     })
                     .collect();
                 let mut start = u32::MAX;

@@ -16,8 +16,27 @@ space (both were laid out as one line). A paragraph shaped as a single run
 longer than 64 KiB, as a volume written as one block in one font can be,
 lays out instead of failing. A ligature is measured by its own glyphs in
 every run, not only the paragraph's first. A line that gives the start of an
-item to the next line (a ruby base or a note that does not fit) keeps an
+item to the next line (a ruby base that does not fit) keeps an
 inline image that comes before that item, as Chromium does.
+
+### Closers are trimmed across element boundaries
+
+A closing bracket or quote that overflows a line by half its width is
+trimmed to keep it on the line when the line crosses an element boundary
+and when the closer ends its element, as Chromium does since version 153.
+Such a line no longer sends a whole note, or the run after an annotated
+name, down to the next line, and a trimmed closer keeps the end padding of
+the box it closes.
+
+### Inline box edges break as Chromium breaks them
+
+An inline element's start and end margin, border and padding take their
+width as Chromium's open and close tags do. A line that breaks where the
+element opens sends that start to the next line with the element's
+content, instead of leaving it on the line above or pushing the character
+before it down. Nested elements each add their own, an empty element takes
+its width, vertical text reads the top and bottom sides, and percentage
+padding resolves against the containing block.
 
 ### Word selection steps past spaces
 

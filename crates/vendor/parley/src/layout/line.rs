@@ -445,7 +445,8 @@ impl<'a, B: Brush> Iterator for GlyphRunIter<'a, B> {
 
                     self.item_index += 1;
                     self.cursor = GlyphCursor::default();
-                    if inline_box.kind == InlineBoxKind::InFlow {
+                    // Rito: an inline box's start and end sizes take width.
+                    if inline_box.kind == InlineBoxKind::InFlow || inline_box.kind.is_tag() {
                         self.offset += inline_box.width;
                     }
                     return Some(PositionedLayoutItem::InlineBox(PositionedInlineBox {

@@ -320,12 +320,14 @@ fn observe_adjacent_bordered_span_run_boxes() {
             LengthPercentage::Length(rito_style_contract::CssPx::new(3.0).expect("finite")),
         );
         let style_id = inline.intern_for_node(index, style).expect("style interns");
+        items.push(InlineItem::OpenTag { style: style_id });
         items.push(InlineItem::Text {
             text: text.to_owned(),
             style: style_id,
             baseline_shift_px: 0.0,
             ruby_annotation: None,
         });
+        items.push(InlineItem::CloseTag { style: style_id });
     }
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -496,6 +498,7 @@ fn an_inline_margin_indents_its_forced_break_line() {
                     baseline_shift_px: 0.0,
                     ruby_annotation: None,
                 },
+                InlineItem::OpenTag { style: badge },
                 InlineItem::Text {
                     text: "的".to_owned(),
                     style: badge,

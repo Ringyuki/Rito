@@ -127,7 +127,9 @@ fn ruby_bases_carry_annotations_and_never_merge_with_neighbours() {
             ),
             InlineItem::Image { .. }
             | InlineItem::InlineBlock { .. }
-            | InlineItem::EmptyBox { .. } => {
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => {
                 panic!("no atomic items here")
             }
         })
@@ -231,7 +233,9 @@ fn collapsible_space_after_a_forced_break_is_removed_at_the_line_start() {
             InlineItem::Text { text, .. } => text.as_str(),
             InlineItem::Image { .. }
             | InlineItem::InlineBlock { .. }
-            | InlineItem::EmptyBox { .. } => {
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => {
                 panic!("no atomic items here")
             }
         })
@@ -267,7 +271,9 @@ fn pre_wrap_keeps_spaces_and_segment_breaks_verbatim() {
             InlineItem::Text { text, .. } => text.as_str(),
             InlineItem::Image { .. }
             | InlineItem::InlineBlock { .. }
-            | InlineItem::EmptyBox { .. } => {
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => {
                 panic!("no atomic items here")
             }
         })
@@ -316,7 +322,9 @@ fn mono_ruby_pairs_each_annotation_with_its_base_segment() {
             ),
             InlineItem::Image { .. }
             | InlineItem::InlineBlock { .. }
-            | InlineItem::EmptyBox { .. } => {
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => {
                 panic!("no atomic items here")
             }
         })
@@ -403,5 +411,105 @@ fn right_aligned_line_starts_at_width_minus_advance() {
     assert!(
         (line_x - (627.21875 - 272.0)).abs() < 1e-6,
         "right-aligned start is exact: {line_x}"
+    );
+}
+
+/// The first paragraph's items, each as its text or a box edge mark: `<`
+/// opens a box, `>` closes one, `∅` is a childless box.
+fn first_paragraph_items(xhtml_body: &str, css: &str) -> Vec<String> {
+    let chapter = resolved_chapter_with(
+        &format!(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>{xhtml_body}</body></html>"#
+        ),
+        css,
+    );
+    let built = build_chapter_formatting_tree(
+        &chapter.nodes,
+        chapter.body_index,
+        &chapter.layout,
+        &chapter.inline,
+        &no_images(),
+    )
+    .expect("tree builds");
+    let root = built.tree.node(built.tree.root());
+    let FormattingNodeContent::InlineFlow { items } = &built.tree.node(root.children[0]).content
+    else {
+        panic!("first paragraph is an inline flow");
+    };
+    items
+        .iter()
+        .map(|item| match item {
+            InlineItem::Text { text, .. } => text.clone(),
+            InlineItem::OpenTag { .. } => "<".to_owned(),
+            InlineItem::CloseTag { .. } => ">".to_owned(),
+            InlineItem::EmptyBox { .. } => "∅".to_owned(),
+            InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => "▣".to_owned(),
+        })
+        .collect()
+}
+
+/// A box with a start or end size opens or closes as an item of its own
+/// (Blink's open and close tags), nested boxes each their own; a box
+/// with neither adds nothing.
+#[test]
+fn a_sized_box_edge_is_an_item_of_its_own() {
+    let css = ".s { padding-left: 4px; } .e { padding-right: 4px; } .n { color: red; } \
+               .b { border-left: 1px solid; } .m { margin: 0 2px; }";
+    assert_eq!(
+        first_paragraph_items(r#"<p>a<span class="s">b</span>c</p>"#, css),
+        ["a", "<", "b", "c"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p>a<span class="e">b</span>c</p>"#, css),
+        ["a", "b", ">", "c"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p>a<span class="n">b</span>c</p>"#, css),
+        ["a", "b", "c"]
+    );
+    assert_eq!(
+        first_paragraph_items(
+            r#"<p>a<span class="b"><span class="m">b</span></span></p>"#,
+            css
+        ),
+        ["a", "<", "<", "b", ">"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p>a<span class="m"></span>b</p>"#, css),
+        ["a", "<", "∅", ">", "b"]
+    );
+}
+
+/// A collapsed space stays where it arose: before a box opening after it,
+/// inside a box closing after it, and inside a box it opens.
+#[test]
+fn a_collapsed_space_keeps_its_place_around_box_edges() {
+    let css = ".s { padding-left: 4px; } .e { padding-right: 4px; } em { font-style: italic; }";
+    assert_eq!(
+        first_paragraph_items(r#"<p>a <span class="s">b</span></p>"#, css),
+        ["a ", "<", "b"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p>a<span class="s"> b</span></p>"#, css),
+        ["a", "<", " b"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p><span class="e">a </span>b</p>"#, css),
+        ["a ", ">", "b"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p><em>a</em> <span class="s">b</span></p>"#, css),
+        ["a", " ", "<", "b"]
+    );
+    assert_eq!(
+        first_paragraph_items(r#"<p>a<br/> <span class="s"> b</span></p>"#, css),
+        ["a\n", "<", "b"]
+    );
+    assert_eq!(
+        first_paragraph_items(
+            r#"<p>a <span class="s" style="white-space: pre-wrap">b</span></p>"#,
+            css
+        ),
+        ["a ", "<", "b"]
     );
 }

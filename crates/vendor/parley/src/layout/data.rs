@@ -605,6 +605,8 @@ impl<B: Brush> LayoutData<B> {
 
         let mut running_min_width = 0.0;
         let mut running_max_width = 0.0;
+        // Rito: open tags waiting for the content they open.
+        let mut pending_open_tags = 0.0_f32;
         let mut text_wrap_mode = TextWrapMode::Wrap;
         let mut prev_cluster: Option<&ClusterData> = None;
         let is_rtl = self.base_level & 1 == 1;
@@ -634,7 +636,8 @@ impl<B: Brush> LayoutData<B> {
                                 running_max_width = 0.0;
                             }
                         }
-                        running_min_width += cluster.advance;
+                        running_min_width += pending_open_tags + cluster.advance;
+                        pending_open_tags = 0.0;
                         running_max_width += cluster.advance;
                         if !is_rtl {
                             // Rito: a newline cluster must not shadow the
@@ -652,6 +655,21 @@ impl<B: Brush> LayoutData<B> {
                 }
                 LayoutItemKind::InlineBox => {
                     let ibox = &self.inline_boxes[item.index];
+                    // Rito: an inline box's start size rides with the content
+                    // after it (a break before that content takes it along),
+                    // its end size with the content before it.
+                    if ibox.kind == InlineBoxKind::OpenTag {
+                        running_max_width += ibox.width;
+                        pending_open_tags += ibox.width;
+                        continue;
+                    }
+                    if ibox.kind == InlineBoxKind::CloseTag {
+                        running_max_width += ibox.width;
+                        running_min_width += ibox.width;
+                        let trailing_whitespace = whitespace_advance(prev_cluster);
+                        max_width = max_width.max(running_max_width - trailing_whitespace);
+                        continue;
+                    }
                     if ibox.kind == InlineBoxKind::InFlow {
                         running_max_width += ibox.width;
                         if text_wrap_mode == TextWrapMode::Wrap {
@@ -671,7 +689,7 @@ impl<B: Brush> LayoutData<B> {
         }
 
         let trailing_whitespace = whitespace_advance(prev_cluster);
-        min_width = min_width.max(running_min_width - trailing_whitespace);
+        min_width = min_width.max(running_min_width + pending_open_tags - trailing_whitespace);
 
         ContentWidths {
             min: min_width,

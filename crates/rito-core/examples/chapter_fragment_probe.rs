@@ -287,7 +287,9 @@ fn collect_lines(
                     InlineItem::Text { text, .. } => Some(text.as_str()),
                     InlineItem::Image { .. }
                     | InlineItem::InlineBlock { .. }
-                    | InlineItem::EmptyBox { .. } => None,
+                    | InlineItem::EmptyBox { .. }
+                    | InlineItem::OpenTag { .. }
+                    | InlineItem::CloseTag { .. } => None,
                 })
                 .collect();
             let mut start = u32::MAX;

@@ -37,4 +37,24 @@ pub enum InlineBoxKind {
     ///
     /// They can be used to implement advanced layout modes such as CSS's `float`
     CustomOutOfFlow,
+    /// Rito: the inline-start margin, border and padding of an inline box
+    /// opening at this index (Blink's open tag item). It takes its width on
+    /// the line but offers no break of its own: a break the text allows at
+    /// its index is taken before it, so it opens the next line together
+    /// with what follows. A forced break leaves it on the line it ends.
+    OpenTag,
+    /// Rito: the inline-end margin, border and padding of an inline box
+    /// closing at this index (Blink's close tag item). It takes its width
+    /// on the line and stays with the content before it: it never opens a
+    /// line, and when it overflows, the line breaks at the last opportunity
+    /// before that content.
+    CloseTag,
+}
+
+impl InlineBoxKind {
+    /// Rito: whether the box is an inline box's start or end size, which
+    /// takes width on its line but no height and no content of its own.
+    pub fn is_tag(self) -> bool {
+        matches!(self, Self::OpenTag | Self::CloseTag)
+    }
 }

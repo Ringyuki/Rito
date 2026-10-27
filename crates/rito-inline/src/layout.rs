@@ -53,7 +53,9 @@ impl FormattingContext for ParleyInlineContext {
                         }
                         InlineItem::Image { .. }
                         | InlineItem::InlineBlock { .. }
-                        | InlineItem::EmptyBox { .. } => cursor..cursor,
+                        | InlineItem::EmptyBox { .. }
+                        | InlineItem::OpenTag { .. }
+                        | InlineItem::CloseTag { .. } => cursor..cursor,
                     })
                     .collect()
             }
@@ -96,8 +98,6 @@ impl FormattingContext for ParleyInlineContext {
             alignment,
             shifted_ranges,
             first_line_indent,
-            item_box_sheds,
-            forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
             ruby_spread_overhangs_right,
@@ -149,6 +149,7 @@ impl FormattingContext for ParleyInlineContext {
                     | InlineItem::EmptyBox {
                         baseline_shift_px, ..
                     } => *baseline_shift_px,
+                    InlineItem::OpenTag { .. } | InlineItem::CloseTag { .. } => 0.0,
                 })
                 .collect(),
             _ => Vec::new(),
@@ -171,7 +172,9 @@ impl FormattingContext for ParleyInlineContext {
                     InlineItem::Text { text, .. } => text.as_str(),
                     InlineItem::Image { .. }
                     | InlineItem::InlineBlock { .. }
-                    | InlineItem::EmptyBox { .. } => "",
+                    | InlineItem::EmptyBox { .. }
+                    | InlineItem::OpenTag { .. }
+                    | InlineItem::CloseTag { .. } => "",
                 })
                 .collect(),
             _ => String::new(),
@@ -199,6 +202,8 @@ impl FormattingContext for ParleyInlineContext {
                         style: *style,
                         declared: None,
                     }),
+                    // A box's start and end sizes hold no content to size.
+                    InlineItem::OpenTag { .. } | InlineItem::CloseTag { .. } => None,
                 })
                 .collect(),
             _ => Vec::new(),
@@ -268,7 +273,7 @@ impl FormattingContext for ParleyInlineContext {
             let metrics = line.metrics();
             let line_top = running_top;
             let line_text = text_lines.at(line_top);
-            let has_inline_box = line.has_inline_box();
+            let has_inline_box = line_has_atom(&line);
             // Env-gated line forensics for the native probe binary (wasm
             // has no env; the flag simply never sets there).
             // Flow-text ranges of the spread ruby bases: justification must
@@ -318,13 +323,6 @@ impl FormattingContext for ParleyInlineContext {
                     nbsp_kept,
                 )
             };
-            // A span opening this forced-break line indents it by its box
-            // lead (margins/padding/border of a post-<br/> span land on
-            // the span's own line).
-            let forced_indent = forced_line_indents
-                .get(&line.text_range().start)
-                .copied()
-                .unwrap_or(0.0);
             let parley_line_x = f64::from(metrics.offset);
             // The hang shift moves the PAINTED line: children below are
             // relativized against parley's own aligned offset so the
@@ -359,7 +357,6 @@ impl FormattingContext for ParleyInlineContext {
             // Start-aligned lines carry no offset and keep raw floats.
             let line_x = {
                 let raw = parley_line_x - alignment_epsilon
-                    + forced_indent
                     + match alignment {
                         parley::Alignment::Center => (hang_uncovered - trailing_nbsp_kept) / 2.0,
                         parley::Alignment::End | parley::Alignment::Right => {
@@ -389,8 +386,7 @@ impl FormattingContext for ParleyInlineContext {
                 } else {
                     0.0
                 };
-                let target =
-                    f64::from(line_max_advance(line_top)) - f64::from(indent) - forced_indent;
+                let target = f64::from(line_max_advance(line_top)) - f64::from(indent);
                 // The hanging U+3000 tail leaves the measure like parley's
                 // own trailing whitespace does: Blink justifies the line's
                 // content to the full measure with the spaces hung outside.
@@ -763,7 +759,9 @@ impl FormattingContext for ParleyInlineContext {
                                             InlineItem::Text { style, .. }
                                             | InlineItem::Image { style, .. }
                                             | InlineItem::InlineBlock { style, .. }
-                                            | InlineItem::EmptyBox { style, .. } => *style,
+                                            | InlineItem::EmptyBox { style, .. }
+                                            | InlineItem::OpenTag { style }
+                                            | InlineItem::CloseTag { style } => *style,
                                         })
                                     }
                                     _ => None,
@@ -834,13 +832,6 @@ impl FormattingContext for ParleyInlineContext {
                                 )
                                 .grid
                             });
-                        };
-                        // The advance a box gap parked on this run's last
-                        // cluster: shed it so the rect stays ink-sized.
-                        let box_shed = if run_range.end == item_range.end {
-                            item_box_sheds.get(&item_index).copied().unwrap_or(0.0)
-                        } else {
-                            0.0
                         };
                         match &justify_plan {
                             None => {
@@ -961,7 +952,9 @@ impl FormattingContext for ParleyInlineContext {
                                                     InlineItem::Text { style, .. }
                                                     | InlineItem::Image { style, .. }
                                                     | InlineItem::InlineBlock { style, .. }
-                                                    | InlineItem::EmptyBox { style, .. } => *style,
+                                                    | InlineItem::EmptyBox { style, .. }
+                                                    | InlineItem::OpenTag { style }
+                                                    | InlineItem::CloseTag { style } => *style,
                                                 })
                                             }
                                             _ => None,
@@ -1072,13 +1065,7 @@ impl FormattingContext for ParleyInlineContext {
                                             emit(
                                                 seg_start..byte,
                                                 run_x + cjk_anchor_correction + seg_offset,
-                                                cumulative
-                                                    - seg_offset
-                                                    - if byte == run_range.end {
-                                                        box_shed
-                                                    } else {
-                                                        0.0
-                                                    },
+                                                cumulative - seg_offset,
                                                 0.0,
                                             );
                                             seg_start = byte;
@@ -1086,12 +1073,7 @@ impl FormattingContext for ParleyInlineContext {
                                         }
                                     }
                                 } else if !has_space {
-                                    emit(
-                                        run_range,
-                                        run_x,
-                                        f64::from(glyph_run.advance()) - box_shed,
-                                        0.0,
-                                    );
+                                    emit(run_range, run_x, f64::from(glyph_run.advance()), 0.0);
                                 } else {
                                     let mut seg_start = run_range.start;
                                     let mut seg_x = run_x;
@@ -1121,9 +1103,7 @@ impl FormattingContext for ParleyInlineContext {
                                         emit(
                                             seg_start..run_range.end,
                                             seg_x,
-                                            run_x + f64::from(glyph_run.advance())
-                                                - seg_x
-                                                - box_shed,
+                                            run_x + f64::from(glyph_run.advance()) - seg_x,
                                             0.0,
                                         );
                                     }
@@ -1306,8 +1286,7 @@ impl FormattingContext for ParleyInlineContext {
                                     emit(
                                         stretch_start..run_range.end,
                                         stretch_x,
-                                        stretch_natural + plan.share * f64::from(stretch_shares)
-                                            - box_shed,
+                                        stretch_natural + plan.share * f64::from(stretch_shares),
                                         plan.share * f64::from(uniform.unwrap_or(0)),
                                     );
                                 }
@@ -2415,7 +2394,9 @@ impl ParleyInlineContext {
                         InlineItem::Text { style, .. }
                         | InlineItem::Image { style, .. }
                         | InlineItem::InlineBlock { style, .. }
-                        | InlineItem::EmptyBox { style, .. } => *style,
+                        | InlineItem::EmptyBox { style, .. }
+                        | InlineItem::OpenTag { style }
+                        | InlineItem::CloseTag { style } => *style,
                     })
                 }
                 _ => None,

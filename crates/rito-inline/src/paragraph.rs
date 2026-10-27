@@ -80,7 +80,9 @@ impl ParleyInlineContext {
         let mut text = String::new();
         let mut runs = Vec::with_capacity(items.len());
         let mut shifted_ranges: Vec<(std::ops::Range<usize>, f64)> = Vec::new();
-        let mut image_boxes = Vec::new();
+        // Atoms and box edges, in content order (the builder keeps the
+        // order of boxes at one index).
+        let mut inline_boxes = Vec::new();
         // Laid-out inline-block atoms by item index: the mini paragraph's
         // baseline (its LAST line's, from the box top) and its fragment,
         // emitted at the inline box's position during line assembly.
@@ -151,7 +153,7 @@ impl ParleyInlineContext {
                         inline_block_baselines.insert(block_node, baseline);
                         inline_block_boxes.insert(item_index as u64, (baseline, root_box));
                     }
-                    image_boxes.push(InlineBox {
+                    inline_boxes.push(InlineBox {
                         id: item_index as u64,
                         kind: InlineBoxKind::InFlow,
                         index: text.len(),
@@ -164,6 +166,32 @@ impl ParleyInlineContext {
                     baseline_shift_px,
                 } => {
                     empty_box_struts.push((text.len(), *style, *baseline_shift_px));
+                }
+                InlineItem::OpenTag { style } | InlineItem::CloseTag { style } => {
+                    let closes = matches!(item, InlineItem::CloseTag { .. });
+                    let style = styles
+                        .inline
+                        .style(*style)
+                        .map_err(|error| LayoutError::Invalid(error.to_string()))?;
+                    // Blink's open (close) tag takes the box's margin,
+                    // border and padding at the edge its lines start (end)
+                    // at, percentages against the containing block.
+                    let width = style
+                        .inline_edge(closes)
+                        .size(space.margin_basis().map(|basis| basis as f32));
+                    if width != 0.0 {
+                        inline_boxes.push(InlineBox {
+                            id: TAG_BOX_ID | item_index as u64,
+                            kind: if closes {
+                                InlineBoxKind::CloseTag
+                            } else {
+                                InlineBoxKind::OpenTag
+                            },
+                            index: text.len(),
+                            width,
+                            height: 0.0,
+                        });
+                    }
                 }
             }
         }
@@ -364,8 +392,9 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         // Computed before the builder takes the font borrow: the trim
         // gate resolves each trimmed character's font to check `halt`.
-        let inline_box_bytes: Vec<usize> = image_boxes
+        let inline_box_bytes: Vec<usize> = inline_boxes
             .iter()
+            .filter(|inline_box| inline_box.kind == InlineBoxKind::InFlow)
             .map(|inline_box| inline_box.index)
             .collect();
         // Every pair the paragraph trims while no break separates it; the
@@ -410,7 +439,9 @@ impl ParleyInlineContext {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. }
-                    | InlineItem::EmptyBox { style, .. } => *style,
+                    | InlineItem::EmptyBox { style, .. }
+                    | InlineItem::OpenTag { style }
+                    | InlineItem::CloseTag { style } => *style,
                 })
             })
             .and_then(|style_id| styles.inline.style(style_id).ok())
@@ -506,124 +537,8 @@ impl ParleyInlineContext {
             }
         }
 
-        // Inline box advances: a span's horizontal padding and borders
-        // widen the gap at each box boundary. The gap rides as letter
-        // spacing on the character left of the boundary (the same
-        // mechanism as the punctuation trims); a box opening at the very
-        // start of the flow folds its lead into the first-line indent.
-        // Each edit is (range, box gap, author letter-spacing): standalone
-        // pushes apply author + gap; an edit landing on a trimmed
-        // character adds only the gap (the trim value already carries the
-        // author spacing).
-        let mut box_edits: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
-        let mut leading_box_indent = 0.0_f32;
-        let mut item_box_sheds: std::collections::HashMap<usize, f64> =
-            std::collections::HashMap::new();
-        let mut forced_line_indents: std::collections::HashMap<usize, f64> =
-            std::collections::HashMap::new();
-        {
-            let box_side =
-                |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
-                    LengthPercentage::Length(px) => px.get(),
-                    _ => 0.0,
-                };
-            let edge_width = |edge: &rito_style_contract::BorderEdge| {
-                use rito_style_contract::BorderStyle;
-                if matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
-                    0.0
-                } else {
-                    edge.resolved_width.get()
-                }
-            };
-            let author = |style: &InlineFormattingStyle| match style.text_flow.letter_spacing {
-                LengthPercentage::Length(px) => px.get(),
-                _ => 0.0,
-            };
-            // Inline horizontal margins displace the inline box
-            // exactly like padding/border gaps, but stay OUTSIDE the
-            // painted box (the pen grows the box by paint padding only).
-            // Percentages resolve against the containing block's inline
-            // size; vertical inline margins have no effect in CSS.
-            let margin_side = |value: &rito_style_contract::LengthPercentageOrAuto| match value {
-                rito_style_contract::LengthPercentageOrAuto::Auto => 0.0_f32,
-                rito_style_contract::LengthPercentageOrAuto::Value(inner) => match inner {
-                    LengthPercentage::Length(px) => px.get(),
-                    LengthPercentage::Percentage(pct) => space
-                        .margin_basis()
-                        .map_or(0.0, |basis| pct.ratio() * basis as f32),
-                    _ => 0.0,
-                },
-            };
-            for (index, (range, style, item_index)) in runs.iter().enumerate() {
-                if range.is_empty() {
-                    continue;
-                }
-                let lead = box_side(&style.fragment.padding.left)
-                    + edge_width(&style.fragment.border.left)
-                    + margin_side(&style.fragment.margin.left);
-                let trail = box_side(&style.fragment.padding.right)
-                    + edge_width(&style.fragment.border.right)
-                    + margin_side(&style.fragment.margin.right);
-                if trail > 0.0 {
-                    if let Some((last, _)) = text[range.clone()].char_indices().last() {
-                        box_edits.push((range.start + last..range.end, trail, author(style)));
-                        *item_box_sheds.entry(*item_index).or_insert(0.0) += f64::from(trail);
-                    }
-                }
-                if lead > 0.0 {
-                    if range.start == 0 {
-                        leading_box_indent += lead;
-                    } else if text.as_bytes().get(range.start - 1) == Some(&b'\n') {
-                        // The span opens a forced-break line: the lead
-                        // indents that line (a previous-char edit would
-                        // widen the line ABOVE). Breaking does not see
-                        // the reserved width — an indented long span may
-                        // overfit vs Blink; b60-style badge lines hold
-                        // one glyph and are exact.
-                        *forced_line_indents.entry(range.start).or_insert(0.0) += f64::from(lead);
-                    } else if let Some((prev_range, prev_style, prev_item)) =
-                        runs.get(..index).and_then(|earlier| {
-                            earlier
-                                .iter()
-                                .rev()
-                                .find(|(earlier_range, ..)| !earlier_range.is_empty())
-                        })
-                    {
-                        if let Some((last, _)) = text[prev_range.clone()].char_indices().last() {
-                            box_edits.push((
-                                prev_range.start + last..prev_range.end,
-                                lead,
-                                author(prev_style),
-                            ));
-                            *item_box_sheds.entry(*prev_item).or_insert(0.0) += f64::from(lead);
-                        }
-                    }
-                }
-            }
-        }
-        // Coincident box edits sum: one character can carry BOTH its own
-        // box's trailing gap and the next box's leading gap (b74's title
-        // cards — four adjacent bordered spans). Pushed separately they
-        // land on the same builder range and the later LetterSpacing
-        // OVERWRITES the earlier, silently dropping one gap (every
-        // non-final card lost its 4px trail). The author spacing on both
-        // edits comes from the same character's style, so merging keeps
-        // it single-counted.
-        {
-            let mut coalesced: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
-            for (range, gap, author) in box_edits.drain(..) {
-                if let Some(existing) = coalesced.iter_mut().find(|(seen, ..)| *seen == range) {
-                    existing.1 += gap;
-                } else {
-                    coalesced.push((range, gap, author));
-                }
-            }
-            box_edits = coalesced;
-        }
-        let first_line_indent = first_line_indent + leading_box_indent;
         let plan = SpacingPlan::new(
             punctuation_trims,
-            box_edits,
             ruby_spread_edits,
             runs.iter()
                 .map(|(range, style, _)| {
@@ -668,8 +583,8 @@ impl ParleyInlineContext {
                 ),
             }
         }
-        for image_box in image_boxes {
-            builder.push_inline_box(image_box);
+        for inline_box in inline_boxes {
+            builder.push_inline_box(inline_box);
         }
         if cancel.is_cancelled() {
             return Err(LayoutError::Cancelled);
@@ -687,7 +602,9 @@ impl ParleyInlineContext {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. }
-                    | InlineItem::EmptyBox { style, .. } => *style,
+                    | InlineItem::EmptyBox { style, .. }
+                    | InlineItem::OpenTag { style }
+                    | InlineItem::CloseTag { style } => *style,
                 })
             })
             .map(|style_id| {
@@ -721,8 +638,6 @@ impl ParleyInlineContext {
             empty_box_struts,
             pair_trims,
             opener_halt_trims,
-            item_box_sheds,
-            forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
             ruby_spread_overhangs_right,
@@ -850,20 +765,6 @@ pub(crate) struct ParagraphLayout {
     /// width each removed — the painter draws the untrimmed glyph shifted
     /// left by that amount so its ink lands where the halt variant sits.
     pub(crate) opener_halt_trims: Vec<(std::ops::Range<usize>, f64)>,
-    /// Per item index: advance the item's LAST cluster gained from inline
-    /// box gaps (its own trailing padding/border, plus the leading
-    /// padding/border of a box opening right after it). Emitted fragment
-    /// widths shed it so the run rect stays the ink advance the painter
-    /// grows the inline box from.
-    pub(crate) item_box_sheds: std::collections::HashMap<usize, f64>,
-    /// Per forced-break line start (flow-text byte): the box lead
-    /// (margin, padding, border) of a span opening that line. A lead
-    /// riding the previous character's letter spacing would widen the
-    /// PREVIOUS line across a `<br/>`; Blink indents the span's own line
-    /// (u3000/inline-margin oracle: margin box at x=30, padding glyph at
-    /// +30, both on the span's line), so the line loop shifts the whole
-    /// line instead.
-    pub(crate) forced_line_indents: std::collections::HashMap<usize, f64>,
     /// Per item index: the `ruby-align: space-around` interior gap a
     /// wide annotation opens between its base's clusters. The gap is
     /// already injected as letter spacing on every base cluster but the
@@ -1074,6 +975,10 @@ pub(crate) fn install_universal_fallbacks(
         collection.set_fallbacks((han, locale), families.iter().copied());
     }
 }
+
+/// The id bit of an inline box that is a box's start or end size rather
+/// than an atom (whose id is its item index).
+pub(crate) const TAG_BOX_ID: u64 = 1 << 40;
 
 /// A plain-text paragraph style: the given font stack and size, `normal`
 /// line height and weight, no decoration, spacing, or transforms, and an

@@ -128,10 +128,6 @@ pub(crate) fn is_cjk_context(character: char) -> bool {
         | 0x20000..=0x3FFFF)
 }
 
-/// Layout-unit epsilon for line-fit comparisons, Chromium's `LayoutUnit`
-/// quantum (1/64 px).
-pub(crate) const LINE_FIT_EPS: f32 = 1.0 / 64.0;
-
 /// How many glyphs past a soft break the candidate scan follows. The
 /// dragged-down tail is whatever could not break before the closer — an
 /// entire unbreakable Latin word included (measured: 有點melancholy。」,
@@ -142,88 +138,6 @@ pub(crate) const LINE_FIT_EPS: f32 = 1.0 / 64.0;
 /// not a dragged closer.
 pub(crate) const LINE_END_TRIM_SCAN: usize = 64;
 
-/// Detects a rejected-extension rewind on `line_index`: the line-end trim
-/// extension would fit the first overflowing closer (so a single-item
-/// line would have extended), but the line crosses an element boundary,
-/// which Blink answers by rewinding the WHOLE overflowing item to the
-/// next line — measured on razor-fit note-box lines, where line one keeps
-/// only the leading `①` span while greedy would split the text item.
-/// Returns the text index the line must be forced to end before: the
-/// start of the rewound item.
-pub(crate) fn rewind_break_end(
-    catalog: &FontCatalog,
-    layout: &parley::Layout<[u8; 4]>,
-    text: &str,
-    line_index: usize,
-    max_advance: f64,
-    item_ranges: &[std::ops::Range<usize>],
-    bounds: &mut WidthBounds,
-) -> Option<usize> {
-    let line = layout.get(line_index)?;
-    let next = layout.get(line_index + 1)?;
-    if line.break_reason() != parley::layout::BreakReason::Regular {
-        return None;
-    }
-    // Only a line crossing an element boundary rewinds; a single-item
-    // line extends instead (see `line_end_trim_candidate`).
-    let mut items = line_item_keys(&line);
-    let first = items.next();
-    if !items.any(|item| Some(item) != first) {
-        return None;
-    }
-    let metrics = line.metrics();
-    let mut advance = f64::from(metrics.advance - metrics.trailing_whitespace);
-    let next_range = next.text_range();
-    let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
-    for _ in 0..LINE_END_TRIM_SCAN {
-        let byte = cluster.text_range().start;
-        if byte >= next_range.end {
-            return None;
-        }
-        let character = text[byte..].chars().next()?;
-        let cluster_advance = f64::from(cluster.advance());
-        if bounds.fits(
-            advance + cluster_advance,
-            max_advance + f64::from(LINE_FIT_EPS),
-        ) {
-            advance += cluster_advance;
-            cluster = cluster.next_logical()?;
-            continue;
-        }
-        if !cluster_font_has_halt(catalog, &cluster) {
-            return None;
-        }
-        if !line_end_trim_eligible(character) {
-            return None;
-        }
-        let trimmed = cluster_advance - 0.5 * f64::from(cluster.run().font_size());
-        if !bounds.fits(advance + trimmed, max_advance + f64::from(LINE_FIT_EPS)) {
-            return None;
-        }
-        // Only a PARAGRAPH-FINAL candidate rewinds (measured: `……。）啊`
-        // with content after the closer breaks greedily; the razor-fit
-        // note line whose `）` ends the paragraph rewinds its whole item).
-        let candidate_end = byte + character.len_utf8();
-        if !text
-            .get(candidate_end..)
-            .is_some_and(|rest| rest.chars().all(char::is_whitespace))
-        {
-            return None;
-        }
-        // The extension would fit; the rewound item is the one holding
-        // the candidate, and it must begin inside this line.
-        let item_start = item_ranges
-            .iter()
-            .find(|range| range.contains(&byte))
-            .map(|range| range.start)?;
-        if item_start <= line.text_range().start {
-            return None;
-        }
-        return Some(item_start);
-    }
-    None
-}
-
 /// The first character after `line_index`'s soft break that did not fit,
 /// if extending the line by exactly that character with its blank right
 /// half trimmed could keep it on the line. `decided` says whether a
@@ -233,10 +147,18 @@ pub(crate) fn rewind_break_end(
 /// the candidate is the first character past the break that exceeds the
 /// available advance (characters before it fit and were only dragged down
 /// by break prohibitions), it must be an eligible closing glyph, and its
-/// half-width advance must fit. The decision is a pre-filter only — the
-/// caller re-lays the paragraph with the trim applied and keeps it only
-/// if the line then breaks exactly after the trimmed closer, so parley's
-/// own fitting (and its break rules) remain the authority.
+/// half-width advance must fit `max_advance` (the line's width with its
+/// fit epsilon). Blink extends within whichever text item overflows, so
+/// element boundaries and atomic inlines earlier on the line do not
+/// matter, and a closer ending its item keeps the trim (Chromium 153+,
+/// `LineBreakerHanKerningEnd`; measured on 156: `<span>①</span>…）` and
+/// `…<span>永</span>…）` both extend). A box gap riding on the closer
+/// counts: Blink measures the closing tag after the trimmed text and
+/// breaks the item before the closer when the two overflow together. The
+/// decision is a pre-filter only — the caller re-lays the paragraph with
+/// the trim applied and keeps it only if the line then breaks exactly
+/// after the trimmed closer, so parley's own fitting (and its break
+/// rules) remain the authority.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn line_end_trim_candidate(
     catalog: &FontCatalog,
@@ -255,20 +177,6 @@ pub(crate) fn line_end_trim_candidate(
     if line.break_reason() != parley::layout::BreakReason::Regular {
         return None;
     }
-    // Blink skips the extension whenever the line crosses an element
-    // boundary (measured 2026-07-28, note-box ablation: a leading
-    // <span>① kills it at every size, alignment and vertical-align while
-    // a font-fallback split inside one element does not; flip widths
-    // 560.35 span vs 541.41 without). The line must be one inline item.
-    // An atomic inline is an element boundary by definition.
-    if line.has_inline_box() {
-        return None;
-    }
-    let mut items = line_item_keys(&line);
-    let first = items.next();
-    if items.any(|item| Some(item) != first) {
-        return None;
-    }
     let metrics = line.metrics();
     // Hung trailing whitespace is not measured against the available
     // advance; content is.
@@ -282,12 +190,30 @@ pub(crate) fn line_end_trim_candidate(
     // the pair back on one line. Mirror that: measure these openers
     // trimmed, and hand the pairs back for un-suppression on accept.
     let mut unsuppress: Vec<usize> = Vec::new();
+    // A box's start and end sizes (inline boxes of their own) take their
+    // width between the characters they stand between, as Blink adds an
+    // open or close tag before measuring the text after it.
+    let tags: Vec<(usize, parley::InlineBoxKind, f32)> = layout
+        .inline_boxes()
+        .iter()
+        .filter(|inline_box| inline_box.kind.is_tag())
+        .map(|inline_box| (inline_box.index, inline_box.kind, inline_box.width))
+        .collect();
+    let tags_before = |from: usize, to: usize| -> f32 {
+        tags.iter()
+            .filter(|(index, ..)| from <= *index && *index <= to)
+            .map(|(_, _, width)| *width)
+            .sum()
+    };
+    let mut scanned_from = next_range.start;
     for _ in 0..LINE_END_TRIM_SCAN {
         let byte = cluster.text_range().start;
         if byte >= next_range.end {
             return None;
         }
         let character = text[byte..].chars().next()?;
+        advance += tags_before(scanned_from, byte);
+        scanned_from = byte + 1;
         let mut cluster_advance = cluster.advance();
         if let Some((_, left_byte)) = suppressed_openers
             .iter()
@@ -296,7 +222,7 @@ pub(crate) fn line_end_trim_candidate(
             cluster_advance -= 0.5 * cluster.run().font_size();
             unsuppress.push(*left_byte);
         }
-        if bounds.fits_f32(advance + cluster_advance, max_advance + LINE_FIT_EPS) {
+        if bounds.fits_f32(advance + cluster_advance, max_advance) {
             // Fits, so it only moved down under a break prohibition; the
             // overflowing character is further along.
             advance += cluster_advance;
@@ -314,8 +240,18 @@ pub(crate) fn line_end_trim_candidate(
         if decided(byte) {
             return None;
         }
+        // The close tags right after the closer stay on its line; the open
+        // tags there go down with what they open.
+        let closer_end = byte + character.len_utf8();
+        let closing: f32 = tags
+            .iter()
+            .filter(|(index, kind, _)| {
+                *index == closer_end && *kind == parley::InlineBoxKind::CloseTag
+            })
+            .map(|(_, _, width)| *width)
+            .sum();
         let trimmed = cluster_advance - 0.5 * cluster.run().font_size();
-        if !bounds.fits_f32(advance + trimmed, max_advance + LINE_FIT_EPS) {
+        if !bounds.fits_f32(advance + trimmed + closing, max_advance) {
             return None;
         }
         // A forced break right after the closer ends the line there at

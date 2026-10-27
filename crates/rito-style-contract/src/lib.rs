@@ -49,7 +49,7 @@ pub use fragment::{
     InlineFragmentStyle, PhysicalSides,
 };
 pub use generated::{GeneratedBox, GeneratedBoxTable, GeneratedContentItem, PseudoElementKind};
-pub use inline::{FontStyle, InlineBidi, InlineFormattingStyle};
+pub use inline::{FontStyle, InlineBidi, InlineEdge, InlineFormattingStyle};
 pub use layout::{
     AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,
     LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleId,

@@ -1,6 +1,7 @@
 use crate::{
-    Direction, FontFamilies, FontSlant, FontWeight, InlineFragmentStyle, InlinePaintStyle,
-    InlineTextFlow, LineHeight, NonNegativeCssPx, UnicodeBidi, WritingMode,
+    BorderEdge, Direction, FontFamilies, FontSlant, FontWeight, InlineFragmentStyle,
+    InlinePaintStyle, InlineTextFlow, LengthPercentageOrAuto, LineHeight, NonNegativeCssPx,
+    NonNegativeLengthPercentage, UnicodeBidi, WritingMode,
 };
 
 /// Font selection and line-metric inputs for inline formatting.
@@ -57,4 +58,82 @@ pub struct InlineFormattingStyle {
     pub fragment: InlineFragmentStyle,
     /// Foreground, background, decoration, and shadow paint.
     pub paint: InlinePaintStyle,
+}
+
+/// An inline box's margin, border and padding at one end of its inline
+/// axis: the start or end edge its content's lines begin or finish at.
+#[derive(Clone, Copy, Debug)]
+pub struct InlineEdge<'a> {
+    /// The margin on that side.
+    pub margin: &'a LengthPercentageOrAuto,
+    /// The border on that side.
+    pub border: &'a BorderEdge,
+    /// The padding on that side.
+    pub padding: &'a NonNegativeLengthPercentage,
+}
+
+impl InlineEdge<'_> {
+    /// The edge's used size in CSS px, its percentages resolved against the
+    /// containing block's inline size `basis`; `auto` margins are zero on an
+    /// inline box. The margin and padding each land on the 1/64 px layout
+    /// grid truncated toward zero, as Blink's `LayoutUnit(float)` takes a
+    /// computed length; border widths are whole already.
+    pub fn size(&self, basis: Option<f32>) -> f32 {
+        let layout_unit = |px: f32| (px * 64.0).trunc() / 64.0;
+        let margin = match self.margin {
+            LengthPercentageOrAuto::Auto => 0.0,
+            LengthPercentageOrAuto::Value(value) => layout_unit(value.resolve(basis)),
+        };
+        let padding = layout_unit(self.padding.value().resolve(basis).max(0.0));
+        margin + self.border.resolved_width.get() + padding
+    }
+
+    /// Whether the edge takes no space at any containing block size.
+    pub fn is_empty(&self) -> bool {
+        let margin = match self.margin {
+            LengthPercentageOrAuto::Auto => true,
+            LengthPercentageOrAuto::Value(value) => value.is_zero(),
+        };
+        margin && self.border.resolved_width.get() == 0.0 && self.padding.value().is_zero()
+    }
+}
+
+impl InlineFormattingStyle {
+    /// The box's edge where its content's lines start (`end` false) or end:
+    /// the left or right side in horizontal writing (swapped when lines run
+    /// right to left), the top or bottom side in vertical writing.
+    pub fn inline_edge(&self, end: bool) -> InlineEdge<'_> {
+        let fragment = &self.fragment;
+        let vertical = self.bidi.writing_mode != WritingMode::HorizontalTopToBottom;
+        // Lines start on the low side of the inline axis (left, or top)
+        // unless they run right to left.
+        let low = (self.bidi.direction == Direction::LeftToRight) != end;
+        let (margin, border, padding) = match (vertical, low) {
+            (false, true) => (
+                &fragment.margin.left,
+                &fragment.border.left,
+                &fragment.padding.left,
+            ),
+            (false, false) => (
+                &fragment.margin.right,
+                &fragment.border.right,
+                &fragment.padding.right,
+            ),
+            (true, true) => (
+                &fragment.margin.top,
+                &fragment.border.top,
+                &fragment.padding.top,
+            ),
+            (true, false) => (
+                &fragment.margin.bottom,
+                &fragment.border.bottom,
+                &fragment.padding.bottom,
+            ),
+        };
+        InlineEdge {
+            margin,
+            border,
+            padding,
+        }
+    }
 }

@@ -109,7 +109,8 @@ enum Decision {
     Suppress(usize),
     /// The pending line-end trim (its byte) the line did not end after.
     Reject(usize),
-    /// The line rewound to end before a text index.
+    /// The line rewound to end before a text index (a split ruby base's
+    /// segment that cannot fit its annotation).
     Force(usize),
     /// Split ruby segments spread on the line.
     Spread(Vec<(Range<usize>, f32)>),
@@ -273,7 +274,7 @@ fn record_line_fit(
     line_top: f64,
     indent: f32,
 ) {
-    if let Some(band) = band.filter(|band| line_top < band.bottom) {
+    if let Some(band) = band.filter(|band| line_inside_band(line_top, *band)) {
         if space.inline_size - band.left_inset - band.right_inset <= 0.0 {
             bounds.pin();
         }
@@ -290,8 +291,6 @@ fn decided_paragraph(built: ParagraphLayout) -> DecidedParagraph {
         alignment: built.alignment,
         shifted_ranges: built.shifted_ranges,
         first_line_indent: built.first_line_indent,
-        item_box_sheds: built.item_box_sheds,
-        forced_line_indents: built.forced_line_indents,
         ruby_spreads: built.ruby_spreads,
         ruby_spread_overhangs: built.ruby_spread_overhangs,
         ruby_spread_overhangs_right: built.ruby_spread_overhangs_right,
@@ -564,7 +563,7 @@ impl Pass<'_> {
         let decided = |byte: usize| {
             state.edits.end_trims.binary_search(&byte).is_ok() || state.rejected.contains(&byte)
         };
-        if let Some((byte, unsuppress)) = line_end_trim_candidate(
+        line_end_trim_candidate(
             &self.context.catalog,
             layout,
             text,
@@ -573,21 +572,8 @@ impl Pass<'_> {
             decided,
             &suppressed_openers,
             bounds,
-        ) {
-            return Some(Decision::Trim { byte, unsuppress });
-        }
-        let max_advance =
-            f64::from(line_max_advance(space, band, line_top) - indent) + LINE_FIT_EPSILON;
-        rewind_break_end(
-            &self.context.catalog,
-            layout,
-            text,
-            index,
-            max_advance,
-            self.inputs.item_text_ranges,
-            bounds,
         )
-        .map(Decision::Force)
+        .map(|(byte, unsuppress)| Decision::Trim { byte, unsuppress })
     }
 
     /// The (opener byte, pair left byte) of each suppressed opener-halt pair

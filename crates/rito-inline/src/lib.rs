@@ -78,7 +78,7 @@ pub(crate) use line_breaks::{BreakKey, KeptBreaks};
 pub(crate) use line_decisions::{
     line_max_advance, DecidedParagraph, KeptDecisions, LineEdgeInputs, LINE_FIT_EPSILON,
 };
-pub(crate) use line_items::{line_item_keys, line_items, LineItemView};
+pub(crate) use line_items::{line_has_atom, line_items, LineItemView};
 pub(crate) use line_metrics::*;
 pub(crate) use line_text::{paints_alone, LineRuns, Piece};
 pub(crate) use marker::*;

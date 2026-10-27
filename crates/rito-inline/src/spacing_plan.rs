@@ -6,9 +6,9 @@
 //!
 //! The pushes layer as the builder takes them, a later push over the same
 //! bytes replacing an earlier one: each run's author spacing (pushed with
-//! its styles), the pair trims a break has not separated (a box gap on the
-//! same character folded in), the remaining box gaps, the ruby spreads, the
-//! split spreads, and last the line-end trims.
+//! its styles), the pair trims a break has not separated, the ruby
+//! spreads, the split spreads, and last the line-end trims. A box's start
+//! and end sizes are not spacing: they are inline boxes of their own.
 
 use std::ops::Range;
 
@@ -20,8 +20,6 @@ pub(crate) struct SpacingPlan {
     pair_trims: Vec<PunctuationTrim>,
     /// Each pair trim by the character its edit applies to.
     pair_by_edit: rustc_hash::FxHashMap<usize, usize>,
-    /// Box gaps by range: the gap and the author spacing it adds to.
-    box_edits: Vec<(Range<usize>, f32, f32)>,
     ruby_spreads: Vec<(Range<usize>, f32)>,
     runs: Vec<PlannedRun>,
 }
@@ -44,7 +42,6 @@ pub(crate) enum SpacingPush {
 impl SpacingPlan {
     pub(crate) fn new(
         pair_trims: Vec<PunctuationTrim>,
-        box_edits: Vec<(Range<usize>, f32, f32)>,
         ruby_spreads: Vec<(Range<usize>, f32)>,
         runs: Vec<PlannedRun>,
     ) -> Self {
@@ -56,7 +53,6 @@ impl SpacingPlan {
         Self {
             pair_trims,
             pair_by_edit,
-            box_edits,
             ruby_spreads,
             runs,
         }
@@ -75,7 +71,6 @@ impl SpacingPlan {
 
     /// The pushes a build under `edits` makes, in the order it makes them.
     pub(crate) fn pushes(&self, text: &str, edits: ParagraphEdits<'_>) -> Vec<SpacingPush> {
-        let mut box_edits = self.box_edits.clone();
         let mut pushes = Vec::new();
         for trim in self.applied_pair_trims(edits) {
             let range = trim.edit_range.clone();
@@ -86,16 +81,7 @@ impl SpacingPlan {
                 }
                 PunctuationTrimEdit::LetterSpacing(spacing) => spacing,
             };
-            // A box gap on the same character composes with the trim (the
-            // trim value already carries the author spacing).
-            let spacing = match box_edits.iter().position(|(edit, ..)| *edit == range) {
-                Some(found) => spacing + box_edits.remove(found).1,
-                None => spacing,
-            };
             pushes.push(SpacingPush::LetterSpacing(range, spacing));
-        }
-        for (range, gap, author) in box_edits {
-            pushes.push(SpacingPush::LetterSpacing(range, author + gap));
         }
         for (range, spacing) in &self.ruby_spreads {
             pushes.push(SpacingPush::LetterSpacing(range.clone(), *spacing));
@@ -122,8 +108,8 @@ impl SpacingPlan {
     /// The letter spacing the character at `byte` carries in a build under
     /// `edits` (its line-end trims and suppressed pairs sorted): the last
     /// push over it, its run's author spacing below them. Found without
-    /// replaying the pushes: a pair trim, a box gap and a line-end trim
-    /// each cover one character, found by its start.
+    /// replaying the pushes: a pair trim and a line-end trim each cover one
+    /// character, found by its start.
     pub(crate) fn letter_spacing_at(
         &self,
         text: &str,
@@ -147,24 +133,13 @@ impl SpacingPlan {
         if let Some(spacing) = latest(edits.split_spreads).or_else(|| latest(&self.ruby_spreads)) {
             return spacing;
         }
-        let box_edit = self
-            .box_edits
-            .iter()
-            .find(|(range, ..)| range.start == byte);
-        let pair = self
-            .pair_editing(byte)
+        self.pair_editing(byte)
             .filter(|trim| !Self::suppressed(edits, trim))
             .and_then(|trim| match trim.edit {
                 PunctuationTrimEdit::LetterSpacing(spacing) => Some(spacing),
                 PunctuationTrimEdit::OpenerHalt(_) => None,
-            });
-        match (pair, box_edit) {
-            // A box gap on the same character composes with the trim.
-            (Some(spacing), Some((_, gap, _))) => spacing + gap,
-            (Some(spacing), None) => spacing,
-            (None, Some((_, gap, author))) => author + gap,
-            (None, None) => run.map_or(0.0, |run| run.author),
-        }
+            })
+            .unwrap_or_else(|| run.map_or(0.0, |run| run.author))
     }
 
     /// The half width `halt` removes from the opener at `byte` in a build

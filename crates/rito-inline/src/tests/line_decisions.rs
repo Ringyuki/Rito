@@ -286,55 +286,156 @@ fn decided_lines(
     (result(&decided), base_pushes)
 }
 
-/// A line rewound to the start of the item it overflows with (Blink skips
-/// the line-end extension across an element boundary and sends the whole
-/// item down): pinned Chromium at 172px puts `①` alone on the first line
-/// when it is its own element, and keeps the whole paragraph on one line
-/// when it is not.
-#[test]
-fn a_razor_fit_note_line_rewinds_its_item_across_an_element_boundary() {
-    let context = source_han_context();
-    let lay_items = |texts: &[&str]| {
-        let mut inline = InlineStyleTable::new(1);
-        let style = inline
-            .intern_for_node(
-                0,
-                plain_paragraph_style(
-                    FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
-                        .expect("family list"),
-                    16.0,
-                    0.0,
-                ),
-            )
-            .expect("style interns");
-        let tree = FormattingTree::with_styles(
-            vec![FormattingNode {
-                style: rito_style_contract::LayoutStyleId::from_raw(0),
-                content: FormattingNodeContent::InlineFlow {
-                    items: texts
-                        .iter()
-                        .map(|text| InlineItem::Text {
-                            text: (*text).to_owned(),
-                            style,
-                            baseline_shift_px: 0.0,
-                            ruby_annotation: None,
-                        })
-                        .collect(),
-                },
-                children: Vec::new(),
-            }],
-            FormattingNodeId(0),
-            rito_fragment::FormattingTreeStyles {
-                layout: LayoutStyleTable::new(0),
-                inline,
+/// The paragraph `items` (one text item each, all in the serif) laid out
+/// at `width`.
+fn lay_text_items(
+    context: &ParleyInlineContext,
+    items: &[&str],
+    padding_right: &[f32],
+    width: f64,
+) -> LayoutOutcome {
+    let mut inline = InlineStyleTable::new(items.len());
+    let inline_items: Vec<InlineItem> = items
+        .iter()
+        .enumerate()
+        .map(|(index, text)| {
+            let mut style = plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                    .expect("family list"),
+                16.0,
+                0.0,
+            );
+            let padding = padding_right.get(index).copied().unwrap_or(0.0);
+            style.fragment.padding.right = rito_style_contract::NonNegativeLengthPercentage::new(
+                LengthPercentage::Length(rito_style_contract::CssPx::new(padding).expect("finite")),
+            );
+            let style = inline.intern_for_node(index, style).expect("style interns");
+            let text = InlineItem::Text {
+                text: (*text).to_owned(),
+                style,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            };
+            if padding == 0.0 {
+                vec![text]
+            } else {
+                vec![text, InlineItem::CloseTag { style }]
+            }
+        })
+        .collect::<Vec<_>>()
+        .concat();
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: inline_items,
             },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    lay(context, &tree, width)
+}
+
+/// A closer the line overflows by half a glyph extends the line inside
+/// whichever text item it is in, wherever the line crosses an element
+/// boundary and whether or not it ends its item (Chromium 156 at 172px:
+/// each of these is one line ending in a half-width `）` but the third,
+/// which sends only what follows the closer down).
+#[test]
+fn a_closer_extends_its_line_across_element_boundaries() {
+    let context = source_han_context();
+    let nine = "永".repeat(9);
+    let body = format!("{nine}）");
+    let seven = "永".repeat(7);
+    let cases: [(Vec<String>, Vec<String>); 5] = [
+        (vec!["①".into(), body.clone()], vec![format!("①{body}")]),
+        (vec![format!("①{body}")], vec![format!("①{body}")]),
+        (
+            vec!["①".into(), format!("{body}永永")],
+            vec![format!("①{body}"), "永永".into()],
+        ),
+        (
+            vec!["永永".into(), "永".into(), format!("{seven}）永永")],
+            vec![format!("永永永{seven}）"), "永永".into()],
+        ),
+        (
+            vec!["永永".into(), "永".into(), format!("{seven}）")],
+            vec![format!("永永永{seven}）")],
+        ),
+    ];
+    for (items, expected) in cases {
+        let items: Vec<&str> = items.iter().map(String::as_str).collect();
+        let outcome = lay_text_items(&context, &items, &[], 172.0);
+        assert_eq!(line_texts(&outcome, &items.concat()), expected, "{items:?}");
+    }
+}
+
+/// The line-end extension fits a line within one LayoutUnit of its width,
+/// as its other lines fit: Chromium 156 trims the closer at 1/64px over
+/// and not at 2/64px.
+#[test]
+fn a_line_end_trim_fits_within_one_layout_unit() {
+    let context = source_han_context();
+    let text = format!("{}」永永", "永".repeat(10));
+    let lines = |overflow: f64| {
+        line_texts(
+            &lay(&context, &serif_paragraph(&text), 168.0 - overflow / 64.0),
+            &text,
         )
-        .expect("inline tree builds");
-        line_texts(&lay(&context, &tree, 172.0), &texts.concat())
     };
-    let body = format!("{}）", "永".repeat(9));
-    assert_eq!(lay_items(&["①", &body]), vec!["①".to_owned(), body.clone()]);
-    assert_eq!(lay_items(&[&format!("①{body}")]), vec![format!("①{body}")]);
+    assert_eq!(
+        lines(1.0),
+        [format!("{}」", "永".repeat(10)), "永永".into()]
+    );
+    assert_eq!(
+        lines(2.0),
+        ["永".repeat(9), "永」永永".into()],
+        "two LayoutUnits over is not a fit"
+    );
+}
+
+/// A closer ending a box with end padding extends the line only when the
+/// padding fits after its trimmed glyph, and keeps the padding beside it:
+/// Chromium 156 sends the closer down at 170px (160 + 8 + 4 > 170) and
+/// keeps it at 173px, its glyph box ending at 168px.
+#[test]
+fn a_trimmed_closer_keeps_the_padding_of_the_box_it_ends() {
+    let context = source_han_context();
+    let ten = "永".repeat(10);
+    let items = [format!("{ten}」"), "永永".to_owned()];
+    let items: Vec<&str> = items.iter().map(String::as_str).collect();
+    let text = items.concat();
+    let narrow = lay_text_items(&context, &items, &[4.0], 170.0);
+    assert_eq!(
+        line_texts(&narrow, &text),
+        ["永".repeat(9), "永」永永".into()]
+    );
+    let wide = lay_text_items(&context, &items, &[4.0], 173.0);
+    assert_eq!(
+        line_texts(&wide, &text),
+        [format!("{ten}」"), "永永".into()]
+    );
+    let Fragment::Box(root) = &wide.fragments.root else {
+        panic!("inline outcome root is a box fragment");
+    };
+    let Fragment::Line(first) = &root.children[0] else {
+        panic!("inline children are line fragments");
+    };
+    let closer_right = first
+        .children
+        .iter()
+        .filter_map(|run| match run {
+            Fragment::Text(run) => Some(run.rect.x + run.rect.width),
+            _ => None,
+        })
+        .fold(0.0_f64, f64::max);
+    assert_eq!(closer_right, 168.0, "the trimmed closer's glyph box");
 }
 
 /// A ruby base split across lines spreads each segment to its allocated

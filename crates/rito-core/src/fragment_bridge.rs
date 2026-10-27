@@ -497,6 +497,9 @@ struct InlineCollector {
     /// The nearest enclosing `<a href>` destination while collecting.
     current_link: Option<String>,
     pending_space: bool,
+    /// How many items preceded the pending space when it arose: the box
+    /// edges pushed since then come after it.
+    pending_space_at: usize,
     /// The style of a whitespace-only node awaiting content. `None` for a
     /// space produced by the previous text node itself (it belongs to
     /// that item); `Some` for an inter-element space, which must not

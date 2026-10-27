@@ -26,6 +26,27 @@ impl LengthPercentage {
     pub const fn linear(length: CssPx, percentage: Percentage) -> Self {
         Self::Linear { length, percentage }
     }
+
+    /// The used value against a percentage `basis` in CSS px (a percentage
+    /// term resolves to zero without one).
+    pub fn resolve(self, basis: Option<f32>) -> f32 {
+        let percent =
+            |percentage: Percentage| basis.map_or(0.0, |basis| percentage.ratio() * basis);
+        match self {
+            Self::Length(length) => length.get(),
+            Self::Percentage(percentage) => percent(percentage),
+            Self::Linear { length, percentage } => length.get() + percent(percentage),
+        }
+    }
+
+    /// Whether the value is zero at every basis.
+    pub fn is_zero(self) -> bool {
+        match self {
+            Self::Length(length) => length.get() == 0.0,
+            Self::Percentage(percentage) => percentage.ratio() == 0.0,
+            Self::Linear { length, percentage } => length.get() == 0.0 && percentage.ratio() == 0.0,
+        }
+    }
 }
 
 /// A `<length-percentage>` with CSS's non-negative range constraint retained.

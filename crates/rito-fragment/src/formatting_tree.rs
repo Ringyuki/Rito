@@ -300,6 +300,22 @@ pub enum InlineItem {
         /// inline boxes, CSS px; positive raises the box.
         baseline_shift_px: f64,
     },
+    /// The start edge of an inline box (Blink's open tag item): the box's
+    /// inline-start margin, border and padding, read from `style`, take
+    /// their width on the line ahead of the box's content and go to the
+    /// next line with it. Emitted only for a box whose start size is not
+    /// zero.
+    OpenTag {
+        /// The box's own inline style.
+        style: StyleId,
+    },
+    /// The end edge of an inline box (Blink's close tag item): its
+    /// inline-end margin, border and padding, after its content and on the
+    /// same line as it. Emitted only for a box whose end size is not zero.
+    CloseTag {
+        /// The box's own inline style.
+        style: StyleId,
+    },
     /// A childless inline box (an empty `<sup>` footnote anchor). It has
     /// no advance and never breaks a line, but the open box still
     /// contributes its font's leaded envelope around its shifted
@@ -460,7 +476,9 @@ impl FormattingTree {
                         format!("formatting node {index} references a layout style outside the tree's table: {error}")
                     })?;
                 }
-                InlineItem::EmptyBox { style, .. } => {
+                InlineItem::EmptyBox { style, .. }
+                | InlineItem::OpenTag { style }
+                | InlineItem::CloseTag { style } => {
                     styles.inline.style(*style).map_err(|error| {
                         format!("formatting node {index} references an inline style outside the tree's table: {error}")
                     })?;
@@ -663,6 +681,14 @@ fn fingerprint(
                             mixer.mix(&[6]);
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                        }
+                        InlineItem::OpenTag { style } => {
+                            mixer.mix(&[7]);
+                            mixer.mix(&style.raw().to_le_bytes());
+                        }
+                        InlineItem::CloseTag { style } => {
+                            mixer.mix(&[8]);
+                            mixer.mix(&style.raw().to_le_bytes());
                         }
                     }
                 }

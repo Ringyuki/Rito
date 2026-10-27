@@ -167,6 +167,9 @@ pub struct BreakerState {
     prev_boundary: Option<PrevBoundaryState>,
     /// Saved breaker state for the last emergency line-breaking opportunity
     emergency_boundary: Option<PrevBoundaryState>,
+    /// Rito: the breaker state before the open tags met since the last
+    /// cluster, where a break the next cluster allows is taken.
+    open_tag_boundary: Option<PrevBoundaryState>,
 }
 
 impl Default for BreakerState {
@@ -185,6 +188,7 @@ impl Default for BreakerState {
             line: LineState::default(),
             prev_boundary: None,
             emergency_boundary: None,
+            open_tag_boundary: None,
         }
     }
 }
@@ -235,6 +239,17 @@ impl BreakerState {
         self.run_idx = prev_state.run_idx;
         self.cluster_idx = prev_state.cluster_idx;
         self.line = prev_state.state;
+        self.open_tag_boundary = None;
+    }
+
+    /// Rito: the iteration state here, to break at later.
+    fn boundary_here(&self) -> PrevBoundaryState {
+        PrevBoundaryState {
+            item_idx: self.item_idx,
+            run_idx: self.run_idx,
+            cluster_idx: self.cluster_idx,
+            state: self.line.clone(),
+        }
     }
 
     #[inline(always)]
@@ -371,6 +386,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
         self.state.line.running_line_height = 0.;
         self.state.prev_boundary = None;
         self.state.emergency_boundary = None;
+        self.state.open_tag_boundary = None;
 
         self.finish_line(self.lines.lines.len() - 1, line_height);
 
@@ -539,9 +555,58 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                 LayoutItemKind::InlineBox => {
                     let inline_box = &self.layout.data.inline_boxes[item.index];
 
+                    // Rito: an inline box's start and end sizes (Blink's open
+                    // and close tag items) take their width and follow the
+                    // content they edge.
+                    if inline_box.kind == InlineBoxKind::OpenTag {
+                        if self.state.open_tag_boundary.is_none() {
+                            self.state.open_tag_boundary = Some(self.state.boundary_here());
+                        }
+                        let next_x = self.state.line.x + inline_box.width;
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
+                    if inline_box.kind == InlineBoxKind::CloseTag {
+                        let next_x = self.state.line.x + inline_box.width;
+                        if record_fit(&mut self.fit, next_x, max_advance)
+                            || self.state.line.text_wrap_mode != TextWrapMode::Wrap
+                        {
+                            self.state.append_inline_box_to_line(next_x, 0.0);
+                            continue;
+                        }
+                        // It cannot leave the content it closes: the line
+                        // breaks at the last opportunity before that content.
+                        if let Some(prev) = self.state.prev_boundary.take() {
+                            self.state.reset_to(prev);
+                            self.fit.0 = self.state.line.x;
+                            return self.start_new_line(
+                                BreakReason::Regular,
+                                max_advance,
+                                line_indent,
+                            );
+                        }
+                        if let Some(prev) = self.state.emergency_boundary.take() {
+                            self.state.reset_to(prev);
+                            self.fit.0 = self.state.line.x;
+                            return self.start_new_line(
+                                BreakReason::Emergency,
+                                max_advance,
+                                line_indent,
+                            );
+                        }
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
+                    // Rito: open tags right before this box open the next
+                    // line with it when the box does not fit.
+                    let open_tag = self.state.open_tag_boundary.take();
+
                     let (width_contribution, height_contribution) = match inline_box.kind {
                         InlineBoxKind::InFlow => (inline_box.width, inline_box.height),
-                        InlineBoxKind::OutOfFlow => (0.0, 0.0),
+                        // Rito: handled above.
+                        InlineBoxKind::OutOfFlow
+                        | InlineBoxKind::OpenTag
+                        | InlineBoxKind::CloseTag => (0.0, 0.0),
                         // If the box is a `CustomOutOfFlow` box then we yield control flow back to the caller.
                         // It is then the caller's responsibility to handle placement of the box.
                         InlineBoxKind::CustomOutOfFlow => {
@@ -575,6 +640,15 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         // We can always line break after an inline box
                         self.state.mark_line_break_opportunity();
                     } else {
+                        if let Some(before) = open_tag.filter(|before| before.state.x != 0.0) {
+                            self.state.reset_to(before);
+                            self.fit.0 = self.state.line.x;
+                            return self.start_new_line(
+                                BreakReason::Regular,
+                                max_advance,
+                                line_indent,
+                            );
+                        }
                         // If we're at the start of the line, this box will never fit, so consume it and accept the overflow.
                         let reason = if self.state.line.x == 0.0 {
                             // println!("BOX EMERGENCY BREAK");
@@ -616,6 +690,11 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         let text_wrap_mode = self.state.line.text_wrap_mode;
                         self.state.line.text_wrap_mode = style.text_wrap_mode;
 
+                        // Rito: open tags met since the last cluster. A break
+                        // this cluster allows is taken before them (unless
+                        // they open the line); a forced break keeps them.
+                        let open_tag = self.state.open_tag_boundary.take();
+
                         // Rito: a forced break is taken before any soft wrap
                         // opportunity, as upstream now does. A line break
                         // override can mark the newline itself breakable
@@ -638,9 +717,19 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             //
                             // We also don't record boundaries when the advance is 0. As we do not want overflowing content to cause extra consecutive
                             // line breaks. We should accept the overflowing fragment in that scenario.
-                            if !is_ligature_continuation && self.state.line.x != 0.0 {
-                                self.state.mark_line_break_opportunity();
-                                // break_opportunity = true;
+                            if !is_ligature_continuation {
+                                match open_tag {
+                                    Some(before) => {
+                                        if before.state.x != 0.0 {
+                                            self.state.prev_boundary = Some(before);
+                                        }
+                                    }
+                                    None => {
+                                        if self.state.line.x != 0.0 {
+                                            self.state.mark_line_break_opportunity();
+                                        }
+                                    }
+                                }
                             }
                         } else if
                         // This text can contribute "emergency" line breaks.
@@ -649,7 +738,14 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         // If we're at the start of the line, this particular cluster will never fit, so it's not a valid emergency break opportunity.
                         && self.state.line.x != 0.0
                         {
-                            self.state.mark_emergency_break_opportunity();
+                            match open_tag {
+                                Some(before) => {
+                                    if before.state.x != 0.0 {
+                                        self.state.emergency_boundary = Some(before);
+                                    }
+                                }
+                                None => self.state.mark_emergency_break_opportunity(),
+                            }
                         }
 
                         // If current cluster is the start of a ligature, then advance state to include
@@ -795,6 +891,13 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                 LayoutItemKind::InlineBox => {
                     let inline_box = &self.layout.data.inline_boxes[item.index];
 
+                    if inline_box.kind.is_tag() {
+                        // Rito: an inline box's start or end size takes its
+                        // width and counts as no character.
+                        let next_x = self.state.line.x + inline_box.width;
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
                     if inline_box.kind != InlineBoxKind::InFlow {
                         self.state.append_inline_box_to_line(self.state.line.x, 0.0);
                         continue;
@@ -924,11 +1027,27 @@ impl<'a, B: Brush> BreakLines<'a, B> {
             match item.kind {
                 LayoutItemKind::InlineBox => {
                     let inline_box = &self.layout.data.inline_boxes[item.index];
+                    // Rito: an open tag at the line's end opens the next line
+                    // with what it opens; a close tag there closes content
+                    // the line holds.
+                    let past_end = match inline_box.kind {
+                        InlineBoxKind::OpenTag => inline_box.index >= end,
+                        _ => inline_box.index > end,
+                    };
+                    if inline_box.kind.is_tag() {
+                        if past_end {
+                            self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
+                            return Some(());
+                        }
+                        let next_x = self.state.line.x + inline_box.width;
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
                     if inline_box.kind != InlineBoxKind::InFlow {
                         self.state.append_inline_box_to_line(self.state.line.x, 0.0);
                         continue;
                     }
-                    if inline_box.index > end {
+                    if past_end {
                         self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
                         return Some(());
                     }

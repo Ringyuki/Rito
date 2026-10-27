@@ -232,3 +232,142 @@ fn a_shaping_run_longer_than_64_kib_keeps_its_clusters_text() {
     let lines = line_texts(&outcome, &text);
     assert_eq!(lines.concat(), text);
 }
+
+/// A 16px Source Han Serif paragraph carrying inline boxes of the given
+/// kinds and widths (zero height) at the given byte indices.
+fn tagged_layout(
+    context: &ParleyInlineContext,
+    text: &str,
+    boxes: &[(usize, InlineBoxKind, f32)],
+) -> parley::Layout<[u8; 4]> {
+    let mut fonts = context.fonts.borrow_mut();
+    let mut layouts = context.layouts.borrow_mut();
+    let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    push_item_styles(&mut builder, &context.catalog, &style, 0..text.len());
+    for (id, (index, kind, width)) in boxes.iter().enumerate() {
+        builder.push_inline_box(InlineBox {
+            id: id as u64,
+            kind: *kind,
+            index: *index,
+            width: *width,
+            height: 0.0,
+        });
+    }
+    builder.build(text).0
+}
+
+/// Each line's text range and the x its first glyph run starts at.
+fn line_starts(layout: &parley::Layout<[u8; 4]>) -> Vec<(std::ops::Range<usize>, f32)> {
+    layout
+        .lines()
+        .map(|line| {
+            let x = line
+                .items()
+                .find_map(|item| match item {
+                    PositionedLayoutItem::GlyphRun(run) => Some(run.offset()),
+                    PositionedLayoutItem::InlineBox(_) => None,
+                })
+                .unwrap_or(0.0);
+            (line.text_range(), x)
+        })
+        .collect()
+}
+
+/// An open tag offers no break of its own: the break the text allows at
+/// its index is taken before it, so it opens the next line with the text
+/// it opens, and the character before it is measured without it.
+#[test]
+fn an_open_tag_opens_the_next_line_with_what_it_opens() {
+    let context = source_han_context();
+    let text = "永永永永永永永永永永永永";
+    for width in [162.0_f32, 165.0] {
+        let mut layout = tagged_layout(&context, text, &[(30, InlineBoxKind::OpenTag, 4.0)]);
+        layout.break_all_lines(Some(width));
+        assert_eq!(
+            line_starts(&layout),
+            [(0..30, 0.0), (30..36, 4.0)],
+            "at {width}px"
+        );
+    }
+}
+
+/// Where the text allows no break, an open tag does not make one: it stays
+/// inside the word it splits.
+#[test]
+fn an_open_tag_inside_a_word_is_no_break() {
+    let context = source_han_context();
+    let text = "aaaaaabbbb cc";
+    let mut layout = tagged_layout(&context, text, &[(6, InlineBoxKind::OpenTag, 4.0)]);
+    layout.break_all_lines(Some(60.0));
+    let ranges: Vec<_> = line_starts(&layout)
+        .into_iter()
+        .map(|(range, _)| range)
+        .collect();
+    assert_eq!(ranges.first(), Some(&(0..11)), "{ranges:?}");
+}
+
+/// A close tag stays with the text it closes: when it overflows, the line
+/// breaks at the last opportunity before that text.
+#[test]
+fn a_close_tag_that_overflows_takes_its_text_down() {
+    let context = source_han_context();
+    let text = "永永永永永永永永永永永永";
+    let mut layout = tagged_layout(&context, text, &[(30, InlineBoxKind::CloseTag, 4.0)]);
+    layout.break_all_lines(Some(162.0));
+    assert_eq!(line_starts(&layout), [(0..27, 0.0), (27..36, 0.0)]);
+    let mut layout = tagged_layout(&context, text, &[(30, InlineBoxKind::CloseTag, 4.0)]);
+    layout.break_all_lines(Some(165.0));
+    assert_eq!(line_starts(&layout), [(0..30, 0.0), (30..36, 0.0)]);
+}
+
+/// A line forced to end before an open tag's index sends the tag down with
+/// what it opens; a close tag at that index stays on the line.
+#[test]
+fn a_forced_line_end_keeps_close_tags_and_sends_open_tags_down() {
+    let context = source_han_context();
+    let text = "永永永永永永";
+    let mut layout = tagged_layout(
+        &context,
+        text,
+        &[
+            (9, InlineBoxKind::CloseTag, 3.0),
+            (9, InlineBoxKind::OpenTag, 4.0),
+        ],
+    );
+    {
+        let mut breaker = layout.break_lines();
+        breaker.state_mut().set_layout_max_advance(1000.0);
+        breaker.state_mut().set_line_max_advance(1000.0);
+        breaker.break_next_to(9).expect("a forced line");
+        breaker.state_mut().set_line_max_advance(1000.0);
+        while breaker.break_next().is_some() {}
+        breaker.finish();
+    }
+    let lines = line_starts(&layout);
+    assert_eq!(lines, [(0..9, 0.0), (9..18, 4.0)]);
+    assert_eq!(layout.get(0).expect("first line").metrics().advance, 51.0);
+}
+
+/// An open tag's width joins the min-content segment of the text after it,
+/// a close tag's the segment of the text before it.
+#[test]
+fn tags_join_the_min_content_segment_of_the_text_they_edge() {
+    let context = source_han_context();
+    let layout = tagged_layout(
+        &context,
+        "永永永",
+        &[
+            (3, InlineBoxKind::OpenTag, 4.0),
+            (6, InlineBoxKind::CloseTag, 3.0),
+        ],
+    );
+    let widths = layout.calculate_content_widths();
+    assert_eq!(widths.min, 23.0);
+    assert_eq!(widths.max, 55.0);
+}

@@ -132,7 +132,10 @@ impl ParleyInlineContext {
                     block: Some((node.0, baseline, root_box)),
                 }))
             }
-            InlineItem::Text { .. } | InlineItem::EmptyBox { .. } => Ok(None),
+            InlineItem::Text { .. }
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => Ok(None),
         }
     }
 
