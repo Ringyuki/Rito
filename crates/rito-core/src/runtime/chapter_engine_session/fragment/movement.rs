@@ -12,7 +12,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::interaction::{plain_word_boundaries, TextSelectionBoundary, TextSelectionMovement};
+use crate::interaction::{plain_word_edges, TextSelectionBoundary, TextSelectionMovement};
 
 use super::super::super::page_artifact::{FragmentPageArtifact, FragmentRunRecord};
 
@@ -251,15 +251,25 @@ fn step_word(
 ) -> Moved {
     let page = pages.page(focus.slot);
     let text = page.text();
-    let boundaries = plain_word_boundaries(text, language);
+    let edges = plain_word_edges(text, language);
+    let boundaries: Vec<u32> = edges.iter().map(|(edge, _)| *edge).collect();
     let offset = focus.offset as u32;
     let next = match step {
-        WordStep::Left => boundaries
-            .iter()
+        // A word step lands on the far edge of a word, past the spaces and
+        // punctuation before it, as Chromium's word movement does: the
+        // start of the previous word, or the end of the next one (the
+        // page's edge when no word is left that way).
+        WordStep::Left => edges
+            .windows(2)
             .rev()
-            .find(|edge| **edge < offset)
-            .copied(),
-        WordStep::Right => boundaries.iter().find(|edge| **edge > offset).copied(),
+            .find(|pair| pair[1].1 && pair[0].0 < offset)
+            .map(|pair| pair[0].0)
+            .or_else(|| (offset > 0).then_some(0)),
+        WordStep::Right => edges
+            .iter()
+            .find(|(edge, word)| *edge > offset && *word)
+            .map(|(edge, _)| *edge)
+            .or_else(|| boundaries.last().copied().filter(|end| *end > offset)),
         WordStep::NextStart => {
             // The start of the word after the current one: skip the edge
             // that closes the current segment, then any whitespace-only

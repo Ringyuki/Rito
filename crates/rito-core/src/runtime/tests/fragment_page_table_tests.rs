@@ -472,7 +472,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         lines.selected_text
     );
 
-    // Word right from the original selection lands at the next word edge.
+    // Word right from the original selection skips the space to the end
+    // of the next word, as Chromium's word movement does; word left from
+    // the grown selection goes back over it to the start of "quick".
     let RuntimeTextSelectionMovementResolution::Resolved { range: word, .. } = movement(
         anchor_caret.address,
         focus_caret.address,
@@ -480,12 +482,15 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
     ) else {
         panic!("word movement resolves on a fragment page");
     };
-    assert!(
-        word.selected_text.starts_with("quick"),
-        "word-right keeps the anchor, got {:?}",
-        word.selected_text
-    );
-    assert!(word.selected_text.len() > "quick".len());
+    assert_eq!(word.selected_text, "quick brown");
+    let RuntimeTextSelectionMovementResolution::Resolved { range: back, .. } = movement(
+        after_char.address,
+        after_char.address,
+        TextSelectionMovement::WordLeft,
+    ) else {
+        panic!("word movement resolves on a fragment page");
+    };
+    assert_eq!(back.selected_text, "quick ");
 }
 
 #[test]

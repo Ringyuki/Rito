@@ -1,14 +1,24 @@
 use icu_locale_core::LanguageIdentifier;
 use icu_segmenter::{
-    options::{WordBreakInvariantOptions, WordBreakOptions},
+    options::{WordBreakInvariantOptions, WordBreakOptions, WordType},
     WordSegmenter,
 };
 
 /// All word-segmentation boundaries of plain text as UTF-16 offsets
 /// (starts with 0, ends with the text length), for movement resolvers.
 pub(crate) fn plain_word_boundaries(text: &str, language: Option<&str>) -> Vec<u32> {
+    plain_word_edges(text, language)
+        .into_iter()
+        .map(|(edge, _)| edge)
+        .collect()
+}
+
+/// The word-segmentation boundaries of plain text as UTF-16 offsets, each
+/// with whether the segment ending there is word-like (letters, numbers,
+/// ideographs) rather than spaces or punctuation.
+pub(crate) fn plain_word_edges(text: &str, language: Option<&str>) -> Vec<(u32, bool)> {
     let utf16 = text.encode_utf16().collect::<Vec<_>>();
-    word_boundaries(&utf16, language)
+    word_edges(&utf16, language)
 }
 
 /// Which of the two segments meeting at a word boundary a caret there
@@ -30,8 +40,7 @@ pub(crate) fn plain_word_around(
     side: WordSide,
     language: Option<&str>,
 ) -> Option<(u32, u32)> {
-    let utf16 = text.encode_utf16().collect::<Vec<_>>();
-    word_boundaries(&utf16, language)
+    plain_word_boundaries(text, language)
         .windows(2)
         .map(|pair| (pair[0], pair[1]))
         .find(|&(start, end)| match side {
@@ -40,18 +49,25 @@ pub(crate) fn plain_word_around(
         })
 }
 
-fn word_boundaries(utf16: &[u16], language: Option<&str>) -> Vec<u32> {
+fn word_edges(utf16: &[u16], language: Option<&str>) -> Vec<(u32, bool)> {
     // Runtime currently retains package language, not element-level `lang`.
     // Invalid or unsupported metadata must preserve invariant segmentation.
     if let Some(language) = language.and_then(parse_language) {
         let mut options = WordBreakOptions::default();
         options.content_locale = Some(&language);
         if let Ok(segmenter) = WordSegmenter::try_new_auto(options) {
-            return collect_boundaries(segmenter.as_borrowed().segment_utf16(utf16));
+            return collect_edges(
+                segmenter
+                    .as_borrowed()
+                    .segment_utf16(utf16)
+                    .iter_with_word_type(),
+            );
         }
     }
-    collect_boundaries(
-        WordSegmenter::new_auto(WordBreakInvariantOptions::default()).segment_utf16(utf16),
+    collect_edges(
+        WordSegmenter::new_auto(WordBreakInvariantOptions::default())
+            .segment_utf16(utf16)
+            .iter_with_word_type(),
     )
 }
 
@@ -59,9 +75,9 @@ fn parse_language(language: &str) -> Option<LanguageIdentifier> {
     language.parse().ok()
 }
 
-fn collect_boundaries(boundaries: impl Iterator<Item = usize>) -> Vec<u32> {
-    boundaries
-        .filter_map(|boundary| u32::try_from(boundary).ok())
+fn collect_edges(edges: impl Iterator<Item = (usize, WordType)>) -> Vec<(u32, bool)> {
+    edges
+        .filter_map(|(edge, word)| Some((u32::try_from(edge).ok()?, word.is_word_like())))
         .collect()
 }
 

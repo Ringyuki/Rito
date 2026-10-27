@@ -6,4 +6,4 @@ pub use types::{
     TextSelectionBoundary, TextSelectionMovement,
 };
 
-pub(crate) use word_segmentation::{plain_word_around, plain_word_boundaries, WordSide};
+pub(crate) use word_segmentation::{plain_word_around, plain_word_edges, WordSide};

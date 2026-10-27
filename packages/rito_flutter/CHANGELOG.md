@@ -19,6 +19,12 @@ every run, not only the paragraph's first. A line that gives the start of an
 item to the next line (a ruby base or a note that does not fit) keeps an
 inline image that comes before that item, as Chromium does.
 
+### Word selection steps past spaces
+
+Extending a selection by a word moves to the end of the next word or the
+start of the previous one past spaces and punctuation, as the browser does;
+it stopped right after the space.
+
 ### A long `<br>`-broken paragraph lays out as fast on a phone as on a desktop
 
 A chapter written as one block of `<br>`-separated lines no longer has its
