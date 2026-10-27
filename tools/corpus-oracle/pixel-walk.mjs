@@ -24,7 +24,11 @@
 //   env RITO_WALK_SCROLLED=1  the scrolled reading mode: each chapter's
 //       windows against Chromium's continuous layout (scroll-truth.mjs)
 import { createRequire } from 'node:module';
-import { captureScrolledWindows, composeScrolledWindow } from './scroll-truth.mjs';
+import {
+  captureLeftwardWindows,
+  captureScrolledWindows,
+  composeScrolledWindow,
+} from './scroll-truth.mjs';
 import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -869,6 +873,10 @@ img { object-fit: contain; }`;
           }
           await document.fonts.ready;
           if (!verticalRoot) return null;
+          // The scrolled lane reads the native flow as it stands: the
+          // paged stripes' padding and widening below would move it a
+          // whole stripe in and lengthen every chapter by several pages.
+          if (scrolled) return { pages: [] };
           // The page stripe steps by WHOLE columns, like the engine's
           // fragmentainer: a page holds floor(contentW / line-height)
           // columns and the next page starts at the following column, so
@@ -972,18 +980,14 @@ img { object-fit: contain; }`;
       );
     const vertical = await injectTruth(truth);
     if (SCROLLED) {
-      // A vertical chapter's windows run leftwards; this lane reads only
-      // horizontal ones yet.
-      if (vertical) {
-        console.log(`[truth-skip] ${chapter.href}: vertical chapter in the scrolled lane`);
-        truthWindows.set(chapter.href, []);
-      } else {
-        await truth.waitForTimeout(250);
-        truthWindows.set(
-          chapter.href,
-          await captureScrolledWindows(truth, { contentW, contentH, pageH, margin: MARGIN }),
-        );
-      }
+      await truth.waitForTimeout(250);
+      // A vertical chapter's windows run leftwards from its right edge.
+      truthWindows.set(
+        chapter.href,
+        vertical
+          ? await captureLeftwardWindows(truth, { contentH, pageW, margin: MARGIN, dsf: DSF })
+          : await captureScrolledWindows(truth, { contentW, contentH, pageH, margin: MARGIN }),
+      );
       continue;
     }
     await truth.waitForTimeout(250);
@@ -1157,9 +1161,14 @@ for (const chapter of plan.chapters) {
         ground,
       });
     }
-    const comparedRows = scrolledWindow
-      ? Math.min(pageHd, Math.round(scrolledWindow.length * DSF))
-      : pageHd;
+    // A leftward window is its own length wide instead.
+    const comparedRows =
+      scrolledWindow && !scrolledWindow.crop
+        ? Math.min(pageHd, Math.round(scrolledWindow.length * DSF))
+        : pageHd;
+    const comparedColumns = scrolledWindow?.crop
+      ? Math.min(pageWd, Math.round(scrolledWindow.length * DSF))
+      : pageWd;
     let diff = 0;
     // Above the characterized host-raster floor: Chromium's own two CPU
     // raster lanes (canvas 2D vs DOM image/box AA) disagree by at most 13
@@ -1168,6 +1177,7 @@ for (const chapter of plan.chapters) {
     // engine can act on moves ink, and moved ink exceeds that ceiling.
     let beyondFloor = 0;
     for (let p = 0; p < pageWd * comparedRows; p += 1) {
+      if (p % pageWd >= comparedColumns) continue;
       const i = p * 4;
       const delta = Math.max(
         Math.abs(engine.data[i] - truthPage.data[i]),
