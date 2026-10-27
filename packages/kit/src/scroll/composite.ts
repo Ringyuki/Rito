@@ -27,6 +27,11 @@ export type WindowLayer = (window: ScrollWindow, rect: QuadRect) => WebGLTexture
  * Draws the windows a view scrolled to `offset` shows, each at whole device
  * pixels, the ones still loading left as the ground, and over each its
  * overlay. Returns the windows it could not draw yet.
+ *
+ * Every window's picture is had first: painting one binds its own
+ * framebuffer, and a window drawn from its texture while that framebuffer
+ * is bound would be drawn into itself rather than onto the view. The view
+ * is bound once they all are.
  */
 export function compositeWindows(
   compositor: GlCompositor,
@@ -39,6 +44,7 @@ export function compositeWindows(
 ): readonly ScrollWindow[] {
   const at = Math.round(offset);
   const missing: ScrollWindow[] = [];
+  const shown: { rect: QuadRect; layers: WebGLTexture[] }[] = [];
   const length = geometry.axis === 'down' ? height : width;
   for (const window of geometry.visible(at, length)) {
     const rect = windowRect(geometry, window, at, width, height);
@@ -47,9 +53,12 @@ export function compositeWindows(
       missing.push(window);
       continue;
     }
-    compositor.drawTexture(texture, rect);
     const over = overlay?.(window, rect);
-    if (over !== undefined) compositor.drawTexture(over, rect);
+    shown.push({ rect, layers: over === undefined ? [texture] : [texture, over] });
+  }
+  compositor.bind(null, width, height);
+  for (const { rect, layers } of shown) {
+    for (const layer of layers) compositor.drawTexture(layer, rect);
   }
   return missing;
 }

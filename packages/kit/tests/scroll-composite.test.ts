@@ -34,6 +34,26 @@ describe('scrolled windows on the view', () => {
     expect(windowRect(left, next, 0, 800, 800)).toEqual({ x: -400, y: 0, width: 400, height: 800 });
   });
 
+  it('draws every window on the screen, even one just painted into its own framebuffer', () => {
+    const fake = createFakeGl();
+    const compositor = createCompositor(fake.gl);
+    const geometry = createScrollGeometry(layout('down'), 1);
+    // A window painted as the reader paints one: its framebuffer left bound.
+    const pool = createWindowPool(fake.gl, (_, target: ReaderGlTarget) => {
+      fake.gl.bindFramebuffer(fake.gl.FRAMEBUFFER, target.framebuffer);
+      return true;
+    });
+    compositor.bind(null, 400, 400);
+    const before = fake.draws.length;
+    compositeWindows(compositor, geometry, 150, 400, 400, (window, rect) =>
+      pool.picture(window.spreadIndex, rect.width, rect.height),
+    );
+    const composed = fake.draws.slice(before);
+    expect(composed).toHaveLength(2);
+    for (const draw of composed) expect(draw.framebuffer).toBeNull();
+    pool.dispose();
+  });
+
   it('draws what is painted at whole pixels and paints a window once', () => {
     const fake = createFakeGl();
     const compositor = createCompositor(fake.gl);
