@@ -32,7 +32,7 @@ other native hosts bridge the C ABI (see
 | `width`            | `number`                 | required                         | Viewport width in logical pixels       |
 | `height`           | `number`                 | required                         | Viewport height in logical pixels      |
 | `margin`           | `ReaderMargin`           | `40`                             | Page margins; see below                |
-| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
+| `spread`           | `ReaderSpreadMode`       | `'single'`                       | Requested spread mode; see below       |
 | `spreadGap`        | `number`                 | `20`                             | Least gap between pages in double mode |
 | `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
 | `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
@@ -219,6 +219,7 @@ faces do not cover. Variable fonts are rejected.
 | `totalSpreads`         | Number of spreads in the committed layout                                              |
 | `pageCount`            | Number of pages in the committed layout                                                |
 | `dpr`                  | Device pixel ratio the committed layout is painted at                                  |
+| `getScrollLayout()`    | A scrolled layout's windows end to end; `undefined` for pages (see below)              |
 | `getImageBlobUrl(src)` | Create or asynchronously resolve an EPUB image URL                                     |
 | `interactions`         | Optional revision-safe semantic interaction provider                                   |
 
@@ -237,6 +238,23 @@ commit gives that chapter, so nothing on screen moves between the two.
 Changes made while a layout is under way wait for it: it commits, and then only
 the newest of them is laid out. A host that sends a new size every frame sees a
 new size each time a layout ends.
+
+`spread: 'scrolled'` lays each chapter out as one continuous strip read
+through windows the size of the viewport, every window a spread of one page.
+The windows run down the screen, or leftwards for a book whose spine's
+`page-progression-direction` is `rtl`, whose vertical-rl chapters run
+leftwards as strips; a chapter whose text runs across the book's axis is
+paginated, each page one window. `getScrollLayout()` gives `axis`
+(`'down'` or `'left'`), `windowLength` (the viewport's height, or its width)
+and per chapter its `firstSpread`, `spreadCount` and `extent` along the axis.
+Within a chapter window `k` starts `floor(k × windowLength × dpr + 0.5)`
+device pixels in and the chapter ends at `floor(extent × dpr + 0.5)`; the
+chapters follow one another end to end, so a host placing each window there
+tiles the book without a seam. `renderSpreadTo` paints a window into a target
+of the spread's size or of the window's own, and a locator resolved by
+`navigateToLocator` carries `blockOffset`, where its line starts
+in its window. `@ritojs/kit`'s `createScrollController` is a view built on
+these.
 
 A spread carries page indexes only; page geometry comes from
 `getLayoutGeometry()` and page content from the rendered frame and

@@ -1,5 +1,28 @@
 ## Unreleased
 
+### Scrolled reading
+
+A session asked for `RitoSpreadMode.scrolled` lays each chapter out as one
+continuous strip read through windows the size of the viewport, one window
+a spread, down the screen, or leftwards for a book whose pages progress
+right to left (a chapter whose text runs across the book's axis is
+paginated, each page one window). The revision layout says which way
+(`scrollAxis`) and how long each chapter runs (`extent`), an artifact says
+where its locator's line starts in its window (`targetBlockOffset`), and a
+located page says the same (`blockOffset`). `RitoScrollReaderView` over a
+`RitoScrollReaderController` shows the windows end to end in a scrollable
+on the device grid, moved by any `ScrollPhysics`, keeps the windows near
+the reading line loaded, makes the window under it the visible page, says
+where the reader reads at rest (`position`) and what a tap is on
+(`onTap`). `RitoScrollWindows` places the windows by the rule the engine
+paints them by. Selection does not reach a scrolled view yet.
+
+### Request IDs taken before the call
+
+`RitoReaderSession.takeRequestId()` holds the next request ID for the
+caller, so calls issued back to back never share one; the page source takes
+its IDs that way.
+
 ### Line edges are decided as each line is broken
 
 A paragraph decides its line-end trims, the punctuation pairs a break

@@ -26,6 +26,9 @@ Core exports:
 - `InteractionMode`
 - `AddAnnotationInput`
 - `PagePainter`, `PagePaint`
+- `createScrollController`, `ScrollController`, `ScrollControllerEvents`,
+  `ScrollControllerOptions`, `ScrollPoint` (scrolled reading, below)
+- `defaultScrollPhysics`, `ScrollPhysics`, `ScrollSimulation`
 
 Supporting exports:
 
@@ -254,6 +257,47 @@ the same outcomes; one table of scenarios holds both test suites to them. In bet
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.
+
+## Scrolled Reading
+
+A reader created with `spread: 'scrolled'` lays each chapter out as one strip
+read through windows the size of the viewport (see the reader API). The page
+controller turns them like pages; `createScrollController(reader, canvas,
+options)` shows them end to end instead, on its own WebGL2 canvas:
+
+```ts
+const reader = await createReader(bytes, canvas, {
+  width,
+  height,
+  spread: 'scrolled',
+  pinnedFontPolicy,
+});
+const scroll = createScrollController(reader, canvas);
+scroll.mount(container);
+scroll.on('position', ({ locator }) => save(locator));
+scroll.on('tap', ({ target }) => {
+  if (target?.targetLocator) void scroll.scrollToLocator(target.targetLocator);
+});
+```
+
+The view draws each window it shows at whole device pixels, at the place the
+engine's window rule gives it, so neighbouring windows meet without a seam; it
+keeps a picture of the windows shown and one either side, and paints the ones
+beside ahead, which has the reader load them. The window under the reading line
+(the content box's block start: its top, or its right edge for a book that
+scrolls leftwards) is the one the reader reads: the controller tells the reader
+when it changes (`window`), and once the strip rests reports the locator of the
+line at the reading line (`position`).
+
+How the strip moves is the app's. The built-in input (`input: true`, the
+default) scrolls with the wheel and the keys and drags and flings with a touch or
+a pen; `physics` takes any `ScrollPhysics` (`drag` resists past the ends,
+`release` returns the motion a release starts), `defaultScrollPhysics` being a
+browser-like glide with a rubber band. An app that drives the strip itself turns
+the input off and calls `grab`, `follow`, `release`, `scrollTo`, `scrollBy`,
+`scrollToSpread` and `scrollToLocator`; `pointAt` and `targetAt` say what is under
+a point. Offsets are CSS pixels along the axis from the book's block start.
+Selection, search and annotation highlights do not reach a scrolled view yet.
 
 ## Drawing On Pages
 

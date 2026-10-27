@@ -1,0 +1,6 @@
+---
+'@ritojs/core': minor
+'@ritojs/kit': minor
+---
+
+Scrolled reading: a reader created with `spread: 'scrolled'` lays each chapter out as one continuous strip read through windows the size of the viewport, one window a spread, down the screen, or leftwards for a book whose spine's `page-progression-direction` is `rtl` (its vertical-rl chapters run leftwards as strips; a chapter whose text runs across the book's axis is paginated, each page one window). `getScrollLayout()` gives the windows end to end (axis, window length, each chapter's first spread, window count and extent), a located page's `blockOffset` says where the locator's line starts in its window, and a target the size of a window paints that window alone. The kit's `createScrollController(reader, canvas, { physics, input })` shows the windows end to end on one canvas at whole device pixels, keeps each window's picture while it is near, tells the reader which window is under the reading line, reports where the reader reads at rest and what a tap is on, and moves by `defaultScrollPhysics` or any `ScrollPhysics` an app gives; an app drives it itself with `grab`, `follow`, `release`, `scrollTo`, `scrollBy`, `scrollToSpread` and `scrollToLocator`. Selection, search and annotation highlights do not reach a scrolled view yet.
