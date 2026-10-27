@@ -10,8 +10,9 @@
 //! cargo test -p rito-core --release --lib strip_cost_probe::strip_cost_probe -- --ignored --nocapture
 //! ```
 //!
-//! (`strip_cost_probe::session_open_cost_probe` takes the same variables and
-//! `RITO_STRIP_PROBE_ONLY`; the two write the same report, so run one at a
+//! (`strip_cost_probe::session_open_cost_probe` and
+//! `strip_cost_probe::background_step_probe` take the same variables and
+//! `RITO_STRIP_PROBE_ONLY`; the three write the same report, so run one at a
 //! time.)
 //!
 //! Every chapter is measured at a desktop and a phone viewport, each pass
@@ -434,6 +435,84 @@ fn session_open_cost_probe() {
             let line = format!("{prefix}\t{href}\t{best:.2}\n");
             eprint!("{line}");
             rows.push_str(&line);
+        }
+    }
+    fs::write(&out, rows).expect("report writes");
+}
+
+/// What each step of a whole-book layout costs on the thread a host draws
+/// on: every book at both viewports, paginated and scrolled, stepped by the
+/// frame quantum the hosts ask for, each step timed. One row per book,
+/// viewport and mode: the steps, their total, their slowest, their 99th
+/// percentile, and how many took longer than a 60 Hz frame. Takes the same
+/// variables as [`strip_cost_probe`].
+#[test]
+#[ignore = "corpus measurement; see the module docs"]
+fn background_step_probe() {
+    use crate::layout::SpreadMode;
+    use crate::runtime::reader_session::READER_FRAME_QUANTUM_PAGES;
+    use crate::runtime::revision::RevisionProgress;
+
+    let books = PathBuf::from(env::var("RITO_STRIP_PROBE_BOOKS").expect("RITO_STRIP_PROBE_BOOKS"));
+    let fonts = PathBuf::from(env::var("RITO_STRIP_PROBE_FONTS").expect("RITO_STRIP_PROBE_FONTS"));
+    let out = env::var("RITO_STRIP_PROBE_OUT").expect("RITO_STRIP_PROBE_OUT");
+    let only = env::var("RITO_STRIP_PROBE_ONLY").ok();
+    let mut paths = fs::read_dir(&books)
+        .expect("corpus dir reads")
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "epub"))
+        .filter(|path| {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            only.as_deref()
+                .is_none_or(|only| only.split(',').any(|prefix| name.starts_with(prefix)))
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    let mut rows =
+        String::from("book\tviewport\tmode\tsteps\ttotal_ms\tmax_ms\tp99_ms\tover_16\terror\n");
+    for path in paths {
+        let book = path.file_name().unwrap_or_default().to_string_lossy();
+        let book = book.split(' ').next().unwrap_or_default().to_owned();
+        let bytes = fs::read(&path).expect("book reads");
+        for viewport in &VIEWPORTS {
+            for (mode, spread) in [
+                ("paged", SpreadMode::Single),
+                ("scrolled", SpreadMode::Scrolled),
+            ] {
+                let mut config = layout_config(viewport);
+                config.spread_mode = spread;
+                let row = (|| -> Result<String, String> {
+                    let mut document = open(&bytes, &fonts)?;
+                    let mut build = document
+                        .begin_revision(&config)
+                        .map_err(|error| error.message().to_owned())?;
+                    let mut times = Vec::new();
+                    loop {
+                        let started = Instant::now();
+                        let progress = document
+                            .advance_revision(build, READER_FRAME_QUANTUM_PAGES as usize)
+                            .map_err(|error| error.message().to_owned())?;
+                        times.push(ms(started));
+                        match progress {
+                            RevisionProgress::Pending(next) => build = *next,
+                            RevisionProgress::Done(_) => break,
+                        }
+                    }
+                    let total: f64 = times.iter().sum();
+                    let over = times.iter().filter(|time| **time > 16.0).count();
+                    times.sort_by(f64::total_cmp);
+                    let max = times.last().copied().unwrap_or_default();
+                    let p99 = times[(times.len() * 99 / 100).min(times.len() - 1)];
+                    Ok(format!(
+                        "{}\t{total:.1}\t{max:.2}\t{p99:.2}\t{over}\t",
+                        times.len()
+                    ))
+                })()
+                .unwrap_or_else(|error| format!("\t\t\t\t\t{error}"));
+                let line = format!("{book}\t{}\t{mode}\t{row}\n", viewport.name);
+                eprint!("{line}");
+                rows.push_str(&line);
+            }
         }
     }
     fs::write(&out, rows).expect("report writes");

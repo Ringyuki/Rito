@@ -913,31 +913,75 @@ struct TableChapter {
 enum TableChapterPages {
     /// A chapter paginating one page at a time.
     Paginated(ChapterPaginator),
-    /// A scrolled chapter's windows, its strip laid out when it began.
-    Windows(std::collections::VecDeque<Fragment>),
+    /// A scrolled chapter warming up: paginated a page at a time with its
+    /// pages dropped, so the strip laid out when it is through reads what
+    /// their shaping left behind. A chapter's strip is one layout; warmed,
+    /// it costs a fraction of a step, cold it can cost many.
+    Warming(ChapterPaginator),
+    /// A scrolled chapter's windows, its strip laid out once it warmed,
+    /// and the strip's extent with its margins.
+    Windows {
+        roots: std::collections::VecDeque<Fragment>,
+        extent: f64,
+    },
+}
+
+/// What one step of a table's chapter gave.
+enum TableStep {
+    Page(Box<FragmentChapterPage>),
+    /// A page of warming, which the table does not keep.
+    Warmed,
 }
 
 impl TableChapterPages {
-    /// The chapter's next page, or `None` once it has given every page.
-    fn next_page(
+    /// The chapter's next step, or `None` once it has given every page.
+    fn step(
         &mut self,
-        engine: &RuntimeFragmentEngine,
-        tree: &rito_fragment::FormattingTree,
-    ) -> EpubResult<Option<FragmentChapterPage>> {
+        build: &FragmentTableBuildInputs,
+        built: &Rc<crate::fragment_bridge::ChapterFormattingTree>,
+    ) -> EpubResult<Option<TableStep>> {
         match self {
-            Self::Paginated(paginator) => {
-                paginator.next_page(&engine.engine, tree, &CancelFlag::new())
+            Self::Paginated(paginator) => Ok(paginator
+                .next_page(&build.engine.engine, &built.tree, &CancelFlag::new())?
+                .map(|page| TableStep::Page(Box::new(page)))),
+            Self::Warming(paginator) => {
+                paginator.next_page(&build.engine.engine, &built.tree, &CancelFlag::new())?;
+                if paginator.is_done() {
+                    let strip = ChapterStrip::lay_out(
+                        &build.engine,
+                        Rc::clone(&build.faces),
+                        Rc::clone(built),
+                        &build.config,
+                        false,
+                    )?;
+                    *self = Self::Windows {
+                        roots: (0..strip.windows().count())
+                            .map(|window| strip.window_page_root(window))
+                            .collect(),
+                        extent: strip.windows().extent(),
+                    };
+                }
+                Ok(Some(TableStep::Warmed))
             }
-            Self::Windows(windows) => Ok(windows
+            Self::Windows { roots, .. } => Ok(roots
                 .pop_front()
-                .map(|root| FragmentChapterPage { root, start: None })),
+                .map(|root| TableStep::Page(Box::new(FragmentChapterPage { root, start: None })))),
         }
     }
 
     fn is_done(&self) -> bool {
         match self {
             Self::Paginated(paginator) => paginator.is_done(),
-            Self::Windows(windows) => windows.is_empty(),
+            Self::Warming(_) => false,
+            Self::Windows { roots, .. } => roots.is_empty(),
+        }
+    }
+
+    /// A scrolled chapter's extent once its strip is laid out.
+    fn extent(&self) -> Option<f64> {
+        match self {
+            Self::Windows { extent, .. } => Some(*extent),
+            Self::Paginated(_) | Self::Warming(_) => None,
         }
     }
 }
@@ -1023,9 +1067,9 @@ impl RuntimeDocument {
                 return Ok(false);
             }
             let chapter = table.current.as_mut().expect("a chapter is under way");
-            let page = chapter
+            let step = chapter
                 .pages
-                .next_page(&table.build.engine, &chapter.built.tree)
+                .step(&table.build, &chapter.built)
                 .map_err(|error| {
                     format!(
                         "chapter {} pagination: {}",
@@ -1033,7 +1077,10 @@ impl RuntimeDocument {
                         error.message()
                     )
                 })?;
-            if let Some(page) = page {
+            if let Some(TableStep::Warmed) = step {
+                left -= 1;
+            }
+            if let Some(TableStep::Page(page)) = step {
                 collect_page_anchors(
                     &page.root,
                     &chapter.built.node_anchors,
@@ -1052,7 +1099,8 @@ impl RuntimeDocument {
                 left -= 1;
             }
             if chapter.pages.is_done() {
-                if let Some(done) = table.current.take() {
+                if let Some(mut done) = table.current.take() {
+                    done.record.extent = done.pages.extent();
                     table.chapters.push(done.record);
                 }
             }
@@ -1083,27 +1131,13 @@ impl RuntimeDocument {
             return Err("page content box is empty".to_owned());
         }
         // Without its text, as a whole-book table paginates: each page is
-        // dropped once its anchors and run starts are taken.
-        let (pages, extent) = if config.spread_mode == SpreadMode::Scrolled {
-            let strip = ChapterStrip::lay_out(
-                &build.engine,
-                Rc::clone(&build.faces),
-                Rc::clone(&built),
-                config,
-                false,
-            )
-            .map_err(|error| format!("chapter {idref} strip: {}", error.message()))?;
-            let windows = (0..strip.windows().count())
-                .map(|window| strip.window_page_root(window))
-                .collect();
-            (
-                TableChapterPages::Windows(windows),
-                Some(strip.windows().extent()),
-            )
+        // dropped once its anchors and run starts are taken. A scrolled
+        // chapter warms up the same way before its strip is laid out.
+        let paginator = ChapterPaginator::new(&built.tree, content_width, content_height, false);
+        let pages = if config.spread_mode == SpreadMode::Scrolled {
+            TableChapterPages::Warming(paginator)
         } else {
-            let paginator =
-                ChapterPaginator::new(&built.tree, content_width, content_height, false);
-            (TableChapterPages::Paginated(paginator), None)
+            TableChapterPages::Paginated(paginator)
         };
         Ok(TableChapter {
             record: FragmentBackendChapter {
@@ -1112,7 +1146,7 @@ impl RuntimeDocument {
                 block_count: built.tree.node(built.tree.root()).children.len(),
                 page_background: built.page_background,
                 page_background_image: built.page_background_image.clone(),
-                extent,
+                extent: None,
                 style_tables: Rc::clone(style_tables),
                 image_dimensions,
             },

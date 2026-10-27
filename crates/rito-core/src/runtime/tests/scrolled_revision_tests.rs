@@ -337,3 +337,59 @@ fn a_kept_locator_stays_on_the_reading_line_through_ten_relayouts() {
         );
     }
 }
+
+#[test]
+fn a_whole_book_table_warms_each_scrolled_chapter_before_it_lays_its_strip_out() {
+    use crate::runtime::revision::RevisionProgress;
+
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &long_paragraphs_fixture_epub(),
+        pinned_test_font_policy(),
+    )
+    .expect("fixture opens");
+    let whole = document
+        .create_revision(&scrolled())
+        .expect("scrolled revision is created")
+        .revision_id;
+    let pages = document.revisions[&whole].fragment_layout.page_count();
+    let mut build = document.begin_revision(&scrolled()).expect("build begins");
+    let mut steps = 0;
+    let stepped = loop {
+        steps += 1;
+        match document
+            .advance_revision(build, 1)
+            .expect("a step lays out")
+        {
+            RevisionProgress::Pending(next) => build = *next,
+            RevisionProgress::Done(summary) => break summary.revision_id,
+        }
+    };
+    // A chapter paginates a page a step, pages shorter than its windows,
+    // before its windows are taken one a step: at least twice the steps a
+    // table of windows alone would take.
+    assert!(steps >= 2 * pages, "{steps} steps for {pages} windows");
+    let layout = &document.revisions[&stepped].fragment_layout;
+    assert_eq!(layout.page_count(), pages);
+    for page in 0..pages {
+        assert_eq!(
+            run_texts(
+                &layout
+                    .page(page)
+                    .expect("page is published")
+                    .artifact_handle()
+            ),
+            run_texts(
+                &document.revisions[&whole]
+                    .fragment_layout
+                    .page(page)
+                    .expect("page is published")
+                    .artifact_handle()
+            ),
+        );
+    }
+    // Each chapter says how long its strip runs once the strip is laid out.
+    for (index, (chapter, _)) in layout.chapters().enumerate() {
+        let strip = layout.chapter_strip(index).expect("strip lays out");
+        assert_eq!(chapter.extent, Some(strip.windows().extent()));
+    }
+}
