@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
+import {
+  preloadReaderRuntime,
+  type ReaderLocator,
+  type ReaderPinnedFontPolicy,
+  type ReaderPublication,
+  type TocEntry,
+} from '@ritojs/core';
 import { createPaperTurn, springPresets, type ReaderControllerEvents } from '@ritojs/kit';
 import type { PageTurn } from '@/components/settings-panel';
 import {
@@ -14,9 +20,12 @@ import {
 } from '@ritojs/react';
 import { bookKey, createBookStorage } from '@/lib/book-storage';
 import { noteDebug } from '@/lib/debug-log';
+import { copyPublication } from '@/lib/publication-copy';
+import { readerViewportMargin } from '@/lib/viewport-margin';
 import { fetchShardedDemo } from '@/lib/sharded-demo';
 import { useDebugLog } from '@/hooks/use-debug-log';
 import { useReaderFonts } from '@/hooks/use-reader-fonts';
+import { useScrollMode } from '@/hooks/use-scroll-mode';
 import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
@@ -36,7 +45,11 @@ export function useReader(
   containerHeight: number,
   pinnedFontPolicy: ReaderPinnedFontPolicy,
 ) {
-  const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
+  const [spreadMode, setSpreadModeState] = useState<'single' | 'double' | 'scrolled'>('double');
+  // How the book is paged when it is not read scrolled.
+  const [pagedMode, setPagedMode] = useState<'single' | 'double'>('double');
+  const [publication, setPublication] = useState<ReaderPublication | null>(null);
+  const [scrollFrom, setScrollFrom] = useState<ReaderLocator | null>(null);
   const typography = useTypography();
   const [pageTurn, setPageTurnState] = useState<PageTurn>('slide');
   // The paper turn simulates one sheet: one of it for this reader.
@@ -53,7 +66,7 @@ export function useReader(
       width: containerWidth > 0 ? Math.round(containerWidth) : 0,
       height: containerHeight > 0 ? Math.round(containerHeight) : 0,
       margin: readerViewportMargin(containerWidth),
-      spread: spreadMode,
+      spread: pagedMode,
       pinnedFontPolicy,
       ...getThemeOptions(theme),
       ...typographyReaderOptions(typography.typography),
@@ -119,8 +132,24 @@ export function useReader(
     setRenderScaleState(1);
   }, [controller]);
 
-  // Page turns by keyboard only while nothing covers the page.
-  const overlayOpen = lightboxActive || pendingLink !== null || footnote !== null || searchOpen;
+  const scroll = useScrollMode({
+    active: spreadMode === 'scrolled',
+    publication,
+    locator: scrollFrom,
+    width: containerWidth,
+    height: containerHeight,
+    theme,
+    pinnedFontPolicy,
+  });
+
+  // Page turns by keyboard only while nothing covers the page and the
+  // book is not read scrolled.
+  const overlayOpen =
+    lightboxActive ||
+    pendingLink !== null ||
+    footnote !== null ||
+    searchOpen ||
+    spreadMode === 'scrolled';
   useEffect(() => {
     controller?.keyboard.setEnabled(!overlayOpen);
   }, [overlayOpen, controller]);
@@ -139,7 +168,10 @@ export function useReader(
         bytes: publication instanceof ArrayBuffer ? publication.byteLength : 'sharded',
       });
       try {
-        await rito.load(publication);
+        // A copy is kept to read scrolled as well (see copyPublication).
+        const bytes = await publication;
+        setPublication(copyPublication(bytes));
+        await rito.load(bytes);
         noteDebug('book-opened', key);
       } catch (error) {
         noteDebug('book-failed', error);
@@ -171,13 +203,29 @@ export function useReader(
     }
   }, [open]);
 
+  // Scrolled reading opens the book in a scroll view from where the pages
+  // were; paging again goes back to where the scroll view was read.
   const setSpreadMode = useCallback(
-    (mode: 'single' | 'double') => {
+    (mode: 'single' | 'double' | 'scrolled') => {
       if (mode === spreadMode) return;
       setSpreadModeState(mode);
-      controller?.setSpreadMode(mode);
+      if (mode === 'scrolled') {
+        setScrollFrom(controller?.position?.sourceLocator ?? null);
+        return;
+      }
+      setPagedMode(mode);
+      if (mode !== pagedMode) controller?.setSpreadMode(mode);
+      const read = scroll.position;
+      if (spreadMode === 'scrolled' && read && controller) {
+        void controller.goToPosition({
+          sourceLocator: read,
+          projection: { spreadIndex: 0, pageIndex: 0 },
+          progress: scroll.progress,
+          timestamp: Date.now(),
+        });
+      }
     },
-    [controller, spreadMode],
+    [controller, pagedMode, scroll.position, scroll.progress, spreadMode],
   );
 
   // How pages turn; a reader on "reduced motion" gets a cross-fade anyway.
@@ -199,9 +247,14 @@ export function useReader(
 
   const navigateToTocEntry = useCallback(
     (entry: TocEntry) => {
+      if (spreadMode === 'scrolled') {
+        const [href = entry.href, anchorId] = entry.href.split('#');
+        void scroll.controller?.scrollToLocator(anchorId ? { href, anchorId } : { href });
+        return;
+      }
       controller?.navigateToTocEntry(entry);
     },
-    [controller],
+    [controller, scroll.controller, spreadMode],
   );
 
   const spread = rito.spreads[rito.currentSpread];
@@ -218,6 +271,7 @@ export function useReader(
     typography,
     spreadMode,
     setSpreadMode,
+    scroll,
     renderScale,
     setRenderScale,
     isTransitioning: transition.isTransitioning,
@@ -249,9 +303,7 @@ export function useReader(
   };
 }
 
-export function readerViewportMargin(containerWidth: number): number {
-  return containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
-}
+export { readerViewportMargin } from '@/lib/viewport-margin';
 
 async function fetchDemoEpubData(): Promise<ArrayBuffer> {
   demoEpubBlobPromise ??= fetch(demoEpubUrl).then(async (resp) => {

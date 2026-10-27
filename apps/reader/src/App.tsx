@@ -9,6 +9,7 @@ import { ReadingProgressArea } from '@/components/reading-progress';
 import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
+import { ScrollReaderPane } from '@/components/scroll-reader-pane';
 
 interface AppProps {
   readonly pinnedFontPolicy: ReaderPinnedFontPolicy;
@@ -69,20 +70,29 @@ export function App({ pinnedFontPolicy }: AppProps) {
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
-      <ReadingProgressArea reader={reader} width={containerSize.width}>
-        <Reader
-          containerRef={containerRef}
-          reader={reader}
-          theme={theme}
-          onToggleTheme={toggleTheme}
+      {reader.spreadMode === 'scrolled' ? (
+        <ScrollReaderPane
+          containerRef={sizeRef}
+          scroll={reader.scroll}
           onOpenToc={handleOpenToc}
-          onOpenSearch={handleToggleSearch}
           onOpenSettings={handleToggleSettings}
-          onLoadDemo={handleLoadDemo}
-          onLoadShardedDemo={handleLoadShardedDemo}
-          onFileLoad={handleFileLoad}
         />
-      </ReadingProgressArea>
+      ) : (
+        <ReadingProgressArea reader={reader} width={containerSize.width}>
+          <Reader
+            containerRef={containerRef}
+            reader={reader}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onOpenToc={handleOpenToc}
+            onOpenSearch={handleToggleSearch}
+            onOpenSettings={handleToggleSettings}
+            onLoadDemo={handleLoadDemo}
+            onLoadShardedDemo={handleLoadShardedDemo}
+            onFileLoad={handleFileLoad}
+          />
+        </ReadingProgressArea>
+      )}
 
       <SearchBar
         search={reader.search}

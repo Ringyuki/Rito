@@ -32,7 +32,7 @@ export interface ReaderSettings {
   fontFamily: string | null;
   /** When true, the font family replaces every element's own. */
   fontFamilyForce: boolean;
-  spreadMode: 'single' | 'double';
+  spreadMode: 'single' | 'double' | 'scrolled';
   theme: 'light' | 'dark';
   /** Canvas zoom (`setRenderScale`): sharper glyphs, same pagination. */
   renderScale: number;
@@ -68,7 +68,7 @@ interface SettingsPanelProps {
   fonts: ReaderFonts;
   onRenderScaleChange: (value: number) => void;
   onPageTurnChange: (value: PageTurn) => void;
-  onSpreadModeChange: (value: 'single' | 'double') => void;
+  onSpreadModeChange: (value: 'single' | 'double' | 'scrolled') => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onRestoreDefaults: () => void;
 }
@@ -209,6 +209,7 @@ export function SettingsPanel({
               options={[
                 { value: 'single', label: 'Single Page' },
                 { value: 'double', label: 'Double Page' },
+                { value: 'scrolled', label: 'Scrolled' },
               ]}
             />
           </Section>
