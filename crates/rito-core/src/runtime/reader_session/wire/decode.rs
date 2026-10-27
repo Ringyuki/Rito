@@ -485,6 +485,7 @@ pub(super) fn spread_mode(value: u32) -> Result<ReaderSpreadMode, ReaderError> {
     match value {
         0 => Ok(ReaderSpreadMode::Single),
         1 => Ok(ReaderSpreadMode::Double),
+        2 => Ok(ReaderSpreadMode::Scrolled),
         value => Err(invalid(format!("unknown spread mode: {value}"))),
     }
 }

@@ -678,6 +678,7 @@ fn artifact_fixture() -> ReaderArtifact {
         height: 1_194.25,
         book_page_index: Some(140),
         book_page_count: Some(312),
+        target_block_offset: Some(377.640625),
         navigation: ReaderNavigation {
             previous: ReaderAdjacentAvailability::Available,
             next: ReaderAdjacentAvailability::ChapterBoundary,

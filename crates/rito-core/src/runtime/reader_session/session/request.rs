@@ -28,10 +28,9 @@ impl ReaderSession {
                 "positioned glyph output is not available in the reader protocol yet",
             ));
         }
-        self.require_artifact_capacity()?;
-
         let render_ratio = request.layout.render_ratio;
         let layout = layout_config(request.layout)?;
+        self.require_artifact_capacity(layout.spread_mode)?;
         self.render_ratio = render_ratio;
         let locator = runtime_locator(request.locator)?;
         let expected_visible_artifact_id = self.begin_foreground_request(request.request_id);
@@ -56,7 +55,7 @@ impl ReaderSession {
     ) -> Result<ReaderArtifact, ReaderError> {
         self.validate_request_identity(request.session_id, request.request_id, "adjacent")?;
         validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
-        self.require_artifact_capacity()?;
+        self.require_artifact_capacity(self.artifact_spread_mode(request.from_artifact_id))?;
 
         let source = self
             .artifacts
@@ -157,7 +156,7 @@ impl ReaderSession {
     ) -> Result<ReaderArtifact, ReaderError> {
         self.validate_request_identity(request.session_id, request.request_id, "peek")?;
         validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
-        self.require_artifact_capacity()?;
+        self.require_artifact_capacity(self.artifact_spread_mode(request.from_artifact_id))?;
         let source = self
             .artifacts
             .get(&request.from_artifact_id)
@@ -196,7 +195,7 @@ impl ReaderSession {
     ) -> Result<ReaderArtifact, ReaderError> {
         self.validate_request_identity(request.session_id, request.request_id, "peek")?;
         validate_external_request_id(request.from_artifact_id, "fromArtifactId")?;
-        self.require_artifact_capacity()?;
+        self.require_artifact_capacity(self.artifact_spread_mode(request.from_artifact_id))?;
         let source = self
             .artifacts
             .get(&request.from_artifact_id)

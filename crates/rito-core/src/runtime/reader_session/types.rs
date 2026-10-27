@@ -12,6 +12,14 @@ pub const READER_EXTERNAL_ID_MAX: u64 = i64::MAX as u64;
 pub enum ReaderSpreadMode {
     Single,
     Double,
+    /// Each chapter one continuous strip read through windows the size of
+    /// the viewport, every window its own spread. Window `k` of a chapter
+    /// covers the chapter's CSS block range `[k·H, (k+1)·H)` (`H` the
+    /// viewport height, the last window ending at the chapter's extent) and
+    /// its device rows `[D(k), D(k+1))`, `D(k) = floor(k·H·ratio + 0.5)`,
+    /// the last ending at `floor(extent·ratio + 0.5)`: the windows tile the
+    /// chapter row for row.
+    Scrolled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -670,6 +678,12 @@ pub struct ReaderArtifact {
     /// revision (the revision holds its complete page table from the
     /// moment it exists) and absent on chapter-local artifacts.
     pub book_page_count: Option<u32>,
+    /// Where the line the artifact's locator lands on starts in its
+    /// scrolled window's display list, in CSS pixels from the window's top:
+    /// the window is shown from here to put that line at the top of the
+    /// viewport's content box. Absent for a spread of pages, and for a
+    /// window whose locator names no line.
+    pub target_block_offset: Option<f64>,
     pub navigation: ReaderNavigation,
     pub text_profile: ReaderTextRenderingProfile,
     pub display_list: ReaderDisplayList,

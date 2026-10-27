@@ -43,6 +43,7 @@ Uint8List artifactFixture({
     ..float64(640)
     ..option(null)
     ..option(null)
+    ..option(null)
     ..uint32(previousAvailability)
     ..uint32(nextAvailability)
     ..uint32(0);

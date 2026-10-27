@@ -119,11 +119,16 @@ void main() {
       <(int, int?)>[(0, null), (1, 2), (3, 4)],
     );
     expect(
-      <(int, int, int)>[
+      <(int, int, int, double?)>[
         for (final chapter in layout.chapters)
-          (chapter.spineIndex, chapter.startPage, chapter.endPage),
+          (
+            chapter.spineIndex,
+            chapter.startPage,
+            chapter.endPage,
+            chapter.extent,
+          ),
       ],
-      <(int, int, int)>[(1, 0, 2), (3, 3, 4)],
+      <(int, int, int, double?)>[(1, 0, 2, 4200.5), (3, 3, 4, 1900.25)],
     );
     expect(
       <(int, int)>[
@@ -134,6 +139,7 @@ void main() {
     );
     expect(layout.activeTocEntryByPage, <int?>[null, 2, 2, 6, 6]);
     expect(layout.complete, isFalse);
+    expect(layout.scrollAxis, RitoScrollAxis.left);
   });
 
   test('a revision layout rejects truncation and trailing bytes', () {

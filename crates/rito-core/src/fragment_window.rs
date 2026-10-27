@@ -41,6 +41,11 @@ impl ScrollWindows {
         self.length
     }
 
+    /// The chapter's block extent in CSS pixels.
+    pub(crate) fn extent(&self) -> f64 {
+        self.extent
+    }
+
     /// How many windows the chapter takes: always one at least, the last
     /// shorter than the rest when the extent is not a whole number of them.
     pub(crate) fn count(&self) -> usize {

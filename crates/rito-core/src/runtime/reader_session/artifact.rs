@@ -2,12 +2,12 @@ use std::collections::BTreeSet;
 
 use crate::{
     epub::parse_font_family_list,
-    layout::LayoutConfig,
+    layout::{LayoutConfig, SpreadMode},
     render::{encode_reader_primitive_list, lower, shift},
     runtime::{
         page_artifact::{
             PageArtifactFrame, PageArtifactRect, PageArtifactSemanticNode,
-            PageArtifactSemanticRole, PageArtifactTarget,
+            PageArtifactSemanticRole, PageArtifactSourcePoint, PageArtifactTarget,
         },
         page_target::PageTargetClass,
         RuntimeChapterLocalRevisionHandle, RuntimeDocument, RuntimePageTargetKind, RuntimeRevision,
@@ -151,14 +151,18 @@ fn build_reader_artifact_from_revision(
     }
     let encoded = encode_reader_primitive_list(&lowered).map_err(engine_error)?;
     let config = &revision.layout_config;
+    let session = revision.chapter_engine_session();
     let pages = frame
         .page_indexes
         .iter()
         .map(|page_index| {
+            let (width, height) = session
+                .page_size(*page_index)
+                .unwrap_or((config.page_width, config.page_height));
             Ok(ReaderPage {
                 page_index: u32_from_usize(*page_index, "page index")?,
-                width: config.page_width,
-                height: config.page_height,
+                width,
+                height,
             })
         })
         .collect::<Result<Vec<_>, ReaderError>>()?;
@@ -215,6 +219,7 @@ fn build_reader_artifact_from_revision(
             .is_absolute_coordinate_space()
             .then(|| u32_from_usize(revision.extent.page_count, "book page count"))
             .transpose()?,
+        target_block_offset: scrolled_target_offset(revision, target),
         navigation,
         text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
         display_list: ReaderDisplayList {
@@ -230,6 +235,42 @@ fn build_reader_artifact_from_revision(
         artifact,
         painted_digest,
     })
+}
+
+/// Where the line a scrolled artifact's locator lands on starts in its
+/// window's display list: the line a source point or range starts on, or
+/// the element an anchor names. `None` for a spread of pages, and for a
+/// locator that names a window rather than a place in it — a progression
+/// is a position among a chapter's windows, as it is among its pages.
+fn scrolled_target_offset(
+    revision: &RuntimeRevision,
+    target: &ResolvedArtifactTarget,
+) -> Option<f64> {
+    if revision.layout_config.spread_mode != SpreadMode::Scrolled {
+        return None;
+    }
+    let session = revision.chapter_engine_session();
+    let page = target.local_page_index;
+    let locator = &target.locator;
+    let line_of = |point: &RuntimeSourcePoint| {
+        session.target_block_offset(
+            page,
+            &PageArtifactSourcePoint {
+                node_path: point.node_path.clone(),
+                text_offset: point.text_offset,
+            },
+        )
+    };
+    match target.matched_by {
+        RuntimeSourceLocatorMatchedBy::SourceRange => {
+            line_of(&locator.source_range.as_ref()?.start)
+        }
+        RuntimeSourceLocatorMatchedBy::SourcePoint => line_of(locator.source_point.as_ref()?),
+        RuntimeSourceLocatorMatchedBy::Anchor => {
+            session.anchor_block_offset(page, locator.anchor_id.as_deref()?)
+        }
+        RuntimeSourceLocatorMatchedBy::Progression | RuntimeSourceLocatorMatchedBy::Href => None,
+    }
 }
 
 /// A digest of the text a frame's commands draw, in paint order.

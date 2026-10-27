@@ -1678,7 +1678,7 @@ fn reader_layout(config: &crate::layout::LayoutConfig) -> ReaderLayout {
         spread_mode: match config.spread_mode {
             crate::layout::SpreadMode::Single => ReaderSpreadMode::Single,
             crate::layout::SpreadMode::Double => ReaderSpreadMode::Double,
-            crate::layout::SpreadMode::Scrolled => panic!("the wire carries no scrolled layout"),
+            crate::layout::SpreadMode::Scrolled => ReaderSpreadMode::Scrolled,
         },
         first_page_alone: config.first_page_alone,
         spread_gap: config.spread_gap,

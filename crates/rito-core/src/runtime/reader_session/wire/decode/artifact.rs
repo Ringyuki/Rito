@@ -31,6 +31,9 @@ pub(super) fn body(reader: &mut Reader<'_>) -> Result<ReaderArtifact, ReaderErro
         height: reader.f64("artifact height")?,
         book_page_index: reader.option("book page index", Reader::u32)?,
         book_page_count: reader.option("book page count", Reader::u32)?,
+        target_block_offset: reader.option("target block offset", |reader| {
+            reader.f64("target block offset")
+        })?,
         navigation: ReaderNavigation {
             previous: adjacent_availability(reader.u32()?)?,
             next: adjacent_availability(reader.u32()?)?,

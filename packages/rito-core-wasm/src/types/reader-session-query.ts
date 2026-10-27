@@ -324,6 +324,11 @@ export interface RitoReaderRevisionLayout {
     readonly spineIndex: number;
     readonly startPage: number;
     readonly endPage: number;
+    /**
+     * A scrolled chapter's extent along the scroll axis, in CSS pixels: its
+     * margins and its strip. Absent in a revision of pages.
+     */
+    readonly extent?: number | undefined;
   }[];
   /** The TOC entries the revision places on a page, in TOC order. */
   readonly tocTargets: readonly { readonly tocId: number; readonly pageIndex: number }[];
@@ -335,7 +340,15 @@ export interface RitoReaderRevisionLayout {
    * entry whose target lies past them is not placed yet.
    */
   readonly complete: boolean;
+  /**
+   * The direction a scrolled revision's chapters run, each following the one
+   * before it: `down` as horizontal text's blocks stack, `left` as vertical
+   * right-to-left text's columns follow. Absent for a revision of pages.
+   */
+  readonly scrollAxis?: RitoReaderScrollAxis | undefined;
 }
+
+export type RitoReaderScrollAxis = 'down' | 'left';
 
 export type RitoReaderLocation =
   | {

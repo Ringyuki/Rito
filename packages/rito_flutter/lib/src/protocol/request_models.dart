@@ -1,6 +1,17 @@
 import 'artifact_models.dart';
 
-enum RitoSpreadMode { single, double }
+enum RitoSpreadMode {
+  single,
+  double,
+
+  /// Each chapter one continuous strip read through windows the size of
+  /// the viewport, every window its own spread. Window `k` of a chapter
+  /// covers its CSS block range `[k·H, (k+1)·H)` (`H` the viewport height,
+  /// the last window ending at the chapter's extent) and its device rows
+  /// `[D(k), D(k+1))`, `D(k) = floor(k·H·ratio + 0.5)`, the last ending at
+  /// `floor(extent·ratio + 0.5)`: the windows tile the chapter row for row.
+  scrolled,
+}
 
 final class RitoLayoutRequest {
   const RitoLayoutRequest({

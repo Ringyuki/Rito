@@ -51,6 +51,9 @@ export function decodeRitoReaderArtifact(value) {
     height: reader.f64('artifact height'),
     bookPageIndex: reader.option('book page index', () => reader.u32('book page index')),
     bookPageCount: reader.option('book page count', () => reader.u32('book page count')),
+    targetBlockOffset: reader.option('target block offset', () =>
+      reader.f64('target block offset'),
+    ),
     navigation: {
       previous: readTaggedU32(reader, 'adjacent availability', ADJACENT),
       next: readTaggedU32(reader, 'adjacent availability', ADJACENT),

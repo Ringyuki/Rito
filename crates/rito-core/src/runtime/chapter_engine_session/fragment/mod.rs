@@ -343,6 +343,24 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Some(self.revision.layout_config.margin_top + top)
     }
 
+    /// Where the element `anchor` names starts in its page's display list,
+    /// the page's top at 0.
+    pub(super) fn anchor_block_offset(&self, page_index: usize, anchor: &str) -> Option<f64> {
+        let page = self.layout.page(page_index)?;
+        Some(self.revision.layout_config.margin_top + page.anchor_top(anchor)?)
+    }
+
+    /// A page's width and height: a scrolled window's height is its own
+    /// length, the last of a chapter's ending where the chapter does.
+    pub(super) fn page_size(&self, page_index: usize) -> Option<(f64, f64)> {
+        Some(self.layout.page(page_index)?.size())
+    }
+
+    /// A scrolled chapter's extent along the scroll axis.
+    pub(super) fn chapter_extent(&self, idref: &str) -> Option<f64> {
+        self.layout.chapter(idref)?.0.extent
+    }
+
     /// The caret address a durable source point lands on, searching the
     /// given pages in order.
     fn address_at_source_point(

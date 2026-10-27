@@ -1,5 +1,7 @@
 import { ReaderWireWriter } from './reader-session-wire-base-runtime.js';
 
+const SPREAD_MODES = ['single', 'double', 'scrolled'];
+
 export function encodeRitoReaderArtifactRequest(request) {
   const writer = ReaderWireWriter.message('RITOREQ1');
   writer.externalId(request.sessionId, 'session id');
@@ -40,7 +42,7 @@ function writeLayout(writer, value) {
   writer.f64(value.marginRight, 'right margin');
   writer.f64(value.marginBottom, 'bottom margin');
   writer.f64(value.marginLeft, 'left margin');
-  writer.u32(value.spreadMode === 'single' ? 0 : requireDouble(value.spreadMode), 'spread mode');
+  writer.u32(spreadMode(value.spreadMode), 'spread mode');
   writer.bool(value.firstPageAlone);
   writer.f64(value.spreadGap, 'spread gap');
   writer.f64(value.rootFontSize, 'root font size');
@@ -87,9 +89,10 @@ export function writeRitoReaderSourcePoint(writer, value) {
   });
 }
 
-function requireDouble(value) {
-  if (value !== 'double') throw new RangeError(`unknown spread mode: ${String(value)}`);
-  return 1;
+function spreadMode(value) {
+  const tag = SPREAD_MODES.indexOf(value);
+  if (tag < 0) throw new RangeError(`unknown spread mode: ${String(value)}`);
+  return tag;
 }
 
 function textProfile(value) {

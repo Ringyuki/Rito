@@ -23,13 +23,17 @@ import { prepareHostFontFaces } from './pinned-font-policy-runtime.js';
 const PROTOCOL = 'rito-reader-session';
 const COLD_OPEN_DIAGNOSTIC = 'cold-open-attribution-v1';
 const MAX_QUEUED_MESSAGES = 8;
-// The engine's live-artifact cap (READER_LIVE_ARTIFACT_CAP), which is
-// budgeted for a reader that loads its neighbours ahead: the visible spread,
-// the one a turn is leaving, a neighbour on each side and a candidate under
-// way. The worker refuses at the same number so that a host is told
+// The engine's live-artifact caps (READER_LIVE_ARTIFACT_CAP and
+// READER_SCROLLED_LIVE_ARTIFACT_CAP). A reader of pages loads its neighbours
+// ahead: the visible spread, the one a turn is leaving, a neighbour on each
+// side and a candidate under way. A scrolled reader holds the windows in
+// view (a short chapter's can be several), the ones scrolling in on either
+// side and a candidate. The worker refuses at the same numbers, by the
+// spread mode of the revision an artifact comes from, so that a host is told
 // `artifact-capacity` instead of the engine's generic refusal; a test holds
-// the two equal.
+// them equal.
 export const READER_LIVE_ARTIFACT_CAP = 6;
+export const READER_SCROLLED_LIVE_ARTIFACT_CAP = 10;
 const NON_FATAL_EXACT_TERMINAL_CODES = new Set([
   'invalid-request',
   'invalid-layout',
@@ -47,7 +51,9 @@ export function createRitoCoreWasmReaderSessionWorkerHandler(scope, deps) {
     session: undefined,
     sessionId: undefined,
     visibleArtifactId: undefined,
-    liveArtifacts: new Set(),
+    // Each live artifact's spread mode, which sets the cap its revision's
+    // requests answer to.
+    liveArtifacts: new Map(),
     foregroundArtifactRequests: new Map(),
     backgroundCandidates: new Map(),
     peekedArtifacts: new Map(),
@@ -111,13 +117,13 @@ async function handleMessage(state, deps, message) {
     }
     case 'request-artifact':
       state.foregroundArtifactRequests.clear();
-      requireArtifactCapacity(state);
+      requireArtifactCapacity(state, message.request.layout.spreadMode);
       return exactArtifactResponse(state, message.request, () =>
         state.session.requestArtifact(encodeRitoReaderArtifactRequest(message.request)),
       );
     case 'request-adjacent':
       state.foregroundArtifactRequests.clear();
-      requireArtifactCapacity(state);
+      requireArtifactCapacity(state, artifactSpreadMode(state, message.request.fromArtifactId));
       requireOwnedArtifact(state, message.request.fromArtifactId);
       return adjacentArtifactAttemptResponse(state, message.request, (request) =>
         state.session.requestAdjacent(encodeRitoReaderAdjacentRequest(request)),
@@ -132,7 +138,10 @@ async function handleMessage(state, deps, message) {
     case 'advance-background-once':
       requireVisibleArtifact(state, message.request.expectedVisibleArtifactId);
       if (!hasPendingCandidate(state, message.request.expectedVisibleArtifactId)) {
-        requireArtifactCapacity(state);
+        requireArtifactCapacity(
+          state,
+          artifactSpreadMode(state, message.request.expectedVisibleArtifactId),
+        );
       }
       return backgroundAdvanceResponse(
         state,
@@ -230,6 +239,7 @@ async function handleMessage(state, deps, message) {
     default: {
       const answered = handleRitoReaderSessionQuery(state, message, {
         requireArtifactCapacity,
+        artifactSpreadMode,
         requireOwnedArtifact,
         disposeTerminalSession,
         workerError: readerWorkerError,
@@ -486,7 +496,10 @@ function artifactResponse(state, request, raw, kind = 'artifact') {
     }
     throw readerWorkerError('invalid-wire', 'Reader artifact identity does not match its request');
   }
-  state.liveArtifacts.add(identity.artifactId);
+  state.liveArtifacts.set(
+    identity.artifactId,
+    request.layout?.spreadMode ?? artifactSpreadMode(state, request.fromArtifactId),
+  );
   state.foregroundArtifactRequests.set(identity.artifactId, identity.requestId);
   const wire = wireBytes.buffer;
   return { payload: { kind, identity, wire }, transfer: [wire] };
@@ -532,17 +545,18 @@ function backgroundAdvanceResponse(state, request, raw) {
       throw readerWorkerError('invalid-wire', 'Background replacement identity is invalid');
     }
     if (candidate) {
+      const spreadMode = artifactSpreadMode(state, request.expectedVisibleArtifactId);
       const candidateIsValid =
         candidate.sessionId === state.sessionId &&
         candidate.requestId === advance.intentRequestId &&
         !state.liveArtifacts.has(candidate.artifactId) &&
-        state.liveArtifacts.size < READER_LIVE_ARTIFACT_CAP &&
+        state.liveArtifacts.size < liveArtifactCap(spreadMode) &&
         !hasPendingCandidate(state, request.expectedVisibleArtifactId);
       if (!candidateIsValid) {
         releaseInvalidCandidate(state, candidate);
         throw readerWorkerError('invalid-wire', 'Background candidate identity is invalid');
       }
-      state.liveArtifacts.add(candidate.artifactId);
+      state.liveArtifacts.set(candidate.artifactId, spreadMode);
       state.backgroundCandidates.set(candidate.artifactId, {
         expectedVisibleArtifactId: request.expectedVisibleArtifactId,
         intentRequestId: advance.intentRequestId,
@@ -623,13 +637,22 @@ function requireOpen(state) {
   }
 }
 
-function requireArtifactCapacity(state) {
-  if (state.liveArtifacts.size >= READER_LIVE_ARTIFACT_CAP) {
-    throw readerWorkerError(
-      'artifact-capacity',
-      `Reader retains at most ${String(READER_LIVE_ARTIFACT_CAP)} artifacts`,
-    );
+function requireArtifactCapacity(state, spreadMode) {
+  const cap = liveArtifactCap(spreadMode);
+  if (state.liveArtifacts.size >= cap) {
+    throw readerWorkerError('artifact-capacity', `Reader retains at most ${String(cap)} artifacts`);
   }
+}
+
+function liveArtifactCap(spreadMode) {
+  return spreadMode === 'scrolled' ? READER_SCROLLED_LIVE_ARTIFACT_CAP : READER_LIVE_ARTIFACT_CAP;
+}
+
+// The spread mode of a live artifact's revision; a single-page spread for one
+// this worker does not hold, whose request fails on it after the capacity
+// check, as the engine's does.
+function artifactSpreadMode(state, artifactId) {
+  return state.liveArtifacts.get(artifactId) ?? 'single';
 }
 
 function requireOwnedArtifact(state, artifactId) {

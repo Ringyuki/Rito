@@ -38,6 +38,9 @@ pub(super) fn body(writer: &mut Writer, value: &ReaderArtifact) -> Result<(), Re
         writer.u32(*count);
         Ok(())
     })?;
+    writer.option(value.target_block_offset.as_ref(), |writer, offset| {
+        writer.f64(*offset, "target block offset")
+    })?;
     writer.u32(adjacent_availability(value.navigation.previous));
     writer.u32(adjacent_availability(value.navigation.next));
     writer.u32(text_profile(value.text_profile));

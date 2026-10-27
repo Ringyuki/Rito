@@ -106,15 +106,23 @@ impl<'a> ChapterEngineSession<'a> {
         self.backend.resolve_text_range(query)
     }
 
+    /// Where an anchored element starts in its page's display list.
+    pub(super) fn anchor_block_offset(&self, page_index: usize, anchor: &str) -> Option<f64> {
+        self.backend.anchor_block_offset(page_index, anchor)
+    }
+
+    /// A scrolled chapter's extent along the scroll axis.
+    pub(super) fn chapter_extent(&self, idref: &str) -> Option<f64> {
+        self.backend.chapter_extent(idref)
+    }
+
+    /// A page's width and height.
+    pub(super) fn page_size(&self, page_index: usize) -> Option<(f64, f64)> {
+        self.backend.page_size(page_index)
+    }
+
     /// Where the line a source point sits on starts in its page's display
     /// list, for a scrolled window to be shown from.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "a scrolled artifact carries it once the wire does"
-        )
-    )]
     pub(super) fn target_block_offset(
         &self,
         page_index: usize,

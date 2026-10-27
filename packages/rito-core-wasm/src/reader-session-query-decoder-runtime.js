@@ -33,6 +33,7 @@ const ANNOTATION_LEVELS = [
 ];
 const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
 const ORDERS = [-1, 0, 1];
+const SCROLL_AXES = ['down', 'left'];
 
 /** Decodes a `RITOFNT1` font catalog: every family a `font-family` list can name. */
 export function decodeRitoReaderFontCatalog(value) {
@@ -343,6 +344,7 @@ function readRevisionLayout(reader) {
       spineIndex: reader.u32('chapter spine index'),
       startPage: reader.u32('chapter start page'),
       endPage: reader.u32('chapter end page'),
+      extent: reader.option('chapter extent', () => reader.f64('chapter extent')),
     })),
     tocTargets: readCollection(reader, 'layout toc targets', () => ({
       tocId: reader.u32('toc target entry'),
@@ -352,6 +354,7 @@ function readRevisionLayout(reader) {
       optionalU32('page toc entry'),
     ),
     complete: reader.bool('layout complete'),
+    scrollAxis: reader.option('scroll axis', () => u8Tag(reader, 'scroll axis', SCROLL_AXES)),
   };
 }
 

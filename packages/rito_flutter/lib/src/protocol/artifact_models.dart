@@ -306,6 +306,7 @@ final class RitoArtifact {
     required this.height,
     this.bookPageIndex,
     this.bookPageCount,
+    this.targetBlockOffset,
     required this.navigation,
     required this.textProfile,
     required this.displayList,
@@ -351,6 +352,13 @@ final class RitoArtifact {
   /// background candidate already carries the total. Null on
   /// chapter-local artifacts.
   final int? bookPageCount;
+
+  /// Where the line [locator] lands on starts in this scrolled window's
+  /// display list, in CSS pixels from the window's top: show the window
+  /// from here to put that line at the top of the viewport's content box.
+  /// Null for a spread of pages, and for a window whose locator names no
+  /// line in it.
+  final double? targetBlockOffset;
   final RitoNavigation navigation;
   final RitoTextProfile textProfile;
   final RitoDisplayListPayload displayList;

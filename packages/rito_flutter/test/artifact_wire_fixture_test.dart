@@ -27,6 +27,7 @@ void main() {
     expect(artifact.localPageIndexes, <int>[9, 10]);
     expect(artifact.bookPageIndex, 140);
     expect(artifact.bookPageCount, 312);
+    expect(artifact.targetBlockOffset, 377.640625);
     final page = artifact.pages.single;
     expect(page.pageIndex, 9);
     expect(page.width, 400.25);

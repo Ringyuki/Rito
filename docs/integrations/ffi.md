@@ -192,6 +192,38 @@ holds bytes the live encoder wrote for one of every primitive, and a
 Rust test keeps it in step. Format 1, the semantic display list, is no
 longer written; a decoder rejects it by its version field.
 
+Wire changes landed with the scrolled reading mode (reader protocol
+version 8):
+
+- Artifacts and publications stamp protocol version 8; a decoder pinned
+  to 7 must move with it.
+- The layout record's `spread mode` has a third tag, 2 scrolled: each
+  chapter is one continuous strip read through windows the size of the
+  viewport, every window its own spread. Window `k` covers the chapter's
+  CSS block range `[k·H, (k+1)·H)` (`H` the viewport height, the last
+  window ending at the chapter's extent) and its device rows
+  `[D(k), D(k+1))`, `D(k) = floor(k·H·ratio + 0.5)`, the last ending at
+  `floor(extent·ratio + 0.5)`. `first page alone` and `spread gap` are
+  ignored.
+- The artifact record carries an optional `f64` target block offset
+  after `book page count`: where the line its locator lands on starts in
+  its scrolled window, in CSS pixels from the window's top. Absent for a
+  spread of pages and for a window whose locator names no line.
+- The revision layout (`RITONVR1`, layout result) carries an optional
+  `f64` extent after each chapter's `end page` (the chapter's margins and
+  strip, scrolled revisions only) and, after `complete`, an optional `u8`
+  scroll axis: 0 down, 1 left.
+- A scrolled session keeps up to 10 artifacts live (6 for pages).
+
+Wire changes landed when the display list lost its digest (reader
+protocol version 7):
+
+- Artifacts and publications stamp protocol version 7; a decoder pinned
+  to 6 must move with it.
+- The artifact's display-list record no longer carries the 32-byte
+  SHA-256 digest after the command count: the display list bytes follow
+  it directly.
+
 Wire changes landed when hit entries became the engine's classified
 targets (reader protocol version 6):
 

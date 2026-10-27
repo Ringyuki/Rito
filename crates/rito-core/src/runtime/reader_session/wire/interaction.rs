@@ -23,7 +23,7 @@ pub(super) use navigation::{
 
 use super::primitives::invalid;
 use crate::runtime::reader_session::{
-    ReaderAnnotationLevel, ReaderCaretAffinity, ReaderError, ReaderLocatorMatch,
+    ReaderAnnotationLevel, ReaderCaretAffinity, ReaderError, ReaderLocatorMatch, ReaderScrollAxis,
     ReaderSelectionBoundary, ReaderSelectionGranularity, ReaderSelectionMovement,
     ReaderTextInteractionUnavailableReason,
 };
@@ -76,6 +76,7 @@ const LOCATOR_MATCHES: [ReaderLocatorMatch; 5] = [
     ReaderLocatorMatch::Progression,
     ReaderLocatorMatch::Href,
 ];
+const SCROLL_AXES: [ReaderScrollAxis; 2] = [ReaderScrollAxis::Down, ReaderScrollAxis::Left];
 const ORDERINGS: [std::cmp::Ordering; 3] = [
     std::cmp::Ordering::Less,
     std::cmp::Ordering::Equal,

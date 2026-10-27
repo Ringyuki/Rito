@@ -58,6 +58,11 @@ use project::owner_from_created;
 // candidate, with one slot of slack.
 pub const READER_LIVE_ARTIFACT_CAP: u32 = 6;
 
+/// A scrolled reader's cap: the windows in view (a short chapter's can be
+/// several), the ones scrolling in on either side and an in-flight
+/// foreground candidate.
+pub const READER_SCROLLED_LIVE_ARTIFACT_CAP: u32 = 10;
+
 /// The most pages a host asks one background step to lay out when the
 /// engine shares a thread with the frames it draws: a step is what stands
 /// between two frames, so it is a few pages, not the book. Both hosts ask

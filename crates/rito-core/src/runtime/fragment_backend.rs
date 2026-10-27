@@ -75,6 +75,9 @@ pub(super) struct FragmentBackendChapter {
     pub(super) page_background: Option<ReaderColor>,
     /// The body's background image painted across the full page.
     pub(super) page_background_image: Option<ReaderBackgroundPaint>,
+    /// A scrolled chapter's extent along the scroll axis, in CSS pixels:
+    /// its margins and its strip.
+    pub(super) extent: Option<f64>,
     /// The chapter's own half of its rebuild inputs.
     style_tables: Rc<RuntimeChapterStyleTables>,
     /// Intrinsic image sizes as the first build saw them. Recorded rather
@@ -274,7 +277,14 @@ pub(super) struct FragmentPageRef {
 impl FragmentPageRef {
     /// The page's width and height, without building its query artifact.
     pub(super) fn size(&self) -> (f64, f64) {
-        (self.chapter.page_width, self.chapter.page_height)
+        match &self.chapter.strip {
+            // A scrolled chapter's last window ends where the chapter does.
+            Some(strip) => {
+                let range = strip.windows().range(self.page);
+                (self.chapter.page_width, range.end - range.start)
+            }
+            None => (self.chapter.page_width, self.chapter.page_height),
+        }
     }
 
     /// The page's query artifact as a standalone handle: it carries the
@@ -287,6 +297,38 @@ impl FragmentPageRef {
     /// The page's paint commands at `ratio` device pixels per CSS pixel.
     pub(super) fn commands_for(&self, ratio: f64) -> EpubResult<Arc<Vec<DisplayCommand>>> {
         self.chapter.commands_for(self.page, ratio)
+    }
+
+    /// Where the element `anchor` names starts on the page, in its content
+    /// box; `None` when the page holds none of it.
+    pub(super) fn anchor_top(&self, anchor: &str) -> Option<f64> {
+        fn find(
+            fragment: &Fragment,
+            parent_y: f64,
+            anchors: &BTreeMap<u32, String>,
+            anchor: &str,
+        ) -> Option<f64> {
+            let top = parent_y + fragment.rect().y;
+            if anchors
+                .get(&fragment.source().0)
+                .is_some_and(|name| name == anchor)
+            {
+                return Some(top);
+            }
+            match fragment {
+                Fragment::Box(inner) => inner
+                    .children
+                    .iter()
+                    .find_map(|child| find(child, top, anchors, anchor)),
+                _ => None,
+            }
+        }
+        find(
+            self.chapter.text_tree(self.page),
+            0.0,
+            &self.chapter.paint.built.node_anchors,
+            anchor,
+        )
     }
 
     /// A scrolled chapter's window framed at `ratio`, in the chapter's
@@ -1042,7 +1084,7 @@ impl RuntimeDocument {
         }
         // Without its text, as a whole-book table paginates: each page is
         // dropped once its anchors and run starts are taken.
-        let pages = if config.spread_mode == SpreadMode::Scrolled {
+        let (pages, extent) = if config.spread_mode == SpreadMode::Scrolled {
             let strip = ChapterStrip::lay_out(
                 &build.engine,
                 Rc::clone(&build.faces),
@@ -1051,18 +1093,17 @@ impl RuntimeDocument {
                 false,
             )
             .map_err(|error| format!("chapter {idref} strip: {}", error.message()))?;
-            TableChapterPages::Windows(
-                (0..strip.windows().count())
-                    .map(|window| strip.window_page_root(window))
-                    .collect(),
+            let windows = (0..strip.windows().count())
+                .map(|window| strip.window_page_root(window))
+                .collect();
+            (
+                TableChapterPages::Windows(windows),
+                Some(strip.windows().extent()),
             )
         } else {
-            TableChapterPages::Paginated(ChapterPaginator::new(
-                &built.tree,
-                content_width,
-                content_height,
-                false,
-            ))
+            let paginator =
+                ChapterPaginator::new(&built.tree, content_width, content_height, false);
+            (TableChapterPages::Paginated(paginator), None)
         };
         Ok(TableChapter {
             record: FragmentBackendChapter {
@@ -1071,6 +1112,7 @@ impl RuntimeDocument {
                 block_count: built.tree.node(built.tree.root()).children.len(),
                 page_background: built.page_background,
                 page_background_image: built.page_background_image.clone(),
+                extent,
                 style_tables: Rc::clone(style_tables),
                 image_dimensions,
             },
@@ -1191,6 +1233,10 @@ impl RuntimeDocument {
             block_count,
             page_background: materialized.paint.built.page_background,
             page_background_image: materialized.paint.built.page_background_image.clone(),
+            extent: materialized
+                .strip
+                .as_ref()
+                .map(|strip| strip.windows().extent()),
             style_tables: Rc::clone(&style_tables),
             image_dimensions,
         };
@@ -1424,6 +1470,7 @@ mod tests {
             block_count: 1,
             page_background: None,
             page_background_image: None,
+            extent: None,
             style_tables: Rc::new(RuntimeChapterStyleTables {
                 layout: rito_style_contract::LayoutStyleTable::new(0),
                 inline: rito_style_contract::InlineStyleTable::new(0),

@@ -107,6 +107,7 @@ final class RitoRequestEncoder {
     return switch (value) {
       RitoSpreadMode.single => 0,
       RitoSpreadMode.double => 1,
+      RitoSpreadMode.scrolled => 2,
     };
   }
 

@@ -13,6 +13,7 @@ final class RitoRevisionLayout {
     required this.tocTargets,
     required this.activeTocEntryByPage,
     required this.complete,
+    this.scrollAxis,
   });
 
   final int pageCount;
@@ -34,6 +35,20 @@ final class RitoRevisionLayout {
   /// not holds their first pages, numbered and spread as all of them are;
   /// a TOC entry whose target lies past them is not placed yet.
   final bool complete;
+
+  /// The direction a scrolled revision's chapters run in; null for a
+  /// revision of pages.
+  final RitoScrollAxis? scrollAxis;
+}
+
+/// The direction a scrolled revision's chapters run: each chapter follows
+/// the one before it along this axis.
+enum RitoScrollAxis {
+  /// Down the screen, as horizontal text's blocks stack.
+  down,
+
+  /// Leftwards, as vertical right-to-left text's columns follow.
+  left,
 }
 
 final class RitoSpreadPages {
@@ -49,12 +64,17 @@ final class RitoChapterPages {
     required this.spineIndex,
     required this.startPage,
     required this.endPage,
+    this.extent,
   });
 
   /// The item's index in the publication's spine.
   final int spineIndex;
   final int startPage;
   final int endPage;
+
+  /// A scrolled chapter's extent along the scroll axis, in CSS pixels: its
+  /// margins and its strip. Null in a revision of pages.
+  final double? extent;
 }
 
 final class RitoTocTargetPage {
@@ -87,6 +107,10 @@ RitoRevisionLayout readRitoRevisionLayout(RitoBinaryReader reader) {
         spineIndex: reader.uint32('chapter spine index'),
         startPage: reader.uint32('chapter start page'),
         endPage: reader.uint32('chapter end page'),
+        extent: reader.option(
+          'chapter extent',
+          () => reader.float64('chapter extent'),
+        ),
       ),
     ),
     tocTargets: collection(
@@ -101,5 +125,12 @@ RitoRevisionLayout readRitoRevisionLayout(RitoBinaryReader reader) {
       () => optional('page toc entry'),
     ),
     complete: reader.boolean('layout complete'),
+    scrollAxis: reader.option('scroll axis', () {
+      final tag = reader.uint8('scroll axis');
+      if (tag >= RitoScrollAxis.values.length) {
+        reader.fail('unknown scroll axis tag: $tag');
+      }
+      return RitoScrollAxis.values[tag];
+    }),
   );
 }

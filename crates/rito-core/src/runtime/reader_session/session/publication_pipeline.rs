@@ -67,7 +67,7 @@ impl ReaderSession {
             ));
         }
         if needs_handoff {
-            self.require_artifact_capacity()?;
+            self.require_artifact_capacity(intent.layout.spread_mode)?;
         }
 
         if !self.document.publication_footnote_index_is_complete() {

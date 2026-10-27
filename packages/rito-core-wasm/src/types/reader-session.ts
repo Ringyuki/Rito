@@ -1,7 +1,15 @@
 import type { RitoReaderRect } from './reader-session-display';
 import type { RitoReaderPrimitiveList } from './reader-session-primitive';
 
-export type RitoReaderSpreadMode = 'single' | 'double';
+/**
+ * `scrolled` lays each chapter out as one continuous strip read through
+ * windows the size of the viewport, every window its own spread. Window `k`
+ * of a chapter covers its CSS block range `[k·H, (k+1)·H)` (`H` the viewport
+ * height, the last window ending at the chapter's extent) and its device
+ * rows `[D(k), D(k+1))`, `D(k) = floor(k·H·ratio + 0.5)`, the last ending at
+ * `floor(extent·ratio + 0.5)`: the windows tile the chapter row for row.
+ */
+export type RitoReaderSpreadMode = 'single' | 'double' | 'scrolled';
 export type RitoReaderTextProfile = 'platform-string-runs' | 'positioned-glyph-runs';
 export type RitoReaderResourceKind = 'image' | 'font' | 'stylesheet';
 export type RitoReaderAdjacentDirection = 'previous' | 'next';
@@ -286,6 +294,14 @@ export interface RitoReaderArtifact {
   readonly bookPageIndex?: number | undefined;
   /** The whole book's page count, present together with `bookPageIndex`. */
   readonly bookPageCount?: number | undefined;
+  /**
+   * Where the line the artifact's locator lands on starts in its scrolled
+   * window's display list, in CSS pixels from the window's top: the window
+   * is shown from here to put that line at the top of the viewport's content
+   * box. Absent for a spread of pages, and for a window whose locator names
+   * no line.
+   */
+  readonly targetBlockOffset?: number | undefined;
   readonly navigation: {
     readonly previous: RitoReaderAdjacentAvailability;
     readonly next: RitoReaderAdjacentAvailability;

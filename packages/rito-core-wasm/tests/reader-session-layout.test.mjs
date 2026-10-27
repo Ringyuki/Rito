@@ -39,8 +39,8 @@ const LAYOUT = {
     { leftPageIndex: 3, rightPageIndex: 4 },
   ],
   chapters: [
-    { spineIndex: 1, startPage: 0, endPage: 2 },
-    { spineIndex: 3, startPage: 3, endPage: 4 },
+    { spineIndex: 1, startPage: 0, endPage: 2, extent: 4_200.5 },
+    { spineIndex: 3, startPage: 3, endPage: 4, extent: 1_900.25 },
   ],
   tocTargets: [
     { tocId: 2, pageIndex: 0 },
@@ -48,6 +48,7 @@ const LAYOUT = {
   ],
   activeTocEntryByPage: [undefined, 2, 2, 6, 6],
   complete: false,
+  scrollAxis: 'left',
 };
 
 test('the layout query and the spread request encode to the Rust bytes', () => {
@@ -303,4 +304,23 @@ test('an artifact request encodes to the Rust bytes, force flags included', asyn
   const flagsOffset = 44 + Number(new DataView(expected.buffer).getBigUint64(36, true)) - 2;
   assert.deepEqual([...defaulted.subarray(flagsOffset, flagsOffset + 2)], [1, 1]);
   assert.deepEqual([...expected.subarray(flagsOffset, flagsOffset + 2)], [0, 1]);
+  // The spread mode follows the six margins and viewport sides; its tags are
+  // the engine's: single 0, double 1, scrolled 2.
+  const spreadModeAt = (bytes) => new DataView(bytes.buffer).getUint32(44 + 6 * 8, true);
+  assert.equal(spreadModeAt(expected), 1);
+  const scrolled = encodeRitoReaderArtifactRequest({
+    ...request,
+    layout: { ...layout, spreadMode: 'scrolled' },
+  });
+  assert.equal(spreadModeAt(scrolled), 2);
+  assert.deepEqual(
+    [...scrolled.subarray(0, 44 + 6 * 8)],
+    [...expected.subarray(0, 44 + 6 * 8)],
+    'only the spread mode differs before it',
+  );
+  assert.throws(
+    () =>
+      encodeRitoReaderArtifactRequest({ ...request, layout: { ...layout, spreadMode: 'free' } }),
+    /unknown spread mode/,
+  );
 });
