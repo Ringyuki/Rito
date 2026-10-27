@@ -139,6 +139,7 @@ impl FormattingContext for FixedLineInline {
                     trailing_whitespace: 0.0,
                     ruby_growth: 0.0,
                     ruby_overflow: 0.0,
+                    ruby_lent: 0.0,
                     fonts: rito_fragment::LineFonts::None,
                     text_runs: Vec::new(),
                     children: Vec::new(),

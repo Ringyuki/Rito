@@ -81,6 +81,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.extend_from_slice(&fragment.trailing_whitespace.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.ruby_growth.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.ruby_overflow.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.ruby_lent.to_bits().to_le_bytes());
             match fragment.fonts {
                 LineFonts::None => out.push(0),
                 LineFonts::One(face) => {
@@ -199,6 +200,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let trailing_whitespace = reader.f64()?;
             let ruby_growth = reader.f64()?;
             let ruby_overflow = reader.f64()?;
+            let ruby_lent = reader.f64()?;
             let fonts = match reader.u8()? {
                 0 => LineFonts::None,
                 1 => LineFonts::One(crate::FontFaceId(reader.u32()?)),
@@ -231,6 +233,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 trailing_whitespace,
                 ruby_growth,
                 ruby_overflow,
+                ruby_lent,
                 fonts,
                 marker,
                 text_runs,
@@ -552,6 +555,7 @@ mod tests {
                         trailing_whitespace: 4.25,
                         ruby_growth: 1.5,
                         ruby_overflow: 2.0,
+                        ruby_lent: 0.5,
                         fonts: LineFonts::One(crate::FontFaceId(7)),
                         text_runs: vec![(0, 42)],
                         children: vec![Fragment::Text(TextFragment {

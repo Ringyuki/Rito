@@ -224,3 +224,83 @@ fn an_empty_line_above_lends_only_its_half_leading() {
     );
     assert!((within - across).abs() < 1e-6, "{within} vs {across}");
 }
+
+#[test]
+fn a_ruby_paragraph_lent_space_above_resumes_where_its_first_page_stopped() {
+    // The first page lays the paragraph out against the paragraph before
+    // it, the next resumes it without; both must slice one geometry.
+    let long = PREVIOUS.repeat(24);
+    let body = format!("<p>{PREVIOUS}</p><p>{RUBY}{long}</p>");
+    let continuous = strip_lines(&body, "p { margin: 0; }").len();
+    let pages = page_lines(&body, "p { margin: 0; }", 120.0);
+    let placed: usize = pages.iter().map(Vec::len).sum();
+    assert!(pages.len() > 1, "the paragraph splits: {pages:?}");
+    assert_eq!(placed, continuous, "{pages:?}");
+}
+
+#[test]
+#[ignore = "drill-down: RITO_DRILL_EPUB=<book> RITO_DRILL_CHAPTER=<idref> RITO_DRILL_PAGES=a-b"]
+fn drill_pages() {
+    let path = std::env::var("RITO_DRILL_EPUB").expect("book");
+    let idref = std::env::var("RITO_DRILL_CHAPTER").expect("chapter");
+    let pages = std::env::var("RITO_DRILL_PAGES").unwrap_or_else(|_| "0-2".to_owned());
+    let (from, to) = pages.split_once('-').expect("a-b");
+    let (from, to): (usize, usize) = (from.parse().unwrap(), to.parse().unwrap());
+    let bytes = std::fs::read(path).expect("book reads");
+    let mut document = RuntimeDocument::open_pinned_for_tests(&bytes).expect("document opens");
+    let revision_id = document
+        .create_revision(&layout())
+        .expect("revision")
+        .revision_id;
+    let inline = ParleyInlineContext::new(vec![bundled_font("SourceHanSerifCN-Regular.otf")])
+        .expect("font registers");
+    let engine = BlockFormattingContext::new(inline);
+    let built = document
+        .chapter_formatting_tree(&revision_id, &idref)
+        .expect("tree builds");
+    let cancel = CancelFlag::new();
+    let mut token: Option<BreakToken> = None;
+    for page in 0..=to {
+        let (fragment, next) =
+            layout_chapter_page(&engine, &built.tree, 640.0, 850.0, token.as_ref(), &cancel)
+                .expect("page lays out");
+        if page >= from {
+            fn walk(f: &Fragment, top: f64, depth: usize) {
+                match f {
+                    Fragment::Box(b) => {
+                        eprintln!(
+                            "{}box {:?} y={} h={}",
+                            "  ".repeat(depth),
+                            b.source,
+                            top + b.rect.y,
+                            b.rect.height
+                        );
+                        for c in &b.children {
+                            walk(c, top + b.rect.y, depth + 1);
+                        }
+                    }
+                    Fragment::Line(l) => eprintln!(
+                        "{}line y={} h={} base={} growth={} overflow={} runs={:?}",
+                        "  ".repeat(depth),
+                        top + l.rect.y,
+                        l.rect.height,
+                        l.baseline,
+                        l.ruby_growth,
+                        l.ruby_overflow,
+                        l.text_runs.first()
+                    ),
+                    _ => {}
+                }
+            }
+            eprintln!(
+                "=== page {page} token {:?}",
+                token.as_ref().map(|t| (&t.resume_path, &t.stage))
+            );
+            walk(&fragment, 0.0, 0);
+        }
+        match next {
+            Some(next) => token = Some(next),
+            None => break,
+        }
+    }
+}

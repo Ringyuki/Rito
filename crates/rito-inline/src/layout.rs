@@ -1983,7 +1983,7 @@ impl FormattingContext for ParleyInlineContext {
             // ratios x 3 annotation lengths: growth = rt size minus the
             // half-leading, floored at zero, independent of annotation
             // length, the whole growth landing on the line's right).
-            let (ruby_growth, ruby_overflow) = if vertical_flow {
+            let (ruby_growth, ruby_overflow, ruby_lent) = if vertical_flow {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     let on_line = line_text_range
@@ -2013,7 +2013,7 @@ impl FormattingContext for ParleyInlineContext {
                     growth =
                         growth.max((annotation_size + 0.5 - (line_height - fs) / 2.0).max(0.0));
                 }
-                (growth, growth)
+                (growth, growth, 0.0)
             } else {
                 let mut growth = 0.0_f64;
                 // The deficit with nothing above to reach into.
@@ -2162,10 +2162,19 @@ impl FormattingContext for ParleyInlineContext {
                 // (padding, collapsed margins, the preceding block's
                 // leading), as Blink's block-start annotation space does.
                 let overflow = overflow.ceil();
-                if prev_ruby_below.is_none() {
-                    (overflow, overflow)
+                if lines.is_empty() {
+                    // The first line is laid out at its whole overflow
+                    // whatever precedes the flow, so every fragment of the
+                    // flow shares one geometry; what the preceding line
+                    // lends rides `ruby_lent` to the line's opening.
+                    let lent = if prev_ruby_below.is_some() {
+                        (overflow - growth).max(0.0)
+                    } else {
+                        0.0
+                    };
+                    (overflow, overflow, lent)
                 } else {
-                    (growth, overflow)
+                    (growth, overflow, 0.0)
                 }
             };
             let line_height = line_height + ruby_growth;
@@ -2284,6 +2293,7 @@ impl FormattingContext for ParleyInlineContext {
                 trailing_whitespace: f64::from(metrics.trailing_whitespace),
                 ruby_growth,
                 ruby_overflow,
+                ruby_lent,
                 fonts: line_fonts,
                 marker,
                 text_runs: line_runs,

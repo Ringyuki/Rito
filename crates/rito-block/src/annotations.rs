@@ -12,9 +12,8 @@ use crate::*;
 /// How the first line a paragraph fragment places takes its ruby growth.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum LineOpening {
-    /// The paragraph's first fragment: the annotations spend `space` above
-    /// the line beyond what the inline provider reused of the preceding
-    /// line.
+    /// The paragraph's first fragment: the annotations spend what the
+    /// preceding line lends (`ruby_lent`) and `space` above the line.
     Start { space: f64 },
     /// A resumed fragment: nothing above lends space.
     Resumed,
@@ -49,7 +48,7 @@ impl LineOpening {
             return (line.clone(), 0.0);
         };
         let growth = match self {
-            Self::Start { space } => (fragment.ruby_growth - space).max(0.0),
+            Self::Start { space } => (fragment.ruby_growth - fragment.ruby_lent - space).max(0.0),
             Self::Resumed => fragment.ruby_overflow,
             Self::Kept => fragment.ruby_growth,
         };

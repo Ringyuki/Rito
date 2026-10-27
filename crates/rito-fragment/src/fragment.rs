@@ -87,6 +87,14 @@ pub struct LineFragment {
     /// space is zero there). `ruby_growth` is this less what the space
     /// above absorbs. Zero on lines without ruby.
     pub ruby_overflow: f64,
+    /// On a flow's first line, how much of its overflow the leading under
+    /// the preceding block's last line lends it
+    /// (`ConstraintSpace::preceding_line`); zero on every other line. The
+    /// line is laid out at its whole overflow either way, so the flow's
+    /// geometry does not depend on what precedes it; the block context
+    /// spends this with the rest of the space above when the line opens
+    /// the flow.
+    pub ruby_lent: f64,
     /// The fonts the line's glyph runs were shaped with, which the next
     /// line's annotations read to know how much of the space under this
     /// line's text they may reuse.
