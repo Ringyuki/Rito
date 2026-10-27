@@ -5,7 +5,7 @@
 # Usage: walk-corpus.sh <corpus-dir> <ledger.tsv> [first-book-prefix]
 cd "$(dirname "$0")" || exit 1
 corpus="$1"; ledger="$2"; from="${3:-000}"
-[ -f "$ledger" ] || printf 'book\tpages\tzero\tbeyond_floor_px\tbeyond_floor_pages\ttotal_px\tworst_px\n' > "$ledger"
+[ -f "$ledger" ] || printf 'book\tpages\tzero\tbeyond_floor_px\tbeyond_floor_pages\ttotal_px\tworst_px\toutside_images_px\toutside_images_pages\n' > "$ledger"
 for book in "$corpus"/*.epub; do
   name=$(basename "$book" .epub)
   prefix=$(printf '%s' "$name" | cut -c1-3)
@@ -28,7 +28,7 @@ for book in "$corpus"/*.epub; do
     attempt=$((attempt + 1))
   done
   if [ ! -f "$out/report.md" ]; then
-    printf '%s\tFAILED\t\t\t\t\t\n' "$prefix" >> "$ledger"
+    printf '%s\tFAILED\t\t\t\t\t\t\t\n' "$prefix" >> "$ledger"
     echo "FAILED $prefix"
     rm -rf "$out"
     continue
@@ -36,9 +36,10 @@ for book in "$corpus"/*.epub; do
   report="$out/report.md"
   pages=$(sed -n 's/^pages compared: \([0-9]*\); at ZERO diff: \([0-9]*\); worst: \([0-9]*\) px.*/\1\t\2\t\3/p' "$report")
   floor=$(sed -n 's/^beyond the characterized raster floor (>13\/channel): \([0-9]*\) px on \([0-9]*\) pages.*/\1\t\2/p' "$report")
+  outside=$(sed -n 's/^beyond the floor outside drawn images: \([0-9]*\) px on \([0-9]*\) pages.*/\1\t\2/p' "$report")
   total=$(awk -F'/' '/^- /{gsub(/ /,"",$1); sub(/^-/,"",$1); s+=$1} END{print s+0}' "$report")
   p=$(printf '%s' "$pages" | cut -f1); z=$(printf '%s' "$pages" | cut -f2); w=$(printf '%s' "$pages" | cut -f3)
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$prefix" "$p" "$z" "$floor" "$total" "$w" >> "$ledger"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$prefix" "$p" "$z" "$floor" "$total" "$w" "$outside" >> "$ledger"
   echo "DONE $prefix pages=$p zero=$z total=$total"
   reports="${WALK_REPORTS:-walk-corpus-reports}"
   mkdir -p "$reports"

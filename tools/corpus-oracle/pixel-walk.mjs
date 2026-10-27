@@ -30,6 +30,7 @@ import {
   composeScrolledWindow,
 } from './scroll-truth.mjs';
 import { launchOracleChromium } from '../oracle-chromium.mjs';
+import { collectImageAreas, imageMask } from './image-areas.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -531,6 +532,8 @@ console.log(`engine pages captured: ${enginePages.size}`);
 
 // ---- Truth side: per chapter, multicol columns of the content box -------
 const truthColumns = new Map(); // idref -> PNG[] (one per column)
+// idref -> where the paged truth draws bitmap images (image-areas.mjs).
+const truthImageAreas = new Map();
 // idref -> the scrolled lane's windows (scroll-truth.mjs).
 const truthWindows = new Map();
 // idref -> how many columns Chromium lays the chapter out in (horizontal
@@ -1052,6 +1055,7 @@ img { object-fit: contain; }`;
     // n columns span n*contentW + (n-1)*3000; a line overflowing its
     // column by less than one step does not add one.
     truthColumnCount.set(chapter.href, Math.floor((docWidth + 3000) / (contentW + 3000) + 0.001));
+    truthImageAreas.set(chapter.href, await collectImageAreas(truth, { step: contentW + 3000 }));
     for (let k = 0; k <= expected + 1; k += 1) {
       // The gap must exceed any single line's horizontal overflow: an
       // unbreakable run (61 fullwidth stars) is ~430px wider than the
@@ -1176,6 +1180,12 @@ for (const chapter of plan.chapters) {
     // reproduction models pixel-falsified (task dossier). A defect the
     // engine can act on moves ink, and moved ink exceeds that ceiling.
     let beyondFloor = 0;
+    // The beyond-floor pixels outside the page's drawn images: inside one
+    // the diff measures canvas against compositor resampling
+    // (image-areas.mjs). Paged horizontal pages only.
+    const areas = truthImageAreas.get(chapter.href);
+    const images = areas ? imageMask(areas, k, { pageWd, pageHd, marginD, dsf: DSF }) : undefined;
+    let beyondOutsideImages = 0;
     for (let p = 0; p < pageWd * comparedRows; p += 1) {
       if (p % pageWd >= comparedColumns) continue;
       const i = p * 4;
@@ -1186,6 +1196,7 @@ for (const chapter of plan.chapters) {
       );
       if (delta > 0) diff += 1;
       if (delta > 13) beyondFloor += 1;
+      if (delta > 13 && !images?.[p]) beyondOutsideImages += 1;
     }
     results.push({
       chapter: chapter.href,
@@ -1193,6 +1204,7 @@ for (const chapter of plan.chapters) {
       pageIndex,
       diff,
       beyondFloor,
+      beyondOutsideImages: images ? beyondOutsideImages : undefined,
       drift: truthCount - enginePageCount,
       engine,
       truthPage,
@@ -1233,7 +1245,7 @@ const bestNonzero = new Set(
 );
 results.forEach((r, rank) => {
   lines.push(
-    `- ${String(r.diff).padStart(8)} / ${String(r.beyondFloor).padStart(6)} px — ${r.chapter} page ${r.pageInChapter} (book page ${r.pageIndex})`,
+    `- ${String(r.diff).padStart(8)} / ${String(r.beyondFloor).padStart(6)} px — ${r.chapter} page ${r.pageInChapter} (book page ${r.pageIndex})${r.beyondOutsideImages === undefined || r.beyondOutsideImages === r.beyondFloor ? '' : `, outside images ${r.beyondOutsideImages}`}`,
   );
   if ((rank < GALLERY || bestNonzero.has(r.pageIndex)) && r.diff > 0) {
     const sep = 4;
@@ -1264,12 +1276,20 @@ results.forEach((r, rank) => {
 const zero = results.filter((r) => r.diff === 0).length;
 const zeroBeyond = results.filter((r) => r.beyondFloor === 0).length;
 const totalBeyond = results.reduce((sum, r) => sum + r.beyondFloor, 0);
+const outside = results.map((r) => r.beyondOutsideImages ?? r.beyondFloor);
+const totalOutside = outside.reduce((sum, n) => sum + n, 0);
+const zeroOutside = outside.filter((n) => n === 0).length;
 lines.splice(
   4,
   0,
   `pages compared: ${results.length}; at ZERO diff: ${zero}; worst: ${results[0]?.diff ?? 0} px`,
   `beyond the characterized raster floor (>13/channel): ${totalBeyond} px on ${results.length - zeroBeyond} pages; at ZERO: ${zeroBeyond}`,
+  `beyond the floor outside drawn images: ${totalOutside} px on ${results.length - zeroOutside} pages; at ZERO: ${zeroOutside}`,
 );
 writeFileSync(path.join(outDir, 'report.md'), lines.join('\n'));
+writeFileSync(
+  path.join(outDir, 'image-areas.json'),
+  JSON.stringify(Object.fromEntries(truthImageAreas), null, 1),
+);
 console.log(lines.slice(0, 30).join('\n'));
 console.log(`\nreport: ${path.join(outDir, 'report.md')}`);
