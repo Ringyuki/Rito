@@ -46,6 +46,8 @@ export interface RitoScrollReaderState {
 export interface RitoScrollReaderActions {
   /** Opens an EPUB archive or a sharded publication. */
   readonly load: (data: ReaderPublication | PromiseLike<ReaderPublication>) => Promise<void>;
+  /** Lets the book go, and any load still opening one. */
+  readonly unload: () => Promise<void>;
   /** The element the view is shown in, as a ref callback. */
   readonly containerRef: (element: HTMLElement | null) => void;
 }
@@ -79,6 +81,12 @@ export function useRitoScrollReader(
   const held = useHeldStack();
   const containerRef = useRef<HTMLElement | null>(null);
   const load = useScrollLoad(optionsRef, held, containerRef, setState);
+  const { release, request } = held;
+  const unload = useCallback(async (): Promise<void> => {
+    request.current += 1;
+    setState(INITIAL);
+    await release();
+  }, [release, request]);
   const attach = useCallback(
     (element: HTMLElement | null): void => {
       containerRef.current = element;
@@ -91,6 +99,7 @@ export function useRitoScrollReader(
     controller: held.stack?.controller ?? null,
     reader: held.stack?.reader ?? null,
     load,
+    unload,
     containerRef: attach,
   };
 }

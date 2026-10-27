@@ -156,7 +156,8 @@ See [Fonts](../api/reader.md#fonts) for how families resolve.
 (the book laid out with `spread: 'scrolled'` whatever `reader.spread` says) and
 its kit scroll view. Pass `containerRef` as the ref of the element the view is
 shown in; `load(data)` opens a book, letting go of the one before, and shows
-`initialLocator`'s line at the reading line once the book is laid out. The state
+`initialLocator`'s line at the reading line once the book is laid out; `unload()`
+lets it go. The state
 follows the view: `progress` (0 to 1 through the book), `position` (the locator
 at the reading line as of the strip's last rest, to save and reopen at) and
 `selection` (the `selection` event while something is selected, null

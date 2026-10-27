@@ -166,6 +166,25 @@ describe('useRitoScrollReader', () => {
     root = createRoot(host);
   });
 
+  it('lets the book go when asked', async () => {
+    const reader = fakeReader('A book');
+    const controller = fakeController();
+    createReaderMock.mockResolvedValue(reader);
+    createScrollControllerMock.mockReturnValue(controller);
+    act(() => {
+      root.render(<Harness options={OPTIONS} />);
+    });
+    await act(async () => {
+      await current().load(new ArrayBuffer(1));
+    });
+    await act(async () => {
+      await current().unload();
+    });
+    expect(controller.dispose).toHaveBeenCalled();
+    expect(reader.dispose).toHaveBeenCalled();
+    expect(current()).toMatchObject({ isLoaded: false, controller: null, metadata: null });
+  });
+
   it('says why a book could not be opened', async () => {
     createReaderMock.mockRejectedValue(new Error('not an EPUB'));
     act(() => {
