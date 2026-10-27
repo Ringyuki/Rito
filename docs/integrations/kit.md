@@ -302,7 +302,8 @@ a point. Offsets are CSS pixels along the axis from the book's block start.
 The view selects text through the reader's own text selection (`selection:
 true`, the default): with the built-in input a mouse drag selects from where it
 was pressed, on from one window into the next, a double press selects a word and
-a triple press a paragraph, a drag held near either end of the view scrolls the
+a triple press a paragraph, a touch held still selects the word under it and
+then follows the finger instead of scrolling, a drag held near either end of the view scrolls the
 strip on under it, and a press that does not move clears the selection and taps.
 A Shift chord moves the selection's focus as the page controller's does, its
 arrow keys read by the writing mode of the focus's line, and the strip follows a

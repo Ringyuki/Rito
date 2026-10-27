@@ -3,7 +3,7 @@ import {
   keyboardSelectionMovement,
 } from '../controller/wiring/keyboard-selection-map';
 import type { NativeSelectionGranularity } from '../interaction/selection/native-types';
-import type { ScrollTap } from './input';
+import type { ScrollLongPress, ScrollTap } from './input';
 import type { ScrollSelection } from './selection';
 import type { ScrollController } from './types';
 
@@ -201,5 +201,31 @@ export function wireKeySelection(selection: ScrollSelection, moved: () => void):
   window.addEventListener('keydown', onKey, { capture: true });
   return () => {
     window.removeEventListener('keydown', onKey, { capture: true });
+  };
+}
+
+/**
+ * A touch held still selects the word under it, and as it moves on the
+ * selection follows it, scrolling the strip on near either end of the
+ * view, until it lifts.
+ */
+export function touchLongPress(
+  canvas: HTMLCanvasElement,
+  controller: ScrollController,
+  selection: ScrollSelection,
+): ScrollLongPress {
+  return (x, y) => {
+    const press = pressed({ x, y }, 'word');
+    select(controller, selection, press, press.at, 'begin');
+    return {
+      move: (toX, toY) => {
+        drag(canvas, controller, selection, press, { x: toX, y: toY });
+      },
+      end: (atX, atY) => {
+        press.held = false;
+        if (press.frame !== null) cancelAnimationFrame(press.frame);
+        select(controller, selection, press, { x: atX, y: atY }, 'end');
+      },
+    };
   };
 }

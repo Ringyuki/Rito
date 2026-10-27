@@ -10,7 +10,7 @@ import { createWindowOverlays } from './overlays';
 import { defaultScrollPhysics } from './physics';
 import { createWindowPool } from './pool';
 import { createScrollSelection } from './selection';
-import { wireKeySelection, wireMouseSelection } from './selection-input';
+import { touchLongPress, wireKeySelection, wireMouseSelection } from './selection-input';
 import type { ScrollController, ScrollControllerEvents, ScrollControllerOptions } from './types';
 import {
   moveTo,
@@ -101,7 +101,10 @@ function wireInput(view: ScrollView, controller: ScrollController): (() => void)
   const { selection } = view;
   if (selection === undefined) return [wireScrollInput(canvas, controller, onTap)];
   return [
-    wireScrollInput(canvas, controller, onTap, { mouseTaps: false }),
+    wireScrollInput(canvas, controller, onTap, {
+      mouseTaps: false,
+      longPress: touchLongPress(canvas, controller, selection),
+    }),
     wireMouseSelection(canvas, controller, selection, onTap),
     wireKeySelection(selection, () => {
       revealFocus(view);

@@ -1,29 +1,36 @@
-import { estimateVelocity, type VelocitySample } from '../driver/transition-velocity';
+import { wireDrag } from './touch-input';
 import type { ScrollController } from './types';
 
 /** CSS pixels a wheel's line moves; a page moves the viewport less two lines. */
 const LINE = 40;
-/** A touch that moves less than this and lifts within TAP_MS is a tap. */
-const TAP_SLOP = 8;
-const TAP_MS = 400;
 
 /** A tap at view coordinates (CSS pixels from the view's top-left corner). */
 export type ScrollTap = (x: number, y: number) => void;
 
+/** What a touch held still and selecting does as it moves and lifts, at view coordinates. */
+export interface TouchSelecting {
+  move(x: number, y: number): void;
+  end(x: number, y: number): void;
+}
+
+/** Starts a selection at view point `x`, `y` for a touch held still; null when it cannot. */
+export type ScrollLongPress = (x: number, y: number) => TouchSelecting | null;
+
 /**
  * The built-in input: the wheel and the keys move the strip, a touch or a
- * pen drags it and flings it, and a click taps unless `mouseTaps` is off
- * (the mouse's selection taps instead). Forward is down the screen, or
- * leftwards for a book that scrolls leftwards. Returns the unsubscribe.
+ * pen drags it and flings it, a touch held still selects through
+ * `longPress`, and a click taps unless `mouseTaps` is off (the mouse's
+ * selection taps instead). Forward is down the screen, or leftwards for a
+ * book that scrolls leftwards. Returns the unsubscribe.
  */
 export function wireScrollInput(
   canvas: HTMLCanvasElement,
   controller: ScrollController,
   tap: ScrollTap,
-  options: { readonly mouseTaps?: boolean } = {},
+  options: { readonly mouseTaps?: boolean; readonly longPress?: ScrollLongPress } = {},
 ): () => void {
   const stopKeys = wireWheelAndKeys(canvas, controller);
-  const stopDrag = wireDrag(canvas, controller, tap);
+  const stopDrag = wireDrag(canvas, controller, tap, options.longPress);
   const onClick = (event: MouseEvent): void => {
     const rect = canvas.getBoundingClientRect();
     tap(event.clientX - rect.left, event.clientY - rect.top);
@@ -69,56 +76,5 @@ function wireWheelAndKeys(canvas: HTMLCanvasElement, controller: ScrollControlle
   return () => {
     canvas.removeEventListener('wheel', onWheel);
     window.removeEventListener('keydown', onKey);
-  };
-}
-
-function wireDrag(
-  canvas: HTMLCanvasElement,
-  controller: ScrollController,
-  tap: ScrollTap,
-): () => void {
-  let samples: VelocitySample[] = [];
-  let last: { readonly x: number; readonly y: number } | undefined;
-  let down: { readonly x: number; readonly y: number; readonly at: number } | undefined;
-  const onDown = (event: PointerEvent): void => {
-    if (event.pointerType === 'mouse' || !event.isPrimary) return;
-    canvas.setPointerCapture(event.pointerId);
-    controller.grab();
-    last = { x: event.clientX, y: event.clientY };
-    down = { ...last, at: event.timeStamp };
-    samples = [{ dx: 0, timestamp: event.timeStamp }];
-  };
-  const onMove = (event: PointerEvent): void => {
-    if (last === undefined || !event.isPrimary) return;
-    const delta = controller.axis === 'left' ? event.clientX - last.x : last.y - event.clientY;
-    last = { x: event.clientX, y: event.clientY };
-    const travelled = (samples.at(-1)?.dx ?? 0) + delta;
-    samples = [...samples, { dx: travelled, timestamp: event.timeStamp }].slice(-5);
-    controller.follow(delta);
-  };
-  const onUp = (event: PointerEvent): void => {
-    if (last === undefined || !event.isPrimary) return;
-    last = undefined;
-    const start = down;
-    down = undefined;
-    const still =
-      start !== undefined &&
-      Math.hypot(event.clientX - start.x, event.clientY - start.y) < TAP_SLOP &&
-      event.timeStamp - start.at < TAP_MS;
-    controller.release(still ? 0 : estimateVelocity(samples) * 1000);
-    if (still && event.type === 'pointerup') {
-      const rect = canvas.getBoundingClientRect();
-      tap(event.clientX - rect.left, event.clientY - rect.top);
-    }
-  };
-  const events = [
-    ['pointerdown', onDown],
-    ['pointermove', onMove],
-    ['pointerup', onUp],
-    ['pointercancel', onUp],
-  ] as const;
-  for (const [name, handler] of events) canvas.addEventListener(name, handler);
-  return () => {
-    for (const [name, handler] of events) canvas.removeEventListener(name, handler);
   };
 }

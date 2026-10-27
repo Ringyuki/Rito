@@ -420,6 +420,48 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it('selects the word under a touch held still and follows it, without scrolling', async () => {
+    const { canvas, controller, reader } = selectingView();
+    const words: string[] = [];
+    const textSelection = (reader as unknown as { interactions: { textSelection: object } })
+      .interactions.textSelection;
+    Object.assign(textSelection, {
+      resolveTextRangeFromPoints: ({
+        anchor,
+        focus,
+        granularity,
+      }: {
+        anchor: { pageIndex: number; x: number };
+        focus: { pageIndex: number; x: number };
+        granularity: string;
+      }) => {
+        words.push(granularity);
+        return Promise.resolve({
+          status: 'resolved',
+          range: exactRange(
+            caret(Math.round(anchor.x), anchor.pageIndex),
+            caret(Math.round(focus.x), focus.pageIndex),
+          ),
+        });
+      },
+    });
+    controller.mount(document.body);
+    controller.scrollTo(500);
+    runFrames();
+    const touch = (type: string, x: number, y: number) =>
+      new PointerEvent(type, { pointerType: 'touch', isPrimary: true, clientX: x, clientY: y });
+    canvas.dispatchEvent(touch('pointerdown', 30, 50));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    canvas.dispatchEvent(touch('pointermove', 60, 200));
+    canvas.dispatchEvent(touch('pointerup', 60, 200));
+    await flushMicrotasks();
+    runFrames();
+    expect(words[0]).toBe('word');
+    expect(controller.selection?.selectedText).toBe('selected text');
+    expect(controller.offset).toBe(500);
+    controller.dispose();
+  });
+
   it('scrolls on under a drag held near the end of the view until the button lets go', async () => {
     const { canvas, controller, pointer } = selectingView();
     controller.mount(document.body);
