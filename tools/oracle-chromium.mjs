@@ -13,15 +13,16 @@ const { chromium } = createRequire(new URL('../package.json', import.meta.url))(
 export const ORACLE_CHROMIUM_ARGS = ['--blink-settings=minimumLogicalFontSize=0'];
 
 /**
- * Launches the oracle Chromium with `args` added to its own. Its UI language
+ * Launches the oracle Chromium with `args` added to its own (another build
+ * at `executablePath`, for an A/B run only). Its UI language
  * sets the generic font families, accept-languages and the renderer's
  * default locale; on macOS it follows the system unless the test browser
  * has its own language, so a non-English one fails here instead of
  * measuring a different truth.
  */
-export async function launchOracleChromium(args = []) {
+export async function launchOracleChromium(args = [], { executablePath } = {}) {
   const browser = await chromium.launch({
-    channel: 'chromium',
+    ...(executablePath ? { executablePath } : { channel: 'chromium' }),
     args: [...ORACLE_CHROMIUM_ARGS, ...args],
   });
   const context = await browser.newContext();

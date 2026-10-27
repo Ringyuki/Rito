@@ -18,6 +18,9 @@
 // Usage: node tools/corpus-oracle/pixel-walk.mjs <book.epub> <outDir> [maxPages]
 //   env RITO_READER_URL (default http://localhost:5173/)
 //   env RITO_WALK_DSF   device pixels per CSS pixel on both sides (default 1)
+//   env RITO_TRUTH_LOCALE / RITO_TRUTH_MIN_FONT_SIZE / RITO_TRUTH_CHROMIUM
+//       A/B runs only: the truth's default locale / minimum font size /
+//       another Chromium build to lay it out (see the truth context)
 //   env RITO_WALK_SCROLLED=1  the scrolled reading mode: each chapter's
 //       windows against Chromium's continuous layout (scroll-truth.mjs)
 import { createRequire } from 'node:module';
@@ -539,11 +542,20 @@ const truthColumnCount = new Map();
 // back blank and scroll captures sat ~190px stale on a fresh page and
 // context alike; a fresh browser process renders the same page,
 // injection and clip correctly.
-const truthBrowser = await launchOracleChromium();
+// For A/B runs only: RITO_TRUTH_LOCALE lays the truth out under another
+// default locale (the content language a document without `lang` breaks
+// its lines by), RITO_TRUTH_MIN_FONT_SIZE under a minimum font size.
+const truthArgs = process.env.RITO_TRUTH_MIN_FONT_SIZE
+  ? [`--blink-settings=minimumLogicalFontSize=${process.env.RITO_TRUTH_MIN_FONT_SIZE}`]
+  : [];
+const truthBrowser = await launchOracleChromium(truthArgs, {
+  executablePath: process.env.RITO_TRUTH_CHROMIUM,
+});
 const truthContext = await truthBrowser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: DSF,
   javaScriptEnabled: false,
+  ...(process.env.RITO_TRUTH_LOCALE ? { locale: process.env.RITO_TRUTH_LOCALE } : {}),
 });
 const truth = await truthContext.newPage();
 for (const chapter of plan.chapters) {
