@@ -454,6 +454,9 @@ async function expectSelectionFontBox(
   const shell = page.getByTestId('reader-shell');
   const modelHeight = Number(await shell.getAttribute('data-selection-first-rect-height'));
   const modelTop = Number(await shell.getAttribute('data-selection-first-rect-y'));
+  await expect
+    .poll(async () => (await readSelectionHighlightBands(page)).length)
+    .toBeGreaterThanOrEqual(1);
   const visual = requireBand(await readSelectionHighlightBands(page), 0);
 
   expect(modelHeight).toBeGreaterThan(0);
