@@ -78,6 +78,7 @@ export 'src/protocol/revision_layout.dart'
     show
         RitoChapterPages,
         RitoRevisionLayout,
+        RitoScrollAxis,
         RitoSpreadPages,
         RitoTocTargetPage;
 export 'src/protocol/search.dart'
@@ -126,6 +127,9 @@ export 'src/render/page_surface.dart'
         RitoImageResolver,
         RitoPageSurface;
 export 'src/render/typed_color.dart' show ritoUiColor;
+export 'src/scroll/scroll_reader_controller.dart';
+export 'src/scroll/scroll_reader_view.dart';
+export 'src/scroll/scroll_windows.dart';
 export 'src/turn/effects.dart';
 export 'src/turn/motion.dart'
     show
