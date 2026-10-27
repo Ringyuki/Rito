@@ -3,6 +3,11 @@ import type { ReaderLocator, ReaderPinnedFontPolicy, ReaderPublication } from '@
 import { useRitoScrollReader } from '@ritojs/react';
 import { readerViewportMargin } from '@/lib/viewport-margin';
 import { copyPublication } from '@/lib/publication-copy';
+import {
+  type Typography,
+  typographyReaderOptions,
+  typographySettings,
+} from '@/hooks/use-typography';
 
 interface ScrollModeOptions {
   /** Whether the book is read scrolled now. */
@@ -14,6 +19,7 @@ interface ScrollModeOptions {
   readonly width: number;
   readonly height: number;
   readonly theme: 'light' | 'dark';
+  readonly typography: Typography;
   readonly pinnedFontPolicy: ReaderPinnedFontPolicy;
 }
 
@@ -28,6 +34,7 @@ export function useScrollMode({
   width,
   height,
   theme,
+  typography,
   pinnedFontPolicy,
 }: ScrollModeOptions) {
   const scroll = useRitoScrollReader({
@@ -37,6 +44,7 @@ export function useScrollMode({
       margin: readerViewportMargin(width),
       pinnedFontPolicy,
       ...themeOptions(theme),
+      ...typographyReaderOptions(typography),
     },
     scroll: { a11y: { enabled: true } },
     initialLocator: locator,
@@ -70,6 +78,18 @@ export function useScrollMode({
   useEffect(() => {
     reader?.setTheme(themeOptions(theme));
   }, [reader, theme]);
+  // The book opens with the typography of the moment; a change made while
+  // it is read scrolled lays it out again.
+  const opensWith = useRef(typography);
+  useEffect(() => {
+    if (!reader) {
+      opensWith.current = typography;
+      return;
+    }
+    if (opensWith.current === typography) return;
+    opensWith.current = typography;
+    reader.setTypography(typographySettings(typography));
+  }, [reader, typography]);
   return scroll;
 }
 

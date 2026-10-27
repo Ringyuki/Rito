@@ -141,6 +141,7 @@ export function useReader(
     width: containerWidth,
     height: containerHeight,
     theme,
+    typography: typography.typography,
     pinnedFontPolicy,
   });
 

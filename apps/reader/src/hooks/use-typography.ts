@@ -126,12 +126,17 @@ export function useApplyTypography(
     }
     if (applied.current.typography === typography) return;
     applied.current = { controller, typography };
-    controller.setTypography({
-      fontSize: typography.fontSize,
-      lineHeight: typography.lineHeightActive ? typography.lineHeight : null,
-      lineHeightForce: typography.lineHeightActive && typography.lineHeightForce,
-      fontFamily: typography.fontFamily,
-      fontFamilyForce: typography.fontFamilyForce,
-    });
+    controller.setTypography(typographySettings(typography));
   }, [controller, typography, openedWith]);
+}
+
+/** The settings `setTypography` takes for `typography`, on the controller or the reader. */
+export function typographySettings(typography: Typography) {
+  return {
+    fontSize: typography.fontSize,
+    lineHeight: typography.lineHeightActive ? typography.lineHeight : null,
+    lineHeightForce: typography.lineHeightActive && typography.lineHeightForce,
+    fontFamily: typography.fontFamily,
+    fontFamilyForce: typography.fontFamilyForce,
+  };
 }
