@@ -35,6 +35,15 @@ export type {
 } from './interaction/index';
 export { parseReadingPosition } from './interaction/index';
 
+export { createScrollController } from './scroll/controller';
+export { defaultScrollPhysics } from './scroll/physics';
+export type { ScrollPhysics, ScrollSimulation } from './scroll/physics';
+export type {
+  ScrollController,
+  ScrollControllerEvents,
+  ScrollControllerOptions,
+} from './scroll/types';
+
 export type { OverlayLayer, Rect } from './painter/types';
 export { canDrawWithWebGl2, WebGlUnavailableError } from './painter/display-surface';
 export type { TransitionDriverOptions } from './driver/types';

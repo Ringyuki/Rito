@@ -1,0 +1,57 @@
+import type { ScrollPhysics } from './physics';
+
+export interface ScrollControllerOptions {
+  /** How the strip moves under a finger and after it: the built-in browser-like physics by default. */
+  readonly physics?: ScrollPhysics | undefined;
+  /**
+   * Whether the built-in wheel, touch and key input drives the strip
+   * (default true). An app that drives it itself, through `grab`, `follow`,
+   * `release`, `scrollTo` and `scrollBy`, turns it off.
+   */
+  readonly input?: boolean | undefined;
+}
+
+/** Offsets are CSS pixels along the scroll axis from the book's block start. */
+export interface ScrollControllerEvents {
+  /** The strip moved. */
+  scroll: { readonly offset: number; readonly extent: number };
+  /** The window under the reading line changed: the reader moved on to it. */
+  window: { readonly spreadIndex: number };
+  /** The strip came to rest. */
+  rest: { readonly offset: number };
+}
+
+/**
+ * A scrolled reader's view: the book's windows end to end, down the screen
+ * or leftwards, moved by its own physics on one canvas. It keeps each
+ * window's picture while it is near and tells the reader which window is
+ * under the reading line; how the strip moves is the app's to replace.
+ */
+export interface ScrollController {
+  /** Puts the canvas in `container`. */
+  mount(container: HTMLElement): void;
+  /** The book's axis; undefined until a scrolled layout is committed. */
+  readonly axis: 'down' | 'left' | undefined;
+  /** Where the strip is, in CSS pixels from the book's block start. */
+  readonly offset: number;
+  /** The whole book's length along the axis, in CSS pixels. */
+  readonly extent: number;
+  /** The window under the reading line. */
+  readonly currentSpread: number;
+  /** Moves the strip to `offset`, gliding there when `animate`. */
+  scrollTo(offset: number, options?: { readonly animate?: boolean }): void;
+  scrollBy(delta: number, options?: { readonly animate?: boolean }): void;
+  /** Shows window `spreadIndex` from `blockOffset` into it at the reading line. */
+  scrollToSpread(spreadIndex: number, blockOffset?: number): void;
+  /** A finger takes the strip: what it was gliding through stops. */
+  grab(): void;
+  /** The finger moved the strip on by `delta`. */
+  follow(delta: number): void;
+  /** The finger let go at `velocity` (CSS pixels a second, forward positive). */
+  release(velocity: number): void;
+  on<K extends keyof ScrollControllerEvents>(
+    event: K,
+    listener: (data: ScrollControllerEvents[K]) => void,
+  ): () => void;
+  dispose(): void;
+}
