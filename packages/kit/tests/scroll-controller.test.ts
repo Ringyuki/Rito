@@ -284,7 +284,9 @@ describe('scroll controller', () => {
           Promise.resolve({
             pageIndex,
             spreadIndex: pageIndex,
+            // A link's own text run comes first, as a page lists them.
             targets: [
+              { kind: 'text', bounds: { x: 0, y: 40, width: 300, height: 20 }, label: 'to two' },
               { kind: 'link', bounds: { x: 0, y: 40, width: 100, height: 20 }, href: 'two.xhtml' },
             ],
           }),

@@ -44,17 +44,29 @@ export function scrollPointAt(
   };
 }
 
-/** The interaction target at a point of a scrolled view, if any. */
+/**
+ * The link, note or image at a point of a scrolled view, if any: the page's
+ * actionable targets hit in reverse paint order, as the page view hits
+ * them, a text run being no target of its own.
+ */
 export async function scrollTargetAt(
   reader: Reader,
   point: ScrollPoint,
 ): Promise<ReaderInteractionTarget | undefined> {
   const page = await reader.interactions?.getPageTargets(point.pageIndex);
-  return page?.targets.find(
-    ({ bounds }) =>
+  const targets = page?.targets ?? [];
+  for (let index = targets.length - 1; index >= 0; index -= 1) {
+    const target = targets[index];
+    if (!target || target.kind === 'text') continue;
+    const { bounds } = target;
+    if (
       point.x >= bounds.x &&
-      point.x < bounds.x + bounds.width &&
+      point.x <= bounds.x + bounds.width &&
       point.y >= bounds.y &&
-      point.y < bounds.y + bounds.height,
-  );
+      point.y <= bounds.y + bounds.height
+    ) {
+      return target;
+    }
+  }
+  return undefined;
 }
