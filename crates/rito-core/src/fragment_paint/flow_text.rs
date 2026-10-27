@@ -29,7 +29,10 @@ impl FlowTexts {
         let mut text = String::new();
         let mut item_ranges = Vec::new();
         for (item_index, item) in items.iter().enumerate() {
-            if let InlineItem::Text { text: item_text, .. } = item {
+            if let InlineItem::Text {
+                text: item_text, ..
+            } = item
+            {
                 let start = text.len();
                 text.push_str(item_text);
                 item_ranges.push((start..text.len(), item_index));

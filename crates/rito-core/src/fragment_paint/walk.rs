@@ -24,8 +24,7 @@ use super::line::append_line_commands;
 use super::run_style::run_paint;
 use super::vertical::append_vertical_line_commands;
 use super::{
-    cluster_x, painted_baseline, snap_css, FlowTexts, FragmentPaintContext,
-    CANVAS_TOP_ASCENT_RATIO,
+    cluster_x, painted_baseline, snap_css, FlowTexts, FragmentPaintContext, CANVAS_TOP_ASCENT_RATIO,
 };
 
 #[allow(clippy::too_many_arguments)]
