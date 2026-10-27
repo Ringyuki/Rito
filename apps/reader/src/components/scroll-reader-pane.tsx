@@ -1,4 +1,6 @@
+import { useRef, useState } from 'react';
 import { Copy, Highlighter, List, Loader2, Search, Settings } from 'lucide-react';
+import { ScrollSelectionHandles } from '@ritojs/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FootnoteDrawer } from '@/components/footnote-drawer';
@@ -35,6 +37,9 @@ export function ScrollReaderPane({
   onImageExitComplete,
 }: ScrollReaderPaneProps) {
   const selected = scroll.selection?.text ?? '';
+  // Handles show for a touch or a pen, as the paged reader's do.
+  const [touchInput, setTouchInput] = useState(false);
+  const view = useRef<HTMLDivElement | null>(null);
   return (
     <main
       ref={containerRef}
@@ -46,7 +51,22 @@ export function ScrollReaderPane({
       data-selection-text-length={selected.length}
       className="relative flex min-h-0 flex-1 bg-muted/30 select-none"
     >
-      <div ref={scroll.containerRef} data-testid="scroll-view" className="absolute inset-0" />
+      <div
+        ref={(node) => {
+          scroll.containerRef(node);
+          view.current = node;
+        }}
+        data-testid="scroll-view"
+        className="absolute inset-0"
+        onPointerDownCapture={(event) => {
+          setTouchInput(event.pointerType === 'touch' || event.pointerType === 'pen');
+        }}
+      />
+      <ScrollSelectionHandles
+        controller={scroll.controller}
+        rootRef={view}
+        touchInput={touchInput}
+      />
       {scroll.isLoading && (
         <div
           data-testid="reader-loading"
