@@ -16,6 +16,7 @@ mod strip_cost_probe;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;
+mod vertical_scroll_tests;
 mod word_selection_tests;
 
 use fixture::{

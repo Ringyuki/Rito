@@ -10,7 +10,7 @@ use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::ChapterFormattingTree;
 use crate::fragment_pagination::{chapter_is_vertical, layout_chapter_strip, paint_chapter_page};
 use crate::fragment_paint::FragmentPaintContext;
-use crate::fragment_window::{window_paint_tree, window_record_tree, ScrollWindows};
+use crate::fragment_window::{window_paint_tree, window_record_tree, ScrollAxis, ScrollWindows};
 use crate::layout::LayoutConfig;
 use crate::render::contract::{ReaderBlockPaint, ReaderColor};
 use crate::render::{display_rect, DisplayCommand};
@@ -31,13 +31,19 @@ pub(super) struct ChapterStrip {
     root: Fragment,
     windows: ScrollWindows,
     page_width: f64,
+    page_height: f64,
     content_width: f64,
     /// The content box's height on a page, which images and `vh` resolve
     /// against.
     content_height: f64,
+    /// The strip's block length: its height, or its width for a chapter
+    /// that runs leftwards.
     strip_length: f64,
     /// The content origin in the chapter: the left and top margins.
     origin: (f64, f64),
+    /// Where the strip starts along its block axis: the top margin, or the
+    /// right margin for a chapter that runs leftwards.
+    block_start: f64,
 }
 
 impl std::fmt::Debug for ChapterStrip {
@@ -52,7 +58,8 @@ impl std::fmt::Debug for ChapterStrip {
 
 impl ChapterStrip {
     /// Lays the bridged chapter out as one strip under `config`, its windows
-    /// a page tall; without `line_text` its lines hold no text fragments,
+    /// a page long along its block axis (down for horizontal text, leftwards
+    /// for vertical); without `line_text` its lines hold no text fragments,
     /// as a page laid out for pagination holds none, and each window's are
     /// laid out when it is read ([`Self::window_text`]).
     pub(super) fn lay_out(
@@ -62,11 +69,7 @@ impl ChapterStrip {
         config: &LayoutConfig,
         line_text: bool,
     ) -> EpubResult<Self> {
-        if chapter_is_vertical(&built.tree) {
-            return Err(EpubError::new(
-                "a vertical-rl chapter scrolls across its columns: its strip is not laid out yet",
-            ));
-        }
+        let axis = ScrollAxis::of_chapter(chapter_is_vertical(&built.tree));
         let (content_width, content_height) = (config.content_width(), config.content_height());
         if content_width <= 0.0 || content_height <= 0.0 {
             return Err(EpubError::new("page content box is empty"));
@@ -83,23 +86,36 @@ impl ChapterStrip {
             },
             &CancelFlag::new(),
         )?;
+        // A vertical-rl strip is laid out in the swapped frame: its block
+        // length is its width, starting at the right margin.
         let strip_length = root.rect().height;
-        let extent = config.margin_top + strip_length + config.margin_bottom;
+        let (length, block_start, block_end) = match axis {
+            ScrollAxis::Down => (config.page_height, config.margin_top, config.margin_bottom),
+            ScrollAxis::Left => (config.page_width, config.margin_right, config.margin_left),
+        };
         Ok(Self {
             built,
             faces,
             root,
-            windows: ScrollWindows::new(config.page_height, extent),
+            windows: ScrollWindows::new(length, block_start + strip_length + block_end, axis),
             page_width: config.page_width,
+            page_height: config.page_height,
             content_width,
             content_height,
             strip_length,
             origin: (config.margin_left, config.margin_top),
+            block_start,
         })
     }
 
     pub(super) fn windows(&self) -> ScrollWindows {
         self.windows
+    }
+
+    /// Where the strip starts along its block axis: the top margin, or the
+    /// right margin for a chapter that runs leftwards.
+    pub(super) fn block_start(&self) -> f64 {
+        self.block_start
     }
 
     /// What paints window `window`, laid out again with its text: the strip
@@ -170,50 +186,70 @@ impl ChapterStrip {
             &self.built.tree,
             Some(&self.built.node_paints),
             root,
-            self.origin.1,
+            self.block_start,
             self.windows.range(windows.start).start..self.windows.range(windows.end - 1).end,
             self.windows.length(),
         )
     }
 
-    /// The chapter's device rows the run of windows `windows` covers at
-    /// `ratio`.
-    fn device_rows(&self, windows: &Range<usize>, ratio: f64) -> Range<f64> {
-        self.windows.device_rows(windows.start, ratio).start
-            ..self.windows.device_rows(windows.end - 1, ratio).end
-    }
-
     /// The run of windows `windows` (one, as a reader shows it) painted at
     /// `ratio` from `text`, a layout of the strip that holds their lines'
-    /// text, in the chapter's coordinates, and the chapter's device rows it
-    /// covers: the page wash, the body's background over the whole strip
-    /// (its tiles run on across windows), and the content that reaches the
-    /// windows, clipped to their rows.
+    /// text, in the chapter's coordinates, and where the run's top-left
+    /// corner sits in the chapter, in device pixels: the page wash, the
+    /// body's background over the whole strip (its tiles run on across
+    /// windows), and the content that reaches the windows, clipped to them.
     pub(super) fn window_frame(
         &self,
         text: &Fragment,
         windows: Range<usize>,
         ratio: f64,
-    ) -> EpubResult<(Vec<DisplayCommand>, Range<f64>)> {
-        let rows = self.device_rows(&windows, ratio);
-        let (top, height) = (rows.start / ratio, (rows.end - rows.start) / ratio);
+    ) -> EpubResult<(Vec<DisplayCommand>, (f64, f64))> {
+        let length = (self.windows.device_rows(windows.end - 1, ratio).end
+            - self.windows.device_rows(windows.start, ratio).start)
+            / ratio;
+        // A leftward run's top-left corner is its last window's.
+        let origin = match self.windows.axis() {
+            ScrollAxis::Down => self.windows.device_origin(windows.start, ratio),
+            ScrollAxis::Left => self.windows.device_origin(windows.end - 1, ratio),
+        };
+        let (x, y) = (origin.0 / ratio, origin.1 / ratio);
         let (margin_left, margin_top) = self.origin;
-        let built = &self.built;
-        let mut commands = vec![paint_rect_command(
-            0.0,
-            top,
-            self.page_width,
-            height,
-            built.page_background.unwrap_or(ReaderColor::WHITE),
-        )];
-        if let Some(paint) = &built.page_background_image {
-            commands.push(DisplayCommand::PaintBlock {
-                rect: display_rect(
+        // As on a page, ink before the root box's inline start is cut at the
+        // initial containing block and the inline end bleeds to the page
+        // edge; along the block axis the run's own edges clip.
+        let (wash, body, clip) = match self.windows.axis() {
+            ScrollAxis::Down => (
+                (0.0, y, self.page_width, length),
+                (
                     margin_left,
                     margin_top,
                     self.content_width,
                     self.strip_length,
                 ),
+                (margin_left, y, self.page_width - margin_left, length),
+            ),
+            ScrollAxis::Left => (
+                (x, 0.0, length, self.page_height),
+                (
+                    margin_left + self.content_width - self.strip_length,
+                    margin_top,
+                    self.strip_length,
+                    self.content_height,
+                ),
+                (x, margin_top, length, self.page_height - margin_top),
+            ),
+        };
+        let built = &self.built;
+        let mut commands = vec![paint_rect_command(
+            wash.0,
+            wash.1,
+            wash.2,
+            wash.3,
+            built.page_background.unwrap_or(ReaderColor::WHITE),
+        )];
+        if let Some(paint) = &built.page_background_image {
+            commands.push(DisplayCommand::PaintBlock {
+                rect: display_rect(body.0, body.1, body.2, body.3),
                 paint: Box::new(ReaderBlockPaint {
                     background: Some(paint.clone()),
                     ..ReaderBlockPaint::default()
@@ -222,15 +258,13 @@ impl ChapterStrip {
             });
         }
         commands.push(DisplayCommand::PushState);
-        // As on a page, ink left of the root box is cut at the initial
-        // containing block and the right bleed is kept to the page edge.
         commands.push(DisplayCommand::ClipRect {
-            rect: display_rect(margin_left, top, self.page_width - margin_left, height),
+            rect: display_rect(clip.0, clip.1, clip.2, clip.3),
             radius: None,
         });
         commands.extend(self.content(text, &windows, ratio)?);
         commands.push(DisplayCommand::PopState);
-        Ok((commands, rows))
+        Ok((commands, origin))
     }
 
     /// What of `text` reaches the run of windows `windows`, painted at
@@ -259,7 +293,7 @@ impl ChapterStrip {
                 flow_item_sources: Some(&built.flow_item_sources),
                 ratio,
             },
-            false,
+            self.windows.axis() == ScrollAxis::Left,
         )
     }
 
@@ -279,7 +313,7 @@ impl ChapterStrip {
 
     fn record_root(&self, root: &Fragment, window: usize) -> Fragment {
         let range = self.windows.range(window);
-        match window_record_tree(root, self.origin.1, range.clone()) {
+        match window_record_tree(root, self.block_start, range.clone()) {
             Fragment::Box(mut root) => {
                 root.rect.y -= range.start;
                 Fragment::Box(root)

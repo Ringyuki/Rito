@@ -94,7 +94,11 @@ impl<'a> FragmentChapterEngineSession<'a> {
     ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
         let config = &self.revision.layout_config;
         if config.spread_mode == SpreadMode::Scrolled {
-            return self.window_frame(spread_index, ratio);
+            if let Some(window) = self.window_frame(spread_index, ratio)? {
+                return Ok(Some(window));
+            }
+            // A page of a chapter paginated across the book's axis is a
+            // window shown whole, framed as a page.
         }
         let spreads = build_spread_slots(
             self.layout.page_count(),
@@ -208,12 +212,13 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Ok(Some(PageArtifactFrame {
             page_indexes,
             commands,
-            first_device_row: 0.0,
+            device_origin: (0.0, 0.0),
         }))
     }
 
     /// A scrolled revision's spread: one window, framed by its chapter's
-    /// strip, which says the device row the window starts on.
+    /// strip, which says where the window sits in the chapter. `None` for
+    /// a page of a chapter paginated across the book's axis.
     fn window_frame(
         &self,
         page_index: usize,
@@ -222,15 +227,15 @@ impl<'a> FragmentChapterEngineSession<'a> {
         let Some((page, _)) = self.layout.page_with_chapter(page_index)? else {
             return Ok(None);
         };
-        let window = page.window_frame(ratio).ok_or_else(|| {
-            crate::epub::EpubError::new("a scrolled revision's page is not a window of a strip")
-        })??;
+        let Some(window) = page.window_frame(ratio).transpose()? else {
+            return Ok(None);
+        };
         let mut commands = FrameCommands::default();
         commands.push_page(window.commands);
         Ok(Some(PageArtifactFrame {
             page_indexes: vec![page_index],
             commands,
-            first_device_row: window.rows.start,
+            device_origin: window.origin,
         }))
     }
 
@@ -340,14 +345,14 @@ impl<'a> FragmentChapterEngineSession<'a> {
             })
             .map(|run| run.y)
             .reduce(f64::min)?;
-        Some(self.revision.layout_config.margin_top + top)
+        Some(self.layout.page(page_index)?.block_start()? + top)
     }
 
     /// Where the element `anchor` names starts in its page's display list,
     /// the page's top at 0.
     pub(super) fn anchor_block_offset(&self, page_index: usize, anchor: &str) -> Option<f64> {
         let page = self.layout.page(page_index)?;
-        Some(self.revision.layout_config.margin_top + page.anchor_top(anchor)?)
+        Some(page.block_start()? + page.anchor_top(anchor)?)
     }
 
     /// A page's width and height: a scrolled window's height is its own
@@ -358,7 +363,7 @@ impl<'a> FragmentChapterEngineSession<'a> {
 
     /// A scrolled chapter's extent along the scroll axis.
     pub(super) fn chapter_extent(&self, idref: &str) -> Option<f64> {
-        self.layout.chapter(idref)?.0.extent
+        self.layout.chapter_extent(idref)
     }
 
     /// The caret address a durable source point lands on, searching the

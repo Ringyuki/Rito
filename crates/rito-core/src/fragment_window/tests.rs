@@ -4,14 +4,14 @@ use rito_fragment::{
 };
 use rito_style_contract::LayoutStyleId;
 
-use super::{window_paint_tree, window_record_tree, ScrollWindows};
+use super::{window_paint_tree, window_record_tree, ScrollAxis, ScrollWindows};
 
 const RATIOS: [f64; 6] = [1.0, 1.25, 1.5, 2.0, 2.625, 3.0];
 
 #[test]
 fn windows_tile_the_chapter_row_for_row_at_every_ratio() {
     for extent in [950.0, 1000.0, 2849.5, 31_337.25] {
-        let windows = ScrollWindows::new(950.0, extent);
+        let windows = ScrollWindows::new(950.0, extent, ScrollAxis::Down);
         assert_eq!(windows.count(), (extent / 950.0_f64).ceil() as usize);
         assert_eq!(windows.range(windows.count() - 1).end, extent);
         for ratio in RATIOS {
@@ -32,8 +32,57 @@ fn windows_tile_the_chapter_row_for_row_at_every_ratio() {
 }
 
 #[test]
+fn leftward_windows_tile_the_chapter_column_for_column_from_its_right_edge() {
+    for extent in [390.0, 411.5, 1_170.25, 31_337.25] {
+        let windows = ScrollWindows::new(390.0, extent, ScrollAxis::Left);
+        for ratio in RATIOS {
+            let right = (390.0_f64 * ratio + 0.5).floor();
+            let width = |window: usize| {
+                let rows = windows.device_rows(window, ratio);
+                rows.end - rows.start
+            };
+            // The first window ends at the chapter's right edge, where a
+            // page's would.
+            let (x, y) = windows.device_origin(0, ratio);
+            assert_eq!(
+                (x + width(0), y),
+                (right, 0.0),
+                "extent {extent} ratio {ratio}"
+            );
+            for window in 1..windows.count() {
+                let (x, _) = windows.device_origin(window, ratio);
+                assert_eq!(x.fract(), 0.0);
+                assert_eq!(
+                    x + width(window),
+                    windows.device_origin(window - 1, ratio).0,
+                    "extent {extent} ratio {ratio} window {window}"
+                );
+            }
+            let last = windows.count() - 1;
+            assert_eq!(
+                windows.device_origin(last, ratio).0,
+                right - (extent * ratio + 0.5).floor()
+            );
+        }
+    }
+}
+
+#[test]
+fn downward_windows_start_on_their_first_row() {
+    let windows = ScrollWindows::new(950.0, 2849.5, ScrollAxis::Down);
+    for ratio in RATIOS {
+        for window in 0..windows.count() {
+            assert_eq!(
+                windows.device_origin(window, ratio),
+                (0.0, windows.device_rows(window, ratio).start)
+            );
+        }
+    }
+}
+
+#[test]
 fn a_chapter_shorter_than_a_window_is_one_window() {
-    let windows = ScrollWindows::new(950.0, 0.0);
+    let windows = ScrollWindows::new(950.0, 0.0, ScrollAxis::Down);
     assert_eq!(windows.count(), 1);
     assert_eq!(windows.range(0), 0.0..0.0);
 }
@@ -148,7 +197,7 @@ fn a_window_paints_the_lines_that_reach_it_and_a_box_it_lies_in() {
 #[test]
 fn each_line_is_recorded_by_the_one_window_it_starts_in() {
     let (_, root) = strip();
-    let windows = ScrollWindows::new(1000.0, 2900.0);
+    let windows = ScrollWindows::new(1000.0, 2900.0, ScrollAxis::Down);
     let mut recorded = Vec::new();
     for window in 0..windows.count() {
         let records = window_record_tree(&root, 0.0, windows.range(window));

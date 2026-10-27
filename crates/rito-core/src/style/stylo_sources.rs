@@ -1097,6 +1097,7 @@ mod tests {
                 manifest: Vec::new(),
                 spine: Vec::new(),
                 toc: Vec::new(),
+                page_progression: Default::default(),
             },
             stylesheets: stylesheets
                 .iter()

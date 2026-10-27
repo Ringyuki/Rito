@@ -37,10 +37,10 @@ impl ChapterStrip {
         ratio: f64,
         images: &dyn Fn(&str) -> Option<ImageSize>,
     ) -> EpubResult<PrimitiveList> {
-        let (commands, rows) = self.window_frame(&self.root, windows, ratio)?;
+        let (commands, (x, y)) = self.window_frame(&self.root, windows, ratio)?;
         let mut lowered =
             lower(&commands, ratio, images).map_err(|error| EpubError::new(error.to_string()))?;
-        shift(&mut lowered, 0.0, -rows.start);
+        shift(&mut lowered, -x, -y);
         Ok(lowered)
     }
 

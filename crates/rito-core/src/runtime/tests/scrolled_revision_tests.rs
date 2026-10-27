@@ -101,8 +101,8 @@ fn a_scrolled_spread_is_its_window_framed_by_the_strip() {
                 .expect("spread is published");
             assert_eq!(frame.page_indexes, [window]);
             assert_eq!(
-                frame.first_device_row,
-                strip.windows().device_rows(window, ratio).start
+                frame.device_origin,
+                strip.windows().device_origin(window, ratio)
             );
             let (commands, _) = strip
                 .window_frame(strip.whole(), window..window + 1, ratio)

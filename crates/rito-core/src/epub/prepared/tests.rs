@@ -651,6 +651,7 @@ fn document_with_stylesheet(href: &str, text: &str) -> LoadedEpubDocument {
             manifest: Vec::new(),
             spine: Vec::new(),
             toc: Vec::new(),
+            page_progression: Default::default(),
         },
         stylesheets: vec![LoadedTextResource {
             href: href.to_owned(),

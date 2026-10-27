@@ -2,7 +2,7 @@
 //! artifact says where its locator's line starts in its window, and the
 //! revision's layout says how long each chapter runs and which way.
 
-use crate::runtime::tests::fixture::long_paragraphs_fixture_epub;
+use crate::runtime::tests::fixture::{long_paragraphs_fixture_epub, vertical_book_fixture_epub};
 
 use super::{
     tests::{adopt_initial, open_test_session, request},
@@ -119,4 +119,71 @@ fn a_scrolled_session_holds_more_live_windows_than_a_paged_one() {
         .request_artifact(at(u64::from(READER_SCROLLED_LIVE_ARTIFACT_CAP) + 1))
         .expect_err("the scrolled cap holds");
     assert_eq!(capped.kind, ReaderErrorKind::InvalidRequest);
+}
+
+#[test]
+fn a_right_to_left_book_scrolls_leftwards() {
+    let mut session =
+        open_test_session(SESSION, vertical_book_fixture_epub()).expect("reader session opens");
+    let at = |request_id: u64, href: String| {
+        scrolled(
+            request_id,
+            ReaderLocator {
+                href,
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: None,
+            },
+        )
+    };
+    let spine: Vec<String> = session
+        .publication()
+        .spine
+        .iter()
+        .map(|item| item.href.clone())
+        .collect();
+    let plate = session
+        .request_artifact(at(1, spine[0].clone()))
+        .expect("plate artifact");
+    adopt_initial(&mut session, SESSION, plate.artifact_id);
+    let layout = layout_of(&mut session, plate.artifact_id);
+    assert_eq!(layout.scroll_axis, Some(ReaderScrollAxis::Left));
+    // The horizontal plate is paginated across the axis, a page wide a
+    // page, and shown whole, from no line in particular.
+    let page_width = 420.0;
+    let pages = layout.chapters[0];
+    assert_eq!(
+        pages.extent,
+        Some(f64::from(pages.end_page - pages.start_page + 1) * page_width)
+    );
+    assert_eq!(plate.target_block_offset, None);
+    // The vertical chapter runs on leftwards as one strip.
+    let columns = session
+        .request_artifact(at(2, spine[1].clone()))
+        .expect("columns artifact");
+    let layout = layout_of(&mut session, columns.artifact_id);
+    assert_eq!(layout.scroll_axis, Some(ReaderScrollAxis::Left));
+    let extent = layout.chapters[0]
+        .extent
+        .expect("a strip says how long it runs");
+    assert!(extent > 2.0 * page_width);
+    assert_eq!(
+        (columns.pages[0].width, columns.pages[0].height),
+        (page_width, 640.0)
+    );
+    // Its last window ends at the chapter's left end.
+    let last = layout.spreads.len() - 1;
+    let last_window = session
+        .peek_spread(ReaderSpreadRequest {
+            session_id: SESSION,
+            request_id: 3,
+            from_artifact_id: columns.artifact_id,
+            spread_index: u32::try_from(last).expect("spread index"),
+        })
+        .expect("last window publishes");
+    assert_eq!(
+        (last_window.pages[0].width, last_window.pages[0].height),
+        (extent - last as f64 * page_width, 640.0)
+    );
 }

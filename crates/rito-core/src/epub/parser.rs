@@ -1,6 +1,9 @@
 use roxmltree::{Document, Node};
 
-use super::{EpubError, EpubResult, ManifestItem, PackageDocument, PackageMetadata, SpineItem};
+use super::{
+    EpubError, EpubResult, ManifestItem, PackageDocument, PackageMetadata, PageProgression,
+    SpineItem,
+};
 
 pub(super) fn parse_container(container_xml: &str) -> EpubResult<String> {
     let document = parse_xml(container_xml, "container.xml")?;
@@ -23,7 +26,20 @@ pub(super) fn parse_package_document(opf_xml: &str) -> EpubResult<PackageDocumen
         manifest: parse_manifest(&document)?,
         spine: parse_spine(&document)?,
         toc: Vec::new(),
+        page_progression: parse_page_progression(&document),
     })
+}
+
+fn parse_page_progression(document: &Document<'_>) -> PageProgression {
+    match document
+        .descendants()
+        .find(|node| has_tag(node, "spine"))
+        .and_then(|spine| spine.attribute("page-progression-direction"))
+    {
+        Some("rtl") => PageProgression::RightToLeft,
+        Some("ltr") => PageProgression::LeftToRight,
+        _ => PageProgression::Default,
+    }
 }
 
 // Keep the package structure strict, but match the reference reader's
@@ -126,7 +142,7 @@ fn split_properties(value: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_container, parse_package_document};
+    use super::{parse_container, parse_package_document, PageProgression};
 
     #[test]
     fn parses_container_rootfile_path() {
@@ -166,6 +182,32 @@ mod tests {
         assert_eq!(package.manifest[1].properties, ["nav", "scripted"]);
         assert_eq!(package.spine.len(), 2);
         assert!(!package.spine[1].linear);
+        assert_eq!(package.page_progression, PageProgression::Default);
+    }
+
+    #[test]
+    fn reads_the_spines_page_progression_direction() {
+        for (attribute, expected) in [
+            (
+                r#" page-progression-direction="rtl""#,
+                PageProgression::RightToLeft,
+            ),
+            (
+                r#" page-progression-direction="ltr""#,
+                PageProgression::LeftToRight,
+            ),
+            (
+                r#" page-progression-direction="default""#,
+                PageProgression::Default,
+            ),
+            ("", PageProgression::Default),
+        ] {
+            let package = parse_package_document(&format!(
+                r#"<package><metadata/><manifest/><spine{attribute}/></package>"#
+            ))
+            .expect("package");
+            assert_eq!(package.page_progression, expected, "{attribute}");
+        }
     }
 
     #[test]

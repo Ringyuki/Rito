@@ -87,6 +87,21 @@ pub struct PackageDocument {
     pub spine: Vec<SpineItem>,
     #[serde(default)]
     pub toc: Vec<TocEntry>,
+    /// The direction the spine's pages progress in.
+    #[serde(default)]
+    pub page_progression: PageProgression,
+}
+
+/// The spine's `page-progression-direction`: which way a reader moves from
+/// one page to the next.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PageProgression {
+    /// Not declared: the reading system's default, left to right.
+    #[default]
+    Default,
+    LeftToRight,
+    RightToLeft,
 }
 
 impl PackageDocument {

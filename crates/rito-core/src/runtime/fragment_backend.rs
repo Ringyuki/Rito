@@ -37,6 +37,7 @@ use super::scroll_strip::ChapterStrip;
 use super::search::{SearchPageText, SearchPrebuiltRun, SearchPrebuiltRunSource};
 use super::source_locator::PaginationTarget;
 use super::RuntimeDocument;
+use crate::fragment_window::ScrollAxis;
 
 /// How many pages the table keeps materialized across all chapters. A
 /// materialized page holds its fragment tree and query artifact, and its
@@ -96,6 +97,28 @@ struct FragmentTableBuildInputs {
     /// The paint alias of every face the engine shapes with.
     faces: Rc<[std::sync::Arc<str>]>,
     config: LayoutConfig,
+    /// The way a scrolled book's chapters follow one another.
+    axis: ScrollAxis,
+}
+
+impl FragmentTableBuildInputs {
+    /// Whether a chapter is laid out as one strip: a scrolled chapter whose
+    /// blocks run along the book's axis. One that runs across it is
+    /// paginated, each of its pages one window along the book's axis.
+    fn strips(&self, tree: &rito_fragment::FormattingTree) -> bool {
+        self.config.spread_mode == SpreadMode::Scrolled
+            && ScrollAxis::of_chapter(crate::fragment_pagination::chapter_is_vertical(tree))
+                == self.axis
+    }
+
+    /// A scrolled window's length along the book's axis: a page's height,
+    /// or its width for a book that scrolls leftwards.
+    fn window_length(&self) -> f64 {
+        match self.axis {
+            ScrollAxis::Down => self.config.page_height,
+            ScrollAxis::Left => self.config.page_width,
+        }
+    }
 }
 
 impl std::fmt::Debug for FragmentTableBuildInputs {
@@ -193,14 +216,14 @@ impl MaterializedChapter {
     }
 
     /// A scrolled chapter's window framed at `ratio` by its strip, cached
-    /// as a page's commands are, and the chapter's device rows it covers.
+    /// as a page's commands are, and where it sits in the chapter.
     fn window_frame(
         &self,
         strip: &ChapterStrip,
         page: usize,
         ratio: f64,
     ) -> EpubResult<WindowFrame> {
-        let rows = strip.windows().device_rows(page, ratio);
+        let origin = strip.windows().device_origin(page, ratio);
         let key = ratio.to_bits();
         let entry = &self.pages[page];
         if let Some((_, commands)) = entry
@@ -211,7 +234,7 @@ impl MaterializedChapter {
         {
             return Ok(WindowFrame {
                 commands: Arc::clone(commands),
-                rows,
+                origin,
             });
         }
         let text = entry
@@ -225,7 +248,7 @@ impl MaterializedChapter {
             cache.remove(0);
         }
         cache.push((key, Arc::clone(&commands)));
-        Ok(WindowFrame { commands, rows })
+        Ok(WindowFrame { commands, origin })
     }
 
     /// The page's paint commands at `ratio` device pixels per CSS pixel,
@@ -272,10 +295,11 @@ impl MaterializedChapter {
 }
 
 /// A scrolled chapter's window painted at one ratio: its frame in the
-/// chapter's coordinates and the chapter's device rows it covers.
+/// chapter's coordinates and where its top-left corner sits in the chapter,
+/// in device pixels.
 pub(super) struct WindowFrame {
     pub(super) commands: Arc<Vec<DisplayCommand>>,
-    pub(super) rows: std::ops::Range<f64>,
+    pub(super) origin: (f64, f64),
 }
 
 /// One page of a materialized chapter. Holding it keeps that chapter
@@ -291,10 +315,15 @@ impl FragmentPageRef {
     /// The page's width and height, without building its query artifact.
     pub(super) fn size(&self) -> (f64, f64) {
         match &self.chapter.strip {
-            // A scrolled chapter's last window ends where the chapter does.
+            // A scrolled chapter's last window ends where the chapter does,
+            // below it or left of it.
             Some(strip) => {
                 let range = strip.windows().range(self.page);
-                (self.chapter.page_width, range.end - range.start)
+                let length = range.end - range.start;
+                match strip.windows().axis() {
+                    ScrollAxis::Down => (self.chapter.page_width, length),
+                    ScrollAxis::Left => (length, self.chapter.page_height),
+                }
             }
             None => (self.chapter.page_width, self.chapter.page_height),
         }
@@ -342,6 +371,13 @@ impl FragmentPageRef {
             &self.chapter.paint.built.node_anchors,
             anchor,
         )
+    }
+
+    /// Where a scrolled window's records start along its block axis in its
+    /// display list: the window's block-start margin. `None` for a page,
+    /// which is shown whole.
+    pub(super) fn block_start(&self) -> Option<f64> {
+        Some(self.chapter.strip.as_ref()?.block_start())
     }
 
     /// A scrolled chapter's window framed at `ratio`, in the chapter's
@@ -696,6 +732,18 @@ impl FragmentBuiltLayout {
         self.chapters().find(|(chapter, _)| chapter.idref == idref)
     }
 
+    /// A scrolled chapter's extent along the book's axis: its strip's, or,
+    /// for a chapter paginated across that axis, its pages one window
+    /// each. `None` in a revision of pages.
+    pub(super) fn chapter_extent(&self, idref: &str) -> Option<f64> {
+        let (chapter, _) = self.chapter(idref)?;
+        chapter.extent.or_else(|| {
+            let build = self.build.as_ref()?;
+            (build.config.spread_mode == SpreadMode::Scrolled)
+                .then(|| chapter.page_count as f64 * build.window_length())
+        })
+    }
+
     /// The page, materializing its chapter if it is not already. `None`
     /// for a page index outside the table or a chapter that no longer
     /// rebuilds; `page_with_chapter` reports the rebuild's reason.
@@ -810,6 +858,7 @@ impl FragmentBuiltLayout {
             &record.idref,
             &record.image_dimensions,
         )?;
+        let strip = build.strips(&built.tree);
         let paginated = paginate_built_chapter(
             &build.engine,
             Rc::clone(&build.faces),
@@ -817,6 +866,7 @@ impl FragmentBuiltLayout {
             &build.config,
             &record.idref,
             false,
+            strip,
         )
         .map_err(EpubError::new)?;
         if paginated.pages.len() != record.page_count {
@@ -1179,7 +1229,7 @@ impl RuntimeDocument {
         // dropped once its anchors and run starts are taken. A scrolled
         // chapter warms up the same way before its strip is laid out.
         let paginator = ChapterPaginator::new(&built.tree, content_width, content_height, false);
-        let pages = if config.spread_mode == SpreadMode::Scrolled {
+        let pages = if build.strips(&built.tree) {
             TableChapterPages::Warming(paginator)
         } else {
             TableChapterPages::Paginated(paginator)
@@ -1276,6 +1326,7 @@ impl RuntimeDocument {
         let source_index = self.source_chapter_index(&idref);
         let starts_from = Rc::clone(&built);
         // Without its text: the page shown is laid out with it when read.
+        let strip = build.strips(&built.tree);
         let paginated = paginate_built_chapter_until(
             &build.engine,
             Rc::clone(&build.faces),
@@ -1283,6 +1334,7 @@ impl RuntimeDocument {
             config,
             &idref,
             false,
+            strip,
             |page, index, resumes_at| {
                 let starts =
                     FragmentPageArtifact::source_run_starts(index, &page.root, &starts_from);
@@ -1346,6 +1398,7 @@ impl RuntimeDocument {
             .ok_or_else(|| "no fragment engine (no pinned faces)".to_owned())?;
         Ok(FragmentTableBuildInputs {
             prepared,
+            axis: ScrollAxis::of_book(self.document.package.page_progression),
             faces: engine
                 .engine
                 .inline()
@@ -1383,15 +1436,25 @@ fn paginate_built_chapter(
     config: &LayoutConfig,
     idref: &str,
     line_text: bool,
+    strip: bool,
 ) -> Result<PaginatedChapter, String> {
-    paginate_built_chapter_until(engine, faces, built, config, idref, line_text, |_, _, _| {
-        false
-    })
+    paginate_built_chapter_until(
+        engine,
+        faces,
+        built,
+        config,
+        idref,
+        line_text,
+        strip,
+        |_, _, _| false,
+    )
 }
 
 /// [`paginate_built_chapter`], stopping after the first page `settled`
 /// accepts — given the page, its index and where the chapter resumes after
-/// it — and keeping where the rest resumes.
+/// it — and keeping where the rest resumes. A chapter laid out as one
+/// `strip` takes its windows for its pages.
+#[allow(clippy::too_many_arguments)]
 fn paginate_built_chapter_until(
     engine: &RuntimeFragmentEngine,
     faces: Rc<[std::sync::Arc<str>]>,
@@ -1399,9 +1462,10 @@ fn paginate_built_chapter_until(
     config: &LayoutConfig,
     idref: &str,
     line_text: bool,
+    strip: bool,
     mut settled: impl FnMut(&FragmentChapterPage, usize, Option<&BreakToken>) -> bool,
 ) -> Result<PaginatedChapter, String> {
-    if config.spread_mode == SpreadMode::Scrolled {
+    if strip {
         return strip_built_chapter(engine, faces, built, config, idref, settled);
     }
     let content_width = config.page_width - config.margin_left - config.margin_right;

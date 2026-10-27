@@ -1,14 +1,16 @@
 //! A chapter laid out as one continuous strip, read through windows the
 //! size of the viewport: the scrolled reading mode's pages.
 //!
-//! A window is a slice of the chapter's block extent — its top margin, the
-//! strip and its bottom margin. Its records hold what starts inside it, in
-//! CSS pixels from the window's top, the same at every device ratio. Its
-//! paint covers whole device rows: window `k` starts on device row
-//! `D_k = floor(k × length × ratio + 0.5)` of the chapter and ends where
-//! the next starts, so the windows tile the chapter row for row with no
-//! seam. A window paints and lowers in its chapter's coordinates and moves
-//! up by `D_k` rows last (`render::shift`), so every edge and baseline
+//! A window is a slice of the chapter's block extent — its block-start
+//! margin, the strip and its block-end margin: down the screen for
+//! horizontal text, leftwards for vertical right-to-left text. Its records
+//! hold what starts inside it, in CSS pixels from the window's block start,
+//! the same at every device ratio. Its paint covers whole device rows (or
+//! columns): window `k` starts `D_k = floor(k × length × ratio + 0.5)`
+//! device pixels into the chapter along its axis and ends where the next
+//! starts, so the windows tile the chapter with no seam. A window paints
+//! and lowers in its chapter's coordinates and moves onto its own origin by
+//! whole device pixels last (`render::shift`), so every edge and baseline
 //! rounds where it does when the whole chapter paints at once.
 //!
 //! Painting or recording a window walks only the fragments that reach it:
@@ -19,21 +21,63 @@ use std::ops::Range;
 
 use rito_fragment::{BoxFragment, FormattingNodeContent, FormattingTree, Fragment};
 
+use crate::epub::PageProgression;
 use crate::fragment_bridge::NodePaint;
+
+/// The way a scrolled book's chapters follow one another, and a chapter's
+/// windows with them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ScrollAxis {
+    /// Down the screen, as horizontal text's blocks stack.
+    Down,
+    /// Leftwards, as vertical right-to-left text's columns follow.
+    Left,
+}
+
+impl ScrollAxis {
+    /// A book's axis: scrolling on through a book is moving on through its
+    /// pages, which a book whose pages progress right to left does
+    /// leftwards.
+    pub(crate) fn of_book(progression: PageProgression) -> Self {
+        match progression {
+            PageProgression::RightToLeft => Self::Left,
+            PageProgression::LeftToRight | PageProgression::Default => Self::Down,
+        }
+    }
+
+    /// The axis a chapter's own blocks run along.
+    pub(crate) fn of_chapter(vertical: bool) -> Self {
+        if vertical {
+            Self::Left
+        } else {
+            Self::Down
+        }
+    }
+}
 
 /// How a chapter's block extent slices into windows.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ScrollWindows {
-    /// A full window's block length in CSS pixels: the viewport's.
+    /// A full window's block length in CSS pixels: the viewport's height,
+    /// or its width for a chapter that runs leftwards.
     length: f64,
-    /// The chapter's block extent in CSS pixels: its top margin, its strip
-    /// and its bottom margin.
+    /// The chapter's block extent in CSS pixels: its block-start margin,
+    /// its strip and its block-end margin.
     extent: f64,
+    axis: ScrollAxis,
 }
 
 impl ScrollWindows {
-    pub(crate) fn new(length: f64, extent: f64) -> Self {
-        Self { length, extent }
+    pub(crate) fn new(length: f64, extent: f64, axis: ScrollAxis) -> Self {
+        Self {
+            length,
+            extent,
+            axis,
+        }
+    }
+
+    pub(crate) fn axis(&self) -> ScrollAxis {
+        self.axis
     }
 
     /// A full window's block length in CSS pixels.
@@ -59,7 +103,8 @@ impl ScrollWindows {
         start..(start + self.length).min(self.extent)
     }
 
-    /// The device rows of the chapter window `window` paints at `ratio`.
+    /// The device pixels of the chapter along its axis that window
+    /// `window` paints at `ratio`, from the chapter's block start.
     pub(crate) fn device_rows(&self, window: usize, ratio: f64) -> Range<f64> {
         let row = |index: usize| (index as f64 * self.length * ratio + 0.5).floor();
         let end = if window + 1 >= self.count() {
@@ -68,6 +113,20 @@ impl ScrollWindows {
             row(window + 1)
         };
         row(window)..end
+    }
+
+    /// Where window `window`'s top-left corner sits in the chapter painted
+    /// at `ratio`, in device pixels: the shift that moves the chapter onto
+    /// the window's own origin, reversed. A chapter running leftwards
+    /// starts at the right edge of a window `length` wide whose left edge
+    /// is the chapter's origin, `floor(length × ratio + 0.5)` device
+    /// pixels left of that edge, so its first window is where a page is.
+    pub(crate) fn device_origin(&self, window: usize, ratio: f64) -> (f64, f64) {
+        let rows = self.device_rows(window, ratio);
+        match self.axis {
+            ScrollAxis::Down => (0.0, rows.start),
+            ScrollAxis::Left => ((self.length * ratio + 0.5).floor() - rows.end, 0.0),
+        }
     }
 }
 

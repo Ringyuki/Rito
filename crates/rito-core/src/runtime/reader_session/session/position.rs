@@ -3,6 +3,7 @@
 //! reading order of two positions. Each answer comes from the engine
 //! functions a browser revision uses, so no host derives them itself.
 
+use crate::fragment_window::ScrollAxis;
 use crate::layout::SpreadMode;
 use crate::runtime::{
     source_locator::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition},
@@ -145,10 +146,12 @@ impl ReaderSession {
             toc_targets,
             active_toc_entry_by_page,
             complete: self.artifact_revision_is_complete(artifact_id),
-            // A scrolled chapter refuses vertical-rl text, so its chapters
-            // all run down the screen.
-            scroll_axis: (view.revision.layout_config.spread_mode == SpreadMode::Scrolled)
-                .then_some(ReaderScrollAxis::Down),
+            scroll_axis: (view.revision.layout_config.spread_mode == SpreadMode::Scrolled).then(
+                || match ScrollAxis::of_book(self.document.document().package.page_progression) {
+                    ScrollAxis::Down => ReaderScrollAxis::Down,
+                    ScrollAxis::Left => ReaderScrollAxis::Left,
+                },
+            ),
         }))
     }
 

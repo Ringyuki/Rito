@@ -74,6 +74,7 @@ fn resolved_chapter_with(xhtml: &str, css: &str) -> ResolvedChapter {
             manifest: Vec::new(),
             spine: Vec::new(),
             toc: Vec::new(),
+            page_progression: Default::default(),
         },
         stylesheets: vec![LoadedTextResource {
             href: "styles/main.css".to_owned(),
