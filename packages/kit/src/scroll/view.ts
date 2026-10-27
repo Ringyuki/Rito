@@ -6,7 +6,7 @@ import type { DisplaySurface } from '../painter/display-surface';
 import type { DisposableEmitter } from '../utils/event-emitter';
 import { compositeWindows } from './composite';
 import { createScrollGeometry, type ScrollGeometry, type ScrollWindow } from './geometry';
-import { viewRects, windowLayers, type ScrollHighlight } from './highlights';
+import { viewRects, windowLayers, type ScrollHighlight, type ScrollPageRect } from './highlights';
 import type { ScrollMotion } from './motion';
 import type { WindowOverlays } from './overlays';
 import type { WindowPool } from './pool';
@@ -90,21 +90,25 @@ function pageOf(view: ScrollView, window: ScrollWindow): number | undefined {
   return view.reader.spreads[window.spreadIndex]?.leftPageIndex;
 }
 
-/** The selection's rects where the view shows them, in CSS pixels from its top-left corner. */
-export function selectionRects(view: ScrollView): Rect[] {
+/** Page rects where the view shows them, in CSS pixels from its top-left corner. */
+export function shownRects(view: ScrollView, rects: readonly ScrollPageRect[]): Rect[] {
   const { geometry, surface } = view;
-  const snapshot = view.selection?.snapshot;
-  if (geometry === undefined || !snapshot) return [];
-  const origin = view.reader.getLayoutGeometry();
+  if (geometry === undefined) return [];
   return viewRects(
     geometry,
     (window) => pageOf(view, window),
-    origin,
+    view.reader.getLayoutGeometry(),
     view.motion.offset,
     surface.width,
     surface.height,
-    snapshot.rects,
+    rects,
   );
+}
+
+/** The selection's rects where the view shows them, in CSS pixels from its top-left corner. */
+export function selectionRects(view: ScrollView): Rect[] {
+  const snapshot = view.selection?.snapshot;
+  return snapshot ? shownRects(view, snapshot.rects) : [];
 }
 
 /** CSS pixels a moved focus is kept in from the view's ends. */

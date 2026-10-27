@@ -1,7 +1,7 @@
 import type { ReaderInteractionTarget, ReaderLocator, ReaderTextRange } from '@ritojs/core';
 import type { HighlightColors } from '../controller/overlay/colors';
 import type { Rect } from '../interaction/layout-types';
-import type { ScrollHighlight } from './highlights';
+import type { ScrollHighlight, ScrollPageRect } from './highlights';
 import type { ScrollPoint } from './hit';
 import type { ScrollPhysics } from './physics';
 
@@ -73,6 +73,8 @@ export interface ScrollControllerEvents {
 export interface ScrollController {
   /** Puts the canvas in `container`. */
   mount(container: HTMLElement): void;
+  /** The canvas the view draws on. */
+  readonly canvas: HTMLCanvasElement;
   /** The book's axis; undefined until a scrolled layout is committed. */
   readonly axis: 'down' | 'left' | undefined;
   /** Where the strip is, in CSS pixels from the book's block start. */
@@ -99,6 +101,12 @@ export interface ScrollController {
   readonly selection: ReaderTextRange | null;
   /** The selection's rects where the view shows them now, in CSS pixels from its top-left corner. */
   selectionRects(): readonly Rect[];
+  /**
+   * Page rects where the view shows them now, in CSS pixels from its
+   * top-left corner (a target's bounds, a note's lines); a rect of a page
+   * no window on screen shows is left out.
+   */
+  viewRects(rects: readonly ScrollPageRect[]): readonly Rect[];
   clearSelection(): void;
   /**
    * What the app highlights over the text, in place of what it highlighted

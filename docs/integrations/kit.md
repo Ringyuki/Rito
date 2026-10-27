@@ -297,7 +297,8 @@ a pen; `physics` takes any `ScrollPhysics` (`drag` resists past the ends,
 browser-like glide with a rubber band. An app that drives the strip itself turns
 the input off and calls `grab`, `follow`, `release`, `scrollTo`, `scrollBy`,
 `scrollToSpread` and `scrollToLocator`; `pointAt` and `targetAt` say what is under
-a point. Offsets are CSS pixels along the axis from the book's block start.
+a point, and `viewRects` where page rects (a target's bounds, a note's lines) are
+on the view, relative to `canvas`. Offsets are CSS pixels along the axis from the book's block start.
 
 The view selects text through the reader's own text selection (`selection:
 true`, the default): with the built-in input a mouse drag selects from where it

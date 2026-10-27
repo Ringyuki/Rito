@@ -351,6 +351,13 @@ describe('scroll controller', () => {
       { x: 30, y: 50, width: 100, height: 18 },
       { x: 20, y: 130, width: 40, height: 18 },
     ]);
+    // Any page rect maps the same way, a page off screen to nothing.
+    expect(
+      controller.viewRects([
+        { pageIndex: 1, x: 0, y: 0, width: 40, height: 18 },
+        { pageIndex: 4, x: 0, y: 0, width: 40, height: 18 },
+      ]),
+    ).toEqual([{ x: 20, y: 130, width: 40, height: 18 }]);
     expect(fills).toEqual(
       expect.arrayContaining([
         [30, 550, 100, 18],

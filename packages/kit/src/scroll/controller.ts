@@ -20,6 +20,7 @@ import {
   revealFocus,
   schedule,
   selectionRects,
+  shownRects,
   type ScrollView,
 } from './view';
 
@@ -125,6 +126,9 @@ function controllerOf(
       mounted(container);
       relayout(view);
     },
+    get canvas() {
+      return view.surface.canvas;
+    },
     get axis() {
       return view.geometry?.axis;
     },
@@ -194,9 +198,10 @@ function movement(
 /** What is drawn over the text: the selection and the app's highlights. */
 function highlighting(
   view: ScrollView,
-): Pick<ScrollController, 'selectionRects' | 'clearSelection' | 'setHighlights'> {
+): Pick<ScrollController, 'selectionRects' | 'viewRects' | 'clearSelection' | 'setHighlights'> {
   return {
     selectionRects: () => selectionRects(view),
+    viewRects: (rects) => shownRects(view, rects),
     clearSelection() {
       view.selection?.clear();
     },
