@@ -23,7 +23,10 @@ use super::family::{face_family, split_by_face};
 use super::line::append_line_commands;
 use super::run_style::run_paint;
 use super::vertical::append_vertical_line_commands;
-use super::{cluster_x, painted_baseline, snap_css, FragmentPaintContext, CANVAS_TOP_ASCENT_RATIO};
+use super::{
+    cluster_x, painted_baseline, snap_css, FlowTexts, FragmentPaintContext,
+    CANVAS_TOP_ASCENT_RATIO,
+};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_fragment_display_commands_inner(
@@ -34,6 +37,7 @@ pub(super) fn append_fragment_display_commands_inner(
     origin_y: f64,
     context: FragmentPaintContext<'_>,
     snap_origin_y: f64,
+    flow_texts: &FlowTexts,
 ) -> EpubResult<()> {
     match fragment {
         Fragment::Box(fragment) => {
@@ -383,6 +387,7 @@ pub(super) fn append_fragment_display_commands_inner(
                         context.faces,
                         context.flow_item_sources,
                         context.ruby_annotation_runs,
+                        flow_texts,
                     )?;
                     continue;
                 }
@@ -394,6 +399,7 @@ pub(super) fn append_fragment_display_commands_inner(
                     origin_y + fragment.rect.y,
                     context,
                     child_snap_origin_y,
+                    flow_texts,
                 )?;
             }
             if transformed {
@@ -413,6 +419,7 @@ pub(super) fn append_fragment_display_commands_inner(
             context.ruby_annotation_runs,
             snap_origin_y,
             context.ratio,
+            flow_texts,
         ),
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
             "text and image fragments paint through their line box, not standalone",

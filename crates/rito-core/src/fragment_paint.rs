@@ -27,6 +27,7 @@ use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::render::DisplayCommand;
 
 mod family;
+mod flow_text;
 mod image;
 mod line;
 mod run_style;
@@ -36,6 +37,7 @@ mod text_run;
 mod vertical;
 mod walk;
 
+use flow_text::FlowTexts;
 use walk::append_fragment_display_commands_inner;
 
 /// Fraction of the font size between a run's alphabetic baseline and the
@@ -148,6 +150,13 @@ pub(crate) fn append_fragment_display_commands(
     context: FragmentPaintContext<'_>,
 ) -> EpubResult<()> {
     append_fragment_display_commands_inner(
-        commands, tree, fragment, origin_x, origin_y, context, 0.0,
+        commands,
+        tree,
+        fragment,
+        origin_x,
+        origin_y,
+        context,
+        0.0,
+        &FlowTexts::default(),
     )
 }

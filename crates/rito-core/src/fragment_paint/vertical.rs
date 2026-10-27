@@ -18,6 +18,7 @@ use crate::render::{
 };
 
 use super::family::{face_family, face_pieces};
+use super::flow_text::FlowTexts;
 use super::run_style::run_paint;
 use super::CANVAS_TOP_ASCENT_RATIO;
 
@@ -148,6 +149,7 @@ pub(super) fn append_vertical_line_commands(
     faces: Option<&[std::sync::Arc<str>]>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    flow_texts: &FlowTexts,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
@@ -157,15 +159,8 @@ pub(super) fn append_vertical_line_commands(
     let styles = tree
         .styles()
         .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
-    let mut full_text = String::new();
-    let mut text_ranges: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
-    for (item_index, item) in items.iter().enumerate() {
-        if let InlineItem::Text { text, .. } = item {
-            let start = full_text.len();
-            full_text.push_str(text);
-            text_ranges.push((start..full_text.len(), item_index));
-        }
-    }
+    let flow_text = flow_texts.of(line.source, items);
+    let (full_text, text_ranges) = (&flow_text.text, flow_text.item_ranges.as_slice());
     let column_x = frame_right - (box_block + line.rect.y + line.rect.height);
     let column_top = frame_top + box_inline + line.rect.x;
     for child in &line.children {
