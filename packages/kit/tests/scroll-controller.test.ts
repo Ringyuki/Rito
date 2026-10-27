@@ -3,6 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderScrollLayout } from '@ritojs/core';
 import { createScrollController } from '../src/scroll/controller';
 import { createFakeGl } from './helpers/fake-gl';
+import {
+  capabilityFrom,
+  caret,
+  exactRange,
+  flushMicrotasks,
+  resolvedCaret,
+} from './helpers/native-selection';
 
 const LAYOUT: ReaderScrollLayout = {
   axis: 'down',
@@ -54,6 +61,70 @@ function fakeCanvas() {
   vi.spyOn(canvas, 'getContext').mockImplementation(((kind: string) =>
     kind === 'webgl2' ? fake.gl : null) as never);
   return canvas;
+}
+
+/** A view over a reader that selects text, scrolled 500 px down, and a mouse pointer event maker. */
+function selectingView() {
+  const fills = stubOffscreenCanvas();
+  const reader = fakeReader();
+  Object.assign(reader, {
+    getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30, marginLeft: 20 }),
+    interactions: {
+      enabled: true,
+      textSelection: capabilityFrom(
+        (point) => Promise.resolve(resolvedCaret(caret(Math.round(point.x), point.pageIndex))),
+        (anchor, focus) =>
+          Promise.resolve({
+            status: 'resolved' as const,
+            range: {
+              ...exactRange(anchor, focus),
+              rects: [
+                { pageIndex: 0, spreadIndex: 0, x: 10, y: 520, width: 100, height: 18 },
+                { pageIndex: 1, spreadIndex: 1, x: 0, y: 0, width: 40, height: 18 },
+              ],
+            },
+          }),
+      ),
+      getPageTargets: () => Promise.resolve(undefined),
+    },
+  });
+  const canvas = fakeCanvas();
+  canvas.setPointerCapture = () => undefined;
+  Object.defineProperty(canvas, 'clientWidth', { value: 400 });
+  Object.defineProperty(canvas, 'clientHeight', { value: 600 });
+  const controller = createScrollController(reader as unknown as Reader, canvas);
+  const pointer = (type: string, x: number, y: number) =>
+    new PointerEvent(type, { pointerType: 'mouse', button: 0, clientX: x, clientY: y, detail: 1 });
+  return { canvas, controller, fills, pointer };
+}
+
+/** Stands in for the overlay canvases, recording every rect filled, scaled. */
+function stubOffscreenCanvas(): number[][] {
+  const fills: number[][] = [];
+  class Offscreen {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+    getContext() {
+      let scale = 1;
+      return {
+        canvas: this,
+        clearRect: () => undefined,
+        save: () => undefined,
+        restore: () => undefined,
+        scale: (by: number) => {
+          scale = by;
+        },
+        fillRect: (x: number, y: number, width: number, height: number) => {
+          fills.push([x * scale, y * scale, width * scale, height * scale]);
+        },
+        fillStyle: '',
+      };
+    }
+  }
+  vi.stubGlobal('OffscreenCanvas', Offscreen);
+  return fills;
 }
 
 let frames: FrameRequestCallback[] = [];
@@ -251,6 +322,69 @@ describe('scroll controller', () => {
     controller.mount(document.body);
     runFrames();
     expect(controller.pointAt(390, 50)).toEqual({ spreadIndex: 0, pageIndex: 0, x: 370, y: 20 });
+    controller.dispose();
+  });
+
+  it('selects across windows with a mouse drag, draws it over each and clears it with a click', async () => {
+    const { canvas, controller, fills, pointer } = selectingView();
+    const selections: { text: string; rects: readonly unknown[] }[] = [];
+    controller.on('selection', (selection) => selections.push(selection));
+    const taps: unknown[] = [];
+    controller.on('tap', (tapped) => taps.push(tapped));
+    controller.mount(document.body);
+    controller.scrollTo(500);
+    runFrames();
+
+    // Pressed in the first window, dragged into the second.
+    canvas.dispatchEvent(pointer('pointerdown', 30, 50));
+    canvas.dispatchEvent(pointer('pointermove', 60, 200));
+    canvas.dispatchEvent(pointer('pointerup', 60, 200));
+    await flushMicrotasks();
+    runFrames();
+    // Held clear of the view's ends, the drag left the strip where it was.
+    expect(controller.offset).toBe(500);
+    expect(controller.selection?.selectedText).toBe('selected text');
+    expect(selections.at(-1)?.text).toBe('selected text');
+    // The first window's rect 500 px up the view, the second's 100 down,
+    // each in from its page's margins.
+    expect(controller.selectionRects()).toEqual([
+      { x: 30, y: 50, width: 100, height: 18 },
+      { x: 20, y: 130, width: 40, height: 18 },
+    ]);
+    expect(fills).toEqual(
+      expect.arrayContaining([
+        [30, 550, 100, 18],
+        [20, 30, 40, 18],
+      ]),
+    );
+    expect(taps).toEqual([]);
+
+    // A click selects nothing: it clears the selection and taps.
+    canvas.dispatchEvent(pointer('pointerdown', 60, 300));
+    canvas.dispatchEvent(pointer('pointerup', 60, 300));
+    await flushMicrotasks();
+    expect(controller.selection).toBeNull();
+    await vi.waitFor(() => {
+      expect(taps).toHaveLength(1);
+    });
+    controller.dispose();
+  });
+
+  it('scrolls on under a drag held near the end of the view until the button lets go', async () => {
+    const { canvas, controller, pointer } = selectingView();
+    controller.mount(document.body);
+    controller.scrollTo(500);
+    runFrames();
+    canvas.dispatchEvent(pointer('pointerdown', 30, 50));
+    // 10 px from the view's bottom: 18 px a frame.
+    canvas.dispatchEvent(pointer('pointermove', 30, 590));
+    await flushMicrotasks();
+    runFrames(5);
+    expect(controller.offset).toBeGreaterThan(500);
+    canvas.dispatchEvent(pointer('pointerup', 30, 590));
+    const held = controller.offset;
+    runFrames();
+    expect(controller.offset).toBe(held);
     controller.dispose();
   });
 

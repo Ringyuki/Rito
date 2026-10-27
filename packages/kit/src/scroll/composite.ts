@@ -20,10 +20,13 @@ export function windowRect(
     : { x: width - along - window.length, y: 0, width: window.length, height };
 }
 
+/** What is drawn at a window's place on the view; undefined for nothing yet. */
+export type WindowLayer = (window: ScrollWindow, rect: QuadRect) => WebGLTexture | undefined;
+
 /**
  * Draws the windows a view scrolled to `offset` shows, each at whole device
- * pixels, the ones still loading left as the ground. Returns the windows
- * it could not draw yet.
+ * pixels, the ones still loading left as the ground, and over each its
+ * overlay. Returns the windows it could not draw yet.
  */
 export function compositeWindows(
   compositor: GlCompositor,
@@ -31,7 +34,8 @@ export function compositeWindows(
   offset: number,
   width: number,
   height: number,
-  picture: (window: ScrollWindow, rect: QuadRect) => WebGLTexture | undefined,
+  picture: WindowLayer,
+  overlay?: WindowLayer,
 ): readonly ScrollWindow[] {
   const at = Math.round(offset);
   const missing: ScrollWindow[] = [];
@@ -39,8 +43,13 @@ export function compositeWindows(
   for (const window of geometry.visible(at, length)) {
     const rect = windowRect(geometry, window, at, width, height);
     const texture = picture(window, rect);
-    if (texture === undefined) missing.push(window);
-    else compositor.drawTexture(texture, rect);
+    if (texture === undefined) {
+      missing.push(window);
+      continue;
+    }
+    compositor.drawTexture(texture, rect);
+    const over = overlay?.(window, rect);
+    if (over !== undefined) compositor.drawTexture(over, rect);
   }
   return missing;
 }

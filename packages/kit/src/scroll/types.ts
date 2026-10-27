@@ -1,4 +1,7 @@
-import type { ReaderInteractionTarget, ReaderLocator } from '@ritojs/core';
+import type { ReaderInteractionTarget, ReaderLocator, ReaderTextRange } from '@ritojs/core';
+import type { HighlightColors } from '../controller/overlay/colors';
+import type { Rect } from '../interaction/layout-types';
+import type { ScrollHighlight } from './highlights';
 import type { ScrollPoint } from './hit';
 import type { ScrollPhysics } from './physics';
 
@@ -11,6 +14,13 @@ export interface ScrollControllerOptions {
    * `release`, `scrollTo` and `scrollBy`, turns it off.
    */
   readonly input?: boolean | undefined;
+  /**
+   * Whether the view selects text (default true): the built-in input's
+   * mouse drag selects, and what is selected is drawn over the windows.
+   */
+  readonly selection?: boolean | undefined;
+  /** The colours the selection is drawn in, the kit's own by default. */
+  readonly colors?: Partial<HighlightColors> | undefined;
 }
 
 /** Offsets are CSS pixels along the scroll axis from the book's block start. */
@@ -25,6 +35,18 @@ export interface ScrollControllerEvents {
   position: { readonly locator: ReaderLocator };
   /** The built-in input's tap: the point, and the link, note or image under it. */
   tap: { readonly point: ScrollPoint; readonly target: ReaderInteractionTarget | undefined };
+  /**
+   * What is selected changed, as a gesture selects it and once it has:
+   * the range and its text, and its rects where the view shows them (CSS
+   * pixels from the view's top-left corner; see `selectionRects` once the
+   * strip moves).
+   */
+  selection: {
+    readonly range: ReaderTextRange | null;
+    readonly text: string;
+    readonly selecting: boolean;
+    readonly rects: readonly Rect[];
+  };
 }
 
 /**
@@ -58,6 +80,17 @@ export interface ScrollController {
   pointAt(x: number, y: number): ScrollPoint | undefined;
   /** The link, note or image at a point, if any. */
   targetAt(point: ScrollPoint): Promise<ReaderInteractionTarget | undefined>;
+  /** What is selected, if anything. */
+  readonly selection: ReaderTextRange | null;
+  /** The selection's rects where the view shows them now, in CSS pixels from its top-left corner. */
+  selectionRects(): readonly Rect[];
+  clearSelection(): void;
+  /**
+   * What the app highlights over the text, in place of what it highlighted
+   * before: a search's matches, a book's annotations. Each is drawn over
+   * the windows that show its pages, above the selection.
+   */
+  setHighlights(highlights: readonly ScrollHighlight[]): void;
   /** A finger takes the strip: what it was gliding through stops. */
   grab(): void;
   /** The finger moved the strip on by `delta`. */

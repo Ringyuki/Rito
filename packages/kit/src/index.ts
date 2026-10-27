@@ -39,6 +39,7 @@ export { createScrollController } from './scroll/controller';
 export { defaultScrollPhysics } from './scroll/physics';
 export type { ScrollPhysics, ScrollSimulation } from './scroll/physics';
 export type { ScrollPoint } from './scroll/hit';
+export type { ScrollHighlight, ScrollPageRect } from './scroll/highlights';
 export type {
   ScrollController,
   ScrollControllerEvents,

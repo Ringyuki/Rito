@@ -27,7 +27,8 @@ Core exports:
 - `AddAnnotationInput`
 - `PagePainter`, `PagePaint`
 - `createScrollController`, `ScrollController`, `ScrollControllerEvents`,
-  `ScrollControllerOptions`, `ScrollPoint` (scrolled reading, below)
+  `ScrollControllerOptions`, `ScrollPoint`, `ScrollHighlight`, `ScrollPageRect`
+  (scrolled reading, below)
 - `defaultScrollPhysics`, `ScrollPhysics`, `ScrollSimulation`
 
 Supporting exports:
@@ -297,7 +298,23 @@ browser-like glide with a rubber band. An app that drives the strip itself turns
 the input off and calls `grab`, `follow`, `release`, `scrollTo`, `scrollBy`,
 `scrollToSpread` and `scrollToLocator`; `pointAt` and `targetAt` say what is under
 a point. Offsets are CSS pixels along the axis from the book's block start.
-Selection, search and annotation highlights do not reach a scrolled view yet.
+
+The view selects text through the reader's own text selection (`selection:
+true`, the default): with the built-in input a mouse drag selects from where it
+was pressed, on from one window into the next, a double press selects a word and
+a triple press a paragraph, a drag held near either end of the view scrolls the
+strip on under it, and a press that does not move clears the selection and taps.
+What is selected is drawn over each window that shows it and moves with it; the
+`selection` event gives the range, its text and its rects where the view shows
+them, `selectionRects()` the rects once the strip has moved, and
+`clearSelection()` lets it go. A selection is found again in a new layout, as a
+browser keeps one through a resize. `setHighlights(highlights)` draws what the
+app highlights over the same windows, above the selection: each
+`ScrollHighlight` is page rects (`pageIndex` and a rect in the page's content box,
+as the reader's interactions give them), a colour, a `zIndex` and a `mark`
+(filled, or a line along the rect's bottom edge), so a search's matches and a
+book's annotations show in a scrolled view as the app keeps them. `colors`
+changes the selection's colour.
 
 ## Drawing On Pages
 

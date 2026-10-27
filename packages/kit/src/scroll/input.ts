@@ -12,13 +12,15 @@ export type ScrollTap = (x: number, y: number) => void;
 
 /**
  * The built-in input: the wheel and the keys move the strip, a touch or a
- * pen drags it and flings it. Forward is down the screen, or leftwards for
- * a book that scrolls leftwards. Returns the unsubscribe.
+ * pen drags it and flings it, and a click taps unless `mouseTaps` is off
+ * (the mouse's selection taps instead). Forward is down the screen, or
+ * leftwards for a book that scrolls leftwards. Returns the unsubscribe.
  */
 export function wireScrollInput(
   canvas: HTMLCanvasElement,
   controller: ScrollController,
   tap: ScrollTap,
+  options: { readonly mouseTaps?: boolean } = {},
 ): () => void {
   const stopKeys = wireWheelAndKeys(canvas, controller);
   const stopDrag = wireDrag(canvas, controller, tap);
@@ -26,11 +28,12 @@ export function wireScrollInput(
     const rect = canvas.getBoundingClientRect();
     tap(event.clientX - rect.left, event.clientY - rect.top);
   };
-  canvas.addEventListener('click', onClick);
+  const clicks = options.mouseTaps ?? true;
+  if (clicks) canvas.addEventListener('click', onClick);
   return () => {
     stopKeys();
     stopDrag();
-    canvas.removeEventListener('click', onClick);
+    if (clicks) canvas.removeEventListener('click', onClick);
   };
 }
 

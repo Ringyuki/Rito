@@ -1,30 +1,25 @@
 import type { Reader, ReaderLocator } from '@ritojs/core';
-import { createDisplaySurface, type DisplaySurface } from '../painter/display-surface';
-import { springSettle } from '../driver/spring';
-import { createEmitter, type DisposableEmitter } from '../utils/event-emitter';
-import { compositeWindows } from './composite';
-import { createScrollGeometry, type ScrollGeometry } from './geometry';
-import { wireScrollInput } from './input';
-import { createScrollMotion, type ScrollMotion } from './motion';
-import { defaultScrollPhysics } from './physics';
-import { createWindowPool, type WindowPool } from './pool';
+import { DEFAULT_HIGHLIGHT_COLORS, withHighlightColors } from '../controller/overlay/colors';
+import { createDisplaySurface } from '../painter/display-surface';
+import { createEmitter } from '../utils/event-emitter';
 import { scrollPointAt, scrollTargetAt } from './hit';
-import { readingPosition } from './position';
+import { wireScrollInput } from './input';
+import { createScrollMotion } from './motion';
+import { createWindowOverlays } from './overlays';
+import { defaultScrollPhysics } from './physics';
+import { createWindowPool } from './pool';
+import { createScrollSelection } from './selection';
+import { wireMouseSelection } from './selection-input';
 import type { ScrollController, ScrollControllerEvents, ScrollControllerOptions } from './types';
-
-const GLIDE = { stiffness: 220, damping: 2 * Math.sqrt(220) };
-
-interface ScrollView {
-  readonly reader: Reader;
-  readonly surface: DisplaySurface;
-  readonly emitter: DisposableEmitter<ScrollControllerEvents>;
-  readonly pool: WindowPool;
-  readonly motion: ScrollMotion;
-  geometry: ScrollGeometry | undefined;
-  /** The window under the reading line, as the reader was last told. */
-  current: number;
-  frame: number | null;
-}
+import {
+  moveTo,
+  ratioOf,
+  readingLine,
+  relayout,
+  schedule,
+  selectionRects,
+  type ScrollView,
+} from './view';
 
 /** A scrolled reader's view on `canvas` (see {@link ScrollController}). */
 export function createScrollController(
@@ -40,16 +35,33 @@ export function createScrollController(
     pool: createWindowPool(surface.gl, (spreadIndex, target) =>
       reader.renderSpreadTo(spreadIndex, target),
     ),
+    overlays: createWindowOverlays(surface.gl),
     motion: createScrollMotion(options.physics ?? defaultScrollPhysics),
+    colors: withHighlightColors(DEFAULT_HIGHLIGHT_COLORS, options.colors),
+    selection: undefined,
+    highlights: [],
+    highlighted: 0,
     geometry: undefined,
     current: reader.activeSpreadIndex,
     frame: null,
   };
+  if (options.selection !== false) {
+    view.selection = createScrollSelection(reader, () => {
+      selectionChanged(view);
+    });
+  }
   const stops: (() => void)[] = [];
   const controller = controllerOf(view, () => {
     for (const stop of stops) stop();
   });
-  stops.push(
+  stops.push(...wireView(view));
+  if (options.input !== false) stops.push(...wireInput(view, controller));
+  return controller;
+}
+
+function wireView(view: ScrollView): (() => void)[] {
+  const { reader, surface } = view;
+  return [
     reader.onLayoutCommitted(() => {
       relayout(view);
     }),
@@ -62,17 +74,24 @@ export function createScrollController(
     }),
     surface.onRestored(() => {
       view.pool.dispose();
+      view.overlays.dispose();
       schedule(view);
     }),
-    ...(options.input === false
-      ? []
-      : [
-          wireScrollInput(surface.canvas, controller, (x, y) => {
-            tap(view, controller, x, y);
-          }),
-        ]),
-  );
-  return controller;
+  ];
+}
+
+/** The built-in input: the strip's, and the mouse's selection when the view selects. */
+function wireInput(view: ScrollView, controller: ScrollController): (() => void)[] {
+  const canvas = view.surface.canvas;
+  const onTap = (x: number, y: number): void => {
+    tap(view, controller, x, y);
+  };
+  const { selection } = view;
+  if (selection === undefined) return [wireScrollInput(canvas, controller, onTap)];
+  return [
+    wireScrollInput(canvas, controller, onTap, { mouseTaps: false }),
+    wireMouseSelection(canvas, controller, selection, onTap),
+  ];
 }
 
 function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollController {
@@ -95,6 +114,35 @@ function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollControll
     get currentSpread() {
       return view.current;
     },
+    ...movement(view),
+    scrollToLocator: (locator) => scrollToLocator(view, controller, locator),
+    pointAt: (x, y) =>
+      view.geometry === undefined
+        ? undefined
+        : scrollPointAt(view.reader, view.geometry, motion.offset, view.surface.width, x, y),
+    targetAt: (point) => scrollTargetAt(view.reader, point),
+    get selection() {
+      return view.selection?.snapshot?.range ?? null;
+    },
+    ...highlighting(view),
+    on: (event, listener) => view.emitter.on(event, listener),
+    dispose() {
+      dispose(view, unsubscribe);
+    },
+  };
+  return controller;
+}
+
+/** How the app moves the strip: to an offset or a window, or under a finger. */
+function movement(
+  view: ScrollView,
+): Pick<
+  ScrollController,
+  'scrollTo' | 'scrollBy' | 'scrollToSpread' | 'grab' | 'follow' | 'release'
+> {
+  const { motion } = view;
+  const ratio = (): number => ratioOf(view);
+  return {
     scrollTo(offset, options) {
       moveTo(view, offset * ratio(), options?.animate ?? false);
     },
@@ -106,12 +154,6 @@ function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollControll
       if (window === undefined) return;
       moveTo(view, window.start + blockOffset * ratio() - readingLine(view), false);
     },
-    scrollToLocator: (locator) => scrollToLocator(view, controller, locator),
-    pointAt: (x, y) =>
-      view.geometry === undefined
-        ? undefined
-        : scrollPointAt(view.reader, view.geometry, motion.offset, view.surface.width, x, y),
-    targetAt: (point) => scrollTargetAt(view.reader, point),
     grab() {
       motion.grab();
     },
@@ -123,18 +165,44 @@ function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollControll
       motion.release(velocity * ratio(), performance.now());
       schedule(view);
     },
-    on: (event, listener) => view.emitter.on(event, listener),
-    dispose() {
-      dispose(view, unsubscribe);
+  };
+}
+
+/** What is drawn over the text: the selection and the app's highlights. */
+function highlighting(
+  view: ScrollView,
+): Pick<ScrollController, 'selectionRects' | 'clearSelection' | 'setHighlights'> {
+  return {
+    selectionRects: () => selectionRects(view),
+    clearSelection() {
+      view.selection?.clear();
+    },
+    setHighlights(highlights) {
+      view.highlights = [...highlights];
+      view.highlighted += 1;
+      schedule(view);
     },
   };
-  return controller;
+}
+
+/** What is selected changed: it is drawn again and the app hears it. */
+function selectionChanged(view: ScrollView): void {
+  schedule(view);
+  const snapshot = view.selection?.snapshot ?? null;
+  view.emitter.emit('selection', {
+    range: snapshot?.range ?? null,
+    text: snapshot?.text ?? '',
+    selecting: view.selection?.selecting ?? false,
+    rects: selectionRects(view),
+  });
 }
 
 function dispose(view: ScrollView, unsubscribe: () => void): void {
   if (view.frame !== null) cancelAnimationFrame(view.frame);
   unsubscribe();
+  view.selection?.dispose();
   view.pool.dispose();
+  view.overlays.dispose();
   view.surface.dispose();
   view.emitter.dispose();
   view.surface.canvas.remove();
@@ -163,137 +231,4 @@ function tap(view: ScrollView, controller: ScrollController, x: number, y: numbe
       console.error('[rito] the scroll view could not read what a tap is on', error);
     },
   );
-}
-
-/** Moves the strip to device offset `target`, gliding there when `animate`. */
-function moveTo(view: ScrollView, target: number, animate: boolean): void {
-  if (!animate) {
-    view.motion.place(target);
-  } else {
-    const spring = springSettle(GLIDE, view.motion.offset, 0, target);
-    view.motion.glide((seconds) => {
-      const at = spring(seconds);
-      return { offset: at.done ? target : at.x, velocity: at.velocity, done: at.done };
-    }, performance.now());
-  }
-  schedule(view);
-}
-
-/** The viewport's device pixels along the axis. */
-function along(view: ScrollView): number {
-  return view.geometry?.axis === 'left' ? view.surface.width : view.surface.height;
-}
-
-/** Device pixels a CSS pixel of the windows shown: the ratio their geometry was made at. */
-function ratioOf(view: ScrollView): number {
-  return view.geometry?.ratio ?? view.reader.dpr;
-}
-
-/** The reading line in device pixels: the content box's block start, where a locator's line is shown. */
-function readingLine(view: ScrollView): number {
-  const margins = view.reader.getLayoutGeometry();
-  const margin = view.geometry?.axis === 'left' ? margins.marginRight : margins.marginTop;
-  return margin * ratioOf(view);
-}
-
-function schedule(view: ScrollView): void {
-  view.frame ??= requestAnimationFrame((now) => {
-    view.frame = null;
-    const moving = view.motion.step(now);
-    draw(view);
-    if (moving) schedule(view);
-    else rest(view);
-  });
-}
-
-/** The strip came to rest: say where, then where the reader reads. */
-function rest(view: ScrollView): void {
-  const { geometry, motion } = view;
-  view.emitter.emit('rest', { offset: motion.offset / ratioOf(view) });
-  if (geometry === undefined) return;
-  const offset = motion.offset;
-  readingPosition(view.reader, geometry, offset, readingLine(view)).then(
-    (locator) => {
-      // A position the strip has since moved away from is not where it reads.
-      if (locator !== undefined && view.geometry === geometry && view.motion.offset === offset) {
-        view.emitter.emit('position', { locator });
-      }
-    },
-    (error: unknown) => {
-      console.error('[rito] the scroll view could not read its reading position', error);
-    },
-  );
-}
-
-function draw(view: ScrollView): void {
-  const { geometry, surface, motion, reader } = view;
-  if (geometry === undefined) return;
-  surface.clear();
-  compositeWindows(
-    surface.compositor,
-    geometry,
-    motion.offset,
-    surface.width,
-    surface.height,
-    (window, rect) => view.pool.picture(window.spreadIndex, rect.width, rect.height),
-  );
-  keepNear(view, geometry);
-  view.emitter.emit('scroll', {
-    offset: motion.offset / geometry.ratio,
-    extent: geometry.extent / geometry.ratio,
-  });
-  const reading = geometry.windowAt(motion.offset + readingLine(view));
-  if (reading !== undefined && reading.spreadIndex !== view.current) {
-    view.current = reading.spreadIndex;
-    reader.notifyActiveSpread(reading.spreadIndex);
-    view.emitter.emit('window', { spreadIndex: reading.spreadIndex });
-  }
-}
-
-/**
- * The windows shown and one either side keep their pictures; the ones
- * beside are painted ahead, which has the reader load them.
- */
-function keepNear(view: ScrollView, geometry: ScrollGeometry): void {
-  const shown = geometry.visible(Math.round(view.motion.offset), along(view));
-  const first = shown[0];
-  const last = shown.at(-1);
-  if (first === undefined || last === undefined) return;
-  const from = geometry.windows.indexOf(first);
-  const to = geometry.windows.indexOf(last);
-  const near = geometry.windows.slice(Math.max(0, from - 1), to + 2);
-  const { width, height } = view.surface;
-  for (const window of near) {
-    if (shown.includes(window)) continue;
-    const [w, h] = geometry.axis === 'down' ? [width, window.length] : [window.length, height];
-    view.pool.picture(window.spreadIndex, w, h);
-  }
-  view.pool.keep(new Set(near.map((window) => window.spreadIndex)));
-}
-
-/**
- * Takes the committed layout: the canvas at the viewport's size and the
- * windows anew, the strip kept on the window under the reading line and
- * as far into it as it was.
- */
-function relayout(view: ScrollView): void {
-  const { reader, surface, motion } = view;
-  const line = readingLine(view);
-  const kept = view.geometry?.windowAt(motion.offset + line);
-  // How far into its window the reading line is, in CSS pixels.
-  const into = kept === undefined ? 0 : (motion.offset + line - kept.start) / ratioOf(view);
-  const size = reader.getCanvasSize(1);
-  surface.setSize(size.width, size.height, reader.dpr);
-  const layout = reader.getScrollLayout();
-  view.geometry = layout === undefined ? undefined : createScrollGeometry(layout, reader.dpr);
-  view.pool.invalidateAll();
-  if (view.geometry === undefined) return;
-  motion.bound(view.geometry.extent - along(view), along(view));
-  const spreadIndex = kept?.spreadIndex ?? view.current;
-  const window = view.geometry.windows.find((each) => each.spreadIndex === spreadIndex);
-  if (window !== undefined) {
-    const depth = Math.min(into * view.geometry.ratio, window.length - 1);
-    motion.place(window.start + depth - readingLine(view));
-  }
-  schedule(view);
 }

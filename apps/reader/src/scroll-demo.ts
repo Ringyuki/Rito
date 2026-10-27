@@ -14,6 +14,7 @@ interface Opened {
 const view = document.querySelector<HTMLElement>('#view');
 const input = document.querySelector<HTMLInputElement>('#open');
 const progress = document.querySelector<HTMLElement>('#progress');
+const selected = document.querySelector<HTMLElement>('#selected');
 let opened: Opened | undefined;
 
 async function open(file: File): Promise<void> {
@@ -39,6 +40,9 @@ async function open(file: File): Promise<void> {
   controller.on('scroll', ({ offset, extent }) => {
     const max = extent - (controller.axis === 'left' ? view.clientWidth : view.clientHeight);
     if (progress) progress.textContent = `${((100 * offset) / Math.max(1, max)).toFixed(1)}%`;
+  });
+  controller.on('selection', ({ text, selecting }) => {
+    if (selected) selected.textContent = selecting ? '' : text.slice(0, 80);
   });
   controller.mount(view);
   opened = { reader, controller };
