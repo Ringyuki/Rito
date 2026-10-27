@@ -152,6 +152,25 @@ export function useReader(
     annotations.annotations,
     scroll.position,
   );
+  // The selection read scrolled, kept as a highlight among the book's
+  // annotations, which both modes show.
+  const highlightScrollSelection = useCallback(async () => {
+    const locator = scroll.selection?.range?.sourceLocator;
+    const interactions = scroll.reader?.interactions;
+    if (!locator?.sourceRange || !interactions?.createAnnotationTarget) return;
+    const target = await interactions.createAnnotationTarget({
+      href: locator.href,
+      sourceRange: locator.sourceRange,
+    });
+    if (!target) return;
+    annotations.insert({
+      id: crypto.randomUUID(),
+      kind: 'highlight',
+      target,
+      createdAt: Date.now(),
+    });
+    scroll.controller?.clearSelection();
+  }, [annotations, scroll.controller, scroll.reader, scroll.selection]);
   const searchHighlight = scrollSearch.highlight;
   useEffect(() => {
     scroll.controller?.setHighlights(
@@ -320,6 +339,7 @@ export function useReader(
     spreadMode,
     setSpreadMode,
     scroll,
+    highlightScrollSelection,
     renderScale,
     setRenderScale,
     isTransitioning: transition.isTransitioning,

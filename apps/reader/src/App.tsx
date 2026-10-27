@@ -77,6 +77,9 @@ export function App({ pinnedFontPolicy }: AppProps) {
           onOpenToc={handleOpenToc}
           onOpenSearch={handleToggleSearch}
           onOpenSettings={handleToggleSettings}
+          onHighlight={() => {
+            void reader.highlightScrollSelection();
+          }}
         />
       ) : (
         <ReadingProgressArea reader={reader} width={containerSize.width}>
