@@ -18,7 +18,10 @@
 // Usage: node tools/corpus-oracle/pixel-walk.mjs <book.epub> <outDir> [maxPages]
 //   env RITO_READER_URL (default http://localhost:5173/)
 //   env RITO_WALK_DSF   device pixels per CSS pixel on both sides (default 1)
+//   env RITO_WALK_SCROLLED=1  the scrolled reading mode: each chapter's
+//       windows against Chromium's continuous layout (scroll-truth.mjs)
 import { createRequire } from 'node:module';
+import { captureScrolledWindows, composeScrolledWindow } from './scroll-truth.mjs';
 import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -44,6 +47,7 @@ const MARGIN = 50; // readerViewportMargin at this viewport
 // compared on the device grid. Layout stays in CSS pixels; only the
 // captured bitmaps and every index into them scale.
 const DSF = Number(process.env.RITO_WALK_DSF ?? 1);
+const SCROLLED = process.env.RITO_WALK_SCROLLED === '1';
 if (!Number.isInteger(DSF) || DSF < 1) {
   console.error(`RITO_WALK_DSF must be a positive integer, got ${process.env.RITO_WALK_DSF}`);
   process.exit(1);
@@ -216,6 +220,16 @@ await reader
     });
     await reader.waitForTimeout(1500);
   });
+// The scrolled lane reads the book as windows: one a spread, shown where
+// a page is.
+if (SCROLLED) {
+  await reader.evaluate(() => window.__ritoController.setSpreadMode('scrolled'));
+  await reader.waitForFunction(
+    () => window.__ritoController.reader.getLayoutGeometry().spreadMode === 'scrolled',
+    { timeout: 120000 },
+  );
+  await reader.waitForTimeout(1500);
+}
 // Book fonts register lazily as spreads first paint, each registration
 // possibly reflowing and moving page boundaries. Traverse the whole book
 // once BEFORE reading the plan so every face is registered and the
@@ -510,6 +524,8 @@ console.log(`engine pages captured: ${enginePages.size}`);
 
 // ---- Truth side: per chapter, multicol columns of the content box -------
 const truthColumns = new Map(); // idref -> PNG[] (one per column)
+// idref -> the scrolled lane's windows (scroll-truth.mjs).
+const truthWindows = new Map();
 // idref -> how many columns Chromium lays the chapter out in (horizontal
 // chapters only; vertical stripes are cut from ink, not laid out).
 const truthColumnCount = new Map();
@@ -582,7 +598,7 @@ for (const chapter of plan.chapters) {
       .map((target) => target.slice(href.length + 1));
     const injectTruth = (pg) =>
       pg.evaluate(
-        async ({ contentW, contentH, hostFaces, noteIds, bookFaceFamilies }) => {
+        async ({ contentW, contentH, hostFaces, noteIds, bookFaceFamilies, scrolled }) => {
           // Vertical-rl chapters skip the multicol harness entirely: a
           // vertical root already grows sideways column by column (the
           // block axis is horizontal), so the truth is the NATIVE flow at
@@ -612,7 +628,9 @@ for (const chapter of plan.chapters) {
 ${
   verticalRoot
     ? `html { margin:0; padding:0; height:${contentH}px; }`
-    : `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }`
+    : scrolled
+      ? `html { margin:0; padding:0; width:${contentW}px; }`
+      : `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }`
 }
 body { margin:0; padding:0; position:relative; }
 img, svg { max-width: 100%; }
@@ -931,9 +949,31 @@ img { object-fit: contain; }`;
           }
           return { pages, contentWidth: width };
         },
-        { contentW, contentH, hostFaces: HOST_FACES, noteIds, bookFaceFamilies },
+        {
+          contentW,
+          contentH,
+          hostFaces: HOST_FACES,
+          noteIds,
+          bookFaceFamilies,
+          scrolled: SCROLLED,
+        },
       );
     const vertical = await injectTruth(truth);
+    if (SCROLLED) {
+      // A vertical chapter's windows run leftwards; this lane reads only
+      // horizontal ones yet.
+      if (vertical) {
+        console.log(`[truth-skip] ${chapter.href}: vertical chapter in the scrolled lane`);
+        truthWindows.set(chapter.href, []);
+      } else {
+        await truth.waitForTimeout(250);
+        truthWindows.set(
+          chapter.href,
+          await captureScrolledWindows(truth, { contentW, contentH, pageH, margin: MARGIN }),
+        );
+      }
+      continue;
+    }
     await truth.waitForTimeout(250);
     // One screenshot per column. Each column is brought to the viewport by
     // a negative margin on the root element, NOT by scrolling: scrolling
@@ -1065,7 +1105,8 @@ for (const chapter of plan.chapters) {
   columns.forEach((c, i) => {
     if (inked(c, g) > 0) truthUsed = i + 1;
   });
-  const truthCount = truthColumnCount.get(chapter.href) ?? truthUsed;
+  const windows = truthWindows.get(chapter.href) ?? [];
+  const truthCount = SCROLLED ? windows.length : (truthColumnCount.get(chapter.href) ?? truthUsed);
   for (let k = 0; k < enginePageCount; k += 1) {
     const pageIndex = chapter.startPage + k;
     if (pageIndex > MAX_PAGES) break;
@@ -1075,7 +1116,7 @@ for (const chapter of plan.chapters) {
     // Compose the truth page: the page ground sampled from the engine's
     // own corner (theme paper), the column at the content origin.
     const ground = [engine.data[0], engine.data[1], engine.data[2]];
-    const truthPage = new PNG({ width: pageWd, height: pageHd });
+    let truthPage = new PNG({ width: pageWd, height: pageHd });
     for (let p = 0; p < pageWd * pageHd; p += 1) {
       const i = p * 4;
       truthPage.data[i] = ground[0];
@@ -1092,6 +1133,21 @@ for (const chapter of plan.chapters) {
         }
       }
     }
+    // A scrolled window is its own length tall: the rows past a chapter's
+    // last window hold nothing of it.
+    const scrolledWindow = SCROLLED ? windows[k] : undefined;
+    if (scrolledWindow) {
+      truthPage = composeScrolledWindow(scrolledWindow, {
+        pageWd,
+        pageHd,
+        marginD,
+        dsf: DSF,
+        ground,
+      });
+    }
+    const comparedRows = scrolledWindow
+      ? Math.min(pageHd, Math.round(scrolledWindow.length * DSF))
+      : pageHd;
     let diff = 0;
     // Above the characterized host-raster floor: Chromium's own two CPU
     // raster lanes (canvas 2D vs DOM image/box AA) disagree by at most 13
@@ -1099,7 +1155,7 @@ for (const chapter of plan.chapters) {
     // reproduction models pixel-falsified (task dossier). A defect the
     // engine can act on moves ink, and moved ink exceeds that ceiling.
     let beyondFloor = 0;
-    for (let p = 0; p < pageWd * pageHd; p += 1) {
+    for (let p = 0; p < pageWd * comparedRows; p += 1) {
       const i = p * 4;
       const delta = Math.max(
         Math.abs(engine.data[i] - truthPage.data[i]),
