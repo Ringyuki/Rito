@@ -95,7 +95,7 @@ function selectingView() {
   const controller = createScrollController(reader as unknown as Reader, canvas);
   const pointer = (type: string, x: number, y: number) =>
     new PointerEvent(type, { pointerType: 'mouse', button: 0, clientX: x, clientY: y, detail: 1 });
-  return { canvas, controller, fills, pointer };
+  return { canvas, controller, fills, pointer, reader };
 }
 
 /** Stands in for the overlay canvases, recording every rect filled, scaled. */
@@ -367,6 +367,56 @@ describe('scroll controller', () => {
     await vi.waitFor(() => {
       expect(taps).toHaveLength(1);
     });
+    controller.dispose();
+  });
+
+  it('moves the focus with a Shift chord, read by its line, and keeps it on screen', async () => {
+    const { canvas, controller, pointer, reader } = selectingView();
+    const movements: string[] = [];
+    // Each movement lands the focus on the third window's page, 500 px into
+    // its content box, on a vertical line.
+    const textSelection = (reader as unknown as { interactions: { textSelection: object } })
+      .interactions.textSelection;
+    Object.assign(textSelection, {
+      resolveTextSelectionMovement: ({
+        anchor,
+        movement,
+      }: {
+        anchor: ReturnType<typeof caret>;
+        movement: string;
+      }) => {
+        movements.push(movement);
+        const focus = {
+          ...caret(40, 2),
+          geometry: { x: 40, y: 500, width: 0, height: 18 },
+          writingMode: 'vertical-rl',
+        } as ReturnType<typeof caret>;
+        return Promise.resolve({ status: 'resolved', range: exactRange(anchor, focus) });
+      },
+    });
+    controller.mount(document.body);
+    controller.scrollTo(500);
+    runFrames();
+    canvas.dispatchEvent(pointer('pointerdown', 30, 50));
+    canvas.dispatchEvent(pointer('pointermove', 60, 200));
+    canvas.dispatchEvent(pointer('pointerup', 60, 200));
+    await flushMicrotasks();
+    runFrames();
+
+    const shift = (key: string) =>
+      new KeyboardEvent('keydown', { key, shiftKey: true, cancelable: true });
+    window.dispatchEvent(shift('ArrowDown'));
+    await flushMicrotasks();
+    runFrames();
+    expect(movements).toEqual(['lineDown']);
+    // The third window starts 900 px in: the focus 930 px down the view,
+    // brought in to 40 px above its bottom.
+    expect(controller.offset).toBe(500 + (900 - 500 + 30 + 500 + 18) - (600 - 40));
+
+    // On a vertical line, left moves on to the next line.
+    window.dispatchEvent(shift('ArrowLeft'));
+    await flushMicrotasks();
+    expect(movements).toEqual(['lineDown', 'lineDown']);
     controller.dispose();
   });
 

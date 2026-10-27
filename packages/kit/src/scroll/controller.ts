@@ -10,13 +10,14 @@ import { createWindowOverlays } from './overlays';
 import { defaultScrollPhysics } from './physics';
 import { createWindowPool } from './pool';
 import { createScrollSelection } from './selection';
-import { wireMouseSelection } from './selection-input';
+import { wireKeySelection, wireMouseSelection } from './selection-input';
 import type { ScrollController, ScrollControllerEvents, ScrollControllerOptions } from './types';
 import {
   moveTo,
   ratioOf,
   readingLine,
   relayout,
+  revealFocus,
   schedule,
   selectionRects,
   type ScrollView,
@@ -102,6 +103,9 @@ function wireInput(view: ScrollView, controller: ScrollController): (() => void)
   return [
     wireScrollInput(canvas, controller, onTap, { mouseTaps: false }),
     wireMouseSelection(canvas, controller, selection, onTap),
+    wireKeySelection(selection, () => {
+      revealFocus(view);
+    }),
   ];
 }
 

@@ -1,4 +1,10 @@
-import type { Reader, ReaderExactSourceRangeRequest, ReaderTextPoint } from '@ritojs/core';
+import type {
+  Reader,
+  ReaderExactSourceRangeRequest,
+  ReaderTextPoint,
+  ReaderTextSelectionMovement,
+  ReaderWritingMode,
+} from '@ritojs/core';
 import { createNativeSelectionEngine } from '../interaction/selection/native-engine';
 import type {
   NativeSelectionCapability,
@@ -17,10 +23,18 @@ export interface ScrollSelection {
   move(point: ReaderTextPoint): void;
   end(point: ReaderTextPoint): void;
   clear(): void;
+  /**
+   * Moves what is selected's focus by `movement`, as a Shift chord does,
+   * after the movements asked for before it; false when nothing selected
+   * can move.
+   */
+  extend(movement: ReaderTextSelectionMovement): Promise<boolean>;
   /** What is selected, as a gesture selects it and once it has. */
   readonly snapshot: NativeSelectionSnapshot | null;
   /** Whether a gesture is selecting. */
   readonly selecting: boolean;
+  /** The writing mode of the line the focus is on, which turns its arrow keys. */
+  readonly focusWritingMode: ReaderWritingMode;
   /** Counts every change of what is selected. */
   readonly version: number;
   /** Before a layout is replaced: where the selection reads in the source. */
@@ -39,10 +53,45 @@ export function createScrollSelection(
   if (capability === undefined) return undefined;
   const engine = createNativeSelectionEngine(capability, { onError: report });
   let version = 0;
+  let movements = Promise.resolve(true);
   const stop = engine.onChange(() => {
     version += 1;
     changed();
   });
+  return {
+    ...gestures(engine),
+    extend(movement) {
+      movements = movements.then(
+        () => moved(engine, movement),
+        () => false,
+      );
+      return movements;
+    },
+    get snapshot() {
+      return engine.getSnapshot();
+    },
+    get selecting() {
+      return engine.getState() === 'selecting';
+    },
+    get focusWritingMode() {
+      return engine.getSnapshot()?.range.focus.writingMode ?? 'horizontal-tb';
+    },
+    get version() {
+      return version;
+    },
+    carry: () => carried(engine),
+    restore: restorer(engine, capability),
+    dispose() {
+      stop();
+      engine.dispose();
+    },
+  };
+}
+
+/** A pointer's gesture selecting, and letting the selection go. */
+function gestures(
+  engine: NativeSelectionEngine,
+): Pick<ScrollSelection, 'begin' | 'move' | 'end' | 'clear'> {
   return {
     begin: (point, granularity) => {
       engine.handlePointerDown(point, granularity);
@@ -56,22 +105,25 @@ export function createScrollSelection(
     clear: () => {
       engine.clear();
     },
-    get snapshot() {
-      return engine.getSnapshot();
-    },
-    get selecting() {
-      return engine.getState() === 'selecting';
-    },
-    get version() {
-      return version;
-    },
-    carry: () => carried(engine),
-    restore: restorer(engine, capability),
-    dispose() {
-      stop();
-      engine.dispose();
-    },
   };
+}
+
+/** One movement of the focus, published once it resolved. */
+async function moved(
+  engine: NativeSelectionEngine,
+  movement: ReaderTextSelectionMovement,
+): Promise<boolean> {
+  const command = engine.beginKeyboardMovement(movement);
+  if (command === null) return false;
+  try {
+    const outcome = await command.result;
+    // A boundary is committed too: it keeps the line position the next
+    // vertical movement starts from.
+    if (outcome.status === 'cancelled') return false;
+    return command.commit() && outcome.status === 'resolved';
+  } finally {
+    command.finish();
+  }
 }
 
 function report(error: unknown): void {

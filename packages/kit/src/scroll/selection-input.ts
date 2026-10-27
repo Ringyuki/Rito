@@ -1,3 +1,7 @@
+import {
+  isAppleKeyboardPlatform,
+  keyboardSelectionMovement,
+} from '../controller/wiring/keyboard-selection-map';
 import type { NativeSelectionGranularity } from '../interaction/selection/native-types';
 import type { ScrollTap } from './input';
 import type { ScrollSelection } from './selection';
@@ -169,4 +173,33 @@ export function edgeSpeed(
   if (along < EDGE) return -EDGE_SPEED * (1 - Math.max(0, along) / EDGE);
   if (along > length - EDGE) return EDGE_SPEED * (1 - Math.max(0, length - along) / EDGE);
   return 0;
+}
+
+/**
+ * A Shift chord moves what is selected's focus, the platform's way and
+ * with the arrow keys read by the focus's writing mode, ahead of the keys
+ * that scroll; `moved` hears each movement that landed. Returns the
+ * unsubscribe.
+ */
+export function wireKeySelection(selection: ScrollSelection, moved: () => void): () => void {
+  const apple = isAppleKeyboardPlatform(navigator);
+  const onKey = (event: KeyboardEvent): void => {
+    if (selection.snapshot === null || selection.selecting) return;
+    const movement = keyboardSelectionMovement(event, apple, selection.focusWritingMode);
+    if (movement === null) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    selection.extend(movement).then(
+      (landed) => {
+        if (landed) moved();
+      },
+      (error: unknown) => {
+        console.error('[rito] the scroll view could not move its selection', error);
+      },
+    );
+  };
+  window.addEventListener('keydown', onKey, { capture: true });
+  return () => {
+    window.removeEventListener('keydown', onKey, { capture: true });
+  };
 }

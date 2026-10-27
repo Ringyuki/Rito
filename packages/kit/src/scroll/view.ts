@@ -107,6 +107,52 @@ export function selectionRects(view: ScrollView): Rect[] {
   );
 }
 
+/** CSS pixels a moved focus is kept in from the view's ends. */
+const FOCUS_MARGIN = 40;
+
+/**
+ * Scrolls the strip so the selection's focus is on screen, as a browser
+ * keeps a moved caret in view: by as little as brings it in from either
+ * end, or, when it moved to a window off screen, to its line at the
+ * reading line.
+ */
+export function revealFocus(view: ScrollView): void {
+  const { geometry, surface, motion } = view;
+  const focus = view.selection?.snapshot?.focusCaret;
+  if (geometry === undefined || !focus) return;
+  const { ratio } = geometry;
+  const origin = view.reader.getLayoutGeometry();
+  const caret = { pageIndex: focus.pageIndex, ...focus.geometry };
+  const down = geometry.axis === 'down';
+  const rect = viewRects(
+    geometry,
+    (window) => pageOf(view, window),
+    origin,
+    motion.offset,
+    surface.width,
+    surface.height,
+    [caret],
+  )[0];
+  if (rect === undefined) {
+    const window = geometry.windows.find((each) => pageOf(view, each) === focus.pageIndex);
+    if (window === undefined) return;
+    const blockOffset = down
+      ? origin.marginTop + caret.y
+      : window.length / ratio - (origin.marginLeft + caret.x + caret.width);
+    moveTo(view, window.start + blockOffset * ratio - readingLine(view), false);
+    return;
+  }
+  const length = along(view) / ratio;
+  const viewWidth = surface.width / ratio;
+  const [from, to] = down
+    ? [rect.y, rect.y + rect.height]
+    : [viewWidth - rect.x - rect.width, viewWidth - rect.x];
+  if (from < FOCUS_MARGIN) moveTo(view, motion.offset + (from - FOCUS_MARGIN) * ratio, false);
+  else if (to > length - FOCUS_MARGIN) {
+    moveTo(view, motion.offset + (to - length + FOCUS_MARGIN) * ratio, false);
+  }
+}
+
 function draw(view: ScrollView): void {
   const { geometry, surface, motion, reader } = view;
   if (geometry === undefined) return;
