@@ -1053,6 +1053,7 @@ pub(super) fn location_result_fixture() -> ReaderNavigationResult {
         page_index: 5,
         drawn: true,
         matched_by: ReaderLocatorMatch::Anchor,
+        block_offset: Some(212.25),
     })
 }
 
@@ -1073,7 +1074,8 @@ pub(super) const COMPARE_HEX: &str = concat!(
 );
 
 /// Produced by the encoder; `rito_flutter`'s navigation wire test decodes the same bytes.
-pub(super) const LOCATION_HEX: &str = "5249544f4e565231010000001c000000000000000100050000000102";
+pub(super) const LOCATION_HEX: &str =
+    "5249544f4e5652310100000025000000000000000100050000000102010000000000886a40";
 
 /// Produced by the encoder; `rito_flutter`'s navigation wire test decodes the same bytes.
 pub(super) const TOC_HEX: &str = "5249544f4e565231010000001a00000000000000000103000000";

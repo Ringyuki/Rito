@@ -220,6 +220,10 @@ version 8):
   `f64` extent after each chapter's `end page` (the chapter's margins and
   strip, scrolled revisions only) and, after `complete`, an optional `u8`
   scroll axis: 0 down, 1 left.
+- A located page (`RITONVR1`, location result tag 0) carries an optional
+  `f64` block offset after its locator match: in a scrolled revision,
+  where the line the locator lands on starts in that page's window, as an
+  artifact's target block offset.
 - A scrolled session keeps up to 10 artifacts live (6 for pages).
 
 Wire changes landed when the display list lost its digest (reader

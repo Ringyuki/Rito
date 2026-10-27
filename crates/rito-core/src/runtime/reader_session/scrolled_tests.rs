@@ -187,3 +187,55 @@ fn a_right_to_left_book_scrolls_leftwards() {
         (extent - last as f64 * page_width, 640.0)
     );
 }
+
+#[test]
+fn a_located_point_says_where_its_line_starts_in_its_window() {
+    let mut session =
+        open_test_session(SESSION, long_paragraphs_fixture_epub()).expect("reader session opens");
+    let href = session.publication().spine[0].href.clone();
+    let first = session
+        .request_artifact(scrolled(
+            1,
+            ReaderLocator {
+                href,
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: Some(0.5),
+            },
+        ))
+        .expect("scrolled artifact");
+    adopt_initial(&mut session, SESSION, first.artifact_id);
+    // A window reached by position is shown from its reading point, a
+    // source point.
+    let shown = session
+        .peek_spread(ReaderSpreadRequest {
+            session_id: SESSION,
+            request_id: 2,
+            from_artifact_id: first.artifact_id,
+            spread_index: 3,
+        })
+        .expect("a window publishes");
+    let point = shown.locator.clone();
+    assert!(point.source_point.is_some());
+    let located = session
+        .resolve_navigation(ReaderNavigationRequest {
+            session_id: SESSION,
+            query: ReaderNavigationQuery::Locate {
+                artifact_id: first.artifact_id,
+                locator: point,
+            },
+        })
+        .expect("the point locates");
+    let ReaderNavigationResult::Location(ReaderLocation::Page {
+        page_index,
+        block_offset,
+        ..
+    }) = located
+    else {
+        panic!("the point lands on a page: {located:?}");
+    };
+    assert_eq!(page_index, shown.local_page_index);
+    assert!(block_offset.is_some());
+    assert_eq!(block_offset, shown.target_block_offset);
+}

@@ -357,6 +357,12 @@ export type RitoReaderLocation =
       /** Whether the asking artifact draws that page. */
       readonly drawn: boolean;
       readonly matchedBy: 'source-range' | 'source-point' | 'anchor' | 'progression' | 'href';
+      /**
+       * In a scrolled revision, where the line the locator lands on starts
+       * in that page's window, as an artifact's `targetBlockOffset`; absent
+       * for a page, and for a locator that names no line.
+       */
+      readonly blockOffset?: number | undefined;
     }
   | { readonly kind: 'not-laid-out' }
   | { readonly kind: 'unavailable' };

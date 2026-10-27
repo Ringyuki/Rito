@@ -12,6 +12,7 @@ use crate::runtime::{
 };
 
 use super::super::{
+    artifact::scrolled_block_offset,
     convert::{locator_match, runtime_locator},
     ReaderChapterPages, ReaderLocation, ReaderNavigationQuery, ReaderNavigationRequest,
     ReaderNavigationResult, ReaderRevisionLayout, ReaderScrollAxis, ReaderSourcePoint,
@@ -221,6 +222,12 @@ impl ReaderSession {
                 page_index: u32_from_usize(page_index, "located page")?,
                 drawn: view.origin_of(page_index).is_some(),
                 matched_by: locator_match(matched_by),
+                block_offset: scrolled_block_offset(
+                    view.revision,
+                    page_index,
+                    prepared.locator(),
+                    matched_by,
+                ),
             },
             RuntimeSourceLocatorResolution::Pending { .. } => ReaderLocation::NotLaidOut,
         };

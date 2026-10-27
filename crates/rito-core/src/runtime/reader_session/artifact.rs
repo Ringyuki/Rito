@@ -220,7 +220,12 @@ fn build_reader_artifact_from_revision(
             .is_absolute_coordinate_space()
             .then(|| u32_from_usize(revision.extent.page_count, "book page count"))
             .transpose()?,
-        target_block_offset: scrolled_target_offset(revision, target),
+        target_block_offset: scrolled_block_offset(
+            revision,
+            target.local_page_index,
+            &target.locator,
+            target.matched_by,
+        ),
         navigation,
         text_profile: ReaderTextRenderingProfile::PlatformStringRuns,
         display_list: ReaderDisplayList {
@@ -243,16 +248,16 @@ fn build_reader_artifact_from_revision(
 /// the element an anchor names. `None` for a spread of pages, and for a
 /// locator that names a window rather than a place in it — a progression
 /// is a position among a chapter's windows, as it is among its pages.
-fn scrolled_target_offset(
+pub(super) fn scrolled_block_offset(
     revision: &RuntimeRevision,
-    target: &ResolvedArtifactTarget,
+    page: usize,
+    locator: &RuntimeSourceLocator,
+    matched_by: RuntimeSourceLocatorMatchedBy,
 ) -> Option<f64> {
     if revision.layout_config.spread_mode != SpreadMode::Scrolled {
         return None;
     }
     let session = revision.chapter_engine_session();
-    let page = target.local_page_index;
-    let locator = &target.locator;
     let line_of = |point: &RuntimeSourcePoint| {
         session.target_block_offset(
             page,
@@ -262,7 +267,7 @@ fn scrolled_target_offset(
             },
         )
     };
-    match target.matched_by {
+    match matched_by {
         RuntimeSourceLocatorMatchedBy::SourceRange => {
             line_of(&locator.source_range.as_ref()?.start)
         }

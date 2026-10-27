@@ -18,7 +18,7 @@ const String _compareHex =
     '00000000000000';
 
 const String _locationHex =
-    '5249544f4e565231010000001c000000000000000100050000000102';
+    '5249544f4e5652310100000025000000000000000100050000000102010000000000886a40';
 
 const String _tocHex = '5249544f4e565231010000001a00000000000000000103000000';
 
@@ -67,6 +67,7 @@ void main() {
     expect(page.pageIndex, 5);
     expect(page.drawn, isTrue);
     expect(page.matchedBy, RitoLocatorMatch.anchor);
+    expect(page.blockOffset, 212.25);
 
     final toc = decoder.decode(_bytes(_tocHex)) as RitoTocEntryResult;
     expect(toc.tocId, 3);

@@ -26,9 +26,8 @@ import 'protocol/search.dart';
 import 'protocol/text_geometry.dart';
 import 'protocol/text_interaction.dart';
 
-typedef RitoArtifactResourceReader = Future<RitoResource> Function(
-  RitoResourceRef reference,
-);
+typedef RitoArtifactResourceReader =
+    Future<RitoResource> Function(RitoResourceRef reference);
 
 /// Optional host hook for preparing artifact resources such as decoded images.
 ///
@@ -36,10 +35,11 @@ typedef RitoArtifactResourceReader = Future<RitoResource> Function(
 /// configured on session open. Other resources are prepared only when the host
 /// supplies this hook. The callback enforces artifact ownership and resource
 /// declaration checks before crossing the gateway.
-typedef RitoArtifactResourcePreparer = Future<void> Function({
-  required RitoArtifact artifact,
-  required RitoArtifactResourceReader readResource,
-});
+typedef RitoArtifactResourcePreparer =
+    Future<void> Function({
+      required RitoArtifact artifact,
+      required RitoArtifactResourceReader readResource,
+    });
 
 /// One host-owned background result whose optional candidate has completed
 /// resource and font preparation but has not been made visible.

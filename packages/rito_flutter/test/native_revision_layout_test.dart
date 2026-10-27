@@ -23,14 +23,16 @@ RitoArtifactRequest _request(int sessionId) => RitoArtifactRequest(
 
 Future<RitoReaderSession> _open(int sessionId) => RitoReaderSession.open(
   gateway: RitoNativeGateway(),
-  publicationBytes: File('../rito/tests/fixtures/books/book-10.epub')
-      .readAsBytesSync(),
+  publicationBytes: File(
+    '../rito/tests/fixtures/books/book-10.epub',
+  ).readAsBytesSync(),
   request: _request(sessionId),
   pinnedFontPolicy: RitoPinnedFontPolicy(
     faces: <RitoPinnedFontFace>[
       RitoPinnedFontFace(
-        bytes: File('../../apps/reader/src/assets/fonts/Tinos-Regular.ttf')
-            .readAsBytesSync(),
+        bytes: File(
+          '../../apps/reader/src/assets/fonts/Tinos-Regular.ttf',
+        ).readAsBytesSync(),
         genericRole: RitoPinnedFontGenericRole.serif,
       ),
     ],

@@ -117,11 +117,15 @@ pub(in crate::runtime::reader_session::wire) fn encode_result(
                     page_index,
                     drawn,
                     matched_by,
+                    block_offset,
                 } => {
                     writer.u8(0);
                     writer.u32(*page_index);
                     writer.bool(*drawn);
                     writer.u8(tag_of(&LOCATOR_MATCHES, matched_by));
+                    writer.option(block_offset.as_ref(), |writer, offset| {
+                        writer.f64(*offset, "located block offset")
+                    })?;
                 }
                 ReaderLocation::NotLaidOut => writer.u8(1),
                 ReaderLocation::Unavailable => writer.u8(2),
@@ -154,6 +158,9 @@ pub(in crate::runtime::reader_session::wire) fn decode_result(
                 page_index: reader.u32()?,
                 drawn: reader.bool("page drawn")?,
                 matched_by: from_tag(&LOCATOR_MATCHES, reader.u8()?, "locator match")?,
+                block_offset: reader.option("located block offset", |reader| {
+                    reader.f64("located block offset")
+                })?,
             },
             1 => ReaderLocation::NotLaidOut,
             2 => ReaderLocation::Unavailable,

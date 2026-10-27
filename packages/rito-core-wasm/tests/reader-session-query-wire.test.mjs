@@ -248,7 +248,7 @@ test('navigation messages match the Rust bytes', () => {
   );
   assert.deepEqual(decodeRitoReaderNavigationResult(rustHex('LOCATION_HEX')), {
     kind: 'location',
-    location: { kind: 'page', pageIndex: 5, drawn: true, matchedBy: 'anchor' },
+    location: { kind: 'page', pageIndex: 5, drawn: true, matchedBy: 'anchor', blockOffset: 212.25 },
   });
   assert.deepEqual(decodeRitoReaderNavigationResult(rustHex('TOC_HEX')), {
     kind: 'toc-entry',

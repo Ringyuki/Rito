@@ -322,6 +322,9 @@ function readLocation(reader) {
         pageIndex: reader.u32('located page'),
         drawn: reader.bool('page drawn'),
         matchedBy: u8Tag(reader, 'locator match', LOCATOR_MATCHES),
+        blockOffset: reader.option('located block offset', () =>
+          reader.f64('located block offset'),
+        ),
       };
     case 1:
       return { kind: 'not-laid-out' };

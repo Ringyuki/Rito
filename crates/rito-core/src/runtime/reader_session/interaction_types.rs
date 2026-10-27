@@ -290,7 +290,7 @@ pub struct ReaderNavigationRequest {
     pub query: ReaderNavigationQuery,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReaderLocation {
     /// The locator lands on `page_index` of the revision; `drawn` says
     /// whether the asking artifact draws that page.
@@ -298,6 +298,10 @@ pub enum ReaderLocation {
         page_index: u32,
         drawn: bool,
         matched_by: super::ReaderLocatorMatch,
+        /// In a scrolled revision, where the line the locator lands on
+        /// starts in that page's window, as an artifact's target block
+        /// offset; absent for a page, and for a locator that names no line.
+        block_offset: Option<f64>,
     },
     /// The locator's chapter is not laid out in this revision.
     NotLaidOut,
