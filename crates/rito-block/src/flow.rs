@@ -168,7 +168,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     fragmentainer_size: space.fragmentainer_size,
                     float_band: None,
                     containing_block_size: None,
-                    line_text: space.line_text,
+                    line_text: space.line_text.whole(),
                 };
                 let outcome =
                     self.layout(tree, child_id, &sub_space, Some(&float_break.token), cancel)?;
@@ -372,7 +372,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         fragmentainer_size: space.fragmentainer_size,
                         float_band: None,
                         containing_block_size: None,
-                        line_text: space.line_text,
+                        line_text: space.line_text.whole(),
                     };
                     let outcome = self.layout(tree, *child_id, &sub_space, None, cancel)?;
                     let Fragment::Box(head_root) = outcome.fragments.root else {
@@ -778,14 +778,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // carry their text: `place_lines` stacks them from
                         // where earlier fragmentainers stopped, within the
                         // space left for lines. A pixel of slack either
-                        // side can only add a line.
+                        // side can only add a line. Unfragmented, the
+                        // paragraph's lines start at its content top,
+                        // unless a flex paragraph centres them once they
+                        // are laid out: where they land is not known
+                        // before, so they all carry their text.
                         match space.line_text {
                             LineText::Omitted => LineText::Omitted,
                             _ if available_for_lines.is_finite() => LineText::Within {
                                 top: consumed - 1.0,
                                 bottom: consumed + available_for_lines + 1.0,
                             },
-                            all => all,
+                            unfragmented if centres_lines(child_style) => unfragmented.whole(),
+                            unfragmented => unfragmented.below(paragraph_top),
                         },
                         cancel,
                         |lines| {
@@ -941,11 +946,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // the slack (measured on b2's landscape plates —
                         // a 449px img in the 765px `.illus` box inks at
                         // top+158 in the browser, exactly (765-449)/2).
-                        let cross_center = if whole_box_here
-                            && child_style.display.inside
-                                == rito_style_contract::LayoutDisplayInside::Flex
-                            && child_style.align_items == rito_style_contract::AlignItems::Center
-                        {
+                        let cross_center = if whole_box_here && centres_lines(child_style) {
                             // The flex ITEM is what centers, not the line
                             // box: a replaced item's box excludes the
                             // strut descent the line adds below it, so a
@@ -1236,7 +1237,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             floats.band_at(y + gap, content_width)
                         },
                         containing_block_size: None,
-                        line_text: space.line_text,
+                        line_text: space.line_text.below(y + gap),
                     };
                     // Mirror of through_collapsed_top's descent predicate:
                     // when the child's leading chain joined THIS loop's
@@ -1577,4 +1578,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             },
         )?
     }
+}
+
+/// Whether a paragraph is a degraded flex container that centres its lines
+/// on the cross axis, moving them once they are laid out.
+fn centres_lines(style: &rito_style_contract::LayoutFormattingStyle) -> bool {
+    style.display.inside == rito_style_contract::LayoutDisplayInside::Flex
+        && style.align_items == rito_style_contract::AlignItems::Center
 }

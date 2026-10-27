@@ -105,7 +105,7 @@ fn a_scrolled_spread_is_its_window_framed_by_the_strip() {
                 strip.windows().device_rows(window, ratio).start
             );
             let (commands, _) = strip
-                .window_frame(window..window + 1, ratio)
+                .window_frame(strip.whole(), window..window + 1, ratio)
                 .expect("window paints");
             assert_eq!(frame.commands.to_vec(), commands);
         }

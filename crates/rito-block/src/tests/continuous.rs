@@ -122,3 +122,217 @@ fn a_continuous_layout_runs_on_through_a_forced_break() {
         .collect();
     assert_eq!(tops, [0.0, 100.0]);
 }
+
+/// Lays lines out as [`FixedLineInline`] does, noting the line text each
+/// flow is asked for.
+struct NotingInline(std::rc::Rc<std::cell::RefCell<Vec<(FormattingNodeId, LineText)>>>);
+
+impl FormattingContext for NotingInline {
+    fn layout(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+        space: &ConstraintSpace,
+        token: Option<&BreakToken>,
+        cancel: &CancelFlag,
+    ) -> Result<LayoutOutcome, LayoutError> {
+        self.0.borrow_mut().push((node, space.line_text));
+        FixedLineInline.layout(tree, node, space, token, cancel)
+    }
+
+    fn intrinsic_inline_sizes(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+    ) -> Result<IntrinsicInlineSizes, LayoutError> {
+        FixedLineInline.intrinsic_inline_sizes(tree, node)
+    }
+}
+
+fn padded_top(px: f32) -> LayoutFormattingStyle {
+    let mut style = block_style(margin_px(0.0), margin_px(0.0));
+    style.padding.top =
+        NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(px).expect("finite")));
+    style
+}
+
+/// The line text each flow of `tree` is asked for, laid out continuously
+/// under `line_text`.
+fn line_text_asked(
+    tree: &FormattingTree,
+    line_text: LineText,
+) -> Vec<(FormattingNodeId, LineText)> {
+    let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let context = BlockFormattingContext::new(NotingInline(std::rc::Rc::clone(&asked)));
+    let space = ConstraintSpace {
+        line_text,
+        ..ConstraintSpace::continuous(300.0)
+    };
+    context
+        .layout(tree, tree.root(), &space, None, &CancelFlag::new())
+        .expect("tree lays out");
+    asked.take()
+}
+
+fn text_items(inline: &mut InlineStyleTable, count: usize) -> FormattingNodeContent {
+    let style = inline
+        .intern_for_node(
+            0,
+            plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("Fixture"))])
+                    .expect("family list"),
+                16.0,
+                0.0,
+            ),
+        )
+        .expect("style interns");
+    FormattingNodeContent::InlineFlow {
+        items: (0..count)
+            .map(|line| InlineItem::Text {
+                text: format!("line {line}"),
+                style,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn a_range_of_lines_reaches_a_nested_flow_in_its_own_coordinates() {
+    // A 100 px block, then a box with 20 px of top padding holding a 30 px
+    // block and a paragraph: the paragraph's lines start 150 px down.
+    let mut layout = LayoutStyleTable::new(0);
+    let plain = layout
+        .intern(block_style(margin_px(0.0), margin_px(0.0)))
+        .expect("style interns");
+    let padded = layout.intern(padded_top(20.0)).expect("style interns");
+    let mut inline = InlineStyleTable::new(1);
+    let leaf = |block_size| FormattingNode {
+        style: plain,
+        content: FormattingNodeContent::SizedLeaf {
+            block_size,
+            breakable: false,
+        },
+        children: Vec::new(),
+    };
+    let tree = FormattingTree::with_styles(
+        vec![
+            leaf(100.0),
+            leaf(30.0),
+            FormattingNode {
+                style: plain,
+                content: text_items(&mut inline, 3),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: padded,
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(1), FormattingNodeId(2)],
+            },
+            FormattingNode {
+                style: plain,
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0), FormattingNodeId(3)],
+            },
+        ],
+        FormattingNodeId(4),
+        FormattingTreeStyles { layout, inline },
+    )
+    .expect("tree builds");
+    assert_eq!(
+        line_text_asked(
+            &tree,
+            LineText::Within {
+                top: 160.0,
+                bottom: 170.0
+            }
+        ),
+        [(
+            FormattingNodeId(2),
+            LineText::Within {
+                top: 10.0,
+                bottom: 20.0
+            }
+        )]
+    );
+    assert_eq!(
+        line_text_asked(&tree, LineText::All),
+        [(FormattingNodeId(2), LineText::All)]
+    );
+}
+
+#[test]
+fn a_range_of_lines_reaches_a_padded_paragraph_below_its_padding() {
+    let mut layout = LayoutStyleTable::new(0);
+    let padded = layout.intern(padded_top(12.0)).expect("style interns");
+    let mut inline = InlineStyleTable::new(1);
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: padded,
+            content: text_items(&mut inline, 2),
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        FormattingTreeStyles { layout, inline },
+    )
+    .expect("tree builds");
+    assert_eq!(
+        line_text_asked(
+            &tree,
+            LineText::Within {
+                top: 20.0,
+                bottom: 30.0
+            }
+        ),
+        [(
+            FormattingNodeId(0),
+            LineText::Within {
+                top: 8.0,
+                bottom: 18.0
+            }
+        )]
+    );
+}
+
+#[test]
+fn a_flex_paragraph_that_centres_its_lines_holds_all_their_text() {
+    // Its lines move once they are laid out, so no range can say which of
+    // them a window reaches.
+    let mut layout = LayoutStyleTable::new(0);
+    let plain = layout
+        .intern(block_style(margin_px(0.0), margin_px(0.0)))
+        .expect("style interns");
+    let mut centring = block_style(margin_px(0.0), margin_px(0.0));
+    centring.display.inside = LayoutDisplayInside::Flex;
+    centring.align_items = AlignItems::Center;
+    let centring = layout.intern(centring).expect("style interns");
+    let mut inline = InlineStyleTable::new(1);
+    let tree = FormattingTree::with_styles(
+        vec![
+            FormattingNode {
+                style: centring,
+                content: text_items(&mut inline, 2),
+                children: Vec::new(),
+            },
+            FormattingNode {
+                style: plain,
+                content: FormattingNodeContent::BlockContainer,
+                children: vec![FormattingNodeId(0)],
+            },
+        ],
+        FormattingNodeId(1),
+        FormattingTreeStyles { layout, inline },
+    )
+    .expect("tree builds");
+    assert_eq!(
+        line_text_asked(
+            &tree,
+            LineText::Within {
+                top: 0.0,
+                bottom: 5.0
+            }
+        ),
+        [(FormattingNodeId(0), LineText::All)]
+    );
+}

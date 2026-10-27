@@ -152,6 +152,15 @@ impl MaterializedChapter {
         if entry.has_text || entry.text_root.get().is_some() {
             return Ok(());
         }
+        if let Some(strip) = &self.strip {
+            // A window is laid out with its text as its strip is, around it.
+            let text = strip.window_text(&self.engine, page)?;
+            let _ = entry
+                .text_root
+                .set(strip.window_text_page_root(&text, page));
+            let _ = entry.window_text.set(text);
+            return Ok(());
+        }
         let (root, end) = layout_chapter_page(
             &self.engine.engine,
             &self.paint.built.tree,
@@ -205,7 +214,11 @@ impl MaterializedChapter {
                 rows,
             });
         }
-        let (commands, _) = strip.window_frame(page..page + 1, ratio)?;
+        let text = entry
+            .window_text
+            .get()
+            .expect("a window's text is laid out before the window is painted");
+        let (commands, _) = strip.window_frame(text, page..page + 1, ratio)?;
         let commands = Arc::new(commands);
         let mut cache = entry.paint_cache.borrow_mut();
         if cache.len() >= 2 {
@@ -357,6 +370,10 @@ struct FragmentBackendPage {
     end: Option<BreakToken>,
     /// The page laid out again with its text, when pagination left it out.
     text_root: std::cell::OnceCell<rito_fragment::Fragment>,
+    /// What paints a scrolled chapter's window, laid out again with its
+    /// text when the window is read: the strip's fragments that reach it,
+    /// in the strip's coordinates.
+    window_text: std::cell::OnceCell<rito_fragment::Fragment>,
     /// Paint commands per device ratio (as f64 bits). A reader draws at
     /// one ratio at a time and a zoom or density change is rare, so the
     /// cache keeps the two most recent.
@@ -572,6 +589,7 @@ impl FragmentBuiltLayout {
                 start: page.start,
                 end: rest.resumes_at().cloned(),
                 text_root: std::cell::OnceCell::new(),
+                window_text: std::cell::OnceCell::new(),
                 paint_cache: RefCell::new(Vec::new()),
             });
         }
@@ -604,6 +622,16 @@ impl FragmentBuiltLayout {
             let Ok(chapter) = self.materialize(chapter_index) else {
                 break;
             };
+            if let Some(strip) = &chapter.strip {
+                // Every window's text at once, from one layout of the strip.
+                let Ok(roots) = strip.window_record_roots(&chapter.engine) else {
+                    return records;
+                };
+                for (offset, root) in roots.iter().enumerate() {
+                    records.push(search_record(base + offset, root, &chapter.paint));
+                }
+                continue;
+            }
             for offset in 0..chapter.pages.len() {
                 if chapter.ensure_text(offset).is_err() {
                     return records;
@@ -809,12 +837,28 @@ impl FragmentBuiltLayout {
         ))
     }
 
-    /// One chapter laid out as a continuous strip from the inputs the table
-    /// recorded, on the engine that paginated it.
+    /// One chapter laid out as a continuous strip with its text from the
+    /// inputs the table recorded, on the engine that paginated it.
     #[cfg(test)]
     pub(super) fn chapter_strip(
         &self,
         chapter_index: usize,
+    ) -> EpubResult<super::scroll_strip::ChapterStrip> {
+        self.chapter_strip_laid_out(chapter_index, true)
+    }
+
+    /// The engine the table was paginated on, which lays a window's text out.
+    #[cfg(test)]
+    pub(super) fn strip_engine(&self) -> Option<&RuntimeFragmentEngine> {
+        self.build.as_ref().map(|build| build.engine.as_ref())
+    }
+
+    /// [`Self::chapter_strip`], with its text or without as `line_text` says.
+    #[cfg(test)]
+    pub(super) fn chapter_strip_laid_out(
+        &self,
+        chapter_index: usize,
+        line_text: bool,
     ) -> EpubResult<super::scroll_strip::ChapterStrip> {
         let record = &self.chapters[chapter_index];
         let build = self.build.as_ref().ok_or_else(|| {
@@ -834,7 +878,7 @@ impl FragmentBuiltLayout {
             Rc::clone(&build.faces),
             built,
             &build.config,
-            true,
+            line_text,
         )
     }
 }
@@ -874,6 +918,7 @@ fn materialized_chapter(
             start: page.start,
             end,
             text_root: std::cell::OnceCell::new(),
+            window_text: std::cell::OnceCell::new(),
             paint_cache: RefCell::new(Vec::new()),
         })
         .collect();
@@ -1454,9 +1499,9 @@ fn collect_page_anchors(
 /// [`paginate_built_chapter_until`] for a scrolled layout: the chapter laid
 /// out as one strip, its pages the strip's windows. `settled` sees every
 /// window, as it sees every page pagination makes, but a strip is laid out
-/// whole, so nothing is left to resume. The strip holds its text whatever
-/// the pages were asked for: a window is a slice of the strip, which is
-/// not laid out again a window at a time.
+/// whole, so nothing is left to resume. The strip is laid out without its
+/// text whatever the pages were asked for: a window's is laid out around it
+/// when the window is read.
 fn strip_built_chapter(
     engine: &RuntimeFragmentEngine,
     faces: Rc<[std::sync::Arc<str>]>,
@@ -1465,7 +1510,7 @@ fn strip_built_chapter(
     idref: &str,
     mut settled: impl FnMut(&FragmentChapterPage, usize, Option<&BreakToken>) -> bool,
 ) -> Result<PaginatedChapter, String> {
-    let strip = ChapterStrip::lay_out(engine, Rc::clone(&faces), Rc::clone(&built), config, true)
+    let strip = ChapterStrip::lay_out(engine, Rc::clone(&faces), Rc::clone(&built), config, false)
         .map_err(|error| format!("chapter {idref} strip: {}", error.message()))?;
     let pages: Vec<FragmentChapterPage> = (0..strip.windows().count())
         .map(|window| FragmentChapterPage {
@@ -1479,7 +1524,7 @@ fn strip_built_chapter(
     Ok(PaginatedChapter {
         pages,
         rest: None,
-        line_text: true,
+        line_text: false,
         block_count: built.tree.node(built.tree.root()).children.len(),
         paint: ChapterPaintSource {
             built,

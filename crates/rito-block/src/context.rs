@@ -93,7 +93,8 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     // height (border-box minus the vertical padding).
                     containing_block_size: fixed_height
                         .map(|fixed| (fixed - padding_top - padding_bottom).max(0.0)),
-                    line_text: space.line_text,
+                    // Its lines start below the padding it leads with.
+                    line_text: space.line_text.below(leading),
                 };
                 let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
                 // The sizes it holds for are its content box's, not this

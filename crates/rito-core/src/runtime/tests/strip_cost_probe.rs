@@ -10,10 +10,12 @@
 //! cargo test -p rito-core --release --lib strip_cost_probe::strip_cost_probe -- --ignored --nocapture
 //! ```
 //!
-//! (`strip_cost_probe::session_open_cost_probe` and
-//! `strip_cost_probe::background_step_probe` take the same variables and
-//! `RITO_STRIP_PROBE_ONLY`; the three write the same report, so run one at a
-//! time.)
+//! (`strip_cost_probe::session_open_cost_probe`,
+//! `strip_cost_probe::background_step_probe` and
+//! `strip_cost_probe::window_text_probe` take the same variables and
+//! `RITO_STRIP_PROBE_ONLY`; they all write the same report, so run one at a
+//! time. `window_text_probe` also takes `RITO_STRIP_PROBE_DUMP=<dir>`, where
+//! it writes both record trees of a window that differs.)
 //!
 //! Every chapter is measured at a desktop and a phone viewport, each pass
 //! on a document opened afresh so no chapter starts with another pass's
@@ -516,4 +518,137 @@ fn background_step_probe() {
         }
     }
     fs::write(&out, rows).expect("report writes");
+}
+
+/// Whether laying a window's text out around it reads as the whole strip
+/// laid out with its text does, and what it costs: every horizontal chapter
+/// of every book at both viewports, each window's text laid out on the
+/// strip laid out without it, its frame (at the viewport's ratio) and its
+/// records compared with the whole text strip's. One row per chapter and
+/// viewport: its windows, how many frames and records differ, the slowest
+/// and 99th-percentile window, and the most text fragments a window holds
+/// beside the whole strip's. Takes the same variables as
+/// [`strip_cost_probe`].
+#[test]
+#[ignore = "corpus measurement; see the module docs"]
+fn window_text_probe() {
+    let books = PathBuf::from(env::var("RITO_STRIP_PROBE_BOOKS").expect("RITO_STRIP_PROBE_BOOKS"));
+    let fonts = PathBuf::from(env::var("RITO_STRIP_PROBE_FONTS").expect("RITO_STRIP_PROBE_FONTS"));
+    let out = env::var("RITO_STRIP_PROBE_OUT").expect("RITO_STRIP_PROBE_OUT");
+    let only = env::var("RITO_STRIP_PROBE_ONLY").ok();
+    let mut paths = fs::read_dir(&books)
+        .expect("corpus dir reads")
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "epub"))
+        .filter(|path| {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            only.as_deref()
+                .is_none_or(|only| only.split(',').any(|prefix| name.starts_with(prefix)))
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    let mut rows = String::from(
+        "book\tchapter\tviewport\twindows\tframes_differ\trecords_differ\tmax_ms\tp99_ms\t\
+         window_text_max\twhole_text\terror\n",
+    );
+    for path in paths {
+        let book = path.file_name().unwrap_or_default().to_string_lossy();
+        let book = book.split(' ').next().unwrap_or_default().to_owned();
+        let bytes = fs::read(&path).expect("book reads");
+        for viewport in &VIEWPORTS {
+            let mut config = layout_config(viewport);
+            config.spread_mode = SpreadMode::Scrolled;
+            let lines = window_text_rows(&bytes, &fonts, &config, viewport.ratio)
+                .unwrap_or_else(|error| vec![format!("\t\t\t\t\t\t\t\t{error}")]);
+            for line in lines {
+                let (chapter, rest) = line.split_once('\t').unwrap_or((&line, ""));
+                let line = format!("{book}\t{chapter}\t{}\t{rest}\n", viewport.name);
+                eprint!("{line}");
+                rows.push_str(&line);
+            }
+        }
+        fs::write(&out, &rows).expect("report writes");
+    }
+}
+
+/// One row per chapter (from its index on) for [`window_text_probe`].
+fn window_text_rows(
+    bytes: &[u8],
+    fonts: &Path,
+    config: &LayoutConfig,
+    ratio: f64,
+) -> Result<Vec<String>, String> {
+    let mut document = open(bytes, fonts)?;
+    let revision_id = document
+        .create_revision(config)
+        .map_err(|error| error.message)?
+        .revision_id;
+    let layout = &document.revisions[&revision_id].fragment_layout;
+    let engine = layout.strip_engine().ok_or("no build inputs")?;
+    let mut rows = Vec::new();
+    for chapter in 0..layout.chapters().count() {
+        let strips = layout
+            .chapter_strip_laid_out(chapter, false)
+            .and_then(|plain| Ok((plain, layout.chapter_strip_laid_out(chapter, true)?)));
+        let (plain, whole) = match strips {
+            Ok(strips) => strips,
+            Err(error) => {
+                rows.push(format!("{chapter}\t\t\t\t\t\t\t\t{}", error.message()));
+                continue;
+            }
+        };
+        let (mut frames, mut records, mut most) = (0, 0, 0);
+        let mut times = Vec::new();
+        for window in 0..plain.windows().count() {
+            let started = Instant::now();
+            let text = plain
+                .window_text(engine, window)
+                .map_err(|error| error.message().to_owned())?;
+            times.push(ms(started));
+            most = most.max(text_fragments(&text));
+            let frame = |strip: &crate::runtime::scroll_strip::ChapterStrip, text: &Fragment| {
+                strip
+                    .window_frame(text, window..window + 1, ratio)
+                    .map(|(commands, _)| commands)
+                    .map_err(|error| error.message().to_owned())
+            };
+            if frame(&plain, &text)? != frame(&whole, whole.whole())? {
+                frames += 1;
+            }
+            if plain.window_text_page_root(&text, window) != whole.window_page_root(window) {
+                records += 1;
+                if let Ok(dir) = env::var("RITO_STRIP_PROBE_DUMP") {
+                    let _ = fs::write(
+                        format!("{dir}/c{chapter}w{window}-plain.txt"),
+                        format!("{:#?}", plain.window_text_page_root(&text, window)),
+                    );
+                    let _ = fs::write(
+                        format!("{dir}/c{chapter}w{window}-whole.txt"),
+                        format!("{:#?}", whole.window_page_root(window)),
+                    );
+                }
+            }
+        }
+        times.sort_by(f64::total_cmp);
+        let max = times.last().copied().unwrap_or_default();
+        let p99 = times
+            .get((times.len() * 99 / 100).min(times.len().saturating_sub(1)))
+            .copied()
+            .unwrap_or_default();
+        rows.push(format!(
+            "{chapter}\t{}\t{frames}\t{records}\t{max:.2}\t{p99:.2}\t{most}\t{}\t",
+            times.len(),
+            text_fragments(whole.whole())
+        ));
+    }
+    Ok(rows)
+}
+
+fn text_fragments(fragment: &Fragment) -> usize {
+    match fragment {
+        Fragment::Text(_) => 1,
+        Fragment::Box(inner) => inner.children.iter().map(text_fragments).sum(),
+        Fragment::Line(line) => line.children.iter().map(text_fragments).sum(),
+        Fragment::Image(_) => 0,
+    }
 }

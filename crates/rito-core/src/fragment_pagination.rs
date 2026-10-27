@@ -217,20 +217,21 @@ impl ChapterPaginator {
 
 /// The whole chapter laid out as one continuous strip: as wide as a page's
 /// content box, never broken, and knowing how tall one is, so images scale
-/// against it and `vh` resolves exactly as they do on a page. Without
-/// `line_text` its lines hold no text fragments.
+/// against it and `vh` resolves exactly as they do on a page. Its lines
+/// hold their text fragments as `line_text` says, a range of lines in the
+/// strip's own coordinates; the others are laid out alike without them.
 pub(crate) fn layout_chapter_strip(
     engine: &dyn FormattingContext,
     tree: &FormattingTree,
     content_width: f64,
     content_height: f64,
-    line_text: bool,
+    line_text: LineText,
     cancel: &CancelFlag,
 ) -> EpubResult<Fragment> {
-    let page = page_space(tree, content_width, content_height, line_text);
+    let page = page_space(tree, content_width, content_height, false);
     let space = ConstraintSpace {
         fragmentainer_size: page.fragmentainer_size,
-        line_text: page.line_text,
+        line_text,
         ..ConstraintSpace::continuous(page.inline_size)
     };
     let outcome = engine

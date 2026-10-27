@@ -50,6 +50,68 @@ fn run_texts(artifact: &FragmentPageArtifact) -> Vec<String> {
         .collect()
 }
 
+fn text_fragments(fragment: &rito_fragment::Fragment) -> usize {
+    use rito_fragment::Fragment;
+    match fragment {
+        Fragment::Text(_) => 1,
+        Fragment::Box(inner) => inner.children.iter().map(text_fragments).sum(),
+        Fragment::Line(line) => line.children.iter().map(text_fragments).sum(),
+        Fragment::Image(_) => 0,
+    }
+}
+
+#[test]
+fn a_window_laid_out_with_its_own_text_reads_as_the_strip_laid_out_with_all_of_it() {
+    for bytes in [
+        long_paragraphs_fixture_epub(),
+        paint_command_kitchen_sink_fixture_epub(),
+    ] {
+        let mut document =
+            RuntimeDocument::open_with_pinned_font_policy(&bytes, pinned_test_font_policy())
+                .expect("fixture opens");
+        let build = document
+            .build_chapter_local_fragment_layout(&short_windows(), 0, &PaginationTarget::Start)
+            .expect("chapter builds");
+        let layout = &build.layout;
+        let engine = layout.strip_engine().expect("the table keeps its engine");
+        let plain = layout
+            .chapter_strip_laid_out(0, false)
+            .expect("strip lays out without its text");
+        let whole = layout.chapter_strip(0).expect("strip lays out with it");
+        let mut least = usize::MAX;
+        for window in 0..plain.windows().count() {
+            let text = plain
+                .window_text(engine, window)
+                .expect("window text lays out");
+            for ratio in [1.0, 2.625] {
+                assert_eq!(
+                    plain
+                        .window_frame(&text, window..window + 1, ratio)
+                        .expect("window paints")
+                        .0,
+                    whole
+                        .window_frame(whole.whole(), window..window + 1, ratio)
+                        .expect("window paints")
+                        .0,
+                    "window {window} at {ratio}"
+                );
+            }
+            assert_eq!(
+                plain.window_text_page_root(&text, window),
+                whole.window_page_root(window),
+                "window {window} records"
+            );
+            least = least.min(text_fragments(&text));
+        }
+        // A window reaches one window either side: the first of three or
+        // more leaves the last one's lines without their text.
+        assert!(
+            least < text_fragments(whole.whole()),
+            "a window holds the text of the lines near it, not the chapter's"
+        );
+    }
+}
+
 #[test]
 fn a_chapters_windows_record_each_of_its_runs_once_in_order() {
     for bytes in [

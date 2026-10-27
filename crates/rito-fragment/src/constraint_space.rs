@@ -45,8 +45,13 @@ pub enum LineText {
     All,
     /// The lines whose box starts within this block range of the inline
     /// flow, in its own coordinates and ends included, do: the lines a
-    /// block container slicing the flow can place in one fragmentainer.
-    /// The others are laid out as under [`LineText::Omitted`].
+    /// block container slicing the flow can place in one fragmentainer,
+    /// or the lines near one window of a continuous layout. Laid out on a
+    /// box, the range is in the box's coordinates and reaches the lines of
+    /// the flows inside it. Others may carry theirs too (a float's, placed
+    /// only once it is laid out, or every line of a flow the range covers
+    /// whole); a line without its text is laid out as under
+    /// [`LineText::Omitted`].
     Within { top: f64, bottom: f64 },
 }
 
@@ -58,6 +63,29 @@ impl LineText {
             Self::Omitted => false,
             Self::All => true,
             Self::Within { top: start, bottom } => start <= top && top <= bottom,
+        }
+    }
+
+    /// The same lines, for a box or flow that starts `offset` down this
+    /// layout's block axis: a range moves into its coordinates.
+    #[must_use]
+    pub fn below(self, offset: f64) -> Self {
+        match self {
+            Self::Within { top, bottom } => Self::Within {
+                top: top - offset,
+                bottom: bottom - offset,
+            },
+            other => other,
+        }
+    }
+
+    /// Every line, unless none: for a box whose place is only known once it
+    /// is laid out (a float), which a range cannot reach into.
+    #[must_use]
+    pub fn whole(self) -> Self {
+        match self {
+            Self::Omitted => Self::Omitted,
+            Self::All | Self::Within { .. } => Self::All,
         }
     }
 }

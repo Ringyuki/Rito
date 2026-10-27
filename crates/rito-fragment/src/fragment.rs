@@ -311,6 +311,26 @@ impl Fragment {
             Self::Image(fragment) => fragment.rect,
         }
     }
+
+    /// The tops of the first and the last line box in this fragment's flow
+    /// (itself when it is one), relative to its own top, or `None` when it
+    /// holds none.
+    pub fn line_top_span(&self) -> Option<(f64, f64)> {
+        match self {
+            Self::Line(_) => Some((0.0, 0.0)),
+            Self::Box(fragment) => fragment
+                .children
+                .iter()
+                .filter_map(|child| {
+                    let top = child.rect().y;
+                    child
+                        .line_top_span()
+                        .map(|(first, last)| (top + first, top + last))
+                })
+                .reduce(|(first, last), (start, end)| (first.min(start), last.max(end))),
+            Self::Text(_) | Self::Image(_) => None,
+        }
+    }
 }
 
 /// The immutable output of one formatting-context invocation: the fragments

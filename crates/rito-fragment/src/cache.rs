@@ -16,6 +16,13 @@
 //! being resized asks for a new width every frame, and most paragraphs
 //! break into the same lines at the next one.
 //!
+//! A layout asking for the text of a range of lines (`LineText::Within`)
+//! is answered by the node's outcome without line text when the cache
+//! holds one that places none of its lines in the range, and laid out with
+//! all of its line text when it places all of them there: windows read
+//! down a strip name a new range on every node, and only the nodes they
+//! cut through are laid out for them.
+//!
 //! Memory is bounded by a byte budget charged a fixed size per fragment of
 //! each outcome: deterministic across platforms, and counted by walking the
 //! fragments rather than encoding them. Least-recently-used entries are
@@ -193,24 +200,10 @@ impl FragmentCache {
         cancel: &CancelFlag,
         read: impl FnOnce(&LayoutOutcome, bool) -> R,
     ) -> Result<R, LayoutError> {
+        let space = &self.settle_line_text(tree, node, space, token);
         let key = cache_key(tree, node, space, token);
         self.clock += 1;
-        let held = if self.entries.contains_key(&key) {
-            Some(key.clone())
-        } else if space.line_text != LineText::Omitted {
-            None
-        } else {
-            self.widths
-                .get(&without_inline_size(&key))
-                .filter(|held| {
-                    self.entries[*held]
-                        .outcome
-                        .inline_size_range
-                        .is_some_and(|(lo, hi)| lo <= space.inline_size && space.inline_size < hi)
-                })
-                .cloned()
-        };
-        if let Some(held) = held {
+        if let Some(held) = self.held(&key, space) {
             self.touch(&held);
             return Ok(read(&self.entries[&held].outcome, true));
         }
@@ -232,6 +225,59 @@ impl FragmentCache {
             last_used: self.clock,
         });
         Ok(read(&entry.get().outcome, false))
+    }
+
+    /// The entry that answers `key`: its own, or, for a layout without line
+    /// text, one at another inline size that reports holding for this one.
+    fn held(&self, key: &CacheKey, space: &ConstraintSpace) -> Option<CacheKey> {
+        if self.entries.contains_key(key) {
+            return Some(key.clone());
+        }
+        if space.line_text != LineText::Omitted {
+            return None;
+        }
+        self.widths
+            .get(&without_inline_size(key))
+            .filter(|held| {
+                self.entries[*held]
+                    .outcome
+                    .inline_size_range
+                    .is_some_and(|(lo, hi)| lo <= space.inline_size && space.inline_size < hi)
+            })
+            .cloned()
+    }
+
+    /// `space`, its range of lines settled when the node's outcome without
+    /// line text is held: a range that reaches none of the lines it places
+    /// asks for no line text, one that reaches them all for all of it. The
+    /// lines a range names carry their text under either.
+    fn settle_line_text(
+        &self,
+        tree: &FormattingTree,
+        node: crate::FormattingNodeId,
+        space: &ConstraintSpace,
+        token: Option<&BreakToken>,
+    ) -> ConstraintSpace {
+        let LineText::Within { top, bottom } = space.line_text else {
+            return *space;
+        };
+        let omitted = ConstraintSpace {
+            line_text: LineText::Omitted,
+            ..*space
+        };
+        let Some(held) = self.held(&cache_key(tree, node, &omitted, token), &omitted) else {
+            return *space;
+        };
+        let line_text = match self.entries[&held].outcome.fragments.root.line_top_span() {
+            None => LineText::Omitted,
+            Some((first, last)) if last < top || first > bottom => LineText::Omitted,
+            Some((first, last)) if top <= first && last <= bottom => LineText::All,
+            Some(_) => return *space,
+        };
+        ConstraintSpace {
+            line_text,
+            ..*space
+        }
     }
 
     /// Drops every entry that depends on `node` of `tree` — i.e. every
@@ -457,6 +503,123 @@ mod tests {
             children: (0..count).map(FormattingNodeId).collect(),
         });
         FormattingTree::new(nodes, FormattingNodeId(count)).expect("valid tree")
+    }
+
+    /// Five lines ten pixels apart, each holding a run when its line text
+    /// asks for it; notes the line text it is asked for.
+    struct LinesContext {
+        asked: std::cell::RefCell<Vec<LineText>>,
+    }
+
+    impl FormattingContext for LinesContext {
+        fn layout(
+            &self,
+            _tree: &FormattingTree,
+            node: FormattingNodeId,
+            space: &ConstraintSpace,
+            _token: Option<&BreakToken>,
+            _cancel: &CancelFlag,
+        ) -> Result<LayoutOutcome, LayoutError> {
+            self.asked.borrow_mut().push(space.line_text);
+            let lines = (0..5)
+                .map(|index| {
+                    let top = 10.0 * f64::from(index);
+                    Fragment::Line(crate::LineFragment {
+                        source: node,
+                        rect: crate::FragmentRect {
+                            x: 0.0,
+                            y: top,
+                            width: space.inline_size,
+                            height: 10.0,
+                        },
+                        baseline: 8.0,
+                        marker: None,
+                        trailing_whitespace: 0.0,
+                        ruby_growth: 0.0,
+                        text_runs: if space.line_text.at(top) {
+                            vec![(0, 1)]
+                        } else {
+                            Vec::new()
+                        },
+                        children: Vec::new(),
+                    })
+                })
+                .collect();
+            Ok(LayoutOutcome {
+                fragments: crate::FragmentTree {
+                    root: Fragment::Box(crate::BoxFragment {
+                        source: node,
+                        rect: crate::FragmentRect {
+                            x: 0.0,
+                            y: 0.0,
+                            width: space.inline_size,
+                            height: 50.0,
+                        },
+                        children: lines,
+                    }),
+                },
+                continuation: None,
+                escaped_floats: Vec::new(),
+                positioned: Vec::new(),
+                inline_size_range: None,
+            })
+        }
+
+        fn intrinsic_inline_sizes(
+            &self,
+            _tree: &FormattingTree,
+            _node: FormattingNodeId,
+        ) -> Result<crate::IntrinsicInlineSizes, LayoutError> {
+            Ok(crate::IntrinsicInlineSizes {
+                min_content: 10.0,
+                max_content: 100.0,
+            })
+        }
+    }
+
+    #[test]
+    fn a_range_of_lines_settles_on_the_outcome_without_line_text() {
+        let provider = LinesContext {
+            asked: std::cell::RefCell::new(Vec::new()),
+        };
+        let tree = leaf_tree(0, &[10.0]);
+        let cancel = CancelFlag::new();
+        let mut cache = FragmentCache::new(1 << 20);
+        let mut lay_out = |line_text| {
+            let space = ConstraintSpace {
+                line_text,
+                ..ConstraintSpace::continuous(300.0)
+            };
+            cache
+                .layout(&provider, &tree, tree.root(), &space, None, &cancel)
+                .expect("layout succeeds")
+        };
+        let within = |top, bottom| LineText::Within { top, bottom };
+        let untexted = lay_out(LineText::Omitted);
+        // A range below every line is the layout without line text.
+        let below = lay_out(within(100.0, 200.0));
+        assert!(below.from_cache);
+        assert_eq!(below.outcome, untexted.outcome);
+        // Ranges over every line are one layout with all of it.
+        assert!(!lay_out(within(-5.0, 45.0)).from_cache);
+        assert!(lay_out(within(-1.0, 41.0)).from_cache);
+        // A range through the lines is laid out for itself.
+        let through = lay_out(within(15.0, 25.0));
+        assert!(!through.from_cache);
+        let Fragment::Box(root) = &through.outcome.fragments.root else {
+            panic!("a box root");
+        };
+        let texted: Vec<f64> = root
+            .children
+            .iter()
+            .filter(|line| matches!(line, Fragment::Line(line) if !line.text_runs.is_empty()))
+            .map(|line| line.rect().y)
+            .collect();
+        assert_eq!(texted, [20.0]);
+        assert_eq!(
+            *provider.asked.borrow(),
+            [LineText::Omitted, LineText::All, within(15.0, 25.0)]
+        );
     }
 
     #[test]
