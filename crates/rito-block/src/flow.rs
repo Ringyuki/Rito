@@ -40,7 +40,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         positioned.append(&mut outcome.positioned);
         let style = container_layout_style(tree, container)?;
         if style.position != Position::Static || container == tree.root() {
-            self.place_positioned(tree, &mut outcome, positioned, cancel)?;
+            // An unpositioned root is the initial containing block: one
+            // viewport, in a continuous layout that knows its fragmentainer.
+            let initial_height = (style.position == Position::Static
+                && space.fragmentainer_remaining.is_none())
+            .then_some(space.fragmentainer_size)
+            .flatten();
+            self.place_positioned(tree, &mut outcome, positioned, initial_height, cancel)?;
         } else {
             outcome.positioned = positioned;
         }

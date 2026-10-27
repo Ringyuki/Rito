@@ -10,18 +10,26 @@
 //! The containing block is the positioned box's border box: the bridge
 //! folds border widths into padding, so the padding box CSS names is not
 //! told apart here (a containing block with borders places its positioned
-//! boxes out by those widths).
+//! boxes out by those widths). The tree's root, when it is not positioned
+//! itself, stands for the initial containing block, which for continuous
+//! media has the viewport's size (CSS 2.1 §10.1): in a continuous layout
+//! that knows its fragmentainer, a box positioned in the root resolves
+//! against the flow's first fragmentainer-tall stretch, not its whole
+//! length.
 
 use crate::*;
 
 impl<I: FormattingContext> BlockFormattingContext<I> {
     /// Lays every box in `pending` out against the root of `outcome`, its
-    /// containing block, and appends the fragments to that root.
+    /// containing block, and appends the fragments to that root; a block
+    /// as tall as `initial_height` when the root stands for the initial
+    /// containing block.
     pub(crate) fn place_positioned(
         &self,
         tree: &FormattingTree,
         outcome: &mut LayoutOutcome,
         pending: Vec<PendingPositioned>,
+        initial_height: Option<f64>,
         cancel: &CancelFlag,
     ) -> Result<(), LayoutError> {
         if pending.is_empty() {
@@ -32,7 +40,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 "a containing block lays out as a box fragment".to_owned(),
             ));
         };
-        let (width, height) = (block.rect.width, block.rect.height);
+        let (width, height) = (
+            block.rect.width,
+            initial_height.unwrap_or(block.rect.height),
+        );
         for pending in pending {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);

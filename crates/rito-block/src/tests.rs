@@ -11,6 +11,7 @@ use rito_style_contract::{
     PhysicalSides, Position, PreferredSize,
 };
 
+mod continuous;
 mod floats;
 mod margins;
 mod pagination;
