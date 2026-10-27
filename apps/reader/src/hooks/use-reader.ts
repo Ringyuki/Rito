@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   preloadReaderRuntime,
@@ -144,6 +144,22 @@ export function useReader(
   });
 
   const scrollSearch = useScrollSearch(scroll);
+  // Where the book is read scrolled is saved as the pages' position is, so
+  // the book opens there next time; each rest saves it once.
+  const scrollProgress = useRef(0);
+  scrollProgress.current = scroll.progress;
+  useEffect(() => {
+    const read = scroll.position;
+    if (spreadMode !== 'scrolled' || !read) return;
+    void storage.positionStorage.save(
+      JSON.stringify({
+        sourceLocator: read,
+        projection: { spreadIndex: 0, pageIndex: 0 },
+        progress: scrollProgress.current,
+        timestamp: Date.now(),
+      }),
+    );
+  }, [scroll.position, spreadMode]);
   // ⌘F / Ctrl+F searches the book read scrolled, as the controller's
   // `searchOpen` does for pages.
   useEffect(() => {
