@@ -1,5 +1,10 @@
-import { useEffect, useRef } from 'react';
-import type { ReaderLocator, ReaderPinnedFontPolicy, ReaderPublication } from '@ritojs/core';
+import { useEffect, useRef, useState } from 'react';
+import type {
+  ReaderLocator,
+  ReaderPinnedFontPolicy,
+  ReaderPublication,
+  TocEntry,
+} from '@ritojs/core';
 import { useRitoScrollReader } from '@ritojs/react';
 import { readerViewportMargin } from '@/lib/viewport-margin';
 import { copyPublication } from '@/lib/publication-copy';
@@ -49,7 +54,23 @@ export function useScrollMode({
     scroll: { a11y: { enabled: true } },
     initialLocator: locator,
   });
-  const { load, unload, reader } = scroll;
+  const { load, unload, reader, controller } = scroll;
+  // The contents entry of the window under the reading line.
+  const [activeTocEntry, setActiveTocEntry] = useState<TocEntry | undefined>(undefined);
+  useEffect(() => {
+    if (!controller || !reader) {
+      setActiveTocEntry(undefined);
+      return;
+    }
+    const read = (spreadIndex: number) => {
+      const pageIndex = reader.spreads[spreadIndex]?.leftPageIndex;
+      setActiveTocEntry(pageIndex === undefined ? undefined : reader.findActiveTocEntry(pageIndex));
+    };
+    read(controller.currentSpread);
+    return controller.on('window', ({ spreadIndex }) => {
+      read(spreadIndex);
+    });
+  }, [controller, reader]);
   const opened = useRef<ReaderPublication | null>(null);
   useEffect(() => {
     if (!active || publication === null) {
@@ -90,7 +111,7 @@ export function useScrollMode({
     opensWith.current = typography;
     reader.setTypography(typographySettings(typography));
   }, [reader, typography]);
-  return scroll;
+  return { ...scroll, activeTocEntry };
 }
 
 function themeOptions(theme: 'light' | 'dark') {

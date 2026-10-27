@@ -86,7 +86,7 @@ export function ScrollReaderPane({
           </div>
         </div>
       )}
-      <div className="absolute right-3 bottom-3 z-20 flex items-center gap-1 rounded-md bg-background/80 px-1 text-xs text-muted-foreground shadow-sm">
+      <div className="absolute right-3 bottom-3 z-20 flex items-center gap-1 rounded-md bg-background px-1 text-xs text-muted-foreground shadow-sm">
         {selected.length > 0 && (
           <Button
             variant="ghost"

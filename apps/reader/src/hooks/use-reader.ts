@@ -373,7 +373,11 @@ export function useReader(
 
   const spread = rito.spreads[rito.currentSpread];
   const activeTocEntry =
-    controller && spread ? controller.reader.findActiveTocEntry(spread.leftPageIndex) : undefined;
+    spreadMode === 'scrolled'
+      ? scroll.activeTocEntry
+      : controller && spread
+        ? controller.reader.findActiveTocEntry(spread.leftPageIndex)
+        : undefined;
 
   return {
     ...rito,
