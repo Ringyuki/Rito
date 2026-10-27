@@ -54,7 +54,7 @@ final class RitoSessionPageSource implements RitoPageSource {
     RitoAdjacentDirection direction,
   ) => session.peek(
     from: from,
-    requestId: session.nextRequestId,
+    requestId: session.takeRequestId(),
     direction: direction,
   );
 
@@ -64,7 +64,7 @@ final class RitoSessionPageSource implements RitoPageSource {
     RitoAdjacentDirection direction,
   ) => session.turn(
     from: from,
-    requestId: session.nextRequestId,
+    requestId: session.takeRequestId(),
     direction: direction,
   );
 
@@ -75,7 +75,7 @@ final class RitoSessionPageSource implements RitoPageSource {
   ) => session.requestArtifact(
     RitoArtifactRequest(
       sessionId: session.sessionId,
-      requestId: session.nextRequestId,
+      requestId: session.takeRequestId(),
       layout: layout,
       locator: locator,
     ),
