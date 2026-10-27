@@ -316,6 +316,12 @@ as the reader's interactions give them), a colour, a `zIndex` and a `mark`
 book's annotations show in a scrolled view as the app keeps them. `colors`
 changes the selection's colour.
 
+With `a11y: { enabled: true }` the view keeps a hidden mirror of the text on
+screen for screen readers, in `a11y.container` or beside the view: once the strip
+rests it reads the semantics of the pages of the windows shown and puts them in
+after the next frame, and a link activated in the mirror is a `tap` on its
+target.
+
 ## Drawing On Pages
 
 `paintPage` in `ControllerOptions` draws over each page as part of it: a page

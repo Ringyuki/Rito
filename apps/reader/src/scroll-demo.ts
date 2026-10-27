@@ -32,7 +32,7 @@ async function open(file: File): Promise<void> {
     devicePixelRatio: window.devicePixelRatio,
     pinnedFontPolicy: await loadProductionPinnedFontPolicy(),
   });
-  const controller = createScrollController(reader, canvas);
+  const controller = createScrollController(reader, canvas, { a11y: { enabled: true } });
   // A link into the book goes to where it points; the rest is left alone.
   controller.on('tap', ({ target }) => {
     if (target?.targetLocator) void controller.scrollToLocator(target.targetLocator);

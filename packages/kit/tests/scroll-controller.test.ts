@@ -388,6 +388,73 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it('mirrors the text of the windows on screen once the strip rests, and taps a link activated there', async () => {
+    const reader = fakeReader();
+    const nodes = (pageIndex: number) => [
+      {
+        role: 'paragraph' as const,
+        text: `page ${String(pageIndex)}`,
+        bounds: { x: 0, y: 0, width: 300, height: 20 },
+        children: [],
+      },
+      {
+        role: 'link' as const,
+        text: `to ${String(pageIndex + 1)}`,
+        href: 'next.xhtml',
+        bounds: { x: 0, y: 40, width: 60, height: 20 },
+        children: [],
+      },
+    ];
+    Object.assign(reader, {
+      interactions: {
+        enabled: true,
+        getPageSemantics: (pageIndex: number) =>
+          Promise.resolve({ pageIndex, spreadIndex: pageIndex, nodes: nodes(pageIndex) }),
+        getPageTargets: (pageIndex: number) =>
+          Promise.resolve({
+            pageIndex,
+            spreadIndex: pageIndex,
+            targets: [
+              { kind: 'link', bounds: { x: 0, y: 40, width: 60, height: 20 }, href: 'next.xhtml' },
+            ],
+          }),
+      },
+    });
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+      a11y: { enabled: true },
+    });
+    const taps: { point: { spreadIndex: number } }[] = [];
+    controller.on('tap', (tapped) => taps.push(tapped));
+    controller.mount(container);
+    // The mirror goes in as an idle task once the frame after rest is drawn.
+    const mirrors = async (text: string) => {
+      await vi.waitFor(() => {
+        runFrames();
+        expect(container.textContent).toContain(text);
+      });
+    };
+    await mirrors('page 0');
+    expect(container.textContent).not.toContain('page 1');
+
+    // Scrolled so the first two windows share the screen: both pages are read.
+    controller.scrollTo(500);
+    await mirrors('page 1');
+    expect(container.textContent).toContain('page 0');
+
+    const links = container.querySelectorAll('a');
+    links[1]?.dispatchEvent(new MouseEvent('click', { cancelable: true }));
+    await vi.waitFor(() => {
+      expect(taps).toHaveLength(1);
+    });
+    expect(taps[0]?.point.spreadIndex).toBe(1);
+    controller.dispose();
+    expect(container.querySelector('[aria-live]')).toBeNull();
+    container.remove();
+  });
+
   it('moves with the wheel when its own input drives it', () => {
     const reader = fakeReader();
     const canvas = fakeCanvas();

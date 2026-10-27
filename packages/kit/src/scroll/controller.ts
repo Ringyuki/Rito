@@ -2,6 +2,7 @@ import type { Reader, ReaderLocator } from '@ritojs/core';
 import { DEFAULT_HIGHLIGHT_COLORS, withHighlightColors } from '../controller/overlay/colors';
 import { createDisplaySurface } from '../painter/display-surface';
 import { createEmitter } from '../utils/event-emitter';
+import { wireScrollA11y } from './a11y';
 import { scrollPointAt, scrollTargetAt } from './hit';
 import { wireScrollInput } from './input';
 import { createScrollMotion } from './motion';
@@ -51,9 +52,19 @@ export function createScrollController(
     });
   }
   const stops: (() => void)[] = [];
-  const controller = controllerOf(view, () => {
-    for (const stop of stops) stop();
-  });
+  const mirrored = { done: false };
+  const controller = controllerOf(
+    view,
+    () => {
+      for (const stop of stops) stop();
+    },
+    (container) => {
+      // The screen readers' mirror goes beside the view once it is shown.
+      if (!options.a11y?.enabled || mirrored.done) return;
+      mirrored.done = true;
+      stops.push(wireScrollA11y(view, options.a11y.container ?? container));
+    },
+  );
   stops.push(...wireView(view));
   if (options.input !== false) stops.push(...wireInput(view, controller));
   return controller;
@@ -94,12 +105,17 @@ function wireInput(view: ScrollView, controller: ScrollController): (() => void)
   ];
 }
 
-function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollController {
+function controllerOf(
+  view: ScrollView,
+  unsubscribe: () => void,
+  mounted: (container: HTMLElement) => void,
+): ScrollController {
   const { motion } = view;
   const ratio = (): number => ratioOf(view);
   const controller: ScrollController = {
     mount(container) {
       container.appendChild(view.surface.canvas);
+      mounted(container);
       relayout(view);
     },
     get axis() {

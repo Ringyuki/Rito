@@ -21,6 +21,12 @@ export interface ScrollControllerOptions {
   readonly selection?: boolean | undefined;
   /** The colours the selection is drawn in, the kit's own by default. */
   readonly colors?: Partial<HighlightColors> | undefined;
+  /**
+   * A hidden mirror of the text on screen for screen readers, put in
+   * `container` (beside the view by default) once the strip rests; a link
+   * activated in it taps its target.
+   */
+  readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
 }
 
 /** Offsets are CSS pixels along the scroll axis from the book's block start. */
