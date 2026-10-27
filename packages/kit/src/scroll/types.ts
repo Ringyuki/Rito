@@ -46,6 +46,11 @@ export interface ScrollController {
   scrollBy(delta: number, options?: { readonly animate?: boolean }): void;
   /** Shows window `spreadIndex` from `blockOffset` into it at the reading line. */
   scrollToSpread(spreadIndex: number, blockOffset?: number): void;
+  /**
+   * Puts the line `locator` lands on at the reading line, its window's top
+   * when it names no line; false when the locator lands nowhere.
+   */
+  scrollToLocator(locator: ReaderLocator): Promise<boolean>;
   /** A finger takes the strip: what it was gliding through stops. */
   grab(): void;
   /** The finger moved the strip on by `delta`. */

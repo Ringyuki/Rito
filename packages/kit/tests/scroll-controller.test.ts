@@ -187,6 +187,23 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it('puts a located line at the reading line', async () => {
+    const reader = fakeReader();
+    Object.assign(reader, {
+      navigateToLocator: () =>
+        Promise.resolve({ status: 'resolved', spreadIndex: 2, pageIndex: 2, blockOffset: 240 }),
+    });
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    controller.mount(document.body);
+    expect(await controller.scrollToLocator({ href: 'two.xhtml', progression: 0.1 })).toBe(true);
+    runFrames();
+    expect(controller.offset).toBe(900 + 240 - 30);
+    expect(controller.currentSpread).toBe(2);
+    controller.dispose();
+  });
+
   it('moves with the wheel when its own input drives it', () => {
     const reader = fakeReader();
     const canvas = fakeCanvas();

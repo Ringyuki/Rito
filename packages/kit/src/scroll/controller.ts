@@ -99,6 +99,12 @@ function controllerOf(view: ScrollView, unsubscribe: () => void): ScrollControll
       if (window === undefined) return;
       moveTo(view, window.start + blockOffset * ratio() - readingLine(view), false);
     },
+    async scrollToLocator(locator) {
+      const located = await view.reader.navigateToLocator?.(locator);
+      if (located?.status !== 'resolved') return false;
+      controller.scrollToSpread(located.spreadIndex, located.blockOffset ?? 0);
+      return true;
+    },
     grab() {
       motion.grab();
     },
