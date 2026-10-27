@@ -85,6 +85,13 @@ impl ChapterStrip {
         self.windows
     }
 
+    /// The chapter's device rows the run of windows `windows` covers at
+    /// `ratio`.
+    fn device_rows(&self, windows: &Range<usize>, ratio: f64) -> Range<f64> {
+        self.windows.device_rows(windows.start, ratio).start
+            ..self.windows.device_rows(windows.end - 1, ratio).end
+    }
+
     /// The run of windows `windows` (one, as a reader shows it) painted at
     /// `ratio`, in the chapter's coordinates, and the chapter's device rows
     /// it covers: the page wash, the body's background over the whole strip
@@ -95,8 +102,7 @@ impl ChapterStrip {
         windows: Range<usize>,
         ratio: f64,
     ) -> EpubResult<(Vec<DisplayCommand>, Range<f64>)> {
-        let rows = self.windows.device_rows(windows.start, ratio).start
-            ..self.windows.device_rows(windows.end - 1, ratio).end;
+        let rows = self.device_rows(&windows, ratio);
         let (top, height) = (rows.start / ratio, (rows.end - rows.start) / ratio);
         let (margin_left, margin_top) = self.origin;
         let built = &self.built;
@@ -129,17 +135,28 @@ impl ChapterStrip {
             rect: display_rect(margin_left, top, self.page_width - margin_left, height),
             radius: None,
         });
-        let content = window_paint_tree(
+        commands.extend(self.content(top..top + height, ratio)?);
+        commands.push(DisplayCommand::PopState);
+        Ok((commands, rows))
+    }
+
+    /// The strip's content that reaches the block range `range` (the
+    /// chapter's CSS pixels), painted at `ratio` in the chapter's
+    /// coordinates.
+    fn content(&self, range: Range<f64>, ratio: f64) -> EpubResult<Vec<DisplayCommand>> {
+        let (margin_left, margin_top) = self.origin;
+        let built = &self.built;
+        let reaching = window_paint_tree(
             &built.tree,
             Some(&built.node_paints),
             &self.root,
             margin_top,
-            top..top + height,
+            range,
             self.windows.length(),
         );
-        commands.extend(paint_chapter_page(
+        paint_chapter_page(
             &built.tree,
-            &content,
+            &reaching,
             self.content_width,
             margin_left,
             margin_top,
@@ -154,9 +171,21 @@ impl ChapterStrip {
                 ratio,
             },
             false,
-        )?);
-        commands.push(DisplayCommand::PopState);
-        Ok((commands, rows))
+        )
+    }
+
+    /// The content of the run of windows `windows` lowered at `ratio`, in the
+    /// chapter's coordinates and without the frame around it.
+    #[cfg(test)]
+    pub(super) fn lowered_content(
+        &self,
+        windows: Range<usize>,
+        ratio: f64,
+        images: &dyn Fn(&str) -> Option<ImageSize>,
+    ) -> EpubResult<PrimitiveList> {
+        let rows = self.device_rows(&windows, ratio);
+        let commands = self.content(rows.start / ratio..rows.end / ratio, ratio)?;
+        lower(&commands, ratio, images).map_err(|error| EpubError::new(error.to_string()))
     }
 
     /// The run of windows `windows` lowered at `ratio` onto its own origin:

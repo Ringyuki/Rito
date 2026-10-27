@@ -84,6 +84,61 @@ fn a_window_records_its_runs_from_its_own_top() {
     }
 }
 
+/// A window draws its content exactly as the pair of it and the window
+/// above draws that content: the same primitives, in the same order, in the
+/// bytes a pen receives, at every ratio. Each moves onto its own origin by
+/// whole device rows (`render::shift`), so neighbouring windows tile their
+/// chapter. (The pens' rasters of a window and the pair may still differ by
+/// antialiasing levels where a canvas picks its mode from the whole frame;
+/// `tools/paint-parity/seams.mjs` reports those.)
+#[test]
+fn a_window_draws_its_content_as_the_pair_with_the_window_above_draws_it() {
+    use crate::render::{encode_reader_primitive_list, Primitive, PrimitiveList};
+
+    for bytes in [
+        long_paragraphs_fixture_epub(),
+        paint_command_kitchen_sink_fixture_epub(),
+    ] {
+        let mut document =
+            RuntimeDocument::open_with_pinned_font_policy(&bytes, pinned_test_font_policy())
+                .expect("fixture opens");
+        let build = document
+            .build_chapter_local_fragment_layout(&short_windows(), 0, &PaginationTarget::Start)
+            .expect("chapter builds");
+        let strip = build.layout.chapter_strip(0).expect("strip lays out");
+        let windows = strip.windows();
+        let images = |href: &str| document.image_size(href);
+        for ratio in [1.0, 1.25, 1.5, 2.0, 2.625, 3.0] {
+            let encoded = |primitive: &Primitive| {
+                encode_reader_primitive_list(&PrimitiveList {
+                    ratio,
+                    commands: vec![primitive.clone()],
+                })
+                .expect("primitive encodes")
+                .bytes
+            };
+            for first in 0..windows.count() - 1 {
+                let below = strip
+                    .lowered_content(first + 1..first + 2, ratio, &images)
+                    .expect("window lowers");
+                let pair = strip
+                    .lowered_content(first..first + 2, ratio, &images)
+                    .expect("pair lowers");
+                let pair: Vec<Vec<u8>> = pair.commands.iter().map(encoded).collect();
+                let mut drawn = pair.iter();
+                for primitive in &below.commands {
+                    let bytes = encoded(primitive);
+                    assert!(
+                        drawn.any(|by_pair| *by_pair == bytes),
+                        "ratio {ratio} window {}: {primitive:?} is not drawn by the pair",
+                        first + 1
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// The scroll-seam instrument's lowering step (`tools/paint-parity/seams.mjs`):
 /// neighbouring windows of a synthetic and a real chapter lowered one by
 /// one and as one run, at every ratio, for the pens to raster and the
