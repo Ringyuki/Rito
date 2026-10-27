@@ -41,7 +41,7 @@ export function useScrollMode({
     scroll: { a11y: { enabled: true } },
     initialLocator: locator,
   });
-  const { load, unload, controller, reader } = scroll;
+  const { load, unload, reader } = scroll;
   const opened = useRef<ReaderPublication | null>(null);
   useEffect(() => {
     if (!active || publication === null) {
@@ -55,14 +55,6 @@ export function useScrollMode({
     opened.current = publication;
     void load(copyPublication(publication));
   }, [active, publication, load, unload]);
-  // A link into the book goes where it points.
-  useEffect(
-    () =>
-      controller?.on('tap', ({ target }) => {
-        if (target?.targetLocator) void controller.scrollToLocator(target.targetLocator);
-      }),
-    [controller],
-  );
   // The view's size and the theme follow the app's; the reader lays the
   // book out again only for a size it is not laid out at.
   useEffect(() => {

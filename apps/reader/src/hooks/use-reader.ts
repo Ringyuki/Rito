@@ -144,6 +144,28 @@ export function useReader(
     pinnedFontPolicy,
   });
 
+  // A tap on a note reference read scrolled opens the note as on a page;
+  // a link into the book goes where it points.
+  useEffect(() => {
+    const view = scroll.controller;
+    const interactions = scroll.reader?.interactions;
+    if (!view) return;
+    return view.on('tap', ({ target }) => {
+      if (!target) return;
+      const follow = () => {
+        if (target.targetLocator) void view.scrollToLocator(target.targetLocator);
+      };
+      const key = target.footnoteKey;
+      if (target.kind !== 'footnote' || !key || !interactions) {
+        follow();
+        return;
+      }
+      void interactions.getFootnote(key).then((content) => {
+        if (content) setFootnote({ id: key, href: target.href ?? '', content });
+        else follow();
+      }, follow);
+    });
+  }, [scroll.controller, scroll.reader]);
   const scrollSearch = useScrollSearch(scroll);
   // The book's annotations and the search result the reader is on, drawn
   // over the text read scrolled.

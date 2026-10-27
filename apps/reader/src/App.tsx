@@ -80,6 +80,8 @@ export function App({ pinnedFontPolicy }: AppProps) {
           onHighlight={() => {
             void reader.highlightScrollSelection();
           }}
+          footnote={reader.footnote}
+          onCloseFootnote={reader.dismissFootnote}
         />
       ) : (
         <ReadingProgressArea reader={reader} width={containerSize.width}>

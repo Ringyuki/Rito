@@ -1,6 +1,8 @@
 import { Copy, Highlighter, List, Loader2, Search, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { FootnoteDrawer } from '@/components/footnote-drawer';
+import type { useReader } from '@/hooks/use-reader';
 import type { useScrollMode } from '@/hooks/use-scroll-mode';
 
 interface ScrollReaderPaneProps {
@@ -10,6 +12,8 @@ interface ScrollReaderPaneProps {
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
   readonly onHighlight: () => void;
+  readonly footnote: ReturnType<typeof useReader>['footnote'];
+  readonly onCloseFootnote: () => void;
 }
 
 /** The book read scrolled: the kit's scroll view and a small bar over it. */
@@ -20,6 +24,8 @@ export function ScrollReaderPane({
   onOpenSearch,
   onOpenSettings,
   onHighlight,
+  footnote,
+  onCloseFootnote,
 }: ScrollReaderPaneProps) {
   const selected = scroll.selection?.text ?? '';
   return (
@@ -89,6 +95,7 @@ export function ScrollReaderPane({
         </Button>
         <span className="px-1 tabular-nums">{Math.round(scroll.progress * 100)}%</span>
       </div>
+      <FootnoteDrawer footnote={footnote} onClose={onCloseFootnote} />
     </main>
   );
 }
