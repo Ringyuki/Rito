@@ -53,8 +53,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // page is drawn in.
 // +42 lines (2026-10-27): a scrolled layout's windows by chapter, where a
 // located line starts in its window, and a window painted alone.
+// +10 lines (2026-10-27): a scrolled view also holds the window after the
+// active one's neighbours, which a viewport shows with the window read.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2897;
+const SESSION_READER_LINE_BUDGET = 2907;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built

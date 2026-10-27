@@ -53,16 +53,27 @@ export async function loadSessionReaderFrame(
 }
 
 /**
+ * The spreads near the host's active one: its neighbours, and in a scrolled
+ * view the window after them too, which a viewport shows with the window
+ * read.
+ */
+function nearActive(state: SessionReaderState): readonly number[] {
+  const active = state.activeSpreadIndex;
+  const ahead = state.view.scroll === undefined ? [] : [active + 2];
+  return [active + 1, active - 1, ...ahead];
+}
+
+/**
  * Releases every held spread that is neither the session's visible one, the
- * host's active one and its two neighbours, nor `keepIndex`. The session
+ * host's active one and the spreads near it, nor `keepIndex`. The session
  * holds a bounded number of artifacts, so what is not near is given back
  * before more is asked for.
  */
 async function releaseFramesOutside(state: SessionReaderState, keepIndex: number): Promise<void> {
-  const active = state.activeSpreadIndex;
+  const near = new Set([state.activeSpreadIndex, keepIndex, ...nearActive(state)]);
   const released: SessionReaderFrame[] = [];
   for (const [index, frame] of state.frames) {
-    if (frame === state.visible || index === keepIndex || Math.abs(index - active) <= 1) continue;
+    if (frame === state.visible || near.has(index)) continue;
     state.frames.delete(index);
     released.push(frame);
   }
@@ -76,8 +87,7 @@ async function releaseFramesOutside(state: SessionReaderState, keepIndex: number
  */
 export function warmSessionReaderNeighbours(state: SessionReaderState): void {
   if (state.bookHolds > 0) return;
-  const active = state.activeSpreadIndex;
-  for (const index of [active + 1, active - 1]) {
+  for (const index of nearActive(state)) {
     if (state.view.spreads[index] !== undefined) void ensureSessionReaderFrame(state, index);
   }
 }

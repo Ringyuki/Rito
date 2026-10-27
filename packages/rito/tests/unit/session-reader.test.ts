@@ -254,6 +254,9 @@ describe('Reader on a session', () => {
     });
     const located = await reader.navigateToLocator?.({ href: 'two.xhtml', progression: 0.5 });
     expect(located).toMatchObject({ status: 'resolved', blockOffset: 42 });
+    // The window read, its neighbours and the window after them are held.
+    const held = [...fake.live.values()].map((owned) => owned.artifact.localSpreadIndex);
+    expect(new Set(held)).toEqual(new Set([0, 1, 2, 3]));
 
     // The last window of the second chapter is half a viewport tall: it is
     // painted into a target of its own size as into one of the viewport's.
