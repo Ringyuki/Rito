@@ -1,7 +1,8 @@
 // Stacks each pen's render of a scrolled window on its render of the next
-// window and diffs the stack against the same pen's render of the pair
-// painted as one run (`seam-<case>-…-a`, `-b`, `-ab`, written by the
-// engine's seam lowering). That a window draws what the pair draws is the
+// window (beside it, the next on the left, for windows that run leftwards)
+// and diffs the stack against the same pen's render of the pair painted as
+// one run (`seam-<case>-…-a`, `-b`, `-ab`, written by the engine's seam
+// lowering, whose metadata names the axis). That a window draws what the pair draws is the
 // engine's own test (`a_window_draws_its_content_as_the_pair_…`); what
 // this reports is how the pens raster the two: a canvas picks its
 // antialiasing mode from everything a frame holds, and a scaled image cut
@@ -42,25 +43,39 @@ const read = (dir, name) => {
   return existsSync(file) ? PNG.sync.read(readFileSync(file)) : undefined;
 };
 
-/** Pixels the stacked windows and the pair differ in, and those beyond the floor. */
-function stackDiff(top, bottom, pair) {
-  if (top.width !== pair.width || bottom.width !== pair.width) {
-    return { error: `widths ${top.width}/${bottom.width} vs ${pair.width}` };
+const axisOf = (pair) =>
+  JSON.parse(readFileSync(path.join(outRoot, 'lowered', `${pair}-ab.json`), 'utf8')).axis ?? 'down';
+
+/**
+ * Pixels the stacked windows and the pair differ in, and those beyond the
+ * floor. `first` is the window the run starts with: on top, or on the right
+ * for windows that run leftwards.
+ */
+function stackDiff(first, second, pair, axis) {
+  const left = axis === 'left';
+  const [across, along] = left ? ['height', 'width'] : ['width', 'height'];
+  if (first[across] !== pair[across] || second[across] !== pair[across]) {
+    return { error: `${across}s ${first[across]}/${second[across]} vs ${pair[across]}` };
   }
-  if (top.height + bottom.height !== pair.height) {
-    return { error: `heights ${top.height}+${bottom.height} vs ${pair.height}` };
+  if (first[along] + second[along] !== pair[along]) {
+    return { error: `${along}s ${first[along]}+${second[along]} vs ${pair[along]}` };
   }
+  // The window a pair pixel comes from, and where in it.
+  const source = (x, y) => {
+    if (!left) return y < first.height ? [first, x, y] : [second, x, y - first.height];
+    return x < second.width ? [second, x, y] : [first, x - second.width, y];
+  };
   const overlay = new PNG({ width: pair.width, height: pair.height });
   let count = 0;
   let beyond = 0;
   for (let y = 0; y < pair.height; y += 1) {
-    const [source, row] = y < top.height ? [top, y] : [bottom, y - top.height];
     for (let x = 0; x < pair.width; x += 1) {
+      const [window, wx, wy] = source(x, y);
       const at = (y * pair.width + x) * 4;
-      const from = (row * pair.width + x) * 4;
+      const from = (wy * window.width + wx) * 4;
       let delta = 0;
       for (let c = 0; c < 4; c += 1) {
-        delta = Math.max(delta, Math.abs(source.data[from + c] - pair.data[at + c]));
+        delta = Math.max(delta, Math.abs(window.data[from + c] - pair.data[at + c]));
       }
       const differs = delta > 0;
       if (differs) count += 1;
@@ -88,12 +103,12 @@ for (const lane of LANES) {
   const bad = [];
   const raster = [];
   for (const pair of pairs) {
-    const [top, bottom, whole] = ['a', 'b', 'ab'].map((part) => read(lane, `${pair}-${part}`));
-    if (!top || !bottom || !whole) {
+    const [first, second, whole] = ['a', 'b', 'ab'].map((part) => read(lane, `${pair}-${part}`));
+    if (!first || !second || !whole) {
       bad.push(`${pair}: missing render`);
       continue;
     }
-    const result = stackDiff(top, bottom, whole);
+    const result = stackDiff(first, second, whole, axisOf(pair));
     if (result.error) {
       bad.push(`${pair}: ${result.error}`);
     } else if (result.count > 0) {

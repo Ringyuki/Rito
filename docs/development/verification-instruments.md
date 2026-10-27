@@ -166,13 +166,16 @@ painter's own output.
 node tools/paint-parity/seams.mjs [outRoot]
 ```
 
-Lowers neighbouring scrolled windows of a synthetic and a real chapter at
-ratios 1, 1.25, 1.5, 2, 2.625 and 3, one by one and as one run
+Lowers neighbouring scrolled windows of synthetic chapters (one of them
+vertical-rl, whose windows run leftwards) and a real chapter at ratios 1,
+1.25, 1.5, 2, 2.625 and 3, one by one and as one run
 (`cargo test -p rito-core --lib lower_scroll_seam_fixtures`, env-gated),
 rasters them through every pen lane, and `seam-diff.mjs` stacks each
-window on the next and diffs the stack against the run. That a window
-draws what the run draws is the engine test
-`a_window_draws_its_content_as_the_pair_with_the_window_above_draws_it`;
+window on the next (beside it, the next on the left, for leftward
+windows, as each run's metadata `axis` says) and diffs the stack against
+the run. That a window draws what the run draws is the engine tests
+`a_window_draws_its_content_as_the_pair_with_the_window_above_draws_it`
+and `a_leftward_window_draws_its_content_as_the_pair_with_the_window_right_of_it`;
 the report lists how the pens raster the two apart: a canvas picks its
 antialiasing mode from everything a frame holds, and a scaled image cut
 by a window edge samples only what is visible, so a few pixels of a pair

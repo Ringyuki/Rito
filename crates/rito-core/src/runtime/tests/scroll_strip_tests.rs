@@ -2,7 +2,9 @@
 
 use super::fixture::{
     long_paragraphs_fixture_epub, paint_command_kitchen_sink_fixture_epub, pinned_test_font_policy,
+    vertical_book_fixture_epub,
 };
+use crate::fragment_window::ScrollAxis;
 use crate::layout::{
     create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
 };
@@ -274,9 +276,11 @@ fn lower_scroll_seam_fixtures() {
         (
             "book01",
             read("packages/rito/tests/fixtures/books/book-01.epub"),
-            both_faces,
+            both_faces.clone(),
             4,
         ),
+        // Vertical-rl columns, whose windows run leftwards.
+        ("columns", vertical_book_fixture_epub(), both_faces, 3),
     ];
     for (case, bytes, faces, fewest) in cases {
         let mut document =
@@ -313,6 +317,11 @@ fn lower_scroll_seam_fixtures() {
                     ] {
                         let rows = windows.device_rows(run.start, ratio).start
                             ..windows.device_rows(run.end - 1, ratio).end;
+                        let length = (rows.end - rows.start) / ratio;
+                        let (width, height, axis) = match windows.axis() {
+                            ScrollAxis::Down => (seam_windows().page_width, length, "down"),
+                            ScrollAxis::Left => (length, seam_windows().page_height, "left"),
+                        };
                         let mut lowered = strip
                             .lowered_window(run, ratio, &|href| document.image_size(href))
                             .expect("window lowers");
@@ -324,8 +333,9 @@ fn lower_scroll_seam_fixtures() {
                             .expect("write the lowered list");
                         let meta = json!({
                             "name": name,
-                            "width": seam_windows().page_width,
-                            "height": (rows.end - rows.start) / ratio,
+                            "width": width,
+                            "height": height,
+                            "axis": axis,
                             "ratio": ratio,
                             "primitiveCount": lowered.commands.len(),
                         });
