@@ -19,13 +19,13 @@
 //   env RITO_READER_URL (default http://localhost:5173/)
 //   env RITO_WALK_DSF   device pixels per CSS pixel on both sides (default 1)
 import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
 const require2 = createRequire(`${REPO}package.json`);
-const { chromium } = require2('@playwright/test');
 const { PNG } = require2('pngjs');
 
 const [, , bookPath, outDirArg, maxPagesArg] = process.argv;
@@ -171,7 +171,7 @@ const HOST_FACES = [
   url: path.join(REPO, 'apps/reader/src/assets/fonts', face.file),
 }));
 
-const browser = await chromium.launch({ channel: 'chromium' });
+const browser = await launchOracleChromium();
 
 // ---- Engine side: load the book, read the chapter map, walk and shoot --
 const reader = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: DSF });
@@ -523,7 +523,7 @@ const truthColumnCount = new Map();
 // back blank and scroll captures sat ~190px stale on a fresh page and
 // context alike; a fresh browser process renders the same page,
 // injection and clip correctly.
-const truthBrowser = await chromium.launch({ channel: 'chromium' });
+const truthBrowser = await launchOracleChromium();
 const truthContext = await truthBrowser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: DSF,

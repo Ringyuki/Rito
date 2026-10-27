@@ -2,11 +2,10 @@
 // chapter and Range-measure the wrap line around a marker string, to
 // find where Blink saves width that naive advance sums do not predict.
 // usage: node melancholy-probe.mjs <chapterFile> <marker>
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
-const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 
 const [, , chapterFile, marker] = process.argv;
 const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
@@ -14,7 +13,7 @@ const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-R
 const contentW = 640;
 const contentH = 850;
 
-const browser = await chromium.launch({ channel: 'chromium' });
+const browser = await launchOracleChromium();
 const context = await browser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: 1,

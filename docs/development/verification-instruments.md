@@ -31,6 +31,10 @@ Rules that experience has made binding:
 - Prune capture trees after harvesting; they are hundreds of megabytes.
 - Refactors are verified by comparing the engine captures byte for byte
   against a baseline walk of the same book.
+- Every instrument launches Chromium through `tools/oracle-chromium.mjs`:
+  the full build with no smart minimum font size, in English. On macOS
+  the test browser follows the system language unless it has its own:
+  `defaults write com.google.chrome.for.testing AppleLanguages -array en-US`.
 
 `prune-walks.sh` drops the capture trees (`engine/`, `truth/`, `gallery/`,
 `book/`) of every `walk-*/` directory in `tools/corpus-oracle` except the

@@ -24,12 +24,9 @@
 // and image-only lines are dropped, and scoring compares the break-point
 // sets of the concatenated text so one extra line never misaligns a
 // whole chapter.
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-const { chromium } = createRequire(`${new URL('../..', import.meta.url).pathname}package.json`)(
-  '@playwright/test',
-);
 
 const REPO = new URL('../..', import.meta.url).pathname;
 const DIR = `${process.env.RITO_ORACLE_DIR ?? '.'}/`;
@@ -47,7 +44,7 @@ const DUMP = process.env.RITO_ORACLE_DUMP === '1';
 const serifB64 = readFileSync(SERIF).toString('base64');
 const tinosB64 = readFileSync(TINOS).toString('base64');
 const manifest = JSON.parse(readFileSync(`${DIR}manifest.json`, 'utf8'));
-const browser = await chromium.launch({ channel: 'chromium' });
+const browser = await launchOracleChromium();
 const page = await browser.newPage({ viewport: { width: Math.ceil(WIDTH), height: 6000 } });
 // The browser's default font size is the engine's root font size.
 await (

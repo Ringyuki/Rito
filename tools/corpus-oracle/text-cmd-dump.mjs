@@ -4,11 +4,8 @@
 // geometry against Blink Range measurements of the same text.
 // usage: node text-cmd-dump.mjs <book.epub> <spread> <needle...>
 //   env RITO_READER_URL (default http://localhost:5173/)
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import path from 'node:path';
-
-const REPO = new URL('../..', import.meta.url).pathname;
-const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 
 const [, , bookPath, spreadArg, ...needles] = process.argv;
 if (!bookPath || !spreadArg || needles.length === 0) {
@@ -18,7 +15,7 @@ if (!bookPath || !spreadArg || needles.length === 0) {
 const SPREAD = Number(spreadArg);
 const BASE = process.env.RITO_READER_URL ?? 'http://localhost:5173/';
 
-const browser = await chromium.launch({ channel: 'chromium' });
+const browser = await launchOracleChromium();
 const page = await browser.newPage({
   viewport: { width: 1500, height: 950 },
   deviceScaleFactor: 1,

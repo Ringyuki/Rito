@@ -8,9 +8,7 @@
 //   BOOK=/path/to.epub URL=http://127.0.0.1:5173/ node settings-storm.mjs
 //
 // Exits 1 when it does not pass. DUMP=file also writes the reader's debug log.
-import { createRequire } from 'node:module';
-const require = createRequire(new URL('../../apps/reader/package.json', import.meta.url));
-const { chromium } = require('@playwright/test');
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 
 const READER_URL = process.env.URL ?? 'http://127.0.0.1:4317/';
 const BOOK = process.env.BOOK;
@@ -21,7 +19,7 @@ const viewport =
 const GAPS = (process.env.GAPS ?? '0,4,16,40,90,160,260,400').split(',').map(Number);
 const BURST = Number(process.env.BURST ?? 6);
 
-const browser = await chromium.launch({ channel: 'chromium' });
+const browser = await launchOracleChromium();
 const page = await browser.newPage({
   viewport: { width: viewport.width, height: viewport.height },
   deviceScaleFactor: viewport.dsf,

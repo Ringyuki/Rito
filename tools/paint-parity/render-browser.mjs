@@ -16,6 +16,7 @@
 // loaded before painting — an unloaded face silently falls back and
 // invalidates every text fixture.
 import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { pathToFileURL } from 'node:url';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -23,7 +24,6 @@ import path from 'node:path';
 const REPO = new URL('../..', import.meta.url).pathname;
 const HERE = new URL('.', import.meta.url).pathname;
 const requireRepo = createRequire(`${REPO}package.json`);
-const { chromium } = requireRepo('@playwright/test');
 const vite = await import(pathToFileURL(requireRepo.resolve('vite')));
 const { launchUnthrottled } = await import('../resize-frames/shared.mjs');
 
@@ -62,7 +62,7 @@ const FONTS = [
 // pen where WebGL has no GPU); the GPU pass is a reader's browser, where
 // the GPU pen draws text and fills itself and is held to that browser's
 // canvas pen.
-await renderPass(await chromium.launch({ channel: 'chromium' }), {
+await renderPass(await launchOracleChromium(), {
   flat: 'browser',
   offscreen: 'browser-offscreen',
   gpu: 'browser-gl-software',

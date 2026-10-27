@@ -19,10 +19,11 @@
 // that engine instead, headed with HEADED=1; each spread line says which
 // pen painted it, so a lane with no `gpu` line has proved nothing.
 import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { readFileSync } from 'node:fs';
 import { launchUnthrottled } from '../resize-frames/shared.mjs';
 
-const { chromium, firefox, webkit } = createRequire(
+const { firefox, webkit } = createRequire(
   new URL('../../apps/reader/package.json', import.meta.url),
 )('@playwright/test');
 const { PNG } = createRequire(new URL('../../package.json', import.meta.url))('pngjs');
@@ -179,7 +180,7 @@ const browser =
   BROWSER !== 'chromium'
     ? await { firefox, webkit }[BROWSER].launch({ headless: process.env.HEADED !== '1' })
     : process.env.GPU === '0'
-      ? await chromium.launch({ channel: 'chromium' })
+      ? await launchOracleChromium()
       : await launchUnthrottled();
 let failed = 0;
 let compared = 0;
