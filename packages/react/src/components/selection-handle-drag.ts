@@ -27,8 +27,11 @@ interface ActiveDragSession {
   lastPoint: { readonly clientX: number; readonly clientY: number };
 }
 
+/** What drags a selection's end: the page controller, or a scrolled view. */
+export type SelectionHandleDragHost = Pick<ReaderController, 'beginSelectionHandleDrag'>;
+
 interface DragContext {
-  readonly controller: ReaderController | null;
+  readonly controller: SelectionHandleDragHost | null;
   readonly activeRef: RefObject<ActiveDragSession | null>;
   readonly setVisual: (value: ActiveDragVisual | null) => void;
 }
@@ -48,7 +51,7 @@ interface SelectionHandleDragBindings {
 }
 
 export function useSelectionHandleDrag(
-  controller: ReaderController | null,
+  controller: SelectionHandleDragHost | null,
   enabled: boolean,
 ): SelectionHandleDragBindings {
   const activeRef = useRef<ActiveDragSession | null>(null);

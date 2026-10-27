@@ -23,6 +23,10 @@ Hooks:
 - `useContainerSize`
 - `useControllerEvent`
 
+`ScrollSelectionHandles({ controller, rootRef, touchInput })` draws a scrolled
+view's selection handles as `Reader` draws the page controller's, placed over the
+view's canvas inside `rootRef` and moved with the strip.
+
 Types:
 
 - `UseRitoReaderOptions`
