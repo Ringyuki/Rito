@@ -144,17 +144,41 @@ export function useReader(
     pinnedFontPolicy,
   });
 
-  // A tap on a note reference read scrolled opens the note as on a page;
-  // a link into the book goes where it points.
+  // A tap on a note reference read scrolled opens the note as on a page,
+  // an image opens in the lightbox (its object URL is the app's to let go),
+  // and a link into the book goes where it points.
+  const scrollImageUrl = useRef<string | null>(null);
+  const releaseScrollImage = useCallback(() => {
+    if (scrollImageUrl.current) URL.revokeObjectURL(scrollImageUrl.current);
+    scrollImageUrl.current = null;
+  }, []);
   useEffect(() => {
     const view = scroll.controller;
     const interactions = scroll.reader?.interactions;
     if (!view) return;
-    return view.on('tap', ({ target }) => {
+    return view.on('tap', ({ point, target }) => {
       if (!target) return;
       const follow = () => {
         if (target.targetLocator) void view.scrollToLocator(target.targetLocator);
       };
+      if (target.kind === 'image' && target.imageSrc && scroll.reader) {
+        const src = target.imageSrc;
+        const bounds = view.viewRects([{ pageIndex: point.pageIndex, ...target.bounds }])[0];
+        const canvas = view.canvas.getBoundingClientRect();
+        void Promise.resolve(scroll.reader.getImageBlobUrl(src)).then((blobUrl) => {
+          if (!blobUrl || !bounds) return;
+          releaseScrollImage();
+          scrollImageUrl.current = blobUrl;
+          setLightboxImage({
+            src,
+            alt: target.imageAlt ?? '',
+            blobUrl,
+            screenBounds: { ...bounds, x: canvas.left + bounds.x, y: canvas.top + bounds.y },
+          });
+          setLightboxActive(true);
+        });
+        return;
+      }
       const key = target.footnoteKey;
       if (target.kind !== 'footnote' || !key || !interactions) {
         follow();
@@ -165,7 +189,7 @@ export function useReader(
         else follow();
       }, follow);
     });
-  }, [scroll.controller, scroll.reader]);
+  }, [releaseScrollImage, scroll.controller, scroll.reader]);
   const scrollSearch = useScrollSearch(scroll);
   // The book's annotations and the search result the reader is on, drawn
   // over the text read scrolled.
@@ -387,7 +411,8 @@ export function useReader(
     }, []),
     onLightboxExitComplete: useCallback(() => {
       setLightboxActive(false);
-    }, []),
+      releaseScrollImage();
+    }, [releaseScrollImage]),
     searchOpen,
     setSearchOpen,
   };

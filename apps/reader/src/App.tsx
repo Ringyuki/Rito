@@ -82,6 +82,9 @@ export function App({ pinnedFontPolicy }: AppProps) {
           }}
           footnote={reader.footnote}
           onCloseFootnote={reader.dismissFootnote}
+          image={reader.lightboxImage}
+          onCloseImage={reader.dismissLightbox}
+          onImageExitComplete={reader.onLightboxExitComplete}
         />
       ) : (
         <ReadingProgressArea reader={reader} width={containerSize.width}>

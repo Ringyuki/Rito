@@ -2,6 +2,7 @@ import { Copy, Highlighter, List, Loader2, Search, Settings } from 'lucide-react
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FootnoteDrawer } from '@/components/footnote-drawer';
+import { ImageLightbox } from '@/components/image-lightbox';
 import type { useReader } from '@/hooks/use-reader';
 import type { useScrollMode } from '@/hooks/use-scroll-mode';
 
@@ -14,6 +15,9 @@ interface ScrollReaderPaneProps {
   readonly onHighlight: () => void;
   readonly footnote: ReturnType<typeof useReader>['footnote'];
   readonly onCloseFootnote: () => void;
+  readonly image: ReturnType<typeof useReader>['lightboxImage'];
+  readonly onCloseImage: () => void;
+  readonly onImageExitComplete: () => void;
 }
 
 /** The book read scrolled: the kit's scroll view and a small bar over it. */
@@ -26,6 +30,9 @@ export function ScrollReaderPane({
   onHighlight,
   footnote,
   onCloseFootnote,
+  image,
+  onCloseImage,
+  onImageExitComplete,
 }: ScrollReaderPaneProps) {
   const selected = scroll.selection?.text ?? '';
   return (
@@ -96,6 +103,7 @@ export function ScrollReaderPane({
         <span className="px-1 tabular-nums">{Math.round(scroll.progress * 100)}%</span>
       </div>
       <FootnoteDrawer footnote={footnote} onClose={onCloseFootnote} />
+      <ImageLightbox image={image} onClose={onCloseImage} onExitComplete={onImageExitComplete} />
     </main>
   );
 }
