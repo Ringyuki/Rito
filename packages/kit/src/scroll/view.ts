@@ -134,9 +134,12 @@ function draw(view: ScrollView): void {
     },
   );
   keepNear(view, geometry);
+  const viewport = along(view);
   view.emitter.emit('scroll', {
     offset: motion.offset / geometry.ratio,
     extent: geometry.extent / geometry.ratio,
+    viewport: viewport / geometry.ratio,
+    progress: Math.min(1, Math.max(0, motion.offset / Math.max(1, geometry.extent - viewport))),
   });
   const reading = geometry.windowAt(motion.offset + readingLine(view));
   if (reading !== undefined && reading.spreadIndex !== view.current) {

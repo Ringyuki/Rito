@@ -4,6 +4,12 @@ export {
   type RitoReaderState,
   type RitoReaderActions,
 } from './use-rito-reader';
+export {
+  useRitoScrollReader,
+  type UseRitoScrollReaderOptions,
+  type RitoScrollReaderState,
+  type RitoScrollReaderActions,
+} from './use-rito-scroll-reader';
 export { useSelection, type SelectionState } from './use-selection';
 export { useSearch, type SearchState } from './use-search';
 export { useAnnotations, type AnnotationsState } from './use-annotations';

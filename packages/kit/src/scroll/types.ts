@@ -31,8 +31,17 @@ export interface ScrollControllerOptions {
 
 /** Offsets are CSS pixels along the scroll axis from the book's block start. */
 export interface ScrollControllerEvents {
-  /** The strip moved. */
-  scroll: { readonly offset: number; readonly extent: number };
+  /**
+   * The strip moved: where it is, the book's length and the view's along
+   * the axis, and how far through the book it is, from 0 at the start to 1
+   * with the book's end at the view's.
+   */
+  scroll: {
+    readonly offset: number;
+    readonly extent: number;
+    readonly viewport: number;
+    readonly progress: number;
+  };
   /** The window under the reading line changed: the reader moved on to it. */
   window: { readonly spreadIndex: number };
   /** The strip came to rest. */

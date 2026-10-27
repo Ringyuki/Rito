@@ -37,9 +37,8 @@ async function open(file: File): Promise<void> {
   controller.on('tap', ({ target }) => {
     if (target?.targetLocator) void controller.scrollToLocator(target.targetLocator);
   });
-  controller.on('scroll', ({ offset, extent }) => {
-    const max = extent - (controller.axis === 'left' ? view.clientWidth : view.clientHeight);
-    if (progress) progress.textContent = `${((100 * offset) / Math.max(1, max)).toFixed(1)}%`;
+  controller.on('scroll', (scrolled) => {
+    if (progress) progress.textContent = `${(100 * scrolled.progress).toFixed(1)}%`;
   });
   controller.on('selection', ({ text, selecting }) => {
     if (selected) selected.textContent = selecting ? '' : text.slice(0, 80);

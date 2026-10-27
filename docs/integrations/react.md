@@ -15,6 +15,7 @@ import { useRitoReader, Reader } from '@ritojs/react';
 Hooks:
 
 - `useRitoReader`
+- `useRitoScrollReader`
 - `useSelection`
 - `useSearch`
 - `useAnnotations`
@@ -27,6 +28,9 @@ Types:
 - `UseRitoReaderOptions`
 - `RitoReaderState`
 - `RitoReaderActions`
+- `UseRitoScrollReaderOptions`
+- `RitoScrollReaderState`
+- `RitoScrollReaderActions`
 - `SelectionState`
 - `SearchState`
 - `AnnotationsState`
@@ -145,6 +149,34 @@ To add a face while a book is open (a system font, a file the reader imported),
 use `controller.addFontFaces()`; `controller.fonts()` lists every family a
 `font-family` choice can name, which is what a font picker should be built from.
 See [Fonts](../api/reader.md#fonts) for how families resolve.
+
+## `useRitoScrollReader`
+
+`useRitoScrollReader({ reader, scroll, initialLocator })` owns a scrolled reader
+(the book laid out with `spread: 'scrolled'` whatever `reader.spread` says) and
+its kit scroll view. Pass `containerRef` as the ref of the element the view is
+shown in; `load(data)` opens a book, letting go of the one before, and shows
+`initialLocator`'s line at the reading line once the book is laid out. The state
+follows the view: `progress` (0 to 1 through the book), `position` (the locator
+at the reading line as of the strip's last rest, to save and reopen at) and
+`selection` (the `selection` event while something is selected, null
+otherwise), with `controller` for everything else the view does
+(`scrollToLocator`, `setHighlights`, `on('tap')`).
+
+```tsx
+const { containerRef, load, progress, controller } = useRitoScrollReader({
+  reader: { width, height, pinnedFontPolicy },
+  initialLocator: saved,
+});
+useEffect(
+  () =>
+    controller?.on('tap', ({ target }) => {
+      if (target?.targetLocator) void controller.scrollToLocator(target.targetLocator);
+    }),
+  [controller],
+);
+return <div ref={containerRef} style={{ width, height }} />;
+```
 
 ## `useReaderTransition`
 
