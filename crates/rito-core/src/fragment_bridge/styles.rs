@@ -126,6 +126,9 @@ pub(super) fn anonymous_block_style() -> LayoutFormattingStyle {
             bottom: zero_padding,
             left: zero_padding,
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: rito_style_contract::BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,

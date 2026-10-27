@@ -527,25 +527,33 @@ impl TreeBuilder<'_> {
             .layout
             .style(style)
             .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
-        let widen = |side: &mut NonNegativeLengthPercentage, width: f64| -> EpubResult<()> {
+        // Each side reports the border width it absorbed: the layout style
+        // names exactly the share of `padding` that is border.
+        let widen = |side: &mut NonNegativeLengthPercentage,
+                     width: f64|
+         -> EpubResult<rito_style_contract::NonNegativeCssPx> {
+            let zero = rito_style_contract::NonNegativeCssPx::ZERO;
             if width <= 0.0 {
-                return Ok(());
+                return Ok(zero);
             }
             let LengthPercentage::Length(px) = side.value() else {
                 // Percentage padding cannot absorb a pixel border; keep
                 // the padding untouched (the edge still paints, content
                 // sits closer to it than a browser would place it).
-                return Ok(());
+                return Ok(zero);
             };
             let total = rito_style_contract::CssPx::new(px.get() + width as f32)
                 .map_err(|error| EpubError::new(format!("{what} border padding: {error:?}")))?;
             *side = NonNegativeLengthPercentage::new(LengthPercentage::Length(total));
-            Ok(())
+            rito_style_contract::NonNegativeCssPx::new(width as f32)
+                .map_err(|error| EpubError::new(format!("{what} border width: {error:?}")))
         };
-        widen(&mut derived.padding.top, widths[0])?;
-        widen(&mut derived.padding.right, widths[1])?;
-        widen(&mut derived.padding.bottom, widths[2])?;
-        widen(&mut derived.padding.left, widths[3])?;
+        derived.border_widths = rito_style_contract::PhysicalSides {
+            top: widen(&mut derived.padding.top, widths[0])?,
+            right: widen(&mut derived.padding.right, widths[1])?,
+            bottom: widen(&mut derived.padding.bottom, widths[2])?,
+            left: widen(&mut derived.padding.left, widths[3])?,
+        };
         static BORDER_DEBUG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         // Forensic output a native probe switches on; read once per process.
         if *BORDER_DEBUG.get_or_init(|| std::env::var_os("RITO_BORDER_DEBUG").is_some()) {

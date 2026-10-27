@@ -43,13 +43,14 @@ use rito_fragment::{
     BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
     FormattingContext, FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment,
     FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
-    LineText, PendingPositioned,
+    LineText, PendingPositioned, PrecedingLine,
 };
 use rito_style_contract::{
     BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
     MaximumSize, PageBreak, Position, PreferredSize,
 };
 
+mod annotations;
 mod context;
 mod floats;
 mod flow;
@@ -63,6 +64,7 @@ mod table;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use annotations::*;
 pub(crate) use floats::*;
 pub(crate) use fragments::*;
 pub(crate) use lines::*;
@@ -94,6 +96,10 @@ struct LinePlacement {
     consumed_end: f64,
     /// Whether every remaining line of the paragraph was placed.
     exhausted: bool,
+    /// How much taller the first placed line got for the annotation space
+    /// above it (negative when the space let it shrink): the fragment's
+    /// height is its consumed extent plus this.
+    opening_delta: f64,
 }
 
 /// The UA default line constraints at a fragmentation break inside a

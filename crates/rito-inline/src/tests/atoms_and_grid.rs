@@ -158,6 +158,9 @@ pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormatting
             bottom: zero_padding,
             left: zero_padding,
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,
@@ -659,6 +662,9 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
                         bottom: zero_padding,
                         left: zero_padding,
                     },
+                    border_widths: rito_style_contract::PhysicalSides::uniform(
+                        rito_style_contract::NonNegativeCssPx::ZERO,
+                    ),
                     box_sizing: rito_style_contract::BoxSizing::ContentBox,
                     justify_content: JustifyContent::Normal,
                     align_items: AlignItems::Normal,
@@ -826,6 +832,9 @@ fn an_inline_image_separates_a_punctuation_pair() {
                         bottom: zero_padding,
                         left: zero_padding,
                     },
+                    border_widths: rito_style_contract::PhysicalSides::uniform(
+                        rito_style_contract::NonNegativeCssPx::ZERO,
+                    ),
                     box_sizing: rito_style_contract::BoxSizing::ContentBox,
                     justify_content: JustifyContent::Normal,
                     align_items: AlignItems::Normal,

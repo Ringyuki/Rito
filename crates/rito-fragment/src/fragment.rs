@@ -25,6 +25,38 @@ pub struct BoxFragment {
     pub children: Vec<Fragment>,
 }
 
+/// The faces one line's glyph runs were shaped with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LineFonts {
+    /// No glyph run (an empty line, or atoms only).
+    None,
+    /// Every run used this one face.
+    One(FontFaceId),
+    /// Runs used more than one face.
+    Several,
+}
+
+impl LineFonts {
+    /// The set with `face` joined.
+    #[must_use]
+    pub fn with(self, face: FontFaceId) -> Self {
+        match self {
+            Self::None => Self::One(face),
+            Self::One(one) if one == face => self,
+            _ => Self::Several,
+        }
+    }
+
+    /// Whether the line used any face other than `face`.
+    pub fn has_other_than(self, face: FontFaceId) -> bool {
+        match self {
+            Self::None => false,
+            Self::One(one) => one != face,
+            Self::Several => true,
+        }
+    }
+}
+
 /// One line box produced by an inline formatting context.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineFragment {
@@ -49,6 +81,16 @@ pub struct LineFragment {
     /// device rows (ceil) while the strut part keeps the two-stage
     /// round. Zero on lines without ruby growth.
     pub ruby_growth: f64,
+    /// How far the line's annotations reach above its box: the growth
+    /// the line takes when nothing above it lends them space, as when it
+    /// opens a fragment of a resumed flow (Blink's block-start annotation
+    /// space is zero there). `ruby_growth` is this less what the space
+    /// above absorbs. Zero on lines without ruby.
+    pub ruby_overflow: f64,
+    /// The fonts the line's glyph runs were shaped with, which the next
+    /// line's annotations read to know how much of the space under this
+    /// line's text they may reuse.
+    pub fonts: LineFonts,
     /// The flow-text byte range of each glyph run on the line, in visual
     /// order, with an empty range for each atomic inline (image or inline
     /// block) at its place among them: the text the line's text fragments

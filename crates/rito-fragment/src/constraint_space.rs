@@ -1,3 +1,5 @@
+use crate::fragment::LineFonts;
+
 /// Typed layout constraints for one formatting-context invocation.
 ///
 /// A constraint space is a pure value: equal spaces plus an equal tree and
@@ -30,6 +32,35 @@ pub struct ConstraintSpace {
     pub containing_block_size: Option<f64>,
     /// Which line boxes carry their text fragments.
     pub line_text: LineText,
+    /// The last line box of the in-flow block before this flow, when this
+    /// flow's first-line annotations may reuse the space under its text
+    /// (part of Blink's block-start annotation space). Only a flow with
+    /// ruby reads it.
+    pub preceding_line: Option<PrecedingLine>,
+}
+
+/// A line box above a flow's first line, as that line's annotations read
+/// it: how far its box reaches below its baseline and which fonts shaped
+/// its text.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PrecedingLine {
+    /// Distance from the line's baseline to its box bottom, CSS px.
+    pub below: f64,
+    /// The fonts its glyph runs were shaped with.
+    pub fonts: LineFonts,
+    /// Its half-leading (see [`empty_line_half_leading`]): all the space
+    /// an empty line lends, having no text to measure under.
+    pub half_leading: f64,
+}
+
+/// The half-leading of a line box `line_height` tall in a flow whose font
+/// is `font_size`, on Blink's LayoutUnit grid: what an empty line (no
+/// glyph runs) lends a following annotation, its content area being the
+/// font size centred in the box.
+pub fn empty_line_half_leading(line_height: f64, font_size: f64) -> f64 {
+    let height = (line_height * 64.0).round();
+    let size = (font_size * 64.0).trunc();
+    ((height - size).max(0.0) / 2.0).floor() / 64.0
 }
 
 /// Which line boxes of a layout carry their text fragments. Without them a
@@ -79,6 +110,19 @@ impl LineText {
         }
     }
 
+    /// The same lines, and those down to `by` further: for a flow whose
+    /// lines may move up by as much once placed.
+    #[must_use]
+    pub fn reaching(self, by: f64) -> Self {
+        match self {
+            Self::Within { top, bottom } => Self::Within {
+                top,
+                bottom: bottom + by,
+            },
+            other => other,
+        }
+    }
+
     /// Every line, unless none: for a box whose place is only known once it
     /// is laid out (a float), which a range cannot reach into.
     #[must_use]
@@ -111,6 +155,7 @@ impl ConstraintSpace {
             float_band: None,
             containing_block_size: None,
             line_text: LineText::All,
+            preceding_line: None,
         }
     }
 
@@ -123,6 +168,7 @@ impl ConstraintSpace {
             float_band: None,
             containing_block_size: None,
             line_text: LineText::All,
+            preceding_line: None,
         }
     }
 }

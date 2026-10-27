@@ -36,7 +36,7 @@ use crate::break_token::BreakToken;
 use crate::constraint_space::{ConstraintSpace, FloatBand, LineText};
 use crate::context::{CancelFlag, FormattingContext, LayoutError, LayoutOutcome};
 use crate::formatting_tree::FormattingTree;
-use crate::fragment::Fragment;
+use crate::fragment::{Fragment, LineFonts};
 
 /// One cache lookup-or-compute result.
 #[derive(Clone, Debug, PartialEq)]
@@ -67,6 +67,9 @@ struct SpaceKey {
     float_band: Option<[u64; 3]>,
     containing_block_size: Option<u64>,
     line_text: LineTextKey,
+    /// The preceding line's reach below its baseline, its fonts and its
+    /// half-leading.
+    preceding_line: Option<(u64, LineFonts, u64)>,
 }
 
 /// [`LineText`] by the bit patterns of its window.
@@ -416,6 +419,7 @@ fn space_key(space: &ConstraintSpace) -> SpaceKey {
         float_band,
         containing_block_size,
         line_text,
+        preceding_line,
     } = *space;
     SpaceKey {
         inline_size: inline_size.to_bits(),
@@ -436,6 +440,13 @@ fn space_key(space: &ConstraintSpace) -> SpaceKey {
                 LineTextKey::Within([top, bottom].map(f64::to_bits))
             }
         },
+        preceding_line: preceding_line.map(|line| {
+            (
+                line.below.to_bits(),
+                line.fonts,
+                line.half_leading.to_bits(),
+            )
+        }),
     }
 }
 
@@ -536,6 +547,8 @@ mod tests {
                         marker: None,
                         trailing_whitespace: 0.0,
                         ruby_growth: 0.0,
+                        ruby_overflow: 0.0,
+                        fonts: crate::LineFonts::None,
                         text_runs: if space.line_text.at(top) {
                             vec![(0, 1)]
                         } else {

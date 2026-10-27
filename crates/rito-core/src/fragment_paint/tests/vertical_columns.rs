@@ -61,6 +61,8 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
             baseline: 13.0,
             trailing_whitespace: 0.0,
             ruby_growth: growth,
+            ruby_overflow: growth,
+            fonts: rito_fragment::LineFonts::None,
             text_runs: Vec::new(),
             children: runs,
         })

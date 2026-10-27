@@ -182,6 +182,11 @@ pub struct LayoutFormattingStyle {
     pub margin: PhysicalSides<LengthPercentageOrAuto>,
     /// Physical box padding.
     pub padding: PhysicalSides<NonNegativeLengthPercentage>,
+    /// Used border widths. The formatting bridge folds every border into
+    /// `padding`, so layout reads these only where CSS tells a border
+    /// from padding: a ruby annotation reaches into a box's top padding
+    /// and the margins above it, never across a top border.
+    pub border_widths: PhysicalSides<NonNegativeCssPx>,
     /// How `width`/`height` map onto the box model.
     pub box_sizing: BoxSizing,
     pub justify_content: JustifyContent,

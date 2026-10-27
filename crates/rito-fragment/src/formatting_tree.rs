@@ -403,6 +403,10 @@ pub struct FormattingTree {
     /// inline style, whose line-height floors every line box the flow
     /// produces (CSS 2 §10.8.1).
     strut_styles: std::collections::BTreeMap<u32, StyleId>,
+    /// The share of the root's top padding that is the collapsed margin
+    /// above its first in-flow child, CSS px (see
+    /// [`FormattingTree::root_leading_margin`]).
+    root_leading_margin: f64,
     fingerprint: u64,
 }
 
@@ -427,6 +431,7 @@ impl FormattingTree {
             root,
             styles: None,
             strut_styles: std::collections::BTreeMap::new(),
+            root_leading_margin: 0.0,
             fingerprint,
         })
     }
@@ -499,6 +504,7 @@ impl FormattingTree {
             root,
             styles: Some(styles),
             strut_styles: std::collections::BTreeMap::new(),
+            root_leading_margin: 0.0,
             fingerprint,
         })
     }
@@ -521,6 +527,25 @@ impl FormattingTree {
         }
         self.fingerprint = mixer.finish();
         self.strut_styles = strut_styles;
+    }
+
+    /// Records how much of the root's top padding is the collapsed margin
+    /// above its first in-flow child — a builder that carries the root's
+    /// margins as padding knows — and folds it into the fingerprint.
+    pub fn set_root_leading_margin(&mut self, px: f64) {
+        let mut mixer = FnvMixer::new();
+        mixer.mix(&self.fingerprint.to_le_bytes());
+        mixer.mix(&px.to_bits().to_le_bytes());
+        self.fingerprint = mixer.finish();
+        self.root_leading_margin = px;
+    }
+
+    /// The share of the root's top padding that is the collapsed margin
+    /// above its first in-flow child: geometry treats it as padding, but a
+    /// ruby annotation on that child's first line reaches into it as into
+    /// a margin.
+    pub fn root_leading_margin(&self) -> f64 {
+        self.root_leading_margin
     }
 
     /// The strut style recorded for an inline-flow node, if any.
@@ -979,6 +1004,9 @@ mod tests {
                 bottom: zero_padding(),
                 left: zero_padding(),
             },
+            border_widths: rito_style_contract::PhysicalSides::uniform(
+                rito_style_contract::NonNegativeCssPx::ZERO,
+            ),
             box_sizing: rito_style_contract::BoxSizing::ContentBox,
             justify_content: JustifyContent::Normal,
             align_items: AlignItems::Normal,

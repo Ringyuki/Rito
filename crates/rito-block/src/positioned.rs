@@ -104,7 +104,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let space = ConstraintSpace::continuous(border_width);
         let outcome = match tree.node(pending.node).content {
             FormattingNodeContent::BlockContainer => {
-                self.layout_container(tree, pending.node, &space, None, cancel, false, false)?
+                self.layout_container(tree, pending.node, &space, None, cancel, false, None)?
             }
             _ => self.layout(tree, pending.node, &space, None, cancel)?,
         };

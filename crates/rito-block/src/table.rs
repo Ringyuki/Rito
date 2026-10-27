@@ -202,11 +202,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // Cells keep their text: a table's cells are laid out
                     // whole however the page around them is.
                     line_text: LineText::All,
+                    preceding_line: None,
                 },
                 inner_token.as_ref(),
                 cancel,
                 false,
-                false,
+                None,
             )?;
             let Fragment::Box(mut cell_root) = outcome.fragments.root else {
                 return Err(LayoutError::Invalid(
@@ -453,7 +454,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 None,
                 cancel,
                 false,
-                false,
+                None,
             )?;
             let Fragment::Box(mut cell_root) = outcome.fragments.root else {
                 return Err(LayoutError::Invalid(

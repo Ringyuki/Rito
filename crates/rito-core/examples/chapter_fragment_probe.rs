@@ -187,6 +187,7 @@ fn main() {
             float_band: None,
             containing_block_size: None,
             line_text: rito_fragment::LineText::All,
+            preceding_line: None,
         });
         if let Some(page_space) = paginated {
             let mut lines = Vec::new();

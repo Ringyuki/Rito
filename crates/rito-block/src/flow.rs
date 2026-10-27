@@ -24,7 +24,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The parent already joined this container's first-in-flow-child
         // top-margin chain into its own collapse set (§8.3.1 through-
         // collapse); the chain is spent and must not re-apply inside.
-        leading_margin_consumed: bool,
+        // It carries the collapsed margin, which the first child's ruby
+        // annotations may still reach into.
+        leading_margin_consumed: Option<f64>,
     ) -> Result<LayoutOutcome, LayoutError> {
         let mut positioned = Vec::new();
         let mut outcome = self.layout_container_flow(
@@ -65,7 +67,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         token: Option<&BreakToken>,
         cancel: &CancelFlag,
         collapse_root_edges: bool,
-        leading_margin_consumed: bool,
+        leading_margin_consumed: Option<f64>,
         positioned: &mut Vec<PendingPositioned>,
     ) -> Result<LayoutOutcome, LayoutError> {
         let children = tree.node(container).children.clone();
@@ -103,16 +105,34 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // (a 1em heading margin starts the whole book 22px lower). It
         // belongs to the first fragment only; a resumed fragmentainer
         // starts flush like any margin meeting an unforced break.
+        let mut root_margin = 0.0;
         if collapse_root_edges && !resumed {
             let (root_margin_top, _) = vertical_margins(tree, container, space.inline_size)?;
             if root_margin_top > 0.0 {
                 y += root_margin_top;
                 remaining -= root_margin_top;
+                root_margin = root_margin_top;
             }
         }
         // Padding blocks parent-child margin collapse per CSS, so a padded
         // root keeps its first child's top margin inside.
         let collapse_root_edges = collapse_root_edges && container_padding_top == 0.0;
+        // The collapsed margin above the content edge, which the first
+        // in-flow child's annotations may reach into (Blink's margin
+        // strut): what the parent spent of the leading chain, or the
+        // root's folded margin.
+        let mut leading_strut = match leading_margin_consumed {
+            _ if resumed => None,
+            Some(strut) => Some(strut),
+            None if collapse_root_edges && root_margin > 0.0 => Some(root_margin),
+            None if container == tree.root() && tree.root_leading_margin() > 0.0 => {
+                Some(tree.root_leading_margin())
+            }
+            None => None,
+        };
+        // What the previous in-flow sibling leaves for the next paragraph's
+        // annotations; a fragmentainer starts with none.
+        let mut annotation_end: Option<AnnotationEnd> = None;
         let mut fragments = Vec::new();
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
@@ -125,7 +145,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         let mut clear_credit = 0.0_f64;
         // Arms until the first in-flow child; a resumed container starts
         // flush anyway (margins truncate at unforced breaks).
-        let mut leading_margin_armed = leading_margin_consumed && !resumed;
+        let mut leading_margin_armed = leading_margin_consumed.is_some() && !resumed;
         // A `break-after: always` on the previous in-flow child forces a
         // fragmentainer break before the next one.
         let mut pending_forced_break = false;
@@ -169,6 +189,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     float_band: None,
                     containing_block_size: None,
                     line_text: space.line_text.whole(),
+                    preceding_line: None,
                 };
                 let outcome =
                     self.layout(tree, child_id, &sub_space, Some(&float_break.token), cancel)?;
@@ -291,7 +312,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         None,
                         cancel,
                         false,
-                        false,
+                        None,
                     )?,
                     _ => self.layout(tree, *child_id, &child_space, None, cancel)?,
                 };
@@ -373,6 +394,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         float_band: None,
                         containing_block_size: None,
                         line_text: space.line_text.whole(),
+                        preceding_line: None,
                     };
                     let outcome = self.layout(tree, *child_id, &sub_space, None, cancel)?;
                     let Fragment::Box(head_root) = outcome.fragments.root else {
@@ -546,6 +568,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 gap
             };
             let available = (remaining - gap).max(0.0);
+            // The collapsed margin above this child, and what the sibling
+            // before it left, for its first line's annotations.
+            let leading = leading_strut.take();
+            let strut = leading.map_or(gap, |strut| strut.max(gap));
+            let preceding_end = annotation_end.take();
             let child = tree.node(*child_id);
             match &child.content {
                 FormattingNodeContent::SizedLeaf {
@@ -701,6 +728,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         } else {
                             pending_margin.merge(top_set).join(bottom_margin)
                         };
+                        // Margins collapse through it: the leading strut
+                        // still sits above the next child.
+                        leading_strut = leading;
                         continue;
                     }
                     // The paragraph's own top padding rides its first
@@ -754,6 +784,30 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         resolve_fixed_height(child_style, hbox.padding_top + hbox.padding_bottom)?
                             .map(|fixed| (fixed - hbox.padding_top - hbox.padding_bottom).max(0.0));
                     let available_for_lines = (available - leading_padding).max(0.0);
+                    // The annotation space above the first line this
+                    // fragment places (Blink's block-start annotation
+                    // space): the paragraph's own top padding and — unless
+                    // a top border or its own formatting context closes it
+                    // off — the collapsed margin above it and what the
+                    // sibling before it left under its last line. A
+                    // resumed fragment's first line has none.
+                    let resumed_fragment = consumed > 0.0 || child_resumed_inside;
+                    let border_top = f64::from(child_style.border_widths.top.get());
+                    let padding_space = (hbox.padding_top - border_top).max(0.0);
+                    let reaches_above = border_top == 0.0 && !is_flow_root(child_style);
+                    let has_ruby = flow_has_ruby(items);
+                    let preceding =
+                        preceding_end.filter(|_| reaches_above && has_ruby && !resumed_fragment);
+                    // A negative margin never takes space from the padding
+                    // (Blink clamps the space to the padding).
+                    let opening_space = if reaches_above {
+                        (strut + padding_space + preceding.map_or(0.0, |end| end.space))
+                            .max(padding_space)
+                    } else {
+                        padding_space
+                    };
+                    let opening =
+                        LineOpening::for_flow(tree, *child_id, resumed_fragment, opening_space)?;
                     // A fresh page narrowed by the box's own leading
                     // padding is NOT force-fit territory: the padding
                     // edge is a break opportunity, so the break lands
@@ -783,6 +837,8 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // unless a flex paragraph centres them once they
                         // are laid out: where they land is not known
                         // before, so they all carry their text.
+                        // The first line's opening can lift every line by
+                        // up to the space above it.
                         match space.line_text {
                             LineText::Omitted => LineText::Omitted,
                             _ if available_for_lines.is_finite() => LineText::Within {
@@ -791,7 +847,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             },
                             unfragmented if centres_lines(child_style) => unfragmented.whole(),
                             unfragmented => unfragmented.below(paragraph_top),
-                        },
+                        }
+                        .reaching(if has_ruby {
+                            opening_space
+                        } else {
+                            0.0
+                        }),
+                        preceding.map(|end| end.line),
                         cancel,
                         |lines| {
                             let squeezed = page_is_empty
@@ -805,6 +867,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 available_for_lines,
                                 page_is_empty && !squeezed,
                                 space.fragmentainer_size,
+                                opening,
                             );
                             (squeezed, placement)
                         },
@@ -867,7 +930,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let mut trailing_deferred = false;
                     let had_lines = !placement.lines.is_empty();
                     if had_lines {
-                        let content_height = leading_padding + (placement.consumed_end - consumed);
+                        let content_height = leading_padding
+                            + (placement.consumed_end - consumed)
+                            + placement.opening_delta;
                         let trailing_fits =
                             content_height + hbox.padding_bottom <= remaining - gap + f64::EPSILON;
                         // A box whose every line fits but whose trailing
@@ -1067,6 +1132,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             y = layout_unit(y + hbox.padding_bottom);
                             remaining -= hbox.padding_bottom;
                         }
+                        if had_lines {
+                            annotation_end = match fragments.last() {
+                                Some(paragraph) => block_annotation_end(tree, paragraph)?,
+                                None => None,
+                            };
+                        }
                         pending_margin = PendingMargin::from_margin(bottom_margin);
                         continue;
                     }
@@ -1238,13 +1309,18 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         },
                         containing_block_size: None,
                         line_text: space.line_text.below(y + gap),
+                        // A block child's first line never reuses what the
+                        // sibling before it left (Blink hands only its own
+                        // inline content the container's block-start space).
+                        preceding_line: None,
                     };
                     // Mirror of through_collapsed_top's descent predicate:
                     // when the child's leading chain joined THIS loop's
                     // collapse set, its first in-flow child must start
                     // flush inside.
                     let child_leading_consumed =
-                        !child_resumed && !is_flow_root(child_style) && hbox.padding_top == 0.0;
+                        (!child_resumed && !is_flow_root(child_style) && hbox.padding_top == 0.0)
+                            .then_some(strut);
                     let outcome = self.layout_container(
                         tree,
                         *child_id,
@@ -1373,6 +1449,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     }
                     match outcome.continuation {
                         None => {
+                            annotation_end = match fragments.last() {
+                                Some(block) => block_annotation_end(tree, block)?,
+                                None => None,
+                            };
                             pending_margin = PendingMargin::from_margin(bottom_margin);
                             continue;
                         }
@@ -1548,6 +1628,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         containing_block_size: Option<f64>,
         float_band: Option<rito_fragment::FloatBand>,
         line_text: LineText,
+        preceding_line: Option<PrecedingLine>,
         cancel: &CancelFlag,
         read: impl FnOnce(&[Fragment]) -> R,
     ) -> Result<R, LayoutError> {
@@ -1562,6 +1643,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             float_band,
             containing_block_size,
             line_text,
+            preceding_line,
         };
         self.inline_cache.borrow_mut().layout_with(
             &self.inline,

@@ -232,14 +232,24 @@ impl FormattingContext for ParleyInlineContext {
         // block position comes from accumulation instead.
         let mut running_top = 0.0_f64;
         // The previous line's leading below its text, spent by a ruby
-        // annotation on the next line before the line has to grow.
-        let mut prev_ruby_below: Option<f64> = None;
-        // The distinct fonts that shaped the previous line's glyph runs.
-        // The browser's under-edge allowance depends on the previous
-        // line's font composition (measured: one Latin glyph — a space
-        // included — shrinks the gap a following annotation may reuse by
-        // one pixel at 16px), so the reuse probe must match it.
-        let mut prev_line_fonts: Vec<(u64, u32)> = Vec::new();
+        // annotation on the next line before the line has to grow. The
+        // first line's previous line is the preceding block's last, when
+        // the block context lends its space (Blink's block-start
+        // annotation space).
+        let mut prev_ruby_below: Option<f64> = space.preceding_line.map(|line| line.below);
+        // The fonts that shaped the previous line's glyph runs. The
+        // browser's under-edge allowance depends on the previous line's
+        // font composition (measured: one Latin glyph — a space included
+        // — shrinks the gap a following annotation may reuse by one pixel
+        // at 16px), so the reuse probe must match it.
+        let mut prev_line_fonts = space
+            .preceding_line
+            .map_or(LineFonts::None, |line| line.fonts);
+        // An empty previous line lends only its half-leading: with no text
+        // to measure under, its content area is the font size centred in
+        // the box (measured: after `<p><br/></p>` the annotation reuses
+        // (line height − font size) / 2, not a text line's under-edge).
+        let mut prev_half_leading = space.preceding_line.map_or(0.0, |line| line.half_leading);
         // Whether the last line laid out holds any item: a trailing empty
         // line is dropped below.
         let mut last_line_has_items = true;
@@ -253,6 +263,9 @@ impl FormattingContext for ParleyInlineContext {
                 .next()
                 .map(|item| item.style)
         });
+        let strut_font_size = strut_style_id
+            .and_then(|id| style_tables.and_then(|tables| tables.inline.style(id).ok()))
+            .map(|resolved| f64::from(resolved.font.size.get()));
         let strut_envelope: Option<(f64, f64)> = strut_style_id
             .and_then(|id| style_tables.and_then(|tables| tables.inline.style(id).ok()))
             .filter(|resolved| matches!(resolved.font.line_height, LineHeight::Normal))
@@ -1950,19 +1963,19 @@ impl FormattingContext for ParleyInlineContext {
             // under its text. Whatever the baseline still lacks becomes
             // growth. The base font (the first glyph run over the ruby
             // base) tells whether the previous line mixed fonts.
-            let base_font_key = |range: &std::ops::Range<usize>| -> Option<(u64, u32)> {
-                line.style_runs().find_map(|item| {
-                    let parley::LineStyleRun::Glyphs { run, .. } = item else {
-                        return None;
-                    };
-                    let shaped = run.text_range();
-                    if shaped.start >= range.end || range.start >= shaped.end {
-                        return None;
-                    }
-                    let font = run.font();
-                    Some((font.data.id(), font.index))
-                })
-            };
+            let base_font_key =
+                |range: &std::ops::Range<usize>| -> Option<rito_fragment::FontFaceId> {
+                    line.style_runs().find_map(|item| {
+                        let parley::LineStyleRun::Glyphs { run, .. } = item else {
+                            return None;
+                        };
+                        let shaped = run.text_range();
+                        if shaped.start >= range.end || range.start >= shaped.end {
+                            return None;
+                        }
+                        Some(self.catalog.face_id(run.font()))
+                    })
+                };
             // A vertical-rl flow's annotation shares NO half-leading with
             // its base the way a horizontal line's does: the annotation
             // column needs its own width beyond the base's half-leading
@@ -1970,7 +1983,7 @@ impl FormattingContext for ParleyInlineContext {
             // ratios x 3 annotation lengths: growth = rt size minus the
             // half-leading, floored at zero, independent of annotation
             // length, the whole growth landing on the line's right).
-            let ruby_growth = if vertical_flow {
+            let (ruby_growth, ruby_overflow) = if vertical_flow {
                 let mut growth = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     let on_line = line_text_range
@@ -2000,9 +2013,11 @@ impl FormattingContext for ParleyInlineContext {
                     growth =
                         growth.max((annotation_size + 0.5 - (line_height - fs) / 2.0).max(0.0));
                 }
-                growth
+                (growth, growth)
             } else {
                 let mut growth = 0.0_f64;
+                // The deficit with nothing above to reach into.
+                let mut overflow = 0.0_f64;
                 for (index, range) in item_text_ranges.iter().enumerate() {
                     let on_line = line_text_range
                         .is_some_and(|(start, end)| range.start < end && start < range.end);
@@ -2085,9 +2100,8 @@ impl FormattingContext for ParleyInlineContext {
                     let base_latin = flow_text
                         .get(range.clone())
                         .is_some_and(|base| !base.chars().any(is_cjk));
-                    let prev_mixed = !prev_line_fonts.is_empty()
-                        && base_font
-                            .is_some_and(|base| prev_line_fonts.iter().any(|key| *key != base));
+                    let prev_mixed =
+                        base_font.is_some_and(|face| prev_line_fonts.has_other_than(face));
                     // The shape's rt carries the annotation's ACTUAL text:
                     // the annotation stack height depends on which face
                     // the family list resolves for those characters, and
@@ -2124,8 +2138,13 @@ impl FormattingContext for ParleyInlineContext {
                     // below-edge allowance = below extent minus the
                     // second-line reduction.
                     let reuse = (ruby_two.height - ruby_one.height - plain.ascent()).max(0.0);
-                    let prev_gap = prev_ruby_below.map_or(0.0, |below| (below - reuse).max(0.0));
+                    let prev_gap = match prev_ruby_below {
+                        Some(_) if prev_line_fonts == LineFonts::None => prev_half_leading,
+                        Some(below) => (below - reuse).max(0.0),
+                        None => 0.0,
+                    };
                     growth = growth.max((required - baseline - prev_gap).max(0.0));
+                    overflow = overflow.max((required - baseline).max(0.0));
                 }
                 // The browser pushes a growing FIRST line down
                 // by a WHOLE pixel count — ceil of the baseline deficit —
@@ -2138,43 +2157,31 @@ impl FormattingContext for ParleyInlineContext {
                 // interior case in the matrix). b20's un-ceiled openers
                 // sat 0.55px high and binned to −1 rows on half the
                 // dialog lines.
+                // A first line with no previous line takes the whole
+                // overflow; the block context spends the space above it
+                // (padding, collapsed margins, the preceding block's
+                // leading), as Blink's block-start annotation space does.
+                let overflow = overflow.ceil();
                 if prev_ruby_below.is_none() {
-                    // The paragraph's own padding-top absorbs a FIRST
-                    // line's annotation growth: the annotation overflows
-                    // upward into the padding and the line keeps its
-                    // natural height (padding oracle: an 8px pad absorbs
-                    // the whole 6px growth, a 4px pad absorbs 4; b52's
-                    // contents rows sat 8px low when the growth ignored
-                    // their 0.9em padding). Percentages have no basis
-                    // here and absorb nothing.
-                    let padding_absorb = tree
-                        .styles()
-                        .and_then(|tables| tables.layout.style(tree.node(root).style).ok())
-                        .map_or(0.0, |style| match style.padding.top.value() {
-                            rito_style_contract::LengthPercentage::Length(px) => {
-                                f64::from(px.get())
-                            }
-                            _ => 0.0,
-                        });
-                    (growth - padding_absorb).max(0.0).ceil()
+                    (overflow, overflow)
                 } else {
-                    growth
+                    (growth, overflow)
                 }
             };
             let line_height = line_height + ruby_growth;
             let baseline = baseline + ruby_growth;
             running_top += ruby_growth;
             prev_ruby_below = Some((line_height - baseline).max(0.0));
-            prev_line_fonts.clear();
+            let mut line_fonts = LineFonts::None;
             for item in line.style_runs() {
                 if let parley::LineStyleRun::Glyphs { run, .. } = item {
-                    let font = run.font();
-                    let key = (font.data.id(), font.index);
-                    if !prev_line_fonts.contains(&key) {
-                        prev_line_fonts.push(key);
-                    }
+                    line_fonts = line_fonts.with(self.catalog.face_id(run.font()));
                 }
             }
+            prev_line_fonts = line_fonts;
+            prev_half_leading = strut_font_size.map_or(0.0, |size| {
+                rito_fragment::empty_line_half_leading(line_height, size)
+            });
             if line_debug && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0)) {
                 eprintln!(
                     "[line-debug] contributions={contributions:?} font_line={font_line:?} \
@@ -2276,6 +2283,8 @@ impl FormattingContext for ParleyInlineContext {
                 baseline,
                 trailing_whitespace: f64::from(metrics.trailing_whitespace),
                 ruby_growth,
+                ruby_overflow,
+                fonts: line_fonts,
                 marker,
                 text_runs: line_runs,
                 children,

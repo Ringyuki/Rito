@@ -227,6 +227,9 @@ fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingSty
         border_collapse: crate::break_properties::project_border_collapse(styles),
         margin: margin(styles)?,
         padding: padding(styles)?,
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: box_sizing(styles),
         object_fit: object_fit(styles),
     })

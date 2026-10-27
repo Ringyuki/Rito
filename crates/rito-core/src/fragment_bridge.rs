@@ -415,7 +415,8 @@ pub fn build_chapter_formatting_tree_with_generated(
         degradations,
         ..
     } = builder;
-    fold_through_collapsing_margins(&mut formatting_nodes, root, &mut layout)?;
+    let root_leading_margin =
+        fold_through_collapsing_margins(&mut formatting_nodes, root, &mut layout)?;
     let mut tree = FormattingTree::with_styles(
         formatting_nodes,
         root,
@@ -423,6 +424,7 @@ pub fn build_chapter_formatting_tree_with_generated(
     )
     .map_err(EpubError::new)?;
     tree.set_strut_styles(strut_styles);
+    tree.set_root_leading_margin(root_leading_margin);
     let flow_texts = flow_texts(&tree);
     Ok(ChapterFormattingTree {
         tree,

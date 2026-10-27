@@ -10,7 +10,8 @@ use crate::break_token::{BreakToken, BreakTokenStage};
 use crate::context::LayoutOutcome;
 use crate::formatting_tree::FormattingNodeId;
 use crate::fragment::{
-    BoxFragment, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment, TextFragment,
+    BoxFragment, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFonts, LineFragment,
+    TextFragment,
 };
 
 const FRAGMENT_TAG_BOX: u8 = 0;
@@ -79,6 +80,15 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.extend_from_slice(&fragment.baseline.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.trailing_whitespace.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.ruby_growth.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.ruby_overflow.to_bits().to_le_bytes());
+            match fragment.fonts {
+                LineFonts::None => out.push(0),
+                LineFonts::One(face) => {
+                    out.push(1);
+                    out.extend_from_slice(&face.0.to_le_bytes());
+                }
+                LineFonts::Several => out.push(2),
+            }
             match &fragment.marker {
                 None => out.push(0),
                 Some(marker) => {
@@ -188,6 +198,13 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let baseline = reader.f64()?;
             let trailing_whitespace = reader.f64()?;
             let ruby_growth = reader.f64()?;
+            let ruby_overflow = reader.f64()?;
+            let fonts = match reader.u8()? {
+                0 => LineFonts::None,
+                1 => LineFonts::One(crate::FontFaceId(reader.u32()?)),
+                2 => LineFonts::Several,
+                tag => return Err(format!("unknown line fonts tag {tag}")),
+            };
             let marker = match reader.u8()? {
                 0 => None,
                 1 => Some(crate::MarkerFragment {
@@ -213,6 +230,8 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 baseline,
                 trailing_whitespace,
                 ruby_growth,
+                ruby_overflow,
+                fonts,
                 marker,
                 text_runs,
                 children,
@@ -402,10 +421,12 @@ impl Reader<'_> {
         Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
     }
 
+    fn u64(&mut self) -> Result<u64, String> {
+        Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
+    }
+
     fn f64(&mut self) -> Result<f64, String> {
-        Ok(f64::from_bits(u64::from_le_bytes(
-            self.take(8)?.try_into().unwrap(),
-        )))
+        Ok(f64::from_bits(self.u64()?))
     }
 }
 
@@ -530,6 +551,8 @@ mod tests {
                         baseline: 14.8,
                         trailing_whitespace: 4.25,
                         ruby_growth: 1.5,
+                        ruby_overflow: 2.0,
+                        fonts: LineFonts::One(crate::FontFaceId(7)),
                         text_runs: vec![(0, 42)],
                         children: vec![Fragment::Text(TextFragment {
                             source: FormattingNodeId(0),

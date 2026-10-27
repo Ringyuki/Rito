@@ -52,6 +52,9 @@ fn block_style(
             bottom: zero_padding(),
             left: zero_padding(),
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: rito_style_contract::BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,
@@ -135,6 +138,8 @@ impl FormattingContext for FixedLineInline {
                     baseline: 8.0,
                     trailing_whitespace: 0.0,
                     ruby_growth: 0.0,
+                    ruby_overflow: 0.0,
+                    fonts: rito_fragment::LineFonts::None,
                     text_runs: Vec::new(),
                     children: Vec::new(),
                 })

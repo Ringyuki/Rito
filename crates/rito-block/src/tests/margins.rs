@@ -546,6 +546,8 @@ fn a_snug_last_paragraph_keeps_its_full_margin() {
                         baseline: 16.0,
                         trailing_whitespace: 0.0,
                         ruby_growth: 0.0,
+                        ruby_overflow: 0.0,
+                        fonts: rito_fragment::LineFonts::None,
                         text_runs: Vec::new(),
                         children: Vec::new(),
                     })

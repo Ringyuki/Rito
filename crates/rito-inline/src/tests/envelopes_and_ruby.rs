@@ -138,6 +138,9 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,
@@ -279,6 +282,9 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,
@@ -1030,6 +1036,9 @@ fn plain_image_layout(layout: &mut LayoutStyleTable) -> rito_style_contract::Lay
                 },
                 margin: sides(auto),
                 padding: sides(zero),
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,

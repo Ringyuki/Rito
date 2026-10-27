@@ -77,6 +77,14 @@ before it down. Nested elements each add their own, an empty element takes
 its width, vertical text reads the top and bottom sides, and percentage
 padding resolves against the containing block.
 
+### Ruby reaches into the space above its line
+
+A paragraph's first-line ruby reaches into the space above the line before
+the line grows, as Chromium lays it out: the collapsed margin above the
+paragraph and the space under the previous paragraph's last line, not
+across a top border or out of a paragraph that is its own formatting
+context. A ruby line that opens a page takes its whole height there.
+
 ### Word selection steps past spaces
 
 Extending a selection by a word moves to the end of the next word or the

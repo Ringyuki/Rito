@@ -32,7 +32,7 @@ pub(super) fn fold_through_collapsing_margins(
     nodes: &mut [FormattingNode],
     root: FormattingNodeId,
     layout: &mut LayoutStyleTable,
-) -> EpubResult<()> {
+) -> EpubResult<f64> {
     fn resolved_px(value: LengthPercentageOrAuto) -> Option<f64> {
         match value {
             LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) => {
@@ -319,24 +319,34 @@ pub(super) fn fold_through_collapsing_margins(
                 }
             }
         }
-        if is_root {
-            root_margins_to_padding(nodes, node, layout)?;
-        }
         Ok(())
     }
     /// The chapter body's margins — its own plus what collapsed into it —
     /// become body padding: the browser offsets the whole flow by them
     /// (horizontally too), and padding carries identical geometry through
     /// this engine, applying on the first page only exactly like a margin
-    /// at an unforced fragmentainer start.
+    /// at an unforced fragmentainer start. Returns the top margin that
+    /// became padding with no padding of its own before it: the collapsed
+    /// margin above the body's first in-flow child.
     fn root_margins_to_padding(
         nodes: &mut [FormattingNode],
         root: FormattingNodeId,
         layout: &mut LayoutStyleTable,
-    ) -> EpubResult<()> {
+    ) -> EpubResult<f64> {
         let mut style = *layout
             .style(nodes[root.0 as usize].style)
             .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
+        let leading = match (style.margin.top, style.padding.top.value()) {
+            (
+                LengthPercentageOrAuto::Value(LengthPercentage::Length(margin)),
+                LengthPercentage::Length(padding),
+            ) if padding.get() == 0.0 => f64::from(margin.get()).max(0.0),
+            (
+                LengthPercentageOrAuto::Value(LengthPercentage::Length(margin)),
+                LengthPercentage::Percentage(padding),
+            ) if padding.ratio() == 0.0 => f64::from(margin.get()).max(0.0),
+            _ => 0.0,
+        };
         let mut changed = false;
         let zero = || {
             LengthPercentageOrAuto::Value(LengthPercentage::Length(
@@ -432,7 +442,8 @@ pub(super) fn fold_through_collapsing_margins(
                 .intern(style)
                 .map_err(|error| EpubError::new(format!("folded style interns: {error}")))?;
         }
-        Ok(())
+        Ok(leading)
     }
-    fold(nodes, root, layout, true)
+    fold(nodes, root, layout, true)?;
+    root_margins_to_padding(nodes, root, layout)
 }

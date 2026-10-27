@@ -43,6 +43,9 @@ fn painted_image_rect(
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,

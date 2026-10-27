@@ -58,6 +58,9 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,

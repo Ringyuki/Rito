@@ -1,4 +1,5 @@
 mod access_tests;
+mod annotation_space_tests;
 mod chapter_local_tests;
 pub(crate) mod fixture;
 mod fragment_page_table_tests;

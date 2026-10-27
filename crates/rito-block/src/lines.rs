@@ -1,8 +1,11 @@
 //! Choosing which of a paragraph's already laid-out lines belong in the
-//! current fragmentainer: skip what an earlier fragment consumed, take
-//! as many as fit, move the break to honour the UA orphan and widow
-//! counts, and shift the chosen lines into coordinates relative to the
-//! paragraph fragment's top.
+//! current fragmentainer: skip what an earlier fragment consumed, open
+//! the first line remaining with the annotation space above it, take as
+//! many as fit, move the break to honour the UA orphan and widow counts,
+//! and shift the chosen lines into coordinates relative to the paragraph
+//! fragment's top.
+
+use std::borrow::Cow;
 
 use crate::*;
 
@@ -12,6 +15,7 @@ pub(crate) fn place_lines(
     remaining: f64,
     fragmentainer_is_empty: bool,
     fragmentainer_size: Option<f64>,
+    opening: LineOpening,
 ) -> LinePlacement {
     // Resumed lines: skip everything a previous fragmentainer consumed.
     // A ZERO-HEIGHT line (line-height: 0) at the paragraph start sits at
@@ -21,14 +25,26 @@ pub(crate) fn place_lines(
     // scoped to the fresh paragraph (consumed == 0): past a real resume
     // boundary a zero-height line at exactly `consumed` was placed by
     // the previous fragment.
-    let pending: Vec<&Fragment> = lines
+    let mut pending: Vec<Cow<'_, Fragment>> = lines
         .iter()
         .filter(|line| {
             let rect = line.rect();
             rect.y + rect.height > consumed + f64::EPSILON
                 || (consumed == 0.0 && rect.height <= 0.0)
         })
+        .map(Cow::Borrowed)
         .collect();
+    // The fragment's first line takes the annotation space above it; its
+    // place in the paragraph's own coordinates (what `consumed` counts)
+    // does not move.
+    let mut opening_delta = 0.0;
+    if let Some(first) = pending.first_mut() {
+        let (opened, delta) = opening.open(first);
+        if delta != 0.0 {
+            *first = Cow::Owned(opened);
+            opening_delta = delta;
+        }
+    }
     let total = pending.len();
     let mut fit_count = 0;
     let mut used = 0.0_f64;
@@ -91,20 +107,26 @@ pub(crate) fn place_lines(
     let mut placed = Vec::new();
     let mut consumed_end = consumed;
     let mut y = 0.0_f64;
-    for line in pending.into_iter().take(take) {
+    for (index, line) in pending.into_iter().take(take).enumerate() {
         let rect = line.rect();
         // The line's fragment-local top is the block distance consumed so
         // far inside this fragmentainer's paragraph chunk.
-        let mut shifted = line.clone();
+        let mut shifted = line.into_owned();
         set_fragment_y(&mut shifted, y);
         placed.push(shifted);
         y += rect.height;
-        consumed_end = rect.y + rect.height;
+        let source_height = if index == 0 {
+            rect.height - opening_delta
+        } else {
+            rect.height
+        };
+        consumed_end = rect.y + source_height;
     }
     LinePlacement {
         lines: placed,
         consumed_end,
         exhausted: take == total,
+        opening_delta: if take == 0 { 0.0 } else { opening_delta },
     }
 }
 

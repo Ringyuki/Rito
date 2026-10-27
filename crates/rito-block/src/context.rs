@@ -32,7 +32,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
     ) -> Result<LayoutOutcome, LayoutError> {
         match &tree.node(node).content {
             FormattingNodeContent::BlockContainer => {
-                self.layout_container(tree, node, space, token, cancel, true, false)
+                self.layout_container(tree, node, space, token, cancel, true, None)
             }
             FormattingNodeContent::InlineFlow { .. } => {
                 // `space.inline_size` is the border-box width by contract
@@ -95,6 +95,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                         .map(|fixed| (fixed - padding_top - padding_bottom).max(0.0)),
                     // Its lines start below the padding it leads with.
                     line_text: space.line_text.below(leading),
+                    preceding_line: None,
                 };
                 let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
                 // The sizes it holds for are its content box's, not this
@@ -111,12 +112,35 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                         "inline provider must produce a box fragment root".to_owned(),
                     ));
                 };
+                // Laid out on its own, the flow is its own formatting
+                // context: its first line's annotations reach into its top
+                // padding and no further.
+                let border_top = f64::from(style.border_widths.top.get());
+                let opening = LineOpening::for_flow(
+                    tree,
+                    node,
+                    token.is_some(),
+                    (padding_top - border_top).max(0.0),
+                )?;
+                let mut opening_delta = 0.0;
+                let mut opened = false;
+                for child in &mut root.children {
+                    if !opened && matches!(child, Fragment::Line(_)) {
+                        let (line, delta) = opening.open(child);
+                        *child = line;
+                        opening_delta = delta;
+                        opened = true;
+                    } else if opening_delta != 0.0 {
+                        let rect = child.rect();
+                        set_fragment_position(child, rect.x, rect.y + opening_delta);
+                    }
+                }
                 for child in &mut root.children {
                     let rect = child.rect();
                     set_fragment_position(child, rect.x + padding_left, rect.y + leading);
                 }
                 root.rect.width = space.inline_size;
-                root.rect.height += leading + trailing;
+                root.rect.height += leading + trailing + opening_delta;
                 if let Some(fixed) = fixed_height {
                     if outcome.continuation.is_none() {
                         root.rect.height = fixed;
