@@ -85,6 +85,7 @@ Future<void> _renderLoweredFixture(File meta, Directory outDir) async {
   final theme = json['theme'] as Map<String, Object?>?;
   final target = RitoPrimitiveCanvasTarget(
     canvas,
+    ratio: list.ratio,
     resolveImage: (href) => images[href],
     // A `pending:` source is still on its way past its first second; any
     // other source no synthetic image answers can no longer arrive.
