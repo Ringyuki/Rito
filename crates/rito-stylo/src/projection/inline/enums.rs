@@ -10,6 +10,8 @@ pub(super) fn bidi(styles: &ComputedValues) -> InlineBidi {
         direction: direction(inherited_box.direction),
         unicode_bidi: unicode_bidi(styles.get_text().unicode_bidi),
         writing_mode: writing_mode(inherited_box.writing_mode),
+        text_orientation: crate::break_properties::project_text_orientation(styles),
+        text_combine_upright: crate::break_properties::project_text_combine_upright(styles),
     }
 }
 

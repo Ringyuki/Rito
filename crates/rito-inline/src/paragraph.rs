@@ -1099,6 +1099,8 @@ pub fn plain_paragraph_style(
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
+            text_orientation: rito_style_contract::TextOrientation::Mixed,
+            text_combine_upright: rito_style_contract::TextCombineUpright::None,
         },
         fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(zero_length)),

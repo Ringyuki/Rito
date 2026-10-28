@@ -140,6 +140,8 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
+            text_orientation: rito_style_contract::TextOrientation::Mixed,
+            text_combine_upright: rito_style_contract::TextCombineUpright::None,
         },
         fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(LengthPercentage::Length(

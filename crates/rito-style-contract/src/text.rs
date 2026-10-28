@@ -22,6 +22,30 @@ pub enum WritingMode {
     VerticalLeftToRight,
 }
 
+/// Computed `text-orientation` (css-writing-modes-3 §5.1): how the
+/// characters of a vertical line stand.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum TextOrientation {
+    /// Characters whose Unicode vertical orientation is upright stand
+    /// upright; the rest lie sideways.
+    Mixed,
+    /// Every character stands upright.
+    Upright,
+    /// Every character lies sideways, as in a horizontal line turned a
+    /// quarter clockwise.
+    Sideways,
+}
+
+/// Computed `text-combine-upright` (css-writing-modes-3 §9.1).
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum TextCombineUpright {
+    /// Characters set one by one along the line.
+    None,
+    /// The element's text sets horizontally within a single advance of
+    /// a vertical line.
+    All,
+}
+
 /// Unicode bidi control for an element.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UnicodeBidi {

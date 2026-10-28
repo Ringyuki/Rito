@@ -1,7 +1,7 @@
 use crate::{
     BorderEdge, Direction, FontFamilies, FontSlant, FontWeight, InlineFragmentStyle,
     InlinePaintStyle, InlineTextFlow, LengthPercentageOrAuto, LineHeight, NonNegativeCssPx,
-    NonNegativeLengthPercentage, UnicodeBidi, WritingMode,
+    NonNegativeLengthPercentage, TextCombineUpright, TextOrientation, UnicodeBidi, WritingMode,
 };
 
 /// Font selection and line-metric inputs for inline formatting.
@@ -37,6 +37,11 @@ pub struct InlineBidi {
     pub unicode_bidi: UnicodeBidi,
     /// Block/inline axis writing mode.
     pub writing_mode: WritingMode,
+    /// How characters stand in a vertical line.
+    pub text_orientation: TextOrientation,
+    /// Whether the text sets horizontally within one advance of a
+    /// vertical line.
+    pub text_combine_upright: TextCombineUpright,
 }
 
 /// First versioned, engine-neutral inline formatting contract.

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use rito_source::{NodeId, SourceArena, SourceNodeKind};
 use rito_style_contract::{
     BackgroundImageRepeat, BackgroundImageSize, FontFamily, FontFamilyNameSyntax,
-    GenericFontFamily, LengthPercentage, RubyAlign, TransformOperation, RESOLVED_URL_BYTE_LIMIT,
+    GenericFontFamily, LengthPercentage, RubyAlign, TextCombineUpright, TextOrientation,
+    TransformOperation, WritingMode, RESOLVED_URL_BYTE_LIMIT,
 };
 use rito_stylo::{
     InlineStyleDisposition, InlineStyleField, InlineStyleProjection, InlineStyleProjectionReason,
@@ -514,6 +515,38 @@ fn ruby_align_cascades_through_the_registered_custom_property() {
     // drops it; rt keeps the inherited value from its ruby container.
     assert_eq!(ruby_align(&projection, rt), RubyAlign::Center);
     assert_eq!(ruby_align(&projection, plain_rt), RubyAlign::SpaceAround);
+}
+
+#[test]
+fn vertical_text_properties_cascade_through_their_carriers() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body class="vrtl"><p id="p">a<span id="tcy" class="tcy">12</span><span id="up" class="upright">b</span></p></body></html>"#,
+    );
+    let p = source.find_element_by_id("p").unwrap();
+    let tcy = source.find_element_by_id("tcy").unwrap();
+    let up = source.find_element_by_id("up").unwrap();
+    let mut document = document(
+        Arc::clone(&source),
+        ".vrtl { -webkit-writing-mode: vertical-rl } \
+         .tcy { -webkit-text-combine: horizontal; text-combine-upright: horizontal } \
+         .upright { -epub-text-orientation: upright }",
+    );
+
+    let projection = inline_projection(&mut document);
+    let bidi = |node: NodeId| {
+        projection
+            .table()
+            .style_for_node(node.index())
+            .unwrap()
+            .bidi
+    };
+    assert_eq!(bidi(p).writing_mode, WritingMode::VerticalRightToLeft);
+    assert_eq!(bidi(p).text_orientation, TextOrientation::Mixed);
+    assert_eq!(bidi(p).text_combine_upright, TextCombineUpright::None);
+    // The standard property rejects `horizontal`, so the prefixed
+    // declaration before it stands.
+    assert_eq!(bidi(tcy).text_combine_upright, TextCombineUpright::All);
+    assert_eq!(bidi(up).text_orientation, TextOrientation::Upright);
 }
 
 fn ruby_align(projection: &rito_stylo::InlineStyleProjection, node_id: NodeId) -> RubyAlign {
