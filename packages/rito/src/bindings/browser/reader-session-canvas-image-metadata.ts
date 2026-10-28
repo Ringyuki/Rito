@@ -8,8 +8,10 @@ import {
 export interface BrowserReaderCanvasImageSource {
   readonly width: number;
   readonly height: number;
-  readonly mediaType: 'image/png' | 'image/jpeg';
+  readonly mediaType: 'image/png' | 'image/gif' | 'image/webp' | 'image/bmp' | 'image/jpeg';
 }
+
+type Dimensions = { readonly width: number; readonly height: number };
 
 const JPEG_HEADER_SCAN_BYTES_MAX = 1024 * 1024;
 
@@ -45,17 +47,70 @@ function declaredDimensions(
   return { width: resource.width, height: resource.height };
 }
 
+/**
+ * The format and size of an image the browser can decode, by its bytes:
+ * the formats Core sizes (PNG, GIF, WebP, BMP, JPEG), read the way Core
+ * reads them.
+ */
 function detectDimensions(
   bytes: Uint8Array,
-  declared: { readonly width: number; readonly height: number } | undefined,
+  declared: Dimensions | undefined,
 ): BrowserReaderCanvasImageSource | undefined {
-  if (isPng(bytes)) {
-    const dimensions = pngDimensions(bytes);
-    return dimensions ? { ...dimensions, mediaType: 'image/png' } : undefined;
-  }
+  const sized = (
+    dimensions: Dimensions | undefined,
+    mediaType: BrowserReaderCanvasImageSource['mediaType'],
+  ): BrowserReaderCanvasImageSource | undefined =>
+    dimensions ? { ...dimensions, mediaType } : undefined;
+  if (isPng(bytes)) return sized(pngDimensions(bytes), 'image/png');
+  if (isGif(bytes)) return sized(gifDimensions(bytes), 'image/gif');
+  if (isWebp(bytes)) return sized(webpDimensions(bytes), 'image/webp');
+  if (isBmp(bytes)) return sized(bmpDimensions(bytes), 'image/bmp');
   if (!isJpeg(bytes)) return undefined;
-  const dimensions = declared ?? jpegDimensions(bytes);
-  return dimensions ? { ...dimensions, mediaType: 'image/jpeg' } : undefined;
+  return sized(declared ?? jpegDimensions(bytes), 'image/jpeg');
+}
+
+function isGif(bytes: Uint8Array): boolean {
+  const signature = ascii(bytes, 0, 6);
+  return bytes.length >= 10 && (signature === 'GIF87a' || signature === 'GIF89a');
+}
+
+function gifDimensions(bytes: Uint8Array): Dimensions {
+  return { width: readU16Le(bytes, 6), height: readU16Le(bytes, 8) };
+}
+
+function isWebp(bytes: Uint8Array): boolean {
+  return bytes.length >= 30 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP';
+}
+
+function webpDimensions(bytes: Uint8Array): Dimensions | undefined {
+  switch (ascii(bytes, 12, 4)) {
+    // Extended: 24-bit canvas width and height, less one.
+    case 'VP8X':
+      return { width: readU24Le(bytes, 24) + 1, height: readU24Le(bytes, 27) + 1 };
+    // Lossless: 14-bit fields packed after the one-byte signature.
+    case 'VP8L': {
+      if (bytes[20] !== 0x2f) return undefined;
+      const packed = readU16Le(bytes, 21) + readU16Le(bytes, 23) * 0x10000;
+      return { width: (packed & 0x3fff) + 1, height: (Math.floor(packed / 0x4000) & 0x3fff) + 1 };
+    }
+    // Lossy: the frame header past its start code.
+    case 'VP8 ':
+      if (bytes[23] !== 0x9d || bytes[24] !== 0x01 || bytes[25] !== 0x2a) return undefined;
+      return { width: readU16Le(bytes, 26) & 0x3fff, height: readU16Le(bytes, 28) & 0x3fff };
+    default:
+      return undefined;
+  }
+}
+
+function isBmp(bytes: Uint8Array): boolean {
+  return bytes.length >= 26 && ascii(bytes, 0, 2) === 'BM';
+}
+
+function bmpDimensions(bytes: Uint8Array): Dimensions | undefined {
+  const width = readI32Le(bytes, 18);
+  // A negative height encodes a top-down bitmap.
+  const height = Math.abs(readI32Le(bytes, 22));
+  return width > 0 && height > 0 ? { width, height } : undefined;
 }
 
 function isPng(bytes: Uint8Array): boolean {
@@ -106,6 +161,18 @@ function jpegDimensions(
 
 function isStartOfFrame(marker: number): boolean {
   return marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+}
+
+function readU16Le(bytes: Uint8Array, offset: number): number {
+  return (bytes[offset] ?? 0) | ((bytes[offset + 1] ?? 0) << 8);
+}
+
+function readU24Le(bytes: Uint8Array, offset: number): number {
+  return readU16Le(bytes, offset) + (bytes[offset + 2] ?? 0) * 0x10000;
+}
+
+function readI32Le(bytes: Uint8Array, offset: number): number {
+  return readU16Le(bytes, offset) | (readU16Le(bytes, offset + 2) << 16);
 }
 
 function readU16Be(bytes: Uint8Array, offset: number): number {
