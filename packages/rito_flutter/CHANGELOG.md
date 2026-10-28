@@ -9,7 +9,9 @@ origin, and Latin and digits in a mixed line lie turned a quarter; ruby
 annotations stand on their base where Chromium places them; an image
 sizes to the column's length; and `text-combine-upright: all` text sets as
 one horizontal string within an em of the column, in narrower forms or
-scaled when it is wider than 1.1em. The artifact protocol is version 9:
+scaled when it is wider than 1.1em; an inline box in another writing mode
+lays out as an inline-block across the line; and a block's minimum and
+maximum block size bound it. The artifact protocol is version 9:
 `RitoFontRef.features` lists the OpenType features (`RitoFontFeature`) a
 reference turns on. A reference with features is the same bytes as a face
 under a family of its own (`vert`, the vertical forms; `hwid`, `twid`,
