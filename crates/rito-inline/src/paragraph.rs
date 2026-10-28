@@ -473,7 +473,7 @@ impl ParleyInlineContext {
             if range.is_empty() {
                 continue;
             }
-            push_item_styles(&mut builder, &self.catalog, style, range.clone());
+            push_item_styles(&mut builder, &self.catalog, style, &text, range.clone());
             // Parley merges adjacent resolved styles that compare equal,
             // which would fuse glyph runs across item boundaries whenever
             // neighbouring items differ only in properties Parley never
@@ -858,8 +858,22 @@ pub(crate) fn push_item_styles(
     builder: &mut SpacingBuilder<'_>,
     catalog: &FontCatalog,
     style: &InlineFormattingStyle,
+    text: &str,
     range: std::ops::Range<usize>,
 ) {
+    // A vertical line's upright characters shape top to bottom, as Blink
+    // shapes a vertical line's upright runs; the rest shape as horizontal
+    // text, laid sideways.
+    if style.bidi.writing_mode != WritingMode::HorizontalTopToBottom {
+        if let Some(item_text) = text.get(range.clone()) {
+            for upright in upright_ranges(style.bidi.text_orientation, item_text) {
+                builder.push(
+                    StyleProperty::VerticalUpright(true),
+                    range.start + upright.start..range.start + upright.end,
+                );
+            }
+        }
+    }
     let stack = catalog.resolve(style);
     builder.push(
         StyleProperty::FontFamily(parley::FontFamily::Source(Cow::Owned(stack.source.clone()))),

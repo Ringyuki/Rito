@@ -166,6 +166,7 @@ impl ResolveContext {
             StyleProperty::WordBreak(value) => WordBreak(*value),
             StyleProperty::OverflowWrap(value) => OverflowWrap(*value),
             StyleProperty::TextWrapMode(value) => TextWrapMode(*value),
+            StyleProperty::VerticalUpright(value) => VerticalUpright(*value),
         }
     }
 
@@ -203,6 +204,7 @@ impl ResolveContext {
             word_break: raw_style.word_break,
             overflow_wrap: raw_style.overflow_wrap,
             text_wrap_mode: raw_style.text_wrap_mode,
+            vertical_upright: raw_style.vertical_upright,
         }
     }
 
@@ -387,6 +389,8 @@ pub(crate) enum ResolvedProperty<B: Brush> {
     OverflowWrap(OverflowWrap),
     /// Control over non-"emergency" line-breaking.
     TextWrapMode(TextWrapMode),
+    /// Rito: upright in a vertical line.
+    VerticalUpright(bool),
 }
 
 /// Flattened group of style properties.
@@ -426,6 +430,8 @@ pub(crate) struct ResolvedStyle<B: Brush> {
     pub(crate) overflow_wrap: OverflowWrap,
     /// Control over non-"emergency" line-breaking.
     pub(crate) text_wrap_mode: TextWrapMode,
+    /// Rito: upright in a vertical line, shaped top to bottom.
+    pub(crate) vertical_upright: bool,
 }
 
 impl<B: Brush> ResolvedStyle<B> {
@@ -456,6 +462,7 @@ impl<B: Brush> ResolvedStyle<B> {
             WordBreak(value) => self.word_break = value,
             OverflowWrap(value) => self.overflow_wrap = value,
             TextWrapMode(value) => self.text_wrap_mode = value,
+            VerticalUpright(value) => self.vertical_upright = value,
         }
     }
 
@@ -485,6 +492,7 @@ impl<B: Brush> ResolvedStyle<B> {
             WordBreak(value) => self.word_break == *value,
             OverflowWrap(value) => self.overflow_wrap == *value,
             TextWrapMode(value) => self.text_wrap_mode == *value,
+            VerticalUpright(value) => self.vertical_upright == *value,
         }
     }
 

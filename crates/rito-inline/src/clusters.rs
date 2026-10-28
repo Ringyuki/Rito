@@ -337,7 +337,13 @@ impl ParleyInlineContext {
             let mut layouts = self.layouts.borrow_mut();
             let mut builder =
                 SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
-            push_item_styles(&mut builder, &self.catalog, shaped_style, 0..text.len());
+            push_item_styles(
+                &mut builder,
+                &self.catalog,
+                shaped_style,
+                text,
+                0..text.len(),
+            );
             let (mut layout, _) = builder.build(text);
             layout.break_all_lines(None);
             let mut seen: Vec<(u64, u32)> = Vec::new();
@@ -432,7 +438,7 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, text, 1.0, true));
-        push_item_styles(&mut builder, &self.catalog, style, 0..text.len());
+        push_item_styles(&mut builder, &self.catalog, style, text, 0..text.len());
         if !spacing {
             // Later pushes win: the style's spacing, pushed above, is
             // overridden to zero over the whole string.

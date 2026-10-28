@@ -410,6 +410,7 @@ impl<B: Brush> LayoutData<B> {
         style_index: u16,
         word_spacing: f32,
         letter_spacing: f32,
+        vertical_upright: bool,
         source_text: &str,
         char_infos: &[(CharInfo, u16)], // From text analysis
         text_range: Range<usize>,       // The text range this run covers
@@ -512,6 +513,7 @@ impl<B: Brush> LayoutData<B> {
                 owned(&mut self.clusters),
                 owned(&mut self.glyphs),
                 scale_factor,
+                vertical_upright,
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -523,6 +525,7 @@ impl<B: Brush> LayoutData<B> {
                 owned(&mut self.clusters),
                 owned(&mut self.glyphs),
                 scale_factor,
+                vertical_upright,
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -720,6 +723,7 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
     clusters: &mut Vec<ClusterData>,
     glyphs: &mut Vec<Glyph>,
     scale_factor: f32,
+    vertical_upright: bool,
     glyph_infos: &[harfrust::GlyphInfo],
     glyph_positions: &[harfrust::GlyphPosition],
     char_infos: &[(CharInfo, u16)],
@@ -846,13 +850,26 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
             pending_inline_glyph = None;
         }
 
-        let glyph = Glyph {
-            id: glyph_info.glyph_id,
-            style_index: char_info.1,
-            x: (glyph_pos.x_offset as f32) * scale_factor,
-            // Convert from font space (Y-up) to layout space (Y-down)
-            y: -(glyph_pos.y_offset as f32) * scale_factor,
-            advance: (glyph_pos.x_advance as f32) * scale_factor,
+        // Rito: a run shaped top to bottom advances down the line by its
+        // vertical advance; the offsets from each glyph's vertical origin
+        // are the painter's, which hangs the glyph from that origin itself.
+        let glyph = if vertical_upright {
+            Glyph {
+                id: glyph_info.glyph_id,
+                style_index: char_info.1,
+                x: 0.0,
+                y: 0.0,
+                advance: -(glyph_pos.y_advance as f32) * scale_factor,
+            }
+        } else {
+            Glyph {
+                id: glyph_info.glyph_id,
+                style_index: char_info.1,
+                x: (glyph_pos.x_offset as f32) * scale_factor,
+                // Convert from font space (Y-up) to layout space (Y-down)
+                y: -(glyph_pos.y_offset as f32) * scale_factor,
+                advance: (glyph_pos.x_advance as f32) * scale_factor,
+            }
         };
         cluster_advance += glyph.advance;
         // Push any pending glyph. If it was a zero-offset, single glyph cluster, it would

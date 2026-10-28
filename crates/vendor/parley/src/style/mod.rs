@@ -117,6 +117,10 @@ pub enum StyleProperty<'a, B: Brush> {
     OverflowWrap(OverflowWrap),
     /// Control over non-"emergency" line-breaking.
     TextWrapMode(TextWrapMode),
+    /// Rito: whether the text stands upright in a vertical line, shaped top
+    /// to bottom (vertical advances and glyph forms, no horizontal
+    /// kerning), as Blink shapes a vertical line's upright runs.
+    VerticalUpright(bool),
 }
 
 /// Unresolved styles.
@@ -168,6 +172,8 @@ pub struct TextStyle<'family, 'settings, B: Brush> {
     pub overflow_wrap: OverflowWrap,
     /// Control over non-"emergency" line-breaking.
     pub text_wrap_mode: TextWrapMode,
+    /// Rito: whether the text stands upright in a vertical line.
+    pub vertical_upright: bool,
 }
 
 impl<B: Brush> Default for TextStyle<'static, 'static, B> {
@@ -196,6 +202,7 @@ impl<B: Brush> Default for TextStyle<'static, 'static, B> {
             word_break: WordBreak::default(),
             overflow_wrap: OverflowWrap::default(),
             text_wrap_mode: TextWrapMode::default(),
+            vertical_upright: false,
         }
     }
 }

@@ -95,7 +95,7 @@ pub(crate) use shaping::*;
 pub(crate) use spacing_plan::{PlannedRun, RubyCarrier, SpacingPlan, SpacingPush};
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
-pub(crate) use vertical::{UprightGlyph, UprightKey};
+pub(crate) use vertical::{upright_ranges, UprightGlyph, UprightKey};
 pub(crate) use width_bounds::WidthBounds;
 
 /// Inline formatting context backed by Parley shaping and line breaking.

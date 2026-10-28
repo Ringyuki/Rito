@@ -20,7 +20,7 @@ fn sized_layout(
             *size,
             0.0,
         );
-        push_item_styles(&mut builder, &context.catalog, &style, range.clone());
+        push_item_styles(&mut builder, &context.catalog, &style, text, range.clone());
     }
     builder.build(text).0
 }
@@ -99,7 +99,7 @@ fn a_newline_breaks_the_line_whatever_marks_it_breakable() {
             16.0,
             0.0,
         );
-        push_item_styles(&mut builder, &context.catalog, &style, 0..text.len());
+        push_item_styles(&mut builder, &context.catalog, &style, text, 0..text.len());
         builder.set_line_break_override(overrides);
         let mut layout = builder.build(text).0;
         layout.break_all_lines(Some(1000.0));
@@ -249,7 +249,7 @@ fn tagged_layout(
         16.0,
         0.0,
     );
-    push_item_styles(&mut builder, &context.catalog, &style, 0..text.len());
+    push_item_styles(&mut builder, &context.catalog, &style, text, 0..text.len());
     for (id, (index, kind, width)) in boxes.iter().enumerate() {
         builder.push_inline_box(InlineBox {
             id: id as u64,

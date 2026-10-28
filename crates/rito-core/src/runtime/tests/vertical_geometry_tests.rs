@@ -85,10 +85,16 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
             }
             DisplayCommand::PaintText(text) => {
                 painted.families.push(text.paint.font.family.to_string());
+                // A column's text may come in several commands, one per
+                // stretch layout placed; they read as one column.
                 if let (Some(first), Some(last)) = (text.clusters.first(), text.clusters.last()) {
-                    painted
-                        .columns
-                        .push([first.x - ORIGIN, first.y - ORIGIN, last.y - ORIGIN]);
+                    let (x, top, bottom) = (first.x - ORIGIN, first.y - ORIGIN, last.y - ORIGIN);
+                    match painted.columns.last_mut() {
+                        Some(column) if (column[0] - x).abs() < 1e-6 && column[2] < top => {
+                            column[2] = bottom;
+                        }
+                        _ => painted.columns.push([x, top, bottom]),
+                    }
                 }
             }
             DisplayCommand::PaintRuby(ruby) => {
@@ -283,9 +289,7 @@ const CASES: &[Case] = &[
         blocks: &[[288.0, 0.0, 84.0, 592.0], [260.0, 0.0, 28.0, 592.0]],
         columns: &[
             [351.5, 14.08, 590.08],
-            [323.5, 14.08, 30.08],
-            [323.5, 46.08, 62.08],
-            [323.5, 78.08, 590.08],
+            [323.5, 14.08, 590.08],
             [295.5, 14.08, 46.08],
             [267.5, 14.08, 46.08],
         ],
@@ -299,13 +303,22 @@ const CASES: &[Case] = &[
         blocks: &[[288.0, 0.0, 84.0, 592.0], [260.0, 0.0, 28.0, 592.0]],
         columns: &[
             [350.5, 14.08, 590.08],
-            [322.5, 14.08, 30.08],
-            [322.5, 46.08, 62.08],
-            [322.5, 78.08, 590.08],
+            [322.5, 14.08, 590.08],
             [294.5, 14.08, 46.08],
             [266.5, 14.08, 46.08],
         ],
         annotations: &[[338.5]],
+    },
+    // Upright kana shape top to bottom: the horizontal kerning the face
+    // gives アッ or ルパ does not apply, every glyph a whole em on.
+    Case {
+        name: "kana-shape-top-to-bottom",
+        css: "body { font-size: 16px; line-height: 1.75; } p { margin: 0; }",
+        latin_primary: true,
+        body: "<p>アップルパイも美味しいけど</p>",
+        blocks: &[[344.0, 0.0, 28.0, 592.0]],
+        columns: &[[351.5, 14.08, 206.08]],
+        annotations: &[],
     },
 ];
 
@@ -341,12 +354,9 @@ fn a_vertical_rl_page_places_boxes_and_glyphs_as_chromium_does() {
     }
 }
 
-/// The ruby paragraph's columns at 18px: before the base, the base, after
-/// it, then the two paragraphs after.
+/// The ruby paragraph's column at 18px, then the two paragraphs after.
 const RUBY_18_COLUMNS: &[[f64; 3]] = &[
-    [332.0, 15.84, 33.84],
-    [332.0, 51.84, 69.84],
-    [332.0, 87.84, 123.84],
+    [332.0, 15.84, 123.84],
     [287.0, 15.84, 51.84],
     [242.0, 15.84, 15.84],
 ];
@@ -354,18 +364,14 @@ const RUBY_18_COLUMNS: &[[f64; 3]] = &[
 /// The same at 16px under a Latin primary font: the ideographs centre
 /// 12.5px in from each line's edge.
 const RUBY_16_LATIN_COLUMNS: &[[f64; 3]] = &[
-    [335.5, 14.08, 30.08],
-    [335.5, 46.08, 62.08],
-    [335.5, 78.08, 110.08],
+    [335.5, 14.08, 110.08],
     [291.5, 14.08, 46.08],
     [247.5, 14.08, 14.08],
 ];
 
 /// The same with the ruby line grown by 2.5px.
 const RUBY_16_LATIN_P0_COLUMNS: &[[f64; 3]] = &[
-    [349.0, 14.08, 30.08],
-    [349.0, 46.08, 62.08],
-    [349.0, 78.08, 110.08],
+    [349.0, 14.08, 110.08],
     [321.0, 14.08, 46.08],
     [293.0, 14.08, 14.08],
 ];

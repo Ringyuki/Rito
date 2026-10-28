@@ -59,6 +59,8 @@ struct Item {
     features: Resolved<FontFeature>,
     word_spacing: f32,
     letter_spacing: f32,
+    /// Rito: shaped top to bottom, upright in a vertical line.
+    vertical_upright: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -106,6 +108,7 @@ pub(crate) fn shape_text<'a, B: Brush>(
         features: style.font_features,
         word_spacing: style.word_spacing,
         letter_spacing: style.letter_spacing,
+        vertical_upright: style.vertical_upright,
     };
 
     let mut char_range = 0..0;
@@ -133,6 +136,7 @@ pub(crate) fn shape_text<'a, B: Brush>(
                 || style.font_features != item.features
                 || !nearly_eq(style.letter_spacing, item.letter_spacing)
                 || !nearly_eq(style.word_spacing, item.word_spacing)
+                || style.vertical_upright != item.vertical_upright
             {
                 break_run = true;
             }
@@ -185,6 +189,7 @@ pub(crate) fn shape_text<'a, B: Brush>(
             item.features = style.font_features;
             item.word_spacing = style.word_spacing;
             item.letter_spacing = style.letter_spacing;
+            item.vertical_upright = style.vertical_upright;
             text_range.start = text_range.end;
             char_range.start = char_range.end;
         }
@@ -393,7 +398,10 @@ fn shape_item<'a, B: Brush>(
             },
         );
 
-        let direction = if item.level & 1 != 0 {
+        // Rito: a vertical line's upright run shapes top to bottom.
+        let direction = if item.vertical_upright {
+            harfrust::Direction::TopToBottom
+        } else if item.level & 1 != 0 {
             harfrust::Direction::RightToLeft
         } else {
             harfrust::Direction::LeftToRight
@@ -488,6 +496,7 @@ fn shape_item<'a, B: Brush>(
             item.style_index,
             item.word_spacing,
             item.letter_spacing,
+            item.vertical_upright,
             segment_text,
             segment_infos,
             (text_range.start + segment_start_offset)..(text_range.start + segment_end_offset),

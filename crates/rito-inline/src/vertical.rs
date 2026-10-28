@@ -20,7 +20,7 @@
 
 use std::rc::Rc;
 
-use icu_properties::props::VerticalOrientation;
+use icu_properties::props::{GeneralCategory, VerticalOrientation};
 use icu_properties::CodePointMapData;
 use rito_fragment::{ClusterOrientation, ClusterPosition};
 use rito_style_contract::{InlineFormattingStyle, TextOrientation};
@@ -92,6 +92,38 @@ impl ParleyInlineContext {
             })
             .collect()
     }
+}
+
+/// The stretches of `text` (offsets into it) that stand upright in a
+/// vertical line of `orientation`: a grapheme-extending mark keeps the
+/// stance of the character before it (Blink's `OrientationIterator`).
+pub(crate) fn upright_ranges(
+    orientation: TextOrientation,
+    text: &str,
+) -> Vec<std::ops::Range<usize>> {
+    let extending = CodePointMapData::<GeneralCategory>::new();
+    let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut upright = false;
+    for (offset, character) in text.char_indices() {
+        let mark = matches!(
+            extending.get(character),
+            GeneralCategory::NonspacingMark
+                | GeneralCategory::EnclosingMark
+                | GeneralCategory::SpacingMark
+        );
+        if offset == 0 || !mark {
+            upright = stands_upright(orientation, character);
+        }
+        if !upright {
+            continue;
+        }
+        let end = offset + character.len_utf8();
+        match ranges.last_mut() {
+            Some(range) if range.end == offset => range.end = end,
+            _ => ranges.push(offset..end),
+        }
+    }
+    ranges
 }
 
 /// Whether `character` stands upright in a vertical line of `orientation`.
