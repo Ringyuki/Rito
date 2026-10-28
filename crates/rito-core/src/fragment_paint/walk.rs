@@ -67,8 +67,12 @@ pub(super) fn append_fragment_display_commands_inner(
                 // column for column). The rigid shift to that rounded
                 // position is a translate composed BEFORE the author
                 // transforms, in the un-rotated frame.
-                let box_x = origin_x + fragment.rect.x;
-                let box_y = origin_y + fragment.rect.y;
+                let (box_x, box_y, box_width, box_height) = context.page_rect(
+                    origin_x + fragment.rect.x,
+                    origin_y + fragment.rect.y,
+                    fragment.rect.width,
+                    fragment.rect.height,
+                );
                 let (snap_dx, snap_dy) = (snap_css(box_x) - box_x, snap_css(box_y) - box_y);
                 let ops = if snap_dx == 0.0 && snap_dy == 0.0 {
                     transforms.clone()
@@ -82,16 +86,23 @@ pub(super) fn append_fragment_display_commands_inner(
                 };
                 commands.push(DisplayCommand::Transform {
                     origin: ReaderPoint {
-                        x: display_number(box_x + fragment.rect.width / 2.0),
-                        y: display_number(box_y + fragment.rect.height / 2.0),
+                        x: display_number(box_x + box_width / 2.0),
+                        y: display_number(box_y + box_height / 2.0),
                     },
                     box_size: ReaderSize {
-                        width: display_number(fragment.rect.width),
-                        height: display_number(fragment.rect.height),
+                        width: display_number(box_width),
+                        height: display_number(box_height),
                     },
                     transforms: ops,
                 });
             }
+            // The box's page rectangle: what its decoration paints.
+            let (page_x, page_y, page_width, page_height) = context.page_rect(
+                origin_x + fragment.rect.x,
+                origin_y + fragment.rect.y,
+                fragment.rect.width,
+                fragment.rect.height,
+            );
             if let Some(paint) = node_paint {
                 match paint {
                     NodePaint::Rule {
@@ -111,7 +122,7 @@ pub(super) fn append_fragment_display_commands_inner(
                         // right edge — a border box of two colours, whose
                         // corners the border lowering miters where the
                         // colours meet.
-                        let thickness = thickness.min(fragment.rect.height);
+                        let thickness = thickness.min(page_height);
                         if *style == ReaderBorderStyle::Inset {
                             let edge = |color: ReaderColor| {
                                 Some(ReaderBorderEdgePaint {
@@ -123,12 +134,7 @@ pub(super) fn append_fragment_display_commands_inner(
                             let light = ReaderColor::srgb8(0xee, 0xee, 0xee, 1.0);
                             let width = display_number(thickness);
                             commands.push(DisplayCommand::PaintBlock {
-                                rect: display_rect(
-                                    origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y,
-                                    fragment.rect.width,
-                                    fragment.rect.height,
-                                ),
+                                rect: display_rect(page_x, page_y, page_width, page_height),
                                 paint: Box::new(ReaderBlockPaint {
                                     border: Some(ReaderBlockBorder {
                                         top: edge(dark),
@@ -147,12 +153,7 @@ pub(super) fn append_fragment_display_commands_inner(
                             });
                         } else {
                             commands.push(DisplayCommand::PaintHorizontalRule {
-                                rect: display_rect(
-                                    origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y,
-                                    fragment.rect.width,
-                                    thickness,
-                                ),
+                                rect: display_rect(page_x, page_y, page_width, thickness),
                                 paint: ReaderHorizontalRulePaint {
                                     color: *color,
                                     style: *style,
@@ -177,7 +178,11 @@ pub(super) fn append_fragment_display_commands_inner(
                         // rule per cell segment instead.
                         let mut paint = paint.clone();
                         let mut border_box = *border_box;
-                        if *segment_horizontal_edges {
+                        // The cell edges the split follows are the
+                        // table's flow-relative ones, which only a
+                        // horizontal table's top and bottom edges run
+                        // along.
+                        if *segment_horizontal_edges && context.vertical_frame.is_none() {
                             let segmented = split_collapsed_horizontal_edges(
                                 &mut paint,
                                 &mut border_box,
@@ -197,12 +202,7 @@ pub(super) fn append_fragment_display_commands_inner(
                             || !paint.box_shadows.is_empty();
                         if has_decoration {
                             commands.push(DisplayCommand::PaintBlock {
-                                rect: display_rect(
-                                    origin_x + fragment.rect.x,
-                                    origin_y + fragment.rect.y,
-                                    fragment.rect.width,
-                                    fragment.rect.height,
-                                ),
+                                rect: display_rect(page_x, page_y, page_width, page_height),
                                 paint: Box::new(paint.clone()),
                                 border_box: *border_box,
                             });
@@ -225,12 +225,10 @@ pub(super) fn append_fragment_display_commands_inner(
                                     });
                                 // The strips ride the same whole-pixel
                                 // edges the border strokes snap to.
-                                let left_edge = snap_css(origin_x + fragment.rect.x);
-                                let top_edge = snap_css(origin_y + fragment.rect.y);
-                                let right_edge =
-                                    snap_css(origin_x + fragment.rect.x + fragment.rect.width);
-                                let bottom_edge =
-                                    snap_css(origin_y + fragment.rect.y + fragment.rect.height);
+                                let left_edge = snap_css(page_x);
+                                let top_edge = snap_css(page_y);
+                                let right_edge = snap_css(page_x + page_width);
+                                let bottom_edge = snap_css(page_y + page_height);
                                 let (x, y) = (left_edge, top_edge);
                                 let (width, height) =
                                     (right_edge - left_edge, bottom_edge - top_edge);
@@ -372,17 +370,19 @@ pub(super) fn append_fragment_display_commands_inner(
                 // it downward: text runs paint as upright downward
                 // columns, an inline image keeps its physical box and a
                 // ruby annotation runs down beside its base.
-                if let (Fragment::Line(line), Some((frame_right, frame_top))) =
-                    (child, context.vertical_frame)
-                {
+                if let (Fragment::Line(line), Some(_)) = (child, context.vertical_frame) {
+                    let (column_x, column_top, _, _) = context.page_rect(
+                        origin_x + fragment.rect.x + line.rect.x,
+                        origin_y + fragment.rect.y + line.rect.y,
+                        line.rect.width,
+                        line.rect.height,
+                    );
                     append_vertical_line_commands(
                         commands,
                         tree,
                         line,
-                        origin_x + fragment.rect.x,
-                        origin_y + fragment.rect.y,
-                        frame_right,
-                        frame_top,
+                        column_x,
+                        column_top,
                         context.faces,
                         context.flow_item_sources,
                         context.ruby_annotation_runs,

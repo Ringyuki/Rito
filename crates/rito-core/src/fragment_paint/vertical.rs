@@ -132,20 +132,15 @@ fn append_vertical_run_commands(
     );
 }
 
-/// Paints one vertical-rl line box as a downward text column. The line
-/// laid out with the horizontal engine in the swapped page (inline axis
-/// = column length), so `box_inline`/`box_block` are LOGICAL offsets:
-/// the accumulated block offset measures in from the frame's right edge
-/// and the inline offset down from its top.
+/// Paints one vertical-rl line box as a downward text column whose
+/// physical left edge is `column_x` and top `column_top` on the page.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_vertical_line_commands(
     commands: &mut Vec<DisplayCommand>,
     tree: &FormattingTree,
     line: &LineFragment,
-    box_inline: f64,
-    box_block: f64,
-    frame_right: f64,
-    frame_top: f64,
+    column_x: f64,
+    column_top: f64,
     faces: Option<&[std::sync::Arc<str>]>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
@@ -161,8 +156,6 @@ pub(super) fn append_vertical_line_commands(
         .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
     let flow_text = flow_texts.of(line.source, items);
     let (full_text, text_ranges) = (&flow_text.text, flow_text.item_ranges.as_slice());
-    let column_x = frame_right - (box_block + line.rect.y + line.rect.height);
-    let column_top = frame_top + box_inline + line.rect.x;
     for child in &line.children {
         // A replaced atom in a vertical line: the layout box is the
         // swapped one (advance = physical height), so the device rect

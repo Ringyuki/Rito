@@ -132,7 +132,19 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
         0.0,
         0.0,
         FragmentPaintContext {
-            vertical_frame: Some((220.0, 20.0)),
+            // A content box 220 wide whose top-left corner is (0, 20).
+            vertical_frame: Some(crate::fragment_paint::VerticalFrame {
+                converter: rito_fragment::WritingModeConverter::from_logical_size(
+                    rito_style_contract::WritingDirection {
+                        mode: rito_style_contract::WritingMode::VerticalRightToLeft,
+                        direction: rito_style_contract::Direction::LeftToRight,
+                    },
+                    root.rect().width,
+                    220.0,
+                ),
+                left: 0.0,
+                top: 20.0,
+            }),
             ruby_annotation_runs: Some(&ruby_runs),
             ..FragmentPaintContext::default()
         },

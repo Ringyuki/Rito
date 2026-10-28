@@ -18,7 +18,7 @@
 //! typed run paint from a computed style) and `family` (the face each
 //! piece of a run paints with).
 
-use rito_fragment::{FormattingTree, Fragment};
+use rito_fragment::{FormattingTree, Fragment, FragmentRect, WritingModeConverter};
 
 use std::collections::BTreeMap;
 
@@ -69,11 +69,10 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// node id, item index): the natural cluster origins the painter
     /// distributes over each base segment by `ruby-align`.
     pub(crate) ruby_annotation_runs: Option<&'a BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
-    /// `Some((right, top))` when the tree laid out as a vertical-rl
-    /// chapter in the swapped page: recursion origins then accumulate
-    /// LOGICAL (inline, block) offsets and every line paints as a column
-    /// placed `block` in from `right`, `inline` down from `top`.
-    pub(crate) vertical_frame: Option<(f64, f64)>,
+    /// Set when the tree laid out as a vertical-rl chapter: recursion
+    /// origins then accumulate flow-relative (inline, block) offsets, and
+    /// every box and line lands on the page through the frame.
+    pub(crate) vertical_frame: Option<VerticalFrame>,
     /// Per-flow item provenance keyed by inline-flow node id — the map
     /// the artifact builder reads. Painted text and image commands carry
     /// the nearest enclosing link's target (and an image's alt text) so
@@ -101,6 +100,47 @@ impl Default for FragmentPaintContext<'_> {
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,
+        }
+    }
+}
+
+/// Where a chapter laid out in a vertical writing mode lands on the page:
+/// its fragments' flow-relative rectangles convert to physical ones within
+/// the page's content box, whose top-left corner is `(left, top)`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct VerticalFrame {
+    pub(crate) converter: WritingModeConverter,
+    pub(crate) left: f64,
+    pub(crate) top: f64,
+}
+
+impl FragmentPaintContext<'_> {
+    /// A box's rectangle at the walk's accumulated offsets, as the page
+    /// rectangle it paints: as laid out in horizontal flow, converted
+    /// through the vertical frame in a vertical chapter.
+    pub(crate) fn page_rect(
+        &self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> (f64, f64, f64, f64) {
+        match self.vertical_frame {
+            None => (x, y, width, height),
+            Some(frame) => {
+                let rect = frame.converter.to_physical(FragmentRect {
+                    x,
+                    y,
+                    width,
+                    height,
+                });
+                (
+                    frame.left + rect.x,
+                    frame.top + rect.y,
+                    rect.width,
+                    rect.height,
+                )
+            }
         }
     }
 }

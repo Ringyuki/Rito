@@ -10,10 +10,14 @@
 
 use rito_fragment::{
     BreakToken, CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment, LineText,
+    WritingModeConverter,
 };
+use rito_style_contract::{Direction, WritingDirection, WritingMode};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_paint::{append_fragment_display_commands, FragmentPaintContext};
+use crate::fragment_paint::{
+    append_fragment_display_commands, FragmentPaintContext, VerticalFrame,
+};
 use crate::render::DisplayCommand;
 
 /// One paginated page: the sealed fragment tree that fit the page's
@@ -36,9 +40,7 @@ pub(crate) fn chapter_is_vertical(tree: &FormattingTree) -> bool {
             let strut = first_inline_strut(tree, tree.root())?;
             tables.inline.style(strut).ok()
         })
-        .is_some_and(|style| {
-            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
-        })
+        .is_some_and(|style| style.bidi.writing_mode == WritingMode::VerticalRightToLeft)
 }
 
 /// Paints one paginated page into display commands at the page's content
@@ -53,8 +55,21 @@ pub(crate) fn paint_chapter_page(
     paint_context: FragmentPaintContext<'_>,
     vertical: bool,
 ) -> EpubResult<Vec<DisplayCommand>> {
+    // The swapped page's root fragment spans the column length inline and
+    // the content width across.
     let paint_context = FragmentPaintContext {
-        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
+        vertical_frame: vertical.then(|| VerticalFrame {
+            converter: WritingModeConverter::from_logical_size(
+                WritingDirection {
+                    mode: WritingMode::VerticalRightToLeft,
+                    direction: Direction::LeftToRight,
+                },
+                root.rect().width,
+                content_width,
+            ),
+            left: origin_x,
+            top: origin_y,
+        }),
         ..paint_context
     };
     let (origin_x, origin_y) = if vertical {
