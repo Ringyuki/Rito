@@ -33,6 +33,7 @@ mod generated;
 mod inline;
 mod layout;
 mod length;
+mod logical;
 mod paint;
 mod scalar;
 mod table;
@@ -53,10 +54,11 @@ pub use inline::{FontStyle, InlineBidi, InlineEdge, InlineFormattingStyle};
 pub use layout::{
     AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,
     LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleId,
-    LayoutStyleTable, LayoutStyleTableError, ListMarkerStyle, MaximumHeight, MaximumSize,
-    MinimumHeight, ObjectFit, Overflow, PageBreak, Position, PreferredSize,
+    LayoutStyleTable, LayoutStyleTableError, ListMarkerStyle, MaximumSize, MinimumSize, ObjectFit,
+    Overflow, PageBreak, Position, PreferredSize,
 };
 pub use length::{LengthPercentage, LengthPercentageOrAuto, NonNegativeLengthPercentage};
+pub use logical::{LogicalAxes, LogicalSides, WritingDirection};
 pub use paint::{
     BackgroundImagePaint, BackgroundImagePosition, BackgroundImageRepeat, BackgroundImageSize,
     BackgroundSizeAxis, BorderEdge, BorderEdges, BorderStyle, BoxShadow, InlinePaintStyle,

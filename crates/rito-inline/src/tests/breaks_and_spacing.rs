@@ -556,8 +556,7 @@ fn the_page_clamp_scales_the_authored_image_box_uniformly() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
-        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
-        PreferredSize,
+        MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
     };
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
@@ -595,8 +594,11 @@ fn the_page_clamp_scales_the_authored_image_box_uniformly() {
         )),
         height: PreferredSize::Auto,
         max_width: MaximumSize::None,
-        min_height: MinimumHeight::Auto,
-        max_height: MaximumHeight::None,
+        min_height: MinimumSize::Auto,
+        min_width: MinimumSize::Auto,
+        writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+        direction: rito_style_contract::Direction::LeftToRight,
+        max_height: MaximumSize::None,
         clear: Clear::None,
         float: Float::None,
         overflow: Overflow::Visible,

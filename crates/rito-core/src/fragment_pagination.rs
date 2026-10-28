@@ -273,8 +273,8 @@ mod tests {
         AlignItems, BoxSizing, Clear, CssPx, Float, FontFamilies, FontFamily, FontFamilyName,
         InlineStyleTable, JustifyContent, LayoutDisplay, LayoutDisplayInside, LayoutDisplayOutside,
         LayoutFormattingStyle, LayoutStyleTable, LengthPercentage, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
-        Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, NonNegativeLengthPercentage, Overflow,
+        PageBreak, PhysicalSides, Position, PreferredSize,
     };
 
     fn plain_block_layout_style() -> LayoutFormattingStyle {
@@ -314,8 +314,11 @@ mod tests {
             width: PreferredSize::Auto,
             height: PreferredSize::Auto,
             max_width: MaximumSize::None,
-            min_height: MinimumHeight::Auto,
-            max_height: MaximumHeight::None,
+            min_height: MinimumSize::Auto,
+            min_width: MinimumSize::Auto,
+            writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+            direction: rito_style_contract::Direction::LeftToRight,
+            max_height: MaximumSize::None,
             clear: Clear::None,
             float: Float::None,
             overflow: Overflow::Visible,

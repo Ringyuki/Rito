@@ -3,11 +3,18 @@
 //! bottom-up (padding, overflow, height, flow roots, leading or trailing
 //! floats and clearing spacers stop the escape), and the chapter body's
 //! own margins become body padding so the flow offsets on the first page.
+//!
+//! Margins collapse along the block axis: "top" and "bottom" here are the
+//! block-start and block-end edges of the container's flow, the right and
+//! left sides of a vertical-rl one. A box whose writing mode differs from
+//! its parent's starts a formatting context of its own, which no margin
+//! escapes.
 
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId};
 use rito_style_contract::{
-    Clear, Float, LayoutStyleTable, LengthPercentage, LengthPercentageOrAuto, MinimumHeight,
-    NonNegativeLengthPercentage, Overflow, PreferredSize,
+    Clear, Float, LayoutFormattingStyle, LayoutStyleTable, LengthPercentage,
+    LengthPercentageOrAuto, MinimumSize, NonNegativeLengthPercentage, Overflow, PreferredSize,
+    WritingDirection, WritingMode,
 };
 
 use crate::epub::{EpubError, EpubResult};
@@ -61,10 +68,22 @@ pub(super) fn fold_through_collapsing_margins(
     fn join(a: f64, b: f64) -> f64 {
         a.max(0.0).max(b.max(0.0)) + a.min(0.0).min(b.min(0.0))
     }
+    /// The block-start and block-end margins of a box in a flow laid out
+    /// in `writing`.
+    fn block_margins(
+        style: &LayoutFormattingStyle,
+        writing: WritingDirection,
+    ) -> (LengthPercentageOrAuto, LengthPercentageOrAuto) {
+        let margin = style.margin_in(writing);
+        (margin.block_start, margin.block_end)
+    }
+    /// Sets the block-start (`top`) and block-end (`bottom`) margins of a
+    /// box in a flow laid out in `writing`.
     fn set_margin(
         layout: &mut LayoutStyleTable,
         nodes: &mut [FormattingNode],
         node: FormattingNodeId,
+        writing: WritingDirection,
         top: Option<f64>,
         bottom: Option<f64>,
     ) -> EpubResult<()> {
@@ -77,12 +96,14 @@ pub(super) fn fold_through_collapsing_margins(
                     .map_err(|error| EpubError::new(format!("folded margin is finite: {error}")))?,
             )))
         };
+        let mut margin = style.margin_in(writing);
         if let Some(px) = top {
-            style.margin.top = as_length(px)?;
+            margin.block_start = as_length(px)?;
         }
         if let Some(px) = bottom {
-            style.margin.bottom = as_length(px)?;
+            margin.block_end = as_length(px)?;
         }
+        style.margin = margin.to_physical(writing);
         nodes[node.0 as usize].style = layout
             .intern(style)
             .map_err(|error| EpubError::new(format!("folded style interns: {error}")))?;
@@ -93,23 +114,28 @@ pub(super) fn fold_through_collapsing_margins(
         node: FormattingNodeId,
         layout: &mut LayoutStyleTable,
         is_root: bool,
+        parent_mode: WritingMode,
     ) -> EpubResult<()> {
+        let style = *layout
+            .style(nodes[node.0 as usize].style)
+            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
         let children = nodes[node.0 as usize].children.clone();
         for child in &children {
             if matches!(
                 nodes[child.0 as usize].content,
                 FormattingNodeContent::BlockContainer
             ) {
-                fold(nodes, *child, layout, false)?;
+                fold(nodes, *child, layout, false, style.writing_mode)?;
             }
         }
         if children.is_empty() {
             return Ok(());
         }
-        let style = *layout
-            .style(nodes[node.0 as usize].style)
-            .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
-        if style.overflow != Overflow::Visible {
+        // The box's flow: its children's margins and its own lie on the
+        // block edges of these lines (a box laid out in another writing
+        // mode than its parent's contains its children's margins below).
+        let writing = style.writing_direction();
+        if style.overflow != Overflow::Visible || style.writing_mode != parent_mode {
             return Ok(());
         }
         // A flow root seals its margins: a FLOAT (or explicit flow-root)
@@ -160,7 +186,7 @@ pub(super) fn fold_through_collapsing_margins(
                             .unwrap_or(false)
                 })
                 .is_some_and(|id| !in_flow(nodes, layout, id));
-        if zero_padding(style.padding.top) && !float_leads {
+        if zero_padding(style.flow_padding().block_start) && !float_leads {
             // The escaping set at the container top: the first in-flow
             // child's top margin — and, when that child is a
             // self-collapsing empty block (CSS 2 §8.3.1: no lines, no
@@ -190,10 +216,10 @@ pub(super) fn fold_through_collapsing_margins(
                 layout
                     .style(node.style)
                     .map(|style| {
-                        zero_padding(style.padding.top)
-                            && zero_padding(style.padding.bottom)
-                            && style.height == PreferredSize::Auto
-                            && style.min_height == MinimumHeight::Auto
+                        zero_padding(style.flow_padding().block_start)
+                            && zero_padding(style.flow_padding().block_end)
+                            && style.block_size() == PreferredSize::Auto
+                            && style.min_block_size() == MinimumSize::Auto
                     })
                     .unwrap_or(false)
             }
@@ -202,7 +228,7 @@ pub(super) fn fold_through_collapsing_margins(
             // child margin is zeroed: an unresolvable own margin used to
             // abort AFTER the children were stripped, dropping their
             // margins on the floor instead of leaving them in place.
-            let own = resolved_px(style.margin.top);
+            let own = resolved_px(block_margins(&style, writing).0);
             let in_flow_children: Vec<FormattingNodeId> = if own.is_some() {
                 children
                     .iter()
@@ -217,7 +243,7 @@ pub(super) fn fold_through_collapsing_margins(
                     .style(nodes[child.0 as usize].style)
                     .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
                 let child_clear = child_style.clear;
-                let child_margin_top = child_style.margin.top;
+                let child_margin_top = block_margins(child_style, writing).0;
                 // A clearing spacer with float siblings before it takes
                 // clearance at layout time; the margins at and after it
                 // then resolve against the cleared line (follower top =
@@ -246,19 +272,21 @@ pub(super) fn fold_through_collapsing_margins(
                 let empty = is_self_collapsing_empty(nodes, layout, child, &zero_padding);
                 let bottom = if empty {
                     resolved_px(
-                        layout
-                            .style(nodes[child.0 as usize].style)
-                            .map_err(|error| {
-                                EpubError::new(format!("fold style resolves: {error}"))
-                            })?
-                            .margin
-                            .bottom,
+                        block_margins(
+                            layout
+                                .style(nodes[child.0 as usize].style)
+                                .map_err(|error| {
+                                    EpubError::new(format!("fold style resolves: {error}"))
+                                })?,
+                            writing,
+                        )
+                        .1,
                     )
                 } else {
                     None
                 };
                 accumulated = Some(join(accumulated.unwrap_or(0.0), top));
-                set_margin(layout, nodes, child, Some(0.0), None)?;
+                set_margin(layout, nodes, child, writing, Some(0.0), None)?;
                 if !empty {
                     break;
                 }
@@ -266,18 +294,18 @@ pub(super) fn fold_through_collapsing_margins(
                     break;
                 };
                 accumulated = Some(join(accumulated.unwrap_or(0.0), bottom));
-                set_margin(layout, nodes, child, None, Some(0.0))?;
+                set_margin(layout, nodes, child, writing, None, Some(0.0))?;
             }
             if let (Some(escape), Some(own)) = (accumulated, own) {
                 if escape != 0.0 {
-                    set_margin(layout, nodes, node, Some(join(own, escape)), None)?;
+                    set_margin(layout, nodes, node, writing, Some(join(own, escape)), None)?;
                 }
             }
         }
         let bottom_open = !is_root
-            && zero_padding(style.padding.bottom)
-            && style.height == PreferredSize::Auto
-            && style.min_height == MinimumHeight::Auto;
+            && zero_padding(style.flow_padding().block_end)
+            && style.block_size() == PreferredSize::Auto
+            && style.min_block_size() == MinimumSize::Auto;
         if bottom_open {
             let last = children
                 .iter()
@@ -304,17 +332,19 @@ pub(super) fn fold_through_collapsing_margins(
                 let last_style = layout
                     .style(nodes[last.0 as usize].style)
                     .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
-                let escape = resolved_px(last_style.margin.bottom);
-                let own = layout
-                    .style(nodes[node.0 as usize].style)
-                    .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
-                    .margin
-                    .bottom;
+                let escape = resolved_px(block_margins(last_style, writing).1);
+                let own = block_margins(
+                    layout
+                        .style(nodes[node.0 as usize].style)
+                        .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?,
+                    writing,
+                )
+                .1;
                 let own = resolved_px(own);
                 if let (Some(escape), Some(own)) = (escape, own) {
                     if escape != 0.0 {
-                        set_margin(layout, nodes, last, None, Some(0.0))?;
-                        set_margin(layout, nodes, node, None, Some(join(own, escape)))?;
+                        set_margin(layout, nodes, last, writing, None, Some(0.0))?;
+                        set_margin(layout, nodes, node, writing, None, Some(join(own, escape)))?;
                     }
                 }
             }
@@ -336,7 +366,11 @@ pub(super) fn fold_through_collapsing_margins(
         let mut style = *layout
             .style(nodes[root.0 as usize].style)
             .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?;
-        let leading = match (style.margin.top, style.padding.top.value()) {
+        let writing = style.writing_direction();
+        let leading = match (
+            block_margins(&style, writing).0,
+            style.flow_padding().block_start.value(),
+        ) {
             (
                 LengthPercentageOrAuto::Value(LengthPercentage::Length(margin)),
                 LengthPercentage::Length(padding),
@@ -444,6 +478,10 @@ pub(super) fn fold_through_collapsing_margins(
         }
         Ok(leading)
     }
-    fold(nodes, root, layout, true)?;
+    let root_mode = layout
+        .style(nodes[root.0 as usize].style)
+        .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
+        .writing_mode;
+    fold(nodes, root, layout, true, root_mode)?;
     root_margins_to_padding(nodes, root, layout)
 }

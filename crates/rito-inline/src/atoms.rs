@@ -63,13 +63,14 @@ impl ParleyInlineContext {
                 // is 318 wide, the image runs the page's length and
                 // clips); the swapped box maps back to the physical
                 // raster in the vertical paint walk.
-                let (width, height) = if tree
+                let vertical = tree
                     .strut_style(host)
                     .and_then(|id| styles.inline.style(id).ok())
                     .is_some_and(|strut| {
                         strut.bidi.writing_mode
                             == rito_style_contract::WritingMode::VerticalRightToLeft
-                    }) {
+                    });
+                let (width, height) = if vertical {
                     (height, width)
                 } else {
                     (width, height)
@@ -84,8 +85,19 @@ impl ParleyInlineContext {
                         LengthPercentage::Length(px) => f64::from(px.get()).max(0.0),
                         _ => 0.0,
                     };
-                let inset_left = edge(layout_style.padding.left);
-                let inset_right = edge(layout_style.padding.right);
+                // The flanks along the line: left and right in a
+                // horizontal flow, top and bottom down a column.
+                let (inset_left, inset_right) = if vertical {
+                    (
+                        edge(layout_style.padding.top),
+                        edge(layout_style.padding.bottom),
+                    )
+                } else {
+                    (
+                        edge(layout_style.padding.left),
+                        edge(layout_style.padding.right),
+                    )
+                };
                 Ok(Some(SizedAtom {
                     width: width + (inset_left + inset_right) as f32,
                     height,

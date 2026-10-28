@@ -93,7 +93,7 @@ pub(crate) fn block_annotation_end(
         return Ok(None);
     };
     let style = container_layout_style(tree, block.source)?;
-    if is_flow_root(style) || style.border_widths.bottom.get() > 0.0 {
+    if is_flow_root(style) || style.flow_border_widths().block_end.get() > 0.0 {
         return Ok(None);
     }
     for child in block.children.iter().rev() {

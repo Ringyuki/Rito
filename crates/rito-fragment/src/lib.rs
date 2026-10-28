@@ -19,6 +19,7 @@ mod context;
 mod formatting_tree;
 mod fragment;
 mod serialize;
+mod writing;
 
 pub use break_token::{BreakToken, BreakTokenStage, FloatBreak};
 pub use cache::{CachedLayout, FragmentCache};
@@ -39,6 +40,7 @@ pub use fragment::{
     ImageFragment, LineFonts, LineFragment, MarkerFragment, TextFragment, TextSegment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
+pub use writing::WritingModeConverter;
 
 /// The one stub provider this crate ships: bounded vertical block stacking
 /// with fragmentainer breaks, enough for the substrate's own contract tests.

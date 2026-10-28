@@ -134,8 +134,7 @@ pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormatting
     use rito_style_contract::{
         AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,
         LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle,
-        MaximumHeight, MaximumSize, MinimumHeight, NonNegativeCssPx, Overflow, PageBreak, Position,
-        PreferredSize,
+        MaximumSize, MinimumSize, NonNegativeCssPx, Overflow, PageBreak, Position, PreferredSize,
     };
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
@@ -169,8 +168,11 @@ pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormatting
         width: PreferredSize::Auto,
         height: PreferredSize::Auto,
         max_width: MaximumSize::None,
-        min_height: MinimumHeight::Auto,
-        max_height: MaximumHeight::None,
+        min_height: MinimumSize::Auto,
+        min_width: MinimumSize::Auto,
+        writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+        direction: rito_style_contract::Direction::LeftToRight,
+        max_height: MaximumSize::None,
         clear: Clear::None,
         float: Float::None,
         overflow: Overflow::Visible,
@@ -610,8 +612,8 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -673,8 +675,11 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
                     width: PreferredSize::Auto,
                     height: PreferredSize::Auto,
                     max_width: MaximumSize::None,
-                    min_height: MinimumHeight::Auto,
-                    max_height: MaximumHeight::None,
+                    min_height: MinimumSize::Auto,
+                    min_width: MinimumSize::Auto,
+                    writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                    direction: rito_style_contract::Direction::LeftToRight,
+                    max_height: MaximumSize::None,
                     clear: Clear::None,
                     float: Float::None,
                     overflow: Overflow::Visible,
@@ -780,8 +785,8 @@ fn an_inline_image_separates_a_punctuation_pair() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -843,8 +848,11 @@ fn an_inline_image_separates_a_punctuation_pair() {
                     width: PreferredSize::Auto,
                     height: PreferredSize::Auto,
                     max_width: MaximumSize::None,
-                    min_height: MinimumHeight::Auto,
-                    max_height: MaximumHeight::None,
+                    min_height: MinimumSize::Auto,
+                    min_width: MinimumSize::Auto,
+                    writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                    direction: rito_style_contract::Direction::LeftToRight,
+                    max_height: MaximumSize::None,
                     clear: Clear::None,
                     float: Float::None,
                     overflow: Overflow::Visible,

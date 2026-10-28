@@ -5,9 +5,8 @@ use rito_style_contract::{
     AlignItems, CellVerticalAlign, Clear, CssPx, Float, JustifyContent, LayoutDisplay,
     LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleId,
     LayoutStyleTable, LayoutStyleTableError, LengthPercentage, LengthPercentageOrAuto,
-    ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeCssPx,
-    NonNegativeLengthPercentage, NumericError, Overflow, PageBreak, Percentage, PhysicalSides,
-    Position, PreferredSize,
+    ListMarkerStyle, MaximumSize, MinimumSize, NonNegativeCssPx, NonNegativeLengthPercentage,
+    NumericError, Overflow, PageBreak, Percentage, PhysicalSides, Position, PreferredSize,
 };
 use style::{
     counter_style::CounterStyle,
@@ -44,6 +43,7 @@ pub enum LayoutStyleField {
     BreakAfter,
     Width,
     Height,
+    MinWidth,
     MaxWidth,
     MinHeight,
     MaxHeight,
@@ -199,16 +199,20 @@ pub(crate) fn generated_layout_style(
 fn layout_style(styles: &ComputedValues) -> ProjectionResult<LayoutFormattingStyle> {
     let display = display(styles.clone_display());
     validate_flex_flow(styles, display)?;
+    let inherited_box = styles.get_inherited_box();
     Ok(LayoutFormattingStyle {
         display,
+        writing_mode: super::inline::enums::writing_mode(inherited_box.writing_mode),
+        direction: super::inline::enums::direction(inherited_box.direction),
         justify_content: justify_content(styles.clone_justify_content())?,
         align_items: align_items(styles.clone_align_items())?,
         break_before: page_break(styles, BreakEdge::Before, LayoutStyleField::BreakBefore)?,
         break_after: page_break(styles, BreakEdge::After, LayoutStyleField::BreakAfter)?,
         width: preferred_size(styles.clone_width(), LayoutStyleField::Width)?,
         height: preferred_size(styles.clone_height(), LayoutStyleField::Height)?,
+        min_width: minimum_size(styles.clone_min_width(), LayoutStyleField::MinWidth)?,
         max_width: maximum_size(styles.clone_max_width())?,
-        min_height: minimum_height(styles.clone_min_height())?,
+        min_height: minimum_size(styles.clone_min_height(), LayoutStyleField::MinHeight)?,
         max_height: maximum_height(styles.clone_max_height())?,
         clear: clear(styles.clone_clear())?,
         float: float(styles.clone_float())?,
@@ -387,14 +391,13 @@ fn maximum_size(value: StyloMaxSize) -> ProjectionResult<MaximumSize> {
     }
 }
 
-fn minimum_height(value: StyloSize) -> ProjectionResult<MinimumHeight> {
-    let field = LayoutStyleField::MinHeight;
+fn minimum_size(value: StyloSize, field: LayoutStyleField) -> ProjectionResult<MinimumSize> {
     match value {
         GenericSize::LengthPercentage(value) => match height_limit(&value, field)? {
-            HeightLimit::Length(value) => Ok(MinimumHeight::Length(value)),
-            HeightLimit::Percentage(value) => Ok(MinimumHeight::Percentage(value)),
+            HeightLimit::Length(value) => Ok(MinimumSize::Length(value)),
+            HeightLimit::Percentage(value) => Ok(MinimumSize::Percentage(value)),
         },
-        GenericSize::Auto => Ok(MinimumHeight::Auto),
+        GenericSize::Auto => Ok(MinimumSize::Auto),
         GenericSize::MaxContent
         | GenericSize::MinContent
         | GenericSize::FitContent
@@ -406,14 +409,21 @@ fn minimum_height(value: StyloSize) -> ProjectionResult<MinimumHeight> {
     }
 }
 
-fn maximum_height(value: StyloMaxSize) -> ProjectionResult<MaximumHeight> {
+/// `max-height` as the same value type `max-width` projects to, holding
+/// the subset the block consumer resolves: a length or a percentage.
+fn maximum_height(value: StyloMaxSize) -> ProjectionResult<MaximumSize> {
     let field = LayoutStyleField::MaxHeight;
     match value {
-        GenericMaxSize::LengthPercentage(value) => match height_limit(&value, field)? {
-            HeightLimit::Length(value) => Ok(MaximumHeight::Length(value)),
-            HeightLimit::Percentage(value) => Ok(MaximumHeight::Percentage(value)),
-        },
-        GenericMaxSize::None => Ok(MaximumHeight::None),
+        GenericMaxSize::LengthPercentage(value) => {
+            let value = match height_limit(&value, field)? {
+                HeightLimit::Length(value) => LengthPercentage::Length(
+                    CssPx::new(value.get()).map_err(|error| invalid_numeric(field, error))?,
+                ),
+                HeightLimit::Percentage(value) => LengthPercentage::Percentage(value),
+            };
+            Ok(MaximumSize::Value(NonNegativeLengthPercentage::new(value)))
+        }
+        GenericMaxSize::None => Ok(MaximumSize::None),
         GenericMaxSize::MaxContent
         | GenericMaxSize::MinContent
         | GenericMaxSize::FitContent

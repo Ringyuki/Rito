@@ -9,7 +9,7 @@ use style::properties::ComputedValues;
 use crate::dom::{DomNode, DomStorage};
 
 mod cache;
-mod enums;
+pub(in crate::projection) mod enums;
 mod font;
 mod fragment;
 mod numeric;

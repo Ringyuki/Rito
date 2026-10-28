@@ -94,8 +94,8 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let context = ParleyInlineContext::new(vec![source_han_bytes()]).expect("context builds");
     let mut inline = InlineStyleTable::new(2);
@@ -151,8 +151,11 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     LengthPercentage::Length(CssPx::new(14.390625).expect("finite")),
                 )),
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,
@@ -249,8 +252,8 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
     let mut inline = InlineStyleTable::new(1);
@@ -293,8 +296,11 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                 width: PreferredSize::Auto,
                 height: PreferredSize::Auto,
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,
@@ -1018,8 +1024,8 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
 fn plain_image_layout(layout: &mut LayoutStyleTable) -> rito_style_contract::LayoutStyleId {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
-        LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle, MaximumHeight, MaximumSize,
-        MinimumHeight, Overflow, PageBreak, Position, PreferredSize,
+        LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle, MaximumSize, MinimumSize,
+        Overflow, PageBreak, Position, PreferredSize,
     };
     let auto = LengthPercentageOrAuto::Auto;
     let zero =
@@ -1047,8 +1053,11 @@ fn plain_image_layout(layout: &mut LayoutStyleTable) -> rito_style_contract::Lay
                 width: PreferredSize::Auto,
                 height: PreferredSize::Auto,
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,

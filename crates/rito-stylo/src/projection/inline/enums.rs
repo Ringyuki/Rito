@@ -15,7 +15,9 @@ pub(super) fn bidi(styles: &ComputedValues) -> InlineBidi {
     }
 }
 
-fn direction(value: style::properties::longhands::direction::computed_value::T) -> Direction {
+pub(in crate::projection) fn direction(
+    value: style::properties::longhands::direction::computed_value::T,
+) -> Direction {
     use style::properties::longhands::direction::computed_value::T;
 
     match value {
@@ -39,7 +41,9 @@ fn unicode_bidi(
     }
 }
 
-fn writing_mode(value: style::logical_geometry::WritingModeProperty) -> WritingMode {
+pub(in crate::projection) fn writing_mode(
+    value: style::logical_geometry::WritingModeProperty,
+) -> WritingMode {
     use style::logical_geometry::WritingModeProperty;
 
     match value {

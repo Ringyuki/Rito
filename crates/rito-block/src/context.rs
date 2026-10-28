@@ -52,10 +52,11 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 // line's available advance by 1/64 and skewed every
                 // justify share on b19's note paragraphs.
                 let grid = |px: f64| (px * 64.0).trunc() / 64.0;
-                let padding_left = grid(pad(style.padding.left));
-                let padding_right = grid(pad(style.padding.right));
-                let padding_top = pad(style.padding.top);
-                let padding_bottom = pad(style.padding.bottom);
+                let padding = style.flow_padding();
+                let padding_left = grid(pad(padding.inline_start));
+                let padding_right = grid(pad(padding.inline_end));
+                let padding_top = pad(padding.block_start);
+                let padding_bottom = pad(padding.block_end);
                 // A paragraph with a specified height flows at that
                 // border-box height exactly like a block container: short
                 // content leaves empty space, tall lines overflow visibly
@@ -115,7 +116,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 // Laid out on its own, the flow is its own formatting
                 // context: its first line's annotations reach into its top
                 // padding and no further.
-                let border_top = f64::from(style.border_widths.top.get());
+                let border_top = f64::from(style.flow_border_widths().block_start.get());
                 let opening = LineOpening::for_flow(
                     tree,
                     node,
@@ -154,7 +155,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
             )),
             FormattingNodeContent::Table => {
                 let fill = matches!(
-                    container_layout_style(tree, node)?.width,
+                    container_layout_style(tree, node)?.inline_size(),
                     PreferredSize::Value(_)
                 );
                 let fragment = self.layout_table(tree, node, space.inline_size, fill, cancel)?;

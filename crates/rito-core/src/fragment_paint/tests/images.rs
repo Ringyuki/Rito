@@ -10,8 +10,8 @@ fn painted_image_rect(
     use rito_style_contract::{
         AlignItems, BoxSizing, Clear, CssPx, Float, JustifyContent, LayoutDisplay,
         LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
-        Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, NonNegativeLengthPercentage, Overflow,
+        PageBreak, PhysicalSides, Position, PreferredSize,
     };
     let mut inline = InlineStyleTable::new(1);
     let text_style = inline
@@ -54,8 +54,11 @@ fn painted_image_rect(
                 width: PreferredSize::Auto,
                 height: PreferredSize::Auto,
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,

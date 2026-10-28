@@ -20,7 +20,7 @@ use rito_fragment::{
     InlineItem,
 };
 use rito_style_contract::{
-    GeneratedBoxTable, InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId,
+    GeneratedBoxTable, InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId, WritingDirection,
 };
 
 use std::collections::BTreeMap;
@@ -331,7 +331,7 @@ pub fn build_chapter_formatting_tree_with_generated(
 ) -> EpubResult<ChapterFormattingTree> {
     let mut layout = layout.clone();
     let anonymous_style = layout
-        .intern(anonymous_block_style())
+        .intern(anonymous_block_style(WritingDirection::HORIZONTAL_LTR))
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
     let mut inline = inline.clone();
     let fallback_inline_style = inline
@@ -450,6 +450,9 @@ struct TreeBuilder<'a> {
     inline: &'a mut InlineStyleTable,
     generated: &'a GeneratedBoxTable,
     image_dimensions: &'a BTreeMap<String, (u32, u32)>,
+    /// The anonymous block style in the initial writing mode and direction,
+    /// which a node whose projected style is missing falls back to; see
+    /// `TreeBuilder::anonymous_style_in` for a wrapper's own.
     anonymous_style: LayoutStyleId,
     /// The style a node falls back to when the projection retained no
     /// inline entry for it (its own declarations were unrepresentable).
@@ -519,7 +522,7 @@ struct InlineCollector {
 pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
     let mut layout = LayoutStyleTable::new(1);
     let style = layout
-        .intern(anonymous_block_style())
+        .intern(anonymous_block_style(WritingDirection::HORIZONTAL_LTR))
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
     let tree = FormattingTree::with_styles(
         vec![FormattingNode {

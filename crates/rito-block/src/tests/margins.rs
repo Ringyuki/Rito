@@ -17,7 +17,8 @@ fn horizontal_padding_truncates_onto_the_layout_unit_grid() {
     };
     style.padding.left = pad(12.16);
     style.padding.right = pad(1.216);
-    let hbox = resolve_horizontal_box(&style, 581.15625).expect("box resolves");
+    let hbox = resolve_inline_box(&style, WritingDirection::HORIZONTAL_LTR, 581.15625)
+        .expect("box resolves");
     assert!(
         (hbox.padding_left - 12.15625).abs() < 1e-9,
         "left {}",

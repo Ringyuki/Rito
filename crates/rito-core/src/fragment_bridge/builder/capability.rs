@@ -134,10 +134,13 @@ fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
         c::PreferredSize::Auto | c::PreferredSize::Value(_) => {}
         other => return Some(format!("block height {other:?}")),
     }
-    if style.min_height != c::MinimumHeight::Auto {
+    if style.min_width != c::MinimumSize::Auto {
+        return Some(format!("block min-width {:?}", style.min_width));
+    }
+    if style.min_height != c::MinimumSize::Auto {
         return Some(format!("block min-height {:?}", style.min_height));
     }
-    if style.max_height != c::MaximumHeight::None {
+    if style.max_height != c::MaximumSize::None {
         return Some(format!("block max-height {:?}", style.max_height));
     }
     // list-style-type inherits everywhere but only paints on

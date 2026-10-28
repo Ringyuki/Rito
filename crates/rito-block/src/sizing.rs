@@ -1,4 +1,4 @@
-//! Turning a box's style into used sizes: the horizontal solve that
+//! Turning a box's style into used sizes: the inline-axis solve that
 //! distributes margins, padding and width across the containing block,
 //! the offset a shrink-to-fit box takes, a specified height, what a box
 //! contributes to its container's intrinsic width, whether a container
@@ -24,16 +24,17 @@ pub(crate) fn own_width_contribution(
         return Ok(sizes);
     }
     let style = container_layout_style(tree, node)?;
+    let padding = style.flow_padding();
     let pad = |side: rito_style_contract::NonNegativeLengthPercentage| match side.value() {
         // Used paddings sit on the LayoutUnit grid (truncation).
         LengthPercentage::Length(px) => (f64::from(px.get()) * 64.0).trunc() / 64.0,
         _ => 0.0,
     };
-    if let rito_style_contract::PreferredSize::Value(width) = style.width {
+    if let rito_style_contract::PreferredSize::Value(width) = style.inline_size() {
         if let LengthPercentage::Length(px) = width.value() {
             let outer = match style.box_sizing {
                 BoxSizing::ContentBox => {
-                    f64::from(px.get()) + pad(style.padding.left) + pad(style.padding.right)
+                    f64::from(px.get()) + pad(padding.inline_start) + pad(padding.inline_end)
                 }
                 BoxSizing::BorderBox => f64::from(px.get()),
             };
@@ -44,17 +45,20 @@ pub(crate) fn own_width_contribution(
             sizes.max_content = outer;
         }
     }
-    // What a box contributes to its container's intrinsic width is its
-    // margin box (css-sizing-3 §5.2), so horizontal margins count — a
+    // What a box contributes to its container's intrinsic inline size is
+    // its margin box (css-sizing-3 §5.2), so its inline margins count — a
     // negative one included, which narrows the contribution. `auto`
     // resolves to zero here: it has no width to give until layout runs.
+    // Both inline margins count, so whichever end the container starts
+    // its lines from does not matter.
     let margin = |side: rito_style_contract::LengthPercentageOrAuto| match side {
         rito_style_contract::LengthPercentageOrAuto::Value(LengthPercentage::Length(px)) => {
             f64::from(px.get())
         }
         _ => 0.0,
     };
-    let margins = margin(style.margin.left) + margin(style.margin.right);
+    let margins = style.margin_in(style.writing_direction());
+    let margins = margin(margins.inline_start) + margin(margins.inline_end);
     sizes.min_content += margins;
     sizes.max_content += margins;
     Ok(sizes)
@@ -87,15 +91,17 @@ pub(crate) fn container_layout_style(
         .map_err(|error| LayoutError::Invalid(error.to_string()))
 }
 
-/// CSS block-level horizontal resolution: `margin + padding + width =
-/// containing width`. An `auto` width fills what the margins leave; a
-/// specified width distributes leftover space to `auto` margins (centering
+/// CSS block-level inline-axis resolution: `margin + padding + width =
+/// containing width` along the lines of `container`, the containing
+/// block's flow. An `auto` inline size fills what the margins leave; a
+/// specified one distributes leftover space to `auto` margins (centering
 /// with both auto), clamped at zero so over-wide content overflows to the
 /// end side like a browser.
-pub(crate) fn resolve_horizontal_box(
+pub(crate) fn resolve_inline_box(
     style: &LayoutFormattingStyle,
+    container: WritingDirection,
     containing_width: f64,
-) -> Result<HorizontalBox, LayoutError> {
+) -> Result<InlineBox, LayoutError> {
     let resolve = |value: LengthPercentage| resolve_length_percentage(value, containing_width);
     // A used padding edge sits on the LayoutUnit grid by TRUNCATION
     // toward zero (LayoutUnit's float constructor), like
@@ -107,10 +113,11 @@ pub(crate) fn resolve_horizontal_box(
     // the untruncated subtraction lands 1/64 wide and skews every
     // justify share on the block's lines).
     let edge = |value: LengthPercentage| (resolve(value) * 64.0).trunc() / 64.0;
-    let padding_left = edge(style.padding.left.value()).max(0.0);
-    let padding_right = edge(style.padding.right.value()).max(0.0);
-    let padding_top = edge(style.padding.top.value()).max(0.0);
-    let padding_bottom = edge(style.padding.bottom.value()).max(0.0);
+    let padding = style.flow_padding();
+    let padding_left = edge(padding.inline_start.value()).max(0.0);
+    let padding_right = edge(padding.inline_end.value()).max(0.0);
+    let padding_top = edge(padding.block_start.value()).max(0.0);
+    let padding_bottom = edge(padding.block_end.value()).max(0.0);
     let margin = |side: LengthPercentageOrAuto| -> Option<f64> {
         match side {
             LengthPercentageOrAuto::Auto => None,
@@ -123,9 +130,10 @@ pub(crate) fn resolve_horizontal_box(
             LengthPercentageOrAuto::Value(value) => Some((resolve(value) * 64.0).trunc() / 64.0),
         }
     };
-    let margin_left = margin(style.margin.left);
-    let margin_right = margin(style.margin.right);
-    let width = match style.width {
+    let margins = style.margin_in(container);
+    let margin_left = margin(margins.inline_start);
+    let margin_right = margin(margins.inline_end);
+    let width = match style.inline_size() {
         PreferredSize::Auto => None,
         PreferredSize::Value(value) => Some(resolve(value.value()).max(0.0)),
         // Keep books readable until intrinsic/extrinsic sizing is implemented.
@@ -144,7 +152,7 @@ pub(crate) fn resolve_horizontal_box(
     // max-width caps the used width; an auto width capped below the
     // available space behaves like a specified width (so auto margins can
     // center the capped box, the common `max-width + margin:auto` pattern).
-    let max_width = match style.max_width {
+    let max_width = match style.max_inline_size() {
         MaximumSize::None => None,
         MaximumSize::Value(value) => Some(resolve(value.value()).max(0.0)),
         MaximumSize::MaxContent
@@ -178,7 +186,7 @@ pub(crate) fn resolve_horizontal_box(
             let margin_right = margin_right.unwrap_or(0.0);
             let border_width =
                 (containing_width - margin_left - margin_right).max(padding_left + padding_right);
-            Ok(HorizontalBox {
+            Ok(InlineBox {
                 x: margin_left,
                 border_width,
                 padding_left,
@@ -199,7 +207,7 @@ pub(crate) fn resolve_horizontal_box(
                 (None, Some(right)) => (free - right).max(0.0),
                 (Some(left), _) => left,
             };
-            Ok(HorizontalBox {
+            Ok(InlineBox {
                 x,
                 border_width,
                 padding_left,
@@ -212,10 +220,12 @@ pub(crate) fn resolve_horizontal_box(
 }
 
 /// Inline offset for a shrink-to-fit box (a table) inside its containing
-/// block: auto margins share the free space the used width leaves, the
-/// same distribution `resolve_horizontal_box` applies to a definite width.
+/// block, whose flow is `container`: auto margins share the free space
+/// the used width leaves, the same distribution `resolve_inline_box`
+/// applies to a definite width.
 pub(crate) fn shrink_to_fit_offset(
     style: &LayoutFormattingStyle,
+    container: WritingDirection,
     containing_width: f64,
     used_width: f64,
 ) -> f64 {
@@ -223,28 +233,30 @@ pub(crate) fn shrink_to_fit_offset(
         match side {
             LengthPercentageOrAuto::Auto => None,
             // Used margins truncate onto the LayoutUnit grid, matching
-            // `resolve_horizontal_box` and `resolve_margin`.
+            // `resolve_inline_box` and `resolve_margin`.
             LengthPercentageOrAuto::Value(value) => {
                 Some((resolve_length_percentage(value, containing_width) * 64.0).trunc() / 64.0)
             }
         }
     };
     let free = containing_width - used_width;
-    match (margin(style.margin.left), margin(style.margin.right)) {
+    let margins = style.margin_in(container);
+    match (margin(margins.inline_start), margin(margins.inline_end)) {
         (None, None) => (free / 2.0).max(0.0),
         (None, Some(right)) => (free - right).max(0.0),
         (Some(left), _) => left,
     }
 }
 
-/// The container's fixed border-box height, when `height` is specified.
-/// Percentages need a definite containing-block height that block flow
-/// does not provide, so they resolve to `None` (auto), per CSS.
+/// The container's fixed border-box block size, when its block size
+/// (`height` in horizontal writing) is specified. Percentages need a
+/// definite containing-block size that block flow does not provide, so
+/// they resolve to `None` (auto), per CSS.
 pub(crate) fn resolve_fixed_height(
     style: &LayoutFormattingStyle,
     vertical_padding: f64,
 ) -> Result<Option<f64>, LayoutError> {
-    let height = match style.height {
+    let height = match style.block_size() {
         PreferredSize::Auto => return Ok(None),
         PreferredSize::Value(value) => match value.value() {
             LengthPercentage::Length(px) => f64::from(px.get()),
@@ -275,6 +287,30 @@ pub(crate) fn resolve_length_percentage(value: LengthPercentage, basis: f64) -> 
         LengthPercentage::Linear { length, percentage } => {
             f64::from(length.get()) + f64::from(percentage.ratio()) * basis
         }
+    }
+}
+
+/// The end of a flow's inline axis a float sits at, as this crate places
+/// floats: `Left` at the inline-start, `Right` at the inline-end. CSS
+/// `left` and `right` name the line-left and line-right sides, which are
+/// the inline-start and inline-end of a left-to-right flow laid out in
+/// `container` (horizontal or vertical) and the other way round in a
+/// right-to-left one.
+pub(crate) fn flow_float(float: Float, container: WritingDirection) -> Float {
+    match float {
+        Float::Left if container.is_rtl() => Float::Right,
+        Float::Right if container.is_rtl() => Float::Left,
+        other => other,
+    }
+}
+
+/// The floats a `clear` in a flow laid out in `container` clears, on the
+/// sides [`flow_float`] places them.
+pub(crate) fn flow_clear(clear: Clear, container: WritingDirection) -> Clear {
+    match clear {
+        Clear::Left if container.is_rtl() => Clear::Right,
+        Clear::Right if container.is_rtl() => Clear::Left,
+        other => other,
     }
 }
 

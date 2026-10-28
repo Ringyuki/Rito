@@ -44,13 +44,16 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             block.rect.width,
             initial_height.unwrap_or(block.rect.height),
         );
+        // The containing block's flow: insets and margins name the edges
+        // of its lines.
+        let writing = container_layout_style(tree, block.source)?.writing_direction();
         for pending in pending {
             if cancel.is_cancelled() {
                 return Err(LayoutError::Cancelled);
             }
             block
                 .children
-                .push(self.positioned_fragment(tree, pending, width, height, cancel)?);
+                .push(self.positioned_fragment(tree, pending, writing, width, height, cancel)?);
         }
         Ok(())
     }
@@ -59,6 +62,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         &self,
         tree: &FormattingTree,
         pending: PendingPositioned,
+        writing: WritingDirection,
         block_width: f64,
         block_height: f64,
         cancel: &CancelFlag,
@@ -68,29 +72,33 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             LengthPercentageOrAuto::Auto => None,
             LengthPercentageOrAuto::Value(value) => Some(resolve_length_percentage(value, basis)),
         };
-        // Margins and horizontal insets resolve against the block's width,
-        // vertical insets against its height; `auto` margins count as 0.
+        // Margins and inline insets resolve against the block's inline
+        // size, block insets against its block size; `auto` margins count
+        // as 0.
         let margin = |side: LengthPercentageOrAuto| inset(side, block_width).unwrap_or(0.0);
+        let insets = style.inset_in(writing);
+        let margins = style.margin_in(writing);
         let (left, right) = (
-            inset(style.inset.left, block_width),
-            inset(style.inset.right, block_width),
+            inset(insets.inline_start, block_width),
+            inset(insets.inline_end, block_width),
         );
         let (top, bottom) = (
-            inset(style.inset.top, block_height),
-            inset(style.inset.bottom, block_height),
+            inset(insets.block_start, block_height),
+            inset(insets.block_end, block_height),
         );
-        let (margin_left, margin_right) = (margin(style.margin.left), margin(style.margin.right));
-        let (margin_top, margin_bottom) = (margin(style.margin.top), margin(style.margin.bottom));
-        let border_width = match (style.width, left, right) {
+        let (margin_left, margin_right) =
+            (margin(margins.inline_start), margin(margins.inline_end));
+        let (margin_top, margin_bottom) = (margin(margins.block_start), margin(margins.block_end));
+        let border_width = match (style.inline_size(), left, right) {
             (PreferredSize::Value(_), _, _) => {
-                resolve_horizontal_box(style, block_width)?.border_width
+                resolve_inline_box(style, writing, block_width)?.border_width
             }
             (_, Some(left), Some(right)) => {
                 (block_width - left - right - margin_left - margin_right).max(0.0)
             }
             _ => {
                 let available = block_width - left.unwrap_or(0.0) - right.unwrap_or(0.0);
-                self.resolve_float_box(tree, pending.node, style, available.max(0.0))?
+                self.resolve_float_box(tree, pending.node, style, writing, available.max(0.0))?
                     .border_width
             }
         };
@@ -113,7 +121,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 "a positioned box lays out as a box fragment".to_owned(),
             ));
         };
-        if let (PreferredSize::Auto, Some(top), Some(bottom)) = (style.height, top, bottom) {
+        if let (PreferredSize::Auto, Some(top), Some(bottom)) = (style.block_size(), top, bottom) {
             positioned.rect.height =
                 (block_height - top - bottom - margin_top - margin_bottom).max(0.0);
         }

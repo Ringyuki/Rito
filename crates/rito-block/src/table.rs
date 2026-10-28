@@ -365,10 +365,13 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             }
         }
         let table_style = container_layout_style(tree, table)?;
-        let (spacing_x, spacing_y) = (
+        // `border-spacing` is horizontal then vertical; the grid spaces
+        // its columns along the table's lines and its rows across them.
+        let spacing = table_style.writing_direction().axes(
             f64::from(table_style.border_spacing.0.get()),
             f64::from(table_style.border_spacing.1.get()),
         );
+        let (spacing_x, spacing_y) = (spacing.inline, spacing.block);
         let spacing_total = spacing_x * (column_count as f64 + 1.0);
         let content_available = (available_width - spacing_total).max(0.0);
         // Column sizing follows the CSS tables algorithm: an assignable
@@ -519,13 +522,14 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             LengthPercentage::Length(px) => (f64::from(px.get()) * 64.0).trunc() / 64.0,
             _ => 0.0,
         };
-        let padding = pad(style.padding.left) + pad(style.padding.right);
+        let flow_padding = style.flow_padding();
+        let padding = pad(flow_padding.inline_start) + pad(flow_padding.inline_end);
         // Percentages resolve against the table width, which the column
         // algorithm has not established yet; only definite lengths take
         // part here, and content sizing covers the rest.
         let mut specified = None;
         let mut percentage = None;
-        if let rito_style_contract::PreferredSize::Value(width) = style.width {
+        if let rito_style_contract::PreferredSize::Value(width) = style.inline_size() {
             match width.value() {
                 LengthPercentage::Length(px) => specified = Some(f64::from(px.get()) + padding),
                 LengthPercentage::Percentage(ratio) => {

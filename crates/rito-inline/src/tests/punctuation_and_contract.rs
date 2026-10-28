@@ -13,8 +13,8 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -69,8 +69,11 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
                 width: PreferredSize::Auto,
                 height: PreferredSize::Auto,
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,

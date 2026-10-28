@@ -1,7 +1,7 @@
 //! Fixtures other in-crate tests build on: the plain block style they
 //! intern for containers.
 
-use rito_style_contract::LayoutFormattingStyle;
+use rito_style_contract::{LayoutFormattingStyle, WritingDirection};
 
 use super::styles::anonymous_block_style;
 
@@ -11,5 +11,5 @@ use super::styles::anonymous_block_style;
 /// The plain block style in-crate test fixtures intern for containers.
 #[cfg(test)]
 pub(crate) fn tests_block_style() -> LayoutFormattingStyle {
-    anonymous_block_style()
+    anonymous_block_style(WritingDirection::HORIZONTAL_LTR)
 }

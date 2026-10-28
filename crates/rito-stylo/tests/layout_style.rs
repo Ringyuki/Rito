@@ -3,7 +3,7 @@ use std::sync::Arc;
 use rito_source::SourceArena;
 use rito_style_contract::{
     AlignItems, Clear, Float, JustifyContent, LayoutDisplayInside, LayoutDisplayOutside,
-    LengthPercentage, ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeCssPx,
+    LengthPercentage, ListMarkerStyle, MaximumSize, MinimumSize, NonNegativeCssPx,
     NonNegativeLengthPercentage, Overflow, PageBreak, Percentage, PreferredSize,
 };
 use rito_stylo::{
@@ -110,11 +110,13 @@ fn height_constraints_float_and_overflow_project_exactly() {
         .unwrap();
     assert_eq!(
         style.min_height,
-        MinimumHeight::Length(NonNegativeCssPx::new(12.0).unwrap())
+        MinimumSize::Length(NonNegativeCssPx::new(12.0).unwrap())
     );
     assert_eq!(
         style.max_height,
-        MaximumHeight::Length(NonNegativeCssPx::new(120.0).unwrap())
+        MaximumSize::Value(NonNegativeLengthPercentage::new(LengthPercentage::Length(
+            rito_style_contract::CssPx::new(120.0).unwrap()
+        )))
     );
     assert_eq!(style.float, Float::Left);
     assert_eq!(style.overflow, Overflow::Hidden);
@@ -298,11 +300,13 @@ fn percentage_height_constraints_are_preserved_in_the_contract() {
         .unwrap();
     assert_eq!(
         style.min_height,
-        MinimumHeight::Percentage(Percentage::from_percent(25.0).unwrap())
+        MinimumSize::Percentage(Percentage::from_percent(25.0).unwrap())
     );
     assert_eq!(
         style.max_height,
-        MaximumHeight::Percentage(Percentage::from_percent(100.0).unwrap())
+        MaximumSize::Value(NonNegativeLengthPercentage::new(
+            LengthPercentage::Percentage(Percentage::from_percent(100.0).unwrap())
+        ))
     );
 }
 

@@ -12,14 +12,14 @@
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId, InlineItem};
 use rito_style_contract::{
     GeneratedBox, JustifyContent, LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId,
-    LengthPercentage, NonNegativeLengthPercentage, PseudoElementKind, StyleId,
+    LengthPercentage, NonNegativeLengthPercentage, PseudoElementKind, StyleId, WritingDirection,
 };
 
 use capability::box_decoration_violation;
 use generated::Generated;
 
 use super::box_paint::block_box_paint;
-use super::styles::list_marker_text;
+use super::styles::{anonymous_block_style, list_marker_text};
 use super::{InlineCollector, ListMarkerPaint, NodePaint, TreeBuilder};
 use crate::epub::{EpubError, EpubResult};
 use crate::render::contract::ReaderColor;
@@ -62,6 +62,27 @@ impl TreeBuilder<'_> {
                 self.anonymous_style
             }
         }
+    }
+
+    /// The style of an anonymous block box inside a box whose lines lay
+    /// out in the inline style `context`: initial box properties, in that
+    /// box's writing mode and direction.
+    pub(super) fn anonymous_style_in(&mut self, context: StyleId) -> EpubResult<LayoutStyleId> {
+        let bidi = self
+            .inline
+            .style(context)
+            .map_err(|error| EpubError::new(format!("anonymous box context style: {error}")))?
+            .bidi;
+        let writing = WritingDirection {
+            mode: bidi.writing_mode,
+            direction: bidi.direction,
+        };
+        if writing == WritingDirection::HORIZONTAL_LTR {
+            return Ok(self.anonymous_style);
+        }
+        self.layout
+            .intern(anonymous_block_style(writing))
+            .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))
     }
 
     pub(super) fn inline_style_id(&mut self, source_index: usize, what: &str) -> StyleId {
@@ -278,9 +299,10 @@ impl TreeBuilder<'_> {
         if !inline_items_have_substance(&items) {
             return Ok(());
         }
+        let style = self.anonymous_style_in(container_inline_style)?;
         let id = self.push_node(
             FormattingNode {
-                style: self.anonymous_style,
+                style,
                 content: FormattingNodeContent::InlineFlow { items },
                 children: Vec::new(),
             },
@@ -435,9 +457,10 @@ impl TreeBuilder<'_> {
                 let mut children: Vec<FormattingNodeId> =
                     before_node.into_iter().chain(floats).collect();
                 if inline_items_have_substance(&items) {
+                    let style = self.anonymous_style_in(inline_style)?;
                     let flow = self.push_node(
                         FormattingNode {
-                            style: self.anonymous_style,
+                            style,
                             content: FormattingNodeContent::InlineFlow { items },
                             children: Vec::new(),
                         },

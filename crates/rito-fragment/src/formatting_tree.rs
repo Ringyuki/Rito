@@ -973,8 +973,8 @@ mod tests {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
-        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
-        PreferredSize, RubyAlign,
+        MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
+        RubyAlign,
     };
 
     fn zero_padding() -> rito_style_contract::NonNegativeLengthPercentage {
@@ -1015,8 +1015,11 @@ mod tests {
             width: PreferredSize::Auto,
             height: PreferredSize::Auto,
             max_width: MaximumSize::None,
-            min_height: MinimumHeight::Auto,
-            max_height: MaximumHeight::None,
+            min_height: MinimumSize::Auto,
+            min_width: MinimumSize::Auto,
+            writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+            direction: rito_style_contract::Direction::LeftToRight,
+            max_height: MaximumSize::None,
             clear: Clear::None,
             float: Float::None,
             overflow: Overflow::Visible,
