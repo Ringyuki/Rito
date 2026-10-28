@@ -1356,7 +1356,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     };
                     if child_root.children.is_empty()
                         && child_root.rect.height > 0.0
-                        && outcome.continuation.is_some()
+                        && outcome
+                            .continuation
+                            .as_ref()
+                            .is_some_and(|inner| own_block_size_consumed(inner) == 0.0)
                         && !child_resumed
                         && space.fragmentainer_remaining.is_some()
                         && !(fragmentainer_is_fresh && hold_no_block_space(&fragments))
@@ -1559,28 +1562,45 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // than the box leaves empty space (spacers); taller content
         // overflows the fixed box visibly — the box keeps its height and
         // following flow continues below it, like CSS overflow: visible.
-        if let Some(fixed) = resolve_fixed_height(
-            container_style,
-            container_padding_top + container_padding_bottom,
-        )? {
-            y = fixed;
-        }
-        // Its minimum and maximum block size bound it the same way.
-        y = resolve_block_size_bounds(
-            container_style,
-            container_padding_top + container_padding_bottom,
-        )
-        .clamp(y);
+        // Its minimum and maximum block size bound it the same way. That
+        // size fragments like content (Blink's ComputeBlockSizeForFragment):
+        // earlier fragments held part of it, and what this fragmentainer
+        // cannot hold past the content continues on the next.
+        let own_consumed = token.map_or(0.0, own_block_size_consumed);
+        let block_padding = container_padding_top + container_padding_bottom;
+        let total =
+            resolve_fixed_height(container_style, block_padding)?.unwrap_or(own_consumed + y);
+        let content = y;
+        y = (resolve_block_size_bounds(container_style, block_padding).clamp(total) - own_consumed)
+            .max(0.0);
+        let own_break = space
+            .fragmentainer_remaining
+            .filter(|available| {
+                y > available + 1e-6
+                    && content <= available + 1e-6
+                    && pending_float_breaks.is_empty()
+            })
+            .map(|available| {
+                let held = available.max(0.0);
+                y = held;
+                own_consumed + held
+            });
         // Split floats still running past this fragmentainer resume on the
         // next one even though every in-flow child is done.
-        let continuation = if pending_float_breaks.is_empty() {
-            None
-        } else {
-            Some(BreakToken {
+        let continuation = match own_break {
+            Some(consumed_block_size) => Some(BreakToken {
+                resume_path: Vec::new(),
+                stage: BreakTokenStage::Inside {
+                    consumed_block_size,
+                },
+                pending_floats: Vec::new(),
+            }),
+            None if pending_float_breaks.is_empty() => None,
+            None => Some(BreakToken {
                 resume_path: Vec::new(),
                 stage: BreakTokenStage::Before,
                 pending_floats: std::mem::take(&mut pending_float_breaks),
-            })
+            }),
         };
         Ok(LayoutOutcome {
             fragments: sealed(container, space.inline_size, y, fragments),

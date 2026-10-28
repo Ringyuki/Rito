@@ -35,6 +35,11 @@ struct Painted {
 /// ahead of it, so the Latin face is every run's primary font and the
 /// ideographs fall back to the serif.
 fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
+    painted_page(0, body, css, latin_primary)
+}
+
+/// What page `page_index` paints, as [`painted`] reads the first.
+fn painted_page(page_index: usize, body: &str, css: &str, latin_primary: bool) -> Painted {
     let bytes = content_epub(
         "ja",
         body,
@@ -68,7 +73,7 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
     .expect("document opens");
     let summary = document.create_revision(&layout()).expect("revision");
     let fragment_layout = &document.revisions[&summary.revision_id].fragment_layout;
-    let page = fragment_layout.page(0).expect("first page");
+    let page = fragment_layout.page(page_index).expect("page lays out");
     let commands = page.commands_for(1.0).expect("page paints");
     let mut painted = Painted {
         blocks: Vec::new(),
@@ -634,4 +639,35 @@ fn a_vertical_line_sets_an_orthogonal_span_across_it_as_chromium_does() {
             .zip(&expected)
             .all(|((x, y), (ex, ey))| (x - ex).abs() < 1e-6 && (y - ey).abs() < 1e-6);
     assert!(close, "painted {firsts:?}, Chromium {expected:?}");
+}
+
+/// A minimum block size fragments like content: an empty paragraph 2em
+/// wide with 10px left in the first column holds those 10px there and its
+/// other 26px at the head of the next, the paragraph after it following.
+/// Measured on Chromium's vertical multicol: the pieces span 362 to 372 and
+/// 0 to 26 from the columns' right edges, the next paragraph 26 to 53.
+#[test]
+fn a_minimum_block_size_continues_on_the_next_page_as_chromium_breaks_it() {
+    let body = "<div style=\"width: 362px\"></div><p style=\"margin: 0; min-width: 2em\"></p>\
+                <p style=\"margin: 0\">一</p>";
+    let first = painted_page(0, body, "", false);
+    let second = painted_page(1, body, "", false);
+    assert_close(
+        "first page",
+        "boxes",
+        &first.blocks,
+        &[[0.0, 0.0, 10.0, 592.0]],
+    );
+    assert_close(
+        "second page",
+        "boxes",
+        &second.blocks,
+        &[[346.0, 0.0, 26.0, 592.0], [319.0, 0.0, 27.0, 592.0]],
+    );
+    assert_close(
+        "second page",
+        "columns",
+        &second.columns,
+        &[[324.0, 15.84, 15.84]],
+    );
 }
