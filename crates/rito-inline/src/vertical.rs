@@ -17,13 +17,28 @@
 //! `OpenTypeVerticalData::GetVerticalTranslationsForGlyphs`). Chromium's
 //! DOM column and a canvas drawing the glyphs there match pixel for pixel,
 //! whichever font is primary.
+//!
+//! A `text-combine-upright: all` item is one unit an em down the line
+//! (Blink's `LayoutTextCombine`): a box as wide across the line as its
+//! primary font's whole-pixel height, over the run's central baseline as
+//! that font's text box is, in which the item's text sets as one
+//! horizontal string centred across. A string wider than 1.1em takes the
+//! face's half-, third- then quarter-width forms, the first that fits, and
+//! failing those is scaled to 1.1em about its start, which then sits half
+//! the box's spare width in. Its alphabetic baseline lies the font's
+//! whole-pixel ascent less half its internal leading below the unit's top.
+//! Measured against Chromium's DOM at 16, 17.3 and 18px, after none to
+//! three ems of text: a canvas drawing the string there matches pixel for
+//! pixel, in the face's own forms, its half-width forms and scaled.
 
 use std::rc::Rc;
 
 use icu_properties::props::{GeneralCategory, VerticalOrientation};
 use icu_properties::CodePointMapData;
-use rito_fragment::{ClusterOrientation, ClusterPosition};
-use rito_style_contract::{InlineFormattingStyle, TextOrientation};
+use rito_fragment::{ClusterOrientation, ClusterPosition, CombinedForms};
+use rito_style_contract::{
+    InlineFormattingStyle, TextCombineUpright, TextOrientation, WritingMode,
+};
 use skrifa::instance::{LocationRef, Size};
 use skrifa::raw::TableProvider as _;
 use skrifa::MetadataProvider as _;
@@ -43,6 +58,33 @@ pub(crate) struct UprightGlyph {
     vertical_origin: f64,
 }
 
+/// A combined upright unit's cache key: its text and font.
+pub(crate) type CombinedKey = (String, rito_style_contract::FontStyle);
+
+/// How a combined upright unit sets its string (see the module docs):
+/// where the string starts across from the run's central baseline and
+/// its baseline down from the unit's place, its forms and its scale.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct CombinedSetting {
+    across: f64,
+    down: f64,
+    scale_x: f64,
+    forms: CombinedForms,
+}
+
+/// Whether text in `style` sets as combined upright units: a vertical
+/// line's `text-combine-upright: all` text.
+pub(crate) fn combines_upright(style: &InlineFormattingStyle) -> bool {
+    style.bidi.text_combine_upright == TextCombineUpright::All
+        && style.bidi.writing_mode != WritingMode::HorizontalTopToBottom
+}
+
+/// The advance a combined upright unit takes down the line: an em on the
+/// 1/64 grid, rounded (`ComputedStyle::ComputedFontSizeAsFixed`).
+pub(crate) fn combined_advance(style: &InlineFormattingStyle) -> f32 {
+    (style.font.size.get() * 64.0).round() / 64.0
+}
+
 impl ParleyInlineContext {
     /// How each of `clusters` stands in a vertical line laid out in
     /// `style`, `text` being the text their bytes index.
@@ -58,6 +100,31 @@ impl ParleyInlineContext {
         let (ascent, descent) = self
             .primary_face(style)
             .map_or((0.0, 0.0), |face| face.whole_pixel_extent(size));
+        if combines_upright(style) {
+            // The fragment is one item's text, so one unit.
+            let start = clusters.first().map_or(0, |cluster| cluster.byte as usize);
+            let end = clusters.last().map_or(start, |last| {
+                let last = last.byte as usize;
+                text.get(last..)
+                    .and_then(|rest| rest.chars().next())
+                    .map_or(last, |character| last + character.len_utf8())
+            });
+            let setting = self.combined_setting(
+                style,
+                text.get(start..end).unwrap_or_default(),
+                ascent,
+                descent,
+            );
+            return (0..clusters.len())
+                .map(|index| ClusterOrientation::Combined {
+                    across: setting.across,
+                    down: setting.down,
+                    scale_x: setting.scale_x,
+                    forms: setting.forms,
+                    continues: index > 0,
+                })
+                .collect();
+        }
         let baseline = ascent - LineBaseline::Central.split(ascent, descent).0;
         clusters
             .iter()
@@ -91,6 +158,75 @@ impl ParleyInlineContext {
                 }
             })
             .collect()
+    }
+
+    /// How the combined upright unit `text` in `style` sets its string,
+    /// its primary font `ascent` and `descent` whole pixels (Blink's
+    /// `InlineNode::AdjustFontForTextCombineUprightAll` and
+    /// `LayoutTextCombine`).
+    fn combined_setting(
+        &self,
+        style: &InlineFormattingStyle,
+        text: &str,
+        ascent: f64,
+        descent: f64,
+    ) -> CombinedSetting {
+        let key = (text.to_owned(), style.font.clone());
+        if let Some(setting) = self.combined_settings.borrow().get(&key) {
+            return *setting;
+        }
+        // The unit lays its text out horizontally, unspaced.
+        let mut horizontal = style.clone();
+        horizontal.bidi.writing_mode = WritingMode::HorizontalTopToBottom;
+        horizontal.bidi.text_combine_upright = TextCombineUpright::None;
+        let width = |forms: CombinedForms| {
+            self.shaped_run_with(&horizontal, None, false, forms.feature(), text)
+                .advance as f32
+        };
+        let size = style.font.size.get();
+        let desired = size * 1.1;
+        let content = width(CombinedForms::Proportional);
+        let (forms, used, scale_x) = if content == 0.0 || content <= desired {
+            (CombinedForms::Proportional, content, None)
+        } else {
+            [
+                CombinedForms::Half,
+                CombinedForms::Third,
+                CombinedForms::Quarter,
+            ]
+            .into_iter()
+            .map(|forms| (forms, width(forms)))
+            .find(|(_, used)| *used <= desired)
+            .map_or(
+                (
+                    CombinedForms::Proportional,
+                    content,
+                    Some(desired / content),
+                ),
+                |(forms, used)| (forms, used, None),
+            )
+        };
+        // The box is the font's whole-pixel height across; the string
+        // centres in it on the 1/64 grid, or starts half its spare width
+        // in once scaled.
+        let height = ascent + descent;
+        let (_, below) = LineBaseline::Central.split(ascent, descent);
+        let inset = match scale_x {
+            Some(_) => (height - f64::from(desired)) / 2.0,
+            None => {
+                let spare = (height * 64.0) as i64 - (f64::from(used) * 64.0).ceil() as i64;
+                (spare / 2).max(0) as f64 / 64.0
+            }
+        };
+        let leading = height - f64::from(shaping_font_size(size));
+        let setting = CombinedSetting {
+            across: below - inset,
+            down: layout_unit_trunc(ascent - leading / 2.0),
+            scale_x: scale_x.map_or(1.0, f64::from),
+            forms,
+        };
+        self.combined_settings.borrow_mut().insert(key, setting);
+        setting
     }
 }
 

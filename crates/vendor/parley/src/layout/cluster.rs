@@ -189,6 +189,12 @@ impl<'a, B: Brush> Cluster<'a, B> {
         self.data.is_ligature_component()
     }
 
+    /// Rito: whether the cluster is part of a combined upright unit (see
+    /// [`Layout::combine_upright`](crate::Layout::combine_upright)).
+    pub fn is_combined(&self) -> bool {
+        self.data.is_combined()
+    }
+
     /// Returns `true` if the cluster is a word boundary.
     pub fn is_word_boundary(&self) -> bool {
         self.data.info.is_boundary()

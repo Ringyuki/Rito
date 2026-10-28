@@ -95,7 +95,10 @@ pub(crate) use shaping::*;
 pub(crate) use spacing_plan::{PlannedRun, RubyCarrier, SpacingPlan, SpacingPush};
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
-pub(crate) use vertical::{upright_ranges, UprightGlyph, UprightKey};
+pub(crate) use vertical::{
+    combined_advance, combines_upright, upright_ranges, CombinedKey, CombinedSetting, UprightGlyph,
+    UprightKey,
+};
 pub(crate) use width_bounds::WidthBounds;
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -124,6 +127,8 @@ pub struct ParleyInlineContext {
     /// Where an upright glyph lies from its font's alphabetic baseline,
     /// per (face, character, size bits): read from font tables once.
     pub(crate) upright_glyphs: RefCell<rustc_hash::FxHashMap<UprightKey, Option<UprightGlyph>>>,
+    /// How each combined upright unit sets its string, per (text, font).
+    pub(crate) combined_settings: RefCell<rustc_hash::FxHashMap<CombinedKey, CombinedSetting>>,
     /// Paragraphs as built and not yet broken into lines, reused by every
     /// layout that reads them the same (see [`ShapedParagraphs`]).
     pub(crate) shaped: RefCell<ShapedParagraphs>,

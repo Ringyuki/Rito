@@ -31,9 +31,11 @@ impl RuntimeDocument {
                 .max()
                 .unwrap_or_default();
             faces.extend(self.pinned_font_policy.required_faces(first_host_order));
-            // Every face also paints in its vertical forms; an artifact
-            // lists the variant only where its display list draws with it.
-            let vertical_forms: Vec<_> = faces
+            // Every face also paints in its vertical forms and in the
+            // narrower forms a combined upright string compresses into; an
+            // artifact lists a variant only where its display list draws
+            // with it.
+            let mut variants: Vec<_> = faces
                 .iter()
                 .map(|face| RuntimeRequiredFontFace {
                     family: crate::fragment_paint::vertical_forms_family(&face.family),
@@ -41,7 +43,19 @@ impl RuntimeDocument {
                     ..face.clone()
                 })
                 .collect();
-            faces.extend(vertical_forms);
+            for forms in [
+                rito_fragment::CombinedForms::Half,
+                rito_fragment::CombinedForms::Third,
+                rito_fragment::CombinedForms::Quarter,
+            ] {
+                let feature = forms.feature().unwrap_or_default();
+                variants.extend(faces.iter().map(|face| RuntimeRequiredFontFace {
+                    family: crate::fragment_paint::combined_forms_family(forms, &face.family),
+                    features: vec![(feature.to_owned(), 1)],
+                    ..face.clone()
+                }));
+            }
+            faces.extend(variants);
             faces
         })
     }

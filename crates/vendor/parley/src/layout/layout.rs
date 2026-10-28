@@ -4,7 +4,10 @@
 use crate::InlineBox;
 use crate::layout::alignment::align;
 use crate::layout::alignment::unjustify;
-use crate::layout::data::{LayoutData, LineData, LineItemData};
+use crate::analysis::Boundary;
+use crate::layout::data::{ClusterData, ClusterInfo, LayoutData, LineData, LineItemData};
+use alloc::sync::Arc;
+use core::ops::Range;
 use alloc::vec::Vec;
 use crate::style::Brush;
 use core::cmp::Ordering;
@@ -129,6 +132,50 @@ impl<B: Brush> Layout<B> {
             .runs
             .partition_point(|run| run.cluster_range.end <= index)];
         (self.data.clusters[index].text_range(run).start == byte).then_some(index)
+    }
+
+    /// Rito: sets the clusters starting in `range` as one unit `advance`
+    /// long that a line never breaks inside, as a vertical line sets a
+    /// `text-combine-upright` run: the first carries the advance and
+    /// starts a ligature, the rest continue it with none, so breaking
+    /// takes them as one cluster and only the first's boundary breaks.
+    /// Call it before the layout is first broken into lines.
+    pub fn combine_upright(&mut self, range: Range<usize>, advance: f32) {
+        let Some(first) = self.cluster_index_at(range.start) else {
+            return;
+        };
+        let runs = Arc::make_mut(&mut self.data.runs);
+        let clusters = Arc::make_mut(&mut self.data.clusters);
+        let mut index = first;
+        for run in runs.iter_mut() {
+            if run.cluster_range.end <= index {
+                continue;
+            }
+            while index < run.cluster_range.end {
+                let cluster = &mut clusters[index];
+                if cluster.text_range(run).start >= range.end {
+                    break;
+                }
+                let flags = cluster.flags
+                    & !(ClusterData::LIGATURE_START | ClusterData::LIGATURE_COMPONENT);
+                if index == first {
+                    cluster.flags = flags | ClusterData::LIGATURE_START | ClusterData::COMBINED;
+                    cluster.advance = advance;
+                } else {
+                    cluster.flags = flags | ClusterData::LIGATURE_COMPONENT | ClusterData::COMBINED;
+                    cluster.advance = 0.0;
+                    cluster.info = ClusterInfo::new(Boundary::None, cluster.info.source_char());
+                }
+                index += 1;
+            }
+            run.advance = clusters[run.cluster_range.clone()]
+                .iter()
+                .map(|cluster| cluster.advance)
+                .sum();
+            if index < run.cluster_range.end {
+                break;
+            }
+        }
     }
 
     /// Rito: the font of the run holding text index `byte`, found through

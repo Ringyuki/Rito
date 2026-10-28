@@ -36,9 +36,9 @@ pub use formatting_tree::{
     InlineItem, RubyAnnotation,
 };
 pub use fragment::{
-    BoxFragment, BoxSnap, ClusterOrientation, ClusterPosition, FontFaceId, Fragment, FragmentRect,
-    FragmentTree, ImageFragment, LineFonts, LineFragment, MarkerFragment, TextFragment,
-    TextSegment,
+    BoxFragment, BoxSnap, ClusterOrientation, ClusterPosition, CombinedForms, FontFaceId, Fragment,
+    FragmentRect, FragmentTree, ImageFragment, LineFonts, LineFragment, MarkerFragment,
+    TextFragment, TextSegment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
 pub use writing::WritingModeConverter;

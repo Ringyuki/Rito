@@ -6,12 +6,15 @@
 //! line and its face's vertical origin below its place (the column's top
 //! on the whole-pixel grid, as the browser offsets it); a sideways stretch
 //! as horizontal text turned a quarter clockwise about its start on its
-//! alphabetic baseline. An inline image swaps its layout box back to
-//! physical; a ruby annotation spreads its glyphs down the base span.
+//! alphabetic baseline; a combined upright unit as one horizontal string
+//! where layout set it in its em, unturned, in its chosen forms and scaled
+//! about its start when they too overflow. An inline image swaps its
+//! layout box back to physical; a ruby annotation spreads its glyphs down
+//! the base span.
 
 use rito_fragment::{
-    ClusterOrientation, FontFaceId, FormattingNodeContent, FormattingTree, Fragment, InlineItem,
-    LineFragment, TextFragment,
+    ClusterOrientation, CombinedForms, FontFaceId, FormattingNodeContent, FormattingTree, Fragment,
+    InlineItem, LineFragment, TextFragment,
 };
 
 use std::collections::BTreeMap;
@@ -23,7 +26,7 @@ use crate::render::{
     display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
 };
 
-use super::family::{face_family, vertical_forms_family};
+use super::family::{combined_forms_family, face_family, vertical_forms_family};
 use super::flow_text::FlowTexts;
 use super::run_style::run_paint;
 use super::{cluster_x, snap_css, CANVAS_TOP_ASCENT_RATIO};
@@ -35,6 +38,44 @@ enum Stance {
     Upright,
     /// Part of a stretch turned a quarter clockwise.
     Sideways,
+    /// Part of a combined upright unit's string, which the unit's first
+    /// cluster places.
+    Combined {
+        scale_x: f64,
+        forms: CombinedForms,
+        continues: bool,
+    },
+}
+
+impl Stance {
+    /// Whether a cluster standing `next` joins the command of a stretch
+    /// this stance starts: one stance runs on, and a combined unit takes
+    /// exactly its own clusters.
+    fn joined_by(self, next: Stance) -> bool {
+        match (self, next) {
+            (Stance::Combined { .. }, Stance::Combined { continues, .. }) => continues,
+            (Stance::Combined { .. }, _) | (_, Stance::Combined { .. }) => false,
+            (stance, next) => stance == next,
+        }
+    }
+
+    /// The forms the stance's face paints in.
+    fn forms(self) -> Forms {
+        match self {
+            Stance::Upright => Forms::Vertical,
+            Stance::Sideways => Forms::Horizontal,
+            Stance::Combined { forms, .. } => Forms::Combined(forms),
+        }
+    }
+}
+
+/// The forms a face paints a cluster in: its horizontal ones, its
+/// vertical ones, or a combined unit's.
+#[derive(Clone, Copy, PartialEq)]
+enum Forms {
+    Horizontal,
+    Vertical,
+    Combined(CombinedForms),
 }
 
 /// One cluster of a column run where it paints: its byte in the flow
@@ -74,6 +115,24 @@ fn place_column_run(run: &TextFragment, font_size: f64, baseline_x: f64, top: f6
                 ClusterOrientation::Sideways { baseline } => {
                     (baseline_x - baseline, 0.0, Stance::Sideways)
                 }
+                // The unit's string hangs from its top on the whole-pixel
+                // grid, as the browser rounds the box's line before
+                // drawing its text.
+                ClusterOrientation::Combined {
+                    across,
+                    down,
+                    scale_x,
+                    forms,
+                    continues,
+                } => (
+                    baseline_x - across,
+                    place.round() + down,
+                    Stance::Combined {
+                        scale_x,
+                        forms,
+                        continues,
+                    },
+                ),
                 ClusterOrientation::Upright {
                     center,
                     half_advance,
@@ -109,7 +168,7 @@ fn append_column_run_commands(
     end: usize,
     run_bottom: f64,
     font_size: f64,
-    paint_for: &dyn Fn(FontFaceId, bool) -> EpubResult<RunPaint>,
+    paint_for: &dyn Fn(FontFaceId, Forms) -> EpubResult<RunPaint>,
     href: Option<String>,
 ) -> EpubResult<()> {
     let text_command = |text: &str, rect: ReaderRect, clusters: Vec<TextCluster>, paint| {
@@ -128,17 +187,17 @@ fn append_column_run_commands(
     while start < placed.len() {
         let first = placed[start];
         let mut stop = start + 1;
-        while placed
-            .get(stop)
-            .is_some_and(|next| next.stance == first.stance && next.face == first.face)
-        {
+        while placed.get(stop).is_some_and(|next| {
+            first.stance.joined_by(next.stance)
+                && (next.face == first.face || matches!(first.stance, Stance::Combined { .. }))
+        }) {
             stop += 1;
         }
         let group_end = placed.get(stop).map_or(end, |next| next.byte);
         let bottom = placed.get(stop).map_or(run_bottom, |next| next.place);
         let length = bottom - first.place;
         let text = &full_text[first.byte..group_end];
-        let paint = paint_for(first.face, first.stance == Stance::Upright)?;
+        let paint = paint_for(first.face, first.stance.forms())?;
         match first.stance {
             Stance::Upright => {
                 let clusters = placed[start..stop]
@@ -196,6 +255,38 @@ fn append_column_run_commands(
                     paint,
                 ));
                 commands.push(DisplayCommand::PopState);
+            }
+            Stance::Combined { scale_x, .. } => {
+                // One horizontal string from its start on its baseline;
+                // scaled, about that start.
+                let width = 1.1 * font_size;
+                let command = text_command(
+                    text,
+                    display_rect(first.x, first.place, width, length),
+                    vec![TextCluster::at(0, first.x, first.y)],
+                    paint,
+                );
+                if scale_x == 1.0 {
+                    commands.push(command);
+                } else {
+                    commands.push(DisplayCommand::PushState);
+                    commands.push(DisplayCommand::Transform {
+                        origin: ReaderPoint {
+                            x: display_number(first.x),
+                            y: display_number(first.y),
+                        },
+                        box_size: ReaderSize {
+                            width: display_number(width),
+                            height: display_number(length),
+                        },
+                        transforms: vec![ReaderTransform::Scale {
+                            sx: scale_x,
+                            sy: 1.0,
+                        }],
+                    });
+                    commands.push(command);
+                    commands.push(DisplayCommand::PopState);
+                }
             }
         }
         start = stop;
@@ -280,18 +371,23 @@ pub(super) fn append_vertical_line_commands(
         // have no column expression yet.
         // Upright glyphs paint in their face's vertical forms, the
         // variant the host registers beside each face it names.
-        let family_for = |face, upright: bool| -> EpubResult<std::sync::Arc<str>> {
+        let family_for = |face, forms: Forms| -> EpubResult<std::sync::Arc<str>> {
             let family = face_family(style, faces, face)?;
-            Ok(if upright && faces.is_some() {
-                std::sync::Arc::from(vertical_forms_family(&family))
-            } else {
-                family
+            if faces.is_none() {
+                return Ok(family);
+            }
+            Ok(match forms {
+                Forms::Horizontal | Forms::Combined(CombinedForms::Proportional) => family,
+                Forms::Vertical => std::sync::Arc::from(vertical_forms_family(&family)),
+                Forms::Combined(forms) => {
+                    std::sync::Arc::from(combined_forms_family(forms, &family))
+                }
             })
         };
-        let paint_for = |face, upright: bool| -> EpubResult<RunPaint> {
+        let paint_for = |face, forms: Forms| -> EpubResult<RunPaint> {
             Ok(run_paint(
                 style,
-                family_for(face, upright)?,
+                family_for(face, forms)?,
                 run.justify_px,
                 false,
                 false,
@@ -369,7 +465,7 @@ pub(super) fn append_vertical_line_commands(
                             .first()
                             .map(|cluster| cluster.face)
                             .unwrap_or_default(),
-                        false,
+                        Forms::Horizontal,
                     )?;
                     let upright = matches!(
                         measured_ruby
@@ -378,9 +474,14 @@ pub(super) fn append_vertical_line_commands(
                             .and_then(|orientations| orientations.first()),
                         Some(ClusterOrientation::Upright { .. })
                     );
-                    let ruby_paint = base_paint
-                        .for_ruby(annotation_size)
-                        .with_family(family_for(annotation_face, upright)?);
+                    let ruby_paint = base_paint.for_ruby(annotation_size).with_family(family_for(
+                        annotation_face,
+                        if upright {
+                            Forms::Vertical
+                        } else {
+                            Forms::Horizontal
+                        },
+                    )?);
                     // The annotation's baseline stands `over_offset` past
                     // the base's on the line-over side (the base's em box
                     // and the annotation's under it), and its glyphs hang

@@ -293,7 +293,7 @@ impl ParleyInlineContext {
             // The base's justification inset: half the per-opportunity
             // share the base line's justification would leave at each
             // edge, on the layout grid at every step.
-            let plan = line_justify_plan(base_text, 0..base_text.len(), space, &[], &[]);
+            let plan = line_justify_plan(base_text, 0..base_text.len(), space, &[], &[], &[]);
             let count = plan.as_ref().map_or(0, |plan| plan.total);
             let inset_full = layout_unit_trunc(space / (f64::from(count) + 1.0));
             let inset = layout_unit_trunc(inset_full / 2.0);
@@ -469,11 +469,27 @@ impl ParleyInlineContext {
             })
             .and_then(|style_id| styles.inline.style(style_id).ok())
             .map_or(0.0_f32, resolved_text_indent);
+        // Each combined upright item sets as one unit an em down the line,
+        // shaped apart from its neighbours as the browser lays it out in a
+        // box of its own (an explicitly-off `hwid`, inert, splits the run).
+        let mut combined: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
         for (range, style, item_index) in &runs {
             if range.is_empty() {
                 continue;
             }
             push_item_styles(&mut builder, &self.catalog, style, &text, range.clone());
+            if combines_upright(style) {
+                combined.push((range.clone(), combined_advance(style)));
+                builder.push(
+                    StyleProperty::FontFeatures(parley::FontFeatures::List(
+                        std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                            parley::setting::Tag::new(b"hwid"),
+                            0,
+                        )]),
+                    )),
+                    range.clone(),
+                );
+            }
             // Parley merges adjacent resolved styles that compare equal,
             // which would fuse glyph runs across item boundaries whenever
             // neighbouring items differ only in properties Parley never
@@ -641,6 +657,9 @@ impl ParleyInlineContext {
             .transpose()?
             .unwrap_or(parley::Alignment::Start);
         let (mut layout, spacing_edits) = builder.build(&text);
+        for (range, advance) in combined {
+            layout.combine_upright(range, advance);
+        }
         // Parley's own first-line indent: a start-edge margin on the
         // indented line. Reserving the space with an inline box instead
         // would invent a break opportunity that CSS does not have, and an
@@ -863,8 +882,8 @@ pub(crate) fn push_item_styles(
 ) {
     // A vertical line's upright characters shape top to bottom, as Blink
     // shapes a vertical line's upright runs; the rest shape as horizontal
-    // text, laid sideways.
-    if style.bidi.writing_mode != WritingMode::HorizontalTopToBottom {
+    // text, laid sideways, and so does a combined upright unit's.
+    if style.bidi.writing_mode != WritingMode::HorizontalTopToBottom && !combines_upright(style) {
         if let Some(item_text) = text.get(range.clone()) {
             for upright in upright_ranges(style.bidi.text_orientation, item_text) {
                 builder.push(

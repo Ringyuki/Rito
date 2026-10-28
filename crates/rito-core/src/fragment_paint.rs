@@ -27,7 +27,7 @@ use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::render::DisplayCommand;
 
 mod family;
-pub(crate) use family::vertical_forms_family;
+pub(crate) use family::{combined_forms_family, vertical_forms_family};
 mod flow_text;
 mod image;
 mod line;

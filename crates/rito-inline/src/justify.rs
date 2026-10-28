@@ -140,6 +140,7 @@ pub(crate) fn line_justify_plan(
     slack: f64,
     spread_ranges: &[std::ops::Range<usize>],
     atom_positions: &[usize],
+    combined_ranges: &[std::ops::Range<usize>],
 ) -> Option<JustifyPlan> {
     // Bails on NaN slack too: only a strictly positive slack justifies.
     if slack.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
@@ -220,6 +221,17 @@ pub(crate) fn line_justify_plan(
         ) {
             continue;
         }
+        // A combined upright unit justifies as one ideograph, Blink's
+        // kTextCombineItemMarker (U+3042): its first character stands for
+        // it and the boundaries inside it are no boundaries.
+        let character = match combined_ranges
+            .iter()
+            .find(|unit| unit.contains(&(range.start + offset)))
+        {
+            Some(unit) if unit.start != range.start + offset => continue,
+            Some(_) => '\u{3042}',
+            None => character,
+        };
         // A spread ruby base (its annotation wider than it) is one
         // justification item, Chromium's kBaseShorterRubyMarker: no
         // interior expansion (its clusters already sit at the

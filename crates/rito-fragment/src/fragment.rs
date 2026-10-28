@@ -216,6 +216,43 @@ pub enum ClusterOrientation {
     /// Sideways: set as horizontal text turned a quarter clockwise, its
     /// alphabetic baseline `baseline` across from the run's baseline.
     Sideways { baseline: f64 },
+    /// Combined upright (`text-combine-upright: all`): the clusters of one
+    /// text item set as one horizontal string within an em of the line.
+    /// The string starts `across` from the run's baseline and its
+    /// alphabetic baseline lies `down` the line from the unit's place,
+    /// drawn in `forms` and, when even those overflow the unit, scaled
+    /// `scale_x` wide about its start. Every cluster of the unit carries
+    /// the same values; all but the first `continue` it.
+    Combined {
+        across: f64,
+        down: f64,
+        scale_x: f64,
+        forms: CombinedForms,
+        continues: bool,
+    },
+}
+
+/// The glyph forms a combined upright string is drawn in: its face's own,
+/// or the OpenType half-, third- or quarter-width forms (`hwid`, `twid`,
+/// `qwid`) the browser compresses an overlong string into.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CombinedForms {
+    Proportional,
+    Half,
+    Third,
+    Quarter,
+}
+
+impl CombinedForms {
+    /// The OpenType feature that selects the forms, if any.
+    pub fn feature(self) -> Option<&'static str> {
+        match self {
+            CombinedForms::Proportional => None,
+            CombinedForms::Half => Some("hwid"),
+            CombinedForms::Third => Some("twid"),
+            CombinedForms::Quarter => Some("qwid"),
+        }
+    }
 }
 
 /// A stretch of a text fragment's clusters placed from one origin.

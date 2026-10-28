@@ -906,7 +906,7 @@ fn an_atomic_inline_expands_before_but_defers_after() {
     // unchanged; only the comma's own x shifts one share left.
     let text = "中中，中";
     let atoms = vec![6usize];
-    let plan = line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms).expect("plan builds");
+    let plan = line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms, &[]).expect("plan builds");
     assert_eq!(
         plan.share, 1.25,
         "4 opportunities: deferral keeps the total"
@@ -928,7 +928,7 @@ fn an_atomic_inline_expands_before_but_defers_after() {
         "one share before the atom plus its own left boundary"
     );
     let control =
-        line_justify_plan(text, 0..text.len(), 5.0, &[], &[]).expect("control plan builds");
+        line_justify_plan(text, 0..text.len(), 5.0, &[], &[], &[]).expect("control plan builds");
     assert_eq!(
         control.share,
         5.0 / 3.0,

@@ -64,13 +64,20 @@ impl ClusterSteps {
         while let Some(current) = cluster {
             let text_range = current.text_range();
             let folded = folded_spacing(spacing_edits, &current);
+            // A combined upright unit steps by its em alone, whatever its
+            // glyphs and the spacing around it.
+            let combined = current.is_combined();
             steps.push(ClusterStep {
                 start: text_range.start as u32,
                 end: text_range.end as u32,
-                step: hb_fixed_cluster_advance(catalog, &current, folded),
+                step: if combined {
+                    f64::from(current.advance())
+                } else {
+                    hb_fixed_cluster_advance(catalog, &current, folded)
+                },
                 face: catalog.face_id(current.run().font()),
                 font_size: f64::from(current.run().font_size()),
-                bare: folded == 0.0 && is_bare(catalog, &current),
+                bare: !combined && folded == 0.0 && is_bare(catalog, &current),
             });
             cluster = current.next_logical();
         }
@@ -417,6 +424,19 @@ impl ParleyInlineContext {
         spacing: bool,
         text: &str,
     ) -> MeasuredRun {
+        self.shaped_run_with(style, size_override, spacing, None, text)
+    }
+
+    /// [`Self::shaped_run`] with the OpenType `feature` on over the whole
+    /// string.
+    pub(crate) fn shaped_run_with(
+        &self,
+        style: &InlineFormattingStyle,
+        size_override: Option<f32>,
+        spacing: bool,
+        feature: Option<&str>,
+        text: &str,
+    ) -> MeasuredRun {
         if text.is_empty() {
             return MeasuredRun {
                 advance: 0.0,
@@ -444,6 +464,17 @@ impl ParleyInlineContext {
             // overridden to zero over the whole string.
             builder.push(parley::StyleProperty::LetterSpacing(0.0), 0..text.len());
             builder.push(parley::StyleProperty::WordSpacing(0.0), 0..text.len());
+        }
+        if let Some(tag) = feature.and_then(|tag| <[u8; 4]>::try_from(tag.as_bytes()).ok()) {
+            builder.push(
+                parley::StyleProperty::FontFeatures(parley::FontFeatures::List(
+                    std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                        parley::setting::Tag::new(&tag),
+                        1,
+                    )]),
+                )),
+                0..text.len(),
+            );
         }
         let (mut layout, spacing_edits) = builder.build(text);
         layout.break_all_lines(None);

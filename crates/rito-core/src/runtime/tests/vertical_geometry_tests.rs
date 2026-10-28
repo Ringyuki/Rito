@@ -375,3 +375,130 @@ const RUBY_16_LATIN_P0_COLUMNS: &[[f64; 3]] = &[
     [321.0, 14.08, 46.08],
     [293.0, 14.08, 14.08],
 ];
+
+/// What one text command of the first page draws: its family, its first
+/// glyph origin in the content box's coordinates, and the horizontal scale
+/// a transform wrapped around it applies.
+fn painted_strings(body: &str) -> Vec<(String, f64, f64, f64)> {
+    let bytes = content_epub(
+        "ja",
+        body,
+        "html { writing-mode: vertical-rl; } body { margin: 0; font-size: 18px; line-height: 1.5; }",
+        None,
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            bundled_font("SourceHanSerifCN-Regular.otf"),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("ja"),
+        )]),
+    )
+    .expect("document opens");
+    let summary = document.create_revision(&layout()).expect("revision");
+    let fragment_layout = &document.revisions[&summary.revision_id].fragment_layout;
+    let commands = fragment_layout
+        .page(0)
+        .expect("first page")
+        .commands_for(1.0)
+        .expect("page paints");
+    let mut scale = 1.0;
+    let mut strings = Vec::new();
+    for command in commands.iter() {
+        match command {
+            DisplayCommand::Transform { transforms, .. } => {
+                for transform in transforms {
+                    if let crate::render::contract::ReaderTransform::Scale { sx, .. } = transform {
+                        scale = *sx;
+                    }
+                }
+            }
+            DisplayCommand::PopState => scale = 1.0,
+            DisplayCommand::PaintText(text) => {
+                for cluster in text.clusters.iter() {
+                    strings.push((
+                        text.paint.font.family.to_string(),
+                        cluster.x - ORIGIN,
+                        cluster.y - ORIGIN,
+                        scale,
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+    strings
+}
+
+/// A `text-combine-upright: all` item sets as one horizontal string in an
+/// em of the column, the box as wide as the font's 26px height over the
+/// line's central baseline (341, so the box spans 328 to 354), the string
+/// centred in it on the 1/64 grid and its baseline 21 - (26 - 18) / 2 =
+/// 17px below the unit's top: `!?` in its own forms, `AB` (24.8px) in its
+/// half-width forms, `2024` (39.6px, still 36 in half widths) scaled to
+/// 1.1em from 3.1px in. Every character after a unit sits one em further
+/// down. Measured on Chromium's DOM: a canvas drawing the strings there
+/// matches it pixel for pixel.
+#[test]
+fn a_vertical_line_sets_combined_upright_items_as_chromium_does() {
+    let combine = |text: &str| format!("<span style=\"text-combine-upright: all\">{text}</span>");
+    let strings = painted_strings(&format!(
+        "<p>一{}二{}三{}四</p>",
+        combine("!?"),
+        combine("AB"),
+        combine("2024")
+    ));
+    let expected: [(&str, f64, f64, f64); 7] = [
+        ("vert", 332.0, 15.84, 1.0),
+        ("own", 334.328125, 35.0, 1.0),
+        ("vert", 332.0, 51.84, 1.0),
+        ("half", 332.0, 71.0, 1.0),
+        ("vert", 332.0, 87.84, 1.0),
+        ("own", 331.1, 107.0, 0.5),
+        ("vert", 332.0, 123.84, 1.0),
+    ];
+    let close = strings.len() == expected.len()
+        && strings
+            .iter()
+            .zip(&expected)
+            .all(|((family, x, y, scale), (forms, ex, ey, escale))| {
+                let forms_match = match *forms {
+                    "vert" => family.starts_with("__RitoVert_"),
+                    "half" => family.starts_with("__RitoHWID_"),
+                    _ => ["__RitoVert_", "__RitoHWID_", "__RitoTWID_", "__RitoQWID_"]
+                        .iter()
+                        .all(|variant| !family.starts_with(variant)),
+                };
+                forms_match
+                    && (x - ex).abs() < 1e-5
+                    && (y - ey).abs() < 1e-5
+                    && (scale - escale).abs() < 1e-5
+            });
+    assert!(close, "painted {strings:?}, Chromium {expected:?}");
+}
+
+/// A combined unit is one em a line never breaks inside: after 31 ems of
+/// a 592px column, the two ideographs `一二` combined still fit (558 to
+/// 576), where as two characters they would not, and the next character
+/// opens the next column.
+#[test]
+fn a_combined_unit_takes_one_em_of_a_column_and_never_splits() {
+    let strings = painted_strings(&format!(
+        "<p>{}<span style=\"text-combine-upright: all\">一二</span>三</p>",
+        "一".repeat(31)
+    ));
+    let tail: Vec<(f64, f64)> = strings
+        .iter()
+        .rev()
+        .take(2)
+        .rev()
+        .map(|(_, x, y, _)| (*x, *y))
+        .collect();
+    assert_eq!(strings.len(), 33, "{strings:?}");
+    assert!(
+        (tail[0].1 - 575.0).abs() < 1e-6
+            && (tail[1].0 - 305.0).abs() < 1e-6
+            && (tail[1].1 - 15.84).abs() < 1e-6,
+        "the unit and the character after it: {tail:?}"
+    );
+}

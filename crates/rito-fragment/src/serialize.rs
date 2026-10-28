@@ -10,8 +10,8 @@ use crate::break_token::{BreakToken, BreakTokenStage};
 use crate::context::LayoutOutcome;
 use crate::formatting_tree::FormattingNodeId;
 use crate::fragment::{
-    BoxFragment, ClusterOrientation, Fragment, FragmentRect, FragmentTree, ImageFragment,
-    LineFonts, LineFragment, TextFragment,
+    BoxFragment, ClusterOrientation, CombinedForms, Fragment, FragmentRect, FragmentTree,
+    ImageFragment, LineFonts, LineFragment, TextFragment,
 };
 
 const FRAGMENT_TAG_BOX: u8 = 0;
@@ -183,6 +183,25 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                                 out.push(1);
                                 out.extend_from_slice(&baseline.to_bits().to_le_bytes());
                             }
+                            ClusterOrientation::Combined {
+                                across,
+                                down,
+                                scale_x,
+                                forms,
+                                continues,
+                            } => {
+                                out.push(2);
+                                for value in [across, down, scale_x] {
+                                    out.extend_from_slice(&value.to_bits().to_le_bytes());
+                                }
+                                out.push(match forms {
+                                    CombinedForms::Proportional => 0,
+                                    CombinedForms::Half => 1,
+                                    CombinedForms::Third => 2,
+                                    CombinedForms::Quarter => 3,
+                                });
+                                out.push(u8::from(*continues));
+                            }
                         }
                     }
                 }
@@ -337,6 +356,19 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                             },
                             1 => ClusterOrientation::Sideways {
                                 baseline: reader.f64()?,
+                            },
+                            2 => ClusterOrientation::Combined {
+                                across: reader.f64()?,
+                                down: reader.f64()?,
+                                scale_x: reader.f64()?,
+                                forms: match reader.u8()? {
+                                    0 => CombinedForms::Proportional,
+                                    1 => CombinedForms::Half,
+                                    2 => CombinedForms::Third,
+                                    3 => CombinedForms::Quarter,
+                                    tag => return Err(format!("unknown combined forms tag {tag}")),
+                                },
+                                continues: reader.u8()? != 0,
                             },
                             tag => return Err(format!("unknown cluster orientation tag {tag}")),
                         });
@@ -644,6 +676,13 @@ mod tests {
                                         vertical_origin: 15.84,
                                     },
                                     crate::ClusterOrientation::Sideways { baseline: 5.0 },
+                                    crate::ClusterOrientation::Combined {
+                                        across: 4.5,
+                                        down: 14.5,
+                                        scale_x: 0.5,
+                                        forms: crate::CombinedForms::Half,
+                                        continues: true,
+                                    },
                                 ]
                                 .into(),
                             ),

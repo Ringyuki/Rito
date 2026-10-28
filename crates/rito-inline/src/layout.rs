@@ -80,6 +80,22 @@ impl FormattingContext for ParleyInlineContext {
                 .collect(),
             _ => Vec::new(),
         };
+        // Flow-text ranges of combined upright units, each of which
+        // justifies as one ideograph.
+        let combined_ranges: Vec<std::ops::Range<usize>> =
+            match (&tree.node(root).content, tree.styles()) {
+                (FormattingNodeContent::InlineFlow { items }, Some(styles)) => items
+                    .iter()
+                    .zip(item_text_ranges.iter())
+                    .filter(|(item, range)| {
+                        !range.is_empty()
+                            && matches!(item, InlineItem::Text { style, .. }
+                                if styles.inline.style(*style).is_ok_and(combines_upright))
+                    })
+                    .map(|(_, range)| range.clone())
+                    .collect(),
+                _ => Vec::new(),
+            };
         // The inline sizes every break decision below answers alike at.
         let mut bounds = WidthBounds::new(space.inline_size);
         let decided = self.decide_line_edges(
@@ -573,6 +589,7 @@ impl FormattingContext for ParleyInlineContext {
                     target - advance - rewind_width,
                     &spread_ranges,
                     &atom_positions,
+                    &combined_ranges,
                 )
             } else {
                 None
