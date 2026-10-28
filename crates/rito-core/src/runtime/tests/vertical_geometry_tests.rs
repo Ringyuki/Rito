@@ -346,6 +346,32 @@ const CASES: &[Case] = &[
         ],
         annotations: &[],
     },
+    // An empty block that takes block space hands the space under the
+    // line before it on to the next paragraph's annotations, so that
+    // paragraph's line keeps its height; an empty block with no size
+    // closes the space off and the next annotation grows its line by 6px.
+    Case {
+        name: "annotation-space-through-empty-blocks",
+        css: "p { margin: 0; }",
+        latin_primary: false,
+        body: "<p>一</p><p style=\"min-width: 2em\"></p><p><ruby>宝<rt>ほう</rt></ruby>生</p>\
+               <p></p><p><ruby>二<rt>に</rt></ruby>三</p>",
+        blocks: &[
+            [345.0, 0.0, 27.0, 592.0],
+            [309.0, 0.0, 36.0, 592.0],
+            [282.0, 0.0, 27.0, 592.0],
+            [282.0, 0.0, 0.0, 592.0],
+            [249.0, 0.0, 33.0, 592.0],
+        ],
+        columns: &[
+            [350.0, 15.84, 15.84],
+            [287.0, 15.84, 33.84],
+            [254.0, 15.84, 33.84],
+        ],
+        // The 9px annotations' 13px text boxes span 303.5 to 316.5 and
+        // 270.5 to 283.5 in Chromium's DOM.
+        annotations: &[[305.5], [272.5]],
+    },
     // Upright kana shape top to bottom: the horizontal kerning the face
     // gives アッ or ルパ does not apply, every glyph a whole em on.
     Case {

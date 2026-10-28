@@ -62,8 +62,8 @@ impl LineOpening {
 
 /// What an in-flow block leaves for the annotations of the paragraph
 /// after it: its last line, and the space from that line's box down to
-/// the block's bottom edge (bottom padding, and whatever a fixed height
-/// adds past the content).
+/// the block's bottom edge (bottom padding, whatever a fixed or minimum
+/// height adds past the content, and the empty blocks after the line).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct AnnotationEnd {
     pub(crate) line: PrecedingLine,
@@ -104,7 +104,12 @@ pub(crate) fn block_annotation_end(
                 if inner_style.float != Float::None || inner_style.position == Position::Absolute {
                     continue;
                 }
-                block_annotation_end(tree, child)?
+                match block_annotation_end(tree, child)? {
+                    Some(end) => Some(end),
+                    // An empty block passes the space before it on.
+                    None if passes_annotation_space(tree, child)? => continue,
+                    None => None,
+                }
             }
             Fragment::Text(_) | Fragment::Image(_) => None,
         };
@@ -115,6 +120,33 @@ pub(crate) fn block_annotation_end(
         }));
     }
     Ok(None)
+}
+
+/// Whether a placed in-flow block hands the annotation space before it on
+/// to what follows, its own block size added: one holding no line box
+/// whose block size is not zero, closed off by neither a block-end border
+/// nor a formatting context of its own (Blink's block-end annotation space
+/// of a block with no content: the space it was given plus its block
+/// size; a self-collapsing block leaves none).
+pub(crate) fn passes_annotation_space(
+    tree: &FormattingTree,
+    fragment: &Fragment,
+) -> Result<bool, LayoutError> {
+    fn holds_line(fragment: &Fragment) -> bool {
+        match fragment {
+            Fragment::Line(_) => true,
+            Fragment::Box(block) => block.children.iter().any(holds_line),
+            Fragment::Text(_) | Fragment::Image(_) => false,
+        }
+    }
+    let Fragment::Box(block) = fragment else {
+        return Ok(false);
+    };
+    if block.rect.height <= 0.0 || holds_line(fragment) {
+        return Ok(false);
+    }
+    let style = container_layout_style(tree, block.source)?;
+    Ok(!is_flow_root(style) && style.flow_border_widths().block_end.get() == 0.0)
 }
 
 /// Whether an inline flow holds any ruby annotation.

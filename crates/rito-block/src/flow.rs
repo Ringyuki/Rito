@@ -1469,7 +1469,17 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     match outcome.continuation {
                         None => {
                             annotation_end = match fragments.last() {
-                                Some(block) => block_annotation_end(tree, block)?,
+                                Some(block) => match block_annotation_end(tree, block)? {
+                                    Some(end) => Some(end),
+                                    // An empty block hands on what the block
+                                    // before it left, its own size added.
+                                    None if passes_annotation_space(tree, block)? => preceding_end
+                                        .map(|end| AnnotationEnd {
+                                            space: end.space + block.rect().height,
+                                            ..end
+                                        }),
+                                    None => None,
+                                },
                                 None => None,
                             };
                             pending_margin = PendingMargin::from_margin(bottom_margin);
