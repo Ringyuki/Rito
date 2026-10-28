@@ -18,6 +18,7 @@
 //! same name, and the resolved list is handed to shaping and to every
 //! metric path alike.
 
+use crate::Face;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 
@@ -124,6 +125,8 @@ type StackCache = RefCell<
 pub(crate) struct FontCatalog {
     families: Vec<CatalogFamily>,
     aliases: Vec<String>,
+    /// The font each face id names: the first its blob registered.
+    face_fonts: Vec<Face>,
     face_ids: FxHashMap<(u64, u32), FontFaceId>,
     stacks: StackCache,
     /// The number each distinct stack key was given, in order of first use.
@@ -238,11 +241,17 @@ impl FontCatalog {
         }
         let id = FontFaceId(self.aliases.len() as u32);
         self.aliases.push(alias);
+        let mut first = None;
         for (_, fonts) in registered {
             for font in fonts {
+                first.get_or_insert(font.index());
                 self.face_ids.insert((blob.id(), font.index()), id);
             }
         }
+        self.face_fonts.push(Face {
+            blob: blob.clone(),
+            index: first.unwrap_or_default(),
+        });
         self.stacks.get_mut().clear();
         Ok(())
     }
@@ -276,6 +285,11 @@ impl FontCatalog {
     /// The name paint draws each face by, indexed by face id.
     pub(crate) fn aliases(&self) -> &[String] {
         &self.aliases
+    }
+
+    /// The font a face id names.
+    pub(crate) fn face_font(&self, id: FontFaceId) -> Option<Face> {
+        self.face_fonts.get(id.0 as usize).cloned()
     }
 
     /// Names the catalog could not resolve since it was built, lowercase.

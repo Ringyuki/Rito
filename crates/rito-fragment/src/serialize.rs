@@ -10,8 +10,8 @@ use crate::break_token::{BreakToken, BreakTokenStage};
 use crate::context::LayoutOutcome;
 use crate::formatting_tree::FormattingNodeId;
 use crate::fragment::{
-    BoxFragment, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFonts, LineFragment,
-    TextFragment,
+    BoxFragment, ClusterOrientation, Fragment, FragmentRect, FragmentTree, ImageFragment,
+    LineFonts, LineFragment, TextFragment,
 };
 
 const FRAGMENT_TAG_BOX: u8 = 0;
@@ -162,6 +162,31 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     }
                 }
             }
+            match &fragment.orientations {
+                None => out.push(0),
+                Some(orientations) => {
+                    out.push(1);
+                    out.extend_from_slice(&(orientations.len() as u32).to_le_bytes());
+                    for orientation in orientations.iter() {
+                        match orientation {
+                            ClusterOrientation::Upright {
+                                center,
+                                half_advance,
+                                vertical_origin,
+                            } => {
+                                out.push(0);
+                                for value in [center, half_advance, vertical_origin] {
+                                    out.extend_from_slice(&value.to_bits().to_le_bytes());
+                                }
+                            }
+                            ClusterOrientation::Sideways { baseline } => {
+                                out.push(1);
+                                out.extend_from_slice(&baseline.to_bits().to_le_bytes());
+                            }
+                        }
+                    }
+                }
+            }
         }
         Fragment::Image(fragment) => {
             out.push(FRAGMENT_TAG_IMAGE);
@@ -298,6 +323,28 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }
                 tag => return Err(format!("unknown text segments tag {tag}")),
             };
+            let orientations = match reader.u8()? {
+                0 => None,
+                1 => {
+                    let count = reader.u32()? as usize;
+                    let mut orientations = Vec::with_capacity(count.min(4096));
+                    for _ in 0..count {
+                        orientations.push(match reader.u8()? {
+                            0 => ClusterOrientation::Upright {
+                                center: reader.f64()?,
+                                half_advance: reader.f64()?,
+                                vertical_origin: reader.f64()?,
+                            },
+                            1 => ClusterOrientation::Sideways {
+                                baseline: reader.f64()?,
+                            },
+                            tag => return Err(format!("unknown cluster orientation tag {tag}")),
+                        });
+                    }
+                    Some(orientations.into())
+                }
+                tag => return Err(format!("unknown text orientations tag {tag}")),
+            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -314,6 +361,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 clusters: clusters.into(),
                 cluster_grid,
                 segments,
+                orientations,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -588,6 +636,17 @@ mod tests {
                             opener_trim_px: 0.0,
                             ruby_overhang_px: 0.75,
                             ruby_overhang_right_px: 0.75,
+                            orientations: Some(
+                                vec![
+                                    crate::ClusterOrientation::Upright {
+                                        center: -1.0,
+                                        half_advance: 9.0,
+                                        vertical_origin: 15.84,
+                                    },
+                                    crate::ClusterOrientation::Sideways { baseline: 5.0 },
+                                ]
+                                .into(),
+                            ),
                         })],
                     })],
                 }),

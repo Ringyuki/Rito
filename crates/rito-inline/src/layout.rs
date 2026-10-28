@@ -840,6 +840,7 @@ impl FormattingContext for ParleyInlineContext {
                                     clusters: std::rc::Rc::clone(&no_clusters),
                                     cluster_grid: false,
                                     segments: None,
+                                    orientations: None,
                                 },
                                 shift,
                                 item: item_index,
@@ -2222,6 +2223,16 @@ impl FormattingContext for ParleyInlineContext {
             if !ruby_spreads.is_empty() {
                 merge_ruby_spread_fragments(&mut children, &item_text_ranges, &ruby_spreads);
             }
+            // The style a vertical line's text fragment was laid out in,
+            // whose clusters then say how they stand.
+            let vertical_style = |byte: u32| {
+                let item = item_text_ranges
+                    .iter()
+                    .position(|range| range.contains(&(byte as usize)))?;
+                let entry = item_line_heights.get(item)?.as_ref()?;
+                let style = style_tables?.inline.style(entry.style).ok()?;
+                (style.bidi.writing_mode != WritingMode::HorizontalTopToBottom).then_some(style)
+            };
             let children: Vec<Fragment> = children
                 .into_iter()
                 .map(|(mut fragment, shift)| {
@@ -2230,6 +2241,10 @@ impl FormattingContext for ParleyInlineContext {
                         Fragment::Text(text) => {
                             text.rect.y = adjust;
                             text.rect.height = base_height;
+                            if let Some(style) = vertical_style(text.text_start) {
+                                text.orientations =
+                                    Some(self.cluster_orientations(style, text, &flow_text));
+                            }
                         }
                         // An atomic inline sits on the line's baseline:
                         // its bottom margin edge rests there, however tall

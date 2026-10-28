@@ -110,6 +110,7 @@ fn text_run(x: f64, width: f64, start: u32, end: u32) -> Fragment {
         clusters: Vec::new().into(),
         cluster_grid: false,
         segments: None,
+        orientations: None,
     })
 }
 

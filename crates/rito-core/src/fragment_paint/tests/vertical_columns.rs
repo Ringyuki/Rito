@@ -2,6 +2,43 @@
 
 use super::*;
 
+/// A text fragment of a vertical line as layout leaves it: a cluster per
+/// character of `text` (the flow's bytes `start..end`) every `step` down
+/// the line, upright with a 16px glyph's half advance and vertical origin
+/// centred half a pixel over the run's baseline, unless Latin, which lies
+/// sideways on a baseline 5px under it.
+fn column_run(x: f64, width: f64, start: u32, text: &str, step: f64) -> Fragment {
+    let Fragment::Text(mut run) = text_run(x, width, start, start + text.len() as u32) else {
+        unreachable!("a text run is text");
+    };
+    run.clusters = text
+        .char_indices()
+        .enumerate()
+        .map(|(index, (byte, _))| rito_fragment::ClusterPosition {
+            byte: start + byte as u32,
+            x: index as f64 * step,
+            face: rito_fragment::FontFaceId::default(),
+            joins: false,
+        })
+        .collect();
+    run.orientations = Some(
+        text.chars()
+            .map(|glyph| {
+                if glyph.is_ascii_alphabetic() {
+                    rito_fragment::ClusterOrientation::Sideways { baseline: 5.0 }
+                } else {
+                    rito_fragment::ClusterOrientation::Upright {
+                        center: -0.5,
+                        half_advance: 8.0,
+                        vertical_origin: 14.08,
+                    }
+                }
+            })
+            .collect(),
+    );
+    Fragment::Text(run)
+}
+
 /// A vertical-rl page fragment for the paint-parity instrument: one
 /// column of ideographs with rotated brackets and corner-shifted
 /// marks, a rubied base, and a second column of leaders, a dash and
@@ -82,9 +119,18 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                 24.0,
                 8.0,
                 160.0,
-                vec![text_run(0.0, 128.0, 0, 24), text_run(128.0, 32.0, 24, 30)],
+                vec![
+                    column_run(0.0, 128.0, 0, "「春日」、剧场。", 16.0),
+                    column_run(128.0, 32.0, 24, "漢字", 16.0),
+                ],
             ),
-            line(32.0, 20.0, 0.0, 72.0, vec![text_run(0.0, 72.0, 30, 38)]),
+            line(
+                32.0,
+                20.0,
+                0.0,
+                72.0,
+                vec![column_run(0.0, 72.0, 30, "…—ab", 18.0)],
+            ),
         ],
     });
     // The annotation measured when the chapter was built: the
@@ -180,11 +226,13 @@ fn write_vertical_paint_parity_fixture() {
     .expect("fixture writes");
 }
 
-/// The vertical column paints glyph by glyph: upright glyphs share a
-/// run with an origin each one step down the column, corner marks
-/// shift into the em's top-right, rotated marks paint as their own
-/// run under a quarter-turn transform, and the annotation spreads
-/// its glyphs down the base span.
+/// The vertical column paints each cluster where layout put it: upright
+/// glyphs half their advance left of their centre line (12.5px in from the
+/// line-over edge: the 13px baseline less half a pixel) and their vertical
+/// origin below their place, corner marks in the em's
+/// top-right, rotated marks alone under a quarter turn about their em
+/// centre, Latin set sideways under a quarter turn about its start on its
+/// alphabetic baseline, and the annotation spread down the base span.
 #[test]
 fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
     let commands = vertical_column_commands();
@@ -205,51 +253,63 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
             );
         }
     };
+    let transform_origins: Vec<(f64, f64)> = commands
+        .iter()
+        .filter_map(|command| match command {
+            DisplayCommand::Transform {
+                origin, transforms, ..
+            } => {
+                assert_eq!(
+                    transforms,
+                    &vec![ReaderTransform::Rotate {
+                        radians: std::f64::consts::FRAC_PI_2
+                    }]
+                );
+                Some((origin.x, origin.y))
+            }
+            _ => None,
+        })
+        .collect();
     // 「 | 春日 | 」 | 、剧场。 | 漢字 | … | — | ab
     assert_eq!(texts.len(), 8, "{texts:#?}");
-    let transforms = commands
-        .iter()
-        .filter(|command| matches!(command, DisplayCommand::Transform { .. }))
-        .count();
-    assert_eq!(transforms, 4, "one quarter turn per rotated mark");
     assert!(texts.iter().all(|text| !text.clusters.is_empty()));
-    // The first column's glyphs sit at x 196 (frame right 220 minus
-    // the 24px line thickness), stepping 16px from the column top 20
-    // with baselines 0.8 em below each glyph top.
+    // The first column's line-over edge is the frame's right edge, 220:
+    // its glyphs centre at 207.5, their origins at 199.5, each 16px down
+    // from the column top 20.
     assert_eq!(texts[0].text, "「");
-    origins(&texts[0].clusters, &[(0, 196.0, 32.8)]);
-    let DisplayCommand::Transform {
-        origin, transforms, ..
-    } = &commands[1]
-    else {
-        panic!(
-            "the rotated mark paints under a transform, got {:?}",
-            commands[1]
-        );
-    };
-    assert_eq!((origin.x, origin.y), (204.0, 28.0));
-    assert_eq!(
-        transforms,
-        &vec![ReaderTransform::Rotate {
-            radians: std::f64::consts::FRAC_PI_2
-        }]
-    );
+    origins(&texts[0].clusters, &[(0, 199.5, 32.8)]);
     assert_eq!(texts[1].text, "春日");
-    origins(&texts[1].clusters, &[(0, 196.0, 48.8), (3, 196.0, 64.8)]);
+    origins(&texts[1].clusters, &[(0, 199.5, 50.08), (3, 199.5, 66.08)]);
     assert_eq!(texts[3].text, "、剧场。");
-    // 、 and 。 ride the em's top-right corner; 剧场 stay upright.
     origins(
         &texts[3].clusters,
         &[
-            (0, 204.0, 87.2),
-            (3, 196.0, 112.8),
-            (6, 196.0, 128.8),
-            (9, 204.0, 135.2),
+            (0, 207.5, 87.2),
+            (3, 199.5, 114.08),
+            (6, 199.5, 130.08),
+            (9, 207.5, 135.2),
         ],
     );
-    // The letter-spaced second column steps 18px.
+    assert_eq!(texts[4].text, "漢字");
+    origins(
+        &texts[4].clusters,
+        &[(0, 199.5, 162.08), (3, 199.5, 178.08)],
+    );
+    // The letter-spaced second column steps 18px; its Latin lies on the
+    // baseline 18px in from its line-over edge, 188.
     assert_eq!(texts[7].text, "ab");
-    origins(&texts[7].clusters, &[(0, 170.0, 68.8), (1, 170.0, 86.8)]);
+    origins(&texts[7].clusters, &[(0, 170.0, 56.0), (1, 188.0, 56.0)]);
+    assert_eq!(
+        transform_origins,
+        vec![
+            (207.5, 28.0),
+            (207.5, 76.0),
+            (175.5, 28.0),
+            (175.5, 46.0),
+            (170.0, 56.0)
+        ],
+        "a quarter turn per rotated mark and one for the sideways Latin"
+    );
     let annotation = commands
         .iter()
         .find_map(|command| match command {

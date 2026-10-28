@@ -17,7 +17,7 @@
 //! blocks), `shaped` (the builds kept across layouts), `layout` (the
 //! provider entry points and the line loop), and the free laws the loop
 //! applies — `breaking`, `justify`,
-//! `punctuation`, `marker`, `shaping`, `ruby`, `image`. Every module sees
+//! `punctuation`, `marker`, `shaping`, `ruby`, `image`, `vertical`. Every module sees
 //! the whole crate through the root's re-exports, as the single file they
 //! were carved from did.
 
@@ -36,7 +36,7 @@ use rito_fragment::{
 };
 use rito_style_contract::{
     FontSlant, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage, LineHeight,
-    MaximumSize, PreferredSize, TextAlign,
+    MaximumSize, PreferredSize, TextAlign, TextOrientation, WritingMode,
 };
 
 mod atoms;
@@ -66,6 +66,7 @@ mod spacing_plan;
 mod strut;
 #[cfg(test)]
 mod tests;
+mod vertical;
 mod width_bounds;
 
 pub(crate) use breaking::*;
@@ -94,6 +95,7 @@ pub(crate) use shaping::*;
 pub(crate) use spacing_plan::{PlannedRun, RubyCarrier, SpacingPlan, SpacingPush};
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
+pub(crate) use vertical::{UprightGlyph, UprightKey};
 pub(crate) use width_bounds::WidthBounds;
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -119,6 +121,9 @@ pub struct ParleyInlineContext {
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
     pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32), bool>>,
+    /// Where an upright glyph lies from its font's alphabetic baseline,
+    /// per (face, character, size bits): read from font tables once.
+    pub(crate) upright_glyphs: RefCell<rustc_hash::FxHashMap<UprightKey, Option<UprightGlyph>>>,
     /// Paragraphs as built and not yet broken into lines, reused by every
     /// layout that reads them the same (see [`ShapedParagraphs`]).
     pub(crate) shaped: RefCell<ShapedParagraphs>,

@@ -193,6 +193,29 @@ pub struct TextFragment {
     /// browser; the anchors it was laid out from stay with it. `None`: one
     /// segment, from `rect.x`.
     pub segments: Option<std::rc::Rc<[TextSegment]>>,
+    /// How each cluster stands, in cluster order, when the line is
+    /// vertical; `None` on a horizontal line.
+    pub orientations: Option<std::rc::Rc<[ClusterOrientation]>>,
+}
+
+/// How one cluster of a vertical line stands, and where its glyphs lie
+/// from the point the line puts the cluster at: its place down the line,
+/// on the run's baseline. Distances across the line run towards the
+/// line-under side.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ClusterOrientation {
+    /// Upright: the glyph's centre line lies `center` across from the
+    /// run's baseline, its horizontal origin `half_advance` (half its
+    /// horizontal advance) further and `vertical_origin` (its face's
+    /// vertical origin) down the line.
+    Upright {
+        center: f64,
+        half_advance: f64,
+        vertical_origin: f64,
+    },
+    /// Sideways: set as horizontal text turned a quarter clockwise, its
+    /// alphabetic baseline `baseline` across from the run's baseline.
+    Sideways { baseline: f64 },
 }
 
 /// A stretch of a text fragment's clusters placed from one origin.

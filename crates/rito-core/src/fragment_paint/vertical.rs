@@ -1,12 +1,20 @@
-//! Vertical-rl lines painted as downward columns. Each line box becomes a
-//! column placed in from the frame's right edge; a text run paints glyph
-//! by glyph one step (font size plus letter spacing) down the column,
-//! with bracket, dash and leader marks rotated a quarter turn about their
-//! em centre and comma and period marks shifted into the em's top-right
-//! corner; an inline image swaps its layout box back to physical; a ruby
-//! annotation spreads its glyphs down the base span.
+//! Vertical-rl lines painted as columns. Each line box is a column placed
+//! in from the frame's right edge, and its clusters land where layout put
+//! them down the line, across from the run's baseline by what layout
+//! measured for each: an upright cluster's glyph from its horizontal
+//! origin, half its advance left of its centre line and its face's
+//! vertical origin below its place (the column's top on the whole-pixel
+//! grid, as the browser offsets it); a sideways stretch as horizontal text
+//! turned a quarter clockwise about its start on its alphabetic baseline. Bracket, dash and leader
+//! marks still turn a quarter about their em centre and comma and period
+//! marks shift into the em's top-right corner, standing in for their
+//! vertical forms; an inline image swaps its layout box back to physical;
+//! a ruby annotation spreads its glyphs down the base span.
 
-use rito_fragment::{FormattingNodeContent, FormattingTree, Fragment, InlineItem, LineFragment};
+use rito_fragment::{
+    ClusterOrientation, FontFaceId, FormattingNodeContent, FormattingTree, Fragment, InlineItem,
+    LineFragment, TextFragment,
+};
 
 use std::collections::BTreeMap;
 
@@ -17,10 +25,10 @@ use crate::render::{
     display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
 };
 
-use super::family::{face_family, face_pieces};
+use super::family::face_family;
 use super::flow_text::FlowTexts;
 use super::run_style::run_paint;
-use super::CANVAS_TOP_ASCENT_RATIO;
+use super::{cluster_x, snap_css, CANVAS_TOP_ASCENT_RATIO};
 
 /// Punctuation that takes its vertical presentation in a column: brackets,
 /// dashes and leaders are the horizontal glyph rotated a quarter turn
@@ -29,27 +37,117 @@ use super::CANVAS_TOP_ASCENT_RATIO;
 const VERTICAL_ROTATED: &str = "「」『』()（）〔〕［］[]{}｛｝〈〉《》【】〖〗…‥ー―—–~〜～＝=";
 const VERTICAL_SHIFTED: &str = "、。，．,.";
 
-/// Paints one column run glyph by glyph: every code point sits upright
-/// one step (the font size plus letter spacing) below the last, its
-/// baseline 0.8 em below the run's top, the way the browser's column pen
-/// stepped. Consecutive upright glyphs share one run with a cluster
-/// origin each; a rotated mark paints as its own run under a quarter-turn
-/// transform about its em center.
-fn append_vertical_run_commands(
-    commands: &mut Vec<DisplayCommand>,
+/// How a placed cluster paints.
+#[derive(Clone, Copy, PartialEq)]
+enum Stance {
+    /// Upright at its own origin.
+    Upright,
+    /// A mark drawn upright and turned a quarter about its em centre.
+    Turned,
+    /// Part of a stretch turned a quarter clockwise.
+    Sideways,
+}
+
+/// One cluster of a column run where it paints: its byte in the flow
+/// text, its place down the line, its glyph origin (a sideways cluster's
+/// baseline across), its face and its stance.
+#[derive(Clone, Copy)]
+struct Placed {
+    byte: usize,
+    place: f64,
+    x: f64,
+    y: f64,
+    face: FontFaceId,
+    stance: Stance,
+}
+
+/// Where a column run's clusters paint: `baseline_x` is the run's
+/// baseline, `top` the column's top on the whole-pixel grid.
+fn place_column_run(
+    run: &TextFragment,
     text: &str,
-    paint: &RunPaint,
     font_size: f64,
-    glyph_x: f64,
+    baseline_x: f64,
     top: f64,
+) -> Vec<Placed> {
+    run.clusters_with_origins()
+        .enumerate()
+        .map(|(index, (segment_x, cluster))| {
+            let place = cluster_x(
+                top + segment_x + run.ruby_center_shift_px + cluster.x,
+                run.cluster_grid,
+            );
+            let byte = cluster.byte as usize;
+            let glyph = text
+                .get(byte..)
+                .and_then(|rest| rest.chars().next())
+                .unwrap_or(' ');
+            let orientation = run
+                .orientations
+                .as_deref()
+                .and_then(|orientations| orientations.get(index).copied())
+                .unwrap_or(ClusterOrientation::Upright {
+                    center: 0.0,
+                    half_advance: font_size / 2.0,
+                    vertical_origin: CANVAS_TOP_ASCENT_RATIO * font_size,
+                });
+            let (x, y, stance) = match orientation {
+                ClusterOrientation::Sideways { baseline } => {
+                    (baseline_x - baseline, 0.0, Stance::Sideways)
+                }
+                ClusterOrientation::Upright { center, .. } if VERTICAL_ROTATED.contains(glyph) => (
+                    baseline_x - center - font_size / 2.0,
+                    place + CANVAS_TOP_ASCENT_RATIO * font_size,
+                    Stance::Turned,
+                ),
+                ClusterOrientation::Upright { center, .. } if VERTICAL_SHIFTED.contains(glyph) => (
+                    baseline_x - center,
+                    place + 0.2 * font_size,
+                    Stance::Upright,
+                ),
+                ClusterOrientation::Upright {
+                    center,
+                    half_advance,
+                    vertical_origin,
+                } => (
+                    baseline_x - center - half_advance,
+                    place + vertical_origin,
+                    Stance::Upright,
+                ),
+            };
+            Placed {
+                byte,
+                place,
+                x,
+                y,
+                face: cluster.face,
+                stance,
+            }
+        })
+        .collect()
+}
+
+/// Paints a column run's placed clusters: consecutive clusters of one
+/// face and stance share a command, each turned mark paints alone, and a
+/// sideways stretch turns a quarter clockwise about its start on its
+/// baseline. `end` is the run's last byte and `run_bottom` where it ends
+/// down the line.
+#[allow(clippy::too_many_arguments)]
+fn append_column_run_commands(
+    commands: &mut Vec<DisplayCommand>,
+    full_text: &str,
+    placed: &[Placed],
+    end: usize,
+    run_bottom: f64,
+    font_size: f64,
+    paint_for: &dyn Fn(FontFaceId) -> EpubResult<RunPaint>,
     href: Option<String>,
-) {
-    let step = font_size + paint.letter_spacing_px.unwrap_or(0.0);
-    let run = |text: String, rect: ReaderRect, clusters: Vec<TextCluster>| {
+) -> EpubResult<()> {
+    let text_command = |text: &str, rect: ReaderRect, clusters: Vec<TextCluster>, paint| {
         DisplayCommand::PaintText(DisplayTextCommand {
             text: text.into(),
             rect,
-            paint: paint.clone(),
+            paint,
             line_height_px: None,
             href: href.clone(),
             source_text: None,
@@ -57,79 +155,109 @@ fn append_vertical_run_commands(
             clusters: clusters.into(),
         })
     };
-    let mut segment: Vec<TextCluster> = Vec::new();
-    let mut segment_start = 0usize;
-    let mut segment_end = 0usize;
-    let mut segment_top = top;
-    let flush = |commands: &mut Vec<DisplayCommand>,
-                 segment: &mut Vec<TextCluster>,
-                 start: usize,
-                 end: usize,
-                 segment_top: f64| {
-        if segment.is_empty() {
-            return;
+    let mut start = 0;
+    while start < placed.len() {
+        let first = placed[start];
+        let mut stop = start + 1;
+        if first.stance != Stance::Turned {
+            while placed
+                .get(stop)
+                .is_some_and(|next| next.stance == first.stance && next.face == first.face)
+            {
+                stop += 1;
+            }
         }
-        let length = segment.len() as f64 * step;
-        commands.push(run(
-            text[start..end].to_owned(),
-            display_rect(glyph_x, segment_top, font_size, length),
-            std::mem::take(segment),
-        ));
-    };
-    for (index, (byte, glyph)) in text.char_indices().enumerate() {
-        let glyph_top = top + index as f64 * step;
-        let pen_y = glyph_top + CANVAS_TOP_ASCENT_RATIO * font_size;
-        if VERTICAL_ROTATED.contains(glyph) {
-            flush(commands, &mut segment, segment_start, byte, segment_top);
-            let center_x = glyph_x + font_size / 2.0;
-            let center_y = pen_y - 0.3 * font_size;
-            commands.push(DisplayCommand::PushState);
-            commands.push(DisplayCommand::Transform {
-                origin: ReaderPoint {
-                    x: display_number(center_x),
-                    y: display_number(center_y),
-                },
-                box_size: ReaderSize {
-                    width: display_number(font_size),
-                    height: display_number(font_size),
-                },
-                transforms: vec![ReaderTransform::Rotate {
-                    radians: std::f64::consts::FRAC_PI_2,
-                }],
-            });
-            commands.push(run(
-                glyph.to_string(),
-                display_rect(glyph_x, glyph_top, font_size, font_size),
-                vec![TextCluster::at(0, glyph_x, pen_y)],
-            ));
-            commands.push(DisplayCommand::PopState);
-            segment_start = byte + glyph.len_utf8();
-            segment_end = segment_start;
-            continue;
+        let group_end = placed.get(stop).map_or(end, |next| next.byte);
+        let bottom = placed.get(stop).map_or(run_bottom, |next| next.place);
+        let length = bottom - first.place;
+        let text = &full_text[first.byte..group_end];
+        let paint = paint_for(first.face)?;
+        match first.stance {
+            Stance::Upright => {
+                let clusters = placed[start..stop]
+                    .iter()
+                    .map(|cluster| {
+                        TextCluster::at((cluster.byte - first.byte) as u32, cluster.x, cluster.y)
+                    })
+                    .collect();
+                commands.push(text_command(
+                    text,
+                    display_rect(first.x, first.place, font_size, length),
+                    clusters,
+                    paint,
+                ));
+            }
+            Stance::Turned => {
+                let center = (first.x + font_size / 2.0, first.place + font_size / 2.0);
+                commands.push(DisplayCommand::PushState);
+                commands.push(DisplayCommand::Transform {
+                    origin: ReaderPoint {
+                        x: display_number(center.0),
+                        y: display_number(center.1),
+                    },
+                    box_size: ReaderSize {
+                        width: display_number(font_size),
+                        height: display_number(font_size),
+                    },
+                    transforms: vec![ReaderTransform::Rotate {
+                        radians: std::f64::consts::FRAC_PI_2,
+                    }],
+                });
+                commands.push(text_command(
+                    text,
+                    display_rect(first.x, first.place, font_size, font_size),
+                    vec![TextCluster::at(0, first.x, first.y)],
+                    paint,
+                ));
+                commands.push(DisplayCommand::PopState);
+            }
+            Stance::Sideways => {
+                // Set horizontally from the stretch's start on its
+                // baseline, then turned a quarter clockwise about it: the
+                // text runs down the column, its ascent towards the
+                // line-over side.
+                let origin = (first.x, first.place);
+                let clusters = placed[start..stop]
+                    .iter()
+                    .map(|cluster| {
+                        TextCluster::at(
+                            (cluster.byte - first.byte) as u32,
+                            origin.0 + (cluster.place - first.place),
+                            origin.1,
+                        )
+                    })
+                    .collect();
+                commands.push(DisplayCommand::PushState);
+                commands.push(DisplayCommand::Transform {
+                    origin: ReaderPoint {
+                        x: display_number(origin.0),
+                        y: display_number(origin.1),
+                    },
+                    box_size: ReaderSize {
+                        width: display_number(length),
+                        height: display_number(font_size),
+                    },
+                    transforms: vec![ReaderTransform::Rotate {
+                        radians: std::f64::consts::FRAC_PI_2,
+                    }],
+                });
+                commands.push(text_command(
+                    text,
+                    display_rect(
+                        origin.0,
+                        origin.1 - CANVAS_TOP_ASCENT_RATIO * font_size,
+                        length,
+                        font_size,
+                    ),
+                    clusters,
+                    paint,
+                ));
+                commands.push(DisplayCommand::PopState);
+            }
         }
-        if segment.is_empty() {
-            segment_start = byte;
-            segment_top = glyph_top;
-        }
-        let origin = if VERTICAL_SHIFTED.contains(glyph) {
-            (glyph_x + 0.5 * font_size, pen_y - 0.6 * font_size)
-        } else {
-            (glyph_x, pen_y)
-        };
-        segment.push(TextCluster::at(
-            (byte - segment_start) as u32,
-            origin.0,
-            origin.1,
-        ));
-        segment_end = byte + glyph.len_utf8();
+        start = stop;
     }
-    flush(
-        commands,
-        &mut segment,
-        segment_start,
-        segment_end,
-        segment_top,
-    );
+    Ok(())
 }
 
 /// Paints one vertical-rl line box as a downward text column whose
@@ -194,6 +322,7 @@ pub(super) fn append_vertical_line_commands(
         let InlineItem::Text {
             style,
             ruby_annotation,
+            baseline_shift_px,
             ..
         } = &items[*item_index]
         else {
@@ -215,52 +344,24 @@ pub(super) fn append_vertical_line_commands(
             )?
             .glyphs_only())
         };
-        let run_face = run
-            .clusters
-            .first()
-            .map(|cluster| cluster.face)
-            .unwrap_or_default();
-        let base_paint = paint_for(run_face)?;
         let font_size = f64::from(style.font.size.get());
-        // The glyph column centers on the line's STRUT: an annotation's
-        // growth lands entirely on the line's right (matrix-measured:
-        // the base keeps its plain-line distance from the left edge and
-        // the annotation column pushes the right edge out), so the
-        // centering basis excludes the growth.
-        let glyph_x = column_x + (line.rect.height - line.ruby_growth - font_size) / 2.0;
-        // Each face's glyphs paint as their own column piece, stepping on
-        // from where the previous piece's glyphs ended.
-        let step = font_size + base_paint.letter_spacing_px.unwrap_or(0.0);
-        let run_faces: Vec<_> = run.clusters.iter().map(|cluster| cluster.face).collect();
-        let pieces = face_pieces(&run_faces);
-        let mut glyphs_before = 0usize;
-        for (index, (range, face)) in pieces.iter().enumerate() {
-            let piece_start = run
-                .clusters
-                .get(range.start)
-                .map_or(start, |cluster| cluster.byte as usize);
-            let piece_end = pieces
-                .get(index + 1)
-                .and_then(|(next, _)| run.clusters.get(next.start))
-                .map_or(end, |cluster| cluster.byte as usize);
-            let text = &full_text[piece_start..piece_end];
-            append_vertical_run_commands(
-                commands,
-                text,
-                &if index == 0 {
-                    base_paint.clone()
-                } else {
-                    paint_for(*face)?
-                },
-                font_size,
-                glyph_x,
-                column_top + run.rect.x + glyphs_before as f64 * step,
-                item_sources
-                    .and_then(|sources| sources.get(*item_index))
-                    .and_then(|source| source.href.clone()),
-            );
-            glyphs_before += text.chars().count();
-        }
+        // The run's baseline lies the line's baseline in from its
+        // line-over edge, less the item's own shift.
+        let baseline_x = column_x + line.rect.height - (line.baseline - baseline_shift_px);
+        let top = snap_css(column_top);
+        let placed = place_column_run(run, full_text, font_size, baseline_x, top);
+        append_column_run_commands(
+            commands,
+            full_text,
+            &placed,
+            end,
+            top + run.rect.x + run.rect.width,
+            font_size,
+            &paint_for,
+            item_sources
+                .and_then(|sources| sources.get(*item_index))
+                .and_then(|source| source.href.clone()),
+        )?;
         // The annotation rides the column's LEFT-out side? No: probed on
         // a vertical-rl ruby line, the annotation column sits between
         // the base and the NEXT line — its right edge on the line box's
@@ -315,6 +416,12 @@ pub(super) fn append_vertical_line_commands(
                         .and_then(|measured| measured.run.clusters.first())
                         .map(|cluster| cluster.face)
                         .unwrap_or_default();
+                    let base_paint = paint_for(
+                        run.clusters
+                            .first()
+                            .map(|cluster| cluster.face)
+                            .unwrap_or_default(),
+                    )?;
                     let ruby_paint = base_paint
                         .for_ruby(annotation_size)
                         .with_family(face_family(style, faces, annotation_face)?);

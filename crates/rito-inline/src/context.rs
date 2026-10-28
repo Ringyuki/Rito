@@ -54,6 +54,7 @@ impl ParleyInlineContext {
             line_metrics: RefCell::default(),
             run_samples: RefCell::default(),
             halt_feature_cache: RefCell::default(),
+            upright_glyphs: RefCell::default(),
             shaped: RefCell::default(),
             intrinsic_sizes: RefCell::default(),
             #[cfg(test)]
