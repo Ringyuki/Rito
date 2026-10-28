@@ -628,6 +628,16 @@ for (const chapter of plan.chapters) {
           const verticalOf = (element) =>
             ['vertical-rl', 'vertical-lr'].includes(getComputedStyle(element).writingMode);
           const verticalRoot = verticalOf(document.documentElement) || verticalOf(document.body);
+          // A chapter whose body alone turns vertical pages in the body's
+          // writing mode from the root, its principal writing mode (CSS
+          // propagates it from the body to the viewport): the root takes
+          // the body's mode, so the body's own box — margins included —
+          // lies inside the pages as every other chapter's does.
+          if (verticalRoot && !verticalOf(document.documentElement)) {
+            document.documentElement.style.writingMode = getComputedStyle(
+              document.body,
+            ).writingMode;
+          }
           const fragmenter = verticalOf(document.documentElement) ? 'html' : 'body';
           const columns = `width:${contentW}px; height:${contentH}px; column-width:${contentH}px; column-gap:3000px; column-fill:auto;`;
           const s = document.createElement('style');
