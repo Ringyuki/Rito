@@ -372,6 +372,28 @@ const CASES: &[Case] = &[
         // 270.5 to 283.5 in Chromium's DOM.
         annotations: &[[305.5], [272.5]],
     },
+    // A margin collapsed above an empty block is space it hands on too:
+    // behind an 8px margin the empty block's 36px and the margin lend the
+    // annotation all it needs, while the second empty block, a first child
+    // given nothing, lends nothing and the line grows by 6px.
+    Case {
+        name: "annotation-space-from-a-collapsed-margin",
+        css: "p { margin: 0; }",
+        latin_primary: false,
+        body: "<div style=\"margin-right: 8px\"><p style=\"min-width: 2em\"></p>\
+               <p><ruby>宝<rt>ほう</rt></ruby>生</p></div>\
+               <div><p style=\"min-width: 2em\"></p><p><ruby>二<rt>に</rt></ruby>三</p></div>",
+        blocks: &[
+            [328.0, 0.0, 36.0, 592.0],
+            [301.0, 0.0, 27.0, 592.0],
+            [265.0, 0.0, 36.0, 592.0],
+            [232.0, 0.0, 33.0, 592.0],
+        ],
+        columns: &[[306.0, 15.84, 33.84], [237.0, 15.84, 33.84]],
+        // The annotations' text boxes span 322.5 to 335.5 and 253.5 to
+        // 266.5 in Chromium's DOM.
+        annotations: &[[324.5], [255.5]],
+    },
     // Upright kana shape top to bottom: the horizontal kerning the face
     // gives アッ or ルパ does not apply, every glyph a whole em on.
     Case {

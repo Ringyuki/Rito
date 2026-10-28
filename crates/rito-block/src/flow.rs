@@ -1471,9 +1471,22 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             annotation_end = match fragments.last() {
                                 Some(block) => match block_annotation_end(tree, block)? {
                                     Some(end) => Some(end),
-                                    // An empty block hands on what the block
-                                    // before it left, its own size added.
+                                    // An empty block hands on what it was
+                                    // given — what the block before it left,
+                                    // or the margin collapsed above it — its
+                                    // own size added (Blink's initial
+                                    // block-start annotation space).
                                     None if passes_annotation_space(tree, block)? => preceding_end
+                                        .or_else(|| {
+                                            (strut > 0.0).then_some(AnnotationEnd {
+                                                line: PrecedingLine {
+                                                    below: 0.0,
+                                                    fonts: rito_fragment::LineFonts::None,
+                                                    half_leading: 0.0,
+                                                },
+                                                space: strut,
+                                            })
+                                        })
                                         .map(|end| AnnotationEnd {
                                             space: end.space + block.rect().height,
                                             ..end
