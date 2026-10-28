@@ -384,8 +384,11 @@ pub(super) fn append_fragment_display_commands_inner(
                         column_x,
                         column_top,
                         context.faces,
+                        context.image_border_paints,
                         context.flow_item_sources,
                         context.ruby_annotation_runs,
+                        child_snap_origin_y,
+                        context.ratio,
                         flow_texts,
                     )?;
                     continue;

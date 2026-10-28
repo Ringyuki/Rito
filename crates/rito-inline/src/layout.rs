@@ -1872,6 +1872,19 @@ impl FormattingContext for ParleyInlineContext {
                     let Some(resolved) = resolved else {
                         continue;
                     };
+                    // Its strut stands on the line's own baseline, as every
+                    // box on a line does, whatever the block's own writing
+                    // mode (an orthogonal block across a vertical line).
+                    let mut on_line;
+                    let resolved = if vertical_flow
+                        && resolved.bidi.writing_mode == WritingMode::HorizontalTopToBottom
+                    {
+                        on_line = resolved.clone();
+                        on_line.bidi.writing_mode = WritingMode::VerticalRightToLeft;
+                        &on_line
+                    } else {
+                        resolved
+                    };
                     let Some(metric) = self.normal_line(resolved, &LineProbe::Strut) else {
                         complete = false;
                         continue;
@@ -2477,7 +2490,7 @@ impl ParleyInlineContext {
 /// synthesized from its box — its under edge for the alphabetic baseline
 /// of a horizontal line, its middle for the central baseline of a vertical
 /// one (the larger half above, on the 1/64 grid).
-fn atom_baseline_extent(height: f64, vertical: bool) -> (f64, f64) {
+pub(crate) fn atom_baseline_extent(height: f64, vertical: bool) -> (f64, f64) {
     if vertical {
         let below = (height * 32.0).floor() / 64.0;
         (height - below, below)

@@ -9,8 +9,10 @@
 //! alphabetic baseline; a combined upright unit as one horizontal string
 //! where layout set it in its em, unturned, in its chosen forms and scaled
 //! about its start when they too overflow. An inline image swaps its
-//! layout box back to physical; a ruby annotation spreads its glyphs down
-//! the base span.
+//! layout box back to physical, and so does an inline-block, whose own
+//! lines then paint from its physical corner: across the column as
+//! horizontal lines when it is an orthogonal flow, as columns of its own
+//! otherwise. A ruby annotation spreads its glyphs down the base span.
 
 use rito_fragment::{
     ClusterOrientation, CombinedForms, FontFaceId, FormattingNodeContent, FormattingTree, Fragment,
@@ -20,7 +22,7 @@ use rito_fragment::{
 use std::collections::BTreeMap;
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_bridge::FlowItemSource;
+use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::render::contract::{ReaderPoint, ReaderRect, ReaderSize, ReaderTransform};
 use crate::render::{
     display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
@@ -28,6 +30,7 @@ use crate::render::{
 
 use super::family::{combined_forms_family, face_family, vertical_forms_family};
 use super::flow_text::FlowTexts;
+use super::line::append_line_commands;
 use super::run_style::run_paint;
 use super::{cluster_x, snap_css, CANVAS_TOP_ASCENT_RATIO};
 
@@ -304,8 +307,11 @@ pub(super) fn append_vertical_line_commands(
     column_x: f64,
     column_top: f64,
     faces: Option<&[std::sync::Arc<str>]>,
+    image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
     ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    snap_origin_y: f64,
+    ratio: f64,
     flow_texts: &FlowTexts,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
@@ -343,6 +349,55 @@ pub(super) fn append_vertical_line_commands(
                 item_source.and_then(|source| source.image_alt.clone()),
                 item_source.and_then(|source| source.href.clone()),
             ));
+            continue;
+        }
+        if let Fragment::Box(atom) = child {
+            let left = column_x + line.rect.height - atom.rect.y - atom.rect.height;
+            let top = column_top + atom.rect.x;
+            let horizontal = tree
+                .strut_style(atom.source)
+                .and_then(|style| styles.inline.style(style).ok())
+                .is_some_and(|style| {
+                    style.bidi.writing_mode
+                        == rito_style_contract::WritingMode::HorizontalTopToBottom
+                });
+            for inner in &atom.children {
+                let Fragment::Line(inner_line) = inner else {
+                    continue;
+                };
+                if horizontal {
+                    append_line_commands(
+                        commands,
+                        tree,
+                        inner_line,
+                        left,
+                        top,
+                        faces,
+                        image_border_paints,
+                        flow_item_sources,
+                        ruby_annotation_runs,
+                        snap_origin_y,
+                        ratio,
+                        flow_texts,
+                    )?;
+                } else {
+                    // Its columns stand in from its line-over (right) edge.
+                    append_vertical_line_commands(
+                        commands,
+                        tree,
+                        inner_line,
+                        left + atom.rect.height - inner_line.rect.y - inner_line.rect.height,
+                        top + inner_line.rect.x,
+                        faces,
+                        image_border_paints,
+                        flow_item_sources,
+                        ruby_annotation_runs,
+                        snap_origin_y,
+                        ratio,
+                        flow_texts,
+                    )?;
+                }
+            }
             continue;
         }
         let Fragment::Text(run) = child else { continue };

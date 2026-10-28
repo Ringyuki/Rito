@@ -413,10 +413,27 @@ const RUBY_16_LATIN_P0_COLUMNS: &[[f64; 3]] = &[
     [293.0, 14.08, 14.08],
 ];
 
-/// What one text command of the first page draws: its family, its first
-/// glyph origin in the content box's coordinates, and the horizontal scale
-/// a transform wrapped around it applies.
+/// What each text command of the first page draws, one entry per glyph
+/// origin: its family, the origin in the content box's coordinates, and
+/// the horizontal scale a transform wrapped around it applies.
 fn painted_strings(body: &str) -> Vec<(String, f64, f64, f64)> {
+    painted_commands(body)
+        .into_iter()
+        .flat_map(|(family, origins, scale)| {
+            origins
+                .into_iter()
+                .map(move |(x, y)| (family.clone(), x, y, scale))
+        })
+        .collect()
+}
+
+/// One text command as painted: its family, its glyph origins in the
+/// content box's coordinates, and the horizontal scale a transform wrapped
+/// around it applies.
+type PaintedCommand = (String, Vec<(f64, f64)>, f64);
+
+/// What each text command of the first page draws.
+fn painted_commands(body: &str) -> Vec<PaintedCommand> {
     let bytes = content_epub(
         "ja",
         body,
@@ -451,16 +468,14 @@ fn painted_strings(body: &str) -> Vec<(String, f64, f64, f64)> {
                 }
             }
             DisplayCommand::PopState => scale = 1.0,
-            DisplayCommand::PaintText(text) => {
-                for cluster in text.clusters.iter() {
-                    strings.push((
-                        text.paint.font.family.to_string(),
-                        cluster.x - ORIGIN,
-                        cluster.y - ORIGIN,
-                        scale,
-                    ));
-                }
-            }
+            DisplayCommand::PaintText(text) => strings.push((
+                text.paint.font.family.to_string(),
+                text.clusters
+                    .iter()
+                    .map(|cluster| (cluster.x - ORIGIN, cluster.y - ORIGIN))
+                    .collect(),
+                scale,
+            )),
             _ => {}
         }
     }
@@ -538,4 +553,37 @@ fn a_combined_unit_takes_one_em_of_a_column_and_never_splits() {
             && (tail[1].1 - 15.84).abs() < 1e-6,
         "the unit and the character after it: {tail:?}"
     );
+}
+
+/// A span whose writing mode is not its line's lays out as an inline-block
+/// across the column (Blink's `StyleAdjuster`): `!!` sets as a horizontal
+/// line 11.09375px long in a box 1.2em (21.59375px on the 1/64 grid) down
+/// the column, hung from a central baseline synthesized off the box, its
+/// larger half (5.546875px) over the line's baseline at 341. The text's
+/// baseline lies its font's 21px ascent less the 3px its negative half
+/// leading floors to below the box's top. A span without a line height of
+/// its own takes the paragraph's 27px. Measured on Chromium's DOM.
+#[test]
+fn a_vertical_line_sets_an_orthogonal_span_across_it_as_chromium_does() {
+    let commands = painted_commands(
+        "<p>一<span style=\"writing-mode: horizontal-tb; line-height: 1.2\">!!</span>二\
+         <span style=\"writing-mode: horizontal-tb\">!?</span>三</p>",
+    );
+    let firsts: Vec<(f64, f64)> = commands
+        .iter()
+        .filter_map(|(_, origins, _)| origins.first().copied())
+        .collect();
+    let expected = [
+        (332.0, 15.84),
+        (335.453125, 36.0),
+        (332.0, 55.43375),
+        (334.34375, 79.0),
+        (332.0, 100.43375),
+    ];
+    let close = firsts.len() == expected.len()
+        && firsts
+            .iter()
+            .zip(&expected)
+            .all(|((x, y), (ex, ey))| (x - ex).abs() < 1e-6 && (y - ey).abs() < 1e-6);
+    assert!(close, "painted {firsts:?}, Chromium {expected:?}");
 }

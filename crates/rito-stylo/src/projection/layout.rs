@@ -24,7 +24,7 @@ use style::{
 
 use crate::{
     break_properties::{self, BreakEdge},
-    dom::DomStorage,
+    dom::{DomNode, DomStorage},
 };
 
 #[cfg(test)]
@@ -176,7 +176,8 @@ pub(crate) fn project_layout(
             .or_insert_with(|| layout_style(&styles));
         match projected {
             Ok(style) => {
-                let style_id = table.intern_for_node(node_id.index(), *style)?;
+                let style = orthogonal_inline_block(*style, element);
+                let style_id = table.intern_for_node(node_id.index(), style)?;
                 dispositions.push(LayoutStyleDisposition::ContractProjected { node_id, style_id });
             }
             Err(failure) => dispositions.push(rejected(node_id, failure.field, failure.reason)),
@@ -186,6 +187,41 @@ pub(crate) fn project_layout(
         table,
         dispositions,
     })
+}
+
+/// Blink's `StyleAdjuster::AdjustStyleForDisplay`: an inline box whose
+/// writing mode is not its layout parent's lays out as an inline-block, a
+/// flow of its own across the parent's lines. The layout parent is the
+/// nearest ancestor that generates a box.
+fn orthogonal_inline_block(
+    mut style: LayoutFormattingStyle,
+    element: DomNode<'_>,
+) -> LayoutFormattingStyle {
+    use style::dom::TElement as _;
+    if style.display.outside != LayoutDisplayOutside::Inline
+        || style.display.inside != LayoutDisplayInside::Flow
+    {
+        return style;
+    }
+    let mut parent = element.traversal_parent();
+    while let Some(node) = parent {
+        let Some(styles) = node.primary_styles() else {
+            break;
+        };
+        if styles.clone_display().inside()
+            == style::values::specified::box_::DisplayInside::Contents
+        {
+            parent = node.traversal_parent();
+            continue;
+        }
+        let parent_mode =
+            super::inline::enums::writing_mode(styles.get_inherited_box().writing_mode);
+        if parent_mode != style.writing_mode {
+            style.display.inside = LayoutDisplayInside::FlowRoot;
+        }
+        break;
+    }
+    style
 }
 
 /// Projects a generated box's (`::before`, `::after`) computed layout

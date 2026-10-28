@@ -121,9 +121,28 @@ impl ParleyInlineContext {
             InlineItem::InlineBlock { node, .. } => {
                 // The atomic inline is its own mini paragraph, laid
                 // out recursively through the full pipeline at CSS
-                // 2.1 §10.3.5 shrink-to-fit width against the host.
+                // 2.1 §10.3.5 shrink-to-fit width against the host. One
+                // in a writing mode not the host's is an orthogonal flow:
+                // its lines run across the host's, in the space the host
+                // has across them (CSS Writing Modes 3 §7.3).
+                let writing_mode = |id: FormattingNodeId| {
+                    let styles = tree.styles()?;
+                    let style = styles.inline.style(tree.strut_style(id)?).ok()?;
+                    Some(style.bidi.writing_mode)
+                };
+                let orthogonal = matches!(
+                    (writing_mode(host), writing_mode(*node)),
+                    (Some(host_mode), Some(own_mode))
+                        if (host_mode == rito_style_contract::WritingMode::HorizontalTopToBottom)
+                            != (own_mode == rito_style_contract::WritingMode::HorizontalTopToBottom)
+                );
                 let sizes = self.intrinsic_inline_sizes(tree, *node)?;
-                let available = space.inline_size().unwrap_or(sizes.max_content);
+                let available = if orthogonal {
+                    space.block_size()
+                } else {
+                    space.inline_size()
+                }
+                .unwrap_or(sizes.max_content);
                 let width = sizes.max_content.min(sizes.min_content.max(available));
                 let outcome = FormattingContext::layout(
                     self,
@@ -149,6 +168,20 @@ impl ParleyInlineContext {
                         _ => None,
                     })
                     .unwrap_or(root_box.rect.height);
+                if orthogonal {
+                    // Across the host's lines it advances by its block
+                    // size and stands as wide as its lines run; it has no
+                    // baseline in the host's direction, so it hangs from
+                    // one synthesized off its margin box
+                    // (`LogicalBoxFragment::BaselineMetrics`).
+                    let (above, _) = crate::layout::atom_baseline_extent(root_box.rect.width, true);
+                    return Ok(Some(SizedAtom {
+                        width: root_box.rect.height as f32,
+                        height: root_box.rect.width as f32,
+                        edge_insets: None,
+                        block: Some((node.0, above, root_box)),
+                    }));
+                }
                 Ok(Some(SizedAtom {
                     width: root_box.rect.width as f32,
                     height: root_box.rect.height as f32,
