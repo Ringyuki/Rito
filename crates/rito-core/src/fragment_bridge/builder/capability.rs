@@ -134,14 +134,29 @@ fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
         c::PreferredSize::Auto | c::PreferredSize::Value(_) => {}
         other => return Some(format!("block height {other:?}")),
     }
-    if style.min_width != c::MinimumSize::Auto {
-        return Some(format!("block min-width {:?}", style.min_width));
+    // A block's minimum and maximum block size bound it in the block
+    // context; its minimum inline size and the percentage block bounds
+    // (no definite basis in block flow) are not implemented.
+    let block_axis_is_height = matches!(
+        style.writing_mode,
+        rito_style_contract::WritingMode::HorizontalTopToBottom
+    );
+    let (min_inline, min_block, max_block) = if block_axis_is_height {
+        (style.min_width, style.min_height, style.max_height)
+    } else {
+        (style.min_height, style.min_width, style.max_width)
+    };
+    if min_inline != c::MinimumSize::Auto {
+        return Some(format!("block min inline size {min_inline:?}"));
     }
-    if style.min_height != c::MinimumSize::Auto {
-        return Some(format!("block min-height {:?}", style.min_height));
+    if let c::MinimumSize::Percentage(_) = min_block {
+        return Some(format!("block min block size {min_block:?} (no basis)"));
     }
-    if style.max_height != c::MaximumSize::None {
-        return Some(format!("block max-height {:?}", style.max_height));
+    match max_block {
+        c::MaximumSize::None => {}
+        c::MaximumSize::Value(value) if matches!(value.value(), c::LengthPercentage::Length(_)) => {
+        }
+        other => return Some(format!("block max block size {other:?}")),
     }
     // list-style-type inherits everywhere but only paints on
     // display: list-item boxes, which the display gate above rejects; the

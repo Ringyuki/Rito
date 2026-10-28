@@ -1011,6 +1011,15 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         };
                         let paragraph_height =
                             fixed_height.unwrap_or(content_height + trailing_padding);
+                        let paragraph_height = if whole_box_here {
+                            resolve_block_size_bounds(
+                                child_style,
+                                hbox.padding_top + hbox.padding_bottom,
+                            )
+                            .clamp(paragraph_height)
+                        } else {
+                            paragraph_height
+                        };
                         // A degraded flex container with `align-items:
                         // center` and a fixed height centers its (single
                         // flex line of) content on the cross axis: lines
@@ -1533,6 +1542,12 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         )? {
             y = fixed;
         }
+        // Its minimum and maximum block size bound it the same way.
+        y = resolve_block_size_bounds(
+            container_style,
+            container_padding_top + container_padding_bottom,
+        )
+        .clamp(y);
         // Split floats still running past this fragmentainer resume on the
         // next one even though every in-flow child is done.
         let continuation = if pending_float_breaks.is_empty() {

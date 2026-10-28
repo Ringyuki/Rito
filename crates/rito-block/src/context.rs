@@ -63,8 +63,10 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 // (b74's title pill: `height: 30px; padding-top: 1em` flows
                 // 54px tall around a 20.8px line).
                 let fixed_height = resolve_fixed_height(style, padding_top + padding_bottom)?;
+                let bounds = resolve_block_size_bounds(style, padding_top + padding_bottom);
                 if padding_left + padding_right + padding_top + padding_bottom == 0.0
                     && fixed_height.is_none()
+                    && bounds.is_unbounded()
                 {
                     // The flow's own block is its children's containing
                     // block; with an auto height it is indefinite, so a
@@ -138,10 +140,11 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 }
                 root.rect.width = space.inline_size;
                 root.rect.height += leading + trailing + opening_delta;
-                if let Some(fixed) = fixed_height {
-                    if outcome.continuation.is_none() {
+                if outcome.continuation.is_none() {
+                    if let Some(fixed) = fixed_height {
                         root.rect.height = fixed;
                     }
+                    root.rect.height = bounds.clamp(root.rect.height);
                 }
                 Ok(outcome)
             }

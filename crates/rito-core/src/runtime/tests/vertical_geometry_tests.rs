@@ -321,6 +321,31 @@ const CASES: &[Case] = &[
         columns: &[[332.0, 15.84, 96.84]],
         annotations: &[],
     },
+    // A minimum width is a minimum block size across vertical lines: an
+    // empty box keeps 40px of the page, a one-line paragraph 2em with its
+    // line on the line-over side, and a minimum wins over a smaller
+    // maximum (27px against 20px).
+    Case {
+        name: "vertical-min-max-block-size",
+        css: "div { background: #ccc; }",
+        latin_primary: false,
+        body: "<div style=\"min-width: 40px\"></div>\
+               <p style=\"margin: 0; min-width: 2em\">一</p>\
+               <div style=\"min-width: 1.5em; max-width: 20px\">二二</div>\
+               <p style=\"margin: 0\">三</p>",
+        blocks: &[
+            [332.0, 0.0, 40.0, 592.0],
+            [296.0, 0.0, 36.0, 592.0],
+            [269.0, 0.0, 27.0, 592.0],
+            [242.0, 0.0, 27.0, 592.0],
+        ],
+        columns: &[
+            [310.0, 15.84, 15.84],
+            [274.0, 15.84, 33.84],
+            [247.0, 15.84, 15.84],
+        ],
+        annotations: &[],
+    },
     // Upright kana shape top to bottom: the horizontal kerning the face
     // gives アッ or ルパ does not apply, every glyph a whole em on.
     Case {

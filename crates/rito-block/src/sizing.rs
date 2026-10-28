@@ -280,6 +280,60 @@ pub(crate) fn resolve_fixed_height(
     }))
 }
 
+/// A box's border-box block-size bounds: its minimum and maximum block
+/// size (`min-height`/`max-height` across horizontal lines, `min-width`/
+/// `max-width` across vertical ones). Percentages need a definite
+/// containing-block block size that block flow does not provide, so a
+/// percentage minimum is zero and a percentage maximum none (CSS 2
+/// §10.7).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BlockSizeBounds {
+    min: f64,
+    max: Option<f64>,
+}
+
+impl BlockSizeBounds {
+    /// The used block size of a box whose block size would otherwise be
+    /// `size`: capped by the maximum, then raised to the minimum, which
+    /// wins (`ComputeBlockSizeForFragment`).
+    pub(crate) fn clamp(self, size: f64) -> f64 {
+        self.max.map_or(size, |max| size.min(max)).max(self.min)
+    }
+
+    /// Whether the bounds leave every block size as it is.
+    pub(crate) fn is_unbounded(self) -> bool {
+        self.min == 0.0 && self.max.is_none()
+    }
+}
+
+pub(crate) fn resolve_block_size_bounds(
+    style: &LayoutFormattingStyle,
+    block_padding: f64,
+) -> BlockSizeBounds {
+    let border_box = |size: f64| match style.box_sizing {
+        BoxSizing::ContentBox => size.max(0.0) + block_padding,
+        BoxSizing::BorderBox => size.max(0.0),
+    };
+    let min = match style.min_block_size() {
+        MinimumSize::Length(px) => border_box(f64::from(px.get())),
+        MinimumSize::Auto | MinimumSize::Percentage(_) => 0.0,
+    };
+    let max = match style.max_block_size() {
+        MaximumSize::Value(value) => match value.value() {
+            LengthPercentage::Length(px) => Some(border_box(f64::from(px.get()))),
+            LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => None,
+        },
+        MaximumSize::None
+        | MaximumSize::MaxContent
+        | MaximumSize::MinContent
+        | MaximumSize::FitContent
+        | MaximumSize::WebkitFillAvailable
+        | MaximumSize::Stretch
+        | MaximumSize::FitContentFunction(_) => None,
+    };
+    BlockSizeBounds { min, max }
+}
+
 pub(crate) fn resolve_length_percentage(value: LengthPercentage, basis: f64) -> f64 {
     match value {
         LengthPercentage::Length(px) => f64::from(px.get()),

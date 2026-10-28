@@ -57,7 +57,7 @@ use rito_fragment::{
 };
 use rito_style_contract::{
     BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
-    MaximumSize, PageBreak, Position, PreferredSize, WritingDirection,
+    MaximumSize, MinimumSize, PageBreak, Position, PreferredSize, WritingDirection,
 };
 
 mod annotations;
