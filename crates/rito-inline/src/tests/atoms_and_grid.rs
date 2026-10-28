@@ -1277,3 +1277,88 @@ fn the_b20_double_ruby_paragraph_interior_pitch_matches_truth() {
         "the interior ruby line's char pitch must be 27 like the real chapter, got {pitch}"
     );
 }
+
+/// Down a vertical column an image sizes in physical terms: the page clamp
+/// holds its height to the column's length (measured on a 318x2048
+/// chapter plate: Chromium lays it 132x850 on an 850px column).
+#[test]
+fn a_vertical_line_clamps_an_image_to_the_columns_length() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let mut inline = InlineStyleTable::new(1);
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(
+            rito_style_contract::GenericFontFamily::Serif,
+        )])
+        .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.bidi.writing_mode = rito_style_contract::WritingMode::VerticalRightToLeft;
+    let style = inline.intern_for_node(0, style).expect("style interns");
+    let mut layout = LayoutStyleTable::new(1);
+    let image_layout = layout
+        .intern_for_node(0, jgap_image_layout_style())
+        .expect("layout style interns");
+    let mut tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: image_layout,
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "一".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Image {
+                        src: "plate.png".to_owned(),
+                        source: 0,
+                        intrinsic_width: 318.0,
+                        intrinsic_height: 2048.0,
+                        style,
+                        layout_style: image_layout,
+                        fit_contain: false,
+                        object_fit: rito_style_contract::ObjectFit::Fill,
+                        viewport: None,
+                        align_top: false,
+                        baseline_shift_px: 0.0,
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles { layout, inline },
+    )
+    .expect("inline tree builds");
+    tree.set_strut_styles([(0, style)].into());
+    let outcome = context
+        .layout(
+            &tree,
+            FormattingNodeId(0),
+            &ConstraintSpace::continuous(850.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("box");
+    };
+    // The plate takes a column of its own after the ideograph's.
+    let image = root
+        .children
+        .iter()
+        .filter_map(|line| match line {
+            Fragment::Line(line) => Some(line),
+            _ => None,
+        })
+        .flat_map(|line| line.children.iter())
+        .find_map(|child| match child {
+            Fragment::Image(image) => Some(image.rect),
+            _ => None,
+        })
+        .expect("a line holds the image");
+    // Along the column the image runs its physical height, 850; across
+    // it, its width scaled by the same 850/2048 onto the 1/64 grid.
+    assert_eq!((image.width, image.height), (850.0, 131.96875));
+}

@@ -46,23 +46,6 @@ impl ParleyInlineContext {
                     .layout
                     .style(*layout_style)
                     .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-                let (width, height) = image_display_size(
-                    *intrinsic_width,
-                    *intrinsic_height,
-                    layout_style,
-                    space.inline_size(),
-                    space.block_size(),
-                    space.containing_block_size(),
-                    percentage_images,
-                    *viewport,
-                )?;
-                // A vertical-rl flow's replaced atom advances by its
-                // PHYSICAL height along the (vertical) inline axis
-                // and takes a column as wide as its physical width
-                // (measured on a 318x2048 chapter plate: the column
-                // is 318 wide, the image runs the page's length and
-                // clips); the swapped box maps back to the physical
-                // raster in the vertical paint walk.
                 let vertical = tree
                     .strut_style(host)
                     .and_then(|id| styles.inline.style(id).ok())
@@ -70,6 +53,35 @@ impl ParleyInlineContext {
                         strut.bidi.writing_mode
                             == rito_style_contract::WritingMode::VerticalRightToLeft
                     });
+                // The image sizes in physical terms: down a column its
+                // width runs across the lines (the page's block size) and
+                // its height along them, so the page clamp holds it to
+                // the column's length (measured on a 318x2048 chapter
+                // plate: Chromium lays it 132x850 on an 850px column).
+                let (width_basis, height_clamp, height_basis) = if vertical {
+                    (space.block_size(), space.inline_size(), space.inline_size())
+                } else {
+                    (
+                        space.inline_size(),
+                        space.block_size(),
+                        space.containing_block_size(),
+                    )
+                };
+                let (width, height) = image_display_size(
+                    *intrinsic_width,
+                    *intrinsic_height,
+                    layout_style,
+                    width_basis,
+                    height_clamp,
+                    height_basis,
+                    percentage_images,
+                    *viewport,
+                )?;
+                // A vertical-rl flow's replaced atom advances by its
+                // physical height along the (vertical) inline axis and
+                // takes a column as wide as its physical width; the
+                // swapped box maps back to the physical raster in the
+                // vertical paint walk.
                 let (width, height) = if vertical {
                     (height, width)
                 } else {
