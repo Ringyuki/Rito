@@ -564,6 +564,7 @@ const truthContext = await truthBrowser.newContext({
   ...(process.env.RITO_TRUTH_LOCALE ? { locale: process.env.RITO_TRUTH_LOCALE } : {}),
 });
 const truth = await truthContext.newPage();
+const truthCdp = await truthContext.newCDPSession(truth);
 for (const chapter of plan.chapters) {
   const href = manifestHref.get(chapter.href) ?? chapter.href;
   const file = path.join(opfDir, href);
@@ -939,21 +940,31 @@ img { object-fit: contain; }`;
       for (let k = 0; k <= expected + 1; k += 1) {
         const y0 = k * stride;
         if (y0 >= docHeight) break;
+        // A screenshot clip counts from the document's scroll origin, which
+        // content overflowing leftward (a vertical-rl line wider than its
+        // column) moves left of the viewport: the clip takes the column's
+        // client position less that origin.
         const left = await truth.evaluate(
           ({ y, fragmenter }) => {
             const element = fragmenter === 'html' ? document.documentElement : document.body;
             element.style.marginTop = `-${y}px`;
-            return element.getBoundingClientRect().left;
+            const scroller = document.scrollingElement;
+            const origin =
+              getComputedStyle(document.documentElement).writingMode === 'vertical-rl'
+                ? Math.min(0, scroller.clientWidth - scroller.scrollWidth)
+                : 0;
+            return element.getBoundingClientRect().left - origin;
           },
           { y: y0, fragmenter: vertical.fragmenter },
         );
-        columns.push(
-          PNG.sync.read(
-            await truth.screenshot({
-              clip: { x: left, y: 0, width: contentW, height: contentH },
-            }),
-          ),
-        );
+        // Through the protocol itself: Playwright's clip clamps to a
+        // viewport it measures from the client origin and cuts the column
+        // short.
+        const { data } = await truthCdp.send('Page.captureScreenshot', {
+          format: 'png',
+          clip: { x: left, y: 0, width: contentW, height: contentH, scale: 1 },
+        });
+        columns.push(PNG.sync.read(Buffer.from(data, 'base64')));
       }
       truthColumns.set(chapter.href, columns);
       continue;
