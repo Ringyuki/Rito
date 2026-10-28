@@ -1782,8 +1782,10 @@ impl FormattingContext for ParleyInlineContext {
                             // when taller than it (handled after the max).
                             top_aligned_heights.push(image.rect.height);
                         } else {
-                            above = above.max(image.rect.height + shift);
-                            below = below.max(-shift);
+                            let (image_above, image_below) =
+                                atom_baseline_extent(image.rect.height, vertical_flow);
+                            above = above.max(image_above + shift);
+                            below = below.max(image_below - shift);
                         }
                         let item =
                             tree_items
@@ -2260,7 +2262,9 @@ impl FormattingContext for ParleyInlineContext {
                                 // independent).
                                 -shift
                             } else {
-                                baseline - shift - image.rect.height
+                                baseline
+                                    - shift
+                                    - atom_baseline_extent(image.rect.height, vertical_flow).0
                             };
                         }
                         // An inline-block atom hangs its own baseline —
@@ -2448,5 +2452,19 @@ impl ParleyInlineContext {
             min_content,
             max_content: ceil64(max_text + indent).max(min_content),
         })
+    }
+}
+
+/// How far a replaced atom of block size `height` stands above and hangs
+/// below the baseline it sits on: it has no baseline of its own, so one is
+/// synthesized from its box — its under edge for the alphabetic baseline
+/// of a horizontal line, its middle for the central baseline of a vertical
+/// one (the larger half above, on the 1/64 grid).
+fn atom_baseline_extent(height: f64, vertical: bool) -> (f64, f64) {
+    if vertical {
+        let below = (height * 32.0).floor() / 64.0;
+        (height - below, below)
+    } else {
+        (height, 0.0)
     }
 }

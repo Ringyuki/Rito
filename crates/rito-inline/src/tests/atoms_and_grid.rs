@@ -1345,20 +1345,25 @@ fn a_vertical_line_clamps_an_image_to_the_columns_length() {
         panic!("box");
     };
     // The plate takes a column of its own after the ideograph's.
-    let image = root
+    let (line, image) = root
         .children
         .iter()
         .filter_map(|line| match line {
             Fragment::Line(line) => Some(line),
             _ => None,
         })
-        .flat_map(|line| line.children.iter())
-        .find_map(|child| match child {
-            Fragment::Image(image) => Some(image.rect),
-            _ => None,
+        .find_map(|line| {
+            line.children.iter().find_map(|child| match child {
+                Fragment::Image(image) => Some((line, image.rect)),
+                _ => None,
+            })
         })
         .expect("a line holds the image");
     // Along the column the image runs its physical height, 850; across
     // it, its width scaled by the same 850/2048 onto the 1/64 grid.
     assert_eq!((image.width, image.height), (850.0, 131.96875));
+    // It sits on the line's central baseline by its middle, so the column
+    // is exactly as wide as the plate (Chromium: a paragraph holding the
+    // unscaled 318px plate is 318px wide).
+    assert_eq!((line.rect.height, image.y), (131.96875, 0.0));
 }

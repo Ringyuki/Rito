@@ -230,20 +230,21 @@ pub(super) fn append_vertical_line_commands(
     for child in &line.children {
         // A replaced atom in a vertical line: the layout box is the
         // swapped one (advance = physical height), so the device rect
-        // swaps back — column position from the line, the atom's inline
-        // offset down the page, physical width x height — and the
-        // raster paints unrotated, clipping at the page edge like the
-        // reference.
+        // swaps back — the atom's inline offset down the page, physical
+        // width x height — and the raster paints unrotated, clipping at
+        // the page edge like the reference.
         if let Fragment::Image(image) = child {
             let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize) else {
                 continue;
             };
             let item_source =
                 item_sources.and_then(|sources| sources.get(image.item_index as usize));
+            // Its block offset measures in from the line-over (right)
+            // edge, like every block offset in the line.
             commands.push(DisplayCommand::paint_image(
                 src.clone(),
                 display_rect(
-                    column_x,
+                    column_x + line.rect.height - image.rect.y - image.rect.height,
                     column_top + image.rect.x,
                     image.rect.height,
                     image.rect.width,
