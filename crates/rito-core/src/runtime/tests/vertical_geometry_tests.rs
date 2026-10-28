@@ -309,6 +309,18 @@ const CASES: &[Case] = &[
         ],
         annotations: &[[338.5]],
     },
+    // An opener after a stop or a closer gives up its blank top half, its
+    // vertical half width: 『 takes 36 to 45, and 三 starts at 81 where
+    // two full ems would put it at 90.
+    Case {
+        name: "vertical-punctuation-pairs",
+        css: "",
+        latin_primary: false,
+        body: "<p>一。『二』三</p>",
+        blocks: &[[327.0, 0.0, 27.0, 592.0]],
+        columns: &[[332.0, 15.84, 96.84]],
+        annotations: &[],
+    },
     // Upright kana shape top to bottom: the horizontal kerning the face
     // gives アッ or ルパ does not apply, every glyph a whole em on.
     Case {

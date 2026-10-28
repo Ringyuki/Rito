@@ -612,15 +612,26 @@ impl ParleyInlineContext {
                 SpacingPush::LetterSpacing(range, spacing) => {
                     builder.push(StyleProperty::LetterSpacing(spacing), range);
                 }
-                SpacingPush::Halt(range) => builder.push(
-                    StyleProperty::FontFeatures(parley::FontFeatures::List(
-                        std::borrow::Cow::Owned(vec![parley::FontFeature::new(
-                            parley::setting::Tag::new(b"halt"),
-                            1,
-                        )]),
-                    )),
-                    range,
-                ),
+                SpacingPush::Halt(range) => {
+                    // An opener shaped top to bottom takes its vertical
+                    // half width.
+                    let vertical = runs
+                        .iter()
+                        .find(|(run, ..)| run.contains(&range.start))
+                        .zip(text.get(range.start..).and_then(|rest| rest.chars().next()))
+                        .is_some_and(|((_, style, _), character)| {
+                            shapes_top_to_bottom(style, character)
+                        });
+                    builder.push(
+                        StyleProperty::FontFeatures(parley::FontFeatures::List(
+                            std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                                parley::setting::Tag::new(halt_tag(vertical)),
+                                1,
+                            )]),
+                        )),
+                        range,
+                    )
+                }
             }
         }
         for inline_box in inline_boxes {

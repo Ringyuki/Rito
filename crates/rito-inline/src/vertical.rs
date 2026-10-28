@@ -79,6 +79,14 @@ pub(crate) fn combines_upright(style: &InlineFormattingStyle) -> bool {
         && style.bidi.writing_mode != WritingMode::HorizontalTopToBottom
 }
 
+/// Whether `character` in `style` shapes top to bottom: upright in a
+/// vertical line and not part of a combined upright unit.
+pub(crate) fn shapes_top_to_bottom(style: &InlineFormattingStyle, character: char) -> bool {
+    style.bidi.writing_mode != WritingMode::HorizontalTopToBottom
+        && !combines_upright(style)
+        && stands_upright(style.bidi.text_orientation, character)
+}
+
 /// The advance a combined upright unit takes down the line: an em on the
 /// 1/64 grid, rounded (`ComputedStyle::ComputedFontSizeAsFixed`).
 pub(crate) fn combined_advance(style: &InlineFormattingStyle) -> f32 {

@@ -273,7 +273,8 @@ pub(crate) fn line_end_trim_candidate(
 /// rewind it is rejected into, at any width: both need an eligible closer
 /// (see [`line_end_trim_eligible`]) shaped in a face with `halt`, and
 /// shaping puts a character in the same face at every width. It reads the
-/// runs, so it answers before the paragraph is broken into lines.
+/// runs, so it answers before the paragraph is broken into lines; either
+/// direction's feature makes a trim possible.
 pub(crate) fn line_end_trims_possible(
     catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
@@ -284,7 +285,7 @@ pub(crate) fn line_end_trims_possible(
         .any(|(byte, _)| {
             layout
                 .font_at(byte)
-                .is_some_and(|font| catalog.has_halt(font))
+                .is_some_and(|font| catalog.has_halt(font, false) || catalog.has_halt(font, true))
         })
 }
 

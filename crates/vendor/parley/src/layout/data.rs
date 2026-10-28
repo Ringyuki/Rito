@@ -157,6 +157,9 @@ pub(crate) struct RunData {
     /// Rito: the run's entries in [`LayoutData::style_breaks`], set once
     /// the layout is built.
     pub(crate) style_breaks: Range<usize>,
+    /// Rito: whether the run was shaped top to bottom (upright in a
+    /// vertical line).
+    pub(crate) vertical_upright: bool,
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
@@ -502,6 +505,7 @@ impl<B: Brush> LayoutData<B> {
             letter_spacing,
             advance: 0.,
             style_breaks: 0..0,
+            vertical_upright,
         };
 
         // `HarfRust` returns glyphs in visual order, so we need to process them as such while

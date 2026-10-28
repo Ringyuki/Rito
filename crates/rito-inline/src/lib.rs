@@ -96,8 +96,8 @@ pub(crate) use spacing_plan::{PlannedRun, RubyCarrier, SpacingPlan, SpacingPush}
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
 pub(crate) use vertical::{
-    combined_advance, combines_upright, upright_ranges, CombinedKey, CombinedSetting, UprightGlyph,
-    UprightKey,
+    combined_advance, combines_upright, shapes_top_to_bottom, upright_ranges, CombinedKey,
+    CombinedSetting, UprightGlyph, UprightKey,
 };
 pub(crate) use width_bounds::WidthBounds;
 
@@ -123,7 +123,7 @@ pub struct ParleyInlineContext {
     pub(crate) run_samples: RefCell<rustc_hash::FxHashMap<(u32, u64, u64, u32), char>>,
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
-    pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32), bool>>,
+    pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32, bool), bool>>,
     /// Where an upright glyph lies from its font's alphabetic baseline,
     /// per (face, character, size bits): read from font tables once.
     pub(crate) upright_glyphs: RefCell<rustc_hash::FxHashMap<UprightKey, Option<UprightGlyph>>>,
