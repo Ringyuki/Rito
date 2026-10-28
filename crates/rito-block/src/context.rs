@@ -117,12 +117,8 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 // context: its first line's annotations reach into its top
                 // padding and no further.
                 let border_top = f64::from(style.flow_border_widths().block_start.get());
-                let opening = LineOpening::for_flow(
-                    tree,
-                    node,
-                    token.is_some(),
-                    (padding_top - border_top).max(0.0),
-                )?;
+                let opening =
+                    LineOpening::for_flow(token.is_some(), (padding_top - border_top).max(0.0));
                 let mut opening_delta = 0.0;
                 let mut opened = false;
                 for child in &mut root.children {

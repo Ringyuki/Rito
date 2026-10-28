@@ -285,10 +285,19 @@ impl ParleyInlineContext {
         let run = self.shaped_run(style, Some(annotation_size), false, text);
         let base = self.em_height(style, None, base_text);
         let annotation = self.em_height(style, Some(annotation_size), text);
+        let orientations = (LineBaseline::of(style) == LineBaseline::Central)
+            .then(|| {
+                let mut sized = style.clone();
+                sized.font.size =
+                    rito_style_contract::NonNegativeCssPx::new(annotation_size).ok()?;
+                Some(self.cluster_orientations(&sized, &run.clusters, text))
+            })
+            .flatten();
         MeasuredRuby {
             run,
             over_offset: base.ascent + annotation.descent,
             em_ascent: annotation.primary_typo_ascent,
+            orientations,
         }
     }
 
@@ -300,7 +309,9 @@ impl ParleyInlineContext {
     /// united, ceiled to whole pixels, and capped by the primary font's
     /// platform ascent and descent — the hhea metrics (typo when the
     /// face asks for them) rounded to whole pixels the way Skia reports
-    /// them to Blink.
+    /// them to Blink. A vertical line measures around its central
+    /// baseline instead: the em halved, capped by half the primary font's
+    /// height.
     fn em_height(
         &self,
         style: &InlineFormattingStyle,
@@ -308,6 +319,7 @@ impl ParleyInlineContext {
         text: &str,
     ) -> EmHeight {
         let size = f64::from(size_override.unwrap_or(style.font.size.get()));
+        let baseline = LineBaseline::of(style);
         let mut united = (0.0_f64, 0.0_f64);
         if !text.is_empty() {
             let mut sized;
@@ -344,24 +356,30 @@ impl ParleyInlineContext {
                     else {
                         continue;
                     };
-                    let (ascent, descent) = normalized_typo_height(&font_ref, size);
+                    let (ascent, descent) = baseline.em_box(&font_ref, size);
                     united.0 = united.0.max(ascent);
                     united.1 = united.1.max(descent);
                 }
             }
         }
-        let (primary_ascent, primary_descent, primary_typo_ascent) = self
+        let (primary_ascent, primary_descent, primary_typo_ascent, shift) = self
             .primary_font(style)
             .and_then(|(blob, index)| {
                 let font_ref = skrifa::FontRef::from_index(blob.as_ref(), index).ok()?;
                 let (ascent, descent, _) = rounded_metrics(&font_ref, size);
+                let (cap_ascent, cap_descent) = baseline.em_cap(ascent, descent);
                 let (typo_ascent, _) = normalized_typo_height(&font_ref, size);
-                Some((ascent, descent, typo_ascent))
+                Some((
+                    cap_ascent,
+                    cap_descent,
+                    typo_ascent,
+                    baseline.em_shift(ascent, descent),
+                ))
             })
-            .unwrap_or((f64::INFINITY, f64::INFINITY, 0.0));
+            .unwrap_or((f64::INFINITY, f64::INFINITY, 0.0, 0.0));
         EmHeight {
-            ascent: united.0.ceil().min(primary_ascent),
-            descent: united.1.ceil().min(primary_descent),
+            ascent: united.0.ceil().min(primary_ascent) + shift,
+            descent: united.1.ceil().min(primary_descent) - shift,
             primary_typo_ascent,
         }
     }
@@ -461,6 +479,9 @@ pub struct MeasuredRuby {
     /// size: its primary font's OS/2 typo ascent normalized to the em
     /// (what a browser canvas's `textBaseline: 'top'` resolves to).
     pub em_ascent: f64,
+    /// How each annotation cluster stands when the line is vertical, from
+    /// the annotation's own baseline `over_offset` past the base's.
+    pub orientations: Option<std::rc::Rc<[rito_fragment::ClusterOrientation]>>,
 }
 
 /// A run's em height on Chromium's terms (see

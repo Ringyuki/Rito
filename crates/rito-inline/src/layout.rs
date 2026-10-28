@@ -1996,38 +1996,7 @@ impl FormattingContext for ParleyInlineContext {
             // ratios x 3 annotation lengths: growth = rt size minus the
             // half-leading, floored at zero, independent of annotation
             // length, the whole growth landing on the line's right).
-            let (ruby_growth, ruby_overflow, ruby_lent) = if vertical_flow {
-                let mut growth = 0.0_f64;
-                for (index, range) in item_text_ranges.iter().enumerate() {
-                    let on_line = line_text_range
-                        .is_some_and(|(start, end)| range.start < end && start < range.end);
-                    if !on_line || range.is_empty() {
-                        continue;
-                    }
-                    let Some(InlineItem::Text {
-                        ruby_annotation: Some(annotation),
-                        style,
-                        ..
-                    }) = tree_items.get(index)
-                    else {
-                        continue;
-                    };
-                    let Some(resolved) =
-                        style_tables.and_then(|tables| tables.inline.style(*style).ok())
-                    else {
-                        continue;
-                    };
-                    let fs = f64::from(resolved.font.size.get());
-                    let annotation_size = fs * f64::from(annotation.size_ratio);
-                    // The annotation column asks for its font size plus a
-                    // half pixel under the pinned CJK serif (matrix:
-                    // rt 6/8/10/14 across four line-heights and three
-                    // base sizes all measure need = rt + 0.5).
-                    growth =
-                        growth.max((annotation_size + 0.5 - (line_height - fs) / 2.0).max(0.0));
-                }
-                (growth, growth, 0.0)
-            } else {
+            let (ruby_growth, ruby_overflow, ruby_lent) = {
                 let mut growth = 0.0_f64;
                 // The deficit with nothing above to reach into.
                 let mut overflow = 0.0_f64;
@@ -2174,7 +2143,15 @@ impl FormattingContext for ParleyInlineContext {
                 // overflow; the block context spends the space above it
                 // (padding, collapsed margins, the preceding block's
                 // leading), as Blink's block-start annotation space does.
-                let overflow = overflow.ceil();
+                // A vertical line's em boxes sit around its central
+                // baseline, on the half pixel an odd font height leaves,
+                // and its push keeps that half (a 17px-high primary font's
+                // 2.5px push, measured).
+                let overflow = if vertical_flow {
+                    overflow
+                } else {
+                    overflow.ceil()
+                };
                 if lines.is_empty() {
                     // The first line is laid out at its whole overflow
                     // whatever precedes the flow, so every fragment of the
@@ -2242,8 +2219,11 @@ impl FormattingContext for ParleyInlineContext {
                             text.rect.y = adjust;
                             text.rect.height = base_height;
                             if let Some(style) = vertical_style(text.text_start) {
-                                text.orientations =
-                                    Some(self.cluster_orientations(style, text, &flow_text));
+                                text.orientations = Some(self.cluster_orientations(
+                                    style,
+                                    &text.clusters,
+                                    &flow_text,
+                                ));
                             }
                         }
                         // An atomic inline sits on the line's baseline:

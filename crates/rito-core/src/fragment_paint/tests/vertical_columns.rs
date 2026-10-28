@@ -168,6 +168,17 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
             },
             over_offset: 16.0,
             em_ascent: 6.09375,
+            orientations: Some(
+                vec![
+                    rito_fragment::ClusterOrientation::Upright {
+                        center: -0.5,
+                        half_advance: 4.0,
+                        vertical_origin: 7.04,
+                    };
+                    3
+                ]
+                .into(),
+            ),
         },
     );
     let mut commands = Vec::new();
@@ -319,18 +330,21 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
         .expect("the rubied base paints its annotation");
     // Three 8px kana down the 32px base span: 8px free, one share
     // (8/3) per glyph, half a share at each edge, every glyph's
-    // baseline its em-box ascent below its top.
+    // vertical origin below its place.
     let ys: Vec<f64> = annotation
         .clusters
         .iter()
         .map(|cluster| cluster.y)
         .collect();
     for (y, expected) in ys.iter().zip([
-        148.0 + 4.0 / 3.0 + 6.09375,
-        160.0 + 6.09375,
-        172.0 - 4.0 / 3.0 + 6.09375,
+        148.0 + 4.0 / 3.0 + 7.04,
+        160.0 + 7.04,
+        172.0 - 4.0 / 3.0 + 7.04,
     ]) {
         assert!((y - expected).abs() < 1e-9, "{ys:?}");
     }
-    assert!(annotation.clusters.iter().all(|cluster| cluster.x == 212.0));
+    // The annotation's baseline stands 16px past the base's (207, 13px in
+    // from the line-over edge 220), at 223: its glyphs centre half a pixel
+    // further and hang half their advance back, at 219.5.
+    assert!(annotation.clusters.iter().all(|cluster| cluster.x == 219.5));
 }

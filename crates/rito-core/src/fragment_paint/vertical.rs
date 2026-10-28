@@ -362,10 +362,9 @@ pub(super) fn append_vertical_line_commands(
                 .and_then(|sources| sources.get(*item_index))
                 .and_then(|source| source.href.clone()),
         )?;
-        // The annotation rides the column's LEFT-out side? No: probed on
-        // a vertical-rl ruby line, the annotation column sits between
-        // the base and the NEXT line — its right edge on the line box's
-        // right edge (rt 803.5..812.5 in a 782..812 line box, size 8).
+        // The annotation stands on the base's line-over side, wherever
+        // the line's own edge is (a first line's annotation reaches into
+        // the space before the line without growing it).
         if let Some(annotation) = ruby_annotation {
             let item_range = {
                 let (range, _) = &text_ranges[text_ranges
@@ -396,24 +395,19 @@ pub(super) fn append_vertical_line_commands(
                 );
                 if !allocated.is_empty() {
                     let annotation_size = font_size * f64::from(annotation.size_ratio);
-                    // Down a column every annotation glyph paints at its
-                    // alphabetic baseline one em-box ascent below its
-                    // glyph top (the annotation's own typo ascent, what
-                    // the browser's canvas resolves a top anchor to).
-                    let em_ascent = ruby_annotation_runs
+                    let measured_ruby = ruby_annotation_runs
                         .and_then(|runs| runs.get(&(line.source.0, *item_index)))
                         .ok_or_else(|| {
                             EpubError::new(
                                 "vertical ruby annotation painted before its string was measured",
                             )
-                        })?
-                        .em_ascent;
-                    let measured_ruby = ruby_annotation_runs
-                        .and_then(|runs| runs.get(&(line.source.0, *item_index)));
+                        })?;
                     // A column annotation paints in the face its first
                     // cluster shaped with.
                     let annotation_face = measured_ruby
-                        .and_then(|measured| measured.run.clusters.first())
+                        .run
+                        .clusters
+                        .first()
                         .map(|cluster| cluster.face)
                         .unwrap_or_default();
                     let base_paint = paint_for(
@@ -425,7 +419,29 @@ pub(super) fn append_vertical_line_commands(
                     let ruby_paint = base_paint
                         .for_ruby(annotation_size)
                         .with_family(face_family(style, faces, annotation_face)?);
-                    let annotation_x = column_x + line.rect.height - annotation_size;
+                    // The annotation's baseline stands `over_offset` past
+                    // the base's on the line-over side (the base's em box
+                    // and the annotation's under it), and its glyphs hang
+                    // from it as a column run's do.
+                    let annotation_baseline_x = baseline_x + measured_ruby.over_offset;
+                    let (glyph_x, vertical_origin) = match measured_ruby
+                        .orientations
+                        .as_deref()
+                        .and_then(|orientations| orientations.first())
+                    {
+                        Some(ClusterOrientation::Upright {
+                            center,
+                            half_advance,
+                            vertical_origin,
+                        }) => (
+                            annotation_baseline_x - center - half_advance,
+                            *vertical_origin,
+                        ),
+                        _ => (
+                            annotation_baseline_x - annotation_size / 2.0,
+                            measured_ruby.em_ascent,
+                        ),
+                    };
                     let span_top = column_top + run.rect.x - run.ruby_overhang_px;
                     let span = run.rect.width + run.ruby_overhang_px + run.ruby_overhang_right_px;
                     // The column annotation spreads down its base span
@@ -441,17 +457,17 @@ pub(super) fn append_vertical_line_commands(
                         .map(|(index, (byte, _))| {
                             TextCluster::at(
                                 byte as u32,
-                                annotation_x,
+                                glyph_x,
                                 span_top
                                     + share / 2.0
                                     + index as f64 * (annotation_size + share)
-                                    + em_ascent,
+                                    + vertical_origin,
                             )
                         })
                         .collect();
                     commands.push(DisplayCommand::PaintRuby(DisplayTextCommand {
                         text: allocated.into(),
-                        rect: display_rect(annotation_x, span_top, annotation_size, span),
+                        rect: display_rect(glyph_x, span_top, annotation_size, span),
                         paint: ruby_paint,
                         line_height_px: None,
                         href: None,

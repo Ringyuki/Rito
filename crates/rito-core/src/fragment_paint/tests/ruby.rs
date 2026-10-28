@@ -49,6 +49,7 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
             },
             over_offset: 16.0,
             em_ascent: 7.046875,
+            orientations: None,
         },
     );
     let mut commands = Vec::new();
@@ -154,6 +155,7 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
             },
             over_offset: 16.0,
             em_ascent: 7.046875,
+            orientations: None,
         },
     );
     let mut commands = Vec::new();
@@ -233,6 +235,7 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
             },
             over_offset: 16.0,
             em_ascent: 7.046875,
+            orientations: None,
         },
     );
     let mut commands = Vec::new();

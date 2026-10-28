@@ -814,8 +814,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     } else {
                         padding_space
                     };
-                    let opening =
-                        LineOpening::for_flow(tree, *child_id, resumed_fragment, opening_space)?;
+                    let opening = LineOpening::for_flow(resumed_fragment, opening_space);
                     // A fresh page narrowed by the box's own leading
                     // padding is NOT force-fit territory: the padding
                     // edge is a break opportunity, so the break lands

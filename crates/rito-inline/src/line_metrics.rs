@@ -86,6 +86,43 @@ impl LineBaseline {
             }
         }
     }
+
+    /// The em box around this baseline at `size`: a font's typo ascent and
+    /// descent normalized to the em for the alphabetic baseline, the em
+    /// (on the 1/64 grid) halved around the central one
+    /// (`SimpleFontData::NormalizedTypoAscentAndDescent`).
+    pub(crate) fn em_box(self, font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
+        match self {
+            Self::Alphabetic => normalized_typo_height(font_ref, size),
+            Self::Central => {
+                let em = layout_unit(size);
+                let below = (em * 32.0).floor() / 64.0;
+                (em - below, below)
+            }
+        }
+    }
+
+    /// How far towards the line-over side an em box measured around this
+    /// baseline moves: Blink's `ComputeEmHeight` places it from the text
+    /// box by the primary font's unrounded ascent, so around the central
+    /// baseline it rides the half pixel an odd whole-pixel height leaves
+    /// between the box's whole-pixel ascent and half its height.
+    pub(crate) fn em_shift(self, ascent: f64, descent: f64) -> f64 {
+        match self {
+            Self::Alphabetic => 0.0,
+            Self::Central => self.split(ascent, descent).0 - (ascent + descent) / 2.0,
+        }
+    }
+
+    /// The cap the primary font puts on an em height: its whole-pixel
+    /// ascent and descent, or half its whole-pixel height each side of
+    /// the central baseline (`GetFloatFontHeight`).
+    pub(crate) fn em_cap(self, ascent: f64, descent: f64) -> (f64, f64) {
+        match self {
+            Self::Alphabetic => (ascent, descent),
+            Self::Central => ((ascent + descent) / 2.0, (ascent + descent) / 2.0),
+        }
+    }
 }
 
 /// Quantizes a size ratio for a probe key.
@@ -167,9 +204,9 @@ impl Face {
         (ascent + top, descent + gap - top)
     }
 
-    fn normalized_em(&self, size: f64) -> (f64, f64) {
+    fn normalized_em(&self, size: f64, baseline: LineBaseline) -> (f64, f64) {
         self.font_ref()
-            .map_or((0.0, 0.0), |font| normalized_typo_height(&font, size))
+            .map_or((0.0, 0.0), |font| baseline.em_box(&font, size))
     }
 }
 
@@ -273,11 +310,12 @@ impl ParleyInlineContext {
             (true, false) => "an",
         };
         let annotation_faces = self.used_faces(style, annotation_size, false, annotation_text);
-        let base_em_ascent = em_height(&with_primary(&base_faces, None), primary, size).0;
+        let base_em_ascent = em_height(&with_primary(&base_faces, None), primary, size, baseline).0;
         let (em_ascent, em_descent) = em_height(
             &annotation_faces.iter().collect::<Vec<_>>(),
             primary,
             annotation_size,
+            baseline,
         );
         let annotation_top = base_em_ascent + em_ascent + em_descent;
         let (above, below) = envelope(&with_primary(&line_faces, Some(primary)), size, baseline);
@@ -296,10 +334,14 @@ impl ParleyInlineContext {
         );
         let previous_line = previous_above + previous_below;
         let primary_descent = primary.text_box(size, baseline).1;
+        let primary_shift = {
+            let (ascent, descent, _) = primary.rounded(size);
+            baseline.em_shift(ascent, descent)
+        };
         let reusable = previous_faces
             .iter()
             .map(|face| {
-                (primary_descent - face.normalized_em(size).1)
+                (primary_descent - face.normalized_em(size, baseline).1 + primary_shift)
                     .max(0.0)
                     .floor()
             })
@@ -428,18 +470,19 @@ fn envelope(faces: &[&Face], size: f64, baseline: LineBaseline) -> (f64, f64) {
         })
 }
 
-/// Blink's `ComputeEmHeight`: the faces' normalized em ascents and
-/// descents united, ceiled to whole pixels, capped by the primary font's
-/// whole-pixel ascent and descent.
-fn em_height(faces: &[&Face], primary: &Face, size: f64) -> (f64, f64) {
+/// Blink's `ComputeEmHeight`: the faces' em boxes around `baseline`
+/// united, ceiled to whole pixels, capped by the primary font.
+fn em_height(faces: &[&Face], primary: &Face, size: f64, baseline: LineBaseline) -> (f64, f64) {
     let (ascent, descent) = faces.iter().fold((0.0_f64, 0.0_f64), |(a, d), face| {
-        let (ascent, descent) = face.normalized_em(size);
+        let (ascent, descent) = face.normalized_em(size, baseline);
         (a.max(ascent), d.max(descent))
     });
     let (primary_ascent, primary_descent, _) = primary.rounded(size);
+    let (cap_ascent, cap_descent) = baseline.em_cap(primary_ascent, primary_descent);
+    let shift = baseline.em_shift(primary_ascent, primary_descent);
     (
-        ascent.ceil().min(primary_ascent),
-        descent.ceil().min(primary_descent),
+        ascent.ceil().min(cap_ascent) + shift,
+        descent.ceil().min(cap_descent) - shift,
     )
 }
 

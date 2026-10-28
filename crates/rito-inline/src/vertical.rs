@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use icu_properties::props::VerticalOrientation;
 use icu_properties::CodePointMapData;
-use rito_fragment::{ClusterOrientation, TextFragment};
+use rito_fragment::{ClusterOrientation, ClusterPosition};
 use rito_style_contract::{InlineFormattingStyle, TextOrientation};
 use skrifa::instance::{LocationRef, Size};
 use skrifa::raw::TableProvider as _;
@@ -44,12 +44,12 @@ pub(crate) struct UprightGlyph {
 }
 
 impl ParleyInlineContext {
-    /// How each of `fragment`'s clusters stands in a vertical line laid
-    /// out in `style`, `text` being the flow's text.
+    /// How each of `clusters` stands in a vertical line laid out in
+    /// `style`, `text` being the text their bytes index.
     pub(crate) fn cluster_orientations(
         &self,
         style: &InlineFormattingStyle,
-        fragment: &TextFragment,
+        clusters: &[ClusterPosition],
         text: &str,
     ) -> Rc<[ClusterOrientation]> {
         let size = f64::from(style.font.size.get());
@@ -59,8 +59,7 @@ impl ParleyInlineContext {
             .primary_face(style)
             .map_or((0.0, 0.0), |face| face.whole_pixel_extent(size));
         let baseline = ascent - LineBaseline::Central.split(ascent, descent).0;
-        fragment
-            .clusters
+        clusters
             .iter()
             .map(|cluster| {
                 let character = text

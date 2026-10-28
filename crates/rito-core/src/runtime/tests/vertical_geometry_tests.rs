@@ -20,11 +20,13 @@ use crate::runtime::{RuntimeDocument, RuntimePinnedFontGenericRole};
 const ORIGIN: f64 = 24.0;
 
 /// What the first page paints, in the content box's coordinates: each
-/// decorated box's border box, and each column of text's glyph origin
-/// across and its first and last glyph origins down.
+/// decorated box's border box, each column of text's glyph origin across
+/// and its first and last glyph origins down, and each ruby annotation's
+/// glyph origin across.
 struct Painted {
     blocks: Vec<[f64; 4]>,
     columns: Vec<[f64; 3]>,
+    annotations: Vec<[f64; 1]>,
 }
 
 /// The pinned faces: the serif alone, or — with `latin_primary` — Tinos
@@ -69,6 +71,7 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
     let mut painted = Painted {
         blocks: Vec::new(),
         columns: Vec::new(),
+        annotations: Vec::new(),
     };
     for command in commands.iter() {
         match command {
@@ -82,6 +85,11 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
                     painted
                         .columns
                         .push([first.x - ORIGIN, first.y - ORIGIN, last.y - ORIGIN]);
+                }
+            }
+            DisplayCommand::PaintRuby(ruby) => {
+                if let Some(first) = ruby.clusters.first() {
+                    painted.annotations.push([first.x - ORIGIN]);
                 }
             }
             _ => {}
@@ -106,6 +114,7 @@ struct Case {
     latin_primary: bool,
     blocks: &'static [[f64; 4]],
     columns: &'static [[f64; 3]],
+    annotations: &'static [[f64; 1]],
 }
 
 const CASES: &[Case] = &[
@@ -126,6 +135,7 @@ const CASES: &[Case] = &[
             [287.0, 15.84, 51.84],
             [242.0, 15.84, 15.84],
         ],
+        annotations: &[],
     },
     // Physical margins, padding and borders keep their sides: the right
     // margin is block-start and collapses with the paragraph before, the
@@ -148,6 +158,7 @@ const CASES: &[Case] = &[
             [265.0, 32.84, 68.84],
             [161.0, 15.84, 15.84],
         ],
+        annotations: &[],
     },
     // A heading's 0.67em margins on the 1/64 grid.
     Case {
@@ -162,6 +173,7 @@ const CASES: &[Case] = &[
         // The heading's 51px font height leaves one pixel of leading above
         // its text box: its glyphs centre 26.5px in from the line's edge.
         columns: &[[303.390625, 31.68, 67.68], [247.78125, 15.84, 51.84]],
+        annotations: &[],
     },
     // The body's top and bottom margins shorten the columns.
     Case {
@@ -171,6 +183,7 @@ const CASES: &[Case] = &[
         body: "<p>一一</p>",
         blocks: &[[325.0, 8.0, 27.0, 554.0]],
         columns: &[[330.0, 23.84, 41.84]],
+        annotations: &[],
     },
     // The indent starts the first column 1em down; the second column
     // wraps to the left of it.
@@ -183,6 +196,7 @@ const CASES: &[Case] = &[
                一一一一一一一一一一一一一一一一一一一一一一一一一</p>",
         blocks: &[[300.0, 0.0, 54.0, 592.0]],
         columns: &[[332.0, 33.84, 573.84], [305.0, 15.84, 339.84]],
+        annotations: &[],
     },
     // A top margin is an inline-start indent; a top padding moves the
     // text but not the box.
@@ -193,6 +207,7 @@ const CASES: &[Case] = &[
         body: "<p class=\"start-3em\">一一一</p><p style=\"padding-top: 2em\">二二</p>",
         blocks: &[[327.0, 54.0, 27.0, 538.0], [282.0, 0.0, 27.0, 592.0]],
         columns: &[[332.0, 69.84, 105.84], [287.0, 51.84, 69.84]],
+        annotations: &[],
     },
     // A Latin primary font: the run's text box and alphabetic baseline
     // are Tinos's (16px ascent, 20px tall at 18px), and each ideograph
@@ -205,8 +220,96 @@ const CASES: &[Case] = &[
         body: "<p>一一一</p>",
         blocks: &[[327.0, 0.0, 27.0, 592.0]],
         columns: &[[334.0, 15.84, 51.84]],
+        annotations: &[],
+    },
+    // A first line's annotation stands on its base's em box, reaching
+    // into the paragraph's 1em top margin: the line does not grow. Its
+    // 13px-high text box rides the half pixel an odd height leaves, so its
+    // glyphs centre at 355.
+    Case {
+        name: "ruby-borrows-the-margin",
+        css: "",
+        latin_primary: false,
+        body: RUBY_BODY,
+        blocks: &[
+            [327.0, 0.0, 27.0, 592.0],
+            [282.0, 0.0, 27.0, 592.0],
+            [237.0, 0.0, 27.0, 592.0],
+        ],
+        columns: RUBY_18_COLUMNS,
+        annotations: &[[350.5]],
+    },
+    Case {
+        name: "ruby-borrows-the-margin-latin-primary",
+        css: "body { font-size: 16px; line-height: 1.75; }",
+        latin_primary: true,
+        body: RUBY_BODY,
+        blocks: &[
+            [328.0, 0.0, 28.0, 592.0],
+            [284.0, 0.0, 28.0, 592.0],
+            [240.0, 0.0, 28.0, 592.0],
+        ],
+        columns: RUBY_16_LATIN_COLUMNS,
+        annotations: &[[351.5]],
+    },
+    // Without a margin to reach into the line grows by the 2.5px the
+    // annotation stands past its strut.
+    Case {
+        name: "ruby-grows-the-line",
+        css: "body { font-size: 16px; line-height: 1.75; } p { margin: 0; }",
+        latin_primary: true,
+        body: RUBY_BODY,
+        blocks: &[
+            [341.5, 0.0, 30.5, 592.0],
+            [313.5, 0.0, 28.0, 592.0],
+            [285.5, 0.0, 28.0, 592.0],
+        ],
+        columns: RUBY_16_LATIN_P0_COLUMNS,
+        annotations: &[[365.0]],
+    },
+    // An inner line's annotation reaches into the 6px the line before
+    // leaves under its text's em box: the paragraph keeps its three 28px
+    // lines.
+    Case {
+        name: "inner-ruby-latin-primary",
+        css: "body { font-size: 16px; line-height: 1.75; } p { margin: 0; }",
+        latin_primary: true,
+        body: INNER_RUBY_BODY,
+        blocks: &[[288.0, 0.0, 84.0, 592.0], [260.0, 0.0, 28.0, 592.0]],
+        columns: &[
+            [351.5, 14.08, 590.08],
+            [323.5, 14.08, 30.08],
+            [323.5, 46.08, 62.08],
+            [323.5, 78.08, 590.08],
+            [295.5, 14.08, 46.08],
+            [267.5, 14.08, 46.08],
+        ],
+        annotations: &[[339.5]],
+    },
+    Case {
+        name: "inner-ruby",
+        css: "body { font-size: 16px; line-height: 1.75; } p { margin: 0; }",
+        latin_primary: false,
+        body: INNER_RUBY_BODY,
+        blocks: &[[288.0, 0.0, 84.0, 592.0], [260.0, 0.0, 28.0, 592.0]],
+        columns: &[
+            [350.5, 14.08, 590.08],
+            [322.5, 14.08, 30.08],
+            [322.5, 46.08, 62.08],
+            [322.5, 78.08, 590.08],
+            [294.5, 14.08, 46.08],
+            [266.5, 14.08, 46.08],
+        ],
+        annotations: &[[338.5]],
     },
 ];
+
+/// A full first line, then a ruby on the second.
+const INNER_RUBY_BODY: &str = "<p>一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一一\
+    二二<ruby>漢字<rt>かんじ</rt></ruby>二二二二二二二二二二二二二二二二二二二二二二二二二二二二二二二二二\
+    三三三</p><p>四四四</p>";
+
+const RUBY_BODY: &str = "<p>一一<ruby>漢字<rt>かんじ</rt></ruby>一一一</p><p>二二二</p><p>三</p>";
 
 #[test]
 fn a_vertical_rl_page_places_boxes_and_glyphs_as_chromium_does() {
@@ -214,5 +317,40 @@ fn a_vertical_rl_page_places_boxes_and_glyphs_as_chromium_does() {
         let painted = painted(case.body, case.css, case.latin_primary);
         assert_close(case.name, "boxes", &painted.blocks, case.blocks);
         assert_close(case.name, "columns", &painted.columns, case.columns);
+        assert_close(
+            case.name,
+            "annotations",
+            &painted.annotations,
+            case.annotations,
+        );
     }
 }
+
+/// The ruby paragraph's columns at 18px: before the base, the base, after
+/// it, then the two paragraphs after.
+const RUBY_18_COLUMNS: &[[f64; 3]] = &[
+    [332.0, 15.84, 33.84],
+    [332.0, 51.84, 69.84],
+    [332.0, 87.84, 123.84],
+    [287.0, 15.84, 51.84],
+    [242.0, 15.84, 15.84],
+];
+
+/// The same at 16px under a Latin primary font: the ideographs centre
+/// 12.5px in from each line's edge.
+const RUBY_16_LATIN_COLUMNS: &[[f64; 3]] = &[
+    [335.5, 14.08, 30.08],
+    [335.5, 46.08, 62.08],
+    [335.5, 78.08, 110.08],
+    [291.5, 14.08, 46.08],
+    [247.5, 14.08, 14.08],
+];
+
+/// The same with the ruby line grown by 2.5px.
+const RUBY_16_LATIN_P0_COLUMNS: &[[f64; 3]] = &[
+    [349.0, 14.08, 30.08],
+    [349.0, 46.08, 62.08],
+    [349.0, 78.08, 110.08],
+    [321.0, 14.08, 46.08],
+    [293.0, 14.08, 14.08],
+];

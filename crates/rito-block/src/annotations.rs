@@ -17,27 +17,17 @@ pub(crate) enum LineOpening {
     Start { space: f64 },
     /// A resumed fragment: nothing above lends space.
     Resumed,
-    /// The line keeps the growth its provider gave it (a vertical flow,
-    /// whose block axis the box model does not turn yet).
-    Kept,
 }
 
 impl LineOpening {
     /// The opening for `node`'s fragment: `space` above it when it is the
     /// paragraph's first, none when it resumes.
-    pub(crate) fn for_flow(
-        tree: &FormattingTree,
-        node: FormattingNodeId,
-        resumed: bool,
-        space: f64,
-    ) -> Result<Self, LayoutError> {
-        Ok(if flow_is_vertical(tree, node)? {
-            Self::Kept
-        } else if resumed {
+    pub(crate) fn for_flow(resumed: bool, space: f64) -> Self {
+        if resumed {
             Self::Resumed
         } else {
             Self::Start { space }
-        })
+        }
     }
 
     /// `line` as the first line of its fragment, and how much taller that
@@ -50,7 +40,6 @@ impl LineOpening {
         let growth = match self {
             Self::Start { space } => (fragment.ruby_growth - fragment.ruby_lent - space).max(0.0),
             Self::Resumed => fragment.ruby_overflow,
-            Self::Kept => fragment.ruby_growth,
         };
         let delta = growth - fragment.ruby_growth;
         if delta == 0.0 {
@@ -98,21 +87,16 @@ pub(crate) fn block_annotation_end(
     }
     for child in block.children.iter().rev() {
         let end = match child {
-            Fragment::Line(line) => {
-                if flow_is_vertical(tree, line.source)? {
-                    return Ok(None);
-                }
-                Some(AnnotationEnd {
-                    line: PrecedingLine {
-                        below: (line.rect.height - line.baseline).max(0.0),
-                        fonts: line.fonts,
-                        half_leading: flow_font_size(tree, line.source)?.map_or(0.0, |size| {
-                            rito_fragment::empty_line_half_leading(line.rect.height, size)
-                        }),
-                    },
-                    space: 0.0,
-                })
-            }
+            Fragment::Line(line) => Some(AnnotationEnd {
+                line: PrecedingLine {
+                    below: (line.rect.height - line.baseline).max(0.0),
+                    fonts: line.fonts,
+                    half_leading: flow_font_size(tree, line.source)?.map_or(0.0, |size| {
+                        rito_fragment::empty_line_half_leading(line.rect.height, size)
+                    }),
+                },
+                space: 0.0,
+            }),
             Fragment::Box(inner) => {
                 let inner_style = container_layout_style(tree, inner.source)?;
                 // Floats and positioned boxes are out of flow: the block
@@ -159,16 +143,4 @@ fn flow_font_size(
         .style(strut)
         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
     Ok(Some(f64::from(style.font.size.get())))
-}
-
-/// Whether `node`'s inline flow sets its lines vertically.
-fn flow_is_vertical(tree: &FormattingTree, node: FormattingNodeId) -> Result<bool, LayoutError> {
-    let (Some(styles), Some(strut)) = (tree.styles(), tree.strut_style(node)) else {
-        return Ok(false);
-    };
-    let style = styles
-        .inline
-        .style(strut)
-        .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-    Ok(style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft)
 }
