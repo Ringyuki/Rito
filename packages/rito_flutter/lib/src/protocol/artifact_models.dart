@@ -144,6 +144,7 @@ final class RitoFontRef {
     required this.weight,
     required this.shapeFingerprint,
     required this.byteLength,
+    this.features = const <RitoFontFeature>[],
   });
 
   final String family;
@@ -152,6 +153,19 @@ final class RitoFontRef {
   final int weight;
   final String shapeFingerprint;
   final int byteLength;
+
+  /// OpenType features the face turns on wherever its family paints: the
+  /// same bytes registered again under a family of their own (the vertical
+  /// forms a vertical line's upright glyphs take).
+  final List<RitoFontFeature> features;
+}
+
+/// One OpenType feature setting: its four-letter tag and value.
+final class RitoFontFeature {
+  const RitoFontFeature({required this.tag, required this.value});
+
+  final String tag;
+  final int value;
 }
 
 /// What a hit is, as the engine classifies it: a note reference first

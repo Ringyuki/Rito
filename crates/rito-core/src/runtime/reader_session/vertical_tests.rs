@@ -410,3 +410,37 @@ fn dump_vertical_records() {
     )
     .expect("dump writes");
 }
+
+/// A vertical page names its face's vertical forms among its fonts: the
+/// same bytes as the face, under a family of their own, with `vert` on.
+#[test]
+fn a_vertical_pages_fonts_name_their_faces_vertical_forms() {
+    let (_session, artifact) = columns(ReaderSpreadMode::Single, 1.0, 0);
+    let forms = artifact
+        .fonts
+        .iter()
+        .find(|font| font.family.starts_with("__RitoVert_"))
+        .expect("the page paints in a vertical-forms family");
+    assert_eq!(
+        forms.features,
+        vec![ReaderFontFeature {
+            tag: "vert".to_owned(),
+            value: 1,
+        }]
+    );
+    let face = artifact
+        .fonts
+        .iter()
+        .find(|font| forms.family == format!("__RitoVert_{}", font.family));
+    if let Some(face) = face {
+        assert_eq!(
+            (&face.href, face.byte_length),
+            (&forms.href, forms.byte_length)
+        );
+        assert!(face.features.is_empty());
+    }
+    assert!(artifact
+        .resources
+        .iter()
+        .any(|resource| resource.href == forms.href));
+}

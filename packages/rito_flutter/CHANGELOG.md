@@ -1,5 +1,19 @@
 ## Unreleased
 
+### Vertical text set as Chromium sets it
+
+A vertical-rl chapter's boxes take their margins, padding and borders on the
+sides its flow puts them; each line hangs from its central baseline; each
+upright glyph stands in its face's vertical forms at the font's vertical
+origin, and Latin and digits in a mixed line lie turned a quarter; ruby
+annotations stand on their base where Chromium places them; and an image
+sizes to the column's length. The artifact protocol is version 9:
+`RitoFontRef.features` lists the OpenType features (`RitoFontFeature`) a
+reference turns on. A reference with features is the same bytes as a face
+under a family of its own (`vert`, the vertical forms); the font cache
+registers it like any face and the painter draws every run in that family
+with those features on.
+
 ### Scrolled reading
 
 A session asked for `RitoSpreadMode.scrolled` lays each chapter out as one

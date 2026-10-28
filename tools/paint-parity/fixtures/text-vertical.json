@@ -2,27 +2,16 @@
   "background": "#ffffff",
   "commands": [
     {
-      "kind": "pushState"
-    },
-    {
-      "box": {
-        "height": 16,
-        "width": 16
-      },
-      "kind": "transform",
-      "origin": {
-        "x": 207.5,
-        "y": 28
-      },
-      "transforms": [
-        {
-          "kind": "rotate",
-          "rad": 1.5707963267948966
-        }
-      ]
-    },
-    {
-      "clusters": [[0, 199.5, 32.8]],
+      "clusters": [
+        [0, 199.5, 34.08],
+        [3, 199.5, 50.08],
+        [6, 199.5, 66.08],
+        [9, 199.5, 82.08],
+        [12, 199.5, 98.08],
+        [15, 199.5, 114.08],
+        [18, 199.5, 130.08],
+        [21, 199.5, 146.08]
+      ],
       "kind": "paintText",
       "paint": {
         "boxEnd": false,
@@ -36,112 +25,12 @@
         }
       },
       "rect": {
-        "height": 16,
+        "height": 128,
         "width": 16,
         "x": 199.5,
         "y": 20
       },
-      "text": "「"
-    },
-    {
-      "kind": "popState"
-    },
-    {
-      "clusters": [
-        [0, 199.5, 50.08],
-        [3, 199.5, 66.08]
-      ],
-      "kind": "paintText",
-      "paint": {
-        "boxEnd": false,
-        "boxStart": false,
-        "color": "#000000",
-        "font": {
-          "family": "Tinos",
-          "sizePx": 16,
-          "style": "normal",
-          "weight": 400
-        }
-      },
-      "rect": {
-        "height": 32,
-        "width": 16,
-        "x": 199.5,
-        "y": 36
-      },
-      "text": "春日"
-    },
-    {
-      "kind": "pushState"
-    },
-    {
-      "box": {
-        "height": 16,
-        "width": 16
-      },
-      "kind": "transform",
-      "origin": {
-        "x": 207.5,
-        "y": 76
-      },
-      "transforms": [
-        {
-          "kind": "rotate",
-          "rad": 1.5707963267948966
-        }
-      ]
-    },
-    {
-      "clusters": [[0, 199.5, 80.8]],
-      "kind": "paintText",
-      "paint": {
-        "boxEnd": false,
-        "boxStart": false,
-        "color": "#000000",
-        "font": {
-          "family": "Tinos",
-          "sizePx": 16,
-          "style": "normal",
-          "weight": 400
-        }
-      },
-      "rect": {
-        "height": 16,
-        "width": 16,
-        "x": 199.5,
-        "y": 68
-      },
-      "text": "」"
-    },
-    {
-      "kind": "popState"
-    },
-    {
-      "clusters": [
-        [0, 207.5, 87.2],
-        [3, 199.5, 114.08],
-        [6, 199.5, 130.08],
-        [9, 207.5, 135.2]
-      ],
-      "kind": "paintText",
-      "paint": {
-        "boxEnd": false,
-        "boxStart": false,
-        "color": "#000000",
-        "font": {
-          "family": "Tinos",
-          "sizePx": 16,
-          "style": "normal",
-          "weight": 400
-        }
-      },
-      "rect": {
-        "height": 64,
-        "width": 16,
-        "x": 207.5,
-        "y": 84
-      },
-      "text": "、剧场。"
+      "text": "「春日」、剧场。"
     },
     {
       "clusters": [
@@ -193,27 +82,10 @@
       "text": "かんじ"
     },
     {
-      "kind": "pushState"
-    },
-    {
-      "box": {
-        "height": 16,
-        "width": 16
-      },
-      "kind": "transform",
-      "origin": {
-        "x": 175.5,
-        "y": 28
-      },
-      "transforms": [
-        {
-          "kind": "rotate",
-          "rad": 1.5707963267948966
-        }
-      ]
-    },
-    {
-      "clusters": [[0, 167.5, 32.8]],
+      "clusters": [
+        [0, 167.5, 34.08],
+        [3, 167.5, 52.08]
+      ],
       "kind": "paintText",
       "paint": {
         "boxEnd": false,
@@ -228,61 +100,12 @@
         "letterSpacingPx": 2
       },
       "rect": {
-        "height": 16,
+        "height": 36,
         "width": 16,
         "x": 167.5,
         "y": 20
       },
-      "text": "…"
-    },
-    {
-      "kind": "popState"
-    },
-    {
-      "kind": "pushState"
-    },
-    {
-      "box": {
-        "height": 16,
-        "width": 16
-      },
-      "kind": "transform",
-      "origin": {
-        "x": 175.5,
-        "y": 46
-      },
-      "transforms": [
-        {
-          "kind": "rotate",
-          "rad": 1.5707963267948966
-        }
-      ]
-    },
-    {
-      "clusters": [[0, 167.5, 50.8]],
-      "kind": "paintText",
-      "paint": {
-        "boxEnd": false,
-        "boxStart": false,
-        "color": "#000080",
-        "font": {
-          "family": "Tinos",
-          "sizePx": 16,
-          "style": "normal",
-          "weight": 400
-        },
-        "letterSpacingPx": 2
-      },
-      "rect": {
-        "height": 16,
-        "width": 16,
-        "x": 167.5,
-        "y": 38
-      },
-      "text": "—"
-    },
-    {
-      "kind": "popState"
+      "text": "…—"
     },
     {
       "kind": "pushState"

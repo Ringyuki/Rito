@@ -87,6 +87,11 @@ fn fonts(writer: &mut Writer, values: &[ReaderFontRef]) -> Result<(), ReaderErro
             writer.u16(value.weight);
             writer.string(&value.shape_fingerprint, "font shape fingerprint")?;
             writer.u64(value.byte_length);
+            writer.count(value.features.len(), "font feature count")?;
+            for feature in &value.features {
+                writer.string(&feature.tag, "font feature tag")?;
+                writer.u32(feature.value);
+            }
             Ok(())
         })?;
     }

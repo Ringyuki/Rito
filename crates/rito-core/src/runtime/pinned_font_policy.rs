@@ -153,6 +153,7 @@ impl RuntimePinnedFontPolicy {
                 shape_fingerprint: face.summary.shape_fingerprint.clone(),
                 byte_length: face.bytes.len(),
                 source_order: first_order + index,
+                features: Vec::new(),
             })
             .collect()
     }

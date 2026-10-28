@@ -279,6 +279,7 @@ final class RitoArtifactFontCache {
       resource.bytes,
       declaredWeight: font.weight,
     );
+    RitoFontEnvelopeStore.shared.registerFeatures(font.family, font.features);
   }
 
   Future<void> _waitFor(

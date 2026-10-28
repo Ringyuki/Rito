@@ -1,4 +1,7 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import '../protocol/artifact_models.dart' show RitoFontFeature;
 
 import 'font_family_stack.dart';
 
@@ -74,6 +77,25 @@ final class RitoFontEnvelopeStore {
 
   final Map<String, RitoFontEnvelope> _byFamily = <String, RitoFontEnvelope>{};
   final Map<String, int> _familyFaceCount = <String, int>{};
+  final Map<String, List<ui.FontFeature>> _featuresByFamily =
+      <String, List<ui.FontFeature>>{};
+
+  /// Records the OpenType features [family] paints with on: a face the
+  /// engine registers again under a family of its own (its vertical
+  /// forms), which the browser pen gets from the face's
+  /// `font-feature-settings` descriptor and this pen from each run's style.
+  void registerFeatures(String family, List<RitoFontFeature> features) {
+    if (features.isEmpty) {
+      return;
+    }
+    _featuresByFamily[family] = [
+      for (final feature in features)
+        ui.FontFeature(feature.tag, feature.value),
+    ];
+  }
+
+  /// The OpenType features [family] paints with on, if any.
+  List<ui.FontFeature>? featuresOf(String family) => _featuresByFamily[family];
 
   /// Registers a face's envelope for [family] from raw sfnt bytes
   /// (TTF or CFF-flavoured OTF). Non-sfnt payloads are ignored.

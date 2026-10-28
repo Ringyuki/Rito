@@ -18,10 +18,11 @@ use crate::{
 
 use super::{
     convert::{reader_locator, u32_from_usize, u64_from_usize},
-    ReaderArtifact, ReaderDisplayList, ReaderError, ReaderErrorKind, ReaderFontRef, ReaderHitEntry,
-    ReaderHitKind, ReaderNavigation, ReaderPage, ReaderPageRecords, ReaderRect, ReaderResourceKind,
-    ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole, ReaderTextRenderingProfile,
-    ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT, READER_PROTOCOL_VERSION,
+    ReaderArtifact, ReaderDisplayList, ReaderError, ReaderErrorKind, ReaderFontFeature,
+    ReaderFontRef, ReaderHitEntry, ReaderHitKind, ReaderNavigation, ReaderPage, ReaderPageRecords,
+    ReaderRect, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
+    ReaderTextRenderingProfile, ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT,
+    READER_PROTOCOL_VERSION,
 };
 
 #[derive(Debug, Clone)]
@@ -501,6 +502,14 @@ fn reader_font_ref(
         weight: font.weight,
         shape_fingerprint: font.shape_fingerprint.clone(),
         byte_length: u64_from_usize(font.byte_length, "font byte length")?,
+        features: font
+            .features
+            .iter()
+            .map(|(tag, value)| ReaderFontFeature {
+                tag: tag.clone(),
+                value: *value,
+            })
+            .collect(),
     })
 }
 

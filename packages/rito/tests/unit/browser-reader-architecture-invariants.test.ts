@@ -57,8 +57,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // active one's neighbours, which a viewport shows with the window read.
 // +2 lines (2026-10-27): a caret's width across its line and the writing
 // mode of that line, which turns a vertical line's arrow keys.
+// +23 lines (2026-10-29): a host face registers a variant the engine names
+// with OpenType features (its vertical forms) as a face of its own.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2909;
+const SESSION_READER_LINE_BUDGET = 2932;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built

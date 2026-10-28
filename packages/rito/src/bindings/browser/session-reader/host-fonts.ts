@@ -1,4 +1,5 @@
 import type { ReaderHostFontFace } from '../../../reader';
+import { fontFeatureSettings } from '../font-feature-settings';
 import type { BrowserReaderArtifact } from '../reader-session';
 
 type FontRef = BrowserReaderArtifact['fonts'][number];
@@ -12,8 +13,12 @@ interface HeldFace {
   readonly bytes: Blob;
   /** The face decoded from the bytes, not yet known to the page. */
   readonly loaded: Promise<FontFace>;
-  /** The face given the descriptors the engine lists it with, and registered. */
-  registered: Promise<FontFace> | undefined;
+  /**
+   * The faces registered from the bytes, by family: the face itself, given
+   * the descriptors the engine lists it with, and each variant the engine
+   * names with OpenType features of its own.
+   */
+  readonly registered: Map<string, Promise<FontFace>>;
 }
 
 /**
@@ -45,7 +50,7 @@ export class SessionReaderHostFonts {
       const bytes = new Blob([face.bytes]);
       const loaded = loadFace(HOST_FONT_FAMILY_PREFIX + sha256, bytes);
       loaded.catch(ignore);
-      this.held.set(sha256, { bytes, loaded, registered: undefined });
+      this.held.set(sha256, { bytes, loaded, registered: new Map() });
     }
   }
 
@@ -54,24 +59,33 @@ export class SessionReaderHostFonts {
       const held = this.held.get(sha256.toLowerCase());
       if (!held) continue;
       this.held.delete(sha256.toLowerCase());
-      void held.registered?.then((face) => {
-        this.unregister(face);
-      }, ignore);
+      for (const registered of held.registered.values()) {
+        void registered.then((face) => {
+          this.unregister(face);
+        }, ignore);
+      }
     }
   }
 
   /**
-   * The registered face a font reference names. Undefined for a font that
-   * is not one of the reader's host faces.
+   * The registered face a font reference names: the host face itself, or
+   * a variant of it with the features the reference turns on. Undefined
+   * for a font that is not one of the reader's host faces.
    */
   resolve(font: FontRef): Promise<FontFace> | undefined {
     if (this.disposed || !font.href.startsWith(HOST_FONT_HREF_PREFIX)) return undefined;
     const sha256 = font.href.slice(HOST_FONT_HREF_PREFIX.length);
     const held = this.held.get(sha256);
-    if (held === undefined || font.family !== HOST_FONT_FAMILY_PREFIX + sha256) return undefined;
+    if (held === undefined) return undefined;
+    const variant = font.features.length > 0;
+    if (!variant && font.family !== HOST_FONT_FAMILY_PREFIX + sha256) return undefined;
     if (BigInt(held.bytes.size) !== font.byteLength) return undefined;
-    held.registered ??= this.register(held, font);
-    return held.registered;
+    let registered = held.registered.get(font.family);
+    if (registered === undefined) {
+      registered = this.register(held, font);
+      held.registered.set(font.family, registered);
+    }
+    return registered;
   }
 
   dispose(): void {
@@ -81,7 +95,12 @@ export class SessionReaderHostFonts {
   }
 
   private async register(held: HeldFace, font: FontRef): Promise<FontFace> {
-    const face = await held.loaded;
+    const face =
+      font.features.length > 0
+        ? await loadFace(font.family, held.bytes, {
+            featureSettings: fontFeatureSettings(font.features),
+          })
+        : await held.loaded;
     if (this.disposed) throw new Error('Reader closed while a host font face loaded');
     face.style = font.style;
     face.weight = String(font.weight);
@@ -95,15 +114,19 @@ export class SessionReaderHostFonts {
   }
 }
 
-async function loadFace(family: string, bytes: Blob): Promise<FontFace> {
+async function loadFace(
+  family: string,
+  bytes: Blob,
+  descriptors: FontFaceDescriptors = {},
+): Promise<FontFace> {
   const url = URL.createObjectURL(bytes);
   try {
-    const face = new FontFace(family, `url("${url}")`);
+    const face = new FontFace(family, `url("${url}")`, descriptors);
     await face.load();
     return face;
   } catch {
     // A page whose policy refuses fonts from blob URLs still takes the bytes.
-    const face = new FontFace(family, await bytes.arrayBuffer());
+    const face = new FontFace(family, await bytes.arrayBuffer(), descriptors);
     await face.load();
     return face;
   } finally {

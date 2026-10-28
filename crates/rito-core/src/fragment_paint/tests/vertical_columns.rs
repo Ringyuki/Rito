@@ -281,45 +281,35 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
             _ => None,
         })
         .collect();
-    // 「 | 春日 | 」 | 、剧场。 | 漢字 | … | — | ab
-    assert_eq!(texts.len(), 8, "{texts:#?}");
+    // 「春日」、剧场。 | 漢字 | …— | ab
+    assert_eq!(texts.len(), 4, "{texts:#?}");
     assert!(texts.iter().all(|text| !text.clusters.is_empty()));
     // The first column's line-over edge is the frame's right edge, 220:
     // its glyphs centre at 207.5, their origins at 199.5, each 16px down
-    // from the column top 20.
-    assert_eq!(texts[0].text, "「");
-    origins(&texts[0].clusters, &[(0, 199.5, 32.8)]);
-    assert_eq!(texts[1].text, "春日");
-    origins(&texts[1].clusters, &[(0, 199.5, 50.08), (3, 199.5, 66.08)]);
-    assert_eq!(texts[3].text, "、剧场。");
+    // from the column top 20 and its vertical origin below that, the
+    // punctuation in its vertical forms like the rest.
+    assert_eq!(texts[0].text, "「春日」、剧场。");
     origins(
-        &texts[3].clusters,
-        &[
-            (0, 207.5, 87.2),
-            (3, 199.5, 114.08),
-            (6, 199.5, 130.08),
-            (9, 207.5, 135.2),
-        ],
+        &texts[0].clusters,
+        &(0..8)
+            .map(|index| (3 * index, 199.5, 34.08 + 16.0 * f64::from(index)))
+            .collect::<Vec<_>>(),
     );
-    assert_eq!(texts[4].text, "漢字");
+    assert_eq!(texts[1].text, "漢字");
     origins(
-        &texts[4].clusters,
+        &texts[1].clusters,
         &[(0, 199.5, 162.08), (3, 199.5, 178.08)],
     );
     // The letter-spaced second column steps 18px; its Latin lies on the
     // baseline 18px in from its line-over edge, 188.
-    assert_eq!(texts[7].text, "ab");
-    origins(&texts[7].clusters, &[(0, 170.0, 56.0), (1, 188.0, 56.0)]);
+    assert_eq!(texts[2].text, "…—");
+    origins(&texts[2].clusters, &[(0, 167.5, 34.08), (3, 167.5, 52.08)]);
+    assert_eq!(texts[3].text, "ab");
+    origins(&texts[3].clusters, &[(0, 170.0, 56.0), (1, 188.0, 56.0)]);
     assert_eq!(
         transform_origins,
-        vec![
-            (207.5, 28.0),
-            (207.5, 76.0),
-            (175.5, 28.0),
-            (175.5, 46.0),
-            (170.0, 56.0)
-        ],
-        "a quarter turn per rotated mark and one for the sideways Latin"
+        vec![(170.0, 56.0)],
+        "one quarter turn, for the sideways Latin"
     );
     let annotation = commands
         .iter()

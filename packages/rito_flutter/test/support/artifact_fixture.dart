@@ -139,7 +139,9 @@ void _fonts(
       ..string('normal')
       ..uint16(400)
       ..string(fingerprint)
-      ..uint64(byteLength);
+      ..uint64(byteLength)
+      // No feature settings: the face itself.
+      ..uint32(0);
   });
 }
 

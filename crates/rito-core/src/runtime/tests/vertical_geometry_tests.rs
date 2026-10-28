@@ -27,6 +27,8 @@ struct Painted {
     blocks: Vec<[f64; 4]>,
     columns: Vec<[f64; 3]>,
     annotations: Vec<[f64; 1]>,
+    /// The family every column run and annotation paints in.
+    families: Vec<String>,
 }
 
 /// The pinned faces: the serif alone, or — with `latin_primary` — Tinos
@@ -72,6 +74,7 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
         blocks: Vec::new(),
         columns: Vec::new(),
         annotations: Vec::new(),
+        families: Vec::new(),
     };
     for command in commands.iter() {
         match command {
@@ -81,6 +84,7 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
                     .push([rect.x - ORIGIN, rect.y - ORIGIN, rect.width, rect.height])
             }
             DisplayCommand::PaintText(text) => {
+                painted.families.push(text.paint.font.family.to_string());
                 if let (Some(first), Some(last)) = (text.clusters.first(), text.clusters.last()) {
                     painted
                         .columns
@@ -88,6 +92,7 @@ fn painted(body: &str, css: &str, latin_primary: bool) -> Painted {
                 }
             }
             DisplayCommand::PaintRuby(ruby) => {
+                painted.families.push(ruby.paint.font.family.to_string());
                 if let Some(first) = ruby.clusters.first() {
                     painted.annotations.push([first.x - ORIGIN]);
                 }
@@ -322,6 +327,16 @@ fn a_vertical_rl_page_places_boxes_and_glyphs_as_chromium_does() {
             "annotations",
             &painted.annotations,
             case.annotations,
+        );
+        // Upright glyphs draw in their face's vertical forms.
+        assert!(
+            painted
+                .families
+                .iter()
+                .all(|family| family.starts_with("__RitoVert_")),
+            "{}: {:?}",
+            case.name,
+            painted.families
         );
     }
 }

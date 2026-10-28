@@ -352,6 +352,17 @@ pub struct ReaderFontRef {
     pub weight: u16,
     pub shape_fingerprint: String,
     pub byte_length: u64,
+    /// OpenType features the face turns on wherever its family paints:
+    /// the same bytes registered again under a family of their own (the
+    /// vertical forms a vertical line's upright glyphs take).
+    pub features: Vec<ReaderFontFeature>,
+}
+
+/// One OpenType feature setting: its four-letter tag and value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReaderFontFeature {
+    pub tag: String,
+    pub value: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

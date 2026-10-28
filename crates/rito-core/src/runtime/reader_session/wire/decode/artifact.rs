@@ -1,8 +1,8 @@
 use super::{locator, source_point, text_profile};
 use crate::runtime::reader_session::wire::primitives::{invalid, Reader, MAX_SEMANTIC_DEPTH};
 use crate::runtime::reader_session::{
-    ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontRef,
-    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
+    ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontFeature,
+    ReaderFontRef, ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
     ReaderPageRecords, ReaderRect, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode,
     ReaderSemanticRole, ReaderTextRunOffset, READER_PROTOCOL_VERSION,
 };
@@ -90,6 +90,12 @@ fn fonts(reader: &mut Reader<'_>) -> Result<Vec<ReaderFontRef>, ReaderError> {
                 weight: reader.u16()?,
                 shape_fingerprint: reader.string("font shape fingerprint")?,
                 byte_length: reader.u64()?,
+                features: reader.collection("font features", |reader| {
+                    Ok(ReaderFontFeature {
+                        tag: reader.string("font feature tag")?,
+                        value: reader.u32()?,
+                    })
+                })?,
             })
         })
     })

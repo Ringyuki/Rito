@@ -43,6 +43,7 @@ vi.mock('../../src/bindings/browser/reader-session', async (importOriginal) => {
         weight: 400,
         shapeFingerprint: 'shape',
         byteLength: BigInt(policy?.faces[index]?.byteLength ?? 0),
+        features: [],
       }));
       harness.fake = fake;
       harness.openOptions = options;

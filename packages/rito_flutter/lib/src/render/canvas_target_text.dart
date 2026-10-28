@@ -129,6 +129,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
             ui.TextStyle(
               color: color,
               foreground: foreground,
+              fontFeatures: _fontFeatures(families),
               fontFamily: families.isEmpty ? null : families.first,
               fontFamilyFallback: families.length > 1
                   ? families.sublist(1)
@@ -330,6 +331,7 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
     return TextStyle(
       color: foreground == null ? _effectiveTextColor(paint, runRect) : null,
       foreground: foreground,
+      fontFeatures: _fontFeatures(families),
       fontFamily: families.isEmpty ? null : families.first,
       fontFamilyFallback: families.length > 1 ? families.sublist(1) : null,
       fontSize: font.sizePx,
@@ -339,6 +341,12 @@ extension _TextPainting on RitoPrimitiveCanvasTarget {
       fontWeight: _paintWeight(families, font.weight),
     );
   }
+
+  /// The OpenType features the run's family paints with on: a face's
+  /// vertical forms are its bytes under a family of their own, registered
+  /// with `vert` on.
+  List<ui.FontFeature>? _fontFeatures(List<String> families) =>
+      families.isEmpty ? null : _fontEnvelopes?.featuresOf(families.first);
 
   /// The weight to hand Flutter so its synthesis decision matches CSS.
   ///

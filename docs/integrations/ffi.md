@@ -192,6 +192,19 @@ holds bytes the live encoder wrote for one of every primitive, and a
 Rust test keeps it in step. Format 1, the semantic display list, is no
 longer written; a decoder rejects it by its version field.
 
+Wire changes landed with vertical forms (reader protocol version 9):
+
+- Artifacts and publications stamp protocol version 9; a decoder pinned
+  to 8 must move with it.
+- Each font record of an artifact carries, after its byte length, a
+  count of OpenType feature settings and, for each, its tag (a string)
+  and value (`u32`). A record with features is a variant of a face: the
+  same bytes under a family of its own, painted with those features on
+  (`vert`, the vertical forms a vertical line's upright glyphs take). A
+  host registers it like any face, with the features as the face's
+  `font-feature-settings` descriptor, or turns them on for every run it
+  paints in that family.
+
 Wire changes landed with the scrolled reading mode (reader protocol
 version 8):
 

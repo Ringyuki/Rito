@@ -195,6 +195,18 @@ export interface RitoReaderFontRef {
   readonly weight: number;
   readonly shapeFingerprint: string;
   readonly byteLength: bigint;
+  /**
+   * OpenType features the face turns on wherever its family paints: the
+   * same bytes registered again under a family of their own (the vertical
+   * forms a vertical line's upright glyphs take).
+   */
+  readonly features: readonly RitoReaderFontFeature[];
+}
+
+/** One OpenType feature setting: its four-letter tag and value. */
+export interface RitoReaderFontFeature {
+  readonly tag: string;
+  readonly value: number;
 }
 
 /**

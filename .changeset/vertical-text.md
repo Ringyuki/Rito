@@ -1,0 +1,5 @@
+---
+'@ritojs/core': minor
+---
+
+Vertical text is laid out and painted as Chromium does it. A vertical-rl chapter's boxes take their margins, padding, borders and sizes on the sides its flow puts them, and their backgrounds and borders paint there; each line hangs from its central baseline; each upright glyph stands in its face's vertical forms at the font's vertical origin, and characters that lie sideways in a mixed line (Latin, digits) are set turned a quarter; a ruby annotation reaches into the space before its line and stands on its base where Chromium places it; an image sizes to the column's length; and `text-orientation` and `text-combine-upright` (with their `-webkit-` and `-epub-` spellings) reach the engine. An artifact's font references carry `features` (reader protocol 9): a reference with features is the same bytes as a face, registered under a family of its own with those OpenType features on (`vert`, the vertical forms), which the browser reader registers as its `font-feature-settings` descriptor.

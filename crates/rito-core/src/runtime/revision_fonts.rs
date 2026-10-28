@@ -22,6 +22,7 @@ impl RuntimeDocument {
                         shape_fingerprint: face.shape_fingerprint,
                         byte_length: face.byte_length,
                         source_order: face.source_order,
+                        features: Vec::new(),
                     })
                     .collect();
             let first_host_order = faces
@@ -30,6 +31,17 @@ impl RuntimeDocument {
                 .max()
                 .unwrap_or_default();
             faces.extend(self.pinned_font_policy.required_faces(first_host_order));
+            // Every face also paints in its vertical forms; an artifact
+            // lists the variant only where its display list draws with it.
+            let vertical_forms: Vec<_> = faces
+                .iter()
+                .map(|face| RuntimeRequiredFontFace {
+                    family: crate::fragment_paint::vertical_forms_family(&face.family),
+                    features: vec![("vert".to_owned(), 1)],
+                    ..face.clone()
+                })
+                .collect();
+            faces.extend(vertical_forms);
             faces
         })
     }

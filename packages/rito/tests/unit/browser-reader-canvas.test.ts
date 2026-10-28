@@ -638,6 +638,7 @@ function readerArtifact(): BrowserReaderArtifact {
         weight: 400,
         shapeFingerprint: 'font-shape-v1',
         byteLength: 2n,
+        features: [],
       },
     ],
     pages: [],
