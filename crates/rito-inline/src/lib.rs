@@ -91,7 +91,7 @@ pub(crate) use shaped::{
     BuildSpace, IntrinsicSizes, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs,
 };
 pub(crate) use shaping::*;
-pub(crate) use spacing_plan::{PlannedRun, SpacingPlan, SpacingPush};
+pub(crate) use spacing_plan::{PlannedRun, RubyCarrier, SpacingPlan, SpacingPush};
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
 pub(crate) use width_bounds::WidthBounds;

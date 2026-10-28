@@ -166,6 +166,7 @@ fn the_spacing_plan_answers_as_a_build_pushes() {
             end_trims: &end_trims,
             suppressed_pair_trims: &suppressed,
             split_spreads: &spreads,
+            unhung_starts: &[],
         };
         let built = context
             .build_layout(
@@ -189,6 +190,118 @@ fn the_spacing_plan_answers_as_a_build_pushes() {
                 plan.letter_spacing_at(text, byte, edits).to_bits(),
                 pushed.to_bits(),
                 "byte {byte} under trims {end_trims:?}, suppressed {suppressed:?}, spreads {spreads:?}"
+            );
+        }
+    }
+}
+
+/// A spread ruby's carrier is priced by the plan, with its start overhang
+/// or without (a ruby opening a line drops it), exactly as a build under
+/// the same unhung rubies pushes it.
+#[test]
+fn the_spacing_plan_prices_an_unhung_ruby_as_a_build_pushes() {
+    let context = source_han_context();
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline
+        .intern_for_node(
+            0,
+            plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                    .expect("family list"),
+                18.0,
+                0.0,
+            ),
+        )
+        .expect("style interns");
+    let text_item = |text: &str, annotation: Option<&str>| InlineItem::Text {
+        text: text.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: annotation.map(|annotation| rito_fragment::RubyAnnotation {
+            text: annotation.to_owned(),
+            size_ratio: 0.8,
+            align: rito_style_contract::RubyAlign::SpaceAround,
+        }),
+    };
+    let items = vec![
+        text_item("永永", None),
+        text_item("碎片", Some("Fragment")),
+        text_item("永", None),
+        text_item("剑", Some("Historia")),
+        text_item("永永", None),
+        text_item("人族", Some("Emnetwiht")),
+        text_item("永", None),
+    ];
+    let text: String = items
+        .iter()
+        .map(|item| match item {
+            InlineItem::Text { text, .. } => text.as_str(),
+            _ => "",
+        })
+        .collect();
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let base = context
+        .shaped_paragraph(
+            &tree,
+            FormattingNodeId(0),
+            &ConstraintSpace::continuous(500.0),
+            ParagraphEdits::default(),
+            &CancelFlag::new(),
+        )
+        .expect("base builds");
+    let plan = std::rc::Rc::clone(&base.spacing_plan);
+    let rubies = [1_usize, 3, 5];
+    assert!(
+        rubies.iter().all(|item| plan
+            .ruby_carrier(*item)
+            .is_some_and(|c| c.start_overhang > 0.0)),
+        "every ruby spreads and overhangs"
+    );
+    for mask in 0..8_usize {
+        let unhung: Vec<usize> = rubies
+            .iter()
+            .enumerate()
+            .filter(|(bit, _)| mask & (1 << bit) != 0)
+            .map(|(_, item)| *item)
+            .collect();
+        let edits = ParagraphEdits {
+            unhung_starts: &unhung,
+            ..ParagraphEdits::default()
+        };
+        let built = context
+            .build_layout(
+                &tree,
+                FormattingNodeId(0),
+                &BuildSpace::new(Some(500.0), None, None),
+                PercentageImageSizing::Intrinsic,
+                edits,
+                &CancelFlag::new(),
+            )
+            .expect("edited build");
+        for (byte, _) in text.char_indices() {
+            let pushed = built
+                .spacing_edits
+                .letter
+                .iter()
+                .rev()
+                .find(|(range, _)| range.contains(&byte))
+                .map_or(0.0, |(_, spacing)| *spacing);
+            assert_eq!(
+                plan.letter_spacing_at(&text, byte, edits).to_bits(),
+                pushed.to_bits(),
+                "byte {byte} with rubies {unhung:?} unhung"
             );
         }
     }

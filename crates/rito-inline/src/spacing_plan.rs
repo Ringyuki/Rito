@@ -21,7 +21,29 @@ pub(crate) struct SpacingPlan {
     /// Each pair trim by the character its edit applies to.
     pair_by_edit: rustc_hash::FxHashMap<usize, usize>,
     ruby_spreads: Vec<(Range<usize>, f32)>,
+    /// Each spread ruby's edge carrier, by item index.
+    ruby_carriers: Vec<RubyCarrier>,
     runs: Vec<PlannedRun>,
+}
+
+/// The cluster that carries a spread ruby's column past its base glyphs:
+/// its last cluster, spaced by the column's width less its overhangs.
+pub(crate) struct RubyCarrier {
+    /// The ruby's item index.
+    pub(crate) item: usize,
+    /// The last cluster's bytes.
+    pub(crate) range: Range<usize>,
+    /// The run's own letter spacing.
+    pub(crate) author: f32,
+    /// What the column carries past its glyphs when it overhangs both
+    /// sides (no spacing pushed when not positive).
+    pub(crate) hung: f32,
+    /// What it carries when it opens a line and overhangs nothing before
+    /// it.
+    pub(crate) unhung: f32,
+    /// What it overhangs the text before it by, when that text is on its
+    /// line.
+    pub(crate) start_overhang: f32,
 }
 
 /// A text run's own letter spacing and the spacing a line-end trim gives
@@ -43,6 +65,7 @@ impl SpacingPlan {
     pub(crate) fn new(
         pair_trims: Vec<PunctuationTrim>,
         ruby_spreads: Vec<(Range<usize>, f32)>,
+        ruby_carriers: Vec<RubyCarrier>,
         runs: Vec<PlannedRun>,
     ) -> Self {
         let pair_by_edit = pair_trims
@@ -54,8 +77,16 @@ impl SpacingPlan {
             pair_trims,
             pair_by_edit,
             ruby_spreads,
+            ruby_carriers,
             runs,
         }
+    }
+
+    /// The ruby item `item`'s carrier, when it spreads.
+    pub(crate) fn ruby_carrier(&self, item: usize) -> Option<&RubyCarrier> {
+        self.ruby_carriers
+            .iter()
+            .find(|carrier| carrier.item == item)
     }
 
     /// The pair trims `edits` leaves applied: every one no break was found
@@ -130,7 +161,24 @@ impl SpacingPlan {
                 .find(|(range, _)| range.contains(&byte))
                 .map(|(_, spacing)| *spacing)
         };
-        if let Some(spacing) = latest(edits.split_spreads).or_else(|| latest(&self.ruby_spreads)) {
+        if let Some(spacing) = latest(edits.split_spreads) {
+            return spacing;
+        }
+        // A ruby's carrier keeps its start overhang unless the ruby opens a
+        // line, whatever the plan's own build decided.
+        if let Some(carrier) = self
+            .ruby_carriers
+            .iter()
+            .find(|carrier| carrier.range.contains(&byte))
+        {
+            let carried = if edits.unhung_starts.binary_search(&carrier.item).is_ok() {
+                carrier.unhung
+            } else {
+                carrier.hung
+            };
+            return carrier.author + carried.max(0.0);
+        }
+        if let Some(spacing) = latest(&self.ruby_spreads) {
             return spacing;
         }
         self.pair_editing(byte)

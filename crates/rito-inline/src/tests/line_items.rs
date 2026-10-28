@@ -83,6 +83,7 @@ fn a_line_splits_alike_with_and_without_its_glyphs() {
         end_trims: &[],
         suppressed_pair_trims: &[],
         split_spreads: &[],
+        unhung_starts: &[],
     };
     let mut lines_checked = 0;
     let mut bytes_checked = 0;

@@ -24,6 +24,7 @@ pub(crate) struct LineEdits {
     end_trims: Vec<usize>,
     suppressed_pair_trims: Vec<usize>,
     split_spreads: Vec<(Range<usize>, f32)>,
+    unhung_starts: Vec<usize>,
     forced: BTreeMap<usize, usize>,
 }
 
@@ -33,6 +34,7 @@ impl LineEdits {
             end_trims: &self.end_trims,
             suppressed_pair_trims: &self.suppressed_pair_trims,
             split_spreads: &self.split_spreads,
+            unhung_starts: &self.unhung_starts,
         }
     }
 
@@ -48,6 +50,7 @@ impl LineEdits {
         self.end_trims == other.end_trims
             && self.suppressed_pair_trims == other.suppressed_pair_trims
             && self.split_spreads == other.split_spreads
+            && self.unhung_starts == other.unhung_starts
     }
 }
 
@@ -114,6 +117,9 @@ enum Decision {
     Force(usize),
     /// Split ruby segments spread on the line.
     Spread(Vec<(Range<usize>, f32)>),
+    /// The ruby (its item index) that opens the line drops its start
+    /// overhang.
+    Unhang(usize),
     /// A closer the line extends by, and the suppressed pairs it puts back
     /// on one line.
     Trim { byte: usize, unsuppress: Vec<usize> },
@@ -552,6 +558,9 @@ impl Pass<'_> {
                 return Some(Decision::Spread(spreads));
             }
         }
+        if let Some(item) = self.opening_ruby(&line, &state.edits) {
+            return Some(Decision::Unhang(item));
+        }
         if forced || last || !self.trims_possible {
             return None;
         }
@@ -600,6 +609,26 @@ impl Pass<'_> {
                     .then_some((right_byte, left_byte))
             })
             .collect()
+    }
+
+    /// The whole ruby opening `line` while its column overhangs the text
+    /// before it: Blink overhangs only an item before the ruby on its own
+    /// line (`CanApplyStartOverhang` needs one), so a ruby opening a line
+    /// keeps its start inset inside the column.
+    fn opening_ruby(
+        &self,
+        line: &parley::layout::Line<'_, [u8; 4]>,
+        edits: &LineEdits,
+    ) -> Option<usize> {
+        let start = line.text_range().start;
+        let ranges = self.inputs.item_text_ranges;
+        let item = ranges.partition_point(|range| range.end <= start);
+        if ranges.get(item)?.start != start {
+            return None;
+        }
+        let carrier = self.source.spacing_plan.ruby_carrier(item)?;
+        (carrier.start_overhang > 0.0 && edits.unhung_starts.binary_search(&item).is_err())
+            .then_some(item)
     }
 
     /// The item containing byte `at` strictly inside it, if a text item
@@ -855,6 +884,12 @@ impl Pass<'_> {
             }
             Decision::Force(end) => {
                 state.edits.forced.insert(index, end);
+            }
+            Decision::Unhang(item) => {
+                insert_sorted(&mut state.edits.unhung_starts, item);
+                if let Some(carrier) = plan.ruby_carrier(item) {
+                    touched.push(carrier.range.start);
+                }
             }
             Decision::Spread(spreads) => {
                 let text = &self.source.text;

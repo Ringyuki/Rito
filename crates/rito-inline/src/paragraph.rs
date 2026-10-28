@@ -238,6 +238,11 @@ impl ParleyInlineContext {
         let mut ruby_annotation_widths: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+        // Each spread ruby's edge carrier, priced with and without its start
+        // overhang: the line loop drops the overhang of a ruby that opens a
+        // line (Blink's CanApplyStartOverhang needs an item before it on
+        // the line).
+        let mut ruby_carriers: Vec<RubyCarrier> = Vec::new();
         // Per item: the paint-side right shift of the base glyphs inside
         // the column (the start inset that could not overhang).
         let mut ruby_center_shifts: std::collections::HashMap<usize, f64> =
@@ -332,7 +337,9 @@ impl ParleyInlineContext {
                 }
                 allowed
             };
-            let overhang_left = overhang(prev_byte, true);
+            let natural_overhang_left = overhang(prev_byte, true);
+            let unhung = edits.unhung_starts.binary_search(item_index).is_ok();
+            let overhang_left = if unhung { 0.0 } else { natural_overhang_left };
             let overhang_right = overhang(next_byte, false);
             let author = match style.text_flow.letter_spacing {
                 LengthPercentage::Length(px) => px.get(),
@@ -351,6 +358,14 @@ impl ParleyInlineContext {
                 if delta > 0.0 {
                     ruby_spread_edits.push((last_cluster_start..range.end, author + delta as f32));
                 }
+                ruby_carriers.push(RubyCarrier {
+                    item: *item_index,
+                    range: last_cluster_start..range.end,
+                    author,
+                    hung: (space - natural_overhang_left - overhang_right) as f32,
+                    unhung: (space - overhang_right) as f32,
+                    start_overhang: natural_overhang_left as f32,
+                });
                 ruby_spreads.insert(*item_index, 0.0);
                 ruby_spread_overhangs.insert(*item_index, overhang_left);
                 ruby_spread_overhangs_right.insert(*item_index, overhang_right);
@@ -380,6 +395,14 @@ impl ParleyInlineContext {
                 ruby_spread_edits
                     .push((last_cluster_start..range.end, author + edge_carrier as f32));
             }
+            ruby_carriers.push(RubyCarrier {
+                item: *item_index,
+                range: last_cluster_start..range.end,
+                author,
+                hung: (inset_full - natural_overhang_left - overhang_right) as f32,
+                unhung: (inset_full - overhang_right) as f32,
+                start_overhang: natural_overhang_left as f32,
+            });
             let absorbed_left = inset - overhang_left;
             if absorbed_left > 0.0 {
                 ruby_center_shifts.insert(*item_index, absorbed_left);
@@ -540,6 +563,7 @@ impl ParleyInlineContext {
         let plan = SpacingPlan::new(
             punctuation_trims,
             ruby_spread_edits,
+            ruby_carriers,
             runs.iter()
                 .map(|(range, style, _)| {
                     let author = match style.text_flow.letter_spacing {

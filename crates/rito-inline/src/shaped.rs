@@ -109,18 +109,21 @@ pub(crate) struct ShapeKey {
     suppressed_pair_trims: Vec<usize>,
     /// Range start, range end and spacing bits of each split spread.
     split_spreads: Vec<(usize, usize, u32)>,
+    unhung_starts: Vec<usize>,
     /// The space, when the shaping read it.
     space: Option<[Option<u64>; 3]>,
 }
 
 /// What the line loop has decided so far and builds the paragraph again
-/// with: line-end trims, pair trims a break separated, and the spacing a
-/// ruby base split across lines takes.
+/// with: line-end trims, pair trims a break separated, the spacing a ruby
+/// base split across lines takes, and the rubies opening a line, which
+/// overhang nothing before them (sorted item indices).
 #[derive(Clone, Copy, Default)]
 pub(crate) struct ParagraphEdits<'a> {
     pub(crate) end_trims: &'a [usize],
     pub(crate) suppressed_pair_trims: &'a [usize],
     pub(crate) split_spreads: &'a [(std::ops::Range<usize>, f32)],
+    pub(crate) unhung_starts: &'a [usize],
 }
 
 impl ShapeKey {
@@ -135,6 +138,7 @@ impl ShapeKey {
                 .iter()
                 .map(|(range, spacing)| (range.start, range.end, spacing.to_bits()))
                 .collect(),
+            unhung_starts: edits.unhung_starts.to_vec(),
             space: None,
         }
     }

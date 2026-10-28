@@ -10,6 +10,7 @@ mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
 mod relayout_equivalence_tests;
 pub(crate) mod revisions;
+mod ruby_overhang_tests;
 mod ruby_range_tests;
 mod scroll_strip_tests;
 mod scrolled_revision_tests;

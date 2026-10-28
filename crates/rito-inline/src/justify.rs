@@ -306,3 +306,44 @@ pub(crate) fn line_justify_plan(
         total,
     })
 }
+
+/// How much wider than its content Blink takes a line to be when it aligns
+/// it, because of the rubies on it: a line the breaker ended by rewinding to
+/// an item boundary (the next item's first glyph did not fit) has its width
+/// summed again from its items' inline sizes (`LineBreaker::Rewind` →
+/// `LineInfo::ComputeWidth`), where a ruby column counts whole and its
+/// overhangs, kept inside the column's base line, are lost. Such a line
+/// aligns as if that much wider: one it then fills is not justified.
+/// Measured: a 300px justified line holding 碎片/Fragment (7px overhang
+/// each side) and ending at a `<span>` stays unexpanded at 287.95.
+pub(crate) fn rewound_ruby_overhangs(
+    line: std::ops::Range<usize>,
+    break_reason: parley::layout::BreakReason,
+    items: &[std::ops::Range<usize>],
+    overhangs_left: &std::collections::HashMap<usize, f64>,
+    overhangs_right: &std::collections::HashMap<usize, f64>,
+) -> f64 {
+    if break_reason != parley::layout::BreakReason::Regular {
+        return 0.0;
+    }
+    let ends_at_item = items
+        .iter()
+        .any(|range| !range.is_empty() && range.end == line.end)
+        && items
+            .iter()
+            .any(|range| !range.is_empty() && range.start >= line.end);
+    if !ends_at_item {
+        return 0.0;
+    }
+    items
+        .iter()
+        .enumerate()
+        .filter(|(_, range)| {
+            !range.is_empty() && range.start >= line.start && range.end <= line.end
+        })
+        .map(|(item, _)| {
+            overhangs_left.get(&item).copied().unwrap_or(0.0)
+                + overhangs_right.get(&item).copied().unwrap_or(0.0)
+        })
+        .sum()
+}

@@ -85,6 +85,15 @@ paragraph and the space under the previous paragraph's last line, not
 across a top border or out of a paragraph that is its own formatting
 context. A ruby line that opens a page takes its whole height there.
 
+### Ruby overhangs only on its own line
+
+A ruby whose annotation is wider than its base overhangs the text before it
+only when that text is on its own line, as Chromium lays it out: a ruby
+opening a line starts its annotation at the line's start. A justified,
+centered or right-aligned line that ends where the next element's first
+character did not fit aligns as Chromium aligns it, counting each ruby on it
+at its full width, so such a line ending at a ruby is not stretched.
+
 ### Word selection steps past spaces
 
 Extending a selection by a word moves to the end of the next word or the

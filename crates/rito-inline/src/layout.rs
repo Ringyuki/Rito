@@ -363,6 +363,16 @@ impl FormattingContext for ParleyInlineContext {
                     0.0
                 }
             };
+            // Rubies on a line the breaker rewound to an item boundary
+            // widen it for alignment by their overhangs (see
+            // `rewound_ruby_overhangs`).
+            let rewind_width = rewound_ruby_overhangs(
+                line.text_range(),
+                line.break_reason(),
+                &item_text_ranges,
+                &ruby_spread_overhangs,
+                &ruby_spread_overhangs_right,
+            );
             // An alignment offset lands on the LayoutUnit grid by
             // FLOORING (Range-measured: a right-aligned 4-glyph 15.2px
             // line starts at 579.1875 = floor64(579.2), the .8 fraction
@@ -371,9 +381,11 @@ impl FormattingContext for ParleyInlineContext {
             let line_x = {
                 let raw = parley_line_x - alignment_epsilon
                     + match alignment {
-                        parley::Alignment::Center => (hang_uncovered - trailing_nbsp_kept) / 2.0,
+                        parley::Alignment::Center => {
+                            (hang_uncovered - trailing_nbsp_kept - rewind_width) / 2.0
+                        }
                         parley::Alignment::End | parley::Alignment::Right => {
-                            hang_uncovered - trailing_nbsp_kept
+                            hang_uncovered - trailing_nbsp_kept - rewind_width
                         }
                         _ => 0.0,
                     };
@@ -558,7 +570,7 @@ impl FormattingContext for ParleyInlineContext {
                 line_justify_plan(
                     &flow_text,
                     range,
-                    target - advance,
+                    target - advance - rewind_width,
                     &spread_ranges,
                     &atom_positions,
                 )
