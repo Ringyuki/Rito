@@ -41,10 +41,12 @@ pub(crate) fn is_cjk_justify(character: char) -> bool {
         | 0x20000..=0x2FA1F)
 }
 
-/// Whether a justified line expands after this character: word separators
-/// and CJK ideographs/symbols both open a share on their right side.
+/// Whether a justified line expands after this character: what Blink
+/// treats as a space (`unicode::TreatAsSpace`: the space, the tab, the
+/// line feed and the no-break space) and CJK ideographs/symbols both open
+/// a share on their right side.
 pub(crate) fn justify_expands_after(character: char) -> bool {
-    character == ' ' || is_cjk_justify(character)
+    matches!(character, ' ' | '\t' | '\n' | '\u{A0}') || is_cjk_justify(character)
 }
 
 /// Punctuation that CJK fonts join into one continuous rule when repeated
@@ -146,7 +148,11 @@ pub(crate) fn line_justify_plan(
     if slack.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return None;
     }
-    let content = text.get(range.clone())?.trim_end();
+    // The spaces that hang past the line's end take no share; a no-break
+    // space does not hang.
+    let content = text
+        .get(range.clone())?
+        .trim_end_matches(|character: char| character.is_whitespace() && character != '\u{A0}');
     let content_end = range.start + content.len();
     let mut counts: Vec<(usize, u32)> = Vec::new();
     let mut before_bytes: Vec<usize> = Vec::new();

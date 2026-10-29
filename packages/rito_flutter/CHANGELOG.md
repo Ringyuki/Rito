@@ -109,6 +109,13 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A no-break space justifies as a space
+
+A justified line spreads the gap after a no-break space with the other
+word gaps, as Chromium treats the no-break space as a space when it
+justifies, and a no-break space ending a justified line counts as content
+instead of hanging.
+
 ### Inline blocks stand on their margin box
 
 An inline block stands on its line by its margin box, as Chromium lays it

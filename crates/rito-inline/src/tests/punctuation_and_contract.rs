@@ -895,6 +895,19 @@ fn empty_font_registration_fails_closed() {
     assert!(ParleyInlineContext::new(vec![vec![0_u8; 4]]).is_err());
 }
 
+/// A no-break space is a word separator a justified line expands after,
+/// as Blink treats it as a space (`unicode::TreatAsSpace`): a numbered
+/// item "2.\u{A0}Particular care" spreads the gap after its number with
+/// the others.
+#[test]
+fn a_no_break_space_takes_a_justification_share() {
+    let text = "2.\u{A0}Particular care";
+    let plan = line_justify_plan(text, 0..text.len(), 4.0, &[], &[], &[]).expect("plan builds");
+    assert_eq!(plan.share, 2.0, "two separators share the slack");
+    assert_eq!(plan.count_at(4), 1, "the boundary after the no-break space");
+    assert_eq!(plan.count_at(15), 1, "the boundary after the space");
+}
+
 #[test]
 fn an_atomic_inline_expands_before_but_defers_after() {
     // Measured against a Chromium badge-line justify map (2026-08-13):
