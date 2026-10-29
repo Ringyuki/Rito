@@ -904,6 +904,23 @@ img { object-fit: contain; }`;
         },
       );
     const vertical = await injectTruth(truth);
+    // RITO_WALK_DUMP="<chapter href part>|<selector>" prints the truth's
+    // client rects of the matching elements in that chapter, laid out
+    // exactly as the walk captures it.
+    if (process.env.RITO_WALK_DUMP) {
+      const [hrefPart, selector] = process.env.RITO_WALK_DUMP.split('|');
+      if (chapter.href.includes(hrefPart) || href.includes(hrefPart)) {
+        const rects = await truth.evaluate(
+          (sel) =>
+            [...document.querySelectorAll(sel)].map((element) => {
+              const r = element.getBoundingClientRect();
+              return { tag: element.tagName, x: r.x, y: r.y, width: r.width, height: r.height };
+            }),
+          selector,
+        );
+        console.log(`dump ${chapter.href} ${JSON.stringify(rects)}`);
+      }
+    }
     if (SCROLLED) {
       await truth.waitForTimeout(250);
       // A vertical chapter's windows run leftwards from its right edge.
