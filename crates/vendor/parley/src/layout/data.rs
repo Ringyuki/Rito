@@ -441,10 +441,17 @@ impl<B: Brush> LayoutData<B> {
                 index
             });
 
-        let metrics = {
+        let (metrics, vertical_fallback) = {
             let font = &self.fonts[font_index];
             let font_ref = skrifa::FontRef::from_index(font.data.as_ref(), font.index).unwrap();
-            skrifa::metrics::Metrics::new(&font_ref, skrifa::prelude::Size::new(font_size), coords)
+            (
+                skrifa::metrics::Metrics::new(
+                    &font_ref,
+                    skrifa::prelude::Size::new(font_size),
+                    coords,
+                ),
+                vertical_upright.then(|| vertical_fallback(&font_ref, font_size)),
+            )
         };
         let units_per_em = metrics.units_per_em as f32;
 
@@ -526,6 +533,7 @@ impl<B: Brush> LayoutData<B> {
                 owned(&mut self.glyphs),
                 scale_factor,
                 vertical_upright,
+                vertical_fallback.flatten(),
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -538,6 +546,7 @@ impl<B: Brush> LayoutData<B> {
                 owned(&mut self.glyphs),
                 scale_factor,
                 vertical_upright,
+                vertical_fallback.flatten(),
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -713,6 +722,51 @@ impl<B: Brush> LayoutData<B> {
     }
 }
 
+/// Rito: the vertical advance at `font_size` of an upright glyph in a face
+/// without vertical metrics (no `vhea` and `vmtx`), and the shaper's default
+/// it stands in for, in font units: Blink advances such a glyph by the
+/// face's height (`OpenTypeVerticalData::AdvanceHeight`, its
+/// `height_fallback_`), its ascent and descent each rounded to whole pixels
+/// and summed — the hhea metrics, or the OS/2 typo ones when the face sets
+/// USE_TYPO_METRICS, as Skia reports them — where the shaper takes the typo
+/// ascent less descent. `None` for a face with vertical metrics.
+fn vertical_fallback(font_ref: &skrifa::FontRef<'_>, font_size: f32) -> Option<(i32, f32)> {
+    use skrifa::raw::TableProvider as _;
+    if font_ref.vhea().is_ok() && font_ref.vmtx().is_ok() {
+        return None;
+    }
+    let scale = f64::from(font_size) / f64::from(font_ref.head().ok()?.units_per_em().max(1));
+    let os2 = font_ref.os2().ok();
+    let hhea = font_ref.hhea().ok();
+    let shaper_default = match (&os2, &hhea) {
+        (Some(os2), _) => i32::from(os2.s_typo_ascender()) - i32::from(os2.s_typo_descender()),
+        (None, Some(hhea)) => {
+            i32::from(hhea.ascender().to_i16()) - i32::from(hhea.descender().to_i16())
+        }
+        (None, None) => 0,
+    };
+    let use_typo = os2.as_ref().is_some_and(|os2| {
+        os2.fs_selection()
+            .contains(skrifa::raw::tables::os2::SelectionFlags::USE_TYPO_METRICS)
+    });
+    let (ascent, descent) = match (use_typo, &os2, &hhea) {
+        (true, Some(os2), _) => (
+            f64::from(os2.s_typo_ascender()),
+            -f64::from(os2.s_typo_descender()),
+        ),
+        (_, _, Some(hhea)) => (
+            f64::from(hhea.ascender().to_i16()),
+            -f64::from(hhea.descender().to_i16()),
+        ),
+        _ => return None,
+    };
+    let round = |value: f64| (value + 0.5).floor();
+    Some((
+        shaper_default,
+        (round(ascent * scale) + round(descent * scale)) as f32,
+    ))
+}
+
 /// Processes shaped glyphs from `HarfRust` and converts them into `ClusterData` and `Glyph`.
 ///
 /// # Parameters
@@ -725,6 +779,9 @@ impl<B: Brush> LayoutData<B> {
 /// ## Input Parameters:
 /// * `direction` - Direction of the text.
 /// * `scale_factor` - Scaling factor used to convert font units to the target size.
+/// * `vertical_upright` - Rito: whether the run was shaped top to bottom.
+/// * `vertical_fallback` - Rito: the vertical advance a face without vertical metrics gives
+///   in place of the shaper's default (see [`vertical_fallback`]).
 /// * `glyph_infos` - `HarfRust` glyph information in visual order.
 /// * `glyph_positions` - `HarfRust` glyph positioning data in visual order.
 /// * `char_infos` - Character information from text analysis, indexed by cluster ID.
@@ -736,6 +793,7 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
     glyphs: &mut Vec<Glyph>,
     scale_factor: f32,
     vertical_upright: bool,
+    vertical_fallback: Option<(i32, f32)>,
     glyph_infos: &[harfrust::GlyphInfo],
     glyph_positions: &[harfrust::GlyphPosition],
     char_infos: &[(CharInfo, u16)],
@@ -866,12 +924,20 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
         // vertical advance; the offsets from each glyph's vertical origin
         // are the painter's, which hangs the glyph from that origin itself.
         let glyph = if vertical_upright {
+            let units = -glyph_pos.y_advance;
             Glyph {
                 id: glyph_info.glyph_id,
                 style_index: char_info.1,
                 x: 0.0,
                 y: 0.0,
-                advance: -(glyph_pos.y_advance as f32) * scale_factor,
+                // The positioning a glyph took moves it from the fallback
+                // as from the shaper's default; a mark zeroed stays zero.
+                advance: match vertical_fallback {
+                    Some((default, fallback)) if units != 0 => {
+                        fallback + ((units - default) as f32) * scale_factor
+                    }
+                    _ => (units as f32) * scale_factor,
+                },
             }
         } else {
             Glyph {

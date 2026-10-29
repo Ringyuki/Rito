@@ -5,7 +5,9 @@
 A vertical-rl chapter's boxes take their margins, padding and borders on the
 sides its flow puts them; each line hangs from its central baseline; each
 upright glyph stands in its face's vertical forms at the font's vertical
-origin, and Latin and digits in a mixed line lie turned a quarter; ruby
+origin and advances by its vertical advance (by the face's whole-pixel
+height when the face has no vertical metrics), and Latin and digits in a
+mixed line lie turned a quarter; ruby
 annotations stand on their base where Chromium places them; an image
 sizes to the column's length; and `text-combine-upright: all` text sets as
 one horizontal string within an em of the column, in narrower forms or

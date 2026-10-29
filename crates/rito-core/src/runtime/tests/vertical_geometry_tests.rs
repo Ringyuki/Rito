@@ -671,3 +671,59 @@ fn a_minimum_block_size_continues_on_the_next_page_as_chromium_breaks_it() {
         &[[324.0, 15.84, 15.84]],
     );
 }
+
+/// An upright glyph from a face without vertical metrics advances down the
+/// column by the face's whole-pixel height, as Chromium falls back: Tinos
+/// at 16px is 14 + 3 = 17px tall, so with Tinos primary its section signs
+/// take 17px each between the serif's one-em glyphs (Chromium's places 0,
+/// 17, 33, 49 for the trimmed bracket, 57, 73 and 90). Each glyph hangs
+/// from its face's vertical origin: Tinos, which has none, its whole-pixel
+/// ascent of 14; the serif 0.88 em, its trimmed bracket half an em higher.
+#[test]
+fn an_upright_glyph_without_vertical_metrics_advances_its_face_height() {
+    let bytes = content_epub(
+        "ja",
+        "<p>§４．【廃§§</p>",
+        "html { writing-mode: vertical-rl; } \
+         body { margin: 0; font-size: 16px; line-height: 1.75; }",
+        None,
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![
+            face(
+                bundled_font("Tinos-Regular.ttf"),
+                RuntimePinnedFontGenericRole::Serif,
+                None,
+            ),
+            face(
+                bundled_font("SourceHanSerifCN-Regular.otf"),
+                RuntimePinnedFontGenericRole::Serif,
+                Some("ja"),
+            ),
+        ]),
+    )
+    .expect("document opens");
+    let summary = document.create_revision(&layout()).expect("revision");
+    let commands = document.revisions[&summary.revision_id]
+        .fragment_layout
+        .page(0)
+        .expect("first page")
+        .commands_for(1.0)
+        .expect("page paints");
+    let downs: Vec<f64> = commands
+        .iter()
+        .filter_map(|command| match command {
+            DisplayCommand::PaintText(text) => Some(text),
+            _ => None,
+        })
+        .flat_map(|text| text.clusters.iter().map(|cluster| cluster.y - ORIGIN))
+        .collect();
+    let expected = [14.0, 31.08, 47.08, 55.08, 71.08, 87.0, 104.0];
+    let close = downs.len() == expected.len()
+        && downs
+            .iter()
+            .zip(&expected)
+            .all(|(got, want)| (got - want).abs() < 1e-4);
+    assert!(close, "painted {downs:?}, Chromium {expected:?}");
+}
