@@ -286,6 +286,9 @@ impl TreeBuilder<'_> {
         self.require_inline_capabilities(style, true, "ruby")?;
         let collapse = self.white_space_collapse(style)?;
         let mut pending_base = String::new();
+        // Whether a pair of this element already went out: the later ones
+        // share its box.
+        let mut paired = false;
         // The text nodes the pending base was read from, in order.
         let mut base_nodes: Vec<&crate::xhtml::TextNode> = Vec::new();
         for child in &element.children {
@@ -343,6 +346,7 @@ impl TreeBuilder<'_> {
                                 text,
                                 size_ratio,
                                 align: ruby_align,
+                                continues_ruby: std::mem::replace(&mut paired, true),
                             }),
                         base_index,
                         base_path,

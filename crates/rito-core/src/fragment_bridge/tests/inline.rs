@@ -330,6 +330,18 @@ fn mono_ruby_pairs_each_annotation_with_its_base_segment() {
         })
         .collect();
     assert_eq!(runs, vec![("漢", Some("かん")), ("字", Some("じ"))],);
+    // The second pair shares the element's box with the first.
+    let continues: Vec<bool> = items
+        .iter()
+        .filter_map(|item| match item {
+            InlineItem::Text {
+                ruby_annotation: Some(annotation),
+                ..
+            } => Some(annotation.continues_ruby),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(continues, vec![false, true]);
 }
 
 #[test]

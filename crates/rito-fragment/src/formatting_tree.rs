@@ -209,6 +209,9 @@ pub struct RubyAnnotation {
     /// The rt element's computed `ruby-align`, driving how the painted
     /// annotation distributes over the base extent.
     pub align: rito_style_contract::RubyAlign,
+    /// Whether the pair follows another pair of the same `<ruby>` element,
+    /// inside that element's one box.
+    pub continues_ruby: bool,
 }
 
 /// One item of an inline formatting context's input, in content order.

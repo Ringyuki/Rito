@@ -307,6 +307,7 @@ fn a_spread_ruby_base_keeps_one_origin_per_cluster_after_merging() {
                         text: "Emnetwiht".to_owned(),
                         size_ratio: 0.5,
                         align: rito_style_contract::RubyAlign::SpaceAround,
+                        continues_ruby: false,
                     }),
                 },
                 text_item("」"),

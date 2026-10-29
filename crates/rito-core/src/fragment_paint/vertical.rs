@@ -325,6 +325,9 @@ pub(super) fn append_vertical_line_commands(
         .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
     let flow_text = flow_texts.of(line.source, items);
     let (full_text, text_ranges) = (&flow_text.text, flow_text.item_ranges.as_slice());
+    // The ruby box the last ruby base on the line sat in: that base's
+    // item and how far the box's glyphs move.
+    let mut ruby_box: Option<(usize, f64)> = None;
     for child in &line.children {
         // A replaced atom in a vertical line: the layout box is the
         // swapped one (advance = physical height), so the device rect
@@ -454,7 +457,33 @@ pub(super) fn append_vertical_line_commands(
         // The run's baseline lies the line's baseline in from its
         // line-over edge, less the item's own shift.
         let baseline_x = column_x + line.rect.height - (line.baseline - baseline_shift_px);
-        let top = snap_css(column_top);
+        let mut top = snap_css(column_top);
+        // Text in a ruby box paints from the box's place rounded to a whole
+        // CSS pixel down the line, as the browser paints a box's text: it
+        // shifts the text by the rounding of the box's inline start, then
+        // rasters each glyph on its own (measured: a base glyph's ink
+        // steps once per CSS pixel of its box's start at device scales 1
+        // and 2, a plain glyph's with its own place, and the later pairs of
+        // one ruby element step with the first). The box starts where the
+        // element opens on the line, before its base's inset and before a
+        // justification share its first glyph takes ahead of itself.
+        if let Some(annotation) = ruby_annotation {
+            let same_box = ruby_box.is_some_and(|(last, _)| {
+                last == *item_index || (annotation.continues_ruby && last + 1 == *item_index)
+            });
+            let shift = match ruby_box {
+                Some((_, shift)) if same_box => shift,
+                _ => run
+                    .clusters_with_origins()
+                    .next()
+                    .map_or(0.0, |(segment_x, _)| {
+                        let start = top + segment_x;
+                        snap_css(start) - start
+                    }),
+            };
+            ruby_box = Some((*item_index, shift));
+            top += shift;
+        }
         let placed = place_column_run(run, font_size, baseline_x, top);
         append_column_run_commands(
             commands,

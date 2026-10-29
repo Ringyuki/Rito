@@ -575,6 +575,7 @@ fn a_ruby_base_breaks_across_lines_like_plain_text() {
                             text: "an".to_owned(),
                             size_ratio: 0.5,
                             align: rito_style_contract::RubyAlign::SpaceAround,
+                            continues_ruby: false,
                         }),
                     },
                 ],
@@ -668,6 +669,7 @@ fn a_ruby_split_whose_annotation_overflows_rewinds_to_the_item_start() {
                         text: "wwwwww".to_owned(),
                         size_ratio: 0.5,
                         align: rito_style_contract::RubyAlign::SpaceAround,
+                        continues_ruby: false,
                     }),
                 },
             ],
@@ -828,6 +830,7 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
                         text: "annotation".to_owned(),
                         size_ratio: ratio,
                         align: rito_style_contract::RubyAlign::SpaceAround,
+                        continues_ruby: false,
                     }),
                 },
                 InlineItem::Text {
@@ -947,6 +950,7 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
                         text: "送葬者".to_owned(),
                         size_ratio: 0.55,
                         align: RubyAlign::Center,
+                        continues_ruby: false,
                     }),
                 },
                 text("和莱登的部队了，我记得他们两个认识也有两年了吧。"),
@@ -1138,6 +1142,7 @@ fn a_ruby_split_rewind_keeps_an_image_before_the_ruby_on_the_line() {
                 text: "wwwwww".to_owned(),
                 size_ratio: 0.5,
                 align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         },
     ];
@@ -1233,6 +1238,7 @@ fn a_justified_line_aligns_a_wide_ruby_base_to_its_edges() {
                 text: "しゅん".to_owned(),
                 size_ratio: 0.5,
                 align: RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         });
         items.push(text(after));

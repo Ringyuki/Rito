@@ -109,6 +109,14 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Vertical ruby text moves with its ruby box
+
+In a vertical line, the text of a ruby element moves by the rounding of
+the element's start down the line to a whole CSS pixel, every base of one
+`<ruby>` with the first, as Chromium paints a box's text; plain text keeps
+its fractional place, and ruby bases no longer sit a pixel off the
+browser's.
+
 ### Ruby bases align to a justified line's edges
 
 In a justified paragraph, a ruby whose annotation is wider than its base

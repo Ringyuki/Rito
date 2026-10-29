@@ -221,6 +221,7 @@ fn the_spacing_plan_prices_an_unhung_ruby_as_a_build_pushes() {
             text: annotation.to_owned(),
             size_ratio: 0.8,
             align: rito_style_contract::RubyAlign::SpaceAround,
+            continues_ruby: false,
         }),
     };
     let items = vec![
@@ -578,6 +579,7 @@ fn split_ruby_segments_spread_as_pinned() {
             text: annotation.to_owned(),
             size_ratio: 0.5,
             align: rito_style_contract::RubyAlign::SpaceAround,
+            continues_ruby: false,
         }),
     };
     let tree = FormattingTree::with_styles(
