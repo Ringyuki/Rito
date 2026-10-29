@@ -118,7 +118,9 @@ impl ParleyInlineContext {
                     block: None,
                 }))
             }
-            InlineItem::InlineBlock { node, .. } => {
+            InlineItem::InlineBlock {
+                node, layout_style, ..
+            } => {
                 // The atomic inline is its own mini paragraph, laid
                 // out recursively through the full pipeline at CSS
                 // 2.1 §10.3.5 shrink-to-fit width against the host. One
@@ -137,10 +139,20 @@ impl ParleyInlineContext {
                             != (own_mode == rito_style_contract::WritingMode::HorizontalTopToBottom)
                 );
                 let sizes = self.intrinsic_inline_sizes(tree, *node)?;
+                // Its margins, borders and padding surround the content on
+                // the line (Blink sizes an atomic inline by its margin
+                // box); an orthogonal flow keeps its bare box.
+                let edges = if orthogonal {
+                    BoxEdges::default()
+                } else {
+                    box_edges(tree, host, *layout_style, space.inline_size())?
+                };
                 let available = if orthogonal {
                     space.block_size()
                 } else {
-                    space.inline_size()
+                    space
+                        .inline_size()
+                        .map(|size| (size - edges.inline_start - edges.inline_end).max(0.0))
                 }
                 .unwrap_or(sizes.max_content);
                 let width = sizes.max_content.min(sizes.min_content.max(available));
@@ -152,13 +164,23 @@ impl ParleyInlineContext {
                     None,
                     cancel,
                 )?;
-                let Fragment::Box(root_box) = outcome.fragments.root else {
+                let Fragment::Box(mut root_box) = outcome.fragments.root else {
                     return Err(LayoutError::Invalid(
                         "inline-block layout must produce a box fragment".to_owned(),
                     ));
                 };
+                // The content sits inside the edges; the atom is its
+                // margin box.
+                for child in &mut root_box.children {
+                    let rect = child.rect_mut();
+                    rect.x += edges.inline_start;
+                    rect.y += edges.block_start;
+                }
+                root_box.rect.width += edges.inline_start + edges.inline_end;
+                root_box.rect.height += edges.block_start + edges.block_end;
                 // The atom's baseline is its LAST line's baseline
-                // (CSS §10.8.1); a line-less box uses its bottom.
+                // (CSS §10.8.1); a line-less box uses its bottom margin
+                // edge.
                 let baseline = root_box
                     .children
                     .iter()
@@ -249,4 +271,83 @@ impl ParleyInlineContext {
         }
         Ok(())
     }
+}
+
+/// An inline block's margin, border and padding on each side of its
+/// content, in the host's flow-relative directions.
+#[derive(Clone, Copy, Debug, Default)]
+struct BoxEdges {
+    inline_start: f64,
+    inline_end: f64,
+    block_start: f64,
+    block_end: f64,
+}
+
+/// The edges of the inline block styled `layout_style` on a line of the
+/// paragraph at `host`, percentages against the host's inline size, each
+/// truncated onto the LayoutUnit grid as Blink stores a used margin or
+/// padding.
+fn box_edges(
+    tree: &FormattingTree,
+    host: FormattingNodeId,
+    layout_style: rito_style_contract::LayoutStyleId,
+    containing_inline_size: Option<f64>,
+) -> Result<BoxEdges, LayoutError> {
+    use rito_style_contract::LengthPercentageOrAuto;
+    let styles = tree.styles().ok_or_else(|| {
+        LayoutError::Invalid("inline flow tree carries no style tables".to_owned())
+    })?;
+    let style_of = |id| {
+        styles
+            .layout
+            .style(id)
+            .map_err(|error| LayoutError::Invalid(error.to_string()))
+    };
+    let style = style_of(layout_style)?;
+    let container = style_of(tree.node(host).style)?.writing_direction();
+    let basis = containing_inline_size.unwrap_or(0.0);
+    let used = |value: LengthPercentage| {
+        let resolved = match value {
+            LengthPercentage::Length(px) => f64::from(px.get()),
+            LengthPercentage::Percentage(ratio) => f64::from(ratio.ratio()) * basis,
+            LengthPercentage::Linear { length, percentage } => {
+                f64::from(length.get()) + f64::from(percentage.ratio()) * basis
+            }
+        };
+        (resolved * 64.0).trunc() / 64.0
+    };
+    let margins = style.margin_in(container);
+    let margin = |side: LengthPercentageOrAuto| match side {
+        LengthPercentageOrAuto::Auto => 0.0,
+        LengthPercentageOrAuto::Value(value) => used(value),
+    };
+    let padding = style.flow_padding();
+    let border = style.flow_border_widths();
+    let side = |margin_side: f64,
+                border_side: rito_style_contract::NonNegativeCssPx,
+                padding_side: rito_style_contract::NonNegativeLengthPercentage| {
+        margin_side + f64::from(border_side.get()) + used(padding_side.value()).max(0.0)
+    };
+    Ok(BoxEdges {
+        inline_start: side(
+            margin(margins.inline_start),
+            border.inline_start,
+            padding.inline_start,
+        ),
+        inline_end: side(
+            margin(margins.inline_end),
+            border.inline_end,
+            padding.inline_end,
+        ),
+        block_start: side(
+            margin(margins.block_start),
+            border.block_start,
+            padding.block_start,
+        ),
+        block_end: side(
+            margin(margins.block_end),
+            border.block_end,
+            padding.block_end,
+        ),
+    })
 }

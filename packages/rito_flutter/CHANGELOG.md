@@ -109,6 +109,13 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Inline blocks stand on their margin box
+
+An inline block stands on its line by its margin box, as Chromium lays it
+out: its margins, borders and padding surround its content, take their
+room along the line and push its last line's baseline down, so the line it
+rides grows by them.
+
 ### Closers are trimmed across element boundaries
 
 A closing bracket or quote that overflows a line by half its width is

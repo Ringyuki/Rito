@@ -430,6 +430,16 @@ impl Fragment {
         }
     }
 
+    /// The border-box rectangle, to move or resize in place.
+    pub fn rect_mut(&mut self) -> &mut FragmentRect {
+        match self {
+            Self::Box(fragment) => &mut fragment.rect,
+            Self::Line(fragment) => &mut fragment.rect,
+            Self::Text(fragment) => &mut fragment.rect,
+            Self::Image(fragment) => &mut fragment.rect,
+        }
+    }
+
     /// The tops of the first and the last line box in this fragment's flow
     /// (itself when it is one), relative to its own top, or `None` when it
     /// holds none.
