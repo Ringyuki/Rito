@@ -1189,17 +1189,34 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // the first fragment only; trailing rides the last.
                     let pad_top = if child_resumed { 0.0 } else { hbox.padding_top };
                     let grid_width = hbox.content_width;
-                    let placement = if space.fragmentainer_remaining.is_none() {
-                        // Continuous flow: the table lays out whole.
-                        TableFragmentainerPlacement::Placed {
-                            fragment: self.layout_table(
-                                tree,
-                                *child_id,
-                                grid_width,
-                                matches!(child_style.inline_size(), PreferredSize::Value(_)),
-                                cancel,
-                            )?,
-                            continuation: None,
+                    // An inline table is an atomic inline: the line box it
+                    // rides never breaks inside it, so it moves to the next
+                    // fragmentainer whole when it does not fit what is left
+                    // (monolithic content, as Blink fragments an
+                    // `inline-table`).
+                    let atomic = child_style.display.outside
+                        == rito_style_contract::LayoutDisplayOutside::Inline;
+                    let placement = if space.fragmentainer_remaining.is_none() || atomic {
+                        let fragment = self.layout_table(
+                            tree,
+                            *child_id,
+                            grid_width,
+                            matches!(child_style.inline_size(), PreferredSize::Value(_)),
+                            cancel,
+                        )?;
+                        let whole = fragment.rect.height + hbox.padding_top + hbox.padding_bottom;
+                        let fresh_capacity = space.fragmentainer_size.unwrap_or(f64::INFINITY);
+                        if space.fragmentainer_remaining.is_some()
+                            && whole > available
+                            && !page_is_empty
+                            && available < fresh_capacity
+                        {
+                            TableFragmentainerPlacement::BreakBefore
+                        } else {
+                            TableFragmentainerPlacement::Placed {
+                                fragment,
+                                continuation: None,
+                            }
                         }
                     } else {
                         let child_token = if child_resumed {

@@ -109,6 +109,12 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### An inline table moves to the next page whole
+
+An inline table (`display: inline-table`) moves to the next page whole
+when it does not fit what is left of the page, as Chromium fragments an
+atomic inline, instead of breaking between its rows like a block table.
+
 ### A line's last glyph is measured unkerned
 
 A line's last glyph is measured as Chromium reshapes a line's end: where
