@@ -681,6 +681,16 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         let whitespace = cluster.info().whitespace();
                         let is_newline = whitespace == Whitespace::Newline;
                         let is_space = whitespace.is_space_or_nbsp();
+                        // Rito: an other space separator overflowing the line
+                        // hangs past its end as a space does (Blink's
+                        // `HandleTrailingSpaces`, whatever the white-space
+                        // collapsing) when the line may break after its run.
+                        let hangs = is_space
+                            || (is_other_space_separator(cluster.info().source_char())
+                                && breaks_after_space_run(
+                                    &self.layout.data.clusters,
+                                    self.state.cluster_idx,
+                                ));
                         let boundary = cluster.info().boundary();
                         let line_height = run.metrics().line_height;
                         let max_height_exceeded = self.state.line.max_height_exceeded;
@@ -793,7 +803,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             // Case: cluster is a space character (and wrapping is enabled)
                             //
                             // We hang any overflowing whitespace and then line-break.
-                            if is_space && text_wrap_mode == TextWrapMode::Wrap {
+                            if hangs && text_wrap_mode == TextWrapMode::Wrap {
                                 if max_height_exceeded {
                                     return self.max_height_break_data(line_height);
                                 }
@@ -1601,4 +1611,32 @@ fn reorder_line_items(runs: &mut [LineItemData]) {
             i += 1;
         }
     }
+}
+
+/// Rito: whether a line may break after the run of other space separators
+/// starting at cluster `index`: at the end of the text, before a newline, or
+/// where the next cluster allows a break before it.
+fn breaks_after_space_run(clusters: &[ClusterData], index: usize) -> bool {
+    clusters
+        .iter()
+        .skip(index + 1)
+        .find(|cluster| !is_other_space_separator(cluster.info.source_char()))
+        .is_none_or(|cluster| {
+            cluster.info.whitespace() == Whitespace::Newline
+                || matches!(
+                    cluster.info.boundary(),
+                    Boundary::Line | Boundary::Mandatory
+                )
+        })
+}
+
+/// Rito: a space separator other than the space and the no-break space
+/// (CSS Text's "other space separators", Blink's
+/// `unicode::IsOtherSpaceSeparator`): the ideographic space, the
+/// typographic spaces and their kin.
+fn is_other_space_separator(character: char) -> bool {
+    matches!(
+        character,
+        '\u{1680}' | '\u{2000}'..='\u{200A}' | '\u{202F}' | '\u{205F}' | '\u{3000}'
+    )
 }

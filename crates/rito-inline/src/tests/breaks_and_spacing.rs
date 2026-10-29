@@ -721,6 +721,73 @@ fn a_cj_starter_may_open_a_line_unless_strict() {
     );
 }
 
+/// An ideographic space that overflows a line hangs past its end when the
+/// line may break after it, as Chromium hangs other space separators: in a
+/// 160px line of 16px ideographs the space after a full line's `！` hangs
+/// and the line breaks after it. Before a closing bracket the line may not
+/// break there, so the space does not hang and the line breaks before the
+/// last ideograph that can open the next one (Chromium's DOM, both cases).
+#[test]
+fn an_ideographic_space_hangs_where_the_line_may_break_after_it() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let layout_lines = |text: &str| {
+        let style = plain_paragraph_style(
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTable::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(160.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        line_texts(&outcome, text)
+    };
+    assert_eq!(
+        layout_lines("一二三四五六七八九！\u{3000}十一"),
+        vec!["一二三四五六七八九！\u{3000}".to_owned(), "十一".to_owned()],
+    );
+    assert_eq!(
+        layout_lines("一二三四五六七八九！\u{3000}」十"),
+        vec!["一二三四五六七八".to_owned(), "九！\u{3000}」十".to_owned()],
+    );
+}
+
 /// A registered named font must win over the pinned fallback when the
 /// style names it: the two faces have different advances for the same
 /// glyphs, so the line width tells which one shaped.

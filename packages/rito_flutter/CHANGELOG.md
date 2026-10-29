@@ -86,7 +86,10 @@ longer than 64 KiB, as a volume written as one block in one font can be,
 lays out instead of failing. A ligature is measured by its own glyphs in
 every run, not only the paragraph's first. A line that gives the start of an
 item to the next line (a ruby base that does not fit) keeps an
-inline image that comes before that item, as Chromium does.
+inline image that comes before that item, as Chromium does. An ideographic
+space (or another space separator) that overflows a line hangs past its end
+where the line may break after it, instead of sending the text before it to
+the next line.
 
 ### Closers are trimmed across element boundaries
 
