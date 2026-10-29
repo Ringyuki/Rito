@@ -2243,9 +2243,6 @@ impl FormattingContext for ParleyInlineContext {
                 }
             }
             prev_line_fonts = line_fonts;
-            prev_half_leading = strut_font_size.map_or(0.0, |size| {
-                rito_fragment::empty_line_half_leading(line_height, size)
-            });
             if line_debug && (has_inline_box || item_shifts.iter().any(|shift| *shift != 0.0)) {
                 eprintln!(
                     "[line-debug] contributions={contributions:?} font_line={font_line:?} \
@@ -2374,6 +2371,10 @@ impl FormattingContext for ParleyInlineContext {
                 text_runs: line_runs,
                 children,
             }));
+            if let Some(Fragment::Line(placed)) = lines.last() {
+                prev_half_leading =
+                    strut_font_size.map_or(0.0, |size| placed.glyphless_end_space(size));
+            }
         }
         // A forced break at the very end of the flow leaves one empty
         // trailing line; a browser generates no line box for a block-final

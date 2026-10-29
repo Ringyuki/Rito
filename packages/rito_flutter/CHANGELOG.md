@@ -109,6 +109,12 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### An illustration lends only the space under it to the ruby after it
+
+A ruby line after a line holding only an image (an illustration paragraph)
+reaches only into the space under the image, as Chromium measures that
+line's content by the image, instead of half the image line's height.
+
 ### Vertical ruby text moves with its ruby box
 
 In a vertical line, the text of a ruby element moves by the rounding of

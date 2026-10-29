@@ -48,8 +48,8 @@ pub struct PrecedingLine {
     pub below: f64,
     /// The fonts its glyph runs were shaped with.
     pub fonts: LineFonts,
-    /// Its half-leading (see [`empty_line_half_leading`]): all the space
-    /// an empty line lends, having no text to measure under.
+    /// What it lends when it holds no glyph run, having no text to
+    /// measure under (see [`crate::LineFragment::glyphless_end_space`]).
     pub half_leading: f64,
     /// Its block-end annotation space (`LineFragment::
     /// annotation_space_end`), what an emphasis mark over the next line

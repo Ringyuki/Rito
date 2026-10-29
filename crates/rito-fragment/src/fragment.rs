@@ -117,6 +117,31 @@ pub struct LineFragment {
     pub children: Vec<Fragment>,
 }
 
+impl LineFragment {
+    /// The space a line with no glyph run lends the annotations over the
+    /// line after it, in a flow whose font is `font_size` (Blink's
+    /// `ComputeAnnotationOverflow`, block-end space): its content reaches
+    /// from the baseline and each atomic inline's top down to the baseline
+    /// and each atomic inline's own block size from the line's top, and
+    /// what lies below that is lent; content shorter than the font size
+    /// counts as an empty line's, the font size centred in the box (see
+    /// [`empty_line_half_leading`](crate::empty_line_half_leading)).
+    pub fn glyphless_end_space(&self, font_size: f64) -> f64 {
+        let (mut over, mut under) = (self.baseline, self.baseline);
+        for child in &self.children {
+            if let Fragment::Image(_) | Fragment::Box(_) = child {
+                let rect = child.rect();
+                over = over.min(rect.y);
+                under = under.max(rect.height);
+            }
+        }
+        if under - over < font_size {
+            return crate::empty_line_half_leading(self.rect.height, font_size);
+        }
+        (self.rect.height - under).max(0.0)
+    }
+}
+
 /// An outside list-item marker: a filled disc whose geometry Blink derives
 /// from the list item's primary font (measured 2026-07-28, two faces and
 /// four sizes): diameter = ascent / 3, horizontally the disc's right edge

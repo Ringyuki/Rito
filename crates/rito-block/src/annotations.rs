@@ -96,9 +96,8 @@ pub(crate) fn block_annotation_end(
                 line: PrecedingLine {
                     below: (line.rect.height - line.baseline).max(0.0),
                     fonts: line.fonts,
-                    half_leading: flow_font_size(tree, line.source)?.map_or(0.0, |size| {
-                        rito_fragment::empty_line_half_leading(line.rect.height, size)
-                    }),
+                    half_leading: flow_font_size(tree, line.source)?
+                        .map_or(0.0, |size| line.glyphless_end_space(size)),
                     annotation_space: line.annotation_space_end,
                 },
                 space: 0.0,
