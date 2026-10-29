@@ -1327,3 +1327,112 @@ fn a_justified_line_aligns_a_wide_ruby_base_to_its_edges() {
         "last line start, justified",
     );
 }
+
+/// Each inline item of a justified line ends on the LayoutUnit grid at
+/// the ceiling of its exact advance — its fixed-point glyph advances plus
+/// its shares — however little the shares lift it past a grid point:
+/// pinned Chromium sets this book line (16px, a 0.36 share) with every
+/// ruby pair and the ideographic space before them 16.375 apart, where a
+/// float margin left them on 16.359375 and the ruby boxes rounded a pixel
+/// off.
+#[test]
+fn a_justified_item_ends_on_the_grid_ceiling_of_its_exact_advance() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.text_flow.text_align = TextAlign::Justify;
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline.intern_for_node(0, style).expect("style interns");
+    let text = |t: &str| InlineItem::Text {
+        text: t.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: None,
+    };
+    let ruby = |t: &str, a: &str, continues_ruby: bool| InlineItem::Text {
+        text: t.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+            text: a.to_owned(),
+            size_ratio: 0.5,
+            align: RubyAlign::SpaceAround,
+            continues_ruby,
+        }),
+    };
+    let items = vec![
+        text("　"),
+        ruby("蒼", "あお", false),
+        ruby("依", "い", true),
+        text("、"),
+        ruby("朱", "あか", false),
+        ruby("音", "ね", true),
+        text("、"),
+        ruby("橙", "とう", false),
+        ruby("花", "か", true),
+        text("、マリンなどなど……本来その全員と一緒に"),
+        ruby("観", "み", false),
+        text("たかったところだが、さすがに席数には制限があり、あくまで"),
+    ];
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(850.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("inline outcome root is a box fragment");
+    };
+    let Some(Fragment::Line(line)) = root.children.first() else {
+        panic!("outcome has a first line");
+    };
+    let xs: Vec<f64> = placed(line.children.iter().filter_map(|child| match child {
+        Fragment::Text(run) => Some(run),
+        _ => None,
+    }))
+    .iter()
+    .flat_map(|piece| {
+        piece
+            .clusters
+            .iter()
+            .map(move |cluster| piece.x + cluster.x)
+    })
+    .collect();
+    // 　蒼依、朱音、橙花、 as Chromium places them (Range, page 133).
+    let expected = [
+        0.0, 16.375, 32.75, 49.125, 65.5, 81.875, 98.25, 114.625, 131.0, 147.375,
+    ];
+    for (index, (x, want)) in xs.iter().zip(expected).enumerate() {
+        assert!(
+            (x - want).abs() < 1e-6,
+            "glyph {index} at {x}, want {want}: {xs:?}"
+        );
+    }
+    // The plain text after them keeps the float share.
+    assert!(((xs[11] - xs[10]) - 16.36).abs() < 1e-3, "{xs:?}");
+}

@@ -583,9 +583,10 @@ impl FormattingContext for ParleyInlineContext {
             // Expansion shares consumed at boundaries before the walk's
             // current position; each share moves everything after it.
             let mut justify_shares_used = 0u32;
-            // (item index, truth item start, engine item start) for the
-            // LayoutUnit item cursor on justified lines.
-            let mut justify_item_track: Option<(usize, f64, f64)> = None;
+            // (item index, truth item start, engine item start, item start
+            // byte, shares used at the item's start) for the LayoutUnit
+            // item cursor on justified lines.
+            let mut justify_item_track: Option<(usize, f64, f64, usize, u32)> = None;
             // The same LayoutUnit item cursor for UNJUSTIFIED lines at
             // OFF-GRID font sizes: a style-item boundary re-anchors the
             // next item's start at the ceiling of the running float end
@@ -1193,19 +1194,84 @@ impl FormattingContext for ParleyInlineContext {
                                 // dust must not bump a whole 1/64.
                                 let ceil64 =
                                     |value: f64| ((value - 1.0 / 1024.0) * 64.0).ceil() / 64.0;
+                                // An item of glyphs alone carries its
+                                // advance exactly: the shaper's fixed-point
+                                // advances plus its shares, each share as
+                                // the browser holds it (the slack per
+                                // opportunity truncated to 1/65536). No
+                                // dust margin then: a share 0.000625px over
+                                // the grid still lifts the item end a whole
+                                // 1/64 (measured: a run of 16px ruby bases
+                                // at a 0.36 share steps 16.375 each).
+                                let fixed_item_advance = |from: usize, to: usize, shares: u32| {
+                                    let mut natural = 0.0_f64;
+                                    let mut raw = 0.0_f64;
+                                    let mut cluster =
+                                        parley::layout::Cluster::from_byte_index(&layout, from);
+                                    while let Some(current) = cluster {
+                                        let range = current.text_range();
+                                        if range.start >= to {
+                                            break;
+                                        }
+                                        // Spaces ride word spacing apart
+                                        // from their glyphs (Blink's
+                                        // `TreatAsSpace`).
+                                        if flow_text.get(range.clone()).is_none_or(|t| {
+                                            t.chars()
+                                                .any(|c| matches!(c, ' ' | '\t' | '\n' | '\u{a0}'))
+                                        }) {
+                                            return None;
+                                        }
+                                        natural += hb_fixed_cluster_advance(
+                                            &self.catalog,
+                                            &current,
+                                            folded_spacing(spacing_edits, &current),
+                                        );
+                                        raw += f64::from(current.advance());
+                                        cluster = current.next_logical();
+                                    }
+                                    let share = (plan.share * 65536.0).floor() / 65536.0;
+                                    Some((natural + share * f64::from(shares), raw))
+                                };
                                 let run_x = run_x
                                     + match &mut justify_item_track {
                                         slot @ None => {
-                                            *slot = Some((item_index, justified_x, justified_x));
+                                            *slot = Some((
+                                                item_index,
+                                                justified_x,
+                                                justified_x,
+                                                run_range.start,
+                                                justify_shares_used,
+                                            ));
                                             0.0
                                         }
-                                        Some((item, truth_start, engine_start)) => {
+                                        Some((item, truth_start, engine_start, start, shares)) => {
                                             if *item != item_index {
                                                 let advance = justified_x - *engine_start;
-                                                let truth = ceil64(*truth_start + advance);
+                                                let used = justify_shares_used - *shares;
+                                                let between =
+                                                    advance - plan.share * f64::from(used);
+                                                let truth = match fixed_item_advance(
+                                                    *start,
+                                                    run_range.start,
+                                                    used,
+                                                ) {
+                                                    // Nothing but the item's
+                                                    // glyphs lies between.
+                                                    Some((exact, raw))
+                                                        if (raw - between).abs() < 0.01 =>
+                                                    {
+                                                        ((*truth_start + exact) * 64.0 - 1e-6)
+                                                            .ceil()
+                                                            / 64.0
+                                                    }
+                                                    _ => ceil64(*truth_start + advance),
+                                                };
                                                 *item = item_index;
                                                 *truth_start = truth;
                                                 *engine_start = justified_x;
+                                                *start = run_range.start;
+                                                *shares = justify_shares_used;
                                                 truth - justified_x
                                             } else {
                                                 *truth_start - *engine_start

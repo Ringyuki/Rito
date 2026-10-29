@@ -109,6 +109,14 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Justified items end on the grid by their exact advance
+
+On a justified line, each inline item (a ruby pair, a styled span, the text
+between them) ends at the 1/64px ceiling of its exact advance, its glyphs'
+fixed-point advances plus its justification shares, as Chromium snaps an
+item's width; a share that lifts an item only slightly past a grid point
+no longer leaves it on the point below.
+
 ### An illustration lends only the space under it to the ruby after it
 
 A ruby line after a line holding only an image (an illustration paragraph)
