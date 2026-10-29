@@ -34,6 +34,7 @@ fn kind_name(command: &DisplayCommand) -> &'static str {
         DisplayCommand::PaintRuby(_) => "paintRuby",
         DisplayCommand::PaintImage { .. } => "paintImage",
         DisplayCommand::PaintHorizontalRule { .. } => "paintHorizontalRule",
+        DisplayCommand::PaintDecoration { .. } => "paintDecoration",
     }
 }
 
@@ -125,6 +126,10 @@ fn command_value(command: &DisplayCommand) -> Value {
                 "paint".to_owned(),
                 json!({ "color": color_css(paint.color), "style": border_style_name(paint.style) }),
             );
+        }
+        DisplayCommand::PaintDecoration { rect, color } => {
+            fields.insert("rect".to_owned(), rect_value(rect));
+            fields.insert("color".to_owned(), Value::String(color_css(*color)));
         }
     }
     Value::Object(fields)

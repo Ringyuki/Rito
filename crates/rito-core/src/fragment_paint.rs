@@ -37,6 +37,7 @@ mod run_style;
 mod tests;
 mod text_run;
 mod vertical;
+mod vertical_decoration;
 mod walk;
 
 use flow_text::FlowTexts;

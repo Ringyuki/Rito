@@ -172,6 +172,11 @@ fn lower_command(
         DisplayCommand::PaintHorizontalRule { rect, paint } => {
             border::lower_horizontal_rule(rect.into(), paint, out);
         }
+        DisplayCommand::PaintDecoration { rect, color } => out.push(Primitive::FillRect {
+            rect: rect.into(),
+            color: *color,
+            ground: Ground::None,
+        }),
     }
 }
 

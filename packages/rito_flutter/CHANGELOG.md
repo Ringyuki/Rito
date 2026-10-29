@@ -109,6 +109,15 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Vertical text draws its decoration lines
+
+An underlined or overlined run in a vertical line (a link in a vertical
+table of contents) draws its line down beside the column, where Chromium
+draws it: Japanese and Korean text swaps the two lines, its underline on
+the right and its overline on the left, where other text draws its
+underline, a pixel off the em box. The display list gains a decoration line
+command, lowered to a filled rect; the artifact protocol is unchanged.
+
 ### Justified items end on the grid by their exact advance
 
 On a justified line, each inline item (a ruby pair, a styled span, the text

@@ -12,7 +12,8 @@
 //! layout box back to physical, and so does an inline-block, whose own
 //! lines then paint from its physical corner: across the column as
 //! horizontal lines when it is an orthogonal flow, as columns of its own
-//! otherwise. A ruby annotation spreads its glyphs down the base span.
+//! otherwise. A ruby annotation spreads its glyphs down the base span, and
+//! a decoration line runs down beside the column.
 
 use rito_fragment::{
     ClusterOrientation, CombinedForms, FontFaceId, FormattingNodeContent, FormattingTree, Fragment,
@@ -328,6 +329,10 @@ pub(super) fn append_vertical_line_commands(
     // The ruby box the last ruby base on the line sat in: that base's
     // item and how far the box's glyphs move.
     let mut ruby_box: Option<(usize, f64)> = None;
+    // The column's decoration lines, joined along each item and painted
+    // under the column's glyphs.
+    let line_start = commands.len();
+    let mut decorations: Vec<(usize, DisplayCommand)> = Vec::new();
     for child in &line.children {
         // A replaced atom in a vertical line: the layout box is the
         // swapped one (advance = physical height), so the device rect
@@ -426,8 +431,8 @@ pub(super) fn append_vertical_line_commands(
             .inline
             .style(*style_id)
             .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
-        // A column run paints glyphs only: its inline box and decoration
-        // have no column expression yet.
+        // A column run paints its glyphs and decoration lines: its inline
+        // box has no column expression yet.
         // Upright glyphs paint in their face's vertical forms, the
         // variant the host registers beside each face it names.
         let family_for = |face, forms: Forms| -> EpubResult<std::sync::Arc<str>> {
@@ -485,6 +490,13 @@ pub(super) fn append_vertical_line_commands(
             top += shift;
         }
         let placed = place_column_run(run, font_size, baseline_x, top);
+        // The underline and overline paint under the glyphs, as the
+        // browser paints them, one line along each item.
+        for decoration in
+            super::vertical_decoration::vertical_decorations(style, run, baseline_x, top)?
+        {
+            super::vertical_decoration::push_joined(&mut decorations, *item_index, decoration);
+        }
         append_column_run_commands(
             commands,
             full_text,
@@ -665,5 +677,9 @@ pub(super) fn append_vertical_line_commands(
             }
         }
     }
+    commands.splice(
+        line_start..line_start,
+        decorations.into_iter().map(|(_, line)| line),
+    );
     Ok(())
 }

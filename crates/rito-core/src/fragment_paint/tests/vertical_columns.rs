@@ -522,3 +522,120 @@ fn a_vertical_ruby_base_starts_on_a_whole_pixel() {
         "plain runs keep their place, the base starts on a whole pixel"
     );
 }
+
+/// A vertical run's decoration lines run down beside its column, a gap
+/// off the em box: Japanese text swaps them, its underline on the
+/// line-over (right) side and its overline on the line-under (left) side
+/// where Chinese text draws its underline (measured in pinned Chromium on
+/// 16px SourceHan, whose font box is 12 + 11 around its baseline: a
+/// Japanese underline fills the pixel one in from the text box's over
+/// edge).
+#[test]
+fn a_vertical_decoration_line_runs_beside_the_column_on_its_language_side() {
+    let line_rects = |language: Option<&str>, overline: bool| -> Vec<(f64, f64, f64, f64)> {
+        let mut style = body_style(srgb(0.0, 0.0, 0.0, 1.0));
+        style.paint.text_decoration.lines.underline = !overline;
+        style.paint.text_decoration.lines.overline = overline;
+        style.text_flow.language = language.map(rito_style_contract::LanguageTag::new);
+        let mut inline = InlineStyleTable::new(1);
+        let underlined = inline.intern_for_node(0, style).expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![text_item("第一章", underlined, 0.0)],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("tree builds");
+        // The item paints in two pieces; its line runs along both as one.
+        let pieces: Vec<Fragment> = [
+            column_run(0.0, 16.0, 0, "第", 16.0),
+            column_run(16.0, 32.0, 3, "一章", 16.0),
+        ]
+        .into_iter()
+        .map(|mut piece| {
+            if let Fragment::Text(text) = &mut piece {
+                text.font_grid = Some((12.0, 11.0));
+            }
+            piece
+        })
+        .collect();
+        let root = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 24.0,
+            },
+            children: vec![Fragment::Line(LineFragment {
+                source: FormattingNodeId(0),
+                marker: None,
+                rect: FragmentRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 48.0,
+                    height: 24.0,
+                },
+                baseline: 13.0,
+                trailing_whitespace: 0.0,
+                annotation_growth: 0.0,
+                annotation_overflow: 0.0,
+                annotation_lent: 0.0,
+                annotation_space_end: 0.0,
+                fonts: rito_fragment::LineFonts::None,
+                text_runs: Vec::new(),
+                children: pieces,
+            })],
+        });
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                vertical_frame: Some(crate::fragment_paint::VerticalFrame {
+                    converter: rito_fragment::WritingModeConverter::from_logical_size(
+                        rito_style_contract::WritingDirection {
+                            mode: rito_style_contract::WritingMode::VerticalRightToLeft,
+                            direction: rito_style_contract::Direction::LeftToRight,
+                        },
+                        root.rect().width,
+                        220.0,
+                    ),
+                    left: 0.0,
+                    top: 20.0,
+                }),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("the column paints");
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DisplayCommand::PaintDecoration { rect, .. } => {
+                    Some((rect.x, rect.y, rect.width, rect.height))
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    // The column's baseline lies 13px in from its line-over edge, the
+    // frame's right edge 220: at 207, its text box's over edge at 219.
+    let at = |x: f64| vec![(x, 20.0, 1.0, 48.0)];
+    assert_eq!(line_rects(Some("ja"), false), at(217.0));
+    assert_eq!(line_rects(Some("ja"), true), at(198.0));
+    assert_eq!(line_rects(Some("zh-CN"), false), at(198.0));
+    assert_eq!(line_rects(None, false), at(198.0));
+    // Other text's overline lies just outside its text box's over edge.
+    assert_eq!(line_rects(Some("zh-CN"), true), at(219.0));
+}

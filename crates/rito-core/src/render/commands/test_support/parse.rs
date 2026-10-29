@@ -93,6 +93,16 @@ pub(crate) fn parse_display_command(value: &Value) -> Result<DisplayCommand, Fix
                 "paintHorizontalRule.paint",
             )?)?,
         },
+        "paintDecoration" => DisplayCommand::PaintDecoration {
+            rect: parse_rect(
+                field(object, "rect", "paintDecoration.rect")?,
+                "paintDecoration.rect",
+            )?,
+            color: parse_color(
+                field_string(object, "color", "paintDecoration.color")?,
+                "paintDecoration.color",
+            )?,
+        },
         _ => return Err(FixtureError::UnsupportedValue("command.kind")),
     })
 }
