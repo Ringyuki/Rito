@@ -117,7 +117,7 @@ impl FormattingContext for ParleyInlineContext {
             ruby_spreads,
             ruby_spread_overhangs,
             ruby_spread_overhangs_right,
-            ruby_center_shifts,
+            ruby_base_shifts,
             opener_halt_trims,
             mut inline_block_boxes,
             inline_block_baselines,
@@ -555,6 +555,31 @@ impl FormattingContext for ParleyInlineContext {
                     justify_plan.is_some(),
                 );
             }
+            // A justified paragraph aligns a wide-annotation ruby's base to
+            // its line's start edge, and a justified line's to its end edge
+            // (Blink's `PlaceRubyColumn`): where the line's in-flow content
+            // starts and ends, unless an atom takes the edge.
+            let (ruby_line_start, ruby_line_end) = if justify && !ruby_base_shifts.is_empty() {
+                let in_flow_text = |item: &PositionedLayoutItem<'_, [u8; 4]>| match item {
+                    PositionedLayoutItem::GlyphRun(_) => Some(true),
+                    PositionedLayoutItem::InlineBox(inline_box) => {
+                        (inline_box.kind == parley::InlineBoxKind::InFlow).then_some(false)
+                    }
+                };
+                let range = line.text_range();
+                let justified_line = matches!(
+                    line.break_reason(),
+                    parley::layout::BreakReason::Regular | parley::layout::BreakReason::Emergency
+                );
+                let starts_with_text = line.items().find_map(|item| in_flow_text(&item));
+                let ends_with_text = line.items().filter_map(|item| in_flow_text(&item)).last();
+                (
+                    (starts_with_text == Some(true)).then_some(range.start),
+                    (justified_line && ends_with_text == Some(true)).then_some(range.end),
+                )
+            } else {
+                (None, None)
+            };
             // Expansion shares consumed at boundaries before the walk's
             // current position; each share moves everything after it.
             let mut justify_shares_used = 0u32;
@@ -766,8 +791,12 @@ impl FormattingContext for ParleyInlineContext {
                                 .iter()
                                 .find(|(halt, _)| halt.start < range.end && range.start < halt.end)
                                 .map_or(0.0, |(_, half)| *half);
-                            let ruby_center_shift_px =
-                                ruby_center_shifts.get(&item_index).copied().unwrap_or(0.0);
+                            let ruby_center_shift_px = ruby_base_shifts
+                                .get(&item_index)
+                                .zip(item_text_ranges.get(item_index))
+                                .map_or(0.0, |(shift, base)| {
+                                    shift.on_line(base, ruby_line_start, ruby_line_end)
+                                });
                             // A ruby base or a trimmed opener paints from
                             // fields of its own, and a vertical column steps
                             // each piece by its own spacing: those stay apart.

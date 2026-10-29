@@ -130,7 +130,7 @@ pub(crate) struct DecidedParagraph {
     pub(crate) ruby_spreads: std::collections::HashMap<usize, f64>,
     pub(crate) ruby_spread_overhangs: std::collections::HashMap<usize, f64>,
     pub(crate) ruby_spread_overhangs_right: std::collections::HashMap<usize, f64>,
-    pub(crate) ruby_center_shifts: std::collections::HashMap<usize, f64>,
+    pub(crate) ruby_base_shifts: std::collections::HashMap<usize, crate::paragraph::RubyBaseShift>,
     pub(crate) opener_halt_trims: Vec<(std::ops::Range<usize>, f64)>,
     pub(crate) inline_block_boxes:
         std::collections::HashMap<u64, (f64, rito_fragment::BoxFragment)>,

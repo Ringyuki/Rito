@@ -300,7 +300,7 @@ fn decided_paragraph(built: ParagraphLayout) -> DecidedParagraph {
         ruby_spreads: built.ruby_spreads,
         ruby_spread_overhangs: built.ruby_spread_overhangs,
         ruby_spread_overhangs_right: built.ruby_spread_overhangs_right,
-        ruby_center_shifts: built.ruby_center_shifts,
+        ruby_base_shifts: built.ruby_base_shifts,
         opener_halt_trims: built.opener_halt_trims,
         inline_block_boxes: built.inline_block_boxes,
         inline_block_baselines: built.inline_block_baselines,

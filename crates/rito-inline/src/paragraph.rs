@@ -226,7 +226,7 @@ impl ParleyInlineContext {
         let mut ruby_carriers: Vec<RubyCarrier> = Vec::new();
         // Per item: the paint-side right shift of the base glyphs inside
         // the column (the start inset that could not overhang).
-        let mut ruby_center_shifts: std::collections::HashMap<usize, f64> =
+        let mut ruby_base_shifts: std::collections::HashMap<usize, RubyBaseShift> =
             std::collections::HashMap::new();
         // Every short ruby's base: one unit a line never breaks inside
         // (Blink's `IsMonolithicRuby`: a base of at most four glyphs under
@@ -359,8 +359,13 @@ impl ParleyInlineContext {
                 ruby_spreads.insert(*item_index, 0.0);
                 ruby_spread_overhangs.insert(*item_index, overhang_left);
                 ruby_spread_overhangs_right.insert(*item_index, overhang_right);
-                ruby_center_shifts
-                    .insert(*item_index, layout_unit_trunc(space / 2.0) - overhang_left);
+                ruby_base_shifts.insert(
+                    *item_index,
+                    RubyBaseShift {
+                        within: layout_unit_trunc(space / 2.0) - overhang_left,
+                        at_edges: None,
+                    },
+                );
                 continue;
             }
             // Each opportunity's shares open after the boundary's left
@@ -393,10 +398,17 @@ impl ParleyInlineContext {
                 unhung: (inset_full - overhang_right) as f32,
                 start_overhang: natural_overhang_left as f32,
             });
-            let absorbed_left = inset - overhang_left;
-            if absorbed_left > 0.0 {
-                ruby_center_shifts.insert(*item_index, absorbed_left);
-            }
+            // A justified line's edge pulls the base to it: the whole
+            // inset opens past the base at the line's start and before it
+            // at the line's end (both edges measured from the column's
+            // start, the start overhang back of the flow position).
+            ruby_base_shifts.insert(
+                *item_index,
+                RubyBaseShift {
+                    within: inset - overhang_left,
+                    at_edges: Some((-overhang_left, 2.0 * inset - overhang_left)),
+                },
+            );
             ruby_spreads.insert(*item_index, share);
             ruby_spread_overhangs.insert(*item_index, overhang_left);
             ruby_spread_overhangs_right.insert(*item_index, overhang_right);
@@ -704,7 +716,7 @@ impl ParleyInlineContext {
             ruby_spread_overhangs,
             ruby_spread_overhangs_right,
             ruby_annotation_widths,
-            ruby_center_shifts,
+            ruby_base_shifts,
             cluster_steps: std::rc::Rc::default(),
             line_end_trims: std::rc::Rc::default(),
             kept_breaks: std::rc::Rc::default(),
@@ -783,6 +795,43 @@ impl<'a> SpacingBuilder<'a> {
 
 /// One paragraph's built Parley layout plus the metadata the fragment
 /// assembly needs.
+/// Where a wide-annotation ruby's base glyphs paint inside its column,
+/// past the flow position of the base's first glyph (Blink's ruby base
+/// insets, `ApplyRubyAlign`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RubyBaseShift {
+    /// Away from a justified line's edges.
+    pub(crate) within: f64,
+    /// At a justified paragraph's line start and a justified line's end,
+    /// where `space-around` aligns the base to the line's edge
+    /// (css-ruby line-edge alignment); `None` for `ruby-align: center`,
+    /// which keeps the base centered there too.
+    pub(crate) at_edges: Option<(f64, f64)>,
+}
+
+impl RubyBaseShift {
+    /// The shift for a base spanning `base` on a line whose in-flow content
+    /// starts at `line_start` and, on a justified line, ends at `line_end`
+    /// (`None` off a justified paragraph, or where an atom takes the edge).
+    pub(crate) fn on_line(
+        &self,
+        base: &std::ops::Range<usize>,
+        line_start: Option<usize>,
+        line_end: Option<usize>,
+    ) -> f64 {
+        let Some((at_start, at_end)) = self.at_edges else {
+            return self.within;
+        };
+        match (line_start == Some(base.start), line_end == Some(base.end)) {
+            (true, false) => at_start,
+            (false, true) => at_end,
+            // A ruby alone on a justified line spreads over the whole line,
+            // which is not modelled.
+            _ => self.within,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct ParagraphLayout {
     /// Whether the build read the space it was built in (an image or an
@@ -851,9 +900,9 @@ pub(crate) struct ParagraphLayout {
     /// annotation and widens to at least this advance, which is what the
     /// split-fit rewind checks.
     pub(crate) ruby_annotation_widths: std::collections::HashMap<usize, f64>,
-    /// Per item: the paint-side right shift centering a packed base
-    /// under its wide `ruby-align: center` annotation.
-    pub(crate) ruby_center_shifts: std::collections::HashMap<usize, f64>,
+    /// Per wide-annotation item: where its base glyphs paint inside the
+    /// column.
+    pub(crate) ruby_base_shifts: std::collections::HashMap<usize, RubyBaseShift>,
     /// Laid-out inline-block atoms by item index: the mini paragraph's
     /// baseline (its LAST line's, from the box top) and its fragment,
     /// emitted at the inline box's position during line assembly.

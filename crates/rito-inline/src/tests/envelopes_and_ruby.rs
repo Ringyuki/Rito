@@ -1187,3 +1187,137 @@ fn a_ruby_split_rewind_keeps_an_image_before_the_ruby_on_the_line() {
         .collect();
     assert_eq!(lines, vec!["中中▣".to_owned(), "中文中".to_owned()]);
 }
+
+/// A justified paragraph aligns a wide-annotation ruby's base to the
+/// line's start edge and a justified line's base to its end edge, where
+/// elsewhere it sits centered under the annotation (Blink's
+/// `ApplyRubyAlign`; measured in pinned Chromium on a 150px line of 16px
+/// ideographs with 瞬 under しゅん: the base inks at the line start in a
+/// justified paragraph, its first and last lines alike, 4px in under
+/// start alignment, and 8px past its column's start at a justified
+/// line's end).
+#[test]
+fn a_justified_line_aligns_a_wide_ruby_base_to_its_edges() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The painted start of the ruby base on each line holding it.
+    let base_starts = |before: &str, after: &str, align: TextAlign| -> Vec<f64> {
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.text_align = align;
+        let mut inline = InlineStyleTable::new(1);
+        let style = inline.intern_for_node(0, style).expect("style interns");
+        let text = |t: &str| InlineItem::Text {
+            text: t.to_owned(),
+            style,
+            baseline_shift_px: 0.0,
+            ruby_annotation: None,
+        };
+        let mut items = Vec::new();
+        if !before.is_empty() {
+            items.push(text(before));
+        }
+        items.push(InlineItem::Text {
+            text: "瞬".to_owned(),
+            style,
+            baseline_shift_px: 0.0,
+            ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                text: "しゅん".to_owned(),
+                size_ratio: 0.5,
+                align: RubyAlign::SpaceAround,
+            }),
+        });
+        items.push(text(after));
+        let base_start = before.len() as u32;
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(150.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("inline outcome root is a box fragment");
+        };
+        root.children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Line(line) => Some(line),
+                _ => None,
+            })
+            .flat_map(|line| {
+                line.children.iter().filter_map(move |child| match child {
+                    Fragment::Text(run) if run.text_start == base_start => {
+                        Some(line.rect.x + run.rect.x + run.ruby_center_shift_px)
+                    }
+                    _ => None,
+                })
+            })
+            .collect()
+    };
+    let rest = "一二三四五六七八九十一二三四五六七八九十";
+    let at = |starts: Vec<f64>, expected: f64, case: &str| {
+        assert_eq!(starts.len(), 1, "{case}: one base run: {starts:?}");
+        assert!(
+            (starts[0] - expected).abs() < 1e-6,
+            "{case}: base at {} vs {expected}",
+            starts[0]
+        );
+    };
+    at(
+        base_starts("", rest, TextAlign::Justify),
+        0.0,
+        "first line start, justified",
+    );
+    at(
+        base_starts("", rest, TextAlign::Left),
+        4.0,
+        "line start, start-aligned",
+    );
+    at(
+        base_starts(
+            "一二三四五六七八",
+            "九十一二三四五六七八九十",
+            TextAlign::Justify,
+        ),
+        132.0,
+        "justified line end",
+    );
+    at(
+        base_starts(
+            "一二三四五六七八",
+            "九十一二三四五六七八九十",
+            TextAlign::Left,
+        ),
+        128.0,
+        "start-aligned line end",
+    );
+    at(
+        base_starts("一二三四五六七八九", "十", TextAlign::Justify),
+        0.0,
+        "last line start, justified",
+    );
+}

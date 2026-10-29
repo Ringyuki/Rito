@@ -109,6 +109,14 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Ruby bases align to a justified line's edges
+
+In a justified paragraph, a ruby whose annotation is wider than its base
+sets its base against the line's start when it opens a line, and against
+the line's end when it ends a justified line, with the annotation's spare
+width on the other side, as Chromium aligns ruby at line edges; elsewhere
+the base stays centered under its annotation.
+
 ### Every bracket and quote trims as Chromium trims it
 
 Adjacent CJK punctuation trims by Chromium's classes for every bracket,
