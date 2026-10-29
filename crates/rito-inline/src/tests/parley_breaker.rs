@@ -82,12 +82,12 @@ fn a_ligature_is_measured_by_its_own_clusters_in_any_run() {
 /// space) took the soft branch and lost the forced break.
 #[test]
 fn a_newline_breaks_the_line_whatever_marks_it_breakable() {
+    fn anywhere(_: parley::LineBreakContext) -> Option<bool> {
+        Some(true)
+    }
     let context = source_han_context();
     for (text, overrides) in [
-        (
-            "ab\ncd",
-            &crate::breaking::break_anywhere_override as &parley::LineBreakOverrideFn,
-        ),
+        ("ab\ncd", &anywhere as &parley::LineBreakOverrideFn),
         ("a \nb", parley::CHROMIUM_LINE_BREAK_OVERRIDE),
     ] {
         let mut fonts = context.fonts.borrow_mut();

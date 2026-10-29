@@ -1368,10 +1368,11 @@ fn a_fullwidth_comma_keeps_its_following_opening_quote() {
     );
 }
 
-/// A closing curly quote breaks before an em-dash pair: the quote
-/// closes its line and the dashes open the next (pinned-Chromium
-/// b112 line at 640: 怕” | ——可见). Treating quote-then-dash as
-/// unbreakable dragged the quote down with the pair.
+/// A closing curly quote breaks before an em-dash pair in Chinese text:
+/// the quote closes its line and the dashes open the next
+/// (pinned-Chromium b112 line at 640, the book's `zh-CN`: 怕” | ——可见).
+/// Chinese line breaking reads the curly double quotes as brackets; in a
+/// language without that tailoring the quote stays with the dashes.
 #[test]
 fn a_closing_quote_breaks_before_a_dash_pair() {
     let source_han = std::fs::read(concat!(
@@ -1391,6 +1392,7 @@ fn a_closing_quote_breaks_before_a_dash_pair() {
         32.0,
     );
     style.text_flow.text_align = TextAlign::Justify;
+    style.text_flow.language = Some(rito_style_contract::LanguageTag::new("zh-CN"));
     let style_id = inline.intern_for_node(0, style).expect("style interns");
     let text = "这就是Master绮礼的指示。就连战斗能力最为低下的Assassin与其交锋时都\u{201C}不必惧怕\u{201D}\u{2014}\u{2014}可见时臣召唤出来的Archer的英灵，一定是非常令绮礼失望的吧。";
     let tree = FormattingTree::with_styles(
@@ -1442,5 +1444,71 @@ fn a_closing_quote_breaks_before_a_dash_pair() {
     assert_eq!(
         lines[1], "\u{2014}\u{2014}\u{53ef}\u{89c1}",
         "the dash pair opens the second line, the quote stays up"
+    );
+}
+
+/// A wave dash may start a line in Japanese text under `line-break:
+/// normal` but not by default: Chromium's DOM at 16px in an 850px line
+/// breaks the book's sentence between the two dashes under `normal` and
+/// before よ under `auto`.
+#[test]
+fn a_wave_dash_starts_a_line_under_japanese_normal_breaking() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let text = "「取り返せるわけがない〜〜！\u{3000}一度あんなのになっちゃったら、もう今さら普通のキャラに戻るなんてムリだよ〜〜！」";
+    let layout_lines = |line_break: rito_style_contract::LineBreak| {
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("NoSuchFace"))])
+                .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.language = Some(rito_style_contract::LanguageTag::new("ja"));
+        style.text_flow.line_break = line_break;
+        let mut inline = InlineStyleTable::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(850.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        line_texts(&outcome, text)
+    };
+    let head = "「取り返せるわけがない〜〜！\u{3000}一度あんなのになっちゃったら、もう今さら普通のキャラに戻るなんてムリだ";
+    assert_eq!(
+        layout_lines(rito_style_contract::LineBreak::Normal),
+        vec![format!("{head}よ〜"), "〜！」".to_owned()],
+    );
+    assert_eq!(
+        layout_lines(rito_style_contract::LineBreak::Auto),
+        vec![head.to_owned(), "よ〜〜！」".to_owned()],
     );
 }

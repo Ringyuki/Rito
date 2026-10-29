@@ -1,0 +1,5 @@
+---
+'@ritojs/core': patch
+---
+
+Lines break where Chromium breaks them in every language. Each text item reads the ICU line rules its content language (`lang`) and `line-break` value select, as Chromium's ICU does: Chinese text, and Japanese and Korean text under `line-break: normal` or `loose`, reads the curly double quotes as brackets and may start a line with 〜 or ゠ (Japanese breaks only by default otherwise); `loose` also breaks before iteration marks and centered punctuation and between inseparables; a quotation mark breaks only between East Asian characters; and a number keeps its prefix and postfix together only as a number does. `word-break: break-all` and `keep-all` add and withhold breaks per text item as Blink does, and `line-break: anywhere` applies only to its own text. A line broken before spaces ends after them (a space followed by an ideographic space ends the line after the space), and a no-break space never hangs past the line's end. `-webkit-line-break` and `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`) reach the engine as the properties Chromium aliases them to.

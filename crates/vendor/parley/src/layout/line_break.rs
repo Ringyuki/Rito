@@ -681,17 +681,20 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         let whitespace = cluster.info().whitespace();
                         let is_newline = whitespace == Whitespace::Newline;
                         let is_space = whitespace.is_space_or_nbsp();
-                        // Rito: an other space separator overflowing the line
-                        // hangs past its end as a space does (Blink's
-                        // `HandleTrailingSpaces`, whatever the white-space
-                        // collapsing) when the line may break after its run.
-                        let hangs = is_space
-                            || (is_other_space_separator(cluster.info().source_char())
-                                && breaks_after_space_run(
-                                    &self.layout.data.clusters,
-                                    self.state.cluster_idx,
-                                ));
                         let boundary = cluster.info().boundary();
+                        // Rito: a space or other space separator overflowing
+                        // the line hangs past its end when the line may not
+                        // break before it but may after its run (Blink's
+                        // `ShapingLineBreaker` takes the first opportunity
+                        // at or after an overflowing breakable space and
+                        // hangs the spaces before it). The no-break space
+                        // never hangs.
+                        let hangs = is_hangable_space(cluster.info().source_char())
+                            && boundary != Boundary::Line
+                            && breaks_after_space_run(
+                                &self.layout.data.clusters,
+                                self.state.cluster_idx,
+                            );
                         let line_height = run.metrics().line_height;
                         let max_height_exceeded = self.state.line.max_height_exceeded;
                         let style = &self.layout.data.styles[cluster.data.style_index as usize];
@@ -1613,14 +1616,14 @@ fn reorder_line_items(runs: &mut [LineItemData]) {
     }
 }
 
-/// Rito: whether a line may break after the run of other space separators
-/// starting at cluster `index`: at the end of the text, before a newline, or
-/// where the next cluster allows a break before it.
+/// Rito: whether a line may break after the run of hangable spaces starting
+/// at cluster `index`: at the end of the text, before a newline, or where the
+/// next cluster allows a break before it.
 fn breaks_after_space_run(clusters: &[ClusterData], index: usize) -> bool {
     clusters
         .iter()
         .skip(index + 1)
-        .find(|cluster| !is_other_space_separator(cluster.info.source_char()))
+        .find(|cluster| !is_hangable_space(cluster.info.source_char()))
         .is_none_or(|cluster| {
             cluster.info.whitespace() == Whitespace::Newline
                 || matches!(
@@ -1628,6 +1631,12 @@ fn breaks_after_space_run(clusters: &[ClusterData], index: usize) -> bool {
                     Boundary::Line | Boundary::Mandatory
                 )
         })
+}
+
+/// Rito: a breakable space (Blink's `IsBreakableSpace`: the space and the
+/// tab) or another space separator.
+fn is_hangable_space(character: char) -> bool {
+    matches!(character, ' ' | '\t') || is_other_space_separator(character)
 }
 
 /// Rito: a space separator other than the space and the no-break space

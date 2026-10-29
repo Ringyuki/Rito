@@ -40,6 +40,7 @@ use rito_style_contract::{
 };
 
 mod atoms;
+mod break_opportunities;
 mod breaking;
 mod clusters;
 mod context;
@@ -70,6 +71,7 @@ mod tests;
 mod vertical;
 mod width_bounds;
 
+pub(crate) use break_opportunities::{BreakContext, BreakOpportunities, RuleSet};
 pub(crate) use breaking::*;
 pub(crate) use clusters::*;
 pub use clusters::{MeasuredRuby, MeasuredRun};

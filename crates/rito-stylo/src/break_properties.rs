@@ -286,6 +286,12 @@ const WEBKIT_TEXT_ORIENTATION_KEYWORDS: KeywordMap = &[
     ("vertical-right", "mixed"),
 ];
 const TEXT_COMBINE_UPRIGHT_KEYWORDS: KeywordMap = &[("none", "none"), ("all", "all")];
+const WEBKIT_LINE_BREAK_KEYWORDS: KeywordMap = &[
+    ("auto", "auto"),
+    ("loose", "loose"),
+    ("normal", "normal"),
+    ("strict", "strict"),
+];
 // Blink's `-webkit-text-combine`: `horizontal` is `text-combine-upright:
 // all`.
 const WEBKIT_TEXT_COMBINE_KEYWORDS: KeywordMap = &[("none", "none"), ("horizontal", "all")];
@@ -340,6 +346,16 @@ fn carrier(name: &str) -> Option<Carrier> {
         // the prefixed forms, which stylo's servo profile drops as
         // unknown properties.
         renamed("writing-mode")
+    } else if is("-webkit-line-break") {
+        // Blink's surrogate for `line-break`, without `anywhere` (and its
+        // `after-white-space`, which stylo has no value for).
+        keyword("line-break", WEBKIT_LINE_BREAK_KEYWORDS)
+    } else if is("-epub-word-break") {
+        renamed("word-break")
+    } else if is("-epub-text-transform") {
+        renamed("text-transform")
+    } else if is("-epub-caption-side") {
+        renamed("caption-side")
     } else if is("text-orientation") {
         keyword(TEXT_ORIENTATION_CSS_NAME, TEXT_ORIENTATION_KEYWORDS)
     } else if is("-webkit-text-orientation") || is("-epub-text-orientation") {
@@ -716,6 +732,21 @@ mod tests {
         assert_eq!(
             rewritten.as_ref(),
             ".vrtl { writing-mode: vertical-rl; writing-mode: vertical-rl; }"
+        );
+    }
+
+    #[test]
+    fn prefixed_line_and_word_break_reach_the_standard_properties_as_blink_aliases_them() {
+        let css = ".a { -webkit-line-break: normal; -epub-line-break: normal } \
+                   .b { -webkit-line-break: anywhere } \
+                   .c { -epub-word-break: break-all; -webkit-word-break: keep-all } \
+                   .d { -epub-text-transform: uppercase; -epub-caption-side: bottom }";
+        assert_eq!(
+            rewrite_stylesheet(css),
+            ".a { line-break: normal; -epub-line-break: normal } \
+             .b { -webkit-line-break: anywhere } \
+             .c { word-break: break-all; -webkit-word-break: keep-all } \
+             .d { text-transform: uppercase; caption-side: bottom }"
         );
     }
 

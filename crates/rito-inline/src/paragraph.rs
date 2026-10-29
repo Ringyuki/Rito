@@ -102,13 +102,6 @@ impl ParleyInlineContext {
         // leaded envelope around its shifted baseline joins the metrics
         // of whichever line the offset falls on.
         let mut empty_box_struts: Vec<(usize, rito_style_contract::StyleId, f64)> = Vec::new();
-        // Blink consults its pair-preference table only under
-        // `word-break: normal`; `break-all`/`keep-all` change the break
-        // opportunities the table would otherwise veto.
-        let mut chromium_tailoring = true;
-        let mut break_all = false;
-        let mut strict_kinsoku = false;
-        let mut break_anywhere = false;
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
@@ -126,18 +119,6 @@ impl ParleyInlineContext {
                         .inline
                         .style(*style)
                         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-                    if style.text_flow.word_break != rito_style_contract::WordBreak::Normal {
-                        chromium_tailoring = false;
-                    }
-                    if style.text_flow.word_break == rito_style_contract::WordBreak::BreakAll {
-                        break_all = true;
-                    }
-                    if style.text_flow.line_break == rito_style_contract::LineBreak::Strict {
-                        strict_kinsoku = true;
-                    }
-                    if style.text_flow.line_break == rito_style_contract::LineBreak::Anywhere {
-                        break_anywhere = true;
-                    }
                     runs.push((start..text.len(), style, item_index));
                 }
                 InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
@@ -440,26 +421,41 @@ impl ParleyInlineContext {
             &[],
             &inline_box_bytes,
         );
+        // Chromium's break opportunities, each text item read under the
+        // ICU rule set its content language and `line-break` select, with
+        // its `word-break`.
+        let opportunities = BreakOpportunities::new(&text, |offset| {
+            let at = runs.partition_point(|(range, _, _)| range.start <= offset);
+            let flow = runs
+                .get(at.saturating_sub(1))
+                .map(|(_, style, _)| &style.text_flow);
+            BreakContext {
+                rule_set: flow.map_or(RuleSet::Normal, |flow| {
+                    RuleSet::for_content(
+                        flow.language.as_ref().map(|tag| tag.as_str()),
+                        flow.line_break,
+                    )
+                }),
+                word_break: flow.map_or(rito_style_contract::WordBreak::Normal, |flow| {
+                    flow.word_break
+                }),
+                anywhere: flow.is_some_and(|flow| {
+                    flow.line_break == rito_style_contract::LineBreak::Anywhere
+                }),
+                collapses: flow.is_none_or(|flow| {
+                    matches!(
+                        flow.white_space_collapse,
+                        rito_style_contract::WhiteSpaceCollapse::Collapse
+                            | rito_style_contract::WhiteSpaceCollapse::PreserveBreaks
+                    )
+                }),
+            }
+        });
+        let chromium_breaks =
+            move |context: parley::LineBreakContext| opportunities.before(context.index);
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, &text, 1.0, true));
-        // The pinned-browser baseline: Chromium's ASCII break tailoring plus
-        // its CJK-context treatment of ambiguous curly quotes.
-        if break_anywhere {
-            // `line-break: anywhere`: a soft wrap opportunity around every
-            // typographic character unit — kinsoku and pair tables are
-            // disregarded entirely (b50's afterword packs two more
-            // full-width characters per line than any kinsoku-aware rule
-            // set allows, breaking mid-ellipsis and before commas).
-            builder.set_line_break_override(&break_anywhere_override);
-        } else if chromium_tailoring {
-            if strict_kinsoku {
-                builder.set_line_break_override(&cjk_aware_chromium_break_override_strict);
-            } else {
-                builder.set_line_break_override(&cjk_aware_chromium_break_override);
-            }
-        } else if break_all {
-            builder.set_line_break_override(&break_all_box_dash_override);
-        }
+        builder.set_line_break_override(&chromium_breaks);
         // `text-indent` is the block container's own inherited property and
         // indents its first line whatever sits on it — a line holding only
         // an image included. Reading it off whichever text run happens to

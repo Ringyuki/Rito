@@ -15,6 +15,8 @@ pub struct LineBreakContext {
     pub before: char,
     /// The code point after the potential break.
     pub after: char,
+    /// Rito: the byte offset of `after` in the text being broken.
+    pub index: usize,
 }
 
 /// Line break opportunity override.
@@ -323,6 +325,7 @@ mod tests {
             before_before,
             before,
             after,
+            index: 0,
         }
     }
 
