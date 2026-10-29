@@ -103,6 +103,9 @@ pub struct ChapterFormattingTree {
     /// `ruby-align`, and how far over the base's baseline the annotation
     /// line sits. Filled by [`ChapterFormattingTree::measure_painted_runs`].
     pub ruby_annotation_runs: BTreeMap<(u32, usize), rito_inline::MeasuredRuby>,
+    /// The emphasis mark of each inline style that takes one, measured for
+    /// painting. Filled by [`ChapterFormattingTree::measure_painted_runs`].
+    pub emphasis_marks: BTreeMap<StyleId, rito_inline::MeasuredEmphasis>,
     /// Each inline flow's text items joined as its text fragments address
     /// them, by node id: joined once with the tree, read for every line a
     /// page's query artifact walks.
@@ -170,8 +173,9 @@ impl ListMarkerPaint {
 impl ChapterFormattingTree {
     /// Shapes the strings the painter places without layout — every
     /// outside marker in its item's style, every ruby annotation at its
-    /// own size — so the painter works from the engine's own advances
-    /// and cluster origins with no host measurement.
+    /// own size, every emphasis mark at its — so the painter works from
+    /// the engine's own advances and cluster origins with no host
+    /// measurement.
     pub fn measure_painted_runs(
         &mut self,
         context: &rito_inline::ParleyInlineContext,
@@ -188,6 +192,7 @@ impl ChapterFormattingTree {
             marker.run = Some(context.measure_run(style, &marker.painted_text()));
         }
         self.ruby_annotation_runs.clear();
+        self.emphasis_marks.clear();
         for index in 0..self.tree.len() {
             let node_id = FormattingNodeId(index as u32);
             let FormattingNodeContent::InlineFlow { items } = &self.tree.node(node_id).content
@@ -195,6 +200,17 @@ impl ChapterFormattingTree {
                 continue;
             };
             for (item_index, item) in items.iter().enumerate() {
+                if let InlineItem::Text { style: id, .. } = item {
+                    if !self.emphasis_marks.contains_key(id) {
+                        let style = styles
+                            .inline
+                            .style(*id)
+                            .map_err(|error| EpubError::new(format!("text style: {error}")))?;
+                        if let Some(mark) = context.measure_emphasis_mark(style) {
+                            self.emphasis_marks.insert(*id, mark);
+                        }
+                    }
+                }
                 let InlineItem::Text {
                     text,
                     style,
@@ -441,6 +457,7 @@ pub fn build_chapter_formatting_tree_with_generated(
         node_tags,
         list_markers,
         ruby_annotation_runs: BTreeMap::new(),
+        emphasis_marks: BTreeMap::new(),
         degradations,
     })
 }
@@ -551,6 +568,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         node_tags: BTreeMap::new(),
         list_markers: BTreeMap::new(),
         ruby_annotation_runs: BTreeMap::new(),
+        emphasis_marks: BTreeMap::new(),
         flow_texts: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })

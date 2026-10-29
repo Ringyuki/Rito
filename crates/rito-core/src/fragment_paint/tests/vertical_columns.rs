@@ -97,9 +97,10 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
             },
             baseline: 13.0,
             trailing_whitespace: 0.0,
-            ruby_growth: growth,
-            ruby_overflow: growth,
-            ruby_lent: 0.0,
+            annotation_growth: growth,
+            annotation_overflow: growth,
+            annotation_lent: 0.0,
+            annotation_space_end: 0.0,
             fonts: rito_fragment::LineFonts::None,
             text_runs: Vec::new(),
             children: runs,
@@ -202,7 +203,10 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                 left: 0.0,
                 top: 20.0,
             }),
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )

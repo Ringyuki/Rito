@@ -19,6 +19,7 @@ use super::family::css_color;
 use super::flow_text::FlowTexts;
 use super::image::append_image_command;
 use super::text_run::{append_text_run_command, ItemLineExtent, LinePaints};
+use super::LineAnnotations;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_line_commands(
@@ -30,7 +31,7 @@ pub(super) fn append_line_commands(
     faces: Option<&[std::sync::Arc<str>]>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
-    ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    annotations: LineAnnotations<'_>,
     snap_origin_y: f64,
     ratio: f64,
     flow_texts: &FlowTexts,
@@ -121,7 +122,7 @@ pub(super) fn append_line_commands(
                     line_y,
                     faces,
                     item_sources,
-                    ruby_annotation_runs,
+                    annotations,
                     snap_origin_y,
                     ratio,
                 )?;
@@ -156,7 +157,7 @@ pub(super) fn append_line_commands(
                         faces,
                         image_border_paints,
                         flow_item_sources,
-                        ruby_annotation_runs,
+                        annotations,
                         snap_origin_y,
                         ratio,
                         flow_texts,

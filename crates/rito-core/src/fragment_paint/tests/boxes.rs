@@ -31,7 +31,7 @@ fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
             faces: None,
             node_paints: Some(&node_paints),
             list_markers: None,
-            ruby_annotation_runs: None,
+            annotations: crate::fragment_paint::LineAnnotations::default(),
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,
@@ -127,7 +127,7 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
         0.0,
         FragmentPaintContext {
             list_markers: Some(&markers),
-            ruby_annotation_runs: None,
+            annotations: crate::fragment_paint::LineAnnotations::default(),
             ..FragmentPaintContext::default()
         },
     )

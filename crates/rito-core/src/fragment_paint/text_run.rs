@@ -18,9 +18,10 @@ use crate::render::{
     TextCluster,
 };
 
+use super::emphasis;
 use super::family::{face_family, split_by_face};
 use super::run_style::run_paint;
-use super::{cluster_x, painted_baseline, snap_css, CANVAS_TOP_ASCENT_RATIO};
+use super::{cluster_x, painted_baseline, snap_css, LineAnnotations, CANVAS_TOP_ASCENT_RATIO};
 
 /// One inline item's runs on one line: the item's byte range there, its
 /// left and right edges, and the ruby overhang its outermost runs carry.
@@ -103,7 +104,7 @@ pub(super) fn append_text_run_command(
     line_y: f64,
     faces: Option<&[std::sync::Arc<str>]>,
     item_sources: Option<&[FlowItemSource]>,
-    ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    annotations: LineAnnotations<'_>,
     snap_origin_y: f64,
     ratio: f64,
 ) -> EpubResult<()> {
@@ -251,8 +252,8 @@ pub(super) fn append_text_run_command(
             // satisfies this law too: round(559.671875) + 15 = 575 —
             // the earlier per-stage-ceil reading fit that one point but
             // not the phase sweep.
-            let line_top = line_y + line.ruby_growth;
-            let within_line = line.baseline - baseline_shift_px - line.ruby_growth;
+            let line_top = line_y + line.annotation_growth;
+            let within_line = line.baseline - baseline_shift_px - line.annotation_growth;
             (
                 painted_baseline(snap_origin_y, line_top, within_line, ratio),
                 snap_origin_y + snap_css(line_top - snap_origin_y) + within_line,
@@ -345,7 +346,8 @@ pub(super) fn append_text_run_command(
         // this segment's words are one contiguous slice of it, re-based
         // to their first cluster, and the computed `ruby-align` places
         // every cluster over the segment's extent.
-        let measured = ruby_annotation_runs
+        let measured = annotations
+            .ruby
             .and_then(|runs| runs.get(&(line.source.0, *item_index)))
             .ok_or_else(|| {
                 EpubError::new("ruby annotation painted before its string was measured")
@@ -424,7 +426,7 @@ pub(super) fn append_text_run_command(
     // one the pen reaches from the one before it says so, so a pen drawing
     // strings draws it in the same string and a pen drawing clusters still
     // has its origin. A segment's first cluster starts a string.
-    let clusters = run
+    let clusters: std::sync::Arc<[TextCluster]> = run
         .clusters_with_origins()
         .map(|(segment_x, cluster)| {
             let origin_x = line_x + segment_x + run.ruby_center_shift_px;
@@ -436,6 +438,34 @@ pub(super) fn append_text_run_command(
             }
         })
         .collect();
+    // Emphasis marks centre on the graphemes where they paint.
+    let marks = match annotations.emphasis.and_then(|marks| marks.get(style_id)) {
+        Some(measured) => {
+            let places = emphasis::mark_places(
+                &full_text[start..end],
+                &emphasis::cluster_origins(run, line_x),
+                emphasis::last_advance_end(
+                    line,
+                    run,
+                    items,
+                    text_ranges,
+                    styles,
+                    line_x,
+                    cluster_origin_x + run.rect.width,
+                ),
+            );
+            emphasis::horizontal_marks(
+                style,
+                measured,
+                faces,
+                &paint,
+                emphasis::run_faces(run),
+                &places,
+                baseline,
+            )?
+        }
+        None => None,
+    };
     let command = DisplayTextCommand {
         text: SharedText::slice(full_text, start..end),
         // A halt-trimmed opener was laid at half width, but the painter
@@ -464,6 +494,7 @@ pub(super) fn append_text_run_command(
     // A run drawn from one face paints as it is.
     if run.clusters.iter().all(|cluster| cluster.face == run_face) {
         commands.push(DisplayCommand::PaintText(command));
+        commands.extend(marks);
         return Ok(());
     }
     // A ruby spread base fused across a fallback face paints once per
@@ -490,5 +521,6 @@ pub(super) fn append_text_run_command(
     })? {
         commands.push(DisplayCommand::PaintText(piece));
     }
+    commands.extend(marks);
     Ok(())
 }

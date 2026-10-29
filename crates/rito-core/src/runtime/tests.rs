@@ -1,6 +1,7 @@
 mod access_tests;
 mod annotation_space_tests;
 mod chapter_local_tests;
+mod emphasis_tests;
 pub(crate) mod fixture;
 mod fragment_page_table_tests;
 pub(crate) mod pinned_font_policy_fixtures;

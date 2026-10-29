@@ -320,8 +320,8 @@ pub(super) fn append_fragment_display_commands_inner(
                     let line_y = origin_y + fragment.rect.y + first_line.rect.y;
                     let baseline = painted_baseline(
                         child_snap_origin_y,
-                        line_y + first_line.ruby_growth,
-                        first_line.baseline - first_line.ruby_growth,
+                        line_y + first_line.annotation_growth,
+                        first_line.baseline - first_line.annotation_growth,
                         context.ratio,
                     );
                     // The box's inline size is the shaped string's
@@ -386,7 +386,7 @@ pub(super) fn append_fragment_display_commands_inner(
                         context.faces,
                         context.image_border_paints,
                         context.flow_item_sources,
-                        context.ruby_annotation_runs,
+                        context.annotations,
                         child_snap_origin_y,
                         context.ratio,
                         flow_texts,
@@ -418,7 +418,7 @@ pub(super) fn append_fragment_display_commands_inner(
             context.faces,
             context.image_border_paints,
             context.flow_item_sources,
-            context.ruby_annotation_runs,
+            context.annotations,
             snap_origin_y,
             context.ratio,
             flow_texts,

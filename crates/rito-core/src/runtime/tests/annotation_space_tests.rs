@@ -51,8 +51,8 @@ fn lines(fragment: &Fragment) -> Vec<(f64, f64, f64)> {
             }
             Fragment::Line(line) => out.push((
                 top + line.rect.y + line.baseline,
-                line.ruby_growth,
-                line.ruby_overflow,
+                line.annotation_growth,
+                line.annotation_overflow,
             )),
             Fragment::Text(_) | Fragment::Image(_) => {}
         }
@@ -285,8 +285,8 @@ fn drill_pages() {
                         top + l.rect.y,
                         l.rect.height,
                         l.baseline,
-                        l.ruby_growth,
-                        l.ruby_overflow,
+                        l.annotation_growth,
+                        l.annotation_overflow,
                         l.text_runs.first()
                     ),
                     _ => {}

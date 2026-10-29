@@ -19,6 +19,15 @@ under a family of its own (`vert`, the vertical forms; `hwid`, `twid`,
 registers it like any face and the painter draws every run in that family
 with those features on.
 
+### Emphasis marks
+
+`text-emphasis` (its longhands and their `-webkit-` and `-epub-`
+spellings) paints as Chromium paints it: each character that takes a mark
+gets one at half its size outside its em box, over or under the line (a
+vertical line's right or left), and the marks move the lines around them
+as Chromium's do. Marks arrive as annotation runs; nothing changes in the
+protocol.
+
 ### Scrolled reading
 
 A session asked for `RitoSpreadMode.scrolled` lays each chapter out as one

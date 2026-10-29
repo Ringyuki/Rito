@@ -26,6 +26,7 @@ use crate::epub::EpubResult;
 use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::render::DisplayCommand;
 
+mod emphasis;
 mod family;
 pub(crate) use family::{combined_forms_family, vertical_forms_family};
 mod flow_text;
@@ -66,10 +67,9 @@ pub(crate) struct FragmentPaintContext<'a> {
     /// right-aligned against the item's content-left edge on its first
     /// line's baseline.
     pub(crate) list_markers: Option<&'a BTreeMap<u32, crate::fragment_bridge::ListMarkerPaint>>,
-    /// Ruby annotations shaped at their own size, keyed by (inline-flow
-    /// node id, item index): the natural cluster origins the painter
-    /// distributes over each base segment by `ruby-align`.
-    pub(crate) ruby_annotation_runs: Option<&'a BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    /// What paints beside lines' text: ruby annotations and emphasis
+    /// marks.
+    pub(crate) annotations: LineAnnotations<'a>,
     /// Set when the tree laid out as a vertical-rl chapter: recursion
     /// origins then accumulate flow-relative (inline, block) offsets, and
     /// every box and line lands on the page through the frame.
@@ -90,6 +90,19 @@ pub(crate) struct FragmentPaintContext<'a> {
     pub(crate) ratio: f64,
 }
 
+/// The strings that paint beside a line's text, measured when the chapter
+/// was built.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct LineAnnotations<'a> {
+    /// Ruby annotations shaped at their own size, keyed by (inline-flow
+    /// node id, item index): the natural cluster origins the painter
+    /// distributes over each base segment by `ruby-align`.
+    pub(crate) ruby: Option<&'a BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    /// The emphasis mark of each inline style that takes one.
+    pub(crate) emphasis:
+        Option<&'a BTreeMap<rito_style_contract::StyleId, rito_inline::MeasuredEmphasis>>,
+}
+
 impl Default for FragmentPaintContext<'_> {
     fn default() -> Self {
         Self {
@@ -97,7 +110,7 @@ impl Default for FragmentPaintContext<'_> {
             node_paints: None,
             image_border_paints: None,
             list_markers: None,
-            ruby_annotation_runs: None,
+            annotations: LineAnnotations::default(),
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,

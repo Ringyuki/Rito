@@ -282,7 +282,10 @@ impl ChapterStrip {
                 node_paints: Some(&built.node_paints),
                 image_border_paints: Some(&built.image_border_paints),
                 list_markers: Some(&built.list_markers),
-                ruby_annotation_runs: Some(&built.ruby_annotation_runs),
+                annotations: crate::fragment_paint::LineAnnotations {
+                    ruby: Some(&built.ruby_annotation_runs),
+                    emphasis: Some(&built.emphasis_marks),
+                },
                 vertical_frame: None,
                 flow_item_sources: Some(&built.flow_item_sources),
                 ratio,

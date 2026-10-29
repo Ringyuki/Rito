@@ -46,7 +46,7 @@ fn rule_paints_stroke_across_its_sized_box() {
             faces: None,
             node_paints: Some(&paints),
             list_markers: None,
-            ruby_annotation_runs: None,
+            annotations: crate::fragment_paint::LineAnnotations::default(),
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,

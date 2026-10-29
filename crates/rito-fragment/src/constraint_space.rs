@@ -51,6 +51,11 @@ pub struct PrecedingLine {
     /// Its half-leading (see [`empty_line_half_leading`]): all the space
     /// an empty line lends, having no text to measure under.
     pub half_leading: f64,
+    /// Its block-end annotation space (`LineFragment::
+    /// annotation_space_end`), what an emphasis mark over the next line
+    /// may reuse; never negative, as an overflow under a block's last line
+    /// stays in that block.
+    pub annotation_space: f64,
 }
 
 /// The half-leading of a line box `line_height` tall in a flow whose font

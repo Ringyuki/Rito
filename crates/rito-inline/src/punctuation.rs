@@ -373,7 +373,7 @@ pub(crate) fn font_halt_covers(font: &skrifa::FontRef, character: char, vertical
 /// The glyph the face's `vert` feature substitutes for `glyph` — its form
 /// in a vertical line — or `glyph` itself when no single substitution of
 /// the feature covers it.
-fn vertical_form(font: &skrifa::FontRef, glyph: skrifa::GlyphId) -> skrifa::GlyphId {
+pub(crate) fn vertical_form(font: &skrifa::FontRef, glyph: skrifa::GlyphId) -> skrifa::GlyphId {
     use skrifa::raw::tables::gsub::{SingleSubst, SubstitutionSubtables};
     use skrifa::raw::TableProvider as _;
     let tag = skrifa::raw::types::Tag::new(b"vert");

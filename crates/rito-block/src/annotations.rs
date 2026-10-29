@@ -1,9 +1,9 @@
-//! Ruby annotation space across block edges (Blink's block-start
-//! annotation space): a paragraph's first-line annotations reach into the
-//! space above the line before the line grows — the box's top padding,
-//! the collapsed margins above it and the leading the preceding block
-//! leaves under its last line's text — unless a top border or the box's
-//! own formatting context closes it off. A line that opens a resumed
+//! Annotation space across block edges (Blink's block-start annotation
+//! space): a paragraph's first-line annotations (ruby, emphasis marks)
+//! reach into the space above the line before the line grows — the box's
+//! top padding, the collapsed margins above it and the leading the
+//! preceding block leaves under its last line's text — unless a top
+//! border or the box's own formatting context closes it off. A line that opens a resumed
 //! fragment has none of that space: margins meeting the break are gone
 //! and the line before it sits on another page.
 
@@ -13,7 +13,7 @@ use crate::*;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum LineOpening {
     /// The paragraph's first fragment: the annotations spend what the
-    /// preceding line lends (`ruby_lent`) and `space` above the line.
+    /// preceding line lends (`annotation_lent`) and `space` above the line.
     Start { space: f64 },
     /// A resumed fragment: nothing above lends space.
     Resumed,
@@ -38,17 +38,19 @@ impl LineOpening {
             return (line.clone(), 0.0);
         };
         let growth = match self {
-            Self::Start { space } => (fragment.ruby_growth - fragment.ruby_lent - space).max(0.0),
-            Self::Resumed => fragment.ruby_overflow,
+            Self::Start { space } => {
+                (fragment.annotation_growth - fragment.annotation_lent - space).max(0.0)
+            }
+            Self::Resumed => fragment.annotation_overflow,
         };
-        let delta = growth - fragment.ruby_growth;
+        let delta = growth - fragment.annotation_growth;
         if delta == 0.0 {
             return (line.clone(), 0.0);
         }
         let mut opened = fragment.clone();
         opened.rect.height += delta;
         opened.baseline += delta;
-        opened.ruby_growth = growth;
+        opened.annotation_growth = growth;
         if let Some(marker) = &mut opened.marker {
             marker.y += delta;
         }
@@ -87,6 +89,9 @@ pub(crate) fn block_annotation_end(
     }
     for child in block.children.iter().rev() {
         let end = match child {
+            // Annotations reaching under a block's last line stay in the
+            // block: what follows reuses none of the space past them.
+            Fragment::Line(line) if line.annotation_space_end < 0.0 => None,
             Fragment::Line(line) => Some(AnnotationEnd {
                 line: PrecedingLine {
                     below: (line.rect.height - line.baseline).max(0.0),
@@ -94,6 +99,7 @@ pub(crate) fn block_annotation_end(
                     half_leading: flow_font_size(tree, line.source)?.map_or(0.0, |size| {
                         rito_fragment::empty_line_half_leading(line.rect.height, size)
                     }),
+                    annotation_space: line.annotation_space_end,
                 },
                 space: 0.0,
             }),
@@ -149,16 +155,22 @@ pub(crate) fn passes_annotation_space(
     Ok(!is_flow_root(style) && style.flow_border_widths().block_end.get() == 0.0)
 }
 
-/// Whether an inline flow holds any ruby annotation.
-pub(crate) fn flow_has_ruby(items: &[rito_fragment::InlineItem]) -> bool {
-    items.iter().any(|item| {
-        matches!(
-            item,
-            rito_fragment::InlineItem::Text {
-                ruby_annotation: Some(_),
-                ..
-            }
-        )
+/// Whether an inline flow holds any annotation: a ruby annotation, or
+/// text that takes emphasis marks.
+pub(crate) fn flow_has_annotations(
+    tree: &FormattingTree,
+    items: &[rito_fragment::InlineItem],
+) -> bool {
+    let styles = tree.styles();
+    items.iter().any(|item| match item {
+        rito_fragment::InlineItem::Text {
+            ruby_annotation: Some(_),
+            ..
+        } => true,
+        rito_fragment::InlineItem::Text { style, .. } => styles
+            .and_then(|styles| styles.inline.style(*style).ok())
+            .is_some_and(|style| style.text_flow.text_emphasis.is_some()),
+        _ => false,
     })
 }
 

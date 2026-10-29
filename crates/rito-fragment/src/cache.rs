@@ -546,9 +546,10 @@ mod tests {
                         baseline: 8.0,
                         marker: None,
                         trailing_whitespace: 0.0,
-                        ruby_growth: 0.0,
-                        ruby_overflow: 0.0,
-                        ruby_lent: 0.0,
+                        annotation_growth: 0.0,
+                        annotation_overflow: 0.0,
+                        annotation_lent: 0.0,
+                        annotation_space_end: 0.0,
                         fonts: crate::LineFonts::None,
                         text_runs: if space.line_text.at(top) {
                             vec![(0, 1)]

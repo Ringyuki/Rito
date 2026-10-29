@@ -60,7 +60,10 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
         0.0,
         0.0,
         FragmentPaintContext {
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )
@@ -166,7 +169,10 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
         0.0,
         0.0,
         FragmentPaintContext {
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )
@@ -246,7 +252,10 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
         0.0,
         0.0,
         FragmentPaintContext {
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )

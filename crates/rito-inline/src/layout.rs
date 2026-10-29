@@ -266,6 +266,14 @@ impl FormattingContext for ParleyInlineContext {
         // the box (measured: after `<p><br/></p>` the annotation reuses
         // (line height − font size) / 2, not a text line's under-edge).
         let mut prev_half_leading = space.preceding_line.map_or(0.0, |line| line.half_leading);
+        // The previous line's block-end annotation space (Blink's): room
+        // under its text an emphasis mark over the next line reuses, or
+        // (negative) how far marks under it overflowed its box.
+        let mut prev_annotation_space = space
+            .preceding_line
+            .map_or(0.0, |line| line.annotation_space);
+        // Each text item's em box offsets, per style and faces.
+        let mut em_boxes = EmBoxes::default();
         // Whether the last line laid out holds any item: a trailing empty
         // line is dropped below.
         let mut last_line_has_items = true;
@@ -300,7 +308,7 @@ impl FormattingContext for ParleyInlineContext {
         let no_clusters: std::rc::Rc<[rito_fragment::ClusterPosition]> = std::rc::Rc::from([]);
         for line in layout.lines() {
             let metrics = line.metrics();
-            let line_top = running_top;
+            let mut line_top = running_top;
             let line_text = text_lines.at(line_top);
             let has_inline_box = line_has_atom(&line);
             // Env-gated line forensics for the native probe binary (wasm
@@ -2188,7 +2196,7 @@ impl FormattingContext for ParleyInlineContext {
                     // The first line is laid out at its whole overflow
                     // whatever precedes the flow, so every fragment of the
                     // flow shares one geometry; what the preceding line
-                    // lends rides `ruby_lent` to the line's opening.
+                    // lends rides `annotation_lent` to the line's opening.
                     let lent = if prev_ruby_below.is_some() {
                         (overflow - growth).max(0.0)
                     } else {
@@ -2199,10 +2207,71 @@ impl FormattingContext for ParleyInlineContext {
                     (growth, overflow, 0.0)
                 }
             };
-            let line_height = line_height + ruby_growth;
-            let baseline = baseline + ruby_growth;
-            running_top += ruby_growth;
-            prev_ruby_below = Some((line_height - baseline).max(0.0));
+            // Emphasis marks reach past the line box the way Blink's
+            // annotation extent measures it. Over the line, they push it
+            // down by what the space under the previous line's text does
+            // not absorb, folded into the same growth as the ruby's; the
+            // first line takes its whole overflow and lends the rest to
+            // its opening. Under it, they grow the box at its bottom, and
+            // a next line with room above its text rises into that
+            // growth by as much as its room (the previous box gives it
+            // back).
+            let extent = if let Some(tables) = style_tables {
+                line_annotation_extent(
+                    &self.line_annotation_boxes(
+                        &line,
+                        tree_items,
+                        &item_text_ranges,
+                        &item_shifts,
+                        tables,
+                        baseline,
+                        &mut em_boxes,
+                    ),
+                    baseline,
+                    line_height,
+                    strut_font_size.unwrap_or(0.0),
+                )
+            } else {
+                LineAnnotationExtent::default()
+            };
+            let mut emphasis_shift = extent.overflow_over;
+            if prev_annotation_space < 0.0 && extent.space_over > 0.0 {
+                emphasis_shift = -extent.space_over.min(-prev_annotation_space);
+            }
+            if extent.overflow_over > 0.0 && prev_annotation_space > 0.0 {
+                emphasis_shift = (extent.overflow_over - prev_annotation_space).max(0.0);
+            }
+            let (annotation_growth, annotation_overflow, annotation_lent) = if lines.is_empty() {
+                let whole = ruby_growth.max(extent.overflow_over);
+                let net = (ruby_growth - ruby_lent).max(emphasis_shift.max(0.0));
+                (whole, ruby_overflow.max(extent.overflow_over), whole - net)
+            } else {
+                (
+                    ruby_growth.max(emphasis_shift),
+                    ruby_overflow.max(extent.overflow_over),
+                    0.0,
+                )
+            };
+            if emphasis_shift < 0.0 && ruby_growth == 0.0 {
+                if let Some(Fragment::Line(previous)) = lines.last_mut() {
+                    previous.rect.height += emphasis_shift;
+                    line_top += emphasis_shift;
+                    running_top += emphasis_shift;
+                }
+            }
+            let line_height = line_height + annotation_growth + extent.overflow_under;
+            let baseline = baseline + annotation_growth;
+            running_top += annotation_growth + extent.overflow_under;
+            let annotation_space_end = if extent.overflow_under > 0.0 {
+                -extent.overflow_under
+            } else {
+                extent.space_under
+            };
+            prev_annotation_space = annotation_space_end;
+            // A ruby on the next line reuses nothing under marks that
+            // overflow this one.
+            prev_ruby_below =
+                (extent.overflow_under == 0.0).then(|| (line_height - baseline).max(0.0));
             let mut line_fonts = LineFonts::None;
             for item in line.style_runs() {
                 if let parley::LineStyleRun::Glyphs { run, .. } = item {
@@ -2245,7 +2314,7 @@ impl FormattingContext for ParleyInlineContext {
             let children: Vec<Fragment> = children
                 .into_iter()
                 .map(|(mut fragment, shift)| {
-                    let adjust = max_rise - shift + ruby_growth;
+                    let adjust = max_rise - shift + annotation_growth;
                     match &mut fragment {
                         Fragment::Text(text) => {
                             text.rect.y = adjust;
@@ -2332,9 +2401,10 @@ impl FormattingContext for ParleyInlineContext {
                 },
                 baseline,
                 trailing_whitespace: f64::from(metrics.trailing_whitespace),
-                ruby_growth,
-                ruby_overflow,
-                ruby_lent,
+                annotation_growth,
+                annotation_overflow,
+                annotation_lent,
+                annotation_space_end,
                 fonts: line_fonts,
                 marker,
                 text_runs: line_runs,

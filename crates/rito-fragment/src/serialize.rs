@@ -79,9 +79,10 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             encode_rect(&fragment.rect, out);
             out.extend_from_slice(&fragment.baseline.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.trailing_whitespace.to_bits().to_le_bytes());
-            out.extend_from_slice(&fragment.ruby_growth.to_bits().to_le_bytes());
-            out.extend_from_slice(&fragment.ruby_overflow.to_bits().to_le_bytes());
-            out.extend_from_slice(&fragment.ruby_lent.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_growth.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_overflow.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_lent.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_space_end.to_bits().to_le_bytes());
             match fragment.fonts {
                 LineFonts::None => out.push(0),
                 LineFonts::One(face) => {
@@ -242,9 +243,10 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
         FRAGMENT_TAG_LINE => {
             let baseline = reader.f64()?;
             let trailing_whitespace = reader.f64()?;
-            let ruby_growth = reader.f64()?;
-            let ruby_overflow = reader.f64()?;
-            let ruby_lent = reader.f64()?;
+            let annotation_growth = reader.f64()?;
+            let annotation_overflow = reader.f64()?;
+            let annotation_lent = reader.f64()?;
+            let annotation_space_end = reader.f64()?;
             let fonts = match reader.u8()? {
                 0 => LineFonts::None,
                 1 => LineFonts::One(crate::FontFaceId(reader.u32()?)),
@@ -275,9 +277,10 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 rect,
                 baseline,
                 trailing_whitespace,
-                ruby_growth,
-                ruby_overflow,
-                ruby_lent,
+                annotation_growth,
+                annotation_overflow,
+                annotation_lent,
+                annotation_space_end,
                 fonts,
                 marker,
                 text_runs,
@@ -633,9 +636,10 @@ mod tests {
                         },
                         baseline: 14.8,
                         trailing_whitespace: 4.25,
-                        ruby_growth: 1.5,
-                        ruby_overflow: 2.0,
-                        ruby_lent: 0.5,
+                        annotation_growth: 1.5,
+                        annotation_overflow: 2.0,
+                        annotation_lent: 0.5,
+                        annotation_space_end: -0.25,
                         fonts: LineFonts::One(crate::FontFaceId(7)),
                         text_runs: vec![(0, 42)],
                         children: vec![Fragment::Text(TextFragment {

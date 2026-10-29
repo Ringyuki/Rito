@@ -28,11 +28,12 @@ use crate::render::{
     display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
 };
 
+use super::emphasis;
 use super::family::{combined_forms_family, face_family, vertical_forms_family};
 use super::flow_text::FlowTexts;
 use super::line::append_line_commands;
 use super::run_style::run_paint;
-use super::{cluster_x, snap_css, CANVAS_TOP_ASCENT_RATIO};
+use super::{cluster_x, snap_css, LineAnnotations, CANVAS_TOP_ASCENT_RATIO};
 
 /// How a placed cluster paints.
 #[derive(Clone, Copy, PartialEq)]
@@ -309,7 +310,7 @@ pub(super) fn append_vertical_line_commands(
     faces: Option<&[std::sync::Arc<str>]>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
-    ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    annotations: LineAnnotations<'_>,
     snap_origin_y: f64,
     ratio: f64,
     flow_texts: &FlowTexts,
@@ -375,7 +376,7 @@ pub(super) fn append_vertical_line_commands(
                         faces,
                         image_border_paints,
                         flow_item_sources,
-                        ruby_annotation_runs,
+                        annotations,
                         snap_origin_y,
                         ratio,
                         flow_texts,
@@ -391,7 +392,7 @@ pub(super) fn append_vertical_line_commands(
                         faces,
                         image_border_paints,
                         flow_item_sources,
-                        ruby_annotation_runs,
+                        annotations,
                         snap_origin_y,
                         ratio,
                         flow_texts,
@@ -410,7 +411,7 @@ pub(super) fn append_vertical_line_commands(
             continue;
         };
         let InlineItem::Text {
-            style,
+            style: style_id,
             ruby_annotation,
             baseline_shift_px,
             ..
@@ -420,7 +421,7 @@ pub(super) fn append_vertical_line_commands(
         };
         let style = styles
             .inline
-            .style(*style)
+            .style(*style_id)
             .map_err(|error| EpubError::new(format!("text run has no inline style: {error}")))?;
         // A column run paints glyphs only: its inline box and decoration
         // have no column expression yet.
@@ -467,6 +468,43 @@ pub(super) fn append_vertical_line_commands(
                 .and_then(|sources| sources.get(*item_index))
                 .and_then(|source| source.href.clone()),
         )?;
+        // Emphasis marks centre on the graphemes down the column; a
+        // combined upright unit takes none.
+        if let Some(measured) = annotations
+            .emphasis
+            .and_then(|marks| marks.get(style_id))
+            .filter(|_| {
+                style.bidi.text_combine_upright == rito_style_contract::TextCombineUpright::None
+            })
+        {
+            let places = emphasis::mark_places(
+                &full_text[start..end],
+                &emphasis::cluster_origins(run, top),
+                emphasis::last_advance_end(
+                    line,
+                    run,
+                    items,
+                    text_ranges,
+                    styles,
+                    top,
+                    top + run.rect.x + run.rect.width,
+                ),
+            );
+            let run_face = run
+                .clusters
+                .first()
+                .map(|cluster| cluster.face)
+                .unwrap_or_default();
+            commands.extend(emphasis::vertical_marks(
+                style,
+                measured,
+                faces,
+                &paint_for(run_face, Forms::Horizontal)?,
+                emphasis::run_faces(run),
+                &places,
+                baseline_x,
+            )?);
+        }
         // The annotation stands on the base's line-over side, wherever
         // the line's own edge is (a first line's annotation reaches into
         // the space before the line without growing it).
@@ -500,7 +538,8 @@ pub(super) fn append_vertical_line_commands(
                 );
                 if !allocated.is_empty() {
                     let annotation_size = font_size * f64::from(annotation.size_ratio);
-                    let measured_ruby = ruby_annotation_runs
+                    let measured_ruby = annotations
+                        .ruby
                         .and_then(|runs| runs.get(&(line.source.0, *item_index)))
                         .ok_or_else(|| {
                             EpubError::new(

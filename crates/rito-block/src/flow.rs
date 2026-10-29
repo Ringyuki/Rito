@@ -803,9 +803,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     let border_top = f64::from(child_style.flow_border_widths().block_start.get());
                     let padding_space = (hbox.padding_top - border_top).max(0.0);
                     let reaches_above = border_top == 0.0 && !is_flow_root(child_style);
-                    let has_ruby = flow_has_ruby(items);
-                    let preceding =
-                        preceding_end.filter(|_| reaches_above && has_ruby && !resumed_fragment);
+                    let has_annotations = flow_has_annotations(tree, items);
+                    let preceding = preceding_end
+                        .filter(|_| reaches_above && has_annotations && !resumed_fragment);
                     // A negative margin never takes space from the padding
                     // (Blink clamps the space to the padding).
                     let opening_space = if reaches_above {
@@ -855,7 +855,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             unfragmented if centres_lines(child_style) => unfragmented.whole(),
                             unfragmented => unfragmented.below(paragraph_top),
                         }
-                        .reaching(if has_ruby {
+                        .reaching(if has_annotations {
                             opening_space
                         } else {
                             0.0
@@ -986,8 +986,16 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // sibling's margin stacks after it un-truncated).
                         trailing_deferred =
                             placement.exhausted && !trailing_fits && hbox.padding_bottom > 0.0;
+                        // Emphasis marks reaching under the last line spend
+                        // the bottom padding before the box grows for them
+                        // (Blink collapses a block's end annotation
+                        // overflow into its end padding).
+                        let end_overflow = match placement.lines.last() {
+                            Some(Fragment::Line(line)) => (-line.annotation_space_end).max(0.0),
+                            _ => 0.0,
+                        };
                         let trailing_padding = if placement.exhausted && trailing_fits {
-                            hbox.padding_bottom
+                            hbox.padding_bottom - end_overflow.min(hbox.padding_bottom)
                         } else {
                             0.0
                         };
@@ -1486,6 +1494,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                                     below: 0.0,
                                                     fonts: rito_fragment::LineFonts::None,
                                                     half_leading: 0.0,
+                                                    annotation_space: 0.0,
                                                 },
                                                 space: strut,
                                             })

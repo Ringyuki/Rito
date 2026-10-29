@@ -76,17 +76,19 @@ pub struct LineFragment {
     /// the visible ink extent subtract this from the rect width, matching
     /// how CSS hangs whitespace at the end of a line.
     pub trailing_whitespace: f64,
-    /// The ruby-annotation reserve folded into `baseline`. The paint
-    /// snap treats this share separately — the annotation reserves whole
-    /// device rows (ceil) while the strut part keeps the two-stage
-    /// round. Zero on lines without ruby growth.
-    pub ruby_growth: f64,
-    /// How far the line's annotations reach above its box: the growth
-    /// the line takes when nothing above it lends them space, as when it
-    /// opens a fragment of a resumed flow (Blink's block-start annotation
-    /// space is zero there). `ruby_growth` is this less what the space
-    /// above absorbs. Zero on lines without ruby.
-    pub ruby_overflow: f64,
+    /// The reserve the line's over-side annotations (ruby, emphasis
+    /// marks) fold into `baseline`: the line box grows at its top and its
+    /// content moves down by as much. The paint snap treats this share
+    /// separately — the annotation reserves whole device rows (ceil) while
+    /// the strut part keeps the two-stage round. Zero on lines without
+    /// annotation growth.
+    pub annotation_growth: f64,
+    /// How far the line's over-side annotations reach above its box: the
+    /// growth the line takes when nothing above it lends them space, as
+    /// when it opens a fragment of a resumed flow (Blink's block-start
+    /// annotation space is zero there). `annotation_growth` is this less
+    /// what the space above absorbs. Zero on lines without annotations.
+    pub annotation_overflow: f64,
     /// On a flow's first line, how much of its overflow the leading under
     /// the preceding block's last line lends it
     /// (`ConstraintSpace::preceding_line`); zero on every other line. The
@@ -94,7 +96,13 @@ pub struct LineFragment {
     /// geometry does not depend on what precedes it; the block context
     /// spends this with the rest of the space above when the line opens
     /// the flow.
-    pub ruby_lent: f64,
+    pub annotation_lent: f64,
+    /// Blink's block-end annotation space of the line: how far its box
+    /// reaches below the em boxes of its text (an annotation on the next
+    /// line may reuse that much) when positive; when negative, how far its
+    /// own under-side annotations (emphasis marks) reach past the line's
+    /// natural bottom, which the box was grown by.
+    pub annotation_space_end: f64,
     /// The fonts the line's glyph runs were shaped with, which the next
     /// line's annotations read to know how much of the space under this
     /// line's text they may reuse.

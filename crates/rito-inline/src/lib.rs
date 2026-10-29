@@ -45,6 +45,7 @@ mod clusters;
 mod context;
 #[cfg(test)]
 mod counters;
+mod emphasis;
 mod fonts;
 mod forensics;
 mod image;
@@ -72,6 +73,8 @@ mod width_bounds;
 pub(crate) use breaking::*;
 pub(crate) use clusters::*;
 pub use clusters::{MeasuredRuby, MeasuredRun};
+pub(crate) use emphasis::*;
+pub use emphasis::{emphasis_mark_size, takes_emphasis_mark, MeasuredEmphasis};
 pub(crate) use fonts::*;
 pub use fonts::{font_family_name, HostFontFace, HostFontRole, PublicationFontFace};
 pub(crate) use image::*;

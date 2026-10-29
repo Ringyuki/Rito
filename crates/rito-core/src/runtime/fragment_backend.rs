@@ -278,7 +278,10 @@ impl MaterializedChapter {
                 node_paints: Some(&paint.built.node_paints),
                 image_border_paints: Some(&paint.built.image_border_paints),
                 list_markers: Some(&paint.built.list_markers),
-                ruby_annotation_runs: Some(&paint.built.ruby_annotation_runs),
+                annotations: crate::fragment_paint::LineAnnotations {
+                    ruby: Some(&paint.built.ruby_annotation_runs),
+                    emphasis: Some(&paint.built.emphasis_marks),
+                },
                 vertical_frame: None,
                 flow_item_sources: Some(&paint.built.flow_item_sources),
                 ratio,
