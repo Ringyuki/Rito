@@ -52,6 +52,10 @@ impl RawStylesheetSource {
 #[derive(Debug, Clone)]
 pub(crate) struct StylesheetSourceLedger {
     sources: Arc<[RawStylesheetSource]>,
+    /// Whether a chapter takes only the stylesheets it links, as a browser
+    /// lays out a publication opened from its archive; a document built
+    /// through the API without links takes every publication stylesheet.
+    links_only: bool,
 }
 
 impl StylesheetSourceLedger {
@@ -66,11 +70,16 @@ impl StylesheetSourceLedger {
             .collect::<Vec<_>>();
         Self {
             sources: Arc::from(sources),
+            links_only: document.archive_source.is_some(),
         }
     }
 
     pub(crate) fn sources(&self) -> &[RawStylesheetSource] {
         &self.sources
+    }
+
+    pub(crate) fn links_only(&self) -> bool {
+        self.links_only
     }
 }
 

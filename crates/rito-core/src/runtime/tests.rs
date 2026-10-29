@@ -17,6 +17,7 @@ mod ruby_range_tests;
 mod scroll_strip_tests;
 mod scrolled_revision_tests;
 mod strip_cost_probe;
+mod stylesheet_scope_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;

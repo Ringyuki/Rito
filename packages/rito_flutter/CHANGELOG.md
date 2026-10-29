@@ -109,6 +109,12 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A chapter takes only the stylesheets it links
+
+A chapter lays out under the stylesheets it links and embeds and no
+others, as a browser applies them: a chapter without a `<link>` no longer
+takes every stylesheet the package lists.
+
 ### An inline table moves to the next page whole
 
 An inline table (`display: inline-table`) moves to the next page whole

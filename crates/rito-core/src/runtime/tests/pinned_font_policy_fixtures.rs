@@ -78,6 +78,18 @@ pub(crate) fn content_epub(
     stylesheet: &str,
     publication_font: Option<&[u8]>,
 ) -> Vec<u8> {
+    content_epub_linking(language, body, stylesheet, publication_font, true)
+}
+
+/// [`content_epub`] whose chapter links the stylesheet only when `linked`
+/// (the package lists it either way).
+pub(crate) fn content_epub_linking(
+    language: &str,
+    body: &str,
+    stylesheet: &str,
+    publication_font: Option<&[u8]>,
+    linked: bool,
+) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();
     add_file(
@@ -92,8 +104,13 @@ pub(crate) fn content_epub(
     let package = format!(
         r#"<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Pinned</dc:title><dc:language>{language}</dc:language><dc:identifier id="id">pinned</dc:identifier></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="style" href="style.css" media-type="text/css"/>{font_manifest}</manifest><spine><itemref idref="chapter"/></spine></package>"#
     );
+    let link = if linked {
+        r#"<link rel="stylesheet" href="style.css"/>"#
+    } else {
+        ""
+    };
     let chapter = format!(
-        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" href="style.css"/></head><body>{body}</body></html>"#
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head>{link}</head><body>{body}</body></html>"#
     );
     add_file(&mut writer, options, "OPS/package.opf", package.as_bytes());
     add_file(&mut writer, options, "OPS/style.css", stylesheet.as_bytes());

@@ -1873,7 +1873,7 @@ fn selection_geometry_spans_the_font_grid_box() {
     // Chromium's native selection rect spans the font box (the serving
     // font's whole-pixel ascent and descent), not the declared line box:
     // Tinos at 32px is 29 + 7 = 36 tall on a 48px fixed line-height.
-    let chapter: &[u8] = br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p class="sel">HELLO GRID WORLD</p></body></html>"#;
+    let chapter: &[u8] = br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" href="style.css"/></head><body><p class="sel">HELLO GRID WORLD</p></body></html>"#;
     let epub = crate::runtime::tests::fixture::fixture_epub_with_chapter_and_stylesheet(
         chapter,
         ".sel { font-size: 32px; line-height: 48px; }",

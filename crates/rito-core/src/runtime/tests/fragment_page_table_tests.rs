@@ -687,7 +687,7 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
 
 fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
     let epub = fixture_epub_with_chapter_and_stylesheet(
-        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p><img src="Images/cover.png" alt="plate"/></p></body></html>"#,
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title><link rel="stylesheet" href="style.css"/></head><body><p><img src="Images/cover.png" alt="plate"/></p></body></html>"#,
         css,
     );
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
