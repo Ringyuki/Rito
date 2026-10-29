@@ -196,21 +196,6 @@ pub(crate) fn line_end_trims_possible(
 /// trailing 法，pair down instead of trimming the comma; b20's real
 /// `看法，` line stays open evidence, see the task archive.)
 pub(crate) fn line_end_trim_eligible(character: char) -> bool {
-    matches!(
-        character,
-        '」' | '』'
-            | '）'
-            | '】'
-            | '〕'
-            | '》'
-            | '〉'
-            | '〗'
-            | '〙'
-            | '〛'
-            | '｝'
-            | '］'
-            | '｠'
-            | '’'
-            | '”'
-    )
+    fullwidth_punctuation_class(character) == PunctuationClass::CloseOrStop
+        && !matches!(character, '。' | '、' | '，' | '．' | '：' | '；')
 }

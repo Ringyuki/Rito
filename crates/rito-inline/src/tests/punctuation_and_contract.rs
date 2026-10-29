@@ -293,6 +293,37 @@ fn cjk_punctuation_pairs_trim_half_an_em() {
         (middle - plain).abs() < 0.1,
         "middle dot before a close must not trim: {middle}"
     );
+    // The CJK double prime quotes are fullwidth brackets (measured in
+    // pinned Chromium: `り、〝チ` gives 〝 8px, `グ〟、の` gives 〟 8px).
+    let comma_prime = shape_width("春日、〝春日");
+    assert!(
+        (comma_prime - (plain - 8.0)).abs() < 0.1,
+        "an opening double prime after a comma trims: {comma_prime}"
+    );
+    let prime_comma = shape_width("春日〟、春日");
+    assert!(
+        (prime_comma - (plain - 8.0)).abs() < 0.1,
+        "a closing double prime before a comma trims: {prime_comma}"
+    );
+    let primes = shape_width("春〝日〟春日");
+    assert!(
+        (primes - plain).abs() < 0.1,
+        "double primes against ideographs stay full: {primes}"
+    );
+    // A narrow opener, a narrow closer and the Latin middle dot make
+    // their fullwidth neighbour trim (measured: `(「` = 5.33+8,
+    // `」)` = 8+5.33, `·「` = 5.33+8).
+    for (trimming, full) in [
+        ("春(「日日", "春(日日日"),
+        ("春」)日日", "春日)日日"),
+        ("春·「日日", "春·日日日"),
+    ] {
+        let delta = shape_width(trimming) - shape_width(full);
+        assert!(
+            (delta + 8.0).abs() < 0.1,
+            "{trimming} trims half an em against {full}: {delta}"
+        );
+    }
 }
 
 /// Consecutive forced breaks keep their empty line: Blink lays

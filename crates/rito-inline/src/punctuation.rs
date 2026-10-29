@@ -10,15 +10,32 @@ pub(crate) enum TrimmedGlyph {
     Right,
 }
 
+/// A character's static Han kerning class (Blink's
+/// `unicode::GetHanKerningCharType`, css-text-4's text-spacing classes)
+/// as the pinned CJK faces resolve it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum PunctuationClass {
+    /// Fullwidth opening punctuation: `Ps` in the CJK Symbols block or
+    /// East Asian Fullwidth, and the curly opening quotes.
     Open,
+    /// Fullwidth closing punctuation (`Pe` likewise, the curly closing
+    /// quotes) and the dots and colons, whose blank half sits on the right
+    /// in the pinned faces' Simplified Chinese forms.
     CloseOrStop,
+    /// The ideographic space and the middle dots: they make their
+    /// neighbours trim but never trim themselves.
     Middle,
+    /// Any other opening punctuation (`(`, `[`, halfwidth brackets): a
+    /// fullwidth opener after it trims.
+    OpenNarrow,
+    /// Any other closing punctuation: a fullwidth closer before it trims.
+    CloseNarrow,
     Other,
 }
 
 pub(crate) fn fullwidth_punctuation_class(character: char) -> PunctuationClass {
+    use icu_properties::props::{EastAsianWidth, GeneralCategory};
+    use icu_properties::CodePointMapData;
     match character {
         // The curly quotes are ambiguous-width, but in the CJK faces this
         // engine shapes with they are fullwidth, and the pinned Chromium
@@ -27,20 +44,28 @@ pub(crate) fn fullwidth_punctuation_class(character: char) -> PunctuationClass {
         // 8+16, `「“` costs 16+8, and none of them trim against an
         // ideograph. Blink types them kOpenQuote/kCloseQuote, which its
         // Han kerning treats as kOpen/kClose.
-        '「' | '『' | '（' | '【' | '〔' | '《' | '〈' | '〖' | '〘' | '〚' | '｛' | '［'
-        | '｟' | '‘' | '“' => PunctuationClass::Open,
-        '」' | '』' | '）' | '】' | '〕' | '》' | '〉' | '〗' | '〙' | '〛' | '｝' | '］'
-        | '｠' | '。' | '、' | '，' | '．' | '：' | '；' | '’' | '”' => {
+        '‘' | '“' => PunctuationClass::Open,
+        '’' | '”' | '。' | '、' | '，' | '．' | '：' | '；' => {
             PunctuationClass::CloseOrStop
         }
         // The ideographic space is fullwidth-punctuation CONTEXT: an
         // opener after it halts (　「 = 16+8) and a close/stop before it
         // halts (』　 = 8+16), while the space itself never trims —
         // 　　 and 　、 stay full (measured 6-pair matrix, 2026-08-08).
-        // The Middle class carries exactly that trigger-but-never-
-        // trimmed behaviour.
-        '・' | '　' => PunctuationClass::Middle,
-        _ => PunctuationClass::Other,
+        // The middle dots are the same class (measured: ·「 = 5.33+8).
+        '　' | '・' | '·' | '‧' => PunctuationClass::Middle,
+        _ => {
+            let fullwidth = ('\u{3000}'..='\u{303F}').contains(&character)
+                || CodePointMapData::<EastAsianWidth>::new().get(character)
+                    == EastAsianWidth::Fullwidth;
+            match CodePointMapData::<GeneralCategory>::new().get(character) {
+                GeneralCategory::OpenPunctuation if fullwidth => PunctuationClass::Open,
+                GeneralCategory::OpenPunctuation => PunctuationClass::OpenNarrow,
+                GeneralCategory::ClosePunctuation if fullwidth => PunctuationClass::CloseOrStop,
+                GeneralCategory::ClosePunctuation => PunctuationClass::CloseNarrow,
+                _ => PunctuationClass::Other,
+            }
+        }
     }
 }
 
@@ -49,20 +74,21 @@ pub(crate) fn fullwidth_punctuation_class(character: char) -> PunctuationClass {
 /// Chromium ships `text-spacing-trim: normal` on by default for CJK text
 /// (Blink "Han kerning"): where two fullwidth punctuation glyphs meet, the
 /// blank half at the boundary collapses so the pair advances 1.5em instead
-/// of 2em. Characterized against pinned Chromium (scratchpad trim probes,
-/// 2026-07-23, 54-pair matrix): an opening bracket trims its blank left
-/// half after any fullwidth punctuation; a close/stop/colon trims its
-/// blank right half before any fullwidth punctuation; nothing trims
-/// against an ideograph or at a line edge, `！？・` never trim themselves,
-/// the trim applies with or without justification, and it crosses inline
-/// element boundaries.
+/// of 2em. Blink's `HanKerning::ShouldKern` trims an opener after an
+/// opener, a middle dot or space, a closer or a narrow opener
+/// (measured: `、〝` = 16+8, `(「` = 5.33+8), and `ShouldKernLast` trims a
+/// closer before a closer, a middle dot or space or a narrow closer
+/// (`〟、` = 8+16, `」)` = 8+5.33); nothing trims against an ideograph or
+/// at a line edge, `！？・` never trim themselves, the trim applies with or
+/// without justification, and it crosses inline element boundaries.
 pub(crate) fn cjk_punctuation_trim(left: char, right: char) -> Option<TrimmedGlyph> {
+    use PunctuationClass::*;
     let left_class = fullwidth_punctuation_class(left);
     let right_class = fullwidth_punctuation_class(right);
-    if right_class == PunctuationClass::Open && left_class != PunctuationClass::Other {
+    if right_class == Open && matches!(left_class, Open | Middle | CloseOrStop | OpenNarrow) {
         return Some(TrimmedGlyph::Right);
     }
-    if left_class == PunctuationClass::CloseOrStop && right_class != PunctuationClass::Other {
+    if left_class == CloseOrStop && matches!(right_class, CloseOrStop | Middle | CloseNarrow) {
         return Some(TrimmedGlyph::Left);
     }
     None

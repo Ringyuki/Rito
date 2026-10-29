@@ -109,6 +109,15 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Every bracket and quote trims as Chromium trims it
+
+Adjacent CJK punctuation trims by Chromium's classes for every bracket,
+not only a fixed list: the CJK double prime quotes (`〝〞〟`) and any other
+fullwidth bracket trim like `「」`, a fullwidth opener after a narrow one
+(`(「`) and a fullwidth closer before a narrow one (`」)`) trim, the middle
+dots `·` and `‧` make their neighbours trim as `・` does, and each of these
+closers can trim at a line end.
+
 ### A chapter takes only the stylesheets it links
 
 A chapter lays out under the stylesheets it links and embeds and no
