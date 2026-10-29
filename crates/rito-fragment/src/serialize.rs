@@ -149,7 +149,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                 out.extend_from_slice(&cluster.byte.to_le_bytes());
                 out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
                 out.extend_from_slice(&cluster.face.0.to_le_bytes());
-                out.push(u8::from(cluster.joins));
+                out.push(u8::from(cluster.joins) | (u8::from(cluster.continues_ligature) << 1));
             }
             out.push(u8::from(fragment.cluster_grid));
             match &fragment.segments {
@@ -314,15 +314,19 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let cluster_count = reader.u32()? as usize;
             let mut clusters = Vec::with_capacity(cluster_count.min(4096));
             for _ in 0..cluster_count {
+                let byte = reader.u32()?;
+                let x = reader.f64()?;
+                let face = crate::FontFaceId(reader.u32()?);
+                let flags = reader.u8()?;
+                if flags > 3 {
+                    return Err(format!("unknown cluster joins tag {flags}"));
+                }
                 clusters.push(crate::ClusterPosition {
-                    byte: reader.u32()?,
-                    x: reader.f64()?,
-                    face: crate::FontFaceId(reader.u32()?),
-                    joins: match reader.u8()? {
-                        0 => false,
-                        1 => true,
-                        tag => return Err(format!("unknown cluster joins tag {tag}")),
-                    },
+                    byte,
+                    x,
+                    face,
+                    joins: flags & 1 != 0,
+                    continues_ligature: flags & 2 != 0,
                 });
             }
             let cluster_grid = match reader.u8()? {

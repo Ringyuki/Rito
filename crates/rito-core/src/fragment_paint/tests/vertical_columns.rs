@@ -19,6 +19,7 @@ fn column_run(x: f64, width: f64, start: u32, text: &str, step: f64) -> Fragment
             x: index as f64 * step,
             face: rito_fragment::FontFaceId::default(),
             joins: false,
+            continues_ligature: false,
         })
         .collect();
     run.orientations = Some(
@@ -152,18 +153,21 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 3,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 6,
                         x: 16.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                 ],
                 grid: false,
@@ -437,6 +441,7 @@ fn a_vertical_ruby_base_starts_on_a_whole_pixel() {
         x,
         face: rito_fragment::FontFaceId::default(),
         joins: false,
+        continues_ligature: false,
     };
     let annotation = |glyphs: u32| rito_inline::MeasuredRuby {
         run: rito_inline::MeasuredRun {

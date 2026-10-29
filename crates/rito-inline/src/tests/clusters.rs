@@ -470,6 +470,45 @@ fn clusters_reached_by_a_bare_advance_join_the_one_before() {
     );
 }
 
+/// A ligature draws only in one string from its start: its later
+/// clusters join the start whatever their split advances, and the cluster
+/// after it joins when the whole ligature steps by its glyph's advance
+/// (an embedded face's calt pair of em dashes drawn apart rastered its two
+/// isolated dashes a pixel above the browser's joined bar).
+#[test]
+fn a_ligature_draws_in_one_string_from_its_start() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    let run = context.measure_run(&style, "fix");
+    let bytes: Vec<u32> = run.clusters.iter().map(|c| c.byte).collect();
+    assert_eq!(
+        bytes,
+        vec![0, 1, 2],
+        "fi ligates into two clusters: {run:?}"
+    );
+    assert_eq!(
+        run.clusters.iter().map(|c| c.joins).collect::<Vec<_>>(),
+        vec![false, true, true]
+    );
+    assert_eq!(
+        run.clusters
+            .iter()
+            .map(|c| c.continues_ligature)
+            .collect::<Vec<_>>(),
+        vec![false, true, false]
+    );
+}
+
 /// A line's text in one inline item is one fragment, as the browser keeps
 /// one text item per inline item on a line: the pieces it was placed in
 /// are its segments, each placed from its own origin and starting a string

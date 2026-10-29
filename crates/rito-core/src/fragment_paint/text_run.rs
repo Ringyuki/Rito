@@ -372,6 +372,7 @@ pub(super) fn append_text_run_command(
                 face: cluster.face,
                 // Distribution moves every annotation cluster on its own.
                 joins: false,
+                continues_ligature: false,
             })
             .collect();
         let slice_end = measured
@@ -425,10 +426,14 @@ pub(super) fn append_text_run_command(
     // Every cluster keeps its origin, at its offset from its segment's;
     // one the pen reaches from the one before it says so, so a pen drawing
     // strings draws it in the same string and a pen drawing clusters still
-    // has its origin. A segment's first cluster starts a string.
+    // has its origin. A segment's first cluster starts a string. A
+    // ligature paints as one cluster from its start, so a pen drawing
+    // clusters forms it too.
     let clusters: std::sync::Arc<[TextCluster]> = run
         .clusters_with_origins()
-        .map(|(segment_x, cluster)| {
+        .enumerate()
+        .filter(|(index, (_, cluster))| *index == 0 || !cluster.continues_ligature)
+        .map(|(_, (segment_x, cluster))| {
             let origin_x = line_x + segment_x + run.ruby_center_shift_px;
             TextCluster {
                 byte: cluster.byte - run.text_start,

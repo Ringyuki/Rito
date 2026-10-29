@@ -408,6 +408,10 @@ pub struct ClusterPosition {
     /// or kerning added, no glyph offset) in the same face, under the
     /// float law. Such a cluster needs no origin of its own.
     pub joins: bool,
+    /// Whether the cluster continues a ligature: it has no glyph of its
+    /// own, the ligature's start draws it, and a pen draws the two in one
+    /// string.
+    pub continues_ligature: bool,
 }
 
 /// One laid-out atomic inline (an image) inside a line.

@@ -109,6 +109,17 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A ligature paints as one cluster
+
+A ligature paints as one cluster from its start, and the cluster after it
+joins when the whole ligature steps by its glyph's advance, so a pen
+drawing clusters (the GPU pen) and a pen drawing strings both draw the
+ligature the font forms: an embedded face's contextual pair of em dashes no
+longer paints as two isolated dashes a pixel above the browser's joined
+bar. Text fragments keep a cluster per character, which now says whether it
+continues a ligature (`ClusterPosition::continues_ligature`), so selection
+still reaches inside it.
+
 ### Vertical text draws its decoration lines
 
 An underlined or overlined run in a vertical line (a link in a vertical

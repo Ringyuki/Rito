@@ -49,8 +49,13 @@ struct ClusterStep {
     face: FontFaceId,
     font_size: f64,
     /// Whether the step is the cluster's bare glyph advance: no spacing
-    /// folded in, no kerning, no glyph offset, left to right.
+    /// folded in, no kerning, no glyph offset, left to right. For a
+    /// ligature, whether the whole ligature steps by its glyph's advance,
+    /// held by its last cluster.
     bare: bool,
+    /// Whether the cluster continues a ligature: it has no glyph of its
+    /// own, and only the string drawn from the ligature's start draws it.
+    continues: bool,
 }
 
 impl ClusterSteps {
@@ -59,7 +64,11 @@ impl ClusterSteps {
         layout: &parley::Layout<[u8; 4]>,
         spacing_edits: &SpacingEdits,
     ) -> Self {
-        let mut steps = Vec::new();
+        let mut steps: Vec<ClusterStep> = Vec::new();
+        // The open ligature: its start's step index and its shaped and
+        // declared advances so far, `None` once any cluster of it is not
+        // bare.
+        let mut ligature: Option<(usize, Option<(f64, i64)>)> = None;
         let mut cluster = parley::layout::Cluster::from_byte_index(layout, 0);
         while let Some(current) = cluster {
             let text_range = current.text_range();
@@ -67,6 +76,19 @@ impl ClusterSteps {
             // A combined upright unit steps by its em alone, whatever its
             // glyphs and the spacing around it.
             let combined = current.is_combined();
+            let units = (!combined && folded == 0.0)
+                .then(|| bare_units(catalog, &current))
+                .flatten();
+            let continues = current.is_ligature_continuation() && ligature.is_some();
+            if continues {
+                if let Some((_, total)) = &mut ligature {
+                    *total = total
+                        .zip(units)
+                        .map(|((shaped, declared), (more, own))| (shaped + more, declared + own));
+                }
+            } else {
+                ligature = current.is_ligature_start().then_some((steps.len(), units));
+            }
             steps.push(ClusterStep {
                 start: text_range.start as u32,
                 end: text_range.end as u32,
@@ -77,8 +99,19 @@ impl ClusterSteps {
                 },
                 face: catalog.face_id(current.run().font()),
                 font_size: f64::from(current.run().font_size()),
-                bare: !combined && folded == 0.0 && is_bare(catalog, &current),
+                bare: units.is_some_and(|(shaped, declared)| shaped.round() as i64 == declared),
+                continues,
             });
+            // A ligature steps as one: its last cluster says whether it
+            // stepped by its glyph's advance.
+            if let Some((_, total)) = ligature {
+                if let Some(last) = steps.last_mut() {
+                    if last.continues {
+                        last.bare = total
+                            .is_some_and(|(shaped, declared)| shaped.round() as i64 == declared);
+                    }
+                }
+            }
             cluster = current.next_logical();
         }
         Self { steps }
@@ -102,34 +135,31 @@ impl ClusterSteps {
     }
 }
 
-/// Whether `cluster` advances by its glyphs' declared advances alone:
-/// shaping kerned none of them and offset none, and it runs left to right
-/// in a face at its default instance. Any shaper stepping through such a
-/// cluster lands its successor at the same place.
-fn is_bare<B: parley::style::Brush>(
+/// `cluster`'s shaped advance and its glyphs' declared advances, in font
+/// units, when shaping offset none of its glyphs and it runs left to right
+/// in a face at its default instance; it is bare when the two agree (no
+/// kerning), and any shaper stepping through it lands its successor at
+/// the same place.
+fn bare_units<B: parley::style::Brush>(
     catalog: &FontCatalog,
     cluster: &parley::layout::Cluster<'_, B>,
-) -> bool {
+) -> Option<(f64, i64)> {
     let run = cluster.run();
     if run.is_rtl() || run.normalized_coords().iter().any(|coord| *coord != 0) {
-        return false;
+        return None;
     }
     let size = f64::from(run.font_size());
-    let Some(upem) = catalog.units_per_em(run.font()).filter(|upem| *upem > 0) else {
-        return false;
-    };
+    let upem = catalog
+        .units_per_em(run.font())
+        .filter(|upem| *upem > 0 && size > 0.0)?;
     let mut declared = 0_i64;
     for glyph in cluster.glyphs() {
         if glyph.x != 0.0 || glyph.y != 0.0 {
-            return false;
+            return None;
         }
-        let Some(advance) = catalog.declared_advance(run.font(), glyph.id) else {
-            return false;
-        };
-        declared += i64::from(advance);
+        declared += i64::from(catalog.declared_advance(run.font(), glyph.id)?);
     }
-    let shaped = f64::from(cluster.advance()) * upem as f64 / size;
-    size > 0.0 && shaped.round() as i64 == declared
+    Some((f64::from(cluster.advance()) * upem as f64 / size, declared))
 }
 
 /// The cluster origins of the piece `range` of a laid-out paragraph,
@@ -163,6 +193,7 @@ pub(crate) fn piece_clusters(
             trim,
             cluster.face,
             cluster.bare && justify_px == 0.0,
+            cluster.continues,
         )
     });
     let text = flow_text.get(range).unwrap_or_default();
@@ -174,7 +205,7 @@ pub(crate) fn piece_clusters(
     let advance = if grid {
         // Every origin is floored onto the grid on its own: none joins.
         let mut cumulative = 0.0_f64;
-        out.extend(steps.map(|(byte, step, trim, face, _)| {
+        out.extend(steps.map(|(byte, step, trim, face, _, _)| {
             let x = cumulative - trim;
             cumulative += step;
             ClusterPosition {
@@ -182,6 +213,7 @@ pub(crate) fn piece_clusters(
                 x,
                 face,
                 joins: false,
+                continues_ligature: false,
             }
         }));
         cumulative
@@ -190,12 +222,13 @@ pub(crate) fn piece_clusters(
         // The previous cluster: whether it stepped by its bare advance
         // from an untrimmed origin, and its face.
         let mut previous: Option<(bool, FontFaceId)> = None;
-        out.extend(steps.map(|(byte, step, trim, face, bare)| {
+        out.extend(steps.map(|(byte, step, trim, face, bare, continues)| {
             let x = f64::from(pen) - trim;
             pen += step as f32;
+            // A ligature's later clusters draw only in its start's string.
             let joins = trim == 0.0
                 && previous.is_some_and(|(stepped_bare, previous_face)| {
-                    stepped_bare && previous_face == face
+                    (stepped_bare || continues) && previous_face == face
                 });
             previous = Some((bare && trim == 0.0, face));
             ClusterPosition {
@@ -203,6 +236,7 @@ pub(crate) fn piece_clusters(
                 x,
                 face,
                 joins,
+                continues_ligature: continues,
             }
         }));
         f64::from(pen)
