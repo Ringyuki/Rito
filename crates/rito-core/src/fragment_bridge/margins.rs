@@ -250,19 +250,36 @@ pub(super) fn fold_through_collapsing_margins(
                 // float margin-box bottom + max(0, join(spacer bottom,
                 // follower top) - spacer top), 32-case browser matrix),
                 // so the fold must leave them in place for the layout
-                // pass instead of hoisting them onto the container.
+                // pass instead of hoisting them onto the container. A
+                // block with content that clears a float before it stops
+                // the escape too: the container settles its block offset
+                // above that block's margins (Blink's
+                // `HasClearancePastAdjoiningFloats`), which then act only
+                // inside the clearance, leaving the floats at the top.
+                let floats_before: Vec<Float> = children
+                    .iter()
+                    .copied()
+                    .take_while(|id| *id != child)
+                    .filter_map(|id| {
+                        layout
+                            .style(nodes[id.0 as usize].style)
+                            .ok()
+                            .map(|sibling| sibling.float)
+                            .filter(|float| *float != Float::None)
+                    })
+                    .collect();
+                let clears_a_float_before = floats_before.iter().any(|float| {
+                    matches!(
+                        (child_clear, float),
+                        (Clear::Both, _)
+                            | (Clear::Left, Float::Left)
+                            | (Clear::Right, Float::Right)
+                    )
+                });
                 if child_clear != Clear::None
-                    && is_self_collapsing_empty(nodes, layout, child, &zero_padding)
-                    && children
-                        .iter()
-                        .copied()
-                        .take_while(|id| *id != child)
-                        .any(|id| {
-                            layout
-                                .style(nodes[id.0 as usize].style)
-                                .map(|sibling| sibling.float != Float::None)
-                                .unwrap_or(false)
-                        })
+                    && !floats_before.is_empty()
+                    && (clears_a_float_before
+                        || is_self_collapsing_empty(nodes, layout, child, &zero_padding))
                 {
                     break;
                 }
