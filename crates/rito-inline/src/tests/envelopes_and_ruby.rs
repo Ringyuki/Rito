@@ -531,10 +531,15 @@ fn glyph_runs_carry_monotonic_geometry_and_indent_offsets_the_first_run() {
     }
 }
 
-/// A ruby base splits across lines like plain CJK text (measured:
-/// 黄金妖精/Leprechaun wraps as 黄金妖|精 — every base character
-/// boundary is an ordinary break point; the annotation itself rides
-/// only the first segment, which the paint layer enforces).
+/// A ruby base longer than four glyphs splits across lines like plain CJK
+/// text (measured: 黄金妖精/Leprechaun wraps as 黄金妖|精 — every base
+/// character boundary is an ordinary break point; the annotation itself
+/// rides only the first segment, which the paint layer enforces), while a
+/// base of at most four glyphs under an annotation of at most eight is one
+/// unit that moves down whole (Blink's `IsMonolithicRuby`), glyphs counted
+/// as shaped: か with a combining voiced mark is one. Chromium's DOM at
+/// 32px in a 165px line: 中中中中中|文中文中, 中中中中|中文,
+/// 中中中中|かが(combining)かか and 中中中中か|かかかか.
 #[test]
 fn a_ruby_base_breaks_across_lines_like_plain_text() {
     let source_han = std::fs::read(concat!(
@@ -543,64 +548,78 @@ fn a_ruby_base_breaks_across_lines_like_plain_text() {
     ))
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-    let style = plain_paragraph_style(
-        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
-            .expect("family list"),
-        32.0,
-        0.0,
-    );
-    let mut inline = InlineStyleTable::new(1);
-    let interned = inline.intern_for_node(0, style).expect("style interns");
-    let nodes = vec![FormattingNode {
-        style: rito_style_contract::LayoutStyleId::from_raw(0),
-        content: FormattingNodeContent::InlineFlow {
-            items: vec![
-                InlineItem::Text {
-                    text: "中中中中".to_owned(),
-                    style: interned,
-                    baseline_shift_px: 0.0,
-                    ruby_annotation: None,
-                },
-                InlineItem::Text {
-                    text: "中文".to_owned(),
-                    style: interned,
-                    baseline_shift_px: 0.0,
-                    ruby_annotation: Some(rito_fragment::RubyAnnotation {
-                        text: "an".to_owned(),
-                        size_ratio: 0.5,
-                        align: rito_style_contract::RubyAlign::SpaceAround,
-                    }),
-                },
-            ],
-        },
-        children: Vec::new(),
-    }];
-    let tree = FormattingTree::with_styles(
-        nodes,
-        FormattingNodeId(0),
-        rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTable::new(0),
-            inline,
-        },
-    )
-    .expect("inline tree builds");
-    // 165px: four 32px lead glyphs plus the first base glyph fit
-    // (160), so the base splits after its first character exactly as
-    // plain text would.
-    let outcome = context
-        .layout(
-            &tree,
-            tree.root(),
-            &ConstraintSpace::continuous(165.0),
-            None,
-            &CancelFlag::new(),
+    let lines = |base: &str| {
+        let style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            32.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTable::new(1);
+        let interned = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "中中中中".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Text {
+                        text: base.to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                            text: "an".to_owned(),
+                            size_ratio: 0.5,
+                            align: rito_style_contract::RubyAlign::SpaceAround,
+                        }),
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
         )
-        .expect("layout succeeds");
-    let lines = line_texts(&outcome, "中中中中中文");
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(165.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        line_texts(&outcome, &format!("中中中中{base}"))
+    };
     assert_eq!(
-        lines,
-        vec!["中中中中中".to_owned(), "文".to_owned()],
-        "the annotated base breaks at an ordinary character boundary"
+        lines("中文中文中"),
+        vec!["中中中中中".to_owned(), "文中文中".to_owned()],
+        "a long annotated base breaks at an ordinary character boundary"
+    );
+    assert_eq!(
+        lines("中文"),
+        vec!["中中中中".to_owned(), "中文".to_owned()],
+        "a short ruby moves down whole"
+    );
+    assert_eq!(
+        lines("かか\u{3099}かか"),
+        vec!["中中中中".to_owned(), "かか\u{3099}かか".to_owned()],
+        "five characters shaped into four glyphs are a short ruby"
+    );
+    assert_eq!(
+        lines("かかかかか"),
+        vec!["中中中中か".to_owned(), "かかかか".to_owned()],
+        "a base of five glyphs breaks"
     );
 }
 

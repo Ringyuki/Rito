@@ -52,6 +52,13 @@ impl<'b, B: Brush> RangedBuilder<'b, B> {
         self.lcx.inline_boxes.push(inline_box);
     }
 
+    /// Rito: removes every soft wrap opportunity strictly inside `range`
+    /// (a break before its start and after its end stays). Ranges are
+    /// pushed in text order.
+    pub fn push_unbreakable(&mut self, range: Range<usize>) {
+        self.lcx.unbreakable.push(range);
+    }
+
     /// Set the callback which will be called as a first provider of line breaking decisions.
     ///
     /// See [`LineBreakOverrideFn`] for more details.

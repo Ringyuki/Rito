@@ -89,7 +89,9 @@ item to the next line (a ruby base that does not fit) keeps an
 inline image that comes before that item, as Chromium does. An ideographic
 space (or another space separator) that overflows a line hangs past its end
 where the line may break after it, instead of sending the text before it to
-the next line.
+the next line. A short ruby (a base of at most four glyphs under an
+annotation of at most eight) moves to the next line whole instead of
+breaking inside its base, as Chromium keeps it.
 
 ### Closers are trimmed across element boundaries
 

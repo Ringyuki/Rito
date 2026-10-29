@@ -411,6 +411,8 @@ pub(crate) fn analyze_text<B: Brush>(
 
     // Merge boundaries - line takes precedence over word
     let mut lb_iter = line_boundary_positions.iter().peekable();
+    // Rito: the unbreakable ranges, consumed as the text passes them.
+    let mut unbreakable = lcx.unbreakable.iter().peekable();
     let mut prev_char = None;
     let mut prev_prev_char = None;
     let boundary_iter = text.char_indices().map(|(byte_pos, ch)| {
@@ -459,6 +461,16 @@ pub(crate) fn analyze_text<B: Brush>(
         }
         prev_prev_char = prev_char;
         prev_char = Some(ch);
+
+        // Rito: no soft wrap opportunity strictly inside an unbreakable
+        // range.
+        while unbreakable.next_if(|range| range.end <= byte_pos).is_some() {}
+        if unbreakable
+            .peek()
+            .is_some_and(|range| range.start < byte_pos)
+        {
+            is_line = false;
+        }
 
         let boundary = if is_line {
             Boundary::Line

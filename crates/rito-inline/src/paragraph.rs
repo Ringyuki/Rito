@@ -247,6 +247,10 @@ impl ParleyInlineContext {
         // the column (the start inset that could not overhang).
         let mut ruby_center_shifts: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
+        // Every short ruby's base: one unit a line never breaks inside
+        // (Blink's `IsMonolithicRuby`: a base of at most four glyphs under
+        // an annotation of at most eight).
+        let mut monolithic_rubies: Vec<std::ops::Range<usize>> = Vec::new();
         for (range, style, item_index) in &runs {
             let Some(InlineItem::Text {
                 ruby_annotation: Some(annotation),
@@ -255,17 +259,22 @@ impl ParleyInlineContext {
             else {
                 continue;
             };
-            if annotation.text.is_empty() || range.is_empty() {
+            if range.is_empty() {
                 continue;
             }
             let base_text = &text[range.clone()];
-            if base_text.chars().count() == 0 {
+            let annotation_size = style.font.size.get() * annotation.size_ratio;
+            let annotation_measure =
+                self.measure_styled(style, Some(annotation_size), &annotation.text);
+            let base_measure = self.measure_styled(style, None, base_text);
+            if base_measure.glyphs <= 4 && annotation_measure.glyphs <= 8 {
+                monolithic_rubies.push(range.clone());
+            }
+            if annotation.text.is_empty() {
                 continue;
             }
-            let annotation_size = style.font.size.get() * annotation.size_ratio;
-            let annotation_advance =
-                self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
-            let base_advance = self.measure_styled_advance(style, None, base_text);
+            let annotation_advance = annotation_measure.advance;
+            let base_advance = base_measure.advance;
             ruby_annotation_widths.insert(*item_index, annotation_advance);
             let space = layout_unit_ceil(annotation_advance) - layout_unit_ceil(base_advance);
             if space <= 0.0 {
@@ -537,6 +546,9 @@ impl ParleyInlineContext {
                 );
             }
         }
+        for range in monolithic_rubies {
+            builder.push_unbreakable(range);
+        }
         // A space takes the FIRST family of its stack in the browser
         // (every face covers U+0020), while parley merges a space into
         // the neighbouring script run: a space between a CJK glyph and
@@ -757,6 +769,10 @@ impl<'a> SpacingBuilder<'a> {
 
     pub(crate) fn push_inline_box(&mut self, inline_box: InlineBox) {
         self.inner.push_inline_box(inline_box);
+    }
+
+    pub(crate) fn push_unbreakable(&mut self, range: std::ops::Range<usize>) {
+        self.inner.push_unbreakable(range);
     }
 
     pub(crate) fn set_line_break_override(&mut self, overrides: &'a parley::LineBreakOverrideFn) {

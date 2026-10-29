@@ -37,6 +37,10 @@ pub struct LayoutContext<B: Brush = [u8; 4]> {
 
     // Unicode analysis data sources (provided by icu)
     pub(crate) analysis_data_sources: AnalysisDataSources,
+
+    /// Rito: text ranges with no soft wrap opportunity strictly inside
+    /// them, in text order.
+    pub(crate) unbreakable: Vec<core::ops::Range<usize>>,
 }
 
 impl<B: Brush> LayoutContext<B> {
@@ -52,6 +56,7 @@ impl<B: Brush> LayoutContext<B> {
             info: vec![],
             analysis_data_sources: AnalysisDataSources::new(),
             scx: ShapeContext::default(),
+            unbreakable: vec![],
         }
     }
 
@@ -187,6 +192,7 @@ impl<B: Brush> LayoutContext<B> {
         self.inline_boxes.clear();
         self.info.clear();
         self.bidi.clear();
+        self.unbreakable.clear();
     }
 }
 

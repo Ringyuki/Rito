@@ -56,8 +56,19 @@ impl ParleyInlineContext {
         size_override: Option<f32>,
         text: &str,
     ) -> f64 {
+        self.measure_styled(style, size_override, text).advance
+    }
+
+    /// [`Self::measure_styled_advance`] with the number of glyphs the
+    /// string shapes into.
+    pub(crate) fn measure_styled(
+        &self,
+        style: &InlineFormattingStyle,
+        size_override: Option<f32>,
+        text: &str,
+    ) -> StyledMeasure {
         if text.is_empty() {
-            return 0.0;
+            return StyledMeasure::default();
         }
         let mut sized;
         let style = match size_override
@@ -76,12 +87,28 @@ impl ParleyInlineContext {
         push_item_styles(&mut builder, &self.catalog, style, text, 0..text.len());
         let (mut layout, _) = builder.build(text);
         layout.break_all_lines(None);
-        let advance = layout
-            .lines()
-            .next()
-            .map_or(0.0, |line| f64::from(line.metrics().advance));
-        advance
+        let Some(line) = layout.lines().next() else {
+            return StyledMeasure::default();
+        };
+        let glyphs = line
+            .items()
+            .map(|item| match item {
+                PositionedLayoutItem::GlyphRun(glyph_run) => glyph_run.glyphs().count(),
+                PositionedLayoutItem::InlineBox(_) => 0,
+            })
+            .sum();
+        StyledMeasure {
+            advance: f64::from(line.metrics().advance),
+            glyphs,
+        }
     }
+}
+
+/// A styled string's shaped advance and glyph count.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct StyledMeasure {
+    pub(crate) advance: f64,
+    pub(crate) glyphs: usize,
 }
 
 /// Quantizes a CSS length the way Blink's LayoutUnit stores it (1/64 px,
