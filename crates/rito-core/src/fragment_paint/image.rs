@@ -72,41 +72,22 @@ pub(super) fn append_image_command(
     // is untouched — this is a paint-rect adjustment.
     let mut draw = image.rect;
     if !*fit_contain {
-        // Blink pixel-snaps a plain replaced image's paint rect to whole
-        // CSS pixels (probed: an <img> at x=22.25 rasters at 22, at 22.5
-        // at 23, bit-identical to a canvas draw at the same integers).
-        // SVG-folded content is NOT snapped: it paints through the svg's
-        // own transform, and the reference renders it at the fractional
-        // position.
-        let left = snap_css(line_x + draw.x);
-        let top = snap_css(line_y + draw.y);
-        let right = snap_css(line_x + draw.x + draw.width);
-        let bottom = snap_css(line_y + draw.y + draw.height);
-        draw = rito_fragment::FragmentRect {
-            x: left - line_x,
-            y: top - line_y,
-            width: right - left,
-            height: bottom - top,
-        };
         // Computed `object-fit: contain` (the UA stylesheet's reading-
         // system default, see rito-stylo's ua.rs): the raster letterboxes
-        // inside the snapped box, exposing the page ground in the gap —
+        // inside the layout box, exposing the page ground in the gap —
         // no clamp-bleed slivers, those model SVG viewBox clamp
         // addressing. The box itself, its border and its background keep
-        // the author's rect. Guard band, judged on the UNSNAPPED layout
-        // box (the snap itself shifts a small box's ratio by up to a
-        // pixel per axis): an auto-sized box differs from the raster
-        // ratio only by LayoutUnit quantization dust, so skipping those
-        // keeps every ratio-true image bit-identical to the plain fill
-        // it always painted (the pixel-walk zero books stay zero). Only
-        // a box the author forced off the raster ratio letterboxes.
+        // the author's rect. Guard band: an auto-sized box differs from
+        // the raster ratio only by LayoutUnit quantization dust, so
+        // skipping those keeps every ratio-true image bit-identical to the
+        // plain fill it always painted (the pixel-walk zero books stay
+        // zero). Only a box the author forced off the raster ratio
+        // letterboxes.
         if *object_fit == rito_style_contract::ObjectFit::Contain
             && *intrinsic_width > 0.0
             && *intrinsic_height > 0.0
             && image.rect.width > 0.0
             && image.rect.height > 0.0
-            && draw.width > 0.0
-            && draw.height > 0.0
         {
             let box_ratio = image.rect.width / image.rect.height;
             let raster_ratio = intrinsic_width / intrinsic_height;
@@ -123,6 +104,29 @@ pub(super) fn append_image_command(
                 };
             }
         }
+        // Blink pixel-snaps a plain replaced image's paint rect to whole
+        // CSS pixels (probed: an <img> at x=22.25 rasters at 22, at 22.5
+        // at 23, bit-identical to a canvas draw at the same integers),
+        // the rect its `object-fit` placed the raster in (measured: a
+        // 723x1 rule in a 626.69x1.69 box at y 126.31 contains to
+        // [126.72, 127.59) and rasters on the one row [127, 128)).
+        // SVG-folded content is NOT snapped: it paints through the svg's
+        // own transform, and the reference renders it at the fractional
+        // position.
+        let (x, width) = snap_span(line_x + draw.x, draw.width);
+        let (y, height) = snap_span(line_y + draw.y, draw.height);
+        // A raster whose snapped rect is empty paints nothing (Blink's
+        // `ImagePainter::PaintIntoRect` returns before drawing). Its box,
+        // border and background above still paint.
+        if width <= 0.0 || height <= 0.0 {
+            return Ok(());
+        }
+        draw = rito_fragment::FragmentRect {
+            x: x - line_x,
+            y: y - line_y,
+            width,
+            height,
+        };
     }
     if *fit_contain && *intrinsic_width > 0.0 && *intrinsic_height > 0.0 {
         let contain = |outer: rito_fragment::FragmentRect, ratio_w: f64, ratio_h: f64| {
@@ -215,4 +219,19 @@ pub(super) fn append_image_command(
         item_source.and_then(|source| source.href.clone()),
     ));
     Ok(())
+}
+
+/// A span starting at `start` for `size` CSS px, snapped as Blink's
+/// `SnapSizeToPixel` snaps a paint rect: the start rounds to a whole
+/// pixel and the size to the whole pixels its end rounds to, but a span
+/// longer than four LayoutUnits keeps at least one pixel (measured: a
+/// 723x1 rule contained under a pixel tall, both ends rounding to 586,
+/// rasters on row 586, where rounding both ends would leave it nothing).
+fn snap_span(start: f64, size: f64) -> (f64, f64) {
+    let snapped_start = snap_css(start);
+    let snapped_size = snap_css(start + size) - snapped_start;
+    if snapped_size == 0.0 && size > 4.0 / 64.0 {
+        return (snapped_start, 1.0);
+    }
+    (snapped_start, snapped_size)
 }

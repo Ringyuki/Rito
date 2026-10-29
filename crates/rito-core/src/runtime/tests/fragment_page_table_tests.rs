@@ -731,12 +731,13 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
 fn the_ua_stylesheet_letterboxes_an_author_box_off_the_raster_ratio() {
     // The fixture raster is 2x3 (portrait); the author forces a 30x20
     // landscape box. The UA `img { object-fit: contain }` letterboxes
-    // the raster inside it at its own ratio.
+    // the raster inside it at its own ratio, 13.33x20, and the placed
+    // rect snaps to whole pixels.
     let rects = painted_image_rects("img { width: 30px; height: 20px; }\n");
     assert_eq!(rects.len(), 1);
     let (width, height) = rects[0];
     assert!(
-        (height - 20.0).abs() < 0.6 && (width / height - 2.0 / 3.0).abs() < 0.01,
+        (height - 20.0).abs() < 0.6 && (width - 20.0 * 2.0 / 3.0).abs() <= 1.0,
         "the raster keeps its 2:3 ratio inside the 30x20 box, got {width}x{height}"
     );
 }

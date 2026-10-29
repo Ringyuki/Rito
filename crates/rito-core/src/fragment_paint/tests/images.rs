@@ -7,6 +7,26 @@ fn painted_image_rect(
     intrinsic_height: f64,
     object_fit: rito_style_contract::ObjectFit,
 ) -> ReaderRect {
+    painted_image_rect_in(
+        intrinsic_width,
+        intrinsic_height,
+        object_fit,
+        FragmentRect {
+            x: 5.0,
+            y: 2.0,
+            width: 40.0,
+            height: 30.0,
+        },
+    )
+    .expect("the image paints")
+}
+
+fn painted_image_rect_in(
+    intrinsic_width: f64,
+    intrinsic_height: f64,
+    object_fit: rito_style_contract::ObjectFit,
+    image_rect: FragmentRect,
+) -> Option<ReaderRect> {
     use rito_style_contract::{
         AlignItems, BoxSizing, Clear, CssPx, Float, JustifyContent, LayoutDisplay,
         LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto,
@@ -102,21 +122,21 @@ fn painted_image_rect(
     .expect("tree builds");
     let root = boxed_line(vec![Fragment::Image(ImageFragment {
         source: FormattingNodeId(0),
-        rect: FragmentRect {
-            x: 5.0,
-            y: 2.0,
-            width: 40.0,
-            height: 30.0,
-        },
+        rect: image_rect,
         item_index: 0,
     })]);
     let commands = paint(&tree, &root);
-    assert_eq!(commands.len(), 1);
-    let DisplayCommand::PaintImage { src, rect, .. } = &commands[0] else {
-        panic!("expected an image command, got {:?}", commands[0]);
-    };
-    assert_eq!(src, "images/portrait.png");
-    *rect
+    assert!(
+        commands.len() <= 1,
+        "expected at most one command: {commands:?}"
+    );
+    commands.first().map(|command| {
+        let DisplayCommand::PaintImage { src, rect, .. } = command else {
+            panic!("expected an image command, got {command:?}");
+        };
+        assert_eq!(src, "images/portrait.png");
+        *rect
+    })
 }
 
 #[test]
@@ -143,10 +163,79 @@ fn a_ratio_true_box_paints_identically_under_object_fit_contain() {
 fn an_author_box_off_the_raster_ratio_letterboxes_under_contain() {
     use rito_style_contract::ObjectFit;
     // A portrait 30x40 raster inside the landscape 40x30 box scales
-    // by 0.75 to 22.5x30, centered on the inline axis; the box (and
-    // its border and background) keeps the author's rect.
+    // by 0.75 to 22.5x30, centered on the inline axis at 27.75, and the
+    // placed rect snaps to whole pixels; the box (and its border and
+    // background) keeps the author's rect.
     assert_eq!(
         painted_image_rect(30.0, 40.0, ObjectFit::Contain),
-        display_rect(27.75, 28.0, 22.5, 30.0)
+        display_rect(28.0, 28.0, 22.0, 30.0)
+    );
+}
+
+#[test]
+fn a_letterboxed_raster_snaps_where_contain_placed_it() {
+    use rito_style_contract::ObjectFit;
+    // A 723x1 rule declared 538395x1430 and scaled into a 626.6875 x
+    // 1.6875 box at y 126.3125: contain places it on [126.72, 127.59),
+    // which snaps to the one row [127, 128) the browser rasters it on
+    // (snapping the box first left a 2px box and a half-pixel raster
+    // smeared over two rows).
+    assert_eq!(
+        painted_image_rect_in(
+            723.0,
+            1.0,
+            ObjectFit::Contain,
+            FragmentRect {
+                x: 5.0,
+                y: 100.3125,
+                width: 626.6875,
+                height: 1.6875,
+            },
+        ),
+        Some(display_rect(19.0, 127.0, 627.0, 1.0))
+    );
+}
+
+#[test]
+fn a_raster_contained_within_one_row_keeps_that_row() {
+    use rito_style_contract::ObjectFit;
+    // The same rule at y 126.125: contain places it on [126.54, 127.40),
+    // whose edges both round to 127. The browser keeps a span longer than
+    // four LayoutUnits at least one pixel, so the rule rasters on the row
+    // its start rounds to instead of vanishing.
+    assert_eq!(
+        painted_image_rect_in(
+            723.0,
+            1.0,
+            ObjectFit::Contain,
+            FragmentRect {
+                x: 5.0,
+                y: 100.125,
+                width: 626.6875,
+                height: 1.6875,
+            },
+        ),
+        Some(display_rect(19.0, 127.0, 627.0, 1.0))
+    );
+}
+
+#[test]
+fn a_raster_contained_to_a_sliver_paints_nothing() {
+    use rito_style_contract::ObjectFit;
+    // Contained to 1/32 px tall, the rule spans under four LayoutUnits:
+    // its snapped rect is empty, and the browser draws nothing.
+    assert_eq!(
+        painted_image_rect_in(
+            1000.0,
+            1.0,
+            ObjectFit::Contain,
+            FragmentRect {
+                x: 5.0,
+                y: 100.0,
+                width: 31.25,
+                height: 4.0,
+            },
+        ),
+        None
     );
 }

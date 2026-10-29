@@ -109,6 +109,16 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A letterboxed image snaps where it is placed
+
+An image letterboxed by `object-fit: contain` is placed in its unsnapped box
+and the placed rect then snaps to whole pixels, as Chromium snaps it: a thin
+rule image scaled into a fractional box rasters on the one row the browser
+draws it on instead of smearing across two. A raster placed under a pixel
+tall or wide keeps one pixel where its start rounds, as the browser keeps
+it, instead of arriving as an empty image the image cache rejects; only one
+thinner than four LayoutUnits paints nothing.
+
 ### A ligature paints as one cluster
 
 A ligature paints as one cluster from its start, and the cluster after it
