@@ -109,6 +109,15 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A line's last glyph is measured unkerned
+
+A line's last glyph is measured as Chromium reshapes a line's end: where
+the shaper marks the break after it unsafe (a kern pair with the space
+that hangs after it, or with the next line's first character), the glyph
+takes the advance it shapes to alone. A line that fits only with that
+kerning breaks before the glyph, and a justified line spreads the slack
+its unkerned end leaves, in Latin text as in CJK.
+
 ### A no-break space justifies as a space
 
 A justified line spreads the gap after a no-break space with the other

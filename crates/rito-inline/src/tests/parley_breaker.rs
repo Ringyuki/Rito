@@ -371,3 +371,30 @@ fn tags_join_the_min_content_segment_of_the_text_they_edge() {
     assert_eq!(widths.min, 23.0);
     assert_eq!(widths.max, 55.0);
 }
+
+/// A cluster's line-end reshape delta is its own on every line: Tinos
+/// kerns "A" against the space after it, never "t", so the "t" ending a
+/// later line (where the line's runs start mid-paragraph) reads zero and
+/// the "A" reads the kern it loses alone (`kern(A, space)` = −0.89px at
+/// 16px, measured on Chromium: "A " is 14.671875 wide, "A" 11.5625).
+#[test]
+fn a_line_end_delta_belongs_to_its_own_cluster_on_any_line() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let text = "Dumbledore pointed toward a run-down stone outhouse where the Weasleys kept their broomsticks. A little puzzled, Harry followed Dumbledore through the creaking door into a space a little smaller than the average cupboard. Dumbledore illuminated the tip of his wand, so that it glowed like a torch.";
+    let mut layout = sized_layout(&context, text, &[(0..text.len(), 16.0)]);
+    layout.break_all_lines(Some(640.0));
+    assert!(layout.len() >= 3, "the paragraph wraps");
+    let t = text.find("it glowed").expect("t") + 1;
+    let a = text.find("A little").expect("A");
+    let delta = |byte: usize| {
+        parley::layout::Cluster::from_byte_index(&layout, byte)
+            .expect("cluster")
+            .line_end_delta()
+    };
+    assert_eq!(delta(t), 0.0, "t keeps its advance alone");
+    assert!(
+        (f64::from(delta(a)) - (15.5625 - 14.671875)).abs() < 1.0 / 64.0,
+        "A loses its kern with the space: {}",
+        delta(a)
+    );
+}

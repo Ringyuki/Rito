@@ -466,7 +466,7 @@ fn shape_item<'a, B: Brush>(
 
         buffer.set_script(hb_script);
 
-        if let Some(lang) = language {
+        if let Some(lang) = language.clone() {
             buffer.set_language(lang);
         }
 
@@ -503,8 +503,134 @@ fn shape_item<'a, B: Brush>(
             harf_shaper.coords(),
         );
 
+        // Rito: the possible line ends the shaper marked unsafe to break,
+        // shaped alone, for the line breaker's reshape of a line's end.
+        if direction == harfrust::Direction::LeftToRight {
+            if let Some(run) = layout.data.runs.last() {
+                let first_cluster = run.cluster_range.start;
+                let units_per_em = skrifa::FontRef::from_index(font.font.blob.as_ref(), font.font.index)
+                    .ok()
+                    .and_then(|font| {
+                        use skrifa::raw::TableProvider as _;
+                        font.head().ok().map(|head| head.units_per_em())
+                    })
+                    .unwrap_or(0);
+                if units_per_em > 0 {
+                    let mut deltas = Vec::new();
+                    line_end_deltas(
+                        &LineEndShaping {
+                            shaper: &harf_shaper,
+                            plan: shaper_plan,
+                            features: &scx.features,
+                            point_size: item.size,
+                            script: hb_script,
+                            language: language.as_ref(),
+                            scale: item.size / f32::from(units_per_em),
+                        },
+                        segment_text,
+                        segment_infos,
+                        &glyph_buffer,
+                        &mut deltas,
+                    );
+                    let clusters = &layout.data.clusters;
+                    let deltas = deltas.into_iter().filter_map(|(char_index, delta)| {
+                        let byte = segment_text.char_indices().nth(char_index)?.0;
+                        let cluster = first_cluster + char_index;
+                        // A cluster's offset counts from its run's text.
+                        (clusters.get(cluster)?.text_offset as usize == byte)
+                            .then_some((cluster as u32, delta))
+                    });
+                    crate::layout::data::owned(&mut layout.data.line_end_deltas).extend(deltas);
+                }
+            }
+        }
+
         // Replace buffer to reuse allocation in next iteration.
         scx.unicode_buffer = Some(glyph_buffer.clear());
+    }
+}
+
+/// Rito: what reshaping a line's end alone needs of the run's shaping.
+struct LineEndShaping<'a> {
+    shaper: &'a harfrust::Shaper<'a>,
+    plan: &'a harfrust::ShapePlan,
+    features: &'a [harfrust::Feature],
+    point_size: f32,
+    script: harfrust::Script,
+    language: Option<&'a harfrust::Language>,
+    /// Font units to layout units.
+    scale: f32,
+}
+
+/// Rito: for each character of a left-to-right segment that ends a
+/// cluster where the shaper marked breaking unsafe and a line may end —
+/// before a space or another space separator, or before a break
+/// opportunity — how much wider that cluster shapes alone than in
+/// context, by character index (Blink reshapes such a line end, so the
+/// line's last glyph loses its kerning with the space hanging after it).
+fn line_end_deltas(
+    shaping: &LineEndShaping<'_>,
+    segment_text: &str,
+    segment_infos: &[(CharInfo, u16)],
+    glyph_buffer: &harfrust::GlyphBuffer,
+    out: &mut Vec<(usize, f32)>,
+) {
+    let chars: Vec<char> = segment_text.chars().collect();
+    let infos = glyph_buffer.glyph_infos();
+    let positions = glyph_buffer.glyph_positions();
+    let hangs = |character: char| {
+        matches!(
+            character,
+            ' ' | '\t' | '\u{1680}' | '\u{2000}'..='\u{200A}' | '\u{202F}' | '\u{205F}' | '\u{3000}'
+        )
+    };
+    for (index, info) in infos.iter().enumerate().skip(1) {
+        let start = info.cluster as usize;
+        let previous = infos[index - 1].cluster as usize;
+        if previous >= start || !info.unsafe_to_break() {
+            continue;
+        }
+        let (Some(&next), Some(&last)) = (chars.get(start), chars.get(start - 1)) else {
+            continue;
+        };
+        let line_may_end = hangs(next)
+            || segment_infos
+                .get(start)
+                .is_some_and(|(char_info, _)| char_info.boundary == crate::analysis::Boundary::Line);
+        if !line_may_end || hangs(last) {
+            continue;
+        }
+        let in_context: i32 = infos
+            .iter()
+            .zip(positions)
+            .filter(|(glyph, _)| glyph.cluster as usize == previous)
+            .map(|(_, position)| position.x_advance)
+            .sum();
+        let mut buffer = harfrust::UnicodeBuffer::new();
+        for (offset, character) in chars[previous..start].iter().enumerate() {
+            buffer.add(*character, offset as u32);
+        }
+        buffer.set_direction(harfrust::Direction::LeftToRight);
+        buffer.set_script(shaping.script);
+        if let Some(language) = shaping.language {
+            buffer.set_language(language.clone());
+        }
+        let alone: i32 = shaping
+            .shaper
+            .shape(
+                buffer,
+                ShapeOptions::new()
+                    .plan(Some(shaping.plan))
+                    .features(shaping.features)
+                    .point_size(Some(shaping.point_size)),
+            )
+            .glyph_positions()
+            .iter()
+            .map(|position| position.x_advance)
+            .sum();
+        if alone != in_context {
+            out.push((previous, (alone - in_context) as f32 * shaping.scale));
+        }
     }
 }
 

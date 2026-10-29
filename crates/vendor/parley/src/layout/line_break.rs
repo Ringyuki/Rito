@@ -53,6 +53,11 @@ struct LineState {
     /// We lag the text-wrap-mode by one cluster due to line-breaking boundaries only
     /// being triggered on the cluster after the linebreak.
     text_wrap_mode: TextWrapMode,
+    /// Rito: where the line's content ends — its x past the last cluster,
+    /// box or tag that does not hang — and that last cluster, if it is
+    /// text.
+    content_x: f32,
+    content_cluster: Option<usize>,
 }
 
 #[derive(Clone, Default)]
@@ -208,6 +213,7 @@ impl BreakerState {
         self.item_idx += 1;
         self.line.items.end += 1;
         self.line.x = next_x;
+        self.line.content_x = next_x;
         self.add_line_height(box_height);
     }
 
@@ -338,6 +344,22 @@ fn record_fit(fit: &mut (f32, f32), next_x: f32, max_advance: f32) -> bool {
         fit.1 = fit.1.min(next_x);
     }
     fits
+}
+
+/// Rito: whether a line ending where `line`'s content ends fits once its
+/// last glyph is reshaped without the text after it (Blink's
+/// `reshape_line_end`); the comparison joins the recorded fits.
+fn line_end_fits<B: Brush>(
+    data: &LayoutData<B>,
+    fit: &mut (f32, f32),
+    line: &LineState,
+    max_advance: f32,
+) -> bool {
+    let Some(cluster) = line.content_cluster else {
+        return true;
+    };
+    let delta = data.line_end_delta(cluster);
+    delta <= 0.0 || record_fit(fit, line.content_x + delta, max_advance)
 }
 
 impl<'a, B: Brush> BreakLines<'a, B> {
@@ -636,6 +658,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
 
                         self.state
                             .append_inline_box_to_line(next_x, height_contribution);
+                        self.state.line.content_cluster = None;
 
                         // We can always line break after an inline box
                         self.state.mark_line_break_opportunity();
@@ -732,13 +755,31 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             // line breaks. We should accept the overflowing fragment in that scenario.
                             if !is_ligature_continuation {
                                 match open_tag {
+                                    // Rito: an opportunity whose line end,
+                                    // reshaped alone, overflows is passed
+                                    // over (Blink's `reshape_line_end` moves
+                                    // to the opportunity before it).
                                     Some(before) => {
-                                        if before.state.x != 0.0 {
+                                        if before.state.x != 0.0
+                                            && line_end_fits(
+                                                &self.layout.data,
+                                                &mut self.fit,
+                                                &before.state,
+                                                max_advance,
+                                            )
+                                        {
                                             self.state.prev_boundary = Some(before);
                                         }
                                     }
                                     None => {
-                                        if self.state.line.x != 0.0 {
+                                        if self.state.line.x != 0.0
+                                            && line_end_fits(
+                                                &self.layout.data,
+                                                &mut self.fit,
+                                                &self.state.line,
+                                                max_advance,
+                                            )
+                                        {
                                             self.state.mark_line_break_opportunity();
                                         }
                                     }
@@ -796,6 +837,10 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             if is_space {
                                 self.state.line.num_spaces += 1;
                             }
+                            if !is_hangable_space(cluster.info().source_char()) {
+                                self.state.line.content_x = next_x;
+                                self.state.line.content_cluster = Some(self.state.cluster_idx - 1);
+                            }
                         }
                         // Else we attempt to line break:
                         //
@@ -806,7 +851,16 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             // Case: cluster is a space character (and wrapping is enabled)
                             //
                             // We hang any overflowing whitespace and then line-break.
-                            if hangs && text_wrap_mode == TextWrapMode::Wrap {
+                            // Rito: unless the line's last glyph, reshaped
+                            // without the space, no longer fits and an
+                            // earlier opportunity can take the line.
+                            let reshaped_fits = line_end_fits(
+                                &self.layout.data,
+                                &mut self.fit,
+                                &self.state.line,
+                                max_advance,
+                            ) || self.state.prev_boundary.is_none();
+                            if hangs && text_wrap_mode == TextWrapMode::Wrap && reshaped_fits {
                                 if max_height_exceeded {
                                     return self.max_height_break_data(line_height);
                                 }

@@ -316,6 +316,13 @@ pub(crate) struct LayoutData<B: Brush> {
     /// in logical order: where a line splits a run by style (see
     /// `Line::style_runs`), found without reading the clusters between.
     pub(crate) style_breaks: Arc<Vec<u32>>,
+    /// Rito: for each cluster whose end is a possible line end the shaper
+    /// marked unsafe to break, by index in `clusters` ascending, how much
+    /// wider the cluster shapes alone than in context. Blink reshapes such
+    /// a line end without the text after it (`ShapingLineBreaker::ShapeLine`'s
+    /// `reshape_line_end`), so the line's last glyph loses its kerning with
+    /// the space that hangs after it.
+    pub(crate) line_end_deltas: Arc<Vec<(u32, f32)>>,
 
     // Output of line breaking
     /// The lines in the
@@ -363,6 +370,7 @@ impl<B: Brush> Default for LayoutData<B> {
             clusters: Arc::default(),
             glyphs: Arc::default(),
             style_breaks: Arc::default(),
+            line_end_deltas: Arc::default(),
             lines: Vec::new(),
             line_items: Vec::new(),
             #[cfg(feature = "accesskit")]
@@ -393,8 +401,17 @@ impl<B: Brush> LayoutData<B> {
         vacate(&mut self.clusters);
         vacate(&mut self.glyphs);
         vacate(&mut self.style_breaks);
+        vacate(&mut self.line_end_deltas);
         self.lines.clear();
         self.line_items.clear();
+    }
+
+    /// Rito: how much wider cluster `index` shapes alone at a line's end
+    /// than in context (see `line_end_deltas`); zero where it is safe.
+    pub(crate) fn line_end_delta(&self, index: usize) -> f32 {
+        self.line_end_deltas
+            .binary_search_by_key(&(index as u32), |(cluster, _)| *cluster)
+            .map_or(0.0, |found| self.line_end_deltas[found].1)
     }
 
     /// Push an inline box to the list of items

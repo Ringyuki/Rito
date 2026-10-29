@@ -1512,3 +1512,58 @@ fn a_wave_dash_starts_a_line_under_japanese_normal_breaking() {
         vec![head.to_owned(), "よ〜〜！」".to_owned()],
     );
 }
+
+/// A line's last glyph is measured as Chromium reshapes it at the line's
+/// end, without the space that hangs after it: Tinos kerns "A" against
+/// the space, so "…the hour. A" fits 640px only kerned (639.16) and
+/// overflows unkerned (640.05, past the 1/64px the fit allows); Chromium's
+/// DOM breaks before the "A" (pinned Tinos at 16px, a 16px first-line
+/// indent, 640px wide).
+#[test]
+fn a_line_end_glyph_loses_its_kerning_with_the_hanging_space() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let text = "Harry looked around and saw that Mrs. Weasley was not alone, despite the lateness of the hour. A young witch with a pale, heart-shaped face and mousy brown hair was sitting at the table clutching a large mug between her hands.";
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("NoSuchFace"))])
+            .expect("family list"),
+        16.0,
+        16.0,
+    );
+    let mut inline = InlineStyleTable::new(1);
+    let style_id = inline.intern_for_node(0, style).expect("style interns");
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(640.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let lines = line_texts(&outcome, text);
+    assert_eq!(
+        lines[0],
+        "Harry looked around and saw that Mrs. Weasley was not alone, despite the lateness of the hour. ",
+    );
+    assert!(lines[1].starts_with("A young witch"), "{lines:?}");
+}
