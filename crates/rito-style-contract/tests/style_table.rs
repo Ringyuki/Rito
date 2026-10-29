@@ -152,6 +152,7 @@ fn text_flow(seed: f32) -> InlineTextFlow {
             each_line: false,
         },
         ruby_align: RubyAlign::SpaceAround,
+        text_emphasis: None,
         language: None,
     }
 }

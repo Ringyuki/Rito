@@ -40,6 +40,21 @@ pub(crate) const REGISTRATION_STYLESHEET: &str = r#"
   inherits: true;
   initial-value: none;
 }
+@property --rito-internal-text-emphasis-style-v1 {
+  syntax: "none | filled-auto | open-auto | filled-dot | open-dot | filled-circle | open-circle | filled-double-circle | open-double-circle | filled-triangle | open-triangle | filled-sesame | open-sesame | <string>";
+  inherits: true;
+  initial-value: none;
+}
+@property --rito-internal-text-emphasis-color-v1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: currentcolor;
+}
+@property --rito-internal-text-emphasis-position-v1 {
+  syntax: "over-right | over-left | under-right | under-left";
+  inherits: true;
+  initial-value: over-right;
+}
 "#;
 
 const BEFORE_CSS_NAME: &str = "--rito-internal-break-before";
@@ -179,9 +194,35 @@ fn rewrite(css: &str, declaration_list: bool) -> Cow<'_, str> {
                 // parse time exactly like the browser drops it;
                 // rewritten, it would win the cascade and reset an
                 // earlier valid declaration to the initial.
-                let carried = carrier(&css[cursor..end]).and_then(|carrier| {
-                    let Some(keywords) = carrier.keywords else {
-                        return Some((carrier.name, None));
+                let found = carrier(&css[cursor..end]);
+                if let Some(CarriedValue::Rewritten(rewrite)) = found.as_ref().map(|c| &c.value) {
+                    let declaration = declaration_value(css, end);
+                    let carried = declaration
+                        .as_ref()
+                        .and_then(|declaration| rewrite(&css[declaration.value.clone()]));
+                    if let (Some(declaration), Some(carried)) = (declaration, carried) {
+                        output.push_str(&css[copied_until..cursor]);
+                        let priority = if declaration.important {
+                            " !important"
+                        } else {
+                            ""
+                        };
+                        let written: Vec<String> = carried
+                            .iter()
+                            .map(|(name, value)| format!("{name}: {value}{priority}"))
+                            .collect();
+                        output.push_str(&written.join("; "));
+                        copied_until = declaration.end;
+                        candidate = false;
+                        cursor = declaration.end;
+                        continue;
+                    }
+                }
+                let carried = found.and_then(|carrier| {
+                    let keywords = match carrier.value {
+                        CarriedValue::AsWritten => return Some((carrier.name, None)),
+                        CarriedValue::Keyword(keywords) => keywords,
+                        CarriedValue::Rewritten(_) => return None,
                     };
                     let (range, keyword) = declaration_keyword(css, end)?;
                     let stored = stored_keyword(keywords, &keyword)?;
@@ -253,21 +294,36 @@ const WEBKIT_TEXT_COMBINE_KEYWORDS: KeywordMap = &[("none", "none"), ("horizonta
 struct Carrier {
     /// The property it is renamed to.
     name: &'static str,
-    /// The keyword values it may carry, when only some may (`None`: the
-    /// value travels as written and its projection reads it).
-    keywords: Option<KeywordMap>,
+    /// What its value becomes.
+    value: CarriedValue,
+}
+
+/// How a carried declaration's value travels.
+enum CarriedValue {
+    /// As written; its projection reads it.
+    AsWritten,
+    /// One of these keywords, as the carrier stores it.
+    Keyword(KeywordMap),
+    /// Checked and rewritten whole: the declarations it becomes, or none
+    /// when the browser's grammar rejects it.
+    Rewritten(fn(&str) -> Option<crate::text_emphasis::Carried>),
 }
 
 fn carrier(name: &str) -> Option<Carrier> {
     let is = |candidate: &str| name.eq_ignore_ascii_case(candidate);
     let renamed = |name| Carrier {
         name,
-        keywords: None,
+        value: CarriedValue::AsWritten,
     };
     let keyword = |name, keywords| Carrier {
         name,
-        keywords: Some(keywords),
+        value: CarriedValue::Keyword(keywords),
     };
+    let rewritten = |name, rewrite| Carrier {
+        name,
+        value: CarriedValue::Rewritten(rewrite),
+    };
+    use crate::text_emphasis as emphasis;
     Some(if is("break-before") || is("page-break-before") {
         renamed(BEFORE_CSS_NAME)
     } else if is("break-after") || is("page-break-after") {
@@ -292,6 +348,21 @@ fn carrier(name: &str) -> Option<Carrier> {
         keyword(TEXT_COMBINE_UPRIGHT_CSS_NAME, TEXT_COMBINE_UPRIGHT_KEYWORDS)
     } else if is("-webkit-text-combine") || is("-epub-text-combine") {
         keyword(TEXT_COMBINE_UPRIGHT_CSS_NAME, WEBKIT_TEXT_COMBINE_KEYWORDS)
+    } else if is("text-emphasis-style")
+        || is("-webkit-text-emphasis-style")
+        || is("-epub-text-emphasis-style")
+    {
+        rewritten(emphasis::STYLE_CSS_NAME, emphasis::carry_style)
+    } else if is("text-emphasis-color")
+        || is("-webkit-text-emphasis-color")
+        || is("-epub-text-emphasis-color")
+    {
+        rewritten(emphasis::COLOR_CSS_NAME, emphasis::carry_color)
+    } else if is("text-emphasis-position") || is("-webkit-text-emphasis-position") {
+        // Blink has no `-epub-` spelling of the position.
+        rewritten(emphasis::POSITION_CSS_NAME, emphasis::carry_position)
+    } else if is("text-emphasis") || is("-webkit-text-emphasis") || is("-epub-text-emphasis") {
+        rewritten(emphasis::STYLE_CSS_NAME, emphasis::carry_shorthand)
     } else {
         return None;
     })
@@ -356,6 +427,79 @@ fn declaration_keyword(css: &str, after_name: usize) -> Option<(std::ops::Range<
     matches!(bytes.get(cursor), None | Some(b';' | b'}')).then(|| {
         let keyword = css[range.clone()].to_owned();
         (range, keyword)
+    })
+}
+
+/// A declaration's value: its text (a trailing `!important` left out),
+/// whether it is important, and the byte that ends it (its `;` or `}`,
+/// or the end of the text).
+struct DeclarationValue {
+    value: std::ops::Range<usize>,
+    important: bool,
+    end: usize,
+}
+
+/// The value following `after_name` (the byte after a property name),
+/// scanned to the top-level `;` or `}` that ends it.
+fn declaration_value(css: &str, after_name: usize) -> Option<DeclarationValue> {
+    let bytes = css.as_bytes();
+    let mut cursor = after_name;
+    loop {
+        while bytes
+            .get(cursor)
+            .is_some_and(|byte| byte.is_ascii_whitespace())
+        {
+            cursor += 1;
+        }
+        if bytes.get(cursor) == Some(&b'/') && bytes.get(cursor + 1) == Some(&b'*') {
+            cursor = comment_end(bytes, cursor);
+            continue;
+        }
+        break;
+    }
+    if bytes.get(cursor) != Some(&b':') {
+        return None;
+    }
+    let start = cursor + 1;
+    cursor = start;
+    let mut depth = 0_u32;
+    let mut bang = None;
+    while let Some(&byte) = bytes.get(cursor) {
+        match byte {
+            b'\'' | b'"' => {
+                cursor = quoted_end(bytes, cursor);
+                continue;
+            }
+            b'/' if bytes.get(cursor + 1) == Some(&b'*') => {
+                cursor = comment_end(bytes, cursor);
+                continue;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' => depth = depth.saturating_sub(1),
+            b'}' if depth > 0 => depth -= 1,
+            b';' | b'}' if depth == 0 => break,
+            b'!' if depth == 0 => bang = Some(cursor),
+            _ => {}
+        }
+        cursor += 1;
+    }
+    let end = cursor;
+    let important = bang.is_some_and(|bang| {
+        let after = &css[bang + 1..end];
+        let word = after.trim_start();
+        let word_start = end - after.len() + (after.len() - word.len());
+        let word_end = name_end(bytes, word_start);
+        css[word_start..word_end].eq_ignore_ascii_case("important")
+            && css[word_end..end].trim().is_empty()
+    });
+    let value_end = match bang {
+        Some(bang) if important => bang,
+        _ => end,
+    };
+    Some(DeclarationValue {
+        value: start..value_end,
+        important,
+        end,
     })
 }
 

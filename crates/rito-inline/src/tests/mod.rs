@@ -134,6 +134,7 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
                 each_line: false,
             },
             ruby_align: RubyAlign::SpaceAround,
+            text_emphasis: None,
             language: None,
         },
         bidi: InlineBidi {

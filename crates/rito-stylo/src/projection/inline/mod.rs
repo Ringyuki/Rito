@@ -84,6 +84,8 @@ pub enum InlineStyleField {
     IndividualTranslate,
     /// This element's own computed text-decoration longhands.
     TextDecoration,
+    /// Computed text-emphasis color.
+    TextEmphasisColor,
     /// Ordered text-shadow list.
     TextShadow,
     /// Ordered box-shadow list.

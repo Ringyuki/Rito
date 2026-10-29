@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use rito_source::{NodeId, SourceArena, SourceNodeKind};
 use rito_style_contract::{
-    BackgroundImageRepeat, BackgroundImageSize, FontFamily, FontFamilyNameSyntax,
-    GenericFontFamily, LengthPercentage, RubyAlign, TextCombineUpright, TextOrientation,
-    TransformOperation, WritingMode, RESOLVED_URL_BYTE_LIMIT,
+    AbsoluteColor, AbsoluteColorSpace, BackgroundImageRepeat, BackgroundImageSize, ColorNoneFlags,
+    ComputedColor, FontFamily, FontFamilyNameSyntax, GenericFontFamily, LengthPercentage, LineSide,
+    RubyAlign, TextCombineUpright, TextOrientation, TransformOperation, WritingMode,
+    RESOLVED_URL_BYTE_LIMIT,
 };
 use rito_stylo::{
     InlineStyleDisposition, InlineStyleField, InlineStyleProjection, InlineStyleProjectionReason,
@@ -547,6 +548,84 @@ fn vertical_text_properties_cascade_through_their_carriers() {
     // declaration before it stands.
     assert_eq!(bidi(tcy).text_combine_upright, TextCombineUpright::All);
     assert_eq!(bidi(up).text_orientation, TextOrientation::Upright);
+}
+
+#[test]
+fn text_emphasis_cascades_through_its_carriers() {
+    let source = source(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body><p id="p">a<span id="dot" class="dot">b<b id="inner">c</b></span><span id="sesame" class="sesame">d</span><span id="custom" class="custom">e</span></p><p id="v" class="v"><span id="auto" class="auto">f</span><span id="left" class="left">g</span></p></body></html>"#,
+    );
+    let node = |id: &str| source.find_element_by_id(id).unwrap();
+    let mut document = document(
+        Arc::clone(&source),
+        ".dot { -webkit-text-emphasis-style: filled dot; -webkit-text-emphasis-position: under; \
+                -epub-text-emphasis-style: filled circle; -epub-text-emphasis-position: over; \
+                text-emphasis: circle #ff0000; text-emphasis-position: under } \
+         .sesame { -webkit-text-emphasis-style: open sesame; -epub-text-emphasis-style: bogus } \
+         .custom { text-emphasis-style: '*'; text-emphasis-color: red } \
+         .v { writing-mode: vertical-rl } \
+         .auto { -epub-text-emphasis: open } \
+         .left { -webkit-text-emphasis: dot; text-emphasis-position: over left }",
+    );
+
+    let projection = inline_projection(&mut document);
+    let emphasis = |id: &str| {
+        projection
+            .table()
+            .style_for_node(node(id).index())
+            .unwrap()
+            .text_flow
+            .text_emphasis
+            .clone()
+            .map(|emphasis| (emphasis.mark.to_string(), emphasis.side, emphasis.color))
+    };
+    let red = ComputedColor::Absolute(
+        AbsoluteColor::new(
+            AbsoluteColorSpace::Srgb,
+            [1.0, 0.0, 0.0],
+            1.0,
+            ColorNoneFlags::new(false, false, false, false),
+        )
+        .unwrap(),
+    );
+    assert_eq!(emphasis("p"), None);
+    // The last valid spelling wins; `-epub-text-emphasis-position` is no
+    // property of the browser's and drops.
+    assert_eq!(
+        emphasis("dot"),
+        Some(("\u{25CF}".to_owned(), LineSide::Under, red))
+    );
+    assert_eq!(emphasis("inner"), emphasis("dot"));
+    assert_eq!(
+        emphasis("sesame"),
+        Some((
+            "\u{FE46}".to_owned(),
+            LineSide::Over,
+            ComputedColor::CurrentColor
+        ))
+    );
+    assert_eq!(
+        emphasis("custom"),
+        Some(("*".to_owned(), LineSide::Over, red))
+    );
+    // A vertical line's `auto` shape is the sesame, and its marks stand
+    // on the right unless the position says left.
+    assert_eq!(
+        emphasis("auto"),
+        Some((
+            "\u{FE46}".to_owned(),
+            LineSide::Over,
+            ComputedColor::CurrentColor
+        ))
+    );
+    assert_eq!(
+        emphasis("left"),
+        Some((
+            "\u{2022}".to_owned(),
+            LineSide::Under,
+            ComputedColor::CurrentColor
+        ))
+    );
 }
 
 fn ruby_align(projection: &rito_stylo::InlineStyleProjection, node_id: NodeId) -> RubyAlign {

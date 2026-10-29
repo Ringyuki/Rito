@@ -1,9 +1,9 @@
-use rito_style_contract::{InlineTextFlow, LanguageTag, TextIndent};
+use rito_style_contract::{InlineTextFlow, LanguageTag, TextEmphasis, TextIndent};
 use style::properties::ComputedValues;
 
 use crate::dom::DomNode;
 
-use super::{enums, numeric, InlineStyleField, ProjectionResult};
+use super::{enums, numeric, paint, InlineStyleField, ProjectionResult};
 
 pub(super) fn project(
     styles: &ComputedValues,
@@ -34,8 +34,22 @@ pub(super) fn project(
             each_line: text_indent.each_line,
         },
         ruby_align: crate::break_properties::project_ruby_align(styles),
+        text_emphasis: text_emphasis(styles)?,
         language,
     })
+}
+
+/// The computed emphasis marks, read off their carriers.
+fn text_emphasis(styles: &ComputedValues) -> ProjectionResult<Option<TextEmphasis>> {
+    let writing_mode = enums::writing_mode(styles.get_inherited_box().writing_mode);
+    let Some((mark, side, color)) = crate::text_emphasis::project(styles, writing_mode) else {
+        return Ok(None);
+    };
+    Ok(Some(TextEmphasis {
+        mark,
+        side,
+        color: paint::computed_color(&color, InlineStyleField::TextEmphasisColor)?,
+    }))
 }
 
 pub(super) fn inherited_language(element: DomNode<'_>) -> Option<LanguageTag> {

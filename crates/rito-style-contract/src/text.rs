@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::LengthPercentage;
+use crate::{ComputedColor, LengthPercentage};
 
 /// Inline/base direction used for logical ordering.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -100,6 +100,31 @@ pub enum RubyAlign {
     /// Content spreads with shares only between glyphs, none at the
     /// edges.
     SpaceBetween,
+}
+
+/// Computed `text-emphasis`: the mark every character that takes one
+/// receives, the side of its line the marks stand on and their color.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct TextEmphasis {
+    /// The mark: a shape keyword's character (its `filled` or `open`
+    /// form, the shape `auto` resolving by typographic mode), or the
+    /// custom string.
+    pub mark: Arc<str>,
+    /// The side of the line the marks stand on.
+    pub side: LineSide,
+    /// Computed mark color with `currentColor` retained symbolically.
+    pub color: ComputedColor,
+}
+
+/// A line-relative side: `Over` is the ascent side of a horizontal line
+/// and the right of a vertical one (`vertical-lr` included), `Under` the
+/// other.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum LineSide {
+    /// The line-over side.
+    Over,
+    /// The line-under side.
+    Under,
 }
 
 /// Computed text justification strategy.
@@ -276,6 +301,8 @@ pub struct InlineTextFlow {
     pub text_indent: TextIndent,
     /// Ruby annotation/base distribution.
     pub ruby_align: RubyAlign,
+    /// Emphasis marks, absent for computed `none`.
+    pub text_emphasis: Option<TextEmphasis>,
     /// Inherited source language, or `None` when unspecified.
     pub language: Option<LanguageTag>,
 }

@@ -1137,6 +1137,7 @@ pub fn plain_paragraph_style(
                 each_line: false,
             },
             ruby_align: RubyAlign::SpaceAround,
+            text_emphasis: None,
             language: None,
         },
         bidi: InlineBidi {

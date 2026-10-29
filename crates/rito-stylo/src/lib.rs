@@ -31,6 +31,7 @@ mod font_faces;
 mod presentational_hints;
 mod projection;
 mod session;
+mod text_emphasis;
 mod traversal;
 mod ua;
 mod viewport_dependence;
