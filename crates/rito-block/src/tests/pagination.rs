@@ -717,9 +717,10 @@ fn nested_containers_stack_in_continuous_space() {
 fn breaks_inside_nested_containers_resume_through_the_ancestor_path() {
     let context = BlockFormattingContext::new(FixedLineInline);
     let tree = nested_tree();
-    // 30px pages over 80px of lines: the first break lands inside the
-    // inner container (paragraph B's second line would overflow page 1).
-    let space = ConstraintSpace::fragmented(100.0, 30.0);
+    // 45px pages over 80px of lines: the first break lands inside the
+    // inner container, after paragraph B (paragraph C's second line
+    // would overflow page 1, and C keeps its two lines together).
+    let space = ConstraintSpace::fragmented(100.0, 45.0);
     let cancel = CancelFlag::new();
     let first = context
         .layout(&tree, tree.root(), &space, None, &cancel)
@@ -727,8 +728,8 @@ fn breaks_inside_nested_containers_resume_through_the_ancestor_path() {
     let token = first.continuation.clone().expect("break token");
     assert_eq!(
         token.resume_path,
-        vec![FormattingNodeId(3), FormattingNodeId(1)],
-        "the resume path names the inner container, then paragraph B"
+        vec![FormattingNodeId(3), FormattingNodeId(2)],
+        "the resume path names the inner container, then paragraph C"
     );
 
     let resumed_a = context
@@ -1070,11 +1071,20 @@ fn leading_padding_breaks_alone_when_it_squeezes_a_full_page_line() {
     let Some(Fragment::Box(paragraph)) = root.children.first() else {
         panic!("padding-only paragraph fragment exists");
     };
+    // The 2px leading padding is all it holds; breaking before its line,
+    // the box keeps the rest of the page, its block end cut.
     assert!(
-        paragraph.children.is_empty() && (paragraph.rect.height - 2.0).abs() < 0.01,
-        "first fragment holds only the 2px leading padding: h={} lines={}",
+        paragraph.children.is_empty() && (paragraph.rect.height - 10.0).abs() < 0.01,
+        "first fragment holds only the leading padding, to the page end: h={} lines={}",
         paragraph.rect.height,
         paragraph.children.len()
+    );
+    assert_eq!(
+        paragraph.cuts,
+        rito_fragment::BlockCuts {
+            start: false,
+            end: true
+        }
     );
     let token = first.continuation.clone().expect("line resumes next page");
     let second = context
@@ -1172,11 +1182,20 @@ fn leading_padding_breaks_even_when_the_line_overflows_a_whole_page() {
     let Some(Fragment::Box(paragraph)) = root.children.first() else {
         panic!("padding-only paragraph fragment exists");
     };
+    // The 2px leading padding is all it holds; breaking before its line,
+    // the box keeps the rest of the page, its block end cut.
     assert!(
-        paragraph.children.is_empty() && (paragraph.rect.height - 2.0).abs() < 0.01,
-        "first fragment holds only the 2px leading padding: h={} lines={}",
+        paragraph.children.is_empty() && (paragraph.rect.height - 8.0).abs() < 0.01,
+        "first fragment holds only the leading padding, to the page end: h={} lines={}",
         paragraph.rect.height,
         paragraph.children.len()
+    );
+    assert_eq!(
+        paragraph.cuts,
+        rito_fragment::BlockCuts {
+            start: false,
+            end: true
+        }
     );
     let token = first.continuation.clone().expect("line resumes next page");
     let second = context

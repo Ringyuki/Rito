@@ -187,11 +187,14 @@ fn a_page_tall_single_cell_table_fragments_between_its_paragraphs() {
     let tree = table_tree(&[&[&[1, 1, 1, 1, 1, 1]]]);
     let pages = paginate(&context, &tree, ConstraintSpace::fragmented(100.0, 25.0));
     assert_eq!(pages.len(), 3);
-    for page in &pages {
+    for (index, page) in pages.iter().enumerate() {
         let table = table_fragment(page);
+        // A cell that breaks keeps the rest of its fragmentainer; the
+        // last fragment ends with its two paragraphs.
+        let expected = if index + 1 < pages.len() { 25.0 } else { 20.0 };
         assert!(
-            (table.rect.height - 20.0).abs() < 1e-9,
-            "each table fragment holds two 10px paragraphs, got {}",
+            (table.rect.height - expected).abs() < 1e-9,
+            "table fragment {index}: expected {expected}, got {}",
             table.rect.height
         );
         let Fragment::Box(row) = &table.children[0] else {

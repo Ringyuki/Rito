@@ -246,6 +246,9 @@ fn cut_box(fragment: &BoxFragment) -> BoxFragment {
         source: fragment.source,
         rect: fragment.rect,
         children: Vec::new(),
+        // A window's edge is not a fragmentation break: the box keeps the
+        // edges it has in the continuous strip.
+        cuts: fragment.cuts,
     }
 }
 

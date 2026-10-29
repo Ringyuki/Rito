@@ -26,6 +26,7 @@ use crate::epub::EpubResult;
 use crate::fragment_bridge::{FlowItemSource, NodePaint};
 use crate::render::DisplayCommand;
 
+mod box_slice;
 mod emphasis;
 mod family;
 pub(crate) use family::{combined_forms_family, vertical_forms_family};

@@ -111,6 +111,7 @@ fn a_baseline_rounds_the_line_top_on_css_pixels_and_the_sum_on_the_device_grid()
                 text_runs: Vec::new(),
                 children: vec![text_run(0.0, 8.0, 0, 1)],
             })],
+            cuts: rito_fragment::BlockCuts::NONE,
         });
         let mut commands = Vec::new();
         append_fragment_display_commands(

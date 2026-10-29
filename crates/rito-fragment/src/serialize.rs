@@ -10,8 +10,8 @@ use crate::break_token::{BreakToken, BreakTokenStage};
 use crate::context::LayoutOutcome;
 use crate::formatting_tree::FormattingNodeId;
 use crate::fragment::{
-    BoxFragment, ClusterOrientation, CombinedForms, Fragment, FragmentRect, FragmentTree,
-    ImageFragment, LineFonts, LineFragment, TextFragment,
+    BlockCuts, BoxFragment, ClusterOrientation, CombinedForms, Fragment, FragmentRect,
+    FragmentTree, ImageFragment, LineFonts, LineFragment, TextFragment,
 };
 
 const FRAGMENT_TAG_BOX: u8 = 0;
@@ -68,6 +68,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.push(FRAGMENT_TAG_BOX);
             out.extend_from_slice(&fragment.source.0.to_le_bytes());
             encode_rect(&fragment.rect, out);
+            out.push(u8::from(fragment.cuts.start) | (u8::from(fragment.cuts.end) << 1));
             out.extend_from_slice(&(fragment.children.len() as u32).to_le_bytes());
             for child in &fragment.children {
                 encode_fragment(child, out);
@@ -229,6 +230,13 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
     let rect = decode_rect(reader)?;
     match tag {
         FRAGMENT_TAG_BOX => {
+            let cuts = match reader.u8()? {
+                bits @ 0..=3 => BlockCuts {
+                    start: bits & 1 != 0,
+                    end: bits & 2 != 0,
+                },
+                bits => return Err(format!("unknown box cut bits {bits}")),
+            };
             let child_count = reader.u32()? as usize;
             let mut children = Vec::with_capacity(child_count.min(reader.remaining()));
             for _ in 0..child_count {
@@ -238,6 +246,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 source,
                 rect,
                 children,
+                cuts,
             }))
         }
         FRAGMENT_TAG_LINE => {
@@ -547,6 +556,7 @@ mod tests {
                                 height: 120.5,
                             },
                             children: Vec::new(),
+                            cuts: BlockCuts::NONE,
                         }),
                         Fragment::Box(BoxFragment {
                             source: FormattingNodeId(2),
@@ -557,8 +567,13 @@ mod tests {
                                 height: 79.5,
                             },
                             children: Vec::new(),
+                            cuts: BlockCuts {
+                                start: false,
+                                end: true,
+                            },
                         }),
                     ],
+                    cuts: BlockCuts::NONE,
                 }),
             },
             continuation: Some(BreakToken {
@@ -696,6 +711,7 @@ mod tests {
                             ),
                         })],
                     })],
+                    cuts: BlockCuts::NONE,
                 }),
             },
             continuation: None,

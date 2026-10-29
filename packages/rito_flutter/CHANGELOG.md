@@ -109,6 +109,16 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A box that breaks across pages is sliced
+
+A box that breaks across pages paints as Chromium slices it: the fragment
+that breaks before or inside a child (or between a paragraph's lines)
+keeps the rest of the page, and no fragment strokes a border on an edge
+the break cut. A bordered box whose illustration moves to the next page
+draws its side borders down to the page bottom above it, with no bottom
+border there and no top border where it resumes. Box fragments say which
+block edges a break cut (`BlockCuts`).
+
 ### A letterboxed image snaps where it is placed
 
 An image letterboxed by `object-fit: contain` is placed in its unsnapped box

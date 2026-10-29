@@ -19,6 +19,7 @@ use crate::render::{
     display_number, display_rect, DisplayCommand, DisplayTextCommand, RunPaint, TextCluster,
 };
 
+use super::box_slice::slice_cut_edges;
 use super::family::{face_family, split_by_face};
 use super::line::append_line_commands;
 use super::run_style::run_paint;
@@ -178,6 +179,12 @@ pub(super) fn append_fragment_display_commands_inner(
                         // rule per cell segment instead.
                         let mut paint = paint.clone();
                         let mut border_box = *border_box;
+                        slice_cut_edges(
+                            &mut paint,
+                            &mut border_box,
+                            fragment.cuts,
+                            context.vertical_frame.as_ref(),
+                        );
                         // The cell edges the split follows are the
                         // table's flow-relative ones, which only a
                         // horizontal table's top and bottom edges run

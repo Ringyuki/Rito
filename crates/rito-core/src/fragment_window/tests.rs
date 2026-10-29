@@ -133,6 +133,7 @@ fn strip() -> (FormattingTree, Fragment) {
             source: FormattingNodeId(source),
             rect: rect(y, height),
             children,
+            cuts: rito_fragment::BlockCuts::NONE,
         })
     };
     let root = block(

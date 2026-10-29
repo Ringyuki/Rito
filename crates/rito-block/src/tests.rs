@@ -161,6 +161,7 @@ impl FormattingContext for FixedLineInline {
                         height: 10.0 * items.len() as f64,
                     },
                     children: lines,
+                    cuts: rito_fragment::BlockCuts::NONE,
                 }),
             },
             continuation: None,

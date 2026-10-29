@@ -50,7 +50,7 @@
 use std::cell::RefCell;
 
 use rito_fragment::{
-    BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
+    BlockCuts, BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
     FormattingContext, FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment,
     FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
     LineText, PendingPositioned, PrecedingLine,

@@ -571,6 +571,7 @@ mod tests {
                             height: 50.0,
                         },
                         children: lines,
+                        cuts: crate::BlockCuts::NONE,
                     }),
                 },
                 continuation: None,

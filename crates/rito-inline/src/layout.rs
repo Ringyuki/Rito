@@ -1418,6 +1418,7 @@ impl FormattingContext for ParleyInlineContext {
                                         height,
                                     },
                                     children: mini.children,
+                                    cuts: rito_fragment::BlockCuts::NONE,
                                 }),
                                 shift,
                             ));
@@ -2462,6 +2463,7 @@ impl FormattingContext for ParleyInlineContext {
                         height: running_top,
                     },
                     children: lines,
+                    cuts: rito_fragment::BlockCuts::NONE,
                 }),
             },
             continuation: None,

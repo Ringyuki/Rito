@@ -22,6 +22,7 @@ fn empty_table_fragment(table: FormattingNodeId) -> BoxFragment {
             height: 0.0,
         },
         children: Vec::new(),
+        cuts: rito_fragment::BlockCuts::NONE,
     }
 }
 
@@ -61,6 +62,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 height: y,
             },
             children: rows,
+            cuts: rito_fragment::BlockCuts::NONE,
         })
     }
 
@@ -243,6 +245,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     height: fragment_height,
                 },
                 children: vec![Fragment::Box(cell_root)],
+                cuts: rito_fragment::BlockCuts::NONE,
             }));
             y += fragment_height;
             match outcome.continuation {
@@ -280,6 +283,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     height: y,
                 },
                 children: rows_out,
+                cuts: rito_fragment::BlockCuts::NONE,
             },
             continuation,
         })
@@ -500,6 +504,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 height: row_height,
             },
             children: cell_fragments.into_iter().map(Fragment::Box).collect(),
+            cuts: rito_fragment::BlockCuts::NONE,
         })
     }
 

@@ -135,6 +135,7 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                 vec![column_run(0.0, 72.0, 30, "…—ab", 18.0)],
             ),
         ],
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     // The annotation measured when the chapter was built: the
     // style's primary face is Tinos, whose 8px typo ascent puts the
@@ -435,6 +436,7 @@ fn a_vertical_ruby_base_starts_on_a_whole_pixel() {
                 ahead,
             ],
         })],
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     let measured = |x: f64, byte: u32| rito_fragment::ClusterPosition {
         byte,
@@ -599,6 +601,7 @@ fn a_vertical_decoration_line_runs_beside_the_column_on_its_language_side() {
                 text_runs: Vec::new(),
                 children: pieces,
             })],
+            cuts: rito_fragment::BlockCuts::NONE,
         });
         let mut commands = Vec::new();
         append_fragment_display_commands(

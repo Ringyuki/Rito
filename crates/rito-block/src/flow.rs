@@ -40,6 +40,19 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             &mut positioned,
         )?;
         positioned.append(&mut outcome.positioned);
+        // The container began in an earlier fragmentainer when it resumes,
+        // and continues in a later one when it breaks before or inside a
+        // child or past its own block size (not when only floats it could
+        // not hold run on past its end).
+        if let Fragment::Box(root) = &mut outcome.fragments.root {
+            root.cuts = BlockCuts {
+                start: token.is_some(),
+                end: outcome.continuation.as_ref().is_some_and(|continuation| {
+                    !continuation.resume_path.is_empty()
+                        || matches!(continuation.stage, BreakTokenStage::Inside { .. })
+                }),
+            };
+        }
         let style = container_layout_style(tree, container)?;
         if style.position != Position::Static || container == tree.root() {
             // An unpositioned root is the initial containing block: one
@@ -229,6 +242,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         height: head_height,
                     },
                     children: child_root.children,
+                    cuts: child_root.cuts,
                 }));
                 adopt_positioned(
                     positioned,
@@ -376,6 +390,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             height: content_height,
                         },
                         children: inner_children,
+                        cuts: BlockCuts::NONE,
                     }));
                     adopt_positioned(
                         positioned,
@@ -443,6 +458,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 height: head_root.rect.height,
                             },
                             children: head_root.children,
+                            cuts: head_root.cuts,
                         }));
                         adopt_positioned(
                             positioned,
@@ -484,6 +500,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             height: content_height,
                         },
                         children: inner_children,
+                        cuts: BlockCuts::NONE,
                     }));
                     adopt_positioned(
                         positioned,
@@ -495,7 +512,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                 }
                 return Ok(sealed_with_break(
                     container,
-                    space.inline_size,
+                    space,
                     seal_height(y, &floats),
                     fragments,
                     BreakToken {
@@ -523,7 +540,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             {
                 return Ok(sealed_with_break(
                     container,
-                    space.inline_size,
+                    space,
                     seal_height(y, &floats),
                     fragments,
                     BreakToken {
@@ -621,7 +638,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         let already = block_size - (outstanding - available);
                         return Ok(sealed_with_break(
                             container,
-                            space.inline_size,
+                            space,
                             y + available,
                             fragments,
                             BreakToken {
@@ -638,7 +655,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // unforced break is truncated.
                         return Ok(sealed_with_break(
                             container,
-                            space.inline_size,
+                            space,
                             y,
                             fragments,
                             BreakToken {
@@ -659,7 +676,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     if outstanding <= fresh_capacity && available < fresh_capacity {
                         return Ok(sealed_with_break(
                             container,
-                            space.inline_size,
+                            space,
                             y,
                             fragments,
                             BreakToken {
@@ -726,6 +743,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 height: 0.0,
                             },
                             children: Vec::new(),
+                            cuts: BlockCuts::NONE,
                         }));
                         pending_margin = if cleared {
                             // The spacer's swallowed top set must not
@@ -889,20 +907,28 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             // (measured: Blink's 2px-only blank column
                             // before a full-height illustration).
                             y = layout_unit(y + gap);
+                            // Breaking before its first line, the box keeps
+                            // the rest of the fragmentainer (Blink breaks
+                            // before a line box as before a block child).
+                            let head = broken_block_size(space, y, leading_padding);
                             fragments.push(Fragment::Box(BoxFragment {
                                 source: *child_id,
                                 rect: FragmentRect {
                                     x: content_left + hbox.x,
                                     y,
                                     width: hbox.border_width,
-                                    height: leading_padding,
+                                    height: head,
                                 },
                                 children: Vec::new(),
+                                cuts: BlockCuts {
+                                    start: false,
+                                    end: true,
+                                },
                             }));
-                            y = layout_unit(y + leading_padding);
+                            y = layout_unit(y + head);
                             return Ok(sealed_with_break(
                                 container,
-                                space.inline_size,
+                                space,
                                 y,
                                 fragments,
                                 BreakToken {
@@ -918,7 +944,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // resuming) with the meeting margin truncated.
                         return Ok(sealed_with_break(
                             container,
-                            space.inline_size,
+                            space,
                             y,
                             fragments,
                             BreakToken {
@@ -963,7 +989,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         {
                             return Ok(sealed_with_break(
                                 container,
-                                space.inline_size,
+                                space,
                                 seal_height(y, &floats),
                                 fragments,
                                 BreakToken {
@@ -1103,6 +1129,15 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 line
                             })
                             .collect();
+                        // A paragraph that breaks between its lines keeps
+                        // the rest of the fragmentainer, as Blink breaks
+                        // before a line box; one whose lines all fit ends
+                        // with them, its trailing padding deferred or not.
+                        let paragraph_height = if placement.exhausted {
+                            paragraph_height
+                        } else {
+                            broken_block_size(space, y, paragraph_height)
+                        };
                         fragments.push(Fragment::Box(BoxFragment {
                             source: *child_id,
                             rect: FragmentRect {
@@ -1112,6 +1147,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 height: paragraph_height,
                             },
                             children,
+                            cuts: BlockCuts {
+                                start: child_resumed_inside,
+                                end: !placement.exhausted || trailing_deferred,
+                            },
                         }));
                         y = layout_unit(y + paragraph_height);
                         remaining -= paragraph_height;
@@ -1122,7 +1161,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             // Inside continuation with every line consumed.
                             return Ok(sealed_with_break(
                                 container,
-                                space.inline_size,
+                                space,
                                 y,
                                 fragments,
                                 BreakToken {
@@ -1152,6 +1191,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                     height: hbox.padding_bottom,
                                 },
                                 children: Vec::new(),
+                                cuts: BlockCuts {
+                                    start: true,
+                                    end: false,
+                                },
                             }));
                             y = layout_unit(y + hbox.padding_bottom);
                             remaining -= hbox.padding_bottom;
@@ -1167,7 +1210,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     }
                     return Ok(sealed_with_break(
                         container,
-                        space.inline_size,
+                        space,
                         y,
                         fragments,
                         BreakToken {
@@ -1240,7 +1283,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         TableFragmentainerPlacement::BreakBefore => {
                             return Ok(sealed_with_break(
                                 container,
-                                space.inline_size,
+                                space,
                                 seal_height(y, &floats),
                                 fragments,
                                 BreakToken {
@@ -1291,6 +1334,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             height: table_height,
                         },
                         children: table.children,
+                        cuts: BlockCuts::NONE,
                     }));
                     y += table_height;
                     remaining -= table_height;
@@ -1312,7 +1356,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             }));
                             return Ok(sealed_with_break(
                                 container,
-                                space.inline_size,
+                                space,
                                 y,
                                 fragments,
                                 BreakToken {
@@ -1406,7 +1450,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                         // first column after an empty `<div>`).
                         return Ok(sealed_with_break(
                             container,
-                            space.inline_size,
+                            space,
                             seal_height(y, &floats),
                             fragments,
                             BreakToken {
@@ -1440,6 +1484,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 height: 0.0,
                             },
                             children: Vec::new(),
+                            cuts: BlockCuts::NONE,
                         }));
                         adopt_positioned(
                             positioned,
@@ -1472,6 +1517,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                                 height: child_height,
                             },
                             children: child_root.children,
+                            cuts: child_root.cuts,
                         }));
                         y += child_height;
                         remaining -= child_height;
@@ -1544,7 +1590,7 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             }));
                             return Ok(sealed_with_break(
                                 container,
-                                space.inline_size,
+                                space,
                                 y,
                                 fragments,
                                 BreakToken {

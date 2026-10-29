@@ -142,6 +142,7 @@ fn boxed_line(children: Vec<Fragment>) -> Fragment {
             text_runs: Vec::new(),
             children,
         })],
+        cuts: rito_fragment::BlockCuts::NONE,
     })
 }
 

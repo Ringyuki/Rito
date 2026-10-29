@@ -23,6 +23,28 @@ pub struct BoxFragment {
     pub rect: FragmentRect,
     /// Child fragments in paint order.
     pub children: Vec<Fragment>,
+    /// The block edges a fragmentainer break cut this fragment at.
+    pub cuts: BlockCuts,
+}
+
+/// The block edges of a box fragment that a fragmentainer break cut
+/// through. A cut edge belongs to the box's neighbouring fragment: this
+/// fragment carries no border, padding or rounded corner there
+/// (`box-decoration-break: slice`, Blink's `SetSidesToInclude`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct BlockCuts {
+    /// The box began in an earlier fragmentainer.
+    pub start: bool,
+    /// The box continues in a later fragmentainer.
+    pub end: bool,
+}
+
+impl BlockCuts {
+    /// A fragment holding both of its box's block edges.
+    pub const NONE: Self = Self {
+        start: false,
+        end: false,
+    };
 }
 
 /// The faces one line's glyph runs were shaped with.
