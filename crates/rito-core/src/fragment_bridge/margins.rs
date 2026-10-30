@@ -63,11 +63,6 @@ pub(super) fn fold_through_collapsing_margins(
         matches!(value.value(), LengthPercentage::Length(px) if px.get() == 0.0)
             || matches!(value.value(), LengthPercentage::Percentage(pct) if pct.ratio() == 0.0)
     }
-    /// CSS 2 §8.3.1 pairwise join: positives take the max, negatives the
-    /// most negative, mixed signs sum.
-    fn join(a: f64, b: f64) -> f64 {
-        a.max(0.0).max(b.max(0.0)) + a.min(0.0).min(b.min(0.0))
-    }
     /// The block-start and block-end margins of a box in a flow laid out
     /// in `writing`.
     fn block_margins(
@@ -115,6 +110,7 @@ pub(super) fn fold_through_collapsing_margins(
         layout: &mut LayoutStyleTable,
         is_root: bool,
         parent_mode: WritingMode,
+        sets: &mut FoldedSets,
     ) -> EpubResult<()> {
         let style = *layout
             .style(nodes[node.0 as usize].style)
@@ -125,7 +121,7 @@ pub(super) fn fold_through_collapsing_margins(
                 nodes[child.0 as usize].content,
                 FormattingNodeContent::BlockContainer
             ) {
-                fold(nodes, *child, layout, false, style.writing_mode)?;
+                fold(nodes, *child, layout, false, style.writing_mode, sets)?;
             }
         }
         if children.is_empty() {
@@ -223,7 +219,7 @@ pub(super) fn fold_through_collapsing_margins(
                     })
                     .unwrap_or(false)
             }
-            let mut accumulated: Option<f64> = None;
+            let mut accumulated: Option<MarginSet> = None;
             // The container's own margin must be resolvable before any
             // child margin is zeroed: an unresolvable own margin used to
             // abort AFTER the children were stripped, dropping their
@@ -302,7 +298,8 @@ pub(super) fn fold_through_collapsing_margins(
                 } else {
                     None
                 };
-                accumulated = Some(join(accumulated.unwrap_or(0.0), top));
+                let top = sets.top.remove(&child).unwrap_or(MarginSet::of(top));
+                accumulated = Some(accumulated.unwrap_or_default().join(top));
                 set_margin(layout, nodes, child, writing, Some(0.0), None)?;
                 if !empty {
                     break;
@@ -310,12 +307,15 @@ pub(super) fn fold_through_collapsing_margins(
                 let Some(bottom) = bottom else {
                     break;
                 };
-                accumulated = Some(join(accumulated.unwrap_or(0.0), bottom));
+                let bottom = sets.bottom.remove(&child).unwrap_or(MarginSet::of(bottom));
+                accumulated = Some(accumulated.unwrap_or_default().join(bottom));
                 set_margin(layout, nodes, child, writing, None, Some(0.0))?;
             }
             if let (Some(escape), Some(own)) = (accumulated, own) {
-                if escape != 0.0 {
-                    set_margin(layout, nodes, node, writing, Some(join(own, escape)), None)?;
+                if !escape.is_zero() {
+                    let set = MarginSet::of(own).join(escape);
+                    set_margin(layout, nodes, node, writing, Some(set.value()), None)?;
+                    sets.top.insert(node, set);
                 }
             }
         }
@@ -359,9 +359,17 @@ pub(super) fn fold_through_collapsing_margins(
                 .1;
                 let own = resolved_px(own);
                 if let (Some(escape), Some(own)) = (escape, own) {
-                    if escape != 0.0 {
+                    let escape = sets
+                        .bottom
+                        .get(&last)
+                        .copied()
+                        .unwrap_or(MarginSet::of(escape));
+                    if !escape.is_zero() {
+                        sets.bottom.remove(&last);
+                        let set = MarginSet::of(own).join(escape);
                         set_margin(layout, nodes, last, writing, None, Some(0.0))?;
-                        set_margin(layout, nodes, node, writing, None, Some(join(own, escape)))?;
+                        set_margin(layout, nodes, node, writing, None, Some(set.value()))?;
+                        sets.bottom.insert(node, set);
                     }
                 }
             }
@@ -499,6 +507,56 @@ pub(super) fn fold_through_collapsing_margins(
         .style(nodes[root.0 as usize].style)
         .map_err(|error| EpubError::new(format!("fold style resolves: {error}")))?
         .writing_mode;
-    fold(nodes, root, layout, true, root_mode)?;
+    fold(
+        nodes,
+        root,
+        layout,
+        true,
+        root_mode,
+        &mut FoldedSets::default(),
+    )?;
     root_margins_to_padding(nodes, root, layout)
+}
+
+/// An adjoining margin set (CSS 2 §8.3.1): its largest positive margin and
+/// its most negative one, which collapse to their sum. Kept apart while
+/// the fold lifts margins up several wrappers, so a negative margin deep
+/// in the chain still cancels against the largest positive at any level
+/// instead of being summed away at the first join.
+#[derive(Clone, Copy, Debug, Default)]
+struct MarginSet {
+    positive: f64,
+    negative: f64,
+}
+
+impl MarginSet {
+    fn of(margin: f64) -> Self {
+        Self {
+            positive: margin.max(0.0),
+            negative: margin.min(0.0),
+        }
+    }
+
+    fn join(self, other: Self) -> Self {
+        Self {
+            positive: self.positive.max(other.positive),
+            negative: self.negative.min(other.negative),
+        }
+    }
+
+    fn value(self) -> f64 {
+        self.positive + self.negative
+    }
+
+    fn is_zero(self) -> bool {
+        self.positive == 0.0 && self.negative == 0.0
+    }
+}
+
+/// The margin sets the fold has lifted onto a box's block-start and
+/// block-end edges, which the box's own parent joins in turn.
+#[derive(Default)]
+struct FoldedSets {
+    top: std::collections::HashMap<FormattingNodeId, MarginSet>,
+    bottom: std::collections::HashMap<FormattingNodeId, MarginSet>,
 }

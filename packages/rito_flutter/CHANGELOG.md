@@ -109,6 +109,14 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Margins through nested wrappers collapse as one set
+
+Margins collapsing through several plain wrappers join as one set, the
+largest positive plus the most negative, as CSS collapses adjoining
+margins: a negative margin deep in a chain of wrappers no longer cancels
+against only the nearest one, which left a title page's heading lower
+than in the browser.
+
 ### A missing image without alt keeps the icon
 
 A missing image with no `alt` attribute lays out as Chromium's 16px
