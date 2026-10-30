@@ -109,6 +109,13 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A missing image without alt keeps the icon
+
+A missing image with no `alt` attribute lays out as Chromium's 16px
+broken-image icon, as one with alt text does; only an empty `alt`
+collapses. A missing image in a short line no longer leaves every line
+after it a pixel high.
+
 ### A clearing block keeps its margin inside
 
 A block with content that clears the floats before it keeps its top margin

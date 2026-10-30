@@ -156,12 +156,15 @@ impl TreeBuilder<'_> {
                 // centered row of art + missing plate shifts by half the
                 // placeholder — the b69 finale page's 19px displacement).
                 // An empty alt collapses in Chromium (0×0); the 1×1 here
-                // is the closest the atom pipeline represents.
+                // is the closest the atom pipeline represents. An image
+                // with no alt at all keeps the bare icon (measured: a
+                // missing `<img>` without alt in a 20px line grows the
+                // line one pixel, as the 16px icon on the baseline does).
                 self.degrade(format!(
                     "image dimensions unavailable, placeholder rendered: {}",
                     image.src
                 ));
-                if image.alt.is_empty() {
+                if image.alt.as_deref() == Some("") {
                     (1, 1)
                 } else {
                     (16, 16)
@@ -271,14 +274,15 @@ impl TreeBuilder<'_> {
             },
             source_index,
             image.source_ref.node_path.clone(),
-            &image.alt,
+            image.alt.as_deref().unwrap_or_default(),
         );
-        if dimensions.is_none() && !image.alt.is_empty() {
+        let alt_text = image.alt.as_deref().filter(|alt| !alt.is_empty());
+        if let (None, Some(alt)) = (dimensions, alt_text) {
             // The placeholder's alt text follows the icon inline, in the
             // image element's own style — exactly the run Chromium lays
             // out for a broken image.
             collector.push_text(
-                &image.alt,
+                alt,
                 style,
                 baseline_shift_px,
                 true,

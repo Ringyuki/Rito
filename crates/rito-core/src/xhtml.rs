@@ -114,7 +114,9 @@ pub struct TextNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageNode {
     pub src: String,
-    pub alt: String,
+    /// The `alt` text (or `aria-label`): `None` when the element has
+    /// neither, which a broken image shows differently from an empty one.
+    pub alt: Option<String>,
     pub attributes: Option<ElementAttributes>,
     pub source_ref: SourceRef,
     /// The node came from folding an `<svg>` wrapper whose

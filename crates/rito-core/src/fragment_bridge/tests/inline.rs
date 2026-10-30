@@ -525,3 +525,53 @@ fn a_collapsed_space_keeps_its_place_around_box_edges() {
         ["a ", "<", "b"]
     );
 }
+
+/// A missing image lays out as Chromium's broken-image placeholder by its
+/// alt: none keeps the bare 16px icon, an empty alt collapses, and alt
+/// text follows the icon.
+#[test]
+fn a_missing_image_lays_out_by_its_alt() {
+    let chapter = resolved_chapter_with(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head>
+<body><p><img src="none.jpg"/><img src="empty.jpg" alt=""/><img src="text.jpg" alt="x"/></p></body></html>"#,
+        "",
+    );
+    let built = build_chapter_formatting_tree(
+        &chapter.nodes,
+        chapter.body_index,
+        &chapter.layout,
+        &chapter.inline,
+        &no_images(),
+    )
+    .expect("tree builds");
+    let mut sizes = Vec::new();
+    let mut texts = Vec::new();
+    let mut stack = vec![built.tree.root()];
+    while let Some(id) = stack.pop() {
+        let node = built.tree.node(id);
+        stack.extend(node.children.iter().copied());
+        if let FormattingNodeContent::InlineFlow { items } = &node.content {
+            for item in items {
+                match item {
+                    InlineItem::Image {
+                        src,
+                        intrinsic_width,
+                        intrinsic_height,
+                        ..
+                    } => sizes.push((src.clone(), *intrinsic_width, *intrinsic_height)),
+                    InlineItem::Text { text, .. } => texts.push(text.clone()),
+                    _ => {}
+                }
+            }
+        }
+    }
+    assert_eq!(
+        sizes,
+        vec![
+            ("none.jpg".to_owned(), 16.0, 16.0),
+            ("empty.jpg".to_owned(), 1.0, 1.0),
+            ("text.jpg".to_owned(), 16.0, 16.0),
+        ]
+    );
+    assert_eq!(texts, vec!["x".to_owned()]);
+}

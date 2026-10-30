@@ -317,7 +317,9 @@ fn convert_svg_image(
     (!src.is_empty()).then(|| {
         DocumentNode::Image(ImageNode {
             src,
-            alt: String::new(),
+            // An SVG `<image>` that fails to load paints nothing, no
+            // broken-image icon: the folded node behaves as an empty alt.
+            alt: Some(String::new()),
             // `width` and `height` on `<svg>` are presentation attributes
             // that map to the CSS properties (SVG 2 §7.2), and they are
             // what sizes the SVG-wrapped image idiom: `width="100%"` fits
@@ -442,12 +444,11 @@ fn svg_image_href(element: Node<'_>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn image_alt(element: Node<'_>) -> String {
+fn image_alt(element: Node<'_>) -> Option<String> {
     element
         .attribute("alt")
         .or_else(|| element.attribute("aria-label"))
-        .unwrap_or_default()
-        .to_owned()
+        .map(str::to_owned)
 }
 
 fn merge_unwrapped_child(child: &DocumentNode, inline: &ElementNode) -> DocumentNode {
@@ -939,7 +940,7 @@ mod tests {
             panic!("expected image");
         };
         assert_eq!(image.src, "../Images/cover.jpg");
-        assert_eq!(image.alt, "");
+        assert_eq!(image.alt.as_deref(), Some(""));
         assert!(image.attributes.is_none());
     }
 
