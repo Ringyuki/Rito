@@ -97,6 +97,20 @@ impl TreeBuilder<'_> {
         }
     }
 
+    /// Whether the element is styled `display: inline-block`: an atomic
+    /// inline on its parent's lines whatever its tag, its content a block
+    /// formatting context of its own.
+    pub(super) fn is_inline_block(&self, element: &ElementNode) -> bool {
+        element.anchor_ref.is_none()
+            && element_source_index(element)
+                .ok()
+                .and_then(|index| self.layout.style_for_node(index).ok())
+                .is_some_and(|style| {
+                    style.display.outside == LayoutDisplayOutside::Inline
+                        && style.display.inside == LayoutDisplayInside::FlowRoot
+                })
+    }
+
     fn is_display_none(&mut self, source_index: usize, what: &str) -> bool {
         match self.layout.style_for_node(source_index) {
             Ok(style) => style.display.outside == LayoutDisplayOutside::None,
@@ -154,6 +168,12 @@ impl TreeBuilder<'_> {
         while index < children.len() {
             let child = &children[index];
             match child {
+                // A block element styled `display: inline-block` is an
+                // atomic inline on its parent's lines, not a block of its
+                // own.
+                DocumentNode::Block(element) if self.is_inline_block(element) => {
+                    pending_inline.push(child);
+                }
                 DocumentNode::Block(element) => {
                     self.flush_inline_run(
                         &mut pending_inline,
@@ -406,10 +426,9 @@ impl TreeBuilder<'_> {
             Some(href) => Some(self.block_link.replace(href)),
             None => None,
         };
-        let has_block_children = element
-            .children
-            .iter()
-            .any(|child| matches!(child, DocumentNode::Block(_)));
+        let has_block_children = element.children.iter().any(
+            |child| matches!(child, DocumentNode::Block(block) if !self.is_inline_block(block)),
+        );
         let id = if has_block_children {
             let container_inline_style = self.inline_style_id(source_index, &element.tag);
             let children = self.build_children_with_generated(

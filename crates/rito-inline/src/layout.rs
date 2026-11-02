@@ -2496,6 +2496,10 @@ impl FormattingContext for ParleyInlineContext {
             .insert(tree.fingerprint(), node.0, sizes);
         Ok(sizes)
     }
+
+    fn adopt_block_layout(&mut self, delegate: rito_fragment::BlockLayoutDelegate) {
+        self.block_layout = Some(delegate);
+    }
 }
 
 impl ParleyInlineContext {

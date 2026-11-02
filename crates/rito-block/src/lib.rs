@@ -50,10 +50,10 @@
 use std::cell::RefCell;
 
 use rito_fragment::{
-    BlockCuts, BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
-    FormattingContext, FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment,
-    FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
-    LineText, PendingPositioned, PrecedingLine,
+    BlockCuts, BlockLayoutDelegate, BoxFragment, BreakToken, BreakTokenStage, CancelFlag,
+    ConstraintSpace, FloatBreak, FormattingContext, FormattingNodeContent, FormattingNodeId,
+    FormattingTree, Fragment, FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes,
+    LayoutError, LayoutOutcome, LineText, PendingPositioned, PrecedingLine,
 };
 use rito_style_contract::{
     BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,

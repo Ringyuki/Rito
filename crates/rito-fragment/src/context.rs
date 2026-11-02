@@ -151,4 +151,70 @@ pub trait FormattingContext {
         tree: &FormattingTree,
         node: FormattingNodeId,
     ) -> Result<IntrinsicInlineSizes, LayoutError>;
+
+    /// Hands an inline provider the block layout its atomic inlines need:
+    /// an inline-block holding block-level boxes is a block container,
+    /// laid out by the block formatting context that owns the provider
+    /// (Blink lays an atomic inline out as a `BlockNode`). Providers with
+    /// no atomic inlines keep the default, which ignores it.
+    fn adopt_block_layout(&mut self, _delegate: BlockLayoutDelegate) {}
+}
+
+/// Lays the block container `node` out in `space`, its inline flows laid
+/// out by `inline`.
+pub type AtomicBlockLayout = fn(
+    inline: &dyn FormattingContext,
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+    space: &ConstraintSpace,
+    cancel: &CancelFlag,
+) -> Result<LayoutOutcome, LayoutError>;
+
+/// The intrinsic inline sizes of the block container `node`, its inline
+/// flows measured by `inline`.
+pub type AtomicBlockSizes = fn(
+    inline: &dyn FormattingContext,
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+) -> Result<IntrinsicInlineSizes, LayoutError>;
+
+/// The block formatting context an inline provider lays an atomic inline's
+/// block container out with, as plain functions of the provider itself:
+/// the block context wraps the provider, so it cannot be reached as an
+/// object from inside it.
+#[derive(Clone, Copy)]
+pub struct BlockLayoutDelegate {
+    /// Lays a block container out.
+    pub layout: AtomicBlockLayout,
+    /// Measures a block container's intrinsic inline sizes.
+    pub intrinsic_inline_sizes: AtomicBlockSizes,
+}
+
+impl std::fmt::Debug for BlockLayoutDelegate {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("BlockLayoutDelegate")
+    }
+}
+
+/// A shared reference lays out as what it refers to, so a block context
+/// can borrow the inline provider that called it.
+impl<T: FormattingContext + ?Sized> FormattingContext for &T {
+    fn layout(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+        space: &ConstraintSpace,
+        token: Option<&BreakToken>,
+        cancel: &CancelFlag,
+    ) -> Result<LayoutOutcome, LayoutError> {
+        (**self).layout(tree, node, space, token, cancel)
+    }
+
+    fn intrinsic_inline_sizes(
+        &self,
+        tree: &FormattingTree,
+        node: FormattingNodeId,
+    ) -> Result<IntrinsicInlineSizes, LayoutError> {
+        (**self).intrinsic_inline_sizes(tree, node)
+    }
 }

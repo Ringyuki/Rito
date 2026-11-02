@@ -98,20 +98,12 @@ impl TreeBuilder<'_> {
                 let style = self.inline_style_id(source_index, &element.tag);
                 self.require_inline_capabilities(style, true, &element.tag)?;
                 let style = self.propagate_text_decorations(style, inherited)?;
+                let shift =
+                    ancestor_shift_px + self.baseline_shift(style, inherited, &element.tag)?;
                 let resolved = self
                     .inline
                     .style(style)
                     .map_err(|error| EpubError::new(format!("{} style: {error}", element.tag)))?;
-                let parent_font_size = self
-                    .inline
-                    .style(inherited)
-                    .map(|parent| f64::from(parent.font.size.get()))
-                    .map_err(|error| {
-                        EpubError::new(format!("{} parent style: {error}", element.tag))
-                    })?;
-                let parent_style = self.inline.style(inherited).ok();
-                let shift = ancestor_shift_px
-                    + resolved_baseline_shift_with_parent(resolved, parent_font_size, parent_style);
                 // Blink's open and close tag items: the box's start and end
                 // sizes take their width on the lines its content lands on.
                 let opens = !resolved.inline_edge(false).is_empty();
@@ -194,6 +186,27 @@ impl TreeBuilder<'_> {
             DocumentNode::Image(image) => {
                 self.collect_image(image, inherited, ancestor_shift_px, collector, false)
             }
+            DocumentNode::Block(element) if self.is_inline_block(element) => {
+                let source_index = element_source_index(element)?;
+                if self.is_display_none(source_index, &element.tag) {
+                    return Ok(());
+                }
+                let style = self.inline_style_id(source_index, &element.tag);
+                self.require_inline_capabilities(style, true, &element.tag)?;
+                let style = self.propagate_text_decorations(style, inherited)?;
+                let shift =
+                    ancestor_shift_px + self.baseline_shift(style, inherited, &element.tag)?;
+                let layout_style = self.layout_style_id(source_index, &element.tag);
+                self.collect_inline_block(
+                    element,
+                    source_index,
+                    style,
+                    layout_style,
+                    shift,
+                    collector,
+                )?;
+                Ok(())
+            }
             DocumentNode::Block(element) => Err(EpubError::new(format!(
                 "block-level <{}> inside an inline run; anonymous box grouping missed it",
                 element.tag
@@ -201,11 +214,31 @@ impl TreeBuilder<'_> {
         }
     }
 
-    /// Builds one `display: inline-block` span into an atomic inline: a
-    /// hidden mini-paragraph node holding its (inline-only) content, and
-    /// an `InlineItem::InlineBlock` referencing it. Returns `false` —
-    /// pushing nothing — when the content is not representable as a flow
-    /// (a block child inside), so the caller flattens instead. A failed
+    /// The baseline shift an inline box styled `style` takes from its
+    /// `vertical-align` within its parent styled `inherited`, CSS px.
+    fn baseline_shift(&mut self, style: StyleId, inherited: StyleId, tag: &str) -> EpubResult<f64> {
+        let resolved = self
+            .inline
+            .style(style)
+            .map_err(|error| EpubError::new(format!("{tag} style: {error}")))?;
+        let parent_style = self
+            .inline
+            .style(inherited)
+            .map_err(|error| EpubError::new(format!("{tag} parent style: {error}")))?;
+        Ok(resolved_baseline_shift_with_parent(
+            resolved,
+            f64::from(parent_style.font.size.get()),
+            Some(parent_style),
+        ))
+    }
+
+    /// Builds one `display: inline-block` element into an atomic inline: a
+    /// hidden node holding its content — a mini paragraph when the content
+    /// is inline-level, else the block container it would be as a block —
+    /// and an `InlineItem::InlineBlock` referencing it. An empty one is an
+    /// atom too: its own size and baseline still stand on the line.
+    /// Returns `false` — pushing nothing — when inline content is not
+    /// representable as a flow, so the caller flattens instead. A failed
     /// attempt may leave orphan nodes in the arena; they are unreachable
     /// and ids are never reused, so they cost only their bytes.
     fn collect_inline_block(
@@ -217,6 +250,20 @@ impl TreeBuilder<'_> {
         baseline_shift_px: f64,
         collector: &mut InlineCollector,
     ) -> EpubResult<bool> {
+        let holds_blocks = element.children.iter().any(
+            |child| matches!(child, DocumentNode::Block(block) if !self.is_inline_block(block)),
+        );
+        if holds_blocks {
+            self.collect_block_container_atom(
+                element,
+                source_index,
+                style,
+                layout_style,
+                baseline_shift_px,
+                collector,
+            )?;
+            return Ok(true);
+        }
         let mut sub = self.inline_collector();
         sub.current_link = collector.current_link.clone();
         if let Some(generated) = self.generated_inline(source_index, PseudoElementKind::Before) {
@@ -236,9 +283,17 @@ impl TreeBuilder<'_> {
         }
         let (items, sources) = sub.finish();
         if !inline_items_have_substance(&items) {
-            // An empty inline-block has no ink and no last-line baseline;
-            // the flattening path yields the same nothing.
-            return Ok(false);
+            // An empty one has no line box: an empty block container, as
+            // tall as its own height, padding and borders make it.
+            self.collect_block_container_atom(
+                element,
+                source_index,
+                style,
+                layout_style,
+                baseline_shift_px,
+                collector,
+            )?;
+            return Ok(true);
         }
         let node = self.push_node(
             FormattingNode {
@@ -262,6 +317,36 @@ impl TreeBuilder<'_> {
             "",
         );
         Ok(true)
+    }
+
+    /// Pushes an inline block whose content is not one paragraph — block
+    /// children, or nothing — as the block container it would be as a
+    /// block (Blink lays an inline-block out as a block flow root), laid
+    /// out at the atom's size by the block context.
+    fn collect_block_container_atom(
+        &mut self,
+        element: &ElementNode,
+        source_index: usize,
+        style: StyleId,
+        layout_style: LayoutStyleId,
+        baseline_shift_px: f64,
+        collector: &mut InlineCollector,
+    ) -> EpubResult<()> {
+        let Some(node) = self.build_block(element)? else {
+            return Ok(());
+        };
+        collector.push_image(
+            InlineItem::InlineBlock {
+                node,
+                style,
+                layout_style,
+                baseline_shift_px,
+            },
+            source_index,
+            element.source_ref.node_path.clone(),
+            "",
+        );
+        Ok(())
     }
 
     /// Collects one `<ruby>` element as mono-ruby pairs: each `<rt>` closes

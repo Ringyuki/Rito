@@ -6,7 +6,7 @@
 //! into, its outside list marker, and the dispatch of every child line to
 //! the horizontal or the vertical line painter.
 
-use rito_fragment::{FormattingTree, Fragment};
+use rito_fragment::{FormattingNodeContent, FormattingTree, Fragment};
 
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::NodePaint;
@@ -398,6 +398,16 @@ pub(super) fn append_fragment_display_commands_inner(
                         context.ratio,
                         flow_texts,
                     )?;
+                    append_atom_block_commands(
+                        commands,
+                        tree,
+                        line,
+                        origin_x + fragment.rect.x + line.rect.x,
+                        origin_y + fragment.rect.y + line.rect.y,
+                        context,
+                        child_snap_origin_y,
+                        flow_texts,
+                    )?;
                     continue;
                 }
                 append_fragment_display_commands_inner(
@@ -416,24 +426,90 @@ pub(super) fn append_fragment_display_commands_inner(
             }
             Ok(())
         }
-        Fragment::Line(line) => append_line_commands(
-            commands,
-            tree,
-            line,
-            origin_x,
-            origin_y,
-            context.faces,
-            context.image_border_paints,
-            context.flow_item_sources,
-            context.annotations,
-            snap_origin_y,
-            context.ratio,
-            flow_texts,
-        ),
+        Fragment::Line(line) => {
+            append_line_commands(
+                commands,
+                tree,
+                line,
+                origin_x,
+                origin_y,
+                context.faces,
+                context.image_border_paints,
+                context.flow_item_sources,
+                context.annotations,
+                snap_origin_y,
+                context.ratio,
+                flow_texts,
+            )?;
+            append_atom_block_commands(
+                commands,
+                tree,
+                line,
+                origin_x + line.rect.x,
+                origin_y + line.rect.y,
+                context,
+                snap_origin_y,
+                flow_texts,
+            )
+        }
         Fragment::Text(_) | Fragment::Image(_) => Err(EpubError::new(
             "text and image fragments paint through their line box, not standalone",
         )),
     }
+}
+
+/// The block content of the inline blocks riding `line`, whose box sits at
+/// (`origin_x`, `origin_y`) in the walk's coordinates: an inline-block that
+/// holds blocks is a block container, and its children paint as any block
+/// subtree in the atom's frame on the line (an inline-block's own lines
+/// paint with the line). Only one in the chapter's writing mode shares its
+/// coordinates; an orthogonal one's blocks are not painted yet.
+#[allow(clippy::too_many_arguments)]
+fn append_atom_block_commands(
+    commands: &mut Vec<DisplayCommand>,
+    tree: &FormattingTree,
+    line: &rito_fragment::LineFragment,
+    origin_x: f64,
+    origin_y: f64,
+    context: FragmentPaintContext<'_>,
+    snap_origin_y: f64,
+    flow_texts: &FlowTexts,
+) -> EpubResult<()> {
+    for child in &line.children {
+        let Fragment::Box(atom) = child else {
+            continue;
+        };
+        if !matches!(
+            tree.node(atom.source).content,
+            FormattingNodeContent::BlockContainer
+        ) {
+            continue;
+        }
+        let vertical = tree
+            .styles()
+            .and_then(|styles| styles.layout.style(tree.node(atom.source).style).ok())
+            .is_some_and(|style| {
+                style.writing_mode != rito_style_contract::WritingMode::HorizontalTopToBottom
+            });
+        if vertical != context.vertical_frame.is_some() {
+            continue;
+        }
+        for inner in &atom.children {
+            if matches!(inner, Fragment::Box(_)) {
+                append_fragment_display_commands_inner(
+                    commands,
+                    tree,
+                    inner,
+                    origin_x + atom.rect.x,
+                    origin_y + atom.rect.y,
+                    context,
+                    snap_origin_y,
+                    flow_texts,
+                )?;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

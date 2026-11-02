@@ -8,6 +8,7 @@ mod floated_images;
 mod flow;
 mod generated;
 mod inline;
+mod inline_block;
 mod pagination;
 mod sizing;
 mod tree;

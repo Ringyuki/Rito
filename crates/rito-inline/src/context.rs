@@ -58,6 +58,7 @@ impl ParleyInlineContext {
             combined_settings: RefCell::default(),
             shaped: RefCell::default(),
             intrinsic_sizes: RefCell::default(),
+            block_layout: None,
             #[cfg(test)]
             counts: crate::counters::LineLoopCounts::default(),
         })

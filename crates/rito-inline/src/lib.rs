@@ -50,6 +50,7 @@ mod emphasis;
 mod fonts;
 mod forensics;
 mod image;
+mod inline_block;
 mod justify;
 mod layout;
 mod line_breaks;
@@ -140,6 +141,9 @@ pub struct ParleyInlineContext {
     /// Each paragraph's min- and max-content widths, measured once (see
     /// [`IntrinsicSizes`]).
     pub(crate) intrinsic_sizes: RefCell<IntrinsicSizes>,
+    /// The block layout of an inline-block holding block-level boxes,
+    /// handed over by the block context that owns this one.
+    pub(crate) block_layout: Option<rito_fragment::BlockLayoutDelegate>,
     #[cfg(test)]
     pub(crate) counts: counters::LineLoopCounts,
 }

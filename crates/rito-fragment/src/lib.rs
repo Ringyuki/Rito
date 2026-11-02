@@ -27,8 +27,8 @@ pub use constraint_space::{
     empty_line_half_leading, ConstraintSpace, FloatBand, LineText, PrecedingLine,
 };
 pub use context::{
-    CancelFlag, EscapedFloat, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
-    PendingPositioned,
+    AtomicBlockLayout, AtomicBlockSizes, BlockLayoutDelegate, CancelFlag, EscapedFloat,
+    FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome, PendingPositioned,
 };
 pub use formatting_tree::{
     allocate_ruby_annotation, allocate_ruby_annotation_range, distribute_ruby_annotation,

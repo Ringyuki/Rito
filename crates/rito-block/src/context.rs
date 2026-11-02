@@ -7,8 +7,14 @@
 use crate::*;
 
 impl<I: FormattingContext> BlockFormattingContext<I> {
-    /// Creates a block context that lays inline flows out with `inline`.
-    pub fn new(inline: I) -> Self {
+    /// Creates a block context that lays inline flows out with `inline`,
+    /// handing it the block layout its atomic inlines' block containers
+    /// need.
+    pub fn new(mut inline: I) -> Self {
+        inline.adopt_block_layout(BlockLayoutDelegate {
+            layout: layout_atomic_block,
+            intrinsic_inline_sizes: atomic_block_sizes,
+        });
         Self {
             inline,
             inline_cache: RefCell::new(FragmentCache::new(INLINE_CACHE_BUDGET_BYTES)),
@@ -19,6 +25,27 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
     pub fn inline(&self) -> &I {
         &self.inline
     }
+}
+
+/// Lays an atomic inline's block container out for the inline provider
+/// holding it, in a block context borrowing that provider.
+fn layout_atomic_block(
+    inline: &dyn FormattingContext,
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+    space: &ConstraintSpace,
+    cancel: &CancelFlag,
+) -> Result<LayoutOutcome, LayoutError> {
+    BlockFormattingContext::new(inline).layout(tree, node, space, None, cancel)
+}
+
+/// The intrinsic inline sizes of an atomic inline's block container.
+fn atomic_block_sizes(
+    inline: &dyn FormattingContext,
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+) -> Result<IntrinsicInlineSizes, LayoutError> {
+    BlockFormattingContext::new(inline).intrinsic_inline_sizes(tree, node)
 }
 
 impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
