@@ -13,6 +13,26 @@
  * by `step` (column width plus gap) from the root's left edge.
  */
 export async function collectImageAreas(page, { step }) {
+  // An svg `<image>` has no natural size of its own: a detached bitmap of
+  // the same href loads to read it. Only its loading is awaited, polled
+  // from here (a page without JavaScript dispatches no load event to it):
+  // `decode()` would hand the page a whole decoded bitmap, and the next
+  // fresh paint (truth-shot.mjs) rasters the plate from it, not as a page
+  // that never asked rasters it (measured: 42k beyond-floor px on one
+  // 1266x1800 plate drawn at 0.47).
+  await page.evaluate(() => {
+    window.__ritoImageBitmaps = [...document.querySelectorAll('image')].map((image) => {
+      const href = image.getAttribute('href') ?? image.getAttribute('xlink:href');
+      if (!href) return null;
+      const bitmap = new Image();
+      bitmap.src = new URL(href, document.baseURI).href;
+      return bitmap;
+    });
+  });
+  for (let waited = 0; waited < 10000; waited += 50) {
+    if (await page.evaluate(() => window.__ritoImageBitmaps.every((b) => !b || b.complete))) break;
+    await page.waitForTimeout(50);
+  }
   return page.evaluate(async (step) => {
     const areas = [];
     const push = (rect) => {
@@ -55,17 +75,15 @@ export async function collectImageAreas(page, { step }) {
       const fit = getComputedStyle(img).objectFit;
       push(fitted(contentBox(img), { width: img.naturalWidth, height: img.naturalHeight }, fit));
     }
-    for (const image of document.querySelectorAll('image')) {
-      const href = image.getAttribute('href') ?? image.getAttribute('xlink:href');
-      if (!href) continue;
-      const bitmap = new Image();
-      bitmap.src = new URL(href, document.baseURI).href;
-      await bitmap.decode().catch(() => undefined);
+    for (const [index, image] of [...document.querySelectorAll('image')].entries()) {
+      const bitmap = window.__ritoImageBitmaps[index];
+      if (!bitmap) continue;
       const box = image.getBoundingClientRect();
       const ratio = (image.getAttribute('preserveAspectRatio') ?? '').trim();
       const fit = ratio === 'none' ? 'fill' : ratio.endsWith('slice') ? 'cover' : 'contain';
       push(fitted(box, { width: bitmap.naturalWidth, height: bitmap.naturalHeight }, fit));
     }
+    delete window.__ritoImageBitmaps;
     for (const el of document.querySelectorAll('body, body *')) {
       if (!getComputedStyle(el).backgroundImage.includes('url(')) continue;
       for (const rect of el.getClientRects()) push(rect);
