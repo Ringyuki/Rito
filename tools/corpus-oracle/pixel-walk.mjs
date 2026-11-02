@@ -31,6 +31,7 @@ import {
 } from './scroll-truth.mjs';
 import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { collectImageAreas, imageMask } from './image-areas.mjs';
+import { moveTruthRoot, shootContentWithBand } from './truth-shot.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -565,6 +566,25 @@ const truthContext = await truthBrowser.newContext({
 });
 const truth = await truthContext.newPage();
 const truthCdp = await truthContext.newCDPSession(truth);
+// The page is laid out in the engine's CSS viewport, one page's content box
+// (rito-core chapter_style_viewport): `vw`, fixed positioning and an
+// orthogonal flow's indefinite-size fallback all read that initial
+// containing block (Blink's SetOrthogonalFallbackInlineSize takes its
+// size), and the view's own width laid calibre's `width: 100%` plate spacer
+// out 200px wider than the page. Only the layout viewport moves: the view
+// keeps the width the clips were set up in. Pinned again for every chapter;
+// a full-page shot restores the view. For A/B runs only,
+// RITO_TRUTH_WIDE_VIEWPORT lays the page out in the whole view instead.
+const pinTruthViewport = () =>
+  process.env.RITO_TRUTH_WIDE_VIEWPORT
+    ? Promise.resolve()
+    : truthCdp.send('Emulation.setDeviceMetricsOverride', {
+        width: contentW,
+        height: contentH,
+        deviceScaleFactor: DSF,
+        mobile: false,
+        dontSetVisibleSize: true,
+      });
 for (const chapter of plan.chapters) {
   const href = manifestHref.get(chapter.href) ?? chapter.href;
   const file = path.join(opfDir, href);
@@ -592,6 +612,7 @@ for (const chapter of plan.chapters) {
       }
       truthFile = sibling;
     }
+    await pinTruthViewport();
     await truth.goto(`file://${truthFile}`, { timeout: 30000 });
     if (truthFile !== file) {
       // A calibre `.html` chapter that is not well-formed XML turns the
@@ -961,10 +982,10 @@ img { object-fit: contain; }`;
         // content overflowing leftward (a vertical-rl line wider than its
         // column) moves left of the viewport: the clip takes the column's
         // client position less that origin.
+        await moveTruthRoot(truth, { y: y0, element: vertical.fragmenter });
         const left = await truth.evaluate(
-          ({ y, fragmenter }) => {
+          ({ fragmenter }) => {
             const element = fragmenter === 'html' ? document.documentElement : document.body;
-            element.style.marginTop = `-${y}px`;
             const scroller = document.scrollingElement;
             const origin =
               getComputedStyle(document.documentElement).writingMode === 'vertical-rl'
@@ -972,7 +993,7 @@ img { object-fit: contain; }`;
                 : 0;
             return element.getBoundingClientRect().left - origin;
           },
-          { y: y0, fragmenter: vertical.fragmenter },
+          { fragmenter: vertical.fragmenter },
         );
         // Through the protocol itself: Playwright's clip clamps to a
         // viewport it measures from the client origin and cuts the column
@@ -998,20 +1019,18 @@ img { object-fit: contain; }`;
       // clips at the page edge) never draws.
       const x0 = k * (contentW + 3000);
       if (x0 >= docWidth) break;
-      await truth.evaluate((x) => {
-        document.documentElement.style.marginLeft = `-${x}px`;
-      }, x0);
       // Capture the right page margin too: an unbreakable line overflows
       // its column and PAINTS across the page's right margin band, which
       // the engine (clipping at the page edge) also shows. A content-wide
       // clip amputated that band and scored the engine's overflow ink as
       // phantom diff.
       columns.push(
-        PNG.sync.read(
-          await truth.screenshot({
-            clip: { x: 0, y: 0, width: contentW + MARGIN, height: contentH },
-          }),
-        ),
+        await shootContentWithBand(truth, {
+          contentW,
+          height: contentH,
+          margin: MARGIN,
+          x: x0,
+        }),
       );
     }
     truthColumns.set(chapter.href, columns);

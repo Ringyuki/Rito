@@ -15,6 +15,8 @@
 // lane's measurement for far columns).
 import { createRequire } from 'node:module';
 
+import { shootContentWithBand } from './truth-shot.mjs';
+
 const REPO = new URL('../..', import.meta.url).pathname;
 const { PNG } = createRequire(`${REPO}package.json`)('pngjs');
 
@@ -35,14 +37,9 @@ export async function captureScrolledWindows(page, { contentW, contentH, pageH, 
     for (let offset = 0; offset < length; offset += contentH) {
       // The window's row `offset` is the document's row `k·H − margin + offset`.
       const shift = k * pageH - margin + offset;
-      await page.evaluate((y) => {
-        document.documentElement.style.marginTop = `${-y}px`;
-      }, shift);
       const height = Math.min(contentH, length - offset);
-      const shot = await page.screenshot({
-        clip: { x: 0, y: 0, width: contentW + margin, height },
-      });
-      bands.push({ offset, png: PNG.sync.read(shot) });
+      const png = await shootContentWithBand(page, { contentW, height, margin, y: shift });
+      bands.push({ offset, png });
     }
     windows.push({ length, bands });
   }
