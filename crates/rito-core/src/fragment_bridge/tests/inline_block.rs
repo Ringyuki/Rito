@@ -143,3 +143,45 @@ fn an_orthogonal_spacer_spans_the_page_across_its_line() {
         "the line stands as wide as the page"
     );
 }
+
+/// The shrink-to-fit width of a floated `<div>` holding `body`.
+fn float_width(body: &str) -> f64 {
+    let root = lay_out(
+        &format!(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><div class="f">{body}</div></body></html>"#
+        ),
+        "body { margin: 0; font-size: 10px; line-height: 10px; } .f { float: left; } .ib { display: inline-block; }\n",
+        &ConstraintSpace::continuous(640.0),
+    );
+    let Fragment::Box(root) = &root else {
+        panic!("the root is a box");
+    };
+    root.children
+        .iter()
+        .find_map(|child| match child {
+            Fragment::Box(float) => Some(float.rect.width),
+            _ => None,
+        })
+        .expect("the float")
+}
+
+/// An inline-block right after a forced break starts the next line in
+/// the max-content width too, so a shrink-to-fit box takes the wider of
+/// the two lines, not their sum (Chromium: `a<br><inline-block>` sizes by
+/// the longer one), and an open tag there brings its padding along.
+#[test]
+fn an_inline_block_after_a_forced_break_measures_on_the_next_line() {
+    let first = float_width("aaaaaaaaaa");
+    assert_eq!(
+        float_width(r#"aaaaaaaaaa<span><br /><span class="ib">bbbbb</span></span>"#),
+        first
+    );
+    assert_eq!(
+        float_width(r#"aaaaaaaaaa<br /><span class="ib">bbbbb</span>bbbbb"#),
+        float_width(r#"<span class="ib">bbbbb</span>bbbbb"#)
+    );
+    assert_eq!(
+        float_width(r#"aaa<br /><span style="padding-left: 30px">bbb</span>"#),
+        float_width(r#"<span style="padding-left: 30px">bbb</span>"#)
+    );
+}

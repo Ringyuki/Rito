@@ -650,6 +650,15 @@ impl<B: Brush> LayoutData<B> {
         let mut pending_open_tags = 0.0_f32;
         let mut text_wrap_mode = TextWrapMode::Wrap;
         let mut prev_cluster: Option<&ClusterData> = None;
+        // Rito: a forced break's mandatory boundary lands on the next
+        // cluster, so an inline box (or the open tag before one) right
+        // after the newline starts the next line here instead — the
+        // browser sizes `a<br><inline-block>` by the wider of the two, not
+        // their sum. Close tags stay on the line the break ends.
+        let mut after_newline = false;
+        // The break taken there is the one the next cluster's mandatory
+        // boundary marks: it must not end that box's line again.
+        let mut break_taken = false;
         let is_rtl = self.base_level & 1 == 1;
         for item in self.items.iter() {
             match item.kind {
@@ -660,10 +669,15 @@ impl<B: Brush> LayoutData<B> {
                         prev_cluster = clusters.first();
                     }
                     for cluster in clusters {
-                        let boundary = cluster.info.boundary();
+                        let boundary = match cluster.info.boundary() {
+                            Boundary::Mandatory if break_taken => Boundary::None,
+                            boundary => boundary,
+                        };
+                        break_taken = false;
                         let style = &self.styles[cluster.style_index as usize];
                         let prev_text_wrap_mode = text_wrap_mode;
                         text_wrap_mode = style.text_wrap_mode;
+                        after_newline = cluster.info.whitespace() == Whitespace::Newline;
                         if boundary == Boundary::Mandatory
                             || (prev_text_wrap_mode == TextWrapMode::Wrap
                                 && (boundary == Boundary::Line
@@ -696,6 +710,16 @@ impl<B: Brush> LayoutData<B> {
                 }
                 LayoutItemKind::InlineBox => {
                     let ibox = &self.inline_boxes[item.index];
+                    if after_newline && ibox.kind != InlineBoxKind::CloseTag {
+                        let trailing_whitespace = whitespace_advance(prev_cluster);
+                        min_width = min_width.max(running_min_width - trailing_whitespace);
+                        max_width = max_width.max(running_max_width - trailing_whitespace);
+                        running_min_width = 0.0;
+                        running_max_width = 0.0;
+                        prev_cluster = None;
+                        after_newline = false;
+                        break_taken = true;
+                    }
                     // Rito: an inline box's start size rides with the content
                     // after it (a break before that content takes it along),
                     // its end size with the content before it.

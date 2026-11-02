@@ -109,6 +109,14 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### An inline box after a forced break measures on the next line
+
+An inline-block right after a forced break starts the next line when a box
+measures its content's widest line, as Chromium measures it: a
+shrink-to-fit table column holding `text<br><inline-block>` takes the wider
+of the two lines instead of their sum, and an inline box opening there
+brings its padding along.
+
 ### Block sizes sit on the layout grid
 
 A box's fixed, minimum and maximum block size sits on the LayoutUnit grid,
