@@ -7,8 +7,8 @@
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId, InlineItem};
 use rito_style_contract::StyleId;
 
-use super::element_source_index;
 use super::inline::resolved_baseline_shift;
+use super::{element_source_index, InlineScope};
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{InlineCollector, NodePaint, TreeBuilder};
 use crate::render::contract::ReaderBorderStyle;
@@ -195,7 +195,7 @@ impl TreeBuilder<'_> {
             (style, layout_style)
         };
         self.require_image_capabilities(layout_style)?;
-        self.require_inline_capabilities(style, true, "image")?;
+        self.require_inline_capabilities(style, InlineScope::Atom, "image")?;
         let resolved = self
             .inline
             .style(style)
@@ -223,10 +223,7 @@ impl TreeBuilder<'_> {
         // stepping OUT of whatever baseline-shift chain wraps it (the
         // zhangyue footnote badge sits inside <sup> yet hugs the line
         // top in Blink; the sup's strut still raises the envelope).
-        let align_top = matches!(
-            resolved.fragment.baseline_shift,
-            rito_style_contract::BaselineShift::Top
-        );
+        let align = self.atom_align(style, inherited, "image")?;
         let baseline_shift_px = ancestor_shift_px
             + resolved_baseline_shift(
                 resolved,
@@ -268,7 +265,7 @@ impl TreeBuilder<'_> {
                 layout_style,
                 fit_contain: image.svg_contain,
                 viewport: image.svg_viewport,
-                align_top,
+                align,
                 baseline_shift_px,
                 object_fit,
             },

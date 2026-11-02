@@ -170,6 +170,31 @@ impl FormattingContext for ParleyInlineContext {
                 .collect(),
             _ => Vec::new(),
         };
+        // Per item: how far above its parent's baseline a `middle`-aligned
+        // atom centres, read once per layout; the raise it takes follows
+        // from its own box (`atom_align::middle_raise`).
+        let middle_half_x_heights = self.middle_half_x_heights(tree, root);
+        let inline_block_item_of: std::collections::HashMap<u32, usize> =
+            match &tree.node(root).content {
+                FormattingNodeContent::InlineFlow { items } => items
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, item)| match item {
+                        InlineItem::InlineBlock { node, .. } => Some((node.0, index)),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => std::collections::HashMap::new(),
+            };
+        let atom_raise = |item_index: usize, above: f64, below: f64| -> f64 {
+            middle_half_x_heights
+                .get(item_index)
+                .copied()
+                .flatten()
+                .map_or(0.0, |half| {
+                    crate::atom_align::middle_raise(above, below, half)
+                })
+        };
         // Per item: a declared line-height resolves to a fixed height; a
         // `normal` item defers to its fonts' normal-line metrics, chosen
         // per line. Indexed like `item_text_ranges`.
@@ -1387,7 +1412,15 @@ impl FormattingContext for ParleyInlineContext {
                             .get(inline_box.id as usize)
                             .copied()
                             .unwrap_or(0.0);
-                        max_rise = max_rise.max(shift);
+                        let height = f64::from(inline_box.height);
+                        let (atom_above, atom_below) = match inline_block_boxes.get(&inline_box.id)
+                        {
+                            Some((baseline, _)) => (*baseline, height - baseline),
+                            None => atom_baseline_extent(height, vertical_flow),
+                        };
+                        max_rise = max_rise.max(
+                            shift + atom_raise(inline_box.id as usize, atom_above, atom_below),
+                        );
                         if let Some((baseline, mini)) = inline_block_boxes.remove(&inline_box.id) {
                             // Parley rests the box bottom on the text
                             // baseline; an inline-block instead hangs its
@@ -1827,7 +1860,7 @@ impl FormattingContext for ParleyInlineContext {
                                     matches!(
                                         item,
                                         InlineItem::Image {
-                                            align_top: true,
+                                            align: AtomAlign::Top,
                                             ..
                                         }
                                     )
@@ -1840,8 +1873,12 @@ impl FormattingContext for ParleyInlineContext {
                         } else {
                             let (image_above, image_below) =
                                 atom_baseline_extent(image.rect.height, vertical_flow);
-                            above = above.max(image_above + shift);
-                            below = below.max(image_below - shift);
+                            // A `middle` raise moves the box alone; the
+                            // strut below stays with the enclosing box.
+                            let raised = shift
+                                + atom_raise(image.item_index as usize, image_above, image_below);
+                            above = above.max(image_above + raised);
+                            below = below.max(image_below - raised);
                         }
                         let item =
                             tree_items
@@ -1897,8 +1934,14 @@ impl FormattingContext for ParleyInlineContext {
                         .get(&atom.source.0)
                         .copied()
                         .unwrap_or(atom.rect.height);
-                    above = above.max(baseline + shift);
-                    below = below.max((atom.rect.height - baseline) - shift);
+                    let raised = shift
+                        + inline_block_item_of
+                            .get(&atom.source.0)
+                            .map_or(0.0, |index| {
+                                atom_raise(*index, baseline, atom.rect.height - baseline)
+                            });
+                    above = above.max(baseline + raised);
+                    below = below.max((atom.rect.height - baseline) - raised);
                     let item_style = tree_items.iter().find_map(|item| match item {
                         InlineItem::InlineBlock { node, style, .. } if node.0 == atom.source.0 => {
                             Some(*style)
@@ -2369,7 +2412,7 @@ impl FormattingContext for ParleyInlineContext {
                                         matches!(
                                             item,
                                             InlineItem::Image {
-                                                align_top: true,
+                                                align: AtomAlign::Top,
                                                 ..
                                             }
                                         )
@@ -2389,9 +2432,16 @@ impl FormattingContext for ParleyInlineContext {
                                 // independent).
                                 -shift
                             } else {
+                                let (image_above, image_below) =
+                                    atom_baseline_extent(image.rect.height, vertical_flow);
                                 baseline
                                     - shift
-                                    - atom_baseline_extent(image.rect.height, vertical_flow).0
+                                    - atom_raise(
+                                        image.item_index as usize,
+                                        image_above,
+                                        image_below,
+                                    )
+                                    - image_above
                             };
                         }
                         // An inline-block atom hangs its own baseline —
@@ -2402,7 +2452,17 @@ impl FormattingContext for ParleyInlineContext {
                                 .get(&atom.source.0)
                                 .copied()
                                 .unwrap_or(atom.rect.height);
-                            atom.rect.y = baseline - shift - mini_baseline;
+                            let raise =
+                                inline_block_item_of
+                                    .get(&atom.source.0)
+                                    .map_or(0.0, |index| {
+                                        atom_raise(
+                                            *index,
+                                            mini_baseline,
+                                            atom.rect.height - mini_baseline,
+                                        )
+                                    });
+                            atom.rect.y = baseline - shift - raise - mini_baseline;
                         }
                         _ => {}
                     }

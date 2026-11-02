@@ -214,6 +214,23 @@ pub struct RubyAnnotation {
     pub continues_ruby: bool,
 }
 
+/// How an atomic inline (an image or an inline-block) aligns on its line,
+/// from its own `vertical-align`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomAlign {
+    /// Its baseline on its parent's, shifted by the chain it sits in.
+    Baseline,
+    /// `top`: hangs from the line-box top.
+    Top,
+    /// `middle`: its middle half the parent's x-height above the parent's
+    /// baseline. `parent` is the style of the box it sits in, whose
+    /// primary font gives that x-height.
+    Middle {
+        /// The parent box's inline style.
+        parent: StyleId,
+    },
+}
+
 /// One item of an inline formatting context's input, in content order.
 #[derive(Clone, Debug, PartialEq)]
 pub enum InlineItem {
@@ -269,12 +286,12 @@ pub enum InlineItem {
         /// first, then the raster letterboxes inside it — and clamp
         /// bleed fills the inner sliver, not the outer margins.
         viewport: Option<(f64, f64)>,
-        /// `vertical-align: top`: the box pins to the line-box top,
-        /// ignoring the baseline-shift chain it sits in (a footnote
+        /// Its own `vertical-align`. `Top` pins the box to the line-box
+        /// top, ignoring the baseline-shift chain it sits in (a footnote
         /// badge inside `<sup>` stays at the line top while the sup's
-        /// strut still raises the envelope). It only grows the line
+        /// strut still raises the envelope); it only grows the line
         /// DOWNWARD when taller than the baseline envelope.
-        align_top: bool,
+        align: AtomAlign,
         /// Computed `object-fit` from the cascade (the UA stylesheet
         /// sets `contain` on `img`; authors can override). Consumed at
         /// paint time: `Fill` stretches into the box, everything else
@@ -302,6 +319,8 @@ pub enum InlineItem {
         /// Accumulated baseline shift from `vertical-align` on ancestor
         /// inline boxes, CSS px; positive raises the box.
         baseline_shift_px: f64,
+        /// Its own `vertical-align`.
+        align: AtomAlign,
     },
     /// The start edge of an inline box (Blink's open tag item): the box's
     /// inline-start margin, border and padding, read from `style`, take
@@ -463,6 +482,7 @@ impl FormattingTree {
                 InlineItem::Image {
                     style,
                     layout_style,
+                    align,
                     ..
                 } => {
                     styles.inline.style(*style).map_err(|error| {
@@ -471,10 +491,16 @@ impl FormattingTree {
                     styles.layout.style(*layout_style).map_err(|error| {
                         format!("formatting node {index} references a layout style outside the tree's table: {error}")
                     })?;
+                    if let AtomAlign::Middle { parent } = align {
+                        styles.inline.style(*parent).map_err(|error| {
+                            format!("formatting node {index} aligns by a parent style outside the tree's table: {error}")
+                        })?;
+                    }
                 }
                 InlineItem::InlineBlock {
                     style,
                     layout_style,
+                    align,
                     ..
                 } => {
                     styles.inline.style(*style).map_err(|error| {
@@ -483,6 +509,11 @@ impl FormattingTree {
                     styles.layout.style(*layout_style).map_err(|error| {
                         format!("formatting node {index} references a layout style outside the tree's table: {error}")
                     })?;
+                    if let AtomAlign::Middle { parent } = align {
+                        styles.inline.style(*parent).map_err(|error| {
+                            format!("formatting node {index} aligns by a parent style outside the tree's table: {error}")
+                        })?;
+                    }
                 }
                 InlineItem::EmptyBox { style, .. }
                 | InlineItem::OpenTag { style }
@@ -669,7 +700,7 @@ fn fingerprint(
                             baseline_shift_px,
                             fit_contain,
                             viewport,
-                            align_top,
+                            align,
                             object_fit,
                         } => {
                             mixer.mix(&[1]);
@@ -687,7 +718,7 @@ fn fingerprint(
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                             mixer.mix(&[u8::from(*fit_contain)]);
-                            mixer.mix(&[u8::from(*align_top)]);
+                            mix_atom_align(mixer, align);
                             mixer.mix(&[*object_fit as u8]);
                         }
                         InlineItem::InlineBlock {
@@ -695,12 +726,14 @@ fn fingerprint(
                             style,
                             layout_style,
                             baseline_shift_px,
+                            align,
                         } => {
                             mixer.mix(&[4]);
                             mixer.mix(&node.0.to_le_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                            mix_atom_align(mixer, align);
                         }
                         InlineItem::EmptyBox {
                             style,
@@ -738,6 +771,17 @@ fn fingerprint(
         styles.inline.node_style_ids().hash(&mut mixer);
     }
     mixer.finish()
+}
+
+fn mix_atom_align(mixer: &mut FnvMixer, align: &AtomAlign) {
+    match align {
+        AtomAlign::Baseline => mixer.mix(&[0]),
+        AtomAlign::Top => mixer.mix(&[1]),
+        AtomAlign::Middle { parent } => {
+            mixer.mix(&[2]);
+            mixer.mix(&parent.raw().to_le_bytes());
+        }
+    }
 }
 
 /// FNV-1a 64 usable both for raw canonical bytes and as a `std::hash::Hasher`

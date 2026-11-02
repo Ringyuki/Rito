@@ -12,6 +12,7 @@ mod inline_block;
 mod pagination;
 mod sizing;
 mod tree;
+mod vertical_align;
 
 use super::*;
 use crate::render::test_support::css_color;

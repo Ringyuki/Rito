@@ -111,7 +111,7 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
             layout_style: image_layout,
             viewport: None,
             baseline_shift_px: 0.0,
-            align_top: false,
+            align: rito_fragment::AtomAlign::Baseline,
             fit_contain: false,
             object_fit: rito_style_contract::ObjectFit::Fill,
         },

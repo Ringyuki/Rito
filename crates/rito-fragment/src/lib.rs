@@ -32,8 +32,8 @@ pub use context::{
 };
 pub use formatting_tree::{
     allocate_ruby_annotation, allocate_ruby_annotation_range, distribute_ruby_annotation,
-    FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
-    InlineItem, RubyAnnotation,
+    AtomAlign, FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree,
+    FormattingTreeStyles, InlineItem, RubyAnnotation,
 };
 pub use fragment::{
     BlockCuts, BoxFragment, BoxSnap, ClusterOrientation, ClusterPosition, CombinedForms,

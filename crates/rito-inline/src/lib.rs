@@ -29,7 +29,7 @@ use parley::{
     StyleProperty,
 };
 use rito_fragment::{
-    BoxFragment, CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent,
+    AtomAlign, BoxFragment, CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent,
     FormattingNodeId, FormattingTree, Fragment, FragmentRect, FragmentTree, InlineItem,
     IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFonts, LineFragment, LineText,
     TextFragment,
@@ -39,6 +39,7 @@ use rito_style_contract::{
     MaximumSize, PreferredSize, TextAlign, TextOrientation, WritingMode,
 };
 
+mod atom_align;
 mod atoms;
 mod break_opportunities;
 mod breaking;

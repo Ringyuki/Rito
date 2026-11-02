@@ -198,7 +198,7 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     object_fit: rito_style_contract::ObjectFit::Fill,
                     viewport: None,
                     baseline_shift_px: 6.328125,
-                    align_top: false,
+                    align: rito_fragment::AtomAlign::Baseline,
                 },
                 InlineItem::Text {
                     text: "，甘夏老师".to_owned(),
@@ -343,7 +343,7 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                     object_fit: rito_style_contract::ObjectFit::Fill,
                     viewport: None,
                     baseline_shift_px: 0.0,
-                    align_top: false,
+                    align: rito_fragment::AtomAlign::Baseline,
                 },
                 InlineItem::Text {
                     text: " after the picture.".to_owned(),
@@ -1131,7 +1131,7 @@ fn a_ruby_split_rewind_keeps_an_image_before_the_ruby_on_the_line() {
             fit_contain: false,
             viewport: None,
             baseline_shift_px: 0.0,
-            align_top: false,
+            align: rito_fragment::AtomAlign::Baseline,
             object_fit: rito_style_contract::ObjectFit::Fill,
         },
         InlineItem::Text {

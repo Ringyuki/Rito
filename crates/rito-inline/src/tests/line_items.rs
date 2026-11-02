@@ -46,7 +46,7 @@ fn mixed_tree() -> FormattingTree {
             fit_contain: false,
             object_fit: rito_style_contract::ObjectFit::Fill,
             viewport: None,
-            align_top: false,
+            align: rito_fragment::AtomAlign::Baseline,
             baseline_shift_px: 0.0,
         },
         text(" then שלום עולם and בוקר טוב read right to left, "),

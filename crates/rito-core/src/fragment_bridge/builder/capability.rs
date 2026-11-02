@@ -71,14 +71,15 @@ impl TreeBuilder<'_> {
     /// borders, vertical-align) do not inherit and only apply to actual
     /// inline boxes, so a text run — which borrows its nearest element's
     /// style — is checked against the text-level fields only, while inline
-    /// elements and images are checked in full.
+    /// elements and images are checked in full, an atomic inline's
+    /// `vertical-align` against what atoms implement.
     pub(super) fn require_inline_capabilities(
         &mut self,
         style: StyleId,
-        is_box: bool,
+        scope: InlineScope,
         what: &str,
     ) -> EpubResult<()> {
-        let key = (style.raw(), is_box);
+        let key = (style.raw(), scope);
         let verdict = match self.checked_inline_styles.get(&key) {
             Some(cached) => cached.clone(),
             None => {
@@ -86,11 +87,14 @@ impl TreeBuilder<'_> {
                     .inline
                     .style(style)
                     .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
-                let verdict = if is_box {
-                    inline_text_capability_violation(resolved)
+                let verdict = match scope {
+                    InlineScope::Text => inline_text_capability_violation(resolved),
+                    InlineScope::Box => inline_text_capability_violation(resolved)
                         .or_else(|| inline_box_capability_violation(resolved))
-                } else {
-                    inline_text_capability_violation(resolved)
+                        .or_else(|| inline_box_alignment_violation(resolved)),
+                    InlineScope::Atom => inline_text_capability_violation(resolved)
+                        .or_else(|| inline_box_capability_violation(resolved))
+                        .or_else(|| atom_alignment_violation(resolved)),
                 };
                 self.checked_inline_styles.insert(key, verdict.clone());
                 verdict
@@ -345,6 +349,15 @@ fn inline_box_capability_violation(
             return Some(format!("inline percentage {name}"));
         }
     }
+    None
+}
+
+/// The `vertical-align` an inline box implements: its baseline on its
+/// parent's, raised or lowered by `super`, `sub` or nothing.
+fn inline_box_alignment_violation(
+    style: &rito_style_contract::InlineFormattingStyle,
+) -> Option<String> {
+    use rito_style_contract as c;
     match style.fragment.baseline_shift {
         c::BaselineShift::Offset(offset) if length_percentage_is_zero(&offset) => {}
         c::BaselineShift::Super | c::BaselineShift::Sub => {}
@@ -355,4 +368,31 @@ fn inline_box_capability_violation(
         other => return Some(format!("alignment-baseline {other:?}")),
     }
     None
+}
+
+/// The `vertical-align` an atomic inline implements: an inline box's, and
+/// `top` and `middle` besides.
+fn atom_alignment_violation(style: &rito_style_contract::InlineFormattingStyle) -> Option<String> {
+    use rito_style_contract as c;
+    match style.fragment.baseline_shift {
+        c::BaselineShift::Offset(offset) if length_percentage_is_zero(&offset) => {}
+        c::BaselineShift::Super | c::BaselineShift::Sub | c::BaselineShift::Top => {}
+        other => return Some(format!("vertical-align {other:?}")),
+    }
+    match style.fragment.alignment_baseline {
+        c::AlignmentBaseline::Baseline | c::AlignmentBaseline::Middle => {}
+        other => return Some(format!("alignment-baseline {other:?}")),
+    }
+    None
+}
+
+/// What an inline style is checked as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(in crate::fragment_bridge) enum InlineScope {
+    /// A text run borrowing its element's style.
+    Text,
+    /// An inline box.
+    Box,
+    /// An atomic inline: an image or an inline-block.
+    Atom,
 }

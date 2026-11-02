@@ -501,7 +501,7 @@ struct TreeBuilder<'a> {
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
     checked_box_paints: std::collections::HashMap<u32, CheckedBoxPaint>,
-    checked_inline_styles: std::collections::HashMap<(u32, bool), Option<String>>,
+    checked_inline_styles: std::collections::HashMap<(u32, builder::InlineScope), Option<String>>,
 }
 
 /// One box-paint capability verdict: the paint (with its border widths)

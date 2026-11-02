@@ -126,7 +126,7 @@ fn painted_image_rect_framed(
                 fit_contain: false,
                 viewport: None,
                 baseline_shift_px: 0.0,
-                align_top: false,
+                align: rito_fragment::AtomAlign::Baseline,
                 object_fit,
             }],
         },

@@ -10,6 +10,7 @@ use rito_style_contract::{
     Float, GeneratedBox, GeneratedContentItem, LayoutDisplayOutside, Position, PseudoElementKind,
 };
 
+use super::InlineScope;
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{InlineCollector, TreeBuilder};
 
@@ -81,7 +82,7 @@ impl TreeBuilder<'_> {
         source_index: usize,
         collector: &mut InlineCollector,
     ) -> EpubResult<()> {
-        self.require_inline_capabilities(generated.inline, true, "generated box")?;
+        self.require_inline_capabilities(generated.inline, InlineScope::Box, "generated box")?;
         let text = self.generated_text(generated);
         if text.is_empty() {
             collector.push_empty_box(generated.inline, baseline_shift_px, source_index);

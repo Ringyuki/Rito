@@ -16,6 +16,7 @@ use rito_style_contract::{
 };
 
 use capability::box_decoration_violation;
+pub(super) use capability::InlineScope;
 use generated::Generated;
 
 use super::box_paint::block_box_paint;

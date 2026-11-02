@@ -70,7 +70,7 @@ fn an_atom_boundary_share_moves_the_atom_not_the_next_run() {
                         fit_contain: false,
                         object_fit: rito_style_contract::ObjectFit::Fill,
                         viewport: None,
-                        align_top: false,
+                        align: rito_fragment::AtomAlign::Baseline,
                         baseline_shift_px: 0.0,
                     },
                     InlineItem::Text {
@@ -719,7 +719,7 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
                 fit_contain: false,
                 viewport: None,
                 baseline_shift_px: shift_px,
-                align_top: true,
+                align: rito_fragment::AtomAlign::Top,
                 object_fit: rito_style_contract::ObjectFit::Fill,
             },
             InlineItem::Text {
@@ -892,7 +892,7 @@ fn an_inline_image_separates_a_punctuation_pair() {
                 fit_contain: false,
                 viewport: None,
                 baseline_shift_px: 0.0,
-                align_top: false,
+                align: rito_fragment::AtomAlign::Baseline,
                 object_fit: rito_style_contract::ObjectFit::Fill,
             });
         }
@@ -1324,7 +1324,7 @@ fn a_vertical_line_clamps_an_image_to_the_columns_length() {
                         fit_contain: false,
                         object_fit: rito_style_contract::ObjectFit::Fill,
                         viewport: None,
-                        align_top: false,
+                        align: rito_fragment::AtomAlign::Baseline,
                         baseline_shift_px: 0.0,
                     },
                 ],

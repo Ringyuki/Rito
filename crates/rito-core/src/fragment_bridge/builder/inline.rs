@@ -8,13 +8,13 @@
 //! its `vertical-align`, flatten ruby parts to plain text, and collapse an
 //! annotation's white space.
 
-use rito_fragment::{FormattingNode, FormattingNodeContent, InlineItem};
+use rito_fragment::{AtomAlign, FormattingNode, FormattingNodeContent, InlineItem};
 use rito_style_contract::{
     LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId, PseudoElementKind, StyleId,
     WhiteSpaceCollapse,
 };
 
-use super::{element_source_index, inline_items_have_substance};
+use super::{element_source_index, inline_items_have_substance, InlineScope};
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{InlineCollector, TreeBuilder};
 use crate::xhtml::{DocumentNode, ElementNode};
@@ -43,7 +43,7 @@ impl TreeBuilder<'_> {
                 // (measured: a calibre story's four-space paragraph
                 // indents, kept by Blink under `white-space: pre-wrap`).
                 if !self.white_space_collapse(inherited)? {
-                    self.require_inline_capabilities(inherited, false, "text run")?;
+                    self.require_inline_capabilities(inherited, InlineScope::Text, "text run")?;
                     collector.push_text(
                         text.source_text.as_deref().unwrap_or(&text.content),
                         inherited,
@@ -65,7 +65,7 @@ impl TreeBuilder<'_> {
                     collector.push_collapsible_whitespace(inherited);
                     return Ok(());
                 }
-                self.require_inline_capabilities(inherited, false, "text run")?;
+                self.require_inline_capabilities(inherited, InlineScope::Text, "text run")?;
                 let collapse = self.white_space_collapse(inherited)?;
                 collector.push_text(
                     &text.content,
@@ -96,7 +96,27 @@ impl TreeBuilder<'_> {
                     return Ok(());
                 }
                 let style = self.inline_style_id(source_index, &element.tag);
-                self.require_inline_capabilities(style, true, &element.tag)?;
+                // A `display: inline-block` span is an ATOMIC inline: its
+                // content becomes a hidden mini-paragraph node the inline
+                // engine lays out recursively at shrink-to-fit width
+                // (CSS 2.1 §10.3.5), riding the host line as one box whose
+                // baseline is its last line's (§10.8.1). Content that is
+                // not inline-only falls back to plain flattening.
+                let layout_style_id = self.layout_style_id(source_index, &element.tag);
+                let is_inline_block = self
+                    .layout
+                    .style(layout_style_id)
+                    .map(|resolved| {
+                        resolved.display.outside == LayoutDisplayOutside::Inline
+                            && resolved.display.inside == LayoutDisplayInside::FlowRoot
+                    })
+                    .unwrap_or(false);
+                let scope = if is_inline_block {
+                    InlineScope::Atom
+                } else {
+                    InlineScope::Box
+                };
+                self.require_inline_capabilities(style, scope, &element.tag)?;
                 let style = self.propagate_text_decorations(style, inherited)?;
                 let shift =
                     ancestor_shift_px + self.baseline_shift(style, inherited, &element.tag)?;
@@ -122,35 +142,22 @@ impl TreeBuilder<'_> {
                     Some(href) => Some(collector.current_link.replace(href)),
                     None => None,
                 };
-                // A `display: inline-block` span is an ATOMIC inline: its
-                // content becomes a hidden mini-paragraph node the inline
-                // engine lays out recursively at shrink-to-fit width
-                // (CSS 2.1 §10.3.5), riding the host line as one box whose
-                // baseline is its last line's (§10.8.1). Content that is
-                // not inline-only falls back to plain flattening.
-                let layout_style_id = self.layout_style_id(source_index, &element.tag);
-                let is_inline_block = self
-                    .layout
-                    .style(layout_style_id)
-                    .map(|resolved| {
-                        resolved.display.outside == LayoutDisplayOutside::Inline
-                            && resolved.display.inside == LayoutDisplayInside::FlowRoot
-                    })
-                    .unwrap_or(false);
-                if is_inline_block
-                    && self.collect_inline_block(
-                        element,
-                        source_index,
+                if is_inline_block {
+                    let align = self.atom_align(style, inherited, &element.tag)?;
+                    let standing = AtomStanding {
                         style,
-                        layout_style_id,
-                        shift,
-                        collector,
-                    )?
-                {
-                    if let Some(saved) = saved_link {
-                        collector.current_link = saved;
+                        layout_style: layout_style_id,
+                        baseline_shift_px: shift,
+                        align,
+                    };
+                    if self.collect_inline_block(element, source_index, standing, collector)? {
+                        if let Some(saved) = saved_link {
+                            collector.current_link = saved;
+                        }
+                        return Ok(());
                     }
-                    return Ok(());
+                    // Flattened: its alignment is an inline box's now.
+                    self.require_inline_capabilities(style, InlineScope::Box, &element.tag)?;
                 }
                 let before = self.generated_inline(source_index, PseudoElementKind::Before);
                 let after = self.generated_inline(source_index, PseudoElementKind::After);
@@ -192,19 +199,18 @@ impl TreeBuilder<'_> {
                     return Ok(());
                 }
                 let style = self.inline_style_id(source_index, &element.tag);
-                self.require_inline_capabilities(style, true, &element.tag)?;
+                self.require_inline_capabilities(style, InlineScope::Atom, &element.tag)?;
                 let style = self.propagate_text_decorations(style, inherited)?;
                 let shift =
                     ancestor_shift_px + self.baseline_shift(style, inherited, &element.tag)?;
                 let layout_style = self.layout_style_id(source_index, &element.tag);
-                self.collect_inline_block(
-                    element,
-                    source_index,
+                let standing = AtomStanding {
                     style,
                     layout_style,
-                    shift,
-                    collector,
-                )?;
+                    baseline_shift_px: shift,
+                    align: self.atom_align(style, inherited, &element.tag)?,
+                };
+                self.collect_inline_block(element, source_index, standing, collector)?;
                 Ok(())
             }
             DocumentNode::Block(element) => Err(EpubError::new(format!(
@@ -232,6 +238,31 @@ impl TreeBuilder<'_> {
         ))
     }
 
+    /// How the atomic inline styled `style` aligns on its line, from its own
+    /// `vertical-align`, in its parent box styled `parent` (whose primary
+    /// font's x-height `middle` centres it on).
+    pub(super) fn atom_align(
+        &self,
+        style: StyleId,
+        parent: StyleId,
+        tag: &str,
+    ) -> EpubResult<AtomAlign> {
+        let resolved = self
+            .inline
+            .style(style)
+            .map_err(|error| EpubError::new(format!("{tag} style: {error}")))?;
+        Ok(
+            match (
+                resolved.fragment.alignment_baseline,
+                resolved.fragment.baseline_shift,
+            ) {
+                (rito_style_contract::AlignmentBaseline::Middle, _) => AtomAlign::Middle { parent },
+                (_, rito_style_contract::BaselineShift::Top) => AtomAlign::Top,
+                _ => AtomAlign::Baseline,
+            },
+        )
+    }
+
     /// Builds one `display: inline-block` element into an atomic inline: a
     /// hidden node holding its content — a mini paragraph when the content
     /// is inline-level, else the block container it would be as a block —
@@ -245,23 +276,33 @@ impl TreeBuilder<'_> {
         &mut self,
         element: &ElementNode,
         source_index: usize,
-        style: StyleId,
-        layout_style: LayoutStyleId,
-        baseline_shift_px: f64,
+        standing: AtomStanding,
         collector: &mut InlineCollector,
     ) -> EpubResult<bool> {
+        // An inline-block hanging from the line top is not laid out yet:
+        // it keeps its baseline.
+        let standing = if standing.align == AtomAlign::Top {
+            self.degrade(format!(
+                "<{}> inline-block vertical-align top laid out on the baseline",
+                element.tag
+            ));
+            AtomStanding {
+                align: AtomAlign::Baseline,
+                ..standing
+            }
+        } else {
+            standing
+        };
+        let AtomStanding {
+            style,
+            layout_style,
+            ..
+        } = standing;
         let holds_blocks = element.children.iter().any(
             |child| matches!(child, DocumentNode::Block(block) if !self.is_inline_block(block)),
         );
         if holds_blocks {
-            self.collect_block_container_atom(
-                element,
-                source_index,
-                style,
-                layout_style,
-                baseline_shift_px,
-                collector,
-            )?;
+            self.collect_block_container_atom(element, source_index, standing, collector)?;
             return Ok(true);
         }
         let mut sub = self.inline_collector();
@@ -285,14 +326,7 @@ impl TreeBuilder<'_> {
         if !inline_items_have_substance(&items) {
             // An empty one has no line box: an empty block container, as
             // tall as its own height, padding and borders make it.
-            self.collect_block_container_atom(
-                element,
-                source_index,
-                style,
-                layout_style,
-                baseline_shift_px,
-                collector,
-            )?;
+            self.collect_block_container_atom(element, source_index, standing, collector)?;
             return Ok(true);
         }
         let node = self.push_node(
@@ -306,12 +340,7 @@ impl TreeBuilder<'_> {
         self.strut_styles.insert(node.0, style);
         self.flow_item_sources.insert(node.0, sources);
         collector.push_image(
-            InlineItem::InlineBlock {
-                node,
-                style,
-                layout_style,
-                baseline_shift_px,
-            },
+            standing.item(node),
             source_index,
             element.source_ref.node_path.clone(),
             "",
@@ -327,21 +356,14 @@ impl TreeBuilder<'_> {
         &mut self,
         element: &ElementNode,
         source_index: usize,
-        style: StyleId,
-        layout_style: LayoutStyleId,
-        baseline_shift_px: f64,
+        standing: AtomStanding,
         collector: &mut InlineCollector,
     ) -> EpubResult<()> {
         let Some(node) = self.build_block(element)? else {
             return Ok(());
         };
         collector.push_image(
-            InlineItem::InlineBlock {
-                node,
-                style,
-                layout_style,
-                baseline_shift_px,
-            },
+            standing.item(node),
             source_index,
             element.source_ref.node_path.clone(),
             "",
@@ -368,7 +390,7 @@ impl TreeBuilder<'_> {
             return Ok(());
         }
         let style = self.inline_style_id(source_index, "ruby");
-        self.require_inline_capabilities(style, true, "ruby")?;
+        self.require_inline_capabilities(style, InlineScope::Box, "ruby")?;
         let collapse = self.white_space_collapse(style)?;
         let mut pending_base = String::new();
         // Whether a pair of this element already went out: the later ones
@@ -499,6 +521,30 @@ impl TreeBuilder<'_> {
                 ));
                 Ok(false)
             }
+        }
+    }
+}
+
+/// How an inline-block atom stands on its host line: its own inline and
+/// layout styles, the baseline shift the boxes around it give it, and its
+/// own `vertical-align`.
+#[derive(Clone, Copy)]
+struct AtomStanding {
+    style: StyleId,
+    layout_style: LayoutStyleId,
+    baseline_shift_px: f64,
+    align: AtomAlign,
+}
+
+impl AtomStanding {
+    /// The atom item for the content node `node`.
+    fn item(self, node: rito_fragment::FormattingNodeId) -> InlineItem {
+        InlineItem::InlineBlock {
+            node,
+            style: self.style,
+            layout_style: self.layout_style,
+            baseline_shift_px: self.baseline_shift_px,
+            align: self.align,
         }
     }
 }
