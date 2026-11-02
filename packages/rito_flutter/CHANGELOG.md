@@ -109,6 +109,14 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Block sizes sit on the layout grid
+
+A box's fixed, minimum and maximum block size sits on the LayoutUnit grid,
+truncated as Chromium stores a used size: paragraphs held to
+`min-width: 1.6em` down a vertical page stack 25.59375px apart instead of
+25.6, so their excess no longer piles up over a page and moves where the
+next page's lines start.
+
 ### Images down a column snap like any inline image
 
 An image in a vertical line paints placed by its `object-fit` and snapped

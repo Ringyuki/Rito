@@ -259,7 +259,7 @@ pub(crate) fn resolve_fixed_height(
     let height = match style.block_size() {
         PreferredSize::Auto => return Ok(None),
         PreferredSize::Value(value) => match value.value() {
-            LengthPercentage::Length(px) => f64::from(px.get()),
+            LengthPercentage::Length(px) => layout_unit_trunc(f64::from(px.get())),
             // No definite height basis in block flow: behaves as auto.
             LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => return Ok(None),
         },
@@ -314,13 +314,19 @@ pub(crate) fn resolve_block_size_bounds(
         BoxSizing::ContentBox => size.max(0.0) + block_padding,
         BoxSizing::BorderBox => size.max(0.0),
     };
+    // Each length sits on the LayoutUnit grid by truncation, as Blink
+    // stores a used size (measured: `min-width: 1.6em` at 16px makes a
+    // vertical paragraph 25.59375 wide, not 25.6, and a page of them
+    // ends where its lines do).
     let min = match style.min_block_size() {
-        MinimumSize::Length(px) => border_box(f64::from(px.get())),
+        MinimumSize::Length(px) => border_box(layout_unit_trunc(f64::from(px.get()))),
         MinimumSize::Auto | MinimumSize::Percentage(_) => 0.0,
     };
     let max = match style.max_block_size() {
         MaximumSize::Value(value) => match value.value() {
-            LengthPercentage::Length(px) => Some(border_box(f64::from(px.get()))),
+            LengthPercentage::Length(px) => {
+                Some(border_box(layout_unit_trunc(f64::from(px.get()))))
+            }
             LengthPercentage::Percentage(_) | LengthPercentage::Linear { .. } => None,
         },
         MaximumSize::None
@@ -332,6 +338,12 @@ pub(crate) fn resolve_block_size_bounds(
         | MaximumSize::FitContentFunction(_) => None,
     };
     BlockSizeBounds { min, max }
+}
+
+/// `value` truncated onto the LayoutUnit grid (1/64 px), as LayoutUnit's
+/// float constructor stores a length.
+pub(crate) fn layout_unit_trunc(value: f64) -> f64 {
+    (value * 64.0).trunc() / 64.0
 }
 
 pub(crate) fn resolve_length_percentage(value: LengthPercentage, basis: f64) -> f64 {
