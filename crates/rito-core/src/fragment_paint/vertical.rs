@@ -32,6 +32,7 @@ use crate::render::{
 use super::emphasis;
 use super::family::{combined_forms_family, face_family, vertical_forms_family};
 use super::flow_text::FlowTexts;
+use super::image::append_image_command;
 use super::line::append_line_commands;
 use super::run_style::run_paint;
 use super::{cluster_x, snap_css, LineAnnotations, CANVAS_TOP_ASCENT_RATIO};
@@ -340,24 +341,30 @@ pub(super) fn append_vertical_line_commands(
         // width x height — and the raster paints unrotated, clipping at
         // the page edge like the reference.
         if let Fragment::Image(image) = child {
-            let Some(InlineItem::Image { src, .. }) = items.get(image.item_index as usize) else {
-                continue;
-            };
             let item_source =
                 item_sources.and_then(|sources| sources.get(image.item_index as usize));
             // Its block offset measures in from the line-over (right)
-            // edge, like every block offset in the line.
-            commands.push(DisplayCommand::paint_image(
-                src.clone(),
-                display_rect(
-                    column_x + line.rect.height - image.rect.y - image.rect.height,
-                    column_top + image.rect.x,
-                    image.rect.height,
-                    image.rect.width,
-                ),
-                item_source.and_then(|source| source.image_alt.clone()),
-                item_source.and_then(|source| source.href.clone()),
-            ));
+            // edge, like every block offset in the line. Back in physical
+            // terms it paints as any inline image does: placed by its
+            // `object-fit` and snapped to whole CSS pixels.
+            let physical = rito_fragment::ImageFragment {
+                rect: rito_fragment::FragmentRect {
+                    x: column_x + line.rect.height - image.rect.y - image.rect.height,
+                    y: column_top + image.rect.x,
+                    width: image.rect.height,
+                    height: image.rect.width,
+                },
+                ..image.clone()
+            };
+            append_image_command(
+                commands,
+                items,
+                &physical,
+                0.0,
+                0.0,
+                image_border_paints,
+                item_source,
+            )?;
             continue;
         }
         if let Fragment::Box(atom) = child {

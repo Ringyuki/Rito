@@ -27,6 +27,24 @@ fn painted_image_rect_in(
     object_fit: rito_style_contract::ObjectFit,
     image_rect: FragmentRect,
 ) -> Option<ReaderRect> {
+    painted_image_rect_framed(
+        intrinsic_width,
+        intrinsic_height,
+        object_fit,
+        image_rect,
+        None,
+    )
+}
+
+/// The rect an image at `image_rect` on a line paints at, the tree laid
+/// out in `vertical_frame` when one is given.
+fn painted_image_rect_framed(
+    intrinsic_width: f64,
+    intrinsic_height: f64,
+    object_fit: rito_style_contract::ObjectFit,
+    image_rect: FragmentRect,
+    vertical_frame: Option<crate::fragment_paint::VerticalFrame>,
+) -> Option<ReaderRect> {
     use rito_style_contract::{
         AlignItems, BoxSizing, Clear, CssPx, Float, JustifyContent, LayoutDisplay,
         LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto,
@@ -125,7 +143,19 @@ fn painted_image_rect_in(
         rect: image_rect,
         item_index: 0,
     })]);
-    let commands = paint(&tree, &root);
+    let mut commands = Vec::new();
+    append_fragment_display_commands(
+        &mut commands,
+        &tree,
+        &root,
+        0.0,
+        0.0,
+        FragmentPaintContext {
+            vertical_frame,
+            ..FragmentPaintContext::default()
+        },
+    )
+    .expect("fragments paint");
     assert!(
         commands.len() <= 1,
         "expected at most one command: {commands:?}"
@@ -237,5 +267,42 @@ fn a_raster_contained_to_a_sliver_paints_nothing() {
             },
         ),
         None
+    );
+}
+
+#[test]
+fn a_column_image_snaps_like_any_inline_image() {
+    use rito_style_contract::ObjectFit;
+    // Down a column the image's box comes back to physical terms and
+    // paints as any inline image does, snapped to whole CSS pixels (the
+    // browser rasters a plate centred at a .5 offset on the next row; the
+    // raw rect smeared it across two). The column of the boxed line stands
+    // at x 174, y 34: the image's box lands at (163.75, 44.5).
+    let frame = crate::fragment_paint::VerticalFrame {
+        converter: rito_fragment::WritingModeConverter::from_logical_size(
+            rito_style_contract::WritingDirection {
+                mode: rito_style_contract::WritingMode::VerticalRightToLeft,
+                direction: rito_style_contract::Direction::LeftToRight,
+            },
+            100.0,
+            220.0,
+        ),
+        left: 0.0,
+        top: 20.0,
+    };
+    assert_eq!(
+        painted_image_rect_framed(
+            30.0,
+            40.0,
+            ObjectFit::Fill,
+            FragmentRect {
+                x: 10.5,
+                y: 0.25,
+                width: 40.0,
+                height: 30.0,
+            },
+            Some(frame),
+        ),
+        Some(display_rect(164.0, 45.0, 30.0, 40.0))
     );
 }

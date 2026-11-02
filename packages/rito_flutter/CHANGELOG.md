@@ -109,6 +109,12 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### Images down a column snap like any inline image
+
+An image in a vertical line paints placed by its `object-fit` and snapped
+to whole CSS pixels, as an image in a horizontal line does: a plate
+centred down a column no longer lands a pixel off.
+
 ### A block past the page end opens the next page
 
 A block whose start lands past the end of the page, after a line or plate
