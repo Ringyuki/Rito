@@ -155,6 +155,11 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
         // The margin below the previous in-flow child, awaiting collapse
         // with the next child's top margin.
         let mut pending_margin = PendingMargin::ZERO;
+        // After a break before a child, the margins adjoining the break
+        // are discarded up to the first child with content: self-collapsing
+        // children pass the discard on instead of a margin (Blink's margin
+        // strut discards margins at a break).
+        let mut discarding_margins = false;
         // The margin set a clearing self-collapsing spacer swallowed:
         // the margins collapsing after it resolve against the cleared
         // line MINUS this amount, floored at zero (follower top = float
@@ -575,7 +580,9 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             // adjoining margins belongs; whatever the fold could not
             // resolve there (a percentage has no basis until layout) is
             // still a real margin and is applied here, as a browser does.
-            let gap = if child_resumed || cleared {
+            let discarding = discarding_margins || (child_resumed && !child_resumed_inside);
+            discarding_margins = false;
+            let gap = if child_resumed || cleared || discarding {
                 0.0
             } else {
                 let collapsed = pending_margin.merge(top_set).resolve();
@@ -592,6 +599,29 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
             } else {
                 gap
             };
+            // A child whose block start lands past the fragmentainer's end
+            // (an overflowing monolith or a margin before it) breaks before,
+            // however small, and opens the next fragmentainer: Blink's
+            // MovePastBreakpoint must break when the space left is below
+            // zero (measured: the empty `<div>` after an over-wide plate
+            // opens a column of its own).
+            if !child_resumed
+                && space.fragmentainer_remaining.is_some()
+                && !page_is_empty
+                && remaining - gap < -1.0 / 128.0
+            {
+                return Ok(sealed_with_break(
+                    container,
+                    space,
+                    seal_height(y, &floats),
+                    fragments,
+                    BreakToken {
+                        resume_path: vec![*child_id],
+                        stage: BreakTokenStage::Before,
+                        pending_floats: std::mem::take(&mut pending_float_breaks),
+                    },
+                ));
+            }
             let available = (remaining - gap).max(0.0);
             // The collapsed margin above this child, and what the sibling
             // before it left, for its first line's annotations.
@@ -745,7 +775,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             children: Vec::new(),
                             cuts: BlockCuts::NONE,
                         }));
-                        pending_margin = if cleared {
+                        discarding_margins = discarding;
+                        pending_margin = if discarding {
+                            PendingMargin::ZERO
+                        } else if cleared {
                             // The spacer's swallowed top set must not
                             // resurrect through the pass-through; it
                             // credits against the next collapse instead.
@@ -1403,8 +1436,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                     // Mirror of through_collapsed_top's descent predicate:
                     // when the child's leading chain joined THIS loop's
                     // collapse set, its first in-flow child must start
-                    // flush inside.
-                    let child_leading_consumed = (!child_resumed
+                    // flush inside. A child the break went before starts
+                    // its fragmentainer with that whole chain truncated
+                    // (Blink discards the margin strut at a break).
+                    let child_leading_consumed = (!child_resumed_inside
                         && !is_flow_root(child_style)
                         && child_style.writing_mode == writing.mode
                         && hbox.padding_top == 0.0)
@@ -1492,7 +1527,10 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
                             content_left + hbox.x,
                             y + gap,
                         );
-                        pending_margin = if cleared {
+                        discarding_margins = discarding;
+                        pending_margin = if discarding {
+                            PendingMargin::ZERO
+                        } else if cleared {
                             // The spacer's swallowed set credits against
                             // the next collapse instead of resurrecting
                             // through the pass-through.

@@ -109,6 +109,13 @@ no-break space never hangs past the line's end. `-webkit-line-break` and
 `-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
 reach the engine as the properties Chromium aliases them to.
 
+### A block past the page end opens the next page
+
+A block whose start lands past the end of the page, after a line or plate
+taller than the page, opens the next page however small it is, as
+Chromium breaks before it: a page-break `<div>` after an over-wide plate
+no longer hangs off the bottom of the plate's page.
+
 ### Inline-blocks lay out as atomic inlines
 
 An element styled `display: inline-block` lays out as Chromium's atomic
