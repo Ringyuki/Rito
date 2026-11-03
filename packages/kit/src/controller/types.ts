@@ -94,6 +94,24 @@ export interface ReaderController {
   mount(container: HTMLElement): void;
   /** Clean up all engines, DOM elements, and listeners. Does NOT dispose the Reader. */
   dispose(): void;
+  /**
+   * Hands the reader over to another view of it (a scroll view, say) until
+   * {@link resume}: the controller takes its canvas off the page, lets its
+   * page buffers go, and paints, turns, takes keys and answers the
+   * reader's layouts no more. Its annotations, search and stored position
+   * stay; `resize`, `setTheme`, `setTypography` and `setSpreadMode` still
+   * lay the reader out, for the view that has it. A `mount` meanwhile
+   * names where the canvas goes back.
+   */
+  suspend(): void;
+  /**
+   * Takes the reader back as it is laid out now, at its active spread: the
+   * canvas goes back in the container it was mounted in last, and the
+   * spread is painted afresh.
+   */
+  resume(): void;
+  /** Whether another view has the reader (see {@link suspend}); false once disposed. */
+  readonly suspended: boolean;
 
   readonly reader: Reader;
   readonly metadata: PackageMetadata;

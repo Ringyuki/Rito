@@ -22,4 +22,10 @@ export interface Internals {
    * by the controller's own initial `positionChange` event.
    */
   restoreCompleted: boolean;
+  /**
+   * `true` while another view has the reader (see
+   * {@link ReaderController.suspend}): the controller paints nothing,
+   * turns no page and answers none of the reader's layouts.
+   */
+  suspended: boolean;
 }

@@ -84,6 +84,11 @@ function applyRenderScale(
 ): void {
   requireRenderScale(scale);
   if (scale === internals.renderScale) return;
+  // Shown at that scale once the controller resumes.
+  if (internals.suspended) {
+    internals.renderScale = scale;
+    return;
+  }
   const carried = carrySelection(internals);
   invalidateSelectionForLayout(internals);
   internals.renderScale = scale;
@@ -107,6 +112,9 @@ function refreshLayoutWhenChanged(
   anchor: ReadingPosition | null,
 ): boolean {
   if (!changed) return false;
+  // The view that has the reader shows the layout; this one takes it up
+  // when it resumes.
+  if (internals.suspended) return true;
   commitLayoutChange(internals, emitter, runtime, anchor);
   return true;
 }

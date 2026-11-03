@@ -75,7 +75,7 @@ function updatePosition(
 export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableCollection): void {
   disposables.add(
     deps.reader.onSpreadRendered((idx, spread) => {
-      if (idx !== deps.getCurrentSpread()) return;
+      if (deps.isSuspended() || idx !== deps.getCurrentSpread()) return;
       const coordinated = coordinateOnSpreadRendered(
         idx,
         spread,
@@ -96,11 +96,12 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
   if (typeof deps.reader.onSpreadContentInvalidated === 'function') {
     disposables.add(
       deps.reader.onSpreadContentInvalidated((idx) => {
-        refreshInvalidatedSpread(idx, deps);
+        if (!deps.isSuspended()) refreshInvalidatedSpread(idx, deps);
       }),
     );
   }
   deps.coordState.nativeTargetHold.reload = () => {
+    if (deps.isSuspended()) return;
     const spread = deps.reader.spreads[deps.getCurrentSpread()];
     if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
   };

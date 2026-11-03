@@ -20,6 +20,7 @@ describe('position persistence wiring', () => {
       engines: { position: tracker },
       emitter: { emit },
       hasRestored: () => true,
+      isSuspended: () => false,
       positionPersistence: { save: vi.fn(() => Promise.reject(failure)) },
     };
     const disposables = createDisposableCollection();
@@ -52,6 +53,7 @@ describe('position persistence wiring', () => {
       engines: { position: tracker },
       emitter,
       hasRestored: () => true,
+      isSuspended: () => false,
       positionPersistence: { save: vi.fn(() => pendingSave.promise) },
     };
     const disposables = createDisposableCollection();
@@ -87,6 +89,7 @@ describe('position persistence wiring', () => {
       engines: { position: tracker },
       emitter,
       hasRestored: () => true,
+      isSuspended: () => false,
       positionPersistence: { save: vi.fn(() => Promise.reject(new Error('quota exceeded'))) },
     };
     const disposables = createDisposableCollection();

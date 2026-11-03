@@ -9,6 +9,7 @@ import type {
   RuntimeComponents,
 } from './types';
 import { buildLifecycle } from './lifecycle';
+import { buildSuspension } from './suspension';
 import { buildReaderProxies } from './reader-proxies';
 import { buildFontActions } from './font-actions';
 import { buildLayoutActions } from './layout-actions';
@@ -22,6 +23,7 @@ import { buildPositionActions } from './position-actions';
 import { buildMisc } from './misc-actions';
 import { buildNavigationActions } from './navigation-actions';
 import { buildWiringDeps } from '../core/wiring-deps';
+import type { ContentRenderer } from '../../painter/buffer-pool';
 
 export type { Internals } from './types';
 export { syncCanvasSize } from './lifecycle';
@@ -35,12 +37,23 @@ export function buildController(
   modeManager: ModeManager,
   nav: Nav,
   canvas: HTMLCanvasElement,
+  contentRenderer: ContentRenderer,
 ): ReaderController {
   const controller = {} as ReaderController;
   const lifecycleDeps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav);
+  const lifecycle = buildLifecycle(disposables, runtime, lifecycleDeps);
   defineSlice(
     controller,
-    buildLifecycle(disposables, runtime, lifecycleDeps),
+    lifecycle.slice,
+    buildSuspension(
+      internals,
+      emitter,
+      runtime,
+      nav,
+      keyboard,
+      lifecycle.mounting,
+      contentRenderer,
+    ),
     buildNavigationActions(nav),
     buildLayoutActions(internals, emitter, runtime, disposables),
     buildFontActions(internals),

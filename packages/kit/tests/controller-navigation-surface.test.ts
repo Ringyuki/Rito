@@ -28,6 +28,7 @@ describe('controller navigation surface', () => {
       createInteractionModeManager('gesture'),
       nav,
       {} as HTMLCanvasElement,
+      () => true,
     );
 
     expect(Object.keys(controller)).toEqual(
@@ -105,6 +106,7 @@ function createInternalsStub(
     },
     coordState: { annotationStore: null, searchResults: { stale: false, refresh: null } },
     restoreCompleted: false,
+    suspended: false,
   } as unknown as Internals;
 }
 

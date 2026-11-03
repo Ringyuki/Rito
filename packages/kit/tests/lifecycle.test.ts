@@ -71,7 +71,7 @@ describe('controller lifecycle', () => {
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
       frameDriver: { animating: false, onRest: () => () => undefined },
     } as unknown as WiringDeps;
-    const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
+    const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps).slice;
 
     lifecycle.mount(firstContainer);
     lifecycle.mount(firstContainer);
@@ -130,7 +130,7 @@ describe('controller lifecycle', () => {
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
       frameDriver: { animating: false, onRest: () => () => undefined },
     } as unknown as WiringDeps;
-    const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
+    const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps).slice;
     lifecycle.mount(firstContainer);
     expect(canvas.getAttribute('data-rito-reader-surface')).toBe('true');
 
@@ -180,7 +180,7 @@ describe('controller lifecycle', () => {
       coordState: { activeImageBlobUrl: null, contentInteractionGeneration: 0 },
       frameDriver: { animating: false, onRest: () => () => undefined },
     } as unknown as WiringDeps;
-    const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
+    const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps).slice;
     lifecycle.mount(firstContainer);
 
     expect(() => {
@@ -221,7 +221,7 @@ describe('controller lifecycle', () => {
         contentInteractionGeneration: 0,
       },
     } as unknown as WiringDeps;
-    const lifecycle = buildLifecycle(disposables, runtime, deps);
+    const lifecycle = buildLifecycle(disposables, runtime, deps).slice;
 
     expect(() => {
       lifecycle.dispose();

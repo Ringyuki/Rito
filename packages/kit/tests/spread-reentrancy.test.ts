@@ -152,6 +152,7 @@ function createDeps(
     frameDriver: { markOverlayDirty },
     getCurrentSpread,
     getRenderScale: () => 1,
+    isSuspended: () => false,
   } as unknown as WiringDeps;
 }
 

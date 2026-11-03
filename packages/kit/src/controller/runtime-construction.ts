@@ -205,6 +205,7 @@ function createControllerInternals(reader: Reader, options: ControllerOptions): 
       positionPersistence: createPositionPersistence(options.positionStorage),
       pendingPositionAction: undefined,
       restoreCompleted: false,
+      suspended: false,
     };
   } catch (error: unknown) {
     const annotationStore = coordState.annotationStore;

@@ -288,6 +288,7 @@ function createInternals(
     coordState: createCoordinatorState(),
     positionPersistence: createPositionPersistence(storage),
     restoreCompleted: false,
+    suspended: false,
   } as unknown as Internals;
 }
 

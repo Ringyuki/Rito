@@ -5,6 +5,7 @@ import type { TransitionDriver } from './transition-driver';
 import type { DrawInstruction } from './types';
 import type { TransitionFrame, TransitionScene } from './effects';
 import { createTransitionScene, paintTransition, scaledTouch } from './transition-scene';
+import { cancelScheduledFrame, compositeHolds, requestHeldComposite } from './frame-driver-holds';
 
 export interface FrameDriverDeps {
   readonly surface: DisplaySurface;
@@ -35,6 +36,12 @@ export interface FrameDriver {
   /** Hold the not-yet-painted first composite until the returned release is called. */
   holdFirstComposite(): (() => void) | null;
   /**
+   * Draws nothing until the returned release is called: a composite asked
+   * for meanwhile is dropped, not deferred, since whoever releases it
+   * paints the page afresh.
+   */
+  suspend(): () => void;
+  /**
    * Has a painted effect do the work on the pages beside the one shown
    * that a turn would otherwise do in its first frame; nothing while a turn
    * is drawn.
@@ -50,13 +57,14 @@ export interface FrameDriver {
   dispose(): void;
 }
 
-interface FrameDriverState {
+export interface FrameDriverState {
   rafId: number | null;
   lastFrameTime: number;
   disposed: boolean;
   firstCompositeStarted: boolean;
   firstCompositeHoldCount: number;
   heldCompositeRequest: 'none' | 'scheduled' | 'immediate';
+  suspendCount: number;
 }
 
 export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
@@ -67,6 +75,7 @@ export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
     firstCompositeStarted: false,
     firstCompositeHoldCount: 0,
     heldCompositeRequest: 'none',
+    suspendCount: 0,
   };
 
   function onFrame(now: number): void {
@@ -119,12 +128,10 @@ function createFrameDriverApi(
       compositeNow(deps, state);
     },
 
-    holdFirstComposite(): (() => void) | null {
-      return holdFirstComposite(driver, state);
-    },
+    ...compositeHolds(state, () => driver),
 
     warmTransition(): void {
-      if (state.disposed) return;
+      if (state.disposed || state.suspendCount > 0) return;
       warmTransition(deps);
     },
 
@@ -134,7 +141,7 @@ function createFrameDriverApi(
     },
 
     markContentDirty(spreadIndex): void {
-      markContentDirty(deps, driver, spreadIndex);
+      markContentDirty(deps, state, driver, spreadIndex);
     },
 
     markAllOverlaysDirty(): void {
@@ -152,7 +159,7 @@ function createFrameDriverApi(
 }
 
 function scheduleComposite(state: FrameDriverState, onFrame: FrameRequestCallback): void {
-  if (state.disposed) return;
+  if (state.disposed || state.suspendCount > 0) return;
   if (state.firstCompositeHoldCount > 0) {
     requestHeldComposite(state, 'scheduled');
     return;
@@ -162,7 +169,7 @@ function scheduleComposite(state: FrameDriverState, onFrame: FrameRequestCallbac
 }
 
 function compositeNow(deps: FrameDriverDeps, state: FrameDriverState): void {
-  if (state.disposed) return;
+  if (state.disposed || state.suspendCount > 0) return;
   if (state.firstCompositeHoldCount > 0) {
     requestHeldComposite(state, 'immediate');
     return;
@@ -173,53 +180,20 @@ function compositeNow(deps: FrameDriverDeps, state: FrameDriverState): void {
   compositeFrame(deps, deps.transitionDriver.step(16));
 }
 
-function holdFirstComposite(driver: FrameDriver, state: FrameDriverState): (() => void) | null {
-  if (state.disposed || state.firstCompositeStarted) return null;
-  state.firstCompositeHoldCount += 1;
-  if (state.rafId !== null) {
-    cancelScheduledFrame(state);
-    requestHeldComposite(state, 'scheduled');
-  }
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    releaseFirstCompositeHold(driver, state);
-  };
-}
-
-function markContentDirty(deps: FrameDriverDeps, driver: FrameDriver, spreadIndex: number): void {
+function markContentDirty(
+  deps: FrameDriverDeps,
+  state: FrameDriverState,
+  driver: FrameDriver,
+  spreadIndex: number,
+): void {
   deps.pool.invalidateContentForSpread(spreadIndex);
+  if (state.suspendCount > 0) return;
   const slot = deps.pool.getSlotFor(spreadIndex);
   if (!slot) return;
   const ready = deps.pool.ensureContent(slot, deps.contentRenderer);
   if (slot !== 'curr' || !ready) return;
   if (deps.transitionDriver.isAnimating) driver.scheduleComposite();
   else driver.compositeNow();
-}
-
-function requestHeldComposite(
-  state: FrameDriverState,
-  request: Exclude<FrameDriverState['heldCompositeRequest'], 'none'>,
-): void {
-  if (request === 'immediate' || state.heldCompositeRequest === 'none') {
-    state.heldCompositeRequest = request;
-  }
-}
-
-function releaseFirstCompositeHold(driver: FrameDriver, state: FrameDriverState): void {
-  state.firstCompositeHoldCount = Math.max(0, state.firstCompositeHoldCount - 1);
-  if (state.firstCompositeHoldCount > 0 || state.disposed) return;
-  const request = state.heldCompositeRequest;
-  state.heldCompositeRequest = 'none';
-  if (request === 'immediate') driver.compositeNow();
-  else if (request === 'scheduled') driver.scheduleComposite();
-}
-
-function cancelScheduledFrame(state: FrameDriverState): void {
-  if (state.rafId === null) return;
-  cancelAnimationFrame(state.rafId);
-  state.rafId = null;
 }
 
 function ensureSlotReady(deps: FrameDriverDeps, position: SlotPosition): boolean {

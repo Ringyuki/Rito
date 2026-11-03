@@ -368,6 +368,7 @@ describe('what a host is told while a chapter is laid out alone', () => {
           },
         },
         hasRestored: () => true,
+        isSuspended: () => false,
         positionPersistence: { save },
       } as never,
       createDisposableCollection(),

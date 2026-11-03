@@ -2,6 +2,8 @@ import type { KeyboardManager } from './types';
 
 export interface KeyboardManagerInputState {
   enabled: boolean;
+  /** Holds taken by a controller that hands its view over: no keys reach it meanwhile. */
+  held: number;
   disposed: boolean;
   readonly listeners: Set<(enabled: boolean) => void>;
 }
@@ -9,7 +11,7 @@ export interface KeyboardManagerInputState {
 const states = new WeakMap<KeyboardManager, KeyboardManagerInputState>();
 
 export function createKeyboardManagerInputState(): KeyboardManagerInputState {
-  return { enabled: true, disposed: false, listeners: new Set() };
+  return { enabled: true, held: 0, disposed: false, listeners: new Set() };
 }
 
 export function registerKeyboardManagerInputState(
@@ -35,7 +37,28 @@ export function subscribeKeyboardManagerInput(
 }
 
 export function acceptsKeyboardInputState(state: KeyboardManagerInputState): boolean {
-  return state.enabled && !state.disposed;
+  return state.enabled && state.held === 0 && !state.disposed;
+}
+
+/**
+ * Keeps the manager from acting on keys until the returned release is
+ * called, whatever its host enables meanwhile: the host's own
+ * `setEnabled` is left as it was set.
+ */
+export function holdKeyboardManagerInput(manager: KeyboardManager): () => void {
+  const state = states.get(manager);
+  if (!state || state.disposed) return () => undefined;
+  const previous = acceptsKeyboardInputState(state);
+  state.held += 1;
+  publishInputStateChange(state, previous);
+  let released = false;
+  return () => {
+    if (released || state.disposed) return;
+    released = true;
+    const before = acceptsKeyboardInputState(state);
+    state.held -= 1;
+    publishInputStateChange(state, before);
+  };
 }
 
 export function setKeyboardManagerEnabled(state: KeyboardManagerInputState, value: boolean): void {
