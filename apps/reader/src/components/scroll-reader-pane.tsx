@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { FootnoteDrawer } from '@/components/footnote-drawer';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { SelectionToolbar, type AnnotationKind } from '@/components/annotation-toolbar';
+import { AnnotationDialog } from '@/components/annotation-dialog';
+import { AnnotationTooltip } from '@/components/annotation-tooltip';
 import type { useReader } from '@/hooks/use-reader';
 import type { useScrollMode } from '@/hooks/use-scroll-mode';
 
@@ -15,6 +17,10 @@ interface ScrollReaderPaneProps {
   readonly onOpenToc: () => void;
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
+  /** The book's annotations, edited and removed from their dialog. */
+  readonly annotations: ReturnType<typeof useReader>['annotations'];
+  /** The annotation a tap opened and the one under the mouse. */
+  readonly annotationPointer: ReturnType<typeof useReader>['scrollAnnotationPointer'];
   /** Makes the selection an annotation, as the paged reader's toolbar does. */
   readonly onAnnotate: (kind: AnnotationKind, color: string, note?: string) => void;
   readonly footnote: ReturnType<typeof useReader>['footnote'];
@@ -31,6 +37,8 @@ export function ScrollReaderPane({
   onOpenToc,
   onOpenSearch,
   onOpenSettings,
+  annotations,
+  annotationPointer,
   onAnnotate,
   footnote,
   onCloseFootnote,
@@ -73,6 +81,12 @@ export function ScrollReaderPane({
         touchInput={touchInput}
       />
       {focus && <SelectionToolbar anchor={focus} onAnnotate={onAnnotate} />}
+      <AnnotationTooltip hover={annotationPointer.hover} />
+      <AnnotationDialog
+        annotation={annotationPointer.opened}
+        annotations={annotations}
+        onClose={annotationPointer.close}
+      />
       {scroll.isLoading && (
         <div
           data-testid="reader-loading"

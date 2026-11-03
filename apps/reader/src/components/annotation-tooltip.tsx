@@ -1,9 +1,14 @@
 import { useRef } from 'react';
+import type { AnnotationRecord } from '@ritojs/kit';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { useReader } from '@/hooks/use-reader';
 
 interface Props {
-  hover: ReturnType<typeof useReader>['annotations']['hover'];
+  /** The annotation the mouse rests on and the tooltip's place (screen coordinates); null for none. */
+  hover: {
+    readonly annotation: { readonly record: AnnotationRecord };
+    readonly x: number;
+    readonly y: number;
+  } | null;
 }
 
 export function AnnotationTooltip({ hover }: Props) {

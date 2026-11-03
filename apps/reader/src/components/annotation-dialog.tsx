@@ -14,7 +14,7 @@ import { ANNOTATION_COLORS } from '@/components/annotation-toolbar';
 import type { useReader } from '@/hooks/use-reader';
 
 interface Props {
-  annotation: ResolvedAnnotation | null;
+  annotation: Pick<ResolvedAnnotation, 'id' | 'record'> | null;
   annotations: ReturnType<typeof useReader>['annotations'];
   onClose: () => void;
 }

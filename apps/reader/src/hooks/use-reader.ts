@@ -20,7 +20,11 @@ import { fetchShardedDemo } from '@/lib/sharded-demo';
 import { useDebugLog } from '@/hooks/use-debug-log';
 import { useReaderFonts } from '@/hooks/use-reader-fonts';
 import { useScrollMode } from '@/hooks/use-scroll-mode';
-import { useScrollAnnotations } from '@/hooks/use-scroll-annotations';
+import {
+  annotationOfHighlight,
+  useScrollAnnotationPointer,
+  useScrollAnnotations,
+} from '@/hooks/use-scroll-annotations';
 import { useScrollSearch } from '@/hooks/use-scroll-search';
 import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
@@ -143,11 +147,20 @@ export function useReader(
     if (scrollImageUrl.current) URL.revokeObjectURL(scrollImageUrl.current);
     scrollImageUrl.current = null;
   }, []);
+  // An annotation tapped opens to edit (useScrollAnnotationPointer), before
+  // any link under it, as on a page.
+  const annotationRecords = useRef(annotations.annotations);
+  annotationRecords.current = annotations.annotations;
+  const scrollAnnotationPointer = useScrollAnnotationPointer(
+    scroll.controller,
+    annotations.annotations,
+  );
   useEffect(() => {
     const view = scroll.controller;
     const interactions = scroll.reader?.interactions;
     if (!view) return;
-    return view.on('tap', ({ point, target }) => {
+    return view.on('tap', ({ point, target, highlight }) => {
+      if (highlight && annotationOfHighlight(highlight.id, annotationRecords.current)) return;
       if (!target) return;
       const follow = () => {
         if (target.targetLocator) void view.scrollToLocator(target.targetLocator);
@@ -370,6 +383,7 @@ export function useReader(
     setSpreadMode,
     scroll,
     annotateScrollSelection,
+    scrollAnnotationPointer,
     renderScale,
     setRenderScale,
     isTransitioning: transition.isTransitioning,

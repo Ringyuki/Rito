@@ -1,10 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Reader } from '@ritojs/core';
-import type { AnnotationRecord, ScrollHighlight } from '@ritojs/kit';
+import type {
+  AnnotationRecord,
+  ResolvedAnnotation,
+  ScrollController,
+  ScrollHighlight,
+} from '@ritojs/kit';
 
 /** The colours the paged reader draws an annotation in when its record names none. */
 const HIGHLIGHT = 'rgba(250, 204, 21, 0.3)';
 const UNDERLINE = 'rgba(234, 88, 12, 0.85)';
+/** A record's highlight id: `annotation:` and the record's id. */
+const PREFIX = 'annotation:';
 
 /**
  * The book's annotations as highlights of the book read scrolled: each
@@ -34,7 +41,7 @@ export function useScrollAnnotations(
         if (found?.status !== 'resolved') return undefined;
         const underline = record.kind === 'underline';
         return {
-          id: `annotation:${record.id}`,
+          id: `${PREFIX}${record.id}`,
           color: record.color ?? (underline ? UNDERLINE : HIGHLIGHT),
           zIndex: 1,
           mark: underline ? 'underline' : 'fill',
@@ -49,4 +56,67 @@ export function useScrollAnnotations(
     };
   }, [reader, records, rest]);
   return highlights;
+}
+
+/** The annotation a highlight drawn by {@link useScrollAnnotations} stands for. */
+export function annotationOfHighlight(
+  id: string,
+  records: readonly AnnotationRecord[],
+): AnnotationRecord | undefined {
+  if (!id.startsWith(PREFIX)) return undefined;
+  const recordId = id.slice(PREFIX.length);
+  return records.find((record) => record.id === recordId);
+}
+
+/** An annotation the mouse rests on, and where its tooltip goes (screen coordinates). */
+export interface ScrollAnnotationHover {
+  readonly annotation: { readonly record: AnnotationRecord };
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The book's annotations under the pointer read scrolled, as the paged
+ * reader has them: the one a tap opens to edit, the one a resting mouse
+ * is over.
+ */
+export function useScrollAnnotationPointer(
+  view: ScrollController | null,
+  records: readonly AnnotationRecord[],
+) {
+  const [opened, setOpened] = useState<Pick<ResolvedAnnotation, 'id' | 'record'> | null>(null);
+  const [hover, setHover] = useState<ScrollAnnotationHover | null>(null);
+  const known = useRef(records);
+  known.current = records;
+  useEffect(() => {
+    setHover(null);
+    if (!view) return;
+    const stops = [
+      view.on('tap', ({ highlight }) => {
+        const record = highlight ? annotationOfHighlight(highlight.id, known.current) : undefined;
+        if (!record) return;
+        setHover(null);
+        setOpened({ id: record.id, record });
+      }),
+      view.on('highlightHover', ({ highlight }) => {
+        const record = highlight ? annotationOfHighlight(highlight.id, known.current) : undefined;
+        setHover(
+          record && highlight
+            ? {
+                annotation: { record },
+                x: highlight.bounds.x + highlight.bounds.width / 2,
+                y: highlight.bounds.y,
+              }
+            : null,
+        );
+      }),
+    ];
+    return () => {
+      for (const stop of stops) stop();
+    };
+  }, [view]);
+  const close = useCallback(() => {
+    setOpened(null);
+  }, []);
+  return { opened, hover, close };
 }
