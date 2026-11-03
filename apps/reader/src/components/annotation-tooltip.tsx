@@ -10,6 +10,8 @@ export function AnnotationTooltip({ hover }: Props) {
   const staleRef = useRef(hover);
   if (hover) staleRef.current = hover;
   const display = hover ?? staleRef.current;
+  // An emptied note is stored empty (see AnnotationDialog): there is none to show.
+  const note = display?.annotation.record.note?.trim();
 
   return (
     <Tooltip open={hover !== null}>
@@ -19,9 +21,7 @@ export function AnnotationTooltip({ hover }: Props) {
           style={{ top: display?.y ?? 0, left: display?.x ?? 0, width: 1, height: 1 }}
         />
       </TooltipTrigger>
-      <TooltipContent side="top">
-        {display?.annotation.record.note ?? 'Click to edit'}
-      </TooltipContent>
+      <TooltipContent side="top">{note ? note : 'Click to edit'}</TooltipContent>
     </Tooltip>
   );
 }
