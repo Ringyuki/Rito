@@ -129,6 +129,10 @@ export function useReader(
     active: spreadMode === 'scrolled',
     paged: pagedMode,
   });
+  useEffect(() => {
+    // The scroll view too, while the book is read scrolled.
+    (window as unknown as { __ritoScroll?: unknown }).__ritoScroll = scroll.controller;
+  }, [scroll.controller]);
 
   // A tap on a note reference read scrolled opens the note as on a page,
   // an image opens in the lightbox (its object URL is the app's to let go),
