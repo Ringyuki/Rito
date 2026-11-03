@@ -72,7 +72,7 @@ export function App({ pinnedFontPolicy }: AppProps) {
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
       {reader.spreadMode === 'scrolled' ? (
         <ScrollReaderPane
-          containerRef={sizeRef}
+          containerRef={containerRef}
           scroll={reader.scroll}
           onOpenToc={handleOpenToc}
           onOpenSearch={handleToggleSearch}

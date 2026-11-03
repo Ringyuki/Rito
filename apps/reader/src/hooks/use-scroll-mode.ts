@@ -1,60 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
-import type {
-  ReaderLocator,
-  ReaderPinnedFontPolicy,
-  ReaderPublication,
-  TocEntry,
-} from '@ritojs/core';
-import { useRitoScrollReader } from '@ritojs/react';
-import { readerViewportMargin } from '@/lib/viewport-margin';
-import { copyPublication } from '@/lib/publication-copy';
-import {
-  type Typography,
-  typographyReaderOptions,
-  typographySettings,
-} from '@/hooks/use-typography';
+import { useEffect, useState } from 'react';
+import type { TocEntry } from '@ritojs/core';
+import type { ReaderController } from '@ritojs/kit';
+import { useRitoScrollView } from '@ritojs/react';
 
 interface ScrollModeOptions {
   /** Whether the book is read scrolled now. */
   readonly active: boolean;
-  /** The book open in the reader, to read scrolled as well. */
-  readonly publication: ReaderPublication | null;
-  /** Where the reader was when the mode was entered. */
-  readonly locator: ReaderLocator | null;
-  readonly width: number;
-  readonly height: number;
-  readonly theme: 'light' | 'dark';
-  readonly typography: Typography;
-  readonly pinnedFontPolicy: ReaderPinnedFontPolicy;
+  /** How the book is paged again once it is not. */
+  readonly paged: 'single' | 'double';
 }
 
+const SCROLL_VIEW = { a11y: { enabled: true } } as const;
+
 /**
- * The book read scrolled: opened in its own scrolled reader while the mode
- * is on, from where the reader was, and let go when it is turned off.
+ * The book the pages show, read scrolled while the mode is on: the same
+ * reader, handed from the pages to a scroll view and back. Size, theme and
+ * typography reach it through the pages, which lay it out for the view.
  */
-export function useScrollMode({
-  active,
-  publication,
-  locator,
-  width,
-  height,
-  theme,
-  typography,
-  pinnedFontPolicy,
-}: ScrollModeOptions) {
-  const scroll = useRitoScrollReader({
-    reader: {
-      width: width > 0 ? Math.round(width) : 0,
-      height: height > 0 ? Math.round(height) : 0,
-      margin: readerViewportMargin(width),
-      pinnedFontPolicy,
-      ...themeOptions(theme),
-      ...typographyReaderOptions(typography),
-    },
-    scroll: { a11y: { enabled: true } },
-    initialLocator: locator,
-  });
-  const { load, unload, reader, controller } = scroll;
+export function useScrollMode(
+  pages: ReaderController | null,
+  { active, paged }: ScrollModeOptions,
+) {
+  const scroll = useRitoScrollView(pages, { active, paged, scroll: SCROLL_VIEW });
+  const { controller } = scroll;
+  // The reader the view shows, while it shows one.
+  const reader = controller ? (pages?.reader ?? null) : null;
   // The contents entry of the window under the reading line.
   const [activeTocEntry, setActiveTocEntry] = useState<TocEntry | undefined>(undefined);
   useEffect(() => {
@@ -71,51 +41,5 @@ export function useScrollMode({
       read(spreadIndex);
     });
   }, [controller, reader]);
-  const opened = useRef<ReaderPublication | null>(null);
-  useEffect(() => {
-    if (!active || publication === null) {
-      if (opened.current !== null) {
-        opened.current = null;
-        void unload();
-      }
-      return;
-    }
-    if (opened.current === publication) return;
-    opened.current = publication;
-    void load(copyPublication(publication));
-  }, [active, publication, load, unload]);
-  // The view's size and the theme follow the app's; the reader lays the
-  // book out again only for a size it is not laid out at.
-  useEffect(() => {
-    if (reader && width > 0 && height > 0) {
-      reader.updateLayout(
-        Math.round(width),
-        Math.round(height),
-        'scrolled',
-        readerViewportMargin(width),
-      );
-    }
-  }, [reader, width, height]);
-  useEffect(() => {
-    reader?.setTheme(themeOptions(theme));
-  }, [reader, theme]);
-  // The book opens with the typography of the moment; a change made while
-  // it is read scrolled lays it out again.
-  const opensWith = useRef(typography);
-  useEffect(() => {
-    if (!reader) {
-      opensWith.current = typography;
-      return;
-    }
-    if (opensWith.current === typography) return;
-    opensWith.current = typography;
-    reader.setTypography(typographySettings(typography));
-  }, [reader, typography]);
-  return { ...scroll, activeTocEntry };
-}
-
-function themeOptions(theme: 'light' | 'dark') {
-  return theme === 'dark'
-    ? { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' }
-    : { backgroundColor: '#ffffff', foregroundColor: null };
+  return { ...scroll, reader, isLoaded: controller !== null, activeTocEntry };
 }

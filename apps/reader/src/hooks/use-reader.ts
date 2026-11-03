@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  preloadReaderRuntime,
-  type ReaderLocator,
-  type ReaderPinnedFontPolicy,
-  type ReaderPublication,
-  type TocEntry,
-} from '@ritojs/core';
+import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
 import { createPaperTurn, springPresets, type ReaderControllerEvents } from '@ritojs/kit';
 import type { PageTurn } from '@/components/settings-panel';
 import {
@@ -20,7 +14,6 @@ import {
 } from '@ritojs/react';
 import { bookKey, createBookStorage } from '@/lib/book-storage';
 import { noteDebug } from '@/lib/debug-log';
-import { copyPublication } from '@/lib/publication-copy';
 import { readerViewportMargin } from '@/lib/viewport-margin';
 import { fetchShardedDemo } from '@/lib/sharded-demo';
 import { useDebugLog } from '@/hooks/use-debug-log';
@@ -50,8 +43,6 @@ export function useReader(
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double' | 'scrolled'>('double');
   // How the book is paged when it is not read scrolled.
   const [pagedMode, setPagedMode] = useState<'single' | 'double'>('double');
-  const [publication, setPublication] = useState<ReaderPublication | null>(null);
-  const [scrollFrom, setScrollFrom] = useState<ReaderLocator | null>(null);
   const typography = useTypography();
   const [pageTurn, setPageTurnState] = useState<PageTurn>('slide');
   // The paper turn simulates one sheet: one of it for this reader.
@@ -134,15 +125,9 @@ export function useReader(
     setRenderScaleState(1);
   }, [controller]);
 
-  const scroll = useScrollMode({
+  const scroll = useScrollMode(controller, {
     active: spreadMode === 'scrolled',
-    publication,
-    locator: scrollFrom,
-    width: containerWidth,
-    height: containerHeight,
-    theme,
-    typography: typography.typography,
-    pinnedFontPolicy,
+    paged: pagedMode,
   });
 
   // A tap on a note reference read scrolled opens the note as on a page,
@@ -256,14 +241,9 @@ export function useReader(
     };
   }, [spreadMode]);
 
-  // Page turns by keyboard only while nothing covers the page and the
-  // book is not read scrolled.
-  const overlayOpen =
-    lightboxActive ||
-    pendingLink !== null ||
-    footnote !== null ||
-    searchOpen ||
-    spreadMode === 'scrolled';
+  // Page turns by keyboard only while nothing covers the page (and the
+  // pages take no keys while a scroll view has the book).
+  const overlayOpen = lightboxActive || pendingLink !== null || footnote !== null || searchOpen;
   useEffect(() => {
     controller?.keyboard.setEnabled(!overlayOpen);
   }, [overlayOpen, controller]);
@@ -282,10 +262,7 @@ export function useReader(
         bytes: publication instanceof ArrayBuffer ? publication.byteLength : 'sharded',
       });
       try {
-        // A copy is kept to read scrolled as well (see copyPublication).
-        const bytes = await publication;
-        setPublication(copyPublication(bytes));
-        await rito.load(bytes);
+        await rito.load(publication);
         noteDebug('book-opened', key);
       } catch (error) {
         noteDebug('book-failed', error);
@@ -317,29 +294,18 @@ export function useReader(
     }
   }, [open]);
 
-  // Scrolled reading opens the book in a scroll view from where the pages
-  // were; paging again goes back to where the scroll view was read.
+  // Scrolled reading hands the pages' reader to a scroll view from where
+  // the pages were (useScrollMode); paging again lays it out as chosen,
+  // from where the view was read, and gives it back to the pages.
   const setSpreadMode = useCallback(
     (mode: 'single' | 'double' | 'scrolled') => {
       if (mode === spreadMode) return;
       setSpreadModeState(mode);
-      if (mode === 'scrolled') {
-        setScrollFrom(controller?.position?.sourceLocator ?? null);
-        return;
-      }
+      if (mode === 'scrolled') return;
       setPagedMode(mode);
-      if (mode !== pagedMode) controller?.setSpreadMode(mode);
-      const read = scroll.position;
-      if (spreadMode === 'scrolled' && read && controller) {
-        void controller.goToPosition({
-          sourceLocator: read,
-          projection: { spreadIndex: 0, pageIndex: 0 },
-          progress: scroll.progress,
-          timestamp: Date.now(),
-        });
-      }
+      if (spreadMode !== 'scrolled') controller?.setSpreadMode(mode);
     },
-    [controller, pagedMode, scroll.position, scroll.progress, spreadMode],
+    [controller, spreadMode],
   );
 
   // How pages turn; a reader on "reduced motion" gets a cross-fade anyway.
