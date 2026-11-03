@@ -323,8 +323,13 @@ app highlights over the same windows, above the selection: each
 `ScrollHighlight` is page rects (`pageIndex` and a rect in the page's content box,
 as the reader's interactions give them), a colour, a `zIndex` and a `mark`
 (filled, or a line along the rect's bottom edge), so a search's matches and a
-book's annotations show in a scrolled view as the app keeps them. `colors`
-changes the selection's colour.
+book's annotations show in a scrolled view as the app keeps them. The view says
+which of them the pointer is on, the one drawn on top: a `tap` carries it as
+`highlight` (its `id` and `bounds` in screen coordinates, for a popover), and
+`highlightHover` tells the one under a resting mouse each time it changes or the
+strip moves it, null once the mouse leaves or presses — what an annotation's
+tooltip and its editor need, as a page view's `annotationHover` and
+`annotationClick` give them. `colors` changes the selection's colour.
 
 With `a11y: { enabled: true }` the view keeps a hidden mirror of the text on
 screen for screen readers, in `a11y.container` or beside the view: once the strip

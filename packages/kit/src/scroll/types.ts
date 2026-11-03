@@ -7,6 +7,7 @@ import type {
   SelectionHandleState,
 } from '../controller/types';
 import type { Rect } from '../interaction/layout-types';
+import type { ScrollHighlightHit } from './highlight-hit';
 import type { ScrollHighlight, ScrollPageRect } from './highlights';
 import type { ScrollPoint } from './hit';
 import type { ScrollPhysics } from './physics';
@@ -54,8 +55,21 @@ export interface ScrollControllerEvents {
   rest: { readonly offset: number };
   /** Where the reader reads once the strip rests: the line at the reading line. */
   position: { readonly locator: ReaderLocator };
-  /** The built-in input's tap: the point, and the link, note or image under it. */
-  tap: { readonly point: ScrollPoint; readonly target: ReaderInteractionTarget | undefined };
+  /**
+   * The built-in input's tap: the point, the link, note or image under it,
+   * and the app's highlight there (see `setHighlights`), which a page view
+   * hits before its links.
+   */
+  tap: {
+    readonly point: ScrollPoint;
+    readonly target: ReaderInteractionTarget | undefined;
+    readonly highlight: ScrollHighlightHit | null;
+  };
+  /**
+   * The app's highlight under a mouse moving over the view with no button
+   * pressed changed: the one now there, or null for none (or the mouse gone).
+   */
+  highlightHover: { readonly highlight: ScrollHighlightHit | null };
   /**
    * What is selected changed, as a gesture selects it and once it has:
    * the range and its text, and its rects where the view shows them (CSS

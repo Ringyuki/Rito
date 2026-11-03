@@ -25,6 +25,7 @@ import {
   shownRects,
   type ScrollView,
 } from './view';
+import { highlightAt, wireHighlightHover } from './highlight-hit';
 
 /** A scrolled reader's view on `canvas` (see {@link ScrollController}). */
 export function createScrollController(
@@ -105,7 +106,8 @@ function wireInput(view: ScrollView, controller: ScrollController): (() => void)
     tap(view, controller, x, y);
   };
   const { selection } = view;
-  if (selection === undefined) return [wireScrollInput(canvas, controller, onTap)];
+  const hover = wireHighlightHover(view, controller, canvas);
+  if (selection === undefined) return [wireScrollInput(canvas, controller, onTap), hover];
   // A tap selects nothing: a touch's lets the selection go, as the mouse's does.
   const touchTap = (x: number, y: number): void => {
     selection.clear();
@@ -120,6 +122,7 @@ function wireInput(view: ScrollView, controller: ScrollController): (() => void)
     wireKeySelection(selection, () => {
       revealFocus(view);
     }),
+    hover,
   ];
 }
 
@@ -277,9 +280,11 @@ async function scrollToLocator(
 function tap(view: ScrollView, controller: ScrollController, x: number, y: number): void {
   const point = controller.pointAt(x, y);
   if (point === undefined) return;
+  // Where the highlight is now, before the strip moves on.
+  const highlight = highlightAt(view, point);
   controller.targetAt(point).then(
     (target) => {
-      view.emitter.emit('tap', { point, target });
+      view.emitter.emit('tap', { point, target, highlight });
     },
     (error: unknown) => {
       console.error('[rito] the scroll view could not read what a tap is on', error);

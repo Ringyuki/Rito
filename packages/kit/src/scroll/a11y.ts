@@ -127,6 +127,8 @@ function activate(
         y: bounds.y + bounds.height / 2,
       },
       target,
+      // A link activated in the mirror is the link, not a highlight over it.
+      highlight: null,
     });
   }, report);
   return true;
