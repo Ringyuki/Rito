@@ -31,7 +31,8 @@ function fakeReader() {
     painted: [] as number[],
     active: [] as number[],
     getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30 }),
-    getScrollLayout: () => LAYOUT,
+    layout: LAYOUT,
+    getScrollLayout: () => reader.layout,
     getCanvasSize: () => ({ width: 400, height: 600 }),
     renderSpreadTo(spreadIndex: number) {
       reader.painted.push(spreadIndex);
@@ -39,6 +40,7 @@ function fakeReader() {
     },
     notifyActiveSpread(spreadIndex: number) {
       reader.active.push(spreadIndex);
+      reader.activeSpreadIndex = spreadIndex;
     },
     onLayoutCommitted(listener: () => void) {
       committed.push(listener);
@@ -200,6 +202,39 @@ describe('scroll controller', () => {
     reader.commit();
     runFrames();
     expect(controller.currentSpread).toBe(3);
+    expect(controller.offset).toBe(900 + 600 + 250 - 30);
+    controller.dispose();
+  });
+
+  it('keeps the window the reader reads when a layout numbers the windows anew', () => {
+    const reader = fakeReader();
+    // The second chapter laid out alone: its windows count from 0.
+    reader.layout = { ...LAYOUT, chapters: [{ firstSpread: 0, spreadCount: 3, extent: 1_500 }] };
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    controller.mount(document.body);
+    controller.scrollToSpread(1, 250);
+    runFrames();
+    expect(reader.activeSpreadIndex).toBe(1);
+    // The whole book: that window is the fourth, and the reader says so.
+    reader.layout = LAYOUT;
+    reader.activeSpreadIndex = 3;
+    reader.commit();
+    runFrames();
+    expect(controller.currentSpread).toBe(3);
+    expect(controller.offset).toBe(900 + 600 + 250 - 30);
+    controller.dispose();
+  });
+
+  it('can be moved before it is shown', () => {
+    const reader = fakeReader();
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    controller.scrollToSpread(3, 250);
+    controller.mount(document.body);
+    runFrames();
     expect(controller.offset).toBe(900 + 600 + 250 - 30);
     controller.dispose();
   });

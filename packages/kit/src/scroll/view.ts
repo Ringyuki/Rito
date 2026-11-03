@@ -58,6 +58,7 @@ export function readingLine(view: ScrollView): number {
 export function moveTo(view: ScrollView, target: number, animate: boolean): void {
   if (!animate) {
     view.motion.place(target);
+    readOn(view);
   } else {
     const spring = springSettle(GLIDE, view.motion.offset, 0, target);
     view.motion.glide((seconds) => {
@@ -193,12 +194,19 @@ function draw(view: ScrollView): void {
     viewport: viewport / geometry.ratio,
     progress: Math.min(1, Math.max(0, motion.offset / Math.max(1, geometry.extent - viewport))),
   });
-  const reading = geometry.windowAt(motion.offset + readingLine(view));
-  if (reading !== undefined && reading.spreadIndex !== view.current) {
-    view.current = reading.spreadIndex;
-    reader.notifyActiveSpread(reading.spreadIndex);
-    view.emitter.emit('window', { spreadIndex: reading.spreadIndex });
-  }
+  readOn(view);
+}
+
+/**
+ * Tells the reader the window under the reading line once the strip is
+ * there: a layout committed before the next frame keeps that window.
+ */
+export function readOn(view: ScrollView): void {
+  const reading = view.geometry?.windowAt(view.motion.offset + readingLine(view));
+  if (reading === undefined || reading.spreadIndex === view.current) return;
+  view.current = reading.spreadIndex;
+  view.reader.notifyActiveSpread(reading.spreadIndex);
+  view.emitter.emit('window', { spreadIndex: reading.spreadIndex });
 }
 
 /**
@@ -251,8 +259,11 @@ function keepNear(view: ScrollView, geometry: ScrollGeometry): void {
 
 /**
  * Takes the committed layout: the canvas at the viewport's size and the
- * windows anew, the strip kept on the window under the reading line and
- * as far into it as it was, and the selection found again in it.
+ * windows anew, the strip kept on the window the reader reads and as far
+ * into it as the reading line was, and the selection found again in it.
+ * That window is the reader's active spread, which it numbers in the new
+ * layout: a chapter laid out alone counts its own windows, the whole book
+ * counts them all, and another size cuts them anew.
  */
 export function relayout(view: ScrollView): void {
   const { reader, surface, motion } = view;
@@ -269,7 +280,7 @@ export function relayout(view: ScrollView): void {
   view.highlighted += 1;
   if (view.geometry === undefined) return;
   motion.bound(view.geometry.extent - along(view), along(view));
-  const spreadIndex = kept?.spreadIndex ?? view.current;
+  const spreadIndex = reader.activeSpreadIndex;
   const window = view.geometry.windows.find((each) => each.spreadIndex === spreadIndex);
   if (window !== undefined) {
     const depth = Math.min(into * view.geometry.ratio, window.length - 1);

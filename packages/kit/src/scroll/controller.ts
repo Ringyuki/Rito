@@ -17,6 +17,7 @@ import {
   moveTo,
   ratioOf,
   readingLine,
+  readOn,
   relayout,
   revealFocus,
   schedule,
@@ -71,6 +72,8 @@ export function createScrollController(
   );
   stops.push(...wireView(view));
   if (options.input !== false) stops.push(...wireInput(view, controller));
+  // The strip has its windows before it is shown: it can be moved at once.
+  relayout(view);
   return controller;
 }
 
@@ -196,6 +199,7 @@ function movement(
     },
     follow(delta) {
       motion.follow(delta * ratio());
+      readOn(view);
       schedule(view);
     },
     release(velocity) {
