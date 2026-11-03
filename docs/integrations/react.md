@@ -16,6 +16,7 @@ Hooks:
 
 - `useRitoReader`
 - `useRitoScrollReader`
+- `useRitoScrollView`
 - `useSelection`
 - `useSearch`
 - `useAnnotations`
@@ -35,6 +36,9 @@ Types:
 - `UseRitoScrollReaderOptions`
 - `RitoScrollReaderState`
 - `RitoScrollReaderActions`
+- `UseRitoScrollViewOptions`
+- `RitoScrollViewState`
+- `RitoScrollViewActions`
 - `SelectionState`
 - `SearchState`
 - `AnnotationsState`
@@ -181,6 +185,27 @@ useEffect(
   [controller],
 );
 return <div ref={containerRef} style={{ width, height }} />;
+```
+
+## `useRitoScrollView`
+
+`useRitoScrollView(controller, { active, paged, scroll })` reads the book a
+page controller shows scrolled, on the same reader: while `active`, the
+controller hands the reader over (`suspend()`), the reader is laid out scrolled
+and a scroll view shows it from where the pages were; turned off, the reader is
+paged again as `paged` says (`'single'` or `'double'`) from where the view was
+read, and the controller takes it back (`resume()`). Size, theme and typography
+reach the reader through the controller as before, and the view follows each
+layout. The state is the view's (`controller`, `progress`, `position`,
+`selection`), with `isLoading` while the scrolled layout is made (only after a
+short delay) and `error`; pass `containerRef` as the ref of the element the view
+is shown in. When the controller is replaced (another book opened), the view is
+let go with it.
+
+```tsx
+const rito = useRitoReader({ reader: { width, height, pinnedFontPolicy } });
+const scroll = useRitoScrollView(rito.controller, { active: scrolled, paged: 'double' });
+return scrolled ? <div ref={scroll.containerRef} /> : <Reader controller={rito.controller} />;
 ```
 
 ## `useReaderTransition`

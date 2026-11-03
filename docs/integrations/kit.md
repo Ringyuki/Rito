@@ -330,6 +330,51 @@ rests it reads the semantics of the pages of the windows shown and puts them in
 after the next frame, and a link activated in the mirror is a `tap` on its
 target.
 
+The strip has its windows from the moment the view is made, so it can be moved
+(`scrollToLocator`) before it is mounted. Through every new layout it stays on
+the window the reader reads, as far into it as the reading line was: the
+reader's active spread, which a chapter laid out alone, the whole book and
+another size each number anew.
+
+### Pages And Scrolled On One Reader
+
+A book read in pages and scrolled is one reader: the page controller hands it
+to a scroll view and takes it back, and nothing is opened again. `suspend()`
+takes the controller's canvas off the page, lets its page buffers go, and stops
+it painting, turning, taking keys and answering the reader's layouts; its
+annotations, search and stored position stay, and `resize`, `setTheme`,
+`setTypography` and `setSpreadMode` still lay the reader out for the view that
+has it. `resume()` takes the reader back as it is laid out then, at its active
+spread, and puts the canvas back where it was mounted last (a `mount` while
+suspended names that place). `useRitoScrollView` in `@ritojs/react` runs the
+whole turn; without React:
+
+```ts
+const nextLayout = (reader: Reader) =>
+  new Promise<void>((resolve) => {
+    const stop = reader.onLayoutCommitted(() => {
+      stop();
+      resolve();
+    });
+  });
+
+// To scrolled, from where the pages are.
+const from = pages.position?.sourceLocator;
+pages.suspend();
+pages.reader.setSpreadMode('scrolled');
+await nextLayout(pages.reader);
+const scroll = createScrollController(pages.reader, document.createElement('canvas'));
+if (from) await scroll.scrollToLocator(from);
+scroll.mount(container);
+
+// Back to pages, from where the view was read (its last `position`).
+scroll.dispose();
+await pages.reader.navigateToLocator?.(read);
+pages.reader.setSpreadMode('double');
+await nextLayout(pages.reader);
+pages.resume();
+```
+
 ## Drawing On Pages
 
 `paintPage` in `ControllerOptions` draws over each page as part of it: a page

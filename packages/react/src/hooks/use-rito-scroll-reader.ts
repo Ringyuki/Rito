@@ -13,10 +13,10 @@ import {
   createScrollController,
   WebGlUnavailableError,
   type ScrollController,
-  type ScrollControllerEvents,
   type ScrollControllerOptions,
 } from '@ritojs/kit';
 import { waitForInitialReaderLayout } from './use-rito-reader-layout';
+import { followScrollView, NOTHING_READ, type ScrollViewReading } from './use-rito-scroll-state';
 
 export interface UseRitoScrollReaderOptions {
   /** How the book opens; it is laid out scrolled whatever `spread` says. */
@@ -26,7 +26,7 @@ export interface UseRitoScrollReaderOptions {
   readonly initialLocator?: ReaderLocator | null | undefined;
 }
 
-export interface RitoScrollReaderState {
+export interface RitoScrollReaderState extends ScrollViewReading {
   readonly controller: ScrollController | null;
   readonly reader: Reader | null;
   readonly isLoaded: boolean;
@@ -35,12 +35,6 @@ export interface RitoScrollReaderState {
   readonly error: string | null;
   readonly metadata: PackageMetadata | null;
   readonly toc: readonly TocEntry[];
-  /** How far through the book the strip is, from 0 to 1. */
-  readonly progress: number;
-  /** Where the reader reads, as of the strip's last rest. */
-  readonly position: ReaderLocator | null;
-  /** What is selected, its text and its rects where the view shows them; null for nothing. */
-  readonly selection: ScrollControllerEvents['selection'] | null;
 }
 
 export interface RitoScrollReaderActions {
@@ -53,14 +47,12 @@ export interface RitoScrollReaderActions {
 }
 
 const INITIAL: Omit<RitoScrollReaderState, 'controller' | 'reader'> = {
+  ...NOTHING_READ,
   isLoaded: false,
   isLoading: false,
   error: null,
   metadata: null,
   toc: [],
-  progress: 0,
-  position: null,
-  selection: null,
 };
 
 type State = typeof INITIAL;
@@ -197,31 +189,8 @@ async function openStack(
     return null;
   }
   const controller = createScrollController(reader, canvas, options.scroll);
-  const detach = follow(controller, setState);
+  const detach = followScrollView(controller, setState);
   return { reader, controller, detach };
-}
-
-/** The view's events into the hook's state. */
-function follow(
-  controller: ScrollController,
-  setState: (update: (previous: State) => State) => void,
-): () => void {
-  const stops = [
-    controller.on('scroll', ({ progress }) => {
-      setState((previous) =>
-        previous.progress === progress ? previous : { ...previous, progress },
-      );
-    }),
-    controller.on('position', ({ locator }) => {
-      setState((previous) => ({ ...previous, position: locator }));
-    }),
-    controller.on('selection', (selection) => {
-      setState((previous) => ({ ...previous, selection: selection.range ? selection : null }));
-    }),
-  ];
-  return () => {
-    for (const stop of stops) stop();
-  };
 }
 
 async function disposeStack(stack: Stack): Promise<void> {
