@@ -77,8 +77,8 @@ export function App({ pinnedFontPolicy }: AppProps) {
           onOpenToc={handleOpenToc}
           onOpenSearch={handleToggleSearch}
           onOpenSettings={handleToggleSettings}
-          onHighlight={() => {
-            void reader.highlightScrollSelection();
+          onAnnotate={(kind, color, note) => {
+            void reader.annotateScrollSelection(kind, color, note);
           }}
           footnote={reader.footnote}
           onCloseFootnote={reader.dismissFootnote}

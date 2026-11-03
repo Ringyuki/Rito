@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
 import { createPaperTurn, springPresets, type ReaderControllerEvents } from '@ritojs/kit';
 import type { PageTurn } from '@/components/settings-panel';
+import type { AnnotationKind } from '@/components/annotation-toolbar';
 import {
   useAnnotations,
   useControllerEvent,
@@ -188,25 +189,33 @@ export function useReader(
     annotations.annotations,
     scroll.position,
   );
-  // The selection read scrolled, kept as a highlight among the book's
-  // annotations, which both modes show.
-  const highlightScrollSelection = useCallback(async () => {
-    const locator = scroll.selection?.range?.sourceLocator;
-    const interactions = scroll.reader?.interactions;
-    if (!locator?.sourceRange || !interactions?.createAnnotationTarget) return;
-    const target = await interactions.createAnnotationTarget({
-      href: locator.href,
-      sourceRange: locator.sourceRange,
-    });
-    if (!target) return;
-    annotations.insert({
-      id: crypto.randomUUID(),
-      kind: 'highlight',
-      target,
-      createdAt: Date.now(),
-    });
-    scroll.controller?.clearSelection();
-  }, [annotations, scroll.controller, scroll.reader, scroll.selection]);
+  // The selection read scrolled, kept as an annotation among the book's,
+  // which both modes show, as the paged reader's toolbar keeps it.
+  const annotateScrollSelection = useCallback(
+    async (kind: AnnotationKind, color: string, note?: string) => {
+      const locator = scroll.selection?.range?.sourceLocator;
+      const interactions = scroll.reader?.interactions;
+      if (!locator?.sourceRange || !interactions?.createAnnotationTarget) return;
+      scroll.controller?.clearSelection();
+      const target = await interactions.createAnnotationTarget({
+        href: locator.href,
+        sourceRange: locator.sourceRange,
+      });
+      if (!target) {
+        toast.error('Could not add the annotation');
+        return;
+      }
+      annotations.insert({
+        id: crypto.randomUUID(),
+        kind,
+        color,
+        ...(note ? { note } : {}),
+        target,
+        createdAt: Date.now(),
+      });
+    },
+    [annotations, scroll.controller, scroll.reader, scroll.selection],
+  );
   const searchHighlight = scrollSearch.highlight;
   useEffect(() => {
     scroll.controller?.setHighlights(
@@ -360,7 +369,7 @@ export function useReader(
     spreadMode,
     setSpreadMode,
     scroll,
-    highlightScrollSelection,
+    annotateScrollSelection,
     renderScale,
     setRenderScale,
     isTransitioning: transition.isTransitioning,

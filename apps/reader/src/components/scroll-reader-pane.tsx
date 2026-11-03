@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { Copy, Highlighter, List, Loader2, Search, Settings } from 'lucide-react';
-import { ScrollSelectionHandles } from '@ritojs/react';
+import { Copy, List, Loader2, Search, Settings } from 'lucide-react';
+import { ScrollSelectionHandles, useScrollSelectionHandles } from '@ritojs/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FootnoteDrawer } from '@/components/footnote-drawer';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { SelectionToolbar, type AnnotationKind } from '@/components/annotation-toolbar';
 import type { useReader } from '@/hooks/use-reader';
 import type { useScrollMode } from '@/hooks/use-scroll-mode';
 
@@ -14,7 +15,8 @@ interface ScrollReaderPaneProps {
   readonly onOpenToc: () => void;
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
-  readonly onHighlight: () => void;
+  /** Makes the selection an annotation, as the paged reader's toolbar does. */
+  readonly onAnnotate: (kind: AnnotationKind, color: string, note?: string) => void;
   readonly footnote: ReturnType<typeof useReader>['footnote'];
   readonly onCloseFootnote: () => void;
   readonly image: ReturnType<typeof useReader>['lightboxImage'];
@@ -29,7 +31,7 @@ export function ScrollReaderPane({
   onOpenToc,
   onOpenSearch,
   onOpenSettings,
-  onHighlight,
+  onAnnotate,
   footnote,
   onCloseFootnote,
   image,
@@ -40,6 +42,9 @@ export function ScrollReaderPane({
   // Handles show for a touch or a pen, as the paged reader's do.
   const [touchInput, setTouchInput] = useState(false);
   const view = useRef<HTMLDivElement | null>(null);
+  // The toolbar stands over the selection's focus and moves with the strip.
+  const handles = useScrollSelectionHandles(scroll.controller);
+  const focus = handles?.focusEdge === 'start' ? handles.start : (handles?.end ?? null);
   return (
     <main
       ref={containerRef}
@@ -67,6 +72,7 @@ export function ScrollReaderPane({
         rootRef={view}
         touchInput={touchInput}
       />
+      {focus && <SelectionToolbar anchor={focus} onAnnotate={onAnnotate} />}
       {scroll.isLoading && (
         <div
           data-testid="reader-loading"
@@ -99,16 +105,6 @@ export function ScrollReaderPane({
             }}
           >
             <Copy className="h-4 w-4" />
-          </Button>
-        )}
-        {selected.length > 0 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Highlight the selection"
-            onClick={onHighlight}
-          >
-            <Highlighter className="h-4 w-4" />
           </Button>
         )}
         <Button variant="ghost" size="icon" aria-label="Search" onClick={onOpenSearch}>
