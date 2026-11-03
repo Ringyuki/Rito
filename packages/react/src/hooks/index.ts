@@ -17,6 +17,7 @@ export {
   type RitoScrollViewActions,
 } from './use-rito-scroll-view';
 export { useSelection, type SelectionState } from './use-selection';
+export { useScrollSelectionHandles } from './use-scroll-selection-handles';
 export { useSearch, type SearchState } from './use-search';
 export { useAnnotations, type AnnotationsState } from './use-annotations';
 export { useReadingPosition, type ReadingPositionState } from './use-reading-position';

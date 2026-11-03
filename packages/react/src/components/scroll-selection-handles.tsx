@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
-import type { ScrollController, SelectionHandleState } from '@ritojs/kit';
+import { useLayoutEffect, useState, type RefObject } from 'react';
+import type { ScrollController } from '@ritojs/kit';
+import { useScrollSelectionHandles } from '../hooks/use-scroll-selection-handles';
 import type { CanvasPlacement } from './selection-handle';
 import { useSelectionHandleDrag } from './selection-handle-drag';
 import { SelectionHandlesLayer } from './selection-handles';
@@ -20,34 +21,13 @@ export function ScrollSelectionHandles({
   rootRef,
   touchInput,
 }: ScrollSelectionHandlesProps): React.JSX.Element | null {
-  const handles = useScrollHandles(controller);
+  const handles = useScrollSelectionHandles(controller);
   const visible = touchInput && handles !== null;
   const placement = useScrollCanvasPlacement(rootRef, controller, visible);
   const drag = useSelectionHandleDrag(controller, visible);
   // A handle being dragged stays while its drag lasts.
   if (!handles || !placement || (!touchInput && drag.activeVisual === null)) return null;
   return <SelectionHandlesLayer handles={handles} placement={placement} scale={1} drag={drag} />;
-}
-
-/** The selection's ends, as they are selected and as the strip moves under them. */
-function useScrollHandles(controller: ScrollController | null): SelectionHandleState | null {
-  const [handles, setHandles] = useState<SelectionHandleState | null>(null);
-  useEffect(() => {
-    setHandles(controller?.selectionHandles() ?? null);
-    if (!controller) return;
-    const stops = [
-      controller.on('selection', (selection) => {
-        setHandles(selection.range && !selection.selecting ? selection.handles : null);
-      }),
-      controller.on('scroll', () => {
-        if (controller.selection) setHandles(controller.selectionHandles());
-      }),
-    ];
-    return () => {
-      for (const stop of stops) stop();
-    };
-  }, [controller]);
-  return handles;
 }
 
 function useScrollCanvasPlacement(

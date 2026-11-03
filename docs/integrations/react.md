@@ -18,6 +18,7 @@ Hooks:
 - `useRitoScrollReader`
 - `useRitoScrollView`
 - `useSelection`
+- `useScrollSelectionHandles`
 - `useSearch`
 - `useAnnotations`
 - `useReadingPosition`
@@ -27,6 +28,10 @@ Hooks:
 `ScrollSelectionHandles({ controller, rootRef, touchInput })` draws a scrolled
 view's selection handles as `Reader` draws the page controller's, placed over the
 view's canvas inside `rootRef` and moved with the strip.
+`useScrollSelectionHandles(controller)` gives those ends where the view shows
+them (`start`, `end`, and `focusEdge` naming the focus), following the strip and
+null while nothing is selected or a gesture still selects: what a toolbar over a
+scrolled selection stands on, as `useSelection`'s `focusRect` is for pages.
 
 Types:
 

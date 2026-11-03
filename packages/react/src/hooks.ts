@@ -13,6 +13,7 @@ export {
   type RitoScrollViewActions,
   useSelection,
   type SelectionState,
+  useScrollSelectionHandles,
   useSearch,
   type SearchState,
   useAnnotations,
