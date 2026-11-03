@@ -305,7 +305,9 @@ true`, the default): with the built-in input a mouse drag selects from where it
 was pressed, on from one window into the next, a double press selects a word and
 a triple press a paragraph, a touch held still selects the word under it and
 then follows the finger instead of scrolling, a drag held near either end of the view scrolls the
-strip on under it, and a press that does not move clears the selection and taps.
+strip on under it, and a press that does not move clears the selection and taps. While a selection
+is being made the whole-book layout waits, as it does for the page controller,
+so a layout landing mid-drag does not end the gesture.
 A Shift chord moves the selection's focus as the page controller's does, its
 arrow keys read by the writing mode of the focus's line, and the strip follows a
 focus that moves off screen. `selectionHandles()` and `beginSelectionHandleDrag`
@@ -331,7 +333,8 @@ after the next frame, and a link activated in the mirror is a `tap` on its
 target.
 
 The strip has its windows from the moment the view is made, so it can be moved
-(`scrollToLocator`) before it is mounted. Through every new layout it stays on
+(`scrollToLocator`) before it is mounted; mounting it again where it already is
+changes nothing, so a ref called on every render may mount it. Through every new layout it stays on
 the window the reader reads, as far into it as the reading line was: the
 reader's active spread, which a chapter laid out alone, the whole book and
 another size each number anew.

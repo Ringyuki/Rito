@@ -132,9 +132,7 @@ function controllerOf(
   const ratio = (): number => ratioOf(view);
   const controller: ScrollController = {
     mount(container) {
-      container.appendChild(view.surface.canvas);
-      mounted(container);
-      relayout(view);
+      mount(view, container, mounted);
     },
     get canvas() {
       return view.surface.canvas;
@@ -171,6 +169,19 @@ function controllerOf(
     },
   };
   return controller;
+}
+
+function mount(
+  view: ScrollView,
+  container: HTMLElement,
+  mounted: (container: HTMLElement) => void,
+): void {
+  // A host mounting it again where it is (a ref called on every render)
+  // neither lays the strip out again nor ends a selection.
+  if (view.surface.canvas.parentElement === container) return;
+  container.appendChild(view.surface.canvas);
+  mounted(container);
+  relayout(view);
 }
 
 /** How the app moves the strip: to an offset or a window, or under a finger. */

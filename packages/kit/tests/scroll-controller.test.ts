@@ -227,6 +227,25 @@ describe('scroll controller', () => {
     controller.dispose();
   });
 
+  it('mounted again where it is, keeps its place and lays nothing out again', () => {
+    const reader = fakeReader();
+    const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
+      input: false,
+    });
+    const rests: number[] = [];
+    controller.on('rest', ({ offset }) => rests.push(offset));
+    controller.mount(document.body);
+    controller.scrollToSpread(3, 250);
+    runFrames();
+    expect(rests).toEqual([900 + 600 + 250 - 30]);
+    controller.mount(document.body);
+    controller.mount(document.body);
+    runFrames();
+    expect(rests).toEqual([900 + 600 + 250 - 30]);
+    expect(controller.offset).toBe(900 + 600 + 250 - 30);
+    controller.dispose();
+  });
+
   it('can be moved before it is shown', () => {
     const reader = fakeReader();
     const controller = createScrollController(reader as unknown as Reader, fakeCanvas(), {
@@ -411,6 +430,28 @@ describe('scroll controller', () => {
     await vi.waitFor(() => {
       expect(taps).toHaveLength(1);
     });
+    controller.dispose();
+  });
+
+  it('holds the whole-book layout while a drag is selecting', async () => {
+    const { canvas, controller, pointer, reader } = selectingView();
+    const released = vi.fn();
+    const hold = vi.fn(() => released);
+    Object.assign(reader, { holdBookLayout: hold });
+    controller.mount(document.body);
+    runFrames();
+    canvas.dispatchEvent(pointer('pointerdown', 30, 50));
+    canvas.dispatchEvent(pointer('pointermove', 60, 200));
+    await flushMicrotasks();
+    expect(hold).toHaveBeenCalledOnce();
+    expect(released).not.toHaveBeenCalled();
+    canvas.dispatchEvent(pointer('pointermove', 70, 210));
+    canvas.dispatchEvent(pointer('pointerup', 70, 210));
+    await flushMicrotasks();
+    runFrames();
+    expect(controller.selection?.selectedText).toBe('selected text');
+    expect(hold).toHaveBeenCalledOnce();
+    expect(released).toHaveBeenCalledOnce();
     controller.dispose();
   });
 

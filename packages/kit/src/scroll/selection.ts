@@ -58,8 +58,10 @@ export function createScrollSelection(
   const engine = createNativeSelectionEngine(capability, { onError: report });
   let version = 0;
   let movements = Promise.resolve(true);
+  const book = holdBookWhileSelecting(reader, engine);
   const stop = engine.onChange(() => {
     version += 1;
+    book.settle();
     changed();
   });
   return {
@@ -88,8 +90,34 @@ export function createScrollSelection(
     restore: restorer(engine, capability),
     dispose() {
       stop();
+      book.release();
       engine.dispose();
     },
+  };
+}
+
+/**
+ * A layout replacing the one a selection is being made in would end the
+ * gesture: the whole-book layout waits until the selection is made, and
+ * then carries it over like any relayout (as the page controller holds it).
+ */
+function holdBookWhileSelecting(
+  reader: Reader,
+  engine: NativeSelectionEngine,
+): { settle(): void; release(): void } {
+  let held: (() => void) | undefined;
+  const release = (): void => {
+    const done = held;
+    held = undefined;
+    done?.();
+  };
+  return {
+    settle() {
+      const selecting = engine.getState() === 'selecting';
+      if (selecting && held === undefined) held = reader.holdBookLayout?.() ?? (() => undefined);
+      else if (!selecting) release();
+    },
+    release,
   };
 }
 

@@ -79,7 +79,7 @@ export interface ScrollControllerEvents {
  * under the reading line; how the strip moves is the app's to replace.
  */
 export interface ScrollController {
-  /** Puts the canvas in `container`. */
+  /** Puts the canvas in `container`; mounting it where it already is changes nothing. */
   mount(container: HTMLElement): void;
   /** The canvas the view draws on. */
   readonly canvas: HTMLCanvasElement;
