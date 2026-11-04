@@ -108,6 +108,11 @@ export interface ScrollController {
   /** Moves the strip to `offset`, gliding there when `animate`. */
   scrollTo(offset: number, options?: { readonly animate?: boolean }): void;
   scrollBy(delta: number, options?: { readonly animate?: boolean }): void;
+  /**
+   * How far a page moves the strip, as PageDown and PageUp move it: the
+   * view's length along the axis less two lines, in CSS pixels.
+   */
+  readonly pageLength: number;
   /** Shows window `spreadIndex` from `blockOffset` into it at the reading line. */
   scrollToSpread(spreadIndex: number, blockOffset?: number): void;
   /**

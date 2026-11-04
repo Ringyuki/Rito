@@ -6,6 +6,7 @@ import { wireScrollA11y } from './a11y';
 import { beginSelectionHandleDrag, selectionHandles } from './handles';
 import { scrollPointAt, scrollTargetAt } from './hit';
 import { wireScrollInput } from './input';
+import { movement, pageLength } from './movement';
 import { createScrollMotion } from './motion';
 import { createWindowOverlays } from './overlays';
 import { defaultScrollPhysics } from './physics';
@@ -14,10 +15,7 @@ import { createScrollSelection } from './selection';
 import { touchLongPress, wireKeySelection, wireMouseSelection } from './selection-input';
 import type { ScrollController, ScrollControllerEvents, ScrollControllerOptions } from './types';
 import {
-  moveTo,
   ratioOf,
-  readingLine,
-  readOn,
   relayout,
   revealFocus,
   schedule,
@@ -152,13 +150,12 @@ function controllerOf(
     get currentSpread() {
       return view.current;
     },
+    get pageLength() {
+      return pageLength(view);
+    },
     ...movement(view),
     scrollToLocator: (locator) => scrollToLocator(view, controller, locator),
-    pointAt: (x, y) =>
-      view.geometry === undefined
-        ? undefined
-        : scrollPointAt(view.reader, view.geometry, motion.offset, view.surface.width, x, y),
-    targetAt: (point) => scrollTargetAt(view.reader, point),
+    ...hits(view),
     get selection() {
       return view.selection?.snapshot?.range ?? null;
     },
@@ -174,6 +171,17 @@ function controllerOf(
   return controller;
 }
 
+/** What is under a point of the view. */
+function hits(view: ScrollView): Pick<ScrollController, 'pointAt' | 'targetAt'> {
+  return {
+    pointAt: (x, y) =>
+      view.geometry === undefined
+        ? undefined
+        : scrollPointAt(view.reader, view.geometry, view.motion.offset, view.surface.width, x, y),
+    targetAt: (point) => scrollTargetAt(view.reader, point),
+  };
+}
+
 function mount(
   view: ScrollView,
   container: HTMLElement,
@@ -185,42 +193,6 @@ function mount(
   container.appendChild(view.surface.canvas);
   mounted(container);
   relayout(view);
-}
-
-/** How the app moves the strip: to an offset or a window, or under a finger. */
-function movement(
-  view: ScrollView,
-): Pick<
-  ScrollController,
-  'scrollTo' | 'scrollBy' | 'scrollToSpread' | 'grab' | 'follow' | 'release'
-> {
-  const { motion } = view;
-  const ratio = (): number => ratioOf(view);
-  return {
-    scrollTo(offset, options) {
-      moveTo(view, offset * ratio(), options?.animate ?? false);
-    },
-    scrollBy(delta, options) {
-      moveTo(view, motion.offset + delta * ratio(), options?.animate ?? false);
-    },
-    scrollToSpread(spreadIndex, blockOffset = 0) {
-      const window = view.geometry?.windows.find((each) => each.spreadIndex === spreadIndex);
-      if (window === undefined) return;
-      moveTo(view, window.start + blockOffset * ratio() - readingLine(view), false);
-    },
-    grab() {
-      motion.grab();
-    },
-    follow(delta) {
-      motion.follow(delta * ratio());
-      readOn(view);
-      schedule(view);
-    },
-    release(velocity) {
-      motion.release(velocity * ratio(), performance.now());
-      schedule(view);
-    },
-  };
 }
 
 /** What is drawn over the text: the selection and the app's highlights. */

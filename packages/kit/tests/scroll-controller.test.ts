@@ -1,161 +1,18 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Reader, ReaderScrollLayout } from '@ritojs/core';
+import { describe, expect, it, vi } from 'vitest';
+import type { Reader } from '@ritojs/core';
 import { createScrollController } from '../src/scroll/controller';
-import { createFakeGl } from './helpers/fake-gl';
+import { caret, exactRange, flushMicrotasks } from './helpers/native-selection';
 import {
-  capabilityFrom,
-  caret,
-  exactRange,
-  flushMicrotasks,
-  resolvedCaret,
-} from './helpers/native-selection';
+  fakeCanvas,
+  fakeReader,
+  LAYOUT,
+  runFrames,
+  selectingView,
+  stubScrollFrames,
+} from './helpers/scroll-view';
 
-const LAYOUT: ReaderScrollLayout = {
-  axis: 'down',
-  windowLength: 600,
-  chapters: [
-    { firstSpread: 0, spreadCount: 2, extent: 900 },
-    { firstSpread: 2, spreadCount: 3, extent: 1_500 },
-  ],
-};
-
-/** A reader on a scrolled layout, 400 × 600 at ratio 1, margins 30. */
-function fakeReader() {
-  const committed: (() => void)[] = [];
-  const invalidated: ((spreadIndex: number) => void)[] = [];
-  const reader = {
-    dpr: 1,
-    activeSpreadIndex: 0,
-    spreads: Array.from({ length: 5 }, (_, index) => ({ index, leftPageIndex: index })),
-    painted: [] as number[],
-    active: [] as number[],
-    getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30 }),
-    layout: LAYOUT,
-    getScrollLayout: () => reader.layout,
-    getCanvasSize: () => ({ width: 400, height: 600 }),
-    renderSpreadTo(spreadIndex: number) {
-      reader.painted.push(spreadIndex);
-      return true;
-    },
-    notifyActiveSpread(spreadIndex: number) {
-      reader.active.push(spreadIndex);
-      reader.activeSpreadIndex = spreadIndex;
-    },
-    onLayoutCommitted(listener: () => void) {
-      committed.push(listener);
-      return () => undefined;
-    },
-    onSpreadContentInvalidated(listener: (spreadIndex: number) => void) {
-      invalidated.push(listener);
-      return () => undefined;
-    },
-    commit: () => {
-      for (const listener of committed) listener();
-    },
-  };
-  return reader;
-}
-
-function fakeCanvas() {
-  const fake = createFakeGl();
-  const canvas = document.createElement('canvas');
-  vi.spyOn(canvas, 'getContext').mockImplementation(((kind: string) =>
-    kind === 'webgl2' ? fake.gl : null) as never);
-  return canvas;
-}
-
-/** A view over a reader that selects text, scrolled 500 px down, and a mouse pointer event maker. */
-function selectingView() {
-  const fills = stubOffscreenCanvas();
-  const reader = fakeReader();
-  Object.assign(reader, {
-    getLayoutGeometry: () => ({ marginTop: 30, marginRight: 30, marginLeft: 20 }),
-    interactions: {
-      enabled: true,
-      textSelection: capabilityFrom(
-        (point) => Promise.resolve(resolvedCaret(caret(Math.round(point.x), point.pageIndex))),
-        (anchor, focus) =>
-          Promise.resolve({
-            status: 'resolved' as const,
-            range: {
-              ...exactRange(anchor, focus),
-              rects: [
-                { pageIndex: 0, spreadIndex: 0, x: 10, y: 520, width: 100, height: 18 },
-                { pageIndex: 1, spreadIndex: 1, x: 0, y: 0, width: 40, height: 18 },
-              ],
-            },
-          }),
-      ),
-      getPageTargets: () => Promise.resolve(undefined),
-    },
-  });
-  const canvas = fakeCanvas();
-  canvas.setPointerCapture = () => undefined;
-  Object.defineProperty(canvas, 'clientWidth', { value: 400 });
-  Object.defineProperty(canvas, 'clientHeight', { value: 600 });
-  const controller = createScrollController(reader as unknown as Reader, canvas);
-  const pointer = (type: string, x: number, y: number) =>
-    new PointerEvent(type, { pointerType: 'mouse', button: 0, clientX: x, clientY: y, detail: 1 });
-  return { canvas, controller, fills, pointer, reader };
-}
-
-/** Stands in for the overlay canvases, recording every rect filled, scaled. */
-function stubOffscreenCanvas(): number[][] {
-  const fills: number[][] = [];
-  class Offscreen {
-    constructor(
-      public width: number,
-      public height: number,
-    ) {}
-    getContext() {
-      let scale = 1;
-      return {
-        canvas: this,
-        clearRect: () => undefined,
-        save: () => undefined,
-        restore: () => undefined,
-        scale: (by: number) => {
-          scale = by;
-        },
-        fillRect: (x: number, y: number, width: number, height: number) => {
-          fills.push([x * scale, y * scale, width * scale, height * scale]);
-        },
-        fillStyle: '',
-      };
-    }
-  }
-  vi.stubGlobal('OffscreenCanvas', Offscreen);
-  return fills;
-}
-
-let frames: FrameRequestCallback[] = [];
-let now = 0;
-/** Runs animation frames 16 ms apart until none is asked for. */
-function runFrames(limit = 500): void {
-  for (let frame = 0; frame < limit && frames.length > 0; frame += 1) {
-    const due = frames;
-    frames = [];
-    now += 16;
-    for (const callback of due) callback(now);
-  }
-}
-
-beforeEach(() => {
-  frames = [];
-  now = 0;
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    frames.push(callback);
-    return frames.length;
-  });
-  vi.stubGlobal('cancelAnimationFrame', () => undefined);
-  vi.spyOn(performance, 'now').mockImplementation(() => now);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-});
+stubScrollFrames();
 
 describe('scroll controller', () => {
   it('shows the windows end to end and tells the reader which one is read', () => {
@@ -430,77 +287,6 @@ describe('scroll controller', () => {
     await vi.waitFor(() => {
       expect(taps).toHaveLength(1);
     });
-    controller.dispose();
-  });
-
-  it('says which of the app highlights a tap and a resting mouse are on, the top one first', async () => {
-    const { canvas, controller, pointer } = selectingView();
-    controller.mount(document.body);
-    controller.scrollTo(500);
-    runFrames();
-    controller.setHighlights([
-      { id: 'under', rects: [{ pageIndex: 1, x: 0, y: 0, width: 200, height: 40 }], color: 'red' },
-      {
-        id: 'over',
-        rects: [
-          { pageIndex: 1, x: 0, y: 0, width: 40, height: 18 },
-          { pageIndex: 1, x: 0, y: 20, width: 30, height: 18 },
-        ],
-        color: 'blue',
-        zIndex: 1,
-      },
-    ]);
-    runFrames();
-    const taps: { highlight: unknown }[] = [];
-    controller.on('tap', (tapped) => taps.push(tapped));
-    const hovers: unknown[] = [];
-    controller.on('highlightHover', ({ highlight }) => hovers.push(highlight?.id ?? null));
-
-    // Page 1's content box starts at view (20, 130): both highlights are under (30, 135).
-    canvas.dispatchEvent(pointer('pointerdown', 30, 135));
-    canvas.dispatchEvent(pointer('pointerup', 30, 135));
-    await vi.waitFor(() => {
-      expect(taps).toHaveLength(1);
-    });
-    // The top one, bounded over its rects on that page.
-    expect(taps[0]?.highlight).toEqual({
-      id: 'over',
-      bounds: { x: 20, y: 130, width: 40, height: 38 },
-    });
-
-    canvas.dispatchEvent(pointer('pointermove', 30, 135));
-    canvas.dispatchEvent(pointer('pointermove', 32, 136));
-    canvas.dispatchEvent(pointer('pointermove', 150, 140));
-    canvas.dispatchEvent(pointer('pointermove', 300, 400));
-    canvas.dispatchEvent(new PointerEvent('pointerleave'));
-    expect(hovers).toEqual(['over', 'under', null]);
-
-    canvas.dispatchEvent(pointer('pointerdown', 300, 400));
-    canvas.dispatchEvent(pointer('pointerup', 300, 400));
-    await vi.waitFor(() => {
-      expect(taps).toHaveLength(2);
-    });
-    expect(taps[1]?.highlight).toBeNull();
-    controller.dispose();
-  });
-
-  it('moves the hovered highlight with the strip under a resting mouse', () => {
-    const { canvas, controller, pointer } = selectingView();
-    controller.mount(document.body);
-    controller.scrollTo(500);
-    runFrames();
-    controller.setHighlights([
-      { id: 'a', rects: [{ pageIndex: 1, x: 0, y: 0, width: 40, height: 18 }], color: 'red' },
-    ]);
-    const hovers: unknown[] = [];
-    controller.on('highlightHover', ({ highlight }) => hovers.push(highlight?.bounds.y ?? null));
-    canvas.dispatchEvent(pointer('pointermove', 30, 135));
-    // Ten pixels on, the highlight is ten pixels up, still under the mouse; then gone from under it.
-    controller.scrollTo(510);
-    runFrames();
-    controller.scrollTo(600);
-    runFrames();
-    expect(hovers).toEqual([130, 120, null]);
     controller.dispose();
   });
 

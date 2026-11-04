@@ -296,7 +296,8 @@ a pen; `physics` takes any `ScrollPhysics` (`drag` resists past the ends,
 `release` returns the motion a release starts), `defaultScrollPhysics` being a
 browser-like glide with a rubber band. An app that drives the strip itself turns
 the input off and calls `grab`, `follow`, `release`, `scrollTo`, `scrollBy`,
-`scrollToSpread` and `scrollToLocator`; `pointAt` and `targetAt` say what is under
+`scrollToSpread` and `scrollToLocator` (`pageLength` is how far a page moves the
+strip, as PageDown moves it: the view's length less two lines); `pointAt` and `targetAt` say what is under
 a point, and `viewRects` where page rects (a target's bounds, a note's lines) are
 on the view, relative to `canvas`. Offsets are CSS pixels along the axis from the book's block start.
 

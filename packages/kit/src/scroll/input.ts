@@ -1,8 +1,8 @@
 import { wireDrag } from './touch-input';
 import type { ScrollController } from './types';
 
-/** CSS pixels a wheel's line moves; a page moves the viewport less two lines. */
-const LINE = 40;
+/** CSS pixels a wheel's line moves. */
+export const LINE = 40;
 
 /** A tap at view coordinates (CSS pixels from the view's top-left corner). */
 export type ScrollTap = (x: number, y: number) => void;
@@ -45,8 +45,7 @@ export function wireScrollInput(
 }
 
 function wireWheelAndKeys(canvas: HTMLCanvasElement, controller: ScrollController): () => void {
-  const page = (): number =>
-    (controller.axis === 'left' ? canvas.clientWidth : canvas.clientHeight) - 2 * LINE;
+  const page = (): number => controller.pageLength;
   const onWheel = (event: WheelEvent): void => {
     event.preventDefault();
     const scale = event.deltaMode === 1 ? LINE : event.deltaMode === 2 ? page() : 1;
