@@ -17,7 +17,9 @@ const PREFIX = 'annotation:';
  * The book's annotations as highlights of the book read scrolled: each
  * record found again in the book as it is now and resolved to the rects of
  * the pages laid out, again at each rest of the strip (`rest`), since the
- * pages laid out grow as the book is read.
+ * pages laid out grow as the book is read, and in each layout the reader
+ * commits: a page is numbered anew in it (a chapter laid out alone counts
+ * its own), and a question asked of the one before is not answered.
  */
 export function useScrollAnnotations(
   reader: Reader | null,
@@ -25,6 +27,14 @@ export function useScrollAnnotations(
   rest: unknown,
 ): readonly ScrollHighlight[] {
   const [highlights, setHighlights] = useState<readonly ScrollHighlight[]>([]);
+  const [layouts, setLayouts] = useState(0);
+  useEffect(
+    () =>
+      reader?.onLayoutCommitted(() => {
+        setLayouts((count) => count + 1);
+      }),
+    [reader],
+  );
   useEffect(() => {
     const interactions = reader?.interactions;
     if (!interactions || records.length === 0) {
@@ -54,7 +64,7 @@ export function useScrollAnnotations(
     return () => {
       current = false;
     };
-  }, [reader, records, rest]);
+  }, [reader, records, rest, layouts]);
   return highlights;
 }
 
