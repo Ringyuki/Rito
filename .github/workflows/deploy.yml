@@ -32,6 +32,10 @@ jobs:
       - name: Install matching wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
       - run: pnpm install --frozen-lockfile
+      # The demo book split by the repository's own packer, which the
+      # reader's "Sharded Demo" opens: it is not committed, so it is packed
+      # here, before the reader's build copies it from public/.
+      - run: pnpm --filter @ritojs/reader run pack:shards-demo
       - run: pnpm run build
       - uses: actions/upload-pages-artifact@v3
         with:
