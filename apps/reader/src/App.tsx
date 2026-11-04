@@ -10,6 +10,7 @@ import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
 import { ScrollReaderPane } from '@/components/scroll-reader-pane';
+import { ReaderContextMenu } from '@/components/reader-context-menu';
 
 interface AppProps {
   readonly pinnedFontPolicy: ReaderPinnedFontPolicy;
@@ -71,23 +72,35 @@ export function App({ pinnedFontPolicy }: AppProps) {
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
       {reader.spreadMode === 'scrolled' ? (
-        <ScrollReaderPane
-          containerRef={containerRef}
-          scroll={reader.scroll}
+        <ReaderContextMenu
+          reader={reader}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onOpenToc={handleOpenToc}
           onOpenSearch={handleToggleSearch}
           onOpenSettings={handleToggleSettings}
-          annotations={reader.annotations}
-          annotationPointer={reader.scrollAnnotationPointer}
-          onAnnotate={(kind, color, note) => {
-            void reader.annotateScrollSelection(kind, color, note);
-          }}
-          footnote={reader.footnote}
-          onCloseFootnote={reader.dismissFootnote}
-          image={reader.lightboxImage}
-          onCloseImage={reader.dismissLightbox}
-          onImageExitComplete={reader.onLightboxExitComplete}
-        />
+          onLoadDemo={handleLoadDemo}
+          onLoadShardedDemo={handleLoadShardedDemo}
+          onFileLoad={handleFileLoad}
+        >
+          <ScrollReaderPane
+            containerRef={containerRef}
+            scroll={reader.scroll}
+            onOpenToc={handleOpenToc}
+            onOpenSearch={handleToggleSearch}
+            onOpenSettings={handleToggleSettings}
+            annotations={reader.annotations}
+            annotationPointer={reader.scrollAnnotationPointer}
+            onAnnotate={(kind, color, note) => {
+              void reader.annotateScrollSelection(kind, color, note);
+            }}
+            footnote={reader.footnote}
+            onCloseFootnote={reader.dismissFootnote}
+            image={reader.lightboxImage}
+            onCloseImage={reader.dismissLightbox}
+            onImageExitComplete={reader.onLightboxExitComplete}
+          />
+        </ReaderContextMenu>
       ) : (
         <ReadingProgressArea reader={reader} width={containerSize.width}>
           <Reader
