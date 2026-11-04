@@ -4,7 +4,10 @@
 use crate::InlineBox;
 use crate::layout::alignment::align;
 use crate::layout::alignment::unjustify;
-use crate::layout::data::{LayoutData, LineData, LineItemData};
+use crate::analysis::Boundary;
+use crate::layout::data::{ClusterData, ClusterInfo, LayoutData, LineData, LineItemData};
+use alloc::sync::Arc;
+use core::ops::Range;
 use alloc::vec::Vec;
 use crate::style::Brush;
 use core::cmp::Ordering;
@@ -104,6 +107,87 @@ impl<B: Brush> Layout<B> {
     }
 
     /// Returns the number of lines in the layout.
+    /// Rito: the index, in layout order, of the cluster holding text index
+    /// `byte`, found through the runs rather than the lines: it answers
+    /// before the layout is broken into lines.
+    pub fn cluster_index_at(&self, byte: usize) -> Option<usize> {
+        let runs = &self.data.runs;
+        let run = runs
+            .get(runs.partition_point(|run| run.text_range.end <= byte))
+            .filter(|run| run.text_range.contains(&byte))?;
+        let clusters = &self.data.clusters[run.cluster_range.clone()];
+        let index = clusters.partition_point(|cluster| cluster.text_range(run).end <= byte);
+        clusters
+            .get(index)
+            .filter(|cluster| cluster.text_range(run).contains(&byte))
+            .map(|_| run.cluster_range.start + index)
+    }
+
+    /// Rito: the index, in layout order, of the cluster whose text starts at
+    /// `byte`, if one does.
+    pub fn cluster_starting_at(&self, byte: usize) -> Option<usize> {
+        let index = self.cluster_index_at(byte)?;
+        let run = &self.data.runs[self
+            .data
+            .runs
+            .partition_point(|run| run.cluster_range.end <= index)];
+        (self.data.clusters[index].text_range(run).start == byte).then_some(index)
+    }
+
+    /// Rito: sets the clusters starting in `range` as one unit `advance`
+    /// long that a line never breaks inside, as a vertical line sets a
+    /// `text-combine-upright` run: the first carries the advance and
+    /// starts a ligature, the rest continue it with none, so breaking
+    /// takes them as one cluster and only the first's boundary breaks.
+    /// Call it before the layout is first broken into lines.
+    pub fn combine_upright(&mut self, range: Range<usize>, advance: f32) {
+        let Some(first) = self.cluster_index_at(range.start) else {
+            return;
+        };
+        let runs = Arc::make_mut(&mut self.data.runs);
+        let clusters = Arc::make_mut(&mut self.data.clusters);
+        let mut index = first;
+        for run in runs.iter_mut() {
+            if run.cluster_range.end <= index {
+                continue;
+            }
+            while index < run.cluster_range.end {
+                let cluster = &mut clusters[index];
+                if cluster.text_range(run).start >= range.end {
+                    break;
+                }
+                let flags = cluster.flags
+                    & !(ClusterData::LIGATURE_START | ClusterData::LIGATURE_COMPONENT);
+                if index == first {
+                    cluster.flags = flags | ClusterData::LIGATURE_START | ClusterData::COMBINED;
+                    cluster.advance = advance;
+                } else {
+                    cluster.flags = flags | ClusterData::LIGATURE_COMPONENT | ClusterData::COMBINED;
+                    cluster.advance = 0.0;
+                    cluster.info = ClusterInfo::new(Boundary::None, cluster.info.source_char());
+                }
+                index += 1;
+            }
+            run.advance = clusters[run.cluster_range.clone()]
+                .iter()
+                .map(|cluster| cluster.advance)
+                .sum();
+            if index < run.cluster_range.end {
+                break;
+            }
+        }
+    }
+
+    /// Rito: the font of the run holding text index `byte`, found through
+    /// the runs: it answers before the layout is broken into lines.
+    pub fn font_at(&self, byte: usize) -> Option<&crate::FontData> {
+        let runs = &self.data.runs;
+        let run = runs
+            .get(runs.partition_point(|run| run.text_range.end <= byte))
+            .filter(|run| run.text_range.contains(&byte))?;
+        self.data.fonts.get(run.font_index)
+    }
+
     pub fn len(&self) -> usize {
         self.data.lines.len()
     }

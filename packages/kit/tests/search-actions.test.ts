@@ -117,6 +117,7 @@ describe('search engine event containment', () => {
       emitter,
       frameDriver: { markAllOverlaysDirty },
       getCurrentSpread: () => 0,
+      isSuspended: () => false,
     } as unknown as Parameters<typeof wireEngineEvents>[0];
     const disposables = createDisposableCollection();
     wireEngineEvents(deps, disposables);

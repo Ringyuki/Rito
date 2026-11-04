@@ -504,3 +504,104 @@ fn observe_fixed_height_text_div_flow() {
         "the block after the fixed-height div flows at 74.8, got {last}"
     );
 }
+
+/// A first in-flow block that clears the floats before it keeps its top
+/// margin: the container settles its block offset above that margin
+/// (Blink's `HasClearancePastAdjoiningFloats`), so the floats stay at
+/// the container top and the margin only acts inside the clearance
+/// (measured on 016's colour plates: `p.cb` with a 0.4em margin after
+/// two right floats left the floats at their own 1em and 2em margins).
+#[test]
+fn a_block_clearing_the_floats_before_it_keeps_its_margin_inside() {
+    let chapter = resolved_chapter_with(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div>
+  <div class="fr">f</div>
+  <p class="cb">x</p>
+</div>
+</body></html>"#,
+        "body { margin: 0; font-size: 10px; line-height: 10px; } p { margin: 6.4px 0; } .fr { float: right; margin-top: 16px; } .cb { clear: both; }\n",
+    );
+    let built = build_chapter_formatting_tree(
+        &chapter.nodes,
+        chapter.body_index,
+        &chapter.layout,
+        &chapter.inline,
+        &no_images(),
+    )
+    .expect("tree builds");
+    let engine = BlockFormattingContext::new(
+        ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+    );
+    let outcome = engine
+        .layout(
+            &built.tree,
+            built.tree.root(),
+            &ConstraintSpace::continuous(640.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("lays out");
+    fn line_ys(fragment: &Fragment, offset: f64, out: &mut Vec<f64>) {
+        match fragment {
+            Fragment::Box(node) => {
+                for child in &node.children {
+                    line_ys(child, offset + node.rect.y, out);
+                }
+            }
+            Fragment::Line(line) => out.push(offset + line.rect.y),
+            _ => {}
+        }
+    }
+    let mut ys = Vec::new();
+    line_ys(&outcome.fragments.root, 0.0, &mut ys);
+    ys.sort_by(f64::total_cmp);
+    assert_eq!(ys, vec![16.0, 26.0], "float line, then the cleared line");
+}
+
+/// Margins collapsing through several plain wrappers join as one set:
+/// the largest positive plus the most negative (CSS 2 §8.3.1), whatever
+/// level each sits at. Joining level by level into one number lost the
+/// split (measured on 010's contents page: an `h2` 0.3em, a wrapper 1em,
+/// an inner -0.5em and a paragraph 0.2em left the title 1.6px low).
+#[test]
+fn margins_through_nested_wrappers_collapse_as_one_set() {
+    let chapter = resolved_chapter_with(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div class="outer"><div class="mid"><div class="inner"><p>x</p></div></div></div>
+</body></html>"#,
+        "body { margin: 0; font-size: 10px; line-height: 10px; } .outer { margin-top: 6px; } .mid { margin-top: 20px; } .inner { margin-top: -10px; } p { margin: 2px 0 0; }\n",
+    );
+    let built = build_chapter_formatting_tree(
+        &chapter.nodes,
+        chapter.body_index,
+        &chapter.layout,
+        &chapter.inline,
+        &no_images(),
+    )
+    .expect("tree builds");
+    let engine = BlockFormattingContext::new(
+        ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+    );
+    let outcome = engine
+        .layout(
+            &built.tree,
+            built.tree.root(),
+            &ConstraintSpace::continuous(640.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("lays out");
+    fn first_line_y(fragment: &Fragment, offset: f64) -> Option<f64> {
+        match fragment {
+            Fragment::Box(node) => node
+                .children
+                .iter()
+                .find_map(|child| first_line_y(child, offset + node.rect.y)),
+            Fragment::Line(line) => Some(offset + line.rect.y),
+            _ => None,
+        }
+    }
+    let y = first_line_y(&outcome.fragments.root, 0.0).expect("a line");
+    assert_eq!(y, 10.0, "20 (largest positive) - 10 (most negative)");
+}

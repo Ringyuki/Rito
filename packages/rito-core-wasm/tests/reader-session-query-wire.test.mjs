@@ -185,7 +185,8 @@ test('text interaction messages match the Rust bytes', () => {
       position: { blockIndex: 2, lineIndex: 1, runIndex: 0, charIndex: 4 },
       affinity: 'downstream',
     },
-    geometry: { x: 12.5, y: 40, height: 18 },
+    geometry: { x: 12.5, y: 40, width: 18, height: 0 },
+    writingMode: 'vertical-rl',
     href: 'OEBPS/chapter-2.xhtml',
     sourcePoint: point(12),
   });
@@ -248,7 +249,7 @@ test('navigation messages match the Rust bytes', () => {
   );
   assert.deepEqual(decodeRitoReaderNavigationResult(rustHex('LOCATION_HEX')), {
     kind: 'location',
-    location: { kind: 'page', pageIndex: 5, drawn: true, matchedBy: 'anchor' },
+    location: { kind: 'page', pageIndex: 5, drawn: true, matchedBy: 'anchor', blockOffset: 212.25 },
   });
   assert.deepEqual(decodeRitoReaderNavigationResult(rustHex('TOC_HEX')), {
     kind: 'toc-entry',

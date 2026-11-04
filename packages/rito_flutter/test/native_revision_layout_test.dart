@@ -40,6 +40,29 @@ Future<RitoReaderSession> _open(int sessionId) => RitoReaderSession.open(
 );
 
 void main() {
+  test('calls taken back to back each get a request id of their own', () async {
+    final session = await _open(9402);
+    try {
+      final first = session.firstArtifact;
+      final a = session.takeRequestId();
+      final b = session.takeRequestId();
+      expect(b, a + 1);
+      // Both reach the engine before either answers, and neither is
+      // refused as stale.
+      final peeked = await Future.wait(<Future<RitoPreparedArtifact>>[
+        session.peekSpread(from: first, requestId: a, spreadIndex: 1),
+        session.peekSpread(from: first, requestId: b, spreadIndex: 2),
+      ]);
+      expect(peeked.map((page) => page.artifact.localSpreadIndex), <int>[1, 2]);
+      expect(session.nextRequestId, b + 1);
+      for (final page in peeked) {
+        await session.releaseArtifact(page);
+      }
+    } finally {
+      await session.dispose();
+    }
+  });
+
   test('a page reaches any spread its revision lays out', () async {
     final session = await _open(9401);
     try {

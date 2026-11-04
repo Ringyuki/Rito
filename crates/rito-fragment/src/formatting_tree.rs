@@ -209,6 +209,26 @@ pub struct RubyAnnotation {
     /// The rt element's computed `ruby-align`, driving how the painted
     /// annotation distributes over the base extent.
     pub align: rito_style_contract::RubyAlign,
+    /// Whether the pair follows another pair of the same `<ruby>` element,
+    /// inside that element's one box.
+    pub continues_ruby: bool,
+}
+
+/// How an atomic inline (an image or an inline-block) aligns on its line,
+/// from its own `vertical-align`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomAlign {
+    /// Its baseline on its parent's, shifted by the chain it sits in.
+    Baseline,
+    /// `top`: hangs from the line-box top.
+    Top,
+    /// `middle`: its middle half the parent's x-height above the parent's
+    /// baseline. `parent` is the style of the box it sits in, whose
+    /// primary font gives that x-height.
+    Middle {
+        /// The parent box's inline style.
+        parent: StyleId,
+    },
 }
 
 /// One item of an inline formatting context's input, in content order.
@@ -266,12 +286,12 @@ pub enum InlineItem {
         /// first, then the raster letterboxes inside it — and clamp
         /// bleed fills the inner sliver, not the outer margins.
         viewport: Option<(f64, f64)>,
-        /// `vertical-align: top`: the box pins to the line-box top,
-        /// ignoring the baseline-shift chain it sits in (a footnote
+        /// Its own `vertical-align`. `Top` pins the box to the line-box
+        /// top, ignoring the baseline-shift chain it sits in (a footnote
         /// badge inside `<sup>` stays at the line top while the sup's
-        /// strut still raises the envelope). It only grows the line
+        /// strut still raises the envelope); it only grows the line
         /// DOWNWARD when taller than the baseline envelope.
-        align_top: bool,
+        align: AtomAlign,
         /// Computed `object-fit` from the cascade (the UA stylesheet
         /// sets `contain` on `img`; authors can override). Consumed at
         /// paint time: `Fill` stretches into the box, everything else
@@ -299,6 +319,24 @@ pub enum InlineItem {
         /// Accumulated baseline shift from `vertical-align` on ancestor
         /// inline boxes, CSS px; positive raises the box.
         baseline_shift_px: f64,
+        /// Its own `vertical-align`.
+        align: AtomAlign,
+    },
+    /// The start edge of an inline box (Blink's open tag item): the box's
+    /// inline-start margin, border and padding, read from `style`, take
+    /// their width on the line ahead of the box's content and go to the
+    /// next line with it. Emitted only for a box whose start size is not
+    /// zero.
+    OpenTag {
+        /// The box's own inline style.
+        style: StyleId,
+    },
+    /// The end edge of an inline box (Blink's close tag item): its
+    /// inline-end margin, border and padding, after its content and on the
+    /// same line as it. Emitted only for a box whose end size is not zero.
+    CloseTag {
+        /// The box's own inline style.
+        style: StyleId,
     },
     /// A childless inline box (an empty `<sup>` footnote anchor). It has
     /// no advance and never breaks a line, but the open box still
@@ -387,6 +425,10 @@ pub struct FormattingTree {
     /// inline style, whose line-height floors every line box the flow
     /// produces (CSS 2 §10.8.1).
     strut_styles: std::collections::BTreeMap<u32, StyleId>,
+    /// The share of the root's top padding that is the collapsed margin
+    /// above its first in-flow child, CSS px (see
+    /// [`FormattingTree::root_leading_margin`]).
+    root_leading_margin: f64,
     fingerprint: u64,
 }
 
@@ -411,6 +453,7 @@ impl FormattingTree {
             root,
             styles: None,
             strut_styles: std::collections::BTreeMap::new(),
+            root_leading_margin: 0.0,
             fingerprint,
         })
     }
@@ -439,6 +482,7 @@ impl FormattingTree {
                 InlineItem::Image {
                     style,
                     layout_style,
+                    align,
                     ..
                 } => {
                     styles.inline.style(*style).map_err(|error| {
@@ -447,10 +491,16 @@ impl FormattingTree {
                     styles.layout.style(*layout_style).map_err(|error| {
                         format!("formatting node {index} references a layout style outside the tree's table: {error}")
                     })?;
+                    if let AtomAlign::Middle { parent } = align {
+                        styles.inline.style(*parent).map_err(|error| {
+                            format!("formatting node {index} aligns by a parent style outside the tree's table: {error}")
+                        })?;
+                    }
                 }
                 InlineItem::InlineBlock {
                     style,
                     layout_style,
+                    align,
                     ..
                 } => {
                     styles.inline.style(*style).map_err(|error| {
@@ -459,8 +509,15 @@ impl FormattingTree {
                     styles.layout.style(*layout_style).map_err(|error| {
                         format!("formatting node {index} references a layout style outside the tree's table: {error}")
                     })?;
+                    if let AtomAlign::Middle { parent } = align {
+                        styles.inline.style(*parent).map_err(|error| {
+                            format!("formatting node {index} aligns by a parent style outside the tree's table: {error}")
+                        })?;
+                    }
                 }
-                InlineItem::EmptyBox { style, .. } => {
+                InlineItem::EmptyBox { style, .. }
+                | InlineItem::OpenTag { style }
+                | InlineItem::CloseTag { style } => {
                     styles.inline.style(*style).map_err(|error| {
                         format!("formatting node {index} references an inline style outside the tree's table: {error}")
                     })?;
@@ -481,6 +538,7 @@ impl FormattingTree {
             root,
             styles: Some(styles),
             strut_styles: std::collections::BTreeMap::new(),
+            root_leading_margin: 0.0,
             fingerprint,
         })
     }
@@ -503,6 +561,25 @@ impl FormattingTree {
         }
         self.fingerprint = mixer.finish();
         self.strut_styles = strut_styles;
+    }
+
+    /// Records how much of the root's top padding is the collapsed margin
+    /// above its first in-flow child — a builder that carries the root's
+    /// margins as padding knows — and folds it into the fingerprint.
+    pub fn set_root_leading_margin(&mut self, px: f64) {
+        let mut mixer = FnvMixer::new();
+        mixer.mix(&self.fingerprint.to_le_bytes());
+        mixer.mix(&px.to_bits().to_le_bytes());
+        self.fingerprint = mixer.finish();
+        self.root_leading_margin = px;
+    }
+
+    /// The share of the root's top padding that is the collapsed margin
+    /// above its first in-flow child: geometry treats it as padding, but a
+    /// ruby annotation on that child's first line reaches into it as into
+    /// a margin.
+    pub fn root_leading_margin(&self) -> f64 {
+        self.root_leading_margin
     }
 
     /// The strut style recorded for an inline-flow node, if any.
@@ -623,7 +700,7 @@ fn fingerprint(
                             baseline_shift_px,
                             fit_contain,
                             viewport,
-                            align_top,
+                            align,
                             object_fit,
                         } => {
                             mixer.mix(&[1]);
@@ -641,7 +718,7 @@ fn fingerprint(
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
                             mixer.mix(&[u8::from(*fit_contain)]);
-                            mixer.mix(&[u8::from(*align_top)]);
+                            mix_atom_align(mixer, align);
                             mixer.mix(&[*object_fit as u8]);
                         }
                         InlineItem::InlineBlock {
@@ -649,12 +726,14 @@ fn fingerprint(
                             style,
                             layout_style,
                             baseline_shift_px,
+                            align,
                         } => {
                             mixer.mix(&[4]);
                             mixer.mix(&node.0.to_le_bytes());
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&layout_style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                            mix_atom_align(mixer, align);
                         }
                         InlineItem::EmptyBox {
                             style,
@@ -663,6 +742,14 @@ fn fingerprint(
                             mixer.mix(&[6]);
                             mixer.mix(&style.raw().to_le_bytes());
                             mixer.mix(&baseline_shift_px.to_bits().to_le_bytes());
+                        }
+                        InlineItem::OpenTag { style } => {
+                            mixer.mix(&[7]);
+                            mixer.mix(&style.raw().to_le_bytes());
+                        }
+                        InlineItem::CloseTag { style } => {
+                            mixer.mix(&[8]);
+                            mixer.mix(&style.raw().to_le_bytes());
                         }
                     }
                 }
@@ -684,6 +771,17 @@ fn fingerprint(
         styles.inline.node_style_ids().hash(&mut mixer);
     }
     mixer.finish()
+}
+
+fn mix_atom_align(mixer: &mut FnvMixer, align: &AtomAlign) {
+    match align {
+        AtomAlign::Baseline => mixer.mix(&[0]),
+        AtomAlign::Top => mixer.mix(&[1]),
+        AtomAlign::Middle { parent } => {
+            mixer.mix(&[2]);
+            mixer.mix(&parent.raw().to_le_bytes());
+        }
+    }
 }
 
 /// FNV-1a 64 usable both for raw canonical bytes and as a `std::hash::Hasher`
@@ -806,6 +904,7 @@ mod tests {
             x,
             face: crate::FontFaceId::default(),
             joins: false,
+            continues_ligature: false,
         };
         let close = |actual: &[f64], expected: &[f64]| {
             assert_eq!(actual.len(), expected.len(), "{actual:?} vs {expected:?}");
@@ -922,8 +1021,8 @@ mod tests {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
-        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
-        PreferredSize, RubyAlign,
+        MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
+        RubyAlign,
     };
 
     fn zero_padding() -> rito_style_contract::NonNegativeLengthPercentage {
@@ -953,6 +1052,9 @@ mod tests {
                 bottom: zero_padding(),
                 left: zero_padding(),
             },
+            border_widths: rito_style_contract::PhysicalSides::uniform(
+                rito_style_contract::NonNegativeCssPx::ZERO,
+            ),
             box_sizing: rito_style_contract::BoxSizing::ContentBox,
             justify_content: JustifyContent::Normal,
             align_items: AlignItems::Normal,
@@ -961,8 +1063,11 @@ mod tests {
             width: PreferredSize::Auto,
             height: PreferredSize::Auto,
             max_width: MaximumSize::None,
-            min_height: MinimumHeight::Auto,
-            max_height: MaximumHeight::None,
+            min_height: MinimumSize::Auto,
+            min_width: MinimumSize::Auto,
+            writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+            direction: rito_style_contract::Direction::LeftToRight,
+            max_height: MaximumSize::None,
             clear: Clear::None,
             float: Float::None,
             overflow: Overflow::Visible,

@@ -77,9 +77,10 @@ async function run() {
 
   const server = await startDiagnosticServer(extractedDir);
   const browser = await chromium.launch({
-    ...(process.env.PLAYWRIGHT_BROWSER_CHANNEL
-      ? { channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL }
-      : {}),
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? 'chromium',
+    // No smart minimum font size: Chromium lifts em- and %-sized text to a
+    // minimum its UI language and platform choose, which CSS does not define.
+    args: ['--blink-settings=minimumLogicalFontSize=0'],
     headless: true,
   });
 

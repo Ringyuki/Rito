@@ -31,6 +31,10 @@ Rules that experience has made binding:
 - Prune capture trees after harvesting; they are hundreds of megabytes.
 - Refactors are verified by comparing the engine captures byte for byte
   against a baseline walk of the same book.
+- Every instrument launches Chromium through `tools/oracle-chromium.mjs`:
+  the full build with no smart minimum font size, in English. On macOS
+  the test browser follows the system language unless it has its own:
+  `defaults write com.google.chrome.for.testing AppleLanguages -array en-US`.
 
 `prune-walks.sh` drops the capture trees (`engine/`, `truth/`, `gallery/`,
 `book/`) of every `walk-*/` directory in `tools/corpus-oracle` except the
@@ -155,6 +159,28 @@ lowering changes. The fixtures are display commands in the browser pen's
 JSON shape: a hand-written corpus, except `text-vertical.json`, which the
 ignored `write_vertical_paint_parity_fixture` test writes from the
 painter's own output.
+
+## Scroll seams (the pens across scrolled windows)
+
+```bash
+node tools/paint-parity/seams.mjs [outRoot]
+```
+
+Lowers neighbouring scrolled windows of synthetic chapters (one of them
+vertical-rl, whose windows run leftwards) and a real chapter at ratios 1,
+1.25, 1.5, 2, 2.625 and 3, one by one and as one run
+(`cargo test -p rito-core --lib lower_scroll_seam_fixtures`, env-gated),
+rasters them through every pen lane, and `seam-diff.mjs` stacks each
+window on the next (beside it, the next on the left, for leftward
+windows, as each run's metadata `axis` says) and diffs the stack against
+the run. That a window draws what the run draws is the engine tests
+`a_window_draws_its_content_as_the_pair_with_the_window_above_draws_it`
+and `a_leftward_window_draws_its_content_as_the_pair_with_the_window_right_of_it`;
+the report lists how the pens raster the two apart: a canvas picks its
+antialiasing mode from everything a frame holds, and a scaled image cut
+by a window edge samples only what is visible, so a few pixels of a pair
+can differ, now and then past the walk's raster floor. It fails only when
+a stack is not the run's size or a render is missing.
 
 ## GPU pen against the canvas pen on real books
 

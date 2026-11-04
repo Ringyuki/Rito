@@ -5,6 +5,15 @@
 //   node tools/corpus-oracle/unpack-corpus.mjs ~/Downloads /tmp/rito-corpus
 //   cargo build --release --example chapter-fragment-probe -p rito-core
 //   RITO_ORACLE_DIR=/tmp/rito-corpus node tools/corpus-oracle/corpus-ab.mjs
+// `RITO_FRAGMENT_PROBE=<binary>` runs a probe built elsewhere instead, so a
+// run compares the engine it started with however `target/` is rebuilt.
+// Narrowing a run to the paragraphs in question: `RITO_ORACLE_BOOKS` (comma
+// separated file-name prefixes), `RITO_ORACLE_NEEDLE` (only the chapters
+// whose source contains this text), `RITO_ORACLE_WIDTH` (content width,
+// default 500), `RITO_ORACLE_ROOT_FONT` (the default font size on both
+// sides, default 16), `RITO_ORACLE_MAX_LINES` (default 90) and
+// `RITO_ORACLE_REPORT` (where the report goes). `RITO_ORACLE_DUMP=1` keeps
+// both sides' lines (text, top) in each chapter's report entry.
 // Corpus A/B v2: rito fragment layout vs pinned-font Chromium, aligned by
 // line-break points instead of raw line index.
 //
@@ -15,26 +24,34 @@
 // and image-only lines are dropped, and scoring compares the break-point
 // sets of the concatenated text so one extra line never misaligns a
 // whole chapter.
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-const { chromium } = createRequire(`${new URL('../..', import.meta.url).pathname}package.json`)(
-  '@playwright/test',
-);
 
 const REPO = new URL('../..', import.meta.url).pathname;
 const DIR = `${process.env.RITO_ORACLE_DIR ?? '.'}/`;
-const PROBE = `${REPO}target/release/examples/chapter-fragment-probe`;
+const PROBE =
+  process.env.RITO_FRAGMENT_PROBE ?? `${REPO}target/release/examples/chapter-fragment-probe`;
 const SERIF = `${REPO}apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf`;
 const TINOS = `${REPO}apps/reader/src/assets/fonts/Tinos-Regular.ttf`;
-const WIDTH = 500;
-const MAX_LINES = 90;
+const WIDTH = Number(process.env.RITO_ORACLE_WIDTH ?? 500);
+const MAX_LINES = Number(process.env.RITO_ORACLE_MAX_LINES ?? 90);
+const ROOT_FONT = Number(process.env.RITO_ORACLE_ROOT_FONT ?? 16);
+const BOOKS = process.env.RITO_ORACLE_BOOKS?.split(',');
+const NEEDLE = process.env.RITO_ORACLE_NEEDLE;
+const DUMP = process.env.RITO_ORACLE_DUMP === '1';
 
 const serifB64 = readFileSync(SERIF).toString('base64');
 const tinosB64 = readFileSync(TINOS).toString('base64');
 const manifest = JSON.parse(readFileSync(`${DIR}manifest.json`, 'utf8'));
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: WIDTH, height: 6000 } });
+const browser = await launchOracleChromium();
+const page = await browser.newPage({ viewport: { width: Math.ceil(WIDTH), height: 6000 } });
+// The browser's default font size is the engine's root font size.
+await (
+  await page.context().newCDPSession(page)
+).send('Page.setFontSizes', {
+  fontSizes: { standard: ROOT_FONT, fixed: 13 },
+});
 
 const normalize = (line) => line.replace(/\s+/g, '');
 
@@ -104,6 +121,7 @@ function lineLcs(a, b) {
 
 const results = [];
 for (const book of manifest) {
+  if (BOOKS && !BOOKS.some((prefix) => book.epub.split('/').pop().startsWith(prefix))) continue;
   const contentChapters = book.chapters.filter(([, path]) => {
     if (/cover|toc|nav|message|copyright/i.test(path)) return false;
     // Only chapters with real body text can score line breaks.
@@ -117,10 +135,18 @@ for (const book of manifest) {
       return false;
     }
   });
-  const picks = [0.3, 0.55, 0.8]
-    .map((f) => contentChapters[Math.floor(f * contentChapters.length)])
-    .filter(Boolean)
-    .filter((c, i, all) => all.indexOf(c) === i);
+  const picks = NEEDLE
+    ? book.chapters.filter(([, path]) => {
+        try {
+          return readFileSync(path, 'utf8').includes(NEEDLE);
+        } catch {
+          return false;
+        }
+      })
+    : [0.3, 0.55, 0.8]
+        .map((f) => contentChapters[Math.floor(f * contentChapters.length)])
+        .filter(Boolean)
+        .filter((c, i, all) => all.indexOf(c) === i);
   if (picks.length === 0) continue;
 
   // Vertical-writing books are a known missing capability; annotate so
@@ -155,6 +181,7 @@ for (const book of manifest) {
       fontPaths: [TINOS, SERIF],
       namedFonts: book.fonts,
       contentWidthPx: WIDTH,
+      rootFontSizePx: ROOT_FONT,
       chapterIdrefs: picks.map(([idref]) => idref),
       unfilteredFlow: true,
     });
@@ -189,6 +216,10 @@ for (const book of manifest) {
         reset.textContent = 'body { margin: 0; }';
         document.head.prepend(reset);
       });
+      // A fractional content width: the root box takes it exactly.
+      if (!Number.isInteger(WIDTH)) {
+        await page.addStyleTag({ content: `html { width: ${WIDTH}px; }` });
+      }
       await page.evaluate(
         ({ serif, tinos }) => {
           const declared = new Set();
@@ -272,7 +303,8 @@ for (const book of manifest) {
       continue;
     }
     const score = scoreLines(ritoLines, browserLines.slice(0, MAX_LINES));
-    bookResult.chapters.push({ idref, ...score });
+    const lines = DUMP ? { ritoLines, browserLines: browserLines.slice(0, MAX_LINES) } : {};
+    bookResult.chapters.push({ idref, ...score, ...lines });
   }
   results.push(bookResult);
   const scored = bookResult.chapters.filter((c) => !c.error && c.lines > 0);
@@ -287,6 +319,9 @@ for (const book of manifest) {
     `${String(pct).padStart(3)}%\t${tag}\teq${eq}/${bookResult.chapters.length}${dyNote}\t${book.epub.split('/').pop().slice(0, 44)}`,
   );
 }
-writeFileSync(`${DIR}corpus-ab-report.json`, JSON.stringify(results, null, 1));
+writeFileSync(
+  process.env.RITO_ORACLE_REPORT ?? `${DIR}corpus-ab-report.json`,
+  JSON.stringify(results, null, 1),
+);
 await browser.close();
 console.log('REPORT WRITTEN');

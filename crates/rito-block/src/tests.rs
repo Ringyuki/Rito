@@ -6,11 +6,12 @@ use rito_inline::{plain_paragraph_style, ParleyInlineContext};
 use rito_style_contract::{
     AlignItems, Clear, CssPx, Float, FontFamilies, FontFamily, FontFamilyName, InlineStyleTable,
     JustifyContent, LayoutDisplay, LayoutDisplayInside, LayoutDisplayOutside,
-    LayoutFormattingStyle, LayoutStyleId, LayoutStyleTable, ListMarkerStyle, MaximumHeight,
-    MaximumSize, MinimumHeight, NonNegativeLengthPercentage, Overflow, PageBreak, Percentage,
-    PhysicalSides, Position, PreferredSize,
+    LayoutFormattingStyle, LayoutStyleId, LayoutStyleTable, ListMarkerStyle, MaximumSize,
+    MinimumSize, NonNegativeLengthPercentage, Overflow, PageBreak, Percentage, PhysicalSides,
+    Position, PreferredSize,
 };
 
+mod continuous;
 mod floats;
 mod margins;
 mod pagination;
@@ -51,6 +52,9 @@ fn block_style(
             bottom: zero_padding(),
             left: zero_padding(),
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: rito_style_contract::BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,
@@ -59,8 +63,11 @@ fn block_style(
         width: PreferredSize::Auto,
         height: PreferredSize::Auto,
         max_width: MaximumSize::None,
-        min_height: MinimumHeight::Auto,
-        max_height: MaximumHeight::None,
+        min_height: MinimumSize::Auto,
+        min_width: MinimumSize::Auto,
+        writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+        direction: rito_style_contract::Direction::LeftToRight,
+        max_height: MaximumSize::None,
         clear: Clear::None,
         float: Float::None,
         overflow: Overflow::Visible,
@@ -133,7 +140,11 @@ impl FormattingContext for FixedLineInline {
                     },
                     baseline: 8.0,
                     trailing_whitespace: 0.0,
-                    ruby_growth: 0.0,
+                    annotation_growth: 0.0,
+                    annotation_overflow: 0.0,
+                    annotation_lent: 0.0,
+                    annotation_space_end: 0.0,
+                    fonts: rito_fragment::LineFonts::None,
                     text_runs: Vec::new(),
                     children: Vec::new(),
                 })
@@ -150,6 +161,7 @@ impl FormattingContext for FixedLineInline {
                         height: 10.0 * items.len() as f64,
                     },
                     children: lines,
+                    cuts: rito_fragment::BlockCuts::NONE,
                 }),
             },
             continuation: None,

@@ -5,8 +5,8 @@
 use rito_style_contract::{
     AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
     LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
-    ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
-    Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
+    ListMarkerStyle, MaximumSize, MinimumSize, NonNegativeLengthPercentage, Overflow, PageBreak,
+    PhysicalSides, Position, PreferredSize, WritingDirection,
 };
 
 /// The marker text for one list item, or `None` when the list style
@@ -101,7 +101,11 @@ pub(super) fn fallback_inline_formatting_style() -> rito_style_contract::InlineF
     style
 }
 
-pub(super) fn anonymous_block_style() -> LayoutFormattingStyle {
+/// The style of a block box the tree build generates (a wrapper around
+/// a run of inline content, a chapter with no body): every box property
+/// initial, laid out in the writing mode and direction of the box it sits
+/// in, as an anonymous box inherits them.
+pub(super) fn anonymous_block_style(writing: WritingDirection) -> LayoutFormattingStyle {
     let zero = LengthPercentageOrAuto::Value(LengthPercentage::Length(
         rito_style_contract::CssPx::new(0.0).expect("zero length is finite"),
     ));
@@ -126,6 +130,9 @@ pub(super) fn anonymous_block_style() -> LayoutFormattingStyle {
             bottom: zero_padding,
             left: zero_padding,
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: rito_style_contract::BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,
@@ -134,8 +141,11 @@ pub(super) fn anonymous_block_style() -> LayoutFormattingStyle {
         width: PreferredSize::Auto,
         height: PreferredSize::Auto,
         max_width: MaximumSize::None,
-        min_height: MinimumHeight::Auto,
-        max_height: MaximumHeight::None,
+        min_height: MinimumSize::Auto,
+        min_width: MinimumSize::Auto,
+        writing_mode: writing.mode,
+        direction: writing.direction,
+        max_height: MaximumSize::None,
         clear: Clear::None,
         float: Float::None,
         overflow: Overflow::Visible,

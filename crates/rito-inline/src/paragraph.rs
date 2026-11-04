@@ -44,12 +44,12 @@ impl ParleyInlineContext {
             node,
             &build_space,
             PercentageImageSizing::Intrinsic,
-            edits.end_trims,
-            edits.suppressed_pair_trims,
-            edits.split_spreads,
+            edits,
             cancel,
         )?;
         built.reads_space = build_space.was_read();
+        #[cfg(test)]
+        self.counts.note_build();
         self.shaped.borrow_mut().insert(key, &build_space, &built);
         Ok(built)
     }
@@ -61,9 +61,7 @@ impl ParleyInlineContext {
         node: FormattingNodeId,
         space: &BuildSpace,
         percentage_images: PercentageImageSizing,
-        end_trims: &[usize],
-        suppressed_pair_trims: &[usize],
-        split_spread_edits: &[(std::ops::Range<usize>, f32)],
+        edits: ParagraphEdits<'_>,
         cancel: &CancelFlag,
     ) -> Result<ParagraphLayout, LayoutError> {
         let FormattingNodeContent::InlineFlow { items } = &tree.node(node).content else {
@@ -82,7 +80,9 @@ impl ParleyInlineContext {
         let mut text = String::new();
         let mut runs = Vec::with_capacity(items.len());
         let mut shifted_ranges: Vec<(std::ops::Range<usize>, f64)> = Vec::new();
-        let mut image_boxes = Vec::new();
+        // Atoms and box edges, in content order (the builder keeps the
+        // order of boxes at one index).
+        let mut inline_boxes = Vec::new();
         // Laid-out inline-block atoms by item index: the mini paragraph's
         // baseline (its LAST line's, from the box top) and its fragment,
         // emitted at the inline box's position during line assembly.
@@ -102,13 +102,6 @@ impl ParleyInlineContext {
         // leaded envelope around its shifted baseline joins the metrics
         // of whichever line the offset falls on.
         let mut empty_box_struts: Vec<(usize, rito_style_contract::StyleId, f64)> = Vec::new();
-        // Blink consults its pair-preference table only under
-        // `word-break: normal`; `break-all`/`keep-all` change the break
-        // opportunities the table would otherwise veto.
-        let mut chromium_tailoring = true;
-        let mut break_all = false;
-        let mut strict_kinsoku = false;
-        let mut break_anywhere = false;
         for (item_index, item) in items.iter().enumerate() {
             match item {
                 InlineItem::Text {
@@ -126,18 +119,6 @@ impl ParleyInlineContext {
                         .inline
                         .style(*style)
                         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-                    if style.text_flow.word_break != rito_style_contract::WordBreak::Normal {
-                        chromium_tailoring = false;
-                    }
-                    if style.text_flow.word_break == rito_style_contract::WordBreak::BreakAll {
-                        break_all = true;
-                    }
-                    if style.text_flow.line_break == rito_style_contract::LineBreak::Strict {
-                        strict_kinsoku = true;
-                    }
-                    if style.text_flow.line_break == rito_style_contract::LineBreak::Anywhere {
-                        break_anywhere = true;
-                    }
                     runs.push((start..text.len(), style, item_index));
                 }
                 InlineItem::Image { .. } | InlineItem::InlineBlock { .. } => {
@@ -153,7 +134,7 @@ impl ParleyInlineContext {
                         inline_block_baselines.insert(block_node, baseline);
                         inline_block_boxes.insert(item_index as u64, (baseline, root_box));
                     }
-                    image_boxes.push(InlineBox {
+                    inline_boxes.push(InlineBox {
                         id: item_index as u64,
                         kind: InlineBoxKind::InFlow,
                         index: text.len(),
@@ -166,6 +147,32 @@ impl ParleyInlineContext {
                     baseline_shift_px,
                 } => {
                     empty_box_struts.push((text.len(), *style, *baseline_shift_px));
+                }
+                InlineItem::OpenTag { style } | InlineItem::CloseTag { style } => {
+                    let closes = matches!(item, InlineItem::CloseTag { .. });
+                    let style = styles
+                        .inline
+                        .style(*style)
+                        .map_err(|error| LayoutError::Invalid(error.to_string()))?;
+                    // Blink's open (close) tag takes the box's margin,
+                    // border and padding at the edge its lines start (end)
+                    // at, percentages against the containing block.
+                    let width = style
+                        .inline_edge(closes)
+                        .size(space.margin_basis().map(|basis| basis as f32));
+                    if width != 0.0 {
+                        inline_boxes.push(InlineBox {
+                            id: TAG_BOX_ID | item_index as u64,
+                            kind: if closes {
+                                InlineBoxKind::CloseTag
+                            } else {
+                                InlineBoxKind::OpenTag
+                            },
+                            index: text.len(),
+                            width,
+                            height: 0.0,
+                        });
+                    }
                 }
             }
         }
@@ -212,10 +219,19 @@ impl ParleyInlineContext {
         let mut ruby_annotation_widths: std::collections::HashMap<usize, f64> =
             std::collections::HashMap::new();
         let mut ruby_spread_edits: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
+        // Each spread ruby's edge carrier, priced with and without its start
+        // overhang: the line loop drops the overhang of a ruby that opens a
+        // line (Blink's CanApplyStartOverhang needs an item before it on
+        // the line).
+        let mut ruby_carriers: Vec<RubyCarrier> = Vec::new();
         // Per item: the paint-side right shift of the base glyphs inside
         // the column (the start inset that could not overhang).
-        let mut ruby_center_shifts: std::collections::HashMap<usize, f64> =
+        let mut ruby_base_shifts: std::collections::HashMap<usize, RubyBaseShift> =
             std::collections::HashMap::new();
+        // Every short ruby's base: one unit a line never breaks inside
+        // (Blink's `IsMonolithicRuby`: a base of at most four glyphs under
+        // an annotation of at most eight).
+        let mut monolithic_rubies: Vec<std::ops::Range<usize>> = Vec::new();
         for (range, style, item_index) in &runs {
             let Some(InlineItem::Text {
                 ruby_annotation: Some(annotation),
@@ -224,17 +240,22 @@ impl ParleyInlineContext {
             else {
                 continue;
             };
-            if annotation.text.is_empty() || range.is_empty() {
+            if range.is_empty() {
                 continue;
             }
             let base_text = &text[range.clone()];
-            if base_text.chars().count() == 0 {
+            let annotation_size = style.font.size.get() * annotation.size_ratio;
+            let annotation_measure =
+                self.measure_styled(style, Some(annotation_size), &annotation.text);
+            let base_measure = self.measure_styled(style, None, base_text);
+            if base_measure.glyphs <= 4 && annotation_measure.glyphs <= 8 {
+                monolithic_rubies.push(range.clone());
+            }
+            if annotation.text.is_empty() {
                 continue;
             }
-            let annotation_size = style.font.size.get() * annotation.size_ratio;
-            let annotation_advance =
-                self.measure_styled_advance(style, Some(annotation_size), &annotation.text);
-            let base_advance = self.measure_styled_advance(style, None, base_text);
+            let annotation_advance = annotation_measure.advance;
+            let base_advance = base_measure.advance;
             ruby_annotation_widths.insert(*item_index, annotation_advance);
             let space = layout_unit_ceil(annotation_advance) - layout_unit_ceil(base_advance);
             if space <= 0.0 {
@@ -262,7 +283,7 @@ impl ParleyInlineContext {
             // The base's justification inset: half the per-opportunity
             // share the base line's justification would leave at each
             // edge, on the layout grid at every step.
-            let plan = line_justify_plan(base_text, 0..base_text.len(), space, &[], &[]);
+            let plan = line_justify_plan(base_text, 0..base_text.len(), space, &[], &[], &[]);
             let count = plan.as_ref().map_or(0, |plan| plan.total);
             let inset_full = layout_unit_trunc(space / (f64::from(count) + 1.0));
             let inset = layout_unit_trunc(inset_full / 2.0);
@@ -306,7 +327,9 @@ impl ParleyInlineContext {
                 }
                 allowed
             };
-            let overhang_left = overhang(prev_byte, true);
+            let natural_overhang_left = overhang(prev_byte, true);
+            let unhung = edits.unhung_starts.binary_search(item_index).is_ok();
+            let overhang_left = if unhung { 0.0 } else { natural_overhang_left };
             let overhang_right = overhang(next_byte, false);
             let author = match style.text_flow.letter_spacing {
                 LengthPercentage::Length(px) => px.get(),
@@ -325,11 +348,24 @@ impl ParleyInlineContext {
                 if delta > 0.0 {
                     ruby_spread_edits.push((last_cluster_start..range.end, author + delta as f32));
                 }
+                ruby_carriers.push(RubyCarrier {
+                    item: *item_index,
+                    range: last_cluster_start..range.end,
+                    author,
+                    hung: (space - natural_overhang_left - overhang_right) as f32,
+                    unhung: (space - overhang_right) as f32,
+                    start_overhang: natural_overhang_left as f32,
+                });
                 ruby_spreads.insert(*item_index, 0.0);
                 ruby_spread_overhangs.insert(*item_index, overhang_left);
                 ruby_spread_overhangs_right.insert(*item_index, overhang_right);
-                ruby_center_shifts
-                    .insert(*item_index, layout_unit_trunc(space / 2.0) - overhang_left);
+                ruby_base_shifts.insert(
+                    *item_index,
+                    RubyBaseShift {
+                        within: layout_unit_trunc(space / 2.0) - overhang_left,
+                        at_edges: None,
+                    },
+                );
                 continue;
             }
             // Each opportunity's shares open after the boundary's left
@@ -354,10 +390,25 @@ impl ParleyInlineContext {
                 ruby_spread_edits
                     .push((last_cluster_start..range.end, author + edge_carrier as f32));
             }
-            let absorbed_left = inset - overhang_left;
-            if absorbed_left > 0.0 {
-                ruby_center_shifts.insert(*item_index, absorbed_left);
-            }
+            ruby_carriers.push(RubyCarrier {
+                item: *item_index,
+                range: last_cluster_start..range.end,
+                author,
+                hung: (inset_full - natural_overhang_left - overhang_right) as f32,
+                unhung: (inset_full - overhang_right) as f32,
+                start_overhang: natural_overhang_left as f32,
+            });
+            // A justified line's edge pulls the base to it: the whole
+            // inset opens past the base at the line's start and before it
+            // at the line's end (both edges measured from the column's
+            // start, the start overhang back of the flow position).
+            ruby_base_shifts.insert(
+                *item_index,
+                RubyBaseShift {
+                    within: inset - overhang_left,
+                    at_edges: Some((-overhang_left, 2.0 * inset - overhang_left)),
+                },
+            );
             ruby_spreads.insert(*item_index, share);
             ruby_spread_overhangs.insert(*item_index, overhang_left);
             ruby_spread_overhangs_right.insert(*item_index, overhang_right);
@@ -366,43 +417,57 @@ impl ParleyInlineContext {
         let mut fonts = self.fonts.borrow_mut();
         // Computed before the builder takes the font borrow: the trim
         // gate resolves each trimmed character's font to check `halt`.
-        let inline_box_bytes: Vec<usize> = image_boxes
+        let inline_box_bytes: Vec<usize> = inline_boxes
             .iter()
+            .filter(|inline_box| inline_box.kind == InlineBoxKind::InFlow)
             .map(|inline_box| inline_box.index)
             .collect();
+        // Every pair the paragraph trims while no break separates it; the
+        // edits say which a break did.
         let punctuation_trims = compute_cjk_punctuation_trims(
             &mut fonts,
             &self.catalog,
             &mut self.halt_feature_cache.borrow_mut(),
             &text,
             &runs,
-            suppressed_pair_trims,
+            &[],
             &inline_box_bytes,
         );
-        let pair_trims: Vec<(usize, usize)> = punctuation_trims
-            .iter()
-            .map(|trim| (trim.left_byte, trim.right_byte))
-            .collect();
+        // Chromium's break opportunities, each text item read under the
+        // ICU rule set its content language and `line-break` select, with
+        // its `word-break`.
+        let opportunities = BreakOpportunities::new(&text, |offset| {
+            let at = runs.partition_point(|(range, _, _)| range.start <= offset);
+            let flow = runs
+                .get(at.saturating_sub(1))
+                .map(|(_, style, _)| &style.text_flow);
+            BreakContext {
+                rule_set: flow.map_or(RuleSet::Normal, |flow| {
+                    RuleSet::for_content(
+                        flow.language.as_ref().map(|tag| tag.as_str()),
+                        flow.line_break,
+                    )
+                }),
+                word_break: flow.map_or(rito_style_contract::WordBreak::Normal, |flow| {
+                    flow.word_break
+                }),
+                anywhere: flow.is_some_and(|flow| {
+                    flow.line_break == rito_style_contract::LineBreak::Anywhere
+                }),
+                collapses: flow.is_none_or(|flow| {
+                    matches!(
+                        flow.white_space_collapse,
+                        rito_style_contract::WhiteSpaceCollapse::Collapse
+                            | rito_style_contract::WhiteSpaceCollapse::PreserveBreaks
+                    )
+                }),
+            }
+        });
+        let chromium_breaks =
+            move |context: parley::LineBreakContext| opportunities.before(context.index);
         let mut layouts = self.layouts.borrow_mut();
         let mut builder = SpacingBuilder::new(layouts.ranged_builder(&mut fonts, &text, 1.0, true));
-        // The pinned-browser baseline: Chromium's ASCII break tailoring plus
-        // its CJK-context treatment of ambiguous curly quotes.
-        if break_anywhere {
-            // `line-break: anywhere`: a soft wrap opportunity around every
-            // typographic character unit — kinsoku and pair tables are
-            // disregarded entirely (b50's afterword packs two more
-            // full-width characters per line than any kinsoku-aware rule
-            // set allows, breaking mid-ellipsis and before commas).
-            builder.set_line_break_override(&break_anywhere_override);
-        } else if chromium_tailoring {
-            if strict_kinsoku {
-                builder.set_line_break_override(&cjk_aware_chromium_break_override_strict);
-            } else {
-                builder.set_line_break_override(&cjk_aware_chromium_break_override);
-            }
-        } else if break_all {
-            builder.set_line_break_override(&break_all_box_dash_override);
-        }
+        builder.set_line_break_override(&chromium_breaks);
         // `text-indent` is the block container's own inherited property and
         // indents its first line whatever sits on it — a line holding only
         // an image included. Reading it off whichever text run happens to
@@ -414,16 +479,34 @@ impl ParleyInlineContext {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. }
-                    | InlineItem::EmptyBox { style, .. } => *style,
+                    | InlineItem::EmptyBox { style, .. }
+                    | InlineItem::OpenTag { style }
+                    | InlineItem::CloseTag { style } => *style,
                 })
             })
             .and_then(|style_id| styles.inline.style(style_id).ok())
             .map_or(0.0_f32, resolved_text_indent);
+        // Each combined upright item sets as one unit an em down the line,
+        // shaped apart from its neighbours as the browser lays it out in a
+        // box of its own (an explicitly-off `hwid`, inert, splits the run).
+        let mut combined: Vec<(std::ops::Range<usize>, f32)> = Vec::new();
         for (range, style, item_index) in &runs {
             if range.is_empty() {
                 continue;
             }
-            push_item_styles(&mut builder, &self.catalog, style, range.clone());
+            push_item_styles(&mut builder, &self.catalog, style, &text, range.clone());
+            if combines_upright(style) {
+                combined.push((range.clone(), combined_advance(style)));
+                builder.push(
+                    StyleProperty::FontFeatures(parley::FontFeatures::List(
+                        std::borrow::Cow::Owned(vec![parley::FontFeature::new(
+                            parley::setting::Tag::new(b"hwid"),
+                            0,
+                        )]),
+                    )),
+                    range.clone(),
+                );
+            }
             // Parley merges adjacent resolved styles that compare equal,
             // which would fuse glyph runs across item boundaries whenever
             // neighbouring items differ only in properties Parley never
@@ -471,6 +554,9 @@ impl ParleyInlineContext {
                 );
             }
         }
+        for range in monolithic_rubies {
+            builder.push_unbreakable(range);
+        }
         // A space takes the FIRST family of its stack in the browser
         // (every face covers U+0020), while parley merges a space into
         // the neighbouring script run: a space between a CJK glyph and
@@ -510,123 +596,30 @@ impl ParleyInlineContext {
             }
         }
 
-        // Inline box advances: a span's horizontal padding and borders
-        // widen the gap at each box boundary. The gap rides as letter
-        // spacing on the character left of the boundary (the same
-        // mechanism as the punctuation trims); a box opening at the very
-        // start of the flow folds its lead into the first-line indent.
-        // Each edit is (range, box gap, author letter-spacing): standalone
-        // pushes apply author + gap; an edit landing on a trimmed
-        // character adds only the gap (the trim value already carries the
-        // author spacing).
-        let mut box_edits: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
-        let mut leading_box_indent = 0.0_f32;
-        let mut item_box_sheds: std::collections::HashMap<usize, f64> =
-            std::collections::HashMap::new();
-        let mut forced_line_indents: std::collections::HashMap<usize, f64> =
-            std::collections::HashMap::new();
-        {
-            let box_side =
-                |value: &rito_style_contract::NonNegativeLengthPercentage| match value.value() {
-                    LengthPercentage::Length(px) => px.get(),
-                    _ => 0.0,
-                };
-            let edge_width = |edge: &rito_style_contract::BorderEdge| {
-                use rito_style_contract::BorderStyle;
-                if matches!(edge.style, BorderStyle::None | BorderStyle::Hidden) {
-                    0.0
-                } else {
-                    edge.resolved_width.get()
-                }
-            };
-            let author = |style: &InlineFormattingStyle| match style.text_flow.letter_spacing {
-                LengthPercentage::Length(px) => px.get(),
-                _ => 0.0,
-            };
-            // Inline horizontal margins displace the inline box
-            // exactly like padding/border gaps, but stay OUTSIDE the
-            // painted box (the pen grows the box by paint padding only).
-            // Percentages resolve against the containing block's inline
-            // size; vertical inline margins have no effect in CSS.
-            let margin_side = |value: &rito_style_contract::LengthPercentageOrAuto| match value {
-                rito_style_contract::LengthPercentageOrAuto::Auto => 0.0_f32,
-                rito_style_contract::LengthPercentageOrAuto::Value(inner) => match inner {
-                    LengthPercentage::Length(px) => px.get(),
-                    LengthPercentage::Percentage(pct) => space
-                        .margin_basis()
-                        .map_or(0.0, |basis| pct.ratio() * basis as f32),
-                    _ => 0.0,
-                },
-            };
-            for (index, (range, style, item_index)) in runs.iter().enumerate() {
-                if range.is_empty() {
-                    continue;
-                }
-                let lead = box_side(&style.fragment.padding.left)
-                    + edge_width(&style.fragment.border.left)
-                    + margin_side(&style.fragment.margin.left);
-                let trail = box_side(&style.fragment.padding.right)
-                    + edge_width(&style.fragment.border.right)
-                    + margin_side(&style.fragment.margin.right);
-                if trail > 0.0 {
-                    if let Some((last, _)) = text[range.clone()].char_indices().last() {
-                        box_edits.push((range.start + last..range.end, trail, author(style)));
-                        *item_box_sheds.entry(*item_index).or_insert(0.0) += f64::from(trail);
+        let plan = SpacingPlan::new(
+            punctuation_trims,
+            ruby_spread_edits,
+            ruby_carriers,
+            runs.iter()
+                .map(|(range, style, _)| {
+                    let author = match style.text_flow.letter_spacing {
+                        LengthPercentage::Length(px) => px.get(),
+                        _ => 0.0,
+                    };
+                    PlannedRun {
+                        range: range.clone(),
+                        author,
+                        end_trim: author - 0.5 * shaping_font_size(style.font.size.get()),
                     }
-                }
-                if lead > 0.0 {
-                    if range.start == 0 {
-                        leading_box_indent += lead;
-                    } else if text.as_bytes().get(range.start - 1) == Some(&b'\n') {
-                        // The span opens a forced-break line: the lead
-                        // indents that line (a previous-char edit would
-                        // widen the line ABOVE). Breaking does not see
-                        // the reserved width — an indented long span may
-                        // overfit vs Blink; b60-style badge lines hold
-                        // one glyph and are exact.
-                        *forced_line_indents.entry(range.start).or_insert(0.0) += f64::from(lead);
-                    } else if let Some((prev_range, prev_style, prev_item)) =
-                        runs.get(..index).and_then(|earlier| {
-                            earlier
-                                .iter()
-                                .rev()
-                                .find(|(earlier_range, ..)| !earlier_range.is_empty())
-                        })
-                    {
-                        if let Some((last, _)) = text[prev_range.clone()].char_indices().last() {
-                            box_edits.push((
-                                prev_range.start + last..prev_range.end,
-                                lead,
-                                author(prev_style),
-                            ));
-                            *item_box_sheds.entry(*prev_item).or_insert(0.0) += f64::from(lead);
-                        }
-                    }
-                }
-            }
-        }
-        // Coincident box edits sum: one character can carry BOTH its own
-        // box's trailing gap and the next box's leading gap (b74's title
-        // cards — four adjacent bordered spans). Pushed separately they
-        // land on the same builder range and the later LetterSpacing
-        // OVERWRITES the earlier, silently dropping one gap (every
-        // non-final card lost its 4px trail). The author spacing on both
-        // edits comes from the same character's style, so merging keeps
-        // it single-counted.
-        {
-            let mut coalesced: Vec<(std::ops::Range<usize>, f32, f32)> = Vec::new();
-            for (range, gap, author) in box_edits.drain(..) {
-                if let Some(existing) = coalesced.iter_mut().find(|(seen, ..)| *seen == range) {
-                    existing.1 += gap;
-                } else {
-                    coalesced.push((range, gap, author));
-                }
-            }
-            box_edits = coalesced;
-        }
-        let first_line_indent = first_line_indent + leading_box_indent;
-        let opener_halt_trims: Vec<(std::ops::Range<usize>, f64)> = punctuation_trims
-            .iter()
+                })
+                .collect(),
+        );
+        let pair_trims: Vec<(usize, usize)> = plan
+            .applied_pair_trims(edits)
+            .map(|trim| (trim.left_byte, trim.right_byte))
+            .collect();
+        let opener_halt_trims: Vec<(std::ops::Range<usize>, f64)> = plan
+            .applied_pair_trims(edits)
             .filter_map(|trim| match trim.edit {
                 PunctuationTrimEdit::OpenerHalt(half) => {
                     Some((trim.edit_range.clone(), f64::from(half)))
@@ -634,52 +627,35 @@ impl ParleyInlineContext {
                 PunctuationTrimEdit::LetterSpacing(_) => None,
             })
             .collect();
-        for trim in punctuation_trims {
-            let range = trim.edit_range;
-            let spacing = match trim.edit {
-                PunctuationTrimEdit::OpenerHalt(_) => {
+        for push in plan.pushes(&text, edits) {
+            match push {
+                SpacingPush::LetterSpacing(range, spacing) => {
+                    builder.push(StyleProperty::LetterSpacing(spacing), range);
+                }
+                SpacingPush::Halt(range) => {
+                    // An opener shaped top to bottom takes its vertical
+                    // half width.
+                    let vertical = runs
+                        .iter()
+                        .find(|(run, ..)| run.contains(&range.start))
+                        .zip(text.get(range.start..).and_then(|rest| rest.chars().next()))
+                        .is_some_and(|((_, style, _), character)| {
+                            shapes_top_to_bottom(style, character)
+                        });
                     builder.push(
                         StyleProperty::FontFeatures(parley::FontFeatures::List(
                             std::borrow::Cow::Owned(vec![parley::FontFeature::new(
-                                parley::setting::Tag::new(b"halt"),
+                                parley::setting::Tag::new(halt_tag(vertical)),
                                 1,
                             )]),
                         )),
                         range,
-                    );
-                    continue;
+                    )
                 }
-                PunctuationTrimEdit::LetterSpacing(spacing) => spacing,
-            };
-            // A box gap on the same character composes with the trim (the
-            // trim value already carries the author spacing).
-            let boxed = box_edits
-                .iter()
-                .position(|(edit_range, ..)| *edit_range == range);
-            let spacing = match boxed {
-                Some(found) => {
-                    let (_, gap, _) = box_edits.remove(found);
-                    spacing + gap
-                }
-                None => spacing,
-            };
-            builder.push(StyleProperty::LetterSpacing(spacing), range);
+            }
         }
-        for (range, gap, author) in box_edits {
-            builder.push(StyleProperty::LetterSpacing(author + gap), range);
-        }
-        for (range, spacing) in &ruby_spread_edits {
-            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
-        }
-        // A split spread segment's widening, decided by the outer layout
-        // loop once line breaks are known (the segment carries its
-        // allocated annotation words and spreads to their advance).
-        for (range, spacing) in split_spread_edits {
-            builder.push(StyleProperty::LetterSpacing(*spacing), range.clone());
-        }
-        push_line_end_trims(&mut builder, &text, &runs, end_trims);
-        for image_box in image_boxes {
-            builder.push_inline_box(image_box);
+        for inline_box in inline_boxes {
+            builder.push_inline_box(inline_box);
         }
         if cancel.is_cancelled() {
             return Err(LayoutError::Cancelled);
@@ -697,7 +673,9 @@ impl ParleyInlineContext {
                     InlineItem::Text { style, .. }
                     | InlineItem::Image { style, .. }
                     | InlineItem::InlineBlock { style, .. }
-                    | InlineItem::EmptyBox { style, .. } => *style,
+                    | InlineItem::EmptyBox { style, .. }
+                    | InlineItem::OpenTag { style }
+                    | InlineItem::CloseTag { style } => *style,
                 })
             })
             .map(|style_id| {
@@ -710,6 +688,9 @@ impl ParleyInlineContext {
             .transpose()?
             .unwrap_or(parley::Alignment::Start);
         let (mut layout, spacing_edits) = builder.build(&text);
+        for (range, advance) in combined {
+            layout.combine_upright(range, advance);
+        }
         // Parley's own first-line indent: a start-edge margin on the
         // indented line. Reserving the space with an inline box instead
         // would invent a break opportunity that CSS does not have, and an
@@ -731,16 +712,16 @@ impl ParleyInlineContext {
             empty_box_struts,
             pair_trims,
             opener_halt_trims,
-            item_box_sheds,
-            forced_line_indents,
             ruby_spreads,
             ruby_spread_overhangs,
             ruby_spread_overhangs_right,
             ruby_annotation_widths,
-            ruby_center_shifts,
+            ruby_base_shifts,
             cluster_steps: std::rc::Rc::default(),
             line_end_trims: std::rc::Rc::default(),
             kept_breaks: std::rc::Rc::default(),
+            spacing_plan: std::rc::Rc::new(plan),
+            kept_decisions: std::rc::Rc::default(),
             reads_space: false,
         })
     }
@@ -798,6 +779,10 @@ impl<'a> SpacingBuilder<'a> {
         self.inner.push_inline_box(inline_box);
     }
 
+    pub(crate) fn push_unbreakable(&mut self, range: std::ops::Range<usize>) {
+        self.inner.push_unbreakable(range);
+    }
+
     pub(crate) fn set_line_break_override(&mut self, overrides: &'a parley::LineBreakOverrideFn) {
         self.inner.set_line_break_override(Some(overrides));
     }
@@ -810,6 +795,43 @@ impl<'a> SpacingBuilder<'a> {
 
 /// One paragraph's built Parley layout plus the metadata the fragment
 /// assembly needs.
+/// Where a wide-annotation ruby's base glyphs paint inside its column,
+/// past the flow position of the base's first glyph (Blink's ruby base
+/// insets, `ApplyRubyAlign`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RubyBaseShift {
+    /// Away from a justified line's edges.
+    pub(crate) within: f64,
+    /// At a justified paragraph's line start and a justified line's end,
+    /// where `space-around` aligns the base to the line's edge
+    /// (css-ruby line-edge alignment); `None` for `ruby-align: center`,
+    /// which keeps the base centered there too.
+    pub(crate) at_edges: Option<(f64, f64)>,
+}
+
+impl RubyBaseShift {
+    /// The shift for a base spanning `base` on a line whose in-flow content
+    /// starts at `line_start` and, on a justified line, ends at `line_end`
+    /// (`None` off a justified paragraph, or where an atom takes the edge).
+    pub(crate) fn on_line(
+        &self,
+        base: &std::ops::Range<usize>,
+        line_start: Option<usize>,
+        line_end: Option<usize>,
+    ) -> f64 {
+        let Some((at_start, at_end)) = self.at_edges else {
+            return self.within;
+        };
+        match (line_start == Some(base.start), line_end == Some(base.end)) {
+            (true, false) => at_start,
+            (false, true) => at_end,
+            // A ruby alone on a justified line spreads over the whole line,
+            // which is not modelled.
+            _ => self.within,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct ParagraphLayout {
     /// Whether the build read the space it was built in (an image or an
@@ -827,6 +849,12 @@ pub(crate) struct ParagraphLayout {
     /// The lines this build was last broken into, shared like
     /// `cluster_steps` (see [`KeptBreaks`]).
     pub(crate) kept_breaks: std::rc::Rc<KeptBreaks>,
+    /// The spacing the build pushed on top of its runs' styles, apart from
+    /// the edits it was built with (see [`SpacingPlan`]).
+    pub(crate) spacing_plan: std::rc::Rc<SpacingPlan>,
+    /// The line edges decided on this build, by the space they were
+    /// decided in (see [`KeptDecisions`]).
+    pub(crate) kept_decisions: std::rc::Rc<KeptDecisions>,
     pub(crate) layout: parley::Layout<[u8; 4]>,
     pub(crate) text: String,
     pub(crate) alignment: parley::Alignment,
@@ -852,20 +880,6 @@ pub(crate) struct ParagraphLayout {
     /// width each removed — the painter draws the untrimmed glyph shifted
     /// left by that amount so its ink lands where the halt variant sits.
     pub(crate) opener_halt_trims: Vec<(std::ops::Range<usize>, f64)>,
-    /// Per item index: advance the item's LAST cluster gained from inline
-    /// box gaps (its own trailing padding/border, plus the leading
-    /// padding/border of a box opening right after it). Emitted fragment
-    /// widths shed it so the run rect stays the ink advance the painter
-    /// grows the inline box from.
-    pub(crate) item_box_sheds: std::collections::HashMap<usize, f64>,
-    /// Per forced-break line start (flow-text byte): the box lead
-    /// (margin, padding, border) of a span opening that line. A lead
-    /// riding the previous character's letter spacing would widen the
-    /// PREVIOUS line across a `<br/>`; Blink indents the span's own line
-    /// (u3000/inline-margin oracle: margin box at x=30, padding glyph at
-    /// +30, both on the span's line), so the line loop shifts the whole
-    /// line instead.
-    pub(crate) forced_line_indents: std::collections::HashMap<usize, f64>,
     /// Per item index: the `ruby-align: space-around` interior gap a
     /// wide annotation opens between its base's clusters. The gap is
     /// already injected as letter spacing on every base cluster but the
@@ -886,9 +900,9 @@ pub(crate) struct ParagraphLayout {
     /// annotation and widens to at least this advance, which is what the
     /// split-fit rewind checks.
     pub(crate) ruby_annotation_widths: std::collections::HashMap<usize, f64>,
-    /// Per item: the paint-side right shift centering a packed base
-    /// under its wide `ruby-align: center` annotation.
-    pub(crate) ruby_center_shifts: std::collections::HashMap<usize, f64>,
+    /// Per wide-annotation item: where its base glyphs paint inside the
+    /// column.
+    pub(crate) ruby_base_shifts: std::collections::HashMap<usize, RubyBaseShift>,
     /// Laid-out inline-block atoms by item index: the mini paragraph's
     /// baseline (its LAST line's, from the box top) and its fragment,
     /// emitted at the inline box's position during line assembly.
@@ -912,7 +926,7 @@ pub(crate) struct ParagraphLayout {
 }
 
 /// Key of one line-metric entry: (family key, size bits, line shape).
-pub(crate) type LineMetricKey = (u32, u64, LineProbe);
+pub(crate) type LineMetricKey = (u32, u64, LineBaseline, LineProbe);
 
 /// The browser shapes at the computed font size truncated toward zero
 /// onto the 1/100 px grid, and the product is an F32 MULTIPLY — the
@@ -935,8 +949,22 @@ pub(crate) fn push_item_styles(
     builder: &mut SpacingBuilder<'_>,
     catalog: &FontCatalog,
     style: &InlineFormattingStyle,
+    text: &str,
     range: std::ops::Range<usize>,
 ) {
+    // A vertical line's upright characters shape top to bottom, as Blink
+    // shapes a vertical line's upright runs; the rest shape as horizontal
+    // text, laid sideways, and so does a combined upright unit's.
+    if style.bidi.writing_mode != WritingMode::HorizontalTopToBottom && !combines_upright(style) {
+        if let Some(item_text) = text.get(range.clone()) {
+            for upright in upright_ranges(style.bidi.text_orientation, item_text) {
+                builder.push(
+                    StyleProperty::VerticalUpright(true),
+                    range.start + upright.start..range.start + upright.end,
+                );
+            }
+        }
+    }
     let stack = catalog.resolve(style);
     builder.push(
         StyleProperty::FontFamily(parley::FontFamily::Source(Cow::Owned(stack.source.clone()))),
@@ -1077,6 +1105,10 @@ pub(crate) fn install_universal_fallbacks(
     }
 }
 
+/// The id bit of an inline box that is a box's start or end size rather
+/// than an atom (whose id is its item index).
+pub(crate) const TAG_BOX_ID: u64 = 1 << 40;
+
 /// A plain-text paragraph style: the given font stack and size, `normal`
 /// line height and weight, no decoration, spacing, or transforms, and an
 /// optional first-line indent. This is the style of an undecorated body
@@ -1166,12 +1198,15 @@ pub fn plain_paragraph_style(
                 each_line: false,
             },
             ruby_align: RubyAlign::SpaceAround,
+            text_emphasis: None,
             language: None,
         },
         bidi: InlineBidi {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
+            text_orientation: rito_style_contract::TextOrientation::Mixed,
+            text_combine_upright: rito_style_contract::TextCombineUpright::None,
         },
         fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(zero_length)),

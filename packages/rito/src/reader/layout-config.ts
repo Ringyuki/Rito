@@ -3,7 +3,9 @@ export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
   const { top, right, bottom, left } = resolveMargins(input.margin);
   const gap = input.spreadGap ?? 0;
   const requestedMode = input.spread ?? 'single';
-  const effectiveMode = input.width < input.height ? 'single' : requestedMode;
+  // A portrait viewport holds one page a spread.
+  const effectiveMode =
+    requestedMode === 'double' && input.width < input.height ? 'single' : requestedMode;
   const pageWidth = effectiveMode === 'double' ? (input.width - gap) / 2 : input.width;
   return {
     viewportWidth: input.width,

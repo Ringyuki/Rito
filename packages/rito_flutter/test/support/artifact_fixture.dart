@@ -43,6 +43,7 @@ Uint8List artifactFixture({
     ..float64(640)
     ..option(null)
     ..option(null)
+    ..option(null)
     ..uint32(previousAvailability)
     ..uint32(nextAvailability)
     ..uint32(0);
@@ -138,7 +139,9 @@ void _fonts(
       ..string('normal')
       ..uint16(400)
       ..string(fingerprint)
-      ..uint64(byteLength);
+      ..uint64(byteLength)
+      // No feature settings: the face itself.
+      ..uint32(0);
   });
 }
 

@@ -1066,6 +1066,7 @@ dependencies = [
 name = "rito-inline"
 version = "0.0.0"
 dependencies = [
+ "icu_properties",
  "parley",
  "rito-fragment",
  "rito-style-contract",

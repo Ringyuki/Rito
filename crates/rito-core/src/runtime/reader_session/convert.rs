@@ -16,6 +16,7 @@ pub(super) fn layout_config(value: ReaderLayout) -> Result<LayoutConfig, ReaderE
     let spread = match value.spread_mode {
         ReaderSpreadMode::Single => SpreadMode::Single,
         ReaderSpreadMode::Double => SpreadMode::Double,
+        ReaderSpreadMode::Scrolled => SpreadMode::Scrolled,
     };
     Ok(create_layout_config(LayoutConfigInput {
         width: value.viewport_width,

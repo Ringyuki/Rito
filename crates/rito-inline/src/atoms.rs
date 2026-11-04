@@ -46,30 +46,43 @@ impl ParleyInlineContext {
                     .layout
                     .style(*layout_style)
                     .map_err(|error| LayoutError::Invalid(error.to_string()))?;
-                let (width, height) = image_display_size(
-                    *intrinsic_width,
-                    *intrinsic_height,
-                    layout_style,
-                    space.inline_size(),
-                    space.block_size(),
-                    space.containing_block_size(),
-                    percentage_images,
-                    *viewport,
-                )?;
-                // A vertical-rl flow's replaced atom advances by its
-                // PHYSICAL height along the (vertical) inline axis
-                // and takes a column as wide as its physical width
-                // (measured on a 318x2048 chapter plate: the column
-                // is 318 wide, the image runs the page's length and
-                // clips); the swapped box maps back to the physical
-                // raster in the vertical paint walk.
-                let (width, height) = if tree
+                let vertical = tree
                     .strut_style(host)
                     .and_then(|id| styles.inline.style(id).ok())
                     .is_some_and(|strut| {
                         strut.bidi.writing_mode
                             == rito_style_contract::WritingMode::VerticalRightToLeft
-                    }) {
+                    });
+                // The image sizes in physical terms: down a column its
+                // width runs across the lines (the page's block size) and
+                // its height along them, so the page clamp holds it to
+                // the column's length (measured on a 318x2048 chapter
+                // plate: Chromium lays it 132x850 on an 850px column).
+                let (width_basis, height_clamp, height_basis) = if vertical {
+                    (space.block_size(), space.inline_size(), space.inline_size())
+                } else {
+                    (
+                        space.inline_size(),
+                        space.block_size(),
+                        space.containing_block_size(),
+                    )
+                };
+                let (width, height) = image_display_size(
+                    *intrinsic_width,
+                    *intrinsic_height,
+                    layout_style,
+                    width_basis,
+                    height_clamp,
+                    height_basis,
+                    percentage_images,
+                    *viewport,
+                )?;
+                // A vertical-rl flow's replaced atom advances by its
+                // physical height along the (vertical) inline axis and
+                // takes a column as wide as its physical width; the
+                // swapped box maps back to the physical raster in the
+                // vertical paint walk.
+                let (width, height) = if vertical {
                     (height, width)
                 } else {
                     (width, height)
@@ -84,8 +97,19 @@ impl ParleyInlineContext {
                         LengthPercentage::Length(px) => f64::from(px.get()).max(0.0),
                         _ => 0.0,
                     };
-                let inset_left = edge(layout_style.padding.left);
-                let inset_right = edge(layout_style.padding.right);
+                // The flanks along the line: left and right in a
+                // horizontal flow, top and bottom down a column.
+                let (inset_left, inset_right) = if vertical {
+                    (
+                        edge(layout_style.padding.top),
+                        edge(layout_style.padding.bottom),
+                    )
+                } else {
+                    (
+                        edge(layout_style.padding.left),
+                        edge(layout_style.padding.right),
+                    )
+                };
                 Ok(Some(SizedAtom {
                     width: width + (inset_left + inset_right) as f32,
                     height,
@@ -94,45 +118,15 @@ impl ParleyInlineContext {
                     block: None,
                 }))
             }
-            InlineItem::InlineBlock { node, .. } => {
-                // The atomic inline is its own mini paragraph, laid
-                // out recursively through the full pipeline at CSS
-                // 2.1 §10.3.5 shrink-to-fit width against the host.
-                let sizes = self.intrinsic_inline_sizes(tree, *node)?;
-                let available = space.inline_size().unwrap_or(sizes.max_content);
-                let width = sizes.max_content.min(sizes.min_content.max(available));
-                let outcome = FormattingContext::layout(
-                    self,
-                    tree,
-                    *node,
-                    &ConstraintSpace::continuous(width),
-                    None,
-                    cancel,
-                )?;
-                let Fragment::Box(root_box) = outcome.fragments.root else {
-                    return Err(LayoutError::Invalid(
-                        "inline-block layout must produce a box fragment".to_owned(),
-                    ));
-                };
-                // The atom's baseline is its LAST line's baseline
-                // (CSS §10.8.1); a line-less box uses its bottom.
-                let baseline = root_box
-                    .children
-                    .iter()
-                    .rev()
-                    .find_map(|child| match child {
-                        Fragment::Line(line) => Some(line.rect.y + line.baseline),
-                        _ => None,
-                    })
-                    .unwrap_or(root_box.rect.height);
-                Ok(Some(SizedAtom {
-                    width: root_box.rect.width as f32,
-                    height: root_box.rect.height as f32,
-                    edge_insets: None,
-                    block: Some((node.0, baseline, root_box)),
-                }))
-            }
-            InlineItem::Text { .. } | InlineItem::EmptyBox { .. } => Ok(None),
+            InlineItem::InlineBlock {
+                node, layout_style, ..
+            } => self
+                .size_inline_block(tree, host, *node, *layout_style, space, cancel)
+                .map(Some),
+            InlineItem::Text { .. }
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => Ok(None),
         }
     }
 

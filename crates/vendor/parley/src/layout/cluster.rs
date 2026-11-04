@@ -174,6 +174,15 @@ impl<'a, B: Brush> Cluster<'a, B> {
         self.data.advance
     }
 
+    /// Rito: how much wider this cluster shapes alone than in context where
+    /// a line ends after it (the shaper marked the break after it unsafe),
+    /// as Blink reshapes a line's end; zero where breaking after it is safe.
+    pub fn line_end_delta(&self) -> f32 {
+        // The path counts from the run's clusters on this line.
+        let index = self.run.cluster_range().start + self.path.logical_index as usize;
+        self.run.layout.data.line_end_delta(index)
+    }
+
     /// Returns `true` if this is a right-to-left cluster.
     pub fn is_rtl(&self) -> bool {
         self.run.is_rtl()
@@ -187,6 +196,12 @@ impl<'a, B: Brush> Cluster<'a, B> {
     /// Returns `true` if the cluster is a ligature continuation.
     pub fn is_ligature_continuation(&self) -> bool {
         self.data.is_ligature_component()
+    }
+
+    /// Rito: whether the cluster is part of a combined upright unit (see
+    /// [`Layout::combine_upright`](crate::Layout::combine_upright)).
+    pub fn is_combined(&self) -> bool {
+        self.data.is_combined()
     }
 
     /// Returns `true` if the cluster is a word boundary.

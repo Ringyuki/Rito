@@ -527,6 +527,71 @@ fn many_chapter_fixture_epub_with(
     writer.finish().expect("zip finalizes").into_inner()
 }
 
+/// A book whose pages progress right to left: a horizontal plate page,
+/// then a vertical-rl chapter of columns long enough to take several
+/// windows of a narrow viewport.
+pub fn vertical_book_fixture_epub() -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Vertical book</dc:title>
+    <dc:language>zh</dc:language>
+    <dc:identifier id="id">vertical-book</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="plate" href="plate.xhtml" media-type="application/xhtml+xml"/>
+    <item id="columns" href="columns.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine page-progression-direction="rtl">
+    <itemref idref="plate"/>
+    <itemref idref="columns"/>
+  </spine>
+</package>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/plate.xhtml",
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head></head><body><p>横排的插图说明。</p></body></html>"
+            .as_bytes(),
+    );
+    let paragraphs = (0..12)
+        .map(|index| {
+            format!(
+                "<p id=\"column-{index}\">{}</p>",
+                "春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。".repeat(6)
+            )
+        })
+        .collect::<String>();
+    let columns = format!(
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><style>html {{ writing-mode: vertical-rl; }}</style></head><body>{paragraphs}</body></html>"
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/columns.xhtml",
+        columns.as_bytes(),
+    );
+    writer.finish().expect("zip finalizes").into_inner()
+}
+
 pub fn minimal_png() -> Vec<u8> {
     let mut bytes = vec![0u8; 33];
     bytes[0..8].copy_from_slice(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]);

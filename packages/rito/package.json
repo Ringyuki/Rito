@@ -61,7 +61,7 @@
     "@vitest/browser-playwright": "^4.1.12",
     "@vitest/coverage-v8": "^4.1.12",
     "fflate": "^0.8.2",
-    "playwright": "^1.59.1",
+    "playwright": "^1.64.1",
     "tsdown": "^0.21.7",
     "vitest": "^4.1.12"
   }

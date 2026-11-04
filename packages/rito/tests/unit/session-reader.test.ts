@@ -43,6 +43,7 @@ vi.mock('../../src/bindings/browser/reader-session', async (importOriginal) => {
         weight: 400,
         shapeFingerprint: 'shape',
         byteLength: BigInt(policy?.faces[index]?.byteLength ?? 0),
+        features: [],
       }));
       harness.fake = fake;
       harness.openOptions = options;
@@ -233,6 +234,47 @@ describe('Reader on a session', () => {
       'two.xhtml',
     ]);
     expect(reader.manifestHrefMap.get('two')).toBe('two.xhtml');
+    await reader.dispose();
+  });
+
+  it('lays a scrolled book out as windows end to end, and paints a window alone', async () => {
+    const { reader, fake } = await open({
+      spread: 'scrolled',
+      initialLocator: { href: 'one.xhtml' },
+    });
+    await bookScope(reader);
+    await settle();
+    expect(reader.getScrollLayout()).toEqual({
+      axis: 'down',
+      windowLength: 600,
+      chapters: [
+        { firstSpread: 0, spreadCount: 1, extent: 300 },
+        { firstSpread: 1, spreadCount: 8, extent: 4500 },
+        { firstSpread: 9, spreadCount: 5, extent: 2700 },
+      ],
+    });
+    const located = await reader.navigateToLocator?.({ href: 'two.xhtml', progression: 0.5 });
+    expect(located).toMatchObject({ status: 'resolved', blockOffset: 42 });
+    // The window read, its neighbours and the window after them are held.
+    const held = [...fake.live.values()].map((owned) => owned.artifact.localSpreadIndex);
+    expect(new Set(held)).toEqual(new Set([0, 1, 2, 3]));
+
+    // The last window of the second chapter is half a viewport tall: it is
+    // painted into a target of its own size as into one of the viewport's.
+    harness.painted = [];
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 1200) as never)).toBe(false);
+    await settle();
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 1200) as never)).toBe(true);
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 600) as never)).toBe(true);
+    expect(reader.renderSpreadTo(8, fakeCanvasContext(800, 900) as never)).toBe(false);
+    expect(harness.painted).toEqual(['8:#ffffff', '8:#ffffff']);
+    expect(fake.violations).toEqual([]);
+    await reader.dispose();
+  });
+
+  it('has no scroll layout while it shows pages', async () => {
+    const { reader } = await open({ initialLocator: { href: 'one.xhtml' } });
+    expect(reader.getScrollLayout()).toBeUndefined();
     await reader.dispose();
   });
 

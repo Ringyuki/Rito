@@ -38,6 +38,9 @@ pub(super) fn body(writer: &mut Writer, value: &ReaderArtifact) -> Result<(), Re
         writer.u32(*count);
         Ok(())
     })?;
+    writer.option(value.target_block_offset.as_ref(), |writer, offset| {
+        writer.f64(*offset, "target block offset")
+    })?;
     writer.u32(adjacent_availability(value.navigation.previous));
     writer.u32(adjacent_availability(value.navigation.next));
     writer.u32(text_profile(value.text_profile));
@@ -84,6 +87,11 @@ fn fonts(writer: &mut Writer, values: &[ReaderFontRef]) -> Result<(), ReaderErro
             writer.u16(value.weight);
             writer.string(&value.shape_fingerprint, "font shape fingerprint")?;
             writer.u64(value.byte_length);
+            writer.count(value.features.len(), "font feature count")?;
+            for feature in &value.features {
+                writer.string(&feature.tag, "font feature tag")?;
+                writer.u32(feature.value);
+            }
             Ok(())
         })?;
     }

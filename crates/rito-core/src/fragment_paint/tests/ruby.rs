@@ -13,6 +13,7 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
                 text: "かんじ".to_owned(),
                 size_ratio: 0.5,
                 align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         }]
     });
@@ -31,24 +32,28 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 3,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 6,
                         x: 16.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                 ],
                 grid: false,
             },
             over_offset: 16.0,
             em_ascent: 7.046875,
+            orientations: None,
         },
     );
     let mut commands = Vec::new();
@@ -59,7 +64,10 @@ fn ruby_bases_paint_their_annotation_above_the_run() {
         0.0,
         0.0,
         FragmentPaintContext {
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )
@@ -123,6 +131,7 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
                 text: "かん".to_owned(),
                 size_ratio: 0.5,
                 align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         }]
     });
@@ -142,18 +151,21 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 3,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                 ],
                 grid: false,
             },
             over_offset: 16.0,
             em_ascent: 7.046875,
+            orientations: None,
         },
     );
     let mut commands = Vec::new();
@@ -164,7 +176,10 @@ fn a_ruby_annotation_distributes_over_the_column_extent_on_the_layout_grid() {
         0.0,
         0.0,
         FragmentPaintContext {
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )
@@ -199,6 +214,7 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
                 text: "かんじ".to_owned(),
                 size_ratio: 0.5,
                 align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         }]
     });
@@ -215,24 +231,28 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 3,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 6,
                         x: 16.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                 ],
                 grid: false,
             },
             over_offset: 16.0,
             em_ascent: 7.046875,
+            orientations: None,
         },
     );
     let mut commands = Vec::new();
@@ -243,7 +263,10 @@ fn a_base_shaped_into_several_runs_on_one_line_carries_one_annotation_over_all_o
         0.0,
         0.0,
         FragmentPaintContext {
-            ruby_annotation_runs: Some(&ruby_runs),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )

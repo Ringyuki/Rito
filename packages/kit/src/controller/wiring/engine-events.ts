@@ -116,7 +116,7 @@ function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): 
   disposables.add(
     engines.search.onResultsChange((results) => {
       replaceNativeSearchResults(deps.coordState, results);
-      scheduleNativeSearchForCurrentSpread(deps);
+      if (!deps.isSuspended()) scheduleNativeSearchForCurrentSpread(deps);
       emitContainedSearchEvent(
         emitter,
         'searchResults',
@@ -130,7 +130,7 @@ function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): 
   disposables.add(
     engines.search.onActiveResultChange((idx) => {
       const results = engines.search.getResults();
-      scheduleNativeSearchForCurrentSpread(deps);
+      if (!deps.isSuspended()) scheduleNativeSearchForCurrentSpread(deps);
       emitContainedSearchEvent(
         emitter,
         'searchActiveChange',
@@ -172,24 +172,8 @@ function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableColl
   disposables.add(
     store.onChange((records) => {
       deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-      refreshNativeAnnotations(deps.reader, deps.coordState);
-      const spread = deps.reader.spreads[deps.getCurrentSpread()];
-      if (spread) {
-        scheduleNativeAnnotationsForSpread(
-          spread,
-          deps.reader,
-          deps.coordState,
-          () => {
-            deps.frameDriver.markAllOverlaysDirty();
-          },
-          (error) => {
-            deps.emitter.emit('error', {
-              message: error instanceof Error ? error.message : String(error),
-              source: 'native-annotation-geometry',
-            });
-          },
-        );
-      }
+      // Where they are on the page is read again when the controller resumes.
+      if (!deps.isSuspended()) placeAnnotations(deps);
       deps.emitter.emit('annotationsChange', { annotations: records });
       // Annotations are global — invalidate ALL slots
       deps.frameDriver.markAllOverlaysDirty();
@@ -200,6 +184,27 @@ function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableColl
     void store.init(storage).catch((error: unknown) => {
       if (alive) containAnnotationStorageFailure(error, deps);
     });
+  }
+}
+
+function placeAnnotations(deps: WiringDeps): void {
+  refreshNativeAnnotations(deps.reader, deps.coordState);
+  const spread = deps.reader.spreads[deps.getCurrentSpread()];
+  if (spread) {
+    scheduleNativeAnnotationsForSpread(
+      spread,
+      deps.reader,
+      deps.coordState,
+      () => {
+        deps.frameDriver.markAllOverlaysDirty();
+      },
+      (error) => {
+        deps.emitter.emit('error', {
+          message: error instanceof Error ? error.message : String(error),
+          source: 'native-annotation-geometry',
+        });
+      },
+    );
   }
 }
 

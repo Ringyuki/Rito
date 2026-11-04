@@ -2,6 +2,44 @@
 
 use super::*;
 
+/// A text fragment of a vertical line as layout leaves it: a cluster per
+/// character of `text` (the flow's bytes `start..end`) every `step` down
+/// the line, upright with a 16px glyph's half advance and vertical origin
+/// centred half a pixel over the run's baseline, unless Latin, which lies
+/// sideways on a baseline 5px under it.
+fn column_run(x: f64, width: f64, start: u32, text: &str, step: f64) -> Fragment {
+    let Fragment::Text(mut run) = text_run(x, width, start, start + text.len() as u32) else {
+        unreachable!("a text run is text");
+    };
+    run.clusters = text
+        .char_indices()
+        .enumerate()
+        .map(|(index, (byte, _))| rito_fragment::ClusterPosition {
+            byte: start + byte as u32,
+            x: index as f64 * step,
+            face: rito_fragment::FontFaceId::default(),
+            joins: false,
+            continues_ligature: false,
+        })
+        .collect();
+    run.orientations = Some(
+        text.chars()
+            .map(|glyph| {
+                if glyph.is_ascii_alphabetic() {
+                    rito_fragment::ClusterOrientation::Sideways { baseline: 5.0 }
+                } else {
+                    rito_fragment::ClusterOrientation::Upright {
+                        center: -0.5,
+                        half_advance: 8.0,
+                        vertical_origin: 14.08,
+                    }
+                }
+            })
+            .collect(),
+    );
+    Fragment::Text(run)
+}
+
 /// A vertical-rl page fragment for the paint-parity instrument: one
 /// column of ideographs with rotated brackets and corner-shifted
 /// marks, a rubied base, and a second column of leaders, a dash and
@@ -31,6 +69,7 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                 text: "かんじ".to_owned(),
                 size_ratio: 0.5,
                 align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         },
         text_item("…—ab", spaced, 0.0),
@@ -60,7 +99,11 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
             },
             baseline: 13.0,
             trailing_whitespace: 0.0,
-            ruby_growth: growth,
+            annotation_growth: growth,
+            annotation_overflow: growth,
+            annotation_lent: 0.0,
+            annotation_space_end: 0.0,
+            fonts: rito_fragment::LineFonts::None,
             text_runs: Vec::new(),
             children: runs,
         })
@@ -79,10 +122,20 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                 24.0,
                 8.0,
                 160.0,
-                vec![text_run(0.0, 128.0, 0, 24), text_run(128.0, 32.0, 24, 30)],
+                vec![
+                    column_run(0.0, 128.0, 0, "「春日」、剧场。", 16.0),
+                    column_run(128.0, 32.0, 24, "漢字", 16.0),
+                ],
             ),
-            line(32.0, 20.0, 0.0, 72.0, vec![text_run(0.0, 72.0, 30, 38)]),
+            line(
+                32.0,
+                20.0,
+                0.0,
+                72.0,
+                vec![column_run(0.0, 72.0, 30, "…—ab", 18.0)],
+            ),
         ],
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     // The annotation measured when the chapter was built: the
     // style's primary face is Tinos, whose 8px typo ascent puts the
@@ -101,24 +154,38 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 3,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 6,
                         x: 16.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                 ],
                 grid: false,
             },
             over_offset: 16.0,
             em_ascent: 6.09375,
+            orientations: Some(
+                vec![
+                    rito_fragment::ClusterOrientation::Upright {
+                        center: -0.5,
+                        half_advance: 4.0,
+                        vertical_origin: 7.04,
+                    };
+                    3
+                ]
+                .into(),
+            ),
         },
     );
     let mut commands = Vec::new();
@@ -129,8 +196,23 @@ fn vertical_column_commands() -> Vec<DisplayCommand> {
         0.0,
         0.0,
         FragmentPaintContext {
-            vertical_frame: Some((220.0, 20.0)),
-            ruby_annotation_runs: Some(&ruby_runs),
+            // A content box 220 wide whose top-left corner is (0, 20).
+            vertical_frame: Some(crate::fragment_paint::VerticalFrame {
+                converter: rito_fragment::WritingModeConverter::from_logical_size(
+                    rito_style_contract::WritingDirection {
+                        mode: rito_style_contract::WritingMode::VerticalRightToLeft,
+                        direction: rito_style_contract::Direction::LeftToRight,
+                    },
+                    root.rect().width,
+                    220.0,
+                ),
+                left: 0.0,
+                top: 20.0,
+            }),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
             ..FragmentPaintContext::default()
         },
     )
@@ -165,11 +247,13 @@ fn write_vertical_paint_parity_fixture() {
     .expect("fixture writes");
 }
 
-/// The vertical column paints glyph by glyph: upright glyphs share a
-/// run with an origin each one step down the column, corner marks
-/// shift into the em's top-right, rotated marks paint as their own
-/// run under a quarter-turn transform, and the annotation spreads
-/// its glyphs down the base span.
+/// The vertical column paints each cluster where layout put it: upright
+/// glyphs half their advance left of their centre line (12.5px in from the
+/// line-over edge: the 13px baseline less half a pixel) and their vertical
+/// origin below their place, corner marks in the em's
+/// top-right, rotated marks alone under a quarter turn about their em
+/// centre, Latin set sideways under a quarter turn about its start on its
+/// alphabetic baseline, and the annotation spread down the base span.
 #[test]
 fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
     let commands = vertical_column_commands();
@@ -190,51 +274,53 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
             );
         }
     };
-    // 「 | 春日 | 」 | 、剧场。 | 漢字 | … | — | ab
-    assert_eq!(texts.len(), 8, "{texts:#?}");
-    let transforms = commands
+    let transform_origins: Vec<(f64, f64)> = commands
         .iter()
-        .filter(|command| matches!(command, DisplayCommand::Transform { .. }))
-        .count();
-    assert_eq!(transforms, 4, "one quarter turn per rotated mark");
+        .filter_map(|command| match command {
+            DisplayCommand::Transform {
+                origin, transforms, ..
+            } => {
+                assert_eq!(
+                    transforms,
+                    &vec![ReaderTransform::Rotate {
+                        radians: std::f64::consts::FRAC_PI_2
+                    }]
+                );
+                Some((origin.x, origin.y))
+            }
+            _ => None,
+        })
+        .collect();
+    // 「春日」、剧场。 | 漢字 | …— | ab
+    assert_eq!(texts.len(), 4, "{texts:#?}");
     assert!(texts.iter().all(|text| !text.clusters.is_empty()));
-    // The first column's glyphs sit at x 196 (frame right 220 minus
-    // the 24px line thickness), stepping 16px from the column top 20
-    // with baselines 0.8 em below each glyph top.
-    assert_eq!(texts[0].text, "「");
-    origins(&texts[0].clusters, &[(0, 196.0, 32.8)]);
-    let DisplayCommand::Transform {
-        origin, transforms, ..
-    } = &commands[1]
-    else {
-        panic!(
-            "the rotated mark paints under a transform, got {:?}",
-            commands[1]
-        );
-    };
-    assert_eq!((origin.x, origin.y), (204.0, 28.0));
-    assert_eq!(
-        transforms,
-        &vec![ReaderTransform::Rotate {
-            radians: std::f64::consts::FRAC_PI_2
-        }]
-    );
-    assert_eq!(texts[1].text, "春日");
-    origins(&texts[1].clusters, &[(0, 196.0, 48.8), (3, 196.0, 64.8)]);
-    assert_eq!(texts[3].text, "、剧场。");
-    // 、 and 。 ride the em's top-right corner; 剧场 stay upright.
+    // The first column's line-over edge is the frame's right edge, 220:
+    // its glyphs centre at 207.5, their origins at 199.5, each 16px down
+    // from the column top 20 and its vertical origin below that, the
+    // punctuation in its vertical forms like the rest.
+    assert_eq!(texts[0].text, "「春日」、剧场。");
     origins(
-        &texts[3].clusters,
-        &[
-            (0, 204.0, 87.2),
-            (3, 196.0, 112.8),
-            (6, 196.0, 128.8),
-            (9, 204.0, 135.2),
-        ],
+        &texts[0].clusters,
+        &(0..8)
+            .map(|index| (3 * index, 199.5, 34.08 + 16.0 * f64::from(index)))
+            .collect::<Vec<_>>(),
     );
-    // The letter-spaced second column steps 18px.
-    assert_eq!(texts[7].text, "ab");
-    origins(&texts[7].clusters, &[(0, 170.0, 68.8), (1, 170.0, 86.8)]);
+    assert_eq!(texts[1].text, "漢字");
+    origins(
+        &texts[1].clusters,
+        &[(0, 199.5, 162.08), (3, 199.5, 178.08)],
+    );
+    // The letter-spaced second column steps 18px; its Latin lies on the
+    // baseline 18px in from its line-over edge, 188.
+    assert_eq!(texts[2].text, "…—");
+    origins(&texts[2].clusters, &[(0, 167.5, 34.08), (3, 167.5, 52.08)]);
+    assert_eq!(texts[3].text, "ab");
+    origins(&texts[3].clusters, &[(0, 170.0, 56.0), (1, 188.0, 56.0)]);
+    assert_eq!(
+        transform_origins,
+        vec![(170.0, 56.0)],
+        "one quarter turn, for the sideways Latin"
+    );
     let annotation = commands
         .iter()
         .find_map(|command| match command {
@@ -244,18 +330,320 @@ fn a_vertical_column_places_every_glyph_and_rotates_its_marks() {
         .expect("the rubied base paints its annotation");
     // Three 8px kana down the 32px base span: 8px free, one share
     // (8/3) per glyph, half a share at each edge, every glyph's
-    // baseline its em-box ascent below its top.
+    // vertical origin below its place.
     let ys: Vec<f64> = annotation
         .clusters
         .iter()
         .map(|cluster| cluster.y)
         .collect();
     for (y, expected) in ys.iter().zip([
-        148.0 + 4.0 / 3.0 + 6.09375,
-        160.0 + 6.09375,
-        172.0 - 4.0 / 3.0 + 6.09375,
+        148.0 + 4.0 / 3.0 + 7.04,
+        160.0 + 7.04,
+        172.0 - 4.0 / 3.0 + 7.04,
     ]) {
         assert!((y - expected).abs() < 1e-9, "{ys:?}");
     }
-    assert!(annotation.clusters.iter().all(|cluster| cluster.x == 212.0));
+    // The annotation's baseline stands 16px past the base's (207, 13px in
+    // from the line-over edge 220), at 223: its glyphs centre half a pixel
+    // further and hang half their advance back, at 219.5.
+    assert!(annotation.clusters.iter().all(|cluster| cluster.x == 219.5));
+}
+
+/// Text in a vertical ruby box moves by the rounding of the box's start
+/// down the line, every pair of one ruby element with its first, while
+/// plain text keeps its fractional place (measured: a base glyph's ink
+/// steps once per CSS pixel of its element's start at device scales 1 and
+/// 2; a later pair of one element steps with the first pair's start, a
+/// pair of its own element with its own).
+#[test]
+fn a_vertical_ruby_base_starts_on_a_whole_pixel() {
+    let mut inline = InlineStyleTable::new(1);
+    let black = inline
+        .intern_for_node(0, body_style(srgb(0.0, 0.0, 0.0, 1.0)))
+        .expect("style interns");
+    let ruby_item = |text: &str, annotation: &str, continues_ruby: bool| InlineItem::Text {
+        text: text.to_owned(),
+        style: black,
+        baseline_shift_px: 0.0,
+        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+            text: annotation.to_owned(),
+            size_ratio: 0.5,
+            align: rito_style_contract::RubyAlign::SpaceAround,
+            continues_ruby,
+        }),
+    };
+    let items = vec![
+        text_item("春日", black, 0.0),
+        ruby_item("漢", "かん", false),
+        ruby_item("字", "じ", true),
+        ruby_item("春", "はる", false),
+    ];
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("tree builds");
+    // Justified shares leave every piece at a fractional place; the last
+    // base takes a share ahead of its glyph, which its box start excludes.
+    let mut ahead = column_run(64.875, 16.375, 12, "春", 16.0);
+    if let Fragment::Text(run) = &mut ahead {
+        run.clusters = run
+            .clusters
+            .iter()
+            .map(|cluster| rito_fragment::ClusterPosition {
+                x: cluster.x + 0.375,
+                ..*cluster
+            })
+            .collect();
+    }
+    let root = Fragment::Box(BoxFragment {
+        source: FormattingNodeId(0),
+        rect: FragmentRect {
+            x: 0.0,
+            y: 0.0,
+            width: 300.0,
+            height: 60.0,
+        },
+        children: vec![Fragment::Line(LineFragment {
+            source: FormattingNodeId(0),
+            marker: None,
+            rect: FragmentRect {
+                x: 0.0,
+                y: 0.0,
+                width: 81.0,
+                height: 24.0,
+            },
+            baseline: 13.0,
+            trailing_whitespace: 0.0,
+            annotation_growth: 0.0,
+            annotation_overflow: 0.0,
+            annotation_lent: 0.0,
+            annotation_space_end: 0.0,
+            fonts: rito_fragment::LineFonts::None,
+            text_runs: Vec::new(),
+            children: vec![
+                column_run(0.0, 32.375, 0, "春日", 16.1875),
+                column_run(32.375, 16.25, 6, "漢", 16.25),
+                column_run(48.625, 16.25, 9, "字", 16.25),
+                ahead,
+            ],
+        })],
+        cuts: rito_fragment::BlockCuts::NONE,
+    });
+    let measured = |x: f64, byte: u32| rito_fragment::ClusterPosition {
+        byte,
+        x,
+        face: rito_fragment::FontFaceId::default(),
+        joins: false,
+        continues_ligature: false,
+    };
+    let annotation = |glyphs: u32| rito_inline::MeasuredRuby {
+        run: rito_inline::MeasuredRun {
+            advance: 8.0 * f64::from(glyphs),
+            clusters: (0..glyphs)
+                .map(|glyph| measured(8.0 * f64::from(glyph), 3 * glyph))
+                .collect(),
+            grid: false,
+        },
+        over_offset: 16.0,
+        em_ascent: 6.09375,
+        orientations: Some(
+            vec![
+                rito_fragment::ClusterOrientation::Upright {
+                    center: -0.5,
+                    half_advance: 4.0,
+                    vertical_origin: 7.04,
+                };
+                glyphs as usize
+            ]
+            .into(),
+        ),
+    };
+    let mut ruby_runs = BTreeMap::new();
+    ruby_runs.insert((0, 1), annotation(2));
+    ruby_runs.insert((0, 2), annotation(1));
+    ruby_runs.insert((0, 3), annotation(2));
+    let mut commands = Vec::new();
+    append_fragment_display_commands(
+        &mut commands,
+        &tree,
+        &root,
+        0.0,
+        0.0,
+        FragmentPaintContext {
+            vertical_frame: Some(crate::fragment_paint::VerticalFrame {
+                converter: rito_fragment::WritingModeConverter::from_logical_size(
+                    rito_style_contract::WritingDirection {
+                        mode: rito_style_contract::WritingMode::VerticalRightToLeft,
+                        direction: rito_style_contract::Direction::LeftToRight,
+                    },
+                    root.rect().width,
+                    220.0,
+                ),
+                left: 0.0,
+                top: 20.0,
+            }),
+            annotations: crate::fragment_paint::LineAnnotations {
+                ruby: Some(&ruby_runs),
+                emphasis: None,
+            },
+            ..FragmentPaintContext::default()
+        },
+    )
+    .expect("the column paints");
+    let places: Vec<(String, Vec<f64>)> = commands
+        .iter()
+        .filter_map(|command| match command {
+            DisplayCommand::PaintText(input) => Some((
+                input.text.to_string(),
+                input
+                    .clusters
+                    .iter()
+                    .map(|cluster| cluster.origin().2)
+                    .collect(),
+            )),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        places,
+        vec![
+            ("春日".to_owned(), vec![34.08, 50.2675]),
+            // The element's box starts at 20 + 32.375, rounding to 52: its
+            // later pair moves by the same 0.375, where its own start
+            // would round up.
+            ("漢".to_owned(), vec![66.08]),
+            ("字".to_owned(), vec![82.33]),
+            // A ruby element of its own: its box start 84.875 rounds to
+            // 85, its glyph 0.375 past it.
+            ("春".to_owned(), vec![99.455]),
+        ],
+        "plain runs keep their place, the base starts on a whole pixel"
+    );
+}
+
+/// A vertical run's decoration lines run down beside its column, a gap
+/// off the em box: Japanese text swaps them, its underline on the
+/// line-over (right) side and its overline on the line-under (left) side
+/// where Chinese text draws its underline (measured in pinned Chromium on
+/// 16px SourceHan, whose font box is 12 + 11 around its baseline: a
+/// Japanese underline fills the pixel one in from the text box's over
+/// edge).
+#[test]
+fn a_vertical_decoration_line_runs_beside_the_column_on_its_language_side() {
+    let line_rects = |language: Option<&str>, overline: bool| -> Vec<(f64, f64, f64, f64)> {
+        let mut style = body_style(srgb(0.0, 0.0, 0.0, 1.0));
+        style.paint.text_decoration.lines.underline = !overline;
+        style.paint.text_decoration.lines.overline = overline;
+        style.text_flow.language = language.map(rito_style_contract::LanguageTag::new);
+        let mut inline = InlineStyleTable::new(1);
+        let underlined = inline.intern_for_node(0, style).expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![text_item("第一章", underlined, 0.0)],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("tree builds");
+        // The item paints in two pieces; its line runs along both as one.
+        let pieces: Vec<Fragment> = [
+            column_run(0.0, 16.0, 0, "第", 16.0),
+            column_run(16.0, 32.0, 3, "一章", 16.0),
+        ]
+        .into_iter()
+        .map(|mut piece| {
+            if let Fragment::Text(text) = &mut piece {
+                text.font_grid = Some((12.0, 11.0));
+            }
+            piece
+        })
+        .collect();
+        let root = Fragment::Box(BoxFragment {
+            source: FormattingNodeId(0),
+            rect: FragmentRect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 24.0,
+            },
+            children: vec![Fragment::Line(LineFragment {
+                source: FormattingNodeId(0),
+                marker: None,
+                rect: FragmentRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 48.0,
+                    height: 24.0,
+                },
+                baseline: 13.0,
+                trailing_whitespace: 0.0,
+                annotation_growth: 0.0,
+                annotation_overflow: 0.0,
+                annotation_lent: 0.0,
+                annotation_space_end: 0.0,
+                fonts: rito_fragment::LineFonts::None,
+                text_runs: Vec::new(),
+                children: pieces,
+            })],
+            cuts: rito_fragment::BlockCuts::NONE,
+        });
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                vertical_frame: Some(crate::fragment_paint::VerticalFrame {
+                    converter: rito_fragment::WritingModeConverter::from_logical_size(
+                        rito_style_contract::WritingDirection {
+                            mode: rito_style_contract::WritingMode::VerticalRightToLeft,
+                            direction: rito_style_contract::Direction::LeftToRight,
+                        },
+                        root.rect().width,
+                        220.0,
+                    ),
+                    left: 0.0,
+                    top: 20.0,
+                }),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("the column paints");
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DisplayCommand::PaintDecoration { rect, .. } => {
+                    Some((rect.x, rect.y, rect.width, rect.height))
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    // The column's baseline lies 13px in from its line-over edge, the
+    // frame's right edge 220: at 207, its text box's over edge at 219.
+    let at = |x: f64| vec![(x, 20.0, 1.0, 48.0)];
+    assert_eq!(line_rects(Some("ja"), false), at(217.0));
+    assert_eq!(line_rects(Some("ja"), true), at(198.0));
+    assert_eq!(line_rects(Some("zh-CN"), false), at(198.0));
+    assert_eq!(line_rects(None, false), at(198.0));
+    // Other text's overline lies just outside its text box's over edge.
+    assert_eq!(line_rects(Some("zh-CN"), true), at(219.0));
 }

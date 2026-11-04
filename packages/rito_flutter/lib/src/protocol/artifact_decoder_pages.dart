@@ -50,9 +50,21 @@ extension _ArtifactPages on RitoArtifactDecoder {
       weight: record.uint16('font weight'),
       shapeFingerprint: record.string('font shape fingerprint'),
       byteLength: record.uint64('font byte length'),
+      features: _fontFeatures(record),
     );
     record.finish('font');
     return result;
+  }
+
+  List<RitoFontFeature> _fontFeatures(RitoBinaryReader record) {
+    final count = record.count('font features');
+    return [
+      for (var index = 0; index < count; index += 1)
+        RitoFontFeature(
+          tag: record.string('font feature tag'),
+          value: record.uint32('font feature value'),
+        ),
+    ];
   }
 
   List<RitoPage> _pages(RitoBinaryReader reader) {

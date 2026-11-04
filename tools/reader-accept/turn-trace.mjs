@@ -12,9 +12,7 @@
 // of it on every frame); SAMPLE=light reads one row; SAMPLE=none reads
 // nothing and prints the frames of the first quarter second, to tell the
 // cost of watching from the cost of turning.
-import { createRequire } from 'node:module';
-const require = createRequire(new URL('../../apps/reader/package.json', import.meta.url));
-const { chromium } = require('@playwright/test');
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 
 const READER_URL = process.env.URL ?? 'http://127.0.0.1:4317/';
 const BOOK = process.env.BOOK;
@@ -29,7 +27,7 @@ const ACTION = process.env.ACTION ?? 'turn';
 // one paying for something else.
 const RASTER_FIRST = process.env.RASTER_FIRST === '1';
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const page = await browser.newPage({
   viewport: { width: viewport.width, height: viewport.height },
   deviceScaleFactor: viewport.dsf,

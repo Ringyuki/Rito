@@ -482,9 +482,17 @@ export class FakeReaderSession {
       const start =
         revision.chapterIndex === undefined ? this.chapterStart(chapterIndex, revision.layout) : 0;
       const pageIndex = start + Math.round((query.locator.progression ?? 0) * (pages - 1));
+      // A scrolled window says where the located line starts in it.
+      const scrolled = revision.layout.spreadMode === 'scrolled';
       return {
         kind: 'location',
-        location: { kind: 'page', pageIndex, drawn: false, matchedBy: 'progression' },
+        location: {
+          kind: 'page',
+          pageIndex,
+          drawn: false,
+          matchedBy: 'progression',
+          ...(scrolled ? { blockOffset: 42 } : {}),
+        },
       };
     }
     const whole = query.whole ?? true;
@@ -494,9 +502,16 @@ export class FakeReaderSession {
         ? this.chapters.map((_, spineIndex) => spineIndex)
         : [revision.chapterIndex];
     let start = 0;
+    const scrolled = revision.layout.spreadMode === 'scrolled';
     const ranges = chapters.map((spineIndex) => {
       const pages = this.pagesOf(spineIndex, revision.layout);
-      const range = { spineIndex, startPage: start, endPage: start + pages - 1 };
+      const range = {
+        spineIndex,
+        startPage: start,
+        endPage: start + pages - 1,
+        // A scrolled chapter's last window is half a viewport long.
+        ...(scrolled ? { extent: (pages - 0.5) * revision.layout.viewportHeight } : {}),
+      };
       start += pages;
       return range;
     });
@@ -516,6 +531,7 @@ export class FakeReaderSession {
         // A table asked for in part stands for one whose chapter is laid
         // out only through the spread shown.
         complete: whole,
+        ...(scrolled ? { scrollAxis: 'down' as const } : {}),
       },
     };
   }
@@ -551,7 +567,7 @@ export class FakeReaderSession {
         {
           pageIndex: page,
           width: this.pageWidth ?? revision.layout.viewportWidth,
-          height: revision.layout.viewportHeight,
+          height: this.windowHeight(revision, page),
         },
       ],
     } as unknown as BrowserReaderArtifact;
@@ -581,6 +597,22 @@ export class FakeReaderSession {
       return this.pagesOf(revision.chapterIndex, revision.layout);
     }
     return this.chapters.reduce((sum, _, index) => sum + this.pagesOf(index, revision.layout), 0);
+  }
+
+  /** A page's height: a scrolled chapter's last window is half the viewport. */
+  private windowHeight(revision: Revision, page: number): number {
+    const { layout } = revision;
+    if (layout.spreadMode !== 'scrolled') return layout.viewportHeight;
+    const chapters =
+      revision.chapterIndex === undefined
+        ? this.chapters.map((_, index) => index)
+        : [revision.chapterIndex];
+    let end = 0;
+    for (const index of chapters) {
+      end += this.pagesOf(index, layout);
+      if (page === end - 1) return layout.viewportHeight / 2;
+    }
+    return layout.viewportHeight;
   }
 
   chapterStart(chapterIndex: number, layout: BrowserReaderArtifactRequest['layout']): number {

@@ -18,11 +18,15 @@ use std::sync::Arc;
 const FONT_SIZE: f32 = 16.0;
 
 mod atoms_and_grid;
+mod box_edges;
+mod break_rules;
 mod breaks_and_spacing;
 mod clusters;
 mod envelopes_and_ruby;
 mod fonts;
+mod line_decisions;
 mod line_items;
+mod parley_breaker;
 mod punctuation_and_contract;
 
 /// A publication `@font-face` binding of `family` to `bytes`, upright at
@@ -131,12 +135,15 @@ fn tinos_style(indent_px: f32) -> InlineFormattingStyle {
                 each_line: false,
             },
             ruby_align: RubyAlign::SpaceAround,
+            text_emphasis: None,
             language: None,
         },
         bidi: InlineBidi {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
+            text_orientation: rito_style_contract::TextOrientation::Mixed,
+            text_combine_upright: rito_style_contract::TextCombineUpright::None,
         },
         fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(LengthPercentage::Length(

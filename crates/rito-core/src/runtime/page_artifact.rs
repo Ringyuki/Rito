@@ -5,9 +5,11 @@
 //! backend's box, line, or fragment tree directly.
 
 mod fragment;
+mod frame;
 mod interaction;
 
 pub(in crate::runtime) use fragment::{FragmentPageArtifact, FragmentRunRecord};
+pub(in crate::runtime) use frame::{PageRecordFrame, PageWritingMode};
 
 use std::sync::Arc;
 
@@ -21,6 +23,11 @@ pub(super) use interaction::*;
 pub(super) struct PageArtifactFrame {
     pub(super) page_indexes: Vec<usize>,
     pub(super) commands: FrameCommands,
+    /// Where a scrolled window's top-left corner sits in its chapter, in
+    /// device pixels: the window paints in the chapter's coordinates, where
+    /// every edge and baseline rounds as it does for the whole chapter, and
+    /// moves back by this much once lowered. Zero for a spread of pages.
+    pub(super) device_origin: (f64, f64),
 }
 
 /// A spread's display commands, in paint order: the frame's own around

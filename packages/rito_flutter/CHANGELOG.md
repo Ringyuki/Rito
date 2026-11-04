@@ -1,3 +1,347 @@
+## Unreleased
+
+### Vertical text set as Chromium sets it
+
+A vertical-rl chapter's boxes take their margins, padding and borders on the
+sides its flow puts them; each line hangs from its central baseline; each
+upright glyph stands in its face's vertical forms at the font's vertical
+origin and advances by its vertical advance (by the face's whole-pixel
+height when the face has no vertical metrics), and Latin and digits in a
+mixed line lie turned a quarter; ruby
+annotations stand on their base where Chromium places them; an image
+sizes to the column's length; and `text-combine-upright: all` text sets as
+one horizontal string within an em of the column, in narrower forms or
+scaled when it is wider than 1.1em; an inline box in another writing mode
+lays out as an inline-block across the line; and a block's minimum and
+maximum block size bound it. The artifact protocol is version 9:
+`RitoFontRef.features` lists the OpenType features (`RitoFontFeature`) a
+reference turns on. A reference with features is the same bytes as a face
+under a family of its own (`vert`, the vertical forms; `hwid`, `twid`,
+`qwid`, a combined string's narrower forms); the font cache
+registers it like any face and the painter draws every run in that family
+with those features on.
+
+### Emphasis marks
+
+`text-emphasis` (its longhands and their `-webkit-` and `-epub-`
+spellings) paints as Chromium paints it: each character that takes a mark
+gets one at half its size outside its em box, over or under the line (a
+vertical line's right or left), and the marks move the lines around them
+as Chromium's do. Marks arrive as annotation runs; nothing changes in the
+protocol.
+
+### Scrolled reading
+
+A session asked for `RitoSpreadMode.scrolled` lays each chapter out as one
+continuous strip read through windows the size of the viewport, one window
+a spread, down the screen, or leftwards for a book whose pages progress
+right to left (a chapter whose text runs across the book's axis is
+paginated, each page one window). The revision layout says which way
+(`scrollAxis`) and how long each chapter runs (`extent`), an artifact says
+where its locator's line starts in its window (`targetBlockOffset`), and a
+located page says the same (`blockOffset`). `RitoScrollReaderView` over a
+`RitoScrollReaderController` shows the windows end to end in a scrollable
+on the device grid, moved by any `ScrollPhysics`, keeps the windows near
+the reading line loaded, makes the window under it the visible page, says
+where the reader reads at rest (`position`) and what a tap is on
+(`onTap`). `RitoScrollWindows` places the windows by the rule the engine
+paints them by, each with the page it shows. An app selects with its own
+gestures: `RitoScrollReaderViewState.pointAt` (through a `GlobalKey` on the
+view) gives the window, page and display-list point under a view point, a
+text interaction asked with `everyPage` answers across windows with each
+window's rects in its own display list, and `windowOverlay` draws what the
+app highlights over each window, moved with it.
+
+### Vertical pages are read where their columns are drawn
+
+A vertical-rl page's hits, outline, selection and range rects and carets
+are in the page's drawn space, as a horizontal page's are: columns where
+its lines are drawn, a point read back the same way, in a scrolled window
+too. `RitoCaretGeometry.width` is new: a caret is the segment across its
+line, `width` 0 on a horizontal line and `height` 0 down a vertical one.
+`RitoCaret.writingMode` (`RitoWritingMode`) is the mode of the caret's
+line; on `verticalRl` read an arrow key as the key a quarter turn from it
+(down along the line, left to the next line), as a browser does.
+
+### Request IDs taken before the call
+
+`RitoReaderSession.takeRequestId()` holds the next request ID for the
+caller, so calls issued back to back never share one; the page source takes
+its IDs that way.
+
+### Line edges are decided as each line is broken
+
+A paragraph decides its line-end trims, the punctuation pairs a break
+separates and its split ruby bases one line at a time, building itself at
+most twice however many lines decide (once per decision before). A pair
+trim that an earlier decision suppressed and a later one moved off its
+break is applied again, as Chromium applies it: some CJK dialogue lines
+now hold the character Chromium puts on them.
+
+### Line breaking fixes
+
+A `<br>` breaks the line under `line-break: anywhere` and after a preserved
+space (both were laid out as one line). A paragraph shaped as a single run
+longer than 64 KiB, as a volume written as one block in one font can be,
+lays out instead of failing. A ligature is measured by its own glyphs in
+every run, not only the paragraph's first. A line that gives the start of an
+item to the next line (a ruby base that does not fit) keeps an
+inline image that comes before that item, as Chromium does. An ideographic
+space (or another space separator) that overflows a line hangs past its end
+where the line may break after it, instead of sending the text before it to
+the next line. A short ruby (a base of at most four glyphs under an
+annotation of at most eight) moves to the next line whole instead of
+breaking inside its base, as Chromium keeps it.
+
+### Lines break as Chromium breaks them in every language
+
+Each text item reads the ICU line rules its content language (`lang`) and
+`line-break` value select, as Chromium's ICU does: Chinese text, and
+Japanese and Korean text under `line-break: normal` or `loose`, reads the
+curly double quotes as brackets and may start a line with 〜 or ゠;
+`loose` also breaks before iteration marks and centered punctuation and
+between inseparables; a quotation mark breaks only between East Asian
+characters; a number keeps its prefix and postfix together only as a
+number does. `word-break: break-all` and `keep-all` add and withhold
+breaks per text item as Blink does, and `line-break: anywhere` applies
+only to its own text. A line broken before spaces ends after them, and a
+no-break space never hangs past the line's end. `-webkit-line-break` and
+`-epub-word-break` (and `-epub-text-transform` and `-epub-caption-side`)
+reach the engine as the properties Chromium aliases them to.
+
+### Images and inline-blocks aligned middle
+
+An image or inline-block styled `vertical-align: middle` centres on its
+line as Chromium places it: its box moves by half its ascent less its
+descent, less half its parent's x-height, so its middle sits half the
+parent's x-height above the parent's baseline, down a vertical line too.
+calibre's centred plate pages, a page-wide spacer and a full-height block
+both aligned middle, now stand where Chromium draws them.
+
+### An inline box after a forced break measures on the next line
+
+An inline-block right after a forced break starts the next line when a box
+measures its content's widest line, as Chromium measures it: a
+shrink-to-fit table column holding `text<br><inline-block>` takes the wider
+of the two lines instead of their sum, and an inline box opening there
+brings its padding along.
+
+### Block sizes sit on the layout grid
+
+A box's fixed, minimum and maximum block size sits on the LayoutUnit grid,
+truncated as Chromium stores a used size: paragraphs held to
+`min-width: 1.6em` down a vertical page stack 25.59375px apart instead of
+25.6, so their excess no longer piles up over a page and moves where the
+next page's lines start.
+
+### Images down a column snap like any inline image
+
+An image in a vertical line paints placed by its `object-fit` and snapped
+to whole CSS pixels, as an image in a horizontal line does: a plate
+centred down a column no longer lands a pixel off.
+
+### A block past the page end opens the next page
+
+A block whose start lands past the end of the page, after a line or plate
+taller than the page, opens the next page however small it is, as
+Chromium breaks before it: a page-break `<div>` after an over-wide plate
+no longer hangs off the bottom of the plate's page.
+
+### Inline-blocks lay out as atomic inlines
+
+An element styled `display: inline-block` lays out as Chromium's atomic
+inline whatever its tag: it takes its own `width` and `height` (a
+percentage across a vertical line resolving against the page when the
+line's own size is open, as Chromium's orthogonal fallback does), an empty
+one still stands on its line at its size, and one holding blocks lays them
+out inside it. calibre's centred-plate pages now land on the page Chromium
+shows them on, with the plate centred across it.
+
+### Margins through nested wrappers collapse as one set
+
+Margins collapsing through several plain wrappers join as one set, the
+largest positive plus the most negative, as CSS collapses adjoining
+margins: a negative margin deep in a chain of wrappers no longer cancels
+against only the nearest one, which left a title page's heading lower
+than in the browser.
+
+### A missing image without alt keeps the icon
+
+A missing image with no `alt` attribute lays out as Chromium's 16px
+broken-image icon, as one with alt text does; only an empty `alt`
+collapses. A missing image in a short line no longer leaves every line
+after it a pixel high.
+
+### A clearing block keeps its margin inside
+
+A block with content that clears the floats before it keeps its top margin
+inside its container, as Chromium settles the container's position above a
+block cleared past adjoining floats: floats opening a box no longer move
+down by the margin of the paragraph that clears them.
+
+### A box that breaks across pages is sliced
+
+A box that breaks across pages paints as Chromium slices it: the fragment
+that breaks before or inside a child (or between a paragraph's lines)
+keeps the rest of the page, and no fragment strokes a border on an edge
+the break cut. A bordered box whose illustration moves to the next page
+draws its side borders down to the page bottom above it, with no bottom
+border there and no top border where it resumes. Box fragments say which
+block edges a break cut (`BlockCuts`).
+
+### A letterboxed image snaps where it is placed
+
+An image letterboxed by `object-fit: contain` is placed in its unsnapped box
+and the placed rect then snaps to whole pixels, as Chromium snaps it: a thin
+rule image scaled into a fractional box rasters on the one row the browser
+draws it on instead of smearing across two. A raster placed under a pixel
+tall or wide keeps one pixel where its start rounds, as the browser keeps
+it, instead of arriving as an empty image the image cache rejects; only one
+thinner than four LayoutUnits paints nothing.
+
+### A ligature paints as one cluster
+
+A ligature paints as one cluster from its start, and the cluster after it
+joins when the whole ligature steps by its glyph's advance, so a pen
+drawing clusters (the GPU pen) and a pen drawing strings both draw the
+ligature the font forms: an embedded face's contextual pair of em dashes no
+longer paints as two isolated dashes a pixel above the browser's joined
+bar. Text fragments keep a cluster per character, which now says whether it
+continues a ligature (`ClusterPosition::continues_ligature`), so selection
+still reaches inside it.
+
+### Vertical text draws its decoration lines
+
+An underlined or overlined run in a vertical line (a link in a vertical
+table of contents) draws its line down beside the column, where Chromium
+draws it: Japanese and Korean text swaps the two lines, its underline on
+the right and its overline on the left, where other text draws its
+underline, a pixel off the em box. The display list gains a decoration line
+command, lowered to a filled rect; the artifact protocol is unchanged.
+
+### Justified items end on the grid by their exact advance
+
+On a justified line, each inline item (a ruby pair, a styled span, the text
+between them) ends at the 1/64px ceiling of its exact advance, its glyphs'
+fixed-point advances plus its justification shares, as Chromium snaps an
+item's width; a share that lifts an item only slightly past a grid point
+no longer leaves it on the point below.
+
+### An illustration lends only the space under it to the ruby after it
+
+A ruby line after a line holding only an image (an illustration paragraph)
+reaches only into the space under the image, as Chromium measures that
+line's content by the image, instead of half the image line's height.
+
+### Vertical ruby text moves with its ruby box
+
+In a vertical line, the text of a ruby element moves by the rounding of
+the element's start down the line to a whole CSS pixel, every base of one
+`<ruby>` with the first, as Chromium paints a box's text; plain text keeps
+its fractional place, and ruby bases no longer sit a pixel off the
+browser's.
+
+### Ruby bases align to a justified line's edges
+
+In a justified paragraph, a ruby whose annotation is wider than its base
+sets its base against the line's start when it opens a line, and against
+the line's end when it ends a justified line, with the annotation's spare
+width on the other side, as Chromium aligns ruby at line edges; elsewhere
+the base stays centered under its annotation.
+
+### Every bracket and quote trims as Chromium trims it
+
+Adjacent CJK punctuation trims by Chromium's classes for every bracket,
+not only a fixed list: the CJK double prime quotes (`〝〞〟`) and any other
+fullwidth bracket trim like `「」`, a fullwidth opener after a narrow one
+(`(「`) and a fullwidth closer before a narrow one (`」)`) trim, the middle
+dots `·` and `‧` make their neighbours trim as `・` does, and each of these
+closers can trim at a line end.
+
+### A chapter takes only the stylesheets it links
+
+A chapter lays out under the stylesheets it links and embeds and no
+others, as a browser applies them: a chapter without a `<link>` no longer
+takes every stylesheet the package lists.
+
+### An inline table moves to the next page whole
+
+An inline table (`display: inline-table`) moves to the next page whole
+when it does not fit what is left of the page, as Chromium fragments an
+atomic inline, instead of breaking between its rows like a block table.
+
+### A line's last glyph is measured unkerned
+
+A line's last glyph is measured as Chromium reshapes a line's end: where
+the shaper marks the break after it unsafe (a kern pair with the space
+that hangs after it, or with the next line's first character), the glyph
+takes the advance it shapes to alone. A line that fits only with that
+kerning breaks before the glyph, and a justified line spreads the slack
+its unkerned end leaves, in Latin text as in CJK.
+
+### A no-break space justifies as a space
+
+A justified line spreads the gap after a no-break space with the other
+word gaps, as Chromium treats the no-break space as a space when it
+justifies, and a no-break space ending a justified line counts as content
+instead of hanging.
+
+### Inline blocks stand on their margin box
+
+An inline block stands on its line by its margin box, as Chromium lays it
+out: its margins, borders and padding surround its content, take their
+room along the line and push its last line's baseline down, so the line it
+rides grows by them.
+
+### Closers are trimmed across element boundaries
+
+A closing bracket or quote that overflows a line by half its width is
+trimmed to keep it on the line when the line crosses an element boundary
+and when the closer ends its element, as Chromium does since version 153.
+Such a line no longer sends a whole note, or the run after an annotated
+name, down to the next line, and a trimmed closer keeps the end padding of
+the box it closes.
+
+### Inline box edges break as Chromium breaks them
+
+An inline element's start and end margin, border and padding take their
+width as Chromium's open and close tags do. A line that breaks where the
+element opens sends that start to the next line with the element's
+content, instead of leaving it on the line above or pushing the character
+before it down. Nested elements each add their own, an empty element takes
+its width, vertical text reads the top and bottom sides, and percentage
+padding resolves against the containing block.
+
+### Ruby reaches into the space above its line
+
+A paragraph's first-line ruby reaches into the space above the line before
+the line grows, as Chromium lays it out: the collapsed margin above the
+paragraph and the space under the previous paragraph's last line, not
+across a top border or out of a paragraph that is its own formatting
+context. A ruby line that opens a page takes its whole height there.
+
+### Ruby overhangs only on its own line
+
+A ruby whose annotation is wider than its base overhangs the text before it
+only when that text is on its own line, as Chromium lays it out: a ruby
+opening a line starts its annotation at the line's start. A justified,
+centered or right-aligned line that ends where the next element's first
+character did not fit aligns as Chromium aligns it, counting each ruby on it
+at its full width, so such a line ending at a ruby is not stretched.
+
+### Word selection steps past spaces
+
+Extending a selection by a word moves to the end of the next word or the
+start of the previous one past spaces and punctuation, as the browser does;
+it stopped right after the space.
+
+### A long `<br>`-broken paragraph lays out as fast on a phone as on a desktop
+
+A chapter written as one block of `<br>`-separated lines no longer has its
+text shaped again for every wrapped line that ends in a closing bracket or
+quote before a `<br>`, which made such a chapter several times slower to lay
+out at a phone's width; what is laid out is unchanged.
+
 ## 0.9.0 - 2026-10-20
 
 **Breaking:** requires Flutter 3.47, whose Flutter GPU samples a page image's

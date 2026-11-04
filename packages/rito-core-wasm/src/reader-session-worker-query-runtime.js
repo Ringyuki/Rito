@@ -33,7 +33,10 @@ export function handleRitoReaderSessionQuery(state, message, guards) {
   const { session } = state;
   switch (message.kind) {
     case 'peek-adjacent':
-      guards.requireArtifactCapacity(state);
+      guards.requireArtifactCapacity(
+        state,
+        guards.artifactSpreadMode(state, message.request.fromArtifactId),
+      );
       guards.requireOwnedArtifact(state, message.request.fromArtifactId);
       return peekedArtifactResponse(
         state,
@@ -42,7 +45,10 @@ export function handleRitoReaderSessionQuery(state, message, guards) {
         session.peekAdjacent(encodeRitoReaderAdjacentRequest(message.request)),
       );
     case 'peek-spread':
-      guards.requireArtifactCapacity(state);
+      guards.requireArtifactCapacity(
+        state,
+        guards.artifactSpreadMode(state, message.request.fromArtifactId),
+      );
       guards.requireOwnedArtifact(state, message.request.fromArtifactId);
       return peekedArtifactResponse(
         state,
@@ -119,7 +125,10 @@ function peekedArtifactResponse(state, guards, request, raw) {
     }
     throw guards.workerError('invalid-wire', 'Peeked artifact identity does not match its request');
   }
-  state.liveArtifacts.add(identity.artifactId);
+  state.liveArtifacts.set(
+    identity.artifactId,
+    guards.artifactSpreadMode(state, request.fromArtifactId),
+  );
   state.peekedArtifacts.set(identity.artifactId, identity.requestId);
   const wire = wireBytes.buffer;
   return { payload: { kind: 'artifact', identity, wire }, transfer: [wire] };

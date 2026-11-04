@@ -71,14 +71,15 @@ impl TreeBuilder<'_> {
     /// borders, vertical-align) do not inherit and only apply to actual
     /// inline boxes, so a text run — which borrows its nearest element's
     /// style — is checked against the text-level fields only, while inline
-    /// elements and images are checked in full.
+    /// elements and images are checked in full, an atomic inline's
+    /// `vertical-align` against what atoms implement.
     pub(super) fn require_inline_capabilities(
         &mut self,
         style: StyleId,
-        is_box: bool,
+        scope: InlineScope,
         what: &str,
     ) -> EpubResult<()> {
-        let key = (style.raw(), is_box);
+        let key = (style.raw(), scope);
         let verdict = match self.checked_inline_styles.get(&key) {
             Some(cached) => cached.clone(),
             None => {
@@ -86,11 +87,14 @@ impl TreeBuilder<'_> {
                     .inline
                     .style(style)
                     .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
-                let verdict = if is_box {
-                    inline_text_capability_violation(resolved)
+                let verdict = match scope {
+                    InlineScope::Text => inline_text_capability_violation(resolved),
+                    InlineScope::Box => inline_text_capability_violation(resolved)
                         .or_else(|| inline_box_capability_violation(resolved))
-                } else {
-                    inline_text_capability_violation(resolved)
+                        .or_else(|| inline_box_alignment_violation(resolved)),
+                    InlineScope::Atom => inline_text_capability_violation(resolved)
+                        .or_else(|| inline_box_capability_violation(resolved))
+                        .or_else(|| atom_alignment_violation(resolved)),
                 };
                 self.checked_inline_styles.insert(key, verdict.clone());
                 verdict
@@ -134,11 +138,29 @@ fn block_capability_violation(style: &LayoutFormattingStyle) -> Option<String> {
         c::PreferredSize::Auto | c::PreferredSize::Value(_) => {}
         other => return Some(format!("block height {other:?}")),
     }
-    if style.min_height != c::MinimumHeight::Auto {
-        return Some(format!("block min-height {:?}", style.min_height));
+    // A block's minimum and maximum block size bound it in the block
+    // context; its minimum inline size and the percentage block bounds
+    // (no definite basis in block flow) are not implemented.
+    let block_axis_is_height = matches!(
+        style.writing_mode,
+        rito_style_contract::WritingMode::HorizontalTopToBottom
+    );
+    let (min_inline, min_block, max_block) = if block_axis_is_height {
+        (style.min_width, style.min_height, style.max_height)
+    } else {
+        (style.min_height, style.min_width, style.max_width)
+    };
+    if min_inline != c::MinimumSize::Auto {
+        return Some(format!("block min inline size {min_inline:?}"));
     }
-    if style.max_height != c::MaximumHeight::None {
-        return Some(format!("block max-height {:?}", style.max_height));
+    if let c::MinimumSize::Percentage(_) = min_block {
+        return Some(format!("block min block size {min_block:?} (no basis)"));
+    }
+    match max_block {
+        c::MaximumSize::None => {}
+        c::MaximumSize::Value(value) if matches!(value.value(), c::LengthPercentage::Length(_)) => {
+        }
+        other => return Some(format!("block max block size {other:?}")),
     }
     // list-style-type inherits everywhere but only paints on
     // display: list-item boxes, which the display gate above rejects; the
@@ -327,6 +349,15 @@ fn inline_box_capability_violation(
             return Some(format!("inline percentage {name}"));
         }
     }
+    None
+}
+
+/// The `vertical-align` an inline box implements: its baseline on its
+/// parent's, raised or lowered by `super`, `sub` or nothing.
+fn inline_box_alignment_violation(
+    style: &rito_style_contract::InlineFormattingStyle,
+) -> Option<String> {
+    use rito_style_contract as c;
     match style.fragment.baseline_shift {
         c::BaselineShift::Offset(offset) if length_percentage_is_zero(&offset) => {}
         c::BaselineShift::Super | c::BaselineShift::Sub => {}
@@ -337,4 +368,31 @@ fn inline_box_capability_violation(
         other => return Some(format!("alignment-baseline {other:?}")),
     }
     None
+}
+
+/// The `vertical-align` an atomic inline implements: an inline box's, and
+/// `top` and `middle` besides.
+fn atom_alignment_violation(style: &rito_style_contract::InlineFormattingStyle) -> Option<String> {
+    use rito_style_contract as c;
+    match style.fragment.baseline_shift {
+        c::BaselineShift::Offset(offset) if length_percentage_is_zero(&offset) => {}
+        c::BaselineShift::Super | c::BaselineShift::Sub | c::BaselineShift::Top => {}
+        other => return Some(format!("vertical-align {other:?}")),
+    }
+    match style.fragment.alignment_baseline {
+        c::AlignmentBaseline::Baseline | c::AlignmentBaseline::Middle => {}
+        other => return Some(format!("alignment-baseline {other:?}")),
+    }
+    None
+}
+
+/// What an inline style is checked as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(in crate::fragment_bridge) enum InlineScope {
+    /// A text run borrowing its element's style.
+    Text,
+    /// An inline box.
+    Box,
+    /// An atomic inline: an image or an inline-block.
+    Atom,
 }

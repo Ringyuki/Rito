@@ -90,11 +90,17 @@ final class RitoLocatedPage extends RitoLocation {
     required this.pageIndex,
     required this.drawn,
     required this.matchedBy,
+    this.blockOffset,
   });
 
   final int pageIndex;
   final bool drawn;
   final RitoLocatorMatch matchedBy;
+
+  /// In a scrolled revision, where the line the locator lands on starts in
+  /// that page's window, as an artifact's target block offset; null for a
+  /// page, and for a locator that names no line.
+  final double? blockOffset;
 }
 
 /// The locator's chapter is not laid out in this revision.
@@ -181,10 +187,15 @@ final class RitoNavigationDecoder {
         if (match >= RitoLocatorMatch.values.length) {
           reader.fail('unknown locator match: $match');
         }
+        final blockOffset = reader.option(
+          'located block offset',
+          () => reader.float64('located block offset'),
+        );
         return RitoLocatedPage(
           pageIndex: pageIndex,
           drawn: drawn,
           matchedBy: RitoLocatorMatch.values[match],
+          blockOffset: blockOffset,
         );
       case 1:
         return const RitoNotLaidOut();

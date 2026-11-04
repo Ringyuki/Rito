@@ -17,7 +17,7 @@
 //! blocks), `shaped` (the builds kept across layouts), `layout` (the
 //! provider entry points and the line loop), and the free laws the loop
 //! applies — `breaking`, `justify`,
-//! `punctuation`, `marker`, `shaping`, `ruby`, `image`. Every module sees
+//! `punctuation`, `marker`, `shaping`, `ruby`, `image`, `vertical`. Every module sees
 //! the whole crate through the root's re-exports, as the single file they
 //! were carved from did.
 
@@ -29,25 +29,33 @@ use parley::{
     StyleProperty,
 };
 use rito_fragment::{
-    BoxFragment, CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent,
+    AtomAlign, BoxFragment, CancelFlag, ConstraintSpace, FormattingContext, FormattingNodeContent,
     FormattingNodeId, FormattingTree, Fragment, FragmentRect, FragmentTree, InlineItem,
-    IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFragment, LineText, TextFragment,
+    IntrinsicInlineSizes, LayoutError, LayoutOutcome, LineFonts, LineFragment, LineText,
+    TextFragment,
 };
 use rito_style_contract::{
     FontSlant, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage, LineHeight,
-    MaximumSize, PreferredSize, TextAlign,
+    MaximumSize, PreferredSize, TextAlign, TextOrientation, WritingMode,
 };
 
+mod atom_align;
 mod atoms;
+mod break_opportunities;
 mod breaking;
 mod clusters;
 mod context;
+#[cfg(test)]
+mod counters;
+mod emphasis;
 mod fonts;
 mod forensics;
 mod image;
+mod inline_block;
 mod justify;
 mod layout;
 mod line_breaks;
+mod line_decisions;
 mod line_items;
 mod line_metrics;
 mod line_text;
@@ -58,20 +66,28 @@ mod ruby;
 mod segmented_lru;
 mod shaped;
 mod shaping;
+mod spacing_plan;
 mod strut;
 #[cfg(test)]
 mod tests;
+mod vertical;
 mod width_bounds;
 
+pub(crate) use break_opportunities::{BreakContext, BreakOpportunities, RuleSet};
 pub(crate) use breaking::*;
 pub(crate) use clusters::*;
 pub use clusters::{MeasuredRuby, MeasuredRun};
+pub(crate) use emphasis::*;
+pub use emphasis::{emphasis_mark_size, takes_emphasis_mark, MeasuredEmphasis};
 pub(crate) use fonts::*;
 pub use fonts::{font_family_name, HostFontFace, HostFontRole, PublicationFontFace};
 pub(crate) use image::*;
 pub(crate) use justify::*;
 pub(crate) use line_breaks::{BreakKey, KeptBreaks};
-pub(crate) use line_items::{line_item_keys, line_items, LineItemView};
+pub(crate) use line_decisions::{
+    line_max_advance, DecidedParagraph, KeptDecisions, LineEdgeInputs, LINE_FIT_EPSILON,
+};
+pub(crate) use line_items::{line_has_atom, line_items, LineItemView};
 pub(crate) use line_metrics::*;
 pub(crate) use line_text::{paints_alone, LineRuns, Piece};
 pub(crate) use marker::*;
@@ -83,8 +99,13 @@ pub(crate) use shaped::{
     BuildSpace, IntrinsicSizes, KeptParagraph, ParagraphEdits, ShapeKey, ShapedParagraphs,
 };
 pub(crate) use shaping::*;
+pub(crate) use spacing_plan::{PlannedRun, RubyCarrier, SpacingPlan, SpacingPush};
 pub use strut::layout_unit_ceil;
 pub(crate) use strut::*;
+pub(crate) use vertical::{
+    combined_advance, combines_upright, shapes_top_to_bottom, upright_ranges, CombinedKey,
+    CombinedSetting, UprightGlyph, UprightKey,
+};
 pub(crate) use width_bounds::WidthBounds;
 
 /// Inline formatting context backed by Parley shaping and line breaking.
@@ -109,11 +130,21 @@ pub struct ParleyInlineContext {
     pub(crate) run_samples: RefCell<rustc_hash::FxHashMap<(u32, u64, u64, u32), char>>,
     /// Per-face `halt` feature presence, keyed by (blob id, face index) —
     /// the Han-kerning trim gate consults it for every trimmed character.
-    pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32), bool>>,
+    pub(crate) halt_feature_cache: RefCell<rustc_hash::FxHashMap<(u64, u32, bool), bool>>,
+    /// Where an upright glyph lies from its font's alphabetic baseline,
+    /// per (face, character, size bits): read from font tables once.
+    pub(crate) upright_glyphs: RefCell<rustc_hash::FxHashMap<UprightKey, Option<UprightGlyph>>>,
+    /// How each combined upright unit sets its string, per (text, font).
+    pub(crate) combined_settings: RefCell<rustc_hash::FxHashMap<CombinedKey, CombinedSetting>>,
     /// Paragraphs as built and not yet broken into lines, reused by every
     /// layout that reads them the same (see [`ShapedParagraphs`]).
     pub(crate) shaped: RefCell<ShapedParagraphs>,
     /// Each paragraph's min- and max-content widths, measured once (see
     /// [`IntrinsicSizes`]).
     pub(crate) intrinsic_sizes: RefCell<IntrinsicSizes>,
+    /// The block layout of an inline-block holding block-level boxes,
+    /// handed over by the block context that owns this one.
+    pub(crate) block_layout: Option<rito_fragment::BlockLayoutDelegate>,
+    #[cfg(test)]
+    pub(crate) counts: counters::LineLoopCounts,
 }

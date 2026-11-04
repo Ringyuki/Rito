@@ -96,6 +96,12 @@ impl<'a, B: Brush> Run<'a, B> {
         self.data.bidi_level & 1 != 0
     }
 
+    /// Rito: whether the run was shaped top to bottom, upright in a
+    /// vertical line.
+    pub fn is_vertical_upright(&self) -> bool {
+        self.data.vertical_upright
+    }
+
     /// Returns the cluster range for the run.
     pub fn cluster_range(&self) -> Range<usize> {
         self.line_data

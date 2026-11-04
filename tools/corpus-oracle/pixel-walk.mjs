@@ -18,14 +18,26 @@
 // Usage: node tools/corpus-oracle/pixel-walk.mjs <book.epub> <outDir> [maxPages]
 //   env RITO_READER_URL (default http://localhost:5173/)
 //   env RITO_WALK_DSF   device pixels per CSS pixel on both sides (default 1)
+//   env RITO_TRUTH_LOCALE / RITO_TRUTH_MIN_FONT_SIZE / RITO_TRUTH_CHROMIUM
+//       A/B runs only: the truth's default locale / minimum font size /
+//       another Chromium build to lay it out (see the truth context)
+//   env RITO_WALK_SCROLLED=1  the scrolled reading mode: each chapter's
+//       windows against Chromium's continuous layout (scroll-truth.mjs)
 import { createRequire } from 'node:module';
+import {
+  captureLeftwardWindows,
+  captureScrolledWindows,
+  composeScrolledWindow,
+} from './scroll-truth.mjs';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
+import { collectImageAreas, imageMask } from './image-areas.mjs';
+import { moveTruthRoot, shootContentWithBand } from './truth-shot.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
 const require2 = createRequire(`${REPO}package.json`);
-const { chromium } = require2('@playwright/test');
 const { PNG } = require2('pngjs');
 
 const [, , bookPath, outDirArg, maxPagesArg] = process.argv;
@@ -44,6 +56,7 @@ const MARGIN = 50; // readerViewportMargin at this viewport
 // compared on the device grid. Layout stays in CSS pixels; only the
 // captured bitmaps and every index into them scale.
 const DSF = Number(process.env.RITO_WALK_DSF ?? 1);
+const SCROLLED = process.env.RITO_WALK_SCROLLED === '1';
 if (!Number.isInteger(DSF) || DSF < 1) {
   console.error(`RITO_WALK_DSF must be a positive integer, got ${process.env.RITO_WALK_DSF}`);
   process.exit(1);
@@ -171,7 +184,7 @@ const HOST_FACES = [
   url: path.join(REPO, 'apps/reader/src/assets/fonts', face.file),
 }));
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 
 // ---- Engine side: load the book, read the chapter map, walk and shoot --
 const reader = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: DSF });
@@ -216,6 +229,16 @@ await reader
     });
     await reader.waitForTimeout(1500);
   });
+// The scrolled lane reads the book as windows: one a spread, shown where
+// a page is.
+if (SCROLLED) {
+  await reader.evaluate(() => window.__ritoController.setSpreadMode('scrolled'));
+  await reader.waitForFunction(
+    () => window.__ritoController.reader.getLayoutGeometry().spreadMode === 'scrolled',
+    { timeout: 120000 },
+  );
+  await reader.waitForTimeout(1500);
+}
 // Book fonts register lazily as spreads first paint, each registration
 // possibly reflowing and moving page boundaries. Traverse the whole book
 // once BEFORE reading the plan so every face is registered and the
@@ -264,7 +287,6 @@ const contentH = pageH - 2 * MARGIN;
 // The same geometry on the device grid, for every index into a capture.
 const pageWd = pageW * DSF;
 const pageHd = pageH * DSF;
-const contentWd = contentW * DSF;
 const contentHd = contentH * DSF;
 const marginD = MARGIN * DSF;
 console.log(
@@ -510,8 +532,12 @@ console.log(`engine pages captured: ${enginePages.size}`);
 
 // ---- Truth side: per chapter, multicol columns of the content box -------
 const truthColumns = new Map(); // idref -> PNG[] (one per column)
-// idref -> how many columns Chromium lays the chapter out in (horizontal
-// chapters only; vertical stripes are cut from ink, not laid out).
+// idref -> where the paged truth draws bitmap images (image-areas.mjs).
+const truthImageAreas = new Map();
+// idref -> the scrolled lane's windows (scroll-truth.mjs).
+const truthWindows = new Map();
+// idref -> how many column boxes Chromium lays the chapter out in: across
+// for a horizontal chapter, down the inline axis for a vertical one.
 const truthColumnCount = new Map();
 // PAGE JavaScript stays OFF: the engine (like EPUB readers generally)
 // never executes book scripts, but a file:// chapter runs them — a
@@ -523,13 +549,42 @@ const truthColumnCount = new Map();
 // back blank and scroll captures sat ~190px stale on a fresh page and
 // context alike; a fresh browser process renders the same page,
 // injection and clip correctly.
-const truthBrowser = await chromium.launch();
+// For A/B runs only: RITO_TRUTH_LOCALE lays the truth out under another
+// default locale (the content language a document without `lang` breaks
+// its lines by), RITO_TRUTH_MIN_FONT_SIZE under a minimum font size.
+const truthArgs = process.env.RITO_TRUTH_MIN_FONT_SIZE
+  ? [`--blink-settings=minimumLogicalFontSize=${process.env.RITO_TRUTH_MIN_FONT_SIZE}`]
+  : [];
+const truthBrowser = await launchOracleChromium(truthArgs, {
+  executablePath: process.env.RITO_TRUTH_CHROMIUM,
+});
 const truthContext = await truthBrowser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: DSF,
   javaScriptEnabled: false,
+  ...(process.env.RITO_TRUTH_LOCALE ? { locale: process.env.RITO_TRUTH_LOCALE } : {}),
 });
 const truth = await truthContext.newPage();
+const truthCdp = await truthContext.newCDPSession(truth);
+// The page is laid out in the engine's CSS viewport, one page's content box
+// (rito-core chapter_style_viewport): `vw`, fixed positioning and an
+// orthogonal flow's indefinite-size fallback all read that initial
+// containing block (Blink's SetOrthogonalFallbackInlineSize takes its
+// size), and the view's own width laid calibre's `width: 100%` plate spacer
+// out 200px wider than the page. Only the layout viewport moves: the view
+// keeps the width the clips were set up in. Pinned again for every chapter;
+// a full-page shot restores the view. For A/B runs only,
+// RITO_TRUTH_WIDE_VIEWPORT lays the page out in the whole view instead.
+const pinTruthViewport = () =>
+  process.env.RITO_TRUTH_WIDE_VIEWPORT
+    ? Promise.resolve()
+    : truthCdp.send('Emulation.setDeviceMetricsOverride', {
+        width: contentW,
+        height: contentH,
+        deviceScaleFactor: DSF,
+        mobile: false,
+        dontSetVisibleSize: true,
+      });
 for (const chapter of plan.chapters) {
   const href = manifestHref.get(chapter.href) ?? chapter.href;
   const file = path.join(opfDir, href);
@@ -557,6 +612,7 @@ for (const chapter of plan.chapters) {
       }
       truthFile = sibling;
     }
+    await pinTruthViewport();
     await truth.goto(`file://${truthFile}`, { timeout: 30000 });
     if (truthFile !== file) {
       // A calibre `.html` chapter that is not well-formed XML turns the
@@ -582,18 +638,30 @@ for (const chapter of plan.chapters) {
       .map((target) => target.slice(href.length + 1));
     const injectTruth = (pg) =>
       pg.evaluate(
-        async ({ contentW, contentH, hostFaces, noteIds, bookFaceFamilies }) => {
-          // Vertical-rl chapters skip the multicol harness entirely: a
-          // vertical root already grows sideways column by column (the
-          // block axis is horizontal), so the truth is the NATIVE flow at
-          // page height, sliced page-stripe by page-stripe from the right.
-          // Multicol on a vertical root stacks its columns on the wrong
-          // axis and the slices stop corresponding to reader pages.
-          const verticalRoot =
-            ['vertical-rl', 'vertical-lr'].includes(
-              getComputedStyle(document.documentElement).writingMode,
-            ) ||
-            ['vertical-rl', 'vertical-lr'].includes(getComputedStyle(document.body).writingMode);
+        async ({ contentW, contentH, hostFaces, noteIds, bookFaceFamilies, scrolled }) => {
+          // A vertical chapter pages the way CSS fragments it: the element
+          // that turns the flow vertical (the root, else the body) becomes a
+          // multicol container one page wide, so its content breaks along
+          // the block axis at the page width under the fragmentation rules
+          // (orphans, widows, margins truncated at a break) and each column
+          // box is a page, stacked down the inline axis — the vertical
+          // twin of the horizontal harness. The scrolled lane reads the
+          // native flow instead.
+          const verticalOf = (element) =>
+            ['vertical-rl', 'vertical-lr'].includes(getComputedStyle(element).writingMode);
+          const verticalRoot = verticalOf(document.documentElement) || verticalOf(document.body);
+          // A chapter whose body alone turns vertical pages in the body's
+          // writing mode from the root, its principal writing mode (CSS
+          // propagates it from the body to the viewport): the root takes
+          // the body's mode, so the body's own box — margins included —
+          // lies inside the pages as every other chapter's does.
+          if (verticalRoot && !verticalOf(document.documentElement)) {
+            document.documentElement.style.writingMode = getComputedStyle(
+              document.body,
+            ).writingMode;
+          }
+          const fragmenter = verticalOf(document.documentElement) ? 'html' : 'body';
+          const columns = `width:${contentW}px; height:${contentH}px; column-width:${contentH}px; column-gap:3000px; column-fill:auto;`;
           const s = document.createElement('style');
           // The multicol pagination baseline. The reader's image page
           // clamp is mirrored PER ELEMENT below (uniform box scaling) —
@@ -610,11 +678,17 @@ for (const chapter of plan.chapters) {
             .map((face) => `@font-face { font-family: "${face.alias}"; src: url("${face.url}"); }`)
             .join('\n')}
 ${
-  verticalRoot
+  verticalRoot && scrolled
     ? `html { margin:0; padding:0; height:${contentH}px; }`
-    : `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }`
+    : verticalRoot && fragmenter === 'html'
+      ? `html { margin:0; padding:0; ${columns} }`
+      : verticalRoot
+        ? `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; }`
+        : scrolled
+          ? `html { margin:0; padding:0; width:${contentW}px; }`
+          : `html { margin:0; padding:0; width:${contentW}px; height:${contentH}px; column-width:${contentW}px; column-gap:3000px; column-fill:auto; }`
 }
-body { margin:0; padding:0; position:relative; }
+body { margin:0; padding:0; position:relative; ${verticalRoot && !scrolled && fragmenter === 'body' ? columns : ''} }
 img, svg { max-width: 100%; }
 img { object-fit: contain; }`;
           document.head.insertBefore(s, document.head.firstChild);
@@ -839,101 +913,46 @@ img { object-fit: contain; }`;
           }
           await document.fonts.ready;
           if (!verticalRoot) return null;
-          // The page stripe steps by WHOLE columns, like the engine's
-          // fragmentainer: a page holds floor(contentW / line-height)
-          // columns and the next page starts at the following column, so
-          // a hard contentW step would shear every 23rd column in half.
-          // The dominant column pitch reads off the first paragraph.
-          const probe = document.querySelector('p') ?? document.body;
-          const lh = parseFloat(getComputedStyle(probe).lineHeight);
-          const strut = Number.isFinite(lh) && lh > 0 ? lh : 28;
-          // The scroller never paints at offset 0 in this configuration
-          // (measured: the same content inks at every other offset), so
-          // block-start padding pushes the content one whole stripe in
-          // from the right edge and every stripe, the first included,
-          // reads at a nonzero offset.
-          const width = document.documentElement.scrollWidth;
-          document.documentElement.style.paddingRight = `${contentW}px`;
-          // The root is widened BEFORE measuring: widening re-anchors the
-          // shrink-to-fit root and shifts every coordinate, so page edges
-          // measured on the narrow root pointed ~190px off after the
-          // widening (the first stripe lost its chapter plate and opening
-          // paragraphs to the phantom shift). Width covers every stripe's
-          // scroll position with room to spare.
-          document.documentElement.style.width = `${width + contentW * 4 + contentW + 200}px`;
-          void document.body.offsetHeight;
-          // Page boundaries follow the flow's own LINE GEOMETRY, not a
-          // constant stride: annotation growth mixes 28px and 30px lines
-          // in one paragraph, so a fixed stride shears lines apart. Glyph
-          // rects cluster into columns; a gap wider than the strut is an
-          // empty line (its box holds no glyphs) and re-inserts as strut
-          // columns. A page then takes whole columns while they fit in
-          // the content width, right-to-left, like the reader does.
-          const rects = [];
-          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (!node.textContent || !node.textContent.trim()) continue;
-            const range = document.createRange();
-            range.selectNodeContents(node);
-            for (const r of range.getClientRects()) {
-              if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
-            }
-          }
-          for (const el of document.querySelectorAll('img, svg')) {
-            const r = el.getBoundingClientRect();
-            if (r.width > 0 && r.height > 0) rects.push([r.left, r.right]);
-          }
-          rects.sort((a, b) => a[0] - b[0]);
-          const clusters = [];
-          for (const [left, right] of rects) {
-            const last = clusters[clusters.length - 1];
-            if (last && left <= last[1] + 2) {
-              last[1] = Math.max(last[1], right);
-            } else {
-              clusters.push([left, right]);
-            }
-          }
-          const columns = [];
-          for (let i = 0; i < clusters.length; i += 1) {
-            columns.push(clusters[i]);
-            const next = clusters[i + 1];
-            if (next) {
-              const gap = next[0] - clusters[i][1];
-              const empties = Math.round(gap / strut) - 1;
-              for (let k = 0; k < empties; k += 1) {
-                columns.push([clusters[i][1] + (k + 1) * strut, clusters[i][1] + (k + 2) * strut]);
-              }
-            }
-          }
-          columns.sort((a, b) => b[1] - a[1]);
-          // A page holds whole LINE BOXES, not ink spans: the reader's
-          // fragmentainer sums line heights, so the page test walks
-          // center-to-center pitches (the line box width) plus one
-          // trailing pitch, not the ink distance right-edge-to-left-edge
-          // (which under-counts by the two half-leadings and admitted
-          // one column more than the engine on every full page).
-          const centers = columns.map(([l, r]) => (l + r) / 2);
-          const pitchAfter = centers.map((c, idx) =>
-            idx + 1 < centers.length ? c - centers[idx + 1] : strut,
-          );
-          const pages = [];
-          let i = 0;
-          while (i < columns.length) {
-            let used = 0;
-            let j = i;
-            while (j < columns.length && used + pitchAfter[j] <= contentW + 1e-6) {
-              used += pitchAfter[j];
-              j += 1;
-            }
-            if (j === i) j += 1;
-            pages.push(columns[i][1]);
-            i = j;
-          }
-          return { pages, contentWidth: width };
+          return { fragmenter: scrolled ? null : fragmenter };
         },
-        { contentW, contentH, hostFaces: HOST_FACES, noteIds, bookFaceFamilies },
+        {
+          contentW,
+          contentH,
+          hostFaces: HOST_FACES,
+          noteIds,
+          bookFaceFamilies,
+          scrolled: SCROLLED,
+        },
       );
     const vertical = await injectTruth(truth);
+    // RITO_WALK_DUMP="<chapter href part>|<selector>" prints the truth's
+    // client rects of the matching elements in that chapter, laid out
+    // exactly as the walk captures it.
+    if (process.env.RITO_WALK_DUMP) {
+      const [hrefPart, selector] = process.env.RITO_WALK_DUMP.split('|');
+      if (chapter.href.includes(hrefPart) || href.includes(hrefPart)) {
+        const rects = await truth.evaluate(
+          (sel) =>
+            [...document.querySelectorAll(sel)].map((element) => {
+              const r = element.getBoundingClientRect();
+              return { tag: element.tagName, x: r.x, y: r.y, width: r.width, height: r.height };
+            }),
+          selector,
+        );
+        console.log(`dump ${chapter.href} ${JSON.stringify(rects)}`);
+      }
+    }
+    if (SCROLLED) {
+      await truth.waitForTimeout(250);
+      // A vertical chapter's windows run leftwards from its right edge.
+      truthWindows.set(
+        chapter.href,
+        vertical
+          ? await captureLeftwardWindows(truth, { contentH, pageW, margin: MARGIN, dsf: DSF })
+          : await captureScrolledWindows(truth, { contentW, contentH, pageH, margin: MARGIN }),
+      );
+      continue;
+    }
     await truth.waitForTimeout(250);
     // One screenshot per column. Each column is brought to the viewport by
     // a negative margin on the root element, NOT by scrolling: scrolling
@@ -950,45 +969,40 @@ img { object-fit: contain; }`;
     const columns = [];
     const docWidth = await truth.evaluate(() => document.documentElement.scrollWidth);
     if (vertical) {
-      // Reading order runs right-to-left: content anchors to the
-      // viewport's right edge and page k's stripe ends at document
-      // x = VW - k*step (VW = the truth viewport width, contentW + 200).
-      // scrollLeft is the shift (vertical-rl scrolls through negative
-      // values; a root margin re-lays the shrink-to-fit root out
-      // instead of translating it, measured on this same chapter). The
-      // scroller clamps at the content edge, so the root is widened to
-      // hold every whole stripe first — extra width grows LEFTWARD on a
-      // vertical-rl root and the content stays anchored right. The clip
-      // stops AT the stripe edge: unlike multicol there is no gap, so a
-      // wider clip would leak the NEXT page's first column into the
-      // margin band.
-      // No scrolling at all: the screenshot clip takes DOCUMENT
-      // coordinates (origin at the content's far LEFT on this vertical
-      // scroller), so every stripe is addressed directly. Scroll-based
-      // capture rendered stripes at a stale compositor offset (~190px
-      // behind the DOM's scrollLeft, immune to settling, throwaway
-      // frames and rAF fences) while the DOM reported the right
-      // geometry; document-clip capture needs none of that.
-      // One fullPage shot per vertical chapter, sliced in Node: both
-      // scroll-based capture (~190px stale compositor offset) and
-      // document-coordinate clips (blank frames) failed on the walk's
-      // truth page while identical probes succeeded; the fullPage path
-      // rasters the whole sideways document in one pass and the stripes
-      // are cut from the decoded image at the measured page edges.
-      const docOffset = await truth.evaluate(
-        () => -document.documentElement.getBoundingClientRect().left,
-      );
-      const full = PNG.sync.read(await truth.screenshot({ fullPage: true }));
+      // Column box k sits k strides down the inline axis; a negative
+      // inline-start margin on the multicol element brings it to the
+      // viewport's top, near the origin like the horizontal columns.
+      const stride = contentH + 3000;
+      const docHeight = await truth.evaluate(() => document.documentElement.scrollHeight);
+      truthColumnCount.set(chapter.href, Math.floor((docHeight + 3000) / stride + 0.001));
       for (let k = 0; k <= expected + 1; k += 1) {
-        if (k >= vertical.pages.length) break;
-        const clipX = Math.round((vertical.pages[k] - contentW + docOffset) * DSF);
-        const out = new PNG({ width: contentWd, height: contentHd });
-        for (let yy = 0; yy < contentHd && yy < full.height; yy += 1) {
-          const srcStart = (yy * full.width + Math.max(0, clipX)) * 4;
-          const srcEnd = (yy * full.width + Math.min(full.width, clipX + contentWd)) * 4;
-          if (srcEnd > srcStart) full.data.copy(out.data, yy * contentWd * 4, srcStart, srcEnd);
-        }
-        columns.push(out);
+        const y0 = k * stride;
+        if (y0 >= docHeight) break;
+        // A screenshot clip counts from the document's scroll origin, which
+        // content overflowing leftward (a vertical-rl line wider than its
+        // column) moves left of the viewport: the clip takes the column's
+        // client position less that origin.
+        await moveTruthRoot(truth, { y: y0, element: vertical.fragmenter });
+        const left = await truth.evaluate(
+          ({ fragmenter }) => {
+            const element = fragmenter === 'html' ? document.documentElement : document.body;
+            const scroller = document.scrollingElement;
+            const origin =
+              getComputedStyle(document.documentElement).writingMode === 'vertical-rl'
+                ? Math.min(0, scroller.clientWidth - scroller.scrollWidth)
+                : 0;
+            return element.getBoundingClientRect().left - origin;
+          },
+          { fragmenter: vertical.fragmenter },
+        );
+        // Through the protocol itself: Playwright's clip clamps to a
+        // viewport it measures from the client origin and cuts the column
+        // short.
+        const { data } = await truthCdp.send('Page.captureScreenshot', {
+          format: 'png',
+          clip: { x: left, y: 0, width: contentW, height: contentH, scale: 1 },
+        });
+        columns.push(PNG.sync.read(Buffer.from(data, 'base64')));
       }
       truthColumns.set(chapter.href, columns);
       continue;
@@ -996,6 +1010,7 @@ img { object-fit: contain; }`;
     // n columns span n*contentW + (n-1)*3000; a line overflowing its
     // column by less than one step does not add one.
     truthColumnCount.set(chapter.href, Math.floor((docWidth + 3000) / (contentW + 3000) + 0.001));
+    truthImageAreas.set(chapter.href, await collectImageAreas(truth, { step: contentW + 3000 }));
     for (let k = 0; k <= expected + 1; k += 1) {
       // The gap must exceed any single line's horizontal overflow: an
       // unbreakable run (61 fullwidth stars) is ~430px wider than the
@@ -1004,20 +1019,18 @@ img { object-fit: contain; }`;
       // clips at the page edge) never draws.
       const x0 = k * (contentW + 3000);
       if (x0 >= docWidth) break;
-      await truth.evaluate((x) => {
-        document.documentElement.style.marginLeft = `-${x}px`;
-      }, x0);
       // Capture the right page margin too: an unbreakable line overflows
       // its column and PAINTS across the page's right margin band, which
       // the engine (clipping at the page edge) also shows. A content-wide
       // clip amputated that band and scored the engine's overflow ink as
       // phantom diff.
       columns.push(
-        PNG.sync.read(
-          await truth.screenshot({
-            clip: { x: 0, y: 0, width: contentW + MARGIN, height: contentH },
-          }),
-        ),
+        await shootContentWithBand(truth, {
+          contentW,
+          height: contentH,
+          margin: MARGIN,
+          x: x0,
+        }),
       );
     }
     truthColumns.set(chapter.href, columns);
@@ -1055,9 +1068,8 @@ for (const chapter of plan.chapters) {
   // drift, and a blank page only the engine makes is. Counting columns
   // through the last inked one instead trimmed every trailing blank
   // column, so each matching trailing blank page read as -1 and an
-  // engine-only blank page hid among them. Vertical stripes are cut from
-  // ink, so they keep the ink count: columns through the last inked one
-  // (interior blanks kept, b20's forced-break pairs).
+  // engine-only blank page hid among them. A chapter whose columns went
+  // uncounted keeps the ink count: columns through the last inked one.
   const g = columns[0]
     ? [columns[0].data[0], columns[0].data[1], columns[0].data[2]]
     : [255, 255, 255];
@@ -1065,7 +1077,8 @@ for (const chapter of plan.chapters) {
   columns.forEach((c, i) => {
     if (inked(c, g) > 0) truthUsed = i + 1;
   });
-  const truthCount = truthColumnCount.get(chapter.href) ?? truthUsed;
+  const windows = truthWindows.get(chapter.href) ?? [];
+  const truthCount = SCROLLED ? windows.length : (truthColumnCount.get(chapter.href) ?? truthUsed);
   for (let k = 0; k < enginePageCount; k += 1) {
     const pageIndex = chapter.startPage + k;
     if (pageIndex > MAX_PAGES) break;
@@ -1075,7 +1088,7 @@ for (const chapter of plan.chapters) {
     // Compose the truth page: the page ground sampled from the engine's
     // own corner (theme paper), the column at the content origin.
     const ground = [engine.data[0], engine.data[1], engine.data[2]];
-    const truthPage = new PNG({ width: pageWd, height: pageHd });
+    let truthPage = new PNG({ width: pageWd, height: pageHd });
     for (let p = 0; p < pageWd * pageHd; p += 1) {
       const i = p * 4;
       truthPage.data[i] = ground[0];
@@ -1092,6 +1105,26 @@ for (const chapter of plan.chapters) {
         }
       }
     }
+    // A scrolled window is its own length tall: the rows past a chapter's
+    // last window hold nothing of it.
+    const scrolledWindow = SCROLLED ? windows[k] : undefined;
+    if (scrolledWindow) {
+      truthPage = composeScrolledWindow(scrolledWindow, {
+        pageWd,
+        pageHd,
+        marginD,
+        dsf: DSF,
+        ground,
+      });
+    }
+    // A leftward window is its own length wide instead.
+    const comparedRows =
+      scrolledWindow && !scrolledWindow.crop
+        ? Math.min(pageHd, Math.round(scrolledWindow.length * DSF))
+        : pageHd;
+    const comparedColumns = scrolledWindow?.crop
+      ? Math.min(pageWd, Math.round(scrolledWindow.length * DSF))
+      : pageWd;
     let diff = 0;
     // Above the characterized host-raster floor: Chromium's own two CPU
     // raster lanes (canvas 2D vs DOM image/box AA) disagree by at most 13
@@ -1099,7 +1132,14 @@ for (const chapter of plan.chapters) {
     // reproduction models pixel-falsified (task dossier). A defect the
     // engine can act on moves ink, and moved ink exceeds that ceiling.
     let beyondFloor = 0;
-    for (let p = 0; p < pageWd * pageHd; p += 1) {
+    // The beyond-floor pixels outside the page's drawn images: inside one
+    // the diff measures canvas against compositor resampling
+    // (image-areas.mjs). Paged horizontal pages only.
+    const areas = truthImageAreas.get(chapter.href);
+    const images = areas ? imageMask(areas, k, { pageWd, pageHd, marginD, dsf: DSF }) : undefined;
+    let beyondOutsideImages = 0;
+    for (let p = 0; p < pageWd * comparedRows; p += 1) {
+      if (p % pageWd >= comparedColumns) continue;
       const i = p * 4;
       const delta = Math.max(
         Math.abs(engine.data[i] - truthPage.data[i]),
@@ -1108,6 +1148,7 @@ for (const chapter of plan.chapters) {
       );
       if (delta > 0) diff += 1;
       if (delta > 13) beyondFloor += 1;
+      if (delta > 13 && !images?.[p]) beyondOutsideImages += 1;
     }
     results.push({
       chapter: chapter.href,
@@ -1115,6 +1156,7 @@ for (const chapter of plan.chapters) {
       pageIndex,
       diff,
       beyondFloor,
+      beyondOutsideImages: images ? beyondOutsideImages : undefined,
       drift: truthCount - enginePageCount,
       engine,
       truthPage,
@@ -1133,7 +1175,7 @@ const lines = [
   `book: ${path.basename(bookPath)}`,
   `gold standard: 0 diff pixels; page ${pageW}x${pageH}, content ${contentW}x${contentH}, device scale ${DSF} (${pageWd}x${pageHd} device px)`,
   '',
-  '## Chapter pagination drift (truth columns − engine pages; vertical: columns through the last inked)',
+  '## Chapter pagination drift (truth columns − engine pages)',
   '',
 ];
 const seen = new Set();
@@ -1155,7 +1197,7 @@ const bestNonzero = new Set(
 );
 results.forEach((r, rank) => {
   lines.push(
-    `- ${String(r.diff).padStart(8)} / ${String(r.beyondFloor).padStart(6)} px — ${r.chapter} page ${r.pageInChapter} (book page ${r.pageIndex})`,
+    `- ${String(r.diff).padStart(8)} / ${String(r.beyondFloor).padStart(6)} px — ${r.chapter} page ${r.pageInChapter} (book page ${r.pageIndex})${r.beyondOutsideImages === undefined || r.beyondOutsideImages === r.beyondFloor ? '' : `, outside images ${r.beyondOutsideImages}`}`,
   );
   if ((rank < GALLERY || bestNonzero.has(r.pageIndex)) && r.diff > 0) {
     const sep = 4;
@@ -1186,12 +1228,20 @@ results.forEach((r, rank) => {
 const zero = results.filter((r) => r.diff === 0).length;
 const zeroBeyond = results.filter((r) => r.beyondFloor === 0).length;
 const totalBeyond = results.reduce((sum, r) => sum + r.beyondFloor, 0);
+const outside = results.map((r) => r.beyondOutsideImages ?? r.beyondFloor);
+const totalOutside = outside.reduce((sum, n) => sum + n, 0);
+const zeroOutside = outside.filter((n) => n === 0).length;
 lines.splice(
   4,
   0,
   `pages compared: ${results.length}; at ZERO diff: ${zero}; worst: ${results[0]?.diff ?? 0} px`,
   `beyond the characterized raster floor (>13/channel): ${totalBeyond} px on ${results.length - zeroBeyond} pages; at ZERO: ${zeroBeyond}`,
+  `beyond the floor outside drawn images: ${totalOutside} px on ${results.length - zeroOutside} pages; at ZERO: ${zeroOutside}`,
 );
 writeFileSync(path.join(outDir, 'report.md'), lines.join('\n'));
+writeFileSync(
+  path.join(outDir, 'image-areas.json'),
+  JSON.stringify(Object.fromEntries(truthImageAreas), null, 1),
+);
 console.log(lines.slice(0, 30).join('\n'));
 console.log(`\nreport: ${path.join(outDir, 'report.md')}`);

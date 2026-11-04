@@ -32,6 +32,24 @@ impl ReaderSession {
         ))
     }
 
+    /// What an artifact's spread paints before it is lowered, and how far
+    /// it is moved once lowered, in device pixels: the drawing its records
+    /// are held to.
+    #[cfg(test)]
+    pub(in crate::runtime::reader_session) fn artifact_paint(
+        &self,
+        artifact_id: u64,
+    ) -> Option<(Vec<crate::render::DisplayCommand>, (f64, f64))> {
+        let spread = self.artifacts.get(&artifact_id)?.local_spread_index;
+        let view = self.artifact_view(artifact_id).ok()?;
+        let frame = view
+            .revision
+            .chapter_engine_session()
+            .frame(spread, self.render_ratio)
+            .ok()??;
+        Some((frame.commands.to_vec(), frame.device_origin))
+    }
+
     #[cfg(test)]
     pub(in crate::runtime::reader_session) const fn exact_cache_hit_count(&self) -> u64 {
         self.exact_cache_hit_count

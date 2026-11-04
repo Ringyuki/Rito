@@ -13,6 +13,8 @@ import type {
   ReaderMargin,
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
+  ReaderScrollLayout,
+  ReaderSpreadMode,
   ReaderGlTarget,
   ReaderPageTargets,
   ReaderTextSelectionMovement,
@@ -28,11 +30,23 @@ export interface ReaderTextPoint {
   readonly x: number;
   readonly y: number;
 }
+/**
+ * A caret in page-content space: the segment across its line, as a rect with
+ * no extent along the line — `width` 0 on a horizontal line, `height` 0 down a
+ * vertical one.
+ */
 export interface ReaderTextCaretGeometry {
   readonly x: number;
   readonly y: number;
+  readonly width: number;
   readonly height: number;
 }
+/**
+ * The writing mode of the line a caret is on. An arrow key moves a caret on a
+ * `vertical-rl` line the way the key a quarter turn from it moves one on a
+ * horizontal line (down is forward along the line, left is the next line).
+ */
+export type ReaderWritingMode = 'horizontal-tb' | 'vertical-rl';
 export type ReaderTextInteractionUnavailableReason =
   | 'shapeUnavailable'
   | 'sourceUnavailable'
@@ -47,6 +61,7 @@ export interface ReaderTextCaret {
   /** Page owning this caret's page-local geometry. */
   readonly pageIndex: number;
   readonly geometry: ReaderTextCaretGeometry;
+  readonly writingMode: ReaderWritingMode;
   readonly sourceLocator: ReaderLocator;
 }
 export type ReaderTextCaretResolution =
@@ -281,7 +296,7 @@ export interface ReaderOptions {
   /** Durable source target for bindings that support locator-first initialization. */
   readonly initialLocator?: ReaderLocator | undefined;
   readonly margin?: ReaderMargin;
-  readonly spread?: 'single' | 'double';
+  readonly spread?: ReaderSpreadMode;
   readonly spreadGap?: number;
   readonly backgroundColor?: string | null;
   readonly foregroundColor?: string | null;
@@ -341,11 +356,11 @@ export interface Reader {
    * `dpr` takes the new ratio when that layout commits.
    */
   setDevicePixelRatio(ratio: number): void;
-  setSpreadMode(mode: 'single' | 'double'): boolean;
+  setSpreadMode(mode: ReaderSpreadMode): boolean;
   updateLayout(
     width: number,
     height: number,
-    spreadMode?: 'single' | 'double',
+    spreadMode?: ReaderSpreadMode,
     margin?: ReaderMargin,
   ): boolean;
   /**
@@ -367,6 +382,8 @@ export interface Reader {
   findActiveTocEntry(pageIndex: number): TocEntry | undefined;
   getCanvasSize(scale?: number): { width: number; height: number };
   getLayoutGeometry(): Readonly<LayoutConfig>;
+  /** The committed layout's windows, when the reader is scrolled. */
+  getScrollLayout(): ReaderScrollLayout | undefined;
   getImageBlobUrl(src: string): string | undefined | Promise<string | undefined>;
   setTypography(opts: {
     fontSize?: number | null;

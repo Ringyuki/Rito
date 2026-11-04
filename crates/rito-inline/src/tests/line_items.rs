@@ -46,7 +46,7 @@ fn mixed_tree() -> FormattingTree {
             fit_contain: false,
             object_fit: rito_style_contract::ObjectFit::Fill,
             viewport: None,
-            align_top: false,
+            align: rito_fragment::AtomAlign::Baseline,
             baseline_shift_px: 0.0,
         },
         text(" then שלום עולם and בוקר טוב read right to left, "),
@@ -83,6 +83,7 @@ fn a_line_splits_alike_with_and_without_its_glyphs() {
         end_trims: &[],
         suppressed_pair_trims: &[],
         split_spreads: &[],
+        unhung_starts: &[],
     };
     let mut lines_checked = 0;
     let mut bytes_checked = 0;

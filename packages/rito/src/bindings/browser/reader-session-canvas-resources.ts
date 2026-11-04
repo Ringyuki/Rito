@@ -1,4 +1,5 @@
 import type { CoreReaderPrimitiveList } from './core-contracts';
+import { fontFeatureSettings } from './font-feature-settings';
 import type { BrowserReaderArtifact, BrowserReaderSession } from './reader-session';
 import { BrowserReaderCanvasUnsupportedError } from './reader-session-canvas-error';
 import type { BrowserReaderCanvasDecodedImage } from './reader-session-canvas-image-cache-support';
@@ -169,6 +170,9 @@ export class BrowserReaderCanvasResourceOwner {
       face = new FontFace(font.family, ownedArrayBuffer(resource.bytes), {
         style: font.style,
         weight: String(font.weight),
+        ...(font.features.length > 0
+          ? { featureSettings: fontFeatureSettings(font.features) }
+          : {}),
       });
       await face.load();
     } catch (error: unknown) {

@@ -109,6 +109,12 @@ impl<K: Clone + Eq + Hash, V> SegmentedLru<K, V> {
         }
     }
 
+    /// How many values are kept.
+    #[cfg(test)]
+    pub(crate) fn count(&self) -> usize {
+        self.entries.len()
+    }
+
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
         self.probation.clear();

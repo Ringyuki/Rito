@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rito scrolled reading</title>
+    <link rel="icon" href="/favicon.webp" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #ffffff;
+      }
+      #view {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        touch-action: none;
+      }
+      #open {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        z-index: 1;
+      }
+      #progress,
+      #selected {
+        position: fixed;
+        bottom: 8px;
+        z-index: 1;
+        font: 12px system-ui;
+        color: #888;
+      }
+      #progress {
+        right: 8px;
+      }
+      #selected {
+        left: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <input id="open" type="file" accept=".epub,application/epub+zip" />
+    <div id="view" data-testid="scroll-view"></div>
+    <div id="progress"></div>
+    <div id="selected" data-testid="scroll-selected"></div>
+    <script type="module" src="/src/scroll-demo.ts"></script>
+  </body>
+</html>

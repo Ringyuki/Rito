@@ -37,7 +37,9 @@ pub(crate) fn list_marker_geometry(
             Some(InlineItem::Text { style, .. })
             | Some(InlineItem::Image { style, .. })
             | Some(InlineItem::InlineBlock { style, .. })
-            | Some(InlineItem::EmptyBox { style, .. }) => *style,
+            | Some(InlineItem::EmptyBox { style, .. })
+            | Some(InlineItem::OpenTag { style })
+            | Some(InlineItem::CloseTag { style }) => *style,
             None => return None,
         },
     };

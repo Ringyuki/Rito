@@ -320,12 +320,14 @@ fn observe_adjacent_bordered_span_run_boxes() {
             LengthPercentage::Length(rito_style_contract::CssPx::new(3.0).expect("finite")),
         );
         let style_id = inline.intern_for_node(index, style).expect("style interns");
+        items.push(InlineItem::OpenTag { style: style_id });
         items.push(InlineItem::Text {
             text: text.to_owned(),
             style: style_id,
             baseline_shift_px: 0.0,
             ruby_annotation: None,
         });
+        items.push(InlineItem::CloseTag { style: style_id });
     }
     let nodes = vec![FormattingNode {
         style: rito_style_contract::LayoutStyleId::from_raw(0),
@@ -496,6 +498,7 @@ fn an_inline_margin_indents_its_forced_break_line() {
                     baseline_shift_px: 0.0,
                     ruby_annotation: None,
                 },
+                InlineItem::OpenTag { style: badge },
                 InlineItem::Text {
                     text: "的".to_owned(),
                     style: badge,
@@ -553,8 +556,7 @@ fn the_page_clamp_scales_the_authored_image_box_uniformly() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LengthPercentageOrAuto, ListMarkerStyle,
-        MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, PhysicalSides, Position,
-        PreferredSize,
+        MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
     };
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
@@ -577,6 +579,9 @@ fn the_page_clamp_scales_the_authored_image_box_uniformly() {
             bottom: zero_padding,
             left: zero_padding,
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: rito_style_contract::BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,
@@ -589,8 +594,11 @@ fn the_page_clamp_scales_the_authored_image_box_uniformly() {
         )),
         height: PreferredSize::Auto,
         max_width: MaximumSize::None,
-        min_height: MinimumHeight::Auto,
-        max_height: MaximumHeight::None,
+        min_height: MinimumSize::Auto,
+        min_width: MinimumSize::Auto,
+        writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+        direction: rito_style_contract::Direction::LeftToRight,
+        max_height: MaximumSize::None,
         clear: Clear::None,
         float: Float::None,
         overflow: Overflow::Visible,
@@ -710,6 +718,73 @@ fn a_cj_starter_may_open_a_line_unless_strict() {
         layout_lines(rito_style_contract::LineBreak::Strict),
         vec!["中中中".to_owned(), "ずー中".to_owned()],
         "strict keeps the NS prohibition and retreats the pair"
+    );
+}
+
+/// An ideographic space that overflows a line hangs past its end when the
+/// line may break after it, as Chromium hangs other space separators: in a
+/// 160px line of 16px ideographs the space after a full line's `！` hangs
+/// and the line breaks after it. Before a closing bracket the line may not
+/// break there, so the space does not hang and the line breaks before the
+/// last ideograph that can open the next one (Chromium's DOM, both cases).
+#[test]
+fn an_ideographic_space_hangs_where_the_line_may_break_after_it() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let layout_lines = |text: &str| {
+        let style = plain_paragraph_style(
+            rito_style_contract::FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new(
+                "NoSuchFace",
+            ))])
+            .expect("family list"),
+            16.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTable::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(160.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        line_texts(&outcome, text)
+    };
+    assert_eq!(
+        layout_lines("一二三四五六七八九！\u{3000}十一"),
+        vec!["一二三四五六七八九！\u{3000}".to_owned(), "十一".to_owned()],
+    );
+    assert_eq!(
+        layout_lines("一二三四五六七八九！\u{3000}」十"),
+        vec!["一二三四五六七八".to_owned(), "九！\u{3000}」十".to_owned()],
     );
 }
 
@@ -1293,10 +1368,11 @@ fn a_fullwidth_comma_keeps_its_following_opening_quote() {
     );
 }
 
-/// A closing curly quote breaks before an em-dash pair: the quote
-/// closes its line and the dashes open the next (pinned-Chromium
-/// b112 line at 640: 怕” | ——可见). Treating quote-then-dash as
-/// unbreakable dragged the quote down with the pair.
+/// A closing curly quote breaks before an em-dash pair in Chinese text:
+/// the quote closes its line and the dashes open the next
+/// (pinned-Chromium b112 line at 640, the book's `zh-CN`: 怕” | ——可见).
+/// Chinese line breaking reads the curly double quotes as brackets; in a
+/// language without that tailoring the quote stays with the dashes.
 #[test]
 fn a_closing_quote_breaks_before_a_dash_pair() {
     let source_han = std::fs::read(concat!(
@@ -1316,6 +1392,7 @@ fn a_closing_quote_breaks_before_a_dash_pair() {
         32.0,
     );
     style.text_flow.text_align = TextAlign::Justify;
+    style.text_flow.language = Some(rito_style_contract::LanguageTag::new("zh-CN"));
     let style_id = inline.intern_for_node(0, style).expect("style interns");
     let text = "这就是Master绮礼的指示。就连战斗能力最为低下的Assassin与其交锋时都\u{201C}不必惧怕\u{201D}\u{2014}\u{2014}可见时臣召唤出来的Archer的英灵，一定是非常令绮礼失望的吧。";
     let tree = FormattingTree::with_styles(
@@ -1368,4 +1445,125 @@ fn a_closing_quote_breaks_before_a_dash_pair() {
         lines[1], "\u{2014}\u{2014}\u{53ef}\u{89c1}",
         "the dash pair opens the second line, the quote stays up"
     );
+}
+
+/// A wave dash may start a line in Japanese text under `line-break:
+/// normal` but not by default: Chromium's DOM at 16px in an 850px line
+/// breaks the book's sentence between the two dashes under `normal` and
+/// before よ under `auto`.
+#[test]
+fn a_wave_dash_starts_a_line_under_japanese_normal_breaking() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let text = "「取り返せるわけがない〜〜！\u{3000}一度あんなのになっちゃったら、もう今さら普通のキャラに戻るなんてムリだよ〜〜！」";
+    let layout_lines = |line_break: rito_style_contract::LineBreak| {
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("NoSuchFace"))])
+                .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.language = Some(rito_style_contract::LanguageTag::new("ja"));
+        style.text_flow.line_break = line_break;
+        let mut inline = InlineStyleTable::new(1);
+        let style_id = inline.intern_for_node(0, style).expect("style interns");
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow {
+                    items: vec![InlineItem::Text {
+                        text: text.to_owned(),
+                        style: style_id,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    }],
+                },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(850.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        line_texts(&outcome, text)
+    };
+    let head = "「取り返せるわけがない〜〜！\u{3000}一度あんなのになっちゃったら、もう今さら普通のキャラに戻るなんてムリだ";
+    assert_eq!(
+        layout_lines(rito_style_contract::LineBreak::Normal),
+        vec![format!("{head}よ〜"), "〜！」".to_owned()],
+    );
+    assert_eq!(
+        layout_lines(rito_style_contract::LineBreak::Auto),
+        vec![head.to_owned(), "よ〜〜！」".to_owned()],
+    );
+}
+
+/// A line's last glyph is measured as Chromium reshapes it at the line's
+/// end, without the space that hangs after it: Tinos kerns "A" against
+/// the space, so "…the hour. A" fits 640px only kerned (639.16) and
+/// overflows unkerned (640.05, past the 1/64px the fit allows); Chromium's
+/// DOM breaks before the "A" (pinned Tinos at 16px, a 16px first-line
+/// indent, 640px wide).
+#[test]
+fn a_line_end_glyph_loses_its_kerning_with_the_hanging_space() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let text = "Harry looked around and saw that Mrs. Weasley was not alone, despite the lateness of the hour. A young witch with a pale, heart-shaped face and mousy brown hair was sitting at the table clutching a large mug between her hands.";
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Named(FontFamilyName::new("NoSuchFace"))])
+            .expect("family list"),
+        16.0,
+        16.0,
+    );
+    let mut inline = InlineStyleTable::new(1);
+    let style_id = inline.intern_for_node(0, style).expect("style interns");
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.to_owned(),
+                    style: style_id,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(640.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let lines = line_texts(&outcome, text);
+    assert_eq!(
+        lines[0],
+        "Harry looked around and saw that Mrs. Weasley was not alone, despite the lateness of the hour. ",
+    );
+    assert!(lines[1].starts_with("A young witch"), "{lines:?}");
 }

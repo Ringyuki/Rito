@@ -37,7 +37,9 @@ for (const name of readdirSync(epubDir).filter((n) => n.endsWith('.epub'))) {
     const chapters = [];
     for (const m of opf.matchAll(/<itemref\s[^>]*idref="([^"]+)"/g)) {
       const href = items.get(m[1]);
-      if (href) chapters.push([href.split('/').pop(), join(opfDir, href)]);
+      // The spine idref, as the engine names chapters (a file name only when
+      // the package happens to use it as the item's id).
+      if (href) chapters.push([m[1], join(opfDir, href)]);
     }
     // @font-face bindings from every css file.
     const fonts = [];

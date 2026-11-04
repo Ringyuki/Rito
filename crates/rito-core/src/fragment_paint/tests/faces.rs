@@ -35,6 +35,7 @@ fn run_with_faces(width: f64, clusters: &[(u32, f64, u32)]) -> Fragment {
                 x: *x,
                 face: FontFaceId(*face),
                 joins: false,
+                continues_ligature: false,
             })
             .collect();
     }
@@ -115,4 +116,36 @@ fn a_face_the_engine_never_registered_fails_closed() {
         },
     );
     assert!(result.is_err());
+}
+
+/// A ligature paints as one cluster from its start: the cluster that
+/// continues it leaves the painted run, so a pen drawing each cluster
+/// draws the whole ligature where a pen drawing strings forms it.
+#[test]
+fn a_ligature_paints_as_one_cluster() {
+    let fixture = two_color_flow(|red, _| vec![text_item("fix", red, 0.0)]);
+    let mut run = run_with_faces(24.0, &[(0, 0.0, 1), (1, 4.0, 1), (2, 8.0, 1)]);
+    if let Fragment::Text(text) = &mut run {
+        let mut clusters = text.clusters.to_vec();
+        clusters[1].joins = true;
+        clusters[1].continues_ligature = true;
+        clusters[2].joins = true;
+        text.clusters = clusters.into();
+    }
+    let root = boxed_line(vec![run]);
+    let faces = ["__RitoPinned_serif".into(), "__RitoPinned_cjk".into()];
+    let commands = paint_with_faces(&root, &fixture.tree, &faces);
+    let clusters: Vec<(u32, bool)> = commands
+        .iter()
+        .filter_map(|command| match command {
+            DisplayCommand::PaintText(text) => Some(text),
+            _ => None,
+        })
+        .flat_map(|text| {
+            text.clusters
+                .iter()
+                .map(|cluster| (cluster.byte, cluster.joins))
+        })
+        .collect();
+    assert_eq!(clusters, vec![(0, false), (2, true)]);
 }

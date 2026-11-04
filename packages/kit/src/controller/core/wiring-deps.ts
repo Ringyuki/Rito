@@ -29,6 +29,8 @@ export interface WiringDeps {
    * the persisted position with the controller's own initial spread-0 event.
    */
   hasRestored: () => boolean;
+  /** Whether another view has the reader: what it reports meanwhile is not this controller's to answer. */
+  isSuspended: () => boolean;
   /** Continue a deferred navigation once an async content slot is ready. */
   notifyNavigationContentReady: (index: number) => void;
   /** Sync viewport-sized buffers before painting a current-spread visual refresh. */
@@ -65,6 +67,7 @@ export function buildWiringDeps(
       nav.navigateToLocator(locator);
     },
     hasRestored: () => internals.restoreCompleted,
+    isSuspended: () => internals.suspended,
     notifyNavigationContentReady: (i) => {
       nav.notifyContentReady(i);
     },

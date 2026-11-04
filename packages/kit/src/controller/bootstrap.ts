@@ -77,7 +77,8 @@ function createRuntimeNavigation(
   contentRenderer: ContentRenderer,
 ) {
   return createNavigation({
-    getReader: () => internals.reader,
+    // Nothing turns while another view has the reader.
+    getReader: () => (internals.suspended ? null : internals.reader),
     getCurrentSpread: () => internals.currentSpread,
     setCurrentSpread: (index, reason) => {
       commitCurrentSpread(internals, index, reason);
@@ -136,6 +137,9 @@ function wireRuntimeEvents(
   if (typeof internals.reader.onLayoutCommitted === 'function') {
     disposables.add(
       internals.reader.onLayoutCommitted((activeSpreadIndex) => {
+        // The view that has the reader answers its layouts; this one takes
+        // the reader's layout up again when it resumes.
+        if (internals.suspended) return;
         commitLayoutChange(internals, emitter, runtime, undefined, activeSpreadIndex);
         scheduleControllerPrerender(internals, runtime, contentRenderer);
         nav.notifyLayoutCommitted();

@@ -23,6 +23,60 @@ pub struct BoxFragment {
     pub rect: FragmentRect,
     /// Child fragments in paint order.
     pub children: Vec<Fragment>,
+    /// The block edges a fragmentainer break cut this fragment at.
+    pub cuts: BlockCuts,
+}
+
+/// The block edges of a box fragment that a fragmentainer break cut
+/// through. A cut edge belongs to the box's neighbouring fragment: this
+/// fragment carries no border, padding or rounded corner there
+/// (`box-decoration-break: slice`, Blink's `SetSidesToInclude`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct BlockCuts {
+    /// The box began in an earlier fragmentainer.
+    pub start: bool,
+    /// The box continues in a later fragmentainer.
+    pub end: bool,
+}
+
+impl BlockCuts {
+    /// A fragment holding both of its box's block edges.
+    pub const NONE: Self = Self {
+        start: false,
+        end: false,
+    };
+}
+
+/// The faces one line's glyph runs were shaped with.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LineFonts {
+    /// No glyph run (an empty line, or atoms only).
+    None,
+    /// Every run used this one face.
+    One(FontFaceId),
+    /// Runs used more than one face.
+    Several,
+}
+
+impl LineFonts {
+    /// The set with `face` joined.
+    #[must_use]
+    pub fn with(self, face: FontFaceId) -> Self {
+        match self {
+            Self::None => Self::One(face),
+            Self::One(one) if one == face => self,
+            _ => Self::Several,
+        }
+    }
+
+    /// Whether the line used any face other than `face`.
+    pub fn has_other_than(self, face: FontFaceId) -> bool {
+        match self {
+            Self::None => false,
+            Self::One(one) => one != face,
+            Self::Several => true,
+        }
+    }
 }
 
 /// One line box produced by an inline formatting context.
@@ -44,11 +98,37 @@ pub struct LineFragment {
     /// the visible ink extent subtract this from the rect width, matching
     /// how CSS hangs whitespace at the end of a line.
     pub trailing_whitespace: f64,
-    /// The ruby-annotation reserve folded into `baseline`. The paint
-    /// snap treats this share separately — the annotation reserves whole
-    /// device rows (ceil) while the strut part keeps the two-stage
-    /// round. Zero on lines without ruby growth.
-    pub ruby_growth: f64,
+    /// The reserve the line's over-side annotations (ruby, emphasis
+    /// marks) fold into `baseline`: the line box grows at its top and its
+    /// content moves down by as much. The paint snap treats this share
+    /// separately — the annotation reserves whole device rows (ceil) while
+    /// the strut part keeps the two-stage round. Zero on lines without
+    /// annotation growth.
+    pub annotation_growth: f64,
+    /// How far the line's over-side annotations reach above its box: the
+    /// growth the line takes when nothing above it lends them space, as
+    /// when it opens a fragment of a resumed flow (Blink's block-start
+    /// annotation space is zero there). `annotation_growth` is this less
+    /// what the space above absorbs. Zero on lines without annotations.
+    pub annotation_overflow: f64,
+    /// On a flow's first line, how much of its overflow the leading under
+    /// the preceding block's last line lends it
+    /// (`ConstraintSpace::preceding_line`); zero on every other line. The
+    /// line is laid out at its whole overflow either way, so the flow's
+    /// geometry does not depend on what precedes it; the block context
+    /// spends this with the rest of the space above when the line opens
+    /// the flow.
+    pub annotation_lent: f64,
+    /// Blink's block-end annotation space of the line: how far its box
+    /// reaches below the em boxes of its text (an annotation on the next
+    /// line may reuse that much) when positive; when negative, how far its
+    /// own under-side annotations (emphasis marks) reach past the line's
+    /// natural bottom, which the box was grown by.
+    pub annotation_space_end: f64,
+    /// The fonts the line's glyph runs were shaped with, which the next
+    /// line's annotations read to know how much of the space under this
+    /// line's text they may reuse.
+    pub fonts: LineFonts,
     /// The flow-text byte range of each glyph run on the line, in visual
     /// order, with an empty range for each atomic inline (image or inline
     /// block) at its place among them: the text the line's text fragments
@@ -57,6 +137,31 @@ pub struct LineFragment {
     pub text_runs: Vec<(u32, u32)>,
     /// Text (and later inline-box) fragments in visual order.
     pub children: Vec<Fragment>,
+}
+
+impl LineFragment {
+    /// The space a line with no glyph run lends the annotations over the
+    /// line after it, in a flow whose font is `font_size` (Blink's
+    /// `ComputeAnnotationOverflow`, block-end space): its content reaches
+    /// from the baseline and each atomic inline's top down to the baseline
+    /// and each atomic inline's own block size from the line's top, and
+    /// what lies below that is lent; content shorter than the font size
+    /// counts as an empty line's, the font size centred in the box (see
+    /// [`empty_line_half_leading`](crate::empty_line_half_leading)).
+    pub fn glyphless_end_space(&self, font_size: f64) -> f64 {
+        let (mut over, mut under) = (self.baseline, self.baseline);
+        for child in &self.children {
+            if let Fragment::Image(_) | Fragment::Box(_) = child {
+                let rect = child.rect();
+                over = over.min(rect.y);
+                under = under.max(rect.height);
+            }
+        }
+        if under - over < font_size {
+            return crate::empty_line_half_leading(self.rect.height, font_size);
+        }
+        (self.rect.height - under).max(0.0)
+    }
 }
 
 /// An outside list-item marker: a filled disc whose geometry Blink derives
@@ -143,6 +248,66 @@ pub struct TextFragment {
     /// browser; the anchors it was laid out from stay with it. `None`: one
     /// segment, from `rect.x`.
     pub segments: Option<std::rc::Rc<[TextSegment]>>,
+    /// How each cluster stands, in cluster order, when the line is
+    /// vertical; `None` on a horizontal line.
+    pub orientations: Option<std::rc::Rc<[ClusterOrientation]>>,
+}
+
+/// How one cluster of a vertical line stands, and where its glyphs lie
+/// from the point the line puts the cluster at: its place down the line,
+/// on the run's baseline. Distances across the line run towards the
+/// line-under side.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ClusterOrientation {
+    /// Upright: the glyph's centre line lies `center` across from the
+    /// run's baseline, its horizontal origin `half_advance` (half its
+    /// horizontal advance) further and `vertical_origin` (its face's
+    /// vertical origin) down the line.
+    Upright {
+        center: f64,
+        half_advance: f64,
+        vertical_origin: f64,
+    },
+    /// Sideways: set as horizontal text turned a quarter clockwise, its
+    /// alphabetic baseline `baseline` across from the run's baseline.
+    Sideways { baseline: f64 },
+    /// Combined upright (`text-combine-upright: all`): the clusters of one
+    /// text item set as one horizontal string within an em of the line.
+    /// The string starts `across` from the run's baseline and its
+    /// alphabetic baseline lies `down` the line from the unit's place,
+    /// drawn in `forms` and, when even those overflow the unit, scaled
+    /// `scale_x` wide about its start. Every cluster of the unit carries
+    /// the same values; all but the first `continue` it.
+    Combined {
+        across: f64,
+        down: f64,
+        scale_x: f64,
+        forms: CombinedForms,
+        continues: bool,
+    },
+}
+
+/// The glyph forms a combined upright string is drawn in: its face's own,
+/// or the OpenType half-, third- or quarter-width forms (`hwid`, `twid`,
+/// `qwid`) the browser compresses an overlong string into.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CombinedForms {
+    Proportional,
+    Half,
+    Third,
+    Quarter,
+}
+
+impl CombinedForms {
+    /// The OpenType feature that selects the forms, if any.
+    pub fn feature(self) -> Option<&'static str> {
+        match self {
+            CombinedForms::Proportional => None,
+            CombinedForms::Half => Some("hwid"),
+            CombinedForms::Third => Some("twid"),
+            CombinedForms::Quarter => Some("qwid"),
+        }
+    }
 }
 
 /// A stretch of a text fragment's clusters placed from one origin.
@@ -265,6 +430,10 @@ pub struct ClusterPosition {
     /// or kerning added, no glyph offset) in the same face, under the
     /// float law. Such a cluster needs no origin of its own.
     pub joins: bool,
+    /// Whether the cluster continues a ligature: it has no glyph of its
+    /// own, the ligature's start draws it, and a pen draws the two in one
+    /// string.
+    pub continues_ligature: bool,
 }
 
 /// One laid-out atomic inline (an image) inside a line.
@@ -309,6 +478,36 @@ impl Fragment {
             Self::Line(fragment) => fragment.rect,
             Self::Text(fragment) => fragment.rect,
             Self::Image(fragment) => fragment.rect,
+        }
+    }
+
+    /// The border-box rectangle, to move or resize in place.
+    pub fn rect_mut(&mut self) -> &mut FragmentRect {
+        match self {
+            Self::Box(fragment) => &mut fragment.rect,
+            Self::Line(fragment) => &mut fragment.rect,
+            Self::Text(fragment) => &mut fragment.rect,
+            Self::Image(fragment) => &mut fragment.rect,
+        }
+    }
+
+    /// The tops of the first and the last line box in this fragment's flow
+    /// (itself when it is one), relative to its own top, or `None` when it
+    /// holds none.
+    pub fn line_top_span(&self) -> Option<(f64, f64)> {
+        match self {
+            Self::Line(_) => Some((0.0, 0.0)),
+            Self::Box(fragment) => fragment
+                .children
+                .iter()
+                .filter_map(|child| {
+                    let top = child.rect().y;
+                    child
+                        .line_top_span()
+                        .map(|(first, last)| (top + first, top + last))
+                })
+                .reduce(|(first, last), (start, end)| (first.min(start), last.max(end))),
+            Self::Text(_) | Self::Image(_) => None,
         }
     }
 }

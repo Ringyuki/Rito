@@ -156,6 +156,7 @@ fn font_face() -> RuntimeRequiredFontFace {
         shape_fingerprint: "shape".to_owned(),
         byte_length: 123,
         source_order: 0,
+        features: Vec::new(),
     }
 }
 

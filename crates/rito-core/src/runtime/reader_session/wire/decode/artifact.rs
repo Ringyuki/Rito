@@ -1,8 +1,8 @@
 use super::{locator, source_point, text_profile};
 use crate::runtime::reader_session::wire::primitives::{invalid, Reader, MAX_SEMANTIC_DEPTH};
 use crate::runtime::reader_session::{
-    ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontRef,
-    ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
+    ReaderAdjacentAvailability, ReaderArtifact, ReaderDisplayList, ReaderError, ReaderFontFeature,
+    ReaderFontRef, ReaderHitEntry, ReaderHitKind, ReaderLocatorMatch, ReaderNavigation, ReaderPage,
     ReaderPageRecords, ReaderRect, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode,
     ReaderSemanticRole, ReaderTextRunOffset, READER_PROTOCOL_VERSION,
 };
@@ -31,6 +31,9 @@ pub(super) fn body(reader: &mut Reader<'_>) -> Result<ReaderArtifact, ReaderErro
         height: reader.f64("artifact height")?,
         book_page_index: reader.option("book page index", Reader::u32)?,
         book_page_count: reader.option("book page count", Reader::u32)?,
+        target_block_offset: reader.option("target block offset", |reader| {
+            reader.f64("target block offset")
+        })?,
         navigation: ReaderNavigation {
             previous: adjacent_availability(reader.u32()?)?,
             next: adjacent_availability(reader.u32()?)?,
@@ -87,6 +90,12 @@ fn fonts(reader: &mut Reader<'_>) -> Result<Vec<ReaderFontRef>, ReaderError> {
                 weight: reader.u16()?,
                 shape_fingerprint: reader.string("font shape fingerprint")?,
                 byte_length: reader.u64()?,
+                features: reader.collection("font features", |reader| {
+                    Ok(ReaderFontFeature {
+                        tag: reader.string("font feature tag")?,
+                        value: reader.u32()?,
+                    })
+                })?,
             })
         })
     })

@@ -9,7 +9,7 @@ use style::properties::ComputedValues;
 use crate::dom::{DomNode, DomStorage};
 
 mod cache;
-mod enums;
+pub(in crate::projection) mod enums;
 mod font;
 mod fragment;
 mod numeric;
@@ -84,6 +84,8 @@ pub enum InlineStyleField {
     IndividualTranslate,
     /// This element's own computed text-decoration longhands.
     TextDecoration,
+    /// Computed text-emphasis color.
+    TextEmphasisColor,
     /// Ordered text-shadow list.
     TextShadow,
     /// Ordered box-shadow list.

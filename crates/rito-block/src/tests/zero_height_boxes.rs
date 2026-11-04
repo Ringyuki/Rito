@@ -156,9 +156,10 @@ fn an_empty_box_keeps_a_padded_wrappers_head_on_the_first_page() {
         ConstraintSpace::fragmented(100.0, 8.0),
     );
     assert_eq!(pages.len(), 2);
+    // The head breaks before the plate and keeps the rest of the page.
     assert_eq!(
         heights(&pages[0]),
-        vec![0.0, 2.0],
+        vec![0.0, 8.0],
         "empty box, padding-only head"
     );
     let second = box_children(&pages[1]);
@@ -167,6 +168,24 @@ fn an_empty_box_keeps_a_padded_wrappers_head_on_the_first_page() {
         panic!("wrapper fragment is a box");
     };
     assert_eq!(wrapper.children.len(), 1, "the plate opens the second page");
+    // The wrapper's edges at the break belong to neither page's border:
+    // the head's block end and the continuation's block start are cut.
+    let Fragment::Box(head) = &box_children(&pages[0])[1] else {
+        panic!("wrapper head is a box");
+    };
+    assert_eq!(
+        (head.cuts, wrapper.cuts),
+        (
+            rito_fragment::BlockCuts {
+                start: false,
+                end: true
+            },
+            rito_fragment::BlockCuts {
+                start: true,
+                end: false
+            }
+        )
+    );
 }
 
 #[test]

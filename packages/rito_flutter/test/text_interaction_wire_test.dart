@@ -6,28 +6,11 @@ import 'package:rito_flutter/rito_flutter_protocol.dart';
 
 import 'support/rust_fixture.dart';
 
-/// The request bytes are read from the Rust test that pins them
-/// (`reader_session/interaction_tests.rs`). The response strings below
-/// were produced by the Rust encoder from the fixtures in the same file;
-/// regenerate them from Rust whenever a message changes shape.
-const String _selectionHex =
-    '5249544f5449523101000000ee01000000000000090000000000000001016f00'
-    '0000000000001500000000000000030000000200000001000000000000000400'
-    '0000010100000000000029400000000000004440000000000000324015000000'
-    '4f454250532f636861707465722d322e7868746d6c1800000000000000030000'
-    '000100000000000000040000000c00000000000000003e010000000000001500'
-    '0000000000000300000002000000010000000000000004000000011500000000'
-    '0000000300000002000000010000000000000014000000001500000000000000'
-    '0300000002000000010000000000000004000000011500000000000000030000'
-    '000200000001000000000000001400000000100000007468652071756f746564'
-    '20776f726473150000004f454250532f636861707465722d322e7868746d6c18'
-    '00000000000000030000000100000000000000040000000c0000000000000015'
-    '0000004f454250532f636861707465722d322e7868746d6c1800000000000000'
-    '030000000100000000000000040000001c000000000000000100000038000000'
-    '0000000003000000000000000000294000000000000044400000000000105640'
-    '0000000000003240020000000100000000000000040000001400000001000000'
-    '0000205e40010000000000c47240';
-
+/// The request bytes and the selection response are read from the Rust
+/// test that pins them (`reader_session/interaction_tests.rs`). The
+/// annotation strings below were produced by the Rust encoder from the
+/// fixtures in the same file; regenerate them from Rust whenever a message
+/// changes shape.
 const String _createHex =
     '5249544f414e5131010000007e00000000000000070000000000000000150000'
     '004f454250532f636861707465722d322e7868746d6c40000000000000001800'
@@ -119,7 +102,7 @@ void main() {
 
   test('RITOTIR1 decodes a selection the engine encoded', () {
     final response = const RitoTextInteractionDecoder().decode(
-      _bytes(_selectionHex),
+      rustFixtureBytes('interaction_tests.rs', 'SELECTION_HEX'),
     );
     expect(response.artifactId, 9);
     final result = response.result as RitoSelectionResult;
@@ -127,7 +110,9 @@ void main() {
     expect(anchor.address.pageIndex, 3);
     expect(anchor.address.position.charIndex, 4);
     expect(anchor.address.affinity, RitoCaretAffinity.downstream);
-    expect(anchor.geometry!.height, 18.0);
+    expect(anchor.geometry!.width, 18.0);
+    expect(anchor.geometry!.height, 0.0);
+    expect(anchor.writingMode, RitoWritingMode.verticalRl);
     expect(anchor.href, 'OEBPS/chapter-2.xhtml');
     expect(anchor.sourcePoint.nodePath, <int>[1, 0, 4]);
     expect(result.focusCaret, isNull);
@@ -141,7 +126,7 @@ void main() {
 
   test('RITOTIR1 rejects every truncated prefix and an unknown tag', () {
     const decoder = RitoTextInteractionDecoder();
-    final bytes = _bytes(_selectionHex);
+    final bytes = rustFixtureBytes('interaction_tests.rs', 'SELECTION_HEX');
     for (var end = 0; end < bytes.length; end += 1) {
       expect(
         () => decoder.decode(Uint8List.sublistView(bytes, 0, end)),

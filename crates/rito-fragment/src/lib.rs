@@ -19,24 +19,29 @@ mod context;
 mod formatting_tree;
 mod fragment;
 mod serialize;
+mod writing;
 
 pub use break_token::{BreakToken, BreakTokenStage, FloatBreak};
 pub use cache::{CachedLayout, FragmentCache};
-pub use constraint_space::{ConstraintSpace, FloatBand, LineText};
+pub use constraint_space::{
+    empty_line_half_leading, ConstraintSpace, FloatBand, LineText, PrecedingLine,
+};
 pub use context::{
-    CancelFlag, EscapedFloat, FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
-    PendingPositioned,
+    AtomicBlockLayout, AtomicBlockSizes, BlockLayoutDelegate, CancelFlag, EscapedFloat,
+    FormattingContext, IntrinsicInlineSizes, LayoutError, LayoutOutcome, PendingPositioned,
 };
 pub use formatting_tree::{
     allocate_ruby_annotation, allocate_ruby_annotation_range, distribute_ruby_annotation,
-    FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree, FormattingTreeStyles,
-    InlineItem, RubyAnnotation,
+    AtomAlign, FormattingNode, FormattingNodeContent, FormattingNodeId, FormattingTree,
+    FormattingTreeStyles, InlineItem, RubyAnnotation,
 };
 pub use fragment::{
-    BoxFragment, BoxSnap, ClusterPosition, FontFaceId, Fragment, FragmentRect, FragmentTree,
-    ImageFragment, LineFragment, MarkerFragment, TextFragment, TextSegment,
+    BlockCuts, BoxFragment, BoxSnap, ClusterOrientation, ClusterPosition, CombinedForms,
+    FontFaceId, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFonts, LineFragment,
+    MarkerFragment, TextFragment, TextSegment,
 };
 pub use serialize::{decode_layout_outcome, encode_layout_outcome};
+pub use writing::WritingModeConverter;
 
 /// The one stub provider this crate ships: bounded vertical block stacking
 /// with fragmentainer breaks, enough for the substrate's own contract tests.

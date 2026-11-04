@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   Bug,
   ChevronLeft,
@@ -51,30 +51,18 @@ export function ReaderContextMenu({
   onFileLoad,
   children,
 }: Props) {
-  const hasSelection = reader.selection.hasSelection && reader.selection.text.length > 0;
-  const canPrev = reader.isLoaded && reader.currentSpread > 0;
-  const canNext = reader.isLoaded && reader.currentSpread < reader.spreads.length - 1;
+  const selection = useMenuSelection(reader);
+  const turns = menuTurns(reader);
+  const hasSelection = selection.text.length > 0;
   const { inputRef, handleChange, openFilePicker } = useFileLoader(onFileLoad);
 
   const handleCopy = useCallback(() => {
-    if (!reader.selection.text) return;
-    void navigator.clipboard.writeText(reader.selection.text).catch(() => {
+    if (!selection.text) return;
+    void navigator.clipboard.writeText(selection.text).catch(() => {
       // Clipboard access may be denied; swallow silently.
     });
-    reader.selection.clear();
-  }, [reader.selection]);
-
-  const handleHighlight = useCallback(() => {
-    if (!reader.selection.hasSelection) return;
-    reader.annotations
-      .add({ kind: 'highlight', color: ANNOTATION_COLORS[0].value })
-      .catch((error: unknown) => {
-        toast.error('Could not add the highlight', {
-          description: error instanceof Error ? error.message : String(error),
-        });
-      });
-    reader.selection.clear();
-  }, [reader.annotations, reader.selection]);
+    selection.clear();
+  }, [selection]);
 
   const handleCopyDebugLog = useCallback(() => {
     void copyDebugReport().then((outcome) => {
@@ -85,12 +73,12 @@ export function ReaderContextMenu({
   }, []);
 
   const handleSearchSelection = useCallback(() => {
-    if (!reader.selection.text) return;
-    const text = reader.selection.text;
-    reader.selection.clear();
+    if (!selection.text) return;
+    const text = selection.text;
+    selection.clear();
     reader.search.setQuery(text);
     reader.setSearchOpen(true);
-  }, [reader]);
+  }, [reader, selection]);
 
   return (
     <ContextMenu>
@@ -106,7 +94,7 @@ export function ReaderContextMenu({
               Copy
               <ContextMenuShortcut>⌘C</ContextMenuShortcut>
             </ContextMenuItem>
-            <ContextMenuItem onSelect={handleHighlight}>
+            <ContextMenuItem onSelect={selection.highlight}>
               <Highlighter className="h-4 w-4" />
               Highlight
             </ContextMenuItem>
@@ -128,25 +116,15 @@ export function ReaderContextMenu({
           Contents
         </ContextMenuItem>
 
-        <ContextMenuItem
-          onSelect={() => {
-            reader.prevSpread();
-          }}
-          disabled={!canPrev}
-        >
+        <ContextMenuItem onSelect={turns.prev} disabled={!turns.canPrev}>
           <ChevronLeft className="h-4 w-4" />
           Previous Page
-          <ContextMenuShortcut>←</ContextMenuShortcut>
+          <ContextMenuShortcut>{turns.prevKey}</ContextMenuShortcut>
         </ContextMenuItem>
-        <ContextMenuItem
-          onSelect={() => {
-            reader.nextSpread();
-          }}
-          disabled={!canNext}
-        >
+        <ContextMenuItem onSelect={turns.next} disabled={!turns.canNext}>
           <ChevronRight className="h-4 w-4" />
           Next Page
-          <ContextMenuShortcut>→</ContextMenuShortcut>
+          <ContextMenuShortcut>{turns.nextKey}</ContextMenuShortcut>
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -176,4 +154,61 @@ export function ReaderContextMenu({
       </ContextMenuContent>
     </ContextMenu>
   );
+}
+
+/**
+ * What is selected, the pages' or the scroll view's while the book is read
+ * scrolled, and what the menu does with it.
+ */
+function useMenuSelection(reader: ReturnType<typeof useReader>) {
+  const scrolled = reader.spreadMode === 'scrolled';
+  const text = scrolled ? (reader.scroll.selection?.text ?? '') : reader.selection.text;
+  const view = reader.scroll.controller;
+  const { annotations, annotateScrollSelection } = reader;
+  const pageSelection = reader.selection;
+  const clear = useCallback(() => {
+    if (scrolled) view?.clearSelection();
+    else pageSelection.clear();
+  }, [pageSelection, scrolled, view]);
+  const highlight = useCallback(() => {
+    const color = ANNOTATION_COLORS[0].value;
+    if (scrolled) {
+      void annotateScrollSelection('highlight', color);
+      return;
+    }
+    if (!pageSelection.hasSelection) return;
+    annotations.add({ kind: 'highlight', color }).catch((error: unknown) => {
+      toast.error('Could not add the highlight', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    });
+    pageSelection.clear();
+  }, [annotateScrollSelection, annotations, pageSelection, scrolled]);
+  return useMemo(() => ({ text, clear, highlight }), [clear, highlight, text]);
+}
+
+/** A page back and on: a turn, or a page of the strip while the book is read scrolled. */
+function menuTurns(reader: ReturnType<typeof useReader>) {
+  if (reader.spreadMode === 'scrolled') {
+    const view = reader.scroll.controller;
+    const by = (direction: number) => () => {
+      if (view) view.scrollBy(direction * view.pageLength, { animate: true });
+    };
+    return {
+      prev: by(-1),
+      next: by(1),
+      canPrev: view !== null && reader.scroll.progress > 0,
+      canNext: view !== null && reader.scroll.progress < 1,
+      prevKey: 'PgUp',
+      nextKey: 'PgDn',
+    };
+  }
+  return {
+    prev: reader.prevSpread,
+    next: reader.nextSpread,
+    canPrev: reader.isLoaded && reader.currentSpread > 0,
+    canNext: reader.isLoaded && reader.currentSpread < reader.spreads.length - 1,
+    prevKey: '←',
+    nextKey: '→',
+  };
 }

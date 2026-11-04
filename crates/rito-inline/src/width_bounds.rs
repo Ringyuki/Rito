@@ -68,6 +68,13 @@ impl WidthBounds {
         self.hi = f64::NEG_INFINITY;
     }
 
+    /// Narrows the bounds to the sizes `other` holds for as well: the
+    /// decisions it recorded, replayed.
+    pub(crate) fn intersect(&mut self, other: &WidthBounds) {
+        self.lo = self.lo.max(other.lo);
+        self.hi = self.hi.min(other.hi);
+    }
+
     /// The bounds, when they hold the inline size they were recorded at.
     pub(crate) fn range(&self) -> Option<(f64, f64)> {
         (self.lo <= self.inline_size && self.inline_size < self.hi).then_some((self.lo, self.hi))

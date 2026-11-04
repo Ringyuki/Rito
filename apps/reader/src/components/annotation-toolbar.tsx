@@ -17,42 +17,55 @@ interface Props {
   annotations: ReturnType<typeof useReader>['annotations'];
 }
 
-type AnnotationKind = 'highlight' | 'underline' | 'note';
+export type AnnotationKind = 'highlight' | 'underline' | 'note';
+
+interface SelectionToolbarProps {
+  /** The selection's focus, which the toolbar stands over, in its container's CSS pixels. */
+  readonly anchor: { readonly x: number; readonly y: number };
+  /** Makes the selection an annotation; the toolbar is done with it then. */
+  readonly onAnnotate: (kind: AnnotationKind, color: string, note?: string) => void;
+}
 
 function stop(e: React.SyntheticEvent): void {
   e.stopPropagation();
   e.nativeEvent.stopImmediatePropagation();
 }
 
+/** The paged reader's selection, made an annotation through the controller. */
+export function AnnotationToolbar({ selection, annotations }: Props) {
+  if (!selection.hasSelection || !selection.focusRect || !selection.text) {
+    return null;
+  }
+  return (
+    <SelectionToolbar
+      // focusRect lives in viewport-logical coordinates, the container's CSS px.
+      anchor={selection.focusRect}
+      onAnnotate={(kind, color, note) => {
+        annotations.add({ kind, color, ...(note ? { note } : {}) }).catch((error: unknown) => {
+          toast.error('Could not add the annotation', {
+            description: error instanceof Error ? error.message : String(error),
+          });
+        });
+        selection.clear();
+      }}
+    />
+  );
+}
+
 /**
  * What the selection becomes: a highlight in one of four colours, an
- * underline, or a note (a highlight that carries text).
+ * underline, or a note (a highlight that carries text), over its focus.
  */
-export function AnnotationToolbar({ selection, annotations }: Props) {
+export function SelectionToolbar({ anchor, onAnnotate }: SelectionToolbarProps) {
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState('');
   const [pickedColor, setPickedColor] = useState(ANNOTATION_COLORS[0].value as string);
 
-  if (!selection.hasSelection || !selection.focusRect || !selection.text) {
-    return null;
-  }
-
-  const anchor = selection.focusRect;
-
-  // focusRect lives in viewport-logical coordinates, so convert it to display CSS px.
   const top = anchor.y - (showNote ? 110 : 60);
   const left = anchor.x;
 
   const submit = (kind: AnnotationKind, color: string, noteText?: string) => {
-    if (!selection.hasSelection) return;
-    annotations
-      .add({ kind, color, ...(noteText ? { note: noteText } : {}) })
-      .catch((error: unknown) => {
-        toast.error('Could not add the annotation', {
-          description: error instanceof Error ? error.message : String(error),
-        });
-      });
-    selection.clear();
+    onAnnotate(kind, color, noteText);
     setShowNote(false);
     setNote('');
   };

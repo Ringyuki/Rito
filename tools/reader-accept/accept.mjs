@@ -2,9 +2,7 @@
 // latency in the real reader, judged only by public controller calls and
 // canvas pixels, and the same font-size change made through the settings
 // panel.
-import { createRequire } from 'node:module';
-const require = createRequire(new URL('../../apps/reader/package.json', import.meta.url));
-const { chromium } = require('@playwright/test');
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 
 const READER_URL = process.env.URL ?? 'http://127.0.0.1:4317/';
 const BOOK = process.env.BOOK;
@@ -13,7 +11,7 @@ const viewport =
   VIEW === 'phone' ? { width: 393, height: 760, dsf: 3 } : { width: 1280, height: 860, dsf: 2 };
 const RUNS = Number(process.env.RUNS ?? 3);
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const out = [];
 for (let run = 0; run < RUNS; run++) {
   const page = await browser.newPage({

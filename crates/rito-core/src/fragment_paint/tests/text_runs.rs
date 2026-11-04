@@ -103,10 +103,15 @@ fn a_baseline_rounds_the_line_top_on_css_pixels_and_the_sum_on_the_device_grid()
                 },
                 baseline: within_line,
                 trailing_whitespace: 0.0,
-                ruby_growth: 0.0,
+                annotation_growth: 0.0,
+                annotation_overflow: 0.0,
+                annotation_lent: 0.0,
+                annotation_space_end: 0.0,
+                fonts: rito_fragment::LineFonts::None,
                 text_runs: Vec::new(),
                 children: vec![text_run(0.0, 8.0, 0, 1)],
             })],
+            cuts: rito_fragment::BlockCuts::NONE,
         });
         let mut commands = Vec::new();
         append_fragment_display_commands(

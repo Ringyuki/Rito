@@ -15,6 +15,7 @@ import { decodeRitoReaderPublication } from '../src/reader-session-publication-r
 import { createRitoCoreWasmReaderSessionWorkerClient } from '../src/reader-session-worker-client-runtime.js';
 import {
   READER_LIVE_ARTIFACT_CAP,
+  READER_SCROLLED_LIVE_ARTIFACT_CAP,
   createRitoCoreWasmReaderSessionWorkerHandler,
 } from '../src/reader-session-worker-runtime.js';
 import {
@@ -956,14 +957,99 @@ test('latest-wins seek keeps one active + one replaceable request and releases s
   assert.equal(initial.artifactId, 1n, 'visible source remains live until the host releases it');
 });
 
-test('worker refuses at the live-artifact cap the engine declares', () => {
+test('worker refuses at the live-artifact caps the engine declares', () => {
   const engine = readFileSync(
     new URL('../../../crates/rito-core/src/runtime/reader_session/session.rs', import.meta.url),
     'utf8',
   );
-  const declared = /pub const READER_LIVE_ARTIFACT_CAP: u32 = (\d+);/.exec(engine);
-  assert.ok(declared, 'the engine declares its live-artifact cap');
-  assert.equal(READER_LIVE_ARTIFACT_CAP, Number(declared[1]));
+  const declared = (name) => {
+    const match = new RegExp(`pub const ${name}: u32 = (\\d+);`).exec(engine);
+    assert.ok(match, `the engine declares ${name}`);
+    return Number(match[1]);
+  };
+  assert.equal(READER_LIVE_ARTIFACT_CAP, declared('READER_LIVE_ARTIFACT_CAP'));
+  assert.equal(READER_SCROLLED_LIVE_ARTIFACT_CAP, declared('READER_SCROLLED_LIVE_ARTIFACT_CAP'));
+});
+
+test('a scrolled session holds its own cap, and a window peeked from it counts against it', async () => {
+  const scope = workerScope();
+  let artifactId = 0n;
+  const created = () => {
+    artifactId += 1n;
+    return artifactId;
+  };
+  class RawSession {
+    requestArtifact(requestBytes) {
+      const identity = requestIdentity(requestBytes);
+      return artifactWire(identity.sessionId, identity.requestId, created(), 'Text/chapter.xhtml');
+    }
+
+    peekSpread(requestBytes) {
+      const reader = new ReaderWireReader(requestBytes);
+      reader.expectMagic('RITOSPQ1', 'magic');
+      reader.u32('version');
+      reader.u64('length');
+      const sessionId = reader.externalId('session');
+      const requestId = reader.externalId('request');
+      return artifactWire(sessionId, requestId, created(), 'Text/chapter.xhtml');
+    }
+
+    releaseArtifact() {
+      return true;
+    }
+
+    dispose() {
+      return true;
+    }
+  }
+  createRitoCoreWasmReaderSessionWorkerHandler(scope, {
+    initRitoCoreWasm: async () => undefined,
+    RitoReaderSession: RawSession,
+  });
+  const scrolled = (requestId) => {
+    const base = request('Text/chapter.xhtml');
+    return {
+      sessionId: 9n,
+      requestId,
+      ...base,
+      layout: { ...base.layout, spreadMode: 'scrolled' },
+    };
+  };
+  const send = async (id, kind, body) => {
+    scope.dispatch({ protocol: 'rito-reader-session', id, kind, ...body });
+    await settle();
+    await settle();
+    return scope.responses.at(-1).message;
+  };
+  const peek = (id) =>
+    send(id, 'peek-spread', {
+      request: { sessionId: 9n, requestId: BigInt(id), fromArtifactId: 1n, spreadIndex: 0 },
+    });
+
+  assert.ok(
+    (
+      await send(1, 'open', {
+        publication: new ArrayBuffer(1),
+        sessionId: 9n,
+        request: scrolled(1n),
+      })
+    ).ok,
+  );
+  for (let id = 2; id <= READER_LIVE_ARTIFACT_CAP; id += 1) {
+    assert.ok((await send(id, 'request-artifact', { request: scrolled(BigInt(id)) })).ok);
+  }
+  // Past the paged cap, a window peeked from a scrolled one still fits.
+  for (let id = READER_LIVE_ARTIFACT_CAP + 1; id <= READER_SCROLLED_LIVE_ARTIFACT_CAP; id += 1) {
+    assert.ok((await peek(id)).ok, `window ${String(id)} fits the scrolled cap`);
+  }
+  const refused = await peek(READER_SCROLLED_LIVE_ARTIFACT_CAP + 1);
+  assert.equal(refused.error.code, 'artifact-capacity');
+  assert.equal(artifactId, BigInt(READER_SCROLLED_LIVE_ARTIFACT_CAP));
+  // A request of pages answers to the paged cap whatever the session holds.
+  const paged = await send(READER_SCROLLED_LIVE_ARTIFACT_CAP + 2, 'request-artifact', {
+    request: { ...scrolled(BigInt(READER_SCROLLED_LIVE_ARTIFACT_CAP + 2)), layout },
+  });
+  assert.equal(paged.error.code, 'artifact-capacity');
 });
 
 test('worker bounds live artifact ownership and reopens capacity only after release', async () => {

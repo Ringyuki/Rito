@@ -33,6 +33,7 @@ mod generated;
 mod inline;
 mod layout;
 mod length;
+mod logical;
 mod paint;
 mod scalar;
 mod table;
@@ -49,14 +50,15 @@ pub use fragment::{
     InlineFragmentStyle, PhysicalSides,
 };
 pub use generated::{GeneratedBox, GeneratedBoxTable, GeneratedContentItem, PseudoElementKind};
-pub use inline::{FontStyle, InlineBidi, InlineFormattingStyle};
+pub use inline::{FontStyle, InlineBidi, InlineEdge, InlineFormattingStyle};
 pub use layout::{
     AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,
     LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleId,
-    LayoutStyleTable, LayoutStyleTableError, ListMarkerStyle, MaximumHeight, MaximumSize,
-    MinimumHeight, ObjectFit, Overflow, PageBreak, Position, PreferredSize,
+    LayoutStyleTable, LayoutStyleTableError, ListMarkerStyle, MaximumSize, MinimumSize, ObjectFit,
+    Overflow, PageBreak, Position, PreferredSize,
 };
 pub use length::{LengthPercentage, LengthPercentageOrAuto, NonNegativeLengthPercentage};
+pub use logical::{LogicalAxes, LogicalSides, WritingDirection};
 pub use paint::{
     BackgroundImagePaint, BackgroundImagePosition, BackgroundImageRepeat, BackgroundImageSize,
     BackgroundSizeAxis, BorderEdge, BorderEdges, BorderStyle, BoxShadow, InlinePaintStyle,
@@ -69,8 +71,9 @@ pub use scalar::{
 };
 pub use table::{InlineStyleTable, StyleId, StyleTableError};
 pub use text::{
-    Direction, InlineTextFlow, LanguageTag, LineBreak, OverflowWrap, RubyAlign, TextAlign,
-    TextIndent, TextJustify, TextTransform, TextTransformCase, TextWrapMode, UnicodeBidi,
-    WhiteSpaceCollapse, WordBreak, WritingMode,
+    Direction, InlineTextFlow, LanguageTag, LineBreak, LineSide, OverflowWrap, RubyAlign,
+    TextAlign, TextCombineUpright, TextEmphasis, TextIndent, TextJustify, TextOrientation,
+    TextTransform, TextTransformCase, TextWrapMode, UnicodeBidi, WhiteSpaceCollapse, WordBreak,
+    WritingMode,
 };
 pub use transform::{TransformList, TransformListError, TransformOperation};

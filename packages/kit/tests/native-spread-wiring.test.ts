@@ -52,6 +52,7 @@ describe('native target spread lifecycle', () => {
       frameDriver: { markOverlayDirty: vi.fn() },
       getCurrentSpread: () => currentSpread,
       getRenderScale: () => 1,
+      isSuspended: () => false,
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
     wireSpreadRendered(deps, disposables);
@@ -116,6 +117,7 @@ describe('native target spread lifecycle', () => {
       frameDriver: { markOverlayDirty },
       getCurrentSpread: () => currentSpread,
       getRenderScale: () => 1,
+      isSuspended: () => false,
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
     wireSpreadRendered(deps, disposables);
@@ -198,6 +200,7 @@ describe('native target spread lifecycle', () => {
       getRenderScale: () => 1,
       notifyNavigationContentReady: vi.fn(),
       syncViewport: vi.fn(),
+      isSuspended: () => false,
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
     wireSpreadRendered(deps, disposables);
@@ -263,6 +266,7 @@ describe('native target spread lifecycle', () => {
       getCurrentSpread: () => 0,
       getRenderScale: () => 1,
       notifyNavigationContentReady: vi.fn(),
+      isSuspended: () => false,
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
     wireSpreadRendered(deps, disposables);
@@ -311,6 +315,7 @@ describe('native target spread lifecycle', () => {
       getRenderScale: () => 1,
       notifyNavigationContentReady,
       prerenderAdjacent,
+      isSuspended: () => false,
     } as unknown as WiringDeps;
     const disposables = createDisposableCollection();
     wireSpreadRendered(deps, disposables);

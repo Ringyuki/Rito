@@ -10,7 +10,8 @@ use crate::break_token::{BreakToken, BreakTokenStage};
 use crate::context::LayoutOutcome;
 use crate::formatting_tree::FormattingNodeId;
 use crate::fragment::{
-    BoxFragment, Fragment, FragmentRect, FragmentTree, ImageFragment, LineFragment, TextFragment,
+    BlockCuts, BoxFragment, ClusterOrientation, CombinedForms, Fragment, FragmentRect,
+    FragmentTree, ImageFragment, LineFonts, LineFragment, TextFragment,
 };
 
 const FRAGMENT_TAG_BOX: u8 = 0;
@@ -67,6 +68,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             out.push(FRAGMENT_TAG_BOX);
             out.extend_from_slice(&fragment.source.0.to_le_bytes());
             encode_rect(&fragment.rect, out);
+            out.push(u8::from(fragment.cuts.start) | (u8::from(fragment.cuts.end) << 1));
             out.extend_from_slice(&(fragment.children.len() as u32).to_le_bytes());
             for child in &fragment.children {
                 encode_fragment(child, out);
@@ -78,7 +80,18 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
             encode_rect(&fragment.rect, out);
             out.extend_from_slice(&fragment.baseline.to_bits().to_le_bytes());
             out.extend_from_slice(&fragment.trailing_whitespace.to_bits().to_le_bytes());
-            out.extend_from_slice(&fragment.ruby_growth.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_growth.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_overflow.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_lent.to_bits().to_le_bytes());
+            out.extend_from_slice(&fragment.annotation_space_end.to_bits().to_le_bytes());
+            match fragment.fonts {
+                LineFonts::None => out.push(0),
+                LineFonts::One(face) => {
+                    out.push(1);
+                    out.extend_from_slice(&face.0.to_le_bytes());
+                }
+                LineFonts::Several => out.push(2),
+            }
             match &fragment.marker {
                 None => out.push(0),
                 Some(marker) => {
@@ -137,7 +150,7 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                 out.extend_from_slice(&cluster.byte.to_le_bytes());
                 out.extend_from_slice(&cluster.x.to_bits().to_le_bytes());
                 out.extend_from_slice(&cluster.face.0.to_le_bytes());
-                out.push(u8::from(cluster.joins));
+                out.push(u8::from(cluster.joins) | (u8::from(cluster.continues_ligature) << 1));
             }
             out.push(u8::from(fragment.cluster_grid));
             match &fragment.segments {
@@ -148,6 +161,50 @@ fn encode_fragment(fragment: &Fragment, out: &mut Vec<u8>) {
                     for segment in segments.iter() {
                         out.extend_from_slice(&segment.cluster.to_le_bytes());
                         out.extend_from_slice(&segment.x.to_bits().to_le_bytes());
+                    }
+                }
+            }
+            match &fragment.orientations {
+                None => out.push(0),
+                Some(orientations) => {
+                    out.push(1);
+                    out.extend_from_slice(&(orientations.len() as u32).to_le_bytes());
+                    for orientation in orientations.iter() {
+                        match orientation {
+                            ClusterOrientation::Upright {
+                                center,
+                                half_advance,
+                                vertical_origin,
+                            } => {
+                                out.push(0);
+                                for value in [center, half_advance, vertical_origin] {
+                                    out.extend_from_slice(&value.to_bits().to_le_bytes());
+                                }
+                            }
+                            ClusterOrientation::Sideways { baseline } => {
+                                out.push(1);
+                                out.extend_from_slice(&baseline.to_bits().to_le_bytes());
+                            }
+                            ClusterOrientation::Combined {
+                                across,
+                                down,
+                                scale_x,
+                                forms,
+                                continues,
+                            } => {
+                                out.push(2);
+                                for value in [across, down, scale_x] {
+                                    out.extend_from_slice(&value.to_bits().to_le_bytes());
+                                }
+                                out.push(match forms {
+                                    CombinedForms::Proportional => 0,
+                                    CombinedForms::Half => 1,
+                                    CombinedForms::Third => 2,
+                                    CombinedForms::Quarter => 3,
+                                });
+                                out.push(u8::from(*continues));
+                            }
+                        }
                     }
                 }
             }
@@ -173,6 +230,13 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
     let rect = decode_rect(reader)?;
     match tag {
         FRAGMENT_TAG_BOX => {
+            let cuts = match reader.u8()? {
+                bits @ 0..=3 => BlockCuts {
+                    start: bits & 1 != 0,
+                    end: bits & 2 != 0,
+                },
+                bits => return Err(format!("unknown box cut bits {bits}")),
+            };
             let child_count = reader.u32()? as usize;
             let mut children = Vec::with_capacity(child_count.min(reader.remaining()));
             for _ in 0..child_count {
@@ -182,12 +246,22 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 source,
                 rect,
                 children,
+                cuts,
             }))
         }
         FRAGMENT_TAG_LINE => {
             let baseline = reader.f64()?;
             let trailing_whitespace = reader.f64()?;
-            let ruby_growth = reader.f64()?;
+            let annotation_growth = reader.f64()?;
+            let annotation_overflow = reader.f64()?;
+            let annotation_lent = reader.f64()?;
+            let annotation_space_end = reader.f64()?;
+            let fonts = match reader.u8()? {
+                0 => LineFonts::None,
+                1 => LineFonts::One(crate::FontFaceId(reader.u32()?)),
+                2 => LineFonts::Several,
+                tag => return Err(format!("unknown line fonts tag {tag}")),
+            };
             let marker = match reader.u8()? {
                 0 => None,
                 1 => Some(crate::MarkerFragment {
@@ -212,7 +286,11 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 rect,
                 baseline,
                 trailing_whitespace,
-                ruby_growth,
+                annotation_growth,
+                annotation_overflow,
+                annotation_lent,
+                annotation_space_end,
+                fonts,
                 marker,
                 text_runs,
                 children,
@@ -245,15 +323,19 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
             let cluster_count = reader.u32()? as usize;
             let mut clusters = Vec::with_capacity(cluster_count.min(4096));
             for _ in 0..cluster_count {
+                let byte = reader.u32()?;
+                let x = reader.f64()?;
+                let face = crate::FontFaceId(reader.u32()?);
+                let flags = reader.u8()?;
+                if flags > 3 {
+                    return Err(format!("unknown cluster joins tag {flags}"));
+                }
                 clusters.push(crate::ClusterPosition {
-                    byte: reader.u32()?,
-                    x: reader.f64()?,
-                    face: crate::FontFaceId(reader.u32()?),
-                    joins: match reader.u8()? {
-                        0 => false,
-                        1 => true,
-                        tag => return Err(format!("unknown cluster joins tag {tag}")),
-                    },
+                    byte,
+                    x,
+                    face,
+                    joins: flags & 1 != 0,
+                    continues_ligature: flags & 2 != 0,
                 });
             }
             let cluster_grid = match reader.u8()? {
@@ -276,6 +358,41 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 }
                 tag => return Err(format!("unknown text segments tag {tag}")),
             };
+            let orientations = match reader.u8()? {
+                0 => None,
+                1 => {
+                    let count = reader.u32()? as usize;
+                    let mut orientations = Vec::with_capacity(count.min(4096));
+                    for _ in 0..count {
+                        orientations.push(match reader.u8()? {
+                            0 => ClusterOrientation::Upright {
+                                center: reader.f64()?,
+                                half_advance: reader.f64()?,
+                                vertical_origin: reader.f64()?,
+                            },
+                            1 => ClusterOrientation::Sideways {
+                                baseline: reader.f64()?,
+                            },
+                            2 => ClusterOrientation::Combined {
+                                across: reader.f64()?,
+                                down: reader.f64()?,
+                                scale_x: reader.f64()?,
+                                forms: match reader.u8()? {
+                                    0 => CombinedForms::Proportional,
+                                    1 => CombinedForms::Half,
+                                    2 => CombinedForms::Third,
+                                    3 => CombinedForms::Quarter,
+                                    tag => return Err(format!("unknown combined forms tag {tag}")),
+                                },
+                                continues: reader.u8()? != 0,
+                            },
+                            tag => return Err(format!("unknown cluster orientation tag {tag}")),
+                        });
+                    }
+                    Some(orientations.into())
+                }
+                tag => return Err(format!("unknown text orientations tag {tag}")),
+            };
             Ok(Fragment::Text(TextFragment {
                 source,
                 rect,
@@ -292,6 +409,7 @@ fn decode_fragment(reader: &mut Reader<'_>) -> Result<Fragment, String> {
                 clusters: clusters.into(),
                 cluster_grid,
                 segments,
+                orientations,
             }))
         }
         FRAGMENT_TAG_IMAGE => {
@@ -402,10 +520,12 @@ impl Reader<'_> {
         Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
     }
 
+    fn u64(&mut self) -> Result<u64, String> {
+        Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
+    }
+
     fn f64(&mut self) -> Result<f64, String> {
-        Ok(f64::from_bits(u64::from_le_bytes(
-            self.take(8)?.try_into().unwrap(),
-        )))
+        Ok(f64::from_bits(self.u64()?))
     }
 }
 
@@ -436,6 +556,7 @@ mod tests {
                                 height: 120.5,
                             },
                             children: Vec::new(),
+                            cuts: BlockCuts::NONE,
                         }),
                         Fragment::Box(BoxFragment {
                             source: FormattingNodeId(2),
@@ -446,8 +567,13 @@ mod tests {
                                 height: 79.5,
                             },
                             children: Vec::new(),
+                            cuts: BlockCuts {
+                                start: false,
+                                end: true,
+                            },
                         }),
                     ],
+                    cuts: BlockCuts::NONE,
                 }),
             },
             continuation: Some(BreakToken {
@@ -529,7 +655,11 @@ mod tests {
                         },
                         baseline: 14.8,
                         trailing_whitespace: 4.25,
-                        ruby_growth: 1.5,
+                        annotation_growth: 1.5,
+                        annotation_overflow: 2.0,
+                        annotation_lent: 0.5,
+                        annotation_space_end: -0.25,
+                        fonts: LineFonts::One(crate::FontFaceId(7)),
                         text_runs: vec![(0, 42)],
                         children: vec![Fragment::Text(TextFragment {
                             source: FormattingNodeId(0),
@@ -561,8 +691,27 @@ mod tests {
                             opener_trim_px: 0.0,
                             ruby_overhang_px: 0.75,
                             ruby_overhang_right_px: 0.75,
+                            orientations: Some(
+                                vec![
+                                    crate::ClusterOrientation::Upright {
+                                        center: -1.0,
+                                        half_advance: 9.0,
+                                        vertical_origin: 15.84,
+                                    },
+                                    crate::ClusterOrientation::Sideways { baseline: 5.0 },
+                                    crate::ClusterOrientation::Combined {
+                                        across: 4.5,
+                                        down: 14.5,
+                                        scale_x: 0.5,
+                                        forms: crate::CombinedForms::Half,
+                                        continues: true,
+                                    },
+                                ]
+                                .into(),
+                            ),
                         })],
                     })],
+                    cuts: BlockCuts::NONE,
                 }),
             },
             continuation: None,

@@ -1,6 +1,22 @@
 import 'artifact_models.dart';
 
-enum RitoSpreadMode { single, double }
+enum RitoSpreadMode {
+  single,
+  double,
+
+  /// Each chapter one continuous strip read through windows the size of
+  /// the viewport, every window its own spread. A book whose pages progress
+  /// right to left scrolls leftwards, others down (the revision layout's
+  /// scroll axis); a chapter whose blocks run across the book's axis is
+  /// paginated instead, each page one window. Window `k` of a strip covers
+  /// the chapter's CSS block range `[k·L, (k+1)·L)` from its block start
+  /// (`L` the viewport's height, or its width for a leftward strip; the last
+  /// window ends at the chapter's extent) and the device pixels
+  /// `[D(k), D(k+1))` along the axis, `D(k) = floor(k·L·ratio + 0.5)`, the
+  /// last ending at `floor(extent·ratio + 0.5)`: the windows tile the
+  /// chapter. A leftward strip starts at the right edge of its first window.
+  scrolled,
+}
 
 final class RitoLayoutRequest {
   const RitoLayoutRequest({

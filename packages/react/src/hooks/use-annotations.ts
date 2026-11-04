@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
@@ -29,9 +29,19 @@ export function useAnnotations(controller: ReaderController | null): Annotations
   update: (id: string, patch: AnnotationRecordPatch) => boolean;
   clearClicked: () => void;
 } {
-  const [annotations, setAnnotations] = useState<readonly AnnotationRecord[]>([]);
+  const [annotations, setAnnotations] = useState<readonly AnnotationRecord[]>(
+    () => controller?.annotations ?? [],
+  );
   const [clickedAnnotation, setClickedAnnotation] = useState<ResolvedAnnotation | null>(null);
   const [hover, setHover] = useState<AnnotationHover | null>(null);
+
+  // A controller starts from the records it holds: those its storage gave
+  // it before this hook listened are told by no event.
+  useEffect(() => {
+    setAnnotations(controller?.annotations ?? []);
+    setClickedAnnotation(null);
+    setHover(null);
+  }, [controller]);
 
   useControllerEvent(controller, 'annotationsChange', ({ annotations: anns }) => {
     setAnnotations(anns);
@@ -45,6 +55,21 @@ export function useAnnotations(controller: ReaderController | null): Annotations
     setHover(annotation ? { annotation, x, y } : null);
   });
 
+  const clearClicked = useCallback(() => {
+    setClickedAnnotation(null);
+  }, []);
+
+  return {
+    annotations,
+    clickedAnnotation,
+    hover,
+    ...useAnnotationActions(controller),
+    clearClicked,
+  };
+}
+
+/** What changes the controller's records. */
+function useAnnotationActions(controller: ReaderController | null) {
   const add = useCallback(
     (input: AddAnnotationInput) =>
       controller ? controller.addAnnotation(input) : Promise.resolve(undefined),
@@ -62,9 +87,5 @@ export function useAnnotations(controller: ReaderController | null): Annotations
     (id: string, patch: AnnotationRecordPatch) => controller?.updateAnnotation(id, patch) ?? false,
     [controller],
   );
-  const clearClicked = useCallback(() => {
-    setClickedAnnotation(null);
-  }, []);
-
-  return { annotations, clickedAnnotation, hover, add, insert, remove, update, clearClicked };
+  return { add, insert, remove, update };
 }

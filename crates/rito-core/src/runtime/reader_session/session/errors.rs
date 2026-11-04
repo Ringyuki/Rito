@@ -6,8 +6,9 @@
 
 use super::{
     ReaderError, ReaderErrorKind, ReaderRevisionBacking, ReaderSession, READER_EXTERNAL_ID_MAX,
-    READER_LIVE_ARTIFACT_CAP,
+    READER_LIVE_ARTIFACT_CAP, READER_SCROLLED_LIVE_ARTIFACT_CAP,
 };
+use crate::layout::SpreadMode;
 
 impl ReaderSession {
     pub(super) fn validate_request_identity(
@@ -35,16 +36,42 @@ impl ReaderSession {
         Ok(())
     }
 
-    pub(super) fn require_artifact_capacity(&self) -> Result<(), ReaderError> {
-        if self.live_artifact_count() < READER_LIVE_ARTIFACT_CAP {
+    /// Room for one more live artifact of a revision laid out in
+    /// `spread_mode`.
+    pub(super) fn require_artifact_capacity(
+        &self,
+        spread_mode: SpreadMode,
+    ) -> Result<(), ReaderError> {
+        let cap = match spread_mode {
+            SpreadMode::Scrolled => READER_SCROLLED_LIVE_ARTIFACT_CAP,
+            SpreadMode::Single | SpreadMode::Double => READER_LIVE_ARTIFACT_CAP,
+        };
+        if self.live_artifact_count() < cap {
             return Ok(());
         }
         Err(ReaderError::new(
             ReaderErrorKind::InvalidRequest,
-            format!(
-                "live artifact cap {READER_LIVE_ARTIFACT_CAP} reached; release an old artifact"
-            ),
+            format!("live artifact cap {cap} reached; release an old artifact"),
         ))
+    }
+
+    /// How the revision behind a live artifact lays its spreads out; a
+    /// single-page spread for an artifact this session does not hold, whose
+    /// request fails on it after the capacity check.
+    pub(super) fn artifact_spread_mode(&self, artifact_id: u64) -> SpreadMode {
+        self.artifacts
+            .get(&artifact_id)
+            .and_then(|artifact| match artifact.backing {
+                ReaderRevisionBacking::ChapterLocal => self
+                    .revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.layout.spread_mode),
+                ReaderRevisionBacking::Publication => self
+                    .publication_revisions
+                    .get(&artifact.revision_id)
+                    .map(|revision| revision.layout.spread_mode),
+            })
+            .unwrap_or(SpreadMode::Single)
     }
 }
 

@@ -13,6 +13,18 @@ pub struct PhysicalSides<T> {
     pub left: T,
 }
 
+impl<T: Copy> PhysicalSides<T> {
+    /// The same value on every side.
+    pub const fn uniform(value: T) -> Self {
+        Self {
+            top: value,
+            right: value,
+            bottom: value,
+            left: value,
+        }
+    }
+}
+
 /// Elliptical radius for one border corner.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CornerRadius {

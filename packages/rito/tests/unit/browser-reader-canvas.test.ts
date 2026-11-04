@@ -260,6 +260,34 @@ describe('Browser reader session Canvas presenter', () => {
     presenter.dispose();
   });
 
+  it('decodes the GIF, WebP and BMP images Core sizes, by their own headers', async () => {
+    const headers: readonly (readonly [string, Uint8Array])[] = [
+      ['image/gif', gifHeader(1000, 500)],
+      ['image/webp', webpHeader(1000, 500)],
+      ['image/bmp', bmpHeader(1000, 500)],
+    ];
+    for (const [index, [mediaType, bytes]] of headers.entries()) {
+      const createBitmap = bitmapFactoryFromResizeOptions(1000, 500);
+      vi.stubGlobal('createImageBitmap', createBitmap);
+      const artifact = imageOnlyArtifact(readerArtifact(), 40n + BigInt(index), mediaType, 1);
+      const href = artifact.resources[0]?.href ?? '';
+      readResource.mockResolvedValue({
+        artifactId: artifact.artifactId,
+        kind: 'image',
+        href,
+        mediaType,
+        bytes,
+      });
+      const presenter = createBrowserReaderSessionCanvasPresenter(readerSession(artifact));
+
+      const prepared = await presenter.prepare(artifact);
+
+      expect(createBitmap).toHaveBeenCalledWith(expect.objectContaining({ type: mediaType }));
+      prepared.dispose();
+      presenter.dispose();
+    }
+  });
+
   it('prepares large resource sets in bounded batches below the worker queue limit', async () => {
     const hrefs = Array.from({ length: 12 }, (_, index) => `Images/page-${String(index)}.png`);
     const commands: Primitives = hrefs.map((src, index) => ({
@@ -564,6 +592,31 @@ function pngHeader(width: number, height: number): Uint8Array {
   return bytes;
 }
 
+function gifHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(10);
+  bytes.set([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+  bytes.set([width & 0xff, width >> 8, height & 0xff, height >> 8], 6);
+  return bytes;
+}
+
+function webpHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(30);
+  const encoder = new TextEncoder();
+  bytes.set(encoder.encode('RIFF'), 0);
+  bytes.set(encoder.encode('WEBPVP8X'), 8);
+  [width - 1, height - 1].forEach((value, index) => {
+    bytes.set([value & 0xff, (value >> 8) & 0xff, value >> 16], 24 + index * 3);
+  });
+  return bytes;
+}
+
+function bmpHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(26);
+  bytes.set([0x42, 0x4d]);
+  bytes.set([width & 0xff, width >> 8, 0, 0, height & 0xff, height >> 8, 0, 0], 18);
+  return bytes;
+}
+
 function jpegHeader(width: number, height: number): Uint8Array {
   const bytes = new Uint8Array(21);
   bytes.set([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8]);
@@ -638,6 +691,7 @@ function readerArtifact(): BrowserReaderArtifact {
         weight: 400,
         shapeFingerprint: 'font-shape-v1',
         byteLength: 2n,
+        features: [],
       },
     ],
     pages: [],

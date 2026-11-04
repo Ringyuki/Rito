@@ -9,11 +9,14 @@ class FakeFontFace {
   // What a face reports until its descriptors are set.
   style = 'normal';
   weight = 'normal';
+  readonly featureSettings: string;
 
   constructor(
     readonly family: string,
     readonly source: unknown,
+    descriptors: { readonly featureSettings?: string } = {},
   ) {
+    this.featureSettings = descriptors.featureSettings ?? 'normal';
     FakeFontFace.created.push(this);
   }
 
@@ -31,6 +34,7 @@ function fontRef(weight: number, style = 'normal') {
     weight,
     shapeFingerprint: 'shape',
     byteLength: BigInt(BYTES.byteLength),
+    features: [] as { tag: string; value: number }[],
   };
 }
 
@@ -87,6 +91,24 @@ describe('host faces of a session reader', () => {
     await first;
     expect(FakeFontFace.created).toHaveLength(1);
     expect(registered.size).toBe(1);
+  });
+
+  it('registers a variant the engine names with features as a face of its own', async () => {
+    const fonts = new SessionReaderHostFonts();
+    fonts.add([{ bytes: BYTES, expectedSha256: SHA }]);
+
+    const face = await fonts.resolve(fontRef(400));
+    const forms = await fonts.resolve({
+      ...fontRef(400),
+      family: `__RitoVert___RitoPinned_${SHA}`,
+      features: [{ tag: 'vert', value: 1 }],
+    });
+
+    expect(forms).not.toBe(face);
+    expect(forms?.family).toBe(`__RitoVert___RitoPinned_${SHA}`);
+    expect((forms as unknown as FakeFontFace).featureSettings).toBe('"vert" 1');
+    expect((face as unknown as FakeFontFace).featureSettings).toBe('normal');
+    expect(registered.size).toBe(2);
   });
 
   it('answers only for the faces it holds and forgets one that is removed', async () => {

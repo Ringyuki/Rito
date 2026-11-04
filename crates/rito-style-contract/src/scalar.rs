@@ -122,6 +122,9 @@ impl From<FiniteF32> for CssPx {
 pub struct NonNegativeCssPx(FiniteF32);
 
 impl NonNegativeCssPx {
+    /// Zero CSS pixels.
+    pub const ZERO: Self = Self(FiniteF32(0.0));
+
     /// Creates a finite, non-negative CSS-pixel length.
     pub fn new(value: f32) -> Result<Self, NumericError> {
         let value = FiniteF32::new(value)?;

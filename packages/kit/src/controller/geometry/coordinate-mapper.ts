@@ -12,7 +12,7 @@
  * Every offset formula lives here — no other file should hard-code margin/gap arithmetic.
  */
 
-import type { LayoutConfig, Spread } from '@ritojs/core';
+import type { LayoutConfig, ReaderSpreadMode, Spread } from '@ritojs/core';
 import type { Rect } from '../../interaction/index';
 import { resolveSpreadPage } from './page-resolution';
 import {
@@ -35,7 +35,7 @@ export interface LayoutGeometry {
   readonly marginBottom: number;
   readonly marginLeft: number;
   readonly spreadGap: number;
-  readonly spreadMode: 'single' | 'double';
+  readonly spreadMode: ReaderSpreadMode;
 }
 
 export interface PageGeometry {

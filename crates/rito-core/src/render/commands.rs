@@ -13,7 +13,7 @@ pub(crate) use reader_wire::{contract, encode_reader_primitive_list};
 pub(crate) use refs::summarize_display_list_resource_refs;
 
 use contract::{
-    ReaderBlockPaint, ReaderBorderBox, ReaderCornerRadius, ReaderHorizontalRulePaint,
+    ReaderBlockPaint, ReaderBorderBox, ReaderColor, ReaderCornerRadius, ReaderHorizontalRulePaint,
     ReaderPagePaint, ReaderPoint, ReaderRect, ReaderSize, ReaderTransform,
 };
 
@@ -63,6 +63,12 @@ pub(crate) enum DisplayCommand {
     PaintHorizontalRule {
         rect: ReaderRect,
         paint: ReaderHorizontalRulePaint,
+    },
+    /// A text decoration line its run cannot carry, filled as it lies
+    /// (a vertical run's line runs down beside the column).
+    PaintDecoration {
+        rect: ReaderRect,
+        color: ReaderColor,
     },
 }
 

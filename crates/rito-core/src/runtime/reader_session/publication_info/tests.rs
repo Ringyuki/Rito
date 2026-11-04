@@ -136,6 +136,7 @@ fn fixture_document() -> LoadedEpubDocument {
                     children: Vec::new(),
                 },
             ],
+            page_progression: Default::default(),
         },
         stylesheets: Vec::new(),
         fonts: Vec::new(),

@@ -18,6 +18,7 @@
 //! same name, and the resolved list is handed to shaping and to every
 //! metric path alike.
 
+use crate::Face;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 
@@ -124,6 +125,8 @@ type StackCache = RefCell<
 pub(crate) struct FontCatalog {
     families: Vec<CatalogFamily>,
     aliases: Vec<String>,
+    /// The font each face id names: the first its blob registered.
+    face_fonts: Vec<Face>,
     face_ids: FxHashMap<(u64, u32), FontFaceId>,
     stacks: StackCache,
     /// The number each distinct stack key was given, in order of first use.
@@ -135,9 +138,10 @@ pub(crate) struct FontCatalog {
     /// The advance every glyph of a face declares in its `hmtx` table, in
     /// font units, per (blob id, face index); read once per face.
     declared_advances: RefCell<FxHashMap<(u64, u32), Option<DeclaredAdvances>>>,
-    /// Whether a face declares the OpenType `halt` feature, per (blob id,
-    /// face index); its feature lists are read once per face.
-    halt: RefCell<FxHashMap<(u64, u32), bool>>,
+    /// Whether a face declares the OpenType `halt` feature (`vhal` for
+    /// vertical), per (blob id, face index, vertical); its feature lists
+    /// are read once per face.
+    halt: RefCell<FxHashMap<(u64, u32, bool), bool>>,
 }
 
 /// A face's `hmtx` advances in font units, indexed by glyph id.
@@ -238,11 +242,17 @@ impl FontCatalog {
         }
         let id = FontFaceId(self.aliases.len() as u32);
         self.aliases.push(alias);
+        let mut first = None;
         for (_, fonts) in registered {
             for font in fonts {
+                first.get_or_insert(font.index());
                 self.face_ids.insert((blob.id(), font.index()), id);
             }
         }
+        self.face_fonts.push(Face {
+            blob: blob.clone(),
+            index: first.unwrap_or_default(),
+        });
         self.stacks.get_mut().clear();
         Ok(())
     }
@@ -276,6 +286,11 @@ impl FontCatalog {
     /// The name paint draws each face by, indexed by face id.
     pub(crate) fn aliases(&self) -> &[String] {
         &self.aliases
+    }
+
+    /// The font a face id names.
+    pub(crate) fn face_font(&self, id: FontFaceId) -> Option<Face> {
+        self.face_fonts.get(id.0 as usize).cloned()
     }
 
     /// Names the catalog could not resolve since it was built, lowercase.
@@ -315,14 +330,16 @@ impl FontCatalog {
         units
     }
 
-    /// Whether `font` declares the OpenType `halt` feature in GSUB or GPOS.
-    pub(crate) fn has_halt(&self, font: &parley::FontData) -> bool {
-        let key = (font.data.id(), font.index);
+    /// Whether `font` declares its alternate half widths, the OpenType
+    /// `halt` feature (`vhal` for a run shaped top to bottom), in GSUB or
+    /// GPOS.
+    pub(crate) fn has_halt(&self, font: &parley::FontData, vertical: bool) -> bool {
+        let key = (font.data.id(), font.index, vertical);
         if let Some(halt) = self.halt.borrow().get(&key) {
             return *halt;
         }
         let halt = skrifa::FontRef::from_index(font.data.as_ref(), font.index)
-            .is_ok_and(|face| crate::punctuation::font_ref_has_halt(&face));
+            .is_ok_and(|face| crate::punctuation::font_ref_has_halt(&face, vertical));
         self.halt.borrow_mut().insert(key, halt);
         halt
     }

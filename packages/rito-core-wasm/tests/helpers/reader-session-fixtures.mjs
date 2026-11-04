@@ -42,6 +42,8 @@ export function artifactWire(sessionId, requestId, artifactId, href, options = {
   writer.u32(0, 'page index');
   writer.f64(800, 'width');
   writer.f64(600, 'height');
+  // No book page index or count, no target block offset.
+  writer.option(undefined, () => undefined);
   writer.option(undefined, () => undefined);
   writer.option(undefined, () => undefined);
   writer.u32(2, 'previous');

@@ -198,6 +198,7 @@ fn leaf_fragment(source: FormattingNodeId, y: f64, inline_size: f64, height: f64
             height,
         },
         children: Vec::new(),
+        cuts: crate::BlockCuts::NONE,
     })
 }
 
@@ -233,6 +234,7 @@ fn sealed(
                 height: used_block_size,
             },
             children,
+            cuts: crate::BlockCuts::NONE,
         }),
     }
 }

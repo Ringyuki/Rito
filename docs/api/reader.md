@@ -32,7 +32,7 @@ other native hosts bridge the C ABI (see
 | `width`            | `number`                 | required                         | Viewport width in logical pixels       |
 | `height`           | `number`                 | required                         | Viewport height in logical pixels      |
 | `margin`           | `ReaderMargin`           | `40`                             | Page margins; see below                |
-| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
+| `spread`           | `ReaderSpreadMode`       | `'single'`                       | Requested spread mode; see below       |
 | `spreadGap`        | `number`                 | `20`                             | Least gap between pages in double mode |
 | `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
 | `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
@@ -219,6 +219,7 @@ faces do not cover. Variable fonts are rejected.
 | `totalSpreads`         | Number of spreads in the committed layout                                              |
 | `pageCount`            | Number of pages in the committed layout                                                |
 | `dpr`                  | Device pixel ratio the committed layout is painted at                                  |
+| `getScrollLayout()`    | A scrolled layout's windows end to end; `undefined` for pages (see below)              |
 | `getImageBlobUrl(src)` | Create or asynchronously resolve an EPUB image URL                                     |
 | `interactions`         | Optional revision-safe semantic interaction provider                                   |
 
@@ -237,6 +238,23 @@ commit gives that chapter, so nothing on screen moves between the two.
 Changes made while a layout is under way wait for it: it commits, and then only
 the newest of them is laid out. A host that sends a new size every frame sees a
 new size each time a layout ends.
+
+`spread: 'scrolled'` lays each chapter out as one continuous strip read
+through windows the size of the viewport, every window a spread of one page.
+The windows run down the screen, or leftwards for a book whose spine's
+`page-progression-direction` is `rtl`, whose vertical-rl chapters run
+leftwards as strips; a chapter whose text runs across the book's axis is
+paginated, each page one window. `getScrollLayout()` gives `axis`
+(`'down'` or `'left'`), `windowLength` (the viewport's height, or its width)
+and per chapter its `firstSpread`, `spreadCount` and `extent` along the axis.
+Within a chapter window `k` starts `floor(k × windowLength × dpr + 0.5)`
+device pixels in and the chapter ends at `floor(extent × dpr + 0.5)`; the
+chapters follow one another end to end, so a host placing each window there
+tiles the book without a seam. `renderSpreadTo` paints a window into a target
+of the spread's size or of the window's own, and a locator resolved by
+`navigateToLocator` carries `blockOffset`, where its line starts
+in its window. `@ritojs/kit`'s `createScrollController` is a view built on
+these.
 
 A spread carries page indexes only; page geometry comes from
 `getLayoutGeometry()` and page content from the rendered frame and
@@ -271,11 +289,20 @@ next-block boundary. When the following flow belongs to the same chapter,
 against one currently committed layout, so callers never combine geometry from
 two versions. A caret belongs to the layout that answered it: after either
 commit, a caret from before resolves `undefined`.
+A caret's `geometry` is the segment across its line, as a rect with no extent
+along the line: `width` is 0 on a horizontal line and `height` 0 down a
+vertical one. Its `writingMode` (`ReaderWritingMode`, `'horizontal-tb'` or
+`'vertical-rl'`) is the mode of that line. On a `vertical-rl` page every target,
+outline node, range rectangle and caret is where its column is drawn, in the
+same page-content space as a horizontal page's.
 `resolveTextSelectionMovement()`, when supported, atomically rebinds a fixed
 anchor and live focus, advances the focus by a typed character, word, visual-line,
 line-edge, paragraph, or chapter-edge movement, and returns the exact new range.
 Vertical line moves return a `preferredInlinePosition` that callers pass into the
-next vertical move to preserve sticky x. Reaching an incomplete retained tail is
+next vertical move to preserve sticky x. Movements are named for a horizontal
+line; on a `vertical-rl` focus a host reads an arrow key as the key a quarter turn
+from it, as the browser does (down moves along the line, left to the next line),
+which the kit's keyboard selection does. Reaching an incomplete retained tail is
 reported as typed `pending`.
 `resolveTextRangeFromSource()`, when supported, resolves a durable
 `{ href, sourceRange }` as a range in the committed layout, carets included:

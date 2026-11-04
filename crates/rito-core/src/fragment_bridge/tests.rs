@@ -8,9 +8,11 @@ mod floated_images;
 mod flow;
 mod generated;
 mod inline;
+mod inline_block;
 mod pagination;
 mod sizing;
 mod tree;
+mod vertical_align;
 
 use super::*;
 use crate::render::test_support::css_color;
@@ -74,6 +76,7 @@ fn resolved_chapter_with(xhtml: &str, css: &str) -> ResolvedChapter {
             manifest: Vec::new(),
             spine: Vec::new(),
             toc: Vec::new(),
+            page_progression: Default::default(),
         },
         stylesheets: vec![LoadedTextResource {
             href: "styles/main.css".to_owned(),

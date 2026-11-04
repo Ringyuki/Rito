@@ -1,15 +1,12 @@
 // Times one book's open in the real browser reader, stage by stage: every
 // request the page sends its reader session and how long it took, on one
 // clock.
-import { createRequire } from 'node:module';
-
-const require2 = createRequire(new URL('../../packages/rito/package.json', import.meta.url));
-const { chromium } = require2('@playwright/test');
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 
 const [bookPath, url = 'http://127.0.0.1:4174/'] = process.argv.slice(2);
 if (!bookPath) throw new Error('usage: open-timeline.mjs <epub> [url]');
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const page = await browser.newPage({
   deviceScaleFactor: 1,
   viewport: { width: 1280, height: 900 },

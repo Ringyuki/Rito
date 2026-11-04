@@ -3,6 +3,8 @@
 //! reading order of two positions. Each answer comes from the engine
 //! functions a browser revision uses, so no host derives them itself.
 
+use crate::fragment_window::ScrollAxis;
+use crate::layout::SpreadMode;
 use crate::runtime::{
     source_locator::{active_toc_entries_by_page, active_toc_entry, TocTargetPosition},
     RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorResolution,
@@ -10,10 +12,11 @@ use crate::runtime::{
 };
 
 use super::super::{
+    artifact::scrolled_block_offset,
     convert::{locator_match, runtime_locator},
     ReaderChapterPages, ReaderLocation, ReaderNavigationQuery, ReaderNavigationRequest,
-    ReaderNavigationResult, ReaderRevisionLayout, ReaderSourcePoint, ReaderSpreadPages,
-    ReaderTocTargetPage,
+    ReaderNavigationResult, ReaderRevisionLayout, ReaderScrollAxis, ReaderSourcePoint,
+    ReaderSpreadPages, ReaderTocTargetPage,
 };
 use super::{
     errors::{engine_error, validate_external_request_id},
@@ -116,6 +119,7 @@ impl ReaderSession {
                     spine_index: u32_from_usize(spine_index, "spine index")?,
                     start_page: u32_from_usize(range.start_page, "chapter start page")?,
                     end_page: u32_from_usize(range.end_page, "chapter end page")?,
+                    extent: engine.chapter_extent(&item.idref),
                 });
             }
         }
@@ -143,6 +147,12 @@ impl ReaderSession {
             toc_targets,
             active_toc_entry_by_page,
             complete: self.artifact_revision_is_complete(artifact_id),
+            scroll_axis: (view.revision.layout_config.spread_mode == SpreadMode::Scrolled).then(
+                || match ScrollAxis::of_book(self.document.document().package.page_progression) {
+                    ScrollAxis::Down => ReaderScrollAxis::Down,
+                    ScrollAxis::Left => ReaderScrollAxis::Left,
+                },
+            ),
         }))
     }
 
@@ -210,8 +220,15 @@ impl ReaderSession {
                 ..
             } => ReaderLocation::Page {
                 page_index: u32_from_usize(page_index, "located page")?,
-                drawn: view.origin_of(page_index).is_some(),
+                drawn: view.frame_of(page_index).is_some(),
                 matched_by: locator_match(matched_by),
+                block_offset: scrolled_block_offset(
+                    view.revision,
+                    page_index,
+                    prepared.locator(),
+                    matched_by,
+                    self.render_ratio,
+                ),
             },
             RuntimeSourceLocatorResolution::Pending { .. } => ReaderLocation::NotLaidOut,
         };

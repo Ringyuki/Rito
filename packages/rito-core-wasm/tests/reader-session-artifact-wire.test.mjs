@@ -22,13 +22,25 @@ const pageRecordsFixture = () => fixture('reader-session-page-records.hex');
 test('decodes the artifact the Rust encoder writes, its pages by index and size', () => {
   const artifact = decodeRitoReaderArtifact(artifactFixture());
 
-  assert.equal(artifact.protocolVersion, 7);
+  assert.equal(artifact.protocolVersion, 9);
   assert.equal(artifact.localSpreadIndex, 5);
   assert.deepEqual(artifact.localPageIndexes, [9, 10]);
   assert.equal(artifact.bookPageIndex, 140);
   assert.equal(artifact.bookPageCount, 312);
+  assert.equal(artifact.targetBlockOffset, 377.640625);
   assert.equal(artifact.displayList.commandCount, 14);
   assert.deepEqual(artifact.pages, [{ pageIndex: 9, width: 400.25, height: 1194.25 }]);
+  assert.deepEqual(artifact.fonts, [
+    {
+      family: 'Noto Serif CJK JP',
+      href: 'fonts/serif.woff2',
+      style: 'normal',
+      weight: 650,
+      shapeFingerprint: 'sha256:abcd',
+      byteLength: (1n << 40n) + 7n,
+      features: [{ tag: 'vert', value: 1 }],
+    },
+  ]);
 });
 
 test('decodes the page records the Rust encoder writes, every hit field included', () => {

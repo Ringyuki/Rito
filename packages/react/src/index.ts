@@ -4,8 +4,17 @@ export {
   type UseRitoReaderOptions,
   type RitoReaderState,
   type RitoReaderActions,
+  useRitoScrollReader,
+  type UseRitoScrollReaderOptions,
+  type RitoScrollReaderState,
+  type RitoScrollReaderActions,
+  useRitoScrollView,
+  type UseRitoScrollViewOptions,
+  type RitoScrollViewState,
+  type RitoScrollViewActions,
   useSelection,
   type SelectionState,
+  useScrollSelectionHandles,
   useSearch,
   type SearchState,
   useAnnotations,
@@ -23,4 +32,4 @@ export {
 } from './hooks/index';
 
 // Components
-export { Reader, type ReaderProps } from './components/index';
+export { Reader, type ReaderProps, ScrollSelectionHandles } from './components/index';

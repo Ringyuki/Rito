@@ -13,9 +13,125 @@ impl InlineCollector {
     /// Records a run of collapsible white space with no content of its own.
     pub(super) fn push_collapsible_whitespace(&mut self, style: StyleId) {
         if self.has_content {
-            self.pending_space = true;
+            self.mark_pending_space();
             self.pending_space_style = Some(style);
         }
+    }
+
+    /// Marks a collapsed space as pending where the flow now stands: the
+    /// first space of a sequence keeps its place, ahead of the box edges
+    /// that come after it.
+    fn mark_pending_space(&mut self) {
+        if !self.pending_space {
+            self.pending_space_at = self.items.len();
+        }
+        self.pending_space = true;
+    }
+
+    /// The last item that is content (not a box edge) among the first
+    /// `end` items.
+    fn content_before(&self, end: usize) -> Option<usize> {
+        self.items[..end.min(self.items.len())]
+            .iter()
+            .rposition(|item| {
+                !matches!(
+                    item,
+                    InlineItem::OpenTag { .. } | InlineItem::CloseTag { .. }
+                )
+            })
+    }
+
+    /// The plain text run a pending space follows, when the content before
+    /// it is one: the space settles at its end.
+    fn pending_space_owner(&mut self) -> Option<&mut String> {
+        let owner = self.content_before(self.pending_space_at)?;
+        match &mut self.items[owner] {
+            InlineItem::Text {
+                text,
+                ruby_annotation: None,
+                ..
+            } => Some(text),
+            _ => None,
+        }
+    }
+
+    /// Puts the pending space where it arose, ahead of the box edges met
+    /// since: at the end of the text run it follows, or as a run of its own
+    /// when it carries a style other than that run's or follows a ruby base.
+    fn settle_pending_space(&mut self) {
+        let owner = self
+            .content_before(self.pending_space_at)
+            .map(|index| &self.items[index]);
+        let after_ruby = matches!(
+            owner,
+            Some(InlineItem::Text {
+                ruby_annotation: Some(_),
+                ..
+            })
+        );
+        let standalone = after_ruby
+            || match (self.pending_space_style, owner) {
+                (
+                    Some(space_style),
+                    Some(InlineItem::Text {
+                        style: last_style, ..
+                    }),
+                ) => *last_style != space_style,
+                (Some(_), _) => true,
+                (None, _) => false,
+            };
+        if !standalone {
+            if let Some(owner) = self.pending_space_owner() {
+                owner.push(' ');
+            }
+            return;
+        }
+        let space_style = self.pending_space_style.or(match owner {
+            Some(InlineItem::Text { style, .. }) => Some(*style),
+            _ => None,
+        });
+        let Some(space_style) = space_style else {
+            return;
+        };
+        let at = self.pending_space_at.min(self.items.len());
+        self.items.insert(
+            at,
+            InlineItem::Text {
+                text: " ".to_owned(),
+                style: space_style,
+                baseline_shift_px: 0.0,
+                ruby_annotation: None,
+            },
+        );
+        self.sources.insert(
+            at,
+            FlowItemSource {
+                source_index: None,
+                source_path: None,
+                href: self.current_link.clone(),
+                image_alt: None,
+                segments: Vec::new(),
+            },
+        );
+    }
+
+    /// Appends the start (`closes` false) or end edge of an inline box
+    /// whose size there is not zero (Blink's open and close tag items). A
+    /// box edge holds no content: a space pending before it stays ahead of
+    /// it, and it does not end a line's leading white space.
+    pub(super) fn push_box_edge(&mut self, style: StyleId, closes: bool, source_index: usize) {
+        self.sources.push(FlowItemSource {
+            source_index: Some(source_index),
+            source_path: None,
+            href: self.current_link.clone(),
+            image_alt: None,
+            segments: Vec::new(),
+        });
+        self.items.push(if closes {
+            InlineItem::CloseTag { style }
+        } else {
+            InlineItem::OpenTag { style }
+        });
     }
 
     /// Appends one text node's content. A collapsed space belongs to the
@@ -52,7 +168,12 @@ impl InlineCollector {
             let utf16 = |value: &str| value.encode_utf16().count() as u32;
             let mut verbatim = String::with_capacity(text.len() + 1);
             if self.pending_space {
-                verbatim.push(' ');
+                if self.pending_space_at < self.items.len() {
+                    // Box edges came after the space: it settles before them.
+                    self.settle_pending_space();
+                } else {
+                    verbatim.push(' ');
+                }
                 self.pending_space = false;
                 self.pending_space_style = None;
             }
@@ -84,7 +205,7 @@ impl InlineCollector {
         // whose source indents the text after `<br/>` sat 0.25em right of
         // Blink's).
         if matches!(
-            self.items.last(),
+            self.content_before(self.items.len()).map(|index| &self.items[index]),
             Some(InlineItem::Text { text, .. }) if text.ends_with('\n')
         ) {
             self.pending_space = false;
@@ -103,54 +224,7 @@ impl InlineCollector {
             // exactly the base's extent), and silently dropping it erased
             // the base's own trailing collapsed space (b11: 原初之火
             // followed by ！ sat 0.25em left of the browser's line).
-            let after_ruby = matches!(
-                self.items.last(),
-                Some(InlineItem::Text {
-                    ruby_annotation: Some(_),
-                    ..
-                })
-            );
-            let standalone = after_ruby
-                || match (self.pending_space_style, self.items.last()) {
-                    (
-                        Some(space_style),
-                        Some(InlineItem::Text {
-                            style: last_style, ..
-                        }),
-                    ) => *last_style != space_style,
-                    (Some(_), _) => true,
-                    (None, _) => false,
-                };
-            if standalone {
-                let space_style = self
-                    .pending_space_style
-                    .or_else(|| match self.items.last() {
-                        Some(InlineItem::Text { style, .. }) => Some(*style),
-                        _ => None,
-                    });
-                if let Some(space_style) = space_style {
-                    self.items.push(InlineItem::Text {
-                        text: " ".to_owned(),
-                        style: space_style,
-                        baseline_shift_px: 0.0,
-                        ruby_annotation: None,
-                    });
-                    self.sources.push(FlowItemSource {
-                        source_index: None,
-                        source_path: None,
-                        href: self.current_link.clone(),
-                        image_alt: None,
-                        segments: Vec::new(),
-                    });
-                }
-            } else if let Some(InlineItem::Text {
-                text: last,
-                ruby_annotation: None,
-                ..
-            }) = self.items.last_mut()
-            {
-                last.push(' ');
-            }
+            self.settle_pending_space();
             self.pending_space = false;
             self.pending_space_style = None;
             rest = rest.trim_start_matches(is_space);
@@ -231,7 +305,7 @@ impl InlineCollector {
         if trailing_space && self.has_content {
             // This node ends in white space; it lands here if any content
             // follows, and collapses away at the end of the flow.
-            self.pending_space = true;
+            self.mark_pending_space();
             self.pending_space_style = None;
         }
     }
@@ -349,13 +423,8 @@ impl InlineCollector {
         alt: &str,
     ) {
         if self.pending_space {
-            if let Some(InlineItem::Text {
-                text: last,
-                ruby_annotation: None,
-                ..
-            }) = self.items.last_mut()
-            {
-                last.push(' ');
+            if let Some(owner) = self.pending_space_owner() {
+                owner.push(' ');
             }
             self.pending_space = false;
         }
@@ -384,13 +453,8 @@ impl InlineCollector {
         source_index: usize,
     ) {
         if self.pending_space {
-            if let Some(InlineItem::Text {
-                text: last,
-                ruby_annotation: None,
-                ..
-            }) = self.items.last_mut()
-            {
-                last.push(' ');
+            if let Some(owner) = self.pending_space_owner() {
+                owner.push(' ');
                 self.pending_space = false;
             }
         }

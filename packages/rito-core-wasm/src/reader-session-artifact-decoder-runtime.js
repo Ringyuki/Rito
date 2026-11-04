@@ -51,6 +51,9 @@ export function decodeRitoReaderArtifact(value) {
     height: reader.f64('artifact height'),
     bookPageIndex: reader.option('book page index', () => reader.u32('book page index')),
     bookPageCount: reader.option('book page count', () => reader.u32('book page count')),
+    targetBlockOffset: reader.option('target block offset', () =>
+      reader.f64('target block offset'),
+    ),
     navigation: {
       previous: readTaggedU32(reader, 'adjacent availability', ADJACENT),
       next: readTaggedU32(reader, 'adjacent availability', ADJACENT),
@@ -170,9 +173,22 @@ function readFont(reader) {
     weight: record.u16('font weight'),
     shapeFingerprint: record.string('font shape fingerprint'),
     byteLength: record.u64('font byte length'),
+    features: readFontFeatures(record),
   };
   record.finish('font');
   return font;
+}
+
+function readFontFeatures(record) {
+  const count = record.count('font features');
+  const features = [];
+  for (let index = 0; index < count; index += 1) {
+    features.push({
+      tag: record.string('font feature tag'),
+      value: record.u32('font feature value'),
+    });
+  }
+  return features;
 }
 
 function readPage(reader) {

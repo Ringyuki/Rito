@@ -4,117 +4,6 @@
 
 use crate::*;
 
-pub(crate) fn break_anywhere_override(_context: parley::LineBreakContext) -> Option<bool> {
-    Some(true)
-}
-
-/// Fills the one gap in Parley's `word-break: break-all` relaxation.
-///
-/// Under break-all Parley already breaks between latin letters (a|b) and
-/// before the prolonged sound mark (ず|ー), but it still carries the CJK
-/// novel dash pair ── (U+2500 BOX DRAWINGS LIGHT HORIZONTAL) as one
-/// unbreakable word, while Blink splits it across the line boundary
-/// (b93 truth: the first ─ closes the line, the second opens the next).
-/// Everything else defers to Parley's break-all logic.
-pub(crate) fn break_all_box_dash_override(context: parley::LineBreakContext) -> Option<bool> {
-    if context.before == '\u{2500}' && context.after == '\u{2500}' {
-        return Some(true);
-    }
-    None
-}
-
-/// Chromium's line-break tailoring, extended with its CJK quote classes
-/// ([`cjk_quote_reclassification`]) and the CJ line-start relaxation.
-/// Everything else defers to Parley's Chromium ASCII table.
-pub(crate) fn cjk_aware_chromium_break_override(context: parley::LineBreakContext) -> Option<bool> {
-    if let Some(verdict) = cjk_quote_reclassification(context) {
-        return Some(verdict);
-    }
-    // Blink's default line-break (auto/normal/loose — measured matrix
-    // zh-CN/ja/en × auto/normal/loose, 2026-08-11) resolves the UAX-14
-    // CJ class (small kana + the prolonged sound mark) to ID: the
-    // character may START a line (b39 truth: あず|ーる splits with ー
-    // opening the next line). Parley keeps CJ as NS, so the pair
-    // retreated whole. Only `line-break: strict` keeps the prohibition —
-    // that path installs the strict variant below.
-    if is_cj_conditional_starter(context.after)
-        && is_cjk_context(context.before)
-        && !['\u{2018}', '\u{201C}'].contains(&context.before)
-        && fullwidth_punctuation_class(context.before) != PunctuationClass::Open
-    {
-        return Some(true);
-    }
-    (parley::CHROMIUM_LINE_BREAK_OVERRIDE)(context)
-}
-
-/// The `line-break: strict` variant: Chromium's quote reclassification
-/// without the CJ line-start relaxation (strict keeps CJ as NS, measured
-/// PAIR-RETREATS on the same matrix).
-pub(crate) fn cjk_aware_chromium_break_override_strict(
-    context: parley::LineBreakContext,
-) -> Option<bool> {
-    if let Some(verdict) = cjk_quote_reclassification(context) {
-        return Some(verdict);
-    }
-    (parley::CHROMIUM_LINE_BREAK_OVERRIDE)(context)
-}
-
-/// UAX-14 gives the curly quotes class QU (no break on either side), but
-/// Blink reclassifies them in CJK context: an opening curly quote breaks
-/// like an opening bracket (opportunity before, none after) and a closing
-/// curly quote like a closing bracket (opportunity after, none before).
-/// CJK dialogue in translated novels hangs on this.
-pub(crate) fn cjk_quote_reclassification(context: parley::LineBreakContext) -> Option<bool> {
-    const OPEN_QUOTES: [char; 2] = ['\u{2018}', '\u{201C}'];
-    const CLOSE_QUOTES: [char; 2] = ['\u{2019}', '\u{201D}'];
-    // A close/stop before the opening quote KEEPS the prohibition: the
-    // browser carries 说，'Caster' as one unbreakable block — the comma
-    // never sheds the quote that follows it (pinned-Chromium b112 line:
-    // …这点来 | 说，'Caster'… breaks before 说, not after the comma).
-    // Only an ideograph ahead of the opening quote releases the break.
-    if OPEN_QUOTES.contains(&context.after)
-        && is_cjk_context(context.before)
-        && matches!(
-            fullwidth_punctuation_class(context.before),
-            PunctuationClass::Other | PunctuationClass::Middle
-        )
-        && !OPEN_QUOTES.contains(&context.before)
-    {
-        return Some(true);
-    }
-    // The em/horizontal-bar dashes join the after-side context: a
-    // closing curly quote breaks before a novel dash pair exactly like
-    // before an ideograph (pinned-Chromium b112 line: 怕”|——可见 puts
-    // the dash pair on the next line while the quote closes the first;
-    // treating the pair as unbreakable-after-quote dragged 怕” down
-    // with it and re-broke every following line of the chapter).
-    let after_joins_cjk =
-        is_cjk_context(context.after) || matches!(context.after, '\u{2014}' | '\u{2015}');
-    if CLOSE_QUOTES.contains(&context.before)
-        && after_joins_cjk
-        && fullwidth_punctuation_class(context.after) != PunctuationClass::CloseOrStop
-        && !CLOSE_QUOTES.contains(&context.after)
-        && !OPEN_QUOTES.contains(&context.after)
-    {
-        return Some(true);
-    }
-    None
-}
-
-/// The UAX-14 CJ class: small kana and the katakana-hiragana prolonged
-/// sound mark, whose line-start prohibition is conditional on
-/// `line-break` strictness.
-pub(crate) fn is_cj_conditional_starter(character: char) -> bool {
-    matches!(u32::from(character),
-        0x3041 | 0x3043 | 0x3045 | 0x3047 | 0x3049
-        | 0x3063 | 0x3083 | 0x3085 | 0x3087 | 0x308E | 0x3095 | 0x3096
-        | 0x30A1 | 0x30A3 | 0x30A5 | 0x30A7 | 0x30A9
-        | 0x30C3 | 0x30E3 | 0x30E5 | 0x30E7 | 0x30EE | 0x30F5 | 0x30F6
-        | 0x30FC
-        | 0x31F0..=0x31FF
-        | 0xFF67..=0xFF70)
-}
-
 /// Whether the character puts the boundary in CJK typographic context.
 pub(crate) fn is_cjk_context(character: char) -> bool {
     matches!(u32::from(character),
@@ -128,10 +17,6 @@ pub(crate) fn is_cjk_context(character: char) -> bool {
         | 0x20000..=0x3FFFF)
 }
 
-/// Layout-unit epsilon for line-fit comparisons, Chromium's `LayoutUnit`
-/// quantum (1/64 px).
-pub(crate) const LINE_FIT_EPS: f32 = 1.0 / 64.0;
-
 /// How many glyphs past a soft break the candidate scan follows. The
 /// dragged-down tail is whatever could not break before the closer — an
 /// entire unbreakable Latin word included (measured: 有點melancholy。」,
@@ -142,89 +27,6 @@ pub(crate) const LINE_FIT_EPS: f32 = 1.0 / 64.0;
 /// not a dragged closer.
 pub(crate) const LINE_END_TRIM_SCAN: usize = 64;
 
-/// Detects a rejected-extension rewind on `line_index`: the line-end trim
-/// extension would fit the first overflowing closer (so a single-item
-/// line would have extended), but the line crosses an element boundary,
-/// which Blink answers by rewinding the WHOLE overflowing item to the
-/// next line — measured on razor-fit note-box lines, where line one keeps
-/// only the leading `①` span while greedy would split the text item.
-/// Returns the cluster count the line must be forced to hold.
-pub(crate) fn rewind_break_count(
-    catalog: &FontCatalog,
-    layout: &parley::Layout<[u8; 4]>,
-    text: &str,
-    line_index: usize,
-    max_advance: f64,
-    item_ranges: &[std::ops::Range<usize>],
-    bounds: &mut WidthBounds,
-) -> Option<u32> {
-    let line = layout.get(line_index)?;
-    let next = layout.get(line_index + 1)?;
-    if line.break_reason() != parley::layout::BreakReason::Regular {
-        return None;
-    }
-    // Only a line crossing an element boundary rewinds; a single-item
-    // line extends instead (see `line_end_trim_candidate`).
-    let mut items = line_item_keys(&line);
-    let first = items.next();
-    if !items.any(|item| Some(item) != first) {
-        return None;
-    }
-    let metrics = line.metrics();
-    let mut advance = f64::from(metrics.advance - metrics.trailing_whitespace);
-    let next_range = next.text_range();
-    let mut cluster = parley::layout::Cluster::from_byte_index(layout, next_range.start)?;
-    for _ in 0..LINE_END_TRIM_SCAN {
-        let byte = cluster.text_range().start;
-        if byte >= next_range.end {
-            return None;
-        }
-        let character = text[byte..].chars().next()?;
-        let cluster_advance = f64::from(cluster.advance());
-        if bounds.fits(
-            advance + cluster_advance,
-            max_advance + f64::from(LINE_FIT_EPS),
-        ) {
-            advance += cluster_advance;
-            cluster = cluster.next_logical()?;
-            continue;
-        }
-        if !cluster_font_has_halt(catalog, &cluster) {
-            return None;
-        }
-        if !line_end_trim_eligible(character) {
-            return None;
-        }
-        let trimmed = cluster_advance - 0.5 * f64::from(cluster.run().font_size());
-        if !bounds.fits(advance + trimmed, max_advance + f64::from(LINE_FIT_EPS)) {
-            return None;
-        }
-        // Only a PARAGRAPH-FINAL candidate rewinds (measured: `……。）啊`
-        // with content after the closer breaks greedily; the razor-fit
-        // note line whose `）` ends the paragraph rewinds its whole item).
-        let candidate_end = byte + character.len_utf8();
-        if !text
-            .get(candidate_end..)
-            .is_some_and(|rest| rest.chars().all(char::is_whitespace))
-        {
-            return None;
-        }
-        // The extension would fit; the rewound item is the one holding
-        // the candidate, and it must begin inside this line.
-        let item_start = item_ranges
-            .iter()
-            .find(|range| range.contains(&byte))
-            .map(|range| range.start)?;
-        let line_start = line.text_range().start;
-        if item_start <= line_start {
-            return None;
-        }
-        let count = text.get(line_start..item_start)?.chars().count();
-        return u32::try_from(count).ok().filter(|count| *count > 0);
-    }
-    None
-}
-
 /// The first character after `line_index`'s soft break that did not fit,
 /// if extending the line by exactly that character with its blank right
 /// half trimmed could keep it on the line. `decided` says whether a
@@ -234,10 +36,18 @@ pub(crate) fn rewind_break_count(
 /// the candidate is the first character past the break that exceeds the
 /// available advance (characters before it fit and were only dragged down
 /// by break prohibitions), it must be an eligible closing glyph, and its
-/// half-width advance must fit. The decision is a pre-filter only — the
-/// caller re-lays the paragraph with the trim applied and keeps it only
-/// if the line then breaks exactly after the trimmed closer, so parley's
-/// own fitting (and its break rules) remain the authority.
+/// half-width advance must fit `max_advance` (the line's width with its
+/// fit epsilon). Blink extends within whichever text item overflows, so
+/// element boundaries and atomic inlines earlier on the line do not
+/// matter, and a closer ending its item keeps the trim (Chromium 153+,
+/// `LineBreakerHanKerningEnd`; measured on 156: `<span>①</span>…）` and
+/// `…<span>永</span>…）` both extend). A box gap riding on the closer
+/// counts: Blink measures the closing tag after the trimmed text and
+/// breaks the item before the closer when the two overflow together. The
+/// decision is a pre-filter only — the caller re-lays the paragraph with
+/// the trim applied and keeps it only if the line then breaks exactly
+/// after the trimmed closer, so parley's own fitting (and its break
+/// rules) remain the authority.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn line_end_trim_candidate(
     catalog: &FontCatalog,
@@ -256,20 +66,6 @@ pub(crate) fn line_end_trim_candidate(
     if line.break_reason() != parley::layout::BreakReason::Regular {
         return None;
     }
-    // Blink skips the extension whenever the line crosses an element
-    // boundary (measured 2026-07-28, note-box ablation: a leading
-    // <span>① kills it at every size, alignment and vertical-align while
-    // a font-fallback split inside one element does not; flip widths
-    // 560.35 span vs 541.41 without). The line must be one inline item.
-    // An atomic inline is an element boundary by definition.
-    if line.has_inline_box() {
-        return None;
-    }
-    let mut items = line_item_keys(&line);
-    let first = items.next();
-    if items.any(|item| Some(item) != first) {
-        return None;
-    }
     let metrics = line.metrics();
     // Hung trailing whitespace is not measured against the available
     // advance; content is.
@@ -283,12 +79,30 @@ pub(crate) fn line_end_trim_candidate(
     // the pair back on one line. Mirror that: measure these openers
     // trimmed, and hand the pairs back for un-suppression on accept.
     let mut unsuppress: Vec<usize> = Vec::new();
+    // A box's start and end sizes (inline boxes of their own) take their
+    // width between the characters they stand between, as Blink adds an
+    // open or close tag before measuring the text after it.
+    let tags: Vec<(usize, parley::InlineBoxKind, f32)> = layout
+        .inline_boxes()
+        .iter()
+        .filter(|inline_box| inline_box.kind.is_tag())
+        .map(|inline_box| (inline_box.index, inline_box.kind, inline_box.width))
+        .collect();
+    let tags_before = |from: usize, to: usize| -> f32 {
+        tags.iter()
+            .filter(|(index, ..)| from <= *index && *index <= to)
+            .map(|(_, _, width)| *width)
+            .sum()
+    };
+    let mut scanned_from = next_range.start;
     for _ in 0..LINE_END_TRIM_SCAN {
         let byte = cluster.text_range().start;
         if byte >= next_range.end {
             return None;
         }
         let character = text[byte..].chars().next()?;
+        advance += tags_before(scanned_from, byte);
+        scanned_from = byte + 1;
         let mut cluster_advance = cluster.advance();
         if let Some((_, left_byte)) = suppressed_openers
             .iter()
@@ -297,7 +111,7 @@ pub(crate) fn line_end_trim_candidate(
             cluster_advance -= 0.5 * cluster.run().font_size();
             unsuppress.push(*left_byte);
         }
-        if bounds.fits_f32(advance + cluster_advance, max_advance + LINE_FIT_EPS) {
+        if bounds.fits_f32(advance + cluster_advance, max_advance) {
             // Fits, so it only moved down under a break prohibition; the
             // overflowing character is further along.
             advance += cluster_advance;
@@ -315,8 +129,28 @@ pub(crate) fn line_end_trim_candidate(
         if decided(byte) {
             return None;
         }
+        // The close tags right after the closer stay on its line; the open
+        // tags there go down with what they open.
+        let closer_end = byte + character.len_utf8();
+        let closing: f32 = tags
+            .iter()
+            .filter(|(index, kind, _)| {
+                *index == closer_end && *kind == parley::InlineBoxKind::CloseTag
+            })
+            .map(|(_, _, width)| *width)
+            .sum();
         let trimmed = cluster_advance - 0.5 * cluster.run().font_size();
-        if !bounds.fits_f32(advance + trimmed, max_advance + LINE_FIT_EPS) {
+        if !bounds.fits_f32(advance + trimmed + closing, max_advance) {
+            return None;
+        }
+        // A forced break right after the closer ends the line there at
+        // any width, and no soft break comes before a forced one: no line
+        // can end exactly after the trimmed closer, and the re-lay, which
+        // builds the whole paragraph again, could only reject the trim.
+        if cluster
+            .next_logical()
+            .is_some_and(|next| next.is_hard_line_break())
+        {
             return None;
         }
         return Some((byte, unsuppress));
@@ -327,7 +161,9 @@ pub(crate) fn line_end_trim_candidate(
 /// Whether a line of the paragraph could take a line-end trim, or the
 /// rewind it is rejected into, at any width: both need an eligible closer
 /// (see [`line_end_trim_eligible`]) shaped in a face with `halt`, and
-/// shaping puts a character in the same face at every width.
+/// shaping puts a character in the same face at every width. It reads the
+/// runs, so it answers before the paragraph is broken into lines; either
+/// direction's feature makes a trim possible.
 pub(crate) fn line_end_trims_possible(
     catalog: &FontCatalog,
     layout: &parley::Layout<[u8; 4]>,
@@ -336,8 +172,9 @@ pub(crate) fn line_end_trims_possible(
     text.char_indices()
         .filter(|(_, character)| line_end_trim_eligible(*character))
         .any(|(byte, _)| {
-            parley::layout::Cluster::from_byte_index(layout, byte)
-                .is_some_and(|cluster| cluster_font_has_halt(catalog, &cluster))
+            layout
+                .font_at(byte)
+                .is_some_and(|font| catalog.has_halt(font, false) || catalog.has_halt(font, true))
         })
 }
 
@@ -359,53 +196,6 @@ pub(crate) fn line_end_trims_possible(
 /// trailing 法，pair down instead of trimming the comma; b20's real
 /// `看法，` line stays open evidence, see the task archive.)
 pub(crate) fn line_end_trim_eligible(character: char) -> bool {
-    matches!(
-        character,
-        '」' | '』'
-            | '）'
-            | '】'
-            | '〕'
-            | '》'
-            | '〉'
-            | '〗'
-            | '〙'
-            | '〛'
-            | '｝'
-            | '］'
-            | '｠'
-            | '’'
-            | '”'
-    )
-}
-
-/// Applies accepted line-end trims as negative letter-spacing on the
-/// closing glyph itself — the same mechanism as the pair trims, so the
-/// trimmed character is isolated in its own glyph run and the paint stays
-/// position-exact. The blank right half collapses; the ink does not move.
-pub(crate) fn push_line_end_trims(
-    builder: &mut SpacingBuilder<'_>,
-    text: &str,
-    runs: &[(std::ops::Range<usize>, &InlineFormattingStyle, usize)],
-    end_trims: &[usize],
-) {
-    for &byte in end_trims {
-        let Some(character) = text[byte..].chars().next() else {
-            continue;
-        };
-        let Some(style) = runs
-            .iter()
-            .find(|(range, ..)| range.contains(&byte))
-            .map(|(_, style, _)| *style)
-        else {
-            continue;
-        };
-        let author = match style.text_flow.letter_spacing {
-            LengthPercentage::Length(px) => px.get(),
-            _ => 0.0,
-        };
-        builder.push(
-            StyleProperty::LetterSpacing(author - 0.5 * shaping_font_size(style.font.size.get())),
-            byte..byte + character.len_utf8(),
-        );
-    }
+    fullwidth_punctuation_class(character) == PunctuationClass::CloseOrStop
+        && !matches!(character, '。' | '、' | '，' | '．' | '：' | '；')
 }

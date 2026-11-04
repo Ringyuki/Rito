@@ -444,6 +444,7 @@ pub(super) const fn spread_mode(value: ReaderSpreadMode) -> u32 {
     match value {
         ReaderSpreadMode::Single => 0,
         ReaderSpreadMode::Double => 1,
+        ReaderSpreadMode::Scrolled => 2,
     }
 }
 

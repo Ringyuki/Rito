@@ -91,6 +91,7 @@ function constructController(
     modeManager,
     nav,
     canvas,
+    contentRenderer,
   );
   construction.commit();
   return controller;

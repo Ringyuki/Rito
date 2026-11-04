@@ -53,6 +53,11 @@ struct LineState {
     /// We lag the text-wrap-mode by one cluster due to line-breaking boundaries only
     /// being triggered on the cluster after the linebreak.
     text_wrap_mode: TextWrapMode,
+    /// Rito: where the line's content ends — its x past the last cluster,
+    /// box or tag that does not hang — and that last cluster, if it is
+    /// text.
+    content_x: f32,
+    content_cluster: Option<usize>,
 }
 
 #[derive(Clone, Default)]
@@ -167,6 +172,9 @@ pub struct BreakerState {
     prev_boundary: Option<PrevBoundaryState>,
     /// Saved breaker state for the last emergency line-breaking opportunity
     emergency_boundary: Option<PrevBoundaryState>,
+    /// Rito: the breaker state before the open tags met since the last
+    /// cluster, where a break the next cluster allows is taken.
+    open_tag_boundary: Option<PrevBoundaryState>,
 }
 
 impl Default for BreakerState {
@@ -185,6 +193,7 @@ impl Default for BreakerState {
             line: LineState::default(),
             prev_boundary: None,
             emergency_boundary: None,
+            open_tag_boundary: None,
         }
     }
 }
@@ -204,6 +213,7 @@ impl BreakerState {
         self.item_idx += 1;
         self.line.items.end += 1;
         self.line.x = next_x;
+        self.line.content_x = next_x;
         self.add_line_height(box_height);
     }
 
@@ -235,6 +245,17 @@ impl BreakerState {
         self.run_idx = prev_state.run_idx;
         self.cluster_idx = prev_state.cluster_idx;
         self.line = prev_state.state;
+        self.open_tag_boundary = None;
+    }
+
+    /// Rito: the iteration state here, to break at later.
+    fn boundary_here(&self) -> PrevBoundaryState {
+        PrevBoundaryState {
+            item_idx: self.item_idx,
+            run_idx: self.run_idx,
+            cluster_idx: self.cluster_idx,
+            state: self.line.clone(),
+        }
     }
 
     #[inline(always)]
@@ -325,6 +346,22 @@ fn record_fit(fit: &mut (f32, f32), next_x: f32, max_advance: f32) -> bool {
     fits
 }
 
+/// Rito: whether a line ending where `line`'s content ends fits once its
+/// last glyph is reshaped without the text after it (Blink's
+/// `reshape_line_end`); the comparison joins the recorded fits.
+fn line_end_fits<B: Brush>(
+    data: &LayoutData<B>,
+    fit: &mut (f32, f32),
+    line: &LineState,
+    max_advance: f32,
+) -> bool {
+    let Some(cluster) = line.content_cluster else {
+        return true;
+    };
+    let delta = data.line_end_delta(cluster);
+    delta <= 0.0 || record_fit(fit, line.content_x + delta, max_advance)
+}
+
 impl<'a, B: Brush> BreakLines<'a, B> {
     pub(crate) fn new(layout: &'a mut Layout<B>) -> Self {
         layout.data.width = 0.;
@@ -371,6 +408,7 @@ impl<'a, B: Brush> BreakLines<'a, B> {
         self.state.line.running_line_height = 0.;
         self.state.prev_boundary = None;
         self.state.emergency_boundary = None;
+        self.state.open_tag_boundary = None;
 
         self.finish_line(self.lines.lines.len() - 1, line_height);
 
@@ -428,6 +466,29 @@ impl<'a, B: Brush> BreakLines<'a, B> {
         if let Some(line) = self.lines.lines.last_mut() {
             line.metrics.inline_max_coord = line.metrics.inline_min_coord + advance;
         }
+    }
+
+    /// Rito: runs `inspect` on the layout with the lines committed so far
+    /// in place, as `Layout::get` and every cluster lookup read them. The
+    /// layout's extents stay unset until the breaker is done.
+    pub fn inspect<R>(&mut self, inspect: impl FnOnce(&Layout<B>) -> R) -> R {
+        self.lines.swap(&mut self.layout.data);
+        let result = inspect(self.layout);
+        self.lines.swap(&mut self.layout.data);
+        result
+    }
+
+    /// Rito: the advance of cluster `index`, in layout order.
+    pub fn cluster_advance(&self, index: usize) -> f32 {
+        self.layout.data.clusters[index].advance
+    }
+
+    /// Rito: sets the advance of cluster `index`, in layout order, so the
+    /// lines from here on break as if the paragraph were built with other
+    /// spacing. Its glyphs keep their advances: such a layout is broken to
+    /// decide where its lines end, never drawn.
+    pub fn set_cluster_advance(&mut self, index: usize, advance: f32) {
+        crate::layout::data::owned(&mut self.layout.data.clusters)[index].advance = advance;
     }
 
     /// Reverts the to an externally saved state.
@@ -516,9 +577,58 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                 LayoutItemKind::InlineBox => {
                     let inline_box = &self.layout.data.inline_boxes[item.index];
 
+                    // Rito: an inline box's start and end sizes (Blink's open
+                    // and close tag items) take their width and follow the
+                    // content they edge.
+                    if inline_box.kind == InlineBoxKind::OpenTag {
+                        if self.state.open_tag_boundary.is_none() {
+                            self.state.open_tag_boundary = Some(self.state.boundary_here());
+                        }
+                        let next_x = self.state.line.x + inline_box.width;
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
+                    if inline_box.kind == InlineBoxKind::CloseTag {
+                        let next_x = self.state.line.x + inline_box.width;
+                        if record_fit(&mut self.fit, next_x, max_advance)
+                            || self.state.line.text_wrap_mode != TextWrapMode::Wrap
+                        {
+                            self.state.append_inline_box_to_line(next_x, 0.0);
+                            continue;
+                        }
+                        // It cannot leave the content it closes: the line
+                        // breaks at the last opportunity before that content.
+                        if let Some(prev) = self.state.prev_boundary.take() {
+                            self.state.reset_to(prev);
+                            self.fit.0 = self.state.line.x;
+                            return self.start_new_line(
+                                BreakReason::Regular,
+                                max_advance,
+                                line_indent,
+                            );
+                        }
+                        if let Some(prev) = self.state.emergency_boundary.take() {
+                            self.state.reset_to(prev);
+                            self.fit.0 = self.state.line.x;
+                            return self.start_new_line(
+                                BreakReason::Emergency,
+                                max_advance,
+                                line_indent,
+                            );
+                        }
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
+                    // Rito: open tags right before this box open the next
+                    // line with it when the box does not fit.
+                    let open_tag = self.state.open_tag_boundary.take();
+
                     let (width_contribution, height_contribution) = match inline_box.kind {
                         InlineBoxKind::InFlow => (inline_box.width, inline_box.height),
-                        InlineBoxKind::OutOfFlow => (0.0, 0.0),
+                        // Rito: handled above.
+                        InlineBoxKind::OutOfFlow
+                        | InlineBoxKind::OpenTag
+                        | InlineBoxKind::CloseTag => (0.0, 0.0),
                         // If the box is a `CustomOutOfFlow` box then we yield control flow back to the caller.
                         // It is then the caller's responsibility to handle placement of the box.
                         InlineBoxKind::CustomOutOfFlow => {
@@ -548,10 +658,20 @@ impl<'a, B: Brush> BreakLines<'a, B> {
 
                         self.state
                             .append_inline_box_to_line(next_x, height_contribution);
+                        self.state.line.content_cluster = None;
 
                         // We can always line break after an inline box
                         self.state.mark_line_break_opportunity();
                     } else {
+                        if let Some(before) = open_tag.filter(|before| before.state.x != 0.0) {
+                            self.state.reset_to(before);
+                            self.fit.0 = self.state.line.x;
+                            return self.start_new_line(
+                                BreakReason::Regular,
+                                max_advance,
+                                line_indent,
+                            );
+                        }
                         // If we're at the start of the line, this box will never fit, so consume it and accept the overflow.
                         let reason = if self.state.line.x == 0.0 {
                             // println!("BOX EMERGENCY BREAK");
@@ -585,6 +705,19 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         let is_newline = whitespace == Whitespace::Newline;
                         let is_space = whitespace.is_space_or_nbsp();
                         let boundary = cluster.info().boundary();
+                        // Rito: a space or other space separator overflowing
+                        // the line hangs past its end when the line may not
+                        // break before it but may after its run (Blink's
+                        // `ShapingLineBreaker` takes the first opportunity
+                        // at or after an overflowing breakable space and
+                        // hangs the spaces before it). The no-break space
+                        // never hangs.
+                        let hangs = is_hangable_space(cluster.info().source_char())
+                            && boundary != Boundary::Line
+                            && breaks_after_space_run(
+                                &self.layout.data.clusters,
+                                self.state.cluster_idx,
+                            );
                         let line_height = run.metrics().line_height;
                         let max_height_exceeded = self.state.line.max_height_exceeded;
                         let style = &self.layout.data.styles[cluster.data.style_index as usize];
@@ -593,16 +726,17 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         let text_wrap_mode = self.state.line.text_wrap_mode;
                         self.state.line.text_wrap_mode = style.text_wrap_mode;
 
-                        if boundary == Boundary::Line && text_wrap_mode == TextWrapMode::Wrap {
-                            // We do not currently handle breaking within a ligature, so we ignore boundaries in such a position.
-                            //
-                            // We also don't record boundaries when the advance is 0. As we do not want overflowing content to cause extra consecutive
-                            // line breaks. We should accept the overflowing fragment in that scenario.
-                            if !is_ligature_continuation && self.state.line.x != 0.0 {
-                                self.state.mark_line_break_opportunity();
-                                // break_opportunity = true;
-                            }
-                        } else if is_newline {
+                        // Rito: open tags met since the last cluster. A break
+                        // this cluster allows is taken before them (unless
+                        // they open the line); a forced break keeps them.
+                        let open_tag = self.state.open_tag_boundary.take();
+
+                        // Rito: a forced break is taken before any soft wrap
+                        // opportunity, as upstream now does. A line break
+                        // override can mark the newline itself breakable
+                        // (`line-break: anywhere`, or Chromium's tailoring
+                        // after a space), and the soft branch lost the break.
+                        if is_newline {
                             if max_height_exceeded {
                                 return self.max_height_break_data(line_height);
                             }
@@ -613,6 +747,44 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                                 max_advance,
                                 line_indent,
                             );
+                        } else if boundary == Boundary::Line && text_wrap_mode == TextWrapMode::Wrap
+                        {
+                            // We do not currently handle breaking within a ligature, so we ignore boundaries in such a position.
+                            //
+                            // We also don't record boundaries when the advance is 0. As we do not want overflowing content to cause extra consecutive
+                            // line breaks. We should accept the overflowing fragment in that scenario.
+                            if !is_ligature_continuation {
+                                match open_tag {
+                                    // Rito: an opportunity whose line end,
+                                    // reshaped alone, overflows is passed
+                                    // over (Blink's `reshape_line_end` moves
+                                    // to the opportunity before it).
+                                    Some(before) => {
+                                        if before.state.x != 0.0
+                                            && line_end_fits(
+                                                &self.layout.data,
+                                                &mut self.fit,
+                                                &before.state,
+                                                max_advance,
+                                            )
+                                        {
+                                            self.state.prev_boundary = Some(before);
+                                        }
+                                    }
+                                    None => {
+                                        if self.state.line.x != 0.0
+                                            && line_end_fits(
+                                                &self.layout.data,
+                                                &mut self.fit,
+                                                &self.state.line,
+                                                max_advance,
+                                            )
+                                        {
+                                            self.state.mark_line_break_opportunity();
+                                        }
+                                    }
+                                }
+                            }
                         } else if
                         // This text can contribute "emergency" line breaks.
                         style.overflow_wrap != OverflowWrap::Normal && !is_ligature_continuation
@@ -620,14 +792,26 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                         // If we're at the start of the line, this particular cluster will never fit, so it's not a valid emergency break opportunity.
                         && self.state.line.x != 0.0
                         {
-                            self.state.mark_emergency_break_opportunity();
+                            match open_tag {
+                                Some(before) => {
+                                    if before.state.x != 0.0 {
+                                        self.state.emergency_boundary = Some(before);
+                                    }
+                                }
+                                None => self.state.mark_emergency_break_opportunity(),
+                            }
                         }
 
                         // If current cluster is the start of a ligature, then advance state to include
                         // the remaining clusters that make up the ligature
                         let mut advance = cluster.advance();
                         if cluster.is_ligature_start() {
-                            while let Some(cluster) = run.get(self.state.cluster_idx + 1) {
+                            // Rito: `Run::get` takes an index within the run,
+                            // as above; the absolute index read another run's
+                            // clusters for every run but the paragraph's first.
+                            while let Some(cluster) =
+                                run.get(self.state.cluster_idx - cluster_start + 1)
+                            {
                                 if !cluster.is_ligature_continuation() {
                                     break;
                                 } else {
@@ -653,6 +837,10 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             if is_space {
                                 self.state.line.num_spaces += 1;
                             }
+                            if !is_hangable_space(cluster.info().source_char()) {
+                                self.state.line.content_x = next_x;
+                                self.state.line.content_cluster = Some(self.state.cluster_idx - 1);
+                            }
                         }
                         // Else we attempt to line break:
                         //
@@ -663,7 +851,16 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                             // Case: cluster is a space character (and wrapping is enabled)
                             //
                             // We hang any overflowing whitespace and then line-break.
-                            if is_space && text_wrap_mode == TextWrapMode::Wrap {
+                            // Rito: unless the line's last glyph, reshaped
+                            // without the space, no longer fits and an
+                            // earlier opportunity can take the line.
+                            let reshaped_fits = line_end_fits(
+                                &self.layout.data,
+                                &mut self.fit,
+                                &self.state.line,
+                                max_advance,
+                            ) || self.state.prev_boundary.is_none();
+                            if hangs && text_wrap_mode == TextWrapMode::Wrap && reshaped_fits {
                                 if max_height_exceeded {
                                     return self.max_height_break_data(line_height);
                                 }
@@ -761,6 +958,13 @@ impl<'a, B: Brush> BreakLines<'a, B> {
                 LayoutItemKind::InlineBox => {
                     let inline_box = &self.layout.data.inline_boxes[item.index];
 
+                    if inline_box.kind.is_tag() {
+                        // Rito: an inline box's start or end size takes its
+                        // width and counts as no character.
+                        let next_x = self.state.line.x + inline_box.width;
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
                     if inline_box.kind != InlineBoxKind::InFlow {
                         self.state.append_inline_box_to_line(self.state.line.x, 0.0);
                         continue;
@@ -863,6 +1067,96 @@ impl<'a, B: Brush> BreakLines<'a, B> {
         }
 
         // Commit the final line (only reached if content remains after all break_next_with_length calls)
+        if self.state.line.items.end == 0 {
+            self.state.line.items.end = 1;
+        }
+        self.done = true;
+        self.start_new_line(BreakReason::None, f32::MAX, line_indent);
+        Some(())
+    }
+
+    /// Rito: breaks the next line so that it holds exactly the content
+    /// before text index `end`: every cluster starting before it and every
+    /// in-flow box placed at or before it (a box sits before the text at its
+    /// index). The line is forced, so it records no fit, and it can be
+    /// reverted like a line `break_next` computed. Returns `None` once all
+    /// content is placed.
+    pub fn break_next_to(&mut self, end: usize) -> Option<()> {
+        if self.done {
+            return None;
+        }
+        self.prev_state = Some(self.state.clone());
+        self.fit = (f32::NEG_INFINITY, f32::INFINITY);
+        let line_indent = self.resolve_indent();
+        let item_count = self.layout.data.items.len();
+        while self.state.item_idx < item_count {
+            let item = &self.layout.data.items[self.state.item_idx];
+            match item.kind {
+                LayoutItemKind::InlineBox => {
+                    let inline_box = &self.layout.data.inline_boxes[item.index];
+                    // Rito: an open tag at the line's end opens the next line
+                    // with what it opens; a close tag there closes content
+                    // the line holds.
+                    let past_end = match inline_box.kind {
+                        InlineBoxKind::OpenTag => inline_box.index >= end,
+                        _ => inline_box.index > end,
+                    };
+                    if inline_box.kind.is_tag() {
+                        if past_end {
+                            self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
+                            return Some(());
+                        }
+                        let next_x = self.state.line.x + inline_box.width;
+                        self.state.append_inline_box_to_line(next_x, 0.0);
+                        continue;
+                    }
+                    if inline_box.kind != InlineBoxKind::InFlow {
+                        self.state.append_inline_box_to_line(self.state.line.x, 0.0);
+                        continue;
+                    }
+                    if past_end {
+                        self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
+                        return Some(());
+                    }
+                    let next_x = self.state.line.x + inline_box.width;
+                    self.state
+                        .append_inline_box_to_line(next_x, inline_box.height);
+                }
+                LayoutItemKind::TextRun => {
+                    let run_data = &self.layout.data.runs[item.index];
+                    let run = Run::new(self.layout, 0, 0, run_data, None);
+                    let cluster_start = run_data.cluster_range.start;
+                    let cluster_end = run_data.cluster_range.end;
+                    while self.state.cluster_idx < cluster_end {
+                        let cluster = run.get(self.state.cluster_idx - cluster_start).unwrap();
+                        if cluster.text_range().start >= end {
+                            self.start_new_line(BreakReason::Regular, f32::MAX, line_indent);
+                            return Some(());
+                        }
+                        let whitespace = cluster.info().whitespace();
+                        let is_newline = whitespace == Whitespace::Newline;
+                        // Newlines don't contribute to line width (as in
+                        // `break_next`).
+                        let next_x = if is_newline {
+                            self.state.line.x
+                        } else {
+                            self.state.line.x + cluster.advance()
+                        };
+                        let line_height = run.metrics().line_height;
+                        self.state.append_cluster_to_line(next_x, line_height);
+                        if whitespace.is_space_or_nbsp() {
+                            self.state.line.num_spaces += 1;
+                        }
+                        if is_newline {
+                            self.start_new_line(BreakReason::Explicit, f32::MAX, line_indent);
+                            return Some(());
+                        }
+                    }
+                    self.state.run_idx += 1;
+                    self.state.item_idx += 1;
+                }
+            }
+        }
         if self.state.line.items.end == 0 {
             self.state.line.items.end = 1;
         }
@@ -1374,4 +1668,38 @@ fn reorder_line_items(runs: &mut [LineItemData]) {
             i += 1;
         }
     }
+}
+
+/// Rito: whether a line may break after the run of hangable spaces starting
+/// at cluster `index`: at the end of the text, before a newline, or where the
+/// next cluster allows a break before it.
+fn breaks_after_space_run(clusters: &[ClusterData], index: usize) -> bool {
+    clusters
+        .iter()
+        .skip(index + 1)
+        .find(|cluster| !is_hangable_space(cluster.info.source_char()))
+        .is_none_or(|cluster| {
+            cluster.info.whitespace() == Whitespace::Newline
+                || matches!(
+                    cluster.info.boundary(),
+                    Boundary::Line | Boundary::Mandatory
+                )
+        })
+}
+
+/// Rito: a breakable space (Blink's `IsBreakableSpace`: the space and the
+/// tab) or another space separator.
+fn is_hangable_space(character: char) -> bool {
+    matches!(character, ' ' | '\t') || is_other_space_separator(character)
+}
+
+/// Rito: a space separator other than the space and the no-break space
+/// (CSS Text's "other space separators", Blink's
+/// `unicode::IsOtherSpaceSeparator`): the ideographic space, the
+/// typographic spaces and their kin.
+fn is_other_space_separator(character: char) -> bool {
+    matches!(
+        character,
+        '\u{1680}' | '\u{2000}'..='\u{200A}' | '\u{202F}' | '\u{205F}' | '\u{3000}'
+    )
 }

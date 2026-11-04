@@ -1,7 +1,10 @@
 mod access_tests;
+mod annotation_space_tests;
 mod chapter_local_tests;
+mod emphasis_tests;
 pub(crate) mod fixture;
 mod fragment_page_table_tests;
+mod inline_block_tests;
 pub(crate) mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
@@ -9,10 +12,17 @@ mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
 mod relayout_equivalence_tests;
 pub(crate) mod revisions;
+mod ruby_overhang_tests;
 mod ruby_range_tests;
+mod scroll_strip_tests;
+mod scrolled_revision_tests;
+mod strip_cost_probe;
+mod stylesheet_scope_tests;
 mod text_granularity_tests;
 mod text_interaction_tests;
 mod text_movement_tests;
+mod vertical_geometry_tests;
+mod vertical_scroll_tests;
 mod word_selection_tests;
 
 use fixture::{

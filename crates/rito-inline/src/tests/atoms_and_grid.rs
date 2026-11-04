@@ -70,7 +70,7 @@ fn an_atom_boundary_share_moves_the_atom_not_the_next_run() {
                         fit_contain: false,
                         object_fit: rito_style_contract::ObjectFit::Fill,
                         viewport: None,
-                        align_top: false,
+                        align: rito_fragment::AtomAlign::Baseline,
                         baseline_shift_px: 0.0,
                     },
                     InlineItem::Text {
@@ -134,8 +134,7 @@ pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormatting
     use rito_style_contract::{
         AlignItems, BoxSizing, CellVerticalAlign, Clear, Float, JustifyContent, LayoutDisplay,
         LayoutDisplayInside, LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle,
-        MaximumHeight, MaximumSize, MinimumHeight, NonNegativeCssPx, Overflow, PageBreak, Position,
-        PreferredSize,
+        MaximumSize, MinimumSize, NonNegativeCssPx, Overflow, PageBreak, Position, PreferredSize,
     };
     let auto = LengthPercentageOrAuto::Auto;
     let zero_padding =
@@ -158,6 +157,9 @@ pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormatting
             bottom: zero_padding,
             left: zero_padding,
         },
+        border_widths: rito_style_contract::PhysicalSides::uniform(
+            rito_style_contract::NonNegativeCssPx::ZERO,
+        ),
         box_sizing: BoxSizing::ContentBox,
         justify_content: JustifyContent::Normal,
         align_items: AlignItems::Normal,
@@ -166,8 +168,11 @@ pub(super) fn jgap_image_layout_style() -> rito_style_contract::LayoutFormatting
         width: PreferredSize::Auto,
         height: PreferredSize::Auto,
         max_width: MaximumSize::None,
-        min_height: MinimumHeight::Auto,
-        max_height: MaximumHeight::None,
+        min_height: MinimumSize::Auto,
+        min_width: MinimumSize::Auto,
+        writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+        direction: rito_style_contract::Direction::LeftToRight,
+        max_height: MaximumSize::None,
         clear: Clear::None,
         float: Float::None,
         overflow: Overflow::Visible,
@@ -563,6 +568,7 @@ fn a_ruby_edge_is_a_shaping_boundary() {
             text: note.to_owned(),
             size_ratio: 0.5,
             align: rito_style_contract::RubyAlign::SpaceAround,
+            continues_ruby: false,
         }),
     };
     let merged = lay(&|style| vec![text_item("ウ，可", None, style)]);
@@ -607,8 +613,8 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -659,6 +665,9 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
                         bottom: zero_padding,
                         left: zero_padding,
                     },
+                    border_widths: rito_style_contract::PhysicalSides::uniform(
+                        rito_style_contract::NonNegativeCssPx::ZERO,
+                    ),
                     box_sizing: rito_style_contract::BoxSizing::ContentBox,
                     justify_content: JustifyContent::Normal,
                     align_items: AlignItems::Normal,
@@ -667,8 +676,11 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
                     width: PreferredSize::Auto,
                     height: PreferredSize::Auto,
                     max_width: MaximumSize::None,
-                    min_height: MinimumHeight::Auto,
-                    max_height: MaximumHeight::None,
+                    min_height: MinimumSize::Auto,
+                    min_width: MinimumSize::Auto,
+                    writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                    direction: rito_style_contract::Direction::LeftToRight,
+                    max_height: MaximumSize::None,
                     clear: Clear::None,
                     float: Float::None,
                     overflow: Overflow::Visible,
@@ -707,7 +719,7 @@ fn a_top_aligned_image_in_a_super_chain_overflows_the_line_top() {
                 fit_contain: false,
                 viewport: None,
                 baseline_shift_px: shift_px,
-                align_top: true,
+                align: rito_fragment::AtomAlign::Top,
                 object_fit: rito_style_contract::ObjectFit::Fill,
             },
             InlineItem::Text {
@@ -774,8 +786,8 @@ fn an_inline_image_separates_a_punctuation_pair() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -826,6 +838,9 @@ fn an_inline_image_separates_a_punctuation_pair() {
                         bottom: zero_padding,
                         left: zero_padding,
                     },
+                    border_widths: rito_style_contract::PhysicalSides::uniform(
+                        rito_style_contract::NonNegativeCssPx::ZERO,
+                    ),
                     box_sizing: rito_style_contract::BoxSizing::ContentBox,
                     justify_content: JustifyContent::Normal,
                     align_items: AlignItems::Normal,
@@ -834,8 +849,11 @@ fn an_inline_image_separates_a_punctuation_pair() {
                     width: PreferredSize::Auto,
                     height: PreferredSize::Auto,
                     max_width: MaximumSize::None,
-                    min_height: MinimumHeight::Auto,
-                    max_height: MaximumHeight::None,
+                    min_height: MinimumSize::Auto,
+                    min_width: MinimumSize::Auto,
+                    writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                    direction: rito_style_contract::Direction::LeftToRight,
+                    max_height: MaximumSize::None,
                     clear: Clear::None,
                     float: Float::None,
                     overflow: Overflow::Visible,
@@ -874,7 +892,7 @@ fn an_inline_image_separates_a_punctuation_pair() {
                 fit_contain: false,
                 viewport: None,
                 baseline_shift_px: 0.0,
-                align_top: false,
+                align: rito_fragment::AtomAlign::Baseline,
                 object_fit: rito_style_contract::ObjectFit::Fill,
             });
         }
@@ -977,6 +995,7 @@ fn the_b20_ruby_line_pitch_matches_truth() {
                 text: "Shouichi".to_owned(),
                 size_ratio: 0.7,
                 align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
             }),
         },
         InlineItem::Text {
@@ -1087,6 +1106,7 @@ fn the_b20_ruby_line_pitch_matches_truth() {
                             text: "Shouko".to_owned(),
                             size_ratio: 0.7,
                             align: rito_style_contract::RubyAlign::SpaceAround,
+                            continues_ruby: false,
                         }),
                     },
                     InlineItem::Text {
@@ -1185,6 +1205,7 @@ fn the_b20_double_ruby_paragraph_interior_pitch_matches_truth() {
             text: ann.to_owned(),
             size_ratio: 0.7,
             align: rito_style_contract::RubyAlign::SpaceAround,
+            continues_ruby: false,
         }),
     };
     let text = |t: &str| InlineItem::Text {
@@ -1259,4 +1280,94 @@ fn the_b20_double_ruby_paragraph_interior_pitch_matches_truth() {
         (pitch - 27.0).abs() < 0.01,
         "the interior ruby line's char pitch must be 27 like the real chapter, got {pitch}"
     );
+}
+
+/// Down a vertical column an image sizes in physical terms: the page clamp
+/// holds its height to the column's length (measured on a 318x2048
+/// chapter plate: Chromium lays it 132x850 on an 850px column).
+#[test]
+fn a_vertical_line_clamps_an_image_to_the_columns_length() {
+    let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
+    let mut inline = InlineStyleTable::new(1);
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(
+            rito_style_contract::GenericFontFamily::Serif,
+        )])
+        .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.bidi.writing_mode = rito_style_contract::WritingMode::VerticalRightToLeft;
+    let style = inline.intern_for_node(0, style).expect("style interns");
+    let mut layout = LayoutStyleTable::new(1);
+    let image_layout = layout
+        .intern_for_node(0, jgap_image_layout_style())
+        .expect("layout style interns");
+    let mut tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: image_layout,
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "一".to_owned(),
+                        style,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Image {
+                        src: "plate.png".to_owned(),
+                        source: 0,
+                        intrinsic_width: 318.0,
+                        intrinsic_height: 2048.0,
+                        style,
+                        layout_style: image_layout,
+                        fit_contain: false,
+                        object_fit: rito_style_contract::ObjectFit::Fill,
+                        viewport: None,
+                        align: rito_fragment::AtomAlign::Baseline,
+                        baseline_shift_px: 0.0,
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles { layout, inline },
+    )
+    .expect("inline tree builds");
+    tree.set_strut_styles([(0, style)].into());
+    let outcome = context
+        .layout(
+            &tree,
+            FormattingNodeId(0),
+            &ConstraintSpace::continuous(850.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("box");
+    };
+    // The plate takes a column of its own after the ideograph's.
+    let (line, image) = root
+        .children
+        .iter()
+        .filter_map(|line| match line {
+            Fragment::Line(line) => Some(line),
+            _ => None,
+        })
+        .find_map(|line| {
+            line.children.iter().find_map(|child| match child {
+                Fragment::Image(image) => Some((line, image.rect)),
+                _ => None,
+            })
+        })
+        .expect("a line holds the image");
+    // Along the column the image runs its physical height, 850; across
+    // it, its width scaled by the same 850/2048 onto the 1/64 grid.
+    assert_eq!((image.width, image.height), (850.0, 131.96875));
+    // It sits on the line's central baseline by its middle, so the column
+    // is exactly as wide as the plate (Chromium: a paragraph holding the
+    // unscaled 318px plate is 318px wide).
+    assert_eq!((line.rect.height, image.y), (131.96875, 0.0));
 }

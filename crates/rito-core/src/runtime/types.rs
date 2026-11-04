@@ -188,6 +188,9 @@ pub struct RuntimeRequiredFontFace {
     pub shape_fingerprint: String,
     pub byte_length: usize,
     pub source_order: usize,
+    /// OpenType features (tag, value) the family paints with on.
+    #[serde(default)]
+    pub features: Vec<(String, u32)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

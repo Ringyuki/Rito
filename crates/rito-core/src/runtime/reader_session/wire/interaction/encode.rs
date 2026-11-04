@@ -7,7 +7,7 @@ use super::super::{
 };
 use super::{
     tag_of, AFFINITIES, ANNOTATION_LEVELS, BOUNDARIES, GRANULARITIES, MOVEMENTS,
-    UNAVAILABLE_REASONS,
+    UNAVAILABLE_REASONS, WRITING_MODES,
 };
 use crate::runtime::reader_session::{
     ReaderAnnotationQuery, ReaderAnnotationRequest, ReaderAnnotationResponse, ReaderCaret,
@@ -184,8 +184,10 @@ fn caret(writer: &mut Writer, value: &ReaderCaret) -> Result<(), ReaderError> {
         writer.option(value.geometry.as_ref(), |writer, geometry| {
             writer.f64(geometry.x, "caret x")?;
             writer.f64(geometry.y, "caret y")?;
+            writer.f64(geometry.width, "caret width")?;
             writer.f64(geometry.height, "caret height")
         })?;
+        writer.u8(tag_of(&WRITING_MODES, &value.writing_mode));
         writer.string(&value.href, "caret href")?;
         source_point(writer, &value.source_point)
     })

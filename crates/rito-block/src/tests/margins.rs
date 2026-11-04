@@ -17,7 +17,8 @@ fn horizontal_padding_truncates_onto_the_layout_unit_grid() {
     };
     style.padding.left = pad(12.16);
     style.padding.right = pad(1.216);
-    let hbox = resolve_horizontal_box(&style, 581.15625).expect("box resolves");
+    let hbox = resolve_inline_box(&style, WritingDirection::HORIZONTAL_LTR, 581.15625)
+        .expect("box resolves");
     assert!(
         (hbox.padding_left - 12.15625).abs() < 1e-9,
         "left {}",
@@ -545,7 +546,11 @@ fn a_snug_last_paragraph_keeps_its_full_margin() {
                         },
                         baseline: 16.0,
                         trailing_whitespace: 0.0,
-                        ruby_growth: 0.0,
+                        annotation_growth: 0.0,
+                        annotation_overflow: 0.0,
+                        annotation_lent: 0.0,
+                        annotation_space_end: 0.0,
+                        fonts: rito_fragment::LineFonts::None,
                         text_runs: Vec::new(),
                         children: Vec::new(),
                     })
@@ -562,6 +567,7 @@ fn a_snug_last_paragraph_keeps_its_full_margin() {
                             height: LINE * items.len() as f64,
                         },
                         children: lines,
+                        cuts: rito_fragment::BlockCuts::NONE,
                     }),
                 },
                 continuation: None,
@@ -724,8 +730,9 @@ fn a_margin_meeting_an_unforced_break_is_truncated() {
     assert_eq!(pages.len(), 2);
     let first_children = box_children(&pages[0]);
     assert_eq!(first_children.len(), 1);
-    // Page 1 seals at the content edge, without the truncated margin.
-    assert!((pages[0].fragments.root.rect().height - 20.0).abs() < 1e-9);
+    // Page 1's container breaks before paragraph 2 and keeps the rest of
+    // the fragmentainer, the truncated margin's room included.
+    assert!((pages[0].fragments.root.rect().height - 25.0).abs() < 1e-9);
     let second_children = box_children(&pages[1]);
     assert_eq!(second_children.len(), 1);
     assert!((second_children[0].rect().y - 0.0).abs() < 1e-9);

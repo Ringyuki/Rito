@@ -2,11 +2,10 @@
 // (A, B) of fullwidth punctuation classes, measure A's and B's rendered
 // advances inside 中A B中 at 2000px (no wrapping, no justify) under the
 // pinned CJK face. 15.2 = full, ~7.6 = compressed half.
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
-const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
 
 const CLASSES = {
@@ -17,7 +16,7 @@ const CLASSES = {
   middle: ['・', '：', '；'],
 };
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const page = await browser.newPage({ viewport: { width: 2400, height: 400 } });
 const reps = Object.entries(CLASSES).flatMap(([cls, chars]) => chars.map((ch) => [cls, ch]));
 const pairs = [];

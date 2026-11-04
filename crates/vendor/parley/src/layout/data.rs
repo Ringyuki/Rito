@@ -30,7 +30,9 @@ pub(crate) struct ClusterData {
     /// taken from the owning run.
     pub(crate) glyph_offset: u32,
     /// Offset into the text for this cluster
-    pub(crate) text_offset: u16,
+    // Rito: 32 bits; a shaping run longer than 64 KiB (a volume written as
+    // one paragraph in one style) wrapped a 16-bit offset.
+    pub(crate) text_offset: u32,
     /// Advance width for this cluster
     pub(crate) advance: f32,
 }
@@ -38,6 +40,9 @@ pub(crate) struct ClusterData {
 impl ClusterData {
     pub(crate) const LIGATURE_START: u16 = 1;
     pub(crate) const LIGATURE_COMPONENT: u16 = 2;
+    /// Rito: part of a combined upright unit (see
+    /// [`Layout::combine_upright`](crate::Layout::combine_upright)).
+    pub(crate) const COMBINED: u16 = 4;
 
     #[inline(always)]
     pub(crate) fn is_ligature_start(self) -> bool {
@@ -47,6 +52,11 @@ impl ClusterData {
     #[inline(always)]
     pub(crate) fn is_ligature_component(self) -> bool {
         self.flags & Self::LIGATURE_COMPONENT != 0
+    }
+
+    #[inline(always)]
+    pub(crate) fn is_combined(self) -> bool {
+        self.flags & Self::COMBINED != 0
     }
 
     #[inline(always)]
@@ -147,6 +157,9 @@ pub(crate) struct RunData {
     /// Rito: the run's entries in [`LayoutData::style_breaks`], set once
     /// the layout is built.
     pub(crate) style_breaks: Range<usize>,
+    /// Rito: whether the run was shaped top to bottom (upright in a
+    /// vertical line).
+    pub(crate) vertical_upright: bool,
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
@@ -303,6 +316,13 @@ pub(crate) struct LayoutData<B: Brush> {
     /// in logical order: where a line splits a run by style (see
     /// `Line::style_runs`), found without reading the clusters between.
     pub(crate) style_breaks: Arc<Vec<u32>>,
+    /// Rito: for each cluster whose end is a possible line end the shaper
+    /// marked unsafe to break, by index in `clusters` ascending, how much
+    /// wider the cluster shapes alone than in context. Blink reshapes such
+    /// a line end without the text after it (`ShapingLineBreaker::ShapeLine`'s
+    /// `reshape_line_end`), so the line's last glyph loses its kerning with
+    /// the space that hangs after it.
+    pub(crate) line_end_deltas: Arc<Vec<(u32, f32)>>,
 
     // Output of line breaking
     /// The lines in the
@@ -350,6 +370,7 @@ impl<B: Brush> Default for LayoutData<B> {
             clusters: Arc::default(),
             glyphs: Arc::default(),
             style_breaks: Arc::default(),
+            line_end_deltas: Arc::default(),
             lines: Vec::new(),
             line_items: Vec::new(),
             #[cfg(feature = "accesskit")]
@@ -380,8 +401,17 @@ impl<B: Brush> LayoutData<B> {
         vacate(&mut self.clusters);
         vacate(&mut self.glyphs);
         vacate(&mut self.style_breaks);
+        vacate(&mut self.line_end_deltas);
         self.lines.clear();
         self.line_items.clear();
+    }
+
+    /// Rito: how much wider cluster `index` shapes alone at a line's end
+    /// than in context (see `line_end_deltas`); zero where it is safe.
+    pub(crate) fn line_end_delta(&self, index: usize) -> f32 {
+        self.line_end_deltas
+            .binary_search_by_key(&(index as u32), |(cluster, _)| *cluster)
+            .map_or(0.0, |found| self.line_end_deltas[found].1)
     }
 
     /// Push an inline box to the list of items
@@ -408,6 +438,7 @@ impl<B: Brush> LayoutData<B> {
         style_index: u16,
         word_spacing: f32,
         letter_spacing: f32,
+        vertical_upright: bool,
         source_text: &str,
         char_infos: &[(CharInfo, u16)], // From text analysis
         text_range: Range<usize>,       // The text range this run covers
@@ -427,10 +458,17 @@ impl<B: Brush> LayoutData<B> {
                 index
             });
 
-        let metrics = {
+        let (metrics, vertical_fallback) = {
             let font = &self.fonts[font_index];
             let font_ref = skrifa::FontRef::from_index(font.data.as_ref(), font.index).unwrap();
-            skrifa::metrics::Metrics::new(&font_ref, skrifa::prelude::Size::new(font_size), coords)
+            (
+                skrifa::metrics::Metrics::new(
+                    &font_ref,
+                    skrifa::prelude::Size::new(font_size),
+                    coords,
+                ),
+                vertical_upright.then(|| vertical_fallback(&font_ref, font_size)),
+            )
         };
         let units_per_em = metrics.units_per_em as f32;
 
@@ -491,6 +529,7 @@ impl<B: Brush> LayoutData<B> {
             letter_spacing,
             advance: 0.,
             style_breaks: 0..0,
+            vertical_upright,
         };
 
         // `HarfRust` returns glyphs in visual order, so we need to process them as such while
@@ -510,6 +549,8 @@ impl<B: Brush> LayoutData<B> {
                 owned(&mut self.clusters),
                 owned(&mut self.glyphs),
                 scale_factor,
+                vertical_upright,
+                vertical_fallback.flatten(),
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -521,6 +562,8 @@ impl<B: Brush> LayoutData<B> {
                 owned(&mut self.clusters),
                 owned(&mut self.glyphs),
                 scale_factor,
+                vertical_upright,
+                vertical_fallback.flatten(),
                 glyph_infos,
                 glyph_positions,
                 char_infos,
@@ -603,8 +646,19 @@ impl<B: Brush> LayoutData<B> {
 
         let mut running_min_width = 0.0;
         let mut running_max_width = 0.0;
+        // Rito: open tags waiting for the content they open.
+        let mut pending_open_tags = 0.0_f32;
         let mut text_wrap_mode = TextWrapMode::Wrap;
         let mut prev_cluster: Option<&ClusterData> = None;
+        // Rito: a forced break's mandatory boundary lands on the next
+        // cluster, so an inline box (or the open tag before one) right
+        // after the newline starts the next line here instead — the
+        // browser sizes `a<br><inline-block>` by the wider of the two, not
+        // their sum. Close tags stay on the line the break ends.
+        let mut after_newline = false;
+        // The break taken there is the one the next cluster's mandatory
+        // boundary marks: it must not end that box's line again.
+        let mut break_taken = false;
         let is_rtl = self.base_level & 1 == 1;
         for item in self.items.iter() {
             match item.kind {
@@ -615,10 +669,15 @@ impl<B: Brush> LayoutData<B> {
                         prev_cluster = clusters.first();
                     }
                     for cluster in clusters {
-                        let boundary = cluster.info.boundary();
+                        let boundary = match cluster.info.boundary() {
+                            Boundary::Mandatory if break_taken => Boundary::None,
+                            boundary => boundary,
+                        };
+                        break_taken = false;
                         let style = &self.styles[cluster.style_index as usize];
                         let prev_text_wrap_mode = text_wrap_mode;
                         text_wrap_mode = style.text_wrap_mode;
+                        after_newline = cluster.info.whitespace() == Whitespace::Newline;
                         if boundary == Boundary::Mandatory
                             || (prev_text_wrap_mode == TextWrapMode::Wrap
                                 && (boundary == Boundary::Line
@@ -632,7 +691,8 @@ impl<B: Brush> LayoutData<B> {
                                 running_max_width = 0.0;
                             }
                         }
-                        running_min_width += cluster.advance;
+                        running_min_width += pending_open_tags + cluster.advance;
+                        pending_open_tags = 0.0;
                         running_max_width += cluster.advance;
                         if !is_rtl {
                             // Rito: a newline cluster must not shadow the
@@ -650,6 +710,31 @@ impl<B: Brush> LayoutData<B> {
                 }
                 LayoutItemKind::InlineBox => {
                     let ibox = &self.inline_boxes[item.index];
+                    if after_newline && ibox.kind != InlineBoxKind::CloseTag {
+                        let trailing_whitespace = whitespace_advance(prev_cluster);
+                        min_width = min_width.max(running_min_width - trailing_whitespace);
+                        max_width = max_width.max(running_max_width - trailing_whitespace);
+                        running_min_width = 0.0;
+                        running_max_width = 0.0;
+                        prev_cluster = None;
+                        after_newline = false;
+                        break_taken = true;
+                    }
+                    // Rito: an inline box's start size rides with the content
+                    // after it (a break before that content takes it along),
+                    // its end size with the content before it.
+                    if ibox.kind == InlineBoxKind::OpenTag {
+                        running_max_width += ibox.width;
+                        pending_open_tags += ibox.width;
+                        continue;
+                    }
+                    if ibox.kind == InlineBoxKind::CloseTag {
+                        running_max_width += ibox.width;
+                        running_min_width += ibox.width;
+                        let trailing_whitespace = whitespace_advance(prev_cluster);
+                        max_width = max_width.max(running_max_width - trailing_whitespace);
+                        continue;
+                    }
                     if ibox.kind == InlineBoxKind::InFlow {
                         running_max_width += ibox.width;
                         if text_wrap_mode == TextWrapMode::Wrap {
@@ -669,13 +754,58 @@ impl<B: Brush> LayoutData<B> {
         }
 
         let trailing_whitespace = whitespace_advance(prev_cluster);
-        min_width = min_width.max(running_min_width - trailing_whitespace);
+        min_width = min_width.max(running_min_width + pending_open_tags - trailing_whitespace);
 
         ContentWidths {
             min: min_width,
             max: max_width,
         }
     }
+}
+
+/// Rito: the vertical advance at `font_size` of an upright glyph in a face
+/// without vertical metrics (no `vhea` and `vmtx`), and the shaper's default
+/// it stands in for, in font units: Blink advances such a glyph by the
+/// face's height (`OpenTypeVerticalData::AdvanceHeight`, its
+/// `height_fallback_`), its ascent and descent each rounded to whole pixels
+/// and summed — the hhea metrics, or the OS/2 typo ones when the face sets
+/// USE_TYPO_METRICS, as Skia reports them — where the shaper takes the typo
+/// ascent less descent. `None` for a face with vertical metrics.
+fn vertical_fallback(font_ref: &skrifa::FontRef<'_>, font_size: f32) -> Option<(i32, f32)> {
+    use skrifa::raw::TableProvider as _;
+    if font_ref.vhea().is_ok() && font_ref.vmtx().is_ok() {
+        return None;
+    }
+    let scale = f64::from(font_size) / f64::from(font_ref.head().ok()?.units_per_em().max(1));
+    let os2 = font_ref.os2().ok();
+    let hhea = font_ref.hhea().ok();
+    let shaper_default = match (&os2, &hhea) {
+        (Some(os2), _) => i32::from(os2.s_typo_ascender()) - i32::from(os2.s_typo_descender()),
+        (None, Some(hhea)) => {
+            i32::from(hhea.ascender().to_i16()) - i32::from(hhea.descender().to_i16())
+        }
+        (None, None) => 0,
+    };
+    let use_typo = os2.as_ref().is_some_and(|os2| {
+        os2.fs_selection()
+            .contains(skrifa::raw::tables::os2::SelectionFlags::USE_TYPO_METRICS)
+    });
+    let (ascent, descent) = match (use_typo, &os2, &hhea) {
+        (true, Some(os2), _) => (
+            f64::from(os2.s_typo_ascender()),
+            -f64::from(os2.s_typo_descender()),
+        ),
+        (_, _, Some(hhea)) => (
+            f64::from(hhea.ascender().to_i16()),
+            -f64::from(hhea.descender().to_i16()),
+        ),
+        _ => return None,
+    };
+    let round = |value: f64| (value + 0.5).floor();
+    Some((
+        shaper_default,
+        (round(ascent * scale) + round(descent * scale)) as f32,
+    ))
 }
 
 /// Processes shaped glyphs from `HarfRust` and converts them into `ClusterData` and `Glyph`.
@@ -690,6 +820,9 @@ impl<B: Brush> LayoutData<B> {
 /// ## Input Parameters:
 /// * `direction` - Direction of the text.
 /// * `scale_factor` - Scaling factor used to convert font units to the target size.
+/// * `vertical_upright` - Rito: whether the run was shaped top to bottom.
+/// * `vertical_fallback` - Rito: the vertical advance a face without vertical metrics gives
+///   in place of the shaper's default (see [`vertical_fallback`]).
 /// * `glyph_infos` - `HarfRust` glyph information in visual order.
 /// * `glyph_positions` - `HarfRust` glyph positioning data in visual order.
 /// * `char_infos` - Character information from text analysis, indexed by cluster ID.
@@ -700,6 +833,8 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
     clusters: &mut Vec<ClusterData>,
     glyphs: &mut Vec<Glyph>,
     scale_factor: f32,
+    vertical_upright: bool,
+    vertical_fallback: Option<(i32, f32)>,
     glyph_infos: &[harfrust::GlyphInfo],
     glyph_positions: &[harfrust::GlyphPosition],
     char_infos: &[(CharInfo, u16)],
@@ -826,13 +961,34 @@ fn process_clusters<I: Iterator<Item = (usize, char)>>(
             pending_inline_glyph = None;
         }
 
-        let glyph = Glyph {
-            id: glyph_info.glyph_id,
-            style_index: char_info.1,
-            x: (glyph_pos.x_offset as f32) * scale_factor,
-            // Convert from font space (Y-up) to layout space (Y-down)
-            y: -(glyph_pos.y_offset as f32) * scale_factor,
-            advance: (glyph_pos.x_advance as f32) * scale_factor,
+        // Rito: a run shaped top to bottom advances down the line by its
+        // vertical advance; the offsets from each glyph's vertical origin
+        // are the painter's, which hangs the glyph from that origin itself.
+        let glyph = if vertical_upright {
+            let units = -glyph_pos.y_advance;
+            Glyph {
+                id: glyph_info.glyph_id,
+                style_index: char_info.1,
+                x: 0.0,
+                y: 0.0,
+                // The positioning a glyph took moves it from the fallback
+                // as from the shaper's default; a mark zeroed stays zero.
+                advance: match vertical_fallback {
+                    Some((default, fallback)) if units != 0 => {
+                        fallback + ((units - default) as f32) * scale_factor
+                    }
+                    _ => (units as f32) * scale_factor,
+                },
+            }
+        } else {
+            Glyph {
+                id: glyph_info.glyph_id,
+                style_index: char_info.1,
+                x: (glyph_pos.x_offset as f32) * scale_factor,
+                // Convert from font space (Y-up) to layout space (Y-down)
+                y: -(glyph_pos.y_offset as f32) * scale_factor,
+                advance: (glyph_pos.x_advance as f32) * scale_factor,
+            }
         };
         cluster_advance += glyph.advance;
         // Push any pending glyph. If it was a zero-offset, single glyph cluster, it would
@@ -1003,7 +1159,7 @@ fn push_cluster(
         glyph_len: final_glyph_len,
         text_len: cluster_start_char.1.len_utf8() as u8,
         glyph_offset: final_glyph_offset,
-        text_offset: cluster_start_char.0 as u16,
+        text_offset: cluster_start_char.0 as u32,
         advance: final_advance,
     });
 }

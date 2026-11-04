@@ -144,6 +144,7 @@ final class RitoFontRef {
     required this.weight,
     required this.shapeFingerprint,
     required this.byteLength,
+    this.features = const <RitoFontFeature>[],
   });
 
   final String family;
@@ -152,6 +153,19 @@ final class RitoFontRef {
   final int weight;
   final String shapeFingerprint;
   final int byteLength;
+
+  /// OpenType features the face turns on wherever its family paints: the
+  /// same bytes registered again under a family of their own (the vertical
+  /// forms a vertical line's upright glyphs take).
+  final List<RitoFontFeature> features;
+}
+
+/// One OpenType feature setting: its four-letter tag and value.
+final class RitoFontFeature {
+  const RitoFontFeature({required this.tag, required this.value});
+
+  final String tag;
+  final int value;
 }
 
 /// What a hit is, as the engine classifies it: a note reference first
@@ -306,6 +320,7 @@ final class RitoArtifact {
     required this.height,
     this.bookPageIndex,
     this.bookPageCount,
+    this.targetBlockOffset,
     required this.navigation,
     required this.textProfile,
     required this.displayList,
@@ -351,6 +366,14 @@ final class RitoArtifact {
   /// background candidate already carries the total. Null on
   /// chapter-local artifacts.
   final int? bookPageCount;
+
+  /// Where the line [locator] lands on starts in this scrolled window's
+  /// display list, in CSS pixels from the window's block start (its top, or
+  /// its right edge for a leftward strip): show the window from here to put
+  /// that line at the block start of the viewport's content box. Null for a
+  /// spread of pages, for a page shown as a window, and for a window whose
+  /// locator names no line in it.
+  final double? targetBlockOffset;
   final RitoNavigation navigation;
   final RitoTextProfile textProfile;
   final RitoDisplayListPayload displayList;

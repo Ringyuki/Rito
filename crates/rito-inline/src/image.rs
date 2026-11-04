@@ -182,11 +182,19 @@ pub(crate) fn image_display_size(
     // percentage binds only against a definite containing height. The
     // clamp rescales only the AUTO cross axis, like the max-width arm.
     let max_height_cap = match layout_style.max_height {
-        rito_style_contract::MaximumHeight::None => None,
-        rito_style_contract::MaximumHeight::Length(px) => Some(f64::from(px.get())),
-        rito_style_contract::MaximumHeight::Percentage(ratio) => {
-            containing_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
-        }
+        rito_style_contract::MaximumSize::Value(value) => match value.value() {
+            rito_style_contract::LengthPercentage::Length(px) => Some(f64::from(px.get())),
+            rito_style_contract::LengthPercentage::Percentage(ratio) => {
+                containing_block_size.map(|basis| f64::from(ratio.ratio()) * basis)
+            }
+            rito_style_contract::LengthPercentage::Linear { length, percentage } => {
+                containing_block_size
+                    .map(|basis| f64::from(length.get()) + f64::from(percentage.ratio()) * basis)
+            }
+        },
+        // The intrinsic keywords have no used-value calculation here: the
+        // cap is omitted, as `max-width`'s are.
+        _ => None,
     };
     if let Some(cap) = max_height_cap {
         if height > cap && height > 0.0 {

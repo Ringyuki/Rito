@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rito_style_contract::{
     Clear, ComputedColor, Float, InlineFormattingStyle, LayoutFormattingStyle, LengthPercentage,
-    LineHeight, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak, TransformOperation,
+    LineHeight, MaximumSize, MinimumSize, Overflow, PageBreak, TransformOperation,
 };
 
 use crate::{
@@ -196,15 +196,18 @@ fn height_float_and_overflow_project_into_the_typed_layout_style() {
 
     let resolved = resolve(&base.stylesheet_ledger, &chapter);
     let paragraph = resolved.layout_for_tag(&chapter, "p");
-    let MinimumHeight::Length(min_height) = paragraph.min_height else {
+    let MinimumSize::Length(min_height) = paragraph.min_height else {
         panic!("min-height keeps its length: {:?}", paragraph.min_height);
     };
     assert_eq!(min_height.get(), 12.0);
-    let MaximumHeight::Percentage(max_height) = paragraph.max_height else {
+    let MaximumSize::Value(max_height) = paragraph.max_height else {
         panic!(
             "max-height keeps its percentage: {:?}",
             paragraph.max_height
         );
+    };
+    let LengthPercentage::Percentage(max_height) = max_height.value() else {
+        panic!("max-height keeps its percentage: {max_height:?}");
     };
     assert_eq!(max_height.percent(), 100.0);
     assert_eq!(paragraph.float, Float::Right);
@@ -651,6 +654,7 @@ fn document_with_stylesheet(href: &str, text: &str) -> LoadedEpubDocument {
             manifest: Vec::new(),
             spine: Vec::new(),
             toc: Vec::new(),
+            page_progression: Default::default(),
         },
         stylesheets: vec![LoadedTextResource {
             href: href.to_owned(),

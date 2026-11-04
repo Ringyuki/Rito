@@ -192,6 +192,76 @@ holds bytes the live encoder wrote for one of every primitive, and a
 Rust test keeps it in step. Format 1, the semantic display list, is no
 longer written; a decoder rejects it by its version field.
 
+Wire changes landed with vertical forms (reader protocol version 9):
+
+- Artifacts and publications stamp protocol version 9; a decoder pinned
+  to 8 must move with it.
+- Each font record of an artifact carries, after its byte length, a
+  count of OpenType feature settings and, for each, its tag (a string)
+  and value (`u32`). A record with features is a variant of a face: the
+  same bytes under a family of its own, painted with those features on
+  (`vert`, the vertical forms a vertical line's upright glyphs take). A
+  host registers it like any face, with the features as the face's
+  `font-feature-settings` descriptor, or turns them on for every run it
+  paints in that family.
+
+Wire changes landed with the scrolled reading mode (reader protocol
+version 8):
+
+- Artifacts and publications stamp protocol version 8; a decoder pinned
+  to 7 must move with it.
+- The layout record's `spread mode` has a third tag, 2 scrolled: each
+  chapter is one continuous strip read through windows the size of the
+  viewport, every window its own spread. A book whose spine's
+  `page-progression-direction` is `rtl` scrolls leftwards, others down; a
+  chapter whose blocks run across the book's axis (horizontal text in a
+  leftward book, vertical in a downward one) is paginated instead, each
+  page one window. Window `k` of a strip covers the chapter's CSS block
+  range `[k·L, (k+1)·L)` from its block start (`L` the viewport's height,
+  or its width for a leftward strip; the last window ends at the
+  chapter's extent) and the device pixels `[D(k), D(k+1))` along the axis,
+  `D(k) = floor(k·L·ratio + 0.5)`, the last ending at
+  `floor(extent·ratio + 0.5)`; a leftward strip starts at the right edge
+  of its first window. `first page alone` and `spread gap` are ignored.
+- The artifact record carries an optional `f64` target block offset
+  after `book page count`: where the line its locator lands on starts in
+  its scrolled window, in CSS pixels from the window's block start (its
+  top, or its right edge for a leftward strip). Absent for a spread of
+  pages, for a page shown as a window, and for a window whose locator
+  names no line.
+- The revision layout (`RITONVR1`, layout result) carries an optional
+  `f64` extent after each chapter's `end page` (the chapter's margins and
+  strip, scrolled revisions only) and, after `complete`, an optional `u8`
+  scroll axis: 0 down, 1 left.
+- A located page (`RITONVR1`, location result tag 0) carries an optional
+  `f64` block offset after its locator match: in a scrolled revision,
+  where the line the locator lands on starts in that page's window, as an
+  artifact's target block offset.
+- A scrolled session keeps up to 10 artifacts live (6 for pages).
+- A caret (`RITOTIR1`) carries its geometry as `x, y, width, height`
+  (`width` is new, before `height`): the segment across its line, as a
+  rect with no extent along the line, so `width` is 0 on a horizontal
+  line and `height` 0 down a vertical one. A `u8` writing mode follows
+  the geometry option: 0 horizontal-tb, 1 vertical-rl, the mode of the
+  caret's line. A host reads arrow keys on a vertical-rl line as the
+  browser does, as the key a quarter turn from them on a horizontal line
+  (down along the line, left to the next line), before mapping them to
+  movements.
+- Every rect and point of a vertical-rl page is in the page's drawn
+  space, like a horizontal page's: its hits, outline, caret geometry,
+  selection and range rects are columns where its lines are drawn, and a
+  point is read back the same way. A scrolled window's records move with
+  its pixels, by the device rows `D(k)` it is drawn from.
+
+Wire changes landed when the display list lost its digest (reader
+protocol version 7):
+
+- Artifacts and publications stamp protocol version 7; a decoder pinned
+  to 6 must move with it.
+- The artifact's display-list record no longer carries the 32-byte
+  SHA-256 digest after the command count: the display list bytes follow
+  it directly.
+
 Wire changes landed when hit entries became the engine's classified
 targets (reader protocol version 6):
 

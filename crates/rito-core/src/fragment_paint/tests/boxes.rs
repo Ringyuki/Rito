@@ -31,7 +31,7 @@ fn a_transformed_box_wraps_its_subtree_in_a_transform_state() {
             faces: None,
             node_paints: Some(&node_paints),
             list_markers: None,
-            ruby_annotation_runs: None,
+            annotations: crate::fragment_paint::LineAnnotations::default(),
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,
@@ -100,18 +100,21 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
                         x: 0.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 1,
                         x: 8.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                     rito_fragment::ClusterPosition {
                         byte: 2,
                         x: 12.0,
                         face: rito_fragment::FontFaceId::default(),
                         joins: false,
+                        continues_ligature: false,
                     },
                 ],
                 grid: false,
@@ -127,7 +130,7 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
         0.0,
         FragmentPaintContext {
             list_markers: Some(&markers),
-            ruby_annotation_runs: None,
+            annotations: crate::fragment_paint::LineAnnotations::default(),
             ..FragmentPaintContext::default()
         },
     )
@@ -165,4 +168,84 @@ fn an_outside_marker_paints_its_measured_box_ending_at_the_content_edge() {
         texts[1].paint.has_box_paint(),
         "the item's own text keeps its inline box"
     );
+}
+
+/// A fragment a page break cut strokes no border on the cut edge: the
+/// box's next fragment opens with no top border, its earlier one ends
+/// with no bottom border, and the sides run on.
+#[test]
+fn a_cut_edge_strokes_no_border() {
+    use crate::render::contract::{
+        ReaderBlockBorder, ReaderBorderBox, ReaderBorderEdgePaint, ReaderColor,
+    };
+    let fixture = two_color_flow(|red, _| vec![text_item("box", red, 0.0)]);
+    let edge = Some(ReaderBorderEdgePaint {
+        color: ReaderColor::srgb8(0, 0, 0, 1.0),
+        style: ReaderBorderStyle::Solid,
+    });
+    let mut node_paints = BTreeMap::new();
+    node_paints.insert(
+        0,
+        NodePaint::Box {
+            paint: ReaderBlockPaint {
+                border: Some(ReaderBlockBorder {
+                    top: edge,
+                    right: edge,
+                    bottom: edge,
+                    left: edge,
+                }),
+                ..ReaderBlockPaint::default()
+            },
+            border_box: Some(ReaderBorderBox {
+                top_width: 1.0,
+                right_width: 1.0,
+                bottom_width: 1.0,
+                left_width: 1.0,
+            }),
+            transform: None,
+            bevels: Vec::new(),
+            segment_horizontal_edges: false,
+        },
+    );
+    let painted = |cuts: rito_fragment::BlockCuts| {
+        let mut root = boxed_line(vec![text_run(0.0, 30.0, 0, 3)]);
+        if let Fragment::Box(fragment) = &mut root {
+            fragment.cuts = cuts;
+        }
+        let mut commands = Vec::new();
+        append_fragment_display_commands(
+            &mut commands,
+            &fixture.tree,
+            &root,
+            0.0,
+            0.0,
+            FragmentPaintContext {
+                node_paints: Some(&node_paints),
+                ..FragmentPaintContext::default()
+            },
+        )
+        .expect("fragments paint");
+        commands
+            .into_iter()
+            .find_map(|command| match command {
+                DisplayCommand::PaintBlock {
+                    paint, border_box, ..
+                } => Some((paint.border.expect("border"), border_box.expect("widths"))),
+                _ => None,
+            })
+            .expect("the box paints")
+    };
+    let (border, widths) = painted(rito_fragment::BlockCuts {
+        start: true,
+        end: false,
+    });
+    assert!(border.top.is_none() && widths.top_width == 0.0);
+    assert!(border.bottom.is_some() && widths.bottom_width == 1.0);
+    assert!(border.left.is_some() && border.right.is_some());
+    let (border, widths) = painted(rito_fragment::BlockCuts {
+        start: false,
+        end: true,
+    });
+    assert!(border.top.is_some() && widths.top_width == 1.0);
+    assert!(border.bottom.is_none() && widths.bottom_width == 0.0);
 }

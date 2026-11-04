@@ -32,12 +32,23 @@ pub struct ReaderCaretAddress {
     pub affinity: ReaderCaretAffinity,
 }
 
-/// A caret's line in display-list space: its top and its height.
+/// A caret in display-list space: the segment across its line, as a rect
+/// with no extent along the line — `width` 0 on a horizontal line,
+/// `height` 0 down a vertical one.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReaderCaretGeometry {
     pub x: f64,
     pub y: f64,
+    pub width: f64,
     pub height: f64,
+}
+
+/// The writing mode of the line a caret is on: which way its arrow keys
+/// move it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderWritingMode {
+    HorizontalTb,
+    VerticalRl,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +56,7 @@ pub struct ReaderCaret {
     pub address: ReaderCaretAddress,
     /// Present when the caret's page is one this artifact draws.
     pub geometry: Option<ReaderCaretGeometry>,
+    pub writing_mode: ReaderWritingMode,
     /// Canonical manifest href and source point the caret sits at.
     pub href: String,
     pub source_point: ReaderSourcePoint,
@@ -290,7 +302,7 @@ pub struct ReaderNavigationRequest {
     pub query: ReaderNavigationQuery,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReaderLocation {
     /// The locator lands on `page_index` of the revision; `drawn` says
     /// whether the asking artifact draws that page.
@@ -298,6 +310,10 @@ pub enum ReaderLocation {
         page_index: u32,
         drawn: bool,
         matched_by: super::ReaderLocatorMatch,
+        /// In a scrolled revision, where the line the locator lands on
+        /// starts in that page's window, as an artifact's target block
+        /// offset; absent for a page, and for a locator that names no line.
+        block_offset: Option<f64>,
     },
     /// The locator's chapter is not laid out in this revision.
     NotLaidOut,
@@ -305,7 +321,7 @@ pub enum ReaderLocation {
     Unavailable,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ReaderNavigationResult {
     /// The entry's preorder index — the `toc_id` the publication carries.
     TocEntry(Option<u32>),
@@ -318,7 +334,7 @@ pub enum ReaderNavigationResult {
 /// chapter (its pages count from zero); a whole-book revision lays out
 /// every chapter and its pages are book pages. A host addresses a spread
 /// by its position in [`Self::spreads`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReaderRevisionLayout {
     pub page_count: u32,
     /// Every spread's pages, in reading order.
@@ -335,6 +351,19 @@ pub struct ReaderRevisionLayout {
     /// chapters number and spread them; a TOC entry whose target lies past
     /// them is not placed yet.
     pub complete: bool,
+    /// The direction a scrolled revision's chapters run in; absent for a
+    /// revision of pages.
+    pub scroll_axis: Option<ReaderScrollAxis>,
+}
+
+/// The direction a scrolled revision's chapters run: each chapter follows
+/// the one before it along this axis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderScrollAxis {
+    /// Down the screen, as horizontal text's blocks stack.
+    Down,
+    /// Leftwards, as vertical right-to-left text's columns follow.
+    Left,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -344,12 +373,15 @@ pub struct ReaderSpreadPages {
 }
 
 /// The pages one spine item is laid out on, both ends included.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReaderChapterPages {
     /// The item's index in the publication's spine.
     pub spine_index: u32,
     pub start_page: u32,
     pub end_page: u32,
+    /// A scrolled chapter's extent along the scroll axis, in CSS pixels:
+    /// its margins and its strip. Absent in a revision of pages.
+    pub extent: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

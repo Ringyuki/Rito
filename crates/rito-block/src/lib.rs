@@ -24,6 +24,16 @@
 //! break token, a sizing keyword it does not resolve) fail closed with
 //! `LayoutError::Invalid` instead of guessing.
 //!
+//! Layout is flow-relative throughout. A box lays its children out in its
+//! own writing mode, so in this crate `x`, `left` and `width` run along
+//! the lines from the inline-start edge and `y`, `top` and `height` across
+//! them from the block-start edge, whichever physical sides those are; a
+//! vertical-rl chapter stacks its columns "downwards" from the right edge.
+//! Box styles are read flow-relative (a child's margins and offsets on the
+//! edges of its container's flow, its padding, borders and sizes on its
+//! own), and fragments keep these coordinates: whatever paints them maps
+//! them onto the page with `rito_fragment::WritingModeConverter`.
+//!
 //! The context is one type spread over the modules that own its parts:
 //! `context` (construction, the inline-outcome cache and the two
 //! provider entry points), `flow` (the driver that lays a container's
@@ -40,16 +50,17 @@
 use std::cell::RefCell;
 
 use rito_fragment::{
-    BoxFragment, BreakToken, BreakTokenStage, CancelFlag, ConstraintSpace, FloatBreak,
-    FormattingContext, FormattingNodeContent, FormattingNodeId, FormattingTree, Fragment,
-    FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes, LayoutError, LayoutOutcome,
-    LineText, PendingPositioned,
+    BlockCuts, BlockLayoutDelegate, BoxFragment, BreakToken, BreakTokenStage, CancelFlag,
+    ConstraintSpace, FloatBreak, FormattingContext, FormattingNodeContent, FormattingNodeId,
+    FormattingTree, Fragment, FragmentCache, FragmentRect, FragmentTree, IntrinsicInlineSizes,
+    LayoutError, LayoutOutcome, LineText, PendingPositioned, PrecedingLine,
 };
 use rito_style_contract::{
     BoxSizing, Clear, Float, LayoutFormattingStyle, LengthPercentage, LengthPercentageOrAuto,
-    MaximumSize, PageBreak, Position, PreferredSize,
+    MaximumSize, MinimumSize, PageBreak, Position, PreferredSize, WritingDirection,
 };
 
+mod annotations;
 mod context;
 mod floats;
 mod flow;
@@ -63,6 +74,7 @@ mod table;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use annotations::*;
 pub(crate) use floats::*;
 pub(crate) use fragments::*;
 pub(crate) use lines::*;
@@ -94,6 +106,10 @@ struct LinePlacement {
     consumed_end: f64,
     /// Whether every remaining line of the paragraph was placed.
     exhausted: bool,
+    /// How much taller the first placed line got for the annotation space
+    /// above it (negative when the space let it shrink): the fragment's
+    /// height is its consumed extent plus this.
+    opening_delta: f64,
 }
 
 /// The UA default line constraints at a fragmentation break inside a
@@ -164,19 +180,21 @@ struct PlacedFloatBox {
     bottom: f64,
 }
 
-/// One in-flow child's resolved horizontal geometry within its containing
-/// block: border-box offset and width, plus the padding that separates the
-/// border box from the content area.
-struct HorizontalBox {
-    /// Border-box x relative to the containing block's content area.
+/// One in-flow child's resolved inline-axis geometry within its
+/// containing block: border-box offset and inline size, plus the padding
+/// that separates the border box from the content area.
+struct InlineBox {
+    /// Border-box inline offset relative to the containing block's content
+    /// area.
     x: f64,
-    /// Border-box width (no borders yet, so padding plus content).
+    /// Border-box inline size (no borders yet, so padding plus content).
     border_width: f64,
-    /// Left padding: content-area offset inside the border box.
+    /// Inline-start padding: content-area offset inside the border box.
     padding_left: f64,
-    /// Content-area width available to the child's own layout.
+    /// Content-area inline size available to the child's own layout.
     content_width: f64,
-    /// Vertical padding, part of the child's own block size.
+    /// Block-start and block-end padding, part of the child's own block
+    /// size.
     padding_top: f64,
     padding_bottom: f64,
 }

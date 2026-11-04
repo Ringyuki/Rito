@@ -1157,6 +1157,7 @@ mod tests {
             node_tags: BTreeMap::new(),
             list_markers: BTreeMap::new(),
             ruby_annotation_runs: BTreeMap::new(),
+            emphasis_marks: BTreeMap::new(),
             degradations: Vec::new(),
         }
     }

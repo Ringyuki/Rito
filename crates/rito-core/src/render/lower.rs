@@ -41,6 +41,7 @@ mod json;
 mod path;
 mod primitive;
 mod scale;
+mod shift;
 #[cfg(test)]
 mod tests;
 mod text;
@@ -49,6 +50,7 @@ pub(crate) use primitive::{
     DashPattern, DevicePath, DevicePoint, DeviceRect, DeviceTransform, FillRule, Ground, IconPiece,
     ImageFallbackState, PathOp, Primitive, PrimitiveList, StrokeCap, TilePlan,
 };
+pub(crate) use shift::shift;
 
 /// An image's intrinsic size in CSS pixels, as the publication's resource
 /// table records it; background images size and tile against it.
@@ -170,6 +172,11 @@ fn lower_command(
         DisplayCommand::PaintHorizontalRule { rect, paint } => {
             border::lower_horizontal_rule(rect.into(), paint, out);
         }
+        DisplayCommand::PaintDecoration { rect, color } => out.push(Primitive::FillRect {
+            rect: rect.into(),
+            color: *color,
+            ground: Ground::None,
+        }),
     }
 }
 

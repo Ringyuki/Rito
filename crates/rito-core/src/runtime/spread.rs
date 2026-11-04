@@ -14,7 +14,7 @@ pub(crate) struct SpreadSlot {
 /// are the first spreads of all of them.
 pub(crate) fn spread_last_page(layout_config: &LayoutConfig, index: usize) -> usize {
     match (layout_config.spread_mode, layout_config.first_page_alone) {
-        (SpreadMode::Single, _) => index,
+        (SpreadMode::Single | SpreadMode::Scrolled, _) => index,
         (_, true) => index.saturating_mul(2),
         (_, false) => index.saturating_mul(2).saturating_add(1),
     }
@@ -28,7 +28,7 @@ pub(crate) fn build_spread_slots(
     if page_count == 0 {
         return Vec::new();
     }
-    if layout_config.spread_mode == SpreadMode::Single {
+    if layout_config.spread_mode != SpreadMode::Double {
         return (0..page_count)
             .map(|index| SpreadSlot {
                 index,
@@ -91,6 +91,23 @@ mod tests {
         assert_eq!(slots[0].left_page_index, 0);
         assert_eq!(slots[0].right_page_index, None);
         assert_eq!(slots[2].left_page_index, 2);
+    }
+
+    #[test]
+    fn scrolled_mode_shows_each_window_alone() {
+        let chapter_start_pages = BTreeSet::from([2]);
+
+        let slots = build_spread_slots(
+            4,
+            &chapter_start_pages,
+            &layout(SpreadMode::Scrolled, false),
+        );
+
+        assert_eq!(slots.len(), 4);
+        assert!(slots
+            .iter()
+            .enumerate()
+            .all(|(index, slot)| slot.left_page_index == index && slot.right_page_index.is_none()));
     }
 
     #[test]

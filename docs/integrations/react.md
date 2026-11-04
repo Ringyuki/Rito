@@ -15,18 +15,35 @@ import { useRitoReader, Reader } from '@ritojs/react';
 Hooks:
 
 - `useRitoReader`
+- `useRitoScrollReader`
+- `useRitoScrollView`
 - `useSelection`
+- `useScrollSelectionHandles`
 - `useSearch`
 - `useAnnotations`
 - `useReadingPosition`
 - `useContainerSize`
 - `useControllerEvent`
 
+`ScrollSelectionHandles({ controller, rootRef, touchInput })` draws a scrolled
+view's selection handles as `Reader` draws the page controller's, placed over the
+view's canvas inside `rootRef` and moved with the strip.
+`useScrollSelectionHandles(controller)` gives those ends where the view shows
+them (`start`, `end`, and `focusEdge` naming the focus), following the strip and
+null while nothing is selected or a gesture still selects: what a toolbar over a
+scrolled selection stands on, as `useSelection`'s `focusRect` is for pages.
+
 Types:
 
 - `UseRitoReaderOptions`
 - `RitoReaderState`
 - `RitoReaderActions`
+- `UseRitoScrollReaderOptions`
+- `RitoScrollReaderState`
+- `RitoScrollReaderActions`
+- `UseRitoScrollViewOptions`
+- `RitoScrollViewState`
+- `RitoScrollViewActions`
 - `SelectionState`
 - `SearchState`
 - `AnnotationsState`
@@ -145,6 +162,56 @@ To add a face while a book is open (a system font, a file the reader imported),
 use `controller.addFontFaces()`; `controller.fonts()` lists every family a
 `font-family` choice can name, which is what a font picker should be built from.
 See [Fonts](../api/reader.md#fonts) for how families resolve.
+
+## `useRitoScrollReader`
+
+`useRitoScrollReader({ reader, scroll, initialLocator })` owns a scrolled reader
+(the book laid out with `spread: 'scrolled'` whatever `reader.spread` says) and
+its kit scroll view. Pass `containerRef` as the ref of the element the view is
+shown in; `load(data)` opens a book, letting go of the one before, and shows
+`initialLocator`'s line at the reading line once the book is laid out; `unload()`
+lets it go. The state
+follows the view: `progress` (0 to 1 through the book), `position` (the locator
+at the reading line as of the strip's last rest, to save and reopen at) and
+`selection` (the `selection` event while something is selected, null
+otherwise), with `controller` for everything else the view does
+(`scrollToLocator`, `setHighlights`, `on('tap')`).
+
+```tsx
+const { containerRef, load, progress, controller } = useRitoScrollReader({
+  reader: { width, height, pinnedFontPolicy },
+  initialLocator: saved,
+});
+useEffect(
+  () =>
+    controller?.on('tap', ({ target }) => {
+      if (target?.targetLocator) void controller.scrollToLocator(target.targetLocator);
+    }),
+  [controller],
+);
+return <div ref={containerRef} style={{ width, height }} />;
+```
+
+## `useRitoScrollView`
+
+`useRitoScrollView(controller, { active, paged, scroll })` reads the book a
+page controller shows scrolled, on the same reader: while `active`, the
+controller hands the reader over (`suspend()`), the reader is laid out scrolled
+and a scroll view shows it from where the pages were; turned off, the reader is
+paged again as `paged` says (`'single'` or `'double'`) from where the view was
+read, and the controller takes it back (`resume()`). Size, theme and typography
+reach the reader through the controller as before, and the view follows each
+layout. The state is the view's (`controller`, `progress`, `position`,
+`selection`), with `isLoading` while the scrolled layout is made (only after a
+short delay) and `error`; pass `containerRef` as the ref of the element the view
+is shown in. When the controller is replaced (another book opened), the view is
+let go with it.
+
+```tsx
+const rito = useRitoReader({ reader: { width, height, pinnedFontPolicy } });
+const scroll = useRitoScrollView(rito.controller, { active: scrolled, paged: 'double' });
+return scrolled ? <div ref={scroll.containerRef} /> : <Reader controller={rito.controller} />;
+```
 
 ## `useReaderTransition`
 

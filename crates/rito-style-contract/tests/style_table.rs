@@ -70,6 +70,8 @@ fn style(seed: f32) -> InlineFormattingStyle {
             direction: Direction::LeftToRight,
             unicode_bidi: UnicodeBidi::Normal,
             writing_mode: WritingMode::HorizontalTopToBottom,
+            text_orientation: rito_style_contract::TextOrientation::Mixed,
+            text_combine_upright: rito_style_contract::TextCombineUpright::None,
         },
         fragment: InlineFragmentStyle {
             margin: sides(LengthPercentageOrAuto::Value(length(seed))),
@@ -150,6 +152,7 @@ fn text_flow(seed: f32) -> InlineTextFlow {
             each_line: false,
         },
         ruby_align: RubyAlign::SpaceAround,
+        text_emphasis: None,
         language: None,
     }
 }

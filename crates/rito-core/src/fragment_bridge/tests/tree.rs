@@ -87,7 +87,9 @@ fn chapter_tree_reflects_box_generation_and_display_none() {
             InlineItem::Text { text, .. } => text.as_str(),
             InlineItem::Image { .. }
             | InlineItem::InlineBlock { .. }
-            | InlineItem::EmptyBox { .. } => {
+            | InlineItem::EmptyBox { .. }
+            | InlineItem::OpenTag { .. }
+            | InlineItem::CloseTag { .. } => {
                 panic!("no atomic items in this paragraph")
             }
         })

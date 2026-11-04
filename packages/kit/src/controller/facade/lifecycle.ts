@@ -37,25 +37,70 @@ function shouldResizeSurface(
   );
 }
 
+/** Takes the canvas off the page while another view has the reader, and puts it back. */
+export interface MountSuspension {
+  /** Whether the controller was disposed: there is nothing to hand over or take back. */
+  readonly disposed: boolean;
+  detach(): void;
+  attach(): void;
+}
+
 export function buildLifecycle(
   disposables: Disposables,
   runtime: RuntimeComponents,
   deps: WiringDeps,
-): LifecycleSlice {
+): { readonly slice: LifecycleSlice; readonly mounting: MountSuspension } {
   const state: LifecycleState = {
     disposed: false,
     mountedContainer: undefined,
     mountDisposables: createDisposableCollection(),
     restoreSurfaceMarker: undefined,
+    detached: false,
+    resumeContainer: undefined,
   };
-  return {
+  const slice: LifecycleSlice = {
     mount(container: HTMLElement): void {
+      if (state.detached && !state.disposed) {
+        // Mounted there when the controller resumes.
+        state.resumeContainer = container;
+        return;
+      }
       mountLifecycle(state, container, runtime, deps);
     },
     dispose(): void {
       if (state.disposed) return;
       state.disposed = true;
       disposeLifecycle(state, disposables, runtime, deps);
+    },
+  };
+  return { slice, mounting: mountSuspension(state, runtime, deps) };
+}
+
+function mountSuspension(
+  state: LifecycleState,
+  runtime: RuntimeComponents,
+  deps: WiringDeps,
+): MountSuspension {
+  return {
+    get disposed() {
+      return state.disposed;
+    },
+    detach(): void {
+      if (state.detached || state.disposed) return;
+      state.detached = true;
+      state.resumeContainer = state.mountedContainer;
+      state.mountedContainer = undefined;
+      // The mirror for screen readers goes with the canvas.
+      state.mountDisposables.disposeAll();
+      state.mountDisposables = createDisposableCollection();
+      runtime.surface.canvas.remove();
+    },
+    attach(): void {
+      if (!state.detached || state.disposed) return;
+      state.detached = false;
+      const container = state.resumeContainer;
+      state.resumeContainer = undefined;
+      if (container) mountLifecycle(state, container, runtime, deps);
     },
   };
 }
@@ -65,6 +110,10 @@ interface LifecycleState {
   mountedContainer: HTMLElement | undefined;
   mountDisposables: DisposableCollection;
   restoreSurfaceMarker: (() => void) | undefined;
+  /** Off the page while another view has the reader. */
+  detached: boolean;
+  /** Where the canvas goes back when the controller resumes. */
+  resumeContainer: HTMLElement | undefined;
 }
 
 function mountLifecycle(

@@ -48,7 +48,13 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        channel: process.env['PLAYWRIGHT_BROWSER_CHANNEL'],
+        // The full Chromium build: it rasterizes page and canvas text on
+        // the GPU as Chrome does, where the headless shell uses the CPU.
+        channel: process.env['PLAYWRIGHT_BROWSER_CHANNEL'] ?? 'chromium',
+        // No smart minimum font size: Chromium lifts em- and %-sized text
+        // to a minimum its UI language and platform choose, which CSS does
+        // not define and the engine never applies.
+        launchOptions: { args: ['--blink-settings=minimumLogicalFontSize=0'] },
       },
     },
   ],

@@ -294,6 +294,34 @@ fn digest_book(path: &str, policy: RuntimePinnedFontPolicyInput) -> Result<Vec<S
     Ok(book.rows)
 }
 
+/// The artifact's fonts as the digest describes them: each face's family,
+/// source, descriptors and size, and its feature settings where it has
+/// any, so a face that gains none keeps its description.
+fn fonts(artifact: &ReaderArtifact) -> String {
+    let mut out = String::from("[");
+    for (index, font) in artifact.fonts.iter().enumerate() {
+        if index > 0 {
+            out.push_str(", ");
+        }
+        let _ = write!(
+            out,
+            "ReaderFontRef {{ family: {:?}, href: {:?}, style: {:?}, weight: {:?}, \
+             shape_fingerprint: {:?}, byte_length: {:?} }}",
+            font.family,
+            font.href,
+            font.style,
+            font.weight,
+            font.shape_fingerprint,
+            font.byte_length,
+        );
+        if !font.features.is_empty() {
+            let _ = write!(out, " features: {:?}", font.features);
+        }
+    }
+    out.push(']');
+    out
+}
+
 fn row(step: &str, scope: &str, spread_index: u32, artifact: &ReaderArtifact) -> String {
     let mut hasher = Sha256::new();
     if let Some(dump) = env::var_os("PAINT_DIGEST_DUMP") {
@@ -311,9 +339,9 @@ fn row(step: &str, scope: &str, spread_index: u32, artifact: &ReaderArtifact) ->
             Err(error) => hasher.update(format!("unreadable: {error}")),
         }
         hasher.update(format!(
-            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            "{:?}|{}|{:?}|{:?}|{:?}|{:?}",
             artifact.resources,
-            artifact.fonts,
+            fonts(artifact),
             artifact.local_page_indexes,
             artifact.book_page_index,
             artifact.book_page_count,
@@ -323,10 +351,10 @@ fn row(step: &str, scope: &str, spread_index: u32, artifact: &ReaderArtifact) ->
     }
     hasher.update(&artifact.display_list.bytes);
     hasher.update(format!(
-        "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+        "{:?}|{:?}|{}|{:?}|{:?}|{:?}|{:?}",
         artifact.pages,
         artifact.resources,
-        artifact.fonts,
+        fonts(artifact),
         artifact.local_page_indexes,
         artifact.book_page_index,
         artifact.book_page_count,

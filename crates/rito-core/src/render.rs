@@ -14,6 +14,8 @@ pub(crate) use commands::{
     contract, display_number, display_rect, encode_reader_primitive_list,
     summarize_display_list_resource_refs, DisplayCommand, DisplayTextCommand, TextCluster,
 };
-pub(crate) use lower::{lower, ImageSize};
+pub(crate) use lower::{lower, shift, ImageSize};
+#[cfg(test)]
+pub(crate) use lower::{Primitive, PrimitiveList};
 pub(crate) use run_paint::RunPaint;
 pub(crate) use shared_text::SharedText;

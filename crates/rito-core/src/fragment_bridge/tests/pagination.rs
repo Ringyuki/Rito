@@ -64,7 +64,9 @@ fn real_chapter_paginates_losslessly_through_the_new_engine() {
                         InlineItem::Text { text, .. } => Some(text.as_str()),
                         InlineItem::Image { .. }
                         | InlineItem::InlineBlock { .. }
-                        | InlineItem::EmptyBox { .. } => None,
+                        | InlineItem::EmptyBox { .. }
+                        | InlineItem::OpenTag { .. }
+                        | InlineItem::CloseTag { .. } => None,
                     })
                     .collect();
                 let mut start = u32::MAX;
@@ -95,4 +97,54 @@ fn real_chapter_paginates_losslessly_through_the_new_engine() {
             "Nested paragraph inside a wrapper block.",
         ],
     );
+}
+
+/// A block whose start lands past the page's end — here an empty one after
+/// a line taller than the page — breaks before and opens the next page,
+/// however small, as Blink must when the space left is below zero
+/// (measured: calibre's empty page-break `<div>` after an over-wide plate
+/// takes a column of its own).
+#[test]
+fn an_empty_block_past_an_overflowing_line_opens_the_next_page() {
+    let chapter = resolved_chapter_with(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<div><span class="tall"></span></div><div class="pb"></div>
+</body></html>"#,
+        "body { margin: 0; font-size: 10px; line-height: 10px; } .tall { display: inline-block; height: 100px; }\n",
+    );
+    let built = build_chapter_formatting_tree(
+        &chapter.nodes,
+        chapter.body_index,
+        &chapter.layout,
+        &chapter.inline,
+        &no_images(),
+    )
+    .expect("tree builds");
+    let engine = BlockFormattingContext::new(
+        ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+    );
+    let space = ConstraintSpace::fragmented(200.0, 60.0);
+    let first = engine
+        .layout(
+            &built.tree,
+            built.tree.root(),
+            &space,
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("first page lays out");
+    let token = first
+        .continuation
+        .expect("the empty block opens a second page");
+    assert_eq!(token.stage, rito_fragment::BreakTokenStage::Before);
+    let second = engine
+        .layout(
+            &built.tree,
+            built.tree.root(),
+            &space,
+            Some(&token),
+            &CancelFlag::new(),
+        )
+        .expect("second page lays out");
+    assert!(second.continuation.is_none());
 }

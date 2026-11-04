@@ -472,7 +472,9 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
         lines.selected_text
     );
 
-    // Word right from the original selection lands at the next word edge.
+    // Word right from the original selection skips the space to the end
+    // of the next word, as Chromium's word movement does; word left from
+    // the grown selection goes back over it to the start of "quick".
     let RuntimeTextSelectionMovementResolution::Resolved { range: word, .. } = movement(
         anchor_caret.address,
         focus_caret.address,
@@ -480,12 +482,15 @@ fn fragment_pages_resolve_keyboard_selection_movement() {
     ) else {
         panic!("word movement resolves on a fragment page");
     };
-    assert!(
-        word.selected_text.starts_with("quick"),
-        "word-right keeps the anchor, got {:?}",
-        word.selected_text
-    );
-    assert!(word.selected_text.len() > "quick".len());
+    assert_eq!(word.selected_text, "quick brown");
+    let RuntimeTextSelectionMovementResolution::Resolved { range: back, .. } = movement(
+        after_char.address,
+        after_char.address,
+        TextSelectionMovement::WordLeft,
+    ) else {
+        panic!("word movement resolves on a fragment page");
+    };
+    assert_eq!(back.selected_text, "quick ");
 }
 
 #[test]
@@ -682,7 +687,7 @@ fn search_finds_text_after_the_fragment_page_table_attaches() {
 
 fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
     let epub = fixture_epub_with_chapter_and_stylesheet(
-        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body><p><img src="Images/cover.png" alt="plate"/></p></body></html>"#,
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title><link rel="stylesheet" href="style.css"/></head><body><p><img src="Images/cover.png" alt="plate"/></p></body></html>"#,
         css,
     );
     let mut document = RuntimeDocument::open_with_pinned_font_policy(
@@ -726,12 +731,13 @@ fn painted_image_rects(css: &str) -> Vec<(f64, f64)> {
 fn the_ua_stylesheet_letterboxes_an_author_box_off_the_raster_ratio() {
     // The fixture raster is 2x3 (portrait); the author forces a 30x20
     // landscape box. The UA `img { object-fit: contain }` letterboxes
-    // the raster inside it at its own ratio.
+    // the raster inside it at its own ratio, 13.33x20, and the placed
+    // rect snaps to whole pixels.
     let rects = painted_image_rects("img { width: 30px; height: 20px; }\n");
     assert_eq!(rects.len(), 1);
     let (width, height) = rects[0];
     assert!(
-        (height - 20.0).abs() < 0.6 && (width / height - 2.0 / 3.0).abs() < 0.01,
+        (height - 20.0).abs() < 0.6 && (width - 20.0 * 2.0 / 3.0).abs() <= 1.0,
         "the raster keeps its 2:3 ratio inside the 30x20 box, got {width}x{height}"
     );
 }

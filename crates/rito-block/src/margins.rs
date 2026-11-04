@@ -1,18 +1,21 @@
-//! Vertical margins: resolving a child's own top and bottom margins,
+//! Block-axis margins: resolving a child's own block-start and block-end
+//! margins,
 //! walking the first-descendant chain its top margin collapses through,
 //! and the set of adjoining margins that collapses to one value — the
 //! largest positive plus the most negative.
 
 use crate::*;
 
-/// Resolved vertical margins of one in-flow child, in CSS px.
+/// Resolved block-start and block-end margins of one in-flow child of a
+/// container whose flow is `container`, in CSS px.
 ///
 /// Percentages resolve against the containing block's inline size (CSS
-/// resolves the vertical sides against the *inline* axis) and `auto`
-/// resolves to zero in block flow.
+/// resolves the block-axis sides against the *inline* axis too) and
+/// `auto` resolves to zero in block flow.
 pub(crate) fn vertical_margins(
     tree: &FormattingTree,
     node: FormattingNodeId,
+    container: WritingDirection,
     inline_size: f64,
 ) -> Result<(f64, f64), LayoutError> {
     let styles = tree.styles().ok_or_else(|| {
@@ -22,9 +25,10 @@ pub(crate) fn vertical_margins(
         .layout
         .style(tree.node(node).style)
         .map_err(|error| LayoutError::Invalid(error.to_string()))?;
+    let margin = style.margin_in(container);
     Ok((
-        resolve_margin(style.margin.top, inline_size),
-        resolve_margin(style.margin.bottom, inline_size),
+        resolve_margin(margin.block_start, inline_size),
+        resolve_margin(margin.block_end, inline_size),
     ))
 }
 
@@ -41,6 +45,7 @@ pub(crate) fn vertical_margins(
 pub(crate) fn through_collapsed_top(
     tree: &FormattingTree,
     child: FormattingNodeId,
+    container: WritingDirection,
     containing_width: f64,
 ) -> Result<PendingMargin, LayoutError> {
     let styles = tree.styles().ok_or_else(|| {
@@ -55,17 +60,22 @@ pub(crate) fn through_collapsed_top(
     let mut set = PendingMargin::ZERO;
     let mut node = child;
     let mut width = containing_width;
+    let mut container = container;
     loop {
         let style = style_of(node)?;
-        set = set.join(resolve_margin(style.margin.top, width));
+        set = set.join(resolve_margin(
+            style.margin_in(container).block_start,
+            width,
+        ));
         if !matches!(
             tree.node(node).content,
             FormattingNodeContent::BlockContainer
         ) || is_flow_root(style)
+            || style.writing_mode != container.mode
         {
             break;
         }
-        let Ok(hbox) = resolve_horizontal_box(style, width) else {
+        let Ok(hbox) = resolve_inline_box(style, container, width) else {
             break;
         };
         if hbox.padding_top != 0.0 {
@@ -102,6 +112,7 @@ pub(crate) fn through_collapsed_top(
             break;
         };
         width = hbox.content_width;
+        container = style.writing_direction();
         node = first;
     }
     Ok(set)

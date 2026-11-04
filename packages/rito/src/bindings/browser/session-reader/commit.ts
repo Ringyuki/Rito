@@ -31,7 +31,7 @@ export async function commitSessionReaderLayout(
   state.layoutGeneration += 1;
   state.frames = new Map([[frame.spreadIndex, frame]]);
   state.pendingFrames.clear();
-  state.view = createSessionReaderLayoutView(layout, scope, state.publication);
+  state.view = createSessionReaderLayoutView(layout, scope, state.publication, config);
   state.visible = frame;
   const last = state.view.spreads.length - 1;
   state.activeSpreadIndex = Math.min(Math.max(frame.spreadIndex + turned, 0), last);
@@ -70,7 +70,12 @@ export async function completeSessionReaderLayout(state: SessionReaderState): Pr
   const generation = state.layoutGeneration;
   const layout = await readSessionReaderLayout(state, state.visible.artifact.artifactId);
   if (sessionReaderClosed(state) || generation !== state.layoutGeneration) return;
-  state.view = createSessionReaderLayoutView(layout, state.view.scope, state.publication);
+  state.view = createSessionReaderLayoutView(
+    layout,
+    state.view.scope,
+    state.publication,
+    state.config,
+  );
   state.log.note('commit', {
     scope: state.view.scope,
     pages: state.view.pageCount,

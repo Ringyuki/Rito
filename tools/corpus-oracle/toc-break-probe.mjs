@@ -6,10 +6,7 @@
 //
 // Usage: node toc-break-probe.mjs <chapter.xhtml> [selector]
 import path from 'node:path';
-import { createRequire } from 'node:module';
-const { chromium } = createRequire(`${new URL('../..', import.meta.url).pathname}package.json`)(
-  '@playwright/test',
-);
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 
 const REPO = new URL('../..', import.meta.url).pathname;
 const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
@@ -23,7 +20,7 @@ if (!chapterFile) {
   process.exit(1);
 }
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const context = await browser.newContext({
   viewport: { width: contentW + 200, height: contentH },
   deviceScaleFactor: 1,

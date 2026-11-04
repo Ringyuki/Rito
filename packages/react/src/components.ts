@@ -1,1 +1,1 @@
-export { Reader, type ReaderProps } from './components/index';
+export { Reader, type ReaderProps, ScrollSelectionHandles } from './components/index';

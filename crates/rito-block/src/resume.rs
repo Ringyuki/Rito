@@ -7,8 +7,8 @@ use crate::*;
 
 /// Strips the leading path segment from a break token so a child container
 /// resumes at exactly the interrupted descendant. A token whose path ends
-/// at the container itself is only meaningful as `Before` (handled by the
-/// caller as a fresh start); `Inside` cannot address a container directly.
+/// at the container itself is `Before` (handled by the caller as a fresh
+/// start) or `Inside` the container's own block size, its content done.
 pub(crate) fn descend_token(
     token: Option<&BreakToken>,
     consumed: f64,
@@ -46,11 +46,14 @@ pub(crate) fn descend_token(
         }));
     }
     if consumed != 0.0 {
-        return Err(LayoutError::Invalid(
-            "a break token cannot resume inside a block container without naming the \
-             interrupted descendant"
-                .to_owned(),
-        ));
+        // Only the container's own block size continues.
+        return Ok(Some(BreakToken {
+            resume_path: Vec::new(),
+            stage: BreakTokenStage::Inside {
+                consumed_block_size: consumed,
+            },
+            pending_floats: Vec::new(),
+        }));
     }
     Ok(None)
 }
@@ -63,12 +66,13 @@ pub(crate) fn resume_point(
         return Ok((0, 0.0, false));
     };
     let Some(target) = token.resume_path.first() else {
-        if token.pending_floats.is_empty() {
+        if token.pending_floats.is_empty() && own_block_size_consumed(token) == 0.0 {
             return Err(LayoutError::Invalid(
                 "break token carries an empty resume path".to_owned(),
             ));
         }
-        // Only split floats resume: every in-flow child already finished.
+        // Only split floats, or the box's own block size, resume: every
+        // in-flow child already finished.
         return Ok((children.len(), 0.0, false));
     };
     let index = children
@@ -82,5 +86,20 @@ pub(crate) fn resume_point(
         BreakTokenStage::Inside {
             consumed_block_size,
         } => Ok((index, consumed_block_size, true)),
+    }
+}
+
+/// How much of a box's own block size — a fixed or minimum size past its
+/// content — earlier fragments held, when only that resumes: a token with
+/// no child to resume at, inside the box.
+pub(crate) fn own_block_size_consumed(token: &BreakToken) -> f64 {
+    match (token.resume_path.is_empty(), token.stage) {
+        (
+            true,
+            BreakTokenStage::Inside {
+                consumed_block_size,
+            },
+        ) => consumed_block_size,
+        _ => 0.0,
     }
 }

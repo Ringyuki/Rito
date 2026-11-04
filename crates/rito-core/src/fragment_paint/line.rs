@@ -16,8 +16,10 @@ use crate::render::contract::{
 use crate::render::{display_rect, DisplayCommand};
 
 use super::family::css_color;
+use super::flow_text::FlowTexts;
 use super::image::append_image_command;
 use super::text_run::{append_text_run_command, ItemLineExtent, LinePaints};
+use super::LineAnnotations;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn append_line_commands(
@@ -29,9 +31,10 @@ pub(super) fn append_line_commands(
     faces: Option<&[std::sync::Arc<str>]>,
     image_border_paints: Option<&BTreeMap<u32, (NodePaint, [f64; 4])>>,
     flow_item_sources: Option<&BTreeMap<u32, Vec<FlowItemSource>>>,
-    ruby_annotation_runs: Option<&BTreeMap<(u32, usize), rito_inline::MeasuredRuby>>,
+    annotations: LineAnnotations<'_>,
     snap_origin_y: f64,
     ratio: f64,
+    flow_texts: &FlowTexts,
 ) -> EpubResult<()> {
     let FormattingNodeContent::InlineFlow { items } = &tree.node(line.source).content else {
         return Err(EpubError::new("line fragment source is not an inline flow"));
@@ -42,19 +45,10 @@ pub(super) fn append_line_commands(
         .styles()
         .ok_or_else(|| EpubError::new("formatting tree carries no style tables"))?;
     // Text fragments address the flow's concatenated item text by byte
-    // range; rebuild that concatenation to slice run text and map each run
-    // back to the item whose style paints it.
-    let mut full_text = String::new();
-    let mut text_ranges: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
-    for (item_index, item) in items.iter().enumerate() {
-        if let InlineItem::Text { text, .. } = item {
-            let start = full_text.len();
-            full_text.push_str(text);
-            text_ranges.push((start..full_text.len(), item_index));
-        }
-    }
-    // Shared by every run cut from it.
-    let full_text: std::sync::Arc<str> = full_text.into();
+    // range: it slices run text and maps each run back to the item whose
+    // style paints it.
+    let flow_text = flow_texts.of(line.source, items);
+    let (full_text, text_ranges) = (&flow_text.text, flow_text.item_ranges.as_slice());
     let line_x = origin_x + line.rect.x;
     let line_y = origin_y + line.rect.y;
     // The list item's outside disc marker, filled with the line's text
@@ -119,8 +113,8 @@ pub(super) fn append_line_commands(
                     &mut paints,
                     items,
                     styles,
-                    &full_text,
-                    &text_ranges,
+                    full_text,
+                    text_ranges,
                     &item_extents,
                     line,
                     run,
@@ -128,7 +122,7 @@ pub(super) fn append_line_commands(
                     line_y,
                     faces,
                     item_sources,
-                    ruby_annotation_runs,
+                    annotations,
                     snap_origin_y,
                     ratio,
                 )?;
@@ -163,9 +157,10 @@ pub(super) fn append_line_commands(
                         faces,
                         image_border_paints,
                         flow_item_sources,
-                        ruby_annotation_runs,
+                        annotations,
                         snap_origin_y,
                         ratio,
+                        flow_texts,
                     )?;
                 }
             }

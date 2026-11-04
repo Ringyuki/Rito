@@ -36,6 +36,23 @@ pub(super) fn face_family(
     }
 }
 
+/// The family a face paints by in its vertical forms: the same bytes the
+/// host registers again under this name with the OpenType `vert` feature
+/// on, which a vertical line's upright glyphs are shaped with.
+pub(crate) fn vertical_forms_family(family: &str) -> String {
+    format!("__RitoVert_{family}")
+}
+
+/// The family a face paints a combined upright string by in its half-,
+/// third- or quarter-width forms: the same bytes the host registers again
+/// under this name with that OpenType feature on.
+pub(crate) fn combined_forms_family(forms: rito_fragment::CombinedForms, family: &str) -> String {
+    match forms.feature() {
+        Some(feature) => format!("__Rito{}_{family}", feature.to_ascii_uppercase()),
+        None => family.to_owned(),
+    }
+}
+
 /// The runs of consecutive clusters drawn from one face, in order. A run
 /// without clusters is one piece of the default face.
 pub(super) fn face_pieces(faces: &[FontFaceId]) -> Vec<(Range<usize>, FontFaceId)> {

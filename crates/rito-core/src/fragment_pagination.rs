@@ -10,10 +10,14 @@
 
 use rito_fragment::{
     BreakToken, CancelFlag, ConstraintSpace, FormattingContext, FormattingTree, Fragment, LineText,
+    WritingModeConverter,
 };
+use rito_style_contract::{Direction, WritingDirection, WritingMode};
 
 use crate::epub::{EpubError, EpubResult};
-use crate::fragment_paint::{append_fragment_display_commands, FragmentPaintContext};
+use crate::fragment_paint::{
+    append_fragment_display_commands, FragmentPaintContext, VerticalFrame,
+};
 use crate::render::DisplayCommand;
 
 /// One paginated page: the sealed fragment tree that fit the page's
@@ -36,9 +40,7 @@ pub(crate) fn chapter_is_vertical(tree: &FormattingTree) -> bool {
             let strut = first_inline_strut(tree, tree.root())?;
             tables.inline.style(strut).ok()
         })
-        .is_some_and(|style| {
-            style.bidi.writing_mode == rito_style_contract::WritingMode::VerticalRightToLeft
-        })
+        .is_some_and(|style| style.bidi.writing_mode == WritingMode::VerticalRightToLeft)
 }
 
 /// Paints one paginated page into display commands at the page's content
@@ -53,8 +55,21 @@ pub(crate) fn paint_chapter_page(
     paint_context: FragmentPaintContext<'_>,
     vertical: bool,
 ) -> EpubResult<Vec<DisplayCommand>> {
+    // The swapped page's root fragment spans the column length inline and
+    // the content width across.
     let paint_context = FragmentPaintContext {
-        vertical_frame: vertical.then_some((origin_x + content_width, origin_y)),
+        vertical_frame: vertical.then(|| VerticalFrame {
+            converter: WritingModeConverter::from_logical_size(
+                WritingDirection {
+                    mode: WritingMode::VerticalRightToLeft,
+                    direction: Direction::LeftToRight,
+                },
+                root.rect().width,
+                content_width,
+            ),
+            left: origin_x,
+            top: origin_y,
+        }),
         ..paint_context
     };
     let (origin_x, origin_y) = if vertical {
@@ -215,6 +230,34 @@ impl ChapterPaginator {
     }
 }
 
+/// The whole chapter laid out as one continuous strip: as wide as a page's
+/// content box, never broken, and knowing how tall one is, so images scale
+/// against it and `vh` resolves exactly as they do on a page. Its lines
+/// hold their text fragments as `line_text` says, a range of lines in the
+/// strip's own coordinates; the others are laid out alike without them.
+pub(crate) fn layout_chapter_strip(
+    engine: &dyn FormattingContext,
+    tree: &FormattingTree,
+    content_width: f64,
+    content_height: f64,
+    line_text: LineText,
+    cancel: &CancelFlag,
+) -> EpubResult<Fragment> {
+    let page = page_space(tree, content_width, content_height, false);
+    let space = ConstraintSpace {
+        fragmentainer_size: page.fragmentainer_size,
+        line_text,
+        ..ConstraintSpace::continuous(page.inline_size)
+    };
+    let outcome = engine
+        .layout(tree, tree.root(), &space, None, cancel)
+        .map_err(|error| EpubError::new(format!("chapter strip layout failed: {error:?}")))?;
+    if outcome.continuation.is_some() {
+        return Err(EpubError::new("a continuous chapter strip broke"));
+    }
+    Ok(outcome.fragments.root)
+}
+
 /// One page of `tree` laid out with its text from `start`, where
 /// pagination resumed it, and where the chapter resumes after it.
 pub(crate) fn layout_chapter_page(
@@ -245,8 +288,8 @@ mod tests {
         AlignItems, BoxSizing, Clear, CssPx, Float, FontFamilies, FontFamily, FontFamilyName,
         InlineStyleTable, JustifyContent, LayoutDisplay, LayoutDisplayInside, LayoutDisplayOutside,
         LayoutFormattingStyle, LayoutStyleTable, LengthPercentage, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, NonNegativeLengthPercentage,
-        Overflow, PageBreak, PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, NonNegativeLengthPercentage, Overflow,
+        PageBreak, PhysicalSides, Position, PreferredSize,
     };
 
     fn plain_block_layout_style() -> LayoutFormattingStyle {
@@ -275,6 +318,9 @@ mod tests {
                 bottom: zero_padding,
                 left: zero_padding,
             },
+            border_widths: rito_style_contract::PhysicalSides::uniform(
+                rito_style_contract::NonNegativeCssPx::ZERO,
+            ),
             box_sizing: BoxSizing::ContentBox,
             justify_content: JustifyContent::Normal,
             align_items: AlignItems::Normal,
@@ -283,8 +329,11 @@ mod tests {
             width: PreferredSize::Auto,
             height: PreferredSize::Auto,
             max_width: MaximumSize::None,
-            min_height: MinimumHeight::Auto,
-            max_height: MaximumHeight::None,
+            min_height: MinimumSize::Auto,
+            min_width: MinimumSize::Auto,
+            writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+            direction: rito_style_contract::Direction::LeftToRight,
+            max_height: MaximumSize::None,
             clear: Clear::None,
             float: Float::None,
             overflow: Overflow::Visible,

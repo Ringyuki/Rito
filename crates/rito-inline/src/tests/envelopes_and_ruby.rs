@@ -94,8 +94,8 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let context = ParleyInlineContext::new(vec![source_han_bytes()]).expect("context builds");
     let mut inline = InlineStyleTable::new(2);
@@ -138,6 +138,9 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,
@@ -148,8 +151,11 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     LengthPercentage::Length(CssPx::new(14.390625).expect("finite")),
                 )),
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,
@@ -192,7 +198,7 @@ fn a_super_shifted_marker_image_grows_the_line_with_a_consistent_baseline() {
                     object_fit: rito_style_contract::ObjectFit::Fill,
                     viewport: None,
                     baseline_shift_px: 6.328125,
-                    align_top: false,
+                    align: rito_fragment::AtomAlign::Baseline,
                 },
                 InlineItem::Text {
                     text: "，甘夏老师".to_owned(),
@@ -246,8 +252,8 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let context = ParleyInlineContext::new(vec![tinos_bytes()]).expect("context builds");
     let mut inline = InlineStyleTable::new(1);
@@ -279,6 +285,9 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,
@@ -287,8 +296,11 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                 width: PreferredSize::Auto,
                 height: PreferredSize::Auto,
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,
@@ -331,7 +343,7 @@ fn images_lay_out_as_atomic_inlines_with_display_geometry() {
                     object_fit: rito_style_contract::ObjectFit::Fill,
                     viewport: None,
                     baseline_shift_px: 0.0,
-                    align_top: false,
+                    align: rito_fragment::AtomAlign::Baseline,
                 },
                 InlineItem::Text {
                     text: " after the picture.".to_owned(),
@@ -519,10 +531,15 @@ fn glyph_runs_carry_monotonic_geometry_and_indent_offsets_the_first_run() {
     }
 }
 
-/// A ruby base splits across lines like plain CJK text (measured:
-/// 黄金妖精/Leprechaun wraps as 黄金妖|精 — every base character
-/// boundary is an ordinary break point; the annotation itself rides
-/// only the first segment, which the paint layer enforces).
+/// A ruby base longer than four glyphs splits across lines like plain CJK
+/// text (measured: 黄金妖精/Leprechaun wraps as 黄金妖|精 — every base
+/// character boundary is an ordinary break point; the annotation itself
+/// rides only the first segment, which the paint layer enforces), while a
+/// base of at most four glyphs under an annotation of at most eight is one
+/// unit that moves down whole (Blink's `IsMonolithicRuby`), glyphs counted
+/// as shaped: か with a combining voiced mark is one. Chromium's DOM at
+/// 32px in a 165px line: 中中中中中|文中文中, 中中中中|中文,
+/// 中中中中|かが(combining)かか and 中中中中か|かかかか.
 #[test]
 fn a_ruby_base_breaks_across_lines_like_plain_text() {
     let source_han = std::fs::read(concat!(
@@ -531,64 +548,79 @@ fn a_ruby_base_breaks_across_lines_like_plain_text() {
     ))
     .expect("pinned serif reads");
     let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
-    let style = plain_paragraph_style(
-        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
-            .expect("family list"),
-        32.0,
-        0.0,
-    );
-    let mut inline = InlineStyleTable::new(1);
-    let interned = inline.intern_for_node(0, style).expect("style interns");
-    let nodes = vec![FormattingNode {
-        style: rito_style_contract::LayoutStyleId::from_raw(0),
-        content: FormattingNodeContent::InlineFlow {
-            items: vec![
-                InlineItem::Text {
-                    text: "中中中中".to_owned(),
-                    style: interned,
-                    baseline_shift_px: 0.0,
-                    ruby_annotation: None,
-                },
-                InlineItem::Text {
-                    text: "中文".to_owned(),
-                    style: interned,
-                    baseline_shift_px: 0.0,
-                    ruby_annotation: Some(rito_fragment::RubyAnnotation {
-                        text: "an".to_owned(),
-                        size_ratio: 0.5,
-                        align: rito_style_contract::RubyAlign::SpaceAround,
-                    }),
-                },
-            ],
-        },
-        children: Vec::new(),
-    }];
-    let tree = FormattingTree::with_styles(
-        nodes,
-        FormattingNodeId(0),
-        rito_fragment::FormattingTreeStyles {
-            layout: LayoutStyleTable::new(0),
-            inline,
-        },
-    )
-    .expect("inline tree builds");
-    // 165px: four 32px lead glyphs plus the first base glyph fit
-    // (160), so the base splits after its first character exactly as
-    // plain text would.
-    let outcome = context
-        .layout(
-            &tree,
-            tree.root(),
-            &ConstraintSpace::continuous(165.0),
-            None,
-            &CancelFlag::new(),
+    let lines = |base: &str| {
+        let style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            32.0,
+            0.0,
+        );
+        let mut inline = InlineStyleTable::new(1);
+        let interned = inline.intern_for_node(0, style).expect("style interns");
+        let nodes = vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![
+                    InlineItem::Text {
+                        text: "中中中中".to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: None,
+                    },
+                    InlineItem::Text {
+                        text: base.to_owned(),
+                        style: interned,
+                        baseline_shift_px: 0.0,
+                        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                            text: "an".to_owned(),
+                            size_ratio: 0.5,
+                            align: rito_style_contract::RubyAlign::SpaceAround,
+                            continues_ruby: false,
+                        }),
+                    },
+                ],
+            },
+            children: Vec::new(),
+        }];
+        let tree = FormattingTree::with_styles(
+            nodes,
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
         )
-        .expect("layout succeeds");
-    let lines = line_texts(&outcome, "中中中中中文");
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(165.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        line_texts(&outcome, &format!("中中中中{base}"))
+    };
     assert_eq!(
-        lines,
-        vec!["中中中中中".to_owned(), "文".to_owned()],
-        "the annotated base breaks at an ordinary character boundary"
+        lines("中文中文中"),
+        vec!["中中中中中".to_owned(), "文中文中".to_owned()],
+        "a long annotated base breaks at an ordinary character boundary"
+    );
+    assert_eq!(
+        lines("中文"),
+        vec!["中中中中".to_owned(), "中文".to_owned()],
+        "a short ruby moves down whole"
+    );
+    assert_eq!(
+        lines("かか\u{3099}かか"),
+        vec!["中中中中".to_owned(), "かか\u{3099}かか".to_owned()],
+        "five characters shaped into four glyphs are a short ruby"
+    );
+    assert_eq!(
+        lines("かかかかか"),
+        vec!["中中中中か".to_owned(), "かかかか".to_owned()],
+        "a base of five glyphs breaks"
     );
 }
 
@@ -637,6 +669,7 @@ fn a_ruby_split_whose_annotation_overflows_rewinds_to_the_item_start() {
                         text: "wwwwww".to_owned(),
                         size_ratio: 0.5,
                         align: rito_style_contract::RubyAlign::SpaceAround,
+                        continues_ruby: false,
                     }),
                 },
             ],
@@ -797,6 +830,7 @@ fn a_wide_ruby_annotation_spreads_its_base_with_interior_gaps() {
                         text: "annotation".to_owned(),
                         size_ratio: ratio,
                         align: rito_style_contract::RubyAlign::SpaceAround,
+                        continues_ruby: false,
                     }),
                 },
                 InlineItem::Text {
@@ -916,6 +950,7 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
                         text: "送葬者".to_owned(),
                         size_ratio: 0.55,
                         align: RubyAlign::Center,
+                        continues_ruby: false,
                     }),
                 },
                 text("和莱登的部队了，我记得他们两个认识也有两年了吧。"),
@@ -1006,4 +1041,398 @@ fn a_justified_line_gives_a_wide_ruby_column_no_share_of_its_own() {
             .all(|step| (step - (16.0 + share)).abs() < 1e-4),
         "one share per boundary after it: {steps:?}"
     );
+}
+
+/// An inline image's layout style: auto-sized, in flow, unpadded.
+fn plain_image_layout(layout: &mut LayoutStyleTable) -> rito_style_contract::LayoutStyleId {
+    use rito_style_contract::{
+        AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
+        LayoutDisplayOutside, LayoutFormattingStyle, ListMarkerStyle, MaximumSize, MinimumSize,
+        Overflow, PageBreak, Position, PreferredSize,
+    };
+    let auto = LengthPercentageOrAuto::Auto;
+    let zero =
+        NonNegativeLengthPercentage::new(LengthPercentage::Length(CssPx::new(0.0).expect("zero")));
+    let zero_px = rito_style_contract::NonNegativeCssPx::new(0.0).expect("zero");
+    layout
+        .intern_for_node(
+            0,
+            LayoutFormattingStyle {
+                display: LayoutDisplay {
+                    outside: LayoutDisplayOutside::Inline,
+                    inside: LayoutDisplayInside::Flow,
+                    is_list_item: false,
+                },
+                margin: sides(auto),
+                padding: sides(zero),
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
+                box_sizing: rito_style_contract::BoxSizing::ContentBox,
+                justify_content: JustifyContent::Normal,
+                align_items: AlignItems::Normal,
+                break_before: PageBreak::Auto,
+                break_after: PageBreak::Auto,
+                width: PreferredSize::Auto,
+                height: PreferredSize::Auto,
+                max_width: MaximumSize::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
+                clear: Clear::None,
+                float: Float::None,
+                overflow: Overflow::Visible,
+                list_style_type: ListMarkerStyle::None,
+                position: Position::Static,
+                inset: sides(auto),
+                vertical_align: rito_style_contract::CellVerticalAlign::Baseline,
+                border_spacing: (zero_px, zero_px),
+                border_collapse: false,
+                object_fit: rito_style_contract::ObjectFit::Fill,
+            },
+        )
+        .expect("layout style interns")
+}
+
+/// A line rewound to the start of a ruby item holds everything before
+/// that item, an inline image included: the rewind held a count of the
+/// text characters before the item, and the breaker counts an image as
+/// one, so the line ended one character early and the image went down
+/// with the ruby.
+#[test]
+fn a_ruby_split_rewind_keeps_an_image_before_the_ruby_on_the_line() {
+    let context = ParleyInlineContext::new(vec![source_han_bytes()]).expect("context builds");
+    let style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        32.0,
+        0.0,
+    );
+    let mut inline = InlineStyleTable::new(1);
+    let interned = inline.intern_for_node(0, style).expect("style interns");
+    let mut layout = LayoutStyleTable::new(1);
+    let image_layout = plain_image_layout(&mut layout);
+    let items = vec![
+        InlineItem::Text {
+            text: "中中".to_owned(),
+            style: interned,
+            baseline_shift_px: 0.0,
+            ruby_annotation: None,
+        },
+        InlineItem::Image {
+            source: 0,
+            src: "images/note.png".to_owned(),
+            intrinsic_width: 32.0,
+            intrinsic_height: 32.0,
+            style: interned,
+            layout_style: image_layout,
+            fit_contain: false,
+            viewport: None,
+            baseline_shift_px: 0.0,
+            align: rito_fragment::AtomAlign::Baseline,
+            object_fit: rito_style_contract::ObjectFit::Fill,
+        },
+        InlineItem::Text {
+            text: "中文中".to_owned(),
+            style: interned,
+            baseline_shift_px: 0.0,
+            ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                text: "wwwwww".to_owned(),
+                size_ratio: 0.5,
+                align: rito_style_contract::RubyAlign::SpaceAround,
+                continues_ruby: false,
+            }),
+        },
+    ];
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles { layout, inline },
+    )
+    .expect("inline tree builds");
+    // The geometry of the rewind above with an image for one lead glyph.
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(165.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let text = "中中中文中";
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("root is a box");
+    };
+    // Each line as its text, an image as `▣`.
+    let lines: Vec<String> = root
+        .children
+        .iter()
+        .map(|line| {
+            let Fragment::Line(line) = line else {
+                panic!("a line");
+            };
+            line.children
+                .iter()
+                .map(|child| match child {
+                    Fragment::Text(run) => {
+                        text[run.text_start as usize..run.text_end as usize].to_owned()
+                    }
+                    Fragment::Image(_) => "▣".to_owned(),
+                    _ => String::new(),
+                })
+                .collect()
+        })
+        .collect();
+    assert_eq!(lines, vec!["中中▣".to_owned(), "中文中".to_owned()]);
+}
+
+/// A justified paragraph aligns a wide-annotation ruby's base to the
+/// line's start edge and a justified line's base to its end edge, where
+/// elsewhere it sits centered under the annotation (Blink's
+/// `ApplyRubyAlign`; measured in pinned Chromium on a 150px line of 16px
+/// ideographs with 瞬 under しゅん: the base inks at the line start in a
+/// justified paragraph, its first and last lines alike, 4px in under
+/// start alignment, and 8px past its column's start at a justified
+/// line's end).
+#[test]
+fn a_justified_line_aligns_a_wide_ruby_base_to_its_edges() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    // The painted start of the ruby base on each line holding it.
+    let base_starts = |before: &str, after: &str, align: TextAlign| -> Vec<f64> {
+        let mut style = plain_paragraph_style(
+            FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+                .expect("family list"),
+            16.0,
+            0.0,
+        );
+        style.text_flow.text_align = align;
+        let mut inline = InlineStyleTable::new(1);
+        let style = inline.intern_for_node(0, style).expect("style interns");
+        let text = |t: &str| InlineItem::Text {
+            text: t.to_owned(),
+            style,
+            baseline_shift_px: 0.0,
+            ruby_annotation: None,
+        };
+        let mut items = Vec::new();
+        if !before.is_empty() {
+            items.push(text(before));
+        }
+        items.push(InlineItem::Text {
+            text: "瞬".to_owned(),
+            style,
+            baseline_shift_px: 0.0,
+            ruby_annotation: Some(rito_fragment::RubyAnnotation {
+                text: "しゅん".to_owned(),
+                size_ratio: 0.5,
+                align: RubyAlign::SpaceAround,
+                continues_ruby: false,
+            }),
+        });
+        items.push(text(after));
+        let base_start = before.len() as u32;
+        let tree = FormattingTree::with_styles(
+            vec![FormattingNode {
+                style: rito_style_contract::LayoutStyleId::from_raw(0),
+                content: FormattingNodeContent::InlineFlow { items },
+                children: Vec::new(),
+            }],
+            FormattingNodeId(0),
+            rito_fragment::FormattingTreeStyles {
+                layout: LayoutStyleTable::new(0),
+                inline,
+            },
+        )
+        .expect("inline tree builds");
+        let outcome = context
+            .layout(
+                &tree,
+                tree.root(),
+                &ConstraintSpace::continuous(150.0),
+                None,
+                &CancelFlag::new(),
+            )
+            .expect("layout succeeds");
+        let Fragment::Box(root) = &outcome.fragments.root else {
+            panic!("inline outcome root is a box fragment");
+        };
+        root.children
+            .iter()
+            .filter_map(|child| match child {
+                Fragment::Line(line) => Some(line),
+                _ => None,
+            })
+            .flat_map(|line| {
+                line.children.iter().filter_map(move |child| match child {
+                    Fragment::Text(run) if run.text_start == base_start => {
+                        Some(line.rect.x + run.rect.x + run.ruby_center_shift_px)
+                    }
+                    _ => None,
+                })
+            })
+            .collect()
+    };
+    let rest = "一二三四五六七八九十一二三四五六七八九十";
+    let at = |starts: Vec<f64>, expected: f64, case: &str| {
+        assert_eq!(starts.len(), 1, "{case}: one base run: {starts:?}");
+        assert!(
+            (starts[0] - expected).abs() < 1e-6,
+            "{case}: base at {} vs {expected}",
+            starts[0]
+        );
+    };
+    at(
+        base_starts("", rest, TextAlign::Justify),
+        0.0,
+        "first line start, justified",
+    );
+    at(
+        base_starts("", rest, TextAlign::Left),
+        4.0,
+        "line start, start-aligned",
+    );
+    at(
+        base_starts(
+            "一二三四五六七八",
+            "九十一二三四五六七八九十",
+            TextAlign::Justify,
+        ),
+        132.0,
+        "justified line end",
+    );
+    at(
+        base_starts(
+            "一二三四五六七八",
+            "九十一二三四五六七八九十",
+            TextAlign::Left,
+        ),
+        128.0,
+        "start-aligned line end",
+    );
+    at(
+        base_starts("一二三四五六七八九", "十", TextAlign::Justify),
+        0.0,
+        "last line start, justified",
+    );
+}
+
+/// Each inline item of a justified line ends on the LayoutUnit grid at
+/// the ceiling of its exact advance — its fixed-point glyph advances plus
+/// its shares — however little the shares lift it past a grid point:
+/// pinned Chromium sets this book line (16px, a 0.36 share) with every
+/// ruby pair and the ideographic space before them 16.375 apart, where a
+/// float margin left them on 16.359375 and the ruby boxes rounded a pixel
+/// off.
+#[test]
+fn a_justified_item_ends_on_the_grid_ceiling_of_its_exact_advance() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let mut style = plain_paragraph_style(
+        FontFamilies::new(vec![FontFamily::Generic(GenericFontFamily::Serif)])
+            .expect("family list"),
+        16.0,
+        0.0,
+    );
+    style.text_flow.text_align = TextAlign::Justify;
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline.intern_for_node(0, style).expect("style interns");
+    let text = |t: &str| InlineItem::Text {
+        text: t.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: None,
+    };
+    let ruby = |t: &str, a: &str, continues_ruby: bool| InlineItem::Text {
+        text: t.to_owned(),
+        style,
+        baseline_shift_px: 0.0,
+        ruby_annotation: Some(rito_fragment::RubyAnnotation {
+            text: a.to_owned(),
+            size_ratio: 0.5,
+            align: RubyAlign::SpaceAround,
+            continues_ruby,
+        }),
+    };
+    let items = vec![
+        text("　"),
+        ruby("蒼", "あお", false),
+        ruby("依", "い", true),
+        text("、"),
+        ruby("朱", "あか", false),
+        ruby("音", "ね", true),
+        text("、"),
+        ruby("橙", "とう", false),
+        ruby("花", "か", true),
+        text("、マリンなどなど……本来その全員と一緒に"),
+        ruby("観", "み", false),
+        text("たかったところだが、さすがに席数には制限があり、あくまで"),
+    ];
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow { items },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            tree.root(),
+            &ConstraintSpace::continuous(850.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("inline outcome root is a box fragment");
+    };
+    let Some(Fragment::Line(line)) = root.children.first() else {
+        panic!("outcome has a first line");
+    };
+    let xs: Vec<f64> = placed(line.children.iter().filter_map(|child| match child {
+        Fragment::Text(run) => Some(run),
+        _ => None,
+    }))
+    .iter()
+    .flat_map(|piece| {
+        piece
+            .clusters
+            .iter()
+            .map(move |cluster| piece.x + cluster.x)
+    })
+    .collect();
+    // 　蒼依、朱音、橙花、 as Chromium places them (Range, page 133).
+    let expected = [
+        0.0, 16.375, 32.75, 49.125, 65.5, 81.875, 98.25, 114.625, 131.0, 147.375,
+    ];
+    for (index, (x, want)) in xs.iter().zip(expected).enumerate() {
+        assert!(
+            (x - want).abs() < 1e-6,
+            "glyph {index} at {x}, want {want}: {xs:?}"
+        );
+    }
+    // The plain text after them keeps the float share.
+    assert!(((xs[11] - xs[10]) - 16.36).abs() < 1e-3, "{xs:?}");
 }

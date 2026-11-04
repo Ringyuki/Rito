@@ -110,6 +110,7 @@ fn text_run(x: f64, width: f64, start: u32, end: u32) -> Fragment {
         clusters: Vec::new().into(),
         cluster_grid: false,
         segments: None,
+        orientations: None,
     })
 }
 
@@ -133,10 +134,15 @@ fn boxed_line(children: Vec<Fragment>) -> Fragment {
             },
             baseline: 13.0,
             trailing_whitespace: 0.0,
-            ruby_growth: 0.0,
+            annotation_growth: 0.0,
+            annotation_overflow: 0.0,
+            annotation_lent: 0.0,
+            annotation_space_end: 0.0,
+            fonts: rito_fragment::LineFonts::None,
             text_runs: Vec::new(),
             children,
         })],
+        cuts: rito_fragment::BlockCuts::NONE,
     })
 }
 

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
 import { createPaperTurn, springPresets, type ReaderControllerEvents } from '@ritojs/kit';
 import type { PageTurn } from '@/components/settings-panel';
+import type { AnnotationKind } from '@/components/annotation-toolbar';
 import {
   useAnnotations,
   useControllerEvent,
@@ -14,9 +15,17 @@ import {
 } from '@ritojs/react';
 import { bookKey, createBookStorage } from '@/lib/book-storage';
 import { noteDebug } from '@/lib/debug-log';
+import { readerViewportMargin } from '@/lib/viewport-margin';
 import { fetchShardedDemo } from '@/lib/sharded-demo';
 import { useDebugLog } from '@/hooks/use-debug-log';
 import { useReaderFonts } from '@/hooks/use-reader-fonts';
+import { useScrollMode } from '@/hooks/use-scroll-mode';
+import {
+  annotationOfHighlight,
+  useScrollAnnotationPointer,
+  useScrollAnnotations,
+} from '@/hooks/use-scroll-annotations';
+import { useScrollSearch } from '@/hooks/use-scroll-search';
 import { typographyReaderOptions, useApplyTypography, useTypography } from '@/hooks/use-typography';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
@@ -36,7 +45,9 @@ export function useReader(
   containerHeight: number,
   pinnedFontPolicy: ReaderPinnedFontPolicy,
 ) {
-  const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
+  const [spreadMode, setSpreadModeState] = useState<'single' | 'double' | 'scrolled'>('double');
+  // How the book is paged when it is not read scrolled.
+  const [pagedMode, setPagedMode] = useState<'single' | 'double'>('double');
   const typography = useTypography();
   const [pageTurn, setPageTurnState] = useState<PageTurn>('slide');
   // The paper turn simulates one sheet: one of it for this reader.
@@ -53,7 +64,7 @@ export function useReader(
       width: containerWidth > 0 ? Math.round(containerWidth) : 0,
       height: containerHeight > 0 ? Math.round(containerHeight) : 0,
       margin: readerViewportMargin(containerWidth),
-      spread: spreadMode,
+      spread: pagedMode,
       pinnedFontPolicy,
       ...getThemeOptions(theme),
       ...typographyReaderOptions(typography.typography),
@@ -119,7 +130,145 @@ export function useReader(
     setRenderScaleState(1);
   }, [controller]);
 
-  // Page turns by keyboard only while nothing covers the page.
+  const scroll = useScrollMode(controller, {
+    active: spreadMode === 'scrolled',
+    paged: pagedMode,
+  });
+  useEffect(() => {
+    // The scroll view too, while the book is read scrolled.
+    (window as unknown as { __ritoScroll?: unknown }).__ritoScroll = scroll.controller;
+  }, [scroll.controller]);
+
+  // A tap on a note reference read scrolled opens the note as on a page,
+  // an image opens in the lightbox (its object URL is the app's to let go),
+  // and a link into the book goes where it points.
+  const scrollImageUrl = useRef<string | null>(null);
+  const releaseScrollImage = useCallback(() => {
+    if (scrollImageUrl.current) URL.revokeObjectURL(scrollImageUrl.current);
+    scrollImageUrl.current = null;
+  }, []);
+  // An annotation tapped opens to edit (useScrollAnnotationPointer), before
+  // any link under it, as on a page.
+  const annotationRecords = useRef(annotations.annotations);
+  annotationRecords.current = annotations.annotations;
+  const scrollAnnotationPointer = useScrollAnnotationPointer(
+    scroll.controller,
+    annotations.annotations,
+  );
+  useEffect(() => {
+    const view = scroll.controller;
+    const interactions = scroll.reader?.interactions;
+    if (!view) return;
+    return view.on('tap', ({ point, target, highlight }) => {
+      if (highlight && annotationOfHighlight(highlight.id, annotationRecords.current)) return;
+      if (!target) return;
+      const follow = () => {
+        if (target.targetLocator) void view.scrollToLocator(target.targetLocator);
+      };
+      if (target.kind === 'image' && target.imageSrc && scroll.reader) {
+        const src = target.imageSrc;
+        const bounds = view.viewRects([{ pageIndex: point.pageIndex, ...target.bounds }])[0];
+        const canvas = view.canvas.getBoundingClientRect();
+        void Promise.resolve(scroll.reader.getImageBlobUrl(src)).then((blobUrl) => {
+          if (!blobUrl || !bounds) return;
+          releaseScrollImage();
+          scrollImageUrl.current = blobUrl;
+          setLightboxImage({
+            src,
+            alt: target.imageAlt ?? '',
+            blobUrl,
+            screenBounds: { ...bounds, x: canvas.left + bounds.x, y: canvas.top + bounds.y },
+          });
+          setLightboxActive(true);
+        });
+        return;
+      }
+      const key = target.footnoteKey;
+      if (target.kind !== 'footnote' || !key || !interactions) {
+        follow();
+        return;
+      }
+      void interactions.getFootnote(key).then((content) => {
+        if (content) setFootnote({ id: key, href: target.href ?? '', content });
+        else follow();
+      }, follow);
+    });
+  }, [releaseScrollImage, scroll.controller, scroll.reader]);
+  const scrollSearch = useScrollSearch(scroll);
+  // The book's annotations and the search result the reader is on, drawn
+  // over the text read scrolled.
+  const scrollAnnotations = useScrollAnnotations(
+    scroll.reader,
+    annotations.annotations,
+    scroll.position,
+  );
+  // The selection read scrolled, kept as an annotation among the book's,
+  // which both modes show, as the paged reader's toolbar keeps it.
+  const annotateScrollSelection = useCallback(
+    async (kind: AnnotationKind, color: string, note?: string) => {
+      const locator = scroll.selection?.range?.sourceLocator;
+      const interactions = scroll.reader?.interactions;
+      if (!locator?.sourceRange || !interactions?.createAnnotationTarget) return;
+      scroll.controller?.clearSelection();
+      const target = await interactions.createAnnotationTarget({
+        href: locator.href,
+        sourceRange: locator.sourceRange,
+      });
+      if (!target) {
+        toast.error('Could not add the annotation');
+        return;
+      }
+      annotations.insert({
+        id: crypto.randomUUID(),
+        kind,
+        color,
+        ...(note ? { note } : {}),
+        target,
+        createdAt: Date.now(),
+      });
+    },
+    [annotations, scroll.controller, scroll.reader, scroll.selection],
+  );
+  const searchHighlight = scrollSearch.highlight;
+  useEffect(() => {
+    scroll.controller?.setHighlights(
+      searchHighlight ? [...scrollAnnotations, searchHighlight] : scrollAnnotations,
+    );
+  }, [scroll.controller, scrollAnnotations, searchHighlight]);
+  // Where the book is read scrolled is saved as the pages' position is, so
+  // the book opens there next time; each rest saves it once.
+  const scrollProgress = useRef(0);
+  scrollProgress.current = scroll.progress;
+  useEffect(() => {
+    const read = scroll.position;
+    if (spreadMode !== 'scrolled' || !read) return;
+    void storage.positionStorage.save(
+      JSON.stringify({
+        sourceLocator: read,
+        projection: { spreadIndex: 0, pageIndex: 0 },
+        progress: scrollProgress.current,
+        timestamp: Date.now(),
+      }),
+    );
+  }, [scroll.position, spreadMode]);
+  // ⌘F / Ctrl+F searches the book read scrolled, as the controller's
+  // `searchOpen` does for pages.
+  useEffect(() => {
+    if (spreadMode !== 'scrolled') return;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [spreadMode]);
+
+  // Page turns by keyboard only while nothing covers the page (and the
+  // pages take no keys while a scroll view has the book).
   const overlayOpen = lightboxActive || pendingLink !== null || footnote !== null || searchOpen;
   useEffect(() => {
     controller?.keyboard.setEnabled(!overlayOpen);
@@ -171,11 +320,16 @@ export function useReader(
     }
   }, [open]);
 
+  // Scrolled reading hands the pages' reader to a scroll view from where
+  // the pages were (useScrollMode); paging again lays it out as chosen,
+  // from where the view was read, and gives it back to the pages.
   const setSpreadMode = useCallback(
-    (mode: 'single' | 'double') => {
+    (mode: 'single' | 'double' | 'scrolled') => {
       if (mode === spreadMode) return;
       setSpreadModeState(mode);
-      controller?.setSpreadMode(mode);
+      if (mode === 'scrolled') return;
+      setPagedMode(mode);
+      if (spreadMode !== 'scrolled') controller?.setSpreadMode(mode);
     },
     [controller, spreadMode],
   );
@@ -199,25 +353,37 @@ export function useReader(
 
   const navigateToTocEntry = useCallback(
     (entry: TocEntry) => {
+      if (spreadMode === 'scrolled') {
+        const [href = entry.href, anchorId] = entry.href.split('#');
+        void scroll.controller?.scrollToLocator(anchorId ? { href, anchorId } : { href });
+        return;
+      }
       controller?.navigateToTocEntry(entry);
     },
-    [controller],
+    [controller, scroll.controller, spreadMode],
   );
 
   const spread = rito.spreads[rito.currentSpread];
   const activeTocEntry =
-    controller && spread ? controller.reader.findActiveTocEntry(spread.leftPageIndex) : undefined;
+    spreadMode === 'scrolled'
+      ? scroll.activeTocEntry
+      : controller && spread
+        ? controller.reader.findActiveTocEntry(spread.leftPageIndex)
+        : undefined;
 
   return {
     ...rito,
     selection,
-    search,
+    search: spreadMode === 'scrolled' ? scrollSearch : search,
     annotations,
     position,
     fonts,
     typography,
     spreadMode,
     setSpreadMode,
+    scroll,
+    annotateScrollSelection,
+    scrollAnnotationPointer,
     renderScale,
     setRenderScale,
     isTransitioning: transition.isTransitioning,
@@ -243,15 +409,14 @@ export function useReader(
     }, []),
     onLightboxExitComplete: useCallback(() => {
       setLightboxActive(false);
-    }, []),
+      releaseScrollImage();
+    }, [releaseScrollImage]),
     searchOpen,
     setSearchOpen,
   };
 }
 
-export function readerViewportMargin(containerWidth: number): number {
-  return containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
-}
+export { readerViewportMargin } from '@/lib/viewport-margin';
 
 async function fetchDemoEpubData(): Promise<ArrayBuffer> {
   demoEpubBlobPromise ??= fetch(demoEpubUrl).then(async (resp) => {

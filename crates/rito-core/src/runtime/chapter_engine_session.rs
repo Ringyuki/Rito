@@ -106,6 +106,48 @@ impl<'a> ChapterEngineSession<'a> {
         self.backend.resolve_text_range(query)
     }
 
+    /// Where an anchored element starts in its page's display list drawn
+    /// at `ratio`.
+    pub(super) fn anchor_block_offset(
+        &self,
+        page_index: usize,
+        anchor: &str,
+        ratio: f64,
+    ) -> Option<f64> {
+        self.backend.anchor_block_offset(page_index, anchor, ratio)
+    }
+
+    /// Where the content box a page's records are laid out in sits on the
+    /// page as drawn at `ratio`.
+    pub(super) fn record_frame(
+        &self,
+        page_index: usize,
+        ratio: f64,
+    ) -> Option<super::page_artifact::PageRecordFrame> {
+        self.backend.record_frame(page_index, ratio)
+    }
+
+    /// A scrolled chapter's extent along the scroll axis.
+    pub(super) fn chapter_extent(&self, idref: &str) -> Option<f64> {
+        self.backend.chapter_extent(idref)
+    }
+
+    /// A page's width and height.
+    pub(super) fn page_size(&self, page_index: usize) -> Option<(f64, f64)> {
+        self.backend.page_size(page_index)
+    }
+
+    /// Where the line a source point sits on starts in its page's display
+    /// list drawn at `ratio`, for a scrolled window to be shown from.
+    pub(super) fn target_block_offset(
+        &self,
+        page_index: usize,
+        point: &super::page_artifact::PageArtifactSourcePoint,
+        ratio: f64,
+    ) -> Option<f64> {
+        self.backend.target_block_offset(page_index, point, ratio)
+    }
+
     /// The caret at an exact address, with its geometry and source point.
     pub(super) fn text_caret(
         &self,

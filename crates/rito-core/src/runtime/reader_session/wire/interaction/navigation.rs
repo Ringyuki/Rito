@@ -7,7 +7,7 @@ use super::super::{
     READER_NAVIGATION_REQUEST_WIRE_MAGIC, READER_NAVIGATION_RESPONSE_WIRE_MAGIC,
     READER_WIRE_VERSION,
 };
-use super::{from_tag, tag_of, LOCATOR_MATCHES, ORDERINGS};
+use super::{from_tag, tag_of, LOCATOR_MATCHES, ORDERINGS, SCROLL_AXES};
 use crate::runtime::reader_session::{
     ReaderChapterPages, ReaderError, ReaderLocation, ReaderNavigationQuery,
     ReaderNavigationRequest, ReaderNavigationResult, ReaderRevisionLayout, ReaderSpreadPages,
@@ -117,11 +117,15 @@ pub(in crate::runtime::reader_session::wire) fn encode_result(
                     page_index,
                     drawn,
                     matched_by,
+                    block_offset,
                 } => {
                     writer.u8(0);
                     writer.u32(*page_index);
                     writer.bool(*drawn);
                     writer.u8(tag_of(&LOCATOR_MATCHES, matched_by));
+                    writer.option(block_offset.as_ref(), |writer, offset| {
+                        writer.f64(*offset, "located block offset")
+                    })?;
                 }
                 ReaderLocation::NotLaidOut => writer.u8(1),
                 ReaderLocation::Unavailable => writer.u8(2),
@@ -154,6 +158,9 @@ pub(in crate::runtime::reader_session::wire) fn decode_result(
                 page_index: reader.u32()?,
                 drawn: reader.bool("page drawn")?,
                 matched_by: from_tag(&LOCATOR_MATCHES, reader.u8()?, "locator match")?,
+                block_offset: reader.option("located block offset", |reader| {
+                    reader.f64("located block offset")
+                })?,
             },
             1 => ReaderLocation::NotLaidOut,
             2 => ReaderLocation::Unavailable,
@@ -179,6 +186,9 @@ fn write_layout(writer: &mut Writer, value: &ReaderRevisionLayout) -> Result<(),
         writer.u32(chapter.spine_index);
         writer.u32(chapter.start_page);
         writer.u32(chapter.end_page);
+        writer.option(chapter.extent.as_ref(), |writer, extent| {
+            writer.f64(*extent, "chapter extent")
+        })?;
     }
     writer.count(value.toc_targets.len(), "layout toc target count")?;
     for target in &value.toc_targets {
@@ -193,7 +203,10 @@ fn write_layout(writer: &mut Writer, value: &ReaderRevisionLayout) -> Result<(),
         write_optional_u32(writer, *entry)?;
     }
     writer.bool(value.complete);
-    Ok(())
+    writer.option(value.scroll_axis.as_ref(), |writer, axis| {
+        writer.u8(tag_of(&SCROLL_AXES, axis));
+        Ok(())
+    })
 }
 
 fn read_layout(reader: &mut Reader<'_>) -> Result<ReaderRevisionLayout, ReaderError> {
@@ -210,6 +223,7 @@ fn read_layout(reader: &mut Reader<'_>) -> Result<ReaderRevisionLayout, ReaderEr
                 spine_index: reader.u32()?,
                 start_page: reader.u32()?,
                 end_page: reader.u32()?,
+                extent: reader.option("chapter extent", |reader| reader.f64("chapter extent"))?,
             })
         })?,
         toc_targets: reader.collection("layout toc targets", |reader| {
@@ -222,6 +236,9 @@ fn read_layout(reader: &mut Reader<'_>) -> Result<ReaderRevisionLayout, ReaderEr
             reader.option("page toc entry", Reader::u32)
         })?,
         complete: reader.bool("layout complete")?,
+        scroll_axis: reader.option("scroll axis", |reader| {
+            from_tag(&SCROLL_AXES, reader.u8()?, "scroll axis")
+        })?,
     })
 }
 

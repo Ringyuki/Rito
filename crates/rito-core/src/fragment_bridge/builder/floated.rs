@@ -168,8 +168,9 @@ fn float_box_style(image: &LayoutFormattingStyle) -> LayoutFormattingStyle {
         },
         height: c::PreferredSize::Auto,
         max_width: c::MaximumSize::None,
-        min_height: c::MinimumHeight::Auto,
-        max_height: c::MaximumHeight::None,
+        min_height: c::MinimumSize::Auto,
+        min_width: c::MinimumSize::Auto,
+        max_height: c::MaximumSize::None,
         position: c::Position::Static,
         ..*image
     }

@@ -36,6 +36,11 @@ export interface DisplaySurface {
   /** Binds the canvas's own framebuffer and clears it. */
   clear(): void;
   /**
+   * Gives the drawing buffer back, down to one pixel, until the next
+   * `setSize` grows it again: for a canvas that shows nothing meanwhile.
+   */
+  release(): void;
+  /**
    * Calls back when the context was lost and has been restored, after the
    * compositor has made its programs again: everything else held in the
    * context is gone and must be made and painted again. Returns the unsubscribe.
@@ -108,19 +113,36 @@ export function createDisplaySurface(canvas: HTMLCanvasElement): DisplaySurface 
       w = Math.round(cssWidth * dpr);
       h = Math.round(cssHeight * dpr);
       growDrawingBuffer(canvas, w, h, dpr);
-      // Zoomed out by the ratio, the canvas shows its drawing buffer at
-      // one pixel per device pixel; its box, the given CSS size, crops it
-      // to the bottom-left region.
-      canvas.style.zoom = String(1 / dpr);
-      canvas.style.width = `${String(cssWidth * dpr)}px`;
-      canvas.style.height = `${String(cssHeight * dpr)}px`;
+      cropDrawingBuffer(canvas, cssWidth, cssHeight, dpr);
       presentation.paintedAt(dpr);
     },
     clear(): void {
       compositor.bind(null, w, h);
       compositor.clear();
     },
+    release(): void {
+      canvas.width = 1;
+      canvas.height = 1;
+      w = 0;
+      h = 0;
+    },
   };
+}
+
+/**
+ * Zoomed out by the ratio, the canvas shows its drawing buffer at one
+ * pixel per device pixel; its box, the given CSS size, crops it to the
+ * bottom-left region.
+ */
+function cropDrawingBuffer(
+  canvas: HTMLCanvasElement,
+  cssWidth: number,
+  cssHeight: number,
+  dpr: number,
+): void {
+  canvas.style.zoom = String(1 / dpr);
+  canvas.style.width = `${String(cssWidth * dpr)}px`;
+  canvas.style.height = `${String(cssHeight * dpr)}px`;
 }
 
 /**

@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt};
 
 use crate::{
-    LengthPercentageOrAuto, NonNegativeCssPx, NonNegativeLengthPercentage, Percentage,
-    PhysicalSides,
+    Direction, LengthPercentageOrAuto, LogicalSides, NonNegativeCssPx, NonNegativeLengthPercentage,
+    Percentage, PhysicalSides, WritingDirection, WritingMode,
 };
 
 /// Outer display role retained from the computed CSS display pair.
@@ -85,7 +85,8 @@ pub enum PreferredSize {
     FitContentFunction(NonNegativeLengthPercentage),
 }
 
-/// Computed `max-width` values retained for layout and capability diagnostics.
+/// Computed `max-width` / `max-height` values retained for layout and
+/// capability diagnostics.
 ///
 /// Intrinsic sizing is retained exactly by the producer. Consumers currently
 /// omit these caps as a compatibility fallback, preserving the rest of the
@@ -135,23 +136,14 @@ pub enum Overflow {
     Hidden,
 }
 
-/// Computed `min-height` values retained at the current consumer boundary.
+/// Computed `min-width` / `min-height` values retained at the current
+/// consumer boundary.
 ///
 /// Percentages remain distinct even though the consumer currently applies the
-/// legacy compatibility policy of omitting them without a height basis.
+/// legacy compatibility policy of omitting them without a basis.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum MinimumHeight {
+pub enum MinimumSize {
     Auto,
-    Length(NonNegativeCssPx),
-    Percentage(Percentage),
-}
-
-/// Computed `max-height` values retained at the current consumer boundary.
-///
-/// Percentages remain distinct from `none`; see [`MinimumHeight`].
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum MaximumHeight {
-    None,
     Length(NonNegativeCssPx),
     Percentage(Percentage),
 }
@@ -177,11 +169,21 @@ pub enum ListMarkerStyle {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct LayoutFormattingStyle {
     pub display: LayoutDisplay,
+    /// The box's writing mode and inline base direction: which physical
+    /// sides and axes its flow-relative edges and sizes fall on (see
+    /// [`LayoutFormattingStyle::writing_direction`]).
+    pub writing_mode: WritingMode,
+    pub direction: Direction,
     /// Physical box margins. Percentages resolve against the containing
     /// block's inline size (including the vertical sides, per CSS).
     pub margin: PhysicalSides<LengthPercentageOrAuto>,
     /// Physical box padding.
     pub padding: PhysicalSides<NonNegativeLengthPercentage>,
+    /// Used border widths. The formatting bridge folds every border into
+    /// `padding`, so layout reads these only where CSS tells a border
+    /// from padding: a ruby annotation reaches into a box's top padding
+    /// and the margins above it, never across a top border.
+    pub border_widths: PhysicalSides<NonNegativeCssPx>,
     /// How `width`/`height` map onto the box model.
     pub box_sizing: BoxSizing,
     pub justify_content: JustifyContent,
@@ -190,9 +192,10 @@ pub struct LayoutFormattingStyle {
     pub break_after: PageBreak,
     pub width: PreferredSize,
     pub height: PreferredSize,
+    pub min_width: MinimumSize,
     pub max_width: MaximumSize,
-    pub min_height: MinimumHeight,
-    pub max_height: MaximumHeight,
+    pub min_height: MinimumSize,
+    pub max_height: MaximumSize,
     pub clear: Clear,
     pub float: Float,
     pub overflow: Overflow,
@@ -218,6 +221,79 @@ pub struct LayoutFormattingStyle {
     /// element's content fits its box. Meaningful only on replaced
     /// elements; the UA stylesheet sets `contain` on `img`.
     pub object_fit: ObjectFit,
+}
+
+impl LayoutFormattingStyle {
+    /// The box's own writing mode and direction.
+    pub fn writing_direction(&self) -> WritingDirection {
+        WritingDirection {
+            mode: self.writing_mode,
+            direction: self.direction,
+        }
+    }
+
+    /// The box's margins on the flow-relative edges of the containing
+    /// block's flow, laid out in `container`: margins position a box in
+    /// its container's flow.
+    pub fn margin_in(&self, container: WritingDirection) -> LogicalSides<LengthPercentageOrAuto> {
+        self.margin.to_logical(container)
+    }
+
+    /// The box's offsets on the flow-relative edges of its containing
+    /// block, laid out in `container`.
+    pub fn inset_in(&self, container: WritingDirection) -> LogicalSides<LengthPercentageOrAuto> {
+        self.inset.to_logical(container)
+    }
+
+    /// The box's padding on its own flow-relative edges.
+    pub fn flow_padding(&self) -> LogicalSides<NonNegativeLengthPercentage> {
+        self.padding.to_logical(self.writing_direction())
+    }
+
+    /// The box's border widths on its own flow-relative edges.
+    pub fn flow_border_widths(&self) -> LogicalSides<NonNegativeCssPx> {
+        self.border_widths.to_logical(self.writing_direction())
+    }
+
+    /// `width` or `height`, whichever runs along the box's lines.
+    pub fn inline_size(&self) -> PreferredSize {
+        self.writing_direction()
+            .axes(self.width, self.height)
+            .inline
+    }
+
+    /// `width` or `height`, whichever runs across the box's lines.
+    pub fn block_size(&self) -> PreferredSize {
+        self.writing_direction().axes(self.width, self.height).block
+    }
+
+    /// The minimum of [`Self::inline_size`].
+    pub fn min_inline_size(&self) -> MinimumSize {
+        self.writing_direction()
+            .axes(self.min_width, self.min_height)
+            .inline
+    }
+
+    /// The minimum of [`Self::block_size`].
+    pub fn min_block_size(&self) -> MinimumSize {
+        self.writing_direction()
+            .axes(self.min_width, self.min_height)
+            .block
+    }
+
+    /// The maximum of [`Self::inline_size`].
+    pub fn max_inline_size(&self) -> MaximumSize {
+        self.writing_direction()
+            .axes(self.max_width, self.max_height)
+            .inline
+    }
+
+    /// The maximum of [`Self::block_size`].
+    pub fn max_block_size(&self) -> MaximumSize {
+        self.writing_direction()
+            .axes(self.max_width, self.max_height)
+            .block
+    }
 }
 
 /// Computed `object-fit` values (CSS Images 3 §5.4).

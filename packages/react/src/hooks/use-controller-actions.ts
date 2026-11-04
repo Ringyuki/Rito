@@ -1,5 +1,5 @@
 import { useCallback, type RefObject } from 'react';
-import type { Reader, ReaderMargin, TocEntry } from '@ritojs/core';
+import type { Reader, ReaderMargin, ReaderSpreadMode, TocEntry } from '@ritojs/core';
 import type { ReaderController, TransitionDriverOptions } from '@ritojs/kit';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
@@ -11,7 +11,7 @@ export interface ControllerActions {
   readonly navigateToTocEntry: (entry: TocEntry) => void;
   readonly resize: (width: number, height: number, margin?: ReaderMargin) => void;
   readonly setRenderScale: (scale: number) => void;
-  readonly setSpreadMode: (mode: 'single' | 'double') => void;
+  readonly setSpreadMode: (mode: ReaderSpreadMode) => void;
   readonly setTheme: (opts: ReaderThemeOptions) => void;
   readonly setTypography: (opts: {
     fontSize?: number | null;
@@ -37,7 +37,7 @@ export function useControllerActions(
       [],
     ),
     setRenderScale: useCallback((s: number) => ctrlRef.current?.setRenderScale(s), []),
-    setSpreadMode: useCallback((m: 'single' | 'double') => ctrlRef.current?.setSpreadMode(m), []),
+    setSpreadMode: useCallback((m: ReaderSpreadMode) => ctrlRef.current?.setSpreadMode(m), []),
     setTheme: useCallback((o: ReaderThemeOptions) => ctrlRef.current?.setTheme(o), []),
     setTypography: useCallback(
       (o: {

@@ -17,6 +17,7 @@ export type ModeManager = ReturnType<typeof createInteractionModeManager>;
 export type Nav = ReturnType<typeof createNavigation>;
 
 export type LifecycleSlice = Pick<ReaderController, 'mount' | 'dispose'>;
+export type SuspensionSlice = Pick<ReaderController, 'suspend' | 'resume' | 'suspended'>;
 export type NavigationActionsSlice = Pick<
   ReaderController,
   'goToSpread' | 'nextSpread' | 'prevSpread' | 'navigateToTocEntry' | 'jumpToSpread'

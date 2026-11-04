@@ -87,6 +87,18 @@ impl RunPaint {
         })
     }
 
+    /// The paint emphasis marks set at `font_size` in `color` take beside
+    /// this run's glyphs: its family, weight and slant, nothing else.
+    pub(crate) fn for_marks(
+        &self,
+        font_size: f64,
+        color: crate::render::contract::ReaderColor,
+    ) -> Self {
+        let mut marks = self.for_ruby(font_size);
+        Arc::make_mut(&mut marks.data).color = color;
+        marks
+    }
+
     /// The same paint drawn with another family.
     pub(crate) fn with_family(&self, family: std::sync::Arc<str>) -> Self {
         if self.data.font.family == family {

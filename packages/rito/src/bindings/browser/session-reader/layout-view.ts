@@ -1,5 +1,6 @@
-import type { ChapterRange, Spread } from '../../../reader';
+import type { ChapterRange, LayoutConfig, ReaderScrollLayout, Spread } from '../../../reader';
 import type { BrowserReaderNavigationResult } from '../reader-session';
+import { sessionReaderWindowLength } from './layout-options';
 import type { SessionReaderPublication } from './publication';
 
 export type SessionReaderRevisionLayout = Extract<
@@ -27,12 +28,15 @@ export interface SessionReaderLayoutView {
   readonly chapterHrefByPage: readonly (string | undefined)[];
   /** Whether it holds every page: while a window is resized, only the pages laid out so far. */
   readonly complete: boolean;
+  /** A scrolled revision's windows; absent for pages. */
+  readonly scroll: ReaderScrollLayout | undefined;
 }
 
 export function createSessionReaderLayoutView(
   layout: SessionReaderRevisionLayout,
   scope: SessionReaderLayoutScope,
   publication: SessionReaderPublication,
+  config: LayoutConfig,
 ): SessionReaderLayoutView {
   const spreadIndexByPage = new Array<number | undefined>(layout.pageCount).fill(undefined);
   const spreads = layout.spreads.map((pages, index): Spread => {
@@ -70,6 +74,26 @@ export function createSessionReaderLayoutView(
     spreadIndexByPage,
     chapterHrefByPage,
     complete: layout.complete,
+    scroll: scrollLayout(layout, config, spreadIndexByPage),
+  };
+}
+
+/** A scrolled revision's chapters by the spreads of their windows; undefined for pages. */
+function scrollLayout(
+  layout: SessionReaderRevisionLayout,
+  config: LayoutConfig,
+  spreadIndexByPage: readonly (number | undefined)[],
+): ReaderScrollLayout | undefined {
+  if (layout.scrollAxis === undefined) return undefined;
+  const chapters = layout.chapters.flatMap(({ startPage, endPage, extent }) => {
+    const firstSpread = spreadIndexByPage[startPage];
+    if (firstSpread === undefined || extent === undefined) return [];
+    return [{ firstSpread, spreadCount: endPage - startPage + 1, extent }];
+  });
+  return {
+    axis: layout.scrollAxis,
+    windowLength: sessionReaderWindowLength(config, layout.scrollAxis),
+    chapters: chapters.sort((first, second) => first.firstSpread - second.firstSpread),
   };
 }
 
@@ -83,4 +107,5 @@ export const EMPTY_SESSION_READER_LAYOUT_VIEW: SessionReaderLayoutView = {
   spreadIndexByPage: [],
   chapterHrefByPage: [],
   complete: true,
+  scroll: undefined,
 };

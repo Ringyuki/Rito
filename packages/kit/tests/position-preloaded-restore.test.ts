@@ -50,6 +50,7 @@ function createInternals(
     coordState: createCoordinatorState(),
     positionPersistence: createPositionPersistence(positionStorage as never),
     restoreCompleted: false,
+    suspended: false,
   } as unknown as Internals;
 }
 

@@ -13,6 +13,7 @@ const FONT_SOURCES = ['host', 'publication'];
 const FONT_GENERIC_ROLES = [null, 'serif', 'sansSerif', 'monospace'];
 const EXACT_STATUSES = ['resolved', 'pending', 'unavailable'];
 const AFFINITIES = ['upstream', 'downstream'];
+const WRITING_MODES = ['horizontal-tb', 'vertical-rl'];
 const BOUNDARIES = ['start', 'end'];
 const UNAVAILABLE_REASONS = [
   'shape-unavailable',
@@ -33,6 +34,7 @@ const ANNOTATION_LEVELS = [
 ];
 const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
 const ORDERS = [-1, 0, 1];
+const SCROLL_AXES = ['down', 'left'];
 
 /** Decodes a `RITOFNT1` font catalog: every family a `font-family` list can name. */
 export function decodeRitoReaderFontCatalog(value) {
@@ -257,8 +259,10 @@ function readCaret(reader) {
     geometry: record.option('caret geometry', () => ({
       x: record.f64('caret x'),
       y: record.f64('caret y'),
+      width: record.f64('caret width'),
       height: record.f64('caret height'),
     })),
+    writingMode: u8Tag(record, 'caret writing mode', WRITING_MODES),
     href: record.string('caret href'),
     sourcePoint: readSourcePoint(record),
   };
@@ -321,6 +325,9 @@ function readLocation(reader) {
         pageIndex: reader.u32('located page'),
         drawn: reader.bool('page drawn'),
         matchedBy: u8Tag(reader, 'locator match', LOCATOR_MATCHES),
+        blockOffset: reader.option('located block offset', () =>
+          reader.f64('located block offset'),
+        ),
       };
     case 1:
       return { kind: 'not-laid-out' };
@@ -343,6 +350,7 @@ function readRevisionLayout(reader) {
       spineIndex: reader.u32('chapter spine index'),
       startPage: reader.u32('chapter start page'),
       endPage: reader.u32('chapter end page'),
+      extent: reader.option('chapter extent', () => reader.f64('chapter extent')),
     })),
     tocTargets: readCollection(reader, 'layout toc targets', () => ({
       tocId: reader.u32('toc target entry'),
@@ -352,6 +360,7 @@ function readRevisionLayout(reader) {
       optionalU32('page toc entry'),
     ),
     complete: reader.bool('layout complete'),
+    scrollAxis: reader.option('scroll axis', () => u8Tag(reader, 'scroll axis', SCROLL_AXES)),
   };
 }
 

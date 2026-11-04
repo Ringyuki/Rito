@@ -53,6 +53,78 @@ pub(crate) struct ShiftProbe {
     pub line_height: Option<u64>,
 }
 
+/// The baseline a line's font metrics hang from: the alphabetic baseline
+/// of horizontal lines, or the central baseline an upright vertical line
+/// centres its glyphs on (Blink's `GetFontBaseline`: every vertical line
+/// but a sideways one).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum LineBaseline {
+    Alphabetic,
+    Central,
+}
+
+impl LineBaseline {
+    pub(crate) fn of(style: &InlineFormattingStyle) -> Self {
+        let horizontal = style.bidi.writing_mode == WritingMode::HorizontalTopToBottom
+            || style.bidi.text_orientation == TextOrientation::Sideways;
+        if horizontal {
+            Self::Alphabetic
+        } else {
+            Self::Central
+        }
+    }
+
+    /// A font's whole-pixel ascent and descent measured from this
+    /// baseline: the central baseline halves the whole-pixel height, the
+    /// larger half above (`FontMetrics::Ascent(kCentralBaseline)`).
+    pub(crate) fn split(self, ascent: f64, descent: f64) -> (f64, f64) {
+        match self {
+            Self::Alphabetic => (ascent, descent),
+            Self::Central => {
+                let below = ((ascent + descent) / 2.0).floor();
+                (ascent + descent - below, below)
+            }
+        }
+    }
+
+    /// The em box around this baseline at `size`: a font's typo ascent and
+    /// descent normalized to the em for the alphabetic baseline, the em
+    /// (on the 1/64 grid) halved around the central one
+    /// (`SimpleFontData::NormalizedTypoAscentAndDescent`).
+    pub(crate) fn em_box(self, font_ref: &skrifa::FontRef<'_>, size: f64) -> (f64, f64) {
+        match self {
+            Self::Alphabetic => normalized_typo_height(font_ref, size),
+            Self::Central => {
+                let em = layout_unit(size);
+                let below = (em * 32.0).floor() / 64.0;
+                (em - below, below)
+            }
+        }
+    }
+
+    /// How far towards the line-over side an em box measured around this
+    /// baseline moves: Blink's `ComputeEmHeight` places it from the text
+    /// box by the primary font's unrounded ascent, so around the central
+    /// baseline it rides the half pixel an odd whole-pixel height leaves
+    /// between the box's whole-pixel ascent and half its height.
+    pub(crate) fn em_shift(self, ascent: f64, descent: f64) -> f64 {
+        match self {
+            Self::Alphabetic => 0.0,
+            Self::Central => self.split(ascent, descent).0 - (ascent + descent) / 2.0,
+        }
+    }
+
+    /// The cap the primary font puts on an em height: its whole-pixel
+    /// ascent and descent, or half its whole-pixel height each side of
+    /// the central baseline (`GetFloatFontHeight`).
+    pub(crate) fn em_cap(self, ascent: f64, descent: f64) -> (f64, f64) {
+        match self {
+            Self::Alphabetic => (ascent, descent),
+            Self::Central => ((ascent + descent) / 2.0, (ascent + descent) / 2.0),
+        }
+    }
+}
+
 /// Quantizes a size ratio for a probe key.
 pub(crate) fn probe_ratio(ratio: f64) -> u32 {
     (ratio * 10_000.0).round() as u32
@@ -70,10 +142,10 @@ pub(crate) struct NormalLineMetric {
     pub height: f64,
     /// Baseline offset from the line box top.
     pub baseline: f64,
-    /// The serving font's whole-pixel (ascent, descent): the basis Blink
-    /// places fixed line-height baselines and selection boxes with. It
-    /// differs from the normal-line envelope whenever the font carries a
-    /// line gap.
+    /// The serving font's whole-pixel (ascent, descent) from the line's
+    /// baseline: the basis Blink places fixed line-height baselines and
+    /// selection boxes with. It differs from the normal-line envelope
+    /// whenever the font carries a line gap.
     pub grid: (f64, f64),
 }
 
@@ -95,14 +167,14 @@ impl NormalLineMetric {
 }
 
 /// A face the collection serves: its blob and index.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Face {
-    blob: parley::fontique::Blob<u8>,
-    index: u32,
+    pub(crate) blob: parley::fontique::Blob<u8>,
+    pub(crate) index: u32,
 }
 
 impl Face {
-    fn font_ref(&self) -> Option<skrifa::FontRef<'_>> {
+    pub(crate) fn font_ref(&self) -> Option<skrifa::FontRef<'_>> {
         skrifa::FontRef::from_index(self.blob.as_ref(), self.index).ok()
     }
 
@@ -111,22 +183,30 @@ impl Face {
     }
 
     /// Whole-pixel ascent, descent and line gap at `size`.
-    fn rounded(&self, size: f64) -> (f64, f64, f64) {
+    pub(crate) fn rounded(&self, size: f64) -> (f64, f64, f64) {
         self.font_ref()
             .map_or((0.0, 0.0, 0.0), |font| rounded_metrics(&font, size))
     }
 
-    /// The normal-line (ascent, descent): the line gap split with the
-    /// floored half on top.
-    fn normal(&self, size: f64) -> (f64, f64) {
-        let (ascent, descent, gap) = self.rounded(size);
+    /// The whole-pixel (ascent, descent) from `baseline`: the text box a
+    /// run in this face takes.
+    fn text_box(&self, size: f64, baseline: LineBaseline) -> (f64, f64) {
+        let (ascent, descent, _) = self.rounded(size);
+        baseline.split(ascent, descent)
+    }
+
+    /// The normal-line (ascent, descent) from `baseline`: the line gap
+    /// split with the floored half on top.
+    fn normal(&self, size: f64, baseline: LineBaseline) -> (f64, f64) {
+        let (_, _, gap) = self.rounded(size);
+        let (ascent, descent) = self.text_box(size, baseline);
         let top = (gap / 2.0).floor();
         (ascent + top, descent + gap - top)
     }
 
-    fn normalized_em(&self, size: f64) -> (f64, f64) {
+    fn normalized_em(&self, size: f64, baseline: LineBaseline) -> (f64, f64) {
         self.font_ref()
-            .map_or((0.0, 0.0), |font| normalized_typo_height(&font, size))
+            .map_or((0.0, 0.0), |font| baseline.em_box(&font, size))
     }
 }
 
@@ -148,7 +228,12 @@ impl ParleyInlineContext {
         size: f64,
         probe: &LineProbe,
     ) -> Option<NormalLineMetric> {
-        let key = (self.family_key(style), size.to_bits(), probe.clone());
+        let key = (
+            self.family_key(style),
+            size.to_bits(),
+            LineBaseline::of(style),
+            probe.clone(),
+        );
         if let Some(metric) = self.line_metrics.borrow().get(&key) {
             return *metric;
         }
@@ -164,26 +249,24 @@ impl ParleyInlineContext {
         probe: &LineProbe,
     ) -> Option<NormalLineMetric> {
         let primary = self.primary_face(style)?;
-        let grid = |face: &Face| {
-            let (ascent, descent, _) = face.rounded(size);
-            (ascent, descent)
-        };
+        let baseline = LineBaseline::of(style);
+        let grid = |face: &Face| face.text_box(size, baseline);
         let (above, below, grid) = match probe {
             LineProbe::Strut => {
-                let (above, below) = primary.normal(size);
+                let (above, below) = primary.normal(size, baseline);
                 (above, below, grid(&primary))
             }
             LineProbe::Text(character) => {
                 let face = self.char_face(style, size, false, *character, &primary);
-                let (above, below) = envelope(&[&primary, &face], size);
+                let (above, below) = envelope(&[&primary, &face], size, baseline);
                 (above, below, grid(&face))
             }
             LineProbe::Ruby(ruby) => {
-                let (above, below) = self.ruby_line(style, size, &primary, ruby);
+                let (above, below) = self.ruby_line(style, size, &primary, ruby, baseline);
                 (above, below, grid(&primary))
             }
             LineProbe::Shifted(shift) => {
-                let (above, below) = self.shifted_line(style, size, &primary, shift);
+                let (above, below) = self.shifted_line(style, size, &primary, shift, baseline);
                 (above, below, grid(&primary))
             }
         };
@@ -210,6 +293,7 @@ impl ParleyInlineContext {
         size: f64,
         primary: &Face,
         ruby: &RubyProbe,
+        baseline: LineBaseline,
     ) -> (f64, f64) {
         let (base_text, trailing) = match (ruby.latin_base, ruby.two_line) {
             (true, _) => ("ab ab", "ab"),
@@ -226,14 +310,15 @@ impl ParleyInlineContext {
             (true, false) => "an",
         };
         let annotation_faces = self.used_faces(style, annotation_size, false, annotation_text);
-        let base_em_ascent = em_height(&with_primary(&base_faces, None), primary, size).0;
+        let base_em_ascent = em_height(&with_primary(&base_faces, None), primary, size, baseline).0;
         let (em_ascent, em_descent) = em_height(
             &annotation_faces.iter().collect::<Vec<_>>(),
             primary,
             annotation_size,
+            baseline,
         );
         let annotation_top = base_em_ascent + em_ascent + em_descent;
-        let (above, below) = envelope(&with_primary(&line_faces, Some(primary)), size);
+        let (above, below) = envelope(&with_primary(&line_faces, Some(primary)), size, baseline);
         if !ruby.two_line {
             return (above.max(annotation_top), below);
         }
@@ -242,14 +327,21 @@ impl ParleyInlineContext {
         } else {
             "\u{4E2D}\u{4E2D}\u{4E2D}\u{4E2D}"
         });
-        let (previous_above, previous_below) =
-            envelope(&with_primary(&previous_faces, Some(primary)), size);
+        let (previous_above, previous_below) = envelope(
+            &with_primary(&previous_faces, Some(primary)),
+            size,
+            baseline,
+        );
         let previous_line = previous_above + previous_below;
-        let primary_descent = primary.rounded(size).1;
+        let primary_descent = primary.text_box(size, baseline).1;
+        let primary_shift = {
+            let (ascent, descent, _) = primary.rounded(size);
+            baseline.em_shift(ascent, descent)
+        };
         let reusable = previous_faces
             .iter()
             .map(|face| {
-                (primary_descent - face.normalized_em(size).1)
+                (primary_descent - face.normalized_em(size, baseline).1 + primary_shift)
                     .max(0.0)
                     .floor()
             })
@@ -274,15 +366,17 @@ impl ParleyInlineContext {
         size: f64,
         primary: &Face,
         shift: &ShiftProbe,
+        baseline: LineBaseline,
     ) -> (f64, f64) {
         let line_height = shift
             .line_height
             .map(|bits| layout_unit(f64::from_bits(bits)));
         let text = self.char_face(style, size, false, '\u{4E2D}', primary);
-        let (root_above, root_below) = inline_box(primary, &text, size, line_height);
+        let (root_above, root_below) = inline_box(primary, &text, size, line_height, baseline);
         let span_size = size * f64::from(shift.ratio) / 10_000.0;
         let marker = self.char_face(style, span_size, true, '\u{2460}', primary);
-        let (span_above, span_below) = inline_box(primary, &marker, span_size, line_height);
+        let (span_above, span_below) =
+            inline_box(primary, &marker, span_size, line_height, baseline);
         let parent = layout_unit(size);
         let offset = if shift.superscript {
             -(layout_unit_floor(parent / 3.0) + 1.0)
@@ -367,27 +461,28 @@ fn with_primary<'a>(faces: &'a [Face], primary: Option<&'a Face>) -> Vec<&'a Fac
 }
 
 /// The greatest normal-line ascent and descent among `faces`.
-fn envelope(faces: &[&Face], size: f64) -> (f64, f64) {
+fn envelope(faces: &[&Face], size: f64, baseline: LineBaseline) -> (f64, f64) {
     faces
         .iter()
         .fold((0.0_f64, 0.0_f64), |(above, below), face| {
-            let (ascent, descent) = face.normal(size);
+            let (ascent, descent) = face.normal(size, baseline);
             (above.max(ascent), below.max(descent))
         })
 }
 
-/// Blink's `ComputeEmHeight`: the faces' normalized em ascents and
-/// descents united, ceiled to whole pixels, capped by the primary font's
-/// whole-pixel ascent and descent.
-fn em_height(faces: &[&Face], primary: &Face, size: f64) -> (f64, f64) {
+/// Blink's `ComputeEmHeight`: the faces' em boxes around `baseline`
+/// united, ceiled to whole pixels, capped by the primary font.
+fn em_height(faces: &[&Face], primary: &Face, size: f64, baseline: LineBaseline) -> (f64, f64) {
     let (ascent, descent) = faces.iter().fold((0.0_f64, 0.0_f64), |(a, d), face| {
-        let (ascent, descent) = face.normalized_em(size);
+        let (ascent, descent) = face.normalized_em(size, baseline);
         (a.max(ascent), d.max(descent))
     });
     let (primary_ascent, primary_descent, _) = primary.rounded(size);
+    let (cap_ascent, cap_descent) = baseline.em_cap(primary_ascent, primary_descent);
+    let shift = baseline.em_shift(primary_ascent, primary_descent);
     (
-        ascent.ceil().min(primary_ascent),
-        descent.ceil().min(primary_descent),
+        ascent.ceil().min(cap_ascent) + shift,
+        descent.ceil().min(cap_descent) - shift,
     )
 }
 
@@ -395,15 +490,22 @@ fn em_height(faces: &[&Face], primary: &Face, size: f64) -> (f64, f64) {
 /// font's whole-pixel ascent and descent with the leading of the used
 /// line-height split floored on top; under `normal` the font its text
 /// used joins with its own line gap as leading.
-fn inline_box(primary: &Face, text: &Face, size: f64, line_height: Option<f64>) -> (f64, f64) {
-    let (ascent, descent, gap) = primary.rounded(size);
+fn inline_box(
+    primary: &Face,
+    text: &Face,
+    size: f64,
+    line_height: Option<f64>,
+    baseline: LineBaseline,
+) -> (f64, f64) {
+    let (_, _, gap) = primary.rounded(size);
+    let (ascent, descent) = primary.text_box(size, baseline);
     let height = line_height.unwrap_or(ascent + descent + gap);
     let top = ((height - (ascent + descent)) / 2.0).floor();
     let (above, below) = (ascent + top, height - ascent - top);
     if line_height.is_some() {
         return (above, below);
     }
-    let (text_above, text_below) = text.normal(size);
+    let (text_above, text_below) = text.normal(size, baseline);
     (above.max(text_above), below.max(text_below))
 }
 

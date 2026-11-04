@@ -5,11 +5,10 @@
 // two font stacks.
 // usage: node natural-advance-diff.mjs <chapter.xhtml> [marker=melancholy]
 //   <marker> selects the first text node containing it.
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import path from 'node:path';
 
 const REPO = new URL('../..', import.meta.url).pathname;
-const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 const PIN_CJK = path.join(REPO, 'apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf');
 const PIN_LATIN = path.join(REPO, 'apps/reader/src/assets/fonts/Tinos-Regular.ttf');
 
@@ -137,7 +136,7 @@ p { text-align:left; font-size:0.95em; margin:0; white-space:nowrap; }
   return data;
 }
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const real = await measureReal(browser);
 console.log('real font stack:', real.font);
 const replica = await measureReplica(browser, real.text);

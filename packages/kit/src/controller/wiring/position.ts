@@ -10,8 +10,9 @@ export function wirePositionTracker(deps: WiringDeps, disposables: DisposableCol
     tracker.onPositionChange((position) => {
       // A position taken while a chapter is laid out alone projects onto
       // that chapter's own page numbers: hosts hear the one the whole book
-      // gives, which follows its commit.
-      if (showsChapterAlone(deps.reader)) return;
+      // gives, which follows its commit. One taken while another view has
+      // the reader is that view's to tell.
+      if (showsChapterAlone(deps.reader) || deps.isSuspended()) return;
       deps.coordState.publishedPosition = position;
       emitter.emit('positionChange', { position });
       if (!deps.hasRestored()) return;

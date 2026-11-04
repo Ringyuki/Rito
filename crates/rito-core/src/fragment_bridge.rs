@@ -20,7 +20,7 @@ use rito_fragment::{
     InlineItem,
 };
 use rito_style_contract::{
-    GeneratedBoxTable, InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId,
+    GeneratedBoxTable, InlineStyleTable, LayoutStyleId, LayoutStyleTable, StyleId, WritingDirection,
 };
 
 use std::collections::BTreeMap;
@@ -103,6 +103,9 @@ pub struct ChapterFormattingTree {
     /// `ruby-align`, and how far over the base's baseline the annotation
     /// line sits. Filled by [`ChapterFormattingTree::measure_painted_runs`].
     pub ruby_annotation_runs: BTreeMap<(u32, usize), rito_inline::MeasuredRuby>,
+    /// The emphasis mark of each inline style that takes one, measured for
+    /// painting. Filled by [`ChapterFormattingTree::measure_painted_runs`].
+    pub emphasis_marks: BTreeMap<StyleId, rito_inline::MeasuredEmphasis>,
     /// Each inline flow's text items joined as its text fragments address
     /// them, by node id: joined once with the tree, read for every line a
     /// page's query artifact walks.
@@ -170,8 +173,9 @@ impl ListMarkerPaint {
 impl ChapterFormattingTree {
     /// Shapes the strings the painter places without layout — every
     /// outside marker in its item's style, every ruby annotation at its
-    /// own size — so the painter works from the engine's own advances
-    /// and cluster origins with no host measurement.
+    /// own size, every emphasis mark at its — so the painter works from
+    /// the engine's own advances and cluster origins with no host
+    /// measurement.
     pub fn measure_painted_runs(
         &mut self,
         context: &rito_inline::ParleyInlineContext,
@@ -188,6 +192,7 @@ impl ChapterFormattingTree {
             marker.run = Some(context.measure_run(style, &marker.painted_text()));
         }
         self.ruby_annotation_runs.clear();
+        self.emphasis_marks.clear();
         for index in 0..self.tree.len() {
             let node_id = FormattingNodeId(index as u32);
             let FormattingNodeContent::InlineFlow { items } = &self.tree.node(node_id).content
@@ -195,6 +200,17 @@ impl ChapterFormattingTree {
                 continue;
             };
             for (item_index, item) in items.iter().enumerate() {
+                if let InlineItem::Text { style: id, .. } = item {
+                    if !self.emphasis_marks.contains_key(id) {
+                        let style = styles
+                            .inline
+                            .style(*id)
+                            .map_err(|error| EpubError::new(format!("text style: {error}")))?;
+                        if let Some(mark) = context.measure_emphasis_mark(style) {
+                            self.emphasis_marks.insert(*id, mark);
+                        }
+                    }
+                }
                 let InlineItem::Text {
                     text,
                     style,
@@ -331,7 +347,7 @@ pub fn build_chapter_formatting_tree_with_generated(
 ) -> EpubResult<ChapterFormattingTree> {
     let mut layout = layout.clone();
     let anonymous_style = layout
-        .intern(anonymous_block_style())
+        .intern(anonymous_block_style(WritingDirection::HORIZONTAL_LTR))
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
     let mut inline = inline.clone();
     let fallback_inline_style = inline
@@ -415,7 +431,8 @@ pub fn build_chapter_formatting_tree_with_generated(
         degradations,
         ..
     } = builder;
-    fold_through_collapsing_margins(&mut formatting_nodes, root, &mut layout)?;
+    let root_leading_margin =
+        fold_through_collapsing_margins(&mut formatting_nodes, root, &mut layout)?;
     let mut tree = FormattingTree::with_styles(
         formatting_nodes,
         root,
@@ -423,6 +440,7 @@ pub fn build_chapter_formatting_tree_with_generated(
     )
     .map_err(EpubError::new)?;
     tree.set_strut_styles(strut_styles);
+    tree.set_root_leading_margin(root_leading_margin);
     let flow_texts = flow_texts(&tree);
     Ok(ChapterFormattingTree {
         tree,
@@ -439,6 +457,7 @@ pub fn build_chapter_formatting_tree_with_generated(
         node_tags,
         list_markers,
         ruby_annotation_runs: BTreeMap::new(),
+        emphasis_marks: BTreeMap::new(),
         degradations,
     })
 }
@@ -448,6 +467,9 @@ struct TreeBuilder<'a> {
     inline: &'a mut InlineStyleTable,
     generated: &'a GeneratedBoxTable,
     image_dimensions: &'a BTreeMap<String, (u32, u32)>,
+    /// The anonymous block style in the initial writing mode and direction,
+    /// which a node whose projected style is missing falls back to; see
+    /// `TreeBuilder::anonymous_style_in` for a wrapper's own.
     anonymous_style: LayoutStyleId,
     /// The style a node falls back to when the projection retained no
     /// inline entry for it (its own declarations were unrepresentable).
@@ -479,7 +501,7 @@ struct TreeBuilder<'a> {
     /// checked once per chapter.
     checked_block_styles: std::collections::HashMap<u32, Option<String>>,
     checked_box_paints: std::collections::HashMap<u32, CheckedBoxPaint>,
-    checked_inline_styles: std::collections::HashMap<(u32, bool), Option<String>>,
+    checked_inline_styles: std::collections::HashMap<(u32, builder::InlineScope), Option<String>>,
 }
 
 /// One box-paint capability verdict: the paint (with its border widths)
@@ -497,6 +519,9 @@ struct InlineCollector {
     /// The nearest enclosing `<a href>` destination while collecting.
     current_link: Option<String>,
     pending_space: bool,
+    /// How many items preceded the pending space when it arose: the box
+    /// edges pushed since then come after it.
+    pending_space_at: usize,
     /// The style of a whitespace-only node awaiting content. `None` for a
     /// space produced by the previous text node itself (it belongs to
     /// that item); `Some` for an inter-element space, which must not
@@ -514,7 +539,7 @@ struct InlineCollector {
 pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
     let mut layout = LayoutStyleTable::new(1);
     let style = layout
-        .intern(anonymous_block_style())
+        .intern(anonymous_block_style(WritingDirection::HORIZONTAL_LTR))
         .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))?;
     let tree = FormattingTree::with_styles(
         vec![FormattingNode {
@@ -543,6 +568,7 @@ pub fn empty_chapter_formatting_tree() -> EpubResult<ChapterFormattingTree> {
         node_tags: BTreeMap::new(),
         list_markers: BTreeMap::new(),
         ruby_annotation_runs: BTreeMap::new(),
+        emphasis_marks: BTreeMap::new(),
         flow_texts: BTreeMap::new(),
         degradations: vec!["chapter has no body source node; rendered empty".to_owned()],
     })

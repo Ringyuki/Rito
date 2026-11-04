@@ -43,7 +43,7 @@ use super::super::{
         PageArtifactTextRangeFromPointsQuery, PageArtifactTextRangeFromPointsResolution,
         PageArtifactTextRangeQuery, PageArtifactTextRangeToPointQuery,
         PageArtifactTextSelectionGranularity, PageArtifactTextSelectionMovementQuery,
-        PageArtifactTextSelectionMovementResolution,
+        PageArtifactTextSelectionMovementResolution, PageRecordFrame,
     },
     RuntimeRevision,
 };
@@ -93,6 +93,13 @@ impl<'a> FragmentChapterEngineSession<'a> {
         ratio: f64,
     ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
         let config = &self.revision.layout_config;
+        if config.spread_mode == SpreadMode::Scrolled {
+            if let Some(window) = self.window_frame(spread_index, ratio)? {
+                return Ok(Some(window));
+            }
+            // A page of a chapter paginated across the book's axis is a
+            // window shown whole, framed as a page.
+        }
         let spreads = build_spread_slots(
             self.layout.page_count(),
             self.layout.chapter_start_pages(),
@@ -205,6 +212,30 @@ impl<'a> FragmentChapterEngineSession<'a> {
         Ok(Some(PageArtifactFrame {
             page_indexes,
             commands,
+            device_origin: (0.0, 0.0),
+        }))
+    }
+
+    /// A scrolled revision's spread: one window, framed by its chapter's
+    /// strip, which says where the window sits in the chapter. `None` for
+    /// a page of a chapter paginated across the book's axis.
+    fn window_frame(
+        &self,
+        page_index: usize,
+        ratio: f64,
+    ) -> crate::epub::EpubResult<Option<PageArtifactFrame>> {
+        let Some((page, _)) = self.layout.page_with_chapter(page_index)? else {
+            return Ok(None);
+        };
+        let Some(window) = page.window_frame(ratio).transpose()? else {
+            return Ok(None);
+        };
+        let mut commands = FrameCommands::default();
+        commands.push_page(window.commands);
+        Ok(Some(PageArtifactFrame {
+            page_indexes: vec![page_index],
+            commands,
+            device_origin: window.origin,
         }))
     }
 
@@ -291,6 +322,61 @@ impl<'a> FragmentChapterEngineSession<'a> {
                 TextInteractionUnavailableReason::InvalidCaret,
             ),
         }
+    }
+
+    /// Where the line a source point sits on starts in its page's display
+    /// list drawn at `ratio`, from the page's block-start edge (its top, or
+    /// its right edge for vertical lines): the block offset a scrolled
+    /// window is shown from to put that line on the reading line, the
+    /// content box's block start in the viewport. A line's runs can start
+    /// at different block positions; the line starts at the first. `None`
+    /// when the page draws no run of the point.
+    pub(super) fn target_block_offset(
+        &self,
+        page_index: usize,
+        point: &PageArtifactSourcePoint,
+        ratio: f64,
+    ) -> Option<f64> {
+        let address = self.address_at_source_point(page_index..page_index + 1, point, false)?;
+        let artifact = self.artifact(page_index)?;
+        let start = artifact
+            .interaction_runs()
+            .iter()
+            .filter(|run| {
+                run.block_index == address.block_index && run.line_index == address.line_index
+            })
+            .map(|run| run.y)
+            .reduce(f64::min)?;
+        self.layout.page(page_index)?.block_offset(start, ratio)
+    }
+
+    /// Where the element `anchor` names starts in its page's display list
+    /// drawn at `ratio`, from the page's block-start edge.
+    pub(super) fn anchor_block_offset(
+        &self,
+        page_index: usize,
+        anchor: &str,
+        ratio: f64,
+    ) -> Option<f64> {
+        let page = self.layout.page(page_index)?;
+        page.block_offset(page.anchor_top(anchor)?, ratio)
+    }
+
+    /// Where the content box a page's records are laid out in sits on the
+    /// page as drawn at `ratio`.
+    pub(super) fn record_frame(&self, page_index: usize, ratio: f64) -> Option<PageRecordFrame> {
+        Some(self.layout.page(page_index)?.record_frame(ratio))
+    }
+
+    /// A page's width and height: a scrolled window's height is its own
+    /// length, the last of a chapter's ending where the chapter does.
+    pub(super) fn page_size(&self, page_index: usize) -> Option<(f64, f64)> {
+        Some(self.layout.page(page_index)?.size())
+    }
+
+    /// A scrolled chapter's extent along the scroll axis.
+    pub(super) fn chapter_extent(&self, idref: &str) -> Option<f64> {
+        self.layout.chapter_extent(idref)
     }
 
     /// The caret address a durable source point lands on, searching the

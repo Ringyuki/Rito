@@ -133,6 +133,7 @@ fn a_chapter_layout_is_that_chapters_slice_of_the_whole_book_layout() {
                 spine_index: as_u32(spine_index),
                 start_page: 0,
                 end_page: as_u32(end - start),
+                extent: None,
             }]
         );
         assert_eq!(
@@ -212,6 +213,7 @@ fn a_whole_book_layout_matches_the_whole_book_revision() {
                 spine_index: as_u32(spine_index),
                 start_page: as_u32(chapter.start_page),
                 end_page: as_u32(chapter.end_page),
+                extent: None,
             })
             .collect::<Vec<_>>()
     );
@@ -423,11 +425,13 @@ fn layout_result_fixture() -> ReaderNavigationResult {
                 spine_index: 1,
                 start_page: 0,
                 end_page: 2,
+                extent: Some(4_200.5),
             },
             ReaderChapterPages {
                 spine_index: 3,
                 start_page: 3,
                 end_page: 4,
+                extent: Some(1_900.25),
             },
         ],
         toc_targets: vec![
@@ -442,6 +446,7 @@ fn layout_result_fixture() -> ReaderNavigationResult {
         ],
         active_toc_entry_by_page: vec![None, Some(2), Some(2), Some(6), Some(6)],
         complete: false,
+        scroll_axis: Some(ReaderScrollAxis::Left),
     })
 }
 
@@ -475,10 +480,11 @@ const LAYOUT_REQUEST_HEX: &str = concat!(
 /// Produced by the encoder; the `rito_flutter` and `@ritojs/core-wasm`
 /// layout wire tests pin the same bytes.
 const LAYOUT_RESULT_HEX: &str = concat!(
-    "5249544f4e565231010000007e00000000000000030500000003000000000000",
+    "5249544f4e565231010000009200000000000000030500000003000000000000",
     "0000010000000102000000030000000104000000020000000100000000000000",
-    "0200000003000000030000000400000002000000020000000000000006000000",
-    "030000000500000000010200000001020000000106000000010600000000",
+    "0200000001000000008068b040030000000300000004000000010000000000b1",
+    "9d40020000000200000000000000060000000300000005000000000102000000",
+    "010200000001060000000106000000000101",
 );
 
 /// Produced by the encoder; the `rito_flutter` and `@ritojs/core-wasm`

@@ -13,8 +13,8 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
     use rito_style_contract::{
         AlignItems, Clear, Float, JustifyContent, LayoutDisplay, LayoutDisplayInside,
         LayoutDisplayOutside, LayoutFormattingStyle, LayoutStyleTable, LengthPercentageOrAuto,
-        ListMarkerStyle, MaximumHeight, MaximumSize, MinimumHeight, Overflow, PageBreak,
-        PhysicalSides, Position, PreferredSize,
+        ListMarkerStyle, MaximumSize, MinimumSize, Overflow, PageBreak, PhysicalSides, Position,
+        PreferredSize,
     };
     let source_han = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -58,6 +58,9 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
                     bottom: zero_padding,
                     left: zero_padding,
                 },
+                border_widths: rito_style_contract::PhysicalSides::uniform(
+                    rito_style_contract::NonNegativeCssPx::ZERO,
+                ),
                 box_sizing: rito_style_contract::BoxSizing::ContentBox,
                 justify_content: JustifyContent::Normal,
                 align_items: AlignItems::Normal,
@@ -66,8 +69,11 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
                 width: PreferredSize::Auto,
                 height: PreferredSize::Auto,
                 max_width: MaximumSize::None,
-                min_height: MinimumHeight::Auto,
-                max_height: MaximumHeight::None,
+                min_height: MinimumSize::Auto,
+                min_width: MinimumSize::Auto,
+                writing_mode: rito_style_contract::WritingMode::HorizontalTopToBottom,
+                direction: rito_style_contract::Direction::LeftToRight,
+                max_height: MaximumSize::None,
                 clear: Clear::None,
                 float: Float::None,
                 overflow: Overflow::Visible,
@@ -105,7 +111,7 @@ fn the_badge_line_replica_matches_the_truth_comma_position() {
             layout_style: image_layout,
             viewport: None,
             baseline_shift_px: 0.0,
-            align_top: false,
+            align: rito_fragment::AtomAlign::Baseline,
             fit_contain: false,
             object_fit: rito_style_contract::ObjectFit::Fill,
         },
@@ -287,6 +293,37 @@ fn cjk_punctuation_pairs_trim_half_an_em() {
         (middle - plain).abs() < 0.1,
         "middle dot before a close must not trim: {middle}"
     );
+    // The CJK double prime quotes are fullwidth brackets (measured in
+    // pinned Chromium: `り、〝チ` gives 〝 8px, `グ〟、の` gives 〟 8px).
+    let comma_prime = shape_width("春日、〝春日");
+    assert!(
+        (comma_prime - (plain - 8.0)).abs() < 0.1,
+        "an opening double prime after a comma trims: {comma_prime}"
+    );
+    let prime_comma = shape_width("春日〟、春日");
+    assert!(
+        (prime_comma - (plain - 8.0)).abs() < 0.1,
+        "a closing double prime before a comma trims: {prime_comma}"
+    );
+    let primes = shape_width("春〝日〟春日");
+    assert!(
+        (primes - plain).abs() < 0.1,
+        "double primes against ideographs stay full: {primes}"
+    );
+    // A narrow opener, a narrow closer and the Latin middle dot make
+    // their fullwidth neighbour trim (measured: `(「` = 5.33+8,
+    // `」)` = 8+5.33, `·「` = 5.33+8).
+    for (trimming, full) in [
+        ("春(「日日", "春(日日日"),
+        ("春」)日日", "春日)日日"),
+        ("春·「日日", "春·日日日"),
+    ] {
+        let delta = shape_width(trimming) - shape_width(full);
+        assert!(
+            (delta + 8.0).abs() < 0.1,
+            "{trimming} trims half an em against {full}: {delta}"
+        );
+    }
 }
 
 /// Consecutive forced breaks keep their empty line: Blink lays
@@ -889,6 +926,19 @@ fn empty_font_registration_fails_closed() {
     assert!(ParleyInlineContext::new(vec![vec![0_u8; 4]]).is_err());
 }
 
+/// A no-break space is a word separator a justified line expands after,
+/// as Blink treats it as a space (`unicode::TreatAsSpace`): a numbered
+/// item "2.\u{A0}Particular care" spreads the gap after its number with
+/// the others.
+#[test]
+fn a_no_break_space_takes_a_justification_share() {
+    let text = "2.\u{A0}Particular care";
+    let plan = line_justify_plan(text, 0..text.len(), 4.0, &[], &[], &[]).expect("plan builds");
+    assert_eq!(plan.share, 2.0, "two separators share the slack");
+    assert_eq!(plan.count_at(4), 1, "the boundary after the no-break space");
+    assert_eq!(plan.count_at(15), 1, "the boundary after the space");
+}
+
 #[test]
 fn an_atomic_inline_expands_before_but_defers_after() {
     // Measured against a Chromium badge-line justify map (2026-08-13):
@@ -900,7 +950,7 @@ fn an_atomic_inline_expands_before_but_defers_after() {
     // unchanged; only the comma's own x shifts one share left.
     let text = "中中，中";
     let atoms = vec![6usize];
-    let plan = line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms).expect("plan builds");
+    let plan = line_justify_plan(text, 0..text.len(), 5.0, &[], &atoms, &[]).expect("plan builds");
     assert_eq!(
         plan.share, 1.25,
         "4 opportunities: deferral keeps the total"
@@ -922,10 +972,88 @@ fn an_atomic_inline_expands_before_but_defers_after() {
         "one share before the atom plus its own left boundary"
     );
     let control =
-        line_justify_plan(text, 0..text.len(), 5.0, &[], &[]).expect("control plan builds");
+        line_justify_plan(text, 0..text.len(), 5.0, &[], &[], &[]).expect("control plan builds");
     assert_eq!(
         control.share,
         5.0 / 3.0,
         "without the atom: 3 opportunities"
+    );
+}
+
+/// A closer a forced break follows is never trimmed at a line's end: the
+/// break ends the line there whatever the closer's width, so the line can
+/// never end exactly after the trimmed closer (pinned Chromium wraps
+/// `…十」<br>` alike: 十」 opens the next line). The paragraph is built once
+/// for it, not again with a trim the line could only reject: a chapter
+/// laid out as one `<br>`-broken paragraph shaped itself again for every
+/// such dialogue line.
+#[test]
+fn a_closer_before_a_forced_break_is_not_built_trimmed() {
+    let source_han = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../apps/reader/src/assets/fonts/SourceHanSerifCN-Regular.otf"
+    ))
+    .expect("pinned serif reads");
+    let context = ParleyInlineContext::new(vec![source_han]).expect("context builds");
+    let mut inline = InlineStyleTable::new(1);
+    let style = inline
+        .intern_for_node(
+            0,
+            plain_paragraph_style(
+                FontFamilies::new(vec![FontFamily::Generic(
+                    rito_style_contract::GenericFontFamily::Serif,
+                )])
+                .expect("family list"),
+                16.0,
+                0.0,
+            ),
+        )
+        .expect("style interns");
+    // Ten ideographs fill 160px; the closer needs 176 full, 168 trimmed.
+    let text = format!("{}」\n永永", "永".repeat(10));
+    let tree = FormattingTree::with_styles(
+        vec![FormattingNode {
+            style: rito_style_contract::LayoutStyleId::from_raw(0),
+            content: FormattingNodeContent::InlineFlow {
+                items: vec![InlineItem::Text {
+                    text: text.clone(),
+                    style,
+                    baseline_shift_px: 0.0,
+                    ruby_annotation: None,
+                }],
+            },
+            children: Vec::new(),
+        }],
+        FormattingNodeId(0),
+        rito_fragment::FormattingTreeStyles {
+            layout: LayoutStyleTable::new(0),
+            inline,
+        },
+    )
+    .expect("inline tree builds");
+    let outcome = context
+        .layout(
+            &tree,
+            FormattingNodeId(0),
+            &ConstraintSpace::continuous(170.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("layout succeeds");
+    let lines = line_texts(&outcome, &text);
+    assert_eq!(
+        lines[0],
+        "永".repeat(9),
+        "the closer is not trimmed onto the line"
+    );
+    assert_eq!(
+        lines[1].trim_end(),
+        "永」",
+        "it opens the next line full-width"
+    );
+    assert_eq!(
+        context.shaped.borrow().kept_count(),
+        1,
+        "the paragraph is built once, untrimmed"
     );
 }

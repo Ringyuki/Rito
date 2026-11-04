@@ -3,11 +3,8 @@
 // device pixels).
 // usage: node image-cmd-dump.mjs <book.epub> [spreadCount=8]
 //   env RITO_READER_URL (default http://localhost:5173/)
-import { createRequire } from 'node:module';
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 import path from 'node:path';
-
-const REPO = new URL('../..', import.meta.url).pathname;
-const { chromium } = createRequire(`${REPO}package.json`)('@playwright/test');
 
 const [, , bookPath, spreadCountArg] = process.argv;
 if (!bookPath) {
@@ -17,7 +14,7 @@ if (!bookPath) {
 const SPREADS = Number(spreadCountArg ?? 8);
 const BASE = process.env.RITO_READER_URL ?? 'http://localhost:5173/';
 
-const browser = await chromium.launch();
+const browser = await launchOracleChromium();
 const page = await browser.newPage({
   viewport: { width: 1500, height: 950 },
   deviceScaleFactor: 1,

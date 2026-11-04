@@ -51,8 +51,16 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // the session when the reader needs them, not read off every artifact.
 // +8 lines (2026-10-19): the whole book waits out the frame the first
 // page is drawn in.
+// +42 lines (2026-10-27): a scrolled layout's windows by chapter, where a
+// located line starts in its window, and a window painted alone.
+// +10 lines (2026-10-27): a scrolled view also holds the window after the
+// active one's neighbours, which a viewport shows with the window read.
+// +2 lines (2026-10-27): a caret's width across its line and the writing
+// mode of that line, which turns a vertical line's arrow keys.
+// +23 lines (2026-10-29): a host face registers a variant the engine names
+// with OpenType features (its vertical forms) as a face of its own.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2855;
+const SESSION_READER_LINE_BUDGET = 2932;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -70,7 +78,13 @@ const SESSION_READER_LINE_BUDGET = 2855;
 // +5 lines (2026-10-19): `ReaderMargin`, a page's margins side by side.
 // +191 lines (2026-10-19): `loadPaperTurnModel`, the paper page turn's
 // motion and geometry, the engine's, which the kit's paper turn draws.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1002;
+// +7 lines (2026-10-27): `ReaderSpreadMode`, whose `scrolled` reads each
+// chapter as one strip a window a spread.
+// +19 lines (2026-10-27): `ReaderScrollLayout` and `getScrollLayout`, a
+// scrolled reader's windows end to end, and where a located line starts.
+// +14 lines (2026-10-27): `ReaderWritingMode` and a caret's width, the
+// shape of a caret across a vertical line and which way its keys move it.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1042;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

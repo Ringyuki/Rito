@@ -209,3 +209,43 @@ fn modern_sizing_keeps_numeric_constraints_and_authored_styles() {
         );
     }
 }
+
+/// A minimum block size sits on the LayoutUnit grid by truncation, as
+/// Blink stores it: paragraphs held to `min-height: 1.6em` at 16px stack
+/// 25.59375 apart, not 25.6 (measured on a vertical book whose every
+/// paragraph is held to `min-width: 1.6em`: the excess piled up over a page
+/// and moved where the next page's lines started).
+#[test]
+fn a_minimum_block_size_truncates_onto_the_layout_unit_grid() {
+    let chapter = resolved_chapter_with(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>
+<p></p><p></p><p>x</p>
+</body></html>"#,
+        "body { margin: 0; font-size: 16px; line-height: 10px; } p { margin: 0; min-height: 1.6em; }\n",
+    );
+    let built = build_chapter_formatting_tree(
+        &chapter.nodes,
+        chapter.body_index,
+        &chapter.layout,
+        &chapter.inline,
+        &no_images(),
+    )
+    .expect("tree builds");
+    let engine = BlockFormattingContext::new(
+        ParleyInlineContext::new(vec![tinos_bytes()]).expect("fonts register"),
+    );
+    let outcome = engine
+        .layout(
+            &built.tree,
+            built.tree.root(),
+            &ConstraintSpace::continuous(640.0),
+            None,
+            &CancelFlag::new(),
+        )
+        .expect("lays out");
+    let Fragment::Box(root) = &outcome.fragments.root else {
+        panic!("a box root");
+    };
+    let tops: Vec<f64> = root.children.iter().map(|child| child.rect().y).collect();
+    assert_eq!(tops, vec![0.0, 25.59375, 51.1875]);
+}

@@ -35,13 +35,13 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.5.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "tailwindcss": "^4.2.2",
-    "vite": "^6.4.3"
+    "vite": "^6.4.5"
   }
 }

@@ -26,7 +26,7 @@ export function SelectionHandles({
     <SelectionHandlesLayer
       handles={handles}
       placement={placement}
-      controller={controller}
+      scale={controller.renderScale}
       drag={drag}
     />
   );
@@ -35,14 +35,16 @@ export function SelectionHandles({
 interface SelectionHandlesLayerProps {
   readonly handles: SelectionHandleState;
   readonly placement: CanvasPlacement;
-  readonly controller: ReaderController;
+  /** CSS pixels of the canvas a pixel of the handles' coordinates. */
+  readonly scale: number;
   readonly drag: ReturnType<typeof useSelectionHandleDrag>;
 }
 
-function SelectionHandlesLayer({
+/** The two handles of a selection, over the canvas at `placement`. */
+export function SelectionHandlesLayer({
   handles,
   placement,
-  controller,
+  scale,
   drag,
 }: SelectionHandlesLayerProps): React.JSX.Element {
   const projectedMovingCaret = handles.focusEdge ? handles[handles.focusEdge] : null;
@@ -61,7 +63,7 @@ function SelectionHandlesLayer({
             edge={edge}
             caret={caret}
             offset={placement}
-            scale={controller.renderScale}
+            scale={scale}
             active={drag.activeVisual?.edge === edge}
             onPointerDown={(event) => {
               drag.begin(edge, caret, event);

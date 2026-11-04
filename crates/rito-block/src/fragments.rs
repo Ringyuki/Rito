@@ -43,6 +43,7 @@ pub(crate) fn leaf_fragment(
             height,
         },
         children: Vec::new(),
+        cuts: BlockCuts::NONE,
     })
 }
 
@@ -95,15 +96,33 @@ pub(crate) fn set_fragment_position(fragment: &mut Fragment, x: f64, y: f64) {
     }
 }
 
+/// The block size of a box `top` into a container laid out in `space`
+/// that breaks before or inside its content after using `used`: it
+/// reaches the fragmentainer's end, or past it with what already
+/// overflows.
+pub(crate) fn broken_block_size(space: &ConstraintSpace, top: f64, used: f64) -> f64 {
+    space
+        .fragmentainer_remaining
+        .map_or(used, |end| used.max(end - top))
+}
+
+/// Seals a container that breaks before or inside one of its children.
+/// The rest of the fragmentainer, unusable for child content after the
+/// break, is still the container's (Blink's
+/// `ConsumeRemainingFragmentainerSpace`): its fragment reaches the
+/// fragmentainer's end, so its side borders and background run down to
+/// the page bottom above a child pushed to the next page. Content that
+/// already overflows the end keeps its own extent.
 pub(crate) fn sealed_with_break(
     container: FormattingNodeId,
-    inline_size: f64,
+    space: &ConstraintSpace,
     used_block_size: f64,
     fragments: Vec<Fragment>,
     token: BreakToken,
 ) -> LayoutOutcome {
+    let block_size = broken_block_size(space, 0.0, used_block_size);
     LayoutOutcome {
-        fragments: sealed(container, inline_size, used_block_size, fragments),
+        fragments: sealed(container, space.inline_size, block_size, fragments),
         continuation: Some(token),
         escaped_floats: Vec::new(),
         positioned: Vec::new(),
@@ -127,6 +146,7 @@ pub(crate) fn sealed(
                 height: used_block_size,
             },
             children,
+            cuts: BlockCuts::NONE,
         }),
     }
 }

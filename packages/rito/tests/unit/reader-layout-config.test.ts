@@ -43,4 +43,19 @@ describe('reader createLayoutConfig', () => {
     expect(config.fontFamilyOverride).toBe('serif');
     expect(config.fontFamilyForce).toBe(true);
   });
+
+  it('keeps a scrolled reader scrolled in any orientation, a window as wide as the viewport', () => {
+    for (const [width, height] of [
+      [390, 844],
+      [1500, 950],
+    ] as const) {
+      const config = createLayoutConfig({ width, height, spread: 'scrolled', spreadGap: 20 });
+      expect(config.spreadMode).toBe('scrolled');
+      expect(config.pageWidth).toBe(width);
+    }
+    // A portrait viewport holds one page a spread.
+    expect(createLayoutConfig({ width: 390, height: 844, spread: 'double' }).spreadMode).toBe(
+      'single',
+    );
+  });
 });

@@ -41,10 +41,12 @@ pub(crate) fn is_cjk_justify(character: char) -> bool {
         | 0x20000..=0x2FA1F)
 }
 
-/// Whether a justified line expands after this character: word separators
-/// and CJK ideographs/symbols both open a share on their right side.
+/// Whether a justified line expands after this character: what Blink
+/// treats as a space (`unicode::TreatAsSpace`: the space, the tab, the
+/// line feed and the no-break space) and CJK ideographs/symbols both open
+/// a share on their right side.
 pub(crate) fn justify_expands_after(character: char) -> bool {
-    character == ' ' || is_cjk_justify(character)
+    matches!(character, ' ' | '\t' | '\n' | '\u{A0}') || is_cjk_justify(character)
 }
 
 /// Punctuation that CJK fonts join into one continuous rule when repeated
@@ -140,12 +142,17 @@ pub(crate) fn line_justify_plan(
     slack: f64,
     spread_ranges: &[std::ops::Range<usize>],
     atom_positions: &[usize],
+    combined_ranges: &[std::ops::Range<usize>],
 ) -> Option<JustifyPlan> {
     // Bails on NaN slack too: only a strictly positive slack justifies.
     if slack.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return None;
     }
-    let content = text.get(range.clone())?.trim_end();
+    // The spaces that hang past the line's end take no share; a no-break
+    // space does not hang.
+    let content = text
+        .get(range.clone())?
+        .trim_end_matches(|character: char| character.is_whitespace() && character != '\u{A0}');
     let content_end = range.start + content.len();
     let mut counts: Vec<(usize, u32)> = Vec::new();
     let mut before_bytes: Vec<usize> = Vec::new();
@@ -220,6 +227,17 @@ pub(crate) fn line_justify_plan(
         ) {
             continue;
         }
+        // A combined upright unit justifies as one ideograph, Blink's
+        // kTextCombineItemMarker (U+3042): its first character stands for
+        // it and the boundaries inside it are no boundaries.
+        let character = match combined_ranges
+            .iter()
+            .find(|unit| unit.contains(&(range.start + offset)))
+        {
+            Some(unit) if unit.start != range.start + offset => continue,
+            Some(_) => '\u{3042}',
+            None => character,
+        };
         // A spread ruby base (its annotation wider than it) is one
         // justification item, Chromium's kBaseShorterRubyMarker: no
         // interior expansion (its clusters already sit at the
@@ -305,4 +323,45 @@ pub(crate) fn line_justify_plan(
         atom_shares,
         total,
     })
+}
+
+/// How much wider than its content Blink takes a line to be when it aligns
+/// it, because of the rubies on it: a line the breaker ended by rewinding to
+/// an item boundary (the next item's first glyph did not fit) has its width
+/// summed again from its items' inline sizes (`LineBreaker::Rewind` →
+/// `LineInfo::ComputeWidth`), where a ruby column counts whole and its
+/// overhangs, kept inside the column's base line, are lost. Such a line
+/// aligns as if that much wider: one it then fills is not justified.
+/// Measured: a 300px justified line holding 碎片/Fragment (7px overhang
+/// each side) and ending at a `<span>` stays unexpanded at 287.95.
+pub(crate) fn rewound_ruby_overhangs(
+    line: std::ops::Range<usize>,
+    break_reason: parley::layout::BreakReason,
+    items: &[std::ops::Range<usize>],
+    overhangs_left: &std::collections::HashMap<usize, f64>,
+    overhangs_right: &std::collections::HashMap<usize, f64>,
+) -> f64 {
+    if break_reason != parley::layout::BreakReason::Regular {
+        return 0.0;
+    }
+    let ends_at_item = items
+        .iter()
+        .any(|range| !range.is_empty() && range.end == line.end)
+        && items
+            .iter()
+            .any(|range| !range.is_empty() && range.start >= line.end);
+    if !ends_at_item {
+        return 0.0;
+    }
+    items
+        .iter()
+        .enumerate()
+        .filter(|(_, range)| {
+            !range.is_empty() && range.start >= line.start && range.end <= line.end
+        })
+        .map(|(item, _)| {
+            overhangs_left.get(&item).copied().unwrap_or(0.0)
+                + overhangs_right.get(&item).copied().unwrap_or(0.0)
+        })
+        .sum()
 }

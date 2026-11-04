@@ -60,7 +60,8 @@ export function point(x: number) {
 export function caret(textOffset: number, pageIndex = 0, href = 'chapter.xhtml'): ReaderTextCaret {
   return {
     pageIndex,
-    geometry: { x: textOffset, y: 0, height: 18 },
+    geometry: { x: textOffset, y: 0, width: 0, height: 18 },
+    writingMode: 'horizontal-tb',
     sourceLocator: {
       href,
       sourcePoint: { nodePath: [0], textOffset },

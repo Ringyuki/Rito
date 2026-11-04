@@ -7,8 +7,8 @@
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId, InlineItem};
 use rito_style_contract::StyleId;
 
-use super::element_source_index;
 use super::inline::resolved_baseline_shift;
+use super::{element_source_index, InlineScope};
 use crate::epub::{EpubError, EpubResult};
 use crate::fragment_bridge::{InlineCollector, NodePaint, TreeBuilder};
 use crate::render::contract::ReaderBorderStyle;
@@ -156,12 +156,15 @@ impl TreeBuilder<'_> {
                 // centered row of art + missing plate shifts by half the
                 // placeholder — the b69 finale page's 19px displacement).
                 // An empty alt collapses in Chromium (0×0); the 1×1 here
-                // is the closest the atom pipeline represents.
+                // is the closest the atom pipeline represents. An image
+                // with no alt at all keeps the bare icon (measured: a
+                // missing `<img>` without alt in a 20px line grows the
+                // line one pixel, as the 16px icon on the baseline does).
                 self.degrade(format!(
                     "image dimensions unavailable, placeholder rendered: {}",
                     image.src
                 ));
-                if image.alt.is_empty() {
+                if image.alt.as_deref() == Some("") {
                     (1, 1)
                 } else {
                     (16, 16)
@@ -192,7 +195,7 @@ impl TreeBuilder<'_> {
             (style, layout_style)
         };
         self.require_image_capabilities(layout_style)?;
-        self.require_inline_capabilities(style, true, "image")?;
+        self.require_inline_capabilities(style, InlineScope::Atom, "image")?;
         let resolved = self
             .inline
             .style(style)
@@ -220,10 +223,7 @@ impl TreeBuilder<'_> {
         // stepping OUT of whatever baseline-shift chain wraps it (the
         // zhangyue footnote badge sits inside <sup> yet hugs the line
         // top in Blink; the sup's strut still raises the envelope).
-        let align_top = matches!(
-            resolved.fragment.baseline_shift,
-            rito_style_contract::BaselineShift::Top
-        );
+        let align = self.atom_align(style, inherited, "image")?;
         let baseline_shift_px = ancestor_shift_px
             + resolved_baseline_shift(
                 resolved,
@@ -265,20 +265,21 @@ impl TreeBuilder<'_> {
                 layout_style,
                 fit_contain: image.svg_contain,
                 viewport: image.svg_viewport,
-                align_top,
+                align,
                 baseline_shift_px,
                 object_fit,
             },
             source_index,
             image.source_ref.node_path.clone(),
-            &image.alt,
+            image.alt.as_deref().unwrap_or_default(),
         );
-        if dimensions.is_none() && !image.alt.is_empty() {
+        let alt_text = image.alt.as_deref().filter(|alt| !alt.is_empty());
+        if let (None, Some(alt)) = (dimensions, alt_text) {
             // The placeholder's alt text follows the icon inline, in the
             // image element's own style — exactly the run Chromium lays
             // out for a broken image.
             collector.push_text(
-                &image.alt,
+                alt,
                 style,
                 baseline_shift_px,
                 true,

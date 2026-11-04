@@ -1,4 +1,5 @@
 mod parity;
+mod shift;
 
 use std::f64::consts::{FRAC_PI_2, PI};
 

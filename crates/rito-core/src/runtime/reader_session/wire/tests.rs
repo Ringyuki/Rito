@@ -5,14 +5,14 @@ use crate::runtime::reader_session::{
     ReaderBackgroundAdvance, ReaderBackgroundHandoff, ReaderBackgroundHandoffAck,
     ReaderBackgroundRequest, ReaderBackgroundState, ReaderDisplayList, ReaderErrorKind,
     ReaderExactSourceRangeRequest, ReaderExactSourceRangeResolution, ReaderExactSourceRangeStatus,
-    ReaderExactSourceRect, ReaderFontRef, ReaderForegroundHandoff, ReaderForegroundHandoffAck,
-    ReaderHitEntry, ReaderHitKind, ReaderLayout, ReaderLocator, ReaderLocatorMatch,
-    ReaderNavigation, ReaderPage, ReaderPageRecords, ReaderPublication, ReaderPublicationMetadata,
-    ReaderPublicationSpineItem, ReaderPublicationTocEntry, ReaderPublicationTocTarget, ReaderRect,
-    ReaderResource, ReaderResourceKind, ReaderResourceRef, ReaderSemanticNode, ReaderSemanticRole,
-    ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode, ReaderTextRenderingProfile,
-    ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT, READER_EXTERNAL_ID_MAX,
-    READER_IMAGE_RESOURCE_BYTES_MAX, READER_PROTOCOL_VERSION,
+    ReaderExactSourceRect, ReaderFontFeature, ReaderFontRef, ReaderForegroundHandoff,
+    ReaderForegroundHandoffAck, ReaderHitEntry, ReaderHitKind, ReaderLayout, ReaderLocator,
+    ReaderLocatorMatch, ReaderNavigation, ReaderPage, ReaderPageRecords, ReaderPublication,
+    ReaderPublicationMetadata, ReaderPublicationSpineItem, ReaderPublicationTocEntry,
+    ReaderPublicationTocTarget, ReaderRect, ReaderResource, ReaderResourceKind, ReaderResourceRef,
+    ReaderSemanticNode, ReaderSemanticRole, ReaderSourcePoint, ReaderSourceRange, ReaderSpreadMode,
+    ReaderTextRenderingProfile, ReaderTextRunOffset, READER_CAPABILITY_PROFILE_STRING_TEXT,
+    READER_EXTERNAL_ID_MAX, READER_IMAGE_RESOURCE_BYTES_MAX, READER_PROTOCOL_VERSION,
 };
 
 #[test]
@@ -678,6 +678,7 @@ fn artifact_fixture() -> ReaderArtifact {
         height: 1_194.25,
         book_page_index: Some(140),
         book_page_count: Some(312),
+        target_block_offset: Some(377.640625),
         navigation: ReaderNavigation {
             previous: ReaderAdjacentAvailability::Available,
             next: ReaderAdjacentAvailability::ChapterBoundary,
@@ -700,6 +701,10 @@ fn artifact_fixture() -> ReaderArtifact {
             weight: 650,
             shape_fingerprint: "sha256:abcd".into(),
             byte_length: (1u64 << 40) + 7,
+            features: vec![ReaderFontFeature {
+                tag: "vert".into(),
+                value: 1,
+            }],
         }],
         pages: vec![page_fixture()],
     }

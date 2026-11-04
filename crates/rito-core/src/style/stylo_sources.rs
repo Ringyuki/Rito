@@ -86,16 +86,20 @@ pub(crate) fn select_stylo_sources(
     let has_external_source = author_stylesheets
         .iter()
         .any(|source| matches!(source, AuthorStylesheetSource::External { .. }));
-    let implicit_source_count = if has_external_source {
-        0
-    } else {
+    // A chapter of a publication opened from its archive takes the
+    // stylesheets it links and embeds and nothing else, as a browser lays
+    // it out (a chapter without a `<link>` lays out under the UA sheet
+    // alone). A document built through the API without any link keeps the
+    // compatibility contract: every publication stylesheet precedes its
+    // embedded sheets.
+    let implicit = !has_external_source && !stylesheet_ledger.links_only();
+    let implicit_source_count = if implicit {
         stylesheet_ledger.sources().len()
+    } else {
+        0
     };
     let mut stylesheets = Vec::with_capacity(author_stylesheets.len() + implicit_source_count);
-    // Preserve the compatibility contract used by documents constructed
-    // through the public LoadedEpubDocument API: when XHTML has no link
-    // occurrence, every publication stylesheet precedes embedded sheets.
-    if !has_external_source {
+    if implicit {
         for source in stylesheet_ledger.sources() {
             let source_index = stylesheets.len();
             let expanded = expand_css_imports(
@@ -1097,6 +1101,7 @@ mod tests {
                 manifest: Vec::new(),
                 spine: Vec::new(),
                 toc: Vec::new(),
+                page_progression: Default::default(),
             },
             stylesheets: stylesheets
                 .iter()

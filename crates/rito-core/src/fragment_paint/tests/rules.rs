@@ -14,6 +14,7 @@ fn rule_paints_stroke_across_its_sized_box() {
             height: 2.0,
         },
         children: Vec::new(),
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     let root = Fragment::Box(BoxFragment {
         source: FormattingNodeId(0),
@@ -24,6 +25,7 @@ fn rule_paints_stroke_across_its_sized_box() {
             height: 30.0,
         },
         children: vec![rule],
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     let mut paints = std::collections::BTreeMap::new();
     paints.insert(
@@ -46,7 +48,7 @@ fn rule_paints_stroke_across_its_sized_box() {
             faces: None,
             node_paints: Some(&paints),
             list_markers: None,
-            ruby_annotation_runs: None,
+            annotations: crate::fragment_paint::LineAnnotations::default(),
             vertical_frame: None,
             flow_item_sources: None,
             ratio: 1.0,
@@ -79,6 +81,7 @@ fn an_inset_rule_paints_as_a_two_tone_border_box() {
             height: 2.0,
         },
         children: Vec::new(),
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     let root = Fragment::Box(BoxFragment {
         source: FormattingNodeId(0),
@@ -89,6 +92,7 @@ fn an_inset_rule_paints_as_a_two_tone_border_box() {
             height: 30.0,
         },
         children: vec![rule],
+        cuts: rito_fragment::BlockCuts::NONE,
     });
     let mut paints = std::collections::BTreeMap::new();
     paints.insert(

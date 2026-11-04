@@ -182,11 +182,25 @@ export interface RitoReaderTextInteractionRequest extends RitoReaderGeometryOpti
   readonly query: RitoReaderTextInteractionQuery;
 }
 
+/**
+ * A caret in display-list space: the segment across its line, as a rect with
+ * no extent along the line — `width` 0 on a horizontal line, `height` 0 down a
+ * vertical one.
+ */
+export interface RitoReaderCaretGeometry {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** The writing mode of the line a caret is on: which way its arrow keys move it. */
+export type RitoReaderWritingMode = 'horizontal-tb' | 'vertical-rl';
+
 export interface RitoReaderCaret {
   readonly address: RitoReaderCaretAddress;
-  readonly geometry?:
-    | { readonly x: number; readonly y: number; readonly height: number }
-    | undefined;
+  readonly geometry?: RitoReaderCaretGeometry | undefined;
+  readonly writingMode: RitoReaderWritingMode;
   readonly href: string;
   readonly sourcePoint: RitoReaderSourcePoint;
 }
@@ -324,6 +338,11 @@ export interface RitoReaderRevisionLayout {
     readonly spineIndex: number;
     readonly startPage: number;
     readonly endPage: number;
+    /**
+     * A scrolled chapter's extent along the scroll axis, in CSS pixels: its
+     * margins and its strip. Absent in a revision of pages.
+     */
+    readonly extent?: number | undefined;
   }[];
   /** The TOC entries the revision places on a page, in TOC order. */
   readonly tocTargets: readonly { readonly tocId: number; readonly pageIndex: number }[];
@@ -335,7 +354,15 @@ export interface RitoReaderRevisionLayout {
    * entry whose target lies past them is not placed yet.
    */
   readonly complete: boolean;
+  /**
+   * The direction a scrolled revision's chapters run, each following the one
+   * before it: `down` as horizontal text's blocks stack, `left` as vertical
+   * right-to-left text's columns follow. Absent for a revision of pages.
+   */
+  readonly scrollAxis?: RitoReaderScrollAxis | undefined;
 }
+
+export type RitoReaderScrollAxis = 'down' | 'left';
 
 export type RitoReaderLocation =
   | {
@@ -344,6 +371,12 @@ export type RitoReaderLocation =
       /** Whether the asking artifact draws that page. */
       readonly drawn: boolean;
       readonly matchedBy: 'source-range' | 'source-point' | 'anchor' | 'progression' | 'href';
+      /**
+       * In a scrolled revision, where the line the locator lands on starts
+       * in that page's window, as an artifact's `targetBlockOffset`; absent
+       * for a page, and for a locator that names no line.
+       */
+      readonly blockOffset?: number | undefined;
     }
   | { readonly kind: 'not-laid-out' }
   | { readonly kind: 'unavailable' };

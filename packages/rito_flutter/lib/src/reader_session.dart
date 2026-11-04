@@ -3,6 +3,7 @@
 // ignore_for_file: unnecessary_import
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'font/artifact_font_cache.dart';
@@ -71,6 +72,7 @@ final class RitoReaderSession {
     required RitoArtifactResourcePreparer? resourcePreparer,
   }) : _sessionId = firstArtifact.sessionId,
        _latestRequestId = firstArtifact.requestId,
+       _takenRequestId = firstArtifact.requestId,
        _fontCache = fontCache,
        _imageCache = imageCache,
        _imagePixelRatio = imagePixelRatio,
@@ -219,6 +221,10 @@ final class RitoReaderSession {
   final RitoReaderGateway gateway;
   final int _sessionId;
   int _latestRequestId;
+
+  /// The highest request ID [takeRequestId] has handed out: a call taken
+  /// before an earlier one is sent still gets an ID of its own.
+  int _takenRequestId;
   int? _visibleArtifactId;
   int? _visibleRequestId;
   final RitoArtifactFontCache _fontCache;
@@ -264,10 +270,20 @@ final class RitoReaderSession {
 
   /// The request ID callers should use for the next seek, reflow, or turn.
   int get nextRequestId {
-    if (_latestRequestId >= _maxRequestId) {
+    final latest = math.max(_latestRequestId, _takenRequestId);
+    if (latest >= _maxRequestId) {
       throw StateError('Rito reader request ID space is exhausted.');
     }
-    return _latestRequestId + 1;
+    return latest + 1;
+  }
+
+  /// [nextRequestId], held for the caller: the next call takes the one after
+  /// it even before this one reaches the engine, so calls issued back to
+  /// back never share an ID.
+  int takeRequestId() {
+    final requestId = nextRequestId;
+    _takenRequestId = requestId;
+    return requestId;
   }
 
   bool get isDisposed => _closing;

@@ -1,9 +1,6 @@
 // What both resize measurements share: a Chromium with no frame-rate limit
 // on the machine's own GPU, and order statistics.
-import { createRequire } from 'node:module';
-
-const require = createRequire(new URL('../../apps/reader/package.json', import.meta.url));
-const { chromium } = require('@playwright/test');
+import { launchOracleChromium } from '../oracle-chromium.mjs';
 
 /**
  * Chromium paces frames at 60 Hz unless the GPU's vsync and the frame-rate
@@ -12,15 +9,13 @@ const { chromium } = require('@playwright/test');
  * screen is still paced at 60 Hz: each measured frame must damage a pixel.
  */
 export function launchUnthrottled() {
-  return chromium.launch({
-    args: [
-      '--disable-gpu-vsync',
-      '--disable-frame-rate-limit',
-      '--use-angle=metal',
-      '--enable-gpu',
-      '--ignore-gpu-blocklist',
-    ],
-  });
+  return launchOracleChromium([
+    '--disable-gpu-vsync',
+    '--disable-frame-rate-limit',
+    '--use-angle=metal',
+    '--enable-gpu',
+    '--ignore-gpu-blocklist',
+  ]);
 }
 
 export function stats(values) {

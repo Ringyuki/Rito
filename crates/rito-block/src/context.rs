@@ -7,8 +7,14 @@
 use crate::*;
 
 impl<I: FormattingContext> BlockFormattingContext<I> {
-    /// Creates a block context that lays inline flows out with `inline`.
-    pub fn new(inline: I) -> Self {
+    /// Creates a block context that lays inline flows out with `inline`,
+    /// handing it the block layout its atomic inlines' block containers
+    /// need.
+    pub fn new(mut inline: I) -> Self {
+        inline.adopt_block_layout(BlockLayoutDelegate {
+            layout: layout_atomic_block,
+            intrinsic_inline_sizes: atomic_block_sizes,
+        });
         Self {
             inline,
             inline_cache: RefCell::new(FragmentCache::new(INLINE_CACHE_BUDGET_BYTES)),
@@ -19,6 +25,27 @@ impl<I: FormattingContext> BlockFormattingContext<I> {
     pub fn inline(&self) -> &I {
         &self.inline
     }
+}
+
+/// Lays an atomic inline's block container out for the inline provider
+/// holding it, in a block context borrowing that provider.
+fn layout_atomic_block(
+    inline: &dyn FormattingContext,
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+    space: &ConstraintSpace,
+    cancel: &CancelFlag,
+) -> Result<LayoutOutcome, LayoutError> {
+    BlockFormattingContext::new(inline).layout(tree, node, space, None, cancel)
+}
+
+/// The intrinsic inline sizes of an atomic inline's block container.
+fn atomic_block_sizes(
+    inline: &dyn FormattingContext,
+    tree: &FormattingTree,
+    node: FormattingNodeId,
+) -> Result<IntrinsicInlineSizes, LayoutError> {
+    BlockFormattingContext::new(inline).intrinsic_inline_sizes(tree, node)
 }
 
 impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
@@ -32,7 +59,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
     ) -> Result<LayoutOutcome, LayoutError> {
         match &tree.node(node).content {
             FormattingNodeContent::BlockContainer => {
-                self.layout_container(tree, node, space, token, cancel, true, false)
+                self.layout_container(tree, node, space, token, cancel, true, None)
             }
             FormattingNodeContent::InlineFlow { .. } => {
                 // `space.inline_size` is the border-box width by contract
@@ -52,18 +79,21 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                 // line's available advance by 1/64 and skewed every
                 // justify share on b19's note paragraphs.
                 let grid = |px: f64| (px * 64.0).trunc() / 64.0;
-                let padding_left = grid(pad(style.padding.left));
-                let padding_right = grid(pad(style.padding.right));
-                let padding_top = pad(style.padding.top);
-                let padding_bottom = pad(style.padding.bottom);
+                let padding = style.flow_padding();
+                let padding_left = grid(pad(padding.inline_start));
+                let padding_right = grid(pad(padding.inline_end));
+                let padding_top = pad(padding.block_start);
+                let padding_bottom = pad(padding.block_end);
                 // A paragraph with a specified height flows at that
                 // border-box height exactly like a block container: short
                 // content leaves empty space, tall lines overflow visibly
                 // (b74's title pill: `height: 30px; padding-top: 1em` flows
                 // 54px tall around a 20.8px line).
                 let fixed_height = resolve_fixed_height(style, padding_top + padding_bottom)?;
+                let bounds = resolve_block_size_bounds(style, padding_top + padding_bottom);
                 if padding_left + padding_right + padding_top + padding_bottom == 0.0
                     && fixed_height.is_none()
+                    && bounds.is_unbounded()
                 {
                     // The flow's own block is its children's containing
                     // block; with an auto height it is indefinite, so a
@@ -93,7 +123,9 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                     // height (border-box minus the vertical padding).
                     containing_block_size: fixed_height
                         .map(|fixed| (fixed - padding_top - padding_bottom).max(0.0)),
-                    line_text: space.line_text,
+                    // Its lines start below the padding it leads with.
+                    line_text: space.line_text.below(leading),
+                    preceding_line: None,
                 };
                 let mut outcome = self.inline.layout(tree, node, &sub_space, token, cancel)?;
                 // The sizes it holds for are its content box's, not this
@@ -110,16 +142,36 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
                         "inline provider must produce a box fragment root".to_owned(),
                     ));
                 };
+                // Laid out on its own, the flow is its own formatting
+                // context: its first line's annotations reach into its top
+                // padding and no further.
+                let border_top = f64::from(style.flow_border_widths().block_start.get());
+                let opening =
+                    LineOpening::for_flow(token.is_some(), (padding_top - border_top).max(0.0));
+                let mut opening_delta = 0.0;
+                let mut opened = false;
+                for child in &mut root.children {
+                    if !opened && matches!(child, Fragment::Line(_)) {
+                        let (line, delta) = opening.open(child);
+                        *child = line;
+                        opening_delta = delta;
+                        opened = true;
+                    } else if opening_delta != 0.0 {
+                        let rect = child.rect();
+                        set_fragment_position(child, rect.x, rect.y + opening_delta);
+                    }
+                }
                 for child in &mut root.children {
                     let rect = child.rect();
                     set_fragment_position(child, rect.x + padding_left, rect.y + leading);
                 }
                 root.rect.width = space.inline_size;
-                root.rect.height += leading + trailing;
-                if let Some(fixed) = fixed_height {
-                    if outcome.continuation.is_none() {
+                root.rect.height += leading + trailing + opening_delta;
+                if outcome.continuation.is_none() {
+                    if let Some(fixed) = fixed_height {
                         root.rect.height = fixed;
                     }
+                    root.rect.height = bounds.clamp(root.rect.height);
                 }
                 Ok(outcome)
             }
@@ -129,7 +181,7 @@ impl<I: FormattingContext> FormattingContext for BlockFormattingContext<I> {
             )),
             FormattingNodeContent::Table => {
                 let fill = matches!(
-                    container_layout_style(tree, node)?.width,
+                    container_layout_style(tree, node)?.inline_size(),
                     PreferredSize::Value(_)
                 );
                 let fragment = self.layout_table(tree, node, space.inline_size, fill, cancel)?;

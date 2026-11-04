@@ -22,6 +22,7 @@ export function registerNativeAdapterGestureOwner(
   );
   registerSelectionKeyboardOwner(registered, {
     canExtend: () => native.canExtendKeyboardSelection(),
+    focusWritingMode: () => native.getSnapshot()?.range.focus.writingMode ?? 'horizontal-tb',
     begin: (movement) => native.beginKeyboardMovement(movement),
   });
   return registered;

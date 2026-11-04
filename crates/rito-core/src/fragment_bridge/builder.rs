@@ -12,14 +12,15 @@
 use rito_fragment::{FormattingNode, FormattingNodeContent, FormattingNodeId, InlineItem};
 use rito_style_contract::{
     GeneratedBox, JustifyContent, LayoutDisplayInside, LayoutDisplayOutside, LayoutStyleId,
-    LengthPercentage, NonNegativeLengthPercentage, PseudoElementKind, StyleId,
+    LengthPercentage, NonNegativeLengthPercentage, PseudoElementKind, StyleId, WritingDirection,
 };
 
 use capability::box_decoration_violation;
+pub(super) use capability::InlineScope;
 use generated::Generated;
 
 use super::box_paint::block_box_paint;
-use super::styles::list_marker_text;
+use super::styles::{anonymous_block_style, list_marker_text};
 use super::{InlineCollector, ListMarkerPaint, NodePaint, TreeBuilder};
 use crate::epub::{EpubError, EpubResult};
 use crate::render::contract::ReaderColor;
@@ -64,6 +65,27 @@ impl TreeBuilder<'_> {
         }
     }
 
+    /// The style of an anonymous block box inside a box whose lines lay
+    /// out in the inline style `context`: initial box properties, in that
+    /// box's writing mode and direction.
+    pub(super) fn anonymous_style_in(&mut self, context: StyleId) -> EpubResult<LayoutStyleId> {
+        let bidi = self
+            .inline
+            .style(context)
+            .map_err(|error| EpubError::new(format!("anonymous box context style: {error}")))?
+            .bidi;
+        let writing = WritingDirection {
+            mode: bidi.writing_mode,
+            direction: bidi.direction,
+        };
+        if writing == WritingDirection::HORIZONTAL_LTR {
+            return Ok(self.anonymous_style);
+        }
+        self.layout
+            .intern(anonymous_block_style(writing))
+            .map_err(|error| EpubError::new(format!("anonymous block style interns: {error}")))
+    }
+
     pub(super) fn inline_style_id(&mut self, source_index: usize, what: &str) -> StyleId {
         match self.inline.node_style_id(source_index) {
             Ok(id) => id,
@@ -74,6 +96,20 @@ impl TreeBuilder<'_> {
                 self.fallback_inline_style
             }
         }
+    }
+
+    /// Whether the element is styled `display: inline-block`: an atomic
+    /// inline on its parent's lines whatever its tag, its content a block
+    /// formatting context of its own.
+    pub(super) fn is_inline_block(&self, element: &ElementNode) -> bool {
+        element.anchor_ref.is_none()
+            && element_source_index(element)
+                .ok()
+                .and_then(|index| self.layout.style_for_node(index).ok())
+                .is_some_and(|style| {
+                    style.display.outside == LayoutDisplayOutside::Inline
+                        && style.display.inside == LayoutDisplayInside::FlowRoot
+                })
     }
 
     fn is_display_none(&mut self, source_index: usize, what: &str) -> bool {
@@ -133,6 +169,12 @@ impl TreeBuilder<'_> {
         while index < children.len() {
             let child = &children[index];
             match child {
+                // A block element styled `display: inline-block` is an
+                // atomic inline on its parent's lines, not a block of its
+                // own.
+                DocumentNode::Block(element) if self.is_inline_block(element) => {
+                    pending_inline.push(child);
+                }
                 DocumentNode::Block(element) => {
                     self.flush_inline_run(
                         &mut pending_inline,
@@ -278,9 +320,10 @@ impl TreeBuilder<'_> {
         if !inline_items_have_substance(&items) {
             return Ok(());
         }
+        let style = self.anonymous_style_in(container_inline_style)?;
         let id = self.push_node(
             FormattingNode {
-                style: self.anonymous_style,
+                style,
                 content: FormattingNodeContent::InlineFlow { items },
                 children: Vec::new(),
             },
@@ -384,10 +427,9 @@ impl TreeBuilder<'_> {
             Some(href) => Some(self.block_link.replace(href)),
             None => None,
         };
-        let has_block_children = element
-            .children
-            .iter()
-            .any(|child| matches!(child, DocumentNode::Block(_)));
+        let has_block_children = element.children.iter().any(
+            |child| matches!(child, DocumentNode::Block(block) if !self.is_inline_block(block)),
+        );
         let id = if has_block_children {
             let container_inline_style = self.inline_style_id(source_index, &element.tag);
             let children = self.build_children_with_generated(
@@ -435,9 +477,10 @@ impl TreeBuilder<'_> {
                 let mut children: Vec<FormattingNodeId> =
                     before_node.into_iter().chain(floats).collect();
                 if inline_items_have_substance(&items) {
+                    let style = self.anonymous_style_in(inline_style)?;
                     let flow = self.push_node(
                         FormattingNode {
-                            style: self.anonymous_style,
+                            style,
                             content: FormattingNodeContent::InlineFlow { items },
                             children: Vec::new(),
                         },
@@ -527,25 +570,33 @@ impl TreeBuilder<'_> {
             .layout
             .style(style)
             .map_err(|error| EpubError::new(format!("{what} style resolves: {error}")))?;
-        let widen = |side: &mut NonNegativeLengthPercentage, width: f64| -> EpubResult<()> {
+        // Each side reports the border width it absorbed: the layout style
+        // names exactly the share of `padding` that is border.
+        let widen = |side: &mut NonNegativeLengthPercentage,
+                     width: f64|
+         -> EpubResult<rito_style_contract::NonNegativeCssPx> {
+            let zero = rito_style_contract::NonNegativeCssPx::ZERO;
             if width <= 0.0 {
-                return Ok(());
+                return Ok(zero);
             }
             let LengthPercentage::Length(px) = side.value() else {
                 // Percentage padding cannot absorb a pixel border; keep
                 // the padding untouched (the edge still paints, content
                 // sits closer to it than a browser would place it).
-                return Ok(());
+                return Ok(zero);
             };
             let total = rito_style_contract::CssPx::new(px.get() + width as f32)
                 .map_err(|error| EpubError::new(format!("{what} border padding: {error:?}")))?;
             *side = NonNegativeLengthPercentage::new(LengthPercentage::Length(total));
-            Ok(())
+            rito_style_contract::NonNegativeCssPx::new(width as f32)
+                .map_err(|error| EpubError::new(format!("{what} border width: {error:?}")))
         };
-        widen(&mut derived.padding.top, widths[0])?;
-        widen(&mut derived.padding.right, widths[1])?;
-        widen(&mut derived.padding.bottom, widths[2])?;
-        widen(&mut derived.padding.left, widths[3])?;
+        derived.border_widths = rito_style_contract::PhysicalSides {
+            top: widen(&mut derived.padding.top, widths[0])?,
+            right: widen(&mut derived.padding.right, widths[1])?,
+            bottom: widen(&mut derived.padding.bottom, widths[2])?,
+            left: widen(&mut derived.padding.left, widths[3])?,
+        };
         static BORDER_DEBUG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         // Forensic output a native probe switches on; read once per process.
         if *BORDER_DEBUG.get_or_init(|| std::env::var_os("RITO_BORDER_DEBUG").is_some()) {

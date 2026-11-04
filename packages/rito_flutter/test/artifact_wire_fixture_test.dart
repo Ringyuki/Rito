@@ -27,10 +27,17 @@ void main() {
     expect(artifact.localPageIndexes, <int>[9, 10]);
     expect(artifact.bookPageIndex, 140);
     expect(artifact.bookPageCount, 312);
+    expect(artifact.targetBlockOffset, 377.640625);
     final page = artifact.pages.single;
     expect(page.pageIndex, 9);
     expect(page.width, 400.25);
     expect(page.height, 1194.25);
+    final font = artifact.fonts.single;
+    expect(font.family, 'Noto Serif CJK JP');
+    expect(font.byteLength, (1 << 40) + 7);
+    final feature = font.features.single;
+    expect(feature.tag, 'vert');
+    expect(feature.value, 1);
   });
 
   test('decodes the page records the Rust encoder writes, every hit field', () {
