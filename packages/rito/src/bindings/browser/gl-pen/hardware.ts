@@ -11,11 +11,27 @@ export function webglOnGpu(): boolean {
     const probe = new OffscreenCanvas(1, 1).getContext('webgl2', {
       failIfMajorPerformanceCaveat: true,
     });
-    onGpu = probe !== null;
+    onGpu = probe !== null && !rendersInSoftware(probe);
     probe?.getExtension('WEBGL_lose_context')?.loseContext();
   }
   return onGpu;
 }
+
+/**
+ * Whether the renderer a context names is a software rasterizer. The
+ * caveat above does not refuse every one: Chromium on a machine with no
+ * GPU (a CI runner) creates the context on SwiftShader all the same.
+ */
+export function rendersInSoftware(gl: WebGL2RenderingContext): boolean {
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const renderer = String(
+    info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+  );
+  return SOFTWARE_RENDERERS.test(renderer);
+}
+
+/** SwiftShader (Chromium), llvmpipe and softpipe (Mesa), WARP (Windows), Apple's software renderer. */
+const SOFTWARE_RENDERERS = /swiftshader|llvmpipe|softpipe|basic render|software/i;
 
 let chromium: boolean | undefined;
 
