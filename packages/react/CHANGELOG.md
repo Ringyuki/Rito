@@ -1,5 +1,62 @@
 # @ritojs/react
 
+## 4.2.0
+
+### Minor Changes
+
+- 36c5e01: A book read in pages and scrolled is one reader: switching between them lays the open book out again instead of opening it a second time. The page controller's `suspend()` hands its reader to another view (its canvas off the page, its page buffers let go, no painting, turns, keys or layouts answered, while its annotations, search and stored position stay and its layout calls still lay the reader out), `resume()` takes it back as laid out then, and `suspended` says which. `useRitoScrollView(controller, { active, paged, scroll })` in `@ritojs/react` runs the switch: the reader laid out scrolled and shown from where the pages were, then paged again from where the view was read. A scroll view has its windows as soon as it is made, so it can be moved before it is mounted, and through every new layout it stays on the window the reader reads, which a chapter laid out alone and the whole book number differently (switching to scrolled used to land at the book's start once the whole book was laid out).
+- 22f25e6: `useScrollSelectionHandles(controller)` gives a scrolled view's selection ends where the view shows them, following the strip as it moves, with `focusEdge` naming the focus: what a toolbar over a scrolled selection stands on, as `useSelection`'s `focusRect` is for pages. `ScrollSelectionHandles` is built on it.
+- 0d1d36d: Scrolled reading: a reader created with `spread: 'scrolled'` lays each chapter out as one continuous strip read through windows the size of the viewport, one window a spread, down the screen, or leftwards for a book whose spine's `page-progression-direction` is `rtl` (its vertical-rl chapters run leftwards as strips; a chapter whose text runs across the book's axis is paginated, each page one window). `getScrollLayout()` gives the windows end to end (axis, window length, each chapter's first spread, window count and extent), a located page's `blockOffset` says where the locator's line starts in its window, and a target the size of a window paints that window alone. The kit's `createScrollController(reader, canvas, { physics, input })` shows the windows end to end on one canvas at whole device pixels, keeps each window's picture while it is near, tells the reader which window is under the reading line, reports where the reader reads at rest and what a tap is on, and moves by `defaultScrollPhysics` or any `ScrollPhysics` an app gives; an app drives it itself with `grab`, `follow`, `release`, `scrollTo`, `scrollBy`, `scrollToSpread` and `scrollToLocator`. The view selects text with a mouse drag or a touch held still across windows (word and paragraph presses, scrolling on near the ends) and moves the selection's focus with Shift chords, following it off screen, draws the selection over each window and finds it again in a new layout (`selection` event, `selectionRects`, `clearSelection`), and `setHighlights` draws an app's search matches or annotations as page rects over the same windows (`viewRects` maps page rects onto the view, `canvas` is what it draws on); with `a11y` it mirrors the text on screen for screen readers once the strip rests. Its `scroll` event says how far through the book the strip is (`progress`, with the view's own length as `viewport`). `useRitoScrollReader` in `@ritojs/react` owns a scrolled reader and its view for a component (`containerRef`, `load`, `unload`, and `progress`, `position` and `selection` as state), and `ScrollSelectionHandles` draws its selection handles for touch input; the kit view gives the handles (`selectionHandles`, `beginSelectionHandleDrag`) in the page controller's shapes.
+- a60a757: A vertical-rl page's targets, outline, range rectangles and carets are where its columns are drawn, in the same page-content space as a horizontal page's, paged or scrolled; a scrolled window's records move with its pixels by the device rows it is drawn from. A caret's `geometry` gains `width`: it is the segment across its line, `width` 0 on a horizontal line and `height` 0 down a vertical one, and the kit projects it with that shape. `ReaderTextCaret.writingMode` (`ReaderWritingMode`) is the mode of the caret's line, and the kit's keyboard selection reads an arrow key on a `vertical-rl` focus as the key a quarter turn from it, as the browser does (down moves along the line, left to the next line). The React selection handles hang their knobs off the right and left ends of a caret across a vertical line, as they hang them over and under one across a horizontal line.
+
+### Patch Changes
+
+- 2565abe: `useAnnotations` starts from the records the controller already holds: those its annotation storage loaded before the hook listened were told by no event, so a book opened again listed no annotations until the next change (a scrolled view, which draws them from that list, showed none).
+- Updated dependencies [5c5c2f8]
+- Updated dependencies [d476ddc]
+- Updated dependencies [4c0ba13]
+- Updated dependencies [0178e0f]
+- Updated dependencies [8bf96f0]
+- Updated dependencies [cc9afc4]
+- Updated dependencies [6791cfe]
+- Updated dependencies [b86054d]
+- Updated dependencies [0d03c57]
+- Updated dependencies [3ad0c07]
+- Updated dependencies [944c668]
+- Updated dependencies [0178e0f]
+- Updated dependencies [99c9512]
+- Updated dependencies [03b361e]
+- Updated dependencies [3e89ecb]
+- Updated dependencies [83bd58a]
+- Updated dependencies [bdb5a60]
+- Updated dependencies [74d925f]
+- Updated dependencies [07e7378]
+- Updated dependencies [3b326b5]
+- Updated dependencies [80aecb3]
+- Updated dependencies [34957de]
+- Updated dependencies [09046bd]
+- Updated dependencies [5862528]
+- Updated dependencies [8be821b]
+- Updated dependencies [a08aef9]
+- Updated dependencies [36c5e01]
+- Updated dependencies [db2b589]
+- Updated dependencies [634afd5]
+- Updated dependencies [fabed14]
+- Updated dependencies [10dc4d5]
+- Updated dependencies [80617e5]
+- Updated dependencies [2af0cce]
+- Updated dependencies [0d1d36d]
+- Updated dependencies [9702822]
+- Updated dependencies [b8ba189]
+- Updated dependencies [635b1af]
+- Updated dependencies [a60a757]
+- Updated dependencies [ce66af7]
+- Updated dependencies [5f36140]
+- Updated dependencies [d2f5cb5]
+- Updated dependencies [d41c35c]
+  - @ritojs/core@4.2.0
+  - @ritojs/kit@4.2.0
+
 ## 4.1.0
 
 ### Patch Changes
