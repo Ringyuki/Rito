@@ -1,4 +1,4 @@
-## Unreleased
+## 0.10.0 - 2026-11-05
 
 ### Vertical text set as Chromium sets it
 
