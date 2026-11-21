@@ -2,6 +2,19 @@ export { createReader, preloadReaderRuntime } from './create-reader';
 export { createLayoutConfig } from './layout-config';
 export { loadPaperTurnModel } from './paper-turn';
 export { loadedTurnMotion, loadTurnMotion } from './turn-motion';
+export { loadedTurnController } from './turn-controller';
+export type {
+  TurnAction,
+  TurnController,
+  TurnControllerFactory,
+  TurnControllerState,
+  TurnDirection,
+  TurnFrameState,
+  TurnPages,
+  TurnPoint,
+  TurnRequest,
+  TurnSides,
+} from './turn-controller';
 export type {
   TurnMotion,
   TurnMotionAt,

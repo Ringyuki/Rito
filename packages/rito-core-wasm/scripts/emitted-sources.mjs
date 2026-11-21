@@ -36,6 +36,7 @@ export const typeModules = [
   'frame-command',
   'paper-turn',
   'turn-motion',
+  'turn-controller',
   'pinned-font',
   'sharded-publication',
   'reader-session-display',

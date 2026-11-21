@@ -10,6 +10,7 @@ import { initRitoCoreWasmSync } from '@ritojs/core-wasm';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  loadedTurnController,
   loadedTurnMotion,
   loadTurnMotion,
   type TurnMotion,
@@ -130,5 +131,52 @@ describe.skipIf(!engineBuilt)('the engine’s turn motion on the page', () => {
     turn.finish();
     expect(turn.state.phase).toBe('idle');
     turn.dispose();
+  });
+});
+
+describe.skipIf(!engineBuilt)('the engine’s page turns of a reader on the page', () => {
+  const sides = { next: true, previous: true };
+  const pages = { canTurn: sides, there: sides, drawable: sides, beyond: sides };
+
+  it('begins, lands and ends a turn as the host carries out what it asks', async () => {
+    initRitoCoreWasmSync({ module: readFileSync(WASM) });
+    await loadTurnMotion();
+    const make = loadedTurnController();
+    if (!make) throw new Error('no controller once the engine is loaded');
+    const turns = make(PHYSICS);
+    turns.configure(PHYSICS, 400, false);
+    expect(turns.command(pages, 'next')).toBe(true);
+    expect(turns.takeAction()).toEqual({ kind: 'started', direction: 'next' });
+    expect(turns.takeAction()).toEqual({ kind: 'land', direction: 'next' });
+    expect(turns.takeAction()).toBeNull();
+    turns.landed(pages, true);
+    turns.step(pages, 1 / 60);
+    expect(turns.state).toMatchObject({ turning: 'next', moving: true, held: false });
+    expect(turns.state.frame).toMatchObject({ phase: 'landing', incoming: 'next', touch: null });
+    for (let frame = 0; frame < 120 && turns.state.moving; frame += 1) turns.step(pages, 1 / 60);
+    expect(turns.takeAction()).toEqual({
+      kind: 'ended',
+      direction: 'next',
+      outcome: 'committed',
+      carries: false,
+    });
+    turns.dispose();
+  });
+
+  it('asks the host’s physics whether a release lands, and waits for the answer', async () => {
+    initRitoCoreWasmSync({ module: readFileSync(WASM) });
+    await loadTurnMotion();
+    const turns = loadedTurnController()?.(PHYSICS);
+    if (!turns) throw new Error('no controller');
+    turns.configure(PHYSICS, 400, false);
+    turns.fingerDown(pages, 300, 200, 0);
+    turns.fingerMove(pages, 290, 200, -10, undefined, 16);
+    turns.fingerUp(pages, 290, 200, -10, 96);
+    expect(turns.state.request).toMatchObject({ kind: 'lands', release: { offset: -10 } });
+    turns.answerLands(true);
+    expect(turns.state.request).toBeNull();
+    const kinds = [turns.takeAction(), turns.takeAction()].map((action) => action?.kind);
+    expect(kinds).toEqual(['started', 'land']);
+    turns.dispose();
   });
 });

@@ -62,8 +62,9 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // +15 lines (2026-11-21): `initialLocatorMatch`, how far the locator the
 // book opened at was followed, `bookStart` when its href named no chapter.
 // +3 lines (2026-11-21): the engine a book opens on makes its page turns' motion.
+// +2 lines (2026-11-21): and decides its page turns.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2950;
+const SESSION_READER_LINE_BUDGET = 2952;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -93,7 +94,9 @@ const SESSION_READER_LINE_BUDGET = 2950;
 // motion of any page turn, the engine's, which the kit's turns move by.
 // +40 lines (2026-11-21): `PaperTurnMotion` and the paper model's
 // `configure`, the numbers a paper turn moves by.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1244;
+// +180 lines (2026-11-21): `loadedTurnController` and `TurnController`, the
+// page turns of a reader decided by the engine, which the kit carries out.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1424;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -159,8 +162,8 @@ describe('Browser reader architecture invariant: the reader stays a thin shell',
   it('stays within the counted thin-shell budget', () => {
     expect(SESSION_READER_FILES.length).toBeLessThanOrEqual(SESSION_READER_FILE_BUDGET);
     expect(lineCount(SESSION_READER_FILES)).toBeLessThanOrEqual(SESSION_READER_LINE_BUDGET);
-    // The motion of any page turn (2026-11-21) is the seventh.
-    expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(7);
+    // The motion of any page turn and the page turns of a reader (2026-11-21).
+    expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(8);
     expect(lineCount(READER_ROOT_FILES)).toBeLessThanOrEqual(READER_PUBLIC_CONTRACT_LINE_BUDGET);
   });
 
@@ -259,6 +262,7 @@ describe('Browser reader architecture invariant: one host protocol', () => {
       join(BROWSER_BINDING, 'engine-module.ts'),
       join(BROWSER_BINDING, 'paper-turn/model.ts'),
       join(BROWSER_BINDING, 'turn-motion.ts'),
+      join(BROWSER_BINDING, 'turn-controller.ts'),
     ]);
     const hits = scan(
       BROWSER_BINDING_FILES,

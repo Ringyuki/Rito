@@ -27,6 +27,8 @@ const STEPS: readonly TurnMotionStep[] = ['still', 'moving', 'committed', 'cance
 /** Makes turn motions on the page's one instance of the engine, loading it first. */
 export async function loadTurnMotion(): Promise<TurnMotionFactory> {
   await engineModuleReady();
+  const { registerEngineTurnController } = await import('./turn-controller');
+  registerEngineTurnController();
   return registerEngineTurnMotion();
 }
 
@@ -57,7 +59,7 @@ function checkLayouts(motion: RitoTurnMotionClass): void {
   }
 }
 
-function physicsNumbers(physics: TurnMotionPhysics): Float64Array {
+export function physicsNumbers(physics: TurnMotionPhysics): Float64Array {
   return Float64Array.of(
     physics.stiffness,
     physics.damping,
@@ -149,7 +151,7 @@ function motionActionsOf(
   };
 }
 
-function stateOf(numbers: Float64Array): TurnMotionState {
+export function stateOf(numbers: Float64Array): TurnMotionState {
   const at = (index: number): number => numbers[index] ?? 0;
   return {
     phase: PHASES[at(0)] ?? 'idle',

@@ -23,6 +23,7 @@ import { createSessionReaderInteractions } from './interactions';
 import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-options';
 import { EMPTY_SESSION_READER_LAYOUT_VIEW } from './layout-view';
 import { readerLocatorMatch, sessionLocator, sessionReaderNavigationMethods } from './navigation';
+import { registerEngineTurnController } from '../turn-controller';
 import { registerEngineTurnMotion } from '../turn-motion';
 import { createSessionReaderPublication } from './publication';
 import { createSessionReaderQueue, wakeSessionReaderQueue } from './queue';
@@ -82,6 +83,7 @@ export async function createReader(
     opened.end(session.initialArtifact);
     // The engine the book opened on makes the motion of its page turns.
     registerEngineTurnMotion();
+    registerEngineTurnController();
   } catch (error) {
     opened.fail(error);
     hostFonts.dispose();

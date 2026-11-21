@@ -261,6 +261,8 @@ describe('Architecture invariant: the reader facade stays thin', () => {
       'reader/model.ts',
       // The paper page turn's model, the engine's (2026-10-19).
       'reader/paper-turn.ts',
+      // The page turns of a reader, the engine's (2026-11-21).
+      'reader/turn-controller.ts',
       // The motion of any page turn, the engine's (2026-11-21).
       'reader/turn-motion.ts',
     ]);
@@ -287,8 +289,9 @@ describe('Architecture invariant: the reader facade stays thin', () => {
       'reader-session-in-thread.ts',
       'engine-module.ts',
       'paper-turn/model.ts',
-      // The motion of any page turn (2026-11-21).
+      // The motion of any page turn and the page turns of a reader (2026-11-21).
       'turn-motion.ts',
+      'turn-controller.ts',
     ];
     const hits = scan(
       walkTs(BROWSER_BINDING).filter((file) => !engine.some((name) => file.endsWith(name))),
