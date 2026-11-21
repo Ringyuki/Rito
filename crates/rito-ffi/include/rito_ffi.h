@@ -669,6 +669,83 @@ uint32_t rito_paper_turn_eye_height(double width, double height,
                                     double *eye_out,
                                     rito_owned_buffer *error_out);
 
+/*
+ * The motion of any page turn, whatever it looks like: the finger while it
+ * holds the turn, the release that decides it, the spring that carries it
+ * to rest, a pull against the end of the book, and a turn another cuts
+ * into, which carries its picture on (rito_turn_motion_carry_on) for the
+ * turn that cuts in to begin from. Called on the host's UI thread, frame
+ * by frame, not through a session's actor; a host holds a motion by the
+ * handle rito_turn_motion_new gives and frees it with rito_turn_motion_free.
+ * Offsets are px, negative toward the next page; velocities px/s; a
+ * finger's times ms; a step's seconds.
+ *
+ * Wherever the built-in rules decide, the host may pass its own physics'
+ * answer instead: the turn a pull against the end of the book makes of its
+ * travel (rito_turn_motion_drag with carried 1), whether a release turns
+ * the page (lands 0 or 1; -1 for the built-in rule), where a turn that
+ * cuts in begins (begin: offset, velocity; null for the built-in rule),
+ * and the motion that carries a turn to rest (host_settles 1: the state
+ * names each motion to carry on, and each step passes where it is).
+ *
+ * Physics (RITO_TURN_MOTION_PHYSICS_NUMBERS): the spring's stiffness and
+ * damping, the swipe threshold (px), the velocity that turns the page
+ * however far it went (px/s), how long a release's velocity is projected
+ * (s), the speed of a finger pulling back that leaves the page (px/s), and
+ * how hard a pull against the end of the book resists (0-1).
+ * State (RITO_TURN_MOTION_STATE_NUMBERS): phase (0 idle, 1 dragging,
+ * 2 settling, 3 finishing), forward, has incoming (1/0), offset, velocity,
+ * target, from, finger velocity, elapsed; the neighbour showing (0 none,
+ * 1 next, 2 previous), on the far side, committing, landing (1/0); what a
+ * turn beginning now would find (present, offset, velocity, leaving 0 none
+ * / 1 next / 2 previous); the motion the host is to carry on (generation,
+ * from, velocity, to).
+ * A place (RITO_TURN_MOTION_AT_NUMBERS): x, velocity, done (1/0).
+ * A step writes 0 still, 1 moving, 2 settled on the neighbour, 3 settled
+ * back where it began, 4 what was left of a turn that was cut into at rest.
+ */
+#define RITO_TURN_MOTION_PHYSICS_NUMBERS UINT32_C(7)
+#define RITO_TURN_MOTION_STATE_NUMBERS UINT32_C(21)
+#define RITO_TURN_MOTION_AT_NUMBERS UINT32_C(3)
+
+uint32_t rito_turn_motion_layouts(uint32_t *layouts_out,
+                                  rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_new(const double *physics, uint64_t *motion_out,
+                              rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_free(uint64_t motion, rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_configure(uint64_t motion, const double *physics,
+                                    double width, uint32_t host_settles,
+                                    rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_start_drag(uint64_t motion, uint32_t forward,
+                                     uint32_t has_incoming, double at,
+                                     const double *begin,
+                                     rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_drag(uint64_t motion, double travel, double at,
+                               uint32_t carried, rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_release(uint64_t motion, int32_t lands,
+                                  uint32_t *lands_out,
+                                  rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_cancel(uint64_t motion, uint32_t *cancelled_out,
+                                 rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_turn(uint64_t motion, uint32_t forward,
+                               const double *begin,
+                               rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_interrupt(uint64_t motion, double at,
+                                    uint32_t *interrupted_out,
+                                    rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_carry_on(uint64_t motion, uint32_t committed,
+                                   rito_owned_buffer *error_out);
+/* host_at: x, velocity, done while the host carries the motion, else null. */
+uint32_t rito_turn_motion_step(uint64_t motion, double seconds,
+                               const double *host_at, uint32_t instant,
+                               uint32_t *step_out,
+                               rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_finish(uint64_t motion,
+                                 rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_reset(uint64_t motion, rito_owned_buffer *error_out);
+uint32_t rito_turn_motion_state(uint64_t motion, double *state_out,
+                                rito_owned_buffer *error_out);
+
 #ifdef __cplusplus
 }
 #endif

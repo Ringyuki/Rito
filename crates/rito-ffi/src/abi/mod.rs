@@ -1,6 +1,7 @@
 mod fonts;
 mod memory;
 mod paper_turn;
+mod turn_motion;
 
 pub use fonts::{
     rito_add_host_font_faces, rito_font_catalog, rito_mark_font_family_unavailable,
@@ -25,6 +26,13 @@ pub use paper_turn::{
     rito_paper_turn_settle_step, rito_paper_turn_sheet, rito_paper_turn_state,
     rito_paper_turn_travel, RITO_PAPER_TURN_BEGUN_NUMBERS, RITO_PAPER_TURN_LAID_NUMBERS,
     RITO_PAPER_TURN_STATE_NUMBERS,
+};
+pub use turn_motion::{
+    rito_turn_motion_cancel, rito_turn_motion_carry_on, rito_turn_motion_configure,
+    rito_turn_motion_drag, rito_turn_motion_finish, rito_turn_motion_free,
+    rito_turn_motion_interrupt, rito_turn_motion_layouts, rito_turn_motion_new,
+    rito_turn_motion_release, rito_turn_motion_reset, rito_turn_motion_start_drag,
+    rito_turn_motion_state, rito_turn_motion_step, rito_turn_motion_turn,
 };
 
 #[cfg(test)]

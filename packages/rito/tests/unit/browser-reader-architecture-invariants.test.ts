@@ -468,20 +468,22 @@ describe('Workspace architecture invariant: one host protocol, everywhere', () =
   // page and its worker. The revision runtime that stood beside it — a
   // document binding, a worker of its own, a chapter-local preview — was
   // removed layer by layer; each layer says here that it stays removed.
-  it('the WASM boundary exports the reader session and the paper turn, no other class', () => {
+  it('the WASM boundary exports the reader session and the page turn, no other class', () => {
     const crate = join(WORKSPACE_ROOT, 'crates/rito-wasm/src');
     const classes = walkRust(crate)
       .flatMap((file) => [
         ...read(file).matchAll(/#\[wasm_bindgen\(js_name = (\w+)\)\]\s*pub struct/g),
       ])
       .map((match) => match[1]);
-    // The paper page turn's model (2026-10-19).
-    expect(classes.sort()).toEqual(['RitoPaperTurn', 'RitoReaderSession']);
+    // The paper page turn's model (2026-10-19); the motion of any page
+    // turn, one for every host (2026-11-21).
+    expect(classes.sort()).toEqual(['RitoPaperTurn', 'RitoReaderSession', 'RitoTurnMotion']);
     expect(readdirSync(crate).sort()).toEqual([
       'lib.rs',
       'paper_turn.rs',
       'reader_session',
       'reader_session.rs',
+      'turn_motion.rs',
     ]);
   });
 
