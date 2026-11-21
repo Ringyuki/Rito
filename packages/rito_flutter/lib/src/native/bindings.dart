@@ -16,6 +16,7 @@ import 'pinned_font_policy.dart';
 
 part 'bindings_fonts.dart';
 part 'bindings_paper_turn.dart';
+part 'bindings_turn_motion.dart';
 part 'ffi_types.dart';
 
 const int ritoNativeStatusInvalidArgument = 1;

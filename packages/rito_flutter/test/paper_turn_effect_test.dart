@@ -144,7 +144,7 @@ void main() {
       physics.travelAcross(const Offset(380, 300), const Offset(180, 300), _w),
       closeTo(-400 * (200 / 800), 1e-6),
     );
-    bool lands(double from, double to) => physics.lands(
+    bool? lands(double from, double to) => physics.lands(
       RitoPageTurnRelease(
         offset: (to - from) / 2,
         velocity: 0,
@@ -165,7 +165,8 @@ void main() {
   test('steps a page let go once for each moment it is asked about', () {
     final effect = RitoPaperTurnEffect();
     addTearDown(effect.dispose);
-    final settle = effect.physics.settle(from: 0, velocity: 0, to: -800);
+    // The paper's physics carry a page let go themselves.
+    final settle = effect.physics.settle(from: 0, velocity: 0, to: -800)!;
     // Asked its place, speed and whether it is done at one moment, it moves once.
     final x = settle.x(0.19);
     expect(settle.dx(0.19), isNonZero);

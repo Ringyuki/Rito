@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/physics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -157,47 +157,22 @@ void main() {
     }
   });
 
-  test('the spring is the web reader\'s curve, sample for sample', () {
-    final table =
-        jsonDecode(
-              File(
-                '../kit/tests/fixtures/spring-samples.json',
-              ).readAsStringSync(),
-            )
-            as Map<String, Object?>;
-    const presets = {
-      'default': RitoSpring.standard,
-      'snappy': RitoSpring.snappy,
-      'gentle': RitoSpring.gentle,
-    };
-    for (final entry
-        in (table['cases']! as List<Object?>).cast<Map<String, Object?>>()) {
-      final custom = entry['spring'] as Map<String, Object?>?;
-      final spring = custom == null
-          ? presets[entry['preset']]!
-          : RitoSpring(
-              stiffness: (custom['stiffness']! as num).toDouble(),
-              damping: (custom['damping']! as num).toDouble(),
-            );
-      for (final sample
-          in (entry['samples']! as List<Object?>)
-              .cast<Map<String, Object?>>()) {
-        final value = springAt(
-          spring,
-          (entry['offset']! as num).toDouble(),
-          (entry['velocity']! as num).toDouble(),
-          (sample['t']! as num).toDouble(),
-        );
-        expect(
-          value.offset,
-          closeTo((sample['offset']! as num).toDouble(), 1e-6),
-        );
-        expect(
-          value.velocity,
-          closeTo((sample['velocity']! as num).toDouble(), 1e-6),
-        );
-      }
-    }
+  test('the spring is the engine\'s, which both readers are held to', () {
+    // A turn from rest to the next page, read off the engine's spring: the
+    // curve crates/rito-turn checks against kit/tests/fixtures/spring-samples.json.
+    final motion = _motion()..turn(forward: true);
+    motion.step(0.1);
+    final omega = math.sqrt(RitoSpring.standard.stiffness);
+    final zeta = RitoSpring.standard.damping / (2 * omega);
+    final root = omega * math.sqrt(zeta * zeta - 1);
+    final slow = -zeta * omega + root;
+    final fast = -zeta * omega - root;
+    // From 400 short of the page at rest: the overdamped closed form.
+    final slowPart = (0 - fast * 400) / (slow - fast);
+    final fastPart = 400 - slowPart;
+    final expected =
+        -400 + slowPart * math.exp(slow * 0.1) + fastPart * math.exp(fast * 0.1);
+    expect(motion.offset, closeTo(expected, 1e-9));
   });
 
   group('a turn that is cut into', () {
@@ -401,11 +376,11 @@ void main() {
     );
     expect(number(types, r'elasticFactor: ([\d.]+)'), physics.elasticFactor);
     final projection = File(
-      '../kit/src/driver/transition-actions.ts',
+      '../kit/src/driver/transition-state.ts',
     ).readAsStringSync();
     expect(
-      number(projection, r'PROJECTION_MS = (\d+)'),
-      physics.projection.inMilliseconds,
+      number(projection, r'PROJECTION_SECONDS = ([\d.]+)'),
+      physics.projection.inMicroseconds / 1e6,
     );
   });
 }

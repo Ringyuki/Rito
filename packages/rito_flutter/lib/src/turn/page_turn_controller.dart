@@ -854,6 +854,7 @@ final class RitoPageTurnController extends ChangeNotifier {
     reader.removeListener(_readerChanged);
     _motion.reset();
     _end(RitoPageTurnOutcome.interrupted);
+    _motion.dispose();
     _ticker.dispose();
     textures.dispose();
     unawaited(_events.close());

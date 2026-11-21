@@ -126,7 +126,7 @@ final class _RecordingPhysics extends RitoPageTurnPhysics {
   RitoPageTurnRelease? released;
 
   @override
-  bool lands(RitoPageTurnRelease release) {
+  bool? lands(RitoPageTurnRelease release) {
     released = release;
     return super.lands(release);
   }
