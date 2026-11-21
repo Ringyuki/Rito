@@ -115,7 +115,9 @@ A turn is physics plus an effect. The physics say how it moves — the drag, the
 decision to turn, the way to rest and the pull at the first and last spread — and
 the effect what a frame shows. The built-in physics are the engine's
 (`@ritojs/core`'s turn motion, the same on every host to the bit): a spring that a
-release hands the finger's momentum to, solved in closed form, so a turn follows
+release hands the finger's momentum to — its speed measured from when it came down,
+over its last 100 ms, and none once it has held still 40 ms, as touch toolkits measure
+it, so a short drag held before it lifts goes back — solved in closed form, so a turn follows
 the same path at any refresh rate, and whose presets never bounce: past the
 neighbour, or back past the starting page, there may be no page to show. A custom
 spring damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.

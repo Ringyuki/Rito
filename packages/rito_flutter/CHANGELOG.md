@@ -10,6 +10,16 @@ opens at its start instead of failing, and the first artifact's
 `requestArtifact` whose href names no chapter still fails, leaving the
 reader on its page. Reader protocol 10.
 
+### A finger's speed is measured from when it came down
+
+A release's speed is measured as touch toolkits measure it: from when the
+finger came down, over its last 100 ms, and none once it has held still
+40 ms. A short drag held still before it lifts goes back instead of turning
+the page as if flicked, and so does a nudge after the finger has rested on
+the page. `RitoPageTurnDragRecognizer.onStart` gives when the finger took
+hold (it came down, or went across from where it is followed), and
+`RitoPageTurnController.dragStart`'s `at` is that time.
+
 ### When a turn begins, lands and ends is the engine's
 
 `RitoPageTurnController` keeps its API and asks the engine (through the C

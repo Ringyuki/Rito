@@ -149,8 +149,8 @@ Three layers, each usable on its own:
 
 1. `RitoReaderController` — the pages (above).
 2. `RitoPageTurnController(reader:, vsync:)` — the turn: feed it a drag
-   (`dragStart(position, at:)` where the finger came down, once it has
-   moved far enough / `dragUpdate(position, at:)` / `dragEnd(position:,
+   (`dragStart(position, at:)` where and when the finger came down, once
+   it has moved far enough / `dragUpdate(position, at:)` / `dragEnd(position:,
 at:)` / `dragCancel`, positions in the view's coordinates, `at` the
    pointer event's `timeStamp`; `RitoPageTurnDragRecognizer` takes a drag
    as the web reader does) or call `turn(direction)` for taps and keys. It
@@ -159,7 +159,8 @@ at:)` / `dragCancel`, positions in the view's coordinates, `at` the
    the springs `RitoSpring.standard`, `snappy` and `gentle`), as the web's
    `physics` option outranks an effect's (`effectivePhysics` says which
    move it now): a release hands the finger's speed, measured
-   as the web measures it, to the spring, a turn follows the same path at any refresh
+   as the web measures it (from when it came down, over its last 100 ms,
+   and nothing once it has held still 40 ms), to the spring, a turn follows the same path at any refresh
    rate (the spring is solved in closed form) and, with these three
    springs, never bounces past the neighbour — a custom spring damped
    below critical does; a pull against the first or last page stretches.
