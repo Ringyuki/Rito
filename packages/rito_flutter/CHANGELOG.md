@@ -10,6 +10,22 @@ opens at its start instead of failing, and the first artifact's
 `requestArtifact` whose href names no chapter still fails, leaving the
 reader on its page. Reader protocol 10.
 
+### When a turn begins, lands and ends is the engine's
+
+`RitoPageTurnController` keeps its API and asks the engine (through the C
+ABI, the same decisions as the web's) when a turn begins, lands and ends and
+what a finger, a key or a jump does to one on screen; it carries out what the
+engine asks. Where the two readers differed, they now do as follows:
+
+- A pull against the first or last page moves it and is no turn: no
+  `RitoPageTurnStarted` / `RitoPageTurnEnded`.
+- A finger that cuts into a turn takes the page the moment the reader has
+  landed that turn, where the picture is by then; one that lifts meanwhile
+  still makes its turn.
+- Every key pressed while turns land turns a page; a key toward no further
+  page leaves the turn on screen alone; a key pressed while a turn waits for
+  its page takes that turn's place.
+
 ### Page turns move by the engine's motion
 
 A page turn's motion — the finger while it holds the turn, the release that

@@ -425,3 +425,14 @@ fn a_finger_that_has_not_moved_turns_nothing() {
     assert!(host(&mut turns, true).is_empty());
     assert!(turns.turning().is_none());
 }
+
+#[test]
+fn a_turn_no_finger_made_says_of_no_finger() {
+    let mut turns = controller();
+    drag(&mut turns, 100.0, 0.0);
+    lift(&mut turns, 100.0, 96.0);
+    settle(&mut turns);
+    turns.command(ready(), Direction::Next);
+    host(&mut turns, true);
+    assert!(turns.frame().expect("a turn").touch.is_none());
+}

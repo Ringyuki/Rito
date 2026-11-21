@@ -165,7 +165,7 @@ enum RitoTurnMotionPhase {
 }
 
 /// The numbers the engine's rules go by, as [physics] gives them.
-List<double> _numbersOf(RitoPageTurnPhysics physics) => <double>[
+List<double> ritoTurnPhysicsNumbers(RitoPageTurnPhysics physics) => <double>[
   physics.spring.stiffness,
   physics.spring.damping,
   physics.swipeThreshold,
@@ -187,7 +187,7 @@ List<double> _numbersOf(RitoPageTurnPhysics physics) => <double>[
 final class RitoTurnMotion {
   RitoTurnMotion(RitoPageTurnPhysics physics)
     : _physics = physics,
-      _native = RitoNativeTurnMotion(_numbersOf(physics));
+      _native = RitoNativeTurnMotion(ritoTurnPhysicsNumbers(physics));
 
   final RitoNativeTurnMotion _native;
   RitoPageTurnPhysics _physics;
@@ -212,7 +212,7 @@ final class RitoTurnMotion {
   }
 
   void _configure() {
-    _native.physics.setAll(0, _numbersOf(_physics));
+    _native.physics.setAll(0, ritoTurnPhysicsNumbers(_physics));
     _native.configure(_width);
   }
 

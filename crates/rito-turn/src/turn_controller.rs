@@ -501,7 +501,7 @@ impl TurnController {
             self.track(direction.forward());
             return;
         }
-        self.start(direction);
+        self.start(direction, true);
         self.begin_motion(Asked::BeginDrag {
             forward: direction.forward(),
             has_incoming: true,
@@ -571,7 +571,7 @@ impl TurnController {
         if self.wait_for(direction, true) {
             return;
         }
-        self.start(direction);
+        self.start(direction, false);
         self.begin_motion(Asked::BeginTurn {
             forward: direction.forward(),
         });
@@ -584,6 +584,7 @@ impl TurnController {
         self.pages = pages;
         self.answer_pending_with_defaults();
         self.interrupt();
+        self.finger.farthest = None;
         self.open = Some(Open {
             direction,
             committing: true,
@@ -774,9 +775,14 @@ impl TurnController {
 
     // --- Turns ---------------------------------------------------------
 
-    fn start(&mut self, direction: Direction) {
+    /// Opens a turn `direction`; one no finger makes keeps nothing of the
+    /// last finger's.
+    fn start(&mut self, direction: Direction, by_finger: bool) {
         self.end(TurnOutcome::Interrupted, false);
         self.pulling = false;
+        if !by_finger {
+            self.finger.farthest = None;
+        }
         self.open = Some(Open {
             direction,
             committing: false,
@@ -938,7 +944,7 @@ impl TurnController {
         }
         self.awaiting = None;
         if awaiting.by_key {
-            self.start(direction);
+            self.start(direction, false);
             self.begin_motion(Asked::BeginTurn {
                 forward: direction.forward(),
             });
@@ -947,7 +953,7 @@ impl TurnController {
         if self.finger.state != FingerState::Holding && !awaiting.lifted {
             return;
         }
-        self.start(direction);
+        self.start(direction, true);
         self.begin_motion(Asked::BeginDrag {
             forward: direction.forward(),
             has_incoming: true,
