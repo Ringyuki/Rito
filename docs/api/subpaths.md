@@ -24,7 +24,18 @@ decides it, the spring that carries it to rest, a pull against the end of
 the book and a turn another cuts into. `loadedTurnMotion()` gives the same
 maker at once once the engine is loaded, as it is when a reader has opened.
 Wherever its built-in rules decide, a host may answer with physics of its
-own instead. `@ritojs/kit`'s turns move by it.
+own instead.
+
+`loadedTurnController()` gives a maker of the engine's page turns of a
+reader (`TurnController`), the same on every host: the host tells it what
+happens (a finger, a key, a jump, a page painted, a frame) with what it
+knows of the pages beside the one shown, and carries out what it decides as
+actions: a turn has begun, lands (the reader is on its spread from then),
+needs its page, has ended. A turn lands when it is decided — a key's at
+once, a finger's when it lets go past the threshold — and one that goes
+back never moved the reader. Where it asks a question (where a turn cut
+into begins, whether a release lands), the host's physics may answer.
+`@ritojs/kit`'s turns are carried out this way.
 
 There are no package subpaths. Controller-level selection, search,
 annotations, accessibility, storage, transitions and DOM wiring belong in

@@ -249,16 +249,24 @@ import { createPaperTurn } from '@ritojs/kit';
 controller.configureTransition({ effect: createPaperTurn() });
 ```
 
-`transitionStart` and `transitionEnd` bracket every visible turn: each start is
-answered by exactly one end, whose `outcome` says whether the turn landed
-(`committed`), went back (`cancelled`), or was cut off by a relayout or a jump
-(`interrupted`). A newer turn, by key or by a finger that starts to drag, settles the
-turn in flight at once, which reports `committed`, or `cancelled` if it was already
-heading back; its picture is not stopped: the newer turn begins where the page is and
-as fast as it moves, so a second turn, a turn back and a finger all take the page on
-without a jump. A finger that only comes down on a moving page leaves it alone.
-`rito_flutter` reports
-the same outcomes; one table of scenarios holds both test suites to them. In between, `transitionProgress` reports every painted
+When a turn begins, lands and ends, and what a finger, a key or a jump does to a
+turn on screen, is the engine's (`TurnController`), one model for every host; the
+controller carries it out. `transitionStart` and `transitionEnd` bracket every
+visible turn: each start is answered by exactly one end, whose `outcome` says
+whether the turn landed (`committed`), went back (`cancelled`), or was cut off by a
+relayout or a jump (`interrupted`). A turn lands the reader on its spread when it is
+decided — a key's or an API call's as it begins, a finger's when it lets go past the
+threshold or fast enough — and `spreadChange` reports it then, between the start and
+the end; `currentSpread` changes only there. A drag the finger still holds, or one
+that goes back, never moves the reader. Each key pressed during a turn turns a page;
+a key the way a turn is going back sends it on; a finger holding the page keeps keys
+from it. A newer turn settles the turn in flight at once; its picture is not stopped:
+the newer turn begins where the page is and as fast as it moves, so a second turn, a
+turn back and a finger all take the page on without a jump. A finger that only comes
+down on a moving page leaves it alone. A turn whose page is not painted yet waits
+for it, and anything else the reader is asked meanwhile takes its place.
+`rito_flutter` reports the same outcomes; one table of scenarios holds both test
+suites to them. In between, `transitionProgress` reports every painted
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.
